@@ -1,0 +1,27 @@
+\documentclass[a4paper,notitlepage]{article}
+
+\usepackage[english]{babel}
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\title{Arakoon manifesto}
+\author{Romain Slootmaekers}
+\date{July 2010}
+\begin{document}
+
+\maketitle
+\abstract{
+ Arakoon tries to be a simple distributed key value store 
+ that prefers consistency above everything else.
+}
+
+%\tableofcontents
+\include{doc/introduction}
+\include{doc/client}
+\include{doc/consistency}
+\include{doc/protocol}
+\include{doc/part3}
+\include{doc/state_machine}
+\end{document}

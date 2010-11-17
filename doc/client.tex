@@ -1,0 +1,77 @@
+\section{basic client interface}
+\subsection{some notation}
+Before we can descibe the client's interface, 
+we need to introduce some notational tools to make it easier to convey things in a concise manner.
+
+\begin{table}[h]
+\begin{tabular}{|l|l|}
+\hline
+  notation & how to read it \\
+\hline
+  :                & has type \\
+unit               & aka void  \\
+a list             & a list of items of type a \\
+a array            & a fixed size sequence of items of type a \\
+a option           & either (Some a) or None \\
+string             & char array \\
+
+$ a \rightarrow b$ & a function from a to b \\
+a C.t              & something that eventually yields something of type a \\
+\hline
+\end{tabular}
+\end{table}
+
+For example $ a : string $ just means that $a$ is a $string$;
+$fibonacci : int \rightarrow int$ just means that fibonnacci is a function that takes an integer, and produces an integer as result;
+$cat : string \rightarrow string \rightarrow string$ reads as 'cat is a function that takes 2 strings and yields a string as result'
+
+$write: channel \rightarrow string \rightarrow unit\ C.t$ reads as 'write takes a channel and a string and eventually yields unit.
+
+
+A client has a dictionary interface with some adjustments for latency: the functions have a return value of type $a\ C.t$.
+\paragraph{type key = string}
+Keys are strings.
+There are no strict size limitations, which means that they such be small enough to be handled in their entirety
+\paragraph{type value = string}
+Values are strings too.
+\paragraph{type update}
+An update is either $Set(key,value)$ or $Delete(key)$.
+\paragraph{exists : key $\rightarrow$ bool C.t} See if a value exists for a specific key, without retrieving it.
+\paragraph{get : key $\rightarrow$ value C.t}
+You can look up a value if you have the key. It will eventually yield either a value, or raise an exception.
+\paragraph{set : key $\rightarrow$ value $\rightarrow$ unit C.t}
+You can update a value for a key, regardless of current value (if any).
+\paragraph{delete : key $\rightarrow$ unit C.t}
+You can remove a key/value pair. There was a suggestion to open this op to allow a regular expression.
+\paragraph{range : key option $\rightarrow$ bool $\rightarrow$
+  key option $\rightarrow$ bool $\rightarrow$
+  int $\rightarrow$ key list C.t}
+\emph{range bkey binc ekey einc max} will yield a list of keys where
+$max$ is the maximum number of keys (if $max < 0$ then you want them all).
+The keys fall in the range \emph{kbey..ekey}.
+\emph{binc} and \emph{einc} specify if the borders are included (\emph{true}) or not.
+\paragraph{range\_entries: key option $\rightarrow$ bool $\rightarrow$
+  key option $\rightarrow$ bool $\rightarrow$
+  int $\rightarrow$ bool $\rightarrow$ (key * value) list C.t
+}
+will yield a list of key value pairs.
+The parameters have the same semantics as for the range method.
+
+\paragraph{test\_and\_set : key $\rightarrow$ value option $\rightarrow$ value option $\rightarrow$ (value option) C.t} This is a careful update.
+\emph{test\_and\_set k expected new} only modifies the value to \emph{new} if the old value is \emph{expected}.
+The resulting value will be returned.
+Using a \emph{value option} instead of a value allows you to only set a value only if there was none for that key.
+Using \emph{None} as new allows you to do a careful delete as well.
+
+\paragraph{hello : string $\rightarrow$ string C.t}
+The client identifies itself to the server, and the server replies with its version string.
+\paragraph{who\_master: unit $\rightarrow$ string option C.t}
+Allows the client to know which node currently acts as master.
+If there is no master, or it is not known to this node, the result is None.
+%
+%\paragraph{last\_entries: int $\rightarrow$ out\_channel $\rightarrow$ unit C.t}
+%allows the client to stream the transaction log into a channel, starting from entry $i$
+
+\paragraph{sequence: update list $\rightarrow$ unit C.t}
+Provides an atomic multi-update. Either all updates are performed or none. 
+While this is not a full transaction, it provides enough functionality to safeguard consistency.

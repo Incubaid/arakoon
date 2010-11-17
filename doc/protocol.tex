@@ -1,0 +1,83 @@
+\subsection{Client-Node communication}
+The client node communication has different needs, and hence a rpc like approach will be used. Following table describes what we do with primitives.
+Just note that a list should be written out head first, so that naieve de-serialization will return the original.
+\begin{table}[ht]
+\begin{tabular}{lll}
+type  &   marshalled form & size (bytes)          \\
+\hline
+bool        & false $\rightarrow 0 | $ true $ \rightarrow 1   $ & 1 \\
+int32       & big endian          & 4             \\
+int64       & big endian          & 8             \\
+string      & [size:$int_{32}$][bytes] & 4 + n     \\
+float       & IEE754 double       & 8             \\
+x option    & 0x00 (None) or 0x01 [x] & $|x| + 1$ \\
+x list      & [size:$int_{32}$][$x_{n-1}$]\ldots[$x_{0}$] \\
+x array     & [size:$int_{32}$][$x_{0}$]\ldots[$x_{n-1}$] \\
+\hline \\
+Set(key,value) & [1:$int_{32}$][key:string][value:string]\\
+Delete(key) & [2:$int_{32}$][key:string]\\
+sequence    & [size(data):$int_{32}$][$bytes(data)$] \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{protocol definition}
+The protocol is a very simple request/response based binary protocol.
+The client is the active party, and sends a command
+\paragraph{successful rpc call}
+\begin{equation*}
+\begin{aligned}
+client: \ & [command:int_{32}][parameter_0][parameter_1]\ldots & (\&flush) \\
+server: \ & [0x0:int_{32}][result_0][result_1]\ldots & (\&flush)
+\end{aligned}
+\end{equation*}
+\paragraph{call that failed}
+
+\begin{equation*}
+\begin{aligned}
+client: \ & [command : int_{32}][parameter_0][parameter_1]\ldots & (\&flush) \\
+server: \ & [rc:int_{32}][size:int_{32}][bytes] & (\&flush) \\
+\end{aligned}
+\end{equation*}
+
+Each command is masked with the magic sequence $0xfeed0000$.
+The node checks the magic, proceeds with reading the parameters, and processes the request.
+Then the response code and response are written.
+If a failure happens, the server writes out a return code different from zero, and a string with a message after which he closes the connection.
+
+The command codes and return codes are listed below.
+The first thing a client does after establishing a connection is a \emph{hello} call so that the server can identify the client (handy for logging, etc).
+\begin{table}[ht]
+\begin{tabular}{ll}
+return code & condition \\
+\hline
+0x0000 0000  & success!  \\
+0x0000 0001  & command has no magic  \\
+0x0000 0002  & too many dead nodes \\
+0x0000 0003  & no hello        \\
+0x0000 0004  & not master      \\
+0x0000 0005  & not found       \\
+\ldots       & \ldots          \\
+0x0000 00ff  & unknown failure \\
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\begin{tabular}{ll}
+command & code \\
+\hline
+hello          & 0x0000 0001 \\
+who\_master    & 0x0000 0002 \\
+exists         & 0x0000 0007 \\
+get            & 0x0000 0008 \\
+set            & 0x0000 0009 \\
+delete         & 0x0000 000a \\
+range          & 0x0000 000b \\
+prefix\_keys   & 0x0000 000c \\
+test\_and\_set & 0x0000 000d \\
+last\_entries  & 0x0000 000e \\
+range\_enties  & 0x0000 000f \\
+sequence       & 0x0000 0010 \\
+\hline
+\end{tabular}
+\end{table}

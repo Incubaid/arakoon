@@ -1,0 +1,38 @@
+\subsection{nodes in ocaml}
+Implementing the nodes in ocaml using Ocsigen's LWT library gives ample control over the fine grained concurrency we need through monadic coroutines.
+\subsection{Pure Python client}
+Besides the obvious ocaml client, Arakoon provides a pure python client as well. We have other in house projects that need it.
+
+\subsection{other clients}
+We've more or less catered for our own needs (Python and ocaml).
+Other clients will have to implement our client-node protocol. 
+Meanwhile, someone wrote an experimental Erlang client in less than a day's work. We're also contemplating a pure C client.
+
+\subsection{local key/value store}
+We've picked tokyo cabinet. 
+Our client interface matches its api quite well. 
+It might be an idea to make this pluggable, but we don't need this at the moment
+
+\subsection{forced master and quorum}
+We needed to solve the case where you have only 2 nodes.
+The simplest solution is to allow the master to be chosen by configuration and the quorum to be fixed. 
+This way, you can chose for the 2 node case where you want the master, 
+and if you're willing to take the risk to keep on writing in a case of a slave node not responding, you just set the quorum to 1.
+
+\section{Other strategical decisions}
+\subsection{REST interface}
+We decided not to offer a REST interface.
+\subsection{dynamically adding nodes}
+All the nodes know one another from their configuration files,
+but adding a node is not trivial. 
+For example, one wants to add a third node in a two node setup and starts a node with a config referring to the two existing nodes. 
+But these older nodes are clueless 
+and have another opinion on how many nodes need to concur. 
+A cluster protects itself by not answering to nodes it does not know; 
+but this means adding a node means you need to restart the existing nodes.
+
+\paragraph{}
+It might be better to make the \emph{known\_nodes} a paxos value 
+over which consensus must be reached, but this has additional risks.
+The population can only change with reasonable increments.
+

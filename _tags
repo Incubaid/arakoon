@@ -1,0 +1,22 @@
+true: debug
+true: annot
+true: pkg_unix
+true: pkg_str
+true: pkg_lwt, pkg_lwt.preemptive, pkg_lwt.unix
+true: pkg_oUnit
+true: pkg_bz2
+true: pkg_threads
+false: warn_error
+"doc": include
+"src":include
+"src/otc":include
+"src/tools":include
+"src/client":include
+"src/toy":include
+"src/msg":include
+"src/paxos": include
+"src/tlog": include
+"src/node": include
+"src/system": include
+"src/inifiles": include
+"examples/ocaml": include

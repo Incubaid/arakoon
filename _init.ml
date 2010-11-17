@@ -1,0 +1,17 @@
+#load "unix.cma";;
+#use "ctrl/nodes.ml";;
+#directory "_build/src/tools";;
+#directory "_build/src/client";;
+#directory "_build/src/tlog";;
+#directory "_build/src/paxos";;
+#use "topfind";;
+#require "lwt";;
+#require "lwt.unix";;
+#load "log_extra.cmo";;
+#load "llio.cmo";;
+#load "arakoon_exc.cmo";;
+#load "sn.cmo";;
+#load "value.cmo";;
+#load "update.cmo";;
+#load "common.cmo";;
+#load "arakoon_remote_client.cmo";;

@@ -1,0 +1,24 @@
+graph Deployment {
+  subgraph cluster0 {
+    label= "Arakoon Cluster";
+    node [label="A0(master)"] arakoon0;
+    node [label="A1(slave)"] arakoon1;
+    node [label="A2(slave)"] arakoon2;
+    arakoon0 -- arakoon1;
+    arakoon1 -- arakoon2;
+    arakoon2 -- arakoon0;
+  }
+  node [shape="circle"];
+  node [] client0;	
+  node [] client1;
+  node [] client2;
+  client0 -- arakoon0;
+  client1 -- arakoon0;
+  client2 -- arakoon0;
+  client0 -- arakoon1 [style="dashed"];
+  client0 -- arakoon2 [style="dashed"];
+  client1 -- arakoon1 [style="dashed"];
+  client1 -- arakoon2 [style="dashed"];
+  client2 -- arakoon1 [style="dashed"];
+  client2 -- arakoon2 [style="dashed"];
+}

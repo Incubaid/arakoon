@@ -1,0 +1,85 @@
+\documentclass[notitlepage]{article}
+\usepackage{verbatim}
+\begin{document}
+\section{Getting Started}
+All you need to run an arakoon node is one executable, and one configuration file. 
+This executable can be used to start a node, run tests, or as an ad hoc client.
+\subsection{Configuration}
+The example below shows a configuration for a three node setup. 
+As you can see, it's in the well known inifile format.
+
+\begin{verbatim}
+nodes = arakoon_0, arakoon_1,arakoon_2
+
+#optional:
+#master = arakoon_0
+#lease_expiry = 60
+#compression=true
+
+# DANGER: only set this if you know what you're doing,
+# and understand the risk.
+# (in the 2 node case,
+#  you might want to be able to continue
+#  when 1 node is down,
+#  so you lower the quorum to 1 iso the default)
+# the downside is that if you do this on both sides of
+# a split network you will end up having 2 realities.
+#quorum = 1
+
+[arakoon_0]
+ip = 127.0.0.1
+client_port = 4000
+messaging_port = 4010
+home = /tmp/arakoon_0
+log_dir = /tmp/arakoon_0
+# available levels are: debug info notice warning error fatal
+log_level = debug
+
+[arakoon_1]
+ip = 127.0.0.1
+client_port = 4001
+messaging_port = 4011
+home = /tmp/arakoon_1
+log_dir = /tmp/arakoon_1
+log_level = debug
+
+
+[arakoon_2]
+ip = 127.0.0.1
+client_port = 4002
+messaging_port = 4012
+home = /tmp/arakoon_2
+log_dir = /tmp/arakoon_2
+log_level = debug
+\end{verbatim}
+
+\subsection{Starting a node}
+
+\begin{verbatim}
+./arakoon -config cfg/arakoon.ini -daemonize --node arakoon_0 
+\end{verbatim}
+This starts the node with name arakoon\_0 and daemonizes the process.
+
+
+\subsection{Restarting a node}
+If for whatever reason, a node dies, it can just be restarted. 
+In normal situations it will just catchup from the other nodes and resume its responsibilities.
+\paragraph{corrupt tlog}
+If a tlog is corrupt, it can just be deleted. The node can be restarted afterwards, and will download the tlog from other nodes, update the database and resume its normal tasks.
+\paragraph{corrupt database}
+If, for whatever reason, a database is corrupt, one can delete the .db and .db.wal files.
+Afterwards, the node can be restarted. 
+It will fill the database from the tlogs, and resume its normal tasks
+\subsection{Log rotation}
+Sending SIGUSR1 to an arakoon process will cause it to close and reopen its log file.
+This can be used in combination with logrotate to do whatever you want with the logs.
+
+\subsubsection{tlog rotation}
+Arakoon manages its own tlog rotation, every 100000 updates. 
+After rotation, arakoon compresses the rolled out tlog. 
+Tlogs can be dumped using the Arakoon executable.
+\begin{verbatim}
+./arakoon --dump-tlog <path_to_tlog_file>
+\end{verbatim}
+
+\end{document}

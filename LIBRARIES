@@ -1,0 +1,27 @@
+
+Libraries we use:
+
+tokyo cabinet:  
+    License: LGPL 2.1
+    status: we use it unchanged, 
+    linking: statically linked (we should probably change this) 
+
+inifiles: 
+    License: LGPL (>= 2.1 our option)
+    status: we patched it, to contain less dependencies. 
+    linking: static
+
+camlbz2:
+    License: LGPL 2.1
+    status: we've send a bugfix upstream, and depending on it's acceptance
+            we'll use the upstream version or decide on using the patched version
+    linking: static
+   
+libbz2:
+    License: other, but we're complying ;)
+    status: we use the OS installed version
+    linking: dynamic
+
+for everything in this repository, except for the above, the following license applies:
+
+...

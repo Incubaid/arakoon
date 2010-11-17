@@ -1,0 +1,66 @@
+digraph MultiPaxos {
+  compound=true;
+  node [shape=box];
+  subgraph cluster0 {
+    label = "master";
+    node [] master_consensus;
+    node [] stable_master;
+    node [] master_dictate;
+    node [] accepteds_check_done;
+    node [] wait_for_accepteds;
+    stable_master -> stable_master;
+    stable_master -> master_dictate [color=green, fontcolor=green, label = "(9)"];
+    master_dictate -> accepteds_check_done [color=green, fontcolor=green, label="(10)"];
+    accepteds_check_done -> wait_for_accepteds [color=green, fontcolor=green, label="(5)"];
+    accepteds_check_done -> master_consensus [color=green, fontcolor=green, label="(7)"];
+    wait_for_accepteds -> wait_for_accepteds;
+    wait_for_accepteds -> accepteds_check_done [color=green, fontcolor=green, label="(6)"];
+    master_consensus -> stable_master [color=green, fontcolor=green, label="(8)"];
+  }
+  subgraph cluster1 {
+    label = "slave";
+    
+    node [color=black] slave_wait_for_accept;
+    node [color=green] slave_steady_state;	
+    node [color=black] slave_fake_prepare;
+    node [color=black] slave_waiting_for_prepare;
+    node [color=black] slave_discovered_other_master;
+
+    slave_steady_state -> slave_steady_state 
+                          [color = green, fontcolor=green,label = "(13)"];
+    slave_steady_state -> slave_wait_for_accept;
+    slave_steady_state -> slave_fake_prepare [label="(14)"];
+    slave_wait_for_accept -> slave_steady_state 
+                             [color = green, fontcolor = green, label = "(12)"];
+    slave_wait_for_accept -> slave_wait_for_accept;
+    slave_wait_for_accept -> slave_fake_prepare;
+    slave_fake_prepare -> slave_waiting_for_prepare;
+    slave_waiting_for_prepare -> slave_wait_for_accept 
+    			      [color = green, label = "(16)"];
+    slave_waiting_for_prepare -> slave_waiting_for_prepare;
+    slave_waiting_for_prepare -> slave_discovered_other_master;
+    slave_waiting_for_prepare -> slave_steady_state;
+    
+    slave_discovered_other_master -> slave_steady_state;
+    slave_discovered_other_master -> slave_wait_for_accept;
+    
+  }
+  subgraph cluster2 {
+    label = "elections";
+    node [] election_suggest;
+    node [] promises_check_done;
+    node [] wait_for_promises;
+
+    election_suggest -> promises_check_done [color=green,fontcolor=green, label="(1)"];
+    promises_check_done -> election_suggest;
+    promises_check_done -> wait_for_promises[color=green, label="(2)"];
+    wait_for_promises -> promises_check_done[color=green, label="(3)"];
+
+  }
+
+  slave_steady_state -> election_suggest;	
+  slave_discovered_other_master -> election_suggest;
+  promises_check_done -> accepteds_check_done [color=green, label="(4)"];
+  stable_master -> election_suggest;
+  election_suggest -> slave_wait_for_accept [color=green, label="(11)"];
+}

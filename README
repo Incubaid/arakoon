@@ -1,0 +1,47 @@
+Arakoon: a simple distributed key/value store
+
+Compiling: see COMPILING
+
+License information: 
+  for the full license text, see COPYING
+
+Libraries we use: see LIBRARIES
+  
+
+You're either reading this because you downloaded a binary package,
+and want to get started on playing with it, or you downloaded the source
+tarball, or cloned the repo.  
+
+Getting Started:
+RUNNING A SINGLE NODE TEST SERVER:
+
+create the following configuration:
+    [global]
+    nodes = arakoon_0
+    master = arakoon_0
+
+    [arakoon_0]
+    ip = 127.0.0.1
+    client_port = 4000
+    messaging_port = 4010
+    home = /tmp/arakoon_0
+    log_dir = /tmp/arakoon_0
+    log_level = info
+
+A sample configuration like this can be found in the cfg dir.
+
+Just running './main.native --node arakoon_0' starts a 1 node cluster for you to play with.
+
+You can get/set values from the command line using :
+./main.native --set key value  
+./main.native --get key
+
+to get an overview of what else the command line provides.
+./main.native --help
+
+have fun,
+
+The arakoon team
+
+
+

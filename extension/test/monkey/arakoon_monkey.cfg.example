@@ -1,0 +1,12 @@
+
+; Example config file for the arakoon monkey
+; Place your version of this file in /opt/qbase3/cfg/qconfig if you want email escalations
+[email]
+server=smtp.gmail.com
+port=587
+from=user@your_domain.com
+to=receiver1@your_domain.com,receiver2@another_domain.com
+login=your_login
+password=your_password
+subject=Monkey at <SERVER> died!!!
+msg=Please investigate this issue at server with <IP>

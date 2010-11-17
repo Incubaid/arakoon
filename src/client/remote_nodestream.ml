@@ -1,0 +1,60 @@
+(*
+This file is part of Arakoon, a distributed key-value store. Copyright
+(C) 2010 Incubaid BVBA
+
+Licensees holding a valid Incubaid license may use this file in
+accordance with Incubaid's Arakoon commercial license agreement. For
+more information on how to enter into this agreement, please contact
+Incubaid (contact details can be found on www.arakoon.org/licensing).
+
+Alternatively, this file may be redistributed and/or modified under
+the terms of the GNU Affero General Public License version 3, as
+published by the Free Software Foundation. Under this license, this
+file is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.
+
+See the GNU Affero General Public License for more details.
+You should have received a copy of the
+GNU Affero General Public License along with this program (file "COPYING").
+If not, see <http://www.gnu.org/licenses/>.
+*)
+
+open Update
+open Common
+open Lwt
+
+class remote_nodestream (ic,oc) = 
+  let request f =
+    let buf = Buffer.create 32 in
+    let () = f buf in
+    Lwt_io.write oc (Buffer.contents buf) >>= fun () ->
+    Lwt_io.flush oc
+  in
+object(self)
+  method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  =
+    let outgoing buf =
+      command_to buf LAST_ENTRIES;
+      Sn.sn_to buf i
+    in
+    let incoming ic =
+      let rec loop () =
+	Sn.input_sn ic >>= fun i2 ->
+	begin
+	  if i2 = (-1L) then
+	    Lwt.return ()
+	  else
+	    begin
+	      Llio.input_int32 ic >>= fun chksum ->
+	      Llio.input_string ic >>= fun entry ->	      
+	      let update,_ = Update.from_buffer entry 0 in
+	      let i = i2 in
+	      f (i,update) >>= fun () ->
+              loop ()
+	    end
+	end
+      in loop ()
+    in
+    request outgoing >>= fun () ->
+    response ic incoming  
+end

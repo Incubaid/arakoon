@@ -1,0 +1,22 @@
+Source: arakoon
+Section: unknown
+Priority: extra
+Maintainer: Romain Slootmaekers <romain.slootmaekers@incubaid.com>
+Build-Depends: debhelper (>= 7), ocaml-nox (>= 3.11.1-3~), dh-ocaml (>= 0.9), ocaml-findlib (>= 1.2.5),
+ liblwt-ocaml-dev (>= 2.1.1), libounit-ocaml-dev (>= 1.0.3), libbz2-ocaml-dev (>= 0.6.0),
+ libbz2-dev (>= 1.0.5), texlive (>= 2009), texlive-font-utils (>= 2009), texlive-latex-base (>= 2009)
+Standards-Version: 3.8.3
+Homepage: http://www.arakoon.org
+
+Package: arakoon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Arakoon is a simple distributed key/value store
+ <insert long description, indented with spaces>
+
+Package: libarakoon-ocaml-dev
+Architecture : any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: ocaml client library for Arakoon
+ <long description, indented with spaces>

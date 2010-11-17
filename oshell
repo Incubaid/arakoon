@@ -1,0 +1,1 @@
+rlwrap -p"0;31" ocaml -init _init.ml
