@@ -81,7 +81,7 @@ let slave_waiting_for_prepare constants current_i event =
 	      let reply = Promise(n,current_i,None) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n, current_i, None))
+	      Lwt.return (Slave_wait_for_accept (n, current_i, None, None))
 	    end
 	  | Prepare(n) when n < 0L ->
 	    begin
@@ -292,7 +292,7 @@ let wait_for_promises constants state event =
 		  let reply = Promise(n',i,None) in
 		  log ~me "replying with %S" (string_of reply) >>= fun () ->
 		  constants.send reply me source >>= fun () ->
-		  Lwt.return (Slave_wait_for_accept (n', i, None))
+		  Lwt.return (Slave_wait_for_accept (n', i, None, None))
 		else
 		  let reply = Nak (n', (n,i))  in
 		  constants.send reply me source >>= fun () ->
@@ -461,7 +461,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      let reply = Promise(n',i,None) in
 	      log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
 	      constants.send reply me source >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n',i, None))
+	      Lwt.return (Slave_wait_for_accept (n',i, None, None))
 	      else
 		paxos_fatal me "wait_for_accepteds: received %S when forced slave, forced slave should never get in wait_for_accepteds in the first place!" (string_of msg)
 	    end

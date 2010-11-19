@@ -38,13 +38,21 @@ type transitions =
   | Slave_fake_prepare of Sn.t
   | Slave_waiting_for_prepare of Mp_msg.MPMessage.n
   | Slave_steady_state of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t)
-  | Slave_wait_for_accept of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t option)
-  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
+  | Slave_wait_for_accept of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+				Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
+  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * 
+					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
 
-  | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * (int * Messaging.id list) * Value.t * Value.t list * (string * Mp_msg.MPMessage.n) option)
-  | Wait_for_promises of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * (int * Messaging.id list) * Value.t * Value.t list * (string * Mp_msg.MPMessage.n) option)
-  | Accepteds_check_done of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * (int * Messaging.id list) * Value.t)
-  | Wait_for_accepteds of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * (int * Messaging.id list) * Value.t)
+  | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+			      (int * Messaging.id list) * Value.t * Value.t list * 
+			      (string * Mp_msg.MPMessage.n) option)
+  | Wait_for_promises of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+			    (int * Messaging.id list) * Value.t * Value.t list * 
+			    (string * Mp_msg.MPMessage.n) option)
+  | Accepteds_check_done of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+			       (int * Messaging.id list) * Value.t)
+  | Wait_for_accepteds of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+			     (int * Messaging.id list) * Value.t)
 
   (* active master only *)
   | Master_consensus of (master_option * Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)

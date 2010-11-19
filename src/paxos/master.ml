@@ -104,7 +104,7 @@ let stable_master constants (v',n,new_i) = function
 		let reply = Promise(n',new_i,None) in
 		log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
 		constants.send reply me source >>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n',new_i, None))
+		Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
 	      else
 		paxos_fatal me "stable_master: received %S when forced slave, forced slave should never get in stable_master in the first place!" (string_of msg)
 	    end

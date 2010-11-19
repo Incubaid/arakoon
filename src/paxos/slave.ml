@@ -50,9 +50,11 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	  | Accept (n',i',v) when (n',i') = (n,i) ->
 	    begin
 	      let reply = Accepted(n,i) in
-	      log ~me "steady_state :: replying with %S" (string_of reply) >>= fun () ->
+
 	      constants.on_consensus (previous, n,Sn.pred i) >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun () ->
+	      log ~me "steady_state :: replying with %S" (string_of reply) 
+	      >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
@@ -86,7 +88,8 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 		let reply = Promise(n',i,None) in
 		log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		send reply me source >>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n', i, None))
+		let maybe_previous = Some (previous, Sn.pred i) in
+		Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
 	      end
 	  | Nak (n',(n'',i'')) ->
 	    begin
@@ -138,7 +141,7 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
       
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
-let slave_wait_for_accept constants (n,i, vo) event =
+let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -154,7 +157,7 @@ let slave_wait_for_accept constants (n,i, vo) event =
 		(* let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> *)
 		log ~me "slave_wait_for_accept: ignoring %S with lower n" (string_of msg)
 		>>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n,i,vo))
+		Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	      end
 	    else 
 	      begin
@@ -163,14 +166,27 @@ let slave_wait_for_accept constants (n,i, vo) event =
 		send reply me source >>= fun () ->
 		log ~me "slave_wait_for_accept: sent %s" (string_of reply) 
 		>>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n',i,vo2))
+		Lwt.return (Slave_wait_for_accept (n',i,vo2, maybe_previous))
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
-	      let reply = Accepted(n,i) in
-	      log ~me "replying with %S" (string_of reply) >>= fun () ->
+	      begin
+		match maybe_previous with
+		  | None -> Lwt.return () 
+		  | Some (previous, pi) -> 
+		    begin
+		      log ~me "SOME PREVIOUS: %s,pi=%s;i=%s" 
+			(Value.string_of previous) 
+			(Sn.string_of pi) (Sn.string_of i)
+		      >>= fun () ->
+		      constants.on_consensus (previous,n,pi) >>= fun _ ->
+		      Lwt.return ()
+		    end
+	      end >>= fun () ->
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      constants.on_consensus (v,n,i) >>= fun _ ->
+	      let reply = Accepted(n,i) in
+	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
 	(* TODO: should assert we really have a MasterSet here *)
 	      begin 
@@ -186,7 +202,7 @@ let slave_wait_for_accept constants (n,i, vo) event =
 	    begin
 	      log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
 	      >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n,i,vo))
+	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
 	  | Accept (n',i',v) ->
 	    begin
@@ -198,13 +214,13 @@ let slave_wait_for_accept constants (n,i, vo) event =
 	  | Promise(n',i',vo') ->
 	    begin
 	      log ~me "dropping: %s " (string_of msg) >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n,i,vo))
+	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
 	  | Nak (n',(n2,i2)) ->
 	    if n' < n then
 	      begin
 		log ~me "ignoring old %s " (string_of msg) >>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n,i,vo))
+		Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	      end
 	    else
 	      paxos_fatal me "slave_wait_for_accept: received unexpected %S: FATAL" 
@@ -212,7 +228,7 @@ let slave_wait_for_accept constants (n,i, vo) event =
 	  | Accepted _ ->
 	    begin
 	      log ~me "dropping old %S " (string_of msg) >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n,i,vo))
+	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
       end
     | _ -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
@@ -238,13 +254,13 @@ let slave_discovered_other_master constants state () =
       begin
 	match vo' with
 	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v))
-	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None))
+	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None, None))
       end
     end
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
-      Lwt.return (Slave_wait_for_accept (future_n, current_i, None))
+      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, None))
     end
   else
     begin
