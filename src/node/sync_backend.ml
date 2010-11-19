@@ -60,7 +60,7 @@ object(self: #backend)
       (fun exc ->
 	match exc with
 	  | Not_found ->
-	    Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, "not found"))
+	    Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
 	  | ext -> Lwt.fail ext)
 
   method range (first:string option) finc (last:string option) linc max =

@@ -147,8 +147,10 @@ class ArakoonClient :
         @rtype: string
         @return: The value associated with the given key
         """
-        conn = self._sendToMaster ( ArakoonProtocol.encodeGet( key ) )
-        return conn.decodeStringResult()
+        msg = ArakoonProtocol.encodeGet(key)
+        conn = self._sendToMaster (msg)
+        result = conn.decodeStringResult()
+        return result
 
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string' )

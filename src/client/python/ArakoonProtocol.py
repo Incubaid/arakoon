@@ -414,7 +414,7 @@ class ArakoonProtocol :
             errorMsg = _recvString ( con )
 
         if errorCode == ARA_ERR_NOT_FOUND:
-            raise ArakoonNotFound()
+            raise ArakoonNotFound(errorMsg)
 
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
