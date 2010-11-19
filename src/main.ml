@@ -88,29 +88,23 @@ let run_system_tests () =
   0
 
 let dump_tlog filename =
+  let printer () (i,u) = 
+    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u) in
+  let folder = 
+    if Tlc2.is_compressed filename 
+    then Tlogreader2.C.fold
+    else Tlogreader2.U.fold
+  in
   let t =
-    if Tlc2.is_compressed filename then
       begin
 	let do_it ic =
-	  let f () (i,u) = Lwt_io.printlf "%s:%s" (Sn.string_of i)
-	    (Update.Update.string_of u) in
 	  let lowerI = Sn.start
 	  and higherI = None 
 	  and a0 = () in
-	  Tlogreader2.C.fold ic lowerI higherI a0 f >>= fun () ->
+	  folder ic lowerI higherI a0 printer >>= fun () ->
 	  Lwt.return 0
 	in
 	Lwt_io.with_file ~mode:Lwt_io.input filename do_it
-      end
-    else
-      begin
-	let do_it ic =
-	    begin
-	      let oc = Lwt_io.stdout in
-	      Tlogutil.printLastEntries oc ic (-1) >>= fun () ->
-	      Lwt.return 0
-	    end
-	in Lwt_io.with_file ~mode:Lwt_io.input filename do_it 
       end
   in
   Lwt_main.run t
