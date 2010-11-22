@@ -388,6 +388,18 @@ class ArakoonConfig:
                 self.removeDirs(node)
 
             self.removeNode(node)
+        
+        if self.__getForcedMaster(config):
+            self.forceMaster()
+
+    def __getForcedMaster(self, config):
+        if not config.checkSection("global"):
+            return []
+        
+        if config.checkParam("global", "master"):
+            return config.getValue("global", "master").strip()
+        else:
+            return []
 
     def __getNodes(self, config):
         if not config.checkSection("global"):
