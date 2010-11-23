@@ -223,7 +223,7 @@ let _main_2 make_store make_tlog_coll cfgs
 	  Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
-	      Lwt.join [ 
+	      Lwt.pick [ 
 		messaging # run ~stop:never ();
 		begin
 		  build_startup_state () >>= fun (start_state,service) -> 

@@ -70,7 +70,7 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
       | Some (pi,pu) ->
 	if pi < i then
 	  begin
-	    Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
+	    Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
 	    Store.safe_insert_update store pi pu >>= fun _ ->
 	    let () = acc := Some(i,update) in
 	    Lwt.return ()
