@@ -170,13 +170,13 @@ def tes_and_set_scenario( start_suffix ):
     
         client.set( key, old_value )
         set_value = client.testAndSet( key, old_value , new_value )
-        assert_equals( set_value, new_value ) 
+        assert_equals( set_value, old_value ) 
         
         set_value = client.get ( key )
         assert_equals( set_value, new_value )
     
         set_value = client.testAndSet( key, old_value, old_value )
-        assert_not_equals( set_value, old_value )
+        assert_equals( set_value, new_value )
     
         set_value = client.get ( key )
         assert_not_equals( set_value, old_value )

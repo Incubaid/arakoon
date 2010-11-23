@@ -79,9 +79,9 @@ let _test_and_set bdb key expected wanted =
 	begin
 	  match wanted with 
 	    | Some wanted_s ->
-	      let () = Bdb.put bdb key' wanted_s in wanted
+	      let () = Bdb.put bdb key' wanted_s in Some g
 	    | None ->
-	      let () = Bdb.out bdb key' in wanted
+	      let () = Bdb.out bdb key' in Some g
 	end
       | _ -> Some g
   with Not_found ->
@@ -90,7 +90,7 @@ let _test_and_set bdb key expected wanted =
 	begin
 	  match wanted with
 	    | Some wanted_s ->
-	      let () = Bdb.put bdb key' wanted_s in wanted
+	      let () = Bdb.put bdb key' wanted_s in None
 	    | None -> None		   
 	end
       | Some v' -> None
