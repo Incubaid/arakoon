@@ -298,7 +298,7 @@ class ArakoonClient :
 
         The value associated with key will be updated to newValue if the current value in the store equals oldValue
         If the current value is different from oldValue, this is a no-op.
-        Returns the value associated with key in the store to let you check if the update was executed or not.
+        Returns the value that was associated with key in the store prior to this operation. This way you can check if the update was executed or not.
 
         @type key: string
         @type oldValue: string option
@@ -308,7 +308,7 @@ class ArakoonClient :
         @param newValue: The desired new value to be stored.
 
         @rtype: string
-        @return: The value that is actually associated with the key after this operations completed
+        @return: The value that was associated with the key prior to this operation
         """
         msg = ArakoonProtocol.encodeTestAndSet( key, oldValue, newValue )
         conn = self._sendToMaster( msg )
