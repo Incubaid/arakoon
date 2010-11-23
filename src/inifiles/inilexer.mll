@@ -31,5 +31,5 @@ let value = ( [ '\t' ' ' - '~' ] | '\\' newline | '\\' '#' ) +
 rule lexini = parse
     whsp '[' whsp (id as id) whsp ']' {Section id}
   | whsp (id as id) whsp '=' whsp (value as value) whsp {Value (id, value)}
-  | newline {Newline}
+  | whsp newline {Newline}
   | eof {EOF}
