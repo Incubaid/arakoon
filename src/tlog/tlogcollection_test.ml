@@ -91,6 +91,7 @@ let test_restart (dn, factory) =
   Lwt.return ()
 
 
+
 let test_iterate (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun  tlc ->
@@ -106,6 +107,22 @@ let test_iterate (dn, factory) =
   Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
   OUnit.assert_equal !sum 38306;
   Lwt.return ()
+
+let test_iterate2 (dn, factory) = 
+  let () = Tlogcommon.tlogEntriesPerFile := 100 in
+  factory dn >>= fun tlc ->
+  let update = Update.Set("test_iterate0","xxx") in
+  _log_repeat tlc update 1 >>= fun () ->
+  let result = ref [] in
+  tlc # iterate (Sn.of_int 0) (Sn.of_int 0) 
+    (fun (i,u) -> result := i :: ! result; 
+     Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+     Lwt.return ())
+  >>= fun () -> 
+  OUnit.assert_equal (List.length !result) 1;
+  Lwt.return ()
+
+
 
 let test_validate_normal (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
@@ -172,6 +189,7 @@ let suite_file = "file_tlogcollection" >:::[
   "get_value_bug" >:: wrap_file test_get_value_bug;
   "restart" >:: wrap_file test_restart;
   "iterate" >:: wrap_file test_iterate;
+  "iterate2">:: wrap_file test_iterate2;
   "validate" >:: wrap_file test_validate_normal;
 ]
 
