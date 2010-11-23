@@ -19,7 +19,9 @@
 *)
 (* 
    changes to original (Romain Slootmaekers): 
-   - removed pcre dependency *)
+   - removed pcre dependency 
+   - fixed little bug on parsing of empty lines with spaces
+*)
 
 open Parseini
 open Inilexer
