@@ -59,13 +59,9 @@ The parameters have the same semantics as for the range method.
 
 \paragraph{test\_and\_set : key $\rightarrow$ value option $\rightarrow$ value option $\rightarrow$ (value option) C.t} This is a careful update.
 \emph{test\_and\_set k expected new} only modifies the value to \emph{new} if the old value is \emph{expected}.
-The resulting value will be returned.
+The originaly stored value will be returned.
 Using a \emph{value option} instead of a value allows you to only set a value only if there was none for that key.
 Using \emph{None} as new allows you to do a careful delete as well.
-\paragraph{test\_and\_set\_by\_me $\rightarrow$ value option $\rightarrow$ value option $\rightarrow$ (bool, value option) C.t} 
-This is a careful update with extra return information. 
-It not only returns the value after the operation, 
-but also wether the resulting value was caused by this operation or not.
 \paragraph{hello : string $\rightarrow$ string C.t}
 The client identifies itself to the server, and the server replies with its version string.
 \paragraph{who\_master: unit $\rightarrow$ string option C.t}
