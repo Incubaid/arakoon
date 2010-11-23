@@ -66,6 +66,7 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
     match !acc with
       | None ->
 	let () = acc := Some(i,update) in
+	Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) >>= fun () ->
 	Lwt.return ()
       | Some (pi,pu) ->
 	if pi < i then
@@ -77,7 +78,7 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
 	  end
 	else
 	  begin
-	    Lwt_log.debug_f "%s => skip" (Sn.string_of i) >>= fun () ->
+	    Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
 	    let () = acc := Some(i,update) in
 	    Lwt.return ()
 	  end

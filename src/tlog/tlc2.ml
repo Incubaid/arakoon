@@ -232,17 +232,18 @@ object(self: # tlog_collection)
       let ( * ) = Sn.mul in
       let test0 = linf * factor in
       let test1 = (Sn.succ linf) * factor in
+      let low_s = Sn.string_of low in
       let lowp = Sn.succ low in
       let lowp_s = Sn.string_of lowp in
       let test_result = 
 	(test0 <= lowp) &&
 	(test1  > lowp) &&
-	  lowp < consensus_i
+	  low <= consensus_i
       in
-      Lwt_log.debug_f "%s <?= lowp:%s && %s >? lowp:%s && (lowp:%s <? %s) yields:%b" 
+      Lwt_log.debug_f "%s <?= lowp:%s && %s >? lowp:%s && (low:%s <?= %s) yields:%b" 
 	(Sn.string_of test0 ) lowp_s 
 	(Sn.string_of test1) lowp_s 
-	lowp_s (Sn.string_of consensus_i)
+	low_s (Sn.string_of consensus_i)
 	test_result
       >>= fun () ->
       if test_result
