@@ -192,10 +192,10 @@ let actions = [
   ("--run-some-tests", Arg.Tuple [set_laction RunSomeTests;
 				  Arg.Set_string filter],
    "run tests matching filter");
-  ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
+  ("--dump-tlog <filename>", Arg.Tuple[ set_laction DumpTlog;
 			     Arg.Set_string filename],
-   "dump a tlog in readable format");
-  ("--dump-store", Arg.Tuple [ set_laction DumpStore; 
+   "dump a tlog file in readable format");
+  ("--dump-store <filename>", Arg.Tuple [ set_laction DumpStore; 
 			       Arg.Set_string filename],
    "dump a store");
   ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
