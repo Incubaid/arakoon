@@ -150,7 +150,11 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	      Lwt.return (Election_suggest (n,i))
 	    end
 	  else
-	    Lwt.return (Slave_steady_state(n,i,previous))
+	    begin
+	      start_lease_expiration_thread constants n 
+		constants.lease_expiration >>=fun() ->
+	      Lwt.return (Slave_steady_state(n,i,previous))
+	    end
 	end
     | FromClient (vo,cb) -> 
       (* there is a window in election 
