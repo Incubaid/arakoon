@@ -170,7 +170,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
-	      begin
+	      (*begin
 		match maybe_previous with
 		  | None -> Lwt.return () 
 		  | Some (previous, pi) -> 
@@ -182,7 +182,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 		      constants.on_consensus (previous,n,pi) >>= fun _ ->
 		      Lwt.return ()
 		    end
-	      end >>= fun () ->
+	      end >>= fun () -> *)
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      constants.on_consensus (v,n,i) >>= fun _ ->
 	      let reply = Accepted(n,i) in

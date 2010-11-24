@@ -50,6 +50,9 @@ let _incr_i db =
     Buffer.contents buf
   in
   let () = Bdb.put db __i_key new_is in
+  Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s" 
+    (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
+  >>= fun () ->
   Lwt.return ()
 
 let _p key = __prefix ^ key
