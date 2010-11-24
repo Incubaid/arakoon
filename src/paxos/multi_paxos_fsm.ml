@@ -583,14 +583,12 @@ type ready_result =
   | Client_ready
   | Node_ready
   | Election_timeout_ready
-  | Not_ready
 
 let prio = function
   | Inject_ready -> 0
   | Election_timeout_ready -> 1
   | Node_ready   -> 2
   | Client_ready -> 3
-  | Not_ready -> 666
 
 
 type ('a,'b,'c) buffers = 
@@ -608,87 +606,72 @@ let rec paxos_produce buffers
     constants product_wanted =
   let me = constants.me in
   let ready_from_inject () =
-    let empty = Lwt_buffer.is_empty buffers.inject_buffer in
-    if empty then Not_ready
-    else Inject_ready
+    Lwt_buffer.wait_for_item buffers.inject_buffer >>= fun () ->
+    Lwt.return Inject_ready
   in
   let ready_from_client () =
-    let empty = Lwt_buffer.is_empty buffers.client_buffer in
-    if empty then Not_ready
-    else Client_ready
+    Lwt_buffer.wait_for_item buffers.client_buffer >>= fun () ->
+    Lwt.return Client_ready
   in
   let ready_from_node () =
-    let empty = Lwt_buffer.is_empty buffers.node_buffer in
-    if empty then Not_ready
-    else Node_ready
+    Lwt_buffer.wait_for_item buffers.node_buffer >>= fun () ->
+    Lwt.return Node_ready
   in
   let ready_from_election_timeout () =
-    let empty = Lwt_buffer.is_empty buffers.election_timeout_buffer in
-    if empty then Not_ready
-    else Election_timeout_ready
+    Lwt_buffer.wait_for_item buffers.election_timeout_buffer >>= fun () ->
+    Lwt.return Election_timeout_ready
   in
-  let ready_queues =
+  let waiters =
     match product_wanted with
       | Node_only ->
-	[ready_from_node ;]
+	[ready_from_node ();]
       | Full ->
-	[ready_from_inject;ready_from_node ;ready_from_client ;]
+	[ready_from_inject();ready_from_node ();ready_from_client ();]
       | Node_and_inject ->
-	[ready_from_inject;ready_from_node ;]
+	[ready_from_inject();ready_from_node ();]
       | Node_and_timeout ->
-	[ready_from_election_timeout; ready_from_node;]
+	[ready_from_election_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
-	[ready_from_inject;ready_from_election_timeout; ready_from_node]
+	[ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
   in
   Lwt.catch 
     (fun () ->
-      let get_highest_prio_buf r_queues_f =
-        let r_queues = List.fold_right (fun f l -> f() :: l) r_queues_f [] in
-        let f acc r = match acc with
-        | None -> Some r
-        | Some p -> 
-          if (prio p) < (prio r)
-            then acc
-          else Some r
-        in
-        let best = List.fold_left f None r_queues in
-        match best with
-        | Some p ->
-          Lwt.return p 
-        | None -> Lwt.fail (Failure "FSM BAILED : No message available while there should be" ) 
-      in 
-      let rec pol_loop () = 
-        get_highest_prio_buf ready_queues >>= fun p ->
-        match p with
-	  | Inject_ready ->
-	    begin
-	      log ~me "taking from inject" >>= fun () ->
-              Lwt_buffer.take buffers.inject_buffer
-  	    end
- 	  | Client_ready ->
-	    begin
-	      log ~me "taking from client" >>= fun () ->
-	      Lwt_buffer.take buffers.client_buffer >>= fun x ->
-	      Lwt.return (FromClient x)
-	    end
-	  | Node_ready ->
-	    begin
-	      log ~me "taking from node" >>= fun () ->
-	      Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
-	      let msg2 = MPMessage.of_generic msg in
-	      Lwt.return (FromNode (msg2,source))
-	    end
-	  | Election_timeout_ready ->
-	    begin
-	      log ~me "taking from timeout" >>= fun () ->
-	      Lwt_buffer.take buffers.election_timeout_buffer 
-	    end
-          | Not_ready -> 
-            begin
-              Lwt_unix.sleep 0.1 >>= fun () ->
-              pol_loop () 
-            end
-        in pol_loop ()
+      Lwt.pick waiters >>= fun ready_list ->
+      let get_highest_prio_evt r_list =
+        let f acc b = match acc with 
+        | None -> Some b
+        | Some pb ->
+          if prio(b) > prio (pb)
+          then acc
+          else Some b
+       in
+       let best = List.fold_left f None r_list in
+       match best with
+        | Some Inject_ready ->
+	  begin
+	    log ~me "taking from inject" >>= fun () ->
+	    Lwt_buffer.take buffers.inject_buffer
+	  end
+	| Some Client_ready ->
+	  begin
+	    log ~me "taking from client" >>= fun () ->
+	    Lwt_buffer.take buffers.client_buffer >>= fun x ->
+	    Lwt.return (FromClient x)
+	  end
+	| Some Node_ready ->
+	  begin
+	    log ~me "taking from node" >>= fun () ->
+	    Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
+	    let msg2 = MPMessage.of_generic msg in
+	    Lwt.return (FromNode (msg2,source))
+	  end
+	| Some Election_timeout_ready ->
+	  begin
+	    log ~me "taking from timeout" >>= fun () ->
+	    Lwt_buffer.take buffers.election_timeout_buffer 
+	  end
+        | None -> Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
+        in get_highest_prio_evt ( [ ready_list ] ) 
     ) 
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
