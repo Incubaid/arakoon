@@ -34,6 +34,7 @@ type local_action =
   | SystemTests
   | ShowVersion
   | DumpTlog
+  | DumpStore
   | CompressTlog
   | UncompressTlog
   | BENCHMARK
@@ -109,6 +110,7 @@ let dump_tlog filename =
   in
   Lwt_main.run t
 
+let dump_store filename = Dump_store.dump_store filename
 
 let compress_tlog tlu =
   let tlc = Tlc2.to_archive_name tlu in
@@ -193,6 +195,9 @@ let actions = [
   ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
 			     Arg.Set_string filename],
    "dump a tlog in readable format");
+  ("--dump-store", Arg.Tuple [ set_laction DumpStore; 
+			       Arg.Set_string filename],
+   "dump a store");
   ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
 				Arg.Set_string filename],
    "compress a tlog file");
@@ -238,6 +243,7 @@ let do_local = function
   | SystemTests -> run_system_tests()
   | ShowVersion -> show_version();0
   | DumpTlog -> dump_tlog !filename
+  | DumpStore -> dump_store !filename
   | CompressTlog -> compress_tlog !filename
   | UncompressTlog -> uncompress_tlog !filename
   | SET -> Client_main.set !config_file !key !value
