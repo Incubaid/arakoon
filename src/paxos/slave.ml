@@ -24,6 +24,7 @@ open Multi_paxos_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
+open Update
 
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
@@ -113,22 +114,43 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
     | LeaseExpired n' -> 
       let ns  = (Sn.string_of n) 
       and ns' = (Sn.string_of n') in
-      if n' < n then
+      if (not (is_election constants)) || n' < n
+      then 
 	begin
 	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns 
-	    >>= fun () ->
+	  >>= fun () ->
 	  Lwt.return (Slave_steady_state (n,i,previous))
 	end
       else
-	begin (* lease expired, and it's recent *)
-	  if is_election constants then
-	    begin 
-	      log ~me "steady state: lease expired(n'=%s) => election" ns' >>= fun () ->
+	begin 
+	  let last_accepted_lease () = 
+	    constants.store # who_master() >>= fun maybe_stored ->
+	    match maybe_stored with 
+	      | None -> failwith "None should not happen here"
+	      | Some (sm,sd) ->
+		let Value.V(update_string) = previous in
+		let u,_ = Update.from_buffer update_string 0 in
+		match u with
+		  | Update.MasterSet (m,d) -> Lwt.return ("previous",(m,d))
+		  | _ -> Lwt.return ("stored",(sm,sd))
+	  in
+	  last_accepted_lease () >>= fun (origine,(am,al)) ->
+	  let now = Int64.of_float (Unix.time()) in
+	  log ~me "steady state: lease expired(n'=%s) (lease:%s (%s,%s) now=%s" 
+	    ns' origine am (Sn.string_of al) (Sn.string_of now)
+	  >>= fun () ->
+	  let elections_needed = 
+	    let diff = Int64.to_int (Int64.sub now al) in
+	    diff >= constants.lease_expiration 
+	  in
+	  if elections_needed then
+	    begin
+	      log ~me "ELECTIONS NEEDED" >>= fun () ->
 	      constants.on_consensus (previous, n,Sn.pred i) >>= fun _ ->
 	      Lwt.return (Election_suggest (n,i))
 	    end
 	  else
-	    Lwt.return (Slave_steady_state (n,i,previous))
+	    Lwt.return (Slave_steady_state(n,i,previous))
 	end
     | FromClient (vo,cb) -> 
       (* there is a window in election 

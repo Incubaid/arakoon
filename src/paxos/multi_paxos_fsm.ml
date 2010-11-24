@@ -365,7 +365,7 @@ let wait_for_promises constants state event =
       paxos_fatal me "wait_for_promises: don't want FromClient"
 
 (* a (potential or full) master is waiting for accepteds and if he has received
-   enough, concensus is reached and he becomes a full master *)
+   enough, consensus is reached and he becomes a full master *)
 let accepteds_check_done constants state () =
   let (mo,n,i,ballot,v) = state in
   let me = constants.me in

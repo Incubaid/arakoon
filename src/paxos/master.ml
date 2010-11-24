@@ -24,6 +24,7 @@ open Multi_paxos_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
+open Update
 
 (* a (possibly potential) master has found consensus on a value
    first potentially finish of a client request and then on to
@@ -53,18 +54,19 @@ let master_consensus constants ((mo:master_option),v,n,i) () =
 (* an active master responsing on requests from the client *)
 let stable_master constants (v',n,new_i) = function
     | LeaseExpired n' ->
+      let me = constants.me in
       if n' < n then
 	begin
-	  let me = constants.me in
 	  log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
 	    (Sn.string_of n') (Sn.string_of n) >>= fun () ->
 	  Lwt.return (Stable_master (v',n,new_i))
 	end
       else
 	begin
-	  let me = constants.me in
-	  log ~me "stable_master: lease_expired: back to election." >>= fun () ->
-	  Lwt.return (Election_suggest (n,new_i))
+	  log ~me "stable_master: half-lease_expired: update lease." >>= fun () ->
+	  let v = Update.make_update_value (Update.make_master_set me) in
+	  (* TODO: we need election timeout as well here *)
+	  Lwt.return (Master_dictate (None,v,n,new_i))
 	end
     | FromClient (vo, finished) ->
       begin

@@ -73,6 +73,6 @@ let show_transition = function
   | Promises_check_done _ -> "Promises_check_done"
   | Wait_for_accepteds _ -> "Wait_for_accepteds"
   | Accepteds_check_done _ -> "Accepteds_check_done"
-  | Master_consensus _ -> "Master_concensus"
+  | Master_consensus _ -> "Master_consensus"
   | Stable_master _ -> "Stable_master"
   | Master_dictate _ -> "Master_dictate"
