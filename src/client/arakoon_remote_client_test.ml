@@ -88,7 +88,8 @@ let test_delete () =
 	client # get "key" >>= fun value ->
 	Lwt.return ())
       (function
-	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) -> 
+	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,key) -> 
+	  OUnit.assert_equal "key" key;
 	  Lwt_io.printlf "ok!"
 	| exn ->
 	  Lwt_log.fatal ~exn "wrong exception">>= fun () ->
