@@ -45,9 +45,10 @@ let test_lost_update () =
   let master = Lwt_main.run (Client_main.find_master cfgs) in
   let others = List.filter (fun n -> n <> master) Node.names in
   Node.stop_all();
-  (*List.iter (fun n -> ignore (Node.start n)) others;
+  List.iter (fun n -> ignore (Node.start n)) others;
   Unix.sleep 1;
   Client_main.with_master_client "cfg/arakoon.ini"
     (fun c -> c # get "xxx" >>= fun v -> Lwt_io.printlf "value=%s" v);
-  Node.stop_all() *)
+  Node.stop_all();;
+
   

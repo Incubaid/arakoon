@@ -114,7 +114,7 @@ let slave_waiting_for_prepare constants current_i event =
 		    let vos = Log_extra.option_to_string Value.string_of p in
 		    log ~me "reentering steady state @(%s,%s,%S)" (Sn.string_of n2) (Sn.string_of i2) vos
 		    >>= fun () ->
-		    Lwt.return (Slave_steady_state (n2, i2, v))
+		    Lwt.return (Slave_steady_state (n2, i2, v,true))
 		  end
 	    end
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->

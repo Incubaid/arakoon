@@ -42,6 +42,7 @@ class type store = object
   method delete: string -> unit Lwt.t
   method sequence : Update.t list -> unit Lwt.t
   method set_master: string -> int64 -> unit Lwt.t
+  method set_master_no_inc: string -> int64 -> unit Lwt.t
   method who_master: unit -> (string*int64) option Lwt.t
     
   (** last value on which there is consensus.
@@ -143,18 +144,18 @@ let verify (store:store) tlog_i =
   begin
     let store_is = option_to_string Sn.string_of store_i in
     let tlog_is = option_to_string Sn.string_of tlog_i in
-    let new_sn =
+    let new_sn,case =
       match tlog_i, store_i with
-	| None ,None -> Sn.start
-	| Some 0L, None -> Sn.start
+	| None ,None -> Sn.start,0
+	| Some 0L, None -> Sn.start,1
 	| Some i, Some j when i = Sn.succ j ->
-	  Sn.succ j
-	| Some i, Some j when i = j -> Sn.succ j
+	  Sn.succ j,2
+	| Some i, Some j when i = j -> Sn.succ j,3
 	| a,b ->
 	  let exn = TrailingStore (a,b) in
 	  raise exn
     in
     Lwt_log.info_f "VERIFY TLOG & STORE %s %s OK!" tlog_is store_is
     >>= fun () ->
-    Lwt.return new_sn
+    Lwt.return (new_sn,case )
   end

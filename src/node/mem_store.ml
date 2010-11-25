@@ -78,6 +78,10 @@ object (self: #store)
     let () = master <- Some (master',l) in
     Lwt.return ()
 
+  method set_master_no_inc master' l =
+    let () = master <- Some (master',l) in
+    Lwt.return ()
+
   method who_master () =
     Lwt.return master
 

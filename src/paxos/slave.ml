@@ -38,7 +38,8 @@ let slave_fake_prepare constants current_i () =
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
-let slave_steady_state constants (n,i,(previous:Value.t)) event =
+let slave_steady_state constants state event =
+  let (n,i,previous, from_here) = state in
   let me = constants.me in
   match event with
     | FromNode (msg,source) ->
@@ -51,19 +52,38 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	  | Accept (n',i',v) when (n',i') = (n,i) ->
 	    begin
 	      let reply = Accepted(n,i) in
-
-	      constants.on_consensus (previous, n,Sn.pred i) >>= fun _ ->
+	      begin
+		if from_here then
+		  constants.on_consensus (previous, n,Sn.pred i) 
+		else
+		  begin (* don't call on_consensus, 
+			   but still enter the master_update in the store;
+			   ... THIS IS BAD ...
+			*)
+		    let Value.V(us ) = previous in
+		    let update,_ = Update.from_buffer us 0 in
+		    begin
+		      match update with
+			| Update.MasterSet(m,l) -> 
+			  constants.store # set_master_no_inc m l 
+			| _ -> Lwt.return ()
+		    end >>= fun () ->
+		    Lwt_log.debug_f "SKIPPING %S (paxos -> multipaxos)" 
+		      (Value.string_of previous) >>= fun () ->
+		    Lwt.return (Store.Ok None) 
+		  end
+	      end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun () ->
 	      log ~me "steady_state :: replying with %S" (string_of reply) 
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
+	      Lwt.return (Slave_steady_state (n, Sn.succ i, v, true))
 	    end
 	  | Accept (n',i',v) when n'=n && i'<i ->
 	    begin
 	      log ~me "slave_steady_state received old %S for my n, ignoring" 
 		(string_of msg) >>= fun () ->
-	      Lwt.return (Slave_steady_state (n,i,previous))
+	      Lwt.return (Slave_steady_state state)
 	    end
 	  | Accept (n',i',v) ->
 	    begin
@@ -82,7 +102,7 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 		    send reply me source
 		  else Lwt.return ()
 		end >>= fun () ->
-		Lwt.return (Slave_steady_state (n, i, previous))
+		Lwt.return (Slave_steady_state state)
 	      end
 	    else (* n' > n *) 
 	      begin
@@ -95,22 +115,22 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	  | Nak (n',(n'',i'')) ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, i, previous))
+	      Lwt.return (Slave_steady_state state)
 	    end
 	  | Promise _ ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, i, previous))
+	      Lwt.return (Slave_steady_state state)
 	    end  
 	  | Accepted(n',i') ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
-	      Lwt.return (Slave_steady_state (n,i,previous))
+	      Lwt.return (Slave_steady_state state)
 	    end
       end
     | ElectionTimeout n' ->
       log ~me "steady state :: ignoring election timeout" >>= fun () ->
-      Lwt.return (Slave_steady_state (n,i,previous))
+      Lwt.return (Slave_steady_state state)
     | LeaseExpired n' -> 
       let ns  = (Sn.string_of n) 
       and ns' = (Sn.string_of n') in
@@ -119,7 +139,7 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	begin
 	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns 
 	  >>= fun () ->
-	  Lwt.return (Slave_steady_state (n,i,previous))
+	  Lwt.return (Slave_steady_state (n,i,previous, true))
 	end
       else
 	begin 
@@ -154,7 +174,7 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	    begin
 	      start_lease_expiration_thread constants n 
 		constants.lease_expiration >>=fun() ->
-	      Lwt.return (Slave_steady_state(n,i,previous))
+	      Lwt.return (Slave_steady_state(n,i,previous, true))
 	    end
 	end
     | FromClient (vo,cb) -> 
@@ -164,7 +184,7 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
       *)      
       let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
       cb result >>= fun () ->
-      Lwt.return (Slave_steady_state(n,i,previous))
+      Lwt.return (Slave_steady_state(n,i,previous, true))
       
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
@@ -215,7 +235,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      let reply = Accepted(n,i) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
-	(* TODO: should assert we really have a MasterSet here *)
+	      (* TODO: should assert we really have a MasterSet here *)
 	      begin 
 		if is_election constants then
 		  start_lease_expiration_thread constants n 
@@ -223,7 +243,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 		else Lwt.return () 
 	      end
 	      >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
+	      Lwt.return (Slave_steady_state (n, Sn.succ i, v, false))
 	    end
 	  | Accept (n',i',v) when n' < n ->
 	    begin
@@ -280,7 +300,7 @@ let slave_discovered_other_master constants state () =
       start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () ->
       begin
 	match vo' with
-	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v))
+	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v, true))
 	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None, None))
       end
     end
