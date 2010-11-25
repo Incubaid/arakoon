@@ -131,7 +131,7 @@ def add_node ( i ):
 
 def start_all() :
     q.cmdtools.arakoon.start()
-    time.sleep(0.3)  
+    time.sleep(3.0)  
 
 def restart_random_node():
     node_index = random.randint(0, len(node_names) - 1)
