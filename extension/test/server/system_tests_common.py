@@ -168,7 +168,16 @@ def restart_nodes_wf_sim( n ):
     for i in range (n):    
         q.cmdtools.arakoon.startOne( node_names[i] )
         time.sleep( wf_step_duration )
-        
+
+def getRandomString( length = 16 ) :
+    def getRC ():
+        return chr(random.randint(0,25) + ord('A'))
+
+    retVal = ""
+    for i in range( length ) :
+        retVal += getRC()        
+    return retVal
+
 def build_node_dir_names ( nodeName ):
     global data_base_dir
     data_dir = q.system.fs.joinPaths( data_base_dir, nodeName)
