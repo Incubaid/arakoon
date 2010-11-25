@@ -147,7 +147,8 @@ let slave_steady_state constants (n,i,(previous:Value.t)) event =
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
 	      constants.on_consensus (previous, n,Sn.pred i) >>= fun _ ->
-	      Lwt.return (Election_suggest (n,i))
+	      let new_n = update_n constants n in
+	      Lwt.return (Election_suggest (new_n, i))
 	    end
 	  else
 	    begin

@@ -51,7 +51,7 @@ let forced_master_suggest constants (n,i) () =
 let election_suggest constants state () =
   let me = constants.me in
   let (n,i) = state in
-  let n' = update_n constants n in
+  let n' = n (*update_n constants n *) in
   log ~me "election_suggest: Master undecided, starting election n=%s" (Sn.string_of n') >>= fun () ->
   let v = Update.make_update_value (Update.make_master_set me) in
   let others = constants.others in
@@ -256,11 +256,11 @@ let wait_for_promises constants state event =
 		  begin
 		    log ~me "wait_for_promises; discovered other node" 
 		    >>= fun () ->
-		    if n'' > n then
+		    if n'' > n || (n'' = n && i' > i) then
 		      Lwt.return (Slave_discovered_other_master (source,i,n'',i'))
 		    else
-		      let n''' = max n n'' in
-		      Lwt.return (Election_suggest (n''',i))
+		      let new_n = update_n constants (max n n'') in
+		      Lwt.return (Election_suggest (new_n,i))
 		  end
 		else (* forced_slave *) (* this state is impossible?! *)
 		  begin
@@ -314,7 +314,8 @@ let wait_for_promises constants state event =
 		    log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->
 		    let reply = Nak (n', (n,i))  in
 		    constants.send reply me source >>= fun () ->
-		    Lwt.return (Election_suggest (n,i))
+		    let new_n = update_n constants n in
+		    Lwt.return (Election_suggest (new_n, i))
 		  end
 		else (* forced slave *)
 		  begin
