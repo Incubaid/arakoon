@@ -267,7 +267,27 @@ def sequence_scenario( start_suffix ):
 @with_custom_setup( default_setup, basic_teardown )
 def test_sequence ():
     sequence_scenario( 10000 )
+
+
+@with_custom_setup( setup_3_nodes , basic_teardown )   
+def test_3_nodes_stop_all_start_slaves ():
     
+    key = getRandomString()
+    value = getRandomString () 
+    
+    cli = get_client()
+    cli.set(key,value)
+    master = cli.whoMaster()
+    slaves = filter( lambda node: node != master, node_names )
+    
+    q.cmdtools.arakoon.stop()
+    for slave in slaves:
+        q.cmdtools.arakoon.startOne( slave )
+    
+    cli._dropConnections()
+    cli = get_client()
+    stored_value = cli.get( key )
+    assert_equals( stored_value, value, "Stored value mismatch for key '%s' ('%s' != '%s')" % (key, value, stored_value) )
     
 if __name__ == "__main__" :
     from pymonkey import InitBase
@@ -280,3 +300,4 @@ if __name__ == "__main__" :
 
 #   test_restart_single_slave_short ()
     teardown()
+

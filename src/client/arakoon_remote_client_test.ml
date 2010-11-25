@@ -89,7 +89,7 @@ let test_delete () =
 	Lwt.return ())
       (function
 	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,key) -> 
-	  OUnit.assert_equal "key" key;
+	  OUnit.assert_equal ~printer:(fun s -> s) "key" key;
 	  Lwt_io.printlf "ok!"
 	| exn ->
 	  Lwt_log.fatal ~exn "wrong exception">>= fun () ->

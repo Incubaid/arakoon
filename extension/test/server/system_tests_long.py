@@ -108,7 +108,7 @@ def test_master_reelect():
 @with_custom_setup( setup_3_nodes, basic_teardown)
 def test_large_tlog_collection_restart():
     
-    iterate_n_times( 1000000, simple_set )
+    iterate_n_times( 100002, simple_set )
     q.cmdtools.arakoon.stop()
     start_all()
     iterate_n_times( 100, set_get_and_delete )
