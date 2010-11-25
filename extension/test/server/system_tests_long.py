@@ -42,8 +42,7 @@ def test_20_clients_1000_sets() :
 def test_tlog_rollover():
     iterate_n_times( 150000, simple_set )
     q.cmdtools.arakoon.stop()
-    q.cmdtools.arakoon.start()
-    time.sleep(2.0)
+    start_all()
     iterate_n_times( 150000, simple_set )
 
 @with_custom_setup( default_setup, basic_teardown )
@@ -63,8 +62,7 @@ def test_restart_master_long ():
         "Key '%s' does not have expected value ('%s' iso '%s')" % (key, set_value, value) )
     
     q.cmdtools.arakoon.stop()
-    q.cmdtools.arakoon.start()
-    time.sleep( 1.0 )
+    start_all()
     q.cmdtools.arakoon.stop()
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
@@ -112,7 +110,7 @@ def test_large_tlog_collection_restart():
     
     iterate_n_times( 1000000, simple_set )
     q.cmdtools.arakoon.stop()
-    q.cmdtools.arakoon.start()
+    start_all()
     iterate_n_times( 100, set_get_and_delete )
     
 
