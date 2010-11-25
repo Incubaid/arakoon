@@ -59,14 +59,14 @@ type update_result =
   | Update_fail of Arakoon_exc.rc * string
 
 let _insert_update (store:store) update =
-  let with_error f =
+  let with_error notfound_msg f =
     Lwt.catch
       (fun () ->
 	f () >>= fun () -> Lwt.return (Ok None))
       (function 
 	| Not_found -> 
 	  let rc = Arakoon_exc.E_NOT_FOUND
-	  and msg = "Not_found" in
+	  and msg = notfound_msg in
 	  Lwt.return (Update_fail(rc, msg))
 	| e ->
 	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE 
@@ -76,11 +76,11 @@ let _insert_update (store:store) update =
   in
   match update with
     | Update.Set(key,value) ->
-      with_error (fun () -> store # set key value)
+      with_error key (fun () -> store # set key value)
     | Update.MasterSet (m, lease) ->
-      with_error (fun () -> store # set_master m lease)
+      with_error "Not_found" (fun () -> store # set_master m lease)
     | Update.Delete(key) ->
-      with_error (fun () -> store # delete key)
+      with_error key (fun () -> store # delete key)
     | Update.TestAndSet(key,expected,wanted)->
       Lwt.catch
 	(fun () ->
@@ -89,7 +89,7 @@ let _insert_update (store:store) update =
 	(function 
 	  | Not_found -> 
 	    let rc = Arakoon_exc.E_NOT_FOUND
-	    and msg = "Not_found" in
+	    and msg = key in
 	    Lwt.return (Update_fail (rc,msg))
 	  | e ->
 	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE 
@@ -98,7 +98,7 @@ let _insert_update (store:store) update =
 	    Lwt.return (Update_fail (rc,msg))
 	)
     | Update.Sequence updates ->
-      with_error (fun () -> store # sequence updates)
+      with_error "Not_found" (fun () -> store # sequence updates)
     | Update.Nop -> Lwt.return (Ok None)
 
 let safe_insert_update (store:store) (i:Sn.t) update =
