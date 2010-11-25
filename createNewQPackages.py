@@ -87,7 +87,8 @@ for dep in deps:
     if dep.name in deps_to_replace:
         p.qpackage.removeDependency( dep )
 for dep in deps_to_replace:
-    p.qpackage.addDependency( 'pylabs.org', dep, [q.enumerators.PlatformType.LINUX64], minversion=new_version, maxversion=new_version )
+    p.qpackage.addDependency( 'pylabs.org', dep, [q.enumerators.PlatformType.LINUX64], minversion=new_version, maxversion=new_version, dependencytype=q.enumerators.DependencyType4.RUNTIME)
+p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
 packages.append(p)
 
 for p in packages:
