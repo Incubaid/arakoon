@@ -48,8 +48,8 @@ def test_tlog_rollover():
 @with_custom_setup( default_setup, basic_teardown )
 def test_restart_master_long ():
     restart_iter_cnt = 10
-    write_loop = lambda: iterate_n_times( 10000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable] )
-    restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 0.5 )
+    write_loop = lambda: iterate_n_times( 500000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable] )
+    restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 1.5*lease_duration )
     create_and_wait_for_thread_list( [restart_loop, write_loop] )
     
     cli = get_client()
@@ -82,7 +82,7 @@ def test_master_reelect():
     
     q.cmdtools.arakoon.stopOne( master_id )
     
-    time.sleep( lease_duration )
+    time.sleep( 1.5 * lease_duration )
     
     cli._masterId = None
     new_master_id = cli.whoMaster()
@@ -97,7 +97,7 @@ def test_master_reelect():
     
     q.cmdtools.arakoon.stopOne ( new_master_id )
     
-    time.sleep( lease_duration )
+    time.sleep( 1.5 * lease_duration )
     
     cli._masterId = None
     newest_master_id = cli.whoMaster()
