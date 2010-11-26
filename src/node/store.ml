@@ -54,6 +54,8 @@ class type store = object
   method close: unit -> unit Lwt.t
 end
 
+exception Key_not_found of string ;;
+
 type update_result =
   | Stop
   | Ok of string option
@@ -99,7 +101,25 @@ let _insert_update (store:store) update =
 	    Lwt.return (Update_fail (rc,msg))
 	)
     | Update.Sequence updates ->
-      with_error "Not_found" (fun () -> store # sequence updates)
+      Lwt.catch
+        (fun () ->
+          store # sequence updates >>= fun () ->
+          Lwt.return (Ok None))
+        (function
+          | Key_not_found key ->
+            let rc = Arakoon_exc.E_NOT_FOUND
+            and msg = key in
+            Lwt.return (Update_fail (rc,msg))
+          | Not_found ->
+            let rc = Arakoon_exc.E_NOT_FOUND
+            and msg = "Not_found" in
+            Lwt.return (Update_fail (rc,msg))
+          | e ->
+            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+            and msg = Printexc.to_string e
+            in
+            Lwt.return (Update_fail (rc,msg))
+        )
     | Update.Nop -> Lwt.return (Ok None)
 
 let safe_insert_update (store:store) (i:Sn.t) update =

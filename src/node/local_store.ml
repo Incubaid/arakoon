@@ -113,8 +113,23 @@ let rec _sequence bdb updates =
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
-    | Update.Nop -> () 
-  in List.iter do_one updates;
+    | Update.Nop -> ()
+  in let get_key = function
+    | Update.Set (key,value) -> Some key
+    | Update.Delete key -> Some key
+    | Update.TestAndSet (key, expected, wanted) -> Some key
+    | _ -> None
+  in let helper update =
+    try
+      do_one update
+    with
+      | Not_found ->
+        let key = get_key update
+        in match key with
+        | Some key -> raise (Key_not_found key)
+        | None -> raise Not_found
+  in List.iter helper updates;
+
 class local_store db =
 
 object(self: #store)
