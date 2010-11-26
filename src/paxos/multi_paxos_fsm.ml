@@ -259,7 +259,7 @@ let wait_for_promises constants state event =
 		  begin
 		    log ~me "wait_for_promises; discovered other node" 
 		    >>= fun () ->
-		    if n'' > n || (n'' = n && i' > i) then
+		    if n'' > n || (n'' = n && i' >= i) then
 		      Lwt.return (Slave_discovered_other_master (source,i,n'',i'))
 		    else
 		      let new_n = update_n constants (max n n'') in
@@ -436,7 +436,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    else
 	      paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
 		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
-	  | Prepare n' when n' < n ->
+	  | Prepare n' when n' <= n ->
 	    begin
 	      log ~me "wait_for_accepteds: received older Prepare" >>= fun () ->
 	      let reply0 = Nak (n', (n,i)) in
@@ -447,7 +447,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(MPMessage.string_of reply1) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Prepare n' when n' >= n ->
+	  | Prepare n' when n' > n ->
 	    begin
 	      if am_forced_master constants me
 	      then

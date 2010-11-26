@@ -199,7 +199,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	>>= fun () ->
 	match msg with
 	  | Prepare n' ->
-	    if n' < n then
+	    if n' <= n then
 	      begin
 		(* let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> *)
 		log ~me "slave_wait_for_accept: ignoring %S with lower n" (string_of msg)
