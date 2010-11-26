@@ -46,7 +46,7 @@ def test_tlog_rollover():
     iterate_n_times( 150000, simple_set )
 
 @with_custom_setup( default_setup, basic_teardown )
-def test_restart_master_long ():
+def est_restart_master_long ():
     restart_iter_cnt = 10
     write_loop = lambda: iterate_n_times( 500000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable] )
     restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 1.5*lease_duration )
@@ -57,7 +57,7 @@ def test_restart_master_long ():
     key = "key"
     value = "value"
     cli.set(key, value)
-    set_value = cli.get(key), value
+    set_value = cli.get(key)
     assert_equals(  value, set_value , 
         "Key '%s' does not have expected value ('%s' iso '%s')" % (key, set_value, value) )
     
