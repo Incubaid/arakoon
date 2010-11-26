@@ -141,7 +141,8 @@ let promises_check_done constants state () =
 	    then
 	      Lwt.return (Forced_master_suggest (n,i))
 	    else if is_election constants then
-	      Lwt.return (Election_suggest (n,i))
+	      let n' = update_n constants n in
+	      Lwt.return (Election_suggest (n',i))
 	    else
 	      paxos_fatal me "slave checking for promises"
 	  end
@@ -174,7 +175,9 @@ let promises_check_done constants state () =
 		then Lwt.return (Forced_master_suggest (n',new_i))
 		else
 		  if is_election constants
-		  then Lwt.return (Election_suggest (n',new_i))
+		  then 
+		    let new_n = update_n constants n' in
+		    Lwt.return (Election_suggest (new_n, new_i))
 		  else paxos_fatal me "slave checking for promises"
 	      end
 	    else
@@ -306,7 +309,8 @@ let wait_for_promises constants state event =
 		    log ~me "wait_for_promises:dueling; forcing new master suggest" >>= fun () ->
 		    let reply = Nak (n', (n,i))  in
 		    constants.send reply me source >>= fun () ->
-		    Lwt.return (Forced_master_suggest (n',i))
+		    let new_n = update_n constants n in
+		    Lwt.return (Forced_master_suggest (new_n, i))
 		  end
 		else if is_election constants
 		then
