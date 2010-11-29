@@ -74,7 +74,7 @@ module Bdb = struct
 
   external _tranbegin: bdb -> unit = "bdb_tranbegin"
   external _trancommit: bdb -> unit = "bdb_trancommit"
-  external _tranabort: bdb -> unit = "bdb_trancommit"
+  external _tranabort: bdb -> unit = "bdb_tranabort"
 
   external range: bdb -> string option -> bool -> string option -> bool -> int -> string array
     = "bdb_range_bytecode" "bdb_range_native"

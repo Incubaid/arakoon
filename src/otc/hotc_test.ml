@@ -77,26 +77,39 @@ let test_prefix_fold db =
 
 
 let test_transaction db = 
+  let key = "test_transaction:1" 
+  and bad_key = "test_transaction:does_not_exist" 
+  in
   Lwt.catch 
     (fun () ->
       Hotc.transaction db
 	(fun db -> 
-	  Bdb.put db "test_transaction:1" "one";
-	  Bdb.out db "test_transaction:does_not_exist";
+	  Bdb.put db key "one";
+	  Bdb.out db bad_key;
 	  Lwt.return ()
 	) 
     )
     (function 
-      | Not_found -> Lwt.return ()
+      | Not_found -> 
+	Lwt_log.debug "yes, this key was not found" >>= fun () ->
+	Lwt.return ()
       | x -> Lwt.fail x
     )
   >>= fun () ->
-  Hotc.transaction db 
-    (fun db -> 
-      let v = Bdb.get db "test_transaction:1" in 
-      Lwt_io.printf "value=%s\n" v >>= fun () ->
-      OUnit.assert_failure "this is not a transaction"
-    )
+Lwt.catch
+  (fun () ->
+    Hotc.transaction db 
+      (fun db -> 
+	let v = Bdb.get db key in 
+	Lwt_io.printf "value=%s\n" v >>= fun () ->
+	OUnit.assert_failure "this is not a transaction"
+      )
+  )
+  (function 
+    | Not_found -> Lwt.return ()
+    | x -> Lwt.fail x
+  )
+ 
 
 
   

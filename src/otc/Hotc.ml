@@ -59,27 +59,17 @@ module Hotc = struct
       (fun () -> Bdb._dbclose t.bdb; Bdb._delete t.bdb; Lwt.return ())
 
   let _transaction t (f:Bdb.bdb -> 'a) =
-    (* let _ = log "_transaction start" in *)
     let bdb = t.bdb in
-    let _ = Bdb._tranbegin bdb in
-    (* let _ = log "_transaction in" in *)
-    let res = 
-      try
-	let res = f bdb in
-	let _ = Bdb._trancommit bdb in
-	res
-      with
-	| Failure msg ->
-	  let _ = Bdb._tranabort bdb in
-      (* let _ = log "_transaction aborted" in *)
-	  failwith msg
-	| x ->
-	  let _ = Bdb._tranabort bdb in
-      (* let _ = log "_transaction aborted" in *)
-	  raise x
-    in
-      (* let _ = log "_transaction done" in *)
-    res
+    let () = Bdb._tranbegin bdb in
+    try
+      let res = f bdb in
+      let () = Bdb._trancommit bdb in
+      res
+    with
+      | x ->
+	let () = Bdb._tranabort bdb in
+	raise x
+
 
   let transaction t (f:Bdb.bdb -> 'a) =
     _do_locked t (fun () -> _transaction t f)
