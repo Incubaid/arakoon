@@ -75,6 +75,39 @@ let test_prefix_fold db =
   Hotc.transaction db
     (fun db' -> Prefix_otc.iter (log "%s %s") db' "VOL")
 
+
+let test_transaction db = 
+  Lwt.catch 
+    (fun () ->
+      Hotc.transaction db
+	(fun db -> 
+	  Bdb.put db "test_transaction:1" "one";
+	  Bdb.out db "test_transaction:does_not_exist";
+	  Lwt.return ()
+	) 
+    )
+    (function 
+      | Not_found -> Lwt.return ()
+      | x -> Lwt.fail x
+    )
+  >>= fun () ->
+  Lwt.catch
+    (fun () ->
+      Hotc.transaction db 
+	(fun db -> 
+	  let v = Bdb.get db "test_transaction:1" in 
+	  Lwt_io.printf "value=%s\n" v >>= fun v ->
+	  OUnit.assert_failure "this is not a transaction"
+	  Lwt.return v
+	)
+    )
+    (function 
+      | Not_found -> Lwt.return () 
+      | x -> Lwt.fail x
+    )
+
+
+  
 let test_batch db =
   Hotc.transaction db
     (fun db' ->
@@ -121,4 +154,5 @@ let suite =
       "prefix" >:: wrap test_prefix;
       "prefix_fold" >:: wrap test_prefix_fold;
       "batch" >:: wrap test_batch;
+      "transaction" >:: wrap test_transaction;
     ]

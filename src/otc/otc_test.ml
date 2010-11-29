@@ -66,15 +66,16 @@ let test_cursor db =
   let _ = Bdb.next db cur in
   let _ = eq_string "key3" "key3" (Bdb.key db cur) in
   let _ = eq_string "value3" "value3" (Bdb.value db cur) in
-  let _ = try Bdb.next db cur; assert_failure "expecting failure" with _ -> () in
+  let _ = try Bdb.next db cur; assert_failure "expecting failure" with _ -> () 
+  in
   let _ = Bdb._cur_delete cur in
-    ()
+  ()
 
 let test_range db =
-  let _ = Bdb.put db "kex1" "value1" in
-  let _ = Bdb.put db "key2" "value2" in
-  let _ = Bdb.put db "key3" "value3" in
-  let _ = Bdb.put db "kez3" "value4" in
+  Bdb.put db "kex1" "value1";
+  Bdb.put db "key2" "value2";
+  Bdb.put db "key3" "value3";
+  Bdb.put db "kez3" "value4";
   let a = Bdb.range db (Some "key") true (Some "kez") false (-1) in
   let _ = eq_int "num==2" 2 (Array.length a) in
   let _ = eq_string "key2" "key2" a.(0) in
