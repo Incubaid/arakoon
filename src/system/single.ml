@@ -29,9 +29,15 @@ open Update
 
 
 let should_fail x error_msg success_msg =
-  Lwt.catch
-    (fun () -> x () >>= fun () -> Lwt.fail (Failure error_msg))
-    (fun exn -> Lwt_log.debug success_msg)
+  Lwt.catch 
+    (fun ()  -> 
+      x () >>= fun () -> 
+      Lwt_log.debug "should fail...doesn't" >>= fun () ->
+      Lwt.return true) 
+    (fun exn -> Lwt_log.debug ~exn success_msg >>= fun () -> Lwt.return false)
+  >>= fun bad -> 
+  if bad then Lwt.fail (Failure error_msg)
+  else Lwt.return ()
 
 
 let all_same_master ((cfgs,forced_master,quorum,_,_),_) =
@@ -133,8 +139,9 @@ let _exists client =
   end
 
 let _delete_after_set client =
-  client # set "delete" "xxx" >>= fun () ->
-  client # delete "delete"    >>= fun () ->
+  let key = "_delete_after_set" in
+  client # set key "xxx" >>= fun () ->
+  client # delete key    >>= fun () ->
   should_fail
     (fun () ->
       client # get "delete"  >>= fun v ->
@@ -275,14 +282,34 @@ let _sequence2 (client: Arakoon_client.client) =
   ]
   in
   should_fail
-    (fun () ->
-      client # sequence updates >>= fun () -> Lwt.return ())
-    "this should not work" "get here, great"
+    (fun () -> client # sequence updates)
+    "_sequence2:failing delete in sequence does not produce exception" 
+    "_sequence2:produced exception, which is intended"
   >>= fun ()->
+  Lwt_log.debug "_sequence2: part 2 of scenario" >>= fun () ->
   should_fail 
     (fun () -> client # get k2 >>= fun _ -> Lwt.return ())
-    "this should not work" "ok, this get should indeed fail"
+    "PROBLEM:_sequence2: get yielded a value" 
+    "_sequence2: ok, this get should indeed fail"
   >>= fun () -> Lwt.return ()
+
+let _sequence3 (client: Arakoon_client.client) = 
+  Lwt_log.info_f "_sequence3" >>= fun () ->
+  let k1 = "sequence3:key1" 
+  and k2 = "sequence3:key2" 
+  in
+  let changes = [Arakoon_client.Set (k1,k1 ^ ":value"); 
+		 Arakoon_client.Delete k2;] in 
+  should_fail 
+    (fun () -> client # sequence changes) 
+    "PROBLEM: _sequence3: change should fail (exception in change)" 
+    "sequence3 changes indeed failed"
+  >>= fun () ->
+  should_fail 
+    (fun () -> client # get k1 >>= fun v1 -> Lwt_log.info_f "value=:%s" v1)
+    "PROBLEM:changes should be all or nothing" 
+    "ok: all-or-noting changes"
+  >>= fun () -> Lwt_log.info_f "sequence3.ok"
 
 let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
   Client_main.find_master cfgs >>= fun master_name ->
@@ -296,15 +323,37 @@ let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
     _exists client >>= fun () ->
     _test_and_set_1 client >>= fun () ->
     _test_and_set_2 client >>= fun () ->
+    _test_and_set_3 client 
+  in
+  Client_main.with_client master_cfg f
+
+let trivial_master2 ((cfgs,forced_master,quorum,_, use_compression),_) =
+  
+Client_main.find_master cfgs >>= fun master_name ->
+  Lwt_log.info_f "master=%S" master_name >>= fun () ->
+  let master_cfg =
+    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+  in
+  let f client =
     _test_and_set_3 client >>= fun () ->
     _range_1 client >>= fun () ->
     _range_entries_1 client >>= fun () ->
     _prefix_keys client >>= fun () ->
-    _detailed_range client >>= fun () ->
-    (* _list_entries client >>= fun () -> *)
+    _detailed_range client 
+  in
+  Client_main.with_client master_cfg f
+
+
+let trivial_master3 ((cfgs,forced_master,quorum,_, use_compression),_) =
+  Client_main.find_master cfgs >>= fun master_name ->
+  Lwt_log.info_f "master=%S" master_name >>= fun () ->
+  let master_cfg =
+    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+  in
+  let f client =
     _sequence client >>= fun () ->
     _sequence2 client >>= fun () ->
-    Lwt.return ()
+    _sequence3 client 
   in
   Client_main.with_client master_cfg f
 
@@ -353,6 +402,8 @@ let force_master =
       "all_same_master" >:: w all_same_master;
       "nothing_on_slave" >:: w nothing_on_slave;
       "trivial_master" >:: w trivial_master;
+      "trivial_master2" >:: w trivial_master2;
+      "trivial_master3" >:: w trivial_master3;
     ]
 
 let elect_master =
@@ -362,4 +413,6 @@ let elect_master =
       "all_same_master" >:: w all_same_master;
       "nothing_on_slave" >:: w nothing_on_slave;
       "trivial_master" >:: w trivial_master;
+      "trivial_master2" >:: w trivial_master2;
+      "trivial_master3" >:: w trivial_master3;
     ]

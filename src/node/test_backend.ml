@@ -24,6 +24,7 @@ open Lwt
 open Lwt_log
 open Backend
 open Update
+open Common
 
 module StringMap = Map.Make(String);;
 
@@ -56,7 +57,7 @@ let range_ kv first finc last linc max =
   let _,entries = StringMap.fold one' kv (0,[]) in
   entries
 
-class test_backend = object(self:#backend)
+class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
 
   method hello (s:string) = Lwt.return "test_backend.0.0.0"
@@ -105,8 +106,7 @@ class test_backend = object(self:#backend)
       ) _kv []
     in Lwt.return keys
 
-  method who_master () =
-    Lwt.return (Some "zen master")
+  method who_master () = Lwt.return (Some my_name)
 
   method sequence (updates:Update.t list) =
     info_f "test_backend::sequence" >>= fun () ->

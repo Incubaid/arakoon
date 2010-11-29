@@ -51,4 +51,16 @@ let test_lost_update () =
     (fun c -> c # get "xxx" >>= fun v -> Lwt_io.printlf "value=%s" v);
   Node.stop_all();;
 
-  
+open Arakoon_client  
+
+let test_sequence_is_transaction () = 
+  let _ = mr_proper () in
+  Node.start_all () ;
+  Unix.sleep 1; 
+  let _ = Client_main.with_master_client "cfg/arakoon.ini"
+    (fun c -> let seq = [Set ("key1","value1"); 
+			 Delete ("key2");]
+	      in 
+	      c # sequence seq
+    )
+  in ();;

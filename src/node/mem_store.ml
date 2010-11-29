@@ -86,9 +86,19 @@ object (self: #store)
     Lwt.return master
 
   method delete key =
-    let () = self # _incr_i () in
-    let () = kv <- StringMap.remove key kv in
-    Lwt.return ()
+    Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
+    if StringMap.mem key kv then
+      begin
+	Lwt_log.debug_f "%S exists" key >>= fun () ->
+	let () = self # _incr_i () in
+	let () = kv <- StringMap.remove key kv in
+	Lwt.return ()
+      end
+    else
+      begin
+	Lwt_log.debug "going to fail" >>= fun () ->
+	Lwt.fail (Key_not_found key)
+      end
 
   method test_and_set key expected wanted =
     Lwt.catch 
@@ -111,11 +121,22 @@ object (self: #store)
   method sequence updates = 
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let do_one =  function
-      | Update.Set (k,v) -> self # set k v
-      | Update.Delete k  -> self # delete k
+      | Update.Set (k,v) -> 
+	Lwt_log.debug_f "set # %S %S" k v >>= fun () -> 
+	self # set k v
+      | Update.Delete k  -> 
+	Lwt_log.debug_f "delete # %S" k >>= fun () ->
+	self # delete k >>= fun () ->
+	Lwt_log.debug "done delete"
       | _ -> Llio.lwt_failfmt "Sequence only supports SET & DELETE"
     in
-    Lwt_list.iter_s do_one updates
+    let old_kv = kv in
+    Lwt.catch
+      (fun () -> 
+	Lwt_list.iter_s do_one updates)
+      (fun exn -> kv <- old_kv; 
+	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
+	Lwt.fail exn)
 
   method consensus_i () = Lwt.return i
 
