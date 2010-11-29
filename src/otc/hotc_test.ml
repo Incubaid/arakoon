@@ -91,19 +91,11 @@ let test_transaction db =
       | x -> Lwt.fail x
     )
   >>= fun () ->
-  Lwt.catch
-    (fun () ->
-      Hotc.transaction db 
-	(fun db -> 
-	  let v = Bdb.get db "test_transaction:1" in 
-	  Lwt_io.printf "value=%s\n" v >>= fun v ->
-	  OUnit.assert_failure "this is not a transaction"
-	  Lwt.return v
-	)
-    )
-    (function 
-      | Not_found -> Lwt.return () 
-      | x -> Lwt.fail x
+  Hotc.transaction db 
+    (fun db -> 
+      let v = Bdb.get db "test_transaction:1" in 
+      Lwt_io.printf "value=%s\n" v >>= fun () ->
+      OUnit.assert_failure "this is not a transaction"
     )
 
 
