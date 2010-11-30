@@ -39,7 +39,7 @@ class type client = object
   *)
 
 
-      (** yields the list of keys starting with that prefix *)
+  (** yields the list of keys starting with that prefix *)
   method prefix_keys: key -> int -> key list Lwt.t
 
   (** updates a value conditionally *)
@@ -51,6 +51,8 @@ class type client = object
       Note that wanted can be None and can be used to delete a value
   *)
 
+  method multi_get: key list -> (value list) Lwt.t
+  
   method hello: string -> string Lwt.t
 
   method sequence: change list -> unit Lwt.t (* ... hm ... *)

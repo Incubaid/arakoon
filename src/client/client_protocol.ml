@@ -199,6 +199,25 @@ let one_command (ic,oc) backend =
 	Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
 	Lwt_io.flush oc
       end
+    | MULTI_GET ->
+      begin
+	Llio.input_int ic >>= fun length ->
+	let rec loop keys i = 
+	  if i = 0
+	  then Lwt.return keys
+	  else 
+	    begin
+	      Llio.input_string ic >>= fun key -> 
+	      loop (key :: keys) (i-1)
+	    end
+	in 
+	loop [] length >>= fun keys ->
+	backend # multi_get keys >>= fun values ->
+	Llio.output_int oc 0 >>= fun () ->
+	Llio.output_int oc length >>= fun () ->
+	Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+	Lwt_io.flush oc
+      end
     | SEQUENCE ->
       begin
 	Llio.input_string ic >>= fun data ->
@@ -216,6 +235,7 @@ let one_command (ic,oc) backend =
 	    (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
 			 "should have been a sequence"))
       end
+      
 
 let protocol backend connection =
   info "client_protocol" >>= fun () ->

@@ -170,6 +170,12 @@ object(self: #backend)
       | Store.Update_fail (rc, str) -> Lwt.fail (XException(rc, str))
       | Store.Ok _ -> Lwt.return ()
 
+  method multi_get (keys:string list) =
+    log_o self "multi_get" >>= fun () ->
+    self # _only_if_master () >>= fun () ->
+    store # multi_get keys >>= fun values ->
+    Lwt.return values
+
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
 
   method private _who_master () =

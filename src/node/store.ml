@@ -34,6 +34,7 @@ let __prefix = "@"
 class type store = object
   method exists: string -> bool Lwt.t
   method get: string -> string Lwt.t
+  method multi_get:string list -> string list Lwt.t
   method range: string option -> bool -> string option -> bool -> int -> string list Lwt.t
   method range_entries: string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method prefix_keys: string -> int -> string list Lwt.t

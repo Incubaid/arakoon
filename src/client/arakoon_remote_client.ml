@@ -67,6 +67,10 @@ object(self: #Arakoon_client.client)
     request (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
     response ic Llio.input_string_option
 
+  method multi_get keys = 
+    request (fun buf -> multiget_to buf keys) >>= fun () ->
+    response ic value_list
+
   method sequence changes = 
     let outgoing buf = 
       command_to buf SEQUENCE;

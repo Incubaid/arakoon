@@ -84,6 +84,15 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
+  method multi_get (keys: string list) = 
+    let values = List.fold_left 
+      (fun acc k -> 
+	let v = StringMap.find k _kv in
+	(v ::acc))
+      [] keys
+    in 
+    Lwt.return values
+		    
   method range_entries (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in

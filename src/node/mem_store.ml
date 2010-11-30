@@ -50,6 +50,13 @@ object (self: #store)
   method get key =
     try_lwt_ (fun () -> StringMap.find key kv)
 
+  method multi_get keys =
+    let values = List.fold_left 
+      (fun acc key -> let value = StringMap.find key kv in value :: acc)
+      [] keys
+    in 
+    Lwt.return (List.rev values)
+
   method range first finc last linc max =
     let keys = Test_backend.range_ kv first finc last linc max in
     Lwt.return keys

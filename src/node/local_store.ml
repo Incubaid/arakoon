@@ -145,6 +145,17 @@ object(self: #store)
   method get key =
     Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key)))
 
+  method multi_get keys = 
+    Hotc.transaction db 
+      (fun db -> 
+	let vs = List.fold_left 
+	  (fun acc key -> 
+	    let v = Bdb.get db (_p key) in
+	    v::acc)
+	  [] keys
+	in 
+	Lwt.return (List.rev vs))
+
   method range first finc last linc max =
     Hotc.transaction db
       (fun db -> Lwt.return (Bdb.range db (_f first) finc (_l last) linc max)) >>= fun r ->

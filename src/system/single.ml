@@ -311,6 +311,22 @@ let _sequence3 (client: Arakoon_client.client) =
     "ok: all-or-noting changes"
   >>= fun () -> Lwt_log.info_f "sequence3.ok"
 
+let _multi_get (client: Arakoon_client.client) = 
+  let key1 = "_multi_get:key1"
+  and key2 = "_multi_get:key2" 
+  in
+  client # set key1 key1 >>= fun () ->
+  client # set key2 key2 >>= fun () ->
+  client # multi_get [key1;key2] >>= fun values ->
+  match values with
+    | [v1;v2] -> 
+      Lwt_io.printlf "v1=%S;v2=%S" v1 v2
+      >>= fun () ->
+      OUnit.assert_equal v1 key1;
+      OUnit.assert_equal v2 key2;
+      Lwt.return ()
+    | _ -> Lwt.fail (Failure "2 values expected")
+
 let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
   Client_main.find_master cfgs >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
@@ -356,6 +372,12 @@ let trivial_master3 ((cfgs,forced_master,quorum,_, use_compression),_) =
     _sequence3 client 
   in
   Client_main.with_client master_cfg f
+
+let trivial_master4 ((cfgs, forced_master,quorum,_,use_compression),_) = 
+  Client_main.find_master cfgs >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+  in
+  Client_main.with_client master_cfg _multi_get
 
 let setup () =
   let cfgs,forced_master, quorum, lease_expiry, use_compression = 
@@ -404,6 +426,7 @@ let force_master =
       "trivial_master" >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
+      "trivial_master4" >:: w trivial_master4;
     ]
 
 let elect_master =
@@ -415,4 +438,5 @@ let elect_master =
       "trivial_master" >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
+      "trivial_master4" >:: w trivial_master4;
     ]

@@ -42,6 +42,7 @@ type client_command =
   | LAST_ENTRIES
   | RANGE_ENTRIES
   | SEQUENCE
+  | MULTI_GET
 
 
 let code2int = [
@@ -56,7 +57,8 @@ let code2int = [
   TEST_AND_SET,  0xdl ;
   LAST_ENTRIES,  0xel ;
   RANGE_ENTRIES, 0xfl ;
-  SEQUENCE, 0x10l;
+  SEQUENCE,      0x10l;
+  MULTI_GET,     0x11l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
@@ -174,6 +176,11 @@ let test_and_set_to b key expected wanted =
   Llio.string_to b key;
   Llio.string_option_to b expected;
   Llio.string_option_to b wanted
+
+let multiget_to b keys =
+  command_to b MULTI_GET;
+  Llio.int_to b (List.length keys);
+  List.iter (Llio.string_to b) keys
 
 let who_master_to b =
   command_to b WHO_MASTER

@@ -35,6 +35,7 @@ class type backend = object
   method prefix_keys: string -> int -> (string list) Lwt.t
   method last_entries: Sn.t -> (Sn.t * Update.t -> unit Lwt.t) -> unit Lwt.t
 
+  method multi_get: string list -> string list Lwt.t
   method hello: string -> string Lwt.t
 
   method who_master: unit -> string option Lwt.t
