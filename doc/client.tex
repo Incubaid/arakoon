@@ -74,3 +74,6 @@ If there is no master, or it is not known to this node, the result is None.
 \paragraph{sequence: update list $\rightarrow$ unit C.t}
 Provides an atomic multi-update. Either all updates are performed or none. 
 While this is not a full transaction, it provides enough functionality to safeguard consistency.
+
+\paragraph{multi\_get: key list $\rightarrow$ (value list) C.t}
+Allows you to fetch multiple values in one roundtrip to the server.
