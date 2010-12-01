@@ -56,6 +56,30 @@ let _get client max_n =
   in
   loop 0
 
+let _get_transactions client max_n t size = 
+  let n_transactions = (max_n + t -1) / t in
+  let rec loop_t i =
+    if i = n_transactions 
+    then Lwt.return ()
+    else
+      begin
+	let rec build acc j =
+	  if j = t 
+	  then acc
+	  else
+	    let i = Random.int max_n in
+	    let key = _cat "key" i in
+	    build (key::acc) (j+1)
+	in 
+	let keys = build [] 0 in
+	client # multi_get keys >>= fun values ->
+	loop_t (i+1)
+      end
+  in
+  loop_t 0
+      
+
+
 let _fill client max_n size= 
   let v0 = String.make (size - 8) 'x' in
   let rec loop n =
@@ -96,6 +120,7 @@ let _fill_transactions client max_n t size=
   in
   loop_t 0
 
+
 let _range client ()  =
   let first = _cat "key" 1
   and last = _cat "key" 9999
@@ -129,6 +154,23 @@ let benchmark ?(size=10) client =
   let t3 = Unix.gettimeofday() in
   Lwt_io.printlf "\nget of %i values (random keys) took: %f" max_n (t3 -.t2) 
   >>= fun() ->
+  _get_transactions client max_n t sz >>= fun () ->
+  let t4 = Unix.gettimeofday () in
+  Lwt_io.printlf "\nmultiget of %i values (random keys) in transactions of size %i took %f"
+    max_n t (t4 -. t3) >>= fun () ->
+  Lwt_io.printlf "range" >>= fun () ->
   _range client ()  >>= fun () ->
+  
   Lwt.return ()
+
+
+
+
+
+
+
+
+
+
+
 
