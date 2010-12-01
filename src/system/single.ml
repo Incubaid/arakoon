@@ -307,7 +307,7 @@ let _sequence3 (client: Arakoon_client.client) =
   >>= fun () ->
   should_fail 
     (fun () -> client # get k1 >>= fun v1 -> Lwt_log.info_f "value=:%s" v1)
-    "PROBLEM:changes should be all or nothing" 
+    "PROBLEM: changes should be all or nothing" 
     "ok: all-or-noting changes"
   >>= fun () -> Lwt_log.info_f "sequence3.ok"
 
@@ -318,14 +318,23 @@ let _multi_get (client: Arakoon_client.client) =
   client # set key1 key1 >>= fun () ->
   client # set key2 key2 >>= fun () ->
   client # multi_get [key1;key2] >>= fun values ->
-  match values with
-    | [v1;v2] -> 
-      Lwt_io.printlf "v1=%S;v2=%S" v1 v2
-      >>= fun () ->
-      OUnit.assert_equal v1 key1;
-      OUnit.assert_equal v2 key2;
-      Lwt.return ()
-    | _ -> Lwt.fail (Failure "2 values expected")
+  begin
+    match values with
+      | [v1;v2] -> 
+	Lwt_io.printlf "v1=%S;v2=%S" v1 v2
+	>>= fun () ->
+	OUnit.assert_equal v1 key1;
+	OUnit.assert_equal v2 key2;
+	Lwt.return ()
+	  | _ -> Lwt.fail (Failure "2 values expected")
+  end >>= fun () ->
+  Lwt.catch
+    (fun () -> 
+      client # multi_get ["I_DO_NOT_EXIST";key2] 
+      >>= fun values ->
+      Lwt.return ())
+    (fun exn -> Lwt_log.debug ~exn "is this ok?")
+  
 
 let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
   Client_main.find_master cfgs >>= fun master_name ->

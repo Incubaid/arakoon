@@ -153,6 +153,20 @@ class ArakoonClient :
         return result
 
     @retryDuringMasterReelection
+    def multiGet(self,keys):
+        """
+        Retrieve the values for the keys in the given list.
+
+        @type key: string list
+        @rtype: string list
+        @return: the values associated with the respective keys
+        """
+        msg = ArakoonProtocol.encodeMultiGet(keys)
+        conn = self._sendToMaster(msg)
+        result = conn.decodeStringListResult()
+        return result
+    
+    @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string' )
     def set(self, key, value):
         """

@@ -150,8 +150,13 @@ object(self: #store)
       (fun db -> 
 	let vs = List.fold_left 
 	  (fun acc key -> 
-	    let v = Bdb.get db (_p key) in
-	    v::acc)
+	    try
+	      let v = Bdb.get db (_p key) in 
+	      v::acc
+	    with Not_found -> 
+	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
+	      raise exn
+	  )
 	  [] keys
 	in 
 	Lwt.return (List.rev vs))

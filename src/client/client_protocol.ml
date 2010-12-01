@@ -212,11 +212,14 @@ let one_command (ic,oc) backend =
 	    end
 	in 
 	loop [] length >>= fun keys ->
-	backend # multi_get keys >>= fun values ->
-	Llio.output_int oc 0 >>= fun () ->
-	Llio.output_int oc length >>= fun () ->
-	Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-	Lwt_io.flush oc
+	Lwt.catch
+	  (fun () ->
+	    backend # multi_get keys >>= fun values ->
+	    Llio.output_int oc 0 >>= fun () ->
+	    Llio.output_int oc length >>= fun () ->
+	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+	    Lwt_io.flush oc)
+	  (handle_exception oc)
       end
     | SEQUENCE ->
       begin

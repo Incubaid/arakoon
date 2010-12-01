@@ -201,6 +201,7 @@ ARA_CMD_RAN_E = 0x0000000f | ARA_CMD_MAG
 
 #sequence
 ARA_CMD_SEQ = 0x00000010 | ARA_CMD_MAG
+ARA_CMD_MULTI_GET = 0x00000011 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -400,6 +401,14 @@ class ArakoonProtocol :
         retVal = _packInt( ARA_CMD_TAS ) + _packString( key )
         retVal += _packStringOption( oldVal )
         retVal += _packStringOption( newVal )
+        return retVal
+
+    @staticmethod
+    def encodeMultiGet(keys):
+        retVal = _packInt(ARA_CMD_MULTI_GET)
+        retVal += _packInt(len(keys))
+        for key in keys:
+            retVal += _packString(key)
         return retVal
 
     @staticmethod
