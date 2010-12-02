@@ -97,12 +97,13 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
 
 
 let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i) =
-  Lwt_log.info_f "starting catchup: I'm @ %s and %s is more recent (%s,%s)"
+  Lwt_log.info_f "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
   catchup_tlog me other_configs current_i mr_name tlog_coll>>= fun () ->
   catchup_store me db tlog_coll future_i >>= fun (end_i,vo) ->
+  Lwt_log.info_f "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
 
 

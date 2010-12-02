@@ -675,7 +675,8 @@ let rec paxos_produce buffers
 	    log ~me "taking from timeout" >>= fun () ->
 	    Lwt_buffer.take buffers.election_timeout_buffer 
 	  end
-        | None -> Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
+        | None -> 
+	  Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
         in get_highest_prio_evt ( [ ready_list ] ) 
     ) 
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
@@ -692,9 +693,9 @@ let run_forced_slave constants buffers new_i =
       Fsm.loop ~trace produce 
 	(machine constants) (Slave.slave_fake_prepare constants new_i)
     ) 
-    (fun e ->
-      log ~me "FSM BAILED due to uncaught exception %s" (Printexc.to_string e) 
-      >>= fun () -> Lwt.fail e
+    (fun exn ->
+      Lwt_log.warning ~exn "FSM BAILED due to uncaught exception" 
+      >>= fun () -> Lwt.fail exn
     )
 
 let run_forced_master constants buffers current_i =

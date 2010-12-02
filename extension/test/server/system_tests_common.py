@@ -106,6 +106,7 @@ def get_last_tlog_id ( node_id ):
         tlog_id = int( tlog_id )
         if tlog_id > tlog_max_id :
             tlog_max_id = tlog_id
+    logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
     return tlog_max_id
     
 def get_last_i_tlog ( node_id ):
@@ -494,7 +495,9 @@ def assert_key_value_list( start_suffix, list_size, list ):
 def assert_last_i_in_sync ( node_1, node_2 ):
     last_i_0 = get_last_i_tlog( node_1 )
     last_i_1 = get_last_i_tlog( node_2 )    
-    assert_equals( int(last_i_0), int(last_i_1), "Values for i are invalid %s %s" % (last_i_0, last_i_1) )  
+    assert_equals( int(last_i_0),
+                   int(last_i_1),
+                   "Values for i are invalid %s %s" % (last_i_0, last_i_1) )  
 
 def assert_running_nodes ( n ):
     assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1 )
