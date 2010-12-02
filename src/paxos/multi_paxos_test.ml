@@ -30,26 +30,37 @@ open Multi_paxos
 open Update
 open Lwt_buffer
 
+let v2s = Value.string_of
+let sn2s = Sn.string_of 
+
 let test_take () =
   Lwt.return (None, (fun s -> Lwt.return ()))
 
+let build_name j = "c" ^ (string_of_int j) 
+
+let build_names n =
+  let rec _loop names = function
+    | 0 -> names
+    | j -> _loop (build_name j :: names ) (j-1)
+  in _loop [] n
+
+
 let test_generic network_factory n_nodes () =
-  let (get_buffer:string -> (Message.Message.t * Messaging.id) Lwt_buffer.t), send, receive, peek, nw_run, nw_register = network_factory () in
-  let me = "c0" in
-  let v = Update.make_update_value (Update.make_master_set me) in
+  Lwt_log.info "START:TEST_GENERIC" >>= fun () ->
+  let get_buffer, send, receive, peek, nw_run, nw_register = network_factory () in
   let current_n = 42L
   and current_i = 666L in
   let values = Hashtbl.create 10 in
   let on_accept me (v,n,i) =
-    log ~me "on_accept(%s,%s,%s)" (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+    log ~me "on_accept(%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
-    log ~me "on_consensus(%s,%s,%s)" (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+    log ~me "on_consensus(%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
       >>= fun () -> Lwt.return (Store.Ok None)
   in
   let get_value i = Lwt.fail (Failure "no_value") in
-  let build_name j = "c" ^ (string_of_int j) in
+
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
@@ -71,12 +82,6 @@ let test_generic network_factory n_nodes () =
 	      inject_event = inject_ev inject_buffer;
 	     }
   in
-  let build_names n=
-    let rec _loop names = function
-      | 0 -> names
-      | j -> _loop (build_name j :: names ) (j-1)
-    in _loop [] n
-  in
   let all_happy = build_names (n_nodes -1) in
   let build_others name = List.filter (fun n -> n <> name) all_happy in
   let steps = 100 * n_nodes in
@@ -86,8 +91,6 @@ let test_generic network_factory n_nodes () =
       | 0 -> ts
       | i -> let me = build_name i in
 	     let others = "c0" :: build_others me in
-	     let () = List.iter (fun n -> Printf.printf "%s\n" n) others in
-	     let () = Printf.printf "------------\n" in
 	     let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	     let constants = { base with
 	       me = me;
@@ -110,7 +113,8 @@ let test_generic network_factory n_nodes () =
 	       let buffers = Multi_paxos_fsm.make_buffers 
 		 (client_buffer,get_buffer me, 
 		  inject_buffer, election_timeout_buffer) in
-	       Multi_paxos_fsm.expect_run_forced_slave constants buffers expected steps current_i
+	       Multi_paxos_fsm.expect_run_forced_slave 
+		 constants buffers expected steps current_i
 		 >>= fun result ->
 	       log ~me "node done." >>= fun () ->
 	       Lwt.return ()
@@ -121,8 +125,8 @@ let test_generic network_factory n_nodes () =
   let ts = build_n (n_nodes -1) in
   let me = "c0" in
   log ~me "%d other nodes started" (List.length ts) >>= fun () ->
-  let constants = {
-    base with me = me;
+  let constants = { base with 
+      me = me;
       others = all_happy;
       on_accept = on_accept me;
       on_consensus = on_consensus me;
@@ -147,28 +151,46 @@ let test_generic network_factory n_nodes () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected steps current_n current_i
     >>= fun (v', n, i) ->
-    log "consensus reached on %s" (Value.string_of v')
+    log "consensus reached on %s" (v2s v')
   in
-  let addresses = List.map (fun name -> name , ("127.0.0.1", 7777)) ("c0"::all_happy) in
+  let addresses = List.map (fun name -> name , ("127.0.0.1", 7777)) 
+    ("c0"::all_happy) in
   let () = nw_register addresses in
-  (* wrap with first a yield cause else the situation blocks; a callback when the server is ready could perhaps help *)
+  (* wrap with first a yield cause else the situation blocks; 
+     a callback when the server is ready could perhaps help 
+  *)
   let nw_run_wrap () = Lwt_unix.yield () >>= nw_run in
   Lwt.pick [
     (Lwt.join ( (c0_t ()) :: ts) >>= fun () -> log "after join");
     (nw_run_wrap () )] >>= fun () ->
   let len = Hashtbl.length values in
   log "end of main... validating len = %d" len >>= fun () ->
-  Hashtbl.iter
-    (fun a b -> Extra.eq_conv Value.string_of "consensus" b v;
-      Printf.printf "%s:%s\n" a (Value.string_of b)
-    )
-    values;
+  let all_consensusses = Hashtbl.fold (fun a b acc -> 
+    let Value.V us = b in
+    let update,_ = Update.from_buffer us 0 in
+    let d = Update.string_of update in
+    (a,d) :: acc) values [] in
+  Lwt_list.iter_s 
+    (fun (name, update_string) -> 
+      Lwt_log.debug_f "%s:%s"  name update_string) 
+    all_consensusses
+  >>= fun () ->
+  List.fold_left (fun maybe_ms (name,us) -> 
+    match maybe_ms with 
+      | None -> Some us 
+      | Some ms ->
+	let msg = Printf.sprintf "%s:consensus" name in
+	Extra.eq_conv (fun s -> s) msg ms us;
+	maybe_ms
+  ) 
+    None all_consensusses;
   Extra.eq_int "values in tbl" n_nodes (Hashtbl.length values);
   Lwt.return ()
 
 
 let test_master_loop network_factory ()  =
-  let (get_buffer:string -> (Message.Message.t * Messaging.id) Lwt_buffer.t), send, receive, peek, nw_run, nw_register = network_factory () in
+  let get_buffer, send, receive, peek, nw_run, nw_register = 
+    network_factory () in
   let me = "c0" in
   let i0 = 666L in
   let others = [] in
@@ -181,17 +203,18 @@ let test_master_loop network_factory ()  =
   let () = Lwt.ignore_result (
     Lwt_list.iter_s
       (fun x ->
-	Lwt_buffer.add (Some (Value.create x),finished) client_buffer >>= fun () ->
+	Lwt_buffer.add (Some (Value.create x),finished) client_buffer 
+	>>= fun () ->
 	Lwt_unix.sleep 2.0
       ) values
   ) in
   let on_consensus (v,n,i) =
-    log "consensus: %s %s %s" (Value.string_of v) (Sn.string_of n) (Sn.string_of i) >>= fun () ->
+    log "consensus: %s %s %s" (v2s v) (sn2s n) (sn2s i) >>= fun () ->
     match v with
       | Value.V s -> Lwt.return (Store.Ok None)
   in
   let on_accept (v,n,i) =
-    log "accepted %s %s %s" (Value.string_of v) (Sn.string_of n) (Sn.string_of i) >>= fun () ->
+    log "accepted %s %s %s" (v2s v) (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return ()
   in
   let get_value i = Lwt.fail (Failure "no_value") in
@@ -247,7 +270,6 @@ let build_perfect () =
   let qs = Hashtbl.create 7 in
   let waiters = Hashtbl.create 7 in
   let get_q target =
-    Lwt.ignore_result (log "XXX get_buffer for %s" target);
     if Hashtbl.mem qs target then Hashtbl.find qs target
     else
       let q = Lwt_buffer.create () in
@@ -256,51 +278,12 @@ let build_perfect () =
   in
   let send msg source (target:string) =
     log ~me:source "%s --- %s ----->? %s" source (string_of msg) target >>= fun () ->
-    (* if not (Hashtbl.mem waiters target) then *)
-      let q = get_q target in
-      Lwt_buffer.add (Mp_msg.MPMessage.generic_of msg,source) q >>= fun () ->
-      log ~me:source "added to buffer of %s" target
-	(*
-    else (* somebody' waiting *)
-      let awakener = Hashtbl.find waiters target in
-      let () = Hashtbl.remove waiters target in
-      Lwt.wakeup awakener (msg,source);
-      Lwt.return ()
-	*)
-  in
-  let receive target =
-    Lwt.fail (Failure "don't call receive") >>= fun () ->
-    log ~me:target "receive" >>= fun () ->
-    let give (m,s) =
-      log ~me:"perfect" "%s receiving %s from %s"
-      target (string_of m) s >>= fun () ->
-      Lwt.return (Mp_msg.MPMessage.generic_of m,s)
-    in
     let q = get_q target in
-    if not (Lwt_buffer.is_empty q) then
-      Lwt_buffer.take q >>= fun (m,s) ->
-      Lwt.return (Mp_msg.MPMessage.of_generic m,s)
-    else
-      let waiter, awakener = Lwt.wait () in
-      let () = Hashtbl.add waiters target awakener in
-      waiter >>= fun (m,s) ->
-      give (m,s) >>= fun (m2,s2) ->
-      Lwt.return (Mp_msg.MPMessage.of_generic m2, s2)
-
+    Lwt_buffer.add (Mp_msg.MPMessage.generic_of msg,source) q >>= fun () ->
+    log ~me:source "added to buffer of %s" target
   in
-  let peek target =
-    Lwt.fail (Failure "don't call peek") >>= fun () ->
-    let q = get_q target in
-    if Lwt_buffer.is_empty q
-    then Lwt.return None
-    else
-      begin
-	Lwt_buffer.peek q >>= function
-	  | Some (m,s) ->
-	    Lwt.return (Some (Mp_msg.MPMessage.of_generic m, s))
-	  | None -> Lwt.return None
-      end
-  in
+  let receive target = Lwt.fail (Failure "don't call receive") in
+  let peek target    = Lwt.fail (Failure "don't call peek") in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
   let register (xs:(string * (string * int)) list) = () in
@@ -374,10 +357,10 @@ let test_simulation scenario () =
   let current_n = 42L in
   let current_i = 666L in
   let on_accept me (v,n,i) =
-    log ~me "on_accept: (%s,%s,%s)" (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+    log ~me "on_accept: (%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
-    log ~me "on_consensus: (%s,%s,%s) " (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+    log ~me "on_consensus: (%s,%s,%s) " (v2s v) (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return (Store.Ok None)
   in
@@ -420,7 +403,7 @@ let test_simulation scenario () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected 50 current_n current_i
     >>= fun (v', n, i) ->
-    log ~me "consensus reached on %s" (Value.string_of v')
+    log ~me "consensus reached on %s" (v2s v')
   in
   let cx_t me other =
     let inject_buffer = Lwt_buffer.create () in
