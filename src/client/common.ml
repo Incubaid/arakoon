@@ -129,7 +129,6 @@ let response ic f =
   Llio.input_int32 ic >>= function
     | 0l -> f ic
     | rc32 -> Llio.input_string ic >>= fun msg ->
-      Lwt_log.info_f "remote exception: %ld %s" rc32 msg >>= fun () ->
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
