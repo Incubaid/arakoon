@@ -59,6 +59,7 @@ let test_generic network_factory n_nodes () =
     log ~me "on_consensus(%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
       >>= fun () -> Lwt.return (Store.Ok None)
   in
+  let on_witness who i = Lwt.return () in
   let get_value i = Lwt.fail (Failure "no_value") in
 
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -73,6 +74,7 @@ let test_generic network_factory n_nodes () =
 	      get_value = get_value;
 	      on_accept= on_accept "???";
 	      on_consensus = on_consensus "???";
+	      on_witness = on_witness;
 	      quorum_function = Multi_paxos.quorum_function;
 	      forced_master=None;
 	      store = store;
@@ -217,6 +219,7 @@ let test_master_loop network_factory ()  =
     log "accepted %s %s %s" (v2s v) (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return ()
   in
+  let on_witness who i = Lwt.return () in
   let get_value i = Lwt.fail (Failure "no_value") in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
@@ -231,6 +234,7 @@ let test_master_loop network_factory ()  =
 		   get_value = get_value;
 		   on_accept = on_accept;
 		   on_consensus = on_consensus;
+		   on_witness = on_witness;
 		   quorum_function = Multi_paxos.quorum_function;
 		   forced_master = None;
 		   store = store;
@@ -268,7 +272,6 @@ type 'a simulation =
 
 let build_perfect () =
   let qs = Hashtbl.create 7 in
-  let waiters = Hashtbl.create 7 in
   let get_q target =
     if Hashtbl.mem qs target then Hashtbl.find qs target
     else
@@ -364,6 +367,7 @@ let test_simulation scenario () =
     >>= fun () ->
     Lwt.return (Store.Ok None)
   in
+  let on_witness who i = Lwt.return () in
   let get_value i = Lwt.fail (Failure "no value") in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
@@ -379,6 +383,7 @@ let test_simulation scenario () =
 		   get_value = get_value;
 		   on_accept = on_accept me;
 		   on_consensus = on_consensus me;
+		   on_witness = on_witness;
 		   quorum_function = Multi_paxos.quorum_function;
 		   forced_master = None;
 		   store = store;

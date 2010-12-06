@@ -42,6 +42,7 @@ type local_action =
   | GET
   | DELETE
   | WHO_MASTER
+  | EXPECT_PROGRESS_POSSIBLE
 
 type server_action =
   | Node
@@ -216,6 +217,8 @@ let actions = [
 			], "<key> : delete arakoon[<key>]");
   ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
   ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
+  ("--expect-progress-possible", Arg.Tuple[set_laction EXPECT_PROGRESS_POSSIBLE;],
+   "tells you if the master thinks progress is possible");
   ("--run-system-tests", set_laction SystemTests,
    "run system tests (you need a running installation");
   ("--version", set_laction ShowVersion, "shows version");
@@ -251,6 +254,7 @@ let do_local = function
   | BENCHMARK -> Client_main.benchmark !config_file !size
   | DELETE -> Client_main.delete !config_file !key
   | WHO_MASTER -> Client_main.who_master !config_file ()
+  | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
 in
 let do_server node =
   match node with

@@ -311,6 +311,12 @@ let _sequence3 (client: Arakoon_client.client) =
     "ok: all-or-noting changes"
   >>= fun () -> Lwt_log.info_f "sequence3.ok"
 
+let _progress_possible (client:Arakoon_client.client) = 
+  Lwt_log.info_f "_progress_possible" >>= fun () ->
+  client # expect_progress_possible () >>= fun b ->
+  OUnit.assert_equal ~msg:"we should have the possibility of progress here" b true;
+  Lwt.return ()
+
 let _multi_get (client: Arakoon_client.client) = 
   let key1 = "_multi_get:key1"
   and key2 = "_multi_get:key2" 
@@ -335,6 +341,8 @@ let _multi_get (client: Arakoon_client.client) =
       Lwt.return ())
     (fun exn -> Lwt_log.debug ~exn "is this ok?")
   
+
+
 
 let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
   Client_main.find_master cfgs >>= fun master_name ->
@@ -388,6 +396,12 @@ let trivial_master4 ((cfgs, forced_master,quorum,_,use_compression),_) =
   in
   Client_main.with_client master_cfg _multi_get
 
+let trivial_master5 ((cfgs, forced_master,quorum,_,use_compression),_) = 
+  Client_main.find_master cfgs >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+  in
+  Client_main.with_client master_cfg _progress_possible
+
 let setup () =
   let cfgs,forced_master, quorum, lease_expiry, use_compression = 
     read_config "cfg/arakoon.ini" in
@@ -431,8 +445,8 @@ let force_master =
   "force_master" >:::
     [
       "all_same_master" >:: w all_same_master;
-      "nothing_on_slave" >:: w nothing_on_slave;
-      "trivial_master" >:: w trivial_master;
+      "nothing_on_slave">:: w nothing_on_slave;
+      "trivial_master"  >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
       "trivial_master4" >:: w trivial_master4;
@@ -442,10 +456,11 @@ let elect_master =
   let w f = Extra.lwt_bracket (setup None) f teardown in
   "elect_master" >:::
     [
-      "all_same_master" >:: w all_same_master;
+      "all_same_master"  >:: w all_same_master;
       "nothing_on_slave" >:: w nothing_on_slave;
-      "trivial_master" >:: w trivial_master;
-      "trivial_master2" >:: w trivial_master2;
-      "trivial_master3" >:: w trivial_master3;
-      "trivial_master4" >:: w trivial_master4;
+      "trivial_master"   >:: w trivial_master;
+      "trivial_master2"  >:: w trivial_master2;
+      "trivial_master3"  >:: w trivial_master3;
+      "trivial_master4"  >:: w trivial_master4;
+      "trivial_master5"  >:: w trivial_master5;
     ]

@@ -100,6 +100,7 @@ type constants =
      on_consensus:
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
        Store.update_result Lwt.t;
+     on_witness: id -> Sn.t -> unit Lwt.t;
      quorum_function: int -> int;
      forced_master: string option;
      store:Store.store;
@@ -119,7 +120,9 @@ let is_election constants =
     | None -> true
     | Some _ -> false
 
-let make me others send receive get_value on_accept on_consensus quorum_function forced_master store tlog_coll other_cfgs lease_expiration inject_event =
+let make me others send receive get_value 
+    on_accept on_consensus on_witness
+    quorum_function forced_master store tlog_coll other_cfgs lease_expiration inject_event =
   {
     me=me;
     others=others;
@@ -129,6 +132,7 @@ let make me others send receive get_value on_accept on_consensus quorum_function
     get_value= get_value;
     on_accept = on_accept;
     on_consensus = on_consensus;
+    on_witness = on_witness;
     quorum_function = quorum_function;
     forced_master = forced_master;
     store = store;

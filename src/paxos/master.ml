@@ -88,16 +88,18 @@ let stable_master constants (v',n,new_i) = function
 	let me = constants.me in
 	log ~me "got msg %S from node %S" (string_of msg) source >>= fun () ->
 	match msg with
-	  | Prepare (n',_) when n' <= n ->
+	  | Prepare (n',i') when n' <= n ->
 	    begin
+	      constants.on_witness source i' >>= fun () ->
 	      Lwt_log.debug "always Nak-ing Prepare when running as master"
 	      >>= fun () ->
 	      let reply = Nak(n',(n,new_i)) in
 	      constants.send reply me source  >>= fun () ->
 	      Lwt.return (Stable_master (v',n,new_i))
 	    end
-	  | Prepare (n',_) when n' > n ->
+	  | Prepare (n',i') when n' > n ->
 	    begin
+	      constants.on_witness source i' >>= fun () ->
 	      if am_forced_master constants me
 	      then
 		Lwt.return (Forced_master_suggest (n',new_i))

@@ -110,6 +110,7 @@ let _main_2 make_store make_tlog_coll cfgs
     =
 
   let names = List.map (fun cfg -> cfg.node_name) cfgs in
+  let n_names = List.length names in
   let other_names = List.filter (fun n -> n <> name) names in
   let splitted, others = _split name cfgs in
     match splitted with
@@ -148,7 +149,8 @@ let _main_2 make_store make_tlog_coll cfgs
 	      in
 	      let backend =
 		new Sync_backend.sync_backend me client_push
-		  store tlog_coll lease_expiry
+		  store tlog_coll lease_expiry 
+		  quorum_function n_names
 	      in
 	      
 	      let service = _config_service me backend in
@@ -158,7 +160,8 @@ let _main_2 make_store make_tlog_coll cfgs
 	      let on_consensus (v,(n: Sn.t), (i: Sn.t) ) =
 		Store.on_consensus store (v,n,i)
 	      in
-	      
+	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
+	      in
 	      let on_accept (v,n,i) =
 		Lwt_log.debug_f "on_accept: %s %s %s" 
 		  (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
@@ -201,7 +204,9 @@ let _main_2 make_store make_tlog_coll cfgs
 	      in
 	      let constants = 
 		Multi_paxos.make my_name other_names send receive 
-		  get_last_value on_accept on_consensus quorum_function forced_master 
+		  get_last_value 
+		  on_accept on_consensus on_witness
+		  quorum_function forced_master 
 		  store tlog_coll others lease_expiry inject_event 
 
 	      in Lwt.return ((forced_master,constants, buffers, new_i), service)

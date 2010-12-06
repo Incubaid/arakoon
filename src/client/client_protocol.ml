@@ -177,6 +177,14 @@ let one_command (ic,oc) backend =
 	  Llio.output_string_option oc m >>= fun () ->
 	  Lwt_io.flush oc
 	end
+    | EXPECT_PROGRESS_POSSIBLE ->
+      begin
+	Lwt_log.debug "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
+	backend # expect_progress_possible () >>= fun poss ->
+	Llio.output_int32 oc 0l >>= fun () ->
+	Llio.output_bool oc poss >>= fun () ->
+	Lwt_io.flush oc
+      end
     | TEST_AND_SET ->
 	begin
 	  Llio.input_string ic >>= fun key ->

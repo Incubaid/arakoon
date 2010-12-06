@@ -48,9 +48,8 @@ let forced_master_suggest constants (n,i) () =
   Lwt.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
-let election_suggest constants state () =
+let election_suggest constants (n,i) () =
   let me = constants.me in
-  let (n,i) = state in
   let n' = n (*update_n constants n *) in
   log ~me "election_suggest: Master undecided, starting election n=%s" (Sn.string_of n') >>= fun () ->
   let v = Update.make_update_value (Update.make_master_set me) in
@@ -271,8 +270,9 @@ let wait_for_promises constants state event =
 		    Lwt.return (Slave_waiting_for_prepare i)
 		  end
 	      end
-	    | Prepare (n',_) when n' < n ->
+	    | Prepare (n',i') when n' < n ->
 	      begin
+		constants.on_witness source i' >>= fun () ->
 		let i = match i_lim with
 		  | None -> 0L
 		  | Some (_source,i) -> i
@@ -284,8 +284,9 @@ let wait_for_promises constants state event =
 		log ~me "wait_for_promises:: prepare re-sent mode, keep waiting" >>= fun () ->
 		Lwt.return (Wait_for_promises state)
 	      end
-	    | Prepare (n',_) when n' > n ->
+	    | Prepare (n',i') when n' > n ->
 	      begin
+		constants.on_witness source i' >>= fun () ->
 		let i = match i_lim with
 		  | None -> 0L
 		  | Some (_source,i) -> i
@@ -301,8 +302,9 @@ let wait_for_promises constants state event =
 		  constants.send reply me source >>= fun () ->
 		  Lwt.return (Wait_for_promises state)
 	      end
-	    | Prepare (n',_) when n' = n ->
+	    | Prepare (n',i') when n' = n ->
 	      begin
+		constants.on_witness source i' >>= fun () ->
 		if am_forced_master constants me
 		then
 		  begin
@@ -405,6 +407,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	match msg with
 	  | Accepted (n',i') when (n',i')=(n,i)  ->
 	    begin
+	      constants.on_witness source i' >>= fun () ->
 	      if List.mem source already_voted then
 		let reason = Printf.sprintf "%s already voted" source in
 		drop msg reason
@@ -414,28 +417,35 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    end
 	  | Accepted (n',i') when n' = n && i' < i ->
 	    begin
-	      log ~me "wait_for_accepteds: received older Accepted for my n: ignoring" >>= fun () ->
+	      constants.on_witness source i' >>= fun () ->
+	      log ~me "wait_for_accepteds: received older Accepted for my n: ignoring" 
+	      >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
 	  | Accepted (n',i') when n' > n ->
 	    paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
 	  | Accepted (n',i') when n' < n ->
 	    begin
-	      let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg) (Sn.string_of n) (Sn.string_of i) in
+	      constants.on_witness source i' >>= fun () ->
+	      let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
+		(Sn.string_of n) (Sn.string_of i) in
 	      drop msg reason
 	    end
 	  | Promise(n',i', limit) ->
-	    if n' <= n then
-	      begin
-		let reason = Printf.sprintf
-		  "already reached consensus on (%s,%s)" 
-		  (Sn.string_of n) (Sn.string_of i) 
-		in
-		drop msg reason
-	      end
-	    else
-	      paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
-		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
+	    begin
+	      constants.on_witness source i' >>= fun () ->
+	      if n' <= n then
+		begin
+		  let reason = Printf.sprintf
+		    "already reached consensus on (%s,%s)" 
+		    (Sn.string_of n) (Sn.string_of i) 
+		  in
+		  drop msg reason
+		end
+	      else
+		paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
+		  (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
+	    end
 	  | Prepare (n',_) when n' < n ->
 	    begin
 	      log ~me "wait_for_accepteds: received older Prepare" >>= fun () ->
