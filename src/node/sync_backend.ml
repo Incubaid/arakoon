@@ -42,11 +42,12 @@ class sync_backend cfg push_update
   (store:Store.store) 
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
-
+  quorum_function n_nodes
   =
   let my_name =  Node_cfg.node_name cfg in
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
+  val witnessed = Hashtbl.create 10 
 
   method exists key =
     log_o self "exists %s" key >>= fun () ->
@@ -216,4 +217,31 @@ object(self: #backend)
 	  Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
 	else
 	  Lwt.return ()
+
+  method witness name i = 
+    Hashtbl.replace witnessed name i;
+    Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
+    Lwt.return ()
+
+  method expect_progress_possible () = 
+    store # consensus_i () >>= function 
+      | None -> Lwt.return false
+      | Some i ->
+	let q = quorum_function n_nodes in
+	let count,s = Hashtbl.fold
+	  (fun name ci (count,s) -> 
+	    let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
+	    if ci = i 
+	    then  count+1,s' 
+	    else  count,s') 
+	  witnessed (1,"") in
+	let v = 
+
+	  if count >= q
+	  then true
+	  else false
+	in 
+	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
+	>>= fun () ->
+	Lwt.return v
 end

@@ -59,4 +59,5 @@ class type client = object
 
   method who_master: unit -> string option Lwt.t
 
+  method expect_progress_possible: unit -> bool Lwt.t
 end

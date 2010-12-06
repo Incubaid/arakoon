@@ -94,6 +94,10 @@ object(self: #Arakoon_client.client)
     request (fun buf -> who_master_to buf) >>= fun () ->
     response ic Llio.input_string_option
 
+  method expect_progress_possible () = 
+    request (fun buf -> expect_progress_possible_to buf) >>= fun () ->
+    response ic Llio.input_bool
+
   method hello me =
     request (fun buf -> hello_to buf me) >>= fun () ->
     response ic Llio.input_string

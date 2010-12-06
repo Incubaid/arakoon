@@ -43,22 +43,23 @@ type client_command =
   | RANGE_ENTRIES
   | SEQUENCE
   | MULTI_GET
-
+  | EXPECT_PROGRESS_POSSIBLE
 
 let code2int = [
-  HELLO,         0x1l ;
-  WHO_MASTER,    0x2l ;
-  EXISTS,        0x7l ;
-  GET,           0x8l ;
-  SET,           0x9l ;
-  DELETE,        0xal ;
-  RANGE,         0xbl ;
-  PREFIX_KEYS,   0xcl ;
-  TEST_AND_SET,  0xdl ;
-  LAST_ENTRIES,  0xel ;
-  RANGE_ENTRIES, 0xfl ;
-  SEQUENCE,      0x10l;
-  MULTI_GET,     0x11l;
+  HELLO,                    0x1l ;
+  WHO_MASTER,               0x2l ;
+  EXISTS,                   0x7l ;
+  GET,                      0x8l ;
+  SET,                      0x9l ;
+  DELETE,                   0xal ;
+  RANGE,                    0xbl ;
+  PREFIX_KEYS,              0xcl ;
+  TEST_AND_SET,             0xdl ;
+  LAST_ENTRIES,             0xel ;
+  RANGE_ENTRIES,            0xfl ;
+  SEQUENCE,                 0x10l;
+  MULTI_GET,                0x11l;
+  EXPECT_PROGRESS_POSSIBLE, 0x12l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
@@ -183,6 +184,9 @@ let multiget_to b keys =
 
 let who_master_to b =
   command_to b WHO_MASTER
+
+let expect_progress_possible_to b =
+  command_to b EXPECT_PROGRESS_POSSIBLE
 
 let hello_to b msg =
   command_to b HELLO;

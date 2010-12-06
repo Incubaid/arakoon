@@ -76,7 +76,7 @@ let set cfg_name key value =
 let get cfg_name key =
   let f client =
     client # get key >>= fun value ->
-    Lwt_io.printlf "%S%!\n" value
+    Lwt_io.printlf "%S%!" value
   in
   with_master_client cfg_name f
 
@@ -86,6 +86,13 @@ let delete cfg_name key =
 let benchmark cfg_name size= 
   with_master_client cfg_name (Benchmark.benchmark ~size)
 
+let expect_progress_possible cfg_name =
+  let f client = 
+    client # expect_progress_possible () >>= fun b ->
+    Lwt_io.printlf "%b" b
+  in
+  with_master_client cfg_name f
+  
 let who_master cfg_name () =
   let cfgs,_,_,_,_ = read_config cfg_name in
   let t () = 
