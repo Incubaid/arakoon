@@ -37,7 +37,7 @@ let forced_master_suggest constants (n,i) () =
   let me = constants.me
   and others = constants.others in
   let n' = update_n constants n in
-  mcast constants (Prepare n') >>= fun () ->
+  mcast constants (Prepare (n',i)) >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
   let v = Update.make_update_value (Update.make_master_set me) in
@@ -56,7 +56,7 @@ let election_suggest constants state () =
   let v = Update.make_update_value (Update.make_master_set me) in
   let others = constants.others in
   start_election_timeout constants n' >>= fun () ->
-  mcast constants (Prepare n') >>= fun () ->
+  mcast constants (Prepare (n',i)) >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
   let ballot = (needed -1, [me] ) in
   let v_lims = [v] in
@@ -76,14 +76,14 @@ let slave_waiting_for_prepare constants current_i event =
 	let me = constants.me in
 	log ~me "slave_waiting_for_prepare: %S" (MPMessage.string_of msg) >>= fun () ->
 	match msg with
-	  | Prepare(n) when n >= 0L ->
+	  | Prepare(n,_) when n >= 0L ->
 	    begin
 	      let reply = Promise(n,current_i,None) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_wait_for_accept (n, current_i, None, None))
 	    end
-	  | Prepare(n) when n < 0L ->
+	  | Prepare(n,_) when n < 0L ->
 	    begin
 	      log ~me "forced_slave ignoring Prepare with n<0" >>= fun () ->
 	      Lwt.return (Slave_waiting_for_prepare current_i)
@@ -271,7 +271,7 @@ let wait_for_promises constants state event =
 		    Lwt.return (Slave_waiting_for_prepare i)
 		  end
 	      end
-	    | Prepare n' when n' < n ->
+	    | Prepare (n',_) when n' < n ->
 	      begin
 		let i = match i_lim with
 		  | None -> 0L
@@ -280,11 +280,11 @@ let wait_for_promises constants state event =
 		let reply = Nak (n', (n,i))  in
 		log ~me "wait_for_promises:: Nak-ing lower prepare" >>= fun () ->
 		constants.send reply me source >>= fun () ->
-		constants.send (Prepare n) me source >>= fun () ->
+		constants.send (Prepare (n,i)) me source >>= fun () ->
 		log ~me "wait_for_promises:: prepare re-sent mode, keep waiting" >>= fun () ->
 		Lwt.return (Wait_for_promises state)
 	      end
-	    | Prepare n' when n' > n ->
+	    | Prepare (n',_) when n' > n ->
 	      begin
 		let i = match i_lim with
 		  | None -> 0L
@@ -301,7 +301,7 @@ let wait_for_promises constants state event =
 		  constants.send reply me source >>= fun () ->
 		  Lwt.return (Wait_for_promises state)
 	      end
-	    | Prepare n' when n' = n ->
+	    | Prepare (n',_) when n' = n ->
 	      begin
 		if am_forced_master constants me
 		then
@@ -436,7 +436,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    else
 	      paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
 		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
-	  | Prepare n' when n' < n ->
+	  | Prepare (n',_) when n' < n ->
 	    begin
 	      log ~me "wait_for_accepteds: received older Prepare" >>= fun () ->
 	      let reply0 = Nak (n', (n,i)) in
@@ -447,7 +447,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(MPMessage.string_of reply1) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Prepare n' when n' >= n ->
+	  | Prepare (n',_) when n' >= n ->
 	    begin
 	      if am_forced_master constants me
 	      then

@@ -442,8 +442,8 @@ let test_simulation scenario () =
 let ideal =
   let v = Value.create "c0" in
   [
-  (Prepare(42L)         , "c0", "c1");
-  (Prepare(42L)         , "c0", "c2");
+  (Prepare(42L,0L)         , "c0", "c1");
+  (Prepare(42L,0L)         , "c0", "c2");
   (Promise(42L, 0L, None), "c1", "c0");
   (Promise(42L, 0L, None), "c2", "c0");
   (Accept(42L, 0L, v)     , "c0", "c1");
@@ -455,7 +455,7 @@ let ideal =
 let c2_fails =
   let v = Value.create "c0" in
   [
-    (Prepare 42L          , "c0", "c1");
+    (Prepare (42L,0L)          , "c0", "c1");
     (Promise(42L, 666L, None), "c1", "c0");
   (* (Promise(42, 0, None), "c2", "c0"); *)
     (Accept (42L, 666L, v)   , "c0", "c1");
@@ -468,8 +468,8 @@ let c2_promised =
   let v = Value.create "c0" in
   let v2 = Value.create "other" in
   [
-    (Prepare 42L             , "c0", "c1");
-    (Prepare 42L             , "c0", "c2");
+    (Prepare (42L,0L)             , "c0", "c1");
+    (Prepare (42L,0L)             , "c0", "c2");
     (Promise(42L, 0L, None)   , "c1", "c0");
     (Promise(42L, 0L, Some v2) , "c2", "c0");
     (Accept(42L,0L,v)         , "c0", "c1");

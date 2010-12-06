@@ -25,14 +25,15 @@ open Message
 module MPMessage = struct
   type n = Sn.t
   type t =
-    | Prepare of n
+    | Prepare of n * n (* n, i *)
     | Promise of n * n * Value.t option
     | Accept of n * n * Value.t
     | Accepted of n * n
     | Nak of n * (n *n) (* n,(n',i') *)
 
   let string_of = function
-    | Prepare n -> "Prepare(" ^ (Sn.string_of n) ^")"
+    | Prepare (n,i) -> 
+      "Prepare(" ^ (Sn.string_of n) ^", " ^ (Sn.string_of i) ^ ")"
     | Promise (n,i,v) ->
       let ns = Sn.string_of n
       and is = Sn.string_of i
@@ -54,8 +55,11 @@ module MPMessage = struct
 	(Sn.string_of n) (Sn.string_of n') (Sn.string_of i')
 
   let generic_of = function
-    | Prepare i ->
-	Message.create "prepare" (Sn.string_of i)
+    | Prepare (n,i) ->
+      let buf = Buffer.create 20 in
+      Sn.sn_to buf n;
+      Sn.sn_to buf i;
+      Message.create "prepare" (Buffer.contents buf)
     | Promise (n,i, vo) ->
       let buf = Buffer.create 20 in
       Sn.sn_to buf n;
@@ -83,7 +87,10 @@ module MPMessage = struct
   let of_generic m =
     let kind, payload = Message.kind_of m, Message.payload_of m in
       match kind with
-	| "prepare" -> Prepare (Sn.of_string payload)
+	| "prepare" -> 
+	  let n, pos1 = Sn.sn_from payload 0 in
+	  let i, _    = Sn.sn_from payload pos1 in
+	  Prepare (n,i)
 	| "nak"     ->
 	  let n, pos1 = Sn.sn_from payload 0 in
 	  let n', pos2 = Sn.sn_from payload pos1 in

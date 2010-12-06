@@ -32,7 +32,7 @@ let slave_fake_prepare constants current_i () =
   (* fake a prepare, and hopefully wake up a dormant master *)
   let me = constants.me in
   log ~me "slave_fake_prepare: sending Prepare(-1)" >>= fun () ->
-  let fake = Prepare( Sn.of_int (-1) ) in
+  let fake = Prepare( Sn.of_int (-1), current_i) in
   Multi_paxos.mcast constants fake >>= fun () ->
   Lwt.return (Slave_waiting_for_prepare current_i)
 
@@ -92,7 +92,7 @@ let slave_steady_state constants state event =
 	      >>= fun () ->
 	      Lwt.return (Slave_fake_prepare i)
 	    end
-	  | Prepare(n') ->
+	  | Prepare(n',_) ->
 	    if n' <= n then
 	      begin
 		begin
@@ -198,7 +198,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	  (Sn.string_of n) (string_of msg) 
 	>>= fun () ->
 	match msg with
-	  | Prepare n' ->
+	  | Prepare (n',_) ->
 	    if n' < n then
 	      begin
 		(* let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> *)
@@ -217,19 +217,6 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
-	      (*begin
-		match maybe_previous with
-		  | None -> Lwt.return () 
-		  | Some (previous, pi) -> 
-		    begin
-		      log ~me "SOME PREVIOUS: %s,pi=%s;i=%s" 
-			(Value.string_of previous) 
-			(Sn.string_of pi) (Sn.string_of i)
-		      >>= fun () ->
-		      constants.on_consensus (previous,n,pi) >>= fun _ ->
-		      Lwt.return ()
-		    end
-	      end >>= fun () -> *)
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      constants.on_consensus (v,n,i) >>= fun _ ->
 	      let reply = Accepted(n,i) in
