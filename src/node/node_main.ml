@@ -158,7 +158,8 @@ let _main_2 make_store make_tlog_coll cfgs
 	      let on_consensus (v,(n: Sn.t), (i: Sn.t) ) =
 		Store.on_consensus store (v,n,i)
 	      in
-	      
+	      let on_witness (name:string) (i: Sn.t) = Lwt.return () 
+	      in
 	      let on_accept (v,n,i) =
 		Lwt_log.debug_f "on_accept: %s %s %s" 
 		  (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
@@ -201,7 +202,9 @@ let _main_2 make_store make_tlog_coll cfgs
 	      in
 	      let constants = 
 		Multi_paxos.make my_name other_names send receive 
-		  get_last_value on_accept on_consensus quorum_function forced_master 
+		  get_last_value 
+		  on_accept on_consensus on_witness
+		  quorum_function forced_master 
 		  store tlog_coll others lease_expiry inject_event 
 
 	      in Lwt.return ((forced_master,constants, buffers, new_i), service)

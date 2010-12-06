@@ -48,9 +48,8 @@ let forced_master_suggest constants (n,i) () =
   Lwt.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
-let election_suggest constants state () =
+let election_suggest constants (n,i) () =
   let me = constants.me in
-  let (n,i) = state in
   let n' = n (*update_n constants n *) in
   log ~me "election_suggest: Master undecided, starting election n=%s" (Sn.string_of n') >>= fun () ->
   let v = Update.make_update_value (Update.make_master_set me) in
