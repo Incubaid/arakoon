@@ -28,7 +28,29 @@ import logging
 @with_custom_setup( default_setup, basic_teardown )
 def test_single_client_100000_sets():
     iterate_n_times( 100000, simple_set )
+
+@with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
+def test_delete_non_existing_with_catchup ():
+    q.cmdtools.arakoon.stopOne( node_names[1] )
+    key='key'
+    value='value'
+    cli = get_client()
+    try:
+        cli.delete( key )
+    except:
+        pass
+    cli.set(key,value)
+    cli.set(key,value)
+    cli.set(key,value)
     
+    slave = node_names[1]
+    q.cmdtools.arakoon.startOne( slave )
+    time.sleep(2.0)
+    log_dir = q.config.arakoon.getNodeConfig( slave ) ['log_dir']
+    log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
+    log = q.system.fs.fileGetContents( log_file )
+    assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
+        
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_restart_single_slave_long ():
     restart_single_slave_scenario( 100, 10000 )
