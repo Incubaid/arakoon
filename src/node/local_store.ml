@@ -247,10 +247,11 @@ object(self: #store)
 	  _sequence db updates;
   	  Lwt.return ())
     ) ( function 
-      | Not_found -> Hotc.transaction db ( fun db ->
+      | Key_not_found key -> Hotc.transaction db ( fun db ->
           _incr_i db
         ) >>= fun () ->
-        Lwt.fail Not_found
+        Lwt.fail ( Key_not_found key )
+      | ex -> Lwt.fail ex
     )
 
 
