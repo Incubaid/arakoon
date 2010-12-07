@@ -194,8 +194,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       begin
 	let send = constants.send in
 	let me = constants.me in
-	log ~me "slave_wait_for_accept n=%s:: received %S" 
-	  (Sn.string_of n) (string_of msg) 
+	log ~me "slave_wait_for_accept n=%s:: received %S from %s" 
+	  (Sn.string_of n) (string_of msg) source
 	>>= fun () ->
 	match msg with
 	  | Prepare (n',i') ->
