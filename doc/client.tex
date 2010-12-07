@@ -77,3 +77,8 @@ While this is not a full transaction, it provides enough functionality to safegu
 
 \paragraph{multi\_get: key list $\rightarrow$ (value list) C.t}
 Allows you to fetch multiple values in one roundtrip to the server.
+
+\paragraph{expect\_progress\_possible: unit $\rightarrow$ bool C.t}
+Asks the master node if it thinks progress is possible. 
+This means that the master has seen enough that indicates enough slaves are still following its lead. 
+False positives are possible.
