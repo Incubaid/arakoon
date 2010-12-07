@@ -209,7 +209,7 @@ let wait_for_promises constants state event =
 	in
 	log ~me "wait_for_promises:i=%S to_receive=%i" (Sn.string_of i) to_receive >>= fun () ->
 	begin
-	  log ~me "wait_for_promises:: received %S" (string_of msg) >>= fun () ->
+	  log ~me "wait_for_promises:: received %S from %s" (string_of msg) source >>= fun () ->
 	  match msg with
 	    | Promise (n' ,i, limit) when n' < n ->
 	      let reason = Printf.sprintf "old promise (%s < %s)" 
