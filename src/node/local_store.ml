@@ -220,11 +220,17 @@ object(self: #store)
       (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
 
   method delete key =
-    Hotc.transaction db
-      (fun db ->
-	_incr_i db >>= fun () ->
-	_delete db key;
-	Lwt.return ())
+    Lwt.catch ( fun() ->
+      Hotc.transaction db ( fun db ->
+        _delete db key ;
+        _incr_i db )
+    ) ( function 
+      | Not_found -> Hotc.transaction db ( fun db ->
+          _incr_i db
+        ) >>= fun () ->
+        Lwt.fail Not_found 
+    ) 
+    
 
   method test_and_set key expected wanted =
     Hotc.transaction db
@@ -234,11 +240,19 @@ object(self: #store)
 	Lwt.return r)
 
   method sequence updates =
-    Hotc.transaction db
-      (fun db ->
-	_incr_i db >>= fun () ->
-	_sequence db updates;
-  	Lwt.return ())
+    Lwt.catch ( fun() ->
+      Hotc.transaction db
+        (fun db ->
+  	  _incr_i db >>= fun () ->
+	  _sequence db updates;
+  	  Lwt.return ())
+    ) ( function 
+      | Not_found -> Hotc.transaction db ( fun db ->
+          _incr_i db
+        ) >>= fun () ->
+        Lwt.fail Not_found
+    )
+
 
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)
