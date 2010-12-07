@@ -20,6 +20,9 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 '''
 
+import sys
+
+sys.path.append( '../server' )
 
 from pymonkey import InitBase
 
@@ -117,7 +120,6 @@ def wrapper( f ):
             logging.fatal( "Wiping exception under the rug (%s: '%s')" ,ex.__class__.__name__, ex_msg )
             
 def play_iteration( iteration ):
-    
     global disruptive_f
     
     log = get_work_list_log_read( iteration )
@@ -212,10 +214,11 @@ def check_disk_space():
     logging.info( "Still under free disk space threshold. Used space: %d%% < %d%% " % (disk_free,free_threshold) ) 
     
 def make_monkey_run() :
-   
+  
+    system_tests_common.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
     q.config.arakoon.tearDown() 
     #setup_3_nodes_forced_master()
-    setup_3_nodes()
+    setup_3_nodes( system_tests_common.data_base_dir )
     time.sleep( 5.0 )
     monkey_dir = get_monkey_work_dir()
     if q.system.fs.exists( monkey_dir ) :
