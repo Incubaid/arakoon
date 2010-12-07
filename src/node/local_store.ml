@@ -229,6 +229,7 @@ object(self: #store)
           _incr_i db
         ) >>= fun () ->
         Lwt.fail Not_found 
+      | ex -> Lwt.fail ex
     ) 
     
 
