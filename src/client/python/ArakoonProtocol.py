@@ -201,7 +201,10 @@ ARA_CMD_RAN_E = 0x0000000f | ARA_CMD_MAG
 
 #sequence
 ARA_CMD_SEQ = 0x00000010 | ARA_CMD_MAG
+
 ARA_CMD_MULTI_GET = 0x00000011 | ARA_CMD_MAG
+
+ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -411,6 +414,11 @@ class ArakoonProtocol :
             retVal += _packString(key)
         return retVal
 
+    @staticmethod
+    def encodeExpectProgressPossible():
+        retVal = _packInt(ARA_CMD_EXPECT_PROGRESS_POSSIBLE)
+        return retVal
+    
     @staticmethod
     def _evaluateErrorCode( con ):
 

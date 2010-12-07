@@ -304,6 +304,14 @@ class ArakoonClient :
         self._determineMaster()
         return self._masterId
 
+    def expectProgressPossible(self):
+        """
+        @return: true if the master thinks progress is possible, false otherwise
+        """
+        msg = ArakoonProtocol.encodeExpectProgressPossible()
+        conn = self._sendToMaster(msg)
+        return conn.decodeBoolResult()
+    
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string_option', 'string_option' )
     def testAndSet(self, key, oldValue, newValue):
