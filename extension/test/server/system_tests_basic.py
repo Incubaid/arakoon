@@ -224,14 +224,26 @@ def test_daemon_version () :
 @with_custom_setup( default_setup, basic_teardown )
 def test_delete_non_existing() :
     cli = get_client()
-    try:
-        assert_raises( ArakoonNotFound, cli.delete, "non-existing" )
-    except:
-        cli._dropConnections()
-        raise
-    
+    try :
+        cli.delete( 'non-existing' )
+    except ArakoonNotFound as ex:
+        ex_msg = "%s" % ex
+        assert_equals( "'non-existing'", ex_msg, "Delete did not return the key, got: %s" % ex_msg)
     set_get_and_delete( cli, "k", "v")
-    
+
+
+@with_custom_setup( default_setup, basic_teardown )
+def test_delete_non_existing_sequence() :
+    cli = get_client()
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addDelete( 'non-existing' )
+    try :
+        cli.sequence( seq )
+    except ArakoonNotFound as ex:
+        ex_msg = "%s" % ex
+        assert_equals( "'non-existing'", ex_msg, "Sequence did not return the key, got: %s" % ex_msg)
+    set_get_and_delete( cli, "k", "v")
+
         
 def sequence_scenario( start_suffix ):
     iter_size = 1000
