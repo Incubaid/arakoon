@@ -198,7 +198,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	  (Sn.string_of n) (string_of msg) 
 	>>= fun () ->
 	match msg with
-	  | Prepare (n',_) ->
+	  | Prepare (n',i') ->
+	    constants.on_witness source i' >>= fun () ->
 	    if n' < n then
 	      begin
 		(* let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> *)
@@ -217,6 +218,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
+	      constants.on_witness source i' >>= fun () ->
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      constants.on_consensus (v,n,i) >>= fun _ ->
 	      let reply = Accepted(n,i) in
@@ -286,6 +288,10 @@ let slave_discovered_other_master constants state () =
       (* start up lease expiration *) 
       start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () ->
       begin
+	let fake = Prepare( Sn.of_int (-1), 
+			    Sn.pred current_i') (* pred =  consensus_i *)
+	in
+	Multi_paxos.mcast constants fake >>= fun () ->
 	match vo' with
 	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v, true))
 	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None, None))
