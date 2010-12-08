@@ -216,6 +216,8 @@ def check_disk_space():
 def make_monkey_run() :
   
     system_tests_common.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
+    
+    q.cmdtools.arakoon.stop()
     q.config.arakoon.tearDown() 
     #setup_3_nodes_forced_master()
     setup_3_nodes( system_tests_common.data_base_dir )
