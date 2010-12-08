@@ -47,7 +47,10 @@ let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]
 
 let system = "system" >::: [Single.force_master;Single.elect_master;]
 
+let lwt_socket_tests = "lwt" >::: [Lwt_socket_test.suite]
+
 let suite = "universe" >::: [
+  lwt_socket_tests;
   tokyo_tests;
   crc32c_tests; 
   tools_tests; 
