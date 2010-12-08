@@ -83,8 +83,8 @@ let get cfg_name key =
 let delete cfg_name key =
   with_master_client cfg_name (fun client -> client # delete key )
 
-let benchmark cfg_name size= 
-  with_master_client cfg_name (Benchmark.benchmark ~size)
+let benchmark cfg_name size tx_size= 
+  with_master_client cfg_name (Benchmark.benchmark ~size ~tx_size)
 
 let expect_progress_possible cfg_name =
   let f client = 

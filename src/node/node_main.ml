@@ -214,14 +214,13 @@ let _main_2 make_store make_tlog_coll cfgs
 	      
 	  in
 	  let start_backend (forced_master, constants, buffers, new_i) =
-	    match forced_master with
-	      | Some master  ->
-		if master = my_name then
-		  Multi_paxos_fsm.run_forced_master constants buffers new_i
-		else
-		  Multi_paxos_fsm.run_forced_slave constants buffers new_i
-	      | None ->
-		Multi_paxos_fsm.run_election constants buffers new_i
+	    let to_run = 
+	      match forced_master with
+		| Some master  -> if master = my_name 
+		  then Multi_paxos_fsm.run_forced_master
+		  else Multi_paxos_fsm.run_forced_slave 
+		| None -> Multi_paxos_fsm.run_election
+	    in to_run constants buffers new_i 
 	  in
 	  Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
 	  let () = _maybe_daemonize daemonize me in

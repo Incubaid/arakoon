@@ -167,6 +167,7 @@ and node_id = ref ""
 and key = ref ""
 and value = ref ""
 and size = ref 10 
+and tx_size = ref 100
 and daemonize = ref false
 and config_file = ref "cfg/arakoon.ini"
 and test_repeat_count = ref 1
@@ -229,6 +230,8 @@ let actions = [
    "add if you want the process to daemonize (only for --node)");
   ("-value_size", Arg.Set_int size,
    "size of the values (only for --benchmark)");
+  ("-tx_size", Arg.Set_int tx_size,
+   "size of transactions (only for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
 
   
@@ -251,7 +254,7 @@ let do_local = function
   | UncompressTlog -> uncompress_tlog !filename
   | SET -> Client_main.set !config_file !key !value
   | GET -> Client_main.get !config_file !key
-  | BENCHMARK -> Client_main.benchmark !config_file !size
+  | BENCHMARK -> Client_main.benchmark !config_file !size !tx_size
   | DELETE -> Client_main.delete !config_file !key
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
