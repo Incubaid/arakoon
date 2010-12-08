@@ -343,7 +343,7 @@ def euthanize_this_monkey() :
         escalate_dying_monkey()
     except Exception, ex:
         logging.fatal( "Could not escalate dead monkey => %s: '%s'" % (ex.__class__.__name__, ex) )
-
+    q.cmdtools.arakoon.stop()
     sys.exit( 255 )
     
 if __name__ == "__main__" :
