@@ -146,7 +146,7 @@ let mcast constants msg =
   let send = constants.send in
   let me = constants.me in
   let others = constants.others in
-  Lwt_list.iter_s (fun o -> send msg me o) others
+  Lwt_list.iter_p (fun o -> send msg me o) others
 
 let receive constants where =
   let recv = constants.receive in
