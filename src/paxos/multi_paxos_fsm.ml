@@ -250,7 +250,7 @@ let wait_for_promises constants state event =
 		then
 		  begin
 		    log ~me "wait_for_promises; forcing new master suggest" >>= fun () ->
-		    let n''' = max n n'' in
+		    let n''' = update_n constants (max n n'') in
 		    Lwt.return (Forced_master_suggest (n''',i))
 		  end
 		else if is_election constants
@@ -446,7 +446,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
 		  (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
 	    end
-	  | Prepare (n',_) when n' < n ->
+	  | Prepare (n',_) when n' <= n ->
 	    begin
 	      log ~me "wait_for_accepteds: received older Prepare" >>= fun () ->
 	      let reply0 = Nak (n', (n,i)) in
@@ -457,7 +457,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(MPMessage.string_of reply1) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Prepare (n',_) when n' >= n ->
+	  | Prepare (n',_) when n' > n ->
 	    begin
 	      if am_forced_master constants me
 	      then
