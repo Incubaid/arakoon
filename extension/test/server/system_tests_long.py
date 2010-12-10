@@ -196,7 +196,7 @@ def test_missed_accept ():
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
     
-@with_custom_setup( setup_2_nodes_forced_master, dummy_teardown)
+@with_custom_setup( setup_2_nodes_forced_master, basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
     write_loop = lambda: iterate_n_times( 50000, retrying_set_get_and_delete  )
