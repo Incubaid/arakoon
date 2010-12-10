@@ -26,3 +26,4 @@
 #load "node_cfg.cmo";;
 #load "benchmark.cmo";;
 #load "client_main.cmo";;
+#load "tlogcommon.cmo";;
