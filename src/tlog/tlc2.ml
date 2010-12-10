@@ -95,7 +95,25 @@ let fold_read tlog_dir file_name
   in
   Lwt_log.debug_f "%s: %s" msg file_name >>= fun () ->
   let ic_f ic = folder ic lowerI higherI a0 f in
-  Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f
+  Lwt.catch
+    (fun () ->
+      Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
+    (function 
+      | Unix.Unix_error(_,"open",_) as exn ->
+	if msg = "uncompressed" 
+	then (* file might have moved meanwhile *)
+	  begin
+	    Lwt_log.debug_f "%s became .tlc meanwhile " file_name >>= fun () ->
+	    let an = to_archive_name file_name in
+	    let full_an = Filename.concat tlog_dir an in
+	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
+	    Lwt_io.with_file ~mode:Lwt_io.input full_an 
+	      (fun ic -> Tlogreader2.AC.fold ic lowerI higherI a0 f)
+	  end
+	else
+	  Lwt.fail exn
+      | exn -> Lwt.fail exn)
+	  
       
 
 let _validate_one tlog_name =      
@@ -217,9 +235,18 @@ object(self: # tlog_collection)
 	let tlc = Filename.concat tlog_dir (archive_name _outer) in
 	let tlc_temp = tlc ^ ".part" in
 	let compress () =
+	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
 	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+	  Lwt_log.debug_f "Renaming: %s to %s" tlc_temp tlc >>= fun () ->
 	  Unix.rename tlc_temp tlc;
-	  Unix.unlink tlu;
+	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
+	  let msg = 
+	    try
+	      Unix.unlink tlu;
+	      "ok: unlinked " ^ tlu
+	    with _ -> Printf.sprintf "warning: unlinking of %s failed" tlu
+	  in
+	  Lwt_log.debug ("end of compress : " ^ msg) >>= fun () ->
 	  Lwt.return () 
 	in 
 	Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
