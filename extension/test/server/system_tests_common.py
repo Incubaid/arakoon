@@ -342,7 +342,7 @@ def create_and_start_thread (f ):
                 global test_failed
                 logging.critical("!!! Failing test")
                 tb = traceback.format_exc()
-                logging.critical( "tb" )
+                logging.critical( tb )
                 test_failed = True
                 raise
             
