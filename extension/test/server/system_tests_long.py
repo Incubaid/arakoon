@@ -196,7 +196,40 @@ def test_missed_accept ():
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
     
-
+@with_custom_setup( setup_2_nodes_forced_master, dummy_teardown)
+def test_is_progress_possible():
+    time.sleep(0.2)
+    write_loop = lambda: iterate_n_times( 50000, retrying_set_get_and_delete  )
+    create_and_wait_for_thread_list( [write_loop] )
+   
+    logging.info( "Stored all keys" ) 
+    q.cmdtools.arakoon.stop()
+    
+    slave_config = q.config.arakoon.getNodeConfig( node_names[1] )
+    data_dir = slave_config['home']
+    q.system.fs.removeDirTree( data_dir )
+    q.system.fs.createDir ( data_dir )
+    logging.info( "Slave wiped" )
+ 
+    cli = get_client()
+    q.cmdtools.arakoon.start()
+    logging.info( "nodes started" )
+    assert_false( cli.expectProgressPossible() )
+    
+    counter = 0
+    max_wait = 60*5
+    up2date = False
+    
+    while not up2date and counter < max_wait :
+        time.sleep( 1.0 )
+        counter += 1
+        up2date = cli.expectProgressPossible()
+    
+    if counter >= max_wait :
+        raise Exception ("Node did not catchup in a timely fashion")
+    
+    cli.set('k','v')
+    
 @with_custom_setup( setup_1_node_forced_master, basic_teardown )
 def test_sso_deployment():
     

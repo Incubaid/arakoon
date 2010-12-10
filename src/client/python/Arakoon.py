@@ -309,8 +309,11 @@ class ArakoonClient :
         @return: true if the master thinks progress is possible, false otherwise
         """
         msg = ArakoonProtocol.encodeExpectProgressPossible()
-        conn = self._sendToMaster(msg)
-        return conn.decodeBoolResult()
+        try:
+            conn = self._sendToMaster(msg)
+            return conn.decodeBoolResult()
+        except ArakoonNoMaster:
+            return False
     
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string_option', 'string_option' )
