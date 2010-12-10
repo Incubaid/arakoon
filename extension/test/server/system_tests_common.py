@@ -312,6 +312,9 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
             if failure_count > failure_max or fatal :
                 client._dropConnections()
                 test_failed = True
+                logging.critical( "!!! Failing test")
+                tb = traceback.format_exc()
+                logging.critical( tb )
                 raise
         if client.recreate :
             client._dropConnections()
@@ -337,6 +340,9 @@ def create_and_start_thread (f ):
                 self._f ( *(self._args), **(self._kwargs) )
             except Exception, ex:
                 global test_failed
+                logging.critical("!!! Failing test")
+                tb = traceback.format_exc()
+                logging.critical( "tb" )
                 test_failed = True
                 raise
             
