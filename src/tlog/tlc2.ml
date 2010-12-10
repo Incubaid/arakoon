@@ -76,7 +76,7 @@ let get_tlog_names tlog_dir =
   in
   let sorted2 = List.rev filtered2 in
   Lwt_list.iter_s (fun e -> Lwt_log.debug_f "entry:%s" e) sorted2 >>= fun () ->
-  Lwt.return sorted
+  Lwt.return sorted2
 
 
     
