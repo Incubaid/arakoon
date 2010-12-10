@@ -364,7 +364,7 @@ def test_block_single_slave_ports_loop () :
 @with_custom_setup( setup_3_nodes_forced_master, iptables_teardown )
 def test_block_single_slave_ports () :
     
-    system_tests_common_test_failed = False
+    system_tests_common.test_failed = False
     master_id = node_names [0]
     # Node 0 is fixed master 
     slave_id = node_names[1]
