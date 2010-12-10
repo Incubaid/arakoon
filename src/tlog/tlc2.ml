@@ -59,9 +59,23 @@ let get_number fn =
 
 let get_tlog_names tlog_dir = 
   lwt_directory_list tlog_dir >>= fun entries ->
-  let filtered = List.filter (fun e -> Str.string_match file_regexp e 0) entries in
+  let filtered = List.filter 
+    (fun e -> Str.string_match file_regexp e 0) 
+    entries 
+  in
   let sorted = List.sort compare filtered in
-  Lwt_list.iter_s (fun e -> Lwt_log.debug_f "entry:%s" e) sorted >>= fun () ->
+  let filtered2 = List.fold_left 
+    (fun acc name ->
+      match acc with
+	| [] -> name :: acc
+	| prev :: rest ->
+	  if get_number prev = get_number name (* x.tlc = x.tlog *)
+	  then name :: rest (* skip prev: .tlc might not be ready yet *)
+	  else name :: acc
+    ) [] sorted 
+  in
+  let sorted2 = List.rev filtered2 in
+  Lwt_list.iter_s (fun e -> Lwt_log.debug_f "entry:%s" e) sorted2 >>= fun () ->
   Lwt.return sorted
 
 
