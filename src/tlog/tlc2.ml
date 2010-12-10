@@ -215,8 +215,10 @@ object(self: # tlog_collection)
 	_inner <- 0;
 	let tlu = Filename.concat tlog_dir (file_name _outer) in
 	let tlc = Filename.concat tlog_dir (archive_name _outer) in
+	let tlc_temp = tlc ^ ".part" in
 	let compress () =
-	  Compression.compress_tlog tlu tlc  >>= fun () ->
+	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+	  Unix.rename tlc_temp tlc;
 	  Unix.unlink tlu;
 	  Lwt.return () 
 	in 
