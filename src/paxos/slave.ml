@@ -146,7 +146,7 @@ let slave_steady_state constants state event =
 	  let last_accepted_lease () = 
 	    constants.store # who_master() >>= fun maybe_stored ->
 	    match maybe_stored with 
-	      | None -> failwith "None should not happen here"
+              | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
 	      | Some (sm,sd) ->
 		let Value.V(update_string) = previous in
 		let u,_ = Update.from_buffer update_string 0 in
