@@ -50,6 +50,21 @@ def test_delete_non_existing_with_catchup ():
     log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
+    
+@with_custom_setup( setup_2_nodes_forced_master, basic_teardown )
+def test_expect_progress_fixed_master ():
+    q.cmdtools.arakoon.stopOne( node_names[1] )
+    key='key'
+    value='value'
+    cli = get_client()
+    try:
+        cli.set(key,value)
+    except:
+        pass
+    q.cmdtools.arakoon.restart()
+    time.sleep(1.0)
+    assert_true( cli.expectProgressPossible(), "Master store counter is ahead of slave" )
+    
         
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_restart_single_slave_long ():
@@ -196,7 +211,7 @@ def test_missed_accept ():
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
     
-@with_custom_setup( setup_2_nodes_forced_master, dummy_teardown)
+@with_custom_setup( setup_2_nodes_forced_master, basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
     write_loop = lambda: iterate_n_times( 50000, retrying_set_get_and_delete  )
