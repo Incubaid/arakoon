@@ -136,7 +136,7 @@ let _main_2 make_store make_tlog_coll cfgs
 		| None -> Sn.start 
 		| Some i -> i
 	      in
-	      Catchup.verify_n_catchup_store me (store,tlog_coll,tlogI) current_i 
+	      Catchup.verify_n_catchup_store me.node_name (store,tlog_coll,tlogI) current_i 
 	      >>= fun new_i ->
 	      
 	      let client_buffer =

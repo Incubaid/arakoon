@@ -160,22 +160,26 @@ let on_consensus (store:store) (v,n,i) =
 
 exception TrailingStore of (Sn.t option * Sn.t option)
 
-let verify (store:store) tlog_i =
+let verify (store:store) tlog_i me =
   store#consensus_i () >>= fun store_i ->
   begin
     let store_is = option_to_string Sn.string_of store_i in
     let tlog_is = option_to_string Sn.string_of tlog_i in
-    let new_sn,case =
       match tlog_i, store_i with
-	| None ,None -> Sn.start,0
-	| Some 0L, None -> Sn.start,1
+	| None ,None -> Lwt.return (Sn.start,0) 
+	| Some 0L, None -> Lwt.return( Sn.start,1 )
 	| Some i, Some j when i = Sn.succ j ->
-	  Sn.succ j,2
-	| Some i, Some j when i = j -> Sn.succ j,3
+          store#who_master() >>= fun last_lease ->
+          begin 
+          match last_lease with
+            | Some(me,_) -> Lwt.return( i, 3 )
+            | _ -> Lwt.return( Sn.succ j,2 )
+          end
+	| Some i, Some j when i = j -> Lwt.return( Sn.succ j,3 )
 	| a,b ->
 	  let exn = TrailingStore (a,b) in
-	  raise exn
-    in
+	  Lwt.fail exn
+    >>= fun (new_sn, case) -> 
     Lwt_log.info_f "VERIFY TLOG & STORE %s %s OK!" tlog_is store_is
     >>= fun () ->
     Lwt.return (new_sn,case )
