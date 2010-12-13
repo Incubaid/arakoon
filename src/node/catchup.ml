@@ -113,7 +113,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) =
     (Sn.string_of future_i) >>= fun () ->
   Lwt.catch
     (fun () ->
-      Store.verify store ti_o >>= fun (new_i,case) ->
+      Store.verify store ti_o me >>= fun (new_i,case) ->
       Lwt_log.debug_f "CASE: %i (new_i=%Li)" case new_i >>= fun () ->
       begin
 	begin 
