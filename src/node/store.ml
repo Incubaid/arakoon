@@ -172,7 +172,20 @@ let verify (store:store) tlog_i me =
           store#who_master() >>= fun last_lease ->
           begin 
           match last_lease with
-            | Some(me,_) -> Lwt.return( i, 3 )
+            | Some(last_master,_) ->
+              begin 
+                if (String.compare last_master me) == 0
+                then
+                  begin 
+                  Lwt_log.debug_f "The old master %s" last_master >>= fun() ->
+                  Lwt_log.debug_f "I am the %s" me >>= fun() ->
+                  Lwt.return( i, 3 )
+                  end
+                else 
+                  begin
+                  Lwt.return( Sn.succ j,2 )
+                  end
+              end
             | _ -> Lwt.return( Sn.succ j,2 )
           end
 	| Some i, Some j when i = j -> Lwt.return( Sn.succ j,3 )
