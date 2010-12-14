@@ -36,11 +36,10 @@ module Update = struct
     MasterSet (me,i)
 
   let rec string_of = function
-    | Set (k,v) -> Printf.sprintf "Set(%S,%S)" k v
+    | Set (k,_) -> Printf.sprintf "Set(%S,...)" k
     | Delete k  -> Printf.sprintf "Delete %S" k
     | MasterSet (m,i) -> Printf.sprintf "MasterSet (%S,%Ld)" m i
-    | TestAndSet (k, e, w) -> Printf.sprintf "TestAndSet(%S, %s, %s)" k
-      (string_option_to_string e) (string_option_to_string w)
+    | TestAndSet (k, _, _) -> Printf.sprintf "TestAndSet(%S, _, _)" k
     | Sequence updates ->
       let buf = Buffer.create (64 * List.length updates) in
       let () = Buffer.add_string buf "Sequence([" in

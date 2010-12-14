@@ -164,8 +164,8 @@ let _main_2 make_store make_tlog_coll cfgs
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
 	      in
 	      let on_accept (v,n,i) =
-		Lwt_log.debug_f "on_accept: %s %s %s" 
-		  (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+		Lwt_log.debug_f "on_accept: n:%s i:%s" 
+		  (Sn.string_of n) (Sn.string_of i)
 		>>= fun () ->
 		let Value.V(update_string) = v in
 		let u, _ = Update.from_buffer update_string 0 in

@@ -146,7 +146,6 @@ let master_dictate constants (mo,v,n,i) () =
   let needed = constants.quorum_function (List.length others + 1) in
   let needed' = needed - 1 in
   let ballot = (needed' , [me] ) in
-  log ~me "master_dictate n:%s i:%s v:%s needed:%d" 
-    (Sn.string_of n) (Sn.string_of i) 
-    (Value.string_of v) needed' >>= fun () ->
+  log ~me "master_dictate n:%s i:%s needed:%d" 
+    (Sn.string_of n) (Sn.string_of i) needed' >>= fun () ->
   Lwt.return (Accepteds_check_done (mo, n, i, ballot, v))

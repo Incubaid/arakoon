@@ -152,8 +152,8 @@ let _insert (store:store) v i =
   _insert_update store u
 
 let on_consensus (store:store) (v,n,i) =
-  Lwt_log.debug_f "on_consensus=> local_store %s %s %s" 
-    (Value.string_of v) (Sn.string_of n) (Sn.string_of i)
+  Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s" 
+    (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
   _insert store v i >>= fun maybe_result ->
   Lwt.return maybe_result

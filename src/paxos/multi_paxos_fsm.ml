@@ -110,8 +110,8 @@ let slave_waiting_for_prepare constants current_i event =
 		  end
 		| Some v ->
 		  begin
-		    let vos = Log_extra.option_to_string Value.string_of p in
-		    log ~me "reentering steady state @(%s,%s,%S)" (Sn.string_of n2) (Sn.string_of i2) vos
+		    log ~me "reentering steady state @(%s,%s)" 
+		      (Sn.string_of n2) (Sn.string_of i2) 
 		    >>= fun () ->
 		    Lwt.return (Slave_steady_state (n2, i2, v,true))
 		  end
@@ -181,7 +181,8 @@ let promises_check_done constants state () =
 	      end
 	    else
 	      begin
-		log ~me "promises_check_done: accepting value %s and mcasting" (Value.string_of v') >>= fun () ->
+		log ~me "promises_check_done: accepting and mcasting"
+		>>= fun () ->
 		constants.on_accept (v,n,new_i) >>= fun () ->
 		let msg = Accept(n,new_i,v) in
 		mcast constants msg >>= fun () ->
@@ -379,8 +380,8 @@ let accepteds_check_done constants state () =
   let needed, already_voted = ballot in
   if needed = 0 then
     begin
-      log ~me "accepted_check_done :: we're done! returning %S %s %s"
-	(Value.string_of v) (Sn.string_of n) ( Sn.string_of i )
+      log ~me "accepted_check_done :: we're done! returning %s %s"
+	(Sn.string_of n) ( Sn.string_of i )
       >>= fun () ->
       Lwt.return (Master_consensus (mo,v,n,i))
     end

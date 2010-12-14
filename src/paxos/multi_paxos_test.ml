@@ -30,7 +30,6 @@ open Multi_paxos
 open Update
 open Lwt_buffer
 
-let v2s = Value.string_of
 let sn2s = Sn.string_of 
 
 let test_take () =
@@ -52,11 +51,11 @@ let test_generic network_factory n_nodes () =
   and current_i = 666L in
   let values = Hashtbl.create 10 in
   let on_accept me (v,n,i) =
-    log ~me "on_accept(%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
+    log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
-    log ~me "on_consensus(%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
+    log ~me "on_consensus(%s,%s)" (sn2s n) (sn2s i)
       >>= fun () -> Lwt.return (Store.Ok None)
   in
   let on_witness who i = Lwt.return () in
@@ -153,7 +152,7 @@ let test_generic network_factory n_nodes () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected steps current_n current_i
     >>= fun (v', n, i) ->
-    log "consensus reached on %s" (v2s v')
+    log "consensus reached on n:%s" (Sn.string_of n)
   in
   let addresses = List.map (fun name -> name , ("127.0.0.1", 7777)) 
     ("c0"::all_happy) in
@@ -211,12 +210,12 @@ let test_master_loop network_factory ()  =
       ) values
   ) in
   let on_consensus (v,n,i) =
-    log "consensus: %s %s %s" (v2s v) (sn2s n) (sn2s i) >>= fun () ->
+    log "consensus: n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
     match v with
       | Value.V s -> Lwt.return (Store.Ok None)
   in
   let on_accept (v,n,i) =
-    log "accepted %s %s %s" (v2s v) (sn2s n) (sn2s i) >>= fun () ->
+    log "accepted n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return ()
   in
   let on_witness who i = Lwt.return () in
@@ -360,10 +359,10 @@ let test_simulation scenario () =
   let current_n = 42L in
   let current_i = 666L in
   let on_accept me (v,n,i) =
-    log ~me "on_accept: (%s,%s,%s)" (v2s v) (sn2s n) (sn2s i)
+    log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
-    log ~me "on_consensus: (%s,%s,%s) " (v2s v) (sn2s n) (sn2s i)
+    log ~me "on_consensus: (%s,%s) " (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return (Store.Ok None)
   in
@@ -408,7 +407,7 @@ let test_simulation scenario () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected 50 current_n current_i
     >>= fun (v', n, i) ->
-    log ~me "consensus reached on %s" (v2s v')
+    log ~me "consensus reached: (%s,%s)" (sn2s n) (sn2s i)
   in
   let cx_t me other =
     let inject_buffer = Lwt_buffer.create () in

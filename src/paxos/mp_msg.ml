@@ -39,13 +39,13 @@ module MPMessage = struct
       and is = Sn.string_of i
       and vs = match v with
 	| None -> "None"
-	| Some s -> "Some " ^ (Value.string_of s)
+	| Some s -> "Some ..."
       in
       "Promise(" ^ ns ^ "," ^ is ^ "," ^ vs ^ ")"
     | Accept (n,i, v) ->
       let ns = Sn.string_of n
       and is = Sn.string_of i in
-      Printf.sprintf "Accept(%s,%s, %s)" ns is (Value.string_of v)
+      Printf.sprintf "Accept(%s,%s, ...)" ns is
     | Accepted (n,i) ->
       let ns = Sn.string_of n
       and is = Sn.string_of i in

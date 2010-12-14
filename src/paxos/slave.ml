@@ -68,8 +68,8 @@ let slave_steady_state constants state event =
 			  constants.store # set_master_no_inc m l 
 			| _ -> Lwt.return ()
 		    end >>= fun () ->
-		    Lwt_log.debug_f "SKIPPING %S (paxos -> multipaxos)" 
-		      (Value.string_of previous) >>= fun () ->
+		    Lwt_log.debug_f "SKIPPING (paxos -> multipaxos)" 
+		    >>= fun () ->
 		    Lwt.return (Store.Ok None) 
 		  end
 	      end >>= fun _ ->

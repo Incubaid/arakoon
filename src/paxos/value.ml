@@ -23,7 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 type t = V of string
 let create s = V s
 
-let string_of (V s) = Printf.sprintf "V(%S)" s
 
 let value_to buf (V s)= Llio.string_to buf s
     
