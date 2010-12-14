@@ -47,7 +47,7 @@ let __client_server_wrapper__ real_test =
     Lwt.return ()
   in
   let backend = new test_backend "Zen" in
-  let server = Server.make_server_thread ~setup_callback port
+  let server = Server.make_server_thread ~setup_callback "127.0.0.1" port
     (Client_protocol.protocol backend) in
 
   let client_t () =

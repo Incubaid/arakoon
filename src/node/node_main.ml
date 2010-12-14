@@ -94,7 +94,8 @@ let _maybe_daemonize daemonize cfg =
 
 let _config_service cfg backend=
   let port = cfg.client_port in
-  Server.make_server_thread port (Client_protocol.protocol backend)
+  let host = cfg.ip in
+  Server.make_server_thread host port (Client_protocol.protocol backend)
 
 let _log_rotate cfg i =
   Lwt_log.warning_f "received USR (%i) going to close/reopen log file" i

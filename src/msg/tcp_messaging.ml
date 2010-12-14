@@ -250,8 +250,8 @@ object(self : # messaging )
       >>= fun () -> conditionally sender_loop
 	
     in
-    let _, my_port = my_address in
-    let server_t = Server.make_server_thread my_port protocol
+    let my_host, my_port = my_address in
+    let server_t = Server.make_server_thread my_host my_port protocol
     in
     Lwt.pick [server_t ();sender_loop ();] >>= fun () ->
     Lwt_log.info "end of tcp_messaging"    >>= fun () ->

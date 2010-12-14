@@ -40,7 +40,10 @@ let test_echo () =
     Lwt.return () 
   in
   let port = 6666 in
-  let server = Server.make_server_thread ~setup_callback port echo_protocol in
+  let host = "127.0.0.1" in
+  let server = Server.make_server_thread 
+    ~setup_callback host port echo_protocol 
+  in
   let client () = 
     debug "sleeping until server socket started" >>= fun () -> 
     sleep >>= fun () ->

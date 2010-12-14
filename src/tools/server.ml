@@ -45,13 +45,13 @@ let session_thread protocol fd =
   
 
 
-let make_server_thread ?(setup_callback=no_callback) port protocol =
+let make_server_thread ?(setup_callback=no_callback) host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  let local_addr num = Unix.ADDR_INET (Unix.inet_addr_any, num) in
+  let socket_address = Network.make_address host port in
   begin
     let listening_socket = new_socket () in
     Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
-    Lwt_unix.bind listening_socket (local_addr port);
+    Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
     let rec server_loop () =
       info "await connection" >>= fun () ->
