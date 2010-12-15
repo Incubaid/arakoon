@@ -102,8 +102,9 @@ let dump_tlog filename =
 	let do_it ic =
 	  let lowerI = Sn.start
 	  and higherI = None 
+	  and first = Sn.of_int 0 
 	  and a0 = () in
-	  folder ic lowerI higherI a0 printer >>= fun () ->
+	  folder ic lowerI higherI ~first a0 printer >>= fun () ->
 	  Lwt.return 0
 	in
 	Lwt_io.with_file ~mode:Lwt_io.input filename do_it

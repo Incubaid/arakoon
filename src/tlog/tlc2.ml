@@ -83,6 +83,7 @@ let get_tlog_names tlog_dir =
 let fold_read tlog_dir file_name 
     (lowerI:Sn.t) 
     (higherI:Sn.t option) 
+    ~first
     (a0:'a) 
     (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
   Lwt_log.debug "fold_read" >>= fun () ->
@@ -94,7 +95,7 @@ let fold_read tlog_dir file_name
       Tlogreader2.AU.fold, "uncompressed"
   in
   Lwt_log.debug_f "%s: %s" msg file_name >>= fun () ->
-  let ic_f ic = folder ic lowerI higherI a0 f in
+  let ic_f ic = folder ic lowerI higherI ~first a0 f in
   Lwt.catch
     (fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
@@ -108,7 +109,7 @@ let fold_read tlog_dir file_name
 	    let full_an = Filename.concat tlog_dir an in
 	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
 	    Lwt_io.with_file ~mode:Lwt_io.input full_an 
-	      (fun ic -> Tlogreader2.AC.fold ic lowerI higherI a0 f)
+	      (fun ic -> Tlogreader2.AC.fold ic lowerI higherI ~first a0 f)
 	  end
 	else
 	  Lwt.fail exn
@@ -121,7 +122,8 @@ let _validate_one tlog_name =
   let a2s (i,u) = Printf.sprintf "(%s,_)" (Sn.string_of i) in
   Lwt.catch
     (fun () ->
-      let do_it ic = Tlogreader2.AU.fold ic Sn.start None None
+      let first = Sn.of_int 0 in
+      let do_it ic = Tlogreader2.AU.fold ic Sn.start None ~first None
 	(fun a0 (i,u) ->  let r = Some (i,u) in Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
@@ -292,8 +294,10 @@ object(self: # tlog_collection)
       if test_result
       then 
 	begin
-	  Lwt_log.debug_f "fold_read over: %s" fn >>= fun () ->
-	  fold_read tlog_dir fn low (Some consensus_i) low acc_entry
+	  Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
+	    (Sn.string_of test0) >>= fun () ->
+	  let first = test0 in
+	  fold_read tlog_dir fn low (Some consensus_i) ~first low acc_entry
 	end
       else Lwt.return low
     in

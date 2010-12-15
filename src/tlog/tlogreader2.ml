@@ -30,7 +30,9 @@ let uncompress_block compressed =
   Bz2.uncompress compressed 0 lc
 
 module type TR = sig
-  val fold: Lwt_io.input_channel -> Sn.t -> Sn.t option -> 'a ->
+  val fold: Lwt_io.input_channel -> 
+    Sn.t -> Sn.t option -> first:Sn.t ->
+    'a ->
     ('a -> Sn.t* Update.t -> 'a Lwt.t) -> 'a Lwt.t
     (** here this fold does not attempt to eliminate doubbles:
 	it makes the code simpler and any state-updates that you need
@@ -39,7 +41,9 @@ module type TR = sig
 end
 
 module U = struct
-  let fold ic lowerI (higherI:Sn.t option)
+  let fold ic lowerI 
+      (higherI:Sn.t option)
+      ~first
       (a0:'a) (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
     let sno2s sno= Log_extra.option_to_string Sn.string_of sno in
     Lwt_log.debug_f "U.fold %s %s" (Sn.string_of lowerI)
@@ -90,9 +94,11 @@ end
 
 
 module C = struct
-  let fold ic (lowerI:Sn.t) (higherI:Sn.t option) a0 f = 
-    Lwt_log.debug_f "C.fold %s %s" (Sn.string_of lowerI)
-      (Log_extra.option_to_string Sn.string_of higherI) >>= fun () ->
+  let fold ic (lowerI:Sn.t) (higherI:Sn.t option) ~first a0 f = 
+    Lwt_log.debug_f "C.fold %s %s ~first:%s" (Sn.string_of lowerI)
+      (Log_extra.option_to_string Sn.string_of higherI) 
+      (Sn.string_of first)
+    >>= fun () ->
     let rec _skip_blocks c = 
       Llio.input_int ic >>= fun ne_i ->
       let n_entries = Sn.of_int ne_i in
@@ -152,7 +158,7 @@ module C = struct
 	    _fold_blocks a'
 	  end
     in
-    _skip_blocks lowerI >>= fun compressed -> 
+    _skip_blocks first >>= fun compressed -> 
     Lwt_log.debug_f "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
     let buffer = uncompress_block compressed in
     let maybe_first, pos = _skip_in_block buffer 0 in
