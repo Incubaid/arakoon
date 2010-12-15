@@ -251,7 +251,7 @@ def test_sso_deployment():
     system_tests_common.test_failed = False
     
     write_loop = lambda: iterate_n_times( 10000, retrying_set_get_and_delete  )
-    large_write_loop = lambda: iterate_n_times( 500000, retrying_set_get_and_delete  ) 
+    large_write_loop = lambda: iterate_n_times( 280000, retrying_set_get_and_delete  ) 
     write_thr1 = create_and_start_thread ( write_loop )
     non_retrying_write_loop = lambda: iterate_n_times( 10000, set_get_and_delete  )
     
@@ -267,7 +267,7 @@ def test_sso_deployment():
     restart_nodes_wf_sim( 1 )
     q.cmdtools.arakoon.startOne( node_names[1] )
     
-    write_thr2 = create_and_start_thread ( large_write_loop )
+    write_thr2 = create_and_wait_for_thread_list ( large_write_loop )
     
     add_node( 2 )
     config = q.config.getInifile("arakoon")
