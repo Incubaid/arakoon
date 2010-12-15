@@ -165,3 +165,62 @@ class ArakoonCmdtools:
             return q.enumerators.AppStatusType.RUNNING
         else:
             return q.enumerators.AppStatusType.HALTED
+
+    @staticmethod
+    def getStorageUtilization(node=None):
+        '''Calculate and return the disk usage of Arakoon on the system
+
+        When no node name is given, the aggregate consumption of all nodes
+        configured on the system is returned.
+
+        Return format is a dictionary containing 3 keys: 'db', 'tlog' and
+        'log', whose values denote the size of database files
+        (*.db, *.db.wall), TLog files (*.tlc, *.tlog) and log files (*).
+
+        :param node: Name of the node to check
+        :type node: `str`
+
+        :return: Storage utilization of the node(s)
+        :rtype: `dict`
+
+        :raise ValueError: No such local node
+        '''
+
+        local_nodes = q.config.arakoon.listLocalNodes()
+
+        if node is not None and node not in local_nodes:
+            raise ValueError('No such local node')
+
+        def helper(config):
+            home = config['home']
+            log_dir = config['log_dir']
+
+            files_in_dir = lambda dir_: itertools.ifilter(os.path.isfile,
+                (os.path.join(dir_, name) for name in os.listdir(dir_)))
+            matching_files = lambda *exts: lambda files: \
+                (file_ for file_ in files
+                    if any(file_.endswith(ext) for ext in exts))
+
+            tlog_files = matching_files('.tlc', '.tlog')
+            db_files = matching_files('.db', '.db.wal')
+            log_files = matching_files('') # Every string ends with ''
+
+            sum_size = lambda files: sum(os.path.getsize(file_)
+                for file_ in files)
+
+            return {
+                'tlog': sum_size(tlog_files(files_in_dir(home))),
+                'db': sum_size(db_files(files_in_dir(home))),
+                'log': sum_size(log_files(files_in_dir(log_dir)))
+            }
+
+        nodes = (node, ) if node is not None else local_nodes
+        stats = (helper(q.config.arakoon.getNodeConfig(node))
+            for node in nodes)
+
+        result = {}
+        for stat in stats:
+            for key, value in stat.iteritems():
+                result[key] = result.get(key, 0) + value
+
+        return result
