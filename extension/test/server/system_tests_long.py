@@ -267,7 +267,7 @@ def test_sso_deployment():
     restart_nodes_wf_sim( 1 )
     q.cmdtools.arakoon.startOne( node_names[1] )
     
-    write_thr2 = create_and_wait_for_thread_list ( large_write_loop )
+    write_thr2 = create_and_wait_for_thread_list ( [ large_write_loop ] )
     
     add_node( 2 )
     config = q.config.getInifile("arakoon")
