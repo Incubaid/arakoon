@@ -195,6 +195,8 @@ object(self : # messaging )
 	    let (source:id), pos1 = Llio.string_from buffer 0 in
 	    let target, pos2 = Llio.string_from buffer pos1 in
 	    let msg, _   = Message.from_buffer buffer pos2 in
+	    Lwt_log.debug_f "tcp_messaging received msg from %s" source 
+	    >>= fun () ->
 	    let q = self # get_buffer target in
 	    Lwt_buffer.add (msg, source) q >>=  fun () ->
 	    conditionally loop
