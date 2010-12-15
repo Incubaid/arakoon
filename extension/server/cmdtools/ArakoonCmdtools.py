@@ -22,6 +22,10 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from pymonkey import q
 
+import os
+import os.path
+import itertools
+
 import subprocess
 import time
 
