@@ -237,6 +237,8 @@ object(self : # messaging )
 		      (fun () -> try_send ())
 		      (fun exn -> Lwt_log.info_f ~exn "dropped message")
 		  end
+                | Lwt.Canceled ->
+                    Lwt.fail Lwt.Canceled
 		| exn ->
 		  begin
 		    Lwt_log.info_f ~exn
