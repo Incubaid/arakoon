@@ -26,6 +26,7 @@ open Tcp_messaging
 open Lwt
 open OUnit
 open Log_extra
+open Lwt_buffer
 
 class player id (m:messaging) = 
   let make_msg kind i = create kind (string_of_int i) in
@@ -41,13 +42,50 @@ object(self)
     let msg = make_msg "ping" n in 
     m # send_message msg "a" opp >>= 
     self # run 
-      
+  
+  method multi_serve n targets =
+    let msg = make_msg "ping" n in
+    self # mcast_msg targets msg >>= fun () ->
+    self # wait_for_response n targets
+ 
+  method wait_for_response n  targets=
+    m # recv_message id >>= fun (msg, source) ->
+    let n' = int_of_string ( msg.payload ) in 
+    Lwt_log.debug_f "n=%d n'=%d" n n' >>= fun () -> 
+    if n' == n  
+    then
+      begin
+      if n > 0 
+      then
+        self#multi_serve (n-1) targets 
+      else
+        Lwt.return()
+      end
+    else
+      self#wait_for_response n targets
+
+  method play_dead () =
+    Lwt_unix.sleep 10000000.0 
+(*
+    let capacity = None in
+    let buf = Lwt_buffer.create ~capacity () in
+
+    m # recv_message id >>= fun ( msg, source ) ->
+    Lwt_buffer.add msg buf >>= fun () ->
+    Lwt_log.debug_f "%s enqueueing message %s" id msg.payload >>= fun() ->
+    match msg.kind with
+    | "ping" -> self # play_dead()
+    | "pong" -> Lwt.return ()
+*)
+
   method get_lowest () = _lowest
   method private _maybe_update i =
     match _lowest with
       | None -> _lowest <- Some i
       | Some j -> if i < j then _lowest <- Some i
 
+  method mcast_msg targets msg =
+    Lwt_list.iter_p (fun t -> self#_send t msg) targets
     
   method run () =
     m # recv_message id  >>= fun (msg, source) ->
@@ -72,8 +110,8 @@ let make_transport address =
   let tcp_transport = new tcp_messaging address in
   (tcp_transport :> messaging) 
     
-let eventually_die () = 
-  Lwt_unix.sleep 10.0 >>= fun () -> OUnit.assert_failure "test takes too long:aborting"
+let eventually_die ?(t=10.0) () = 
+  Lwt_unix.sleep t >>= fun () -> OUnit.assert_failure "test takes too long:aborting"
   
 let test_pingpong_1x1 () = 
   let port = 40010 in
@@ -110,6 +148,38 @@ let test_pingpong_2x2 () =
 			   eventually_die ()
 			 ])
     
+let test_pingpong_multi_server () =
+  let port_a = 40010
+  and port_b = 40020  
+  and port_c = 40030 in
+  let address_a = ("127.0.0.1", port_a)
+  and address_b = ("127.0.0.1", port_b)
+  and address_c = ("127.0.0.1", port_c)
+  in
+  let transport_a = make_transport address_a in
+  let transport_b = make_transport address_b in
+  let transport_c = make_transport address_c in
+  let mapping = [("a", address_a);
+                 ("b", address_b);
+                 ("c", address_c);] in
+  let () = transport_a # register_receivers mapping in
+  let () = transport_b # register_receivers mapping in
+  let () = transport_c # register_receivers mapping in
+  let player_a = new player "a" transport_a in
+  let player_b = new player "b" transport_b in
+  let player_c = new player "c" transport_c in
+  let never () = false in
+  let timeout = 10.0 in 
+  Lwt_main.run (Lwt.pick [ transport_a # run ~stop:never ();
+                           transport_b # run ~stop:never ();
+                           transport_c # run ~stop:never ();
+                           player_a # multi_serve 10000 ["b";"c"] ;
+                           player_b # run ();
+                           player_c # play_dead ();
+                           eventually_die ~t:timeout () 
+                         ])
+
+
 
 let test_pingpong_restart () = 
   let port_a = 40010
@@ -156,6 +226,7 @@ let test_pingpong_restart () =
 let suite = "tcp" >::: [
   "pingpong_1x1" >:: test_pingpong_1x1;
   "pingpong_2x2" >:: test_pingpong_2x2; 
+  "pingpong_multi_server" >:: test_pingpong_multi_server;
   "pingpong_restart" >:: test_pingpong_restart;
 ]
 
