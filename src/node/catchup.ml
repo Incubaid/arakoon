@@ -36,18 +36,24 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
   let mr_address = Node_cfg.client_address mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
+  let last = ref current_i in
   
   let copy_tlog connection =
     let client = new remote_nodestream connection in
+
     let f (i,update) =
       Lwt_log.debug_f "%s:%s => tlog" 
 	(Sn.string_of i) (Update.string_of update) >>= fun () ->
       tlog_coll # log_update i update >>=
-	fun _ -> Lwt.return ()
+	fun _ -> 
+      let () = last := i in
+      Lwt.return ()
     in
-    client # iterate current_i f in
+    client # iterate current_i f 
+  in
   Lwt_io.with_connection mr_address copy_tlog >>= fun () ->
-  Lwt_log.debug_f "catchup_tlog complete"
+  Lwt_log.debug_f "catchup_tlog completed" >>= fun () ->
+  Lwt.return !last
     
 let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
   Lwt_log.info "replaying log to store"
@@ -101,8 +107,8 @@ let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
-  catchup_tlog me other_configs current_i mr_name tlog_coll>>= fun () ->
-  catchup_store me db tlog_coll future_i >>= fun (end_i,vo) ->
+  catchup_tlog me other_configs current_i mr_name tlog_coll>>= fun last_logged_i ->
+  catchup_store me db tlog_coll last_logged_i >>= fun (end_i,vo) ->
   Lwt_log.info_f "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
 

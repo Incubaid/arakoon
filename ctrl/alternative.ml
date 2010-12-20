@@ -64,3 +64,21 @@ let test_sequence_is_transaction () =
 	      c # sequence seq
     )
   in ();;
+
+
+let put_50000 () = 
+  let _ = Client_main.with_master_client "cfg/arakoon.ini"
+    (fun c ->
+      let rec loop n = 
+	if n = 0 then Lwt.return ()
+	else
+	  let key = Printf.sprintf "put_X_%06i" n in
+	  c # set key key >>= fun () ->
+	  Lwt_io.printlf "%i" n >>= fun () ->
+	  loop (n-1)
+      in
+      loop (50 * 1000)
+    )
+  in ();;
+
+

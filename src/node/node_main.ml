@@ -231,9 +231,13 @@ let _main_2 make_store make_tlog_coll cfgs
 	      Lwt.pick [ 
 		messaging # run ~stop:never ();
 		begin
-		  build_startup_state () >>= fun (start_state,service) -> 
-		  join[ start_backend start_state;
-			service ()];
+		  Lwt.finalize 
+		    (fun () ->
+		      build_startup_state () >>= fun (start_state,service) -> 
+		      Lwt.pick[ start_backend start_state;
+				service ()]
+		    )
+		    (fun () -> Lwt_log.fatal "after pick")
 		end
 	      ])
 	    (fun exn -> Lwt_log.fatal ~exn "going down")

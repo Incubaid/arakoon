@@ -738,7 +738,8 @@ let run_election constants buffers current_i =
 	(machine constants) (election_suggest constants (current_n,current_i))
     ) 
     (fun e ->
-      log ~me "FSM BAILED due to uncaught exception %s" (Printexc.to_string e) 
+      log ~me "FSM BAILED (run_election) due to uncaught exception %s" 
+	(Printexc.to_string e) 
       >>= fun () -> Lwt.fail e
     )
 
