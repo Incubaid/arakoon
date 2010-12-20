@@ -92,7 +92,10 @@ object(self : # messaging )
       try Hashtbl.find _qs target
       with | Not_found ->
 	begin
-	  let tq = let capacity = Some 100 in Lwt_buffer.create ~capacity () in
+	  let tq = 
+	    let capacity = Some 100 
+	    and leaky = true in 
+	    Lwt_buffer.create ~capacity ~leaky () in
 	  let () = Hashtbl.add _qs target tq in
           tq
 	end

@@ -56,14 +56,5 @@ module LWTQ = struct
   let take t = (* blocked if empty *)
     Lwt_mutex.with_lock t.m (_take t)
 
-
-(*  let peek t =
-    let r =
-      if Queue.is_empty t.q
-      then None
-      else Some (Queue.peek t.q)
-    in Lwt.return r
-*)
-
   let length t = Queue.length t.q
 end

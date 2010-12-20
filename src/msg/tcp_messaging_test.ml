@@ -169,11 +169,11 @@ let test_pingpong_multi_server () =
   let player_b = new player "b" transport_b in
   let player_c = new player "c" transport_c in
   let never () = false in
-  let timeout = 10.0 in 
+  let timeout = 60.0 in 
   Lwt_main.run (Lwt.pick [ transport_a # run ~stop:never ();
                            transport_b # run ~stop:never ();
                            transport_c # run ~stop:never ();
-                           player_a # multi_serve 10000 ["b";"c"] ;
+                           player_a # multi_serve 10000 ["b"; "c" ] ;
                            player_b # run ();
                            player_c # play_dead ();
                            eventually_die ~t:timeout () 
