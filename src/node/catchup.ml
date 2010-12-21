@@ -51,10 +51,16 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
     in
     client # iterate current_i f 
   in
-  Lwt_io.with_connection mr_address copy_tlog >>= fun () ->
-  Lwt_log.debug_f "catchup_tlog completed" >>= fun () ->
+  Lwt.catch
+    (fun () ->
+      Lwt_io.with_connection mr_address copy_tlog >>= fun () ->
+      Lwt_log.debug_f "catchup_tlog completed" 
+    )
+    (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
+  >>= fun () ->
   let future_i' = Sn.succ !last in
   Lwt.return future_i'
+
     
 let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
   Lwt_log.info "replaying log to store"
