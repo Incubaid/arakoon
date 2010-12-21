@@ -93,7 +93,7 @@ object(self : # messaging )
       with | Not_found ->
 	begin
 	  let tq = 
-	    let capacity = Some 100 
+	    let capacity = Some 1000
 	    and leaky = true in 
 	    Lwt_buffer.create ~capacity ~leaky () in
 	  let () = Hashtbl.add _qs target tq in

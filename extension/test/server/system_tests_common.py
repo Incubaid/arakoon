@@ -126,6 +126,7 @@ def add_node ( i ):
                                client_port=node_client_base_port + i,
                                messaging_port=node_msg_base_port + i, 
                                log_dir = log_dir,
+                               log_level = 'debug',
                                home = db_dir)
     q.config.arakoon.addLocalNode ( node_names[i] )
     q.config.arakoon.createDirs( node_names[i] )
