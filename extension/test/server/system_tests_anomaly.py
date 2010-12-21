@@ -188,7 +188,6 @@ def block_tcp_port ( tcp_port ):
     
 @with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )    
 def test_disk_full_on_slave ():
-    raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster()
     slave_id = node_names[0]
@@ -459,7 +458,6 @@ def test_block_two_slaves_ports_loop () :
 
 @with_custom_setup( setup_3_nodes, iptables_teardown )
 def test_block_master_ports () :
-    raise SkipTest
     def validate_reelection( old_master_id) :
         
         # Leave some time for re-election
