@@ -47,9 +47,9 @@ class with_custom_setup ():
                 tb = traceback.format_exc()
                 logging.fatal( tb )              
                 fatal_ex = outer
-                
-
-            self.__teardown( fatal_ex is None )
+            finally:
+                self.__teardown( fatal_ex is None )
+            
             if fatal_ex is not None:
                 raise fatal_ex
         return decorate
