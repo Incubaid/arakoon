@@ -55,8 +55,28 @@ let make_server_thread ?(setup_callback=no_callback) host port protocol =
     Lwt_unix.listen listening_socket 1024;
     let rec server_loop () =
       info "await connection" >>= fun () ->
-      Lwt_unix.accept listening_socket >>= fun (fd, _) ->
-      (Lwt.ignore_result (session_thread protocol fd));
+      Lwt.catch
+	(fun () ->
+	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
+	  (Lwt.ignore_result (session_thread protocol fd));
+	  Lwt.return ()
+	)
+	(function 
+	  | Unix.Unix_error (Unix.EMFILE,s0,s1) -> 
+	    let timeout = 4.0 in
+	    (* if we don't sleep, this will go into a spinming loop of
+	       failfasts; 
+	       we want to block until an fd is available,
+	       but alas, I found no such API.
+	    *)
+	    Lwt_log.warning_f 
+	      "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs" 
+	      s0 s1 port timeout
+	    >>= fun () ->
+	    Lwt_unix.sleep timeout
+	  | e -> Lwt.fail e
+	)
+      >>= fun () ->
       server_loop ()
     in
     let r  = fun () ->
