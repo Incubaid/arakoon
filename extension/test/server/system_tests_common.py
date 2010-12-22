@@ -507,7 +507,7 @@ def assert_last_i_in_sync ( node_1, node_2 ):
                    "Values for i are invalid %s %s" % (last_i_0, last_i_1) )  
 
 def assert_running_nodes ( n ):
-    assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1 )
+    assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1, "Number of expected running nodes missmatch" )
 
 def assert_value_list ( start_suffix, list_size, list ) :
     assert_list( value_format_str, start_suffix, list_size, list )

@@ -217,7 +217,9 @@ def disk_full_scenario( node_id, cli ):
     
     q.system.fs.unlink( disk_filling )
     cli._dropConnections()
-    
+   
+    # Make sure the node with a full disk is no longer running
+    assert_equals( q.cmdtools.arakoon.getStatusOne(node_id), q.enumerators.AppStatusType.HALTED, 'Node with full disk is still running') 
     time.sleep( 2*lease_duration )
     
     cli2 = get_client()
@@ -237,9 +239,6 @@ def disk_full_scenario( node_id, cli ):
     key_list = cli.prefix( "key_", 500 )
     assert_key_list( 0, 500, key_list )
     
-    q.cmdtools.arakoon.stop()
-    start_all()
-    assert_running_nodes ( 3 )
     
 @with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
 def test_disk_full_on_master () :
