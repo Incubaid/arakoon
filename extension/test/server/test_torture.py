@@ -1,6 +1,4 @@
-import os
-
-header = """
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -20,31 +18,37 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-""".strip()
+"""
 
-def maybe_add_header(fn,pre,post):
-    data = None
-    with open(fn,'r') as f:
-        data = f.read()
-    actual = pre + header + post
-    if data.startswith(actual) :
-        print "skipping %s : already done" % fn
-    else:
-        new_data = actual + data
-        with open(fn,'w') as f:
-            f.write(new_data)
 
-def process_dir(directory):
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for fn in filenames:
-            full = os.path.join(dirpath, fn)
-            if fn.endswith('.py'):
-                print full, "==> python"
-                maybe_add_header(full,'''"""\n''','''\n"""\n\n''')
-            elif fn.endswith('.ml'):
-                print full, "==> ocaml"
-                maybe_add_header(full,"""(*\n""","""\n*)\n\n""")
-            
-if __name__ == "__main__":
-	process_dir('../src/')
-	process_dir('../extension/')
+import system_tests_common as Common
+from pymonkey import q
+import logging
+
+def last_slave(master_id):
+    slaves = filter(lambda x: x!= master_id, Common.node_names)
+    return slaves [-1]
+
+def start_node(node_id):
+    q.cmdtools.arakoon.startOne(node_id)
+
+def stop_node(node_id):
+    q.cmdtools.arakoon.stopOne(node_id)
+    
+@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+def test_shaky_slave():
+    cli = Common.get_client()
+    master_id = cli.whoMaster()
+    slave_id = last_slave(master_id)
+    stop_node(slave_id)
+    print ("slave %s stopped" % slave_id)
+    n = 5000
+    Common.iterate_n_times( n, Common.simple_set)
+    for i in range(100):
+        print ("starting cycle %i" % i)
+        start_node(slave_id)
+        Common.iterate_n_times( n, Common.simple_set)
+        stop_node(slave_id)
+        Common.iterate_n_times( n, Common.simple_set)
+    print "phewy!"
+    
