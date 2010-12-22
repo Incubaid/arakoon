@@ -42,9 +42,9 @@ def test_shaky_slave():
     slave_id = last_slave(master_id)
     stop_node(slave_id)
     print ("slave %s stopped" % slave_id)
-    n = 1000
+    n = 5000
     Common.iterate_n_times( n, Common.simple_set)
-    for i in range(64):
+    for i in range(100):
         print ("starting cycle %i" % i)
         start_node(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
