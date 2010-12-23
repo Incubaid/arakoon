@@ -220,7 +220,12 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	    begin
 	      constants.on_witness source i' >>= fun () ->
 	      constants.on_accept (v,n,i) >>= fun () ->
-	      constants.on_consensus (v,n,i) >>= fun _ ->
+	      begin
+              match maybe_previous with
+              | None -> Lwt.return()
+              | Some( pv, pi ) -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
+              end >>= fun _ ->
+              constants.on_consensus (v,n,i) >>= fun _ ->
 	      let reply = Accepted(n,i) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
