@@ -104,9 +104,9 @@ class ArakoonConfig:
 
     def setMasterLease(self, duration=None):
         """
-        Force a master
+        Set the master lease duration
 
-        @param name the name of the master to force. If None there is no longer a forced master
+        @param duration The duration of the master lease in seconds
         """
         section = "global"
         key = "lease_expiry"
@@ -114,7 +114,7 @@ class ArakoonConfig:
         config = q.config.getInifile("arakoon")
 
         if not config.checkSection( section ):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("Section '%s' not found in arakoon config" % section )
 
         if duration is not None:
             if not isinstance( duration, int ) :
@@ -122,7 +122,7 @@ class ArakoonConfig:
             if config.checkParam(section, key):
                 config.setParam(section, key, duration)
             else:
-                config.addParam(section, key, name)
+                config.addParam(section, key, duration)
         else:
             config.removeParam(section, key)
 

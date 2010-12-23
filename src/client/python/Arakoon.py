@@ -67,7 +67,7 @@ def retryDuringMasterReelection (f):
             try :
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (ArakoonNoMaster, ArakoonNodeNotMaster):
+            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected):
                 self._masterId = None
                 self._dropConnections()
                 sleepPeriod = backoffPeriod * tryCount
