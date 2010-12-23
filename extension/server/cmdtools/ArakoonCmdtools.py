@@ -159,7 +159,8 @@ class ArakoonCmdtools:
         ret = subprocess.call(['pgrep', \
                                '-f', \
                                '%s -daemonize -config %s --node %s' % (self._binary, self._cfgFile, name)], \
-                               close_fds=True)
+                               close_fds=True, \
+                               stdout=subprocess.PIPE)
 
         if ret == 0:
             return q.enumerators.AppStatusType.RUNNING
