@@ -124,7 +124,6 @@ let _main_2 make_store make_tlog_coll cfgs
 	  Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
 	  let my_name = me.node_name in
 	  let messaging  = _config_messaging me cfgs in
-	  let never () = false in	  
 	  let build_startup_state () = 
 	    begin
 	      Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
@@ -229,7 +228,7 @@ let _main_2 make_store make_tlog_coll cfgs
 	  Lwt.catch
 	    (fun () ->
 	      Lwt.pick [ 
-		messaging # run ~stop:never ();
+		messaging # run ();
 		begin
 		  Lwt.finalize 
 		    (fun () ->

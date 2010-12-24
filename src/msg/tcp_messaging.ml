@@ -26,65 +26,72 @@ open Lwt
 open Log_extra
 open Lwt_buffer
 open Lwtq
-
-let a2s = function
-  | Unix.ADDR_INET (sa,p) -> Printf.sprintf "(%s,%i)"
-    (Unix.string_of_inet_addr sa) p
-  | Unix.ADDR_UNIX s -> Printf.sprintf "ADDR_UNIX(%s)" s
-
-let __open_connection socket_address =
-  (* Lwt_io.open_connection socket_address *)
-  let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0  in
-  Lwt.catch
-    (fun () ->
-      Lwt_unix.connect socket socket_address >>= fun () ->
-      let a2 = Lwt_unix.getsockname socket in
-      let peer = Lwt_unix.getpeername socket in
-      begin
-	if (a2 = peer) then
-	  Llio.lwt_failfmt "a socket should not connect to itself"
-	else
-	Lwt.return ()
-      end >>= fun () ->
-      let fd_field = Obj.field (Obj.repr socket) 0 in
-      let (fdi:int) = Obj.magic (fd_field) in
-      Lwt_log.info_f "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
-	(a2s a2) (a2s peer)
-      >>= fun () ->
-      let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
-      let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
-      Lwt.return (ic,oc))
-    (fun exn -> Lwt_log.info ~exn "__open_connection failed" >>= fun () ->
-      Lwt_unix.close socket;
-      Lwt.fail exn)
-
+open Network
 
 
 type connection = Lwt_io.input_channel * Lwt_io.output_channel
 type mq = (Message.t * id) LWTQ.t
 
-class tcp_messaging my_address =
-  let never () = false in
+let never () = Lwt.return false 
+let no_callback () = Lwt.return ()
 
+class tcp_messaging ?(stop=never) my_address =
+  let my_host, my_port = my_address in
+  let me = Printf.sprintf "(%s,%i)" my_host my_port 
+  in
 object(self : # messaging )
   val _id2address = Hashtbl.create 10
   val _connections = Hashtbl.create 10
   val _connections_lock = Lwt_mutex.create ()
   val _qs = Hashtbl.create 10
-  val _outgoing = LWTQ.create ()
+  val _outgoing = Hashtbl.create 10 
+  val mutable _stop = stop
+  val mutable _running = false
+  val _running_c = Lwt_condition.create ()
+  val mutable _my_threads = []
 
   method register_receivers mapping =
     List.iter
       (fun (id,address) -> Hashtbl.add _id2address id address) mapping
 
   method private _get_target_address ~target =
-    try 
-      Some (Hashtbl.find _id2address target)
+    try Some (Hashtbl.find _id2address target)
     with Not_found -> None
 
+  method set_stop (stop:unit -> bool Lwt.t) = _stop <- stop
 
+
+  method private __fuse__ f = 
+    _stop () >>= function
+      | true ->
+	begin
+	  Lwt_log.info_f "tcp_messaging %s:ending loop" me>>= fun () ->
+	  self # __die__ () 
+	end
+      | false -> f ()
+
+
+  method private __die__ () = 
+    Lwt_log.debug_f "tcp_messaging %s: cancelling my threads" me >>= fun () ->
+    List.iter (fun w -> Lwt.cancel w) _my_threads;
+    _my_threads <- [];
+    Lwt.return () 
+
+  method private _get_send_q ~target = 
+    try Hashtbl.find _outgoing target 
+    with Not_found -> 
+      let fresh = LWTQ.create () in
+      let loop = self # _make_sender_loop target fresh in
+      Lwt.ignore_result (loop ());
+      let () = Hashtbl.add _outgoing target fresh in
+      fresh
+	
   method send_message m ~source ~target =
-    LWTQ.add (source, target, m) _outgoing
+    let tq = self # _get_send_q ~target in
+    LWTQ.add (source, target, m) tq 
+    >>= fun () ->
+    Lwt_log.debug_f "%s added to q of %s" (Message.string_of m) target
+
 
 
   method get_buffer target =
@@ -103,7 +110,8 @@ object(self : # messaging )
       failwith (Printf.sprintf "we don't know %s (it was never registered)" target)
 
   method recv_message ~target =
-    let q = self # get_buffer target in Lwt_buffer.take q
+    let q = self # get_buffer target in 
+    Lwt_buffer.take q
 
   method private _establish_connection address =
     let host_ip, port = address in
@@ -118,6 +126,70 @@ object(self : # messaging )
     Lwt.return (ic,oc)
       (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
 	 on local host *)
+
+
+  method private _make_sender_loop target target_q =
+    let rec _loop_for_q () = 
+      Lwt_log.debug_f "sender_loop %s going to take from q" target >>= fun () ->
+      LWTQ.take target_q >>= fun (source, target, msg) ->
+      Lwt_log.debug_f "sender_loop %s got %S" target (Message.string_of msg) >>= fun () -> 
+      let ao = self # _get_target_address ~target in
+      begin
+	match ao with
+	  | Some address ->
+	    let try_send () =
+	      self # _get_connection address >>= fun connection ->
+	      let ic,oc = connection in
+	      let pickled = self # _pickle source target msg in
+	      Llio.output_string oc pickled >>= fun () ->
+	      Lwt_io.flush oc
+	    in
+	    Lwt.catch
+	      (fun () -> try_send ())
+	      (function
+		| Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
+		  begin
+		    Lwt_log.debug_f "stale connection" >>= fun () ->
+		    self # _drop_connection address >>= fun () ->
+		    Lwt.catch
+		      (fun () -> try_send ())
+		      (fun exn -> Lwt_log.info_f ~exn "dropped message for %s" target)
+		  end
+                | Lwt.Canceled ->
+                  Lwt.fail Lwt.Canceled
+		| exn ->
+		  begin
+		    Lwt_log.info_f ~exn
+		      "dropping message %s with destination '%s' because of"
+		      (Message.string_of msg) target >>= fun () ->
+		    self # _drop_connection address >>= fun () ->
+		    Lwt_log.debug "end of connection epilogue"
+		  end
+	      )
+	  | None -> (* we don't talk to strangers *)
+	    Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
+      end
+      >>= fun () -> self # __fuse__ _loop_for_q
+    in
+    let (w,u) = Lwt.task () in
+    let thread () =
+      w >>= fun () ->
+      Lwt_log.debug "wait until tcp_messaging is running" >>= fun () ->
+      begin
+	if _running 
+	then Lwt.return () 
+	else Lwt_condition.wait _running_c 
+      end 
+      >>= fun () ->
+      Lwt_log.debug_f "sender_loop for '%s' running" target >>= fun () ->
+      Lwt.finalize 
+	_loop_for_q 
+	(fun () -> Lwt_log.debug_f "end of sender_q for '%s'" target)
+    in 
+    let () = _my_threads <- w :: _my_threads in
+    Lwt.wakeup u ();
+    thread
+
 
   method private _get_connection address =
     try
@@ -154,11 +226,6 @@ object(self : # messaging )
 	Lwt_log.debug_f "connection to (%s,%i) not found. we never had one..." h p
       end
 
-
-
-
-
-
   method private _pickle source target msg =
     let buffer = Buffer.create 40 in
     let () = Llio.string_to buffer source in
@@ -174,17 +241,8 @@ object(self : # messaging )
     else
       Lwt_log.debug_f "XXX first connection with (%S,%i)" host port
 
-  method run ?(stop=never) () =
-    Lwt_log.info "starting TCP_MESSAGING" >>= fun () ->
-    let conditionally f =
-      let b = stop () in
-      if b then
-	begin
-	  Lwt_log.info "ending loop" >>= fun () ->
-	  Lwt.return ()
-	end
-      else f ()
-    in
+  method run ?(up_and_running=no_callback)  () =
+    Lwt_log.info_f "tcp_messaging %s: run" me >>= fun () ->
     let protocol (ic,oc) =
       Llio.input_string ic >>= fun ip ->
       Llio.input_int ic    >>= fun port ->
@@ -192,17 +250,18 @@ object(self : # messaging )
       begin
 	let rec loop () =
 	  begin
+	    Lwt_log.debug_f "%s protocol_loop" me >>= fun () ->
 	    Llio.input_int ic >>= fun msg_size ->
 	    let buffer = String.create msg_size in
 	    Lwt_io.read_into_exactly ic buffer 0 msg_size >>= fun () ->
 	    let (source:id), pos1 = Llio.string_from buffer 0 in
 	    let target, pos2 = Llio.string_from buffer pos1 in
 	    let msg, _   = Message.from_buffer buffer pos2 in
-	    Lwt_log.debug_f "tcp_messaging received msg from %s" source 
+	    Lwt_log.debug_f "tcp_messaging %s received msg from %s" me source 
 	    >>= fun () ->
 	    let q = self # get_buffer target in
 	    Lwt_buffer.add (msg, source) q >>=  fun () ->
-	    conditionally loop
+	    self # __fuse__ loop
 	  end
 	in
 	catch
@@ -215,54 +274,14 @@ object(self : # messaging )
 
       end
     in
-    let rec sender_loop () =
-      LWTQ.take _outgoing >>= fun (source, target, msg) ->
-      (* Lwt_log.debug_f "sender_loop got %S" (Message.string_of msg) >>= fun () -> *)
-      let ao = self # _get_target_address ~target in
-      begin
-	match ao with
-	  | Some address ->
-	    let try_send () =
-	      self # _get_connection address >>= fun connection ->
-	      let ic,oc = connection in
-	      let pickled = self # _pickle source target msg in
-              Llio.output_string oc pickled >>= fun () ->
-	      Lwt_io.flush oc
-	    in
-	    Lwt.catch
-	      (fun () -> try_send ())
-	      (function
-		| Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
-		  begin
-		    Lwt_log.debug_f "stale connection" >>= fun () ->
-		    self # _drop_connection address >>= fun () ->
-		    Lwt.catch
-		      (fun () -> try_send ())
-		      (fun exn -> Lwt_log.info_f ~exn "dropped message")
-		  end
-                | Lwt.Canceled ->
-                    Lwt.fail Lwt.Canceled
-		| exn ->
-		  begin
-		    Lwt_log.info_f ~exn
-		      "dropping message %s with destination '%s' because of"
-		      (Message.string_of msg) target >>= fun () ->
-		    self # _drop_connection address >>= fun () ->
-		    Lwt_log.debug "end of connection epilogue"
-		  end
-	      )
-	  | None -> (* we don't talk to strangers *)
-	    Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
-      end
-      >>= fun () -> conditionally sender_loop
-	
+    let server_t = Server.make_server_thread 
+      ~setup_callback:up_and_running
+      my_host my_port protocol
     in
-    let my_host, my_port = my_address in
-    let server_t = Server.make_server_thread my_host my_port protocol
-    in
-    Lwt.pick [server_t ();sender_loop ();] >>= fun () ->
-    Lwt_log.info "end of tcp_messaging"    >>= fun () ->
+    _running <- true;
+    Lwt_condition.broadcast _running_c ();
+    server_t () >>= fun () ->
+    Lwt_log.info_f "tcp_messaging %s: end of run" me >>= fun () ->
     Lwt.return ()
-
-
+    	
 end
