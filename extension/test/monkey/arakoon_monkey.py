@@ -197,7 +197,9 @@ def health_check() :
     
     cli._dropConnections()
     
-    check_disk_space()
+    if not check_disk_space():
+        logging.critical("SUCCES! Monkey filled the disk to its threshold")
+        sys.exit(0)
     
     logging.info( "Cluster is healthy!")
 
@@ -210,9 +212,10 @@ def check_disk_space():
     disk_free = int( stdout )
     free_threshold = 95
     if disk_free > free_threshold :
-        raise Exception( "Running dangerously low on disk space. Euthanizing monkey.")
+        return False
     logging.info( "Still under free disk space threshold. Used space: %d%% < %d%% " % (disk_free,free_threshold) ) 
-    
+    return True
+
 def make_monkey_run() :
   
     system_tests_common.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
