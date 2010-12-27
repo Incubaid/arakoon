@@ -98,6 +98,7 @@ def dump_tlog (node_id, tlog_number) :
 def get_last_tlog_id ( node_id ):
     node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
     tlog_max_id = 0
+    tlog_id = None
     tlogs_for_node = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
     for tlog in tlogs_for_node:
         tlog = tlog [ len(node_home_dir):]
@@ -106,7 +107,10 @@ def get_last_tlog_id ( node_id ):
         tlog_id = int( tlog_id )
         if tlog_id > tlog_max_id :
             tlog_max_id = tlog_id
-    logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
+    if tlog_id is not None:
+        logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
+    else :
+        raise Exception( "Not a single tlog found in %s" % node_home_dir )
     return tlog_max_id
     
 def get_last_i_tlog ( node_id ):
