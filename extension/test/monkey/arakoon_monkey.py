@@ -230,6 +230,8 @@ def make_monkey_run() :
         q.system.fs.removeDirTree( monkey_dir )
     q.system.fs.createDir( monkey_dir )
     iteration = 0 
+    q.cmdtools.arakoon.start()
+    time.sleep( 1.0 )
     while( True ) :
         iteration += 1
         logging.info( "Preparing iteration %d" % iteration )
