@@ -23,19 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Update
 open Lwt
 
-(* Transaction logs are binary files                                 *)
-(* Each log entry is an encoded key-value store modification         *)
-(* The structure of an entry is as follows                           *)
-(* ---------------------------------------                           *)
-(* | I     | Size  | Checksum | Operation |                          *)
-(* | Int32 | Int32 | Int32    | VarSize   |                          *)
-(* ----------------------------------------                          *)
-(* The size is the size in bytes of the stored binary operation      *)
-(* The checksum is the checksum of the stored binary operation       *)
-(* The operation is the exact same protocol message as what is received
-   from the client   *)
-
-exception TLogCheckSumError
+exception TLogCheckSumError of Int64.t
 
 let tlogEntriesPerFile = ref (100 * 1000)
 let tlogExtension = ".tlog"
@@ -78,18 +66,35 @@ let validateTlogEntry buffer checkSum =
 
 
 let read_entry ic =
-  Sn.input_sn    ic >>= fun  i     ->
-  Llio.input_int32 ic >>= fun chkSum ->
-  Llio.input_string ic >>= fun cmd   ->
-  (* if you want to do validation, do it here *)
-  let chksum2 = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
-  begin
-    if chkSum <> chksum2 then
-      Lwt.fail TLogCheckSumError
-    else Lwt.return ()
-  end >>= fun () ->
-  let update,_ = Update.from_buffer cmd 0 in
-  Lwt.return (i, update)
+  let last_valid_pos = Lwt_io.position ic in
+  Lwt.catch ( fun () ->
+    Sn.input_sn    ic >>= fun  i     ->
+    Llio.input_int32 ic >>= fun chkSum ->
+    Llio.input_string ic >>= fun cmd  -> 
+    (* if you want to do validation, do it here *)
+    let chksum2 = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
+    begin
+      if chkSum <> chksum2 then
+        Lwt.fail (TLogCheckSumError last_valid_pos )
+      else Lwt.return ()
+    end >>= fun () ->
+    let update,_ = Update.from_buffer cmd 0 in
+    Lwt.return (i, update)
+  ) ( 
+    function
+    | End_of_file ->
+      let new_pos = Lwt_io.position ic in 
+      Lwt_log.debug_f "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos) (Int64.to_int last_valid_pos) >>= fun () ->
+      begin 
+        if ( Int64.compare new_pos last_valid_pos ) == 0 
+        then
+          Lwt.fail End_of_file
+        else
+          Lwt.fail (TLogCheckSumError last_valid_pos)
+      end
+    | ex -> Lwt.fail ex
+  ) 
+ 
 
 let entry_from buff pos = 
   let i, pos2  = Sn.sn_from       buff pos  in

@@ -162,7 +162,7 @@ let test_validate_corrupt_1 (dn,factory) =
       Lwt.return ()
     )
     (function
-      | Tlogcommon.TLogCheckSumError -> Lwt.return ()
+      | Tlogcommon.TLogCheckSumError pos -> Lwt.return ()
       | exn -> 
 	let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
 	OUnit.assert_bool msg false;
