@@ -71,6 +71,13 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
       | None -> Sn.start
       | Some i -> Sn.succ i
   in
+  if Sn.compare start_i future_i > 0 
+  then 
+    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting." 
+      (Sn.string_of start_i) (Sn.string_of future_i) in
+    Lwt.fail (Failure msg)
+  else
+  begin 
   Lwt_log.debug_f "will replay starting from %s into store, until we're @ %s" 
     (Sn.string_of start_i) (Sn.string_of future_i)
   >>= fun () ->
@@ -107,7 +114,7 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
       | Some (i,u) -> let v = Update.make_update_value u in Some v
   in
   Lwt.return (future_i, vo)
-
+  end
 
 let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i) =
   Lwt_log.info_f "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
