@@ -115,37 +115,6 @@ let dump_tlog filename =
 
 let dump_store filename = Dump_store.dump_store filename
 
-let truncate_tlog filename = 
-  let skipper () (i,u) =
-    Lwt.return () 
-  in
-  let t = 
-    begin
-      if Tlc2.is_compressed filename then
-          Lwt.fail (Failure "Cannot truncate a compressed tlog")
-      else
-        begin
-        let folder = Tlogreader2.U.fold in
-        let do_it ic = 
-          let lowerI = Sn.start
-          and higherI = None 
-          and first = Sn.of_int 0
-          in
-          Lwt.catch( fun() ->
-             folder ic lowerI higherI ~first () skipper 
-          ) (
-          function 
-            | Tlogcommon.TLogCheckSumError pos -> 
-              let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in  
-              Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
-            | ex -> Lwt.fail ex
-          ) >>= fun () ->
-          Lwt.return 0
-        in
-        Lwt_io.with_file ~mode:Lwt_io.input filename do_it
-        end
-    end
-  in Lwt_main.run t
    
 let compress_tlog tlu =
   let tlc = Tlc2.to_archive_name tlu in
@@ -287,7 +256,7 @@ let do_local = function
   | ShowVersion -> show_version();0
   | DumpTlog -> dump_tlog !filename
   | DumpStore -> dump_store !filename
-  | TruncateTlog -> truncate_tlog !filename
+  | TruncateTlog -> Tlc2.truncate_tlog !filename
   | CompressTlog -> compress_tlog !filename
   | UncompressTlog -> uncompress_tlog !filename
   | SET -> Client_main.set !config_file !key !value

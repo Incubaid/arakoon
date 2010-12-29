@@ -25,6 +25,8 @@ open Tlogcommon
 open Update
 open Lwt
 
+exception TLCCorrupt of (Int64.t * Sn.t)
+
 let file_regexp = Str.regexp "[0-9]+\\.tl[og|c]"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_name c = Printf.sprintf "%03i.tlc" c
@@ -120,11 +122,12 @@ let fold_read tlog_dir file_name
 let _validate_one tlog_name =      
   Lwt_log.debug_f "_validate_one %s" tlog_name >>= fun () ->
   let a2s (i,u) = Printf.sprintf "(%s,_)" (Sn.string_of i) in
+  let prev_entry = ref None in 
   Lwt.catch
     (fun () ->
       let first = Sn.of_int 0 in
       let do_it ic = Tlogreader2.AU.fold ic Sn.start None ~first None
-	(fun a0 (i,u) ->  let r = Some (i,u) in Lwt.return r)
+	(fun a0 (i,u) -> let r = Some (i,u) in let () = prev_entry := r in Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun a ->
@@ -133,6 +136,12 @@ let _validate_one tlog_name =
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return None
+      | Tlogcommon.TLogCheckSumError pos ->
+        begin 
+        match !prev_entry with 
+        | Some(i,u) -> Lwt.fail (TLCCorrupt (pos,i))
+        | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
+        end
       | exn -> Lwt.fail exn
     )
 
@@ -318,12 +327,16 @@ object(self: # tlog_collection)
   method close () =
     Lwt_io.close _oc
 end
-let make_tlc2 tlog_dir =
-  Lwt_log.debug "make_tlc" >>= fun () ->
+
+let get_last_tlog tlog_dir =
   get_tlog_names tlog_dir >>= fun tlog_names ->
   let new_c = get_count tlog_names in
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
-  let fn = Filename.concat tlog_dir (file_name new_c) in
+  Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
+
+let make_tlc2 tlog_dir =
+  Lwt_log.debug "make_tlc" >>= fun () ->
+  get_last_tlog tlog_dir >>= fun (new_c,fn) ->
   _validate_one fn >>= fun last ->
   let msg = 
     match last with
@@ -333,3 +346,37 @@ let make_tlc2 tlog_dir =
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
   let col = new tlc2 tlog_dir new_c last in
   Lwt.return col
+
+
+let truncate_tlog filename =
+  let skipper () (i,u) =
+    Lwt.return ()
+  in
+  let t =
+    begin
+      if is_compressed filename then
+          Lwt.fail (Failure "Cannot truncate a compressed tlog")
+      else
+        begin
+        let folder = Tlogreader2.U.fold in
+        let do_it ic =
+          let lowerI = Sn.start
+          and higherI = None
+          and first = Sn.of_int 0
+          in
+          Lwt.catch( fun() ->
+             folder ic lowerI higherI ~first () skipper
+          ) (
+          function
+            | Tlogcommon.TLogCheckSumError pos ->
+              let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
+              Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
+            | ex -> Lwt.fail ex
+          ) >>= fun () ->
+          Lwt.return 0
+        in
+        Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+        end
+    end
+  in Lwt_main.run t
+
