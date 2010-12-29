@@ -193,6 +193,7 @@ def build_node_dir_names ( nodeName ):
 
 def setup_n_nodes ( n, force_master, home_dir ):
 
+    q.system.process.run( "/sbin/iptables -F" )
     cfg_list = q.config.list()
     
     if "arakoon" in cfg_list :

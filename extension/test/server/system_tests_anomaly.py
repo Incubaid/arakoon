@@ -242,7 +242,7 @@ def disk_full_scenario( node_id, cli ):
     
 @with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
 def test_disk_full_on_master () :
-    raise SkipTest
+    # raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster()
     
@@ -343,7 +343,7 @@ def iptables_teardown( removeDirs ) :
 
 @with_custom_setup( setup_3_nodes_forced_master, iptables_teardown )
 def test_block_single_slave_ports_loop () :
-    raise SkipTest
+    # raise SkipTest
     master_id = node_names [0]
     # Node 0 is fixed master 
     slave_id = node_names[1]
@@ -364,7 +364,7 @@ def test_block_single_slave_ports_loop () :
 
 @with_custom_setup( setup_3_nodes_forced_master, iptables_teardown )
 def test_block_single_slave_ports () :
-    raise SkipTest
+    # raise SkipTest
 
     system_tests_common.test_failed = False
     master_id = node_names [0]
@@ -389,7 +389,7 @@ def test_block_single_slave_ports () :
     
 @with_custom_setup( default_setup, iptables_teardown )
 def test_block_two_slaves_ports () :
-    raise SkipTest
+    # raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster() 
     
@@ -406,9 +406,7 @@ def test_block_two_slaves_ports () :
     
     time.sleep( lease_duration  )
     cli._masterId = None
-    master_id = cli.whoMaster()
-    
-    assert_equals( master_id, None, "Master did not notice his slaves are dead." )
+    assert_raises( ArakoonNoMaster, cli.whoMaster )
     
     unblock_node_ports( slave_1_id )
     unblock_node_ports( slave_2_id )
@@ -418,7 +416,7 @@ def test_block_two_slaves_ports () :
 
 @with_custom_setup( default_setup, iptables_teardown )
 def test_block_two_slaves_ports_loop () :
-    raise SkipTest
+    # raise SkipTest
 
     cli = get_client()
     master_id = cli.whoMaster() 
