@@ -286,7 +286,6 @@ let wait_for_promises constants state event =
 		Lwt.return (Wait_for_promises state)
 	      end
 	    | Prepare (n',i') when n' > n ->
-	      begin
 		constants.on_witness source i' >>= fun () ->
 		let i = match i_lim with
 		  | None -> 0L
@@ -294,15 +293,23 @@ let wait_for_promises constants state event =
 		in
 		if (is_election constants) || not (am_forced_master constants me)
 		then
-		  let reply = Promise(n',i,None) in
-		  log ~me "replying with %S" (string_of reply) >>= fun () ->
-		  constants.send reply me source >>= fun () ->
-		  Lwt.return (Slave_wait_for_accept (n', i, None, None))
+                  begin
+                    if (Sn.compare i' i) < 0
+                    then
+                      let reply = Promise(n',i,None) in
+                      log ~me "replying with %S" (string_of reply) >>= fun () ->
+                      constants.send reply me source >>= fun () ->
+                      Lwt.return (Slave_wait_for_accept (n', i, None, None))
+                    else
+                      let reply = Nak(n',(n,i)) in
+                      log ~me "replying with %S" (string_of reply) >>= fun () ->
+                      constants.send reply me source >>= fun () ->
+                      Lwt.return (Wait_for_promises state)
+                  end 
 		else
 		  let reply = Nak (n', (n,i))  in
 		  constants.send reply me source >>= fun () ->
 		  Lwt.return (Wait_for_promises state)
-	      end
 	    | Prepare (n',i') when n' = n ->
 	      begin
 		constants.on_witness source i' >>= fun () ->
