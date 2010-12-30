@@ -166,7 +166,20 @@ let slave_steady_state constants state event =
 	  if elections_needed then
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
-	      constants.on_consensus (previous, n,Sn.pred i) >>= fun _ ->
+              let store = constants.store in
+              store # consensus_i () >>= fun ( store_i ) ->
+              begin
+              match store_i with
+              | Some s_i ->
+                if Sn.compare (Sn.pred i) s_i != 0 
+                then
+	          constants.on_consensus (previous, n,Sn.pred i) 
+                else
+                  Lwt.return Store.Stop                
+              | None -> 
+	        constants.on_consensus (previous, n,Sn.pred i) 
+              end
+              >>= fun _ ->
 	      let new_n = update_n constants n in
 	      Lwt.return (Election_suggest (new_n, i))
 	    end
@@ -223,7 +236,20 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      begin
               match maybe_previous with
               | None -> Lwt.return()
-              | Some( pv, pi ) -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
+              | Some( pv, pi ) -> 
+                constants.store # consensus_i () >>= fun (store_i) ->
+                begin
+                match store_i with
+                | Some s_i ->
+                  if (Sn.compare s_i pi) == 0 
+                  then Lwt_log.debug "slave_wait_for_accept: Not pushing previous"
+                  else 
+                    begin 
+                    constants.on_consensus(pv,n,pi) >>= fun _ -> 
+                    Lwt_log.debug_f "slave_wait_for_accept: Pushed previous (%s %s)" (Sn.string_of s_i) (Sn.string_of pi)
+                    end
+                | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
+                end
               end >>= fun _ ->
               constants.on_consensus (v,n,i) >>= fun _ ->
 	      let reply = Accepted(n,i) in
