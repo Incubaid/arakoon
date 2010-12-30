@@ -85,10 +85,11 @@ def test_tlog_rollover():
 @with_custom_setup( default_setup, basic_teardown )
 def test_restart_master_long ():
     restart_iter_cnt = 10
-    write_loop = lambda: iterate_n_times( 100000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable] )
+    write_loop = lambda: iterate_n_times( 100000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
     restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 1.5*lease_duration )
+    system_tests_common.test_failed = False
     create_and_wait_for_thread_list( [restart_loop, write_loop] )
-    
+
     cli = get_client()
     time.sleep(2.0)
     key = "key"
