@@ -364,7 +364,7 @@ def test_block_single_slave_ports_loop () :
 
 @with_custom_setup( setup_3_nodes_forced_master, iptables_teardown )
 def test_block_single_slave_ports () :
-    # raise SkipTest
+    raise SkipTest
 
     system_tests_common.test_failed = False
     master_id = node_names [0]
@@ -389,7 +389,7 @@ def test_block_single_slave_ports () :
     
 @with_custom_setup( default_setup, iptables_teardown )
 def test_block_two_slaves_ports () :
-    # raise SkipTest
+    raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster() 
     
@@ -416,7 +416,7 @@ def test_block_two_slaves_ports () :
 
 @with_custom_setup( default_setup, iptables_teardown )
 def test_block_two_slaves_ports_loop () :
-    # raise SkipTest
+    raise SkipTest
 
     cli = get_client()
     master_id = cli.whoMaster() 
