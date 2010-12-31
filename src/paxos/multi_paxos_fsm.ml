@@ -294,7 +294,7 @@ let wait_for_promises constants state event =
 		if (is_election constants) || not (am_forced_master constants me)
 		then
                   begin
-                    if (Sn.compare i' i) < 0
+                    if (Sn.compare i' i) >= 0
                     then
                       let reply = Promise(n',i,None) in
                       log ~me "replying with %S" (string_of reply) >>= fun () ->
