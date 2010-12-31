@@ -242,7 +242,7 @@ def disk_full_scenario( node_id, cli ):
     
 @with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
 def test_disk_full_on_master () :
-    # raise SkipTest
+    raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster()
     
