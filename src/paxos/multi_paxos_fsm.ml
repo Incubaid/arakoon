@@ -599,7 +599,7 @@ let machine constants =
   | Slave_waiting_for_prepare i ->
     (Msg_arg (slave_waiting_for_prepare constants i), node_only)
   | Slave_wait_for_accept state ->
-    (Msg_arg (Slave.slave_wait_for_accept constants state), node_only)
+    (Msg_arg (Slave.slave_wait_for_accept constants state), full)
   | Slave_steady_state state ->
     (Msg_arg (Slave.slave_steady_state constants state), full)
   | Slave_discovered_other_master state ->

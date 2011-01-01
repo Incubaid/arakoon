@@ -26,6 +26,30 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
+let time_for_elections constants n' maybe_previous =
+  let ns' = Sn.string_of n' in
+  let last_accepted_lease () = constants.store # who_master() >>= fun maybe_stored ->
+  match maybe_stored with
+    | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
+    | Some (sm,sd) -> 
+      begin
+      match maybe_previous with
+      | None -> Lwt.return ("stored",(sm,sd))
+      | Some (previous, prev_n) ->
+        let Value.V(update_string) = previous in
+        let u,_ = Update.from_buffer update_string 0 in
+        match u with
+          | Update.MasterSet (m,d) -> Lwt.return ("previous",(m,d))
+          | _ -> Lwt.return ("stored",(sm,sd))
+      end 
+  in
+  last_accepted_lease () >>= fun (origine,(am,al)) ->
+  let now = Int64.of_float (Unix.time()) in
+  Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
+  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
+  let diff = abs (Int64.to_int (Int64.sub now al)) in
+  Lwt.return ( diff >= constants.lease_expiration )
+
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
 let slave_fake_prepare constants current_i () =
@@ -143,26 +167,7 @@ let slave_steady_state constants state event =
 	end
       else
 	begin 
-	  let last_accepted_lease () = 
-	    constants.store # who_master() >>= fun maybe_stored ->
-	    match maybe_stored with 
-              | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
-	      | Some (sm,sd) ->
-		let Value.V(update_string) = previous in
-		let u,_ = Update.from_buffer update_string 0 in
-		match u with
-		  | Update.MasterSet (m,d) -> Lwt.return ("previous",(m,d))
-		  | _ -> Lwt.return ("stored",(sm,sd))
-	  in
-	  last_accepted_lease () >>= fun (origine,(am,al)) ->
-	  let now = Int64.of_float (Unix.time()) in
-	  log ~me "steady state: lease expired(n'=%s) (lease:%s (%s,%s) now=%s" 
-	    ns' origine am (Sn.string_of al) (Sn.string_of now)
-	  >>= fun () ->
-	  let elections_needed = 
-	    let diff = Int64.to_int (Int64.sub now al) in
-	    diff >= constants.lease_expiration 
-	  in
+	  time_for_elections constants n' (Some (previous,Sn.pred i)) >>= fun elections_needed ->
 	  if elections_needed then
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
@@ -202,6 +207,7 @@ let slave_steady_state constants state event =
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
+  let me = constants.me in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -299,7 +305,32 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
       end
+    | ElectionTimeout n' 
+    | LeaseExpired n' ->
+      if (not (is_election constants)) || n' < n
+      then 
+        begin
+        let ns = (Sn.string_of n) and
+        ns' = (Sn.string_of n') in
+        log ~me "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s)" ns' ns >>= fun () ->
+        Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
+        end
+      else
+        time_for_elections constants n' maybe_previous >>= fun elections_needed ->
+        if elections_needed then
+          log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
+          let new_n = update_n constants n in
+          Lwt.return (Election_suggest (new_n, i))
+        else
+          begin
+            start_lease_expiration_thread constants n
+              constants.lease_expiration >>=fun() ->
+            Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
+          end
+
     | _ -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
+
+
 
 (* a pending slave that discovered another master has to do
    catchup and then go to steady state or wait_for_accept
