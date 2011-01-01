@@ -590,6 +590,7 @@ let machine constants =
   let node_only = Node_only in
   let full = Full in
   let node_and_timeout = Node_and_timeout in
+  let node_and_inject_and_timeout = Node_and_inject_and_timeout in
   function
   | Forced_master_suggest state ->
     (Unit_arg (forced_master_suggest constants state), nop)
@@ -599,7 +600,7 @@ let machine constants =
   | Slave_waiting_for_prepare i ->
     (Msg_arg (slave_waiting_for_prepare constants i), node_only)
   | Slave_wait_for_accept state ->
-    (Msg_arg (Slave.slave_wait_for_accept constants state), full)
+    (Msg_arg (Slave.slave_wait_for_accept constants state), node_and_inject_and_timeout)
   | Slave_steady_state state ->
     (Msg_arg (Slave.slave_steady_state constants state), full)
   | Slave_discovered_other_master state ->
