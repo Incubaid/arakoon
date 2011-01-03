@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 
-let default_lease_expiry = 60
+let default_lease_expiry = 10
 let _COMPRESSION_DEFAULT = true;
 module Node_cfg = struct
   type t = {node_name:string;
