@@ -63,8 +63,7 @@ let network_of_messaging (m:messaging) =
     Lwt.return (msg,s)
   in
   let register = m # register_receivers in
-  let stop () = false in
-  let run () = m # run ~stop () in
+  let run () = m # run () in
   send, receive, run, register
 
 

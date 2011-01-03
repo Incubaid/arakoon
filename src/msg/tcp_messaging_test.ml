@@ -120,9 +120,14 @@ let test_pingpong_1x1 () =
   let mapping = [("a", address);] in
   let () = transport # register_receivers mapping in
   let player_a = new player "a" transport in
-  let stop () = false in
-  Lwt_main.run (Lwt.pick [ transport # run ~stop (); (* needs callback *)
-			   player_a # serve "a";
+  let cvar = Lwt_condition.create () in
+  let up_and_running () = Lwt_condition.broadcast cvar (); Lwt.return () in
+  Lwt_main.run (Lwt.pick [ transport # run ~up_and_running (); 
+			   begin 
+			     Lwt_condition.wait cvar >>= fun () ->
+			     Lwt_log.debug "going to serve" >>= fun () ->
+			     player_a # serve "a" 
+			   end;
 			   eventually_die ()
 			 ])
     
@@ -140,9 +145,8 @@ let test_pingpong_2x2 () =
   let () = transport_b # register_receivers mapping in
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
-  let never () = false in
-  Lwt_main.run (Lwt.pick [ transport_a # run ~stop:never ();
-			   transport_b # run ~stop:never ();
+  Lwt_main.run (Lwt.pick [ transport_a # run ();
+			   transport_b # run ();
 			   player_a # serve "b";
 			   player_b # run ();
 			   eventually_die ()
@@ -168,11 +172,10 @@ let test_pingpong_multi_server () =
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
   let player_c = new player "c" transport_c in
-  let never () = false in
   let timeout = 60.0 in 
-  Lwt_main.run (Lwt.pick [ transport_a # run ~stop:never ();
-                           transport_b # run ~stop:never ();
-                           transport_c # run ~stop:never ();
+  Lwt_main.run (Lwt.pick [ transport_a # run ();
+                           transport_b # run ();
+                           transport_c # run ();
                            player_a # multi_serve 10000 ["b"; "c" ] ;
                            player_b # run ();
                            player_c # play_dead ();
@@ -196,27 +199,41 @@ let test_pingpong_restart () =
   let player_a = new player "a" t_a in
   let player_b = new player "b" t_b in
   let a_stop () = 
+    Lwt_log.debug "a_stop" >>= fun () ->
     let lp = player_a # get_lowest () in
     match lp with
-      | Some i when i = 50 -> true
-      | _ -> false
+      | Some i when i = 50 -> Lwt_log.debug "a_stop is true" >>= fun () -> Lwt.return true
+      | _ -> Lwt.return false
   in
-  let never () = false in
   let restart_a () = 
-    t_a # run ~stop:a_stop () >>= fun () ->
+    t_a # set_stop a_stop ;
+    t_a # run () >>= fun () ->
     Lwt_log.info "should restart networking" >>= fun () ->
     let t_a' = make_transport address_a in
     let () = t_a' # register_receivers mapping in
     let player_a' = new player "a" t_a' in
-    Lwt.pick [(Lwt_log.info "new network" >>= fun () -> t_a' # run ~stop:never ()); 
-	      player_a' # serve ~n:200 "b"]
+    let c_a' = Lwt_condition.create() in
+    let a2_up () = Lwt_condition.signal c_a' (); Lwt.return () in
+    Lwt.pick [
+      (Lwt_log.info "new network" >>= fun () -> 
+       t_a' # run ~up_and_running:a2_up ()); 
+      begin 
+	Lwt_condition.wait c_a' >>= fun () -> 
+	Lwt_log.debug "a' will be serving momentarily" >>= fun () ->
+	player_a' # serve ~n:200 "b" 
+      end
+    ]
     >>= fun () ->
     Lwt_log.info "restart_a: after pick"
   in
+  let c_b = Lwt_condition.create () in
+  let b_up () = Lwt_condition.signal c_b (); Lwt.return () in
   let main_t = 
     Lwt.pick [ restart_a () ;
-	       t_b # run ~stop:never ();
-	       player_a # serve "b";
+	       t_b # run ~up_and_running:b_up ();
+	       begin
+		 Lwt_condition.wait c_b >>= fun () ->player_a # serve "b"
+	       end;
 	       player_b # run () ;
 	       eventually_die () ]
       >>= fun () -> Lwt_log.info "main_t: after pick"
