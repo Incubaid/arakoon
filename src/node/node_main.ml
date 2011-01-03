@@ -106,6 +106,14 @@ let _log_rotate cfg i =
   let () = _config_logging cfg in
   Lwt.return ()
 
+let log_prelude() =
+  Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
+  Lwt_log.info_f "hg_version: %s " Version.hg_version >>= fun () ->
+  Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
+  Lwt_log.info_f "version: %s" Version.version
+
+
+
 let _main_2 make_store make_tlog_coll cfgs
     forced_master quorum_function name
     daemonize lease_expiry
@@ -122,7 +130,7 @@ let _main_2 make_store make_tlog_coll cfgs
 	  let _ = Lwt_unix.on_signal 10
 	    (fun i -> Lwt.ignore_result (_log_rotate me i))
 	  in
-	  Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
+	  log_prelude() >>= fun () ->
 	  let my_name = me.node_name in
 	  let messaging  = _config_messaging me cfgs in
 	  let build_startup_state () = 
