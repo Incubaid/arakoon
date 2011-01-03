@@ -91,8 +91,6 @@ object(self : # messaging )
   method send_message m ~source ~target =
     let tq = self # _get_send_q ~target in
     Lwt_buffer.add (source, target, m) tq 
-    >>= fun () ->
-    Lwt_log.debug_f "%s added to q of %s" (Message.string_of m) target
 
 
 
@@ -252,15 +250,12 @@ object(self : # messaging )
       begin
 	let rec loop () =
 	  begin
-	    Lwt_log.debug_f "%s protocol_loop" me >>= fun () ->
 	    Llio.input_int ic >>= fun msg_size ->
 	    let buffer = String.create msg_size in
 	    Lwt_io.read_into_exactly ic buffer 0 msg_size >>= fun () ->
 	    let (source:id), pos1 = Llio.string_from buffer 0 in
 	    let target, pos2 = Llio.string_from buffer pos1 in
 	    let msg, _   = Message.from_buffer buffer pos2 in
-	    Lwt_log.debug_f "tcp_messaging %s received msg from %s" me source 
-	    >>= fun () ->
 	    let q = self # get_buffer target in
 	    Lwt_buffer.add (msg, source) q >>=  fun () ->
 	    self # __fuse__ loop
