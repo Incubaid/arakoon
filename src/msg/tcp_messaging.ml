@@ -80,7 +80,9 @@ object(self : # messaging )
   method private _get_send_q ~target = 
     try Hashtbl.find _outgoing target 
     with Not_found -> 
-      let fresh = LWTQ.create () in
+      let capacity = Some 1000 in
+      let leaky = true in
+      let fresh = Lwt_buffer.create ~capacity ~leaky () in
       let loop = self # _make_sender_loop target fresh in
       Lwt.ignore_result (loop ());
       let () = Hashtbl.add _outgoing target fresh in
@@ -88,7 +90,7 @@ object(self : # messaging )
 	
   method send_message m ~source ~target =
     let tq = self # _get_send_q ~target in
-    LWTQ.add (source, target, m) tq 
+    Lwt_buffer.add (source, target, m) tq 
     >>= fun () ->
     Lwt_log.debug_f "%s added to q of %s" (Message.string_of m) target
 
@@ -131,7 +133,7 @@ object(self : # messaging )
   method private _make_sender_loop target target_q =
     let rec _loop_for_q () = 
       Lwt_log.debug_f "sender_loop %s going to take from q" target >>= fun () ->
-      LWTQ.take target_q >>= fun (source, target, msg) ->
+      Lwt_buffer.take target_q >>= fun (source, target, msg) ->
       Lwt_log.debug_f "sender_loop %s got %S" target (Message.string_of msg) >>= fun () -> 
       let ao = self # _get_target_address ~target in
       begin
