@@ -23,6 +23,16 @@ If not, see <http://www.gnu.org/licenses/>.
 open Hotc
 open OUnit
 
+let configure_logging () = 
+  let logger = Lwt_log.channel
+    ~close_mode:`Keep
+    ~channel:Lwt_io.stderr
+    ~template:"$(date): $(level): $(message)"
+    ()
+  in
+  Lwt_log.default := logger;
+  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug
+
 let tokyo_tests = "tokyo" >::: [Otc_test.suite;Hotc_test.suite;]
 
 let tools_tests = "tools" >::: [Server_test.suite;Backoff_test.suite;]

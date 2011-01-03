@@ -64,12 +64,12 @@ let show_version ()=
   Printf.printf "compiled: %S\n" Version.compile_time
 
 let run_all_tests () =
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  All_test.configure_logging();
   let tests = All_test.suite in
   let _ = OUnit.run_test_tt tests in 0
 
 let run_all_tests_xml filename =
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  All_test.configure_logging();
   let tests = All_test.suite in
   let result = { result_list = [];
 		 total_time = 0.0;
@@ -85,7 +85,7 @@ let run_all_tests_xml filename =
   0
 
 let run_system_tests () =
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  All_test.configure_logging();
   let tests = System_tests.suite in
   let _ = OUnit.run_test_tt tests in
   0
@@ -129,7 +129,7 @@ let uncompress_tlog tlc =
   Lwt_main.run t;0
   
 let run_some_tests repeat_count filter =
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  All_test.configure_logging();
   Printf.printf "running tests matching '%s'\n" filter;
   let parts = Str.split_delim (Str.regexp "\\.") filter in
   let show_count num =
