@@ -42,9 +42,6 @@ let session_thread protocol fd =
     (fun exn -> info ~exn "exiting session")
   >>= close 
     
-  
-
-
 let make_server_thread ?(setup_callback=no_callback) host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   let socket_address = Network.make_address host port in
@@ -82,7 +79,7 @@ let make_server_thread ?(setup_callback=no_callback) host port protocol =
     let r  = fun () ->
       Lwt.catch
 	(fun () -> setup_callback () >>= fun () -> server_loop ())
-	(fun exn -> info ~exn "shutting down")
+	(fun exn -> info_f ~exn "shutting down server on port %i" port)
 	     >>= fun () ->
       Lwt_unix.close listening_socket;
       Lwt.return ()
