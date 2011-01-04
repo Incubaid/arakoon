@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Backend
+open Statistics
 open Node_cfg
 open Lwt
 open Log_extra
@@ -48,6 +49,7 @@ class sync_backend cfg push_update
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10 
+  val _stats = Statistics.create ()
 
   method exists key =
     log_o self "exists %s" key >>= fun () ->
@@ -57,7 +59,10 @@ object(self: #backend)
   method get key = log_o self "get %s" key >>= fun () ->
     self # _only_if_master () >>= fun () ->
     Lwt.catch
-      (fun () -> store # get key)
+      (fun () -> 
+	store # get key >>= fun v -> 
+	Statistics.new_get _stats key v; 
+	Lwt.return v)
       (fun exc ->
 	match exc with
 	  | Not_found ->
@@ -89,6 +94,7 @@ object(self: #backend)
       begin
 	Lwt_log.debug "went_well" >>= fun () ->
 	Lwt.wakeup awake b;
+	let () = Statistics.new_set _stats key value in
 	Lwt.return ()
       end
     in push_update (Some p_value, went_well) >>= fun () ->
@@ -127,6 +133,7 @@ object(self: #backend)
       begin
 	Lwt_log.debug_f "went_well" >>= fun () ->
 	Lwt.wakeup awake b;
+	Statistics.new_delete _stats;
 	Lwt.return ()
       end
     in push_update (Some p_value, went_well) >>= fun () ->
@@ -163,6 +170,7 @@ object(self: #backend)
       begin
 	Lwt_log.debug_f "went_well" >>= fun () ->
 	Lwt.wakeup awake b;
+	Statistics.new_sequence _stats;
 	Lwt.return ()
       end
     in push_update (Some p_value, went_well) >>= fun () ->
@@ -175,6 +183,7 @@ object(self: #backend)
     log_o self "multi_get" >>= fun () ->
     self # _only_if_master () >>= fun () ->
     store # multi_get keys >>= fun values ->
+    Statistics.new_multiget _stats;
     Lwt.return values
 
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
@@ -244,4 +253,7 @@ object(self: #backend)
 	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
 	>>= fun () ->
 	Lwt.return v
+
+  method get_statistics () = _stats
+
 end

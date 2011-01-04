@@ -1,4 +1,5 @@
 (** main interface to arakoon *)
+open Statistics
 
 type key = string
 type value = string
@@ -60,4 +61,6 @@ class type client = object
   method who_master: unit -> string option Lwt.t
 
   method expect_progress_possible: unit -> bool Lwt.t
+
+  method statistics: unit -> Statistics.t Lwt.t
 end

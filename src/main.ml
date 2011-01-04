@@ -44,6 +44,7 @@ type local_action =
   | DELETE
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
+  | STATISTICS
 
 type server_action =
   | Node
@@ -226,6 +227,7 @@ let actions = [
   ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
   ("--expect-progress-possible", Arg.Tuple[set_laction EXPECT_PROGRESS_POSSIBLE;],
    "tells you if the master thinks progress is possible");
+  ("--statistics", set_laction STATISTICS, "returns some master statistics");
   ("--run-system-tests", set_laction SystemTests,
    "run system tests (you need a running installation");
   ("--version", set_laction ShowVersion, "shows version");
@@ -265,6 +267,7 @@ let do_local = function
   | DELETE -> Client_main.delete !config_file !key
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
+  | STATISTICS -> Client_main.statistics !config_file
 in
 let do_server node =
   match node with

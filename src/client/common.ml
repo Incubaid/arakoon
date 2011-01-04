@@ -44,6 +44,7 @@ type client_command =
   | SEQUENCE
   | MULTI_GET
   | EXPECT_PROGRESS_POSSIBLE
+  | STATISTICS
 
 let code2int = [
   HELLO,                    0x1l ;
@@ -60,6 +61,7 @@ let code2int = [
   SEQUENCE,                 0x10l;
   MULTI_GET,                0x11l;
   EXPECT_PROGRESS_POSSIBLE, 0x12l;
+  STATISTICS              , 0x13l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int

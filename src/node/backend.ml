@@ -21,6 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
+open Statistics
+
 class type backend = object
   method exists: string -> bool Lwt.t
   method get: string -> string Lwt.t
@@ -44,4 +46,6 @@ class type backend = object
   method witness : string -> Sn.t -> unit Lwt.t
 
   method expect_progress_possible : unit -> bool Lwt.t
+    
+  method get_statistics: unit -> Statistics.t
 end

@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 """
 Module implementing the Arakoon protocol
@@ -200,11 +200,13 @@ ARA_CMD_TAS = 0x0000000d | ARA_CMD_MAG
 ARA_CMD_RAN_E = 0x0000000f | ARA_CMD_MAG
 
 #sequence
-ARA_CMD_SEQ = 0x00000010 | ARA_CMD_MAG
+ARA_CMD_SEQ                      = 0x00000010 | ARA_CMD_MAG
 
-ARA_CMD_MULTI_GET = 0x00000011 | ARA_CMD_MAG
+ARA_CMD_MULTI_GET                = 0x00000011 | ARA_CMD_MAG
 
 ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
+
+ARA_CMD_STATISTICS               = 0x00000013 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -284,14 +286,27 @@ def _recvString ( con ):
     buf = _readExactNBytes( con, strLength)
     return struct.unpack( "%ds" % strLength, buf ) [0]
 
+def _unpackInt(buf, offset):
+    r=struct.unpack_from( "I", buf,offset)
+    return r[0], offset + ARA_TYPE_INT_SIZE
+
 def _recvInt ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
-    return struct.unpack( "I", buf ) [0]
+    i,o2 = _unpackInt(buf,0)
+    return i
 
 def _recvBool ( con ):
-    buff = _readExactNBytes( con, 1 )
-    return struct.unpack( "?", buff ) [0]
+    buf = _readExactNBytes( con, 1 )
+    return struct.unpack( "?", buf ) [0]
 
+def _unpackFloat(buf, offset):
+    r = struct.unpack_from("d", buf, offset)
+    return r[0], offset+8
+
+def _recvFloat(buf):
+    buf = _readExactNBytes(con, 8)
+    f,o2 = _unpackFloat(buf,0)
+    return f
 
 def _recvStringOption ( con ):
     isSet = _recvBool( con )
@@ -418,6 +433,11 @@ class ArakoonProtocol :
     def encodeExpectProgressPossible():
         retVal = _packInt(ARA_CMD_EXPECT_PROGRESS_POSSIBLE)
         return retVal
+
+    @staticmethod
+    def encodeStatistics():
+        retVal = _packInt(ARA_CMD_STATISTICS)
+        return retVal
     
     @staticmethod
     def _evaluateErrorCode( con ):
@@ -484,3 +504,28 @@ class ArakoonProtocol :
 
         return result
 
+    @staticmethod
+    def decodeStatistics(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        result = {}
+        buffer = _recvString(con)
+        #struct.unpack("ddddd...", buffer) would have been better...
+        start,o2        = _unpackFloat(buffer,0)
+        last, o3        = _unpackFloat(buffer,o2)
+        avg_set_size,o4 = _unpackFloat(buffer,o3)
+        avg_get_size,o5 = _unpackFloat(buffer,o4)
+        n_sets,o6       = _unpackInt(buffer,o5)
+        n_gets,o7       = _unpackInt(buffer,o6)
+        n_deletes,o8    = _unpackInt(buffer,o7)
+        n_multigets,o9  = _unpackInt(buffer,o8)
+        n_sequences,o10 = _unpackInt(buffer,o9)
+        result['start'] = start
+        result['last'] = last
+        result['avg_set_size'] = avg_set_size
+        result['avg_get_size'] = avg_get_size
+        result['n_sets'] = n_sets
+        result['n_gets'] = n_gets
+        result['n_deletes'] = n_deletes
+        result['n_multigets'] = n_multigets
+        result['n_sequences'] = n_sequences
+        return result

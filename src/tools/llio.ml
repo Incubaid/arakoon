@@ -105,6 +105,15 @@ let input_int64 ic =
   Lwt.return r
  
 
+let float_to buf f =
+  let bf = Int64.bits_of_float f in
+  int64_to buf bf
+
+let float_from buffer pos =
+  let bf,pos' = int64_from buffer pos in
+  let f = Int64.float_of_bits bf in
+  f,pos'
+
 
 
 let string_from buffer pos =

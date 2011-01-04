@@ -24,6 +24,7 @@ open Lwt
 open Common
 open Lwt_log
 open Update
+open Statistics
 
 class remote_client (ic,oc) =
   let request f =
@@ -97,6 +98,15 @@ object(self: #Arakoon_client.client)
   method expect_progress_possible () = 
     request (fun buf -> expect_progress_possible_to buf) >>= fun () ->
     response ic Llio.input_bool
+
+  method statistics () = 
+    request (fun buf -> command_to buf STATISTICS) >>= fun () ->
+    response ic 
+      (fun ic -> Llio.input_string ic >>= fun ss ->
+	let s,_  = Statistics.from_buffer ss 0 in
+	Lwt.return s
+      )
+
 
   method hello me =
     request (fun buf -> hello_to buf me) >>= fun () ->

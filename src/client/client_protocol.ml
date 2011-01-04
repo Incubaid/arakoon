@@ -26,6 +26,7 @@ open Lwt_log
 open Log_extra
 open Extra
 open Update
+open Statistics
 
 let read_command (ic,oc) =
   debug "read_command" >>= fun () ->
@@ -246,7 +247,16 @@ let one_command (ic,oc) backend =
 	    (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
 			 "should have been a sequence"))
       end
-      
+    | STATISTICS ->
+      begin
+	let s = backend # get_statistics () in
+	let b = Buffer.create 100 in
+	Statistics.to_buffer b s;
+	let bs = Buffer.contents b in
+	Llio.output_int oc 0 >>= fun () ->
+	Llio.output_string oc bs >>= fun () ->
+	Lwt_io.flush oc
+      end
 
 let protocol backend connection =
   info "client_protocol" >>= fun () ->

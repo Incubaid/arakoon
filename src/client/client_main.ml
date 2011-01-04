@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Node_cfg.Node_cfg
 open Network
+open Statistics
 open Lwt
 
 let with_client cfg f =
@@ -92,7 +93,16 @@ let expect_progress_possible cfg_name =
     Lwt_io.printlf "%b" b
   in
   with_master_client cfg_name f
-  
+
+
+let statistics cfg_name =
+  let f client =
+    client # statistics () >>= fun statistics ->
+    let rep = Statistics.string_of statistics in
+    Lwt_io.printl rep
+  in
+  with_master_client cfg_name f
+
 let who_master cfg_name () =
   let cfgs,_,_,_,_ = read_config cfg_name in
   let t () = 

@@ -23,6 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Lwt_log
 open Backend
+open Statistics
 open Update
 open Common
 
@@ -128,4 +129,6 @@ class test_backend my_name = object(self:#backend)
     
   method witness name i = Lwt.return ()
   method expect_progress_possible () = Lwt.return false
+
+  method get_statistics () = Statistics.create() 
 end

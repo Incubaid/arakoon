@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 import socket
 from ArakoonProtocol import *
@@ -83,3 +83,6 @@ class ArakoonClientConnection :
 
     def decodeStringPairListResult(self) :
         return ArakoonProtocol.decodeStringPairListResult ( self )
+
+    def decodeStatistics(self):
+        return ArakoonProtocol.decodeStatistics(self)
