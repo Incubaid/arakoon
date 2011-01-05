@@ -318,7 +318,7 @@ class ArakoonClient :
 
     def statistics(self):
         """
-        @return a dictionnary with some statistics about the master
+        @return a dictionary with some statistics about the master
         """
         msg = ArakoonProtocol.encodeStatistics()
         conn = self._sendToMaster(msg)
