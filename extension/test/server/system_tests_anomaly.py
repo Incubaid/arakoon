@@ -225,7 +225,9 @@ def disk_full_scenario( node_id, cli ):
     cli2 = get_client()
     cli2.whoMaster()
     cli2._dropConnections()
-    
+   
+    q.cmdtools.arakoon.start()
+ 
     time.sleep( lease_duration )
     
     if node_id == node_names[0] :
