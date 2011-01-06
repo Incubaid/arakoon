@@ -31,7 +31,7 @@ open Update
 open Mp_msg
 open Common
 open Store
-
+open Clone
 
 let _s_ = function
   | Some x -> "Some " ^ x
@@ -256,4 +256,5 @@ object(self: #backend)
 
   method get_statistics () = _stats
 
+  method clone (ic,oc) = Clone.send_files (ic,oc) cfg.Node_cfg.home
 end

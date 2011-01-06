@@ -131,4 +131,5 @@ class test_backend my_name = object(self:#backend)
   method expect_progress_possible () = Lwt.return false
 
   method get_statistics () = Statistics.create() 
+  method clone (ic,oc) = Lwt.return ()
 end

@@ -24,7 +24,7 @@ open Lwt
 open Version
 open OUnit_XML
 open OUnit
-
+open Clone
 type local_action =
   | ShowUsage
   | RunAllTests
@@ -45,6 +45,7 @@ type local_action =
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
+  | CloneNode
 
 type server_action =
   | Node
@@ -175,6 +176,8 @@ and tx_size = ref 100
 and daemonize = ref false
 and config_file = ref "cfg/arakoon.ini"
 and test_repeat_count = ref 1
+and ip = ref ""
+and port = ref 8080
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
 let set_laction a = set_action (LocalAction a) in
@@ -241,7 +244,9 @@ let actions = [
   ("-tx_size", Arg.Set_int tx_size,
    "size of transactions (only for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
-
+  ("--clone", Arg.Tuple [set_laction CloneNode;
+			 Arg.Set_string ip;
+			 Arg.Set_int port], "<ip> <port> clones that node");
   
 ] in
 
@@ -268,6 +273,7 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
+  | CloneNode -> Clone.clone_node !ip !port
 in
 let do_server node =
   match node with
