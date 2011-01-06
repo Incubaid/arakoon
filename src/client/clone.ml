@@ -19,9 +19,7 @@ module Clone = struct
 	end
       else
 	begin
-	  Lwt_log.debug "read" >>= fun () ->
 	  Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
-	  Lwt_log.debug "write" >>= fun () ->
 	  Lwt_io.write oc buffer >>= fun () ->
 	  loop (Int64.pred i)
 	end
@@ -65,8 +63,9 @@ module Clone = struct
 
 
   let send_files (ic,oc) home_dir =
-    let file_names = ["000.tlc";"001.tlc";] in
-    let n_files = List.length file_names in
+    Tlc2.get_tlog_names home_dir >>= fun file_names ->
+    let ok_names = List.filter Tlc2.is_compressed file_names in
+    let n_files = List.length ok_names in
     Llio.output_int oc 0 >>= fun () ->
     Llio.output_int oc n_files >>= fun () ->
     let rec loop = function
@@ -87,7 +86,7 @@ module Clone = struct
 	  >>= fun () ->
 	  loop rest
 	end
-    in loop file_names >>= fun () ->
+    in loop ok_names >>= fun () ->
     Lwt.return ()
 	
   let clone_node ip port = 
