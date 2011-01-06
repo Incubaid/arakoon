@@ -199,6 +199,7 @@ def health_check() :
     
     if not check_disk_space():
         logging.critical("SUCCES! Monkey filled the disk to its threshold")
+        q.cmdtools.arakoon.stop()
         sys.exit(0)
     
     logging.info( "Cluster is healthy!")
