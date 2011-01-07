@@ -419,6 +419,7 @@ def test_block_two_slaves_ports () :
 @with_custom_setup( default_setup, iptables_teardown )
 def test_block_two_slaves_ports_loop () :
 
+    raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster() 
     
