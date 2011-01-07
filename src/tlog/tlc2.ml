@@ -56,7 +56,8 @@ let is_compressed fn =
   extension = ".tlc"
 
 let get_number fn =
-  let pre = String.sub fn 0 3 in
+  let dot_pos = String.index fn '.' in
+  let pre = String.sub fn 0 dot_pos in
   int_of_string pre
 
 let get_tlog_names tlog_dir = 
@@ -65,7 +66,10 @@ let get_tlog_names tlog_dir =
     (fun e -> Str.string_match file_regexp e 0) 
     entries 
   in
-  let sorted = List.sort compare filtered in
+  let my_compare fn1 fn2 = 
+    compare (get_number fn1) (get_number fn2) 
+  in
+  let sorted = List.sort my_compare filtered in
   let filtered2 = List.fold_left 
     (fun acc name ->
       match acc with
@@ -77,7 +81,8 @@ let get_tlog_names tlog_dir =
     ) [] sorted 
   in
   let sorted2 = List.rev filtered2 in
-  Lwt_list.iter_s (fun e -> Lwt_log.debug_f "entry:%s" e) sorted2 >>= fun () ->
+  let log_e e = Lwt_log.debug_f "entry %s %i" e (get_number e) in
+  Lwt_list.iter_s log_e sorted2 >>= fun () ->
   Lwt.return sorted2
 
 

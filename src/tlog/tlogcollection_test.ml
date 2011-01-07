@@ -67,6 +67,23 @@ let test_rollover (dn, factory) =
   Lwt.return ()
 
 
+let test_rollover_1002 (dn, factory) =
+  Lwt_log.info "test_rollover_1002" >>= fun () ->
+  let n = 5 in
+  let () = Tlogcommon.tlogEntriesPerFile := n in
+  factory dn >>= fun c ->
+  let update = Update.Set("x","y") in
+  let n_updates = 1002 * 5 + 3 in
+  _log_repeat c update n_updates >>= fun () ->
+  c # close () >>= fun () ->
+  factory dn >>= fun tlc_two ->
+  tlc_two # get_last_update (Sn.of_int (n_updates-1)) >>= fun uo ->
+  let uos = Log_extra.option_to_string Update.string_of uo in
+  Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
+  tlc_two # close() >>= fun () ->
+  Lwt.return ()
+
+
 let test_get_value_bug (dn, factory) = 
   Lwt_log.info "test_get_value_bug" >>= fun () ->
   factory dn >>= fun c0 ->
