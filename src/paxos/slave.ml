@@ -222,12 +222,17 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	    else 
 	      begin
-		let vo2 = if n' = n then vo else None in
-		let reply = Promise (n',i,vo2) in
-		send reply me source >>= fun () ->
-		log ~me "slave_wait_for_accept: sent %s" (string_of reply) 
-		>>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n',i,vo2, maybe_previous))
+              let vo2 = if n' = n then vo else None in
+              let reply =
+                if Sn.compare i' i < 0 
+                then
+		  Promise (n',i,vo2) 
+                else
+                  Nak(n',(n,i)) 
+                in
+              send reply me source >>= fun () ->
+              log ~me "slave_wait_for_accept: sent %s" (string_of reply) >>= fun () ->
+              Lwt.return (Slave_wait_for_accept (n',i,vo2, maybe_previous))
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
