@@ -465,7 +465,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(MPMessage.string_of reply1) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Prepare (n',_) when n' > n ->
+	  | Prepare (n',i') when n' > n ->
 	    begin
 	      if am_forced_master constants me
 	      then
@@ -481,10 +481,19 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		      let result = Store.Update_fail (rc, msg) in
 		      finished result
 		end >>= fun () ->
-	      let reply = Promise(n',i,None) in
-	      log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
-	      constants.send reply me source >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n',i, None, None))
+              begin
+              if Sn.compare i' i >= 0 
+              then
+	        let reply = Promise(n',i,None) in
+	        log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
+	        constants.send reply me source >>= fun () ->
+	        Lwt.return (Slave_wait_for_accept (n',i, None, None))
+              else
+                let reply = Nak(n', (n,i)) in
+	        log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
+	        constants.send reply me source >>= fun () ->
+	        Lwt.return (Wait_for_accepteds state)
+              end
 	      else
 		paxos_fatal me "wait_for_accepteds: received %S when forced slave, forced slave should never get in wait_for_accepteds in the first place!" (string_of msg)
 	    end
