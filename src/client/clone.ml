@@ -27,7 +27,7 @@ module Clone = struct
     loop n_bs >>= fun () ->
     Lwt.return ()
     
-  let receive_files (ic,oc) = 
+  let receive_files (ic,oc) ~target_dir = 
     let request f =
       let buf = Buffer.create 32 in
       let () = f buf in
@@ -47,10 +47,11 @@ module Clone = struct
 	    Llio.input_string ic >>= fun name ->
 	    Llio.input_int64 ic  >>= fun length ->
 	    Lwt_log.debug_f "receiving file %s with length %Li" name length >>= fun () ->
+	    let file_name = Filename.concat target_dir name in
 	    Lwt_io.with_file 
 	      ~flags:[Unix.O_CREAT;Unix.O_WRONLY]
 	      ~mode:Lwt_io.output
-	      name (fun oc -> copy_stream ~length ~ic ~oc) 
+	      file_name (fun oc -> copy_stream ~length ~ic ~oc) 
 	    >>= fun () ->
 	    loop (i-1)
 	  end
@@ -90,7 +91,7 @@ module Clone = struct
     in loop ok_names >>= fun () ->
     Lwt.return ()
 	
-  let clone_node ip port = 
+  let clone_node ip port target_dir = 
     let logger = Lwt_log.channel
       ~close_mode:`Keep
       ~channel:Lwt_io.stderr
@@ -101,7 +102,7 @@ module Clone = struct
     Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
     let t  = 
       let sa = Network.make_address ip port in
-      Lwt_io.with_connection sa receive_files >>= fun () ->
+      Lwt_io.with_connection sa (receive_files ~target_dir) >>= fun () ->
       Lwt.return ()
     in
     Lwt_main.run t;

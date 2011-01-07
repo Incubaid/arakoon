@@ -178,6 +178,7 @@ and config_file = ref "cfg/arakoon.ini"
 and test_repeat_count = ref 1
 and ip = ref ""
 and port = ref 8080
+and dir = ref "/tmp"
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
 let set_laction a = set_action (LocalAction a) in
@@ -246,7 +247,9 @@ let actions = [
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
   ("--clone", Arg.Tuple [set_laction CloneNode;
 			 Arg.Set_string ip;
-			 Arg.Set_int port], "<ip> <port> clones that node");
+			 Arg.Set_int port;
+			 Arg.Set_string dir;
+			], "<ip> <port> <dir> clones that node into <dir>");
   
 ] in
 
@@ -273,7 +276,7 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
-  | CloneNode -> Clone.clone_node !ip !port
+  | CloneNode -> Clone.clone_node !ip !port !dir
 in
 let do_server node =
   match node with
