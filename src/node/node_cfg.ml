@@ -29,6 +29,7 @@ module Node_cfg = struct
 	    client_port:int;
 	    messaging_port:int;
 	    home:string;
+	    tlog_dir:string;
 	    log_dir:string;
 	    log_level:string;
 	    lease_period:int;
@@ -45,6 +46,7 @@ module Node_cfg = struct
 	client_port = (4000 + n);
 	messaging_port = (4010 + n);
 	home = home;
+	tlog_dir = home;
 	log_dir = "none";
 	log_level = "DEBUG";
 	lease_period = lease_period;
@@ -64,10 +66,12 @@ module Node_cfg = struct
   let string_of (t:t) =
     let template =
       "{node_name=\"%s\"; ip=\"%s\"; client_port=%d; " ^^
-	"messaging_port=%d; home=\"%s\"; log_dir=\"%s\"; log_level=\"%s\" }"
+	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; log_dir=\"%s\"; log_level=\"%s\" }"
     in
       Printf.sprintf template
-	t.node_name t.ip t.client_port t.messaging_port t.home
+	t.node_name t.ip t.client_port t.messaging_port 
+	t.home
+	t.tlog_dir
 	t.log_dir
 	t.log_level
 
@@ -119,6 +123,7 @@ module Node_cfg = struct
       let client_port = get_int "client_port" in
       let messaging_port = get_int "messaging_port" in
       let home = get_string "home" in
+      let tlog_dir = try get_string "tlog_dir" with _ -> home in
       let log_level = String.lowercase (get_string "log_level") in
       let lease_period = lease_expiry inifile in
       let log_dir = get_string "log_dir" in
@@ -127,6 +132,7 @@ module Node_cfg = struct
 	 client_port=client_port;
 	 messaging_port= messaging_port;
 	 home=home;
+	 tlog_dir = tlog_dir;
 	 log_dir = log_dir;
 	 log_level = log_level;
 	 lease_period = lease_period;
