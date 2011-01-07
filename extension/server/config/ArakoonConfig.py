@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,15 +18,19 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 from pymonkey import q
 
 class ArakoonConfig:
     """
-    Class for auto-mated setup of Arakoon nodes
+    Class for automated setup of Arakoon nodes
     """
-    def addNode(self, name, ip = "127.0.0.1", client_port = 7080, messaging_port = 10000, log_level = "info", log_dir = None, home = None):
+    def addNode(self, name, ip = "127.0.0.1", client_port = 7080, messaging_port = 10000,
+                log_level = "info",
+                log_dir = None,
+                home = None,
+                tlog_dir = None):
         """
         Add a node to the configuration
 
@@ -38,7 +42,8 @@ class ArakoonConfig:
         @param messaging_port the port the other nodes should use to contact this node
         @param log_level the loglevel (debug info notice warning error fatal)
         @param log_dir the directory used for logging
-        @param home the directory used for the nodes data 
+        @param home the directory used for the nodes data
+        @param tlog_dir the directory used for tlogs (if none, home will be used)
         """
         self.__validateName(name)
         self.__validateLogLevel(log_level)
@@ -70,13 +75,16 @@ class ArakoonConfig:
             home = q.system.fs.joinPaths(q.dirs.varDir, "db", "arakoon", name)
         config.addParam(name, "home", home)
 
+        if tlog_dir:
+            confid.addParam(name,"tlog_dir", tlog_dir)
+        
         config.setParam("global","nodes", ",".join(nodes))
 
         config.write()
 
     def removeNode(self, name):
         """
-        Remove a node from the configuration"
+        Remove a node from the configuration
 
         @param name the name of the node as configured in the config file
         """
@@ -255,6 +263,10 @@ class ArakoonConfig:
             home = config.getValue(name, "home")
             q.system.fs.createDir(home)
 
+            if config.checkParam(name, "tlog_dir"):
+                tlog_dir = config.getValue(name, "tlog_dir")
+                q.system.fs.createDir(tlog_dir)
+
             log_dir = config.getValue(name, "log_dir")
             q.system.fs.createDir(log_dir)
 
@@ -281,6 +293,10 @@ class ArakoonConfig:
             home = config.getValue(name, "home")
             q.system.fs.removeDirTree(home)
 
+            if config.checkParam(name, "tlog_dir"):
+                tlog_dir = config.getValue(name, "tlog_dir")
+                q.system.fs.removeDirTree(tlog_dir)
+            
             log_dir = config.getValue(name, "log_dir")
             q.system.fs.removeDirTree(log_dir)
             return
