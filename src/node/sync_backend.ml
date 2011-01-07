@@ -256,5 +256,5 @@ object(self: #backend)
 
   method get_statistics () = _stats
 
-  method clone (ic,oc) = Clone.send_files (ic,oc) cfg.Node_cfg.home
+  method clone (ic,oc) = Clone.send_files (ic,oc) cfg.Node_cfg.tlog_dir
 end
