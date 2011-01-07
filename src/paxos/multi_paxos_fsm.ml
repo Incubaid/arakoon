@@ -259,7 +259,7 @@ let wait_for_promises constants state event =
 		  begin
 		    log ~me "wait_for_promises; discovered other node" 
 		    >>= fun () ->
-		    if n'' > n || (n'' = n && i' > i) then
+		    if n'' > n || i' > i then
 		      Lwt.return (Slave_discovered_other_master (source,i,n'',i'))
 		    else
 		      let new_n = update_n constants (max n n'') in
