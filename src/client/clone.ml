@@ -64,7 +64,8 @@ module Clone = struct
 
   let send_files (ic,oc) home_dir =
     Tlc2.get_tlog_names home_dir >>= fun file_names ->
-    let ok_names = List.filter Tlc2.is_compressed file_names in
+    (* let ok_names = List.filter Tlc2.is_compressed file_names in *)
+    let ok_names = file_names in
     let n_files = List.length ok_names in
     Llio.output_int oc 0 >>= fun () ->
     Llio.output_int oc n_files >>= fun () ->
