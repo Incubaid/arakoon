@@ -224,7 +224,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      begin
               let vo2 = if n' = n then vo else None in
               let reply =
-                if Sn.compare i' i <= 0 
+                if Sn.compare i' i >= 0 
                 then
 		  Promise (n',i,vo2) 
                 else
