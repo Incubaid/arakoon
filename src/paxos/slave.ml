@@ -289,14 +289,10 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
 	  | Nak (n',(n2,i2)) ->
-	    if n' < n then
 	      begin
-		log ~me "ignoring old %s " (string_of msg) >>= fun () ->
+		log ~me "ignoring %s " (string_of msg) >>= fun () ->
 		Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	      end
-	    else
-	      paxos_fatal me "slave_wait_for_accept: received unexpected %S: FATAL" 
-		(string_of msg)
 	  | Accepted _ ->
 	    begin
 	      log ~me "dropping old %S " (string_of msg) >>= fun () ->
