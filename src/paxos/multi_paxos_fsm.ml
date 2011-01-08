@@ -324,13 +324,22 @@ let wait_for_promises constants state event =
 		  end
 		else if is_election constants
 		then
-		  begin
-		    log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->
-		    let reply = Nak (n', (n,i))  in
-		    constants.send reply me source >>= fun () ->
-		    let new_n = update_n constants n in
-		    Lwt.return (Election_suggest (new_n, i))
-		  end
+                  begin
+                    if (Sn.compare i' i) >= 0
+                    then
+                      let reply = Promise(n',i,None) in
+                      log ~me "replying with %S" (string_of reply) >>= fun () ->
+                      constants.send reply me source >>= fun () ->
+                      Lwt.return (Slave_wait_for_accept (n', i, None, None))
+                    else
+		      log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->
+                      let reply = Nak(n',(n,i)) in
+                      log ~me "replying with %S" (string_of reply) >>= fun () ->
+                      constants.send reply me source >>= fun () ->
+		      let new_n = update_n constants n in
+		      Lwt.return (Election_suggest (new_n, i))
+                  end
+
 		else (* forced slave *)
 		  begin
 		    let reply = Nak(n',(n,i)) in
