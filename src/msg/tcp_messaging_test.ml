@@ -198,16 +198,25 @@ let test_pingpong_restart () =
   let () = t_b # register_receivers mapping in
   let player_a = new player "a" t_a in
   let player_b = new player "b" t_b in
+  let (w,u) = Lwt.wait () in
   let a_stop () = 
     Lwt_log.debug "a_stop" >>= fun () ->
     let lp = player_a # get_lowest () in
     match lp with
-      | Some i when i = 50 -> Lwt_log.debug "a_stop is true" >>= fun () -> Lwt.return true
+      | Some i when i = 50 -> 
+	begin
+	  Lwt_log.debug "a_stop is true" >>= fun () -> 
+	  Lwt.wakeup u ();
+	  Lwt.return true
+	end
       | _ -> Lwt.return false
   in
   let restart_a () = 
     t_a # set_stop a_stop ;
-    t_a # run () >>= fun () ->
+    Lwt.pick [
+      t_a # run () ;
+      w >>= fun () -> Lwt.return ()
+    ] >>= fun () ->
     Lwt_log.info "should restart networking" >>= fun () ->
     let t_a' = make_transport address_a in
     let () = t_a' # register_receivers mapping in
