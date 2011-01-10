@@ -354,11 +354,19 @@ let wait_for_promises constants state event =
 		>>= fun () ->
 		Lwt.return (Wait_for_promises state)
 	      end
-	    | Accept (n',_i,_v) when n' >= n ->
-	      begin
-		log ~me "wait_for_promises: received %S -> back to fake prepare" 
-		  (string_of msg) >>= fun () ->
-		Lwt.return (Slave_fake_prepare i)
+	    | Accept (n',_i,_v) ->
+	      if n' = n && _i < i 
+	      then
+		begin
+		log ~me "wait_for_promises: ignoring %s (my i is %s)"
+		  (string_of msg) (Sn.string_of i) >>= fun () ->
+		  Lwt.return (Wait_for_promises state)
+		end
+	      else
+		begin
+		  log ~me "wait_for_promises: received %S -> back to fake prepare" 
+		    (string_of msg) >>= fun () ->
+		  Lwt.return (Slave_fake_prepare i)
 	      end
 	    | Accepted (n',_i) when n' < n ->
 	      begin
