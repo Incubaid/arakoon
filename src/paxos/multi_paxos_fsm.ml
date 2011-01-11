@@ -529,8 +529,15 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      log ~me "wait_for_accepted: ignoring extra Accept %S" (string_of msg) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Accept (n',i',v') when n' >= n ->
-	    paxos_fatal me "wait_for_accepteds: received %S from future: FATAL" 
+	  | Accept (n',i',v') when n' > n ->
+            begin 
+              (* Become slave, goto catchup *)
+              log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
+              let new_state = (source,i,n',i') in 
+              Lwt.return (Slave_discovered_other_master new_state)
+            end
+	  | Accept (n',i',v') when n' == n ->
+	    paxos_fatal me "wait_for_accepteds: received %S with same n: FATAL" 
 	      (string_of msg)
       end
     | FromClient (vo, cb) -> paxos_fatal me "no FromClient should get here"
