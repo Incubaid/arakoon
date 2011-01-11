@@ -76,7 +76,7 @@ class ArakoonConfig:
         config.addParam(name, "home", home)
 
         if tlog_dir:
-            confid.addParam(name,"tlog_dir", tlog_dir)
+            config.addParam(name,"tlog_dir", tlog_dir)
         
         config.setParam("global","nodes", ",".join(nodes))
 
@@ -167,10 +167,10 @@ class ArakoonConfig:
         """
         Set the quorom
 
-        The quorom dictates on how many nodes need to acknowlegde the new value beforce it becomes accepted.
+        The quorom dictates on how many nodes need to acknowlegde the new value before it becomes accepted.
         The default is (nodes/2)+1
 
-        @param quorm the forced quorom. If None, the default is used 
+        @param quorum the forced quorom. If None, the default is used 
         """
         config = q.config.getInifile("arakoon")
 
