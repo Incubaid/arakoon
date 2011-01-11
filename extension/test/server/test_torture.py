@@ -51,4 +51,24 @@ def test_shaky_slave():
         stop_node(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
     print "phewy!"
+
+
+@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+def test_shaky_cluster():
     
+    n = 500
+    names = Common.node_names
+    def stop_all():
+        for node_name in names:
+            q.cmdtools.arakoon.stopOne(node_name)
+    
+    def start_all():
+        for node_name in names:
+            q.cmdtools.arakoon.startOne(node_name)
+    
+    for i in range(n):
+        stop_all()
+        start_all()
+        Common.assert_running_nodes(3)
+    
+        
