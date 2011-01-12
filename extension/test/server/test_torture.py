@@ -55,7 +55,6 @@ def test_shaky_slave():
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_cluster():
-    
     n = 500
     names = Common.node_names
     def stop_all():

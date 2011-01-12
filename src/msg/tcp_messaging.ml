@@ -118,7 +118,8 @@ object(self : # messaging )
     let socket_address = Network.make_address host_ip port in
     Lwt_log.debug_f "establishing connection to (%s,%i)" host_ip port
     >>= fun () ->
-    Backoff.backoff (fun () -> __open_connection socket_address)
+    Lwt.pick[ Lwt_unix.timeout 5.0;
+	      __open_connection socket_address] 
     >>= fun (ic,oc) ->
     let my_ip, my_port = my_address in
     Llio.output_string oc my_ip >>= fun () ->
@@ -127,16 +128,29 @@ object(self : # messaging )
       (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
 	 on local host *)
 
+  method private _get_connection address =
+    try
+      let conn =  Hashtbl.find _connections address in
+      Lwt.return conn
+    with Not_found ->
+      self # _establish_connection address >>= fun conn ->
+      Hashtbl.add _connections address conn;
+      Lwt.return conn
 
   method private _make_sender_loop target target_q =
     let rec _loop_for_q () = 
       Lwt_log.debug_f "sender_loop %s going to take from q" target >>= fun () ->
       Lwt_buffer.take target_q >>= fun (source, target, msg) ->
-      Lwt_log.debug_f "sender_loop %s got %S" target (Message.string_of msg) >>= fun () -> 
+      Lwt_log.debug_f "sender_loop %s got %S" target (Message.string_of msg) 
+      >>= fun () -> 
       let ao = self # _get_target_address ~target in
       begin
 	match ao with
 	  | Some address ->
+	    let drop exn reason =
+	      Lwt_log.debug ~exn reason >>= fun () ->
+	      self # _drop_connection address
+	    in
 	    let try_send () =
 	      self # _get_connection address >>= fun connection ->
 	      let ic,oc = connection in
@@ -153,17 +167,43 @@ object(self : # messaging )
 		    self # _drop_connection address >>= fun () ->
 		    Lwt.catch
 		      (fun () -> try_send ())
-		      (fun exn -> Lwt_log.info_f ~exn "dropped message for %s" target)
+		      (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
 		  end
-                | Lwt.Canceled ->
-                  Lwt.fail Lwt.Canceled
-		| exn ->
+                | Lwt.Canceled -> Lwt.fail Lwt.Canceled
+		| Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
+		  begin 
+		    let reason = 
+		      Printf.sprintf "machine with %s up, server down => dropping %s"
+			target (Message.string_of msg ) 
+		    in 
+		    drop exn reason >>= fun () ->
+		    Lwt_unix.sleep 1.0 (* not to hammer machine *)
+		  end
+		| Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
 		  begin
-		    Lwt_log.info_f ~exn
-		      "dropping message %s with destination '%s' because of"
-		      (Message.string_of msg) target >>= fun () ->
-		    self # _drop_connection address >>= fun () ->
-		    Lwt_log.debug "end of connection epilogue"
+		    let reason = 
+		      Printf.sprintf "machine with %s unreachable => dropping %s"
+			target (Message.string_of msg) 
+		    in
+		    drop exn reason >>= fun () ->
+		    Lwt_unix.sleep 2.0
+		  end
+		| Lwt_unix.Timeout as exn ->
+		  begin
+		    let reason =
+		      Printf.sprintf "machine with %s (probably) down => dropping %s"
+			target (Message.string_of msg) 
+		    in
+		    drop exn reason >>= fun () ->
+		    Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
+		  end
+		| exn -> 
+		  begin
+		    let reason = 
+		      Printf.sprintf "dropping message %s with destination '%s' because of"
+			(Message.string_of msg) target 
+		    in
+		    drop exn reason
 		  end
 	      )
 	  | None -> (* we don't talk to strangers *)
@@ -191,14 +231,7 @@ object(self : # messaging )
     thread
 
 
-  method private _get_connection address =
-    try
-      let conn =  Hashtbl.find _connections address in
-      Lwt.return conn
-    with Not_found ->
-      self # _establish_connection address >>= fun conn ->
-      Hashtbl.add _connections address conn;
-      Lwt.return conn
+
 
   method private _drop_connection address =
 
@@ -220,11 +253,7 @@ object(self : # messaging )
 	let () = Hashtbl.remove _connections address in
 	Lwt.return ()
       end
-    else
-      begin
-	let h,p = address in
-	Lwt_log.debug_f "connection to (%s,%i) not found. we never had one..." h p
-      end
+    else Lwt.return ()
 
   method private _pickle source target msg =
     let buffer = Buffer.create 40 in
