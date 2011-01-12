@@ -95,8 +95,13 @@ let test_get_value_bug (dn, factory) =
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some u -> let () = OUnit.assert_equal u u0 in Lwt.return ()
 
-
-
+let test_regexp (dn,factory) = 
+  Lwt_log.info "test_get_regexp_bug" >>= fun () ->
+  let fns = ["001.tlog";"000.tlc";"000.tlc.part"] in
+  let test fn = Str.string_match Tlc2.file_regexp fn 0 in
+  let results = List.map test fns in
+  List.iter2 (fun cr er -> OUnit.assert_equal cr er) results [true;true;false];
+  Lwt.return ()
 
 let test_restart (dn, factory) =
   factory dn >>= fun tlc_one ->

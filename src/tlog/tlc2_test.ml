@@ -28,7 +28,7 @@ open Extra
 let wrap_tlc = Tlogcollection_test.wrap Tlc2.make_tlc2
 
 let suite = "tlc2" >:::[
-
+  "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
   "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
   "rollover" >:: wrap_tlc Tlogcollection_test.test_rollover;
   "get_value_bug" >:: wrap_tlc Tlogcollection_test.test_get_value_bug;

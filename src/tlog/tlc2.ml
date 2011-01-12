@@ -27,7 +27,7 @@ open Lwt
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl[og|c]$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_name c = Printf.sprintf "%03i.tlc" c
 
@@ -125,7 +125,7 @@ let fold_read tlog_dir file_name
       
 
 let _validate_one tlog_name =      
-  Lwt_log.debug_f "_validate_one %s" tlog_name >>= fun () ->
+  Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let a2s (i,u) = Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in 
   Lwt.catch
@@ -229,6 +229,7 @@ object(self: # tlog_collection)
 
 
   method validate_last_tlog () = validate_last tlog_dir 
+
   method validate () = validate tlog_dir
 
   method log_update i update =
