@@ -27,7 +27,7 @@ open Lwt
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
-let file_regexp = Str.regexp "[0-9]+\\.tl[og|c]"
+let file_regexp = Str.regexp "^[0-9]+\\.tl[og|c]$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_name c = Printf.sprintf "%03i.tlc" c
 
