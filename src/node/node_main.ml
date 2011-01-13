@@ -202,8 +202,22 @@ let _main_2 make_store make_tlog_coll cfgs
 		  store tlog_coll lease_expiry 
 		  quorum_function n_names
 	      in
-	      
-	      let service = _config_service me backend in
+	      let rapporting () = 
+		let rec _inner () =
+		  Lwt_unix.sleep 60.0 >>= fun () ->
+		  let stats = backend # get_statistics () in
+		  Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
+		  >>= fun () ->
+		  let sqs = Lwt_unix.sleep_queue_size () in
+		  let ns = Lwt_unix.get_new_sleeps () in
+		  Lwt_log.info_f "sleeping_queue_size=%i;new_sleeps=%i" sqs ns 
+		  >>= fun () ->
+		  _inner ()
+		in
+		_inner ()
+	      in
+       	      let service = _config_service me backend in
+
 	      let send, receive, run, register =
 		Multi_paxos.network_of_messaging messaging in
 	      
@@ -259,7 +273,8 @@ let _main_2 make_store make_tlog_coll cfgs
 		  quorum_function forced_master 
 		  store tlog_coll others lease_expiry inject_event 
 
-	      in Lwt.return ((forced_master,constants, buffers, new_i), service)
+	      in Lwt.return ((forced_master,constants, buffers, new_i), 
+			     service, rapporting)
 	    end
 	      
 	  in
@@ -282,9 +297,13 @@ let _main_2 make_store make_tlog_coll cfgs
 		begin
 		  Lwt.finalize 
 		    (fun () ->
-		      build_startup_state () >>= fun (start_state,service) -> 
+		      build_startup_state () >>= fun (start_state,
+						      service, 
+						      rapporting) -> 
 		      Lwt.pick[ start_backend start_state;
-				service ()]
+				service ();
+				rapporting();
+			      ]
 		    )
 		    (fun () -> Lwt_log.fatal "after pick")
 		end
