@@ -88,8 +88,12 @@ let slave_steady_state constants state event =
                     then
 		      constants.on_consensus (previous, n,prev_i) 
                     else
-                      Lwt_log.debug_f "Preventing re-push of : %s" (Sn.string_of prev_i) >>= fun () -> 
-                      Lwt.return (Store.Ok None)
+                      if Sn.compare store_i prev_i == 0
+                      then 
+                        Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
+                        Lwt.return (Store.Ok None)
+                      else
+                        Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
                   end
 		else
 		  begin (* don't call on_consensus, 

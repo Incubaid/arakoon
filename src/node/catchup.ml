@@ -46,7 +46,7 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
 	(Sn.string_of i) (Update.string_of update) >>= fun () ->
       tlog_coll # log_update i update >>=
 	fun _ -> 
-      let () = last := i in
+      let () = last := Sn.succ i in
       Lwt.return ()
     in
     client # iterate current_i f 
@@ -58,10 +58,8 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
     )
     (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
   >>= fun () ->
-  let future_i' = Sn.succ !last in
-  Lwt.return future_i'
+  Lwt.return !last
 
-    
 let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
