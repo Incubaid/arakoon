@@ -240,7 +240,7 @@ object(self: #backend)
 	let count,s = Hashtbl.fold
 	  (fun name ci (count,s) -> 
 	    let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
-	    if ci = i 
+	    if ci = i || (Sn.pred ci) = i 
 	    then  count+1,s' 
 	    else  count,s') 
 	  witnessed (1,"") in

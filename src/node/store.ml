@@ -155,6 +155,22 @@ let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s" 
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
+  store # consensus_i () >>= fun m_store_i -> 
+  begin
+  match m_store_i with
+  | None -> 
+    if Sn.compare i Sn.start == 0 
+    then
+      Lwt.return()
+    else
+      Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i) 
+  | Some store_i ->
+    if (Sn.compare (Sn.pred i) store_i) == 0
+    then
+      Lwt.return()
+    else
+      Llio.lwt_failfmt "Invalid store update requested (%s : %s)" (Sn.string_of i) (Sn.string_of store_i)
+  end >>= fun () ->
   _insert store v i >>= fun maybe_result ->
   Lwt.return maybe_result
 

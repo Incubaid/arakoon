@@ -78,7 +78,19 @@ let slave_steady_state constants state event =
 	      let reply = Accepted(n,i) in
 	      begin
 		if from_here then
-		  constants.on_consensus (previous, n,Sn.pred i) 
+                  constants.store # consensus_i () >>= fun m_store_i ->
+                  begin
+                  match m_store_i with
+                  | None -> constants.on_consensus (previous, n, Sn.pred i)
+                  | Some store_i ->
+                    let prev_i = Sn.pred i in
+                    if (Sn.compare store_i (Sn.pred prev_i) ) == 0
+                    then
+		      constants.on_consensus (previous, n,prev_i) 
+                    else
+                      Lwt_log.debug_f "Preventing re-push of : %s" (Sn.string_of prev_i) >>= fun () -> 
+                      Lwt.return (Store.Ok None)
+                  end
 		else
 		  begin (* don't call on_consensus, 
 			   but still enter the master_update in the store;
@@ -364,6 +376,7 @@ let slave_discovered_other_master constants state () =
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
+      start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
       Lwt.return (Slave_wait_for_accept (future_n, current_i, None, None))
     end
   else
