@@ -132,7 +132,7 @@ let slave_steady_state constants state event =
 	      >>= fun () ->
 	      Lwt.return (Slave_fake_prepare i)
 	    end
-	  | Prepare(n',_) ->
+	  | Prepare(n',i') ->
 	    if n' <= n then
 	      begin
 		begin
@@ -146,11 +146,22 @@ let slave_steady_state constants state event =
 	      end
 	    else (* n' > n *) 
 	      begin
-		let reply = Promise(n',i,None) in
-		log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
-		send reply me source >>= fun () ->
-		let maybe_previous = Some (previous, Sn.pred i) in
-		Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
+                if (Sn.compare i i') > 0 
+                then 
+                  begin
+                  let reply = Nak(n', (n,i)) in
+                  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
+                  send reply me source >>= fun () ->
+                  Lwt.return (Slave_steady_state state)
+                  end
+                else
+                  begin
+		  let reply = Promise(n',i,None) in
+		  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
+		  send reply me source >>= fun () ->
+		  let maybe_previous = Some (previous, Sn.pred i) in
+		  Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
+                end
 	      end
 	  | Nak (n',(n'',i'')) ->
 	    begin
