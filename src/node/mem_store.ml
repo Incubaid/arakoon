@@ -77,6 +77,9 @@ object (self: #store)
 
   method set key value =
     let () = self # _incr_i () in
+    self # set_no_incr key value
+
+  method private set_no_incr key value =
     let () = kv <- StringMap.add key value kv in
     Lwt.return ()
 
@@ -92,12 +95,10 @@ object (self: #store)
   method who_master () =
     Lwt.return master
 
-  method delete key =
-    Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
+  method private delete_no_incr key =
     if StringMap.mem key kv then
       begin
 	Lwt_log.debug_f "%S exists" key >>= fun () ->
-	let () = self # _incr_i () in
 	let () = kv <- StringMap.remove key kv in
 	Lwt.return ()
       end
@@ -106,6 +107,11 @@ object (self: #store)
 	Lwt_log.debug "going to fail" >>= fun () ->
 	Lwt.fail (Key_not_found key)
       end
+
+  method delete key =
+    Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
+    let () = self # _incr_i () in
+    self # delete_no_incr key
 
   method test_and_set key expected wanted =
     Lwt.catch 
@@ -125,15 +131,17 @@ object (self: #store)
 	>>= fun () -> Lwt.return wanted
       end
 
+
   method sequence updates = 
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
+    let () = self # _incr_i () in 
     let do_one =  function
       | Update.Set (k,v) -> 
 	Lwt_log.debug_f "set # %S %S" k v >>= fun () -> 
-	self # set k v
+	self # set_no_incr k v
       | Update.Delete k  -> 
 	Lwt_log.debug_f "delete # %S" k >>= fun () ->
-	self # delete k >>= fun () ->
+	self # delete_no_incr k >>= fun () ->
 	Lwt_log.debug "done delete"
       | _ -> Llio.lwt_failfmt "Sequence only supports SET & DELETE"
     in
