@@ -320,6 +320,11 @@ object(self: # tlog_collection)
     >>= fun x ->
     Lwt.return ()
 
+  method get_last_i () =
+    match _previous_update with
+      | None -> Lwt.return Sn.start
+      | Some (pi,pu) -> Lwt.return pi
+
   method get_last_update i = 
     match _previous_update with
       | None -> Lwt.return None
@@ -329,7 +334,6 @@ object(self: # tlog_collection)
 	else
 	  Llio.lwt_failfmt "get_last_update %s<>%s" (Sn.string_of pi) (Sn.string_of i)
 	    
-
   method close () =
     Lwt_io.close _oc
 end

@@ -41,6 +41,7 @@ class type tlog_collection = object
   method log_update: Sn.t -> Update.t -> Tlogwriter.writeResult Lwt.t
   method get_last_update: Sn.t -> Update.t option Lwt.t
   method close : unit -> unit Lwt.t
+  method get_last_i: unit -> Sn.t Lwt.t
 end
 
 
@@ -51,6 +52,11 @@ class file_tlog_collection tlogDir =
     val mutable _prevWriterName = ""
     val mutable last_update = None
     val mutable last_tlog_validated = false
+
+    method get_last_i () =
+      match last_update with 
+      | None -> Lwt.return Sn.start
+      | Some (i,u) -> Lwt.return i
 
     method private get_tlog_base_names () =
       lwt_directory_list tlogDir >>= fun dirEntries ->

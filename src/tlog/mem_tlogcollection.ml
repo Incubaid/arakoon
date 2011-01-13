@@ -39,6 +39,11 @@ object (self: #tlog_collection)
   method validate_last_tlog () =
     Lwt.return (TlogValidComplete, None)
 
+  method get_last_i () =
+    match last_update with
+    | None -> Lwt.return Sn.start
+    | Some( i, u ) -> Lwt.return i
+
   method validate () =
     Lwt.return (TlogValidComplete, None)
 
