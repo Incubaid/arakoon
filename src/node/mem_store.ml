@@ -116,7 +116,7 @@ object (self: #store)
 	| exn -> Lwt.fail exn)
     >>= fun existing ->
     if existing <> expected
-    then Lwt.return existing
+    then let () = self # _incr_i () in Lwt.return existing
     else
       begin
 	(match wanted with
