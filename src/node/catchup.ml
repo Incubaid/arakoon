@@ -139,14 +139,14 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) =
 	begin 
 	  if case = 2 
 	  then tlog_coll # get_last_update new_i 
-	  else Lwt.return None 
+	  else Lwt.return None
 	end >>= function
-	  | None -> Lwt.return (Ok None)
+	  | None -> Lwt.return new_i
 	  | Some update -> 
 	    Lwt_log.debug_f "PUSHING: %s" (Update.string_of update) >>= fun () ->
-	    Store._insert_update store update
-      end >>= fun _ ->
-      Lwt.return new_i
+	    Store._insert_update store update >>= fun _ ->
+            Lwt.return (Sn.succ new_i)
+      end
     )
     (function
       | Store.TrailingStore(ti_o,si_o) ->
