@@ -210,7 +210,8 @@ let _main_2 make_store make_tlog_coll cfgs
 		  >>= fun () ->
 		  let sqs = Lwt_unix.sleep_queue_size () in
 		  let ns = Lwt_unix.get_new_sleeps () in
-		  Lwt_log.info_f "sleeping_queue_size=%i;new_sleeps=%i" sqs ns 
+		  let wcl = Lwt_unix.wait_children_length () in
+		  Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i" sqs ns wcl
 		  >>= fun () ->
 		  _inner ()
 		in
