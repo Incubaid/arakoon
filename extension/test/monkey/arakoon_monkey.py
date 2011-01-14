@@ -195,8 +195,11 @@ def health_check() :
     assert_last_i_in_sync( node_names[0], node_names[1] )
     assert_last_i_in_sync( node_names[1], node_names[2] )
     # Make sure the stores are equal
+    q.cmdtools.arakoon.stop()
     compare_stores( node_names[0], node_names[1] )
     compare_stores( node_names[2], node_names[1] )
+    q.cmdtools.arakoon.start()
+    
     cli._dropConnections()
     
     if not check_disk_space():
@@ -204,7 +207,7 @@ def health_check() :
         q.cmdtools.arakoon.stop()
         sys.exit(0)
     
-    logging.info( "Cluster is healthy!")
+    logging.info("Cluster is healthy!")
 
 def check_disk_space():
     cmd = "df -h | awk ' { if ($6==\"/\") print $5 } ' | cut -d '%' -f 1"
