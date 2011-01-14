@@ -546,7 +546,8 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
     for i in range( iter_cnt ):
         time.sleep( delay )
         cli = get_client()
-        master_id = cli.whoMaster() 
+        cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
+        master_id = cli.whoMaster()
         cli._dropConnections()
         q.cmdtools.arakoon.stopOne( master_id )
         q.cmdtools.arakoon.startOne( master_id )
