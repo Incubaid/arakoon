@@ -65,7 +65,6 @@ def test_expect_progress_fixed_master ():
     time.sleep(1.0)
     assert_true( cli.expectProgressPossible(), "Master store counter is ahead of slave" )
     
-        
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_restart_single_slave_long ():
     restart_single_slave_scenario( 100, 10000 )
@@ -105,7 +104,8 @@ def test_restart_master_long ():
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
     assert_last_i_in_sync( node_names[2], node_names[1] )
-    
+    compare_stores( node_names[0], node_names[1] )
+    compare_stores( node_names[2], node_names[1] )
     cli._dropConnections()
     
 @with_custom_setup( default_setup, basic_teardown ) 
@@ -211,6 +211,7 @@ def test_missed_accept ():
     iterate_n_times( 1000, set_get_and_delete )
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
+    compare_stores( node_names[0], node_names[1] )
     
 @with_custom_setup( setup_2_nodes_forced_master, basic_teardown)
 def test_is_progress_possible():

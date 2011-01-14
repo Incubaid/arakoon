@@ -81,6 +81,8 @@ lease_duration = 10.0
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
 
+fs = q.system.fs
+proc = q.system.process
 
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
@@ -94,6 +96,48 @@ def dump_tlog (node_id, tlog_number) :
     (exit,stdout,stderr) = q.system.process.run(cmd)
     assert_equals( exit, 0, "Could not dump tlog for node %s" % node_id )
     return stdout
+
+
+def get_arakoon_bin_dir():
+    return fs.joinPaths( q.dirs.appDir, "arakoon", "bin")
+
+def get_tcbmgr_path ():
+    return fs.joinPaths( get_arakoon_bin_dir(), "tcbmgr" )
+
+def get_diff_path():
+    return "/usr/bin/diff"
+
+def dump_store( node_id ): 
+    stat = q.cmdtools.arakoon.getStatusOne( node_id )
+    assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
+    dump_file = fs.joinPaths( node_home_dir, node_id + ".db.dump" ) 
+    dump_file_tmp = dump_file + ".tmp" 
+    dump_fd_tmp = open( dump_file_tmp, 'w' )
+    cmd = get_tcbmgr_path() + " list -pv " + db_file
+    (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd_tmp )
+    dump_fd_tmp.close()
+    dump_fd_tmp = open( dump_file_tmp, 'r' )
+    dump_fd = open( dump_file, 'w' )
+    line = dump_fd_tmp.readline()
+    lineCnt = 0
+    while line != "" :
+        if lineCnt not in [ 0,1 ] :
+            dump_fd.write( line )
+        line = dump_fd_tmp.readline()
+        lineCnt += 1
+    dump_fd_tmp.close()
+    dump_fd.close()
+    return dump_file
+
+def compare_stores( node_id_1, node_id_2 ):
+    dump1 = dump_store( node_id_1 )
+    dump2 = dump_store( node_id_2 )
+    
+    cmd = " ".join( [get_diff_path(), dump1, dump2] )
+    (exit,stdout,stderr) = proc.run( cmd, stopOnError=False)
+    assert_equals( exit, 0, stdout+stderr)
 
 def get_last_tlog_id ( node_id ):
     node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
@@ -572,3 +616,5 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     time.sleep( 5.0 )
     
     assert_last_i_in_sync ( node_names[0], node_names[1] )
+    compare_stores( node_names[0], node_names[1] )
+

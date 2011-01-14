@@ -194,7 +194,9 @@ def health_check() :
     # Make sure the tlogs are in sync
     assert_last_i_in_sync( node_names[0], node_names[1] )
     assert_last_i_in_sync( node_names[1], node_names[2] )
-    
+    # Make sure the stores are equal
+    compare_stores( node_names[0], node_names[1] )
+    compare_stores( node_names[2], node_names[1] )
     cli._dropConnections()
     
     if not check_disk_space():
