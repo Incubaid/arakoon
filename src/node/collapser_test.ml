@@ -52,20 +52,20 @@ let _make_updates tlc n =
   loop 0
 
 let test_collapse_until dn = 
-  let () = Tlogcommon.tlogEntriesPerFile := 100 * 1000 in
+  let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Lwt_log.debug_f "dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn >>= fun tlc ->
-  _make_updates tlc 111111 >>= fun () ->
+  _make_updates tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
   let storename = "head.db" in
-  let future_i = Sn.of_int 100001 in
+  let future_i = Sn.of_int 1001 in
   Collapser.collapse_until dn storename future_i >>= fun () ->
   (* some verification ? *)
   
   (* try to do it a second time, it should *)
-  let future_i2 = Sn.of_int 100000 in
+  let future_i2 = Sn.of_int 1000 in
   _should_fail 
     (fun () -> Collapser.collapse_until dn storename future_i2) 
     "this should fail" 
@@ -75,14 +75,14 @@ let test_collapse_until dn =
 
 
 let test_collapse_many_regime dn =
-  let () = Tlogcommon.tlogEntriesPerFile := 100 * 1000 in
+  let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn >>= fun tlc ->
-  _make_updates tlc 654321 >>= fun () ->
+  _make_updates tlc 6321 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = "head.db" in
-  Collapser.collapse_until dn storename (Sn.of_int 100000) >>= fun () -> 
+  Collapser.collapse_until dn storename (Sn.of_int 1003) >>= fun () -> 
   Collapser.collapse_many dn ["001.tlc";"002.tlc";"003.tlc"] storename >>= fun () ->
   Lwt.return ()
 
