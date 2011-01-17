@@ -345,9 +345,30 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       else
         time_for_elections constants n' maybe_previous >>= fun elections_needed ->
         if elections_needed then
-          log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
-          let new_n = update_n constants n in
-          Lwt.return (Election_suggest (new_n, i))
+          begin
+            log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
+            let store = constants.store in
+            begin
+            match maybe_previous with
+            | None -> Lwt.return Store.Stop
+            | Some ( pup, prev_i )  ->
+              store # consensus_i () >>= fun ( store_i ) ->
+              begin
+              match store_i with
+              | Some s_i ->
+                if Sn.compare (Sn.pred i) s_i != 0
+                then
+                  constants.on_consensus ( pup, n,Sn.pred i)
+                else
+                  Lwt.return Store.Stop
+              | None ->
+                constants.on_consensus (pup, n,Sn.pred i)
+              end
+            end
+            >>= fun _ ->
+            let new_n = update_n constants n in
+            Lwt.return (Election_suggest (new_n, i))
+          end
         else
           begin
             start_lease_expiration_thread constants n
