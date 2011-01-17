@@ -35,11 +35,9 @@ let _should_fail x error_msg success_msg =
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
-let test_collapse_one dn = 
-  Lwt_log.debug_f "dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn >>= fun tlc ->
+let _make_updates tlc n =
   let rec loop i =
-    if i = 150000 
+    if i = n
     then Lwt.return ()
     else 
       let a = i mod 10000 in
@@ -51,22 +49,42 @@ let test_collapse_one dn =
       tlc # log_update sni update >>= fun wr_result ->
       loop (i+1)
   in
-  loop 0 >>= fun () ->
+  loop 0
+
+let test_collapse_until dn = 
+  Lwt_log.debug_f "dn=%s" dn >>= fun () ->
+  Tlc2.make_tlc2 dn >>= fun tlc ->
+  _make_updates tlc 111111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
   let storename = "head.db" in
-  Collapser.collapse_one dn "000.tlc" storename >>= fun () ->
+  let future_i = Sn.of_int 100001 in
+  Collapser.collapse_until dn storename future_i >>= fun () ->
   (* some verification ? *)
   
   (* try to do it a second time, it should *)
+  let future_i2 = Sn.of_int 100000 in
   _should_fail 
-    (fun () -> Collapser.collapse_one dn "000.tlc" storename ) 
-    "this should fails" 
-    "great, it indeed fails" 
+    (fun () -> Collapser.collapse_until dn storename future_i2) 
+    "this should fail" 
+    "great, it indeed refuses to do this" 
   >>= fun ()->
   Lwt.return ()
-  
+
+
+let test_collapse_many_regime dn =
+  Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
+  Tlc2.make_tlc2 dn >>= fun tlc ->
+  _make_updates tlc 654321 >>= fun () ->
+  tlc # close () >>= fun () ->
+  Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
+  let storename = "head.db" in
+  Collapser.collapse_until dn storename (Sn.of_int 100000) >>= fun () -> 
+  Collapser.collapse_many dn ["001.tlc";"002.tlc";"003.tlc"] storename >>= fun () ->
+  Lwt.return ()
+
+let test_collapse_many_start dn = Lwt.fail (Failure "TODO")
 
 let setup () = 
   Lwt_log.info "Collapser_test.setup" >>= fun () ->
@@ -83,5 +101,6 @@ let suite =
   let wrapTest f = Extra.lwt_bracket setup f teardown 
   in
   "collapser_test" >:::[
-    "collapse_one" >:: wrapTest test_collapse_one;
+    "collapse_until" >:: wrapTest test_collapse_until;
+    "collapse_many_regime" >:: wrapTest test_collapse_many_regime;
   ]

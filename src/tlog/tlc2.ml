@@ -212,6 +212,49 @@ let _init_oc tlog_dir c =
       ~mode: Lwt_io.output full_name
   in oc
     
+let iterate_tlog_dir tlog_dir 
+    (start_i:Sn.t) (consensus_i:Sn.t) (f:Sn.t * Update.t -> unit Lwt.t) =
+  Lwt_log.debug_f "Tlc2.iterate_tlog_dir start_i:%s consensus_i:%s" 
+    (Sn.string_of start_i) (Sn.string_of consensus_i) >>= fun () ->
+  let lowerI = start_i in
+  get_tlog_names tlog_dir >>= fun tlog_names ->
+  let acc_entry (i0:Sn.t) (i,u) = 
+    Lwt_log.debug_f "doing: %s" (Sn.string_of i) >>= fun () ->
+    f (i,u) >>= fun () -> Lwt.return i
+  in
+  let maybe_fold low fn =
+    let factor = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
+    let linf = Sn.of_int (get_number fn) in
+    let ( * ) = Sn.mul in
+    let test0 = linf * factor in
+    let test1 = (Sn.succ linf) * factor in
+    let low_s = Sn.string_of low in
+    let lowp = Sn.succ low in
+    let lowp_s = Sn.string_of lowp in
+    let test_result = 
+      (test0 <= lowp) &&
+	(test1  > lowp) &&
+	low <= consensus_i
+    in
+    Lwt_log.debug_f "%s <?= lowp:%s && %s >? lowp:%s && (low:%s <?= %s) yields:%b" 
+      (Sn.string_of test0 ) lowp_s 
+      (Sn.string_of test1) lowp_s 
+      low_s (Sn.string_of consensus_i)
+      test_result
+    >>= fun () ->
+    if test_result
+    then 
+      begin
+	Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
+	  (Sn.string_of test0) >>= fun () ->
+	let first = test0 in
+	fold_read tlog_dir fn low (Some consensus_i) ~first low acc_entry
+      end
+    else Lwt.return low
+  in
+  Lwt_list.fold_left_s maybe_fold lowerI tlog_names 
+  >>= fun x ->
+  Lwt.return ()
     
 class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option)= 
   let inner = 
@@ -278,47 +321,8 @@ object(self: # tlog_collection)
       end
 
   method iterate (start_i:Sn.t) (consensus_i:Sn.t) (f:Sn.t * Update.t -> unit Lwt.t) =
-    Lwt_log.debug_f "tlc2::iterate start_i:%s consensus_i:%s" 
-      (Sn.string_of start_i) (Sn.string_of consensus_i) >>= fun () ->
-    let lowerI = start_i in
-    get_tlog_names tlog_dir >>= fun tlog_names ->
-    let acc_entry (i0:Sn.t) (i,u) = 
-      Lwt_log.debug_f "doing: %s" (Sn.string_of i) >>= fun () ->
-      f (i,u) >>= fun () -> Lwt.return i
-    in
-    let maybe_fold low fn =
-      let factor = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-      let linf = Sn.of_int (get_number fn) in
-      let ( * ) = Sn.mul in
-      let test0 = linf * factor in
-      let test1 = (Sn.succ linf) * factor in
-      let low_s = Sn.string_of low in
-      let lowp = Sn.succ low in
-      let lowp_s = Sn.string_of lowp in
-      let test_result = 
-	(test0 <= lowp) &&
-	(test1  > lowp) &&
-	  low <= consensus_i
-      in
-      Lwt_log.debug_f "%s <?= lowp:%s && %s >? lowp:%s && (low:%s <?= %s) yields:%b" 
-	(Sn.string_of test0 ) lowp_s 
-	(Sn.string_of test1) lowp_s 
-	low_s (Sn.string_of consensus_i)
-	test_result
-      >>= fun () ->
-      if test_result
-      then 
-	begin
-	  Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
-	    (Sn.string_of test0) >>= fun () ->
-	  let first = test0 in
-	  fold_read tlog_dir fn low (Some consensus_i) ~first low acc_entry
-	end
-      else Lwt.return low
-    in
-    Lwt_list.fold_left_s maybe_fold lowerI tlog_names 
-    >>= fun x ->
-    Lwt.return ()
+    iterate_tlog_dir tlog_dir start_i consensus_i f
+   
 
   method get_last_i () =
     match _previous_update with
