@@ -694,5 +694,6 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     time.sleep( 5.0 )
     
     assert_last_i_in_sync ( node_names[0], node_names[1] )
+    q.cmdtools.arakoon.stop()
     compare_stores( node_names[0], node_names[1] )
 

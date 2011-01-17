@@ -234,9 +234,11 @@ def disk_full_scenario( node_id, cli ):
         node_2 = node_names[0]
     else :
         node_2 = node_names[1]
-        
+    
+    q.cmdtools.arakoon.stop()
     assert_last_i_in_sync ( node_id, node_2 )
     compare_stores( node_id, node_2 )
+    start_all()
     
     iterate_n_times( 500, set_get_and_delete , 100000 )
     key_list = cli.prefix( "key_", 500 )
@@ -362,7 +364,7 @@ def test_block_single_slave_ports_loop () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    
+    q.cmdtools.arakoon.stop()
     assert_last_i_in_sync ( master_id, slave_id )
     compare_stores( master_id, slave_id )
 
@@ -388,7 +390,7 @@ def test_block_single_slave_ports () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    
+    q.cmdtools.arakoon.stop()
     assert_last_i_in_sync ( master_id, slave_id )
     compare_stores( master_id, slave_id )
     
@@ -451,11 +453,13 @@ def test_block_two_slaves_ports_loop () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    
+    q.cmdtools.arakoon.stop()
     assert_last_i_in_sync ( master_id, slave_1_id )
     compare_stores( master_id, slave_1_id )
     assert_last_i_in_sync ( master_id, slave_2_id )
     compare_stores( master_id, slave_2_id )
+    start_all()
+    
     iterate_n_times( 1000, set_get_and_delete, 20000 )
         
 

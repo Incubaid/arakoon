@@ -209,7 +209,8 @@ def test_missed_accept ():
     time.sleep( 1.0 )
     
     iterate_n_times( 1000, set_get_and_delete )
-    
+    time.sleep(1.0)
+    q.cmdtools.arakoon.stop()
     assert_last_i_in_sync( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
     
