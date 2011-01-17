@@ -97,6 +97,9 @@ def dump_tlog (node_id, tlog_number) :
     assert_equals( exit, 0, "Could not dump tlog for node %s" % node_id )
     return stdout
 
+def get_arakoon_binary() :
+    return fs.joinPaths( get_arakoon_bin_dir(), 'arakoond')
+
 def get_arakoon_bin_dir():
     return fs.joinPaths( q.dirs.appDir, "arakoon", "bin")
 
@@ -106,38 +109,113 @@ def get_tcbmgr_path ():
 def get_diff_path():
     return "/usr/bin/diff"
 
+def get_node_db_file( node_id ) :
+    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
+    return db_file
+    
 def dump_store( node_id ): 
     stat = q.cmdtools.arakoon.getStatusOne( node_id )
     assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
-    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
-    db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
-    dump_file = fs.joinPaths( node_home_dir, node_id + ".db.dump" ) 
-    dump_file_tmp = dump_file + ".tmp" 
-    dump_fd_tmp = open( dump_file_tmp, 'w' )
+    db_file = get_node_db_file ( node_id )
+    dump_file = db_file + ".dump" 
     cmd = get_tcbmgr_path() + " list -pv " + db_file
-    (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd_tmp )
-    dump_fd_tmp.close()
-    dump_fd_tmp = open( dump_file_tmp, 'r' )
     dump_fd = open( dump_file, 'w' )
-    line = dump_fd_tmp.readline()
-    lineCnt = 0
-    while line != "" :
-        if lineCnt not in [ 0,1 ] :
-            dump_fd.write( line )
-        line = dump_fd_tmp.readline()
-        lineCnt += 1
-    dump_fd_tmp.close()
+    logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
+    (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
     dump_fd.close()
     return dump_file
 
-def compare_stores( node_id_1, node_id_2 ):
+def compare_stores( node1_id, node2_id ):
+
+    keys_to_skip = [ "*lease", "*i", "*master" ]
+    dump1 = dump_store( node1_id )
+    dump2 = dump_store( node2_id )
+    
+    # Line 2 contains the master lease, can be different as it contains a timestamp
+    d1_fd = open ( dump1, "r" )
+    d2_fd = open ( dump2, "r" )
+    
+    def get_i ( node_id ):
+        stat = q.cmdtools.arakoon.getStatusOne( node_id )
+        assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+        db_file = get_node_db_file(node_id)
+        cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
+        (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
+        i_line = stdout.split("\n") [0]
+        i_str = i_line.split("(")[1][:-1]
+        return int(i_str)
+     
+    
+
+    i1 = get_i (node1_id)
+    logging.debug("Counter value for store of %s: %d" % (node1_id,i1))
+    i2 = get_i (node2_id)
+    logging.debug("Counter value for store of %s: %d" % (node2_id,i2))
+    if( abs (i1 - i2) > 1 ):
+        raise Exception( "Store counters differ too much (%d : %d)" % (i1,i2) )
+    
+    i1_line = d1_fd.readline()
+    i2_line = d2_fd.readline()
+    
+    diffs = { node1_id : {} , node2_id : {} }
+    
+    def extract_key_value (line):
+        kv = line.split("\t")
+        k = kv [0]
+        v = kv [1]
+        return (k,v)
+    
+    iter = 0 
+    while i1_line != '' and i2_line != '' :
+        iter+=1
+        if( i1_line == i2_line ) :
+            i1_line = d1_fd.readline()
+            i2_line = d2_fd.readline()
+        else :
+            (k1,v1) = extract_key_value(i1_line)
+            (k2,v2) = extract_key_value(i2_line)
+            
+            if k1 == k2 :
+                if k1 not in keys_to_skip :
+                    diffs[node1_id][k1] = v1
+                    diffs[node2_id][k2] = v2 
+                    logging.debug( "Stores have different values for %s" % (k1) )
+                i1_line = d1_fd.readline()
+                i2_line = d2_fd.readline() 
+            if k1 < k2 :
+                logging.debug( "Store of %s has a value for, store of doesn't" % (node1_id, k1) )
+                diffs[node1_id][k1] = v1
+                i1_line = d1_fd.readline()
+            if k1 > k2 :
+                logging.debug( "Store of %s has a value for, store of doesn't" % (node2_id, k2) )
+                diffs[node2_id][k2] = v2
+                i2_line = d2_fd.readline()
+    
+    if i1_line != '':
+        logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node1_id) )
+        while i1_line != '':
+            (k,v) = extract_key_value (i1_line)
+            diffs[node1_id][k] = v
+            i1_line = d1_fd.readline()
+    if i2_line != '':
+        logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node2_id) )
+        while i2_line != '':
+            (k,v) = extract_key_value (i2_line)
+            diffs[node2_id][k] = v
+            i2_line = d2_fd.readline() 
+            
+    max_diffs = 0
+    
+    if ( i1 != i2 ):
+        max_diffs = 1
+        
+    diff_cnt = len( set( diffs[node1_id].keys() ).union( set(diffs[node2_id].keys() ) ) )
+    if diff_cnt > max_diffs :
+        raise Exception ( "Found too many differences between stores (%d > %d)\n%s" % (diff_cnt, max_diffs,diffs) )
+
+    logging.debug( "Stores of %s and %s are valid" % (node1_id,node2_id))
     return True
-#    dump1 = dump_store( node_id_1 )
-#    dump2 = dump_store( node_id_2 )
-#    
-#    cmd = " ".join( [get_diff_path(), dump1, dump2] )
-#    (exit,stdout,stderr) = proc.run( cmd, stopOnError=False)
-#    assert_equals( exit, 0, stdout+stderr)
 
 def get_last_tlog_id ( node_id ):
     node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
@@ -618,3 +696,10 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     assert_last_i_in_sync ( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
 
+logger = logging.getLogger()
+logger.setLevel( logging.DEBUG )
+compare_stores('arakoon_1', 'arakoon_2')
+compare_stores('arakoon_2', 'arakoon_1')
+compare_stores('arakoon_1', 'arakoon_0')
+compare_stores('arakoon_0', 'arakoon_1')
+print "Same"
