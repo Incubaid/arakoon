@@ -696,10 +696,3 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     assert_last_i_in_sync ( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
 
-logger = logging.getLogger()
-logger.setLevel( logging.DEBUG )
-compare_stores('arakoon_1', 'arakoon_2')
-compare_stores('arakoon_2', 'arakoon_1')
-compare_stores('arakoon_1', 'arakoon_0')
-compare_stores('arakoon_0', 'arakoon_1')
-print "Same"
