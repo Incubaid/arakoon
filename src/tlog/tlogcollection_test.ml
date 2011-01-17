@@ -130,6 +130,7 @@ let test_iterate (dn, factory) =
   OUnit.assert_equal !sum 38306;
   Lwt.return ()
 
+
 let test_iterate2 (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
@@ -145,6 +146,21 @@ let test_iterate2 (dn, factory) =
   Lwt.return ()
 
 
+let test_iterate3 (dn,factory) = 
+  let () = Tlogcommon.tlogEntriesPerFile := 100 in
+  factory dn >>= fun tlc ->
+  let update = Update.Set("test_iterate3","xxx") in
+  _log_repeat tlc update 120 >>= fun () ->
+  let result = ref [] in
+  tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
+    (fun (i,u) -> 
+      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      let () = result := i :: !result in
+      Lwt.return ()
+    )
+  >>= fun () ->
+  OUnit.assert_equal (List.mem (Sn.of_int 99) !result) true;
+  Lwt.return ()
 
 let test_validate_normal (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in

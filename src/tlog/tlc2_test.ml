@@ -35,6 +35,7 @@ let suite = "tlc2" >:::[
   "test_restart" >:: wrap_tlc Tlogcollection_test.test_restart;
   "test_iterate" >:: wrap_tlc Tlogcollection_test.test_iterate;
   "test_iterate2" >:: wrap_tlc Tlogcollection_test.test_iterate2;
+  "test_iterate3" >:: wrap_tlc Tlogcollection_test.test_iterate3;
   "validate" >:: wrap_tlc Tlogcollection_test.test_validate_normal;
   "validate_corrupt" >:: wrap_tlc Tlogcollection_test.test_validate_corrupt_1;
   "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;
