@@ -262,7 +262,7 @@ def make_monkey_run() :
                 time.sleep( lease_duration )     
                 health_check ()
             
-        except Exception, ex:
+        except (SystemExit,Exception), ex:
             logging.fatal( "Caught fatal exception => %s: %s" %(ex.__class__.__name__, ex) )
             for thr in thr_list :
                 thr.join() 
