@@ -95,33 +95,38 @@ end
 
 module C = struct
   let fold ic (lowerI:Sn.t) (higherI:Sn.t option) ~first a0 f = 
-    Lwt_log.debug_f "C.fold %s %s ~first:%s" (Sn.string_of lowerI)
+    Lwt_log.debug_f "C.fold lowerI:%s higherI:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option_to_string Sn.string_of higherI) 
       (Sn.string_of first)
     >>= fun () ->
     let rec _skip_blocks c = 
       Llio.input_int ic >>= fun ne_i ->
+      Llio.input_string ic >>= fun s ->
       let n_entries = Sn.of_int ne_i in
-      Lwt_log.debug_f "n_entries=%i%!" ne_i >>= fun () ->
       let c' = Sn.add c n_entries in
+      Lwt_log.debug_f "n_entries=%i c'=%s%!" ne_i (Sn.string_of c') 
+      >>= fun () ->
       if c' <= lowerI then
 	begin
-	  Llio.input_string ic >>= fun s ->
 	  _skip_blocks c' 
 	end
       else
 	begin
-	  Llio.input_string ic >>= fun s ->
 	  Lwt.return s
 	end
     in
     let rec _skip_in_block buffer pos =
+      let beyond = String.length buffer in 
       let rec _loop (maybe_p:entry option) pos =
-	let (i1,update1), pos1 = Tlogcommon.entry_from buffer pos in
-	if i1 > lowerI 
-	then maybe_p, pos
-	else 
-	  _loop (Some (i1,update1)) pos1
+	if pos = beyond then maybe_p, pos
+	else
+	  begin
+	    let (i1,update1), pos1 = Tlogcommon.entry_from buffer pos in
+	    if i1 > lowerI 
+	    then maybe_p, pos
+	    else 
+	      _loop (Some (i1,update1)) pos1
+	  end
       in
       _loop None pos 
     in
@@ -161,6 +166,7 @@ module C = struct
     _skip_blocks first >>= fun compressed -> 
     Lwt_log.debug_f "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
     let buffer = uncompress_block compressed in
+    Lwt_log.debug_f "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
       match maybe_first with

@@ -297,12 +297,12 @@ object(self: # tlog_collection)
       let lowp_s = Sn.string_of lowp in
       let test_result = 
 	(test0 <= lowp) &&
-	(test1  > lowp) &&
+	(low   <  test1) &&
 	  low <= consensus_i
       in
-      Lwt_log.debug_f "%s <?= lowp:%s && %s >? lowp:%s && (low:%s <?= %s) yields:%b" 
+      Lwt_log.debug_f "%s <?= lowp:%s &&  low:%s <? %s && (low:%s <?= %s) yields:%b" 
 	(Sn.string_of test0 ) lowp_s 
-	(Sn.string_of test1) lowp_s 
+	low_s (Sn.string_of test1) 
 	low_s (Sn.string_of consensus_i)
 	test_result
       >>= fun () ->
