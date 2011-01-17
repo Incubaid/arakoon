@@ -23,6 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 let collapse_until tlog_dir head_name future_i =
+  Lwt_log.debug_f "collapse_until %s" (Sn.string_of future_i) >>= fun () ->
   let cn_store = Filename.concat tlog_dir head_name in
   Local_store.make_local_store cn_store >>= fun store ->
   store # consensus_i () >>= fun store_i ->
@@ -96,16 +97,27 @@ let unlink_file target =
   Lwt.return ()
 
 let collapse_many tlog_dir tlog_names head_name = 
+  Lwt_log.debug_f "collapse_many" >>= fun () ->
   let new_name = head_name ^ ".next" in
   let cn1 = Filename.concat tlog_dir head_name 
   and cn2 = Filename.concat tlog_dir new_name 
   in
-  copy_file cn1 cn2 >>= fun () -> (* work in a new head *)
+  Lwt.catch
+    (fun () -> copy_file cn1 cn2)
+    (function
+      | Unix.Unix_error (Unix.ENOENT,x,y) -> 
+	begin
+	  Lwt_log.debug_f "%s,%s" x y >>= fun () ->
+	  Lwt.return ()
+	end
+      | exn -> Lwt.fail exn)
+  >>= fun () -> 
   let numbers = List.map Tlc2.get_number tlog_names in
   let sorted = List.sort (fun a b -> b - a ) numbers in
   let new_c = List.hd sorted in
-  let future_i = 
-    Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int new_c) in
+  let border_i = 
+    Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int (new_c+1)) in
+  let future_i = Sn.add border_i (Sn.of_int 10) in
   Lwt_log.debug_f "collapse_many: entriesPerFile=%i;new_c=%i; future_i = %s" 
     !Tlogcommon.tlogEntriesPerFile
     new_c (Sn.string_of future_i) 
