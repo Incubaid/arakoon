@@ -184,11 +184,11 @@ def compare_stores( node1_id, node2_id ):
                 i1_line = d1_fd.readline()
                 i2_line = d2_fd.readline() 
             if k1 < k2 :
-                logging.debug( "Store of %s has a value for, store of doesn't" % (node1_id, k1) )
+                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, k1) )
                 diffs[node1_id][k1] = v1
                 i1_line = d1_fd.readline()
             if k1 > k2 :
-                logging.debug( "Store of %s has a value for, store of doesn't" % (node2_id, k2) )
+                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, k2) )
                 diffs[node2_id][k2] = v2
                 i2_line = d2_fd.readline()
     
