@@ -137,49 +137,53 @@ let _main_2 make_store make_tlog_coll cfgs
 	    begin
 	      Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
 		other_names >>= fun () ->
+	      Lwt_log.info_f "lease_expiration=%i" lease_expiry >>= fun () ->
+	      Lwt_log.info_f "quorum_function gives %i for %i" 
+		(quorum_function n_names) n_names >>= fun () ->
 	      let db_name = me.home ^ "/" ^ my_name ^ ".db" in
 	      make_store db_name >>= fun (store:Store.store) ->
-              Lwt.catch( fun () ->
-	        make_tlog_coll me.tlog_dir 
-              ) (
-                function 
-                | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                  store # consensus_i () >>= fun store_i ->
-                  Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
-                  let tlog_i = 
+              Lwt.catch
+		( fun () -> make_tlog_coll me.tlog_dir) 
+		( function 
+                  | Tlc2.TLCCorrupt (pos,tlog_i) ->
+                    store # consensus_i () >>= fun store_i ->
+                    Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
+                    let tlog_i = 
                     begin
-                    match tlog_i with
-                    | i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
+                      match tlog_i with
+			| i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
                     | _ -> tlog_i 
                     end 
-                  in
-                  let s_i = 
+                    in
+                    let s_i = 
+                      begin
+			match store_i with
+			  | Some i -> i
+			  | None -> Sn.start
+                      end
+                    in
                     begin
-                    match store_i with
-                    | Some i -> i
-                    | None -> Sn.start
-                    end
-                  in
-                    begin
-                    Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
-		      (Sn.string_of s_i) 
-		      (Sn.string_of tlog_i)  
-		      (Sn.compare s_i tlog_i)  >>= fun() ->
+                      Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
+			(Sn.string_of s_i) 
+			(Sn.string_of tlog_i)  
+			(Sn.compare s_i tlog_i)  >>= fun() ->
                       if (Sn.compare s_i tlog_i)  <= 0
                       then
 			begin
-                          Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" last_tlog >>= fun () ->
+                          Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
+			    last_tlog >>= fun () ->
                           let _ = Tlc2.truncate_tlog last_tlog in
                           make_tlog_coll me.tlog_dir
 			end
                       else 
 			begin
-                          Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
+                          Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" 
+			    (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
                           Lwt.fail( Tlc2.TLCCorrupt (pos,tlog_i) )
 			end
                     end
-                    | ex -> Lwt.fail ex 
-              )
+                      | ex -> Lwt.fail ex 
+		)
               >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
 	      _check_tlogs tlog_coll me.tlog_dir >>= fun tlogI ->
 	      let current_i = match tlogI with
