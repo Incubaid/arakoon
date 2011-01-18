@@ -194,7 +194,7 @@ let verify (store:store) tlog_i me =
                 then
                   begin 
                   Lwt_log.debug_f "The old master %s" last_master >>= fun() ->
-                  Lwt_log.debug_f "I am the %s" me >>= fun() ->
+                  Lwt_log.debug_f "I am %s" me >>= fun() ->
                   Lwt.return( i, 3 )
                   end
                 else 

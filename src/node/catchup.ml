@@ -125,7 +125,7 @@ let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i
   Lwt.return (future_n, end_i,vo)
 
 
-let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) =
+let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) forced_master =
   Lwt_log.info_f "verify_n_catchup_store; ti_o=%s future_i=%s"
     (Log_extra.option_to_string Sn.string_of ti_o) 
     (Sn.string_of future_i) >>= fun () ->
@@ -135,7 +135,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) =
       Lwt_log.debug_f "CASE: %i (new_i=%Li)" case new_i >>= fun () ->
       begin
 	begin 
-	  if case = 2 
+	  if case = 2 || ( case = 3 && (forced_master = (Some me) ) ) 
 	  then tlog_coll # get_last_update new_i 
 	  else Lwt.return None
 	end >>= function
