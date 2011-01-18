@@ -62,12 +62,16 @@ let response_rc_bool oc rc b =
   Llio.output_bool oc b
 
 let handle_exception oc exn= 
-  let rc, msg = match exn with
-  | XException(rc, msg) -> rc,msg
-  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found"
-  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure"
+  let rc, msg, is_fatal = match exn with
+  | XException(rc, msg) -> rc,msg, false
+  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false
+  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true
+  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false
   in 
-  Arakoon_exc.output_exception oc rc msg
+  Arakoon_exc.output_exception oc rc msg >>= fun () ->
+  if is_fatal 
+  then Lwt.fail exn
+  else Lwt.return ()
 
 let one_command (ic,oc) backend =
   read_command (ic,oc) >>= function

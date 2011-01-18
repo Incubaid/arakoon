@@ -35,6 +35,7 @@ type local_action =
   | ShowVersion
   | DumpTlog
   | DumpStore
+  | MakeTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -115,6 +116,15 @@ let dump_tlog filename =
   in
   Lwt_main.run t
 
+let make_tlog tlog_name (i:int) =
+  let sni = Sn.of_int i in
+  let t = 
+    let f oc = Tlogcommon.write_entry oc sni Update.Update.Nop
+    in
+    Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
+  in
+  Lwt_main.run t;0
+
 let dump_store filename = Dump_store.dump_store filename
 
    
@@ -179,6 +189,7 @@ and test_repeat_count = ref 1
 and ip = ref ""
 and port = ref 8080
 and dir = ref "/tmp"
+and counter = ref 0
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
 let set_laction a = set_action (LocalAction a) in
@@ -208,6 +219,10 @@ let actions = [
   ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
 			     Arg.Set_string filename],
    "<filename> : dump a tlog file in readable format");
+  ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
+			     Arg.Set_string filename;
+			     Arg.Set_int counter;],
+   "<filename> <counter> : make a tlog file with 1 NOP entry @ <counter>");
   ("--dump-store", Arg.Tuple [ set_laction DumpStore; 
 			       Arg.Set_string filename],
    "<filename> : dump a store");
@@ -265,6 +280,7 @@ let do_local = function
   | SystemTests -> run_system_tests()
   | ShowVersion -> show_version();0
   | DumpTlog -> dump_tlog !filename
+  | MakeTlog -> make_tlog !filename !counter
   | DumpStore -> dump_store !filename
   | TruncateTlog -> Tlc2.truncate_tlog !filename
   | CompressTlog -> compress_tlog !filename
