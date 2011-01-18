@@ -56,6 +56,7 @@ class type store = object
 end
 
 exception Key_not_found of string ;;
+exception CorruptStore
 
 type update_result =
   | Stop

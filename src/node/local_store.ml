@@ -130,7 +130,11 @@ let rec _sequence bdb updates =
         | None -> raise Not_found
   in List.iter helper updates;
 
+
+
 class local_store db =
+
+
 
 object(self: #store)
 
@@ -143,7 +147,11 @@ object(self: #store)
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
 
   method get key =
-    Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key)))
+    Lwt.catch
+      (fun () -> Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key))))
+      (function 
+	| Failure _ -> Lwt.fail CorruptStore
+	| exn -> Lwt.fail exn)
 
   method multi_get keys = 
     Hotc.transaction db 
@@ -190,11 +198,17 @@ object(self: #store)
 
 
   method set key value =
-    Hotc.transaction db
-      (fun db ->
-	_incr_i db >>= fun () ->
-	_set db key value;
-	Lwt.return ())
+    Lwt.catch
+      (fun () ->
+	Hotc.transaction db
+	  (fun db ->
+	    _incr_i db >>= fun () ->
+	    _set db key value;
+	    Lwt.return ())
+      )
+      (function 
+	| Failure _ -> Lwt.fail Server.FOOBAR
+	| exn -> Lwt.fail exn)
 
   method set_master master lease=
     Hotc.transaction db

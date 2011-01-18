@@ -29,6 +29,7 @@ let mv_wait = Lwt_mvar.take
 
 let no_callback = Lwt.return
 
+exception FOOBAR
 
 let session_thread protocol fd = 
   info "starting session " >>= fun () ->
@@ -39,7 +40,9 @@ let session_thread protocol fd =
       and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd
       in protocol (ic,oc) 
     )
-    (fun exn -> info ~exn "exiting session")
+    (function
+      | FOOBAR as foobar-> Lwt.fail foobar
+      | exn -> info ~exn "exiting session")
   >>= close 
     
 let make_server_thread ?(setup_callback=no_callback) host port protocol =
