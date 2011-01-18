@@ -152,11 +152,11 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) forced_ma
     (Sn.string_of future_i) >>= fun () ->
   Lwt.catch
     (fun () ->
-      Store.verify store ti_o me >>= fun (new_i,case) ->
+      Store.verify store ti_o me forced_master >>= fun (new_i,case) ->
       Lwt_log.debug_f "CASE: %i (new_i=%Li)" case new_i >>= fun () ->
       begin
 	begin 
-	  if case = 2 || ( case = 3 && (forced_master = (Some me) ) ) 
+	  if case = 2 
 	  then tlog_coll # get_last_update new_i 
 	  else Lwt.return None
 	end >>= function

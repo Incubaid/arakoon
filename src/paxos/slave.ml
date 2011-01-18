@@ -421,8 +421,12 @@ let slave_discovered_other_master constants state () =
       begin 
         match cmp with  
         | Catchup.Store_1_behind ->
-          tlog_coll # get_last_i () >>= fun i_2_push -> 
-          tlog_coll # get_last_update i_2_push >>= fun m_prev ->
+          tlog_coll # get_last_i () >>= fun i_2_push ->
+          Lwt.catch ( fun () -> 
+            tlog_coll # get_last_update i_2_push 
+          ) ( fun e -> 
+            Lwt.return None
+          ) >>= fun m_prev ->
           begin
           match m_prev with 
           | None -> Lwt.return()

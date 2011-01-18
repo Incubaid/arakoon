@@ -177,7 +177,7 @@ let on_consensus (store:store) (v,n,i) =
 
 exception TrailingStore of (Sn.t option * Sn.t option)
 
-let verify (store:store) tlog_i me =
+let verify (store:store) tlog_i me forced_master =
   store#consensus_i () >>= fun store_i ->
   begin
     let store_is = option_to_string Sn.string_of store_i in
@@ -191,7 +191,7 @@ let verify (store:store) tlog_i me =
           match last_lease with
             | Some(last_master,_) ->
               begin 
-                if (String.compare last_master me) == 0
+                if ((String.compare last_master me) = 0) && ( forced_master != (Some me) )
                 then
                   begin 
                   Lwt_log.debug_f "The old master %s" last_master >>= fun() ->
