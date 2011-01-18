@@ -32,6 +32,7 @@ import logging
 import random
 import sys
 import smtplib
+import traceback
 
 from pymonkey import q
 from arakoon_monkey_config import *
@@ -261,9 +262,21 @@ def make_monkey_run() :
                 logging.info( "Work is done. Starting little safety nap." )
                 time.sleep( lease_duration )     
                 health_check ()
-            
-        except (SystemExit,Exception), ex:
+        except SystemExit, ex:
+            if str(ex) == "0":
+                sys.exit(0)
+            else :
+                logging.fatal( "Caught SystemExit => %s: %s" %(ex.__class__.__name__, ex) )
+                tb = traceback.format_exc()
+                logging.fatal( tb )
+                for thr in thr_list :
+                    thr.join() 
+                monkey_dies = True
+
+        except Exception, ex:
             logging.fatal( "Caught fatal exception => %s: %s" %(ex.__class__.__name__, ex) )
+            tb = traceback.format_exc()
+            logging.fatal( tb )
             for thr in thr_list :
                 thr.join() 
             monkey_dies = True
