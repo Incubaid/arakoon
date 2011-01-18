@@ -34,7 +34,7 @@ module type TR = sig
     Sn.t -> Sn.t option -> first:Sn.t ->
     'a ->
     ('a -> Sn.t* Update.t -> 'a Lwt.t) -> 'a Lwt.t
-    (** here this fold does not attempt to eliminate doubbles:
+    (** here this fold does not attempt to eliminate doubles:
 	it makes the code simpler and any state-updates that you need
 	to do this can be done in the acc anyway.
     **)
@@ -136,9 +136,22 @@ module C = struct
 	if p = (String.length buffer) 
 	then Lwt.return a
 	else
-	  let entry, pos2 = Tlogcommon.entry_from buffer p in
-	  f a entry >>= fun a' ->
-	  _loop a' pos2
+	  let (i2,update2), pos2 = Tlogcommon.entry_from buffer p in
+	  match higherI with
+	    | None ->  
+	      begin
+		f a (i2, update2) >>= fun a' ->
+		_loop a' pos2
+	      end
+	    | Some hi ->
+	      if i2 < hi then
+		begin
+		  f a (i2, update2) >>= fun a' ->
+		  _loop a' pos2 
+		end
+	      else
+		Lwt.return a
+
       in
       _loop a pos
     in

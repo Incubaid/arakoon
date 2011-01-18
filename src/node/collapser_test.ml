@@ -75,19 +75,19 @@ let test_collapse_until dn =
 
 
 let test_collapse_many dn =
-  let () = Tlogcommon.tlogEntriesPerFile := 1000 in
+  let () = Tlogcommon.tlogEntriesPerFile := 100 in
   Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn >>= fun tlc ->
-  _make_updates tlc 6321 >>= fun () ->
+  _make_updates tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = "head.db" in
-  Collapser.collapse_many dn ["000.tlc";] storename >>= fun () ->
+  Collapser.collapse_many dn ["000.tlc"] storename >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->
   Collapser.collapse_many dn ["001.tlc";"002.tlc"] storename >>= fun () ->
   Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
   Collapser.collapse_many dn ["003.tlc";"004.tlc"] storename >>= fun () ->
-  Lwt_log.debug "collapsed 003 & 004" >>= fun () ->
+  Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 
 
