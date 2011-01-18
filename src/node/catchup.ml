@@ -28,6 +28,27 @@ open Tlogcollection
 open Update
 open Store
 
+type store_tlc_cmp =
+  | Store_n_behind
+  | Store_1_behind
+  | Store_tlc_equal
+  | Store_ahead
+
+let compare_store_tlc store tlc =
+  store # consensus_i () >>= fun m_store_i ->
+  tlc # get_last_i () >>= fun tlc_i ->
+  match m_store_i with
+  | None ->
+    if tlc_i = ( Sn.succ Sn.start )
+    then Lwt.return Store_1_behind
+    else Lwt.return Store_n_behind
+  | Some store_i when store_i = tlc_i -> Lwt.return Store_tlc_equal
+  | Some store_i when store_i > tlc_i -> Lwt.return Store_ahead
+  | Some store_i ->
+    if store_i = (Sn.pred tlc_i)
+    then Lwt.return Store_1_behind
+    else Lwt.return Store_n_behind
+
 let catchup_tlog me other_configs (current_i: Sn.t) mr_name
     (tlog_coll:file_tlog_collection)=
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->

@@ -417,6 +417,22 @@ let slave_discovered_other_master constants state () =
     end
   else
     begin
+      Catchup.compare_store_tlc store tlog_coll >>= fun cmp ->
+      begin 
+        match cmp with  
+        | Catchup.Store_1_behind ->
+          tlog_coll # get_last_i () >>= fun i_2_push -> 
+          tlog_coll # get_last_update i_2_push >>= fun m_prev ->
+          begin
+          match m_prev with 
+          | None -> Lwt.return()
+          | Some pup ->
+            log ~me "slave_discovered_other_master: Pushing previous update with i: %s" (Sn.string_of i_2_push) >>= fun () ->
+            Store.on_consensus store ( (Update.make_update_value pup),future_n,i_2_push) >>= fun _ -> Lwt.return()
+          end
+        | _ -> Lwt.return() 
+      end
+      >>= fun () ->
       log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election" >>= fun () ->
       (* we have to go to election here or we can get in a situation where
          everybody just waits for each other *)
