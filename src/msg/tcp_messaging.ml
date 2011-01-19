@@ -60,7 +60,12 @@ object(self : # messaging )
 
   method set_stop (stop:unit -> bool Lwt.t) = _stop <- stop
 
-
+  method expect_reachable ~target = 
+    match self # _get_target_address ~target with
+      | None -> false
+      | Some address -> Hashtbl.mem _connections address
+	
+	
   method private __fuse__ f = 
     _stop () >>= function
       | true ->

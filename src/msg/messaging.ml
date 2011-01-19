@@ -32,7 +32,7 @@ class type messaging = object
   method register_receivers: (id * address) list -> unit
   method send_message: Message.t -> source:id -> target:id -> unit Lwt.t
   method recv_message: target:id -> (Message.t * id) Lwt.t
-
+  method expect_reachable: target: id -> bool
   method set_stop : (unit -> bool Lwt.t) -> unit
   method run : ?up_and_running:(unit -> unit Lwt.t) -> unit -> unit Lwt.t
   method get_buffer: id -> (Message.t * id) Lwt_buffer.t

@@ -201,10 +201,11 @@ let _main_2 make_store make_tlog_coll cfgs
 		Lwt_buffer.add v client_buffer >>= fun () ->
 		Lwt_log.debug_f "pushing client event (done)"
 	      in
+	      let expect_reachable = messaging # expect_reachable in
 	      let backend =
 		new Sync_backend.sync_backend me client_push
 		  store tlog_coll lease_expiry 
-		  quorum_function n_names
+		  quorum_function n_names expect_reachable
 	      in
 	      let rapporting () = 
 		let rec _inner () =
