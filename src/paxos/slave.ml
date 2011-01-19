@@ -104,8 +104,14 @@ let slave_steady_state constants state event =
 		    let update,_ = Update.from_buffer us 0 in
 		    begin
 		      match update with
-			| Update.MasterSet(m,l) -> 
-			  constants.store # set_master_no_inc m  
+			| Update.MasterSet(m,l) ->
+                          Catchup.compare_store_tlc constants.store constants.tlog_coll >>= fun cmp ->
+                          begin
+                          match cmp with
+                          | Catchup.Store_1_behind ->
+			    constants.store # set_master_no_inc m  
+                          | _ -> Lwt.return ()
+                          end
 			| _ -> Lwt.return ()
 		    end >>= fun () ->
 		    Lwt_log.debug_f "SKIPPING (paxos -> multipaxos)" 
