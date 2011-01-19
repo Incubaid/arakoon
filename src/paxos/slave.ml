@@ -279,7 +279,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      begin
               match maybe_previous with
-              | None -> Lwt.return()
+              | None -> log ~me "No previous" >>= fun () -> Lwt.return()
               | Some( pv, pi ) -> 
                 constants.store # consensus_i () >>= fun (store_i) ->
                 begin
@@ -412,7 +412,14 @@ let slave_discovered_other_master constants state () =
 	
 	match vo' with
 	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v, true))
-	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None, None))
+	  | None -> 
+              let vo =
+                begin
+                match vo' with
+                | None -> None
+                | Some u -> Some ( u, current_i' )
+                end in
+            Lwt.return (Slave_wait_for_accept (future_n', current_i', None, vo))
       end
     end
   else if current_i = future_i then
