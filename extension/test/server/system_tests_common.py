@@ -162,8 +162,12 @@ def compare_stores( node1_id, node2_id ):
     
     def extract_key_value (line):
         kv = line.split("\t")
-        k = kv [0]
-        v = kv [1]
+        try:
+            k = kv [0]
+            v = kv [1]
+        except Exception as ex :
+            logging.debug("Mal-formed line in dump: '%s'. Aborting.)" % line )
+            raise ex
         return (k,v)
     
     iter = 0 
@@ -195,14 +199,16 @@ def compare_stores( node1_id, node2_id ):
     if i1_line != '':
         logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node1_id) )
         while i1_line != '':
-            (k,v) = extract_key_value (i1_line)
-            diffs[node1_id][k] = v
+            if i1_line != "\n":
+                (k,v) = extract_key_value (i1_line)
+                diffs[node1_id][k] = v
             i1_line = d1_fd.readline()
     if i2_line != '':
         logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node2_id) )
         while i2_line != '':
-            (k,v) = extract_key_value (i2_line)
-            diffs[node2_id][k] = v
+            if i2_line != "\n" :
+                (k,v) = extract_key_value (i2_line)
+                diffs[node2_id][k] = v
             i2_line = d2_fd.readline() 
             
     max_diffs = 0

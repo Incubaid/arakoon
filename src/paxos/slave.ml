@@ -412,8 +412,16 @@ let slave_discovered_other_master constants state () =
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
+      (* dirty trick to get last update *)
+      Catchup.catchup_store me store tlog_coll future_i >>= fun (f_i, vo) ->
       start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
-      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, None))
+      let vo' = 
+      begin
+      match vo with 
+      | None -> None
+      | Some u -> Some ( u, f_i )
+      end in
+      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, vo'))
     end
   else
     begin
