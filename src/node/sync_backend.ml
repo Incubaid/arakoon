@@ -44,6 +44,7 @@ class sync_backend cfg push_update
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
   quorum_function n_nodes
+  expect_reachable
   =
   let my_name =  Node_cfg.node_name cfg in
 object(self: #backend)
@@ -67,7 +68,7 @@ object(self: #backend)
 	match exc with
 	  | Not_found ->
 	    Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
-	  | Store.CorruptStore as kaboom ->
+	  | Store.CorruptStore ->
 	    begin
 	      Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
 	      Lwt.fail Server.FOOBAR
@@ -245,16 +246,12 @@ object(self: #backend)
 	let count,s = Hashtbl.fold
 	  (fun name ci (count,s) -> 
 	    let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
-	    if ci = i || (Sn.pred ci) = i 
+	    if (expect_reachable ~target:name) && 
+	      (ci = i || (Sn.pred ci) = i )
 	    then  count+1,s' 
 	    else  count,s') 
 	  witnessed (1,"") in
-	let v = 
-
-	  if count >= q
-	  then true
-	  else false
-	in 
+	let v = count >= q in
 	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
 	>>= fun () ->
 	Lwt.return v
