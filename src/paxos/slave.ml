@@ -105,7 +105,7 @@ let slave_steady_state constants state event =
 		    begin
 		      match update with
 			| Update.MasterSet(m,l) -> 
-			  constants.store # set_master_no_inc m l 
+			  constants.store # set_master_no_inc m  
 			| _ -> Lwt.return ()
 		    end >>= fun () ->
 		    Lwt_log.debug_f "SKIPPING (paxos -> multipaxos)" 

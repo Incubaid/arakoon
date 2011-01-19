@@ -98,7 +98,8 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
-let _set_master bdb master lease_start = 
+let _set_master bdb master = 
+  let lease_start = Int64.of_float (Unix.time ()) in 
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
@@ -111,7 +112,7 @@ let rec _sequence bdb updates =
     | Update.Delete key -> _delete bdb key
     | Update.TestAndSet(key,expected, wanted) ->
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
-    | Update.MasterSet (m,ls) -> _set_master bdb m ls
+    | Update.MasterSet (m,ls) -> _set_master bdb m 
     | Update.Sequence us -> _sequence bdb us
     | Update.Nop -> ()
   in let get_key = function
@@ -210,16 +211,16 @@ object(self: #store)
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
-  method set_master master lease=
+  method set_master master =
     Hotc.transaction db
       (fun db ->
 	_incr_i db >>= fun () ->
-	_set_master db master lease;
+	_set_master db master ;
 	Lwt.return ()
       )
 
-  method set_master_no_inc master lease = 
-    Hotc.transaction db (fun db -> _set_master db master lease;Lwt.return ())
+  method set_master_no_inc master = 
+    Hotc.transaction db (fun db -> _set_master db master ;Lwt.return ())
 
   method who_master () =
     Lwt.catch

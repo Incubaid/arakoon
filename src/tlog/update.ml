@@ -32,7 +32,7 @@ module Update = struct
     | Nop
 
   let make_master_set me =
-    let i = Int64.of_float (Unix.time ()) in
+    let i = 0L in
     MasterSet (me,i)
 
   let rec string_of = function

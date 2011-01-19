@@ -42,8 +42,8 @@ class type store = object
   method test_and_set: string -> string option -> string option -> string option Lwt.t
   method delete: string -> unit Lwt.t
   method sequence : Update.t list -> unit Lwt.t
-  method set_master: string -> int64 -> unit Lwt.t
-  method set_master_no_inc: string -> int64 -> unit Lwt.t
+  method set_master: string -> unit Lwt.t
+  method set_master_no_inc: string -> unit Lwt.t
   method who_master: unit -> (string*int64) option Lwt.t
     
   (** last value on which there is consensus.
@@ -83,7 +83,7 @@ let _insert_update (store:store) update =
     | Update.Set(key,value) ->
       with_error key (fun () -> store # set key value)
     | Update.MasterSet (m, lease) ->
-      with_error "Not_found" (fun () -> store # set_master m lease)
+      with_error "Not_found" (fun () -> store # set_master m)
     | Update.Delete(key) ->
       with_error key (fun () -> store # delete key)
     | Update.TestAndSet(key,expected,wanted)->
