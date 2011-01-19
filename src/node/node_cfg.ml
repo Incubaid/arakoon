@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_expiry = 10
 let _COMPRESSION_DEFAULT = true;

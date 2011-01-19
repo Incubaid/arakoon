@@ -25,6 +25,7 @@ open Version
 open OUnit_XML
 open OUnit
 open Clone
+open Node_cfg
 type local_action =
   | ShowUsage
   | RunAllTests
@@ -184,7 +185,6 @@ and value = ref ""
 and size = ref 10 
 and tx_size = ref 100
 and daemonize = ref false
-and config_file = ref "cfg/arakoon.ini"
 and test_repeat_count = ref 1
 and ip = ref ""
 and port = ref 8080
@@ -297,14 +297,14 @@ in
 let do_server node =
   match node with
     | Node ->
-      let make_config () = Node_cfg.Node_cfg.read_config !config_file in
+      let make_config () = Node_cfg.read_config !config_file in
       let main_t = (Node_main.main_t make_config !node_id !daemonize) in
       Lwt_main.run main_t;
       0
     | TestNode ->
       let lease_period = 60 in 
       let node = Some "t_arakoon_0" in
-      let make_config () = Node_cfg.Node_cfg.make_test_config 3 node lease_period in
+      let make_config () = Node_cfg.make_test_config 3 node lease_period in
       let main_t = (Node_main.test_t make_config !node_id) in
       Lwt_main.run main_t;
       0

@@ -38,7 +38,20 @@ let rec _split node_name cfgs =
     loop me (cfg::others) rest
   in loop None [] cfgs
 
-let _config_logging cfg =
+let _config_logging me =
+  let ( cfgs,_,_,_,_ ) = Node_cfg.Node_cfg.read_config !Node_cfg.config_file in 
+  let acc = ref None in
+  let f () c =
+    if c.node_name = me 
+    then acc := Some c
+  in
+  let () = List.fold_left f () cfgs in
+  let cfg = 
+  begin
+    match !acc with 
+    | Some c -> c
+    | None -> failwith( "Could not find config for node " ^ me ) 
+  end in
   let level =
     match cfg.log_level with
       | "info"    -> Lwt_log.Info
@@ -89,7 +102,7 @@ let _maybe_daemonize daemonize cfg =
 	~stdout:`Dev_null
 	~stderr:`Dev_null
 	();
-      _config_logging cfg
+      _config_logging cfg.node_name
     end
 
 
@@ -126,9 +139,9 @@ let _main_2 make_store make_tlog_coll cfgs
     match splitted with
       | None -> failwith (name ^ " is not known in config")
       | Some me ->
-	  let () = _config_logging me in
+	  let () = _config_logging me.node_name in
 	  let _ = Lwt_unix.on_signal 10
-	    (fun i -> Lwt.ignore_result (_log_rotate me i))
+	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i))
 	  in
 	  log_prelude() >>= fun () ->
 	  let my_name = me.node_name in
