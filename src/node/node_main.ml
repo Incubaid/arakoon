@@ -345,7 +345,7 @@ let main_t make_config name daemonize =
     else
       Tlogcollection.make_file_tlog_collection 
   in
-  let get_cfgs () = cfgs in 
+  let get_cfgs = Node_cfg.Node_cfg.get_node_cfgs_from_file in 
   _main_2
     make_store make_tlog_coll get_cfgs 
     forced_master quorum_function name
