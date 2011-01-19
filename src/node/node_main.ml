@@ -38,8 +38,9 @@ let rec _split node_name cfgs =
     loop me (cfg::others) rest
   in loop None [] cfgs
 
-let _config_logging me =
-  let ( cfgs,_,_,_,_ ) = Node_cfg.Node_cfg.read_config !Node_cfg.config_file in 
+
+let _config_logging me get_cfgs =
+  let cfgs = get_cfgs () in 
   let acc = ref None in
   let f () c =
     if c.node_name = me 
@@ -93,7 +94,7 @@ let _check_tlogs collection tlog_dir =
   end >>= fun () ->
   Lwt.return lastI
 
-let _maybe_daemonize daemonize cfg =
+let _maybe_daemonize daemonize cfg get_cfgs =
   if daemonize then
     begin
       Lwt_daemon.daemonize
@@ -102,7 +103,7 @@ let _maybe_daemonize daemonize cfg =
 	~stdout:`Dev_null
 	~stderr:`Dev_null
 	();
-      _config_logging cfg.node_name
+      _config_logging cfg.node_name get_cfgs
     end
 
 
@@ -111,12 +112,12 @@ let _config_service cfg backend=
   let host = cfg.ip in
   Server.make_server_thread host port (Client_protocol.protocol backend)
 
-let _log_rotate cfg i =
+let _log_rotate cfg i get_cfgs =
   Lwt_log.warning_f "received USR (%i) going to close/reopen log file" i
   >>= fun () ->
   let logger = !Lwt_log.default in
   Lwt_log.close logger >>= fun () ->
-  let () = _config_logging cfg in
+  let () = _config_logging cfg get_cfgs in
   Lwt.return ()
 
 let log_prelude() =
@@ -127,11 +128,12 @@ let log_prelude() =
 
 
 
-let _main_2 make_store make_tlog_coll cfgs
+let _main_2 make_store make_tlog_coll get_cfgs
     forced_master quorum_function name
     daemonize lease_expiry
     =
 
+  let cfgs = get_cfgs () in
   let names = List.map (fun cfg -> cfg.node_name) cfgs in
   let n_names = List.length names in
   let other_names = List.filter (fun n -> n <> name) names in
@@ -139,9 +141,9 @@ let _main_2 make_store make_tlog_coll cfgs
     match splitted with
       | None -> failwith (name ^ " is not known in config")
       | Some me ->
-	  let () = _config_logging me.node_name in
+	  let () = _config_logging me.node_name get_cfgs in
 	  let _ = Lwt_unix.on_signal 10
-	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i))
+	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i get_cfgs ))
 	  in
 	  log_prelude() >>= fun () ->
 	  let my_name = me.node_name in
@@ -307,7 +309,7 @@ let _main_2 make_store make_tlog_coll cfgs
 	    in to_run constants buffers new_i 
 	  in
 	  Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
-	  let () = _maybe_daemonize daemonize me in
+	  let () = _maybe_daemonize daemonize me get_cfgs in
 	  Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
@@ -343,8 +345,9 @@ let main_t make_config name daemonize =
     else
       Tlogcollection.make_file_tlog_collection 
   in
+  let get_cfgs () = cfgs in 
   _main_2
-    make_store make_tlog_coll cfgs
+    make_store make_tlog_coll get_cfgs 
     forced_master quorum_function name
     daemonize lease_expiry
 
@@ -354,6 +357,7 @@ let test_t make_config name =
   in
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
-  _main_2 make_store make_tlog_coll cfgs
+  let get_cfgs () = cfgs in
+  _main_2 make_store make_tlog_coll get_cfgs
     forced_master quorum_function name
     false lease_expiry

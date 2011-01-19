@@ -182,4 +182,8 @@ module Node_cfg = struct
   
   let forced_master t = t.forced_master
 
+  let get_node_cfgs_from_file () =
+    let (cfgs,_,_,_,_) = read_config !config_file in
+    cfgs
+
 end
