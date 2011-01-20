@@ -54,7 +54,7 @@ let make_went_well stats_cb awake sleeper =
 						Lwt_log.error "Lwt.wakeup error: Sleeper already failed before. Re-raising" >>= fun () ->
 						Lwt.fail ex
 					| Return v ->
-						Lwt.fail (Failure "Lwt.wakeup error: Sleeper already returned")
+						Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
 					| Sleep ->
 						Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
 				end
