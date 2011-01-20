@@ -120,6 +120,14 @@ let slave_steady_state constants state event =
 		  end
 	      end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun () ->
+        let Value.V(us ) = v in
+        let update,_ = Update.from_buffer us 0 in
+        begin
+          match update with
+            | Update.MasterSet(m,l) ->
+              constants.on_consensus (v,n,i) >>= fun _ -> Lwt.return()
+            | _ -> Lwt.return ()
+        end >>= fun () ->
 	      log ~me "steady_state :: replying with %S" (string_of reply) 
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
