@@ -137,7 +137,7 @@ def test_master_reelect():
     
     time.sleep( 1.5 * lease_duration )
     
-    cli._masterId = None
+    cli = get_client()
     newest_master_id = cli.whoMaster()
     assert_not_equals ( newest_master_id, None, "No new master elected, no master. Aborting.")
     assert_not_equals ( newest_master_id, new_master_id, "No new master elected, same master. Aborting.")
