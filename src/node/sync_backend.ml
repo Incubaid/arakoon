@@ -49,6 +49,9 @@ let make_went_well stats_cb awake =
     end
 
 
+
+
+
 class sync_backend cfg push_update 
   (store:Store.store) 
   (tlog_collection:Tlogcollection.tlog_collection) 
@@ -57,6 +60,7 @@ class sync_backend cfg push_update
   expect_reachable
   =
   let my_name =  Node_cfg.node_name cfg in
+  
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10 
@@ -85,6 +89,19 @@ object(self: #backend)
 	    end
 	  | ext -> Lwt.fail ext)
 
+
+  method private _update_rendezvous update update_stats = 
+    self # _only_if_master () >>= fun () ->
+    let p_value = Update.make_update_value update in
+    let sleep, awake = Lwt.wait () in
+    let went_well = make_went_well update_stats awake in
+    push_update (Some p_value, went_well) >>= fun () ->
+    sleep >>= function
+      | Store.Stop -> Lwt.fail Forced_stop
+      | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
+      | Store.Ok _ -> Lwt.return ()
+
+  
   method range (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _only_if_master () >>= fun () ->
@@ -102,17 +119,9 @@ object(self: #backend)
 
   method set key value =
     log_o self "set %S %S" key value >>= fun () ->
-    self # _only_if_master () >>= fun () ->
-    let update = Update.Set(key,value) in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait () in
+    let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value in
-    let went_well = make_went_well update_sets awake in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
-      | Store.Ok _ -> Lwt.return ()
+    self # _update_rendezvous update update_sets
 
   method test_and_set key expected (wanted:string option) =
     log_o self "test_and_set %s %s %s" key 
@@ -133,15 +142,8 @@ object(self: #backend)
   method delete key = log_o self "delete %S" key >>= fun () ->
     self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait() in
-    let update_deletes () = Statistics.new_delete _stats in
-    let went_well = make_went_well update_deletes awake in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc, str))
-      | Store.Ok _ -> Lwt.return ()
+    let update_stats () = Statistics.new_delete _stats in
+    self # _update_rendezvous update update_stats 
 
   method hello (client_info:string) =
     log_o self "hello" >>= fun () -> Lwt.return "xxx"
@@ -165,15 +167,8 @@ object(self: #backend)
   method sequence (updates:Update.t list) =
     log_o self "sequence" >>= fun () ->
     let update = Update.Sequence updates in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait () in
-    let update_seqs () = Statistics.new_sequence _stats in
-    let went_well = make_went_well update_seqs awake in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc, str) -> Lwt.fail (XException(rc, str))
-      | Store.Ok _ -> Lwt.return ()
+    let update_stats () = Statistics.new_sequence _stats in
+    self # _update_rendezvous update update_stats
 
   method multi_get (keys:string list) =
     log_o self "multi_get" >>= fun () ->
