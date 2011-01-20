@@ -153,63 +153,61 @@ def compare_stores( node1_id, node2_id ):
     i2 = get_i (node2_id)
     logging.debug("Counter value for store of %s: %d" % (node2_id,i2))
     if( abs (i1 - i2) > 1 ):
-        raise Exception( "Store counters differ too much (%d : %d)" % (i1,i2) )
+        logging.error( "Store counters differ too much (%s: %d and %s: %d)" % (node1_id,i1,node2_id,i2) )
     
     i1_line = d1_fd.readline()
     i2_line = d2_fd.readline()
     
     diffs = { node1_id : {} , node2_id : {} }
     
-    def extract_key_value (line):
-        kv = line.split("\t")
-        try:
-            k = kv [0]
-            v = kv [1]
-        except Exception as ex :
-            logging.debug("Mal-formed line in dump: '%s'. Aborting.)" % line )
-            raise ex
-        return (k,v)
+    def get_next_kv ( fd ):
+        
+        line = fd.readline()
+        if line == "" :
+            return (None,None)
+        parts = line.split("\t")
+        if len( parts ) < 2 :
+            return get_next_kv( fd )
+        else :
+            return ( parts[0], "\t".join(parts[1:]))
     
     iter = 0 
-    while i1_line != '' and i2_line != '' :
+    (k1,v1) = get_next_kv( d1_fd )
+    (k2,v2) = get_next_kv( d2_fd )
+    
+    while k1 != None and k2 != None :
         iter+=1
-        if( i1_line == i2_line ) :
-            i1_line = d1_fd.readline()
-            i2_line = d2_fd.readline()
+        if( ( k1 == k2 and v1 == v2) ) :
+            (k1,v1) = get_next_kv( d1_fd )
+            (k2,v2) = get_next_kv( d2_fd )
         else :
-            (k1,v1) = extract_key_value(i1_line)
-            (k2,v2) = extract_key_value(i2_line)
             
             if k1 == k2 :
-                if k1 not in keys_to_skip :
+                if k1 not in keys_to_skip:
                     diffs[node1_id][k1] = v1
                     diffs[node2_id][k2] = v2 
                     logging.debug( "Stores have different values for %s" % (k1) )
-                i1_line = d1_fd.readline()
-                i2_line = d2_fd.readline() 
+                (k1,v1) = get_next_kv( d1_fd )
+                (k2,v2) = get_next_kv( d2_fd ) 
             if k1 < k2 :
                 logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, k1) )
                 diffs[node1_id][k1] = v1
-                i1_line = d1_fd.readline()
+                (k1,v1) = get_next_kv( d1_fd )
             if k1 > k2 :
                 logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, k2) )
                 diffs[node2_id][k2] = v2
-                i2_line = d2_fd.readline()
+                (k2,v2) = get_next_kv( d2_fd )
     
-    if i1_line != '':
+    if k1 != None :
         logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node1_id) )
-        while i1_line != '':
-            if i1_line != "\n":
-                (k,v) = extract_key_value (i1_line)
-                diffs[node1_id][k] = v
-            i1_line = d1_fd.readline()
-    if i2_line != '':
+        while k1 != None:
+            diffs[node1_id][k1] = v1
+            (k1,v1) = get_next_kv( d1_fd )
+    if k2 != None:
         logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node2_id) )
-        while i2_line != '':
-            if i2_line != "\n" :
-                (k,v) = extract_key_value (i2_line)
-                diffs[node2_id][k] = v
-            i2_line = d2_fd.readline() 
+        while k2 != None:
+            diffs[node2_id][k2] = v2
+            (k2,v2) = get_next_kv ( d2_fd ) 
             
     max_diffs = 0
     
