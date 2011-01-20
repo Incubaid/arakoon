@@ -38,15 +38,32 @@ let _s_ = function
   | None -> "None"
 
 exception Forced_stop
-let make_went_well stats_cb awake =
+let make_went_well stats_cb awake sleeper =
   fun b ->
     begin
-      Lwt_log.debug "went_well" >>= fun () ->
-      Lwt.wakeup awake b;
-      stats_cb ();
-      Lwt_log.debug "went_well finished" >>= fun () ->
-      Lwt.return ()
-    end
+		Lwt_log.debug "went_well" >>= fun () ->
+		Lwt.catch ( fun () ->
+			Lwt.return (Lwt.wakeup awake b)
+		) ( fun e ->
+		match e with 
+			| Invalid_argument s ->		
+				let t = state sleeper in
+				begin
+				match t with
+					| Fail ex ->
+						Lwt_log.error "Lwt.wakeup error: Sleeper already failed before. Re-raising" >>= fun () ->
+						Lwt.fail ex
+					| Return v ->
+						Lwt.fail (Failure "Lwt.wakeup error: Sleeper already returned")
+					| Sleep ->
+						Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
+				end
+			| _ -> Lwt.fail e
+		) >>= fun () ->
+		stats_cb ();
+		Lwt_log.debug "went_well finished" >>= fun () ->
+		Lwt.return ()
+		end
 
 
 
@@ -94,7 +111,7 @@ object(self: #backend)
     self # _only_if_master () >>= fun () ->
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well = make_went_well update_stats awake in
+    let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
@@ -132,7 +149,7 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well = make_went_well (fun () -> ()) awake in
+    let went_well = make_went_well (fun () -> ()) awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
