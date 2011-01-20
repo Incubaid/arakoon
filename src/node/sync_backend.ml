@@ -38,6 +38,16 @@ let _s_ = function
   | None -> "None"
 
 exception Forced_stop
+let make_went_well stats_cb awake =
+  fun b ->
+    begin
+      Lwt_log.debug "went_well" >>= fun () ->
+      Lwt.wakeup awake b;
+      stats_cb ();
+      Lwt_log.debug "went_well finished" >>= fun () ->
+      Lwt.return ()
+    end
+
 
 class sync_backend cfg push_update 
   (store:Store.store) 
@@ -96,14 +106,9 @@ object(self: #backend)
     let update = Update.Set(key,value) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well b =
-      begin
-	Lwt_log.debug "went_well" >>= fun () ->
-	Lwt.wakeup awake b;
-	let () = Statistics.new_set _stats key value in
-	Lwt.return ()
-      end
-    in push_update (Some p_value, went_well) >>= fun () ->
+    let update_sets () = Statistics.new_set _stats key value in
+    let went_well = make_went_well update_sets awake in
+    push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
@@ -118,13 +123,8 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well b =
-      begin
-	Lwt_log.debug_f "went_well" >>= fun () ->
-	Lwt.wakeup awake b;
-	Lwt.return ()
-      end
-    in push_update (Some p_value, went_well) >>= fun () ->
+    let went_well = make_went_well (fun () -> ()) awake in
+    push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
@@ -135,14 +135,9 @@ object(self: #backend)
     let update = Update.Delete key in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait() in
-    let went_well b =
-      begin
-	Lwt_log.debug_f "went_well" >>= fun () ->
-	Lwt.wakeup awake b;
-	Statistics.new_delete _stats;
-	Lwt.return ()
-      end
-    in push_update (Some p_value, went_well) >>= fun () ->
+    let update_deletes () = Statistics.new_delete _stats in
+    let went_well = make_went_well update_deletes awake in
+    push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc, str))
@@ -172,14 +167,9 @@ object(self: #backend)
     let update = Update.Sequence updates in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well b =
-      begin
-	Lwt_log.debug_f "went_well" >>= fun () ->
-	Lwt.wakeup awake b;
-	Statistics.new_sequence _stats;
-	Lwt.return ()
-      end
-    in push_update (Some p_value, went_well) >>= fun () ->
+    let update_seqs () = Statistics.new_sequence _stats in
+    let went_well = make_went_well update_seqs awake in
+    push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc, str) -> Lwt.fail (XException(rc, str))
