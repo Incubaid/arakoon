@@ -273,7 +273,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      constants.on_accept (v,n,i) >>= fun () ->
 	      begin
               match maybe_previous with
-              | None -> Lwt.return()
+              | None -> log ~me "No previous" >>= fun () -> Lwt.return()
               | Some( pv, pi ) -> 
                 constants.store # consensus_i () >>= fun (store_i) ->
                 begin
@@ -406,15 +406,30 @@ let slave_discovered_other_master constants state () =
 	
 	match vo' with
 	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v, true))
-	  | None -> Lwt.return (Slave_wait_for_accept (future_n', current_i', None, None))
+	  | None -> 
+              let vo =
+                begin
+                match vo' with
+                | None -> None
+                | Some u -> Some ( u, current_i' )
+                end in
+            Lwt.return (Slave_wait_for_accept (future_n', current_i', None, vo))
       end
     end
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
+      (* dirty trick to get last update *)
+      Catchup.catchup_store me store tlog_coll future_i >>= fun (f_i, vo) ->
       start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
-      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, None))
-    end
+      let vo' = 
+      begin
+      match vo with 
+      | None -> None
+      | Some u -> Some ( u, f_i )
+      end in
+      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, vo'))
+     end
   else
     begin
       Catchup.compare_store_tlc store tlog_coll >>= fun cmp ->
