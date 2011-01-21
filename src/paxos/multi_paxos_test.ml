@@ -176,15 +176,17 @@ let test_generic network_factory n_nodes () =
       Lwt_log.debug_f "%s:%s"  name update_string) 
     all_consensusses
   >>= fun () ->
-  List.fold_left (fun maybe_ms (name,us) -> 
-    match maybe_ms with 
-      | None -> Some us 
-      | Some ms ->
-	let msg = Printf.sprintf "%s:consensus" name in
-	Extra.eq_conv (fun s -> s) msg ms us;
-	maybe_ms
-  ) 
-    None all_consensusses;
+  let _ = 
+    List.fold_left (fun maybe_ms (name,us) -> 
+      match maybe_ms with 
+	| None -> Some us 
+	| Some ms ->
+	  let msg = Printf.sprintf "%s:consensus" name in
+	  Extra.eq_conv (fun s -> s) msg ms us;
+	  maybe_ms
+    ) 
+      None all_consensusses
+  in
   Extra.eq_int "values in tbl" n_nodes (Hashtbl.length values);
   Lwt.return ()
 

@@ -37,7 +37,11 @@ object (self: #tlog_collection)
   val mutable last_update = None
 
   method validate_last_tlog () =
-    Lwt.return (TlogValidComplete, None)
+    let io = match last_update with
+      | None -> None
+      | Some (i,u) -> Some i 
+    in
+    Lwt.return (TlogValidComplete, io)
 
   method get_last_i () =
     match last_update with

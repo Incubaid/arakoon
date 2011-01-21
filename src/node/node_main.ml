@@ -130,7 +130,7 @@ let log_prelude() =
 
 let _main_2 make_store make_tlog_coll get_cfgs
     forced_master quorum_function name
-    daemonize lease_expiry
+    ~daemonize lease_period
     =
 
   let cfgs = get_cfgs () in
@@ -152,7 +152,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	    begin
 	      Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
 		other_names >>= fun () ->
-	      Lwt_log.info_f "lease_expiration=%i" lease_expiry >>= fun () ->
+	      Lwt_log.info_f "lease_period=%i" lease_period >>= fun () ->
 	      Lwt_log.info_f "quorum_function gives %i for %i" 
 		(quorum_function n_names) n_names >>= fun () ->
 	      let db_name = me.home ^ "/" ^ my_name ^ ".db" in
@@ -219,7 +219,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	      let expect_reachable = messaging # expect_reachable in
 	      let backend =
 		new Sync_backend.sync_backend me client_push
-		  store tlog_coll lease_expiry 
+		  store tlog_coll lease_period
 		  quorum_function n_names expect_reachable
 	      in
 	      let rapporting () = 
@@ -292,7 +292,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		  get_last_value 
 		  on_accept on_consensus on_witness
 		  quorum_function forced_master 
-		  store tlog_coll others lease_expiry inject_event 
+		  store tlog_coll others lease_period inject_event 
 
 	      in Lwt.return ((forced_master,constants, buffers, new_i), 
 			     service, rapporting)
@@ -334,7 +334,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 
 
 let main_t make_config name daemonize =
-  let cfgs, forced_master, quorum_function, lease_expiry, use_compression = 
+  let cfgs, forced_master, quorum_function, lease_period, use_compression = 
     make_config () 
   in
   let make_store = Local_store.make_local_store in
@@ -349,15 +349,16 @@ let main_t make_config name daemonize =
   _main_2
     make_store make_tlog_coll get_cfgs 
     forced_master quorum_function name
-    daemonize lease_expiry
+    ~daemonize lease_period
 
 let test_t make_config name =
-  let cfgs, forced_master, quorum_function, lease_expiry, use_compression = 
+  let cfgs, forced_master, quorum_function, lease_period, use_compression = 
     make_config () 
   in
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
+  let daemonize = false in
   let get_cfgs () = cfgs in
   _main_2 make_store make_tlog_coll get_cfgs
     forced_master quorum_function name
-    false lease_expiry
+    ~daemonize lease_period

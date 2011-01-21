@@ -38,26 +38,93 @@ let test_t make_config name =
     false lease_expiry
 *)
 
+open Node_cfg.Node_cfg
+open Update
+
+let _make_cfg name n master lease_period =
+  {
+    node_name = name;
+    ip = "127.0.0.1";
+    client_port =  4000 + n;
+    messaging_port = 4010 + n;
+    home = "#MEM#post_failure" ^ name;
+    tlog_dir = "none";
+    log_dir = "none";
+    log_level = "DEBUG";
+    lease_period = lease_period;
+    forced_master = Some master;
+  }
+
+
 let post_failure () = 
-  let cfgs = [] in
-  let lease_expiration = 10 in
-  let use_compression  = true in
-  let forced_master    = Some "master" in
+  let lease_period = 10 in
+  let master = "master" in
+  let slave1 = "slave1" in
+  let master_cfg = _make_cfg master 0 master lease_period in
+  let slave1_cfg = _make_cfg slave1 1 master lease_period in
+  let cfgs = [master_cfg;slave1_cfg] in
+  let forced_master    = Some master in
   let quorum_function  n = (n/2) +1 in
-  let make_store = Mem_store.make_mem_store in
-  let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
+  let make_store_master db_name = 
+    Mem_store.make_mem_store db_name >>= fun store ->
+    store # set_master master >>= fun () -> 
+    Lwt.return store
+  in
+  let make_tlog_coll_master tlc_name = 
+    Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
+    let u0 = Update.MasterSet(master,0L)  in
+    let u1 = Update.Set("x","y") in
+    tlc # log_update 0L u0 >>= fun _ ->
+    tlc # log_update 1L u1 >>= fun _ ->
+    Lwt.return tlc
+  in
   let get_cfgs () = cfgs in
-  OUnit.assert_equal "ok" "nope";
-  Node_main._main_2 
-    make_store 
-    make_tlog_coll 
-    get_cfgs
-    forced_master
-    quorum_function 
-    "master"
-    use_compression
-    lease_expiration 
+
+  let run_master () = 
+    Node_main._main_2 
+      make_store_master
+      make_tlog_coll_master
+      get_cfgs
+      forced_master
+      quorum_function 
+      "master"
+      ~daemonize:false
+      lease_period
+  in
+  let make_store_slave1 db_name = 
+    Mem_store.make_mem_store db_name >>= fun store ->
+    store # set_master master >>= fun () ->
+    Lwt.return store
+  in
+  let make_tlog_coll_slave1 name = 
+    Mem_tlogcollection.make_mem_tlog_collection name >>= fun tlc ->
+    let u0 = Update.MasterSet(master,0L) in
+    let u1 = Update.Set("x","y") in
+    tlc # log_update 0L u0 >>= fun _ ->
+    tlc # log_update 1L u1 >>= fun _ ->
+    return tlc
+  in
+  let run_slave1 () =
+    Node_main._main_2
+      make_store_slave1
+      make_tlog_coll_slave1
+      get_cfgs
+      forced_master
+      quorum_function
+      "slave1"
+      ~daemonize:false
+      lease_period
+  in
+  let eventually_die () = 
+    Lwt_unix.sleep 10.0 >>= fun () ->
+    Lwt.fail (Failure "took too long")
+  in
+  Lwt_log.debug "start of scenario" >>= fun () ->
+  Lwt.pick [run_master ();
+	    run_slave1 ();
+	    eventually_die ()] 
   >>= fun () ->
+  Lwt_log.debug "end of scenario" >>= fun () ->
   Lwt.return ()
     
 
@@ -65,10 +132,10 @@ let post_failure () =
 
 
 let setup () = Lwt.return ()
-let teardown () = Lwt.return ()
+let teardown () = Lwt_log.debug "teardown"
 
 let w f = Extra.lwt_bracket setup f teardown 
 
 let suite = "startup" >:::[
-  "post_failure" >:: (fun () -> OUnit.todo "implement & enable");
+  "post_failure" >:: w post_failure;
 ]

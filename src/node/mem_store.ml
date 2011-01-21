@@ -44,6 +44,9 @@ object (self: #store)
     let () = i <- i2 in
     ()
 
+  method _set_i x = 
+    i <- Some x
+
   method exists key =
     try_lwt_ (fun () -> StringMap.mem key kv)
 
