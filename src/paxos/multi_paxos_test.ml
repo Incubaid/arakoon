@@ -291,56 +291,6 @@ let build_perfect () =
   let register (xs:(string * (string * int)) list) = () in
   get_buffer, send, receive, peek, run, register
 
-let build_simulation events =
-  let state =
-    {scenario = events;
-     waiters = Hashtbl.create 7
-    } in
-  let rec maybe_wakeup_someone () =
-    if Hashtbl.length state.waiters = 0
-    then Lwt.return ()
-    else
-      begin
-	match state.scenario with
-	  | [] -> Lwt.return ()
-	  | (m,s,t) :: rest ->
-	    if not (Hashtbl.mem state.waiters t) then
-	      Lwt.return ()
-	    else
-	      let awakener = Hashtbl.find state.waiters t in
-	      let () = Hashtbl.remove state.waiters t in
-	      let () = state.scenario <- rest in
-	      Lwt.wakeup awakener (m,s);
-	      maybe_wakeup_someone()
-
-      end
-  in
-  let receive target =
-    let give (m,s) =
-      log ~me:target "receiving %s from %s" (string_of m) s >>= fun () ->
-      Lwt.return (m,s)
-    in
-    match state.scenario with
-      | [] -> failwith "end of scenario"
-      | (m,s,t) :: rest ->
-
-	if t = target then
-	  let () = state.scenario <- rest in
-	  maybe_wakeup_someone() >>= fun () -> give (m,s)
-	else
-	  begin
-	    let waiter, awakener = Lwt.wait () in
-	    let () = Hashtbl.add state.waiters target awakener in
-	    waiter >>= fun (m,s) -> give (m,s)
-	  end
-  in
-  let peek target = Lwt.fail (Failure "don't peek in tests")
-  in
-
-  let send msg source target =
-    log ~me:source "sends %s to %s" (string_of msg)  target >>= fun () ->
-    Lwt.return () in
-  send, receive, peek
 
 let build_tcp () =
   let (m : messaging) = new tcp_messaging ("127.0.0.1", 7777) in
@@ -350,11 +300,12 @@ let build_tcp () =
 
 
 
-let test_simulation scenario () =
-  let network = build_simulation scenario in
-  let send, receive, peek = network in
+let test_simulation filters () =
+  Random.init 42;
+
+  let receive target = Lwt.fail (Failure "receive?") in
   (* TODO *)
-  let get_buffer who = Lwt_buffer.create () in
+
   let me = "c0" in
   let current_n = 42L in
   let current_i = 666L in
@@ -370,15 +321,34 @@ let test_simulation scenario () =
   let get_value i = Lwt.fail (Failure "no value") in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
-  let client_buffer = Lwt_buffer.create () in
+  let buffers = Hashtbl.create 7 in
+  let () = Hashtbl.add buffers "c0" (Lwt_buffer.create ()) in
+  let () = Hashtbl.add buffers "c1" (Lwt_buffer.create ()) in
+  let () = Hashtbl.add buffers "c2" (Lwt_buffer.create ()) in
+  let client_buffer = Lwt_buffer.create() in
+  let get_buffer who = Hashtbl.find buffers who in
   let inject_event e = Lwt_buffer.add e inject_buffer in
+  let send msg source target =
+    let msg_s = string_of msg in
+    log ~me:source "sends %s to %s" msg_s  target >>= fun () ->
+    let ok = List.fold_left (fun acc f -> acc && f (msg,source,target)) true filters in
+    if ok then
+      begin
+	let b = get_buffer target in
+	let gm = Mp_msg.MPMessage.generic_of msg in
+	Lwt_buffer.add (gm,source) b>>= fun () ->
+	Lwt.return ()
+      end
+    else
+      Lwt_log.debug_f "got (%s,%s,%s) => dropping" msg_s source target
+  in
+  
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
   let constants = {me = me;
 		   others = ["c1";"c2"];
 		   send = send;
 		   receive = receive;
-		 
 		   get_value = get_value;
 		   on_accept = on_accept me;
 		   on_consensus = on_consensus me;
@@ -415,7 +385,7 @@ let test_simulation scenario () =
     let client_buffer = Lwt_buffer.create () in
     let constants =
       {constants with me=me;
-	others = ["c0";other];
+	others = ["c0"; other];
 	on_accept = on_accept me;
 	on_consensus = on_consensus me;
 	inject_event = (fun e -> Lwt_buffer.add e inject_buffer);
@@ -439,62 +409,20 @@ let test_simulation scenario () =
     log ~me "node done." >>= fun () ->
     Lwt.return ()
   in
-  Lwt.pick [c0_t (); cx_t "c1" "c2"; cx_t "c2" "c1"; ] >>= fun () ->
+  Lwt.pick [c0_t (); 
+	    cx_t "c1" "c2"; 
+	    cx_t "c2" "c1"; 
+	    begin
+	      Lwt_unix.sleep 80.0 >>= fun () -> 
+	      Llio.lwt_failfmt "test: should have finished successfully by now";
+	    end
+	   ] >>= fun () ->
   log "after pick"
 
 
-let ideal =
-  let v = Value.create "c0" in
-  [
-  (Prepare(42L,0L)         , "c0", "c1");
-  (Prepare(42L,0L)         , "c0", "c2");
-  (Promise(42L, 0L, None), "c1", "c0");
-  (Promise(42L, 0L, None), "c2", "c0");
-  (Accept(42L, 0L, v)     , "c0", "c1");
-  (Accept(42L, 0L, v)     , "c0", "c2");
-  (Accepted(42L, 0L),      "c1", "c0");
-  (Accepted(42L, 0L),      "c2", "c0");
-  ];;
+let ideal    = [ (fun (msg,s,t) -> true) ]
+let c2_fails = [ (fun (msg,s,t) -> s <> "c2")]
 
-let c2_fails =
-  let v = Value.create "c0" in
-  [
-    (Prepare (42L,0L)          , "c0", "c1");
-    (Promise(42L, 666L, None), "c1", "c0");
-  (* (Promise(42, 0, None), "c2", "c0"); *)
-    (Accept (42L, 666L, v)   , "c0", "c1");
-    (Accept (42L, 666L, v)   , "c0", "c2");
-    (Accepted(42L, 666L)     , "c1", "c0");
-(* (Accepted(42, 0)     , "c2", "c0"); *)
-];;
-
-let c2_promised =
-  let v = Value.create "c0" in
-  let v2 = Value.create "other" in
-  [
-    (Prepare (42L,0L)             , "c0", "c1");
-    (Prepare (42L,0L)             , "c0", "c2");
-    (Promise(42L, 0L, None)   , "c1", "c0");
-    (Promise(42L, 0L, Some v2) , "c2", "c0");
-    (Accept(42L,0L,v)         , "c0", "c1");
-    (Accept(42L,0L,v)         , "c0", "c1");
-    (Accepted(42L, 0L)        , "c1", "c0");
-    (Accepted(42L, 0L)        , "c2", "c0");
-];;
-
-let c1_nak =
-  (* let v = Value.create "master"  "c0" in *)
-  [
-    (* (Prepare 42             , "c0", "c1");
-       (Prepare 42             , "c0", "c2"); *)
-    (Nak (42L,(43L,0L))             , "c1", "c0");
-    (Promise (42L, 0L, None)  , "c2", "c0");
-    (Promise (43L, 0L, None)  , "c1", "c0");
-    (* (Accept(43,0, v)         , "c0", "c1");
-       (Accept(43,0, v)         , "c0", "c1"); *)
-    (Accepted(43L, 0L),         "c1", "c0");
-    (Accepted(43L, 0L),         "c2", "c0");
-];;
 
 let xtodo () =
   OUnit.todo "re-enable"
@@ -509,11 +437,12 @@ let suite = "basic" >::: [
   "quartet"       >:: w (test_generic build_perfect 4);
   "quintet"       >:: w (test_generic build_perfect 5);
   "sextet"        >:: w (test_generic build_perfect 6);
+  "ideal_simulation" >:: w (test_simulation ideal);
+  "c2_fails"      >:: w (test_simulation c2_fails);
   (*
   "c2_fails"      >:: w (test_simulation c2_fails);
   "c1_nak"        >:: w (test_simulation c1_nak);
   *)
-  "c2_fails"      >:: xtodo;
   "c1_nak"        >:: xtodo;
   "pair_tcp"      >:: xtodo;
   (* "pair_tcp"      >:: w (test_generic build_tcp 2); *)
