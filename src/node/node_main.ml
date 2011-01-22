@@ -64,14 +64,14 @@ let _config_logging me get_cfgs =
   in
   let log_dir = cfg.log_dir in
   let node_name = cfg.node_name in
-  let file_name = log_dir ^ "/" ^ node_name ^ ".log" in
-  if log_dir <> "none" then
-    let logger = Lwt_log.file
-      ~template:"$(date): $(level): $(message)"
-      ~mode:`Append ~file_name ()
-    in
-    Lwt_log.default := logger;
-    Lwt_log.Section.set_level Lwt_log.Section.main level
+  let common_prefix = log_dir ^ "/" ^ node_name in
+  let log_file_name = common_prefix ^ ".log" in
+  let crash_file_name = common_prefix ^ ".debug." in
+  if log_dir <> "none"
+  then
+    Some ( Crash_logger.setup_default_logger level log_file_name crash_file_name )
+  else
+    None
 
 let _config_messaging me others =
   let mapping = List.map
@@ -103,7 +103,7 @@ let _maybe_daemonize daemonize cfg get_cfgs =
 	~stdout:`Dev_null
 	~stderr:`Dev_null
 	();
-      _config_logging cfg.node_name get_cfgs
+      ignore ( _config_logging cfg.node_name get_cfgs )
     end
 
 
@@ -117,10 +117,11 @@ let _log_rotate cfg i get_cfgs =
   >>= fun () ->
   let logger = !Lwt_log.default in
   Lwt_log.close logger >>= fun () ->
-  let () = _config_logging cfg get_cfgs in
+  ignore ( _config_logging cfg get_cfgs );
   Lwt.return ()
 
 let log_prelude() =
+  Lwt_log.debug "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info_f "hg_version: %s " Version.hg_version >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
@@ -132,7 +133,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
     forced_master quorum_function name
     ~daemonize lease_period
     =
-
+  let dump_crash_log = ref None in
   let cfgs = get_cfgs () in
   let names = List.map (fun cfg -> cfg.node_name) cfgs in
   let n_names = List.length names in
@@ -141,7 +142,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
     match splitted with
       | None -> failwith (name ^ " is not known in config")
       | Some me ->
-	  let () = _config_logging me.node_name get_cfgs in
+	  dump_crash_log := _config_logging me.node_name get_cfgs ;
 	  let _ = Lwt_unix.on_signal 10
 	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i get_cfgs ))
 	  in
@@ -326,7 +327,10 @@ let _main_2 make_store make_tlog_coll get_cfgs
 				rapporting();
 			      ]
 		    )
-		    (fun () -> Lwt_log.fatal "after pick")
+		    (fun () -> Lwt_log.fatal "after pick" >>= fun() ->
+          match ! dump_crash_log with
+            | None -> Lwt_log.info "Not dumping state"
+            | Some f -> f() )
 		end
 	      ])
 	    (fun exn -> Lwt_log.fatal ~exn "going down")
