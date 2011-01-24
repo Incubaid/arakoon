@@ -296,11 +296,7 @@ def test_sso_deployment():
     
     assert_false ( system_tests_common.test_failed )
     
-    q.cmdtools.arakoon.stop()
-    assert_last_i_in_sync( node_names[0], node_names[1] )
-    assert_last_i_in_sync( node_names[2], node_names[1] )
-    compare_stores( node_names[0], node_names[1] )
-    compare_stores( node_names[2], node_names[1] )
+    assert_running_nodes( 3 )
     
     
 @with_custom_setup( setup_3_nodes, basic_teardown )
