@@ -46,7 +46,7 @@ let build_names n =
 
 let test_generic network_factory n_nodes () =
   Lwt_log.info "START:TEST_GENERIC" >>= fun () ->
-  let get_buffer, send, receive, peek, nw_run, nw_register = network_factory () in
+  let get_buffer, send, nw_run, nw_register = network_factory () in
   let current_n = 42L
   and current_i = 666L in
   let values = Hashtbl.create 10 in
@@ -69,8 +69,6 @@ let test_generic network_factory n_nodes () =
   let base = {me = "???";
 	      others = [] ;
 	      send = send;
-	      receive = receive;
-	    
 	      get_value = get_value;
 	      on_accept= on_accept "???";
 	      on_consensus = on_consensus "???";
@@ -193,7 +191,7 @@ let test_generic network_factory n_nodes () =
 
 
 let test_master_loop network_factory ()  =
-  let get_buffer, send, receive, peek, nw_run, nw_register = 
+  let get_buffer, send, nw_run, nw_register = 
     network_factory () in
   let me = "c0" in
   let i0 = 666L in
@@ -231,8 +229,6 @@ let test_master_loop network_factory ()  =
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
   let constants = {me = me; others = others;
 		   send = send;
-		   receive = receive;
-		 
 		   get_value = get_value;
 		   on_accept = on_accept;
 		   on_consensus = on_consensus;
@@ -287,12 +283,10 @@ let build_perfect () =
     Lwt_buffer.add (Mp_msg.MPMessage.generic_of msg,source) q >>= fun () ->
     log ~me:source "added to buffer of %s" target
   in
-  let receive target = Lwt.fail (Failure "don't call receive") in
-  let peek target    = Lwt.fail (Failure "don't call peek") in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
   let register (xs:(string * (string * int)) list) = () in
-  get_buffer, send, receive, peek, run, register
+  get_buffer, send, run, register
 
 
 let build_tcp () =
@@ -306,10 +300,7 @@ let build_tcp () =
 let test_simulation filters () =
   Random.init 42;
 
-  let receive target = Lwt.fail (Failure "receive?") in
-  (* TODO *)
-
-  let me = "c0" in
+   let me = "c0" in
   let current_n = 42L in
   let current_i = 666L in
   let on_accept me (v,n,i) =
@@ -352,7 +343,6 @@ let test_simulation filters () =
   let constants = {me = me;
 		   others = ["c1";"c2"];
 		   send = send;
-		   receive = receive;
 		   get_value = get_value;
 		   on_accept = on_accept me;
 		   on_consensus = on_consensus me;

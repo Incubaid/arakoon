@@ -171,30 +171,4 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) forced_ma
     | _,_ -> 
       let msg = Printf.sprintf "%s,%s should not happen" (io_s ti_o) (io_s si_o) in
       Lwt.fail (Failure msg)
-(*
-  Lwt.catch
-    (fun () ->
-      Store.verify store ti_o me forced_master >>= fun (new_i,case) ->
-      Lwt_log.debug_f "CASE: %i (new_i=%Li)" case new_i >>= fun () ->
-      begin
-	begin 
-	  if case = 2 
-	  then tlog_coll # get_last_update new_i 
-	  else Lwt.return None
-	end >>= function
-	  | None -> Lwt.return new_i
-	  | Some update -> 
-	    Lwt_log.debug_f "PUSHING: %s" (Update.string_of update) >>= fun () ->
-	    Store._insert_update store update >>= fun _ ->
-            Lwt.return (Sn.succ new_i)
-      end
-    )
-    (function
-      | Store.TrailingStore(ti_o,si_o) ->
-	begin
-	  catchup_store me store tlog_coll future_i >>= fun (end_i, vo) ->
-	  Lwt.return end_i
-	end
-      | e -> Lwt.fail e
-    )
-*)
+

@@ -170,49 +170,9 @@ let on_consensus (store:store) (v,n,i) =
     then
       Lwt.return()
     else
-      Llio.lwt_failfmt "Invalid store update requested (%s : %s)" (Sn.string_of i) (Sn.string_of store_i)
+      Llio.lwt_failfmt "Invalid store update requested (%s : %s)" 
+	(Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
   _insert store v i >>= fun maybe_result ->
   Lwt.return maybe_result
 
-(*
-exception TrailingStore of (Sn.t option * Sn.t option)
-
-let verify (store:store) tlog_i me forced_master =
-  store#consensus_i () >>= fun store_i ->
-  begin
-    let store_is = option_to_string Sn.string_of store_i in
-    let tlog_is = option_to_string Sn.string_of tlog_i in
-      match tlog_i, store_i with
-	| None ,None -> Lwt.return (Sn.start,0) 
-	| Some 0L, None -> Lwt.return( Sn.start,1 )
-	| Some i, Some j when i = Sn.succ j ->
-          store#who_master() >>= fun last_lease ->
-          begin 
-          match last_lease with
-            | Some(last_master,_) ->
-              begin 
-                if ((String.compare last_master me) = 0) && ( forced_master != (Some me) )
-                then
-                  begin 
-                  Lwt_log.debug_f "The old master %s" last_master >>= fun() ->
-                  Lwt_log.debug_f "I am %s" me >>= fun() ->
-                  Lwt.return( i, 3 )
-                  end
-                else 
-                  begin
-                  Lwt.return( Sn.succ j,2 )
-                  end
-              end
-            | _ -> Lwt.return( Sn.succ j,2 )
-          end
-	| Some i, Some j when i = j -> Lwt.return( Sn.succ j,3 )
-	| a,b ->
-	  let exn = TrailingStore (a,b) in
-	  Lwt.fail exn
-    >>= fun (new_sn, case) -> 
-    Lwt_log.info_f "VERIFY TLOG & STORE %s %s OK!" tlog_is store_is
-    >>= fun () ->
-    Lwt.return (new_sn,case )
-  end
-*)

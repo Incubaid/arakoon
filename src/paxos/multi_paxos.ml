@@ -92,8 +92,6 @@ type constants =
     {me:id;
      others: id list;
      send: MPMessage.t -> id -> id -> unit Lwt.t;
-     receive: id -> (MPMessage.t * id) Lwt.t;
-
      get_value: Sn.t -> Value.t option Lwt.t;
      on_accept: Value.t * Sn.t * Sn.t -> Value.t Lwt.t;
      on_consensus:
@@ -126,8 +124,6 @@ let make me others send receive get_value
     me=me;
     others=others;
     send = send;
-    receive = receive;
-    
     get_value= get_value;
     on_accept = on_accept;
     on_consensus = on_consensus;
@@ -146,13 +142,6 @@ let mcast constants msg =
   let me = constants.me in
   let others = constants.others in
   Lwt_list.iter_p (fun o -> send msg me o) others
-
-let receive constants where =
-  let recv = constants.receive in
-  let me = constants.me in
-  recv me >>= fun (msg, source) ->
-  log ~me "%s: received %S" where (string_of msg) >>= fun () ->
-  Lwt.return (msg, source)
 
 
 let update_n constants n =
