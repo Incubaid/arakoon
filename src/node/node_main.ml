@@ -249,16 +249,25 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
 	      in
 	      let on_accept (v,n,i) =
-		Lwt_log.debug_f "on_accept: n:%s i:%s" 
-		  (Sn.string_of n) (Sn.string_of i)
-		>>= fun () ->
-		let Value.V(update_string) = v in
-		let u, _ = Update.from_buffer update_string 0 in
-		tlog_coll # log_update i u >>= fun wr_result ->
-		Lwt_log.debug_f "log_update %s=>%S" 
-		  (Sn.string_of i) 
-		  (Tlogwriter.string_of wr_result)
-	      in
+          Lwt_log.debug_f "on_accept: n:%s i:%s" 
+            (Sn.string_of n) (Sn.string_of i)
+          >>= fun () ->
+          let Value.V(update_string) = v in
+          let u, _ = Update.from_buffer update_string 0 in
+          let u' = 
+            begin
+            match u with
+              | Update.MasterSet (master,0L) -> 
+                let now = Int64.of_float( Unix.time() ) in
+                Update.make_master_set master (Some now) 
+              | other -> other
+            end in
+          tlog_coll # log_update i u' >>= fun wr_result ->
+          Lwt_log.debug_f "log_update %s=>%S" 
+            (Sn.string_of i) 
+            (Tlogwriter.string_of wr_result) >>= fun () ->
+          Lwt.return (Update.make_update_value u')
+        in
 	      
 	      let get_last_value (i:Sn.t) =
 		begin

@@ -67,7 +67,8 @@ let post_failure () =
   let quorum_function  n = (n/2) +1 in
   let make_store_master db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master master >>= fun () -> 
+    let now = Int64.of_float ( Unix.time() ) in
+    store # set_master master now >>= fun () -> 
     Lwt.return store
   in
   let make_tlog_coll_master tlc_name = 
@@ -93,7 +94,8 @@ let post_failure () =
   in
   let make_store_slave1 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master master >>= fun () ->
+    let now = Int64.of_float ( Unix.time() ) in
+    store # set_master master now >>= fun () ->
     Lwt.return store
   in
   let make_tlog_coll_slave1 name = 
