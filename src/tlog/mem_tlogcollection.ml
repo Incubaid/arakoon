@@ -24,16 +24,11 @@ open Tlogcollection
 open Tlogcommon
 open Lwt
 
-module Sn_map = Map.Make(
-  struct
-    type t = Sn.t 
-    let compare = Sn.compare
-  end);;
 
 class mem_tlog_collection tlog_dir =
 object (self: #tlog_collection)
 
-  val mutable data = Sn_map.empty
+  val mutable data = []
   val mutable last_update = None
 
   method validate_last_tlog () =
@@ -52,15 +47,10 @@ object (self: #tlog_collection)
     Lwt.return (TlogValidComplete, None)
 
   method iterate i last_i f =
-    let filtered = Sn_map.fold
-      (fun k v a ->
-	if k >= i then (k, v)::a else a
-      ) data [] in
-    Lwt_list.iter_s f filtered >>= fun () ->
-    Lwt.return ()
+    Lwt_list.iter_s f (List.rev data)
 
   method  log_update i u =
-    let () = data <- Sn_map.add i u data in
+    let () = data <- (i,u)::data in
     let () = last_update <- (Some (i,u)) in
     Lwt.return Tlogwriter.WRSuccess
 
