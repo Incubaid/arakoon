@@ -109,7 +109,7 @@ let slave_steady_state constants state event =
                           begin
                           match cmp with
                           | Catchup.Store_1_behind ->
-			    constants.store # set_master_no_inc m  
+			    constants.store # set_master_no_inc m l  
                           | _ -> Lwt.return ()
                           end
 			| _ -> Lwt.return ()
@@ -119,13 +119,13 @@ let slave_steady_state constants state event =
 		    Lwt.return (Store.Ok None) 
 		  end
 	      end >>= fun _ ->
-	      constants.on_accept(v,n,i) >>= fun () ->
+	      constants.on_accept(v,n,i) >>= fun v ->
         let Value.V(us ) = v in
         let update,_ = Update.from_buffer us 0 in
         begin
           match update with
             | Update.MasterSet(m,l) ->
-              constants.on_consensus (v,n,i) >>= fun _ -> Lwt.return()
+              constants.store # set_master_no_inc m l >>= fun _ -> Lwt.return()
             | _ -> Lwt.return ()
         end >>= fun () ->
 	      log ~me "steady_state :: replying with %S" (string_of reply) 
@@ -284,7 +284,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin
 	      constants.on_witness source i' >>= fun () ->
-	      constants.on_accept (v,n,i) >>= fun () ->
+	      constants.on_accept (v,n,i) >>= fun v ->
 	      begin
               match maybe_previous with
               | None -> log ~me "No previous" >>= fun () -> Lwt.return()

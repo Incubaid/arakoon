@@ -86,14 +86,12 @@ object (self: #store)
     let () = kv <- StringMap.add key value kv in
     Lwt.return ()
 
-  method set_master master' =
-    let l = Int64.of_float (Unix.time ()) in
+  method set_master master' l =
     let () = self # _incr_i () in
     let () = master <- Some (master',l) in
     Lwt.return ()
 
-  method set_master_no_inc master' =
-    let l = Int64.of_float (Unix.time ()) in
+  method set_master_no_inc master' l =
     let () = master <- Some (master',l) in
     Lwt.return ()
 

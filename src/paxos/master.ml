@@ -64,7 +64,7 @@ let stable_master constants (v',n,new_i) = function
       else
 	begin
 	  log ~me "stable_master: half-lease_expired: update lease." >>= fun () ->
-	  let v = Update.make_update_value (Update.make_master_set me) in
+	  let v = Update.make_update_value (Update.make_master_set me None) in
 	  (* TODO: we need election timeout as well here *)
 	  Lwt.return (Master_dictate (None,v,n,new_i))
 	end
@@ -138,7 +138,7 @@ let stable_master constants (v',n,new_i) = function
    messages and then waits for Accepted responses *)
 
 let master_dictate constants (mo,v,n,i) () =
-  constants.on_accept (v,n,i) >>= fun () ->
+  constants.on_accept (v,n,i) >>= fun v ->
   mcast constants (Accept(n,i,v)) >>= fun () ->
   let me = constants.me in
   log ~me "master_dictate" >>= fun () ->

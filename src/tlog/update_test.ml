@@ -25,7 +25,7 @@ open Update
 
 let test_sequence () =
   let s = Update.Sequence [
-    Update.make_master_set "Zen";
+    Update.make_master_set "Zen" None;
     Update.Set ("key", "value");
     Update.Delete "key";
     Update.TestAndSet ("key",None, Some "X")

@@ -31,9 +31,10 @@ module Update = struct
     | Sequence of t list
     | Nop
 
-  let make_master_set me =
-    let i = 0L in
-    MasterSet (me,i)
+  let make_master_set me maybe_lease =
+    match maybe_lease with
+      | None -> MasterSet (me,0L)
+      | Some lease -> MasterSet (me,lease)
 
   let rec string_of = function
     | Set (k,_) -> Printf.sprintf "Set(%S,...)" k

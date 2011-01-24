@@ -72,7 +72,8 @@ let post_failure () =
   let tlcs = Hashtbl.create 5 in
   let make_store_node0 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 >>= fun () -> 
+    let now = Int64.of_float( Unix.time() ) in
+    store # set_master node0 now >>= fun () -> 
     Lwt.return store
   in
   let make_tlog_coll_node0 tlc_name = 
@@ -97,7 +98,8 @@ let post_failure () =
   in
   let make_store_node1 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 >>= fun () ->
+    let now = Int64.of_float( Unix.time() ) in
+    store # set_master node0 now >>= fun () ->
     Lwt.return store
   in
   let make_tlog_coll_node1 name = 
@@ -120,7 +122,8 @@ let post_failure () =
   in
   let make_store_node2 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 >>= fun () ->
+    let now = Int64.of_float( Unix.time() ) in
+    store # set_master node0 now >>= fun () ->
     Lwt.return store
   in
   let make_tlog_coll_node2 name = 

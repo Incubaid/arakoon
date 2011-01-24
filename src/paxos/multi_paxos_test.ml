@@ -51,7 +51,8 @@ let test_generic network_factory n_nodes () =
   and current_i = 666L in
   let values = Hashtbl.create 10 in
   let on_accept me (v,n,i) =
-    log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i)
+    log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i) >>= fun () ->
+    Lwt.return v
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
@@ -218,7 +219,7 @@ let test_master_loop network_factory ()  =
   in
   let on_accept (v,n,i) =
     log "accepted n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
-    Lwt.return ()
+    Lwt.return v
   in
   let on_witness who i = Lwt.return () in
   let get_value i = Lwt.fail (Failure "no_value") in
@@ -312,7 +313,8 @@ let test_simulation filters () =
   let current_n = 42L in
   let current_i = 666L in
   let on_accept me (v,n,i) =
-    log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i)
+    log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i) >>= fun () ->
+    Lwt.return v
   in
   let on_consensus me (v,n,i) =
     log ~me "on_consensus: (%s,%s) " (sn2s n) (sn2s i)

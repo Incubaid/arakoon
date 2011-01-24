@@ -40,7 +40,7 @@ let forced_master_suggest constants (n,i) () =
   mcast constants (Prepare (n',i)) >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
-  let v = Update.make_update_value (Update.make_master_set me) in
+  let v = Update.make_update_value (Update.make_master_set me None) in
   let ballot = (needed -1, [me] ) in
   let v_lims = [v] in
   let i_lim = Some (me,i) in
@@ -52,7 +52,7 @@ let election_suggest constants (n,i) () =
   let me = constants.me in
   let n' = n (*update_n constants n *) in
   log ~me "election_suggest: Master undecided, starting election n=%s" (Sn.string_of n') >>= fun () ->
-  let v = Update.make_update_value (Update.make_master_set me) in
+  let v = Update.make_update_value (Update.make_master_set me None) in
   let others = constants.others in
   start_election_timeout constants n' >>= fun () ->
   mcast constants (Prepare (n',i)) >>= fun () ->
@@ -183,7 +183,7 @@ let promises_check_done constants state () =
 	      begin
 		log ~me "promises_check_done: accepting and mcasting"
 		>>= fun () ->
-		constants.on_accept (v,n,new_i) >>= fun () ->
+		constants.on_accept (v,n,new_i) >>= fun v ->
 		let msg = Accept(n,new_i,v) in
 		mcast constants msg >>= fun () ->
 		let nnodes = List.length others + 1 in
