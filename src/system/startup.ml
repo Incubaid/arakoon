@@ -71,10 +71,10 @@ let post_failure () =
   let u1 = Update.Set("x","y") in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
+  let now = Int64.of_float( Unix.time() ) in
   let make_store_node0 db_name = 
     Lwt_io.printlf "make_store_node0: %s" db_name >>= fun () ->
     Mem_store.make_mem_store db_name >>= fun store ->
-    let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () -> 
     Hashtbl.add stores db_name store;
     Lwt.return store
@@ -101,7 +101,6 @@ let post_failure () =
   in
   let make_store_node1 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () ->
     Hashtbl.add stores db_name store;
     Lwt.return store
@@ -126,7 +125,6 @@ let post_failure () =
   in
   let make_store_node2 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () ->
     Hashtbl.add stores db_name store;
     Lwt.return store

@@ -175,6 +175,7 @@ let on_consensus (store:store) (v,n,i) =
   _insert store v i >>= fun maybe_result ->
   Lwt.return maybe_result
 
+(*
 exception TrailingStore of (Sn.t option * Sn.t option)
 
 let verify (store:store) tlog_i me forced_master =
@@ -214,3 +215,4 @@ let verify (store:store) tlog_i me forced_master =
     >>= fun () ->
     Lwt.return (new_sn,case )
   end
+*)

@@ -207,7 +207,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		| Some i -> i
 	      in
 	      Catchup.verify_n_catchup_store me.node_name (store,tlog_coll,tlogI) current_i forced_master 
-	      >>= fun new_i ->
+	      >>= fun (new_i:Sn.t) ->
 	      
 	      let client_buffer =
 		let capacity = (Some 10) in
