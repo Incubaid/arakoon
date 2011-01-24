@@ -41,94 +41,125 @@ let test_t make_config name =
 open Node_cfg.Node_cfg
 open Update
 
-let _make_cfg name n master lease_period =
+let _make_cfg name n lease_period =
   {
     node_name = name;
     ip = "127.0.0.1";
     client_port =  4000 + n;
     messaging_port = 4010 + n;
     home = "#MEM#post_failure" ^ name;
-    tlog_dir = "none";
+    tlog_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
     lease_period = lease_period;
-    forced_master = Some master;
+    forced_master = None;
   }
 
 
 let post_failure () = 
   let lease_period = 10 in
-  let master = "master" in
-  let slave1 = "slave1" in
-  let master_cfg = _make_cfg master 0 master lease_period in
-  let slave1_cfg = _make_cfg slave1 1 master lease_period in
-  let cfgs = [master_cfg;slave1_cfg] in
-  let forced_master    = Some master in
+  let node0 = "was_master" in
+  let node1 = "was_slave1" in
+  let node2 = "was_slave2" in
+  let node0_cfg = _make_cfg node0 0 lease_period in
+  let node1_cfg = _make_cfg node1 1 lease_period in
+  let node2_cfg = _make_cfg node2 2 lease_period in
+  let cfgs = [node0_cfg;node1_cfg;node2_cfg] in
+  let forced_master    = None in
   let quorum_function  n = (n/2) +1 in
-  let make_store_master db_name = 
+  let u0 = Update.MasterSet(node0,0L)  in
+  let u1 = Update.Set("x","y") in
+  let tlcs = Hashtbl.create 5 in
+  let make_store_node0 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master master >>= fun () -> 
+    store # set_master node0 >>= fun () -> 
     Lwt.return store
   in
-  let make_tlog_coll_master tlc_name = 
+  let make_tlog_coll_node0 tlc_name = 
     Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
-    let u0 = Update.MasterSet(master,0L)  in
-    let u1 = Update.Set("x","y") in
     tlc # log_update 0L u0 >>= fun _ ->
     tlc # log_update 1L u1 >>= fun _ ->
+    Hashtbl.add tlcs tlc_name tlc;
     Lwt.return tlc
   in
   let get_cfgs () = cfgs in
 
-  let run_master () = 
+  let run_node0 () = 
     Node_main._main_2 
-      make_store_master
-      make_tlog_coll_master
+      make_store_node0
+      make_tlog_coll_node0
       get_cfgs
       forced_master
       quorum_function 
-      "master"
+      node0
       ~daemonize:false
       lease_period
   in
-  let make_store_slave1 db_name = 
+  let make_store_node1 db_name = 
     Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master master >>= fun () ->
+    store # set_master node0 >>= fun () ->
     Lwt.return store
   in
-  let make_tlog_coll_slave1 name = 
+  let make_tlog_coll_node1 name = 
     Mem_tlogcollection.make_mem_tlog_collection name >>= fun tlc ->
-    let u0 = Update.MasterSet(master,0L) in
-    let u1 = Update.Set("x","y") in
     tlc # log_update 0L u0 >>= fun _ ->
     tlc # log_update 1L u1 >>= fun _ ->
+    Hashtbl.add tlcs name tlc;
     return tlc
   in
-  let run_slave1 () =
+  let run_node1 () =
     Node_main._main_2
-      make_store_slave1
-      make_tlog_coll_slave1
+      make_store_node1
+      make_tlog_coll_node1
       get_cfgs
       forced_master
       quorum_function
-      "slave1"
+      node1
       ~daemonize:false
       lease_period
   in
-  let eventually_die () = 
-    Lwt_unix.sleep 10.0 >>= fun () ->
-    Lwt.fail (Failure "took too long")
+  let make_store_node2 db_name = 
+    Mem_store.make_mem_store db_name >>= fun store ->
+    store # set_master node0 >>= fun () ->
+    Lwt.return store
+  in
+  let make_tlog_coll_node2 name = 
+    Mem_tlogcollection.make_mem_tlog_collection name >>= fun tlc ->
+    tlc # log_update 0L u0 >>= fun _ ->
+    Hashtbl.add tlcs name tlc;
+    return tlc
+  in
+  let run_node2 () = 
+    Node_main._main_2
+      make_store_node2
+      make_tlog_coll_node2
+      get_cfgs
+      forced_master
+      quorum_function
+      node2
+      ~daemonize:false
+      lease_period
+  in
+  let eventually_stop () = Lwt_unix.sleep 10.0 
+
   in
   Lwt_log.debug "start of scenario" >>= fun () ->
-  Lwt.pick [run_master ();
-	    run_slave1 ();
-	    eventually_die ()] 
+  Lwt.pick [run_node0 ();
+	    begin Lwt_unix.sleep 1.0 >>= fun () -> run_node1 () end;
+	    run_node2 ();
+	    eventually_stop ()] 
   >>= fun () ->
   Lwt_log.debug "end of scenario" >>= fun () ->
-  Lwt.return ()
+  let dump node = 
+    let tlc0 = Hashtbl.find tlcs node in
+    let printer (i,u) = 
+      Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.string_of u) in
+    Lwt_io.printlf "--- %s ---" node >>= fun () ->
+    tlc0 # iterate Sn.start 20L printer >>= fun () ->
+    Lwt.return ()
+  in
+  Lwt_list.iter_s dump [node0;node1;node2]
     
-
-
 
 
 let setup () = Lwt.return ()
