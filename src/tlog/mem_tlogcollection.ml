@@ -47,7 +47,8 @@ object (self: #tlog_collection)
     Lwt.return (TlogValidComplete, None)
 
   method iterate i last_i f =
-    Lwt_list.iter_s f (List.rev data)
+    let data' = List.filter (fun (ei,eu) -> ei >= i && ei <= last_i) data in
+    Lwt_list.iter_s f (List.rev data')
 
   method  log_update i u =
     let () = data <- (i,u)::data in
