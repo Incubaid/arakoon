@@ -47,7 +47,7 @@ let _make_cfg name n lease_period =
     ip = "127.0.0.1";
     client_port =  4000 + n;
     messaging_port = 4010 + n;
-    home = "#MEM#post_failure" ^ name;
+    home = name;
     tlog_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
@@ -70,10 +70,13 @@ let post_failure () =
   let u0 = Update.MasterSet(node0,0L)  in
   let u1 = Update.Set("x","y") in
   let tlcs = Hashtbl.create 5 in
+  let stores = Hashtbl.create 5 in
   let make_store_node0 db_name = 
+    Lwt_io.printlf "make_store_node0: %s" db_name >>= fun () ->
     Mem_store.make_mem_store db_name >>= fun store ->
     let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () -> 
+    Hashtbl.add stores db_name store;
     Lwt.return store
   in
   let make_tlog_coll_node0 tlc_name = 
@@ -100,6 +103,7 @@ let post_failure () =
     Mem_store.make_mem_store db_name >>= fun store ->
     let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () ->
+    Hashtbl.add stores db_name store;
     Lwt.return store
   in
   let make_tlog_coll_node1 name = 
@@ -124,6 +128,7 @@ let post_failure () =
     Mem_store.make_mem_store db_name >>= fun store ->
     let now = Int64.of_float( Unix.time() ) in
     store # set_master node0 now >>= fun () ->
+    Hashtbl.add stores db_name store;
     Lwt.return store
   in
   let make_tlog_coll_node2 name = 
@@ -153,7 +158,7 @@ let post_failure () =
 	    eventually_stop ()] 
   >>= fun () ->
   Lwt_log.debug "end of scenario" >>= fun () ->
-  let dump node = 
+  let dump_tlc node = 
     let tlc0 = Hashtbl.find tlcs node in
     let printer (i,u) = 
       Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.string_of u) in
@@ -161,7 +166,18 @@ let post_failure () =
     tlc0 # iterate Sn.start 20L printer >>= fun () ->
     Lwt.return ()
   in
-  Lwt_list.iter_s dump [node0;node1 ; node2]
+  let check_store node = 
+    let db_name = (node ^ "/" ^ node ^".db") in
+    let store0 = Hashtbl.find stores db_name in
+    let key = "x" in
+    store0 # exists key >>= fun b ->
+    Lwt_io.printlf "%s: '%s' exists? -> %b" node key b >>= fun () ->
+    OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not b);
+    Lwt.return ()
+  in
+  Lwt_list.iter_s dump_tlc    [node0;node1;node2]>>= fun () ->
+  Lwt_list.iter_s check_store [node0;node1;node2]
+
     
 
 
