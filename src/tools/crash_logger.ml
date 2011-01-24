@@ -89,9 +89,7 @@ let setup_crash_log crash_file_prefix =
       in
       Lwt.return (Lwt_sequence.iter_l dump_msg circ_buf)
     in 
-    let timestamp = Int64.of_float ( Unix.time() ) in
-    let timestamp_str = Printf.sprintf "%Ld" timestamp in
-    let crash_file_path = crash_file_prefix ^ timestamp_str in
+    let crash_file_path = crash_file_prefix in
     Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs
   in 
   
