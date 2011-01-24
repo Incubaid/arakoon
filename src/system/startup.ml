@@ -23,21 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 open OUnit
 open Lwt
 
-(*
-let test_t make_config name =
-  let cfgs, forced_master, quorum_function, 
-    lease_expiry, 
-    use_compression = 
-    make_config () 
-  in
-  let make_store = Mem_store.make_mem_store in
-  let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
-  let get_cfgs () = cfgs in
-  _main_2 make_store make_tlog_coll get_cfgs
-    forced_master quorum_function name
-    false lease_expiry
-*)
-
 open Node_cfg.Node_cfg
 open Update
 
@@ -73,16 +58,22 @@ let post_failure () =
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
   let make_store_node0 db_name = 
-    Lwt_io.printlf "make_store_node0: %s" db_name >>= fun () ->
     Mem_store.make_mem_store db_name >>= fun store ->
     store # set_master node0 now >>= fun () -> 
     Hashtbl.add stores db_name store;
     Lwt.return store
   in
-  let make_tlog_coll_node0 tlc_name = 
+  let make_tlog_coll updates tlc_name = 
     Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
-    tlc # log_update 0L u0 >>= fun _ ->
-    tlc # log_update 1L u1 >>= fun _ ->
+    let rec loop i = function
+      | [] -> Lwt.return () 
+      | u :: us -> 
+	begin
+	  tlc # log_update i u >>= fun _ ->
+	  loop (Sn.succ i) us
+	end
+    in
+    loop Sn.start updates >>= fun () ->
     Hashtbl.add tlcs tlc_name tlc;
     Lwt.return tlc
   in
@@ -90,8 +81,8 @@ let post_failure () =
 
   let run_node0 () = 
     Node_main._main_2 
-      make_store_node0
-      make_tlog_coll_node0
+      make_store_node0 
+      (make_tlog_coll [u0;u1])
       get_cfgs
       forced_master
       quorum_function 
@@ -105,17 +96,10 @@ let post_failure () =
     Hashtbl.add stores db_name store;
     Lwt.return store
   in
-  let make_tlog_coll_node1 name = 
-    Mem_tlogcollection.make_mem_tlog_collection name >>= fun tlc ->
-    tlc # log_update 0L u0 >>= fun _ ->
-    tlc # log_update 1L u1 >>= fun _ ->
-    Hashtbl.add tlcs name tlc;
-    return tlc
-  in
   let run_node1 () =
     Node_main._main_2
       make_store_node1
-      make_tlog_coll_node1
+      (make_tlog_coll [u0;u1])
       get_cfgs
       forced_master
       quorum_function
@@ -129,16 +113,10 @@ let post_failure () =
     Hashtbl.add stores db_name store;
     Lwt.return store
   in
-  let make_tlog_coll_node2 name = 
-    Mem_tlogcollection.make_mem_tlog_collection name >>= fun tlc ->
-    tlc # log_update 0L u0 >>= fun _ ->
-    Hashtbl.add tlcs name tlc;
-    return tlc
-  in
   let run_node2 () = 
     Node_main._main_2
       make_store_node2
-      make_tlog_coll_node2
+      (make_tlog_coll [u0])
       get_cfgs
       forced_master
       quorum_function
@@ -159,8 +137,8 @@ let post_failure () =
   let dump_tlc node = 
     let tlc0 = Hashtbl.find tlcs node in
     let printer (i,u) = 
-      Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.string_of u) in
-    Lwt_io.printlf "--- %s ---" node >>= fun () ->
+      Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) in
+    Lwt_log.debug_f "--- %s ---" node >>= fun () ->
     tlc0 # iterate Sn.start 20L printer >>= fun () ->
     Lwt.return ()
   in
@@ -169,7 +147,7 @@ let post_failure () =
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
     store0 # exists key >>= fun b ->
-    Lwt_io.printlf "%s: '%s' exists? -> %b" node key b >>= fun () ->
+    Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not b);
     Lwt.return ()
   in

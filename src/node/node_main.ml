@@ -347,16 +347,11 @@ let _main_2 make_store make_tlog_coll get_cfgs
 
 
 let main_t make_config name daemonize =
-  let cfgs, forced_master, quorum_function, lease_period, use_compression = 
+  let cfgs, forced_master, quorum_function, lease_period = 
     make_config () 
   in
   let make_store = Local_store.make_local_store in
-  let make_tlog_coll = 
-    if use_compression 
-    then
-      Tlc2.make_tlc2
-    else
-      Tlogcollection.make_file_tlog_collection 
+  let make_tlog_coll = Tlc2.make_tlc2
   in
   let get_cfgs = Node_cfg.Node_cfg.get_node_cfgs_from_file in 
   _main_2
@@ -365,7 +360,7 @@ let main_t make_config name daemonize =
     ~daemonize lease_period
 
 let test_t make_config name =
-  let cfgs, forced_master, quorum_function, lease_period, use_compression = 
+  let cfgs, forced_master, quorum_function, lease_period = 
     make_config () 
   in
   let make_store = Mem_store.make_mem_store in

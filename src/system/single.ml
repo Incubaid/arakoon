@@ -40,7 +40,7 @@ let should_fail x error_msg success_msg =
   else Lwt.return ()
 
 
-let all_same_master ((cfgs,forced_master,quorum,_,_),_) =
+let all_same_master ((cfgs,forced_master,quorum,_),_) =
   let masters = ref [] in
   let do_one cfg =
     Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
@@ -70,7 +70,7 @@ let all_same_master ((cfgs,forced_master,quorum,_,_),_) =
   let () = test !masters in
   Lwt.return ()
 
-let nothing_on_slave ((cfgs,forced_master,quorum,_, use_compression),_) =
+let nothing_on_slave ((cfgs,forced_master,quorum,_),_) =
   let find_slaves cfgs =
     Client_main.find_master cfgs >>= fun m ->
       let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> m) cfgs in
@@ -344,7 +344,7 @@ let _multi_get (client: Arakoon_client.client) =
 
 
 
-let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
+let trivial_master ((cfgs,forced_master,quorum,_),_) =
   Client_main.find_master cfgs >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
@@ -360,7 +360,7 @@ let trivial_master ((cfgs,forced_master,quorum,_, use_compression),_) =
   in
   Client_main.with_client master_cfg f
 
-let trivial_master2 ((cfgs,forced_master,quorum,_, use_compression),_) =
+let trivial_master2 ((cfgs,forced_master,quorum,_),_) =
   
 Client_main.find_master cfgs >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
@@ -377,7 +377,7 @@ Client_main.find_master cfgs >>= fun master_name ->
   Client_main.with_client master_cfg f
 
 
-let trivial_master3 ((cfgs,forced_master,quorum,_, use_compression),_) =
+let trivial_master3 ((cfgs,forced_master,quorum,_),_) =
   Client_main.find_master cfgs >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
@@ -390,22 +390,22 @@ let trivial_master3 ((cfgs,forced_master,quorum,_, use_compression),_) =
   in
   Client_main.with_client master_cfg f
 
-let trivial_master4 ((cfgs, forced_master,quorum,_,use_compression),_) = 
+let trivial_master4 ((cfgs, forced_master,quorum,_),_) = 
   Client_main.find_master cfgs >>= fun master_name ->
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
   in
   Client_main.with_client master_cfg _multi_get
 
-let trivial_master5 ((cfgs, forced_master,quorum,_,use_compression),_) = 
+let trivial_master5 ((cfgs, forced_master,quorum,_),_) = 
   Client_main.find_master cfgs >>= fun master_name ->
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
   in
   Client_main.with_client master_cfg _progress_possible
 
 let setup () =
-  let cfgs,forced_master, quorum, lease_expiry, use_compression = 
+  let cfgs,forced_master, quorum, lease_period= 
     read_config "cfg/arakoon.ini" in
-  Lwt.return ((cfgs, forced_master, quorum, lease_expiry, use_compression), ())
+  Lwt.return ((cfgs, forced_master, quorum, lease_period), ())
 
 let teardown (_,()) =
   Lwt.return ()

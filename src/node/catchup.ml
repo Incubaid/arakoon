@@ -23,8 +23,8 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Node_cfg
 open Remote_nodestream
-open Log_extra
 open Tlogcollection
+open Log_extra
 open Update
 open Store
 
@@ -50,7 +50,7 @@ let compare_store_tlc store tlc =
     else Lwt.return Store_n_behind
 
 let catchup_tlog me other_configs (current_i: Sn.t) mr_name
-    (tlog_coll:file_tlog_collection)=
+    (tlog_coll:Tlogcollection.tlog_collection)=
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in

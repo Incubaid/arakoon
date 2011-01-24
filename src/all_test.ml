@@ -47,7 +47,6 @@ let update_tests = "updates" >::: [Update_test.suite]
 
 let tlog_tests = "tlogs" >::: [Tlog_test.suite;
 			       Tlogcollection_test.suite_mem;
-			       Tlogcollection_test.suite_file;
 			       Tlc2_test.suite;
 			      ]
 let small_catchup = "small_catchup" >:::[Catchup_test.suite;]

@@ -23,7 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_expiry = 10
-let _COMPRESSION_DEFAULT = true;
 module Node_cfg = struct
   type t = {node_name:string;
 	    ip:string;
@@ -62,7 +61,7 @@ module Node_cfg = struct
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
     let lease_expiry = default_lease_expiry in
-    (cfgs, forced_master, quorum_function, lease_expiry, false)
+    (cfgs, forced_master, quorum_function, lease_expiry)
 
   let string_of (t:t) =
     let template =
@@ -84,12 +83,6 @@ module Node_cfg = struct
       let nodes_s = inifile # getval "global" "nodes" in
       let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
       nodes
-    in
-    let compression inifile = 
-      try 
-	let c_s = inifile # getval "global" "compression" in
-	Scanf.sscanf c_s "%b" (fun b -> b) 
-      with (Inifiles.Invalid_element e) -> _COMPRESSION_DEFAULT
     in
     let lease_expiry inifile =
       try
@@ -171,8 +164,7 @@ module Node_cfg = struct
       with (Inifiles.Invalid_element _) -> Quorum.quorum_function
     in
     let lease_period = lease_expiry inifile in
-    let compressed = compression inifile in
-    cfgs, fm, quorum_function, lease_period, compressed
+    cfgs, fm, quorum_function, lease_period
 
 
   let node_name t = t.node_name
@@ -183,7 +175,7 @@ module Node_cfg = struct
   let forced_master t = t.forced_master
 
   let get_node_cfgs_from_file () =
-    let (cfgs,_,_,_,_) = read_config !config_file in
+    let (cfgs,_,_,_) = read_config !config_file in
     cfgs
 
 end

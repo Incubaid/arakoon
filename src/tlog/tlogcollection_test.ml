@@ -210,7 +210,6 @@ let test_validate_corrupt_1 (dn,factory) =
   Lwt.return ()
 
 let wrap factory test = lwt_bracket (setup factory) test teardown
-let wrap_file = wrap make_file_tlog_collection
 let wrap_memory = wrap Mem_tlogcollection.make_mem_tlog_collection
 
 let suite_mem = "mem_tlogcollection" >::: [
@@ -221,14 +220,5 @@ let suite_mem = "mem_tlogcollection" >::: [
 *)
 ]
 
-let suite_file = "file_tlogcollection" >:::[
-  "empty_collection" >:: wrap_file test_empty_collection;
-  "rollover" >:: wrap_file test_rollover;
-  "get_value_bug" >:: wrap_file test_get_value_bug;
-  "restart" >:: wrap_file test_restart;
-  "iterate" >:: wrap_file test_iterate;
-  "iterate2">:: wrap_file test_iterate2;
-  "validate" >:: wrap_file test_validate_normal;
-]
 
 

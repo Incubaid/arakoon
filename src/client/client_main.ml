@@ -63,7 +63,7 @@ let find_master cfgs =
   in loop cfgs
 
 let with_master_client cfg_name f =
-  let cfgs,_,_,_,_ = read_config cfg_name in
+  let cfgs,_,_,_ = read_config cfg_name in
   let t () =
     find_master cfgs >>= fun master_name ->
     let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
@@ -104,7 +104,7 @@ let statistics cfg_name =
   with_master_client cfg_name f
 
 let who_master cfg_name () =
-  let cfgs,_,_,_,_ = read_config cfg_name in
+  let cfgs,_,_,_ = read_config cfg_name in
   let t () = 
     find_master cfgs >>= fun master_name ->
     Lwt_io.printl master_name
