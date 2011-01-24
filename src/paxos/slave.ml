@@ -454,11 +454,13 @@ let slave_discovered_other_master constants state () =
           Lwt.catch ( fun () -> 
             tlog_coll # get_last_update i_2_push 
           ) ( fun e -> 
+            Lwt_log.debug "Could not get last update from tlog collection" >>= fun () ->
             Lwt.return None
           ) >>= fun m_prev ->
           begin
           match m_prev with 
-          | None -> Lwt.return()
+          | None -> 
+            log ~me "slave_discovered_other_master: no previous" 
           | Some pup ->
             log ~me "slave_discovered_other_master: Pushing previous update with i: %s" (Sn.string_of i_2_push) >>= fun () ->
             Store.on_consensus store ( (Update.make_update_value pup),future_n,i_2_push) >>= fun _ -> Lwt.return()

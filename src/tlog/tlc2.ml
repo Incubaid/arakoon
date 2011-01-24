@@ -332,7 +332,8 @@ object(self: # tlog_collection)
 	if pi = i then 
 	  Lwt.return (Some pu)
 	else
-	  Llio.lwt_failfmt "get_last_update %s<>%s" (Sn.string_of pi) (Sn.string_of i)
+	  Lwt_log.error_f "get_last_update %s<>%s" (Sn.string_of pi) (Sn.string_of i) >>= fun () ->
+    Lwt.return (Some pu)
 	    
   method close () =
     Lwt_io.close _oc
