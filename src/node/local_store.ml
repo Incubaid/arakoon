@@ -219,7 +219,7 @@ object(self: #store)
       )
 
   method set_master_no_inc master lease = 
-    Hotc.transaction db (fun db -> _set_master db master ;Lwt.return ())
+    Hotc.transaction db (fun db -> _set_master db master lease ;Lwt.return ())
 
   method who_master () =
     Lwt.catch
