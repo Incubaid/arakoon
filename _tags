@@ -6,7 +6,7 @@ true: pkg_lwt, pkg_lwt.preemptive, pkg_lwt.unix
 true: pkg_oUnit
 true: pkg_bz2
 true: pkg_threads
-false: warn_error
+true: warn_error_F
 "doc": include
 "src":include
 "src/otc":include
