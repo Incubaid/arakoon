@@ -148,7 +148,7 @@ let post_failure () =
   in
   Lwt_log.debug "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-	    (* begin Lwt_unix.sleep 1.0 >>= fun () -> run_node1 () end; *)
+	    begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
 	    run_node2 ();
 	    eventually_stop ()] 
   >>= fun () ->
@@ -161,7 +161,7 @@ let post_failure () =
     tlc0 # iterate Sn.start 20L printer >>= fun () ->
     Lwt.return ()
   in
-  Lwt_list.iter_s dump [node0;(* node1 ;*) node2]
+  Lwt_list.iter_s dump [node0;node1 ; node2]
     
 
 
