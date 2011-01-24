@@ -53,6 +53,23 @@ def test_shaky_slave():
         Common.iterate_n_times( n, Common.simple_set)
     print "phewy!"
 
+@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+def test_fat_shaky_slave():
+    cli = Common.get_client()
+    master_id = cli.whoMaster()
+    slave_id = last_slave(master_id)
+    stop_node(slave_id)
+    print ("slave %s stopped" % slave_id)
+    n = 20000
+    Common.iterate_n_times( n, Common.simple_set)
+    cycles = 10 
+    for i in range(cycles):
+        print ("starting cycle %i" % i)
+        start_node(slave_id)
+        Common.iterate_n_times( n, Common.simple_set)
+        stop_node(slave_id)
+        Common.iterate_n_times( n, Common.simple_set)
+    print "phewy!"
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_cluster():
