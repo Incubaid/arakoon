@@ -146,11 +146,10 @@ let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i
   Lwt.return (future_n, end_i,vo)
 
 
-let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) forced_master =
+let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option_to_string Sn.string_of  in
-  Lwt_log.info_f "verify_n_catchup_store; ti_o=%s future_i=%s"
-    (io_s ti_o) 
-    (Sn.string_of future_i) >>= fun () ->
+  Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s"
+    (io_s ti_o) (Sn.string_of current_i) >>= fun () ->
   store # consensus_i () >>= fun si_o ->
   match ti_o, si_o with
     | None, None -> Lwt.return 0L
@@ -160,12 +159,12 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) (future_i:Sn.t) forced_ma
     | Some i, Some j when i = j -> Lwt.return (Sn.succ j)
     | Some i, Some j when i > j -> 
       begin
-	catchup_store me store tlog_coll future_i >>= fun (end_i, vo) ->
+	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
 	Lwt.return end_i
       end
     | Some i, None ->
       begin
-	catchup_store me store tlog_coll future_i >>= fun (end_i, vo) ->
+	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
 	Lwt.return end_i
       end
     | _,_ -> 

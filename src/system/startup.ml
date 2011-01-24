@@ -40,6 +40,49 @@ let _make_cfg name n lease_period =
     forced_master = None;
   }
 
+let _make_tlog_coll tlcs updates tlc_name = 
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
+  let rec loop i = function
+    | [] -> Lwt.return () 
+    | u :: us -> 
+      begin
+	tlc # log_update i u >>= fun _ ->
+	loop (Sn.succ i) us
+      end
+  in
+  loop Sn.start updates >>= fun () ->
+  Hashtbl.add tlcs tlc_name tlc;
+  Lwt.return tlc
+
+let _make_store stores now node_x db_name = 
+  Mem_store.make_mem_store db_name >>= fun store ->
+  store # set_master node_x now >>= fun () -> 
+  Hashtbl.add stores db_name store;
+  Lwt.return store
+
+let _make_run 
+    ?(forced_master=None) 
+    ?(quorum_function= fun n -> (n/2)+1)
+    ?(lease_period = 10)
+    ~stores ~tlcs ~now ~updates ~get_cfgs node_x () = 
+  Node_main._main_2 
+    (_make_store stores now node_x)
+    (_make_tlog_coll tlcs updates)
+    get_cfgs
+    forced_master
+    quorum_function 
+    node_x
+    ~daemonize:false
+    lease_period
+
+let _dump_tlc ~tlcs node = 
+  let tlc0 = Hashtbl.find tlcs node in
+  let printer (i,u) = 
+    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) in
+  Lwt_log.debug_f "--- %s ---" node >>= fun () ->
+  tlc0 # iterate Sn.start 20L printer >>= fun () ->
+  Lwt.return ()
+
 
 let post_failure () = 
   let lease_period = 10 in
@@ -50,80 +93,15 @@ let post_failure () =
   let node1_cfg = _make_cfg node1 1 lease_period in
   let node2_cfg = _make_cfg node2 2 lease_period in
   let cfgs = [node0_cfg;node1_cfg;node2_cfg] in
-  let forced_master    = None in
-  let quorum_function  n = (n/2) +1 in
   let u0 = Update.MasterSet(node0,0L)  in
   let u1 = Update.Set("x","y") in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
-  let make_store_node0 db_name = 
-    Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 now >>= fun () -> 
-    Hashtbl.add stores db_name store;
-    Lwt.return store
-  in
-  let make_tlog_coll updates tlc_name = 
-    Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
-    let rec loop i = function
-      | [] -> Lwt.return () 
-      | u :: us -> 
-	begin
-	  tlc # log_update i u >>= fun _ ->
-	  loop (Sn.succ i) us
-	end
-    in
-    loop Sn.start updates >>= fun () ->
-    Hashtbl.add tlcs tlc_name tlc;
-    Lwt.return tlc
-  in
   let get_cfgs () = cfgs in
-
-  let run_node0 () = 
-    Node_main._main_2 
-      make_store_node0 
-      (make_tlog_coll [u0;u1])
-      get_cfgs
-      forced_master
-      quorum_function 
-      node0
-      ~daemonize:false
-      lease_period
-  in
-  let make_store_node1 db_name = 
-    Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 now >>= fun () ->
-    Hashtbl.add stores db_name store;
-    Lwt.return store
-  in
-  let run_node1 () =
-    Node_main._main_2
-      make_store_node1
-      (make_tlog_coll [u0;u1])
-      get_cfgs
-      forced_master
-      quorum_function
-      node1
-      ~daemonize:false
-      lease_period
-  in
-  let make_store_node2 db_name = 
-    Mem_store.make_mem_store db_name >>= fun store ->
-    store # set_master node0 now >>= fun () ->
-    Hashtbl.add stores db_name store;
-    Lwt.return store
-  in
-  let run_node2 () = 
-    Node_main._main_2
-      make_store_node2
-      (make_tlog_coll [u0])
-      get_cfgs
-      forced_master
-      quorum_function
-      node2
-      ~daemonize:false
-      lease_period
-  in
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
+  let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0]    node2 in
   let eventually_stop () = Lwt_unix.sleep 10.0 
 
   in
@@ -134,14 +112,6 @@ let post_failure () =
 	    eventually_stop ()] 
   >>= fun () ->
   Lwt_log.debug "end of scenario" >>= fun () ->
-  let dump_tlc node = 
-    let tlc0 = Hashtbl.find tlcs node in
-    let printer (i,u) = 
-      Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) in
-    Lwt_log.debug_f "--- %s ---" node >>= fun () ->
-    tlc0 # iterate Sn.start 20L printer >>= fun () ->
-    Lwt.return ()
-  in
   let check_store node = 
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
@@ -151,11 +121,49 @@ let post_failure () =
     OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not b);
     Lwt.return ()
   in
-  Lwt_list.iter_s dump_tlc    [node0;node1;node2]>>= fun () ->
+  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
   Lwt_list.iter_s check_store [node0;node1;node2]
 
     
-
+let restart_slaves () =
+  let lease_period = 10 in
+  let node0 = "slave0" in
+  let node1 = "slave1" in
+  let node2 = "was_master" in
+  let node0_cfg = _make_cfg node0 0 lease_period in
+  let node1_cfg = _make_cfg node1 1 lease_period in
+  let node2_cfg = _make_cfg node2 2 lease_period in
+  let cfgs = [node0_cfg;node1_cfg;node2_cfg] in
+  let u0 = Update.MasterSet(node0,0L) in
+  let u1 = Update.Set("xxx","xxx") in
+  let tlcs = Hashtbl.create 5 in
+  let stores = Hashtbl.create 5 in
+  let now = Int64.of_float(Unix.time()) in
+  let get_cfgs () = cfgs in 
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
+  (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
+  let eventually_stop() = Lwt_unix.sleep 10.0 in
+  Lwt_log.debug "start of scenario" >>= fun () ->
+  Lwt.pick [run_node0 ();
+	    run_node1 ();
+	    (* run_node2 () *)
+	   eventually_stop();
+	   ]
+  >>= fun () ->
+  Lwt_log.debug "end of scenario" >>= fun () ->
+  let check_store node = 
+    let db_name = (node ^ "/" ^ node ^".db") in
+    let store0 = Hashtbl.find stores db_name in
+    let key = "xxx" in
+    store0 # exists key >>= fun b ->
+    Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
+    OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
+    Lwt.return ()
+  in
+  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1]>>= fun () ->
+  Lwt_list.iter_s check_store [node0;node1]
+    
 
 let setup () = Lwt.return ()
 let teardown () = Lwt_log.debug "teardown"
@@ -164,4 +172,5 @@ let w f = Extra.lwt_bracket setup f teardown
 
 let suite = "startup" >:::[
   "post_failure" >:: w post_failure;
+  "restart_slaves" >:: w restart_slaves;
 ]

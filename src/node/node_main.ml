@@ -90,7 +90,7 @@ let _check_tlogs collection tlog_dir =
   begin
     match lastI with
       | None -> (Lwt_log.info_f "tlog is empty" )
-      | Some i  -> Lwt_log.info_f "tlog @ %s" (Sn.string_of i)
+      | Some i  -> Lwt_log.info_f "tlog's lastI = %s" (Sn.string_of i)
   end >>= fun () ->
   Lwt.return lastI
 
@@ -201,12 +201,12 @@ let _main_2 make_store make_tlog_coll get_cfgs
                       | ex -> Lwt.fail ex 
 		)
               >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-	      _check_tlogs tlog_coll me.tlog_dir >>= fun tlogI ->
-	      let current_i = match tlogI with
+	      _check_tlogs tlog_coll me.tlog_dir >>= fun lastI ->
+	      let current_i = match lastI with
 		| None -> Sn.start 
 		| Some i -> i
 	      in
-	      Catchup.verify_n_catchup_store me.node_name (store,tlog_coll,tlogI) current_i forced_master 
+	      Catchup.verify_n_catchup_store me.node_name (store,tlog_coll,lastI) current_i forced_master 
 	      >>= fun (new_i:Sn.t) ->
 	      
 	      let client_buffer =
