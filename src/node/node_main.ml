@@ -108,7 +108,7 @@ let _log_rotate cfg i =
 
 let log_prelude() =
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
-  Lwt_log.info_f "hg_version: %s " Version.hg_version >>= fun () ->
+  Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
   Lwt_log.info_f "version: %s" Version.version
 

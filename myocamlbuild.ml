@@ -8,18 +8,17 @@ let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
 (* ocamlfind command *)
 let ocamlfind x = S[A"ocamlfind"; x]
 
-let version x  = 
+let run_cmd cmd = 
   try
-    let cmd = "hg id -" ^ x in
     let ch = Unix.open_process_in cmd in
     let hg_version = input_line ch in
     let () = close_in ch in
     hg_version
-  with | End_of_file -> "no_"^x^"_version"
+  with | End_of_file -> "Not available."
     
-let hg_version = version "i"
+let hg_revision = run_cmd "hg id -i"
 
-let tag_version = version "t"
+let branch_version = run_cmd "hg branch"
 
 
 let split s ch =
@@ -43,11 +42,11 @@ let time =
 
 let make_version _ _ =
   let cmd =
-    let template = "let hg_version = %S\n" ^^
+    let template = "let hg_revision = %S\n" ^^
       "let compile_time = %S\n" ^^
       "let version = %S"
     in
-    Printf.sprintf template hg_version time tag_version
+    Printf.sprintf template hg_revision time branch_version
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 
