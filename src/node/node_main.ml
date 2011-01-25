@@ -306,7 +306,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		  quorum_function forced_master 
 		  store tlog_coll others lease_period inject_event 
 		  
-	      in Lwt.return ((forced_master,constants, buffers, new_i, None), 
+	      in Lwt.return ((forced_master,constants, buffers, new_i, vo), 
 			     service, rapporting)
 	    end
 	      

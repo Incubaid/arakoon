@@ -155,7 +155,12 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | None, None -> Lwt.return (0L,None)
     | Some 0L, None -> Lwt.return (0L,None)
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
-      Lwt.return (i,None)
+      tlog_coll # get_last_update i >>= fun uo ->
+      let vo = match uo with
+	| None -> None
+	| Some u -> let v = Update.make_update_value u in Some v
+      in
+      Lwt.return (i,vo)
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
     | Some i, Some j when i > j -> 
       begin

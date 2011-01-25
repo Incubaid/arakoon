@@ -50,13 +50,12 @@ let forced_master_suggest constants (n,i) () =
 (* in case of election, everybody suggests himself *)
 let election_suggest constants (n,i,vo) () =
   let me = constants.me in
-  log ~me "election_suggest: Master undecided, starting election n=%s" 
-    (Sn.string_of n) >>= fun () ->
-  let v = 
+  let v, msg = 
     match vo with 
-      | None -> Update.make_update_value (Update.make_master_set me None) 
-      | Some x -> x 
+      | None -> Update.make_update_value (Update.make_master_set me None) , "None"
+      | Some x -> x , "Some _"
   in
+  log ~me "election_suggest: n=%s %s"  (Sn.string_of n) msg >>= fun () ->
   let others = constants.others in
   start_election_timeout constants n >>= fun () ->
   mcast constants (Prepare (n,i)) >>= fun () ->
@@ -258,8 +257,8 @@ let wait_for_promises constants state event =
               then
               begin
                 log ~me "wait_for_promises; forcing new master suggest" >>= fun () ->
-                let n''' = update_n constants (max n n'') in
-                Lwt.return (Forced_master_suggest (n''',i))
+                let n3 = update_n constants (max n n'') in
+                Lwt.return (Forced_master_suggest (n3,i))
               end
               else 
                 if is_election constants
@@ -319,76 +318,85 @@ let wait_for_promises constants state event =
                 constants.send reply me source >>= fun () ->
                 Lwt.return (Wait_for_promises state)
             | Prepare (n',i') when n' = n ->
-            begin
-              constants.on_witness source i' >>= fun () ->
-              if am_forced_master constants me
-              then
               begin
-                log ~me "wait_for_promises:dueling; forcing new master suggest" >>= fun () ->
-                let reply = Nak (n', (n,i))  in
-                constants.send reply me source >>= fun () ->
-                let new_n = update_n constants n in
-                Lwt.return (Forced_master_suggest (new_n, i))
-              end
-              else 
-                if is_election constants
-                then
-                begin
-                  if (Sn.compare i' i) >= 0
-                  then
-                    let reply = Promise(n',i,None) in
-                    log ~me "replying with %S" (string_of reply) >>= fun () ->
-                    constants.send reply me source >>= fun () ->
-                    Lwt.return (Slave_wait_for_accept (n', i, None, None))
-                  else
-                    log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->
-                    let reply = Nak(n',(n,i)) in
-                    log ~me "replying with %S" (string_of reply) >>= fun () ->
+		constants.on_witness source i' >>= fun () ->
+		if am_forced_master constants me
+		then
+		  begin
+                    log ~me "wait_for_promises:dueling; forcing new master suggest" >>= fun () ->
+                    let reply = Nak (n', (n,i))  in
                     constants.send reply me source >>= fun () ->
                     let new_n = update_n constants n in
-                    Lwt.return (Election_suggest (new_n, i, None))
-                end
-                else (* forced slave *)
-                begin
-                  let reply = Nak(n',(n,i)) in
-                  log ~me "wait_for_promises: forced_slave replying with %S" (string_of reply) >>= fun () ->
-                  constants.send reply me source >>= fun () ->
-                  Lwt.return (Wait_for_promises state)
-                end
-            end
+                    Lwt.return (Forced_master_suggest (new_n, i))
+		  end
+		else 
+                  if is_election constants
+                  then
+                    begin
+		      if i' = i 
+                      then
+			begin
+			  constants.get_value i >>= fun vo ->
+			  let reply = Promise(n',i, vo) in
+			  log ~me "replying with %S" (string_of reply) >>= fun () ->
+			  constants.send reply me source >>= fun () ->
+			  Lwt.return (Slave_wait_for_accept (n', i, None, None))
+			end
+                      else 
+			if i' > i 
+			then paxos_fatal me "too"
+			else
+			  begin
+			    log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->
+			    let reply = Nak(n',(n,i)) in
+			    log ~me "replying with %S" (string_of reply) >>= fun () ->
+			    constants.send reply me source >>= fun () ->
+			    let new_n = update_n constants n in
+			    Lwt.return (Election_suggest (new_n, i, None))
+			  end
+		    end
+                  else (* forced slave *)
+                    begin
+                      let reply = Nak(n',(n,i)) in
+                      log ~me "wait_for_promises: forced_slave replying with %S" 
+			(string_of reply) >>= fun () ->
+                      constants.send reply me source >>= fun () ->
+                      Lwt.return (Wait_for_promises state)
+                    end
+              end
             | Accept (n',_i,_v) when n' < n ->
-            begin
-              log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
-              >>= fun () ->
-              Lwt.return (Wait_for_promises state)
-            end
+              begin
+		log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
+		>>= fun () ->
+		Lwt.return (Wait_for_promises state)
+              end
             | Accept (n',_i,_v) ->
               if n' = n && _i < i 
               then
-              begin
-                log ~me "wait_for_promises: ignoring %s (my i is %s)" (string_of msg) (Sn.string_of i) >>= fun () ->
-                Lwt.return (Wait_for_promises state)
-              end
+		begin
+                  log ~me "wait_for_promises: ignoring %s (my i is %s)" (string_of msg) (Sn.string_of i) >>= fun () ->
+                  Lwt.return (Wait_for_promises state)
+		end
               else
-              begin
-                log ~me "wait_for_promises: received %S -> back to fake prepare"  (string_of msg) >>= fun () ->
-                Lwt.return (Slave_fake_prepare i)
-              end
+		begin
+                  log ~me "wait_for_promises: received %S -> back to fake prepare"  (string_of msg) >>= fun () ->
+                  Lwt.return (Slave_fake_prepare i)
+		end
             | Accepted (n',_i) when n' < n ->
-            begin
-              log ~me "wait_for_promises: ignoring old Accepted %s" (Sn.string_of n') >>= fun () ->
-              Lwt.return (Wait_for_promises state)
-            end
+              begin
+		log ~me "wait_for_promises: ignoring old Accepted %s" (Sn.string_of n') >>= fun () ->
+		Lwt.return (Wait_for_promises state)
+              end
             | Accepted (n',_i) when n' >= n ->
-            begin 
-              log ~me "Received Nak from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
-              >>= fun () ->
-              let new_n = update_n constants n' in
-              Lwt.return (Election_suggest (new_n,i, None))
-            end
+              begin 
+		log ~me "Received Nak from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
+		>>= fun () ->
+		let new_n = update_n constants n' in
+		Lwt.return (Election_suggest (new_n,i, None))
+              end
         end
       end
-        | ElectionTimeout n' ->
+    | ElectionTimeout n' ->
       let (n,i,_,_,_,_) = state in
       if n' = n then
 	begin
