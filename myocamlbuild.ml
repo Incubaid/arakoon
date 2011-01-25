@@ -90,6 +90,7 @@ let _ = dispatch & function
        "doc/client.tex";
        "doc/consistency.tex";
        "doc/protocol.tex";
+       "doc/restarting.tex";
        "doc/part3.tex";
        "doc/state_machine.tex";
        "doc/states.eps";

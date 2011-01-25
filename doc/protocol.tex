@@ -1,3 +1,14 @@
+\section{Implementation choices}
+\subsection{Inter-node communication}
+The nodes are fully connected with each other over tcp sockets.
+The low level (de-)serialization is handled by our llio library (C,Python and ocaml implementations available).
+This library is actually pretty efficient.
+For example, on inteloids, fetching a 64 bit integer from a buffer boils down to a reinterpretation of 8 bytes in the buffer (in C, it merely is a cast, while in Python it's a \emph{struct.unpack('q',i)} ).
+Nodes all know one another from their configuration.
+Just above the socket layer, there's an abstract messaging layer, where you can just send and receive messages.
+
+
+
 \subsection{Client-Node communication}
 The client node communication has different needs, and hence a rpc like approach will be used. Following table describes what we do with primitives.
 Just note that a list should be written out head first, so that naieve de-serialization will return the original.
