@@ -165,11 +165,11 @@ let _main_2 make_store make_tlog_coll get_cfgs
                     store # consensus_i () >>= fun store_i ->
                     Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
                     let tlog_i = 
-                    begin
-                      match tlog_i with
-			| i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
-                    | _ -> tlog_i 
-                    end 
+                      begin
+			match tlog_i with
+			  | i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
+			  | _ -> tlog_i 
+                      end 
                     in
                     let s_i = 
                       begin
@@ -251,25 +251,25 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
 	      in
 	      let on_accept (v,n,i) =
-          Lwt_log.debug_f "on_accept: n:%s i:%s" 
-            (Sn.string_of n) (Sn.string_of i)
-          >>= fun () ->
-          let Value.V(update_string) = v in
-          let u, _ = Update.from_buffer update_string 0 in
-          let u' = 
-            begin
-            match u with
-              | Update.MasterSet (master,0L) -> 
-                let now = Int64.of_float( Unix.time() ) in
-                Update.make_master_set master (Some now) 
-              | other -> other
-            end in
-          tlog_coll # log_update i u' >>= fun wr_result ->
-          Lwt_log.debug_f "log_update %s=>%S" 
-            (Sn.string_of i) 
-            (Tlogwriter.string_of wr_result) >>= fun () ->
-          Lwt.return (Update.make_update_value u')
-        in
+		Lwt_log.debug_f "on_accept: n:%s i:%s" 
+		  (Sn.string_of n) (Sn.string_of i)
+		>>= fun () ->
+		let Value.V(update_string) = v in
+		let u, _ = Update.from_buffer update_string 0 in
+		let u' = 
+		  begin
+		    match u with
+		      | Update.MasterSet (master,0L) -> 
+			let now = Int64.of_float( Unix.time() ) in
+			Update.make_master_set master (Some now) 
+		      | other -> other
+		  end in
+		tlog_coll # log_update i u' >>= fun wr_result ->
+		Lwt_log.debug_f "log_update %s=>%S" 
+		  (Sn.string_of i) 
+		  (Tlogwriter.string_of wr_result) >>= fun () ->
+		Lwt.return (Update.make_update_value u')
+              in
 	      
 	      let get_last_value (i:Sn.t) =
 		begin
@@ -305,7 +305,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		  on_accept on_consensus on_witness
 		  quorum_function forced_master 
 		  store tlog_coll others lease_period inject_event 
-
+		  
 	      in Lwt.return ((forced_master,constants, buffers, new_i, None), 
 			     service, rapporting)
 	    end
@@ -339,7 +339,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 			      ]
 		    )
 		    (fun () -> Lwt_log.fatal "after pick" >>= fun() ->
-          match ! dump_crash_log with
+		      match ! dump_crash_log with
             | None -> Lwt_log.info "Not dumping state"
             | Some f -> f() )
 		end
