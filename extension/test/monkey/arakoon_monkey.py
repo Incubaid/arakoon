@@ -372,5 +372,11 @@ def euthanize_this_monkey() :
     
 if __name__ == "__main__" :
     logger = logging.getLogger()
-    logger.setLevel( logging.DEBUG )
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
     make_monkey_run()
