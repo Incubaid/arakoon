@@ -210,7 +210,7 @@ let wait_for_promises constants state event =
         begin
           log ~me "wait_for_promises:: received %S from %s" (string_of msg) source >>= fun () ->
           match msg with
-            | Promise (n' ,i, limit) when n' < n ->
+            | Promise (n' ,i', limit) when n' < n ->
               let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
               drop msg reason
             | Promise (n' ,new_i, limit) when n' = n ->
@@ -226,7 +226,7 @@ let wait_for_promises constants state event =
 		            in
                 let state' = (n, i, ballot', wanted, v_lims', new_ilim) in
                 Lwt.return (Promises_check_done state')
-            | Promise (n' ,i, limit) when n' > n ->
+            | Promise (n' ,i', limit) when n' > n ->
             begin
               log ~me "Received Promise from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
