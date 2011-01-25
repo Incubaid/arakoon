@@ -206,7 +206,9 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		| None -> Sn.start 
 		| Some i -> i
 	      in
-	      Catchup.verify_n_catchup_store me.node_name (store,tlog_coll,lastI) current_i forced_master 
+	      Catchup.verify_n_catchup_store me.node_name 
+		(store,tlog_coll,lastI) 
+		current_i forced_master 
 	      >>= fun (new_i:Sn.t) ->
 	      
 	      let client_buffer =
@@ -304,19 +306,19 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		  quorum_function forced_master 
 		  store tlog_coll others lease_period inject_event 
 
-	      in Lwt.return ((forced_master,constants, buffers, new_i), 
+	      in Lwt.return ((forced_master,constants, buffers, new_i, None), 
 			     service, rapporting)
 	    end
 	      
 	  in
-	  let start_backend (forced_master, constants, buffers, new_i) =
+	  let start_backend (forced_master, constants, buffers, new_i, vo) =
 	    let to_run = 
 	      match forced_master with
 		| Some master  -> if master = my_name 
-		  then Multi_paxos_fsm.run_forced_master
-		  else Multi_paxos_fsm.run_forced_slave 
-		| None -> Multi_paxos_fsm.run_election
-	    in to_run constants buffers new_i 
+		  then Multi_paxos_fsm.enter_forced_master
+		  else Multi_paxos_fsm.enter_forced_slave 
+		| None -> Multi_paxos_fsm.enter_simple_paxos
+	    in to_run constants buffers new_i vo
 	  in
 	  Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
 	  let () = _maybe_daemonize daemonize me get_cfgs in

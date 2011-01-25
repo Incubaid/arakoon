@@ -48,19 +48,23 @@ let forced_master_suggest constants (n,i) () =
   Lwt.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
-let election_suggest constants (n,i) () =
+let election_suggest constants (n,i,vo) () =
   let me = constants.me in
-  let n' = n (*update_n constants n *) in
-  log ~me "election_suggest: Master undecided, starting election n=%s" (Sn.string_of n') >>= fun () ->
-  let v = Update.make_update_value (Update.make_master_set me None) in
+  log ~me "election_suggest: Master undecided, starting election n=%s" 
+    (Sn.string_of n) >>= fun () ->
+  let v = 
+    match vo with 
+      | None -> Update.make_update_value (Update.make_master_set me None) 
+      | Some x -> x 
+  in
   let others = constants.others in
-  start_election_timeout constants n' >>= fun () ->
-  mcast constants (Prepare (n',i)) >>= fun () ->
+  start_election_timeout constants n >>= fun () ->
+  mcast constants (Prepare (n,i)) >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
   let ballot = (needed -1, [me] ) in
   let v_lims = [v] in
   let i_lim = Some (me,i) in
-  let state = (n', i, ballot, v, v_lims, i_lim) in
+  let state = (n, i, ballot, v, v_lims, i_lim) in
   Lwt.return (Promises_check_done state)
 
 
@@ -141,7 +145,7 @@ let promises_check_done constants state () =
 	      Lwt.return (Forced_master_suggest (n,i))
 	    else if is_election constants then
 	      let n' = update_n constants n in
-	      Lwt.return (Election_suggest (n',i))
+	      Lwt.return (Election_suggest (n',i, None))
 	    else
 	      paxos_fatal me "slave checking for promises"
 	  end
@@ -176,7 +180,7 @@ let promises_check_done constants state () =
 		  if is_election constants
 		  then 
 		    let new_n = update_n constants n' in
-		    Lwt.return (Election_suggest (new_n, new_i))
+		    Lwt.return (Election_suggest (new_n, new_i, None))
 		  else paxos_fatal me "slave checking for promises"
 	      end
 	    else
@@ -231,7 +235,7 @@ let wait_for_promises constants state event =
               log ~me "Received Promise from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
               let new_n = update_n constants n' in
-              Lwt.return (Election_suggest (new_n,i))
+              Lwt.return (Election_suggest (new_n,i, None))
             end
             | Nak (n',(n'',i')) when n' < n ->
             begin
@@ -244,7 +248,7 @@ let wait_for_promises constants state event =
               log ~me "Received Nak from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
               let new_n = update_n constants n' in
-              Lwt.return (Election_suggest (new_n,i))
+              Lwt.return (Election_suggest (new_n,i, None))
             end
             | Nak (n',(n'',i')) when n' = n ->
             begin
@@ -267,7 +271,7 @@ let wait_for_promises constants state event =
                     Lwt.return (Slave_discovered_other_master (source,i,n'',i'))
                   else
                     let new_n = update_n constants (max n n'') in
-                    Lwt.return (Election_suggest (new_n,i))
+                    Lwt.return (Election_suggest (new_n,i, None))
                 end
                 else (* forced_slave *) (* this state is impossible?! *)
                 begin
@@ -342,7 +346,7 @@ let wait_for_promises constants state event =
                     log ~me "replying with %S" (string_of reply) >>= fun () ->
                     constants.send reply me source >>= fun () ->
                     let new_n = update_n constants n in
-                    Lwt.return (Election_suggest (new_n, i))
+                    Lwt.return (Election_suggest (new_n, i, None))
                 end
                 else (* forced slave *)
                 begin
@@ -380,7 +384,7 @@ let wait_for_promises constants state event =
               log ~me "Received Nak from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
               let new_n = update_n constants n' in
-              Lwt.return (Election_suggest (new_n,i))
+              Lwt.return (Election_suggest (new_n,i, None))
             end
         end
       end
@@ -390,7 +394,7 @@ let wait_for_promises constants state event =
 	begin
 	  log ~me "wait_for_promises: election timeout, restart from scratch"	  
 	  >>= fun () ->
-	  Lwt.return (Election_suggest (n,i))
+	  Lwt.return (Election_suggest (n,i, None))
 	end
       else
 	begin
@@ -741,7 +745,7 @@ let rec paxos_produce buffers
 
 (* the entry methods *)
 
-let run_forced_slave constants buffers new_i =
+let enter_forced_slave constants buffers new_i vo=
   let me = constants.me in
   log ~me "+starting FSM for forced_slave." >>= fun () ->
   let trace = trace_transition me in
@@ -756,7 +760,7 @@ let run_forced_slave constants buffers new_i =
       >>= fun () -> Lwt.fail exn
     )
 
-let run_forced_master constants buffers current_i =
+let enter_forced_master constants buffers current_i vo =
   let me = constants.me in
   log ~me "+starting FSM for forced_master." >>= fun () ->
   let current_n = 0L in
@@ -773,7 +777,7 @@ let run_forced_master constants buffers current_i =
       >>= fun () -> Lwt.fail e
     )
 
-let run_election constants buffers current_i =
+let enter_simple_paxos constants buffers current_i vo =
   let me = constants.me in
   log ~me "+starting FSM election." >>= fun () ->
   let current_n = Sn.start in
@@ -782,7 +786,8 @@ let run_election constants buffers current_i =
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace produce 
-	(machine constants) (election_suggest constants (current_n,current_i))
+	(machine constants) 
+	(election_suggest constants (current_n, current_i, vo))
     ) 
     (fun e ->
       log ~me "FSM BAILED (run_election) due to uncaught exception %s" 

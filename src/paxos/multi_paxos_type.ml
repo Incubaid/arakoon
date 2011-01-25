@@ -32,7 +32,7 @@ type transitions =
   | Forced_master_suggest of (Sn.t * Sn.t)
 
   (* election only *)
-  | Election_suggest of (Sn.t * Sn.t)
+  | Election_suggest of (Sn.t * Sn.t * Value.t option)
 
   (* slave or pending slave *)
   | Slave_fake_prepare of Sn.t

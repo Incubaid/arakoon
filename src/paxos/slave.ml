@@ -227,7 +227,7 @@ let slave_steady_state constants state event =
               end
               >>= fun _ ->
 	      let new_n = update_n constants n in
-	      Lwt.return (Election_suggest (new_n, i))
+	      Lwt.return (Election_suggest (new_n, i, None))
 	    end
 	  else
 	    begin
@@ -383,7 +383,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             end
             >>= fun _ ->
             let new_n = update_n constants n in
-            Lwt.return (Election_suggest (new_n, i))
+            Lwt.return (Election_suggest (new_n, i, None))
           end
         else
           begin
@@ -474,6 +474,6 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election" >>= fun () ->
       (* we have to go to election here or we can get in a situation where
          everybody just waits for each other *)
-      Lwt.return (Election_suggest (future_n, current_i))
+      Lwt.return (Election_suggest (future_n, current_i, None))
     end
 
