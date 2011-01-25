@@ -296,9 +296,11 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                   if (Sn.compare s_i pi) == 0 
                   then Lwt_log.debug "slave_wait_for_accept: Not pushing previous"
                   else 
-                    begin 
-                    constants.on_consensus(pv,n,pi) >>= fun _ -> 
-                    Lwt_log.debug_f "slave_wait_for_accept: Pushed previous (%s %s)" (Sn.string_of s_i) (Sn.string_of pi)
+                    begin
+                    Lwt_log.debug_f "slave_wait_for_accept: Pushing previous (%s %s)" 
+                      (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
+                    constants.on_consensus(pv,n,pi) >>= fun _ ->
+                    Lwt.return ()
                     end
                 | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
                 end
@@ -433,15 +435,16 @@ let slave_discovered_other_master constants state () =
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
-      (* dirty trick to get last update *)
-      Catchup.catchup_store me store tlog_coll future_i >>= fun (f_i, vo) ->
+      tlog_coll # get_last_i () >>= fun f_i ->
+      tlog_coll # get_last_update f_i >>= fun vo ->
       start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
-      let vo' = 
+      
       begin
       match vo with 
-      | None -> None
-      | Some u -> Some ( u, f_i )
-      end in
+      | None -> Lwt_log.debug "slave_discovered_other_master: no previous" >>= fun () -> Lwt.return None
+      | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i) >>= fun () ->
+        Lwt.return ( Some ( Update.make_update_value u , f_i ) )
+      end >>= fun vo' ->
       Lwt.return (Slave_wait_for_accept (future_n, current_i, None, vo'))
     end
   else
