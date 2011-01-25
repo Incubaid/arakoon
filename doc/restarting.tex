@@ -16,16 +16,16 @@ Comprehension greatly benefits from writing out explicitly what should happen af
 The table shows the situation when the power goes off. 
 Node C became master and dictated 1 update (\emph{Set('x','X')}), received \emph{Accepted} messages from all slaves,
 after which it pushed that update to its store. 
-The question is, what happens when node C is lost and A and B are started again.
+The question is, what happens when node C is lost and A and B are started again?
 
 \paragraph{}
 It's obvious that globally, there should be consensus on the \emph{Set} update, but since there was no follow up, 
 both nodes don't realise this yet, and are trying to find out what should happen.
 A sends out a \emph{Prepare(n,i=1)} to which B answers with a \emph{Promise(n,i=1,Set('x','X'))}.
 All goes well, and A receives the promise, and thus decides that this is indeed the value for \emph{i=1}.
-It pushes the value, to the store. Node A goest into a state identical to C, before it became defunct.
+It pushes the value, to the store. 
+Node A goes into a state identical to C, before it became defunct.
 \paragraph{}
 If node A gets this far, it's a de-facto leader, and can start acting like it. 
 The next thing A does is broadcast \emph{Accept(n,2,MasterSet('A',\ldots)} and things will soon be normal again.
-
 
