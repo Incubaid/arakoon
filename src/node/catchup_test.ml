@@ -93,7 +93,7 @@ let _tic filler_function name =
   Local_store.make_local_store db_name >>= fun store ->
   let me = "??me??" in
   Catchup.verify_n_catchup_store me (store, tlog_coll, Some tlog_i) tlog_i None
-  >>= fun new_i ->
+  >>= fun (new_i,vo) ->
   Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
   store # close () >>= fun () ->

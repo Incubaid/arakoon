@@ -152,20 +152,20 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     (io_s ti_o) (Sn.string_of current_i) >>= fun () ->
   store # consensus_i () >>= fun si_o ->
   match ti_o, si_o with
-    | None, None -> Lwt.return 0L
-    | Some 0L, None -> Lwt.return 0L
+    | None, None -> Lwt.return (0L,None)
+    | Some 0L, None -> Lwt.return (0L,None)
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
-      Lwt.return i
-    | Some i, Some j when i = j -> Lwt.return (Sn.succ j)
+      Lwt.return (i,None)
+    | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
     | Some i, Some j when i > j -> 
       begin
 	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
-	Lwt.return end_i
+	Lwt.return (end_i,vo)
       end
     | Some i, None ->
       begin
 	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
-	Lwt.return end_i
+	Lwt.return (end_i,vo)
       end
     | _,_ -> 
       let msg = Printf.sprintf "%s,%s should not happen" (io_s ti_o) (io_s si_o) in
