@@ -190,21 +190,21 @@ def compare_stores( node1_id, node2_id ):
                 (k1,v1) = get_next_kv( d1_fd )
                 (k2,v2) = get_next_kv( d2_fd ) 
             if k1 < k2 :
-                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, k1) )
+                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, node2_id) )
                 diffs[node1_id][k1] = v1
                 (k1,v1) = get_next_kv( d1_fd )
             if k1 > k2 :
-                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, k2) )
+                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, node1_id) )
                 diffs[node2_id][k2] = v2
                 (k2,v2) = get_next_kv( d2_fd )
     
     if k1 != None :
-        logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node1_id) )
+        logging.debug ( "Store of %s contains more keys, store of is EOF" %  (node1_id, node2_id) )
         while k1 != None:
             diffs[node1_id][k1] = v1
             (k1,v1) = get_next_kv( d1_fd )
     if k2 != None:
-        logging.debug ( "Store of %s contains more keys, other store is EOF" %  (node2_id) )
+        logging.debug ( "Store of %s contains more keys, store of is EOF" %  (node2_id, node1_id) )
         while k2 != None:
             diffs[node2_id][k2] = v2
             (k2,v2) = get_next_kv ( d2_fd ) 
