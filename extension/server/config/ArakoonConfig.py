@@ -33,7 +33,7 @@ class ArakoonConfig:
                 tlog_dir = None,
                 cluster = "arakoon"):
         """
-        Add a node to the configuration
+        Add a node to the configuration of the supplied cluster
 
         The function also creates 
 
@@ -86,7 +86,7 @@ class ArakoonConfig:
 
     def removeNode(self, name, cluster = "arakoon"):
         """
-        Remove a node from the configuration
+        Remove a node from the configuration of the supplied cluster
 
         @param name the name of the node as configured in the config file
         @param cluster the name of the arakoon cluster
@@ -115,7 +115,7 @@ class ArakoonConfig:
 
     def setMasterLease(self, duration=None, cluster = "arakoon"):
         """
-        Set the master lease duration
+        Set the master lease duration in the supplied cluster
 
         @param duration The duration of the master lease in seconds
         @param cluster the name of the arakoon cluster
@@ -142,7 +142,7 @@ class ArakoonConfig:
         
     def forceMaster(self, name=None, cluster = "arakoon"):
         """
-        Force a master
+        Force a master in the supplied cluster
 
         @param name the name of the master to force. If None there is no longer a forced master
         @param cluster the name of the arakoon cluster
@@ -170,9 +170,9 @@ class ArakoonConfig:
 
     def setQuorum(self, quorum=None, cluster = "arakoon"):
         """
-        Set the quorom
+        Set the quorum for the supplied cluster
 
-        The quorom dictates on how many nodes need to acknowlegde the new value before it becomes accepted.
+        The quorum dictates on how many nodes need to acknowledge the new value before it becomes accepted.
         The default is (nodes/2)+1
 
         @param quorum the forced quorom. If None, the default is used 
@@ -204,7 +204,7 @@ class ArakoonConfig:
 
     def getClientConfig(self, cluster = "arakoon"):
         """
-        Get an object that contains all node information
+        Get an object that contains all node information in the supplied cluster
 
         @param cluster the name of the arakoon cluster
         @return dict the dict can be used as param for the ArakoonConfig object
@@ -223,7 +223,7 @@ class ArakoonConfig:
 
     def listNodes(self, cluster = "arakoon"):
         """
-        Get a list of all node names
+        Get a list of all node names in the supplied cluster
 
         @param cluster the name of the arakoon cluster
         @return list of strings containing the node names
@@ -234,7 +234,7 @@ class ArakoonConfig:
 
     def getNodeConfig(self, name, cluster = "arakoon"):
         """
-        Get the parameters of a node section
+        Get the parameters of a node section 
 
         @param name the name of the node
         @param cluster the name of the arakoon cluster
@@ -255,7 +255,7 @@ class ArakoonConfig:
 
     def createDirs(self, name, cluster = "arakoon"):
         """
-        Create the Directories for a local arakoon node
+        Create the Directories for a local arakoon node in the supplied cluster
 
         @param name the name of the node as configured in the config file
         @param cluster the name of the arakoon cluster
@@ -286,7 +286,7 @@ class ArakoonConfig:
 
     def removeDirs(self, name, cluster = "arakoon"):
         """
-        Remove the Directories for a local arakoon node
+        Remove the Directories for a local arakoon node in the supplied cluster
 
         @param name the name of the node as configured in the config file
         @param cluster the name of the arakoon cluster
@@ -320,6 +320,7 @@ class ArakoonConfig:
     def addLocalNode(self, name, cluster = "arakoon"):
         """
         Add a node to the list of nodes that have to be started locally
+        from the supplied cluster
 
         @param name the name of the node as configured in the config file
         @param cluster the name of the arakoon cluster
@@ -355,6 +356,7 @@ class ArakoonConfig:
     def removeLocalNode(self, name, cluster = "arakoon"):
         """
         Remove a node from the list of nodes that have to be started locally
+        from the supplied cluster
 
         @param name the name of the node as configured in the config file
         @param cluster the name of the arakoon cluster
@@ -375,7 +377,7 @@ class ArakoonConfig:
 
     def listLocalNodes(self, cluster = "arakoon"):
         """
-        Get a list of the local nodes
+        Get a list of the local nodes in the supplied cluster
 
         @param cluster the name of the arakoon cluster
         @return list of strings containing the node names

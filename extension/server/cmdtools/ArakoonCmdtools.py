@@ -38,7 +38,7 @@ class ArakoonCmdtools:
 
     def start(self, cluster = "arakoon"):
         """
-        start all nodes as configured in arakoonservernodes.cfg
+        start all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
@@ -47,7 +47,7 @@ class ArakoonCmdtools:
 
     def stop(self, cluster = "arakoon"):
         """
-        stop all nodes as configured in arakoonservernodes.cfg
+        stop all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
@@ -57,7 +57,7 @@ class ArakoonCmdtools:
 
     def restart(self, cluster = "arakoon"):
         """
-        Restart all nodes as configured in arakoonservernodes.cfg
+        Restart all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
@@ -66,7 +66,7 @@ class ArakoonCmdtools:
 
     def getStatus(self, cluster = "arakoon"):
         """
-        Get the status of all nodes as configured in arakoonservernodes.cfg
+        Get the status of all nodes in the supplied cluster
 
         @param cluster the arakoon cluster name
         @return dict node name -> status (q.enumerators.AppStatusType)
@@ -104,7 +104,7 @@ class ArakoonCmdtools:
 
     def restartOne(self, nodeName, cluster = "arakoon"):
         """
-        Restart the node with a given name
+        Restart the node with a given name in the supplied cluster
 
         @param nodeName The name of the node
         @param cluster the arakoon cluster name
@@ -116,7 +116,7 @@ class ArakoonCmdtools:
 
     def getStatusOne(self, nodeName, cluster = "arakoon"):
         """
-        Get the status node with a given name
+        Get the status node with a given name in the supplied cluster
 
         @param nodeName The name of the node
         @param cluster the arakoon cluster name
@@ -182,10 +182,10 @@ class ArakoonCmdtools:
 
     @staticmethod
     def getStorageUtilization(node=None, cluster = "arakoon"):
-        '''Calculate and return the disk usage of Arakoon on the system
+        '''Calculate and return the disk usage of the supplied arakoon cluster on the system
 
         When no node name is given, the aggregate consumption of all nodes
-        configured on the system is returned.
+        configured in the supplied cluster on the system is returned.
 
         Return format is a dictionary containing 3 keys: 'db', 'tlog' and
         'log', whose values denote the size of database files
