@@ -34,12 +34,10 @@ open Multi_paxos
 
 (* a forced master always suggests himself *)
 let forced_master_suggest constants (n,i) () =
-  let me = constants.me
-  and others = constants.others in
+  let me = constants.me in
   let n' = update_n constants n in
   mcast constants (Prepare (n',i)) >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
-  let needed = constants.quorum_function (List.length others + 1) in
   let v = Update.make_update_value (Update.make_master_set me None) in
   let who_voted = [me] in
   let v_lims = 0, [(v,1)] in
@@ -56,10 +54,8 @@ let election_suggest constants (n,i,vo) () =
       | Some x -> x , "Some _"
   in
   log ~me "election_suggest: n=%s %s"  (Sn.string_of n) msg >>= fun () ->
-  let others = constants.others in
   start_election_timeout constants n >>= fun () ->
   mcast constants (Prepare (n,i)) >>= fun () ->
-  let needed = constants.quorum_function (List.length others + 1) in
   let who_voted = [me] in
   let v_lims = 0, [(v,1)] in
   let i_lim = Some (me,i) in
@@ -387,7 +383,7 @@ let wait_for_promises constants state event =
 			end
                       else 
 			if i' > i 
-			then paxos_fatal me "too"
+			then Lwt.return (Slave_discovered_other_master (source, i, n', i'))
 			else
 			  begin
 			    log ~me "wait_for_promises:dueling; forcing new election suggest" >>= fun () ->

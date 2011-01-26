@@ -8,8 +8,8 @@ Comprehension greatly benefits from writing out explicitly what should happen af
   \multicolumn{2}{|c|}{C}
   \\\hline}
 \begin{supertabular}{|cl|cl|cl|}
-  000 & $^s$MasterSet('C',\ldots) & 000 & $^s$ MasterSet('C',\ldots) & 000 & MasterSet('C',\ldots) \\
-  001 & $^t$Set('x','X')          & 001 & $^t$ Set('x','X')          & 001 & $^{s,t}$Set('x','X')   \\
+  000 & $^s$MasterSet('C',\ldots) & 000 & $^s$MasterSet('C',\ldots) & 000 & MasterSet('C',\ldots) \\
+  001 & $^t$Set('x','X')          & 001 & $^t$Set('x','X')          & 001 & $^{s,t}$Set('x','X')   \\
 \hline
 \end{supertabular}
 \paragraph{}
@@ -36,8 +36,8 @@ The next thing A does is broadcast \emph{Accept(n,2,MasterSet('A',\ldots)} and t
   \multicolumn{2}{|c|}{N3}
   \\\hline}
 \begin{supertabular}{|l|l|l|l|l|l|}
-  i-1 & $^s$  v0 & i-1 & $^t$ v0 & i-1 & $^t$ v0\\\hline
-  i   & $^t$  v1 &   i &         &   i &        \\
+  i-1 & $^s$v0 & i-1 & $^t$v0 & i-1 & $^t$v0\\\hline
+  i   & $^t$v1 &   i &        &   i &       \\
 \hline
 \end{supertabular}
 \paragraph{}
@@ -51,8 +51,8 @@ They come up, resume service, and accept and reach consensus on a new value \emp
   \multicolumn{2}{|c|}{N3}
   \\\hline}
 \begin{supertabular}{|l|l|l|l|l|l|}
-  i-1 & $^s$  v0 & i-1 & $^s$ v0 & i-1 & $^s$ v0\\\hline
-  i   & $^t$  v1 &   i & $^t$ v2 &   i & $^t$ v2\\
+  i-1 & $^s$v0 & i-1 & $^s$v0 & i-1 & $^s$v0\\\hline
+  i   & $^t$v1 &   i & $^t$v2 &   i & $^t$v2\\
 \hline
 \end{supertabular}
 \paragraph{}
