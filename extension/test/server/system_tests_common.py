@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 
 from pymonkey import q, i
@@ -199,12 +199,12 @@ def compare_stores( node1_id, node2_id ):
                 (k2,v2) = get_next_kv( d2_fd )
     
     if k1 != None :
-        logging.debug ( "Store of %s contains more keys, store of is EOF" %  (node1_id, node2_id) )
+        logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node1_id, node2_id) )
         while k1 != None:
             diffs[node1_id][k1] = v1
             (k1,v1) = get_next_kv( d1_fd )
     if k2 != None:
-        logging.debug ( "Store of %s contains more keys, store of is EOF" %  (node2_id, node1_id) )
+        logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node2_id, node1_id) )
         while k2 != None:
             diffs[node2_id][k2] = v2
             (k2,v2) = get_next_kv ( d2_fd ) 
