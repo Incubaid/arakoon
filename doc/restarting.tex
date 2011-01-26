@@ -29,3 +29,38 @@ Node A goes into a state identical to C, before it became defunct.
 If node A gets this far, it's a de-facto leader, and can start acting like it. 
 The next thing A does is broadcast \emph{Accept(n,2,MasterSet('A',\ldots)} and things will soon be normal again.
 
+\subsection{Unfortunate sequence of events}
+\tablehead{
+  \multicolumn{2}{|c|}{N1}& 
+  \multicolumn{2}{|c|}{N2}&
+  \multicolumn{2}{|c|}{N3}
+  \\\hline}
+\begin{supertabular}{|l|l|l|l|l|l|}
+  i-1 & $^s$  v0 & i-1 & $^t$ v0 & i-1 & $^t$ v0\\\hline
+  i   & $^t$  v1 &   i &         &   i &        \\
+\hline
+\end{supertabular}
+\paragraph{}
+A the starting situation is reached by a cluster where N1, being master accepted \emph{v1} at \emph{i} after which aferything goes down.
+After this, there are some problems with the master node (N1) and only N2 and N3 are restarted.
+They come up, resume service, and accept and reach consensus on a new value \emph{v2}.
+\\
+\tablehead{
+  \multicolumn{2}{|c|}{N1}& 
+  \multicolumn{2}{|c|}{N2}&
+  \multicolumn{2}{|c|}{N3}
+  \\\hline}
+\begin{supertabular}{|l|l|l|l|l|l|}
+  i-1 & $^s$  v0 & i-1 & $^s$ v0 & i-1 & $^s$ v0\\\hline
+  i   & $^t$  v1 &   i & $^t$ v2 &   i & $^t$ v2\\
+\hline
+\end{supertabular}
+\paragraph{}
+Then, disaster strikes again, and both N2 and N3 are stopped. 
+There seems to be a problem with N3, but the sysads did a great job and restored N1.
+Both N1 and N2 are started. 
+Now N1 promises v1 to N2 and N2 promises v2 to N1. 
+Neither can reach consensus and progress is blocked.
+
+
+
