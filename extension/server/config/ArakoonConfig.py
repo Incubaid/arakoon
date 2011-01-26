@@ -59,7 +59,7 @@ class ArakoonConfig:
         nodes = self.__getNodes(config)
 
         if name in nodes:
-            raise Exception("There is already a node with name %s configured" % name)
+            raise Exception("There is already a node with name %s configured in cluster %s" % (name, cluster) )
 
         nodes.append(name)
         config.addSection(name)
@@ -96,7 +96,7 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name, cluster) )
 
         nodes = self.__getNodes(config)
 
@@ -111,7 +111,7 @@ class ArakoonConfig:
             config.write()
             return
 
-        raise Exception("No node with name %s configured" % name)
+        raise Exception("No node with name %s configured in cluster %s" % (name, cluster) )
 
     def setMasterLease(self, duration=None, cluster = "arakoon"):
         """
@@ -126,7 +126,7 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection( section ):
-            raise Exception("Section '%s' not found in arakoon config" % section )
+            raise Exception("Section '%s' not found in config for cluster %s" % (section,cluster) )
 
         if duration is not None:
             if not isinstance( duration, int ) :
@@ -150,14 +150,14 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
         if name:
             nodes = self.__getNodes(config)
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured" % name)
+                raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
             if config.checkParam("global", "master"):
                 config.setParam("global", "master", name)
@@ -250,7 +250,7 @@ class ArakoonConfig:
         if name in nodes:
             return config.getSectionAsDict(name)
         else:
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
 
     def createDirs(self, name, cluster = "arakoon"):
@@ -265,7 +265,7 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
         nodes = self.__getNodes(config)
 
@@ -282,7 +282,7 @@ class ArakoonConfig:
 
             return
 
-        raise Exception("No node with name %s configured" % name)
+        raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
     def removeDirs(self, name, cluster = "arakoon"):
         """
@@ -296,7 +296,8 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection('global'):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+
 
         nodes = self.__getNodes(config)
 
@@ -311,8 +312,9 @@ class ArakoonConfig:
             log_dir = config.getValue(name, "log_dir")
             q.system.fs.removeDirTree(log_dir)
             return
+        
+        raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
-        raise Exception("No node with name %s configured" % name)
 
 
     def addLocalNode(self, name, cluster = "arakoon"):
@@ -327,7 +329,7 @@ class ArakoonConfig:
         config = q.config.getInifile(cluster)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
+            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
         nodes = self.__getNodes(config)
 
@@ -340,15 +342,15 @@ class ArakoonConfig:
 
             nodes = self.__getNodes(nodesconfig)
             if name in nodes:
-                raise Exception("There is already a node with name %s configured" % name)
+                raise Exception("There is already a node with name %s configured in cluster %s" % (name, cluster) )
             nodes.append(name)
             nodesconfig.setParam("global","nodes", ",".join(nodes))
 
             nodesconfig.write()
 
             return
-
-        raise Exception("No node with name %s configured" % name)
+        
+        raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
     def removeLocalNode(self, name, cluster = "arakoon"):
         """
@@ -382,7 +384,7 @@ class ArakoonConfig:
 
         return self.__getNodes(config)
 
-    def setUp(self, number_of_nodes, cluster = "arakoon"):
+    def setUp(self, number_of_nodes ):
         """
         Sets up a local environment
 
@@ -391,6 +393,9 @@ class ArakoonConfig:
 
         @return the dict that can be used as a param for the ArakoonConfig object
         """
+        
+        cluster = "arakoon"
+        
         for i in range(0, number_of_nodes):
             nodeName = "arakoon_%s" %i
             self.addNode(name=nodeName, client_port=7080+i,messaging_port=10000+i, cluster = cluster)
@@ -400,13 +405,14 @@ class ArakoonConfig:
         if number_of_nodes > 0:
             self.forceMaster("arakoon_0", cluster = cluster)
 
-    def tearDown(self, removeDirs=True, cluster = "arakoon"):
+    def tearDown(self, removeDirs=True ):
         """
         Tears down a local environment
 
         @param removeDirs remove the log and home dir
         @param cluster the name of the arakoon cluster
         """
+        cluster = "arakoon"
         config = q.config.getInifile(cluster)
 
         if not config.checkSection('global'):

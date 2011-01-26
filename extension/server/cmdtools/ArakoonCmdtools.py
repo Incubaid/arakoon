@@ -29,6 +29,8 @@ import itertools
 import subprocess
 import time
 
+EXC_MSG_NOT_LOCAL_FMT = "Node %s is not a local node in cluster %s" 
+
 class ArakoonCmdtools:
     def __init__(self):
         self._binary = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoond")
@@ -84,7 +86,7 @@ class ArakoonCmdtools:
         @param cluster the arakoon cluster name
         """
         if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception("Node %s is not a local node")
+            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster))
 
         self._startOne(nodeName, cluster = cluster)
 
@@ -96,7 +98,7 @@ class ArakoonCmdtools:
         @param cluster the arakoon cluster name
         """
         if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception("Node %s is not a local node")
+            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster))
 
         self._stopOne(nodeName, cluster = cluster)
 
@@ -108,7 +110,7 @@ class ArakoonCmdtools:
         @param cluster the arakoon cluster name
         """
         if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception("Node %s is not a local node")
+            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster) )
 
         self._restartOne(nodeName, cluster = cluster)
 
@@ -120,7 +122,7 @@ class ArakoonCmdtools:
         @param cluster the arakoon cluster name
         """
         if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception("Node %s is not a local node")
+            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster) )
 
         return self._getStatusOne(nodeName, cluster = cluster)
 
@@ -137,7 +139,7 @@ class ArakoonCmdtools:
                               close_fds=True)
 
         if ret != 0:
-            raise Exception("Arakoon Daemon %s could not be started" % name)
+            raise Exception("Arakoon Daemon %s could not be started (cluster: %s)" % (name,cluster) )
 
     def _stopOne(self, name, cluster = "arakoon"):
         subprocess.call(['pkill', \
@@ -204,7 +206,7 @@ class ArakoonCmdtools:
         local_nodes = q.config.arakoon.listLocalNodes(cluster = cluster)
 
         if node is not None and node not in local_nodes:
-            raise ValueError('No such local node')
+            raise ValueError(EXC_MSG_NOT_LOCAL_FMT % (node, cluster))
 
         def helper(config):
             home = config['home']
