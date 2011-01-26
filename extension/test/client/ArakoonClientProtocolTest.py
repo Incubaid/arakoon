@@ -24,7 +24,7 @@ If not, see <http://www.gnu.org/licenses/>.
 #from pymonkey import q
 from nose.tools import *
 
-from Arakoon import *
+from arakoon import *
 
 UT_ENCODED_GET_REQUEST = "0800EDFE030000006B6579"
 UT_ENCODED_SET_REQUEST = "0900EDFE030000006B65790500000076616C7565"
