@@ -67,10 +67,21 @@ let network_of_messaging (m:messaging) =
   send, receive, run, register
 
 
-let maybe_add vs = function
-  | None -> vs
-  | Some x -> x :: vs
-
+let update_votes (nones,somes) = function
+  | None -> (nones+1, somes)
+  | Some x -> 
+    let rec build_new acc = function
+      | [] -> (x,1)::acc
+      | (a,fa) :: afs -> 
+	if a = x 
+	then ((a,fa+1) :: afs) @ acc 
+	else let acc' = (a,fa) :: acc  in build_new acc' afs
+    in
+    let tmp = build_new [] somes in
+    let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
+    (nones, somes')
+				      
+(*
 let choose_value me v v_lims =
   match v_lims with
     | [] -> Lwt.return (Some v)
@@ -81,6 +92,7 @@ let choose_value me v v_lims =
 	  log ~me "conflict choosing value!" >>= fun () ->
 	  Lwt.return None
 	end
+*)
 
 type paxos_event =
   | FromClient of ((Value.t option) * (Store.update_result -> unit Lwt.t))

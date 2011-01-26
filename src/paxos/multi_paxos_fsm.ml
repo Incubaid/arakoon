@@ -41,10 +41,10 @@ let forced_master_suggest constants (n,i) () =
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
   let v = Update.make_update_value (Update.make_master_set me None) in
-  let ballot = (needed -1, [me] ) in
-  let v_lims = [v] in
+  let who_voted = [me] in
+  let v_lims = 0, [(v,1)] in
   let i_lim = Some (me,i) in
-  let state = (n', i, ballot, v, v_lims, i_lim) in
+  let state = (n', i, who_voted, v, v_lims, i_lim) in
   Lwt.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
@@ -60,10 +60,10 @@ let election_suggest constants (n,i,vo) () =
   start_election_timeout constants n >>= fun () ->
   mcast constants (Prepare (n,i)) >>= fun () ->
   let needed = constants.quorum_function (List.length others + 1) in
-  let ballot = (needed -1, [me] ) in
-  let v_lims = [v] in
+  let who_voted = [me] in
+  let v_lims = 0, [(v,1)] in
   let i_lim = Some (me,i) in
-  let state = (n, i, ballot, v, v_lims, i_lim) in
+  let state = (n, i, who_voted, v, v_lims, i_lim) in
   Lwt.return (Promises_check_done state)
 
 
@@ -128,8 +128,48 @@ let slave_waiting_for_prepare constants current_i event =
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
-  let n, i, ballot, wanted, v_lims, i_lim = state in
-  let (to_receive, _) = ballot in
+  let n, i, who_voted, wanted, (v_lims:v_limits), i_lim = state in
+  (* 3 cases:
+     -) too early to decide
+     -) consensus on some value (either my wanted or another)
+     -) no consensus possible anymore. (split vote)
+  *)
+  let me = constants.me in
+  let nnones, v_s = v_lims in 
+  let bv,bf = List.hd v_s in
+  let nnodes = List.length constants.others + 1 in
+  let needed = constants.quorum_function nnodes in
+  let nvoted = List.length who_voted in
+  if bf + nnones = needed 
+  then
+    begin
+      log ~me "promises_check_done: consensus on %s" (Sn.string_of i)
+      >>= fun () ->
+      constants.on_accept (bv,n,i) >>= fun v ->
+      let msg = Accept(n,i,bv) in
+      mcast constants msg >>= fun () ->
+      let new_ballot = (needed-1 , [me] ) in
+      Lwt.return (Accepteds_check_done (None, n, i, new_ballot, v))
+    end
+  else (* bf < needed *)
+    if nvoted < nnodes 
+    then Lwt.return (Wait_for_promises state)
+    else (* split vote *)
+      begin
+    	if am_forced_master constants me
+	then
+	  Lwt.return (Forced_master_suggest (n,i))
+	else 
+	  if is_election constants 
+	  then
+	    let n' = update_n constants n in
+	    Lwt.return (Election_suggest (n',i, None))
+	  else
+	    paxos_fatal me "slave checking for promises"
+      end
+	
+    
+(*
   let me = constants.me in
   let others = constants.others in
   log ~me "promises_check_done:to_receive=%i" to_receive >>= fun () ->
@@ -164,7 +204,8 @@ let promises_check_done constants state () =
 		  | Some s -> s 
 		  | None -> failwith "None should not happen here"
 		in
-		log ~me "promises_check_done: first catchup till %S from %s" (Sn.string_of future_i) source' >>= fun () ->
+		log ~me "promises_check_done: first catchup till %S from %s" 
+  (Sn.string_of future_i) source' >>= fun () ->
 		Catchup.catchup me other_cfgs (store, tlog_coll) i source' (n, future_i)
 		 >>= fun (future_n', current_i', vo') ->
 		Lwt.return (future_n',current_i')
@@ -198,6 +239,7 @@ let promises_check_done constants state () =
     end
   else
     Lwt.return (Wait_for_promises state)
+*)
 
 (* a potential master is waiting for promises and receives a msg *)
 let wait_for_promises constants state event =
@@ -205,33 +247,34 @@ let wait_for_promises constants state event =
   match event with
     | FromNode (msg,source) ->
       begin
-        let (n, i, ballot, wanted, v_lims, i_lim) = state in
-        let to_receive, already_voted = ballot in
+        let (n, i, who_voted, wanted, v_lims, i_lim) = state in
         let drop msg reason = log ~me "dropping %s because: %s" (string_of msg) reason >>= fun () ->
         Lwt.return (Wait_for_promises state) in
-        log ~me "wait_for_promises:i=%S to_receive=%i" (Sn.string_of i) to_receive >>= fun () ->
+	let who_voted_s = Log_extra.string_of_list (fun s -> s) who_voted in
+        log ~me "wait_for_promises:i=%s who_voted = %s" (Sn.string_of i) who_voted_s 
+	>>= fun () ->
         begin
-          log ~me "wait_for_promises:: received %S from %s" (string_of msg) source >>= fun () ->
+          log ~me "wait_for_promises:: received %S from %s" (string_of msg) source 
+	  >>= fun () ->
           match msg with
             | Promise (n' ,i', limit) when n' < n ->
               let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
               drop msg reason
             | Promise (n' ,new_i, limit) when n' = n ->
-              if List.mem source already_voted then
+              if List.mem source who_voted then
                 drop msg "duplicate promise"
               else
-                let v_lims' = maybe_add v_lims limit in
-                let to_receive = to_receive - 1 in
-                let ballot' = (to_receive, source :: already_voted) in
+                let v_lims' = update_votes v_lims limit in
+                let who_voted' = source :: who_voted in
                 let new_ilim = match i_lim with
                   | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
                   | None -> Some (source,new_i)
 		            in
-                let state' = (n, i, ballot', wanted, v_lims', new_ilim) in
+                let state' = (n, i, who_voted', wanted, v_lims', new_ilim) in
                 Lwt.return (Promises_check_done state')
             | Promise (n' ,i', limit) when n' > n ->
             begin
-              log ~me "Received Promise from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
+              log ~me "Received Promise from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
               let new_n = update_n constants n' in
               Lwt.return (Election_suggest (new_n,i, None))
@@ -244,7 +287,7 @@ let wait_for_promises constants state event =
             end
             | Nak (n',(n'',i')) when n' > n ->
             begin
-              log ~me "Received Nak from pevious incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
+              log ~me "Received Nak from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
               >>= fun () ->
               let new_n = update_n constants n' in
               Lwt.return (Election_suggest (new_n,i, None))
