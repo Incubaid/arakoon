@@ -24,6 +24,10 @@ If not, see <http://www.gnu.org/licenses/>.
 type finished_fun = Store.update_result -> unit Lwt.t
 type master_option = finished_fun option
 
+type v_limits = int * (Value.t * int) list 
+     (* number of times None was chosen;
+        all Some v promises and their frequency *)
+
 type transitions =
   (* dummy to always have a previous transition *)
   | Start_transition
@@ -45,10 +49,12 @@ type transitions =
 					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
 
   | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			      (int * Messaging.id list) * Value.t * Value.t list * 
+			      Messaging.id list * Value.t * 
+			      v_limits * 
 			      (string * Mp_msg.MPMessage.n) option)
   | Wait_for_promises of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			    (int * Messaging.id list) * Value.t * Value.t list * 
+			    Messaging.id list * Value.t * 
+			    v_limits * 
 			    (string * Mp_msg.MPMessage.n) option)
   | Accepteds_check_done of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
 			       (int * Messaging.id list) * Value.t)
