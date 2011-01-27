@@ -131,7 +131,15 @@ let _validate_one tlog_name =
   Lwt.catch
     (fun () ->
       let first = Sn.of_int 0 in
-      let do_it ic = Tlogreader2.AU.fold ic Sn.start None ~first None
+      let folder = 
+      begin
+        if is_compressed tlog_name 
+        then 
+          Tlogreader2.AC.fold
+        else 
+          Tlogreader2.AU.fold
+      end in
+      let do_it ic = folder ic Sn.start None ~first None
 	(fun a0 (i,u) -> let r = Some (i,u) in let () = prev_entry := r in Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
@@ -184,7 +192,18 @@ let validate_last tlog_dir =
       let n = List.length tlog_names in
       let last = List.nth tlog_names (n-1) in
       let fn = Filename.concat tlog_dir last in
-      _validate_list [fn]
+      _validate_list [fn] >>= fun (validity, last_i) ->
+        match last_i with
+          | None -> 
+            begin
+              if n > 1 then
+                let prev_last = List.nth tlog_names (n-2) in 
+                let last_non_empty = Filename.concat tlog_dir prev_last in
+                _validate_list [last_non_empty]
+              else
+                Lwt.return (validity, last_i)
+            end 
+          | Some i -> Lwt.return (validity, last_i)
 
 
 let validate tlog_dir = 

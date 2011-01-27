@@ -27,6 +27,64 @@ open Extra
 
 let wrap_tlc = Tlogcollection_test.wrap Tlc2.make_tlc2
 
+let prepare_tlog_scenarios (dn,factory) =
+  let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
+  Tlogcommon.tlogEntriesPerFile := 5 ;
+  factory dn >>= fun tlog_coll ->
+  let update = Update.make_master_set "me" None in
+  tlog_coll # log_update 0L update >>= fun _ ->
+  tlog_coll # log_update 1L update >>= fun _ ->
+  tlog_coll # log_update 2L update >>= fun _ ->
+  tlog_coll # log_update 3L update >>= fun _ ->
+  tlog_coll # log_update 4L update >>= fun _ ->
+  tlog_coll # close () >>= fun _ ->
+  Lwt.return old_tlog_entries_value
+
+let test_interrupted_rollover (dn,factory) =
+  prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
+  let fn = Filename.concat dn "001.tlog" in
+  Unix.unlink fn;
+  factory dn >>= fun tlog_coll ->
+  let update = Update.make_master_set "me" None in
+  tlog_coll # log_update 5L update >>= fun _ ->
+  tlog_coll # close () >>= fun _ ->
+  Tlc2.get_tlog_names dn >>= fun tlog_names ->
+  let n = List.length tlog_names in
+  Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
+  let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
+  Lwt.return (OUnit.assert_equal ~msg n 2) 
+  
+
+let test_validate_at_rollover_boundary (dn,factory) =
+  prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
+  factory dn >>= fun val_tlog_coll ->
+  val_tlog_coll # validate_last_tlog () >>= fun (validity, lasti) ->
+  let lasti_str = 
+  begin
+    match lasti with
+      | None -> "None"
+      | Some i -> Sn.string_of i
+  end in
+  val_tlog_coll # close () >>= fun _ ->
+  let msg = Printf.sprintf "Values of is are different 4 <> %s" lasti_str in
+  begin
+    if lasti <> (Some 4L)
+    then Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value
+  end;
+  OUnit.assert_equal ~msg lasti (Some 4L) ;
+  factory dn >>= fun tlog_coll ->
+  let update = Update.make_master_set "me" None in
+  tlog_coll # log_update 5L update >>= fun _ ->
+  tlog_coll # log_update 6L update >>= fun _ ->
+  tlog_coll # log_update 7L update >>= fun _ ->
+  tlog_coll # log_update 8L update >>= fun _ ->
+  tlog_coll # log_update 9L update >>= fun _ ->    
+  Tlc2.get_tlog_names dn >>= fun tlog_names ->
+  let n = List.length tlog_names in
+  Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
+  let msg = Printf.sprintf "Number of tlogs incorrect. Expected 3, got %d" n in
+  Lwt.return (OUnit.assert_equal ~msg n 3)
+
 let suite = "tlc2" >:::[
   "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
   "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
@@ -39,4 +97,6 @@ let suite = "tlc2" >:::[
   "validate" >:: wrap_tlc Tlogcollection_test.test_validate_normal;
   "validate_corrupt" >:: wrap_tlc Tlogcollection_test.test_validate_corrupt_1;
   "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;
+  "test_rollover_boundary" >:: wrap_tlc test_validate_at_rollover_boundary;
+  "test_interrupted_rollover" >:: wrap_tlc test_interrupted_rollover;
 ]
