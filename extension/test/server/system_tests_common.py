@@ -534,7 +534,10 @@ def assert_get( client, key, value):
 def set_get_and_delete( client, key, value):
     client.set( key, value )
     assert_equals( client.get(key), value )
-    client.delete( key )
+    try:
+        client.delete( key )
+    except ArakoonNotFound as ex:
+        logging.debug( "Caught ArakoonNotFound on delete. Ignoring" )
     assert_raises ( ArakoonNotFound, client.get, key )
 
 def mindless_retrying_set_get_and_delete( client, key, value ):
