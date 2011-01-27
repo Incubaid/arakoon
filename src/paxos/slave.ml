@@ -260,7 +260,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	match msg with
 	  | Prepare (n',i') ->
 	    constants.on_witness source i' >>= fun () ->
-	    if n' < n then
+	    if n' <= n then
 	      begin
 		 let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> 
 		log ~me "slave_wait_for_accept: ignoring %S with lower or equal n" (string_of msg)
@@ -269,17 +269,17 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	    else 
 	      begin
-		let vo2 = if n' = n then vo else None in
+		
 		let next_n, reply =
                   if Sn.compare i' i >= 0 
                   then
-		    n',Promise (n',i,vo2) 
+		    n',Promise (n',i,vo) 
                   else
                     n, Nak(n',(n,i)) 
                 in
 		send reply me source >>= fun () ->
 		log ~me "slave_wait_for_accept: sent %s" (string_of reply) >>= fun () ->
-		Lwt.return (Slave_wait_for_accept (next_n, i, vo2, maybe_previous))
+		Lwt.return (Slave_wait_for_accept (next_n, i, vo, maybe_previous))
 	      end
 	  | Accept (n',i',v) when (n',i')=(n,i) ->
 	    begin

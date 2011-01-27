@@ -102,7 +102,8 @@ let stable_master constants (v',n,new_i) = function
 	      constants.on_witness source i' >>= fun () ->
 	      if am_forced_master constants me
 	      then
-		Lwt.return (Forced_master_suggest (n',new_i))
+          let new_n = update_n constants n' in
+            Lwt.return (Forced_master_suggest (new_n,new_i))
 	      else if is_election constants
 	      then
 		let reply = Promise(n',new_i,None) in
