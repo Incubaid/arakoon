@@ -173,6 +173,9 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
 	Lwt.return (end_i,vo)
       end
     | _,_ -> 
-      let msg = Printf.sprintf "%s,%s should not happen" (io_s ti_o) (io_s si_o) in
+      let msg = Printf.sprintf 
+	"ti_o:%s, si_o:%s should not happen: tlogs have been removed?" 
+	(io_s ti_o) (io_s si_o) 
+      in
       Lwt.fail (Failure msg)
 
