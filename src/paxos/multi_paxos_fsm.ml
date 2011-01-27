@@ -434,8 +434,6 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Accepted (n',i') when n' > n ->
-	    paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
 	  | Accepted (n',i') when n' < n ->
 	    begin
 	      constants.on_witness source i' >>= fun () ->
@@ -443,6 +441,9 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(Sn.string_of n) (Sn.string_of i) in
 	      drop msg reason
 	    end
+	  | Accepted (n',i') -> (* n' > n *)
+	    paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
+	      
 	  | Promise(n',i', limit) ->
 	    begin
 	      constants.on_witness source i' >>= fun () ->
@@ -469,7 +470,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		(MPMessage.string_of reply1) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Prepare (n',i') when n' > n ->
+	  | Prepare (n',i') -> (* n' > n *)
 	    begin
 	      if am_forced_master constants me
 	      then
@@ -523,7 +524,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
               let new_state = (source,i,n',i') in 
               Lwt.return (Slave_discovered_other_master new_state)
             end
-	  | Accept (n',i',v') when n' == n ->
+	  | Accept (n',i',v') -> (* n' = n *)
 	    paxos_fatal me "wait_for_accepteds: received %S with same n: FATAL" 
 	      (string_of msg)
       end
@@ -618,6 +619,7 @@ let machine constants =
 
   | Election_suggest state ->
     (Unit_arg (election_suggest constants state), nop)
+  | Start_transition -> failwith "Start_transition?"
 
 let trace_transition me key =
       log ~me "new transition: %s" (show_transition key)
@@ -677,6 +679,7 @@ let rec paxos_produce buffers
 	[ready_from_election_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
 	[ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
+      | Nop -> failwith "Nop should not happen here"
   in
   Lwt.catch 
     (fun () ->

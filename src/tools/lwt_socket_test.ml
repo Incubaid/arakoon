@@ -49,7 +49,10 @@ let test_leak () =
 		Lwt_unix.sleep 0.1 >>= fun () ->
 		Lwt_io.write_char oc 'd' >>= fun () ->
 		Lwt.return ())
-	      (function End_of_file -> Lwt.return ())
+	      (function 
+		| End_of_file -> Lwt.return ()
+		| e -> Lwt.fail e
+	      )
 	  )
 	  (fun () ->
 	    Lwt_io.close ic >>= fun () ->
