@@ -118,7 +118,7 @@ let post_failure () =
     let key = "x" in
     store0 # exists key >>= fun b ->
     Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
-    OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not b);
+    OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
   in
   Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
