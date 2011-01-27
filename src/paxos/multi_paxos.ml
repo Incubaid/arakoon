@@ -81,19 +81,6 @@ let update_votes (nones,somes) = function
     let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
     (nones, somes')
 				      
-(*
-let choose_value me v v_lims =
-  match v_lims with
-    | [] -> Lwt.return (Some v)
-    | vs' -> if List.mem v vs'
-      then Lwt.return (Some v)
-      else
-	begin
-	  log ~me "conflict choosing value!" >>= fun () ->
-	  Lwt.return None
-	end
-*)
-
 type paxos_event =
   | FromClient of ((Value.t option) * (Store.update_result -> unit Lwt.t))
   | FromNode of (MPMessage.t * Messaging.id)
