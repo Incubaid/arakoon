@@ -38,10 +38,10 @@ object(self)
       id (string_of msg) target >>= fun () ->
     m # send_message msg id target 
       
-  method serve ?(n=100) opp = 
+  method serve ?(n=100) ?(lowest=0) opp = 
     let msg = make_msg "ping" n in 
     m # send_message msg "a" opp >>= 
-    self # run 
+    self # run lowest
   
   method multi_serve n targets =
     let msg = make_msg "ping" n in
@@ -66,44 +66,39 @@ object(self)
 
   method play_dead () =
     Lwt_unix.sleep 10000000.0 
-(*
-    let capacity = None in
-    let buf = Lwt_buffer.create ~capacity () in
 
-    m # recv_message id >>= fun ( msg, source ) ->
-    Lwt_buffer.add msg buf >>= fun () ->
-    Lwt_log.debug_f "%s enqueueing message %s" id msg.payload >>= fun() ->
-    match msg.kind with
-    | "ping" -> self # play_dead()
-    | "pong" -> Lwt.return ()
-*)
-
-  method get_lowest () = _lowest
-  method private _maybe_update i =
-    match _lowest with
-      | None -> _lowest <- Some i
-      | Some j -> if i < j then _lowest <- Some i
 
   method mcast_msg targets msg =
     Lwt_list.iter_p (fun t -> self#_send t msg) targets
     
-  method run () =
-    m # recv_message id  >>= fun (msg, source) ->
-    match msg.kind with
-      | "ping" ->
-	let i = int_of_string msg.payload in
-	let () = self # _maybe_update i in
-	let msg = make_msg "pong" i in
-        (self #_send source msg >>= self # run )
-      | "pong" ->
-	let i = int_of_string msg.payload in
-	let () = self # _maybe_update i in
-	if i > 0 then 
-	  let msg = make_msg "ping" (i-1) in
-	  self # _send source msg
-	   >>= self # run 
-	else Lwt.return () 
-      | _ -> Lwt.fail (Failure "unknown message")
+  method run (lowest:int) ()=
+
+    let rec loop () =
+      begin
+	m # recv_message id  >>= fun (msg, source) ->
+	let reply =
+	  match msg.kind with
+	    | "ping" ->
+	      let i = int_of_string msg.payload in
+	      let msg = make_msg "pong" i in
+	      Some msg
+	    | "pong" ->
+	      let i = int_of_string msg.payload in
+	      if i > lowest
+	      then 
+		let msg = make_msg "ping" (i-1) in
+		Some msg
+	      else 
+		None 
+	    | _ -> failwith "unknown message"
+	in
+	match reply with
+	  | None -> Lwt.return ()
+	  | Some msg -> 
+	    self # _send source msg >>= fun () -> 
+	    loop ()
+      end
+    in loop ()
 end 
   
 let make_transport address = 
@@ -126,7 +121,7 @@ let test_pingpong_1x1 () =
 			   begin 
 			     Lwt_condition.wait cvar >>= fun () ->
 			     Lwt_log.debug "going to serve" >>= fun () ->
-			     player_a # serve "a" 
+			     player_a # serve "a"
 			   end;
 			   eventually_die ()
 			 ])
@@ -148,7 +143,7 @@ let test_pingpong_2x2 () =
   Lwt_main.run (Lwt.pick [ transport_a # run ();
 			   transport_b # run ();
 			   player_a # serve "b";
-			   player_b # run ();
+			   player_b # run 0 ();
 			   eventually_die ()
 			 ])
     
@@ -177,7 +172,7 @@ let test_pingpong_multi_server () =
                            transport_b # run ();
                            transport_c # run ();
                            player_a # multi_serve 10000 ["b"; "c" ] ;
-                           player_b # run ();
+                           player_b # run 0 ();
                            player_c # play_dead ();
                            eventually_die ~t:timeout () 
                          ])
@@ -198,54 +193,30 @@ let test_pingpong_restart () =
   let () = t_b # register_receivers mapping in
   let player_a = new player "a" t_a in
   let player_b = new player "b" t_b in
-  let (w,u) = Lwt.wait () in
-  let a_stop () = 
-    Lwt_log.debug "a_stop" >>= fun () ->
-    let lp = player_a # get_lowest () in
-    match lp with
-      | Some i when i = 50 -> 
-	begin
-	  Lwt_log.debug "a_stop is true" >>= fun () -> 
-	  Lwt.wakeup u ();
-	  Lwt.return true
-	end
-      | _ -> Lwt.return false
-  in
-  let restart_a () = 
-    t_a # set_stop a_stop ;
-    Lwt.pick [
-      t_a # run () ;
-      w >>= fun () -> Lwt.return ()
-    ] >>= fun () ->
-    Lwt_log.info "should restart networking" >>= fun () ->
-    let t_a' = make_transport address_a in
-    let () = t_a' # register_receivers mapping in
-    let player_a' = new player "a" t_a' in
-    let c_a' = Lwt_condition.create() in
-    let a2_up () = Lwt_condition.signal c_a' (); Lwt.return () in
-    Lwt.pick [
-      (Lwt_log.info "new network" >>= fun () -> 
-       t_a' # run ~up_and_running:a2_up ()); 
-      begin 
-	Lwt_condition.wait c_a' >>= fun () -> 
-	Lwt_log.debug "a' will be serving momentarily" >>= fun () ->
-	player_a' # serve ~n:200 "b" 
-      end
-    ]
-    >>= fun () ->
-    Lwt_log.info "restart_a: after pick"
-  in
-  let c_b = Lwt_condition.create () in
-  let b_up () = Lwt_condition.signal c_b (); Lwt.return () in
   let main_t = 
-    Lwt.pick [ restart_a () ;
-	       t_b # run ~up_and_running:b_up ();
-	       begin
-		 Lwt_condition.wait c_b >>= fun () ->player_a # serve "b"
-	       end;
-	       player_b # run () ;
-	       eventually_die () ]
-      >>= fun () -> Lwt_log.info "main_t: after pick"
+    Lwt.pick [ 
+      begin 
+	Lwt.pick [ t_a # run ();
+		   player_a # run 50 () >>= fun () -> Lwt_log.debug "a done" 
+		 ]
+	>>= fun () ->
+	let t_a' = make_transport address_a in
+	let () = t_a' # register_receivers mapping in
+	let player_a' = new player "a" t_a' in
+	Lwt.pick [
+	  (Lwt_log.info "new network" >>= fun () -> 
+	   t_a' # run ()); 
+	  begin 
+	    Lwt_log.debug "a' will be serving momentarily" >>= fun () ->
+	    player_a' # serve ~n:200 "b" 
+	  end
+	]
+      end;
+      t_b # run ();
+      player_a # serve "b";
+      player_b # run 0 ();
+      eventually_die () ]
+    >>= fun () -> Lwt_log.info "main_t: after pick"
   in
   Lwt_main.run main_t
 

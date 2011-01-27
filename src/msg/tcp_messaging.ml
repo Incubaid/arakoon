@@ -45,7 +45,6 @@ object(self : # messaging )
   val _connections_lock = Lwt_mutex.create ()
   val _qs = Hashtbl.create 10
   val _outgoing = Hashtbl.create 10 
-  val mutable _stop = stop
   val mutable _running = false
   val _running_c = Lwt_condition.create ()
   val mutable _my_threads = []
@@ -58,7 +57,6 @@ object(self : # messaging )
     try Some (Hashtbl.find _id2address target)
     with Not_found -> None
 
-  method set_stop (stop:unit -> bool Lwt.t) = _stop <- stop
 
   method expect_reachable ~target = 
     match self # _get_target_address ~target with
@@ -66,16 +64,6 @@ object(self : # messaging )
       | Some address -> Hashtbl.mem _connections address
 	
 	
-  method private __fuse__ f = 
-    _stop () >>= function
-      | true ->
-	begin
-	  Lwt_log.info_f "tcp_messaging %s:ending loop" me>>= fun () ->
-	  self # __die__ () 
-	end
-      | false -> f ()
-
-
   method private __die__ () = 
     Lwt_log.debug_f "tcp_messaging %s: cancelling my threads" me >>= fun () ->
     List.iter (fun w -> Lwt.cancel w) _my_threads;
@@ -214,7 +202,7 @@ object(self : # messaging )
 	  | None -> (* we don't talk to strangers *)
 	    Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
       end
-      >>= fun () -> self # __fuse__ _loop_for_q
+      >>= fun () -> _loop_for_q ()
     in
     let (w,u) = Lwt.task () in
     let thread () =
@@ -292,7 +280,7 @@ object(self : # messaging )
 	    let msg, _   = Message.from_buffer buffer pos2 in
 	    let q = self # get_buffer target in
 	    Lwt_buffer.add (msg, source) q >>=  fun () ->
-	    self # __fuse__ loop
+	    loop ()
 	  end
 	in
 	catch
