@@ -76,7 +76,7 @@ node_client_base_port = 7080
 node_msg_base_port = 10000
 daemon_name = "arakoond"
 binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoond"
-lease_duration = 10.0
+lease_duration = 2.0
 
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
