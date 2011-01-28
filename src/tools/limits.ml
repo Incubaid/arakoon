@@ -20,23 +20,23 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type resource =
-  | CPU (* 0 *)
-  | SIZE (* 1 *)
-  | EATA (* 2 *)
-  | STACK (* 3 *)
-  | CORE (* 4 *)
-  | SSS (* 5 *)
-  | PROC (* 6 *)
-  | NOFILE (* 7 *)
-  | MEMLOCK (* 8 *)
-  | AS (* 9 *)
-  | LOCKS (* 10 *)
-  | SIGPENDING (* 11 *)
-  | MSGQUEUE (* 12 *)
-  | NICE (* 13 *)
-  | RTPRIO (* 14 *)
-  | NLIMITS (* 15 *)
+type resource = (* natural order, ie: CPU = 0 etc. *)
+  | CPU 
+  | SIZE 
+  | EATA 
+  | STACK 
+  | CORE 
+  | SSS 
+  | PROC 
+  | NOFILE 
+  | MEMLOCK 
+  | AS 
+  | LOCKS 
+  | SIGPENDING 
+  | MSGQUEUE 
+  | NICE 
+  | RTPRIO 
+  | NLIMITS 
 
 type soft_or_hard =
   | Soft

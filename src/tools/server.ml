@@ -31,6 +31,9 @@ let no_callback = Lwt.return
 
 exception FOOBAR
 
+
+let deny (ic,oc) = Llio.output_int oc 0xfe
+
 let session_thread protocol fd = 
   info "starting session " >>= fun () ->
   let close () = Lwt_unix.close fd; Lwt.return () in
@@ -45,7 +48,10 @@ let session_thread protocol fd =
       | exn -> info ~exn "exiting session")
   >>= close 
     
-let make_server_thread ?(setup_callback=no_callback) host port protocol =
+let make_server_thread 
+    ?(setup_callback=no_callback) 
+    ?(max_connections = 200)
+    host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   let socket_address = Network.make_address host port in
   begin
@@ -53,18 +59,34 @@ let make_server_thread ?(setup_callback=no_callback) host port protocol =
     Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
+    let n_connections = ref 0 in
+    
     let rec server_loop () =
       info "await connection" >>= fun () ->
       Lwt.catch
 	(fun () ->
 	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
-	  (Lwt.ignore_result (session_thread protocol fd));
+	  if !n_connections >= max_connections 
+	  then
+	    begin
+	      Lwt.ignore_result (session_thread deny fd);
+	    end
+	  else
+	    begin
+	      Lwt.ignore_result 
+		(session_thread protocol fd >>= fun () ->
+		 decr n_connections;
+		 Lwt.return ()
+		   
+		);
+	      incr n_connections;
+	    end;
 	  Lwt.return ()
 	)
 	(function 
 	  | Unix.Unix_error (Unix.EMFILE,s0,s1) -> 
 	    let timeout = 4.0 in
-	    (* if we don't sleep, this will go into a spinming loop of
+	    (* if we don't sleep, this will go into a spinning loop of
 	       failfasts; 
 	       we want to block until an fd is available,
 	       but alas, I found no such API.
@@ -81,7 +103,7 @@ let make_server_thread ?(setup_callback=no_callback) host port protocol =
     in
     let r  = fun () ->
       Lwt.catch
-	(fun () -> setup_callback () >>= fun () -> server_loop ())
+	(fun ()  -> setup_callback () >>= fun () -> server_loop ())
 	(fun exn -> info_f ~exn "shutting down server on port %i" port)
 	     >>= fun () ->
       Lwt_unix.close listening_socket;
