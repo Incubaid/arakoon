@@ -114,7 +114,7 @@ let test_generic network_factory n_nodes () =
 		 (client_buffer,get_buffer me, 
 		  inject_buffer, election_timeout_buffer) in
 	       Multi_paxos_fsm.expect_run_forced_slave 
-		 constants buffers expected steps current_i
+		 constants buffers expected steps (current_i,Sn.start)
 		 >>= fun result ->
 	       log ~me "node done." >>= fun () ->
 	       Lwt.return ()
@@ -398,7 +398,7 @@ let test_simulation filters () =
        get_buffer me, 
        inject_buffer, 
        election_timeout_buffer) in
-    Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 current_i
+    Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 (current_i,Sn.start)
     >>= fun result ->
     log ~me "node done." >>= fun () ->
     Lwt.return ()
