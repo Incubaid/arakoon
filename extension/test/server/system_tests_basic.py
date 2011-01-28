@@ -181,7 +181,10 @@ def tes_and_set_scenario( start_suffix ):
         set_value = client.get ( key )
         assert_not_equals( set_value, old_value )
         
-        client.delete( key )
+        try:
+            client.delete( key )
+        except ArakoonNotFound:
+            logging.error ( "Caught not found for key %s" % key )
         assert_raises( ArakoonNotFound, client.get, key )
     
     client._dropConnections()
