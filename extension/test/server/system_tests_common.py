@@ -25,6 +25,7 @@ from pymonkey import q, i
 from nose.tools import *
 from functools import wraps
 import traceback
+import sys
 
 class with_custom_setup ():
     
@@ -120,10 +121,14 @@ def dump_store( node_id ):
     db_file = get_node_db_file ( node_id )
     dump_file = db_file + ".dump" 
     cmd = get_tcbmgr_path() + " list -pv " + db_file
-    dump_fd = open( dump_file, 'w' )
-    logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
-    (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
-    dump_fd.close()
+    try:
+        dump_fd = open( dump_file, 'w' )
+        logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
+        (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
+        dump_fd.close()
+    except:
+        logging.info("Unexpected error: %s" % sys.exc_info()[0])
+
     return dump_file
 
 def compare_stores( node1_id, node2_id ):
@@ -400,7 +405,7 @@ def dummy_teardown():
     pass
 
 def basic_teardown( removeDirs ):
-    
+    logging.info("basic_teardown(%s)" % removeDirs)
     if "arakoon" in q.config.list():
         logging.info( "Stopping arakoon daemons" )
         q.cmdtools.arakoon.stop()

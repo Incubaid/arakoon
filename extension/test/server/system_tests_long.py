@@ -107,6 +107,7 @@ def test_restart_master_long ():
     compare_stores( node_names[0], node_names[1] )
     compare_stores( node_names[2], node_names[1] )
     cli._dropConnections()
+    logging.info("end of `test_restart_master_long`")
     
 @with_custom_setup( default_setup, basic_teardown ) 
 def test_master_reelect():

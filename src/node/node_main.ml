@@ -112,7 +112,7 @@ let _config_service cfg backend=
   let host = cfg.ip in
   let max_connections = 
     let hard = Limits.get_rlimit Limits.NOFILE Limits.Hard in
-    min (hard -200) 20
+    max (hard -200) 200
   in
   Server.make_server_thread host port (Client_protocol.protocol backend) ~max_connections
 
