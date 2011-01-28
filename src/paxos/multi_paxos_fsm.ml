@@ -66,7 +66,7 @@ let election_suggest constants (n,i,vo) () =
 
 (* a pending slave that is waiting for a prepare or a nak
    in order to discover a master *)
-let slave_waiting_for_prepare constants current_i event =
+let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) event =
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -74,17 +74,24 @@ let slave_waiting_for_prepare constants current_i event =
 	let me = constants.me in
 	log ~me "slave_waiting_for_prepare: %S" (MPMessage.string_of msg) >>= fun () ->
 	match msg with
-	  | Prepare(n,_) when n >= 0L ->
+	  | Prepare(n,_) when n > current_n ->
 	    begin
 	      let reply = Promise(n,current_i,None) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_wait_for_accept (n, current_i, None, None))
 	    end
+    | Prepare(n,_) when n <= current_n && n >= Sn.start ->
+      begin
+        let reply = Nak(n,(current_n,current_i)) in
+        log ~me "replying with %S" (string_of reply) >>= fun () ->
+	      send reply me source >>= fun () ->
+	      Lwt.return (Slave_waiting_for_prepare (current_i,current_n) )
+      end
 	  | Prepare(n,_) when n < 0L ->
 	    begin
 	      log ~me "forced_slave ignoring Prepare with n<0" >>= fun () ->
-	      Lwt.return (Slave_waiting_for_prepare current_i)
+	      Lwt.return (Slave_waiting_for_prepare (current_i,current_n) )
 	    end
 	  | Nak(n',(n2, i2)) when n' = -1L ->
 	    begin
@@ -105,7 +112,7 @@ let slave_waiting_for_prepare constants current_i event =
 		| None ->
 		  begin
 		    let () = assert (i2 = Sn.start) in
-		    Lwt.return (Slave_waiting_for_prepare Sn.start)
+		    Lwt.return (Slave_waiting_for_prepare (Sn.start,current_n) )
 		  end
 		| Some v ->
 		  begin
@@ -116,7 +123,7 @@ let slave_waiting_for_prepare constants current_i event =
 		  end
 	    end
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
-	    Lwt.return (Slave_waiting_for_prepare current_i)
+	    Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
       end
     | _ -> paxos_fatal constants.me "Slave_waiting_for_prepare only wants FromNode"
 
@@ -242,7 +249,7 @@ let wait_for_promises constants state event =
                   else (* forced_slave *) (* this state is impossible?! *)
                     begin
                       log ~me "wait_for_promises; forced slave back waiting for prepare" >>= fun () ->
-                      Lwt.return (Slave_waiting_for_prepare i)
+                      Lwt.return (Slave_waiting_for_prepare (i,n))
                     end
               end
             | Prepare (n',i') when n' < n ->
@@ -349,7 +356,7 @@ let wait_for_promises constants state event =
               else
 		begin
                   log ~me "wait_for_promises: received %S -> back to fake prepare"  (string_of msg) >>= fun () ->
-                  Lwt.return (Slave_fake_prepare i)
+                  Lwt.return (Slave_fake_prepare (i,n))
 		end
             | Accepted (n',_i) when n' < n ->
               begin
@@ -598,8 +605,8 @@ let machine constants =
 
   | Slave_fake_prepare i ->
     (Unit_arg (Slave.slave_fake_prepare constants i), nop)
-  | Slave_waiting_for_prepare i ->
-    (Msg_arg (slave_waiting_for_prepare constants i), node_only)
+  | Slave_waiting_for_prepare state ->
+    (Msg_arg (slave_waiting_for_prepare constants state), node_only)
   | Slave_wait_for_accept state ->
     (Msg_arg (Slave.slave_wait_for_accept constants state), node_and_inject_and_timeout)
   | Slave_steady_state state ->
@@ -736,10 +743,11 @@ let enter_forced_slave constants buffers new_i vo=
   log ~me "+starting FSM for forced_slave." >>= fun () ->
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
+  let new_n = Sn.start in
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace produce 
-	(machine constants) (Slave.slave_fake_prepare constants new_i)
+	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
     ) 
     (fun exn ->
       Lwt_log.warning ~exn "FSM BAILED due to uncaught exception" 

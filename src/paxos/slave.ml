@@ -52,13 +52,13 @@ let time_for_elections constants n' maybe_previous =
 
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
-let slave_fake_prepare constants current_i () =
+let slave_fake_prepare constants (current_i,current_n) () =
   (* fake a prepare, and hopefully wake up a dormant master *)
   let me = constants.me in
   log ~me "slave_fake_prepare: sending Prepare(-1)" >>= fun () ->
   let fake = Prepare( Sn.of_int (-1), current_i) in
   Multi_paxos.mcast constants fake >>= fun () ->
-  Lwt.return (Slave_waiting_for_prepare current_i)
+  Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
@@ -144,7 +144,7 @@ let slave_steady_state constants state event =
 	      log ~me "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) back to fake prepare"
 		(Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
-	      Lwt.return (Slave_fake_prepare i)
+	      Lwt.return (Slave_fake_prepare (i,n))
 	    end
 	  | Prepare(n',i') ->
 	    if n' <= n then
@@ -330,7 +330,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      log ~me "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare" 
 		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) 
 	      >>= fun () ->
-	      Lwt.return (Slave_fake_prepare i)
+	      Lwt.return (Slave_fake_prepare (i,n))
 	    end
 	  | Promise(n',i',vo') ->
 	    begin
