@@ -212,22 +212,8 @@ let slave_steady_state constants state event =
 	  if elections_needed then
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
-              let store = constants.store in
-              store # consensus_i () >>= fun ( store_i ) ->
-              begin
-              match store_i with
-              | Some s_i ->
-                if Sn.compare (Sn.pred i) s_i != 0 
-                then
-	          constants.on_consensus (previous, n,Sn.pred i) 
-                else
-                  Lwt.return Store.Stop                
-              | None -> 
-	        constants.on_consensus (previous, n,Sn.pred i) 
-              end
-              >>= fun _ ->
 	      let new_n = update_n constants n in
-	      Lwt.return (Election_suggest (new_n, i, None))
+	      Lwt.return (Election_suggest (new_n, Sn.pred i, Some previous ))
 	    end
 	  else
 	    begin
@@ -474,6 +460,7 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election" >>= fun () ->
       (* we have to go to election here or we can get in a situation where
          everybody just waits for each other *)
-      Lwt.return (Election_suggest (future_n, current_i, None))
+      let new_n = update_n constants future_n in
+      Lwt.return (Election_suggest (new_n, current_i, None))
     end
 
