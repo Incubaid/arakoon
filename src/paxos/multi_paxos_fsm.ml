@@ -492,7 +492,13 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	        let reply = Promise(n',i,None) in
 	        log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
 	        constants.send reply me source >>= fun () ->
-	        Lwt.return (Slave_wait_for_accept (n',i, None, None))
+          begin
+          if i' = i then
+	          Lwt.return (Slave_wait_for_accept (n',i, None, None))
+          else 
+            let new_state = (source,i,n',i') in 
+            Lwt.return (Slave_discovered_other_master(new_state) )
+          end
               else
                 let reply = Nak(n', (n,i)) in
 	        log ~me "wait_for_accepteds: replying with %S to %s" (MPMessage.string_of reply) source >>= fun () ->
