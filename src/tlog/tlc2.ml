@@ -344,15 +344,23 @@ object(self: # tlog_collection)
       | None -> Lwt.return Sn.start
       | Some (pi,pu) -> Lwt.return pi
 
-  method get_last_update i = 
-    match _previous_update with
-      | None -> Lwt.return None
-      | Some (pi,pu) -> 
-	if pi = i then 
-	  Lwt.return (Some pu)
-	else
-	  Lwt_log.error_f "get_last_update %s<>%s" (Sn.string_of pi) (Sn.string_of i) >>= fun () ->
-    Lwt.return (Some pu)
+  method get_last_update i =
+    let vo =
+      match _previous_update with
+	| None -> None
+	| Some (pi,pu) -> 
+	  if pi = i then 
+	    Some pu
+	  else 
+	    if i > pi then
+	      None
+	    else (* pi > i *)
+	      let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
+		(Sn.string_of pi) (Sn.string_of i)
+	      in
+	      failwith msg
+    in 
+    Lwt.return vo
 	    
   method close () =
     Lwt_io.close _oc
