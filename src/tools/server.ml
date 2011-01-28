@@ -32,7 +32,9 @@ let no_callback = Lwt.return
 exception FOOBAR
 
 
-let deny (ic,oc) = Llio.output_int oc 0xfe
+let deny (ic,oc) = 
+  Lwt_log.warning "max connections reached, denying this one" >>= fun () ->
+  Llio.output_int oc 0xfe
 
 let session_thread protocol fd = 
   info "starting session " >>= fun () ->

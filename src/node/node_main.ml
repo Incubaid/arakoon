@@ -110,7 +110,11 @@ let _maybe_daemonize daemonize cfg get_cfgs =
 let _config_service cfg backend=
   let port = cfg.client_port in
   let host = cfg.ip in
-  Server.make_server_thread host port (Client_protocol.protocol backend)
+  let max_connections = 
+    let hard = Limits.get_rlimit Limits.NOFILE Limits.Hard in
+    min (hard -200) 20
+  in
+  Server.make_server_thread host port (Client_protocol.protocol backend) ~max_connections
 
 let _log_rotate cfg i get_cfgs =
   Lwt_log.warning_f "received USR (%i) going to close/reopen log file" i
