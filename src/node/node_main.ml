@@ -125,7 +125,8 @@ let log_prelude() =
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
-  Lwt_log.info_f "version: %s" Version.version
+  Lwt_log.info_f "version: %s" Version.version >>= fun () ->
+  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Hard)
 
 
 
