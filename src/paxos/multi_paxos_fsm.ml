@@ -79,7 +79,16 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	      let reply = Promise(n,current_i,None) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
-	      Lwt.return (Slave_wait_for_accept (n, current_i, None, None))
+        let tlog_coll = constants.tlog_coll in
+        tlog_coll # get_last_i () >>= fun tlc_i ->
+        tlog_coll # get_last_update tlc_i >>= fun l_update ->
+        let l_uval = 
+        begin
+          match l_update with 
+            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+            | None -> None
+        end in
+	      Lwt.return (Slave_wait_for_accept (n, current_i, None, l_uval))
 	    end
     | Prepare(n,_) when n <= current_n && n >= Sn.start ->
       begin
