@@ -258,15 +258,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                     end
                 | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
                 end
-              end >>= fun _ ->
-        let Value.V(us ) = v in
-        let update,_ = Update.from_buffer us 0 in
-        begin
-          match update with
-            | Update.MasterSet(m,l) ->
-              constants.store # set_master_no_inc m l >>= fun _ -> Lwt.return()
-            | _ -> Lwt.return ()
-        end >>= fun () ->
+        end >>= fun _ ->
 	      let reply = Accepted(n,i) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
