@@ -691,6 +691,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             q.cmdtools.arakoon.stopOne( master_id )
             q.cmdtools.arakoon.startOne( master_id )
         except:
+            logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
             raise
                      
