@@ -42,12 +42,12 @@ end
 
 module U = struct
   let fold ic lowerI 
-      (higherI:Sn.t option)
+      (too_far_i:Sn.t option)
       ~first
       (a0:'a) (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
     let sno2s sno= Log_extra.option_to_string Sn.string_of sno in
     Lwt_log.debug_f "U.fold %s %s" (Sn.string_of lowerI)
-      (sno2s higherI) >>= fun () ->
+      (sno2s too_far_i) >>= fun () ->
     let next () =
       Lwt.catch
 	(fun () ->
@@ -67,7 +67,7 @@ module U = struct
 	  else Lwt.return (Some (i, update) )
     in
     let rec _fold (a:'a) (i,u) =
-      match higherI with
+      match too_far_i with
 	| None -> 
 	  begin 
 	    f a (i,u) >>= fun a' -> 
@@ -76,7 +76,7 @@ module U = struct
 	      | Some (i',u') -> _fold a' (i',u')
 	  end
 	| Some hi ->
-	  if (i > hi) 
+	  if (i >= hi) 
 	  then Lwt.return a
 	  else 
 	    begin
@@ -94,9 +94,9 @@ end
 
 
 module C = struct
-  let fold ic (lowerI:Sn.t) (higherI:Sn.t option) ~first a0 f = 
-    Lwt_log.debug_f "C.fold lowerI:%s higherI:%s ~first:%s" (Sn.string_of lowerI)
-      (Log_extra.option_to_string Sn.string_of higherI) 
+  let fold ic (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f = 
+    Lwt_log.debug_f "C.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
+      (Log_extra.option_to_string Sn.string_of too_far_i) 
       (Sn.string_of first)
     >>= fun () ->
     let rec _skip_blocks c = 

@@ -173,8 +173,9 @@ object(self: #backend)
 	| None -> Lwt.return () 
 	| Some ci -> 
 	  begin
-	    log_o self "consensus_i = %s" (Sn.string_of ci) >>= fun () ->
-	    tlog_collection # iterate start_i ci f 
+	    let too_far_i = Sn.succ ci in
+	    log_o self "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
+	    tlog_collection # iterate start_i too_far_i f 
 	  end
     end 
     >>= fun () ->

@@ -120,7 +120,7 @@ let test_iterate (dn, factory) =
   let update = Update.Set("xxx","y")in
   _log_repeat tlc update 323 >>= fun () ->
   let sum = ref 0 in
-  tlc # iterate (Sn.of_int 125) (Sn.of_int 303)
+  tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
     (fun (i,u) -> sum := !sum + (Int64.to_int i); 
       Lwt_log.debug_f"i=%s" (Sn.string_of i) >>= fun () ->
       Lwt.return ())
@@ -137,7 +137,7 @@ let test_iterate2 (dn, factory) =
   let update = Update.Set("test_iterate0","xxx") in
   _log_repeat tlc update 1 >>= fun () ->
   let result = ref [] in
-  tlc # iterate (Sn.of_int 0) (Sn.of_int 0) 
+  tlc # iterate (Sn.of_int 0) (Sn.of_int 1) 
     (fun (i,u) -> result := i :: ! result; 
      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
      Lwt.return ())
