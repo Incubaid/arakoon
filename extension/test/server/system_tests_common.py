@@ -434,6 +434,9 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
     global test_failed
     
     for i in range ( n ) :
+        if test_failed :
+            logging.error( "Test marked as failed. Aborting.")
+            break
         suffix = ( i + startSuffix )
         key = key_format_str % suffix
         value = value_format_str % suffix
@@ -678,13 +681,19 @@ def destroy_ram_fs( node_index ) :
     
 def delayed_master_restart_loop ( iter_cnt, delay ) :
     for i in range( iter_cnt ):
-        time.sleep( delay )
-        cli = get_client()
-        cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
-        master_id = cli.whoMaster()
-        cli._dropConnections()
-        q.cmdtools.arakoon.stopOne( master_id )
-        q.cmdtools.arakoon.startOne( master_id )
+        global test_failed
+        try:
+            time.sleep( delay )
+            cli = get_client()
+            cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
+            master_id = cli.whoMaster()
+            cli._dropConnections()
+            q.cmdtools.arakoon.stopOne( master_id )
+            q.cmdtools.arakoon.startOne( master_id )
+        except:
+            logging.critical("!!!! Failing test. Exception in restart loop.")
+            test_failed = True
+            raise
                      
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
 

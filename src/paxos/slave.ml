@@ -63,7 +63,7 @@ let slave_fake_prepare constants (current_i,current_n) () =
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
 let slave_steady_state constants state event =
-  let (n,i,previous, from_here) = state in
+  let (n,i,previous) = state in
   let me = constants.me in
   match event with
     | FromNode (msg,source) ->
@@ -77,61 +77,29 @@ let slave_steady_state constants state event =
 	    begin
 	      let reply = Accepted(n,i) in
 	      begin
-		if from_here then
-                  constants.store # consensus_i () >>= fun m_store_i ->
-                  begin
-                  match m_store_i with
-                  | None -> constants.on_consensus (previous, n, Sn.pred i)
-                  | Some store_i ->
-                    let prev_i = Sn.pred i in
-                    if (Sn.compare store_i (Sn.pred prev_i) ) == 0
-                    then
-		      constants.on_consensus (previous, n,prev_i) 
-                    else
-                      if Sn.compare store_i prev_i == 0
-                      then 
-                        Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
-                        Lwt.return (Store.Ok None)
-                      else
-                        Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
-                  end
-		else
-		  begin (* don't call on_consensus, 
-			   but still enter the master_update in the store;
-			   ... THIS IS BAD ...
-			*)
-		    let Value.V(us ) = previous in
-		    let update,_ = Update.from_buffer us 0 in
-		    begin
-		      match update with
-			| Update.MasterSet(m,l) ->
-                          Catchup.compare_store_tlc constants.store constants.tlog_coll >>= fun cmp ->
-                          begin
-                          match cmp with
-                          | Catchup.Store_1_behind ->
-			    constants.store # set_master_no_inc m l  
-                          | _ -> Lwt.return ()
-                          end
-			| _ -> Lwt.return ()
-		    end >>= fun () ->
-		    Lwt_log.debug_f "SKIPPING (paxos -> multipaxos)" 
-		    >>= fun () ->
-		    Lwt.return (Store.Ok None) 
-		  end
-	      end >>= fun _ ->
+          constants.store # consensus_i () >>= fun m_store_i ->
+          begin
+            match m_store_i with
+              | None -> constants.on_consensus (previous, n, Sn.pred i)
+              | Some store_i ->
+                let prev_i = Sn.pred i in
+                if (Sn.compare store_i (Sn.pred prev_i) ) == 0
+                then
+                  constants.on_consensus (previous, n,prev_i) 
+                else
+                  if Sn.compare store_i prev_i == 0
+                  then 
+                    Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
+                    Lwt.return (Store.Ok None)
+                  else
+                  Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
+	        end 
+        end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun v ->
-        let Value.V(us ) = v in
-        let update,_ = Update.from_buffer us 0 in
-        begin
-          match update with
-            | Update.MasterSet(m,l) ->
-              constants.store # set_master_no_inc m l >>= fun _ -> Lwt.return()
-            | _ -> Lwt.return ()
-        end >>= fun () ->
-	      log ~me "steady_state :: replying with %S" (string_of reply) 
+        log ~me "steady_state :: replying with %S" (string_of reply) 
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, Sn.succ i, v, true))
+	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
 	  | Accept (n',i',v) when n'=n && i'<i ->
 	    begin
@@ -204,7 +172,7 @@ let slave_steady_state constants state event =
 	begin
 	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns 
 	  >>= fun () ->
-	  Lwt.return (Slave_steady_state (n,i,previous, true))
+	  Lwt.return (Slave_steady_state (n,i,previous))
 	end
       else
 	begin 
@@ -219,7 +187,7 @@ let slave_steady_state constants state event =
 	    begin
 	      start_lease_expiration_thread constants n 
 		constants.lease_expiration >>=fun() ->
-	      Lwt.return (Slave_steady_state(n,i,previous, true))
+	      Lwt.return (Slave_steady_state(n,i,previous))
 	    end
 	end
     | FromClient (vo,cb) -> 
@@ -229,7 +197,7 @@ let slave_steady_state constants state event =
       *)      
       let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
       cb result >>= fun () ->
-      Lwt.return (Slave_steady_state(n,i,previous, true))
+      Lwt.return (Slave_steady_state(n,i,previous))
       
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
@@ -291,7 +259,14 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                 | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
                 end
               end >>= fun _ ->
-              constants.on_consensus (v,n,i) >>= fun _ ->
+        let Value.V(us ) = v in
+        let update,_ = Update.from_buffer us 0 in
+        begin
+          match update with
+            | Update.MasterSet(m,l) ->
+              constants.store # set_master_no_inc m l >>= fun _ -> Lwt.return()
+            | _ -> Lwt.return ()
+        end >>= fun () ->
 	      let reply = Accepted(n,i) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
@@ -303,7 +278,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 		else Lwt.return () 
 	      end
 	      >>= fun () ->
-	      Lwt.return (Slave_steady_state (n, Sn.succ i, v, false))
+	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
 	  | Accept (n',i',v) when n' < n ->
 	    begin
@@ -407,7 +382,7 @@ let slave_discovered_other_master constants state () =
 	Multi_paxos.mcast constants fake >>= fun () ->
 	
 	match vo' with
-	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v, true))
+	  | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v))
 	  | None -> 
               let vo =
                 begin
