@@ -261,19 +261,11 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		>>= fun () ->
 		let Value.V(update_string) = v in
 		let u, _ = Update.from_buffer update_string 0 in
-		let u' = 
-		  begin
-		    match u with
-		      | Update.MasterSet (master,0L) -> 
-			let now = Int64.of_float( Unix.time() ) in
-			Update.make_master_set master (Some now) 
-		      | other -> other
-		  end in
-		tlog_coll # log_update i u' >>= fun wr_result ->
+		tlog_coll # log_update i u >>= fun wr_result ->
 		Lwt_log.debug_f "log_update %s=>%S" 
 		  (Sn.string_of i) 
 		  (Tlogwriter.string_of wr_result) >>= fun () ->
-		Lwt.return (Update.make_update_value u')
+		Lwt.return v
               in
 	      
 	      let get_last_value (i:Sn.t) =

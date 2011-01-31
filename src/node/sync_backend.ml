@@ -210,13 +210,13 @@ object(self: #backend)
 	    | None ->
 	      begin
 	      if (m = my_name ) && (ls < instantiation_time)
-	      then None,"invalid lease from previous incarnation"
+	      then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
 	      else
 		let now = Int64.of_float (Unix.time()) in
 		let diff = Int64.sub now ls in
 		if diff < Int64.of_int lease_expiration then
 		  (Some m,"inside lease")
-		else (None,"lease expired")
+		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
 	      end
 	    | x -> x,"forced master"
     in

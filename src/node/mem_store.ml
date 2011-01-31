@@ -30,6 +30,9 @@ module StringMap = Map.Make(String);;
 let try_lwt_ f = Lwt.catch (fun () -> Lwt.return (f ())) (fun exn -> Lwt.fail exn)
 
 class mem_store db_name =
+  let now64 () = Int64.of_float (Unix.gettimeofday ()) 
+  in
+  
 object (self: #store)
 
   val mutable i = None
@@ -88,11 +91,11 @@ object (self: #store)
 
   method set_master master' l =
     let () = self # _incr_i () in
-    let () = master <- Some (master',l) in
+    let () = master <- Some (master', now64()) in
     Lwt.return ()
 
   method set_master_no_inc master' l =
-    let () = master <- Some (master',l) in
+    let () = master <- Some (master', now64()) in
     Lwt.return ()
 
   method who_master () =

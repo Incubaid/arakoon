@@ -99,9 +99,11 @@ let _test_and_set bdb key expected wanted =
       | Some v' -> None
 
 let _set_master bdb master lease_start =  
+  (* TODO: we don't use lease_start anyway, if this works, adapt API *)
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
-  let () = Llio.int64_to buffer lease_start in
+  let now = Int64.of_float (Unix.gettimeofday ()) in
+  let () = Llio.int64_to buffer now in
   let lease = Buffer.contents buffer in
   Bdb.put bdb __lease_key lease
 
@@ -210,7 +212,7 @@ object(self: #store)
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
-  method set_master master lease=
+  method set_master master lease =
     Hotc.transaction db
       (fun db ->
 	_incr_i db >>= fun () ->
