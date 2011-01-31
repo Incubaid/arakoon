@@ -106,11 +106,24 @@ let stable_master constants (v',n,new_i) = function
             Lwt.return (Forced_master_suggest (new_n,new_i))
 	      else if is_election constants
 	      then
-		let reply = Promise(n',new_i,None) in
-		log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
-		constants.send reply me source >>= fun () ->
-		Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
-	      else
+        begin
+          if i' < new_i 
+          then
+          begin
+            let reply = Nak(n',(n,new_i)) in
+            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
+            constants.send reply me source >>= fun () ->
+            Lwt.return (Stable_master (v',n,new_i))
+          end
+          else
+          begin
+            let reply = Promise(n',new_i,None) in
+            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
+            constants.send reply me source >>= fun () ->
+            Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
+          end
+        end
+		    else
 		paxos_fatal me "stable_master: received %S when forced slave, forced slave should never get in stable_master in the first place!" (string_of msg)
 	    end
 	      (* TODO: paxos fatal on messages from the future *)

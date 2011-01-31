@@ -101,7 +101,7 @@ let slave_steady_state constants state event =
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
-	  | Accept (n',i',v) when n'=n && i'<i ->
+	  | Accept (n',i',v) when n'<=n && i'<i ->
 	    begin
 	      log ~me "slave_steady_state received old %S for my n, ignoring" 
 		(string_of msg) >>= fun () ->
