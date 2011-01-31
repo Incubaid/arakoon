@@ -89,7 +89,7 @@ let get_tlog_names tlog_dir =
     
 let fold_read tlog_dir file_name 
     (lowerI:Sn.t) 
-    (higherI:Sn.t option) 
+    (too_far_i:Sn.t option) 
     ~first
     (a0:'a) 
     (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
@@ -102,7 +102,7 @@ let fold_read tlog_dir file_name
       Tlogreader2.AU.fold, "uncompressed"
   in
   Lwt_log.debug_f "%s: %s" msg file_name >>= fun () ->
-  let ic_f ic = folder ic lowerI higherI ~first a0 f in
+  let ic_f ic = folder ic lowerI too_far_i ~first a0 f in
   Lwt.catch
     (fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
@@ -116,7 +116,7 @@ let fold_read tlog_dir file_name
 	    let full_an = Filename.concat tlog_dir an in
 	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
 	    Lwt_io.with_file ~mode:Lwt_io.input full_an 
-	      (fun ic -> Tlogreader2.AC.fold ic lowerI higherI ~first a0 f)
+	      (fun ic -> Tlogreader2.AC.fold ic lowerI too_far_i ~first a0 f)
 	  end
 	else
 	  Lwt.fail exn
@@ -296,9 +296,10 @@ object(self: # tlog_collection)
 	Lwt.return ()
       end
 
-  method iterate (start_i:Sn.t) (consensus_i:Sn.t) (f:Sn.t * Update.t -> unit Lwt.t) =
-    Lwt_log.debug_f "tlc2::iterate start_i:%s consensus_i:%s" 
-      (Sn.string_of start_i) (Sn.string_of consensus_i) >>= fun () ->
+  method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Sn.t * Update.t -> unit Lwt.t) =
+    let tfs = Sn.string_of too_far_i in
+    Lwt_log.debug_f "tlc2::iterate start_i:%s too_far_i:%s" 
+      (Sn.string_of start_i) tfs >>= fun () ->
     let lowerI = start_i in
     get_tlog_names tlog_dir >>= fun tlog_names ->
     let acc_entry (i0:Sn.t) (i,u) = 
@@ -317,12 +318,12 @@ object(self: # tlog_collection)
       let test_result = 
 	(test0 <= lowp) &&
 	(low   <  test1) &&
-	  low <= consensus_i
+	  low <= too_far_i
       in
       Lwt_log.debug_f "%s <?= lowp:%s &&  low:%s <? %s && (low:%s <?= %s) yields:%b" 
 	(Sn.string_of test0 ) lowp_s 
 	low_s (Sn.string_of test1) 
-	low_s (Sn.string_of consensus_i)
+	low_s tfs
 	test_result
       >>= fun () ->
       if test_result
@@ -331,7 +332,7 @@ object(self: # tlog_collection)
 	  Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
 	    (Sn.string_of test0) >>= fun () ->
 	  let first = test0 in
-	  fold_read tlog_dir fn low (Some consensus_i) ~first low acc_entry
+	  fold_read tlog_dir fn low (Some too_far_i) ~first low acc_entry
 	end
       else Lwt.return low
     in
