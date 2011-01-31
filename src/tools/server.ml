@@ -34,7 +34,9 @@ exception FOOBAR
 
 let deny (ic,oc) = 
   Lwt_log.warning "max connections reached, denying this one" >>= fun () ->
-  Llio.output_int oc 0xfe
+  Llio.output_int oc 0xfe >>= fun () ->
+  Llio.output_string oc "too many clients"
+   
 
 let session_thread protocol fd = 
   info "starting session " >>= fun () ->
