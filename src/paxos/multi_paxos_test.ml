@@ -186,7 +186,7 @@ let test_generic network_factory n_nodes () =
     ) 
       None all_consensusses
   in
-  Extra.eq_int "values in tbl" n_nodes (Hashtbl.length values);
+  Extra.eq_int "values in tbl" 1 (Hashtbl.length values);
   Lwt.return ()
 
 
