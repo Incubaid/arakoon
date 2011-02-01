@@ -250,7 +250,10 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		Multi_paxos.network_of_messaging messaging in
 	      
 	      let on_consensus (v,(n: Sn.t), (i: Sn.t) ) =
-		Store.on_consensus store (v,n,i)
+          let u = Update.update_from_value v in
+          match u with 
+            | Update.MasterSet(m,l) -> store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
+            | _ ->	Store.on_consensus store (v,n,i) 
 	      in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
 	      in
@@ -264,6 +267,12 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		Lwt_log.debug_f "log_update %s=>%S" 
 		  (Sn.string_of i) 
 		  (Tlogwriter.string_of wr_result) >>= fun () ->
+    begin
+    match u with
+      | Update.MasterSet (m,l) ->
+        store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
+      | _ -> Lwt.return()
+    end >>= fun () ->
 		Lwt.return v
               in
 	      

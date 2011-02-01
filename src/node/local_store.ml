@@ -170,7 +170,11 @@ object(self: #store)
 	  [] keys
 	in 
 	Lwt.return (List.rev vs))
-
+  
+  method incr_i () =
+    Hotc.transaction db
+      ( fun db -> _incr_i db )
+      
   method range first finc last linc max =
     Hotc.transaction db
       (fun db -> Lwt.return (Bdb.range db (_f first) finc (_l last) linc max)) >>= fun r ->

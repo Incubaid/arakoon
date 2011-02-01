@@ -127,7 +127,7 @@ let test_iterate (dn, factory) =
   >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
-  OUnit.assert_equal !sum 38610;
+  OUnit.assert_equal !sum 38306;
   Lwt.return ()
 
 

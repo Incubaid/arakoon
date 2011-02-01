@@ -39,6 +39,9 @@ object (self: #store)
   val mutable kv = StringMap.empty
   val mutable master = None
 
+  method incr_i () =
+    Lwt.return (self # _incr_i ())
+
   method _incr_i () =
     let i2 = match i with
     | None -> Some 0L

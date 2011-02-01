@@ -50,7 +50,7 @@ class type store = object
       For an empty store, This is None 
   *)
   method consensus_i: unit -> Sn.t option Lwt.t
-
+  method incr_i: unit -> unit Lwt.t
 
   method close: unit -> unit Lwt.t
 end
