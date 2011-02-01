@@ -164,9 +164,9 @@ let promises_check_done constants state () =
 		log ~me "promises_check_done: first catchup till %S from %s" (Sn.string_of future_i) source' >>= fun () ->
 		Catchup.catchup me other_cfgs (store, tlog_coll) i source' (n, future_i)
 		 >>= fun (future_n', current_i', vo') ->
-		Lwt.return (future_n',current_i')
-	      else Lwt.return (n, future_i)
-	    end >>= fun (n',new_i) ->
+		Lwt.return (future_n',current_i',vo')
+	      else Lwt.return (n, future_i, None)
+	    end >>= fun (n',new_i,vo) ->
 	    if n' > n then
 	      begin
 		log ~me "promises_check_done: back to election" >>= fun () ->
@@ -183,6 +183,11 @@ let promises_check_done constants state () =
 	      begin
 		log ~me "promises_check_done: accepting and mcasting"
 		>>= fun () ->
+    begin
+      match vo with
+        | None -> Lwt.return ()
+        | Some u_val -> constants.on_consensus (u_val, n, Sn.pred new_i) >>= fun _ -> Lwt.return ()
+    end >>= fun () ->
 		constants.on_accept (v,n,new_i) >>= fun () ->
 		let msg = Accept(n,new_i,v) in
 		mcast constants msg >>= fun () ->
