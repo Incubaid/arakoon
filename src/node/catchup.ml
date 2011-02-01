@@ -78,10 +78,10 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
     (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
   >>= fun () ->
   tlog_coll # get_last_i () >>= fun tlc_i ->
-  let fsm_i = Sn.succ ( tlc_i ) in 
-  Lwt.return fsm_i
+  let too_far_i = Sn.succ ( tlc_i ) in 
+  Lwt.return too_far_i
 
-let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
+let catchup_store me store (tlog_coll:tlog_collection) (too_far_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
   store # consensus_i () >>= fun store_i ->
@@ -90,49 +90,49 @@ let catchup_store me store (tlog_coll:tlog_collection) (future_i:Sn.t) =
       | None -> Sn.start
       | Some i -> Sn.succ i
   in
-  if Sn.compare start_i future_i > 0 
+  if Sn.compare start_i too_far_i > 0 
   then 
     let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting." 
-      (Sn.string_of start_i) (Sn.string_of future_i) in
+      (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Lwt.fail (Failure msg)
   else
   begin 
-  Lwt_log.debug_f "will replay starting from %s into store, until we're @ %s" 
-    (Sn.string_of start_i) (Sn.string_of future_i)
+  Lwt_log.debug_f "will replay starting from %s into store, too_far_i:%s" 
+    (Sn.string_of start_i) (Sn.string_of too_far_i)
   >>= fun () ->
-  let acc = ref None in
-  let f (i,update) =
-    match !acc with
-      | None ->
-	let () = acc := Some(i,update) in
-	Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) >>= fun () ->
-	Lwt.return ()
-      | Some (pi,pu) ->
-	if pi < i then
-	  begin
-	    Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
-	    Store.safe_insert_update store pi pu >>= fun _ ->
-	    let () = acc := Some(i,update) in
-	    Lwt.return ()
-	  end
-	else
-	  begin
-	    Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-	    let () = acc := Some(i,update) in
-	    Lwt.return ()
-	  end
-  in
-  tlog_coll # iterate start_i future_i f >>= fun () ->
-  store # consensus_i () >>= fun store_i' ->
-  Lwt_log.info_f "catchup_store completed, store is @ %s" 
-    ( option_to_string Sn.string_of store_i')
+    let acc = ref None in
+    let f (i,update) =
+      match !acc with
+	| None ->
+	  let () = acc := Some(i,update) in
+	  Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) >>= fun () ->
+	  Lwt.return ()
+	    | Some (pi,pu) ->
+	      if pi < i then
+		begin
+		  Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
+		  Store.safe_insert_update store pi pu >>= fun _ ->
+		  let () = acc := Some(i,update) in
+		  Lwt.return ()
+		end
+	      else
+		begin
+		  Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+		  let () = acc := Some(i,update) in
+		  Lwt.return ()
+		end
+    in
+    tlog_coll # iterate start_i too_far_i f >>= fun () ->
+    store # consensus_i () >>= fun store_i' ->
+    Lwt_log.info_f "catchup_store completed, store is @ %s" 
+      ( option_to_string Sn.string_of store_i')
   >>= fun () ->
   (* TODO: straighten interface *)
-  let vo = match !acc with
+    let vo = match !acc with
       | None -> None
       | Some (i,u) -> let v = Update.make_update_value u in Some v
-  in
-  Lwt.return (future_i, vo)
+    in
+    Lwt.return (too_far_i, vo)
   end
 
 let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i) =
@@ -140,18 +140,18 @@ let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
-  catchup_tlog me other_configs current_i mr_name tlog_coll>>= fun future_i' ->
-  catchup_store me db tlog_coll future_i' >>= fun (end_i,vo) ->
+  catchup_tlog me other_configs current_i mr_name tlog_coll>>= fun too_far_i ->
+  catchup_store me db tlog_coll too_far_i >>= fun (end_i,vo) ->
   Lwt_log.info_f "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
 
 
 let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option_to_string Sn.string_of  in
-  Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s"
-    (io_s ti_o) (Sn.string_of current_i) >>= fun () ->
   store # consensus_i () >>= fun si_o ->
-  match ti_o, si_o with
+  Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
+    (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
+   match ti_o, si_o with
     | None, None -> Lwt.return (0L,None)
     | Some 0L, None -> Lwt.return (0L,None)
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)

@@ -167,10 +167,18 @@ object(self: #backend)
 
   method last_entries (start_i:Sn.t) f =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-    tlog_collection # get_last_i () >>= fun too_far_i ->
-    log_o self "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
-	  tlog_collection # iterate start_i too_far_i f 
-	  >>= fun () ->
+    store # consensus_i () >>= fun consensus_i ->
+    begin 
+      match consensus_i with
+	| None -> Lwt.return () 
+	| Some ci ->
+	  begin
+	    let too_far_i = Sn.succ ci in
+	    log_o self "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
+	    tlog_collection # iterate start_i too_far_i f 
+	  end
+    end
+    >>= fun () ->
     log_o self "done with_last_entries"
 
 
