@@ -313,7 +313,7 @@ object(self: # tlog_collection)
       let test0 = linf * factor in
       let test1 = (Sn.succ linf) * factor in
       let low_s = Sn.string_of low in
-      let lowp = Sn.succ low in
+      let lowp = low in
       let lowp_s = Sn.string_of lowp in
       let test_result = 
 	(test0 <= lowp) &&

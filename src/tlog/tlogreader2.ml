@@ -57,38 +57,38 @@ module U = struct
 	(function
 	  | End_of_file -> (Lwt_io.close ic >>= fun () -> Lwt.return None )
 	  | exn -> Lwt.fail exn)
-    in
-    let rec skip_until () =
-      next () >>= function
-	| None -> Lwt.return None
-	| Some (i,update) ->
-	  if i < lowerI
-	  then skip_until ()
-	  else Lwt.return (Some (i, update) )
-    in
-    let rec _fold (a:'a) (i,u) =
-      match too_far_i with
-	| None -> 
-	  begin 
-	    f a (i,u) >>= fun a' -> 
-	    next () >>= function
-	      | None -> Lwt.return a'
-	      | Some (i',u') -> _fold a' (i',u')
-	  end
-	| Some hi ->
-	  if (i >= hi) 
-	  then Lwt.return a
-	  else 
-	    begin
-	      f a (i,u) >>= fun a' ->
-	      next () >>= function
-		| None -> Lwt.return a'
-		| Some (i',u') -> _fold a' (i',u')
-	    end
-    in skip_until () >>= function
-      | None ->  Lwt.return a0
-      | Some (i0,u0) ->
-	_fold a0 (i0,u0)
+  in
+  let rec skip_until () =
+    next () >>= function
+      | None -> Lwt.return None
+      | Some (i,update) ->
+	    if i < lowerI
+	    then skip_until ()
+	    else Lwt.return (Some (i, update) )
+      in
+      let rec _fold (a:'a) (i,u) =
+        match too_far_i with
+          | None -> 
+	          begin 
+              f a (i,u) >>= fun a' -> 
+              next () >>= function
+                | None -> Lwt.return a'
+                | Some (i',u') -> _fold a' (i',u')
+            end
+          | Some hi ->
+            if (i > hi) 
+            then Lwt.return a
+            else 
+            begin
+              f a (i,u) >>= fun a' ->
+              next () >>= function
+                | None -> Lwt.return a'
+                | Some (i',u') -> _fold a' (i',u')
+            end
+            in skip_until () >>= function
+              | None ->  Lwt.return a0
+              | Some (i0,u0) ->
+            _fold a0 (i0,u0)
 
 end
 

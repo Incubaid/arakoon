@@ -92,7 +92,14 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	    end
     | Prepare(n,_) when n <= current_n && n >= Sn.start ->
       begin
-        let reply = Nak(n,(current_n,current_i)) in
+      let store = constants.store in
+        store # consensus_i () >>= fun s_i ->
+        let nak_max =
+        match s_i with 
+          | Some si -> Sn.succ si
+          | None -> Sn.start
+        in
+        let reply = Nak(n,(current_n,nak_max)) in
         log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_waiting_for_prepare (current_i,current_n) )
@@ -115,21 +122,21 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
 	    begin
 	      log ~me "got %s => we're in sync" (string_of msg) >>= fun () ->
-	(* pick in @ steady state *)
-	      constants.get_value (Sn.pred i2) >>= fun p ->
+        (* pick in @ steady state *)
+	      constants.get_value i2 >>= fun p ->
 	      match p with
-		| None ->
-		  begin
-		    let () = assert (i2 = Sn.start) in
-		    Lwt.return (Slave_waiting_for_prepare (Sn.start,current_n) )
-		  end
-		| Some v ->
-		  begin
-		    log ~me "reentering steady state @(%s,%s)" 
-		      (Sn.string_of n2) (Sn.string_of i2) 
-		    >>= fun () ->
-		    Lwt.return (Slave_steady_state (n2, i2, v))
-		  end
+          | None ->
+          begin
+		        let () = assert (i2 = Sn.start) in
+            Lwt.return (Slave_waiting_for_prepare (Sn.start,current_n) )
+          end
+          | Some v ->
+          begin
+            log ~me "reentering steady state @(%s,%s)" 
+              (Sn.string_of n2) (Sn.string_of i2) 
+            >>= fun () ->
+            Lwt.return (Slave_steady_state (n2, i2, v))
+		      end
 	    end
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
 	    Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
@@ -268,7 +275,14 @@ let wait_for_promises constants state event =
                   | None -> 0L
                   | Some (_source,i) -> i
 		in
-		let reply = Nak (n', (n,i))  in
+    let store = constants.store in
+    store # consensus_i () >>= fun s_i ->
+    let nak_max =
+    match s_i with 
+      | Some si -> Sn.succ si
+      | None -> Sn.start
+    in
+    let reply = Nak (n', (n,nak_max))  in
 		log ~me "wait_for_promises:: Nak-ing lower prepare" >>= fun () ->
 		constants.send reply me source >>= fun () ->
 		constants.send (Prepare (n,i)) me source >>= fun () ->
@@ -285,18 +299,44 @@ let wait_for_promises constants state event =
 		if (is_election constants) || not (am_forced_master constants me)
 		then
 		  begin
-                    if (Sn.compare i' i) >= 0
-                    then
-                      let reply = Promise(n',i,None) in
-                      log ~me "replying with %S" (string_of reply) >>= fun () ->
-                      constants.send reply me source >>= fun () ->
-                      Lwt.return (Slave_wait_for_accept (n', i, None, None))
-                    else
-                      let reply = Nak(n',(n,i)) in
-                      log ~me "replying with %S" (string_of reply) >>= fun () ->
-                      constants.send reply me source >>= fun () ->
-                      Lwt.return (Wait_for_promises state)
-		  end 
+      let store = constants.store in
+      store # consensus_i () >>= fun s_i ->
+      let nak_max =
+      match s_i with 
+        | Some si -> Sn.succ si
+        | None -> Sn.start
+      in
+      if i < nak_max && nak_max <> Sn.start 
+      then 
+        let reply = Nak(n',(n,i)) in
+        log ~me "replying with %S" (string_of reply) >>= fun () ->
+        constants.send reply me source >>= fun () ->
+        Lwt.return (Wait_for_promises state)
+      else
+        let tlog_coll = constants.tlog_coll in
+        let store_i =
+        match s_i with
+          | Some si -> Sn.succ si
+          | None -> Sn.start
+        in
+        tlog_coll # get_last_update ( store_i ) >>= fun l_u ->
+        let pr_up,pr_up_with_i =
+        match l_u with
+          | None -> (None,None)
+          | Some up -> 
+            let up_val = Update.make_update_value up in
+            (Some up_val, Some (up_val, store_i) )
+        in
+        let reply = Promise(n',store_i, pr_up ) in
+        log ~me "replying with %S" (string_of reply) >>= fun () ->
+        constants.send reply me source >>= fun () ->
+        if i' = store_i 
+        then
+          Lwt.return (Slave_wait_for_accept (n', i, None, pr_up_with_i))
+        else
+          let new_state = (source,i,n',i') in 
+          Lwt.return (Slave_discovered_other_master(new_state) )
+      end
 		else
                   let reply = Nak (n', (n,i))  in
                   constants.send reply me source >>= fun () ->
@@ -510,7 +550,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	        constants.send reply me source >>= fun () ->
           begin
           if i' = i then
-	          Lwt.return (Slave_wait_for_accept (n',i, None, None))
+	          Lwt.return (Slave_wait_for_accept (n',i, None, Some (v,i) ))
           else 
             let new_state = (source,i,n',i') in 
             Lwt.return (Slave_discovered_other_master(new_state) )
@@ -540,12 +580,21 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      Lwt.return (Wait_for_accepteds state)
 	    end
 	  | Accept (n',i',v') when n' > n ->
-            begin 
-              (* Become slave, goto catchup *)
-              log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
-              let new_state = (source,i,n',i') in 
-              Lwt.return (Slave_discovered_other_master new_state)
-            end
+      begin
+      match mo with
+        | None -> Lwt.return ()
+        | Some finished -> 
+		      let msg = "lost master role during wait_for_accepteds while handling client request" in
+		      let rc = Arakoon_exc.E_NOT_MASTER in
+		      let result = Store.Update_fail (rc, msg) in
+		      finished result
+      end >>= fun () ->
+      begin 
+        (* Become slave, goto catchup *)
+        log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
+        let new_state = (source,i,n,i') in 
+        Lwt.return (Slave_discovered_other_master new_state)
+      end
 	  | Accept (n',i',v') -> (* n' = n *)
 	    paxos_fatal me "wait_for_accepteds: received %S with same n: FATAL" 
 	      (string_of msg)

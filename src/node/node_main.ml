@@ -66,7 +66,7 @@ let _config_logging me get_cfgs =
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in
   let log_file_name = common_prefix ^ ".log" in
-  let crash_file_name = common_prefix ^ ".debug." in
+  let crash_file_name = common_prefix ^ ".debug" in
   if log_dir <> "none"
   then
     Some ( Crash_logger.setup_default_logger level log_file_name crash_file_name )
@@ -125,7 +125,6 @@ let _log_rotate cfg i get_cfgs =
   Lwt.return ()
 
 let log_prelude() =
-  Lwt_log.debug "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
