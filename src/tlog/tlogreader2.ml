@@ -76,7 +76,7 @@ module U = struct
                 | Some (i',u') -> _fold a' (i',u')
             end
           | Some hi ->
-            if (i > hi) 
+            if (i >= hi) 
             then Lwt.return a
             else 
             begin

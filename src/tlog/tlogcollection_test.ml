@@ -135,14 +135,14 @@ let test_iterate2 (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
   let update = Update.Set("test_iterate0","xxx") in
-  _log_repeat tlc update 1 >>= fun () ->
+  _log_repeat tlc update 3 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 0) (Sn.of_int 1) 
     (fun (i,u) -> result := i :: ! result; 
      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
      Lwt.return ())
   >>= fun () -> 
-  OUnit.assert_equal (List.length !result) 1;
+  OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
   Lwt.return ()
 
 
