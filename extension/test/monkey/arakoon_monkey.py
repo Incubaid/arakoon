@@ -192,11 +192,13 @@ def health_check() :
     
     # Give the nodes some time to sync up
     time.sleep(2.0)
+    q.cmdtools.arakoon.stop()
+    
     # Make sure the tlogs are in sync
     assert_last_i_in_sync( node_names[0], node_names[1] )
     assert_last_i_in_sync( node_names[1], node_names[2] )
     # Make sure the stores are equal
-    q.cmdtools.arakoon.stop()
+    
     compare_stores( node_names[0], node_names[1] )
     compare_stores( node_names[2], node_names[1] )
     q.cmdtools.arakoon.start()
