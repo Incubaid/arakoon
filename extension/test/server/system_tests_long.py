@@ -214,7 +214,7 @@ def test_missed_accept ():
     q.cmdtools.arakoon.stop()
     assert_last_i_in_sync( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
-    
+
 @with_custom_setup( setup_2_nodes_forced_master, basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
@@ -248,7 +248,45 @@ def test_is_progress_possible():
         raise Exception ("Node did not catchup in a timely fashion")
     
     cli.set('k','v')
+
+
+
+@with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
+def test_catchup_exercises():
+    time.sleep(1.0) # ??
     
+    def do_one(n, max_wait):
+        iterate_n_times(n, simple_set)
+        q.cmdtools.arakoon.stop()
+        logging.info("stopped all nodes")
+        slave_config = q.config.arakoon.getNodeConfig(node_names[1])
+        data_dir = slave_config['home']
+        q.system.fs.removeDirTree(data_dir)
+        q.system.fs.createDir(data_dir)
+        logging.info("slave_wiped")
+        cli = get_client ()
+        q.cmdtools.arakoon.start()
+        assert_false(cli.expectProgressPossible())
+    
+        counter = 0
+        up2date = False
+
+        while not up2date and counter < max_wait :
+            time.sleep( 1.0 )
+            counter += 1
+            up2date = cli.expectProgressPossible()
+    
+        if counter >= max_wait :
+            raise Exception ("Node did not catchup in a timely fashion")
+
+    n = 1000
+    w = 10
+    for i in range(5):
+        do_one(n,w)
+        n = n * 2
+        w = w * 2
+        
+
 @with_custom_setup( setup_1_node_forced_master, basic_teardown )
 def test_sso_deployment():
     
