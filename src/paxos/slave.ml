@@ -55,6 +55,14 @@ let slave_fake_prepare constants (current_i,current_n) () =
 let slave_steady_state constants state event =
   let (n,i,previous) = state in
   let me = constants.me in
+  let store = constants.store in
+  store # consensus_i () >>= fun s_i ->
+  let nak_max = 
+  begin
+    match s_i with
+      | None -> Sn.start
+      | Some si -> Sn.succ si
+  end in
   match event with
     | FromNode (msg,source) ->
       begin
@@ -111,7 +119,7 @@ let slave_steady_state constants state event =
 	      begin
 		begin
 		  if n' <> -1L then
-		    let reply = Nak(n',(n,i)) in
+		    let reply = Nak(n',(n,nak_max)) in
 		    log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		    send reply me source
 		  else Lwt.return ()
@@ -130,22 +138,15 @@ let slave_steady_state constants state event =
                 if i' < nak_max && nak_max <> Sn.start 
                 then 
                   begin
-                  let reply = Nak(n', (n,i)) in
+                  let reply = Nak(n', (n,nak_max)) in
                   log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
                   send reply me source >>= fun () ->
                   Lwt.return (Slave_steady_state state)
                   end
                 else
                   begin
-      let tlog_coll = constants.tlog_coll in
-      tlog_coll # get_last_update nak_max >>= fun lu ->
-      let lv =
-      begin
-        match lu with
-          | None -> None
-          | Some up -> Some ( Update.make_update_value up )
-      end in
-		  let reply = Promise(n',nak_max,lv ) in
+      constants.get_value( nak_max ) >>= fun lv ->
+      let reply = Promise(n',nak_max,lv ) in
 		  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		  send reply me source >>= fun () ->
       if i' > i then
@@ -227,7 +228,15 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	    constants.on_witness source i' >>= fun () ->
 	    if n' <= n then
 	      begin
-		 let reply = Nak (n',(n,i)) in send reply me source >>= fun () -> 
+          let store = constants.store in
+          store # consensus_i () >>= fun s_i ->
+          let nak_max = 
+          begin
+            match s_i with
+              | None -> Sn.start
+              | Some si -> Sn.succ si
+          end in
+		 let reply = Nak (n',(n,nak_max)) in send reply me source >>= fun () -> 
 		log ~me "slave_wait_for_accept: ignoring %S with lower or equal n" (string_of msg)
 		>>= fun () ->
 		Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
@@ -246,10 +255,11 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
     begin
     if i' < nak_max && nak_max <> Sn.start 
     then
-      Lwt.return ( n, Nak(n',(n,i)) )  
+      Lwt.return ( n, Nak(n',(n,nak_max)) )  
     else
       start_lease_expiration_thread constants n' constants.lease_expiration >>= fun _ ->
-      Lwt.return ( n',Promise (n',i,vo) )
+      constants.get_value (i') >>= fun vo_2 ->
+      Lwt.return ( n',Promise (n',i',vo_2) )
     end
     >>= fun (next_n, reply) ->
 		send reply me source >>= fun () ->

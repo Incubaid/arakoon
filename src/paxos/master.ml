@@ -91,9 +91,9 @@ let stable_master constants (v',n,new_i) = function
 	  | Prepare (n',i') when n' <= n ->
 	    begin
 	      constants.on_witness source i' >>= fun () ->
-	      Lwt_log.debug "always Nak-ing Prepare when running as master"
+	      Lwt_log.debug "Nak-ing Prepare with lower or equal n when running as master"
 	      >>= fun () ->
-	      let reply = Nak(n',(n,new_i)) in
+	      let reply = Nak(n',(n,Sn.pred new_i)) in
 	      constants.send reply me source  >>= fun () ->
 	      Lwt.return (Stable_master (v',n,new_i))
 	    end

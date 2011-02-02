@@ -60,12 +60,18 @@ let test_generic network_factory n_nodes () =
       >>= fun () -> Lwt.return (Store.Ok None)
   in
   let on_witness who i = Lwt.return () in
-  let get_value i = Lwt.fail (Failure "no_value") in
 
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  let get_value i = 
+    tlog_coll # get_last_update i >>= function
+      | None -> Lwt.return None 
+      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
+     
+    
+  in
   let base = {me = "???";
 	      others = [] ;
 	      send = send;
@@ -220,13 +226,17 @@ let test_master_loop network_factory ()  =
     Lwt.return v
   in
   let on_witness who i = Lwt.return () in
-  let get_value i = Lwt.fail (Failure "no_value") in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  let get_value i = 
+    tlog_coll # get_last_update i >>= function
+      | None -> Lwt.return None 
+      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
+  in
   let constants = {me = me; others = others;
 		   send = send;
 		   get_value = get_value;
@@ -313,7 +323,6 @@ let test_simulation filters () =
     Lwt.return (Store.Ok None)
   in
   let on_witness who i = Lwt.return () in
-  let get_value i = Lwt.fail (Failure "no value") in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
   let buffers = Hashtbl.create 7 in
@@ -340,6 +349,11 @@ let test_simulation filters () =
   
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  let get_value i = 
+    tlog_coll # get_last_update i >>= function
+      | None -> Lwt.return None 
+      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
+  in
   let constants = {me = me;
 		   others = ["c1";"c2"];
 		   send = send;

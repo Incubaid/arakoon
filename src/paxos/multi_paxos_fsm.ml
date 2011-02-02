@@ -76,7 +76,16 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	match msg with
 	  | Prepare(n,_) when n > current_n ->
 	    begin
-	      let reply = Promise(n,current_i,None) in
+        let store = constants.store in
+        store # consensus_i () >>= fun s_i ->
+        let nak_max = 
+        begin
+          match s_i with
+            | None -> Sn.start
+            | Some si -> Sn.succ si
+        end in
+        constants.get_value(nak_max) >>= fun lv ->
+	      let reply = Promise(n,nak_max,lv) in
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () ->
         let tlog_coll = constants.tlog_coll in
@@ -308,29 +317,30 @@ let wait_for_promises constants state event =
       in
       if i' < nak_max && nak_max <> Sn.start 
       then 
-        let reply = Nak(n',(n,i)) in
+        let reply = Nak(n',(n,nak_max)) in
         log ~me "replying with %S" (string_of reply) >>= fun () ->
         constants.send reply me source >>= fun () ->
         Lwt.return (Wait_for_promises state)
       else
         let tlog_coll = constants.tlog_coll in
-        let store_i =
+        let nak_max =
         match s_i with
           | Some si -> Sn.succ si
           | None -> Sn.start
         in
-        tlog_coll # get_last_update ( store_i ) >>= fun l_u ->
-        let pr_up,pr_up_with_i =
-        match l_u with
-          | None -> (None,None)
-          | Some up -> 
-            let up_val = Update.make_update_value up in
-            (Some up_val, Some (up_val, store_i) )
-        in
-        let reply = Promise(n',store_i, pr_up ) in
+        tlog_coll # get_last_update nak_max >>= fun l_u ->
+        let pr_up, pr_up_with_i =
+        begin
+          match l_u with
+            | None -> (None,None)
+            | Some upd -> 
+              let up_val = Update.make_update_value upd in
+              (Some up_val, Some(up_val, nak_max))
+        end in
+        let reply = Promise(n',nak_max, pr_up ) in
         log ~me "replying with %S" (string_of reply) >>= fun () ->
         constants.send reply me source >>= fun () ->
-        if i' = store_i 
+        if i' = nak_max 
         then
           Lwt.return (Slave_wait_for_accept (n', i, None, pr_up_with_i))
         else
@@ -338,7 +348,15 @@ let wait_for_promises constants state event =
           Lwt.return (Slave_discovered_other_master(new_state) )
       end
 		else
-                  let reply = Nak (n', (n,i))  in
+      let store = constants.store in
+      store # consensus_i () >>= fun s_i ->
+      let nak_max = 
+      begin
+        match s_i with
+          | None -> Sn.start
+          | Some si -> Sn.succ si
+      end in
+                  let reply = Nak (n', (n,nak_max))  in
                   constants.send reply me source >>= fun () ->
                   Lwt.return (Wait_for_promises state)
 	      end
@@ -362,7 +380,15 @@ let wait_for_promises constants state event =
                       then
 			begin
 			  constants.get_value i >>= fun vo ->
-			   let reply = Nak (n', (n,i))  in
+        let store = constants.store in
+        store # consensus_i () >>= fun s_i ->
+        let nak_max = 
+        begin
+          match s_i with
+            | None -> Sn.start
+            | Some si -> Sn.succ si
+        end in 
+			   let reply = Nak (n', (n,nak_max))  in
          log ~me "wait_for_promises: replying with %s" (string_of reply) >>= fun () ->
          constants.send reply me source >>= fun () ->
          Lwt.return (Wait_for_promises state)
