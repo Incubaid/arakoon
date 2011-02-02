@@ -169,10 +169,7 @@ let one_command (ic,oc) backend =
 	begin
 	  Sn.input_sn ic >>= fun i ->
 	  Llio.output_int32 oc 0l >>= fun () ->
-	  Llio.output_int oc 1 >>= fun () -> (* entries, 2 would have been file *)
-	  let f (i,u) = Tlogcommon.write_entry oc i u in
-	  backend # last_entries i f >>= fun () ->
-	  Sn.output_sn oc (-1L) >>= fun () ->
+	  backend # last_entries i oc >>= fun () ->
           Lwt_io.flush oc
 	end
     | CLONE ->

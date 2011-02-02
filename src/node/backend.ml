@@ -35,7 +35,7 @@ class type backend = object
     string option -> bool ->
     string option -> bool -> int -> ((string * string) list) Lwt.t
   method prefix_keys: string -> int -> (string list) Lwt.t
-  method last_entries: Sn.t -> (Sn.t * Update.t -> unit Lwt.t) -> unit Lwt.t
+  method last_entries: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get: string list -> string list Lwt.t
   method hello: string -> string Lwt.t

@@ -24,6 +24,7 @@ open Tlogcollection
 open Tlogcommon
 open Update
 open Lwt
+open Unix.LargeFile
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
@@ -353,7 +354,20 @@ object(self: # tlog_collection)
 		  Sn.mul (Sn.of_int f) n
     in 
     Lwt.return v
- 
+
+  method copy_head oc =
+    let head_name = Filename.concat tlog_dir "head.db" in
+    let stat = Unix.LargeFile.stat head_name in
+    let length = stat.st_size in
+    Lwt_log.debug_f "tlcs:: copy_head %Li" length >>= fun ()->
+    Llio.output_int64 oc length >>= fun () ->
+    Lwt_io.with_file
+      ~flags:[Unix.O_RDONLY]
+      ~mode:Lwt_io.input
+      head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+    >>= fun () ->
+    let not_in_head_i = failwith "not implemented" in
+    Lwt.return not_in_head_i
 
  method get_last_i () =
     match _previous_update with

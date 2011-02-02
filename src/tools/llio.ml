@@ -211,3 +211,26 @@ let input_string_option ic =
     | false -> Lwt.return None
     | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
  
+let copy_stream ~length ~ic ~oc =
+  Lwt_log.debug "copy_stream" >>= fun () ->
+  let bs = Lwt_io.default_buffer_size () in
+  let bs64 = Int64.of_int bs in
+  let buffer = String.create bs in
+  let n_bs = Int64.div length bs64 in
+  let rest = Int64.to_int (Int64.rem length bs64) in
+  let rec loop i =
+    if i = Int64.zero
+    then
+      begin
+	Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
+	Lwt_io.write_from_exactly oc buffer 0 rest 
+      end
+    else
+      begin
+	Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
+	Lwt_io.write oc buffer >>= fun () ->
+	loop (Int64.pred i)
+      end
+  in
+    loop n_bs >>= fun () ->
+    Lwt.return ()

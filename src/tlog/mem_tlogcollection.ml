@@ -73,6 +73,8 @@ object (self: #tlog_collection)
 	     Lwt.return None)
 	end
 
+  method copy_head oc = Llio.lwt_failfmt "not implemented"
+
   method close () = Lwt.return ()
 end
 

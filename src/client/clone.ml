@@ -3,29 +3,7 @@ open Common
 open Unix.LargeFile
 module Clone = struct
 
-  let copy_stream ~length ~ic ~oc =
-    Lwt_log.debug "copy_stream" >>= fun () ->
-    let bs = Lwt_io.default_buffer_size () in
-    let bs64 = Int64.of_int bs in
-    let buffer = String.create bs in
-    let n_bs = Int64.div length bs64 in
-    let rest = Int64.to_int (Int64.rem length bs64) in
-    let rec loop i =
-      if i = Int64.zero
-      then
-	begin
-	  Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
-	  Lwt_io.write_from_exactly oc buffer 0 rest 
-	end
-      else
-	begin
-	  Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
-	  Lwt_io.write oc buffer >>= fun () ->
-	  loop (Int64.pred i)
-	end
-    in
-    loop n_bs >>= fun () ->
-    Lwt.return ()
+
     
   let receive_files (ic,oc) ~target_dir = 
     let request f =
@@ -51,7 +29,7 @@ module Clone = struct
 	    Lwt_io.with_file 
 	      ~flags:[Unix.O_CREAT;Unix.O_WRONLY]
 	      ~mode:Lwt_io.output
-	      file_name (fun oc -> copy_stream ~length ~ic ~oc) 
+	      file_name (fun oc -> Llio.copy_stream ~length ~ic ~oc) 
 	    >>= fun () ->
 	    loop (i-1)
 	  end
@@ -84,7 +62,7 @@ module Clone = struct
 	  Lwt_io.with_file
 	    ~flags:[Unix.O_RDONLY]
 	    ~mode:Lwt_io.input
-	    file_name (fun ic -> copy_stream ~length ~ic ~oc)
+	    file_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
 	  >>= fun () ->
 	  loop rest
 	end

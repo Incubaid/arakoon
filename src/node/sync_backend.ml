@@ -165,7 +165,7 @@ object(self: #backend)
   method hello (client_info:string) =
     log_o self "hello" >>= fun () -> Lwt.return "xxx"
 
-  method last_entries (start_i:Sn.t) f =
+  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
     store # consensus_i () >>= fun consensus_i ->
     begin 
@@ -173,9 +173,29 @@ object(self: #backend)
 	| None -> Lwt.return () 
 	| Some ci ->
 	  begin
+	    tlog_collection # get_infimum_i () >>= fun inf_i ->
 	    let too_far_i = Sn.succ ci in
-	    log_o self "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
-	    tlog_collection # iterate start_i too_far_i f 
+	    log_o self 
+	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
+	      (Sn.string_of too_far_i)
+	    
+	    >>= fun () ->
+	    begin
+	      if start_i < inf_i 
+	      then 
+		begin
+		  Llio.output_int oc 2 >>= fun () ->
+		  tlog_collection # copy_head oc
+		end
+	      else 
+		begin
+		  Llio.output_int oc 1 >>= fun () -> Lwt.return start_i
+		end
+	    end
+	    >>= fun start_i'->
+	    let f(i,u) = Tlogcommon.write_entry oc i u in
+	    tlog_collection # iterate start_i' too_far_i f >>= fun () ->
+	    Sn.output_sn oc (-1L) 
 	  end
     end
     >>= fun () ->
