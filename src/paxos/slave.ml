@@ -127,7 +127,7 @@ let slave_steady_state constants state event =
           | Some si -> Sn.succ si
           | None -> Sn.start
         in
-                if i < nak_max && nak_max <> Sn.start 
+                if i' < nak_max && nak_max <> Sn.start 
                 then 
                   begin
                   let reply = Nak(n', (n,i)) in
@@ -244,7 +244,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       | None -> Sn.start
     in
     begin
-    if i < nak_max && nak_max <> Sn.start 
+    if i' < nak_max && nak_max <> Sn.start 
     then
       Lwt.return ( n, Nak(n',(n,i)) )  
     else

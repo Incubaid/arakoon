@@ -198,7 +198,7 @@ let wait_for_promises constants state event =
         let drop msg reason = log ~me "dropping %s because: %s" (string_of msg) reason >>= fun () ->
         Lwt.return (Wait_for_promises state) in
 	let who_voted_s = Log_extra.string_of_list (fun s -> s) who_voted in
-        log ~me "wait_for_promises:i=%s who_voted = %s" (Sn.string_of i) who_voted_s 
+        log ~me "wait_for_promises:n=%s i=%s who_voted = %s" (Sn.string_of n) (Sn.string_of i) who_voted_s 
 	>>= fun () ->
         begin
           log ~me "wait_for_promises:: received %S from %s" (string_of msg) source 
@@ -306,7 +306,7 @@ let wait_for_promises constants state event =
         | Some si -> Sn.succ si
         | None -> Sn.start
       in
-      if i < nak_max && nak_max <> Sn.start 
+      if i' < nak_max && nak_max <> Sn.start 
       then 
         let reply = Nak(n',(n,i)) in
         log ~me "replying with %S" (string_of reply) >>= fun () ->
