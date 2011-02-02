@@ -233,9 +233,9 @@ let _init_oc tlog_dir c =
 
 let iterate_tlog_dir tlog_dir start_i too_far_i f =
   let tfs = Sn.string_of too_far_i in
-  Lwt_log.debug_f "tlc2::iterate start_i:%s too_far_i:%s" 
-    (Sn.string_of start_i) tfs >>= fun () ->
-  let lowerI = start_i in
+  Lwt_log.debug_f "Tlc2.iterate tlog_dir:%s start_i:%s too_far_i:%s" 
+    tlog_dir (Sn.string_of start_i) tfs 
+  >>= fun () ->
   get_tlog_names tlog_dir >>= fun tlog_names ->
   let acc_entry (i0:Sn.t) (i,u) = 
     Lwt_log.debug_f "doing: %s" (Sn.string_of i) >>= fun () ->
@@ -271,7 +271,7 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
       end
     else Lwt.return low
   in
-  Lwt_list.fold_left_s maybe_fold lowerI tlog_names 
+  Lwt_list.fold_left_s maybe_fold start_i tlog_names 
   >>= fun x ->
   Lwt.return ()    
     

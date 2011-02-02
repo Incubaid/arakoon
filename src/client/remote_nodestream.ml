@@ -38,7 +38,10 @@ object(self)
       Sn.sn_to buf i
     in
     let incoming ic =
-      let rec loop () =
+      let rec loop_file () = 
+	Llio.lwt_failfmt "not implemented"
+      in
+      let rec loop_entries () =
 	Sn.input_sn ic >>= fun i2 ->
 	begin
 	  if i2 = (-1L) then
@@ -50,10 +53,14 @@ object(self)
 	      let update,_ = Update.from_buffer entry 0 in
 	      let i = i2 in
 	      f (i,update) >>= fun () ->
-              loop ()
+              loop_entries ()
 	    end
 	end
-      in loop ()
+      in 
+      Llio.input_int ic >>= function
+	| 1 -> loop_entries ()
+	| 2 -> loop_file () (* >>= fun () -> loop_entries  *)
+	| x -> Llio.lwt_failfmt "don't know what %i means" x
     in
     request outgoing >>= fun () ->
     response ic incoming  
