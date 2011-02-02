@@ -31,17 +31,7 @@ let time_for_elections constants n' maybe_previous =
   let last_accepted_lease () = constants.store # who_master() >>= fun maybe_stored ->
   match maybe_stored with
     | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
-    | Some (sm,sd) -> 
-      begin
-      match maybe_previous with
-      | None -> Lwt.return ("stored",(sm,sd))
-      | Some (previous, prev_n) ->
-        let Value.V(update_string) = previous in
-        let u,_ = Update.from_buffer update_string 0 in
-        match u with
-          | Update.MasterSet (m,d) -> Lwt.return ("previous",(m,d))
-          | _ -> Lwt.return ("stored",(sm,sd))
-      end 
+    | Some (sm,sd) -> Lwt.return( "stored", (sm,sd) )
   in
   last_accepted_lease () >>= fun (origine,(am,al)) ->
   let now = Int64.of_float (Unix.time()) in
