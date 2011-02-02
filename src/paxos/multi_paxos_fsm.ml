@@ -136,8 +136,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	      match p with
           | None ->
           begin
-		        let () = assert (i2 = Sn.start) in
-            Lwt.return (Slave_waiting_for_prepare (Sn.start,current_n) )
+		        Lwt.return (Slave_waiting_for_prepare (i2,current_n) )
           end
           | Some v ->
           begin
