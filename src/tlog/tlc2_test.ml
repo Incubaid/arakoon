@@ -85,6 +85,21 @@ let test_validate_at_rollover_boundary (dn,factory) =
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 3, got %d" n in
   Lwt.return (OUnit.assert_equal ~msg n 3)
 
+let test_iterate4 (dn, factory) =
+  let () = Tlogcommon.tlogEntriesPerFile := 100 in
+  factory dn >>= fun tlc ->
+  let update = Update.Set("test_iterate4","xxx") in
+  Tlogcollection_test._log_repeat tlc update 120 >>= fun () ->
+  Lwt_unix.sleep 2.0 >>= fun () -> (* compression should have callback *)
+  let fnc = Filename.concat dn "000.tlc" in
+  Unix.unlink fnc;
+  (* remove 000.tlog & 000.tlc ; errors? *)
+  tlc # get_infimum_i () >>= fun inf ->
+  Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
+  OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
+  Lwt.return ()
+
+
 let suite = "tlc2" >:::[
   "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
   "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
@@ -94,6 +109,7 @@ let suite = "tlc2" >:::[
   "test_iterate" >:: wrap_tlc Tlogcollection_test.test_iterate;
   "test_iterate2" >:: wrap_tlc Tlogcollection_test.test_iterate2;
   "test_iterate3" >:: wrap_tlc Tlogcollection_test.test_iterate3;
+  "test_iterate4" >:: wrap_tlc test_iterate4;
   "validate" >:: wrap_tlc Tlogcollection_test.test_validate_normal;
   "validate_corrupt" >:: wrap_tlc Tlogcollection_test.test_validate_corrupt_1;
   "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;

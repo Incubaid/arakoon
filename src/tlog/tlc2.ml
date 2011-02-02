@@ -343,7 +343,19 @@ object(self: # tlog_collection)
     iterate_tlog_dir tlog_dir start_i too_far_i f
 
 
-  method get_last_i () =
+  method get_infimum_i () = 
+    get_tlog_names tlog_dir >>= fun names ->
+    let f = !Tlogcommon.tlogEntriesPerFile in
+    let v = 
+    match names with
+      | [] -> Sn.of_int (-f)
+      | h :: _ -> let n = Sn.of_int (get_number h) in
+		  Sn.mul (Sn.of_int f) n
+    in 
+    Lwt.return v
+ 
+
+ method get_last_i () =
     match _previous_update with
       | None -> Lwt.return Sn.start
       | Some (pi,pu) -> Lwt.return pi

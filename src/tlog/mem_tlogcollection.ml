@@ -38,6 +38,8 @@ object (self: #tlog_collection)
     in
     Lwt.return (TlogValidComplete, io)
 
+  method get_infimum_i () = Lwt.return Sn.start
+
   method get_last_i () =
     match last_update with
     | None -> Lwt.return Sn.start

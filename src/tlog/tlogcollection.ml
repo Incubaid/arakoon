@@ -42,5 +42,6 @@ class type tlog_collection = object
   method get_last_update: Sn.t -> Update.t option Lwt.t
   method close : unit -> unit Lwt.t
   method get_last_i: unit -> Sn.t Lwt.t
+  method get_infimum_i : unit -> Sn.t Lwt.t
 end
 
