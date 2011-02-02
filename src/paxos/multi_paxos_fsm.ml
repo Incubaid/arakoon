@@ -53,7 +53,7 @@ let election_suggest constants (n,i,vo) () =
       | None -> Update.make_update_value (Update.make_master_set me None) , "None"
       | Some x -> x , "Some _"
   in
-  log ~me "election_suggest: n=%s %s"  (Sn.string_of n) msg >>= fun () ->
+  log ~me "election_suggest: n=%s i=%s %s"  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
   start_election_timeout constants n >>= fun () ->
   mcast constants (Prepare (n,i)) >>= fun () ->
   let who_voted = [me] in

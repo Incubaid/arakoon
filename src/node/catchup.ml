@@ -123,6 +123,12 @@ let catchup_store me store (tlog_coll:tlog_collection) (too_far_i:Sn.t) =
 		end
     in
     tlog_coll # iterate start_i too_far_i f >>= fun () ->
+    begin
+    match !acc with 
+      | None -> Lwt.return ()
+      | Some(i,update) -> 
+          Store.safe_insert_update store i update >>= fun _ -> Lwt.return ()
+    end >>= fun () -> 
     store # consensus_i () >>= fun store_i' ->
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
       ( option_to_string Sn.string_of store_i')
@@ -164,7 +170,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
     | Some i, Some j when i > j -> 
       begin
-	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
+	catchup_store me store tlog_coll (Sn.pred current_i) >>= fun (end_i, vo) ->
 	Lwt.return (end_i,vo)
       end
     | Some i, None ->

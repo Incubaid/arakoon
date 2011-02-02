@@ -146,7 +146,15 @@ let slave_steady_state constants state event =
                   end
                 else
                   begin
-		  let reply = Promise(n',i,None) in
+      let tlog_coll = constants.tlog_coll in
+      tlog_coll # get_last_update nak_max >>= fun lu ->
+      let lv =
+      begin
+        match lu with
+          | None -> None
+          | Some up -> Some ( Update.make_update_value up )
+      end in
+		  let reply = Promise(n',nak_max,lv ) in
 		  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		  send reply me source >>= fun () ->
       if i' > i then
