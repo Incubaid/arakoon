@@ -282,7 +282,7 @@ class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option)=
       | None -> 0
       | Some (i,_) ->
 	let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	Sn.to_int (Sn.rem i step)
+	(Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
   val mutable _oc = _init_oc tlog_dir new_c
