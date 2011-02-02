@@ -149,8 +149,12 @@ let slave_steady_state constants state event =
 		  let reply = Promise(n',i,None) in
 		  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		  send reply me source >>= fun () ->
-		  let maybe_previous = Some (previous, Sn.pred i) in
-		  Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
+      if i' > i then
+        let new_state = (source,nak_max,n',i') in
+        Lwt.return (Slave_discovered_other_master new_state)
+      else
+		    let maybe_previous = Some (previous, Sn.pred i) in
+		    Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
                 end
 	      end
 	  | Nak (n',(n'',i'')) ->
@@ -255,6 +259,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      end
 	  | Accept (n',i',v) when n'=n ->
 	    begin
+        constants.on_witness source i' >>= fun () ->
         let tlog_coll = constants.tlog_coll in
         tlog_coll # get_last_i () >>= fun tlc_i ->
         if i' < tlc_i 
@@ -262,9 +267,12 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
           Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
         else
-	      constants.on_witness source i' >>= fun () ->
-	      constants.on_accept (v,n,i') >>= fun v ->
-	      begin
+        begin
+	        if i' > i then 
+            Lwt.return( Slave_discovered_other_master(source,i,n',i') )   
+          else
+          begin
+	          constants.on_accept (v,n,i') >>= fun v ->
               match maybe_previous with
               | None -> log ~me "No previous" >>= fun () -> Lwt.return()
               | Some( pv, pi ) -> 
@@ -297,6 +305,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i', v))
 	    end
+    end
 	  | Accept (n',i',v) when n' < n ->
 	    begin
         if i' > i 
