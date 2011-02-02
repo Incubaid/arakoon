@@ -100,10 +100,10 @@ let test_iterate4 (dn, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn,factory) = 
+let test_iterate5 (dn,factory) =  
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn >>= fun tlc ->
-  let rec loop i = 
+  let rec loop tlc i = 
     if i = 33 
     then Lwt.return ()
     else
@@ -111,17 +111,32 @@ let test_iterate5 (dn,factory) =
 	let is = string_of_int i in
 	let update = Update.Set("test_iterate_" ^ is ,is) in
 	tlc # log_update (Sn.of_int i) update >>= fun _ ->
-	loop (i+1)
+	begin
+	  if i mod 3 = 2 
+	  then 
+	    begin
+	      tlc # close () >>= fun () ->
+	      factory dn
+	    end
+	  else Lwt.return tlc
+	end
+	>>= fun tlc' ->
+	loop tlc' (i+1)
       end
   in
-  loop 0 >>= fun () ->
+  loop tlc 0 >>= fun () ->
   let start_i = Sn.of_int 10 in
-  let too_far_i = Sn.of_int 11 in
-  let f (i,u) = Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
+  let too_far_i = Sn.of_int 31 in
+  let lowest = ref (Sn.of_int 40) in
+  let f (i,u) = 
+    let () = lowest := min i !lowest in
+    Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
     (Update.string_of u) 
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
+  OUnit.assert_equal ~printer:Sn.string_of !lowest start_i;
   Lwt.return () 
+
 
 let suite = "tlc2" >:::[
   "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
