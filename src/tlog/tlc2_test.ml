@@ -123,6 +123,41 @@ let test_iterate5 (dn,factory) =
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return () 
 
+let test_iterate6 (dn,factory) = 
+  let () = Tlogcommon.tlogEntriesPerFile := 10 in
+  factory dn >>= fun tlc ->
+  let rec loop i = 
+    if i = 33 
+    then Lwt.return ()
+    else
+      begin
+	let is = string_of_int i in
+	let update = Update.Set("test_iterate_" ^ is ,is) in
+  begin
+    if i != 19
+    then 
+      tlc # log_update (Sn.of_int i) update 
+    else
+      tlc # log_update (Sn.of_int i) update >>= fun _ ->
+      tlc # log_update (Sn.of_int i) update 
+  end >>= fun _ ->
+	loop (i+1)
+      end
+  in
+  loop 0 >>= fun () ->
+  let sum = ref 0 in
+  let start_i = Sn.of_int 19 in
+  let too_far_i = Sn.of_int 20 in
+  tlc # iterate start_i too_far_i
+    (fun (i,u) -> sum := !sum + (Int64.to_int i); 
+      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      Lwt.return ())
+  >>= fun () ->
+  tlc # close () >>= fun () ->
+  Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
+  OUnit.assert_equal ~printer:string_of_int 19 !sum;
+  Lwt.return () 
+
 let suite = "tlc2" >:::[
   "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
   "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
@@ -134,6 +169,7 @@ let suite = "tlc2" >:::[
   "test_iterate3" >:: wrap_tlc Tlogcollection_test.test_iterate3;
   "test_iterate4" >:: wrap_tlc test_iterate4;
   "test_iterate5" >:: wrap_tlc test_iterate5;
+  "test_iterate6" >:: wrap_tlc test_iterate6;
   "validate" >:: wrap_tlc Tlogcollection_test.test_validate_normal;
   "validate_corrupt" >:: wrap_tlc Tlogcollection_test.test_validate_corrupt_1;
   "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;

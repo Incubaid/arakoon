@@ -136,8 +136,17 @@ module C = struct
 	if p = (String.length buffer) 
 	then Lwt.return a
 	else
-	  let entry, pos2 = Tlogcommon.entry_from buffer p in
-	  f a entry >>= fun a' ->
+	  let (i_buf,upd_buf), pos2 = Tlogcommon.entry_from buffer p in
+    begin 
+    match too_far_i with 
+      | None -> Lwt.return a
+      | Some max_i ->
+        if i_buf >= max_i 
+        then 
+          Lwt.return a
+        else 
+          f a (i_buf,upd_buf) 
+     end >>= fun a' ->
 	  _loop a' pos2
       in
       _loop a pos
