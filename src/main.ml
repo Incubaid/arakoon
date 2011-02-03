@@ -97,11 +97,8 @@ let run_system_tests () =
 let dump_tlog filename =
   let printer () (i,u) = 
     Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u) in
-  let folder = 
-    if Tlc2.is_compressed filename 
-    then Tlogreader2.C.fold
-    else Tlogreader2.U.fold
-  in
+  let folder,_ = Tlc2.folder_for filename in
+
   let t =
       begin
 	let do_it ic =
@@ -130,15 +127,15 @@ let dump_store filename = Dump_store.dump_store filename
 
    
 let compress_tlog tlu =
-  let tlc = Tlc2.to_archive_name tlu in
-  let t = Compression.compress_tlog tlu tlc in
+  let tlf = Tlc2.to_archive_name tlu in
+  let t = Compression.compress_tlog tlu tlf in
   Unix.unlink tlu;
   Lwt_main.run t;0
     
-let uncompress_tlog tlc = 
-  let tlu = Tlc2.to_tlog_name tlc in
-  let t = Compression.uncompress_tlog tlc tlu in
-  Unix.unlink tlc;
+let uncompress_tlog tlf = 
+  let tlu = Tlc2.to_tlog_name tlf in
+  let t = Compression.uncompress_tlog tlf tlu in
+  Unix.unlink tlf;
   Lwt_main.run t;0
   
 let run_some_tests repeat_count filter =

@@ -52,10 +52,12 @@ let to_tlog_name fn =
     root ^ ".tlog"
   else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '%s'" extension archive_extension)
 
-let is_compressed fn = 
+(*
+  let is_compressed fn = 
   let length = String.length fn in
   let extension = String.sub fn (length-4) 4 in
   extension = archive_extension
+*)
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -87,6 +89,21 @@ let get_tlog_names tlog_dir =
   Lwt_list.iter_s log_e sorted2 >>= fun () ->
   Lwt.return sorted2
 
+let extension_of filename = 
+  let lm = String.length filename - 1 in
+  let dot_pos = String.rindex_from filename lm '.' in
+  let len = lm - dot_pos +1 in
+  String.sub filename dot_pos len
+
+let folder_for filename = 
+  let extension = extension_of filename in
+  let r = 
+    if extension = ".tlog" then Tlogreader2.AU.fold
+    else if extension = archive_extension then Tlogreader2.C.fold
+    else if extension = ".tlc" then Tlogreader2.O.fold
+    else failwith (Printf.sprintf "no folder for '%s'" extension) 
+  in
+  r,extension
 
     
 let fold_read tlog_dir file_name 
@@ -97,20 +114,14 @@ let fold_read tlog_dir file_name
     (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
   Lwt_log.debug "fold_read" >>= fun () ->
   let full_name = Filename.concat tlog_dir file_name in
-  let folder, msg = 
-    if is_compressed file_name then
-      Tlogreader2.AC.fold, "compressed" 
-    else
-      Tlogreader2.AU.fold, "uncompressed"
-  in
-  Lwt_log.debug_f "%s: %s" msg file_name >>= fun () ->
+  let folder, extension = folder_for file_name in 
   let ic_f ic = folder ic lowerI too_far_i ~first a0 f in
   Lwt.catch
     (fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
     (function 
       | Unix.Unix_error(_,"open",_) as exn ->
-	if msg = "uncompressed" 
+	if extension = ".tlog" 
 	then (* file might have moved meanwhile *)
 	  begin
 	    Lwt_log.debug_f "%s became %s meanwhile " file_name archive_extension 
@@ -134,14 +145,7 @@ let _validate_one tlog_name =
   Lwt.catch
     (fun () ->
       let first = Sn.of_int 0 in
-      let folder = 
-      begin
-        if is_compressed tlog_name 
-        then 
-          Tlogreader2.AC.fold
-        else 
-          Tlogreader2.AU.fold
-      end in
+      let folder,_ = folder_for tlog_name in
       let do_it ic = folder ic Sn.start None ~first None
 	(fun a0 (i,u) -> let r = Some (i,u) in let () = prev_entry := r in Lwt.return r)
       in
@@ -355,6 +359,7 @@ object(self: # tlog_collection)
       | h :: _ -> let n = Sn.of_int (get_number h) in
 		  Sn.mul (Sn.of_int f) n
     in 
+    Lwt_log.debug_f "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
 
   method copy_head oc =
@@ -424,11 +429,11 @@ let truncate_tlog filename =
   in
   let t =
     begin
-      if is_compressed filename then
+      let folder,extension = folder_for filename in
+      if extension <> ".tlog" then
           Lwt.fail (Failure "Cannot truncate a compressed tlog")
       else
         begin
-        let folder = Tlogreader2.U.fold in
         let do_it ic =
           let lowerI = Sn.start
           and higherI = None
