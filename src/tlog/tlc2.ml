@@ -113,7 +113,8 @@ let fold_read tlog_dir file_name
 	if msg = "uncompressed" 
 	then (* file might have moved meanwhile *)
 	  begin
-	    Lwt_log.debug_f "%s became .tlf meanwhile " file_name >>= fun () ->
+	    Lwt_log.debug_f "%s became %s meanwhile " file_name archive_extension 
+	    >>= fun () ->
 	    let an = to_archive_name file_name in
 	    let full_an = Filename.concat tlog_dir an in
 	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
