@@ -124,7 +124,7 @@ let test_iterate5 (dn,factory) =
         loop tlc' (i+1)
       end
   in
-  loop 0 >>= fun () ->
+  loop tlc 0 >>= fun () ->
   let start_i = Sn.of_int 10 in
   let too_far_i = Sn.of_int 11 in
   let f (i,u) = Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
