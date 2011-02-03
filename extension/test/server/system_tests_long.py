@@ -281,7 +281,7 @@ def test_catchup_exercises():
 
     n = 1000
     w = 10
-    for i in range(5):
+    for i in range(7):
         do_one(n,w)
         n = n * 2
         w = w * 2
