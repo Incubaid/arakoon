@@ -165,7 +165,7 @@ let test_iterate6 (dn,factory) =
   >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
-  OUnit.assert_equal ~printer:string_of_int 19 !sum;
+  OUnit.assert_equal ~printer:string_of_int 38 !sum;
   Lwt.return () 
 
 let suite = "tlc2" >:::[
