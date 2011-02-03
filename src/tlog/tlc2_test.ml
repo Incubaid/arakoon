@@ -91,9 +91,9 @@ let test_iterate4 (dn, factory) =
   let update = Update.Set("test_iterate4","xxx") in
   Tlogcollection_test._log_repeat tlc update 120 >>= fun () ->
   Lwt_unix.sleep 2.0 >>= fun () -> (* compression should have callback *)
-  let fnc = Filename.concat dn "000.tlc" in
+  let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
   Unix.unlink fnc;
-  (* remove 000.tlog & 000.tlc ; errors? *)
+  (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
   Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
@@ -165,7 +165,7 @@ let test_iterate6 (dn,factory) =
   >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
-  OUnit.assert_equal ~printer:string_of_int 19 !sum;
+  OUnit.assert_equal ~printer:string_of_int 38 !sum;
   Lwt.return () 
 
 let suite = "tlc2" >:::[

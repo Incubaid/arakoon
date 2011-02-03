@@ -82,11 +82,12 @@ let test_collapse_many dn =
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = "head.db" in
-  Collapser.collapse_many dn ["000.tlc"] storename >>= fun () ->
+  let make_file_names list = List.map (fun n -> n ^ Tlc2.archive_extension) list in
+  Collapser.collapse_many dn (make_file_names ["000"]) storename >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->
-  Collapser.collapse_many dn ["001.tlc";"002.tlc"] storename >>= fun () ->
+  Collapser.collapse_many dn (make_file_names ["001";"002"]) storename >>= fun () ->
   Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many dn ["003.tlc";"004.tlc"] storename >>= fun () ->
+  Collapser.collapse_many dn (make_file_names ["003";"004"]) storename >>= fun () ->
   Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 

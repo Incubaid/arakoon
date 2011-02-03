@@ -28,9 +28,10 @@ open Unix.LargeFile
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|c\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
-let archive_name c = Printf.sprintf "%03i.tlc" c
+let archive_extension = ".tlf"
+let archive_name c = Printf.sprintf "%03i.tlf" c
 
 let to_archive_name fn = 
   let length = String.length fn in
@@ -38,23 +39,23 @@ let to_archive_name fn =
   if extension = ".tlog" 
   then 
     let root = String.sub fn 0 (length -5) in
-    root ^ ".tlc"
+    root ^ archive_extension
   else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" extension)
 
 
 let to_tlog_name fn = 
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = ".tlc" 
+  if extension = archive_extension
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"
-  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '.tlc'" extension)
+  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '%s'" extension archive_extension)
 
 let is_compressed fn = 
   let length = String.length fn in
   let extension = String.sub fn (length-4) 4 in
-  extension = ".tlc"
+  extension = archive_extension
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -76,8 +77,8 @@ let get_tlog_names tlog_dir =
       match acc with
 	| [] -> name :: acc
 	| prev :: rest ->
-	  if get_number prev = get_number name (* x.tlc = x.tlog *)
-	  then name :: rest (* skip prev: .tlc might not be ready yet *)
+	  if get_number prev = get_number name (* x.tlf = x.tlog *)
+	  then name :: rest (* skip prev: .tlf might not be ready yet *)
 	  else name :: acc
     ) [] sorted 
   in
@@ -112,7 +113,7 @@ let fold_read tlog_dir file_name
 	if msg = "uncompressed" 
 	then (* file might have moved meanwhile *)
 	  begin
-	    Lwt_log.debug_f "%s became .tlc meanwhile " file_name >>= fun () ->
+	    Lwt_log.debug_f "%s became .tlf meanwhile " file_name >>= fun () ->
 	    let an = to_archive_name file_name in
 	    let full_an = Filename.concat tlog_dir an in
 	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
