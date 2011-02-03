@@ -103,6 +103,7 @@ let entry_from buff pos =
   let update,_ = Update.from_buffer cmd 0 in
   (i,update), pos4 
 
+
 let read_into ic buf =
   Sn.input_sn ic >>= fun i ->
   Llio.input_int32 ic >>= fun crc ->
@@ -111,7 +112,16 @@ let read_into ic buf =
   Llio.int32_to buf crc;
   Llio.string_to buf cmd;
   Lwt.return () 
-  
+
+let entry_to buf i update =
+  Sn.sn_to buf i;
+  let b = Buffer.create 64 in
+  let () = Update.to_buffer b update in
+  let cmd = Buffer.contents b in
+  let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
+  Llio.int32_to buf crc;
+  Llio.string_to buf cmd
+
 let write_entry oc i update =
   Sn.output_sn oc i >>= fun () ->
   let b = Buffer.create 64 in

@@ -99,21 +99,14 @@ module C = struct
       (Log_extra.option_to_string Sn.string_of too_far_i) 
       (Sn.string_of first)
     >>= fun () ->
-    let rec _skip_blocks c = 
-      Llio.input_int ic >>= fun ne_i ->
+    let rec _skip_blocks () = 
+      Sn.input_sn ic >>= fun last_i ->
       Llio.input_string ic >>= fun s ->
-      let n_entries = Sn.of_int ne_i in
-      let c' = Sn.add c n_entries in
-      Lwt_log.debug_f "n_entries=%i c'=%s%!" ne_i (Sn.string_of c') 
+      Lwt_log.debug_f "_skip_blocks:last_i=%s%!" (Sn.string_of last_i)
       >>= fun () ->
-      if c' <= lowerI then
-	begin
-	  _skip_blocks c' 
-	end
-      else
-	begin
-	  Lwt.return s
-	end
+      if last_i < lowerI 
+      then _skip_blocks ()
+      else Lwt.return s
     in
     let rec _skip_in_block buffer pos =
       let beyond = String.length buffer in 
@@ -153,7 +146,7 @@ module C = struct
     in
     let maybe_read_buffer () =
       Lwt.catch 
-	(fun () -> Llio.input_int ic >>= fun _ (* how many entries *) ->
+	(fun () -> Sn.input_sn ic >>= fun _ (* last i *) ->
 	  Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed))
 	(function 
 	  | End_of_file -> Lwt.return None
@@ -172,7 +165,7 @@ module C = struct
 	    _fold_blocks a'
 	  end
     in
-    _skip_blocks first >>= fun compressed -> 
+    _skip_blocks () >>= fun compressed -> 
     Lwt_log.debug_f "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
     let buffer = uncompress_block compressed in
     Lwt_log.debug_f "uncompressed (size=%i)" (String.length buffer) >>= fun () ->

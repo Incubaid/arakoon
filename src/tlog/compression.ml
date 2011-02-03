@@ -36,34 +36,37 @@ let compress_tlog tlog_name archive_name =
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output archive_name
 	(fun oc ->  
-	  let rec fill_buffer buffer i = 
+	  let rec fill_buffer (buffer:Buffer.t) (last_i:Sn.t) (counter:int) = 
 	    Lwt.catch
 	      (fun () -> 
-		Tlogcommon.read_into ic buffer >>= fun () ->
+		Tlogcommon.read_entry ic >>= fun (i,u) ->
+		Tlogcommon.entry_to buffer i u;
+		let (last_i':Sn.t) = if i > last_i then i else last_i 
+		in
 		if Buffer.length buffer < limit then
-		  fill_buffer buffer (i + 1)
+		  fill_buffer (buffer:Buffer.t) last_i' (counter+1)
 		else
-		  Lwt.return i 
+		  Lwt.return (last_i',counter)
 	      )
 	      (function 
-		| End_of_file -> Lwt.return i
+		| End_of_file -> Lwt.return (last_i,counter)
 		| exn -> Lwt.fail exn
 	      )
 	  in
-	  let compress_and_write n_entries buffer = 
+	  let compress_and_write last_i buffer = 
 	    let contents = Buffer.contents buffer in
 	    let output = Bz2.compress ~block:9 contents 0 (String.length contents) in
-	    Llio.output_int oc n_entries >>= fun () ->
+	    Llio.output_int64 oc last_i >>= fun () ->
 	    Llio.output_string oc output 
 	  in
 	  let buffer = Buffer.create limit in
 	  let rec loop () = 
-	    fill_buffer buffer 0 >>= fun n_entries ->
-	    if n_entries = 0 
+	    fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
+	    if counter = 0 
 	    then Lwt.return ()
 	    else
 	      begin
-		compress_and_write n_entries buffer >>= fun () ->
+		compress_and_write last_i buffer >>= fun () ->
 		let () = Buffer.clear buffer in
 		loop ()
 	      end
@@ -80,7 +83,7 @@ let uncompress_tlog archive_name tlog_name =
 	  let rec loop () = 
 	      Lwt.catch
 		(fun () -> 
-		  Llio.input_int ic >>= fun n_entries ->
+		  Sn.input_sn ic >>= fun last_i ->
 		  Llio.input_string ic >>= fun compressed -> 
 		  Lwt.return (Some compressed))
 		(function 
