@@ -46,7 +46,7 @@ let to_archive_name fn =
 let to_tlog_name fn = 
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = archive_extension
+  if extension = archive_extension || extension = ".tlc" 
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"

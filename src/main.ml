@@ -132,10 +132,25 @@ let compress_tlog tlu =
   Unix.unlink tlu;
   Lwt_main.run t;0
     
-let uncompress_tlog tlf = 
-  let tlu = Tlc2.to_tlog_name tlf in
-  let t = Compression.uncompress_tlog tlf tlu in
-  Unix.unlink tlf;
+let uncompress_tlog tlx =
+  let t = 
+    let extension = Tlc2.extension_of tlx in
+    if extension = Tlc2.archive_extension then
+      begin
+	let tlu = Tlc2.to_tlog_name tlx in
+	Compression.uncompress_tlog tlx tlu >>= fun () ->
+	Unix.unlink tlx;
+	Lwt.return ()
+      end
+    else if extension = ".tlc" then
+      begin
+	let tlu = Tlc2.to_tlog_name tlx in
+	Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
+	Unix.unlink tlx;
+	Lwt.return ()
+      end
+    else Lwt.fail (Failure "unknown file format")
+  in
   Lwt_main.run t;0
   
 let run_some_tests repeat_count filter =
