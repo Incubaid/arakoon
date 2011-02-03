@@ -52,13 +52,6 @@ let to_tlog_name fn =
     root ^ ".tlog"
   else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '%s'" extension archive_extension)
 
-(*
-  let is_compressed fn = 
-  let length = String.length fn in
-  let extension = String.sub fn (length-4) 4 in
-  extension = archive_extension
-*)
-
 let get_number fn =
   let dot_pos = String.index fn '.' in
   let pre = String.sub fn 0 dot_pos in

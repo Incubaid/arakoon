@@ -230,7 +230,7 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
     in
     let maybe_read_buffer () =
       Lwt.catch 
-	(fun () -> Sn.input_sn ic >>= fun _ (* last i *) ->
+	(fun () -> Llio.input_int ic >>= fun _ (* n_entries *) ->
 	  Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed))
 	(function 
 	  | End_of_file -> Lwt.return None
