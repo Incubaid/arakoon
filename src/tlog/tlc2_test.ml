@@ -103,15 +103,25 @@ let test_iterate4 (dn, factory) =
 let test_iterate5 (dn,factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn >>= fun tlc ->
-  let rec loop i = 
+  let rec loop tlc i = 
     if i = 33 
     then Lwt.return ()
     else
       begin
-	let is = string_of_int i in
-	let update = Update.Set("test_iterate_" ^ is ,is) in
-	tlc # log_update (Sn.of_int i) update >>= fun _ ->
-	loop (i+1)
+        let is = string_of_int i in
+        let update = Update.Set("test_iterate_" ^ is ,is) in
+        tlc # log_update (Sn.of_int i) update >>= fun _ ->
+          begin
+            if i mod 3 = 2 
+            then 
+              begin
+                tlc # close () >>= fun () ->
+                factory dn
+              end
+            else Lwt.return tlc
+          end
+        >>= fun tlc' ->
+        loop tlc' (i+1)
       end
   in
   loop 0 >>= fun () ->
