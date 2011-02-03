@@ -139,7 +139,7 @@ module C = struct
 	  let (i_buf,upd_buf), pos2 = Tlogcommon.entry_from buffer p in
     begin 
     match too_far_i with 
-      | None -> Lwt.return a
+      | None -> f a (i_buf,upd_buf) 
       | Some max_i ->
         if i_buf >= max_i 
         then 

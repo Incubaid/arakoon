@@ -141,17 +141,17 @@ let test_iterate6 (dn,factory) =
     then Lwt.return ()
     else
       begin
-	let is = string_of_int i in
-	let update = Update.Set("test_iterate_" ^ is ,is) in
-  begin
-    if i != 19
-    then 
-      tlc # log_update (Sn.of_int i) update 
-    else
-      tlc # log_update (Sn.of_int i) update >>= fun _ ->
-      tlc # log_update (Sn.of_int i) update 
-  end >>= fun _ ->
-	loop (i+1)
+        let is = string_of_int i in
+        let update = Update.Set("test_iterate_" ^ is ,is) in
+          begin
+            if i != 19
+            then 
+              tlc # log_update (Sn.of_int i) update 
+            else
+              tlc # log_update (Sn.of_int i) update >>= fun _ ->
+              tlc # log_update (Sn.of_int i) update 
+          end >>= fun _ ->
+        loop (i+1)
       end
   in
   loop 0 >>= fun () ->
