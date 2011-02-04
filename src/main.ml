@@ -201,6 +201,8 @@ and test_repeat_count = ref 1
 and ip = ref ""
 and port = ref 8080
 and dir = ref "/tmp"
+and store_dir = ref "/tmp"
+and node_name = ref "my_node"
 and counter = ref 0
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
@@ -276,7 +278,10 @@ let actions = [
 			 Arg.Set_string ip;
 			 Arg.Set_int port;
 			 Arg.Set_string dir;
-			], "<ip> <port> <dir> clones that node into <dir>");
+			 Arg.Set_string store_dir;
+			 Arg.Set_string node_name;
+			], 
+   "<ip> <port> <tlog_dir> <store_dir> <node_name> clones that node");
   
 ] in
 
@@ -304,7 +309,8 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
-  | CloneNode -> Clone.clone_node !ip !port !dir
+  | CloneNode -> Clone.clone_node !ip !port ~tlog_dir:!dir 
+    ~store_dir:!store_dir ~node_name:!node_name
 in
 let do_server node =
   match node with

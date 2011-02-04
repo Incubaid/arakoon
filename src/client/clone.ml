@@ -68,8 +68,15 @@ module Clone = struct
 	end
     in loop ok_names >>= fun () ->
     Lwt.return ()
-	
-  let clone_node ip port target_dir = 
+
+  let fill_store ~tlog_dir ~store_dir ~node_name = 
+    let db_name = store_dir ^ "/" ^ node_name ^ ".db" in
+    Local_store.make_local_store db_name >>= fun store ->
+    Tlc2.make_tlc2 tlog_dir >>= fun tlc ->
+    tlc # get_last_i () >>= fun too_far_i ->
+    Catchup.catchup_store node_name store tlc too_far_i
+    
+  let clone_node ip port ~tlog_dir ~store_dir ~node_name = 
     let logger = Lwt_log.channel
       ~close_mode:`Keep
       ~channel:Lwt_io.stderr
@@ -80,7 +87,8 @@ module Clone = struct
     Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
     let t  = 
       let sa = Network.make_address ip port in
-      Lwt_io.with_connection sa (receive_files ~target_dir) >>= fun () ->
+      Lwt_io.with_connection sa (receive_files ~target_dir:tlog_dir) >>= fun () ->
+      fill_store ~tlog_dir ~store_dir ~node_name >>= fun (_,_) ->
       Lwt.return ()
     in
     Lwt_main.run t;
