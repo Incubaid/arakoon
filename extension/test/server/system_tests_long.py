@@ -22,7 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 from system_tests_common import *
-import system_tests_common
 import logging 
 
 @with_custom_setup( default_setup, basic_teardown )
@@ -223,13 +222,9 @@ def test_is_progress_possible():
    
     logging.info( "Stored all keys" ) 
     q.cmdtools.arakoon.stop()
-    
-    slave_config = q.config.arakoon.getNodeConfig( node_names[1] )
-    data_dir = slave_config['home']
-    q.system.fs.removeDirTree( data_dir )
-    q.system.fs.createDir ( data_dir )
-    logging.info( "Slave wiped" )
- 
+
+    whipe(node_names[1])
+
     cli = get_client()
     q.cmdtools.arakoon.start()
     logging.info( "nodes started" )
@@ -249,8 +244,6 @@ def test_is_progress_possible():
     
     cli.set('k','v')
 
-
-
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_exercises():
     time.sleep(1.0) # ??
@@ -259,13 +252,11 @@ def test_catchup_exercises():
         iterate_n_times(n, simple_set)
         q.cmdtools.arakoon.stop()
         logging.info("stopped all nodes")
-        slave_config = q.config.arakoon.getNodeConfig(node_names[1])
-        data_dir = slave_config['home']
-        q.system.fs.removeDirTree(data_dir)
-        q.system.fs.createDir(data_dir)
-        logging.info("slave_wiped")
-        cli = get_client ()
+        whipe(node_names[1])
+
         q.cmdtools.arakoon.start()
+        cli = get_client ()
+        
         assert_false(cli.expectProgressPossible())
     
         counter = 0
@@ -351,3 +342,5 @@ def test_3_nodes_2_slaves_down ():
     assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
             
     cli._dropConnections()
+
+

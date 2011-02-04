@@ -251,6 +251,19 @@ def get_last_i_tlog ( node_id ):
     tlog_last_i = tlog_last_entry.split(":") [0].lstrip( " 0" )
     return tlog_last_i
 
+def stopOne(name):
+    q.cmdtools.arakoon.stopOne(name)
+    
+def getConfig(name):
+    return q.config.arakoon.getNodeConfig(name)
+
+def whipe(name):
+    config = getConfig(name)
+    data_dir = config['home']
+    q.system.fs.removeDirTree(data_dir)
+    q.system.fs.createDir(data_dir)
+    logging.info("whiped %s" % name)
+
 
 def add_node ( i ):
     logging.info( "Adding node %s to config", node_names[ i ] )
