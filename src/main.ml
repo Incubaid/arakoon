@@ -24,7 +24,7 @@ open Lwt
 open Version
 open OUnit_XML
 open OUnit
-open Clone
+
 open Node_cfg
 type local_action =
   | ShowUsage
@@ -47,7 +47,7 @@ type local_action =
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
-  | CloneNode
+
 
 type server_action =
   | Node
@@ -198,9 +198,6 @@ and size = ref 10
 and tx_size = ref 100
 and daemonize = ref false
 and test_repeat_count = ref 1
-and ip = ref ""
-and port = ref 8080
-and dir = ref "/tmp"
 and counter = ref 0
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
@@ -272,11 +269,6 @@ let actions = [
   ("-tx_size", Arg.Set_int tx_size,
    "size of transactions (only for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
-  ("--clone", Arg.Tuple [set_laction CloneNode;
-			 Arg.Set_string ip;
-			 Arg.Set_int port;
-			 Arg.Set_string dir;
-			], "<ip> <port> <dir> clones that node into <dir>");
   
 ] in
 
@@ -304,7 +296,7 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
-  | CloneNode -> Clone.clone_node !ip !port !dir
+
 in
 let do_server node =
   match node with

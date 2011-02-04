@@ -172,11 +172,6 @@ let one_command (ic,oc) backend =
 	  backend # last_entries i oc >>= fun () ->
           Lwt_io.flush oc
 	end
-    | CLONE ->
-      begin
-	backend # clone (ic,oc) >>= fun () ->
-	Lwt_io.flush oc
-      end
     | WHO_MASTER ->
 	begin
 	Lwt_log.debug "WHO_MASTER" >>= fun () ->

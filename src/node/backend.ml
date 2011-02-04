@@ -49,5 +49,4 @@ class type backend = object
     
   method get_statistics: unit -> Statistics.t
 
-  method clone : Lwt_io.input_channel * Lwt_io.output_channel -> unit Lwt.t
 end
