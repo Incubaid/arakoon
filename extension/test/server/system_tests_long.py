@@ -85,7 +85,8 @@ def test_restart_master_long ():
     restart_iter_cnt = 10
     write_loop = lambda: iterate_n_times( 100000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
     restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 1.5*lease_duration )
-    system_tests_common.test_failed = False
+    global test_failed
+    test_failed = False 
     create_and_wait_for_thread_list( [restart_loop, write_loop] )
 
     cli = get_client()
@@ -280,8 +281,8 @@ def test_catchup_exercises():
 
 @with_custom_setup( setup_1_node_forced_master, basic_teardown )
 def test_sso_deployment():
-    
-    system_tests_common.test_failed = False
+    global test_failed
+    test_failed = False 
     
     write_loop = lambda: iterate_n_times( 10000, retrying_set_get_and_delete )
     large_write_loop = lambda: iterate_n_times( 280000, retrying_set_get_and_delete, startSuffix = 1000000 ) 
@@ -324,7 +325,7 @@ def test_sso_deployment():
     write_thr1.join()
     write_thr3.join()
     
-    assert_false ( system_tests_common.test_failed )
+    assert_false ( test_failed )
     
     assert_running_nodes( 3 )
     
