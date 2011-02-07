@@ -39,7 +39,7 @@ monkey_catalogue = [
     ( prefix_scenario, False ) ,
     ( range_scenario, False ) ,
     ( range_entries_scenario, False ) ,
-    ( tes_and_set_scenario, False )
+    #( tes_and_set_scenario, False )
     ]
 
 
