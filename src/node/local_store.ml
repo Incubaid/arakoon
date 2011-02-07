@@ -209,8 +209,11 @@ object(self: #store)
 	Hotc.transaction db
 	  (fun db ->
 	    _incr_i db >>= fun () ->
-	    _set db key value;
-	    Lwt.return ())
+	    let c () =
+        _set db key value
+      in
+      Lwt_preemptive.detach c () 
+	    )
       )
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
@@ -220,8 +223,10 @@ object(self: #store)
     Hotc.transaction db
       (fun db ->
 	_incr_i db >>= fun () ->
-	_set_master db master lease ;
-	Lwt.return ()
+  let c () = 
+	  _set_master db master lease 
+  in
+  Lwt_preemptive.detach c () 
       )
 
   method set_master_no_inc master lease = 
@@ -232,19 +237,25 @@ object(self: #store)
       (fun () ->
 	Hotc.transaction db
 	  (fun db -> 
-	    let m = Bdb.get db __master_key in
-	    let ls_buff = Bdb.get db __lease_key in
-	    let ls,_ = Llio.int64_from ls_buff 0 in
-	    Lwt.return (Some (m,ls)))
+      let c () =
+	      let m = Bdb.get db __master_key in
+	      let ls_buff = Bdb.get db __lease_key in
+	      let ls,_ = Llio.int64_from ls_buff 0 in
+  	    Some (m,ls)
+      in 
+      Lwt_preemptive.detach c ()
+      )
       )
       (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
 
   method delete key =
     Lwt.catch ( fun() ->
       Hotc.transaction db ( fun db ->
-        _delete db key ;
-        _incr_i db )
-    ) ( function 
+        let c () = 
+          _delete db key ; 
+          Lwt.ignore_result (_incr_i db) 
+        in Lwt_preemptive.detach c () 
+    )) ( function 
       | Not_found -> Hotc.transaction db ( fun db ->
           _incr_i db
         ) >>= fun () ->
@@ -264,9 +275,12 @@ object(self: #store)
     Lwt.catch ( fun() ->
       Hotc.transaction db
         (fun db ->
-  	  _incr_i db >>= fun () ->
-	  _sequence db updates;
-  	  Lwt.return ())
+          let c () = 
+  	        Lwt.ignore_result (_incr_i db ) ;
+	          _sequence db updates
+          in 
+          Lwt_preemptive.detach c ()
+        )
     ) ( function 
       | Key_not_found key -> Hotc.transaction db ( fun db ->
           _incr_i db
