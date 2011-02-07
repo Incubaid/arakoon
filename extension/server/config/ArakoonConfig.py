@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from pymonkey import q
+import os 
 
 class ArakoonConfig:
     """
@@ -31,7 +32,9 @@ class ArakoonConfig:
                 log_dir = None,
                 home = None,
                 tlog_dir = None,
-                cluster = "arakoon"):
+                cluster = "arakoon",
+                user = None,
+                group = None ):
         """
         Add a node to the configuration of the supplied cluster
 
@@ -68,6 +71,12 @@ class ArakoonConfig:
         config.addParam(name, "client_port", client_port)
         config.addParam(name, "messaging_port", messaging_port)
         config.addParam(name, "log_level", log_level)
+        
+        if user is not None:
+            config.addParam(name, "user", user)
+        
+        if group is not None:
+            config.addParam(name, "group", group)
 
         if log_dir is None:
             log_dir = q.system.fs.joinPaths(q.dirs.logDir, "arakoon", name)

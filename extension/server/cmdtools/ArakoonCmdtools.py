@@ -129,22 +129,26 @@ class ArakoonCmdtools:
     def _startOne(self, name, cluster = "arakoon"):
         if self._getStatusOne(name, cluster = cluster) == q.enumerators.AppStatusType.RUNNING:
             return
+        
+        kwargs = { }
+        config = q.config.arakoon.getNodeConfig(name)
+        if 'user' in config :
+            kwargs['user'] = config ['user']
+            
+        if 'group' in config :
+            kwargs ['group'] = config ['group']
+        
+        
+        command = '%s -config %s --node %s' % (self._binary, 
+             '%s/%s.cfg' % (self._cfgPath, cluster),  name)
+            
+        pid = q.system.process.runDaemon(command, **kwargs)
 
-        ret = subprocess.call(['%s' % self._binary, \
-                               '-daemonize', \
-                               '-config', \
-                               '%s/%s.cfg' % (self._cfgPath, cluster), \
-                               '--node',
-                               '%s' % name], \
-                              close_fds=True)
-
-        if ret != 0:
-            raise Exception("Arakoon Daemon %s could not be started (cluster: %s)" % (name,cluster) )
 
     def _stopOne(self, name, cluster = "arakoon"):
         subprocess.call(['pkill', \
                          '-f', \
-                         '%s -daemonize -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                         '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                         close_fds=True)
 
         i = 0
@@ -156,13 +160,13 @@ class ArakoonCmdtools:
                 subprocess.call(['pkill', \
                                  '-9', \
                                  '-f', \
-                                 '%s -daemonize -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                                 close_fds=True)
                 break
             else:
                 subprocess.call(['pkill', \
                                  '-f', \
-                                 '%s -daemonize -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                             close_fds=True)
     def _restartOne(self,name, cluster = "arakoon"):
         self._stopOne(name, cluster = cluster)
@@ -171,7 +175,7 @@ class ArakoonCmdtools:
     def _getStatusOne(self,name, cluster = "arakoon"):
         ret = subprocess.call(['pgrep', \
                                '-f', \
-                               '%s -daemonize -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                               '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                                close_fds=True, \
                                stdout=subprocess.PIPE)
 
