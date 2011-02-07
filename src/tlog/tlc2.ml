@@ -28,7 +28,7 @@ open Unix.LargeFile
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_extension = ".tlf"
 let archive_name c = Printf.sprintf "%03i.tlf" c
@@ -78,6 +78,7 @@ let get_tlog_names tlog_dir =
     ) [] sorted 
   in
   let sorted2 = List.rev filtered2 in
+  Lwt_log.debug "found the following entries:" >>= fun () ->
   let log_e e = Lwt_log.debug_f "entry %s %i" e (get_number e) in
   Lwt_list.iter_s log_e sorted2 >>= fun () ->
   Lwt.return sorted2
