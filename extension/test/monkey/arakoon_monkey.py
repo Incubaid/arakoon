@@ -255,7 +255,7 @@ def make_monkey_run() :
             disruption ()
             
             for thr in thr_list :
-                thr.join(30.0 * 60.0)
+                thr.join(60.0 * 60.0)
                 if thr.isAlive() :
                     logging.fatal( "Thread did not complete in a timely fashion.")
                     monkey_dies = True
