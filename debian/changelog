@@ -1,10 +1,63 @@
+arakoon (0.8.2-1) unstable; urgency=low
+  This release is a major stability improvement on the 0.8.1. 
+  Full details are in the Arakoon JIRA. Here's the quick list
+  * [ARAKOON-30] clean up compiler warnings (uncaught match clauses, bad style, unused variables)
+  * [ARAKOON-44] Arakoon daemon should die if it detects a corrupt tlog
+  * [ARAKOON-52] User of test_and_set can't see that the current value was his new value
+  * [ARAKOON-65] FSM: fatal logs are debug level
+  * [ARAKOON-68] Add methods to query storage consumption
+  * [ARAKOON-71] Run Arakoon as a different user
+  * [ARAKOON-73] Restrict the interface arakoon is listening to
+  * [ARAKOON-77] Lease can expire without being stored
+  * [ARAKOON-78] expect_progress_possible returns true in scenarios where a slave is in catchup
+  * [ARAKOON-79] Tlog rollover can make catchup fail
+  * [ARAKOON-81] With forced master, the masters store counter can get ahead of the tlogs
+  * [ARAKOON-84] timeout during set while node 3 was in catchup
+  * [ARAKOON-90] node dies if too many clients connect
+  * [ARAKOON-91] Arakoon getStatus() and getStatusOne() returns unwanted PID information
+  * [ARAKOON-92] Retry during master election does not always retry correctly
+  * [ARAKOON-93] Master restart can lead to a missed update in the slave store
+  * [ARAKOON-94] having a machine that is not live in an arakoon config makes the cluster slow
+  * [ARAKOON-95] Add repair option that can be used in case of tlog corruption
+  * [ARAKOON-97] Automatically truncate tlogs if they are corrupt
+  * [ARAKOON-98] Empty node can become master
+  * [ARAKOON-99] Store can get ahead of tlogs
+  * [ARAKOON-100] Provide basic load statistics
+  * [ARAKOON-102] Provide clone functionality
+  * [ARAKOON-103] Number of tlogs is limited to 1000
+  * [ARAKOON-104] Add configuration parameter which allows you to put tlogs on a different location
+  * [ARAKOON-105] If system clock is changed, lease is not invalidated
+  * [ARAKOON-106] Master election can get in a loop if one node has a higher i
+  * [ARAKOON-107] Specifying tlog directory with PyLabs Arakoon extension results in error
+  * [ARAKOON-109] Election timeout is not always fired which can lead to a master-less cluster
+  * [ARAKOON-110] State machine fails when running as master, when it receives a message from a newly elected master
+  * [ARAKOON-111] Monkey dies with: "Lwt.wakeup invalid argument"
+  * [ARAKOON-112] when arakoon node is down, but machine is up, connecting nodes hammer.
+  * [ARAKOON-114] Interuption of tlog compression results in half compressed tlogs which is treated as a normal tlog
+  * [ARAKOON-115] Updates can be pushed into the store twice under certain conditions which can lead to data loss
+  * [ARAKOON-117] When a slave goes to election mode, the previous update is not always pushed to the store
+  * [ARAKOON-118] tlog iteration starting from the wrong value (tlogEntriesPerFile -1) starts in the wrong tlog file and thus misses out on 1 value
+  * [ARAKOON-121] Slave dies when receiving promise which n is higher than expected
+  * [ARAKOON-122] expectprogress returns incorrect or no value in forced master setup when slave is not running
+  * [ARAKOON-123] Log rotation should reload log configuration
+  * [ARAKOON-124] Masterlease uses absolute timestamps as part of the update value
+  * [ARAKOON-126] There are still some corner cases where we probably don't do the right thing(tm) at startup time. We need to be able to produce/fix/prove this in tests.
+  * [ARAKOON-127] Log last n debug log messages when the state machine crashes
+  * [ARAKOON-128] Slave considers master lease expired when it's not
+  * [ARAKOON-129] Arakoon node runs out of file descriptors when compressing tlog
+  * [ARAKOON-130] Slave cannot promise on same n more than once
+  * [ARAKOON-131] Catchup fails if it starts from a multiple of the number of tlog entries per tlog file 
+  * [ARAKOON-133] Arakoon daemon takes GBytes of memory when doing large catchup in combination with debug logging enabled
+  * [ARAKOON-134] Clone functionality should also populate tc after cloning all tlogs
+  * [ARAKOON-135] "PaxosFatal: Promise from future" halts daemon
+
+
 arakoon (0.8.1-1) unstable; urgency=low
   Full details are in the Arakoon JIRA. Here's the quick list
   * [ARAKOON-67] Provide TC tools in QPackage
   * [ARAKOON-76] Multicast messages is serial which sometimes gives very bad performance
   * [ARAKOON-75] Master Election issue in degraded state after restarting remaining
-  * [ARAKOON-61] Frequently restarting the master node in a cluster node under load scenario might lead
-                 to cluster unavailability
+  * [ARAKOON-61] Frequently restarting the master node in a cluster node under load scenario might lead to cluster unavailability
   * [ARAKOON-64] multi-get support
   * [ARAKOON-48] Request the state of a server node
   * [ARAKOON-66] Delete of non-existing key messes up tlog and store counters
