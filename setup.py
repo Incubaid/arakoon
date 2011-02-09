@@ -8,7 +8,7 @@ def get_info(option):
     return v
 
 def get_tag():
-    return get_info('-t')
+    return get_info('-b')
 
 def get_version():
     return get_info('-i')
