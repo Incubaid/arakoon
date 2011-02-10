@@ -301,7 +301,6 @@ object(self: #store)
 end
 
 let make_local_store db_name =
-  (* TODO: how can we ever close the database if we don't return it? *)
   Hotc.create db_name >>= fun db ->
   let store = new local_store db in
   let store2 = (store :> store) in

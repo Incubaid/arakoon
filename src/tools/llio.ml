@@ -212,7 +212,7 @@ let input_string_option ic =
     | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
  
 let copy_stream ~length ~ic ~oc =
-  Lwt_log.debug "copy_stream" >>= fun () ->
+  Lwt_log.debug_f "copy_stream ~length:%Li" length >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let bs64 = Int64.of_int bs in
   let buffer = String.create bs in
@@ -232,5 +232,5 @@ let copy_stream ~length ~ic ~oc =
 	loop (Int64.pred i)
       end
   in
-    loop n_bs >>= fun () ->
-    Lwt.return ()
+  loop n_bs >>= fun () ->
+  Lwt_log.debug "done: copy_stream"

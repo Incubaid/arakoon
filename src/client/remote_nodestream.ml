@@ -32,16 +32,16 @@ class remote_nodestream (ic,oc) =
     Lwt_io.flush oc
   in
 object(self)
-  method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  =
+  method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
+    (tlog_coll: Tlogcollection.tlog_collection) =
     let outgoing buf =
       command_to buf LAST_ENTRIES;
       Sn.sn_to buf i
     in
     let incoming ic =
-      let rec loop_file () = 
-	Llio.lwt_failfmt "not implemented"
-      in
+      let save_head () = tlog_coll # save_head ic in
       let rec loop_entries () =
+	Lwt_log.debug "loop_entries" >>= fun () ->
 	Sn.input_sn ic >>= fun i2 ->
 	begin
 	  if i2 = (-1L) then
@@ -59,7 +59,7 @@ object(self)
       in 
       Llio.input_int ic >>= function
 	| 1 -> loop_entries ()
-	| 2 -> loop_file () (* >>= fun () -> loop_entries  *)
+	| 2 -> save_head () >>= fun () -> loop_entries ()
 	| x -> Llio.lwt_failfmt "don't know what %i means" x
     in
     request outgoing >>= fun () ->

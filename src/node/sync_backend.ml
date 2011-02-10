@@ -185,7 +185,7 @@ object(self: #backend)
 	      then 
 		begin
 		  Llio.output_int oc 2 >>= fun () ->
-		  tlog_collection # copy_head oc
+		  tlog_collection # dump_head oc
 		end
 	      else 
 		begin

@@ -22,6 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
+let head_name = Tlogcollection.head_name
+
 let collapse_until tlog_dir head_name too_far_i =
   let tfs = Sn.string_of too_far_i in
   Lwt_log.debug_f "collapse_until %s" tfs >>= fun () ->

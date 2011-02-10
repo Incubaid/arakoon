@@ -47,7 +47,7 @@ type local_action =
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
-
+  | Collapse
 
 type server_action =
   | Node
@@ -199,6 +199,8 @@ and tx_size = ref 100
 and daemonize = ref false
 and test_repeat_count = ref 1
 and counter = ref 0
+and n_tlogs = ref 1
+and tlog_dir = ref "/tmp"
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
 let set_laction a = set_action (LocalAction a) in
@@ -269,6 +271,10 @@ let actions = [
   ("-tx_size", Arg.Set_int tx_size,
    "size of transactions (only for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
+  ("--collapse", Arg.Tuple[set_laction Collapse;
+			   Arg.Set_string tlog_dir;
+			   Arg.Set_int n_tlogs;],
+   "<tlog_dir> <n> collapses n tlogs from <tlog_dir> into head database");
   
 ] in
 
@@ -296,6 +302,7 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
+  | Collapse -> Collapser_main.collapse !tlog_dir !n_tlogs
 
 in
 let do_server node =

@@ -20,31 +20,23 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-
-open Tlogwriter
-open Tlogcommon
-open Update
-open Tlogreader
 open Lwt
 
-
-let getTlogFilenameFromI i =
-  let fileAsSn = Sn.div i (Sn.of_int !tlogEntriesPerFile ) in
-  Printf.sprintf "%s%s" (Sn.string_of fileAsSn) tlogExtension
-
-
-let head_name = "head.db"
-
-class type tlog_collection = object
-  method validate: unit -> (tlogValidity * Sn.t option) Lwt.t
-  method validate_last_tlog: unit -> (tlogValidity * Sn.t option) Lwt.t 
-  method iterate: Sn.t -> Sn.t -> (Sn.t * Update.t -> unit Lwt.t) -> unit Lwt.t
-  method log_update: Sn.t -> Update.t -> Tlogwriter.writeResult Lwt.t
-  method get_last_update: Sn.t -> Update.t option Lwt.t
-  method close : unit -> unit Lwt.t
-  method get_last_i: unit -> Sn.t Lwt.t
-  method get_infimum_i : unit -> Sn.t Lwt.t
-  method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
-  method save_head : Lwt_io.input_channel -> unit Lwt.t
-end
-
+let collapse tlog_dir n_tlogs =
+  let t () =
+    Tlc2.get_tlog_names tlog_dir >>= fun entries -> 
+    let rec take_n acc entries i= 
+      if i = 0 
+      then List.rev acc
+      else 
+	match entries with
+	  | [] -> failwith "not enough entries to collapse"
+	  | hd::tl -> take_n (hd::acc) tl (i-1)
+    in
+    let to_collapse = take_n [] entries n_tlogs in
+    Lwt_io.printl "going to collapse" >>= fun () ->
+    Lwt_list.iter_s (fun e -> Lwt_io.printl ("\t" ^e)) to_collapse >>= fun () ->
+    Collapser.collapse_many tlog_dir to_collapse Collapser.head_name  >>= fun () ->
+    Lwt.return 0
+  in
+  Lwt_main.run (t())

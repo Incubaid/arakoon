@@ -355,19 +355,38 @@ object(self: # tlog_collection)
     Lwt_log.debug_f "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
 
-  method copy_head oc =
-    let head_name = Filename.concat tlog_dir "head.db" in
+  method dump_head oc =
+    let head_name = Filename.concat tlog_dir Tlogcollection.head_name in
     let stat = Unix.LargeFile.stat head_name in
     let length = stat.st_size in
-    Lwt_log.debug_f "tlcs:: copy_head %Li" length >>= fun ()->
+    Lwt_log.debug_f "tlcs:: dump_head (filesize is %Li bytes)" length >>= fun ()->
     Llio.output_int64 oc length >>= fun () ->
     Lwt_io.with_file
       ~flags:[Unix.O_RDONLY]
       ~mode:Lwt_io.input
       head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
     >>= fun () ->
-    let not_in_head_i = failwith "not implemented" in
-    Lwt.return not_in_head_i
+    Lwt_io.flush oc >>= fun () ->
+    Local_store.make_local_store Tlogcollection.head_name >>= fun head -> 
+    head # consensus_i () >>= fun io ->
+    head # close () >>= fun () ->
+    let next_i = match io with
+      | None -> Sn.start
+      | Some i -> Sn.succ i
+    in
+    Lwt.return next_i
+
+  method save_head ic =
+    Lwt_log.debug "save_head()" >>= fun () ->
+    Llio.input_int64 ic >>= fun length ->
+    let hf_name = Filename.concat tlog_dir Tlogcollection.head_name in
+    Lwt_io.with_file 
+      ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
+      ~mode:Lwt_io.output
+      hf_name
+      (fun oc -> Llio.copy_stream ~length ~ic ~oc )
+    >>= fun () ->
+    Lwt_log.debug "done: save_head"
 
  method get_last_i () =
     match _previous_update with
