@@ -22,7 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let copy_file fn1 fn2 = (* LOOKS LIKE Clone.copy_stream ... *)
+let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
+  Lwt_log.debug_f "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
   let copy_all ic oc = 
@@ -36,10 +37,11 @@ let copy_file fn1 fn2 = (* LOOKS LIKE Clone.copy_stream ... *)
       else
 	Lwt.return ()    
     in
-    loop () 
+    loop () >>= fun () ->
+    Lwt_log.debug "done: copy_file" 
   in
-  Lwt_io.with_file ~mode:Lwt_io.input fn1
+  Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
-      Lwt_io.with_file ~mode:Lwt_io.output fn2 
+      Lwt_io.with_file ~mode:Lwt_io.output target 
 	(fun oc ->copy_all ic oc)
     )

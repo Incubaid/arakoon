@@ -45,7 +45,7 @@ module Hotc = struct
     
   let _close t =
     Bdb._dbclose t.bdb;
-    Lwt.return ()
+    Lwt_log.debug_f "done Hotc._close %s" t.filename
 
   let create filename =
     let res = {
@@ -56,15 +56,18 @@ module Hotc = struct
     _do_locked res (fun () ->_open res) >>= fun () ->
     Lwt.return res
 
-  let close t = _do_locked t (fun () -> _close t)
+  let close t = 
+    _do_locked t (fun () -> _close t)
+
 
 
   let filename t = t.filename
 
-  let reopen t =
+  let reopen t when_closed=
     _do_locked t
       (fun () ->
-	_close t >>= fun () ->
+	_close t >>= fun () -> 
+	when_closed () >>= fun () ->
 	_open  t 
       )
 

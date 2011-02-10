@@ -367,9 +367,11 @@ object(self: # tlog_collection)
       head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
     >>= fun () ->
     Lwt_io.flush oc >>= fun () ->
-    Local_store.make_local_store Tlogcollection.head_name >>= fun head -> 
+    Local_store.make_local_store head_name >>= fun head -> 
     head # consensus_i () >>= fun io ->
     head # close () >>= fun () ->
+    Lwt_log.debug_f "head has consensus_i=%s" (Log_extra.option_to_string Sn.string_of io)
+    >>= fun () ->
     let next_i = match io with
       | None -> Sn.start
       | Some i -> Sn.succ i

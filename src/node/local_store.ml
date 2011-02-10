@@ -298,9 +298,9 @@ object(self: #store)
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
 
-  method reopen () = 
-    Hotc.reopen db >>= fun () ->
+  method reopen f = 
     Lwt_log.debug "local_store :: reopen() " >>= fun () ->
+    Hotc.reopen db f >>= fun () ->
     Lwt.return ()
 
   method get_filename () = Hotc.filename db

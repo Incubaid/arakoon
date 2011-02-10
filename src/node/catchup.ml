@@ -59,9 +59,12 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name (store,tlog_coll)
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn = 
     Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
-    let target_name = store # get_filename () in
-    File_system.copy_file hfn target_name >>= fun () ->
-    store # reopen() >>= fun () ->
+    let when_closed () = 
+      Lwt_log.debug "when_closed" >>= fun () ->
+      let target_name = store # get_filename () in
+      File_system.copy_file hfn target_name 
+    in
+    store # reopen when_closed >>= fun () ->
     Lwt.return ()
   in
 

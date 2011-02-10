@@ -166,7 +166,7 @@ object (self: #store)
 
   method close () = Lwt.return ()
 
-  method reopen () = Lwt.return ()
+  method reopen when_closed = Lwt.return ()
 
   method get_filename () = failwith "not supported"
 end

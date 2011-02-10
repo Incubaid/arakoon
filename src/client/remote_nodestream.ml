@@ -45,6 +45,7 @@ object(self)
       let rec loop_entries () =
 	Lwt_log.debug "loop_entries" >>= fun () ->
 	Sn.input_sn ic >>= fun i2 ->
+	Lwt_log.debug_f "i2=%s" (Sn.string_of i2) >>= fun () ->
 	begin
 	  if i2 = (-1L) then
 	    Lwt.return ()
