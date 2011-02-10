@@ -33,7 +33,9 @@ class remote_nodestream (ic,oc) =
   in
 object(self)
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
-    (tlog_coll: Tlogcollection.tlog_collection) =
+    (tlog_coll: Tlogcollection.tlog_collection) 
+    ~head_saved_cb
+    =
     let outgoing buf =
       command_to buf LAST_ENTRIES;
       Sn.sn_to buf i
@@ -59,7 +61,13 @@ object(self)
       in 
       Llio.input_int ic >>= function
 	| 1 -> loop_entries ()
-	| 2 -> save_head () >>= fun () -> loop_entries ()
+	| 2 -> 
+	  begin 
+	    save_head () >>= fun () -> 
+	    let hf_name = tlog_coll # get_head_filename () in
+	    head_saved_cb hf_name >>= fun () ->
+	    loop_entries ()
+	  end
 	| x -> Llio.lwt_failfmt "don't know what %i means" x
     in
     request outgoing >>= fun () ->

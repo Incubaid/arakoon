@@ -69,27 +69,7 @@ let collapse_until tlog_dir head_name too_far_i =
       store # close ()
     end
 
-let copy_file fn1 fn2 = (* LOOKS LIKE Clone.copy_stream ... *)
-  let bs = Lwt_io.default_buffer_size () in
-  let buffer = String.create bs in
-  let copy_all ic oc = 
-    let rec loop () =
-      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
-      if bytes_read > 0 
-      then 
-	begin
-	  Lwt_io.write oc buffer >>= fun () -> loop ()
-	end
-      else
-	Lwt.return ()    
-    in
-    loop () 
-  in
-  Lwt_io.with_file ~mode:Lwt_io.input fn1
-    (fun ic ->
-      Lwt_io.with_file ~mode:Lwt_io.output fn2 
-	(fun oc ->copy_all ic oc)
-    )
+
 
 let mv_file source target = 
   Unix.rename source target; 
@@ -106,7 +86,7 @@ let collapse_many tlog_dir tlog_names head_name =
   and cn2 = Filename.concat tlog_dir new_name 
   in
   Lwt.catch
-    (fun () -> copy_file cn1 cn2)
+    (fun () -> File_system.copy_file cn1 cn2)
     (function
       | Unix.Unix_error (Unix.ENOENT,x,y) -> 
 	begin

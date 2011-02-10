@@ -294,10 +294,16 @@ object(self: #store)
     Hotc.transaction db (fun db -> _consensus_i db)
 
   method close () =
-    Hotc.close db;
+    Hotc.close db >>= fun () ->
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
 
+  method reopen () = 
+    Hotc.reopen db >>= fun () ->
+    Lwt_log.debug "local_store :: reopen() " >>= fun () ->
+    Lwt.return ()
+
+  method get_filename () = Hotc.filename db
 end
 
 let make_local_store db_name =

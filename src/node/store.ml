@@ -53,6 +53,8 @@ class type store = object
   method incr_i: unit -> unit Lwt.t
 
   method close: unit -> unit Lwt.t
+  method reopen: unit -> unit Lwt.t
+  method get_filename: unit -> string 
 end
 
 exception Key_not_found of string ;;

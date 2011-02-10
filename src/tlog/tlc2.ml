@@ -376,10 +376,12 @@ object(self: # tlog_collection)
     in
     Lwt.return next_i
 
+  method get_head_filename () = Filename.concat tlog_dir Tlogcollection.head_name 
+    
   method save_head ic =
     Lwt_log.debug "save_head()" >>= fun () ->
     Llio.input_int64 ic >>= fun length ->
-    let hf_name = Filename.concat tlog_dir Tlogcollection.head_name in
+    let hf_name = self # get_head_filename () in
     Lwt_io.with_file 
       ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
       ~mode:Lwt_io.output
@@ -388,6 +390,7 @@ object(self: # tlog_collection)
     >>= fun () ->
     Lwt_log.debug "done: save_head"
 
+  
  method get_last_i () =
     match _previous_update with
       | None -> Lwt.return Sn.start

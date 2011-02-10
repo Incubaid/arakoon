@@ -20,32 +20,26 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-
-open Tlogwriter
-open Tlogcommon
-open Update
-open Tlogreader
 open Lwt
 
-
-let getTlogFilenameFromI i =
-  let fileAsSn = Sn.div i (Sn.of_int !tlogEntriesPerFile ) in
-  Printf.sprintf "%s%s" (Sn.string_of fileAsSn) tlogExtension
-
-
-let head_name = "head.db"
-
-class type tlog_collection = object
-  method validate: unit -> (tlogValidity * Sn.t option) Lwt.t
-  method validate_last_tlog: unit -> (tlogValidity * Sn.t option) Lwt.t 
-  method iterate: Sn.t -> Sn.t -> (Sn.t * Update.t -> unit Lwt.t) -> unit Lwt.t
-  method log_update: Sn.t -> Update.t -> Tlogwriter.writeResult Lwt.t
-  method get_last_update: Sn.t -> Update.t option Lwt.t
-  method close : unit -> unit Lwt.t
-  method get_last_i: unit -> Sn.t Lwt.t
-  method get_infimum_i : unit -> Sn.t Lwt.t
-  method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
-  method save_head : Lwt_io.input_channel -> unit Lwt.t
-  method get_head_filename : unit -> string
-end
-
+let copy_file fn1 fn2 = (* LOOKS LIKE Clone.copy_stream ... *)
+  let bs = Lwt_io.default_buffer_size () in
+  let buffer = String.create bs in
+  let copy_all ic oc = 
+    let rec loop () =
+      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
+      if bytes_read > 0 
+      then 
+	begin
+	  Lwt_io.write oc buffer >>= fun () -> loop ()
+	end
+      else
+	Lwt.return ()    
+    in
+    loop () 
+  in
+  Lwt_io.with_file ~mode:Lwt_io.input fn1
+    (fun ic ->
+      Lwt_io.with_file ~mode:Lwt_io.output fn2 
+	(fun oc ->copy_all ic oc)
+    )

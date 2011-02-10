@@ -165,6 +165,10 @@ object (self: #store)
   method consensus_i () = Lwt.return i
 
   method close () = Lwt.return ()
+
+  method reopen () = Lwt.return ()
+
+  method get_filename () = failwith "not supported"
 end
 
 let make_mem_store db_name =

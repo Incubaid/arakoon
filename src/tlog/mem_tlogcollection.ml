@@ -76,6 +76,8 @@ object (self: #tlog_collection)
   method dump_head oc = Llio.lwt_failfmt "not implemented"
   method save_head ic = Llio.lwt_failfmt "not implemented"
 
+  method get_head_filename () = failwith "not implemented"
+
   method close () = Lwt.return ()
 end
 

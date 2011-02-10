@@ -49,17 +49,24 @@ let compare_store_tlc store tlc =
     then Lwt.return Store_1_behind
     else Lwt.return Store_n_behind
 
-let catchup_tlog me other_configs (current_i: Sn.t) mr_name
-    (tlog_coll:Tlogcollection.tlog_collection) =
+let catchup_tlog me other_configs (current_i: Sn.t) mr_name (store,tlog_coll)
+    =
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in
   let mr_address = Node_cfg.client_address mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
+  let head_saved_cb hfn = 
+    Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
+    let target_name = store # get_filename () in
+    File_system.copy_file hfn target_name >>= fun () ->
+    store # reopen() >>= fun () ->
+    Lwt.return ()
+  in
+
   let copy_tlog connection =
     let client = new remote_nodestream connection in
-
     let f (i,update) =
       Lwt_log.debug_f "%s:%s => tlog" 
 	(Sn.string_of i) (Update.string_of update) >>= fun () ->
@@ -68,8 +75,9 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
       Lwt.return ()
     in
 
-    client # iterate current_i f tlog_coll
+    client # iterate current_i f tlog_coll ~head_saved_cb
   in
+
   Lwt.catch
     (fun () ->
       Lwt_io.with_connection mr_address copy_tlog >>= fun () ->
@@ -81,7 +89,7 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
-let catchup_store me store (tlog_coll:tlog_collection) (too_far_i:Sn.t) =
+let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
   store # consensus_i () >>= fun store_i ->
@@ -142,13 +150,13 @@ let catchup_store me store (tlog_coll:tlog_collection) (too_far_i:Sn.t) =
     Lwt.return (too_far_i, vo)
   end
 
-let catchup me other_configs (db,tlog_coll) current_i mr_name (future_n,future_i) =
+let catchup me other_configs dbt current_i mr_name (future_n,future_i) =
   Lwt_log.info_f "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
-  catchup_tlog me other_configs current_i mr_name tlog_coll >>= fun too_far_i ->
-  catchup_store me db tlog_coll too_far_i >>= fun (end_i,vo) ->
+  catchup_tlog me other_configs current_i mr_name dbt >>= fun too_far_i ->
+  catchup_store me dbt too_far_i >>= fun (end_i,vo) ->
   Lwt_log.info_f "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
 
@@ -171,12 +179,12 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
     | Some i, Some j when i > j -> 
       begin
-	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
+	catchup_store me (store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	Lwt.return (end_i,vo)
       end
     | Some i, None ->
       begin
-	catchup_store me store tlog_coll current_i >>= fun (end_i, vo) ->
+	catchup_store me (store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	Lwt.return (end_i,vo)
       end
     | _,_ -> 
