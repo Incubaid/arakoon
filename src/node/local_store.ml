@@ -209,24 +209,20 @@ object(self: #store)
 	Hotc.transaction db
 	  (fun db ->
 	    _incr_i db >>= fun () ->
-	    let c () =
-        _set db key value
-      in
-      Lwt_preemptive.detach c () 
-	    )
+	    _set db key value;
+	    Lwt.return ()
+	  )
       )
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
-
+      
   method set_master master lease =
     Hotc.transaction db
       (fun db ->
 	_incr_i db >>= fun () ->
-  let c () = 
-	  _set_master db master lease 
-  in
-  Lwt_preemptive.detach c () 
+	_set_master db master lease ;
+	Lwt.return ()
       )
 
   method set_master_no_inc master lease = 
@@ -237,31 +233,31 @@ object(self: #store)
       (fun () ->
 	Hotc.transaction db
 	  (fun db -> 
-      let c () =
-	      let m = Bdb.get db __master_key in
-	      let ls_buff = Bdb.get db __lease_key in
-	      let ls,_ = Llio.int64_from ls_buff 0 in
-  	    Some (m,ls)
-      in 
-      Lwt_preemptive.detach c ()
-      )
+	    let m = Bdb.get db __master_key in
+	    let ls_buff = Bdb.get db __lease_key in
+	    let ls,_ = Llio.int64_from ls_buff 0 in
+  	    Lwt.return (Some (m,ls))
+	  )
       )
       (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
 
   method delete key =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db ( fun db ->
-        let c () = 
-          _delete db key ; 
-          Lwt.ignore_result (_incr_i db) 
-        in Lwt_preemptive.detach c () 
-    )) ( function 
-      | Not_found -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail Not_found 
-      | ex -> Lwt.fail ex
-    ) 
+    Lwt.catch 
+      ( fun() ->
+	Hotc.transaction db 
+	  ( fun db ->
+            _delete db key ; 
+	    _incr_i db)
+      ) 
+      (function 
+	| Not_found -> 
+	  begin
+	    Hotc.transaction db 
+	      ( fun db -> _incr_i db ) >>= fun () ->
+            Lwt.fail Not_found 
+	  end
+	| ex -> Lwt.fail ex
+      ) 
     
 
   method test_and_set key expected wanted =
@@ -270,24 +266,25 @@ object(self: #store)
 	_incr_i db >>= fun () ->
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
-
+      
   method sequence updates =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db
-        (fun db ->
-          let c () = 
-  	        Lwt.ignore_result (_incr_i db ) ;
-	          _sequence db updates
-          in 
-          Lwt_preemptive.detach c ()
-        )
-    ) ( function 
-      | Key_not_found key -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail ( Key_not_found key )
-      | ex -> Lwt.fail ex
-    )
+    Lwt.catch 
+      ( fun() ->
+	Hotc.transaction db
+          (fun db ->
+  	    _incr_i db >>= fun () ->
+	    _sequence db updates;
+	    Lwt.return ()
+          )
+      ) 
+      ( function 
+	| Key_not_found key -> 
+	  begin
+	    Hotc.transaction db ( fun db ->_incr_i db) >>= fun () ->
+            Lwt.fail ( Key_not_found key )
+	  end
+	| ex -> Lwt.fail ex
+      )
 
 
   method consensus_i () =
