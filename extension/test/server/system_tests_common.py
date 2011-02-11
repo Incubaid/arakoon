@@ -27,11 +27,15 @@ from functools import wraps
 import traceback
 import sys
 
+test_failed = False 
+
 class with_custom_setup ():
     
     def __init__ (self, setup, teardown):
         self.__setup = setup
         self.__teardown = teardown
+        global test_failed
+        test_tailed = False
     
     def __call__ (self, func ):
         @wraps(func)
@@ -63,7 +67,7 @@ import time
 import arakoon.ArakoonProtocol  
 import logging
 
-test_failed = False 
+
 
 from arakoon.ArakoonExceptions import * 
  
