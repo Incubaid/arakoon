@@ -136,7 +136,7 @@ def test_master_reelect():
     
     q.cmdtools.arakoon.stopOne ( new_master_id )
     
-    time.sleep( 1.5 * lease_duration )
+    time.sleep( 2.0 * lease_duration )
     
     cli = get_client()
     newest_master_id = cli.whoMaster()

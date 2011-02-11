@@ -210,13 +210,12 @@ object(self: #store)
 	  (fun db ->
 	    _incr_i db >>= fun () ->
 	    _set db key value;
-	    Lwt.return ()
-	  )
+	    Lwt.return ())
       )
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
-      
+
   method set_master master lease =
     Hotc.transaction db
       (fun db ->
@@ -236,28 +235,22 @@ object(self: #store)
 	    let m = Bdb.get db __master_key in
 	    let ls_buff = Bdb.get db __lease_key in
 	    let ls,_ = Llio.int64_from ls_buff 0 in
-  	    Lwt.return (Some (m,ls))
-	  )
+	    Lwt.return (Some (m,ls)))
       )
       (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
 
   method delete key =
-    Lwt.catch 
-      ( fun() ->
-	Hotc.transaction db 
-	  ( fun db ->
-            _delete db key ; 
-	    _incr_i db)
-      ) 
-      (function 
-	| Not_found -> 
-	  begin
-	    Hotc.transaction db 
-	      ( fun db -> _incr_i db ) >>= fun () ->
-            Lwt.fail Not_found 
-	  end
-	| ex -> Lwt.fail ex
-      ) 
+    Lwt.catch ( fun() ->
+      Hotc.transaction db ( fun db ->
+        _delete db key ;
+        _incr_i db )
+    ) ( function 
+      | Not_found -> Hotc.transaction db ( fun db ->
+          _incr_i db
+        ) >>= fun () ->
+        Lwt.fail Not_found 
+      | ex -> Lwt.fail ex
+    ) 
     
 
   method test_and_set key expected wanted =
@@ -266,25 +259,21 @@ object(self: #store)
 	_incr_i db >>= fun () ->
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
-      
+
   method sequence updates =
-    Lwt.catch 
-      ( fun() ->
-	Hotc.transaction db
-          (fun db ->
-  	    _incr_i db >>= fun () ->
-	    _sequence db updates;
-	    Lwt.return ()
-          )
-      ) 
-      ( function 
-	| Key_not_found key -> 
-	  begin
-	    Hotc.transaction db ( fun db ->_incr_i db) >>= fun () ->
-            Lwt.fail ( Key_not_found key )
-	  end
-	| ex -> Lwt.fail ex
-      )
+    Lwt.catch ( fun() ->
+      Hotc.transaction db
+        (fun db ->
+  	  _incr_i db >>= fun () ->
+	  _sequence db updates;
+  	  Lwt.return ())
+    ) ( function 
+      | Key_not_found key -> Hotc.transaction db ( fun db ->
+          _incr_i db
+        ) >>= fun () ->
+        Lwt.fail ( Key_not_found key )
+      | ex -> Lwt.fail ex
+    )
 
 
   method consensus_i () =
@@ -295,12 +284,13 @@ object(self: #store)
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
 
+  method get_filename () = Hotc.filename db
+
   method reopen f = 
     Lwt_log.debug "local_store :: reopen() " >>= fun () ->
     Hotc.reopen db f >>= fun () ->
     Lwt.return ()
 
-  method get_filename () = Hotc.filename db
 end
 
 let make_local_store db_name =
