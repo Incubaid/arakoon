@@ -34,15 +34,15 @@ class with_custom_setup ():
     def __init__ (self, setup, teardown):
         self.__setup = setup
         self.__teardown = teardown
-        global test_failed
-        test_tailed = False
     
     def __call__ (self, func ):
         @wraps(func)
         def decorate(*args,**kwargs):
             
-            global data_base_dir 
+            global data_base_dir
             data_base_dir = q.system.fs.joinPaths( q.dirs.tmpDir, 'arakoon_system_tests' , func.func_name )
+            global test_failed
+            test_tailed = False
             fatal_ex = None
             home_dir = data_base_dir
             self.__setup( home_dir )
