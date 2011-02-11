@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Otc
-(* open Logging *)
+
 open Lwt
 
 module Hotc = struct
@@ -39,13 +39,14 @@ module Hotc = struct
 
   let _open t = 
     Bdb._dbopen t.bdb t.filename
-      (Bdb.oreader lor Bdb.owriter lor Bdb.ocreat lor Bdb.olcknb);
-    Lwt.return ()
+      (Bdb.oreader lor Bdb.owriter lor Bdb.ocreat lor Bdb.olcknb)
 
+  let _open_lwt t = Lwt_preemptive.detach _open t
     
   let _close t =
-    Bdb._dbclose t.bdb;
-    Lwt_log.debug_f "done Hotc._close %s" t.filename
+    Bdb._dbclose t.bdb
+
+  let _close_lwt t = Lwt_preemptive.detach _close t
 
   let create filename =
     let res = {
@@ -53,11 +54,11 @@ module Hotc = struct
       bdb = Bdb._make ();
       mutex = Lwt_mutex.create ();
     } in
-    _do_locked res (fun () ->_open res) >>= fun () ->
+    _do_locked res (fun () ->_open_lwt res) >>= fun () ->
     Lwt.return res
 
   let close t = 
-    _do_locked t (fun () -> _close t)
+    _do_locked t (fun () -> _close_lwt t)
 
 
 
@@ -66,26 +67,32 @@ module Hotc = struct
   let reopen t when_closed=
     _do_locked t
       (fun () ->
-	_close t >>= fun () -> 
+	_close_lwt t >>= fun () -> 
 	when_closed () >>= fun () ->
-	_open  t 
+	_open_lwt  t 
       )
 
-  let delete t =
-    _do_locked t
-      (fun () -> Bdb._dbclose t.bdb; Bdb._delete t.bdb; Lwt.return ())
+  let _delete t = 
+    Bdb._dbclose t.bdb; 
+    Bdb._delete t.bdb
+
+
+  let _delete_lwt t = Lwt_preemptive.detach _delete t 
+
+  let delete t = _do_locked t (fun () -> _delete_lwt t)
 
   let _transaction t (f:Bdb.bdb -> 'a) =
     let bdb = t.bdb in
-    let () = Bdb._tranbegin bdb in
-    try
-      let res = f bdb in
-      let () = Bdb._trancommit bdb in
-      res
-    with
-      | x ->
-	let () = Bdb._tranabort bdb in
-	raise x
+    Lwt_preemptive.detach Bdb._tranbegin bdb >>= fun () ->
+    Lwt.catch
+      (fun () -> 
+	f bdb >>= fun res ->
+	Lwt_preemptive.detach Bdb._trancommit bdb >>= fun () ->
+	Lwt.return res
+      )
+      (fun x -> 
+	Lwt_preemptive.detach Bdb._tranabort bdb >>= fun () ->
+	Lwt.fail x)
 
 
   let transaction t (f:Bdb.bdb -> 'a) =
@@ -99,9 +106,6 @@ module Hotc = struct
       (fun () -> let () = Bdb._cur_delete cursor in Lwt.return ())
 
   let batch bdb (batch_size:int) (prefix:string) (start:string option) =
-    (* Logging.log 
-      "Hotc.batch %d prefix:'%s' start:%s" batch_size prefix 
-      (Logging.show_string_option start); *)
     transaction bdb
       (fun db2 ->
 	with_cursor db2
