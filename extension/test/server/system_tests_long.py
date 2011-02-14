@@ -263,7 +263,7 @@ def test_collapse():
     assert_false(cli.expectProgressPossible())
     up2date = False
     counter = 0
-    while not up2date and count < 100:
+    while not up2date and counter < 100:
         time.sleep(1.0)
         counter = counter + 1
         up2date = cli.expectProgressPossible()

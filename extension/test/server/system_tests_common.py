@@ -258,7 +258,10 @@ def get_last_i_tlog ( node_id ):
 
 def stopOne(name):
     q.cmdtools.arakoon.stopOne(name)
-    
+
+def startOne(name):
+    q.cmdtools.arakoon.startOne(name)
+
 def getConfig(name):
     return q.config.arakoon.getNodeConfig(name)
 
