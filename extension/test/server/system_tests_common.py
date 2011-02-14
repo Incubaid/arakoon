@@ -26,6 +26,7 @@ from nose.tools import *
 from functools import wraps
 import traceback
 import sys
+import subprocess
 
 test_failed = False 
 
@@ -268,6 +269,11 @@ def whipe(name):
     q.system.fs.createDir(data_dir)
     logging.info("whiped %s" % name)
 
+def collapse(name, n):
+    config = getConfig(name)
+    data_dir = config['home']
+    rc = subprocess.call([binary_full_path, '--collapse',data_dir,str(n)])
+    return rc
 
 def add_node ( i ):
     logging.info( "Adding node %s to config", node_names[ i ] )
