@@ -367,27 +367,15 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         if elections_needed then
           begin
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
-            let store = constants.store in
             begin
             match maybe_previous with
-            | None -> Lwt.return Store.Stop
+            | None -> Lwt.return (Sn.pred i, None)
             | Some ( pup, prev_i )  ->
-              store # consensus_i () >>= fun ( store_i ) ->
-              begin
-              match store_i with
-              | Some s_i ->
-                if Sn.compare (Sn.pred i) s_i != 0
-                then
-                  constants.on_consensus ( pup, n,Sn.pred i)
-                else
-                  Lwt.return Store.Stop
-              | None ->
-                constants.on_consensus (pup, n,Sn.pred i)
-              end
+              Lwt.return (prev_i, Some pup )
             end
-            >>= fun _ ->
+            >>= fun (el_i, el_up) ->
             let new_n = update_n constants n in
-            Lwt.return (Election_suggest (new_n, i, None))
+            Lwt.return (Election_suggest (new_n, el_i, el_up))
           end
         else
           begin
