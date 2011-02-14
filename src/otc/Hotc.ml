@@ -41,12 +41,12 @@ module Hotc = struct
     Bdb._dbopen t.bdb t.filename
       (Bdb.oreader lor Bdb.owriter lor Bdb.ocreat lor Bdb.olcknb)
 
-  let _open_lwt t = Lwt_preemptive.detach _open t
+  let _open_lwt t = Lwt.return (_open t)
     
   let _close t =
     Bdb._dbclose t.bdb
 
-  let _close_lwt t = Lwt_preemptive.detach _close t
+  let _close_lwt t = Lwt.return (_close t)
 
   let create filename =
     let res = {
@@ -77,21 +77,21 @@ module Hotc = struct
     Bdb._delete t.bdb
 
 
-  let _delete_lwt t = Lwt_preemptive.detach _delete t 
+  let _delete_lwt t = Lwt.return(_delete t) 
 
   let delete t = _do_locked t (fun () -> _delete_lwt t)
 
   let _transaction t (f:Bdb.bdb -> 'a) =
     let bdb = t.bdb in
-    Lwt_preemptive.detach Bdb._tranbegin bdb >>= fun () ->
+    Bdb._tranbegin bdb;
     Lwt.catch
       (fun () -> 
 	f bdb >>= fun res ->
-	Lwt_preemptive.detach Bdb._trancommit bdb >>= fun () ->
+	Bdb._trancommit bdb;
 	Lwt.return res
       )
       (fun x -> 
-	Lwt_preemptive.detach Bdb._tranabort bdb >>= fun () ->
+	Bdb._tranabort bdb ;
 	Lwt.fail x)
 
 

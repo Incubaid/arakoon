@@ -245,3 +245,153 @@ class ArakoonCmdtools:
                 result[key] = result.get(key, 0) + value
 
         return result
+
+    def gatherEvidence(self, destination, clusterCredentials=None, includeLogs=True, includeDB=True, includeTLogs=True, includeConfig=True):
+        """
+        @param destination : path INCLUDING FILENAME where the evidence archive is saved. Can be URI, in other words, ftp://..., smb://, /tmp, ...
+        @param clusterCredentials : dict of tuples e.g. {"node1" ('login', 'password'), "node2" ('login', 'password'), "node3" ('login', 'password')}
+        @param includeLogs : Boolean value indicating that the logs need to be included in the evidence archive, default is True
+        @param includeDB : Boolean value indicating that the Tokyo Cabinet db and db.wall files need to be included in the evidence archive, default is True
+        @param includeTLogs : Boolean value indicating that the tlogs need to be included in the evidence archive, default is True
+        @param includeConfig : Boolean value indicating that the arakoon configuration files should be included in the resulting archive
+        
+        """
+        
+        nodes_list = q.config.arakoon.listNodes()
+        diff_list = q.config.arakoon.listNodes()
+        
+        if q.qshellconfig.interactive:
+            
+            if not clusterCredentials:
+                clusterCredentials = self._getClusterCredentials(nodes_list, diff_list)
+            
+            elif len(clusterCredentials) < len(nodes_list):
+                nodes_list = [x for x in nodes_list if x not in clusterCredentials]
+                diff_list = [x for x in nodes_list if x not in clusterCredentials]
+                sub_clusterCredentials = self._getClusterCredentials(nodes_list, diff_list)
+                clusterCredentials.update(sub_clusterCredentials)
+                
+            else:
+                q.gui.dialog.message("All Nodes have Credentials.")
+            
+            self._transferFiles(destination, clusterCredentials, includeLogs, includeDB, includeTLogs, includeConfig)
+        
+        else:
+            if not clusterCredentials or len(clusterCredentials) < len(nodes_list):
+                raise NameError('Error: QShel is Not interactive')
+            
+            else:
+                q.gui.dialog.message("All Nodes have Credentials.")
+                self._transferFiles(destination, clusterCredentials, includeLogs, includeDB, includeTLogs, includeConfig)
+
+
+    def _getClusterCredentials(self, nodes_list, diff_list):
+        clusterCredentials = dict()
+        same_credentials_nodes = list()
+        
+        for nodename in nodes_list:
+            node_passwd = ''
+            
+            if nodename in diff_list:
+                
+                node_config = q.config.arakoon.getNodeConfig(nodename)
+                node_ip = node_config['ip']
+                
+                node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
+                if node_login == '':
+                    node_login = 'root'
+                
+                while node_passwd == '':
+                    node_passwd = q.gui.dialog.askPassword('Please provide password for %s @ %s' % (nodename, node_ip))
+                    if node_passwd == '':
+                        q.gui.dialog.message("Error: Password is Empty.")
+                
+                clusterCredentials[nodename] = (node_login, node_passwd)
+                
+                if len(diff_list) > 1:
+                    same_credentials = q.gui.dialog.askYesNo('Do you want to set the same credentials for any other node?')
+                    
+                    diff_list.remove(nodename)
+                    
+                    if same_credentials:
+                        
+                        same_credentials_nodes = q.gui.dialog.askChoiceMultiple("Please choose node(s) that will take same credentials:",diff_list)
+                        
+                        for node in same_credentials_nodes:
+                            clusterCredentials[node] = (node_login, node_passwd)
+                        #end for
+                        if len(same_credentials_nodes) == len(diff_list):
+                            break
+                        else:
+                            diff_list = list(set(diff_list).difference(set(same_credentials_nodes)))
+        #end for
+        return clusterCredentials
+
+
+    def _transferFiles(self, destination, clusterCredentials, includeLogs=True, includeDB=True, includeTLogs=True, includeConfig=True):
+        """
+        
+        This function copies the logs, db, tlog and config files to a Temp folder on the machine running the script then compresses the Temp 
+        folder and places a copy at the destination provided at the beginning
+        """
+        
+        nodes_list = q.config.arakoon.listNodes()
+        archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , 'Archive')
+        
+        cfs = q.cloud.system.fs 
+        sfs = q.system.fs
+        
+        for nodename in nodes_list:    
+            node_folder  = sfs.joinPaths( archive_folder, nodename)
+            
+            sfs.createDir(node_folder)
+            configDict = q.config.arakoon.getNodeConfig(nodename)
+            source_ip = configDict['ip']
+            
+            userName = clusterCredentials[nodename][0]
+            password = clusterCredentials[nodename][1]
+            
+            source_path = 'sftp://' + userName + ':' + password + '@' + source_ip
+            
+            if includeDB:
+                dbfile = sfs.joinPaths(configDict['home'], (nodename +'.db'))
+                db_files = cfs.listDir( source_path + configDict['home'] )
+                files2copy = filter ( lambda fn : fn.startswith( nodename ), db_files )
+                for fn in files2copy :
+                    full_db_file = source_path + fn
+                    cfs.copyFile(full_db_file , 'file://' + node_folder)
+                
+            
+            if includeLogs:
+                
+                for fname in cfs.listDir(source_path + configDict['log_dir']):
+                    if fname.startswith(nodename):
+                        fileinlog = cfs.joinPaths(configDict['log_dir'] ,fname)
+                        cfs.copyFile(source_path + fileinlog, 'file://' + node_folder)
+            
+            if includeTLogs:
+                
+                source_dir = None
+                if configDict.has_key('tlog_dir'):
+                    source_dir = configDict['tlog_dir']
+                else:
+                    source_dir = configDict['home']
+                full_source_dir = source_path + source_dir
+                    
+                for fname in q.cloud.system.fs.listDir( full_source_dir ):
+                    if fname.endswith('.tlog') or fname.endswith('.tlc') or fname.endswith('.tlf'):
+                        tlogfile = q.system.fs.joinPaths(source_dir ,fname)
+                        cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
+                
+            q.cloud.system.fs.copyFile(source_path + '/opt/qbase3/cfg/qconfig/arakoon.cfg', 'file://' + node_folder)
+            q.cloud.system.fs.copyFile(source_path + '/opt/qbase3/cfg/qconfig/arakoonnodes.cfg', 'file://' + node_folder)
+            
+        #end for 
+        fs = q.system.fs
+        archive_file = fs.joinPaths( q.dirs.tmpDir, 'Archive.tgz') 
+        q.system.fs.targzCompress( archive_folder,  archive_file)
+        
+        q.cloud.system.fs.copyFile('file://' + archive_file , destination)
+        
+        q.system.fs.removeDirTree( archive_folder )
+        q.system.fs.unlink( archive_file )
