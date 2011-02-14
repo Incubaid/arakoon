@@ -41,7 +41,7 @@ let test_lost_update () =
   let _ = Client_main.with_master_client "cfg/arakoon.ini" 
     (fun c -> c # set "xxx" "xxx")
   in 
-  let cfgs,_,_,_,_ = Node_cfg.read_config "cfg/arakoon.ini" in
+  let cfgs,_,_,_ = Node_cfg.read_config "cfg/arakoon.ini" in
   let master = Lwt_main.run (Client_main.find_master cfgs) in
   let others = List.filter (fun n -> n <> master) Node.names in
   Node.stop_all();
@@ -64,6 +64,28 @@ let test_sequence_is_transaction () =
 	      c # sequence seq
     )
   in ();;
+
+
+let put_10e6 () =
+  let _ = mr_proper () in
+  Node.start_all();
+  Unix.sleep 1;
+  let (value:string) = String.make 202 '\x30' in
+  let _ = Client_main.with_master_client "cfg/arakoon.ini"
+    (fun c ->
+      let rec loop i = 
+	if i = 0 
+	then Lwt.return () 
+	else
+	  let key = Printf.sprintf "put_X_%08i" i in
+	  c # set key value >>= fun () ->
+	  Lwt_io.printlf "%i" i >>= fun () ->
+	  loop (i-1)
+      in
+      loop 10000000
+    )
+  in
+  ();;
 
 
 let put_50000 () = 
