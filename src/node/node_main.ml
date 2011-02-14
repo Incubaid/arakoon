@@ -103,8 +103,11 @@ let _maybe_daemonize daemonize cfg get_cfgs =
 	~stdout:`Dev_null
 	~stderr:`Dev_null
 	();
-      ignore ( _config_logging cfg.node_name get_cfgs )
+      let _ = _config_logging cfg.node_name get_cfgs in
+      Lwt.return()
     end
+  else
+    Lwt.return ()
 
 
 let _config_service cfg backend=
@@ -120,8 +123,8 @@ let _log_rotate cfg i get_cfgs =
   Lwt_log.warning_f "received USR (%i) going to close/reopen log file" i
   >>= fun () ->
   let logger = !Lwt_log.default in
+  let _ = _config_logging cfg get_cfgs in
   Lwt_log.close logger >>= fun () ->
-  ignore ( _config_logging cfg get_cfgs );
   Lwt.return ()
 
 let log_prelude() =
@@ -326,7 +329,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	    in to_run constants buffers new_i vo
 	  in
 	  Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
-	  let () = _maybe_daemonize daemonize me get_cfgs in
+	  _maybe_daemonize daemonize me get_cfgs >>= fun _ ->
 	  Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
 	  Lwt.catch
 	    (fun () ->

@@ -111,8 +111,8 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
   let (log_crash_msg, close_crash_log, dump_crash_log) = setup_crash_log crash_log_prefix in 
   
   let add_log_msg section level msgs =
-    let log_file_msg msg = ignore(Lwt_log.log ~section:file_section ~logger:file_logger ~level msg) in 
-    let () = List.iter log_file_msg msgs in 
+    let log_file_msg msg = Lwt_log.log ~section:file_section ~logger:file_logger ~level msg in 
+    Lwt_list.iter_s log_file_msg msgs >>= fun _ -> 
     log_crash_msg section level msgs
   in
     
