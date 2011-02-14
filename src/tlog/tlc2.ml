@@ -284,9 +284,9 @@ class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option)=
 	(Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _oc = _init_oc tlog_dir new_c
+  val mutable _oc = None 
   val mutable _inner = inner (* ~ pos in file *)
-  val mutable _outer = new_c (* ~ pos in dir *)
+  val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_update = last
 
 
@@ -295,8 +295,9 @@ object(self: # tlog_collection)
   method validate () = validate tlog_dir
 
   method log_update i update =
-    Tlogcommon.write_entry _oc i update >>= fun () -> 
-    Lwt_io.flush _oc >>= fun () ->
+    self # _maybe_open i >>= fun oc ->
+    Tlogcommon.write_entry oc i update >>= fun () -> 
+    Lwt_io.flush oc >>= fun () ->
     let () = match _previous_update with
       | None -> _inner <- _inner +1
       | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
@@ -305,34 +306,53 @@ object(self: # tlog_collection)
     self # _maybe_rotate () >>= fun () ->
     Lwt.return Tlogwriter.WRSuccess
     
+  method private _maybe_open i =
+    match _oc with
+      | None ->
+	begin
+	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+	  _outer <- Sn.to_int outer;
+	  _inner <- 0;
+	  let oc = _init_oc tlog_dir _outer in
+	  _oc <- Some oc;
+	  Lwt.return oc
+	end
+      | Some oc -> Lwt.return oc
+
+      
   method private _maybe_rotate() =
     if _inner = !Tlogcommon.tlogEntriesPerFile then
       begin
-	Lwt_io.close _oc >>= fun () ->
-	_inner <- 0;
-	let tlu = Filename.concat tlog_dir (file_name _outer) in
-	let tlc = Filename.concat tlog_dir (archive_name _outer) in
-	let tlc_temp = tlc ^ ".part" in
-	let compress () =
-	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-	  Lwt_log.debug_f "Renaming: %s to %s" tlc_temp tlc >>= fun () ->
-	  Unix.rename tlc_temp tlc;
-	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
-	  let msg = 
-	    try
-	      Unix.unlink tlu;
-	      "ok: unlinked " ^ tlu
-	    with _ -> Printf.sprintf "warning: unlinking of %s failed" tlu
-	  in
-	  Lwt_log.debug ("end of compress : " ^ msg) >>= fun () ->
-	  Lwt.return () 
-	in 
-	Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
-	>>= fun () ->
-	_outer <- _outer + 1;
-	_oc <- _init_oc tlog_dir _outer;
-	Lwt.return ()
+	match _oc with
+	  | None -> Llio.lwt_failfmt "None in _maybe_rotate?"
+	  |Some oc ->
+	      begin
+		Lwt_io.close oc >>= fun () ->
+		_inner <- 0;
+		let tlu = Filename.concat tlog_dir (file_name _outer) in
+		let tlc = Filename.concat tlog_dir (archive_name _outer) in
+		let tlc_temp = tlc ^ ".part" in
+		let compress () =
+		  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+		  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+		  Lwt_log.debug_f "Renaming: %s to %s" tlc_temp tlc >>= fun () ->
+		  Unix.rename tlc_temp tlc;
+		  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
+		  let msg = 
+		    try
+		      Unix.unlink tlu;
+		      "ok: unlinked " ^ tlu
+		    with _ -> Printf.sprintf "warning: unlinking of %s failed" tlu
+		  in
+		  Lwt_log.debug ("end of compress : " ^ msg) >>= fun () ->
+		  Lwt.return () 
+		in 
+		Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
+		>>= fun () ->
+		_outer <- _outer + 1;
+		_oc <- Some (_init_oc tlog_dir _outer);
+		Lwt.return ()
+	      end
       end
     else
       begin
@@ -417,7 +437,9 @@ object(self: # tlog_collection)
     Lwt.return vo
 	    
   method close () =
-    Lwt_io.close _oc
+    match _oc with
+      | None -> Lwt.return ()
+      | Some oc -> Lwt_io.close oc
 end
 
 let get_last_tlog tlog_dir =

@@ -13,6 +13,7 @@
 #load "log_extra.cmo";;
 #load "llio.cmo";;
 #load "arakoon_exc.cmo";;
+#load "statistics.cmo";;
 #load "sn.cmo";;
 #load "value.cmo";;
 #load "update.cmo";;
