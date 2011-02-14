@@ -536,9 +536,12 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		  in
 		  drop msg reason
 		end
-	      else
-		paxos_fatal me "future Promise(%s,%s), local (%s,%s)"
-		  (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
+        else
+          begin
+            let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
+              (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
+            drop msg reason
+          end
 	    end
 	  | Prepare (n',_) when n' <= n ->
 	    begin
