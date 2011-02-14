@@ -22,7 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 from system_tests_common import *
-import logging 
+import logging
+import subprocess
 
 @with_custom_setup( default_setup, basic_teardown )
 def test_single_client_100000_sets():
@@ -245,6 +246,29 @@ def test_is_progress_possible():
     
     cli.set('k','v')
 
+
+@with_custom_setup(setup_2_nodes, basic_teardown)
+def test_collapse():
+    zero = node_names[0]
+    one = node_names[1]
+    n = 298765
+    iterate_n_times(n, simple_set)
+    logging.info("did %i sets, now going into collapse scenario" % n)
+    collapse(zero,1)
+    logging.info("collapsing done")
+    stopOne(one)
+    whipe(one)
+    startOne(one)
+    cli = get_client()
+    assert_false(cli.expectProgressPossible())
+    up2date = False
+    counter = 0
+    while not up2date and count < 100:
+        time.sleep(1.0)
+        counter = counter + 1
+        up2date = cli.expectProgressPossible()
+    logging.info("catchup from collapsed node finished")
+    
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_exercises():
     time.sleep(1.0) # ??
