@@ -178,3 +178,9 @@ let on_consensus (store:store) (v,n,i) =
   _insert store v i >>= fun maybe_result ->
   Lwt.return maybe_result
 
+let get_succ_store_i (store:store) =
+  store # consensus_i () >>= fun m_si ->
+  match m_si with
+    | None -> Lwt.return Sn.start
+    | Some si -> Lwt.return (Sn.succ si)
+

@@ -193,7 +193,15 @@ let slave_steady_state constants state event =
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
 	      let new_n = update_n constants n in
-	      Lwt.return (Election_suggest (new_n, Sn.pred i, Some previous ))
+        Store.get_succ_store_i constants.store >>= fun el_i ->
+        let el_up =
+          begin
+            if el_i = (Sn.pred i) 
+            then Some previous
+            else None
+          end
+        in
+	      Lwt.return (Election_suggest (new_n, el_i, el_up ))
 	    end
 	  else
 	    begin
@@ -368,10 +376,20 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           begin
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
             begin
-            match maybe_previous with
-            | None -> Lwt.return (Sn.pred i, None)
-            | Some ( pup, prev_i )  ->
-              Lwt.return (prev_i, Some pup )
+            Store.get_succ_store_i constants.store >>= fun el_i ->
+            let el_up =
+            begin
+              if el_i = (Sn.pred i) 
+              then 
+                begin
+                  match maybe_previous with
+                  | None -> None
+                  | Some ( pup, prev_i )  -> Some pup 
+                end
+              else None
+            end
+            in
+            Lwt.return (el_i,el_up)
             end
             >>= fun (el_i, el_up) ->
             let new_n = update_n constants n in
