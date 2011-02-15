@@ -81,16 +81,6 @@ module Lwt_buffer = struct
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
 
-  let peek t =
-    Lwt_mutex.with_lock t.empty_m 
-      (fun () ->
-	let r =
-	  if Queue.is_empty t.q
-	  then None
-	  else Some (Queue.peek t.q)
-	in Lwt.return r
-      )
-
   let wait_for_item t =
     Lwt_mutex.with_lock t.empty_m (fun () ->
       if Queue.is_empty t.q then
