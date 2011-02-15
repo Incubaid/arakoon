@@ -172,8 +172,6 @@ let _ = dispatch & function
 
     flag ["compile";"ocaml";"use_bisect"]
       (S[A"-I";A"+bisect"]);
-    flag ["pp";"ocaml";"use_bisect"]
-      (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
 
 
     flag ["ocaml";"byte";"link";"use_bisect"]
@@ -184,10 +182,15 @@ let _ = dispatch & function
 
     flag ["link";"use_bisect"] (S[A"-ccopt";A"--coverage";]);
 
+    flag ["pp";"ocaml";"use_bisect"]
+      (S[A"camlp4of";A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
     flag ["pp";"file:src/tlog/tlogcommon.ml"]
-      (S[A"camlp4o";A"pa_macro.cmo"]);
+      (S[A"pa_macro.cmo"]);
     flag ["pp";"small_tlogs";"file:src/tlog/tlogcommon.ml"] 
       (S[A"-DSMALLTLOG"]);
+
+
+
 
     (* For each ocamlfind package one inject the -package option when
     	* compiling, computing dependencies, generating documentation and
