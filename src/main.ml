@@ -65,7 +65,8 @@ let list_tests() =
 let show_version ()=
   Printf.printf "version: %S\n" Version.version;
   Printf.printf "hg_revision: %S\n" Version.hg_revision;
-  Printf.printf "compiled: %S\n" Version.compile_time
+  Printf.printf "compiled: %S\n" Version.compile_time;
+  Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile
 
 let run_all_tests () =
   All_test.configure_logging();

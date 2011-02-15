@@ -16,6 +16,7 @@ true: warn_error_F
 "src/msg":include
 "src/paxos": include
 "src/tlog": include
+"src/tlog/tlogcommon.ml": pp(camlp4o pa_macro.cmo -DSMALLTLOG), pkg_camlp4.macro, use_dynlink
 "src/node": include
 "src/system": include
 "src/inifiles": include
