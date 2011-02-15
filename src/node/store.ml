@@ -182,3 +182,10 @@ let get_succ_store_i (store:store) =
   match m_si with
     | None -> Lwt.return Sn.start
     | Some si -> Lwt.return (Sn.succ si)
+
+let get_consensus_i (store:store) =
+  store # consensus_i () >>= fun m_si ->
+  match m_si with
+    | None -> Lwt.return ( Sn.pred Sn.start )
+    | Some si -> Lwt.return si
+
