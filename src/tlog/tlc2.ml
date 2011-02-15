@@ -312,7 +312,6 @@ object(self: # tlog_collection)
 	begin
 	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	  _outer <- Sn.to_int outer;
-	  _inner <- 0;
 	  let oc = _init_oc tlog_dir _outer in
 	  _oc <- Some oc;
 	  Lwt.return oc
