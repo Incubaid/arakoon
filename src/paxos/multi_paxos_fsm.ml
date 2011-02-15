@@ -121,13 +121,13 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	  | Nak(n',(n2, i2)) when n' = -1L ->
 	    begin
 	      log ~me "fake prepare response: discovered master" >>= fun () ->
-        Store.get_consensus_i constants.store >>= fun cu_pred ->
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
 	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	    end
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	    begin
 	      log ~me "got %s => go to catchup" (string_of msg) >>= fun () ->
-        Store.get_consensus_i constants.store >>= fun cu_pred ->
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
 	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	    end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
@@ -267,7 +267,7 @@ let wait_for_promises constants state event =
                       log ~me "wait_for_promises; discovered other node" 
                       >>= fun () ->
                       if n'' > n || i' > i then
-                      Store.get_consensus_i constants.store >>= fun cu_pred ->
+                      Store.get_catchup_start_i constants.store >>= fun cu_pred ->
 			Lwt.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
                       else
 			let new_n = update_n constants (max n n'') in
@@ -346,7 +346,7 @@ let wait_for_promises constants state event =
         then
           Lwt.return (Slave_wait_for_accept (n', i, None, pr_up_with_i))
         else
-          Store.get_consensus_i constants.store >>= fun cu_pred ->
+          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
           let new_state = (source,cu_pred,n',i') in 
           Lwt.return (Slave_discovered_other_master(new_state) )
       end
@@ -400,7 +400,7 @@ let wait_for_promises constants state event =
 			if i' > i 
 			then 
         begin
-          Store.get_consensus_i constants.store >>= fun cu_pred ->
+          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
           Lwt.return (Slave_discovered_other_master (source, cu_pred, n', i'))
         end
 			else
@@ -588,7 +588,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
           if i' = i then
 	          Lwt.return (Slave_wait_for_accept (n',i, None, Some (v,i) ))
           else 
-            Store.get_consensus_i constants.store >>= fun cu_pred ->
+            Store.get_catchup_start_i constants.store >>= fun cu_pred ->
             let new_state = (source,cu_pred,n',i') in 
             Lwt.return (Slave_discovered_other_master(new_state) )
           end
@@ -629,7 +629,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
       begin 
         (* Become slave, goto catchup *)
         log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
-        Store.get_consensus_i constants.store >>= fun cu_pred ->
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
         let new_state = (source,cu_pred,n,i') in 
         Lwt.return (Slave_discovered_other_master new_state)
       end
