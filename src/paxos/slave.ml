@@ -111,7 +111,8 @@ let slave_steady_state constants state event =
 	      log ~me "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
 		      (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
-        let new_state = (source,i,n',i') in 
+        Store.get_consensus_i constants.store >>= fun cu_pred ->
+        let new_state = (source,cu_pred,n',i') in 
         Lwt.return (Slave_discovered_other_master(new_state) ) 
 	    end
 	  | Prepare(n',i') ->
@@ -150,7 +151,8 @@ let slave_steady_state constants state event =
 		  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
 		  send reply me source >>= fun () ->
       if i' > i then
-        let new_state = (source,nak_max,n',i') in
+        Store.get_consensus_i constants.store >>= fun cu_pred ->
+        let new_state = (source,cu_pred,n',i') in
         Lwt.return (Slave_discovered_other_master new_state)
       else
 		    let maybe_previous = Some (previous, Sn.pred i) in
@@ -286,7 +288,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         else
         begin
 	        if i' > i then 
-            Lwt.return( Slave_discovered_other_master(source,i,n',i') )   
+            Store.get_consensus_i constants.store >>= fun cu_pred ->
+            Lwt.return( Slave_discovered_other_master(source,cu_pred,n',i') )   
           else
           begin
 	          constants.on_accept (v,n,i') >>= fun v ->
@@ -330,7 +333,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
             (Sn.string_of i) (Sn.string_of i')  
           >>= fun () -> 
-          let new_state = (source,i,n',i') in 
+          Store.get_consensus_i constants.store >>= fun cu_pred ->
+          let new_state = (source,cu_pred,n',i') in 
           Lwt.return (Slave_discovered_other_master(new_state) ) 
         else
 	        log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
