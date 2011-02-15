@@ -66,10 +66,10 @@ let _config_logging me get_cfgs =
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in
   let log_file_name = common_prefix ^ ".log" in
-  let crash_file_name = Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
+  let get_crash_file_name () = Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
   if log_dir <> "none"
   then
-    Some ( Crash_logger.setup_default_logger level log_file_name crash_file_name )
+    Some ( Crash_logger.setup_default_logger level log_file_name get_crash_file_name )
   else
     None
 

@@ -25,7 +25,7 @@ open Lwt
 let maybe_circ_buf = ref None
 let msg_cnt = ref 0
 
-let setup_crash_log crash_file_prefix =
+let setup_crash_log crash_file_gen =
   let max_crash_log_size = 1000 in
   let circ_buf = 
   begin
@@ -89,7 +89,7 @@ let setup_crash_log crash_file_prefix =
       in
       Lwt.return (Lwt_sequence.iter_l dump_msg circ_buf)
     in 
-    let crash_file_path = crash_file_prefix in
+    let crash_file_path = crash_file_gen () in
     Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs
   in 
   
