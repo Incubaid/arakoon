@@ -87,16 +87,4 @@ module Lwt_buffer = struct
 	Lwt_condition.wait t.empty
       else Lwt.return ()
     )
-
-  let wait_for_place t =
-    Lwt_mutex.with_lock t.full_m (fun () ->
-      if _is_full t then
-	Lwt_condition.wait t.full
-      else Lwt.return ()
-    )
-
-
-  let length t = Queue.length t.q
-
-  let is_empty t = Queue.length t.q = 0
 end
