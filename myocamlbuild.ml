@@ -182,12 +182,12 @@ let _ = dispatch & function
 
     flag ["link";"use_bisect"] (S[A"-ccopt";A"--coverage";]);
 
+    flag ["pp";"ocaml";"use_macro"] (S[A"camlp4of";A"pa_macro.cmo"]);
     flag ["pp";"ocaml";"use_bisect"]
-      (S[A"camlp4of";A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
-    flag ["pp";"file:src/tlog/tlogcommon.ml"]
-      (S[A"pa_macro.cmo"]);
-    flag ["pp";"small_tlogs";"file:src/tlog/tlogcommon.ml"] 
-      (S[A"-DSMALLTLOG"]);
+      (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
+    
+    flag ["pp";"use_macro";"small_tlogs";
+	  "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
 
 
 
