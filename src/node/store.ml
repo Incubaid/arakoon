@@ -149,11 +149,6 @@ let _insert (store:store) v i =
   let u,_ = Update.from_buffer update_string 0 in
   _insert_update store u
 
-let _insert (store:store) v i =
-  let Value.V(update_string) = v in
-  let u,_ = Update.from_buffer update_string 0 in
-  _insert_update store u
-
 let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s" 
     (Sn.string_of n) (Sn.string_of i)
