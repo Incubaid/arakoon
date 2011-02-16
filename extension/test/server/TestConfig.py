@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 from pymonkey import q
 from nose.tools import *
@@ -51,7 +51,10 @@ class TestConfig:
                                                          'messaging_port': '10000', \
                                                          'name': 'arakoon_0'})
 
-        q.config.arakoon.addNode("arakoon_1", "192.168.0.1",7081,12345,"debug", "/tmp","/tmp/joe")
+        q.config.arakoon.addNode("arakoon_1",
+                                 "192.168.0.1",
+                                 7081,12345,"debug",
+                                 "/tmp","/tmp/joe")
         config = q.config.getInifile("arakoon")
         assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_0,arakoon_1'})
         assert_equals(config.getSectionAsDict("arakoon_0"), { 'client_port': '7080', \

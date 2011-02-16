@@ -18,7 +18,7 @@ RUNNING A SINGLE NODE TEST SERVER:
 create the following configuration:
     [global]
     nodes = arakoon_0
-    master = arakoon_0
+    cluster_id = my_cluster 
 
     [arakoon_0]
     ip = 127.0.0.1

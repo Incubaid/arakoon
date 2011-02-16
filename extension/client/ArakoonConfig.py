@@ -97,7 +97,8 @@ class ArakoonConfig:
             nodes = self.__getNodes(config)
 
             for name in nodes:
-                clientconfig[name] = (config.getValue(name, "ip"), config.getValue(name, "client_port"))
+                clientconfig[name] = (config.getValue(name, "ip"),
+                                      config.getValue(name, "client_port"))
 
         return clientconfig
 
@@ -111,7 +112,9 @@ class ArakoonConfig:
             nodes = self.__getNodes(serverConfig)
 
             for name in nodes:
-                self.addNode(name, serverConfig.getValue(name, "ip"), serverConfig.getValue(name, "client_port"))
+                self.addNode(name,
+                             serverConfig.getValue(name, "ip"),
+                             serverConfig.getValue(name, "client_port"))
 
     def __getNodes(self, config):
         if not config.checkSection("global"):

@@ -51,12 +51,14 @@ class ArakoonConfig:
         @param cluster the arakoon cluster name
         """
         self.__validateName(name)
+        self.__validateName(cluster)
         self.__validateLogLevel(log_level)
 
         config = q.config.getInifile(cluster)
 
         if not config.checkSection("global"):
             config.addSection("global")
+            config.addParam("global","cluster_id",cluster)
             config.addParam("global","nodes", "")
 
         nodes = self.__getNodes(config)
