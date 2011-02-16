@@ -176,7 +176,7 @@ ARA_TYPE_INT_SIZE = 4
 ARA_TYPE_BOOL_SIZE = 1
 
 # Magic used to mask each command
-ARA_CMD_MAG = 0xfeed0000
+ARA_CMD_MAG = 0xb1ff0000
 
 # Hello command
 ARA_CMD_HEL = 0x00000001 | ARA_CMD_MAG

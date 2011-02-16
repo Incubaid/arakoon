@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let _MAGIC = 0xfeed0000l
+let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
 let _STRLEN_SIZE = 4
 let _CMD_SIZE   = 4
