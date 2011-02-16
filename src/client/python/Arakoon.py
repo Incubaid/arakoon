@@ -106,19 +106,21 @@ class ArakoonClient :
 
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
-    def hello (self, msg):
+    def hello (self, clientId, clusterId = 'whatever'):
         """
-        Send a string of your choosing to the server.
+        send a hello message to the node with your id and the cluster id.
+        
 
         Will return the server node identifier and the version of arakoon it is running
 
-        @type msg  : string
-        @param msg : The string to send to the master node
-
+        @type clientId  : string
+        @type clusterId : string
+        @param clusterId : must match the cluster_id of the node
         @rtype: string
         @return: The master identifier and its version in a single string
         """
-        conn = self._sendToMaster( ArakoonProtocol.encodeHello( msg ))
+        encoded = ArakoonProtocol.encodeHello(clientId,clusterId)
+        conn = self._sendToMaster(encoded)
         return conn.decodeStringResult()
 
     @retryDuringMasterReelection

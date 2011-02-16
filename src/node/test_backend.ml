@@ -61,7 +61,13 @@ let range_ kv first finc last linc max =
 class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
 
-  method hello (s:string) = Lwt.return "test_backend.0.0.0"
+  method hello (client_id:string) (cluster_id:string) = 
+    let r = 
+      match cluster_id with
+	| "sweety" -> (0l,    "test_backend.0.0.0")
+	| _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
+    in
+    Lwt.return r
 
   method exists (key:string) =
     Lwt.return (StringMap.mem key _kv)

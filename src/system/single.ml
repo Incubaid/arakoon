@@ -40,7 +40,7 @@ let should_fail x error_msg success_msg =
   else Lwt.return ()
 
 
-let all_same_master ((cfgs,forced_master,quorum,_),_) =
+let all_same_master (cluster_cfg, _) =
   let masters = ref [] in
   let do_one cfg =
     Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
@@ -51,6 +51,7 @@ let all_same_master ((cfgs,forced_master,quorum,_),_) =
     in
     Client_main.with_client cfg f
   in
+  let cfgs = cluster_cfg.cfgs in
   Lwt_list.iter_s do_one cfgs >>= fun () ->
   assert_equal ~msg:"not all nodes were up"
     (List.length cfgs)
@@ -70,9 +71,10 @@ let all_same_master ((cfgs,forced_master,quorum,_),_) =
   let () = test !masters in
   Lwt.return ()
 
-let nothing_on_slave ((cfgs,forced_master,quorum,_),_) =
+let nothing_on_slave (cluster_cfg, _) =
+  let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
-    Client_main.find_master cfgs >>= fun m ->
+    Client_main.find_master cluster_cfg >>= fun m ->
       let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> m) cfgs in
 	Lwt.return slave_cfgs
   in
@@ -344,8 +346,9 @@ let _multi_get (client: Arakoon_client.client) =
 
 
 
-let trivial_master ((cfgs,forced_master,quorum,_),_) =
-  Client_main.find_master cfgs >>= fun master_name ->
+let trivial_master (cluster_cfg, _) =
+  let cfgs = cluster_cfg.cfgs in
+  Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
     List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
@@ -360,12 +363,11 @@ let trivial_master ((cfgs,forced_master,quorum,_),_) =
   in
   Client_main.with_client master_cfg f
 
-let trivial_master2 ((cfgs,forced_master,quorum,_),_) =
-  
-Client_main.find_master cfgs >>= fun master_name ->
+let trivial_master2 (cluster_cfg,_) =
+  Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
   let f client =
     _test_and_set_3 client >>= fun () ->
@@ -377,11 +379,11 @@ Client_main.find_master cfgs >>= fun master_name ->
   Client_main.with_client master_cfg f
 
 
-let trivial_master3 ((cfgs,forced_master,quorum,_),_) =
-  Client_main.find_master cfgs >>= fun master_name ->
+let trivial_master3 (cluster_cfg,_) =
+  Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
   let f client =
     _sequence client >>= fun () ->
@@ -390,22 +392,22 @@ let trivial_master3 ((cfgs,forced_master,quorum,_),_) =
   in
   Client_main.with_client master_cfg f
 
-let trivial_master4 ((cfgs, forced_master,quorum,_),_) = 
-  Client_main.find_master cfgs >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+let trivial_master4 (cluster_cfg,_) = 
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
   in
   Client_main.with_client master_cfg _multi_get
 
-let trivial_master5 ((cfgs, forced_master,quorum,_),_) = 
-  Client_main.find_master cfgs >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+let trivial_master5 (cluster_cfg,_) = 
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
   in
   Client_main.with_client master_cfg _progress_possible
 
 let setup () =
-  let cfgs,forced_master, quorum, lease_period= 
-    read_config "cfg/arakoon.ini" in
-  Lwt.return ((cfgs, forced_master, quorum, lease_period), ())
+  Lwt.return (read_config "cfg/arakoon.ini", ())
 
 let teardown (_,()) =
   Lwt.return ()

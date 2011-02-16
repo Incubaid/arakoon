@@ -40,13 +40,13 @@ let rec _split node_name cfgs =
 
 
 let _config_logging me get_cfgs =
-  let cfgs = get_cfgs () in 
+  let cluster_cfg = get_cfgs () in 
   let acc = ref None in
   let f () c =
     if c.node_name = me 
     then acc := Some c
   in
-  let () = List.fold_left f () cfgs in
+  let () = List.fold_left f () cluster_cfg.cfgs in
   let cfg = 
   begin
     match !acc with 
@@ -138,12 +138,13 @@ let log_prelude() =
 
 
 
-let _main_2 make_store make_tlog_coll get_cfgs
-    forced_master quorum_function name
-    ~daemonize lease_period
-    =
+let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
   let dump_crash_log = ref None in
-  let cfgs = get_cfgs () in
+  let cluster_cfg = make_config () in
+  let cfgs = cluster_cfg.cfgs in
+  let forced_master = cluster_cfg._forced_master in
+  let lease_period = cluster_cfg._lease_period in
+  let quorum_function = cluster_cfg.quorum_function in 
   let names = List.map (fun cfg -> cfg.node_name) cfgs in
   let n_names = List.length names in
   let other_names = List.filter (fun n -> n <> name) names in
@@ -151,9 +152,9 @@ let _main_2 make_store make_tlog_coll get_cfgs
     match splitted with
       | None -> failwith (name ^ " is not known in config")
       | Some me ->
-	  dump_crash_log := _config_logging me.node_name get_cfgs ;
+	  dump_crash_log := _config_logging me.node_name make_config ;
 	  let _ = Lwt_unix.on_signal 10
-	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i get_cfgs ))
+	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
 	  in
 	  log_prelude() >>= fun () ->
 	  let my_name = me.node_name in
@@ -162,7 +163,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	    begin
 	      Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
 		other_names >>= fun () ->
-	      Lwt_log.info_f "lease_period=%i" lease_period >>= fun () ->
+	      Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
 	      Lwt_log.info_f "quorum_function gives %i for %i" 
 		(quorum_function n_names) n_names >>= fun () ->
 	      let db_name = me.home ^ "/" ^ my_name ^ ".db" in
@@ -313,7 +314,8 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		Multi_paxos.make my_name other_names send receive 
 		  get_last_value 
 		  on_accept on_consensus on_witness
-		  quorum_function forced_master 
+		  (quorum_function: int -> int)
+		  (forced_master : string option)
 		  store tlog_coll others lease_period inject_event 
 		  
 	      in Lwt.return ((forced_master,constants, buffers, new_i, vo), 
@@ -331,7 +333,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	    in to_run constants buffers new_i vo
 	  in
 	  Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
-	  _maybe_daemonize daemonize me get_cfgs >>= fun _ ->
+	  _maybe_daemonize daemonize me make_config >>= fun _ ->
 	  Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
@@ -359,26 +361,13 @@ let _main_2 make_store make_tlog_coll get_cfgs
 
 
 let main_t make_config name daemonize =
-  let cfgs, forced_master, quorum_function, lease_period = 
-    make_config () 
-  in
   let make_store = Local_store.make_local_store in
   let make_tlog_coll = Tlc2.make_tlc2
   in
-  let get_cfgs = Node_cfg.Node_cfg.get_node_cfgs_from_file in 
-  _main_2
-    make_store make_tlog_coll get_cfgs 
-    forced_master quorum_function name
-    ~daemonize lease_period
+  _main_2 make_store make_tlog_coll make_config ~name ~daemonize 
 
 let test_t make_config name =
-  let cfgs, forced_master, quorum_function, lease_period = 
-    make_config () 
-  in
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
   let daemonize = false in
-  let get_cfgs () = cfgs in
-  _main_2 make_store make_tlog_coll get_cfgs
-    forced_master quorum_function name
-    ~daemonize lease_period
+  _main_2 make_store make_tlog_coll make_config ~name ~daemonize 

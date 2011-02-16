@@ -192,9 +192,10 @@ let who_master_to b =
 let expect_progress_possible_to b =
   command_to b EXPECT_PROGRESS_POSSIBLE
 
-let hello_to b msg =
+let hello_to b client_id cluster_id =
   command_to b HELLO;
-  Llio.string_to b msg
+  Llio.string_to b client_id;
+  Llio.string_to b cluster_id
 
 (*
 let sequence b updates =

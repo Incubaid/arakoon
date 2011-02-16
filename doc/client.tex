@@ -62,8 +62,9 @@ The parameters have the same semantics as for the range method.
 The originaly stored value will be returned.
 Using a \emph{value option} instead of a value allows you to only set a value only if there was none for that key.
 Using \emph{None} as new allows you to do a careful delete as well.
-\paragraph{hello : string $\rightarrow$ string C.t}
-The client identifies itself to the server, and the server replies with its version string.
+\paragraph{hello : string $\rightarrow$ string $\rightarrow$ string C.t}
+The client identifies itself to the server and tells the server the cluster id, 
+and the server replies with its version string.
 \paragraph{who\_master: unit $\rightarrow$ string option C.t}
 Allows the client to know which node currently acts as master.
 If there is no master, or it is not known to this node, the result is None.

@@ -108,7 +108,7 @@ object(self: #Arakoon_client.client)
       )
 
 
-  method hello me =
-    request (fun buf -> hello_to buf me) >>= fun () ->
+  method hello client_id cluster_id =
+    request (fun buf -> hello_to buf client_id cluster_id) >>= fun () ->
     response ic Llio.input_string
 end

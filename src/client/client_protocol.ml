@@ -77,10 +77,11 @@ let one_command (ic,oc) backend =
   read_command (ic,oc) >>= function
     | HELLO ->
 	begin
-          Llio.input_string ic >>= fun client ->
-	    Lwt_log.debug_f "HELLO %S" client >>= fun () ->
-            backend # hello client >>= fun server ->
-              response_rc_string oc 0l server
+          Llio.input_string ic >>= fun client_id ->
+	  Llio.input_string ic >>= fun cluster_id ->
+	    Lwt_log.debug_f "HELLO %S %S" client_id cluster_id >>= fun () ->
+            backend # hello client_id cluster_id >>= fun (rc,msg) ->
+              response_rc_string oc rc msg
 	end
     | EXISTS ->
       begin

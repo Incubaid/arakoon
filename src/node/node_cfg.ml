@@ -22,7 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 let config_file = ref "cfg/arakoon.ini"
 
-let default_lease_expiry = 10
+let default_lease_period = 10
+
 module Node_cfg = struct
   type t = {node_name:string;
 	    ip:string;
@@ -35,6 +36,14 @@ module Node_cfg = struct
 	    lease_period:int;
 	    forced_master: string option;
 	   }
+
+  type cluster_cfg = 
+      { cfgs: t list;
+	_forced_master: string option;
+	quorum_function: int -> int;
+	_lease_period: int;
+	cluster_id : string;
+      }
 
   let make_test_config n_nodes forced_master lease_period = 
     let make_one n =
@@ -60,8 +69,16 @@ module Node_cfg = struct
     in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
-    let lease_expiry = default_lease_expiry in
-    (cfgs, forced_master, quorum_function, lease_expiry)
+    let lease_period = default_lease_period in
+    let cluster_id = "ricky" in
+    let cluster_cfg = { cfgs= cfgs; 
+			_forced_master = forced_master;
+			quorum_function = quorum_function;
+			_lease_period = lease_period;
+			cluster_id = cluster_id}
+    in
+    cluster_cfg
+    
 
   let string_of (t:t) =
     let template =
@@ -89,7 +106,7 @@ module Node_cfg = struct
       try
 	let les = (inifile # getval "global" "lease_expiry") in
 	Scanf.sscanf les "%i" (fun i -> i)
-      with (Inifiles.Invalid_element _) -> default_lease_expiry
+      with (Inifiles.Invalid_element _) -> default_lease_period
     in
     let forced_master inifile =
       try
@@ -100,6 +117,12 @@ module Node_cfg = struct
 	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
         else Some m
       with (Inifiles.Invalid_element _) -> None
+    in
+    let get_cluster_id inifile =
+      try
+	let cids = inifile # getval "global" "cluster_id" in
+	Scanf.sscanf cids "%s" (fun s -> s)
+      with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
     in
     let node_config inifile node_section fm =
       let get_string x =
@@ -165,7 +188,15 @@ module Node_cfg = struct
       with (Inifiles.Invalid_element _) -> Quorum.quorum_function
     in
     let lease_period = lease_expiry inifile in
-    cfgs, fm, quorum_function, lease_period
+    let cluster_id = get_cluster_id inifile in
+    let cluster_cfg = 
+      { cfgs = cfgs;
+	_forced_master = fm;
+	quorum_function = quorum_function;
+	_lease_period = lease_period;
+	cluster_id = cluster_id}
+    in
+    cluster_cfg
 
 
   let node_name t = t.node_name
@@ -175,8 +206,6 @@ module Node_cfg = struct
   
   let forced_master t = t.forced_master
 
-  let get_node_cfgs_from_file () =
-    let (cfgs,_,_,_) = read_config !config_file in
-    cfgs
+  let get_node_cfgs_from_file () = read_config !config_file 
 
 end

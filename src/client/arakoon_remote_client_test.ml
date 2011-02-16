@@ -65,11 +65,24 @@ let __client_server_wrapper__ real_test =
 
 let test_hello () =
   let real_test client =
-    client # hello "test_hello" >>= fun server_version ->
+    client # hello "test_hello" "sweety" >>= fun server_version ->
     OUnit.assert_equal server_version "test_backend.0.0.0";
     Lwt.return ()
   in __client_server_wrapper__ real_test
 
+let test_hello_wrong_cluster () =
+  let real_test client = 
+    let wrong_cluster = "mindy" in
+    Lwt.catch 
+      (fun () ->
+	client # hello "boba fet" wrong_cluster >>= fun result ->
+	OUnit.assert_bool "we should not be able to connect to this cluster" false;
+	Lwt.return ())
+      (fun exn -> Lwt_log.debug_f ~exn "ok, this cluster is not %s" wrong_cluster
+	>>= fun () -> Lwt.return ()) 
+      >>= fun () ->
+    Lwt.return () 
+  in __client_server_wrapper__ real_test
 
 let test_set_get () =
   let real_test client =
@@ -226,6 +239,7 @@ let test_and_set_to_none () =
   
 let suite = "remote_client" >::: [
   "hello"      >:: test_hello;
+  "hello_wrong_cluster" >:: test_hello_wrong_cluster;
   "set"        >:: test_set_get;
   "delete"     >:: test_delete;
   "range"      >:: test_range;

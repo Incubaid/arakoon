@@ -54,7 +54,7 @@ class type client = object
 
   method multi_get: key list -> (value list) Lwt.t
   
-  method hello: string -> string Lwt.t
+  method hello: string -> string -> string Lwt.t
 
   method sequence: change list -> unit Lwt.t (* ... hm ... *)
 

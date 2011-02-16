@@ -36,7 +36,8 @@ let with_client cfg f =
   in
     Lwt_io.with_connection sa do_it
 
-let find_master cfgs =
+let find_master cluster_cfg =
+  let cfgs = cluster_cfg.cfgs in
   let rec loop = function
     | [] -> Lwt.fail (Failure "too many nodes down")
     | cfg :: rest ->
@@ -63,9 +64,10 @@ let find_master cfgs =
   in loop cfgs
 
 let with_master_client cfg_name f =
-  let cfgs,_,_,_ = read_config cfg_name in
+  let ccfg = read_config cfg_name in
+  let cfgs = ccfg.cfgs in
   let t () =
-    find_master cfgs >>= fun master_name ->
+    find_master ccfg >>= fun master_name ->
     let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
     with_client master_cfg f
   in
@@ -104,9 +106,9 @@ let statistics cfg_name =
   with_master_client cfg_name f
 
 let who_master cfg_name () =
-  let cfgs,_,_,_ = read_config cfg_name in
+  let cluster_cfg = read_config cfg_name in
   let t () = 
-    find_master cfgs >>= fun master_name ->
+    find_master cluster_cfg >>= fun master_name ->
     Lwt_io.printl master_name
   in
   Lwt_main.run (t());0

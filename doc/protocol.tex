@@ -51,7 +51,7 @@ server: \ & [rc:int_{32}][size:int_{32}][bytes] & (\&flush) \\
 \end{aligned}
 \end{equation*}
 
-Each command is masked with the magic sequence $0xfeed0000$.
+Each command is masked with the magic sequence $0xb1ff0000$.
 The node checks the magic, proceeds with reading the parameters, and processes the request.
 Then the response code and response are written.
 If a failure happens, the server writes out a return code different from zero, and a string with a message after which he closes the connection.

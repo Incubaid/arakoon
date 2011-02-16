@@ -361,8 +361,11 @@ class Sequence(Update):
 class ArakoonProtocol :
 
     @staticmethod
-    def encodeHello( helloMsg ):
-        return _packInt (ARA_CMD_HEL ) + _packString( helloMsg )
+    def encodeHello(clientId, clusterId ):
+        r  = _packInt(ARA_CMD_HEL)
+        r += _packString(clientId)
+        r += _packString(clusterId)
+        return r
 
     @staticmethod
     def encodeWhoMaster():

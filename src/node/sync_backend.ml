@@ -162,8 +162,10 @@ object(self: #backend)
     let update_stats () = Statistics.new_delete _stats in
     self # _update_rendezvous update update_stats 
 
-  method hello (client_info:string) =
-    log_o self "hello" >>= fun () -> Lwt.return "xxx"
+  method hello (client_id:string) (cluster_id:string) =
+    log_o self "hello %S %S" client_id cluster_id >>= fun () -> 
+    let msg = Printf.sprintf "Arakoon %S" Version.version in
+    Lwt.return (0l, msg)
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->

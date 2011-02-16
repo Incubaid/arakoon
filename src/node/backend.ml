@@ -38,7 +38,7 @@ class type backend = object
   method last_entries: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get: string list -> string list Lwt.t
-  method hello: string -> string Lwt.t
+  method hello: string -> string -> (int32 * string) Lwt.t
 
   method who_master: unit -> string option Lwt.t
   method sequence: Update.t list -> unit Lwt.t

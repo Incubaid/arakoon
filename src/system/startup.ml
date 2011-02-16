@@ -54,26 +54,19 @@ let _make_tlog_coll tlcs updates tlc_name =
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let _make_store stores now node_x db_name = 
+let _make_store stores now node_name db_name = 
   Mem_store.make_mem_store db_name >>= fun store ->
-  store # set_master node_x now >>= fun () -> 
+  store # set_master node_name now >>= fun () -> 
   Hashtbl.add stores db_name store;
   Lwt.return store
 
-let _make_run 
-    ?(forced_master=None) 
-    ?(quorum_function= fun n -> (n/2)+1)
-    ?(lease_period = 10)
-    ~stores ~tlcs ~now ~updates ~get_cfgs node_x () = 
+let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () = 
   Node_main._main_2 
-    (_make_store stores now node_x)
+    (_make_store stores now name)
     (_make_tlog_coll tlcs updates)
     get_cfgs
-    forced_master
-    quorum_function 
-    node_x
+    ~name
     ~daemonize:false
-    lease_period
 
 let _dump_tlc ~tlcs node = 
   let tlc0 = Hashtbl.find tlcs node in
@@ -92,13 +85,21 @@ let post_failure () =
   let node0_cfg = _make_cfg node0 0 lease_period in
   let node1_cfg = _make_cfg node1 1 lease_period in
   let node2_cfg = _make_cfg node2 2 lease_period in
-  let cfgs = [node0_cfg;node1_cfg;node2_cfg] in
+  let cluster_cfg = {
+    cfgs = [node0_cfg;node1_cfg;node2_cfg] ;
+    _forced_master = None;
+    quorum_function = Quorum.quorum_function;
+    _lease_period = 10;
+    cluster_id = "ricky";
+  }
+  in
+  let get_cfgs () = cluster_cfg in
   let u0 = Update.MasterSet(node0,0L)  in
   let u1 = Update.Set("x","y") in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
-  let get_cfgs () = cfgs in
+
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
   let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0]    node2 in
@@ -133,13 +134,21 @@ let restart_slaves () =
   let node0_cfg = _make_cfg node0 0 lease_period in
   let node1_cfg = _make_cfg node1 1 lease_period in
   let node2_cfg = _make_cfg node2 2 lease_period in
-  let cfgs = [node0_cfg;node1_cfg;node2_cfg] in
+  let cluster_cfg = 
+    {cfgs = [node0_cfg;node1_cfg;node2_cfg];
+     _forced_master = None;
+     quorum_function = Quorum.quorum_function;
+     _lease_period = 10;
+     cluster_id = "ricky";
+    }
+  in
+  let get_cfgs () = cluster_cfg in 
   let u0 = Update.MasterSet(node0,0L) in
   let u1 = Update.Set("xxx","xxx") in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float(Unix.time()) in
-  let get_cfgs () = cfgs in 
+  
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
