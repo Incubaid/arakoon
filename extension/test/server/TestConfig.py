@@ -42,35 +42,50 @@ class TestConfig:
         q.config.arakoon.addNode("arakoon_0")
         
         config = q.config.getInifile("arakoon")
-        assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_0'})
-        assert_equals(config.getSectionAsDict("arakoon_0"), { 'client_port': '7080', \
-                                                         'home': '/opt/qbase3/var/db/arakoon/arakoon_0', \
-                                                         'ip': '127.0.0.1', \
-                                                         'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', \
-                                                         'log_level': 'info', \
-                                                         'messaging_port': '10000', \
-                                                         'name': 'arakoon_0'})
-
+        assert_equals(config.getSectionAsDict("global"),
+                      {'nodes': 'arakoon_0',
+                       'cluster_id':'arakoon'
+                       })
+        assert_equals(config.getSectionAsDict("arakoon_0"),
+                      { 'client_port': '7080', 
+                        'home': '/opt/qbase3/var/db/arakoon/arakoon_0', 
+                        'ip': '127.0.0.1', 
+                        'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', 
+                        'log_level': 'info', 
+                        'messaging_port': '10000', 
+                        'name': 'arakoon_0'})
+        
         q.config.arakoon.addNode("arakoon_1",
                                  "192.168.0.1",
-                                 7081,12345,"debug",
-                                 "/tmp","/tmp/joe")
+                                 7081,
+                                 12345,
+                                 "debug",
+                                 "/tmp",
+                                 "/tmp/joe")
+    
         config = q.config.getInifile("arakoon")
-        assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_0,arakoon_1'})
-        assert_equals(config.getSectionAsDict("arakoon_0"), { 'client_port': '7080', \
-                                                         'home': '/opt/qbase3/var/db/arakoon/arakoon_0', \
-                                                         'ip': '127.0.0.1', \
-                                                         'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', \
-                                                         'log_level': 'info', \
-                                                         'messaging_port': '10000', \
-                                                         'name': 'arakoon_0'})
-        assert_equals(config.getSectionAsDict("arakoon_1"), { 'client_port': '7081', \
-                                                         'home': '/tmp/joe', \
-                                                         'ip': '192.168.0.1', \
-                                                         'log_dir': '/tmp', \
-                                                         'log_level': 'debug', \
-                                                         'messaging_port': '12345', \
-                                                         'name': 'arakoon_1'})
+        
+        assert_equals(config.getSectionAsDict("global"),
+                      {'nodes': 'arakoon_0,arakoon_1',
+                       'cluster_id':'arakoon'})
+
+        assert_equals(config.getSectionAsDict("arakoon_0"),
+                      { 'client_port': '7080', 
+                        'home': '/opt/qbase3/var/db/arakoon/arakoon_0', 
+                        'ip': '127.0.0.1', 
+                        'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', 
+                        'log_level': 'info', 
+                        'messaging_port': '10000', 
+                        'name': 'arakoon_0'})
+    
+        assert_equals(config.getSectionAsDict("arakoon_1"),
+                      { 'client_port': '7081', 
+                        'home': '/tmp/joe', 
+                        'ip': '192.168.0.1', 
+                        'log_dir': '/tmp', 
+                        'log_level': 'debug', 
+                        'messaging_port': '12345', 
+                        'name': 'arakoon_1'})
 
     def testAddNodeInvalidName(self):
         assert_raises(Exception, q.config.arakoon.addNode,"arak oon")
@@ -91,7 +106,7 @@ class TestConfig:
         q.config.arakoon.removeNode("arakoon_0")
 
         config = q.config.getInifile("arakoon")
-        assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_1'})
+        assert_equals(config.getSectionAsDict("global")['nodes'],'arakoon_1')
         assert_false(config.checkSection("arakoon_0"))
 
     def testRemoveUnknownNode(self):
