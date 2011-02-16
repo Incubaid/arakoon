@@ -217,7 +217,8 @@ ARA_ERR_NO_ENT = 1
 ARA_ERR_NOT_MASTER = 4
 # not found
 ARA_ERR_NOT_FOUND = 5
-
+# wrong cluster
+ARA_ERR_WRONG_CLUSTER = 6
 
 def _packString( toPack ):
     toPackLength = len( toPack )
