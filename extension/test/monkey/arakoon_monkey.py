@@ -306,17 +306,18 @@ def make_monkey_run() :
             euthanize_this_monkey ()
  
         rotate_logs()
+        
         toWipe = node_names[random.randint(0,2)]
-        logging.info("Wiping node %s" % toWipe)
-        whipe(toWipe)
+        #logging.info("Wiping node %s" % toWipe)
+        #whipe(toWipe)
         
         toCollapse = node_names[random.randint(0,2)]
         while toCollapse == toWipe:
             toCollapse = node_names[random.randint(0,2)]
-        
-        if get_tlog_count (toCollapse ) > 1 :
+        collapse_candidate_count = get_tlog_count (toCollapse ) -1 
+        if collapse_candidate_count > 0 :
             logging.info("Collapsing node %s" % toCollapse )
-            if collapse(toCollapse, 1 ) != 0:
+            if collapse(toCollapse, collapse_candidate_count ) != 0:
                 logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
         q.cmdtools.arakoon.start()
