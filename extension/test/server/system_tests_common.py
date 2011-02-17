@@ -233,6 +233,13 @@ def compare_stores( node1_id, node2_id ):
     logging.debug( "Stores of %s and %s are valid" % (node1_id,node2_id))
     return True
 
+def get_tlog_count ( node_id ):
+    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    tlogs = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
+    tlogs.extend( q.system.fs.listFilesInDir( node_home_dir, filter="*.tlc" ) )
+    tlogs.extend( q.system.fs.listFilesInDir( node_home_dir, filter="*.tlf" ) )
+    return len(tlogs)
+    
 def get_last_tlog_id ( node_id ):
     node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
     tlog_max_id = 0
@@ -248,7 +255,8 @@ def get_last_tlog_id ( node_id ):
     if tlog_id is not None:
         logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
     else :
-        raise Exception( "Not a single tlog found in %s" % node_home_dir )
+        raise Exception ("Not a single tlog found in %s" % node_home_dir )
+        
     return tlog_max_id
     
 def get_last_i_tlog ( node_id ):
@@ -265,7 +273,7 @@ def startOne(name):
     q.cmdtools.arakoon.startOne(name)
 
 def rotate_logs( max_logs_to_keep = 5):
-    for name in node_names:
+    for node_name in node_names:
         rotate_log( node_name, max_logs_to_keep)
 
 def send_signal ( node_name, signal ):
@@ -315,6 +323,22 @@ def whipe(name):
     q.system.fs.createDir(data_dir)
     logging.info("whiped %s" % name)
 
+def get_memory_usage(node_name):
+    pid = q.cmdtools.arakoon._getPid( node_name )
+    if pid is None:
+        return 0
+    cmd = "ps -p %s -o vsz" % (pid)
+    (exit_code, stdout,stderr) = q.system.process.run( cmd, stopOnError=False)
+    if (exit_code != 0 ):
+        logging.error( "Coud not determine memory usage: %s" % stderr )
+        return 0
+    try:
+        size_str = stdout.split("\n") [1]
+        return int( size_str )
+    except Exception as ex:
+        logging.error( "Coud not determine memory usage: %s" % ex )
+        return 0
+    
 def collapse(name, n):
     config = getConfig(name)
     data_dir = config['home']

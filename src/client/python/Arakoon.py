@@ -106,7 +106,7 @@ class ArakoonClient :
 
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
-    def hello (self, clientId, clusterId = 'whatever'):
+    def hello (self, clientId, clusterId = 'arakoon'):
         """
         send a hello message to the node with your id and the cluster id.
         

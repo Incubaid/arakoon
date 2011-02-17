@@ -38,6 +38,8 @@ from pymonkey import q
 from arakoon_monkey_config import *
 from system_tests_common import *
 
+MEM_MAX_KB = 1024 * 128
+monkey_dies = False
 
 def get_monkey_work_dir() :
     return q.system.fs.joinPaths( q.dirs.tmpDir, "arakoon_monkey" )
@@ -148,7 +150,7 @@ def play_iteration( iteration ):
             thr_list.append( thr )
         
     
-    disruptive_f  ()
+    disruptive_f ()
     
     for thr in thr_list:
         thr.join()
@@ -158,7 +160,7 @@ def health_check() :
     logging.info( "Starting health check" )
  
     cli = get_client() 
-    encodedHello = arakoon.ArakoonProtocol.ArakoonProtocol.encodeHello( "u there?" )
+    encodedHello = arakoon.ArakoonProtocol.ArakoonProtocol.encodeHello( "me", "arakoon" )
     
     global monkey_dies
     
@@ -201,13 +203,12 @@ def health_check() :
     
     compare_stores( node_names[0], node_names[1] )
     compare_stores( node_names[2], node_names[1] )
-    q.cmdtools.arakoon.start()
+    
     
     cli._dropConnections()
     
     if not check_disk_space():
         logging.critical("SUCCES! Monkey filled the disk to its threshold")
-        q.cmdtools.arakoon.stop()
         sys.exit(0)
     
     logging.info("Cluster is healthy!")
@@ -225,9 +226,29 @@ def check_disk_space():
     logging.info( "Still under free disk space threshold. Used space: %d%% < %d%% " % (disk_free,free_threshold) ) 
     return True
 
+def memory_monitor():
+    global monkey_dies
+    
+    while monkey_dies == False :
+        for name in node_names:
+            used = get_memory_usage( name )
+            
+            if used > MEM_MAX_KB:
+                logging.critical( "!!!! %s uses more than %d kB of memory (%d) " % (name, MEM_MAX_KB, used))
+                q.cmdtools.arakoon.stop()
+                monkey_dies = True
+            else :
+                logging.info( "Node %s under memory threshold (%d)" % (name, used) )
+        time.sleep(10.0)
+                
 def make_monkey_run() :
   
+    global monkey_dies
+    
     system_tests_common.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
+    
+    t = threading.Thread( target=memory_monitor)
+    t.start()
     
     q.cmdtools.arakoon.stop()
     q.config.arakoon.tearDown() 
@@ -244,8 +265,6 @@ def make_monkey_run() :
     while( True ) :
         iteration += 1
         logging.info( "Preparing iteration %d" % iteration )
-        global monkey_dies
-        monkey_dies = False
         thr_list = list ()
         try:
             (disruption, f_list) = generate_work_list( iteration )
@@ -288,15 +307,19 @@ def make_monkey_run() :
  
         rotate_logs()
         toWipe = node_names[random.randint(0,2)]
+        logging.info("Wiping node %s" % toWipe)
         whipe(toWipe)
         
         toCollapse = node_names[random.randint(0,2)]
         while toCollapse == toWipe:
             toCollapse = node_names[random.randint(0,2)]
         
-        if collapse(toCollapse, 1 ) != 0:
-            logging.error( "Could not collapse tlog of node %s" % toCollapse )
+        if get_tlog_count (toCollapse ) > 1 :
+            logging.info("Collapsing node %s" % toCollapse )
+            if collapse(toCollapse, 1 ) != 0:
+                logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
+        q.cmdtools.arakoon.start()
  
 def send_email(from_addr, to_addr_list, cc_addr_list,
               subject, message,
