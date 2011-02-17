@@ -26,8 +26,8 @@ from ArakoonExceptions import *
 
 class ArakoonClientConnection :
 
-    def __init__ (self, nodeLocation, cluster_id = "arakoon" ):
-        self._cluster_id = cluster_id
+    def __init__ (self, nodeLocation, clusterId):
+        self._clusterId = clusterId
         self._nodeLocation = nodeLocation
         self._connected = False
         self._socket = None
@@ -38,7 +38,7 @@ class ArakoonClientConnection :
         try :
             self._socket = socket.create_connection( self._nodeLocation ,
                     ArakoonClientConfig.getConnectionTimeout() )
-            sendPrologue(self._socket, self._cluster_id)
+            sendPrologue(self._socket, self._clusterId)
             self._connected = True
         except Exception, ex :
             ArakoonClientLogger.logWarning( "Unable to connect to %s:%s (%s: '%s')" ,

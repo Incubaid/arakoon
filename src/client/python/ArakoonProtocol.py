@@ -40,7 +40,7 @@ ARA_CFG_NO_MASTER_RETRY = 60
 
 class ArakoonClientConfig :
 
-    def __init__ (self, nodes=None):
+    def __init__ (self, clusterId, nodes=None):
         """
         Constructor of an ArakoonClientConfig object
 
@@ -53,11 +53,13 @@ class ArakoonClientConfig :
                     "mySecondNode" : ( "127.0.0.1", 5000 ) ,
                     "myThirdNode"  : ( "127.0.0.1", 6000 ) } )
         Defaults to a single node running on localhost:4000
-
+        @type clusterId: string
+        @param clusterId: name of the cluster
         @type nodes: dict
         @param nodes: A dictionary containing the locations for the server nodes
 
         """
+        self._clusterId = clusterId
         if nodes is None:
             self._nodes = { "arakoon_0" : ( "127.0.0.1", 4000 ) }
 
@@ -140,6 +142,9 @@ class ArakoonClientConfig :
         @return: The maximum backoff interval
         """
         return ARA_CFG_CONN_BACKOFF
+
+    def getClusterId(self):
+        return self._clusterId
 
 class ArakoonClientLogger :
 
@@ -241,10 +246,10 @@ def _packSignedInt ( toPack ):
 def _packBool ( toPack) :
     return struct.pack( "?", toPack)
 
-def sendPrologue(socket, cluster_id):
+def sendPrologue(socket, clusterId):
     p  = _packInt(ARA_CMD_MAG)
     p += _packInt(ARA_CMD_VER)
-    p += _packString(cluster_id)
+    p += _packString(clusterId)
     socket.sendall(p)
     
 def _readExactNBytes( con, n ):
