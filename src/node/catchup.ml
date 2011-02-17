@@ -69,7 +69,8 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name (store,tlog_coll)
   in
 
   let copy_tlog connection =
-    let client = new remote_nodestream connection in
+    let cluster_id = "todo" in
+    make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,update) =
       Lwt_log.debug_f "%s:%s => tlog" 
 	(Sn.string_of i) (Update.string_of update) >>= fun () ->

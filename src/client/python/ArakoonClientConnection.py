@@ -38,10 +38,7 @@ class ArakoonClientConnection :
         try :
             self._socket = socket.create_connection( self._nodeLocation ,
                     ArakoonClientConfig.getConnectionTimeout() )
-            p = _packInt(ARA_CMD_MAG)
-            p += _packInt(ARA_CMD_VER)
-            p += _packString(cluster_id)
-            self._socket.sendall(p)
+            sendPrologue(self._socket, self._cluster_id)
             self._connected = True
         except Exception, ex :
             ArakoonClientLogger.logWarning( "Unable to connect to %s:%s (%s: '%s')" ,

@@ -271,7 +271,10 @@ let protocol backend connection =
   let prologue () = 
     Lwt_log.debug "prologue" >>= fun () ->
     Llio.input_int32  ic >>= fun magic ->
+    Lwt_log.debug_f "read magic" >>= fun () ->
     Llio.input_int    ic >>= fun version ->
+    Lwt_log.debug_f "read version" >>= fun () ->
+    Lwt_log.debug_f "magic=%li;version=%i" magic version >>= fun () ->
     check magic version  >>= fun () ->
     Llio.input_string ic >>= fun cluster ->
     Lwt_log.warning_f "TODO: check cluster %s" cluster >>= fun () ->

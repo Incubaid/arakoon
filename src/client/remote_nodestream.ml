@@ -24,6 +24,13 @@ open Update
 open Common
 open Lwt
 
+class type nodestream = object
+  method iterate: 
+    Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
+    Tlogcollection.tlog_collection ->
+    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+end
+
 class remote_nodestream (ic,oc) = 
   let request f =
     let buf = Buffer.create 32 in
@@ -31,7 +38,7 @@ class remote_nodestream (ic,oc) =
     Lwt_io.write oc (Buffer.contents buf) >>= fun () ->
     Lwt_io.flush oc
   in
-object(self)
+object(self :# nodestream)
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
     (tlog_coll: Tlogcollection.tlog_collection) 
     ~head_saved_cb
@@ -74,3 +81,17 @@ object(self)
     request outgoing >>= fun () ->
     response ic incoming  
 end
+
+let prologue cluster connection =
+  let (_,oc) = connection in 
+  Llio.output_int32  oc _MAGIC >>= fun () ->
+  Llio.output_int    oc _VERSION >>= fun () ->
+  Llio.output_string oc cluster 
+
+let make_remote_nodestream cluster connection = 
+  prologue cluster connection >>= fun () ->
+  let rns = new remote_nodestream connection in
+  let a = (rns :> nodestream) in
+  Lwt.return a
+  
+ 

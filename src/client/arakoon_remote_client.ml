@@ -26,6 +26,7 @@ open Lwt_log
 open Update
 open Statistics
 
+
 class remote_client (ic,oc) =
   let request f =
     let buf = Buffer.create 32 in
@@ -113,11 +114,14 @@ object(self: #Arakoon_client.client)
     response ic Llio.input_string
 end
 
-let make_remote_client cluster connection = 
+let prologue cluster connection =
   let (_,oc) = connection in 
   Llio.output_int32  oc _MAGIC >>= fun () ->
   Llio.output_int    oc _VERSION >>= fun () ->
-  Llio.output_string oc cluster >>= fun () ->
+  Llio.output_string oc cluster 
+
+let make_remote_client cluster connection = 
+  prologue cluster connection >>= fun () ->
   let client = new remote_client connection in
   let ac = (client :> Arakoon_client.client) in
   Lwt.return ac

@@ -220,6 +220,8 @@ ARA_ERR_NOT_FOUND = 5
 # wrong cluster
 ARA_ERR_WRONG_CLUSTER = 6
 
+
+
 def _packString( toPack ):
     toPackLength = len( toPack )
     return struct.pack("I%ds" % ( toPackLength), toPackLength, toPack )
@@ -239,6 +241,12 @@ def _packSignedInt ( toPack ):
 def _packBool ( toPack) :
     return struct.pack( "?", toPack)
 
+def sendPrologue(socket, cluster_id):
+    p  = _packInt(ARA_CMD_MAG)
+    p += _packInt(ARA_CMD_VER)
+    p += _packString(cluster_id)
+    socket.sendall(p)
+    
 def _readExactNBytes( con, n ):
 
     if not con._connected :
