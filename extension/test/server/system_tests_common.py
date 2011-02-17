@@ -27,6 +27,8 @@ from functools import wraps
 import traceback
 import sys
 import subprocess
+import signal
+import gzip
 
 test_failed = False 
 
@@ -262,6 +264,46 @@ def stopOne(name):
 def startOne(name):
     q.cmdtools.arakoon.startOne(name)
 
+def rotate_logs( max_logs_to_keep = 5):
+    for name in node_names:
+        rotate_log( node_name, max_logs_to_keep)
+
+def send_signal ( node_name, signal ):
+    pid = q.cmdtools.arakoon._getPid( node_name )
+    q.system.process.kill( pid, signal )
+
+def rotate_log(node_name, max_logs_to_keep):
+    cfg = getConfig(node_name)
+    log_dir = cfg['log_dir']
+    
+    log_file = fs.joinPaths(log_dir, "%s.log" % (node_name) )
+    old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d.gz" % (node_name) )
+    tmp_log_file = log_file + ".1"
+    
+    def shift_logs ( ) :
+        log_to_remove = old_log_fmt % (max_logs_to_keep - 1) 
+        if fs.isFile ( log_to_remove ) :
+            fs.unlink(log_to_remove)
+            
+        for i in range( 1, max_logs_to_keep - 1) :
+            j = max_logs_to_keep - 1 - i
+            log_to_move = old_log_fmt % j
+            new_log_name = old_log_fmt % (j + 1)
+            if fs.isFile( log_to_move ) :
+                fs.renameFile ( log_to_move, new_log_name )
+    
+    shift_logs()
+    if fs.isFile( log_file ):
+        fs.renameFile ( log_file, tmp_log_file )
+        send_signal ( node_name, signal.SIGUSR1 )
+        cf = gzip.open( old_log_fmt % 1 , 'w')
+        orig = open(tmp_log_file, 'r' )
+        cf.writelines(orig)
+        cf.close()
+        orig.close()
+        fs.unlink(tmp_log_file)
+    
+    
 def getConfig(name):
     return q.config.arakoon.getNodeConfig(name)
 

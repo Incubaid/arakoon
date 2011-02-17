@@ -172,6 +172,18 @@ class ArakoonCmdtools:
         self._stopOne(name, cluster = cluster)
         self._startOne(name, cluster = cluster)
 
+
+    def _getPid(self, name, cluster="arakoon"):
+        if self._getStatusOne(name, cluster) == q.enumerators.AppStatusType.HALTED:
+            return None
+        
+        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary, self._cfgPath, cluster, name)
+        (exitCode, stdout, stderr) = q.system.process.run( cmd )
+        if exitCode != 0 :
+            return None
+        else :
+            return int(stdout)
+                
     def _getStatusOne(self,name, cluster = "arakoon"):
         ret = subprocess.call(['pgrep', \
                                '-f', \

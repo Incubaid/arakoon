@@ -417,6 +417,9 @@ class ArakoonConfig:
 
         if number_of_nodes > 0:
             self.forceMaster("arakoon_0", cluster = cluster)
+        
+        config = q.config.getInifile(cluster)
+        config.addParam( 'global', 'cluster_id', cluster)
 
     def tearDown(self, removeDirs=True ):
         """
