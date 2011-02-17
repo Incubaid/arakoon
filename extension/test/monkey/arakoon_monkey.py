@@ -305,7 +305,7 @@ def make_monkey_run() :
         if monkey_dies :
             euthanize_this_monkey ()
  
-        rotate_logs()
+        rotate_logs(5,False)
         
         toWipe = node_names[random.randint(0,2)]
         #logging.info("Wiping node %s" % toWipe)

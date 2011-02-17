@@ -272,7 +272,7 @@ def stopOne(name):
 def startOne(name):
     q.cmdtools.arakoon.startOne(name)
 
-def rotate_logs( max_logs_to_keep = 5):
+def rotate_logs( max_logs_to_keep = 5, compress_old_files = True):
     for node_name in node_names:
         rotate_log( node_name, max_logs_to_keep)
 
@@ -281,12 +281,16 @@ def send_signal ( node_name, signal ):
     if pid is not None:
         q.system.process.kill( pid, signal )
 
-def rotate_log(node_name, max_logs_to_keep):
+def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     cfg = getConfig(node_name)
     log_dir = cfg['log_dir']
     
     log_file = fs.joinPaths(log_dir, "%s.log" % (node_name) )
-    old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d.gz" % (node_name) )
+    if compress_old_files:
+        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d.gz" % (node_name) )
+    else :
+        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d" )
+        
     tmp_log_file = log_file + ".1"
     
     def shift_logs ( ) :
@@ -305,12 +309,13 @@ def rotate_log(node_name, max_logs_to_keep):
     if fs.isFile( log_file ):
         fs.renameFile ( log_file, tmp_log_file )
         send_signal ( node_name, signal.SIGUSR1 )
-        cf = gzip.open( old_log_fmt % 1 , 'w')
-        orig = open(tmp_log_file, 'r' )
-        cf.writelines(orig)
-        cf.close()
-        orig.close()
-        fs.unlink(tmp_log_file)
+        if compress_old_files:
+            cf = gzip.open( old_log_fmt % 1 , 'w')
+            orig = open(tmp_log_file, 'r' )
+            cf.writelines(orig)
+            cf.close()
+            orig.close()
+            fs.unlink(tmp_log_file)
     
     
 def getConfig(name):
