@@ -49,7 +49,7 @@ let all_same_master (cluster_cfg, _) =
 	masters := master :: !masters;
 	Lwt.return ()
     in
-    Client_main.with_client cfg f
+    Client_main.with_client cfg cluster_cfg.cluster_id f
   in
   let cfgs = cluster_cfg.cfgs in
   Lwt_list.iter_s do_one cfgs >>= fun () ->
@@ -97,24 +97,24 @@ let nothing_on_slave (cluster_cfg, _) =
 	   Lwt.return ()
       )
   in
-  let test_slave cfg =
+  let test_slave cluster_id cfg =
     Lwt_log.info_f "slave=%s" cfg.node_name  >>= fun () ->
       let f client =
 	set_on_slave client >>= fun () ->
         delete_on_slave client >>= fun () ->
 	test_and_set_on_slave client
       in
-	Client_main.with_client cfg f
+	Client_main.with_client cfg cluster_id f
   in
-  let test_slaves cfgs =
+  let test_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
       let rec loop = function
 	| [] -> Lwt.return ()
-	| cfg :: rest -> test_slave cfg >>= fun () ->
+	| cfg :: rest -> test_slave ccfg.cluster_id cfg >>= fun () ->
 	    loop rest
       in loop slave_cfgs
   in
-  test_slaves cfgs
+  test_slaves cluster_cfg
 
 
 let _get_after_set client =
@@ -361,7 +361,7 @@ let trivial_master (cluster_cfg, _) =
     _test_and_set_2 client >>= fun () ->
     _test_and_set_3 client 
   in
-  Client_main.with_client master_cfg f
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
 
 let trivial_master2 (cluster_cfg,_) =
   Client_main.find_master cluster_cfg >>= fun master_name ->
@@ -376,7 +376,7 @@ let trivial_master2 (cluster_cfg,_) =
     _prefix_keys client >>= fun () ->
     _detailed_range client 
   in
-  Client_main.with_client master_cfg f
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
 
 
 let trivial_master3 (cluster_cfg,_) =
@@ -390,21 +390,21 @@ let trivial_master3 (cluster_cfg,_) =
     _sequence2 client >>= fun () ->
     _sequence3 client 
   in
-  Client_main.with_client master_cfg f
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
 
 let trivial_master4 (cluster_cfg,_) = 
   Client_main.find_master cluster_cfg >>= fun master_name ->
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
 			      cluster_cfg.cfgs)
   in
-  Client_main.with_client master_cfg _multi_get
+  Client_main.with_client master_cfg cluster_cfg.cluster_id _multi_get
 
 let trivial_master5 (cluster_cfg,_) = 
   Client_main.find_master cluster_cfg >>= fun master_name ->
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
 			      cluster_cfg.cfgs)
   in
-  Client_main.with_client master_cfg _progress_possible
+  Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
 
 let setup () =
   Lwt.return (read_config "cfg/arakoon.ini", ())

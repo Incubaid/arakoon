@@ -25,14 +25,14 @@ open Network
 open Statistics
 open Lwt
 
-let with_client cfg f =
+let with_client cfg (cluster:string) f =
   let host = cfg.ip
   and port = cfg.client_port in
   let sa = make_address host port in
   let do_it connection =
-    let rc = new Arakoon_remote_client.remote_client connection in
-    let client = (rc :> Arakoon_client.client) in
-      f client
+    Arakoon_remote_client.make_remote_client cluster connection 
+    >>= fun (client: Arakoon_client.client) ->
+    f client
   in
     Lwt_io.with_connection sa do_it
 
@@ -48,7 +48,9 @@ let find_master cluster_cfg =
 	  (fun () ->
 	    Lwt_io.with_connection sa
 	      (fun connection ->
-		let client = new Arakoon_remote_client.remote_client connection in
+		Arakoon_remote_client.make_remote_client 
+		  cluster_cfg.cluster_id connection 
+		>>= fun client ->
 		client # who_master ())
 	    >>= function
 	      | None -> Lwt.fail (Failure "No Master")
@@ -69,7 +71,7 @@ let with_master_client cfg_name f =
   let t () =
     find_master ccfg >>= fun master_name ->
     let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
-    with_client master_cfg f
+    with_client master_cfg ccfg.cluster_id f
   in
   Lwt_main.run (t());0
 

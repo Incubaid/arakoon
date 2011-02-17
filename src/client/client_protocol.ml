@@ -75,7 +75,7 @@ let handle_exception oc exn=
 
 let one_command (ic,oc) backend =
   read_command (ic,oc) >>= function
-    | HELLO ->
+    | PING ->
 	begin
           Llio.input_string ic >>= fun client_id ->
 	  Llio.input_string ic >>= fun cluster_id ->
@@ -263,10 +263,24 @@ let one_command (ic,oc) backend =
 
 let protocol backend connection =
   info "client_protocol" >>= fun () ->
-  let _,oc = connection in
+  let ic,oc = connection in
+  let check magic version =
+    if magic = _MAGIC && version = _VERSION then Lwt.return ()
+    else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
+  in
+  let prologue () = 
+    Lwt_log.debug "prologue" >>= fun () ->
+    Llio.input_int32  ic >>= fun magic ->
+    Llio.input_int    ic >>= fun version ->
+    check magic version  >>= fun () ->
+    Llio.input_string ic >>= fun cluster ->
+    Lwt_log.warning_f "TODO: check cluster %s" cluster >>= fun () ->
+    Lwt.return () 
+  in
   let rec loop () =
     one_command connection backend >>= fun () ->
     Lwt_io.flush oc >>= fun() ->
     loop ()
   in
+  prologue () >>= fun () ->
   loop () 

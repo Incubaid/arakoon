@@ -24,13 +24,17 @@ open Lwt
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
+let _VERSION = 0
+(*
 let _STRLEN_SIZE = 4
 let _CMD_SIZE   = 4
 let _BOOL_SIZE   = 1
-let _INT_SIZE  = 4
+let _INT_SIZE  = 4 
+*)
+
 
 type client_command =
-  | HELLO
+  | PING
   | WHO_MASTER
   | EXISTS
   | GET
@@ -48,7 +52,7 @@ type client_command =
 
 
 let code2int = [
-  HELLO,                    0x1l ;
+  PING,                    0x1l ;
   WHO_MASTER,               0x2l ;
   EXISTS,                   0x7l ;
   GET,                      0x8l ;
@@ -192,8 +196,8 @@ let who_master_to b =
 let expect_progress_possible_to b =
   command_to b EXPECT_PROGRESS_POSSIBLE
 
-let hello_to b client_id cluster_id =
-  command_to b HELLO;
+let ping_to b client_id cluster_id =
+  command_to b PING;
   Llio.string_to b client_id;
   Llio.string_to b cluster_id
 

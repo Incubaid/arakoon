@@ -32,13 +32,14 @@ let cucu s =
   Lwt_io.eprintlf "cucu: %s" s >>= fun () ->
   Lwt_io.flush Lwt_io.stderr
 
+let _CLUSTER = "sweety"
 
-let __client_server_wrapper__ real_test =
+let __client_server_wrapper__ cluster real_test =
   let port = 7777 in
   let conversation connection  =
     cucu "started conversation" >>= fun () ->
-    let client = new remote_client connection in
-      real_test client >>= fun () -> Lwt.return ()
+    make_remote_client cluster connection >>= fun client ->
+    real_test client >>= fun () -> Lwt.return ()
   in
   let sleep, notifier = wait () in
   let setup_callback () =
@@ -63,26 +64,26 @@ let __client_server_wrapper__ real_test =
     Lwt_main.run (Lwt.pick [client_t ();
           server ();])
 
-let test_hello () =
+let test_ping () =
   let real_test client =
-    client # hello "test_hello" "sweety" >>= fun server_version ->
+    client # ping "test_hello" _CLUSTER >>= fun server_version ->
     OUnit.assert_equal server_version "test_backend.0.0.0";
     Lwt.return ()
-  in __client_server_wrapper__ real_test
+  in __client_server_wrapper__ _CLUSTER real_test
 
-let test_hello_wrong_cluster () =
+let test_wrong_cluster () =
+  let wrong_cluster = "mindy" in  
   let real_test client = 
-    let wrong_cluster = "mindy" in
     Lwt.catch 
       (fun () ->
-	client # hello "boba fet" wrong_cluster >>= fun result ->
+	client # ping "boba fet" wrong_cluster >>= fun result ->
 	OUnit.assert_bool "we should not be able to connect to this cluster" false;
 	Lwt.return ())
       (fun exn -> Lwt_log.debug_f ~exn "ok, this cluster is not %s" wrong_cluster
 	>>= fun () -> Lwt.return ()) 
       >>= fun () ->
     Lwt.return () 
-  in __client_server_wrapper__ real_test
+  in __client_server_wrapper__ wrong_cluster real_test
 
 let test_set_get () =
   let real_test client =
@@ -90,7 +91,7 @@ let test_set_get () =
     client # get "key" >>= fun value ->
     OUnit.assert_equal value "value";
     Lwt.return ()
-  in __client_server_wrapper__ real_test
+  in __client_server_wrapper__ _CLUSTER real_test
 
 let test_delete () =
   let real_test client =
@@ -122,7 +123,7 @@ let test_delete () =
 	  OUnit.assert_failure "XXX"
       )
       
-  in __client_server_wrapper__ real_test
+  in __client_server_wrapper__ _CLUSTER real_test
 
 let test_sequence () =
   let real_test client = 
@@ -144,7 +145,7 @@ let test_sequence () =
     OUnit.assert_bool "XXX0 should not be there" (not exists);
     Lwt.return ()
   in 
-  __client_server_wrapper__ real_test
+  __client_server_wrapper__ _CLUSTER real_test
 
 
 let _test_range client =
@@ -198,7 +199,7 @@ let _test_range client =
   Lwt.return ()
 
 let test_range () =
-  __client_server_wrapper__ _test_range
+  __client_server_wrapper__ _CLUSTER _test_range
 
 let _prefix_keys_test client =
   let cat s i = s ^ (string_of_int i) in
@@ -222,7 +223,7 @@ let _prefix_keys_test client =
   Lwt.return ()
 
 let test_prefix_keys () =
-  __client_server_wrapper__ _prefix_keys_test
+  __client_server_wrapper__ _CLUSTER _prefix_keys_test
 
 let test_and_set_to_none () =
   let real_test client =
@@ -235,11 +236,11 @@ let test_and_set_to_none () =
     client # test_and_set key wanted None >>= fun result2 ->
     OUnit.assert_equal ~printer:string_option_to_string ~msg:"assert2" result2 None;
     Lwt.return ()
-  in __client_server_wrapper__ real_test
+  in __client_server_wrapper__ _CLUSTER real_test
   
 let suite = "remote_client" >::: [
-  "hello"      >:: test_hello;
-  "hello_wrong_cluster" >:: test_hello_wrong_cluster;
+  "ping"      >:: test_ping;
+  "wrong_cluster" >:: test_wrong_cluster;
   "set"        >:: test_set_get;
   "delete"     >:: test_delete;
   "range"      >:: test_range;

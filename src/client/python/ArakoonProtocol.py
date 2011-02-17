@@ -177,7 +177,7 @@ ARA_TYPE_BOOL_SIZE = 1
 
 # Magic used to mask each command
 ARA_CMD_MAG = 0xb1ff0000
-
+ARA_CMD_VER = 0x00000000
 # Hello command
 ARA_CMD_HEL = 0x00000001 | ARA_CMD_MAG
 # Who is master?
@@ -362,7 +362,7 @@ class Sequence(Update):
 class ArakoonProtocol :
 
     @staticmethod
-    def encodeHello(clientId, clusterId ):
+    def encodePing(clientId, clusterId ):
         r  = _packInt(ARA_CMD_HEL)
         r += _packString(clientId)
         r += _packString(clusterId)
