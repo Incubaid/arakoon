@@ -30,9 +30,9 @@ class ArakoonConfig:
         """
         Add a node to the client configuration
 
-        @param name the name of the node
-        @param ip the ip  the node
-        @param client_port the port of the node
+        @param name: the name of the node
+        @param ip: the ip  the node
+        @param client_port: the port of the node
         """
         self.__validateName(name)
 

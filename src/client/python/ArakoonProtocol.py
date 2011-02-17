@@ -40,7 +40,7 @@ ARA_CFG_NO_MASTER_RETRY = 60
 
 class ArakoonClientConfig :
 
-    def __init__ (self, clusterId, nodes=None):
+    def __init__ (self, clusterId, nodes):
         """
         Constructor of an ArakoonClientConfig object
 
@@ -49,10 +49,11 @@ class ArakoonClientConfig :
           - nodeids as keys
           - (hostname/ip, tcp port) tuples as value
         e.g. ::
-            cfg = ArakoonClientConfig ( { "myFirstNode" : ( "127.0.0.1", 4000 ),
-                    "mySecondNode" : ( "127.0.0.1", 5000 ) ,
-                    "myThirdNode"  : ( "127.0.0.1", 6000 ) } )
-        Defaults to a single node running on localhost:4000
+            cfg = ArakoonClientConfig ('ricky',
+                { "myFirstNode" : ( "127.0.0.1", 4000 ),
+                  "mySecondNode" : ( "127.0.0.1", 5000 ) ,
+                  "myThirdNode"  : ( "127.0.0.1", 6000 ) } )
+
         @type clusterId: string
         @param clusterId: name of the cluster
         @type nodes: dict
@@ -60,11 +61,7 @@ class ArakoonClientConfig :
 
         """
         self._clusterId = clusterId
-        if nodes is None:
-            self._nodes = { "arakoon_0" : ( "127.0.0.1", 4000 ) }
-
-        else :
-            self._nodes = nodes
+        self._nodes = nodes
 
     @staticmethod
     def getNoMasterRetryPeriod() :
