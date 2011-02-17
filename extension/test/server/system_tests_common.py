@@ -270,7 +270,8 @@ def rotate_logs( max_logs_to_keep = 5):
 
 def send_signal ( node_name, signal ):
     pid = q.cmdtools.arakoon._getPid( node_name )
-    q.system.process.kill( pid, signal )
+    if pid is not None:
+        q.system.process.kill( pid, signal )
 
 def rotate_log(node_name, max_logs_to_keep):
     cfg = getConfig(node_name)

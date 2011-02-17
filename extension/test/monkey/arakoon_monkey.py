@@ -286,7 +286,7 @@ def make_monkey_run() :
         if monkey_dies :
             euthanize_this_monkey ()
  
-
+        rotate_logs()
  
 def send_email(from_addr, to_addr_list, cc_addr_list,
               subject, message,
