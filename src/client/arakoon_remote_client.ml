@@ -108,7 +108,16 @@ object(self: #Arakoon_client.client)
       )
 
 
-  method hello client_id cluster_id =
-    request (fun buf -> hello_to buf client_id cluster_id) >>= fun () ->
+  method ping client_id cluster_id =
+    request (fun buf -> ping_to buf client_id cluster_id) >>= fun () ->
     response ic Llio.input_string
 end
+
+let make_remote_client cluster connection = 
+  let (_,oc) = connection in 
+  Llio.output_int32  oc _MAGIC >>= fun () ->
+  Llio.output_int    oc _VERSION >>= fun () ->
+  Llio.output_string oc cluster >>= fun () ->
+  let client = new remote_client connection in
+  let ac = (client :> Arakoon_client.client) in
+  Lwt.return ac

@@ -35,7 +35,9 @@ type mq = (Message.t * id) LWTQ.t
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()
 
-class tcp_messaging ?(stop=never) my_address =
+class tcp_messaging my_address =
+  let _MAGIC = 0xB0BAFE7L in
+  let _VERSION = 0 in
   let my_host, my_port = my_address in
   let me = Printf.sprintf "(%s,%i)" my_host my_port 
   in
@@ -115,6 +117,8 @@ object(self : # messaging )
 	      __open_connection socket_address] 
     >>= fun (ic,oc) ->
     let my_ip, my_port = my_address in
+    Llio.output_int64 oc _MAGIC >>= fun () ->
+    Llio.output_int oc _VERSION >>= fun () ->
     Llio.output_string oc my_ip >>= fun () ->
     Llio.output_int oc my_port  >>= fun () ->
     Lwt.return (ic,oc)
@@ -265,7 +269,14 @@ object(self : # messaging )
 
   method run ?(up_and_running=no_callback)  () =
     Lwt_log.info_f "tcp_messaging %s: run" me >>= fun () ->
+    let _check_mv magic version = 
+	if magic = _MAGIC && version = _VERSION then Lwt.return () 
+	else Llio.lwt_failfmt "MAGIC %Lx or VERSION %x mismatch" magic version
+    in
     let protocol (ic,oc) =
+      Llio.input_int64 ic >>= fun magic ->
+      Llio.input_int ic >>= fun version ->
+      _check_mv magic version >>= fun () ->
       Llio.input_string ic >>= fun ip ->
       Llio.input_int ic    >>= fun port ->
       self # _maybe_insert_connection (ip,port) >>= fun () ->
