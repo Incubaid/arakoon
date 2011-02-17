@@ -287,6 +287,16 @@ def make_monkey_run() :
             euthanize_this_monkey ()
  
         rotate_logs()
+        toWipe = node_names[random.randint(0,2)]
+        whipe(toWipe)
+        
+        toCollapse = node_names[random.randint(0,2)]
+        while toCollapse == toWipe:
+            toCollapse = node_names[random.randint(0,2)]
+        
+        if collapse(toCollapse, 1 ) != 0:
+            logging.error( "Could not collapse tlog of node %s" % toCollapse )
+        
  
 def send_email(from_addr, to_addr_list, cc_addr_list,
               subject, message,
