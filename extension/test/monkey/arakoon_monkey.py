@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 import sys
 
@@ -250,8 +250,8 @@ def make_monkey_run() :
     t = threading.Thread( target=memory_monitor)
     t.start()
     
-    q.cmdtools.arakoon.stop()
-    q.config.arakoon.tearDown() 
+    stop_all()
+    q.config.arakoon.tearDown(cluster_id) 
     #setup_3_nodes_forced_master()
     setup_3_nodes( system_tests_common.data_base_dir )
     time.sleep( 5.0 )
@@ -260,7 +260,7 @@ def make_monkey_run() :
         q.system.fs.removeDirTree( monkey_dir )
     q.system.fs.createDir( monkey_dir )
     iteration = 0 
-    q.cmdtools.arakoon.start()
+    start_all()
     time.sleep( 1.0 )
     while( True ) :
         iteration += 1
@@ -320,7 +320,7 @@ def make_monkey_run() :
             if collapse(toCollapse, collapse_candidate_count ) != 0:
                 logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
-        q.cmdtools.arakoon.start()
+        start_all()
  
 def send_email(from_addr, to_addr_list, cc_addr_list,
               subject, message,
@@ -403,7 +403,7 @@ def euthanize_this_monkey() :
         escalate_dying_monkey()
     except Exception, ex:
         logging.fatal( "Could not escalate dead monkey => %s: '%s'" % (ex.__class__.__name__, ex) )
-    q.cmdtools.arakoon.stop()
+    stop_all()
     sys.exit( 255 )
     
 if __name__ == "__main__" :
