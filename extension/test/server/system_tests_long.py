@@ -319,8 +319,9 @@ def test_sso_deployment():
     config.setParam(node_names[1],"log_level","debug")
     config.write()
         
-    if "arakoonnodes" in q.config.list():
-        q.config.remove("arakoonnodes")   
+    if cluster_id in q.config.list():
+        sn = "%s_nodes" % cluster_id
+        q.config.remove(sn)   
     q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
             
     restart_nodes_wf_sim( 1 )

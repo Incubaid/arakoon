@@ -1,4 +1,4 @@
-'''
+"""
 This file is part of Arakoon, a distributed key-value store. Copyright
 (C) 2010 Incubaid BVBA
 
@@ -18,7 +18,7 @@ See the GNU Affero General Public License for more details.
 You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 
 from system_tests_common import *
@@ -36,7 +36,7 @@ def mount_ram_fs ( node_index ) :
     
     if q.system.fs.exists( mount_target ) :
         try:
-            q.cmdtools.arakoon.stopOne( node_names[node_index] )
+            stopOne( node_names[node_index] )
         except:
             pass
         try :
@@ -61,25 +61,26 @@ def mount_ram_fs ( node_index ) :
         
     except Exception, ex :
         logging.error( "Caught exception: %s" , ex )
-        q.cmdtools.arakoon.stopOne( node_names[node_index] )
+        stopOne( node_names[node_index] )
         destroy_ram_fs ( node_index )
     
     
 def setup_3_nodes_ram_fs ( home_dir ):
     
     cfg_list = q.config.list()
-    
-    if "arakoon" in cfg_list :
+    global cluster_id
+    if cluster_id in cfg_list :
         logging.info( "Clearing server config" )
-        q.config.remove("arakoon")
+        q.config.remove(cluster_id)
+    client_cfg = "%s_nodes" % cluster_id
+    if client_cfg in cfg_list :
+        logging.info( "Clearing client config" )
+        q.config.remove(client_cfg)
     
-    if "arakoonnodes" in cfg_list :
+    sn = "%s_servernodes" % cluster_id
+    if sn in cfg_list :
         logging.info( "Clearing client config" )
-        q.config.remove("arakoonnodes")
-        
-    if "arakoonservernodes" in cfg_list :
-        logging.info( "Clearing client config" )
-        q.config.remove("arakoonservernodes")
+        q.config.remove(sn)
         
     if q.system.fs.exists( home_dir ) :
         logging.info( "Removing home dir" )
@@ -95,19 +96,21 @@ def setup_3_nodes_ram_fs ( home_dir ):
             nodeName = node_names[i]
             (db_dir,log_dir) = build_node_dir_names( node_names[ i ] )
     
-            q.config.arakoon.addNode ( node_names[i], node_ips[i], 
-                               client_port=node_client_base_port + i,
-                               messaging_port=node_msg_base_port + i, 
-                               log_dir = log_dir,
-                               home = db_dir)
-            q.config.arakoon.addLocalNode ( node_names[i] )
-            q.config.arakoon.createDirs( node_names[i] )
+            q.config.arakoon.addNode (
+                cluster_id,
+                node_names[i], node_ips[i], 
+                client_port=node_client_base_port + i,
+                messaging_port=node_msg_base_port + i, 
+                log_dir = log_dir,
+                home = db_dir)
+            q.config.arakoon.addLocalNode (cluster_id, node_names[i] )
+            q.config.arakoon.createDirs(cluster_id, node_names[i] )
 
     except Exception as ex:
         teardown_ram_fs( True )
 
     logging.info( "Changing log level to debug for all nodes" )
-    config = q.config.getInifile("arakoon")
+    config = q.config.getInifile(cluster_id)
     
     for i in range( len(node_names) ) :
         config.setParam(node_names[i],"log_level","debug")
@@ -117,14 +120,14 @@ def setup_3_nodes_ram_fs ( home_dir ):
     
 
     logging.info( "Creating client config" )
-    q.config.arakoonnodes.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
             
     start_all()
 
 def teardown_ram_fs ( removeDirs ):
 
     logging.info( "Tearing down" )
-    q.cmdtools.arakoon.stop()
+    stop_all()
     
     # Copy over log files
     if not removeDirs:
@@ -137,7 +140,7 @@ def teardown_ram_fs ( removeDirs ):
     for i in range ( len( node_names ) ):
         destroy_ram_fs( i )
         
-    q.config.arakoon.tearDown()
+    q.config.arakoon.tearDown(cluster_id)
 
 
 def fill_disk ( file_to_write ) :
@@ -200,8 +203,8 @@ def test_disk_full_on_slave ():
     
     
 def disk_full_scenario( node_id, cli ):
-    
-    node_home = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    global cluster_id
+    node_home = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
     
     disk_filling = q.system.fs.joinPaths( node_home , "filling")
     disk_filler = lambda: fill_disk ( disk_filling )
@@ -219,14 +222,16 @@ def disk_full_scenario( node_id, cli ):
     cli._dropConnections()
    
     # Make sure the node with a full disk is no longer running
-    assert_equals( q.cmdtools.arakoon.getStatusOne(node_id), q.enumerators.AppStatusType.HALTED, 'Node with full disk is still running') 
+    assert_equals( q.cmdtools.arakoon.getStatusOne(cluster_id, node_id),
+                   q.enumerators.AppStatusType.HALTED,
+                   'Node with full disk is still running') 
     time.sleep( 2*lease_duration )
     
     cli2 = get_client()
     cli2.whoMaster()
     cli2._dropConnections()
    
-    q.cmdtools.arakoon.start()
+    start_all()
  
     time.sleep( lease_duration )
     
@@ -235,7 +240,7 @@ def disk_full_scenario( node_id, cli ):
     else :
         node_2 = node_names[1]
     
-    q.cmdtools.arakoon.stop()
+    stop_all()
     assert_last_i_in_sync ( node_id, node_2 )
     compare_stores( node_id, node_2 )
     start_all()
@@ -275,13 +280,16 @@ def get_node_block_rules( node_id ):
     return node_block_rules
     
 def get_node_ports ( node_id ):
-    cmd = "pgrep -f '\-config /opt/qbase3/cfg/qconfig/arakoon.cfg \-\-node %s'" % node_id
+    tmp = "pgrep -f '\-config /opt/qbase3/cfg/qconfig/%s.cfg \-\-node %s'" 
+    cmd = tmp % (cluster_id, node_id)
     (exitcode,stdout,stderr) = q.system.process.run( cmd )
     assert_equals( exitcode, 0, "Could not determine pid for %s" % node_id )
     node_pid = stdout.strip()
     
     cmd = "netstat -natp | grep %s\/arakoond | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid 
     (exitcode,stdout,stderr) = q.system.process.run( cmd )
+    print stdout
+    print stderr
     assert_equals( exitcode, 0, "Could not determine node ports for %s" % node_id )
     port_list = stdout.strip().split("\n")
     
@@ -364,7 +372,7 @@ def test_block_single_slave_ports_loop () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    q.cmdtools.arakoon.stop()
+    stop_all()
     assert_last_i_in_sync ( master_id, slave_id )
     compare_stores( master_id, slave_id )
 
@@ -390,7 +398,7 @@ def test_block_single_slave_ports () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    q.cmdtools.arakoon.stop()
+    stop_all()
     assert_last_i_in_sync ( master_id, slave_id )
     compare_stores( master_id, slave_id )
     
@@ -453,7 +461,7 @@ def test_block_two_slaves_ports_loop () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    q.cmdtools.arakoon.stop()
+    stop_all()
     assert_last_i_in_sync ( master_id, slave_1_id )
     compare_stores( master_id, slave_1_id )
     assert_last_i_in_sync ( master_id, slave_2_id )
@@ -465,6 +473,8 @@ def test_block_two_slaves_ports_loop () :
 
 @with_custom_setup( setup_3_nodes, iptables_teardown )
 def test_block_master_ports () :
+    global cluster_id
+    
     def validate_reelection( old_master_id) :
         
         # Leave some time for re-election
@@ -473,7 +483,8 @@ def test_block_master_ports () :
         cli_cfg_no_master = dict ( cli._config.getNodes() )
         # Kick out old master out of config, he is unaware of who is master
         cli_cfg_no_master.pop(old_master_id) 
-        new_cli = arakoon.Arakoon.ArakoonClient( arakoon.Arakoon.ArakoonClientConfig(cli_cfg_no_master) )
+        new_cli = arakoon.Arakoon.ArakoonClient(
+            arakoon.Arakoon.ArakoonClientConfig(cluster_id, cli_cfg_no_master) )
         
         new_master_id = new_cli.whoMaster()
             
@@ -484,7 +495,8 @@ def test_block_master_ports () :
         for key in cli._config.getNodes().keys() :
             if key == old_master_id :
                 cli_cfg_only_master [ key ] = cli._config.getNodeLocation( key  )
-        new_cli = arakoon.Arakoon.ArakoonClient( arakoon.Arakoon.ArakoonClientConfig( cli_cfg_only_master ) )
+        new_cli = arakoon.Arakoon.ArakoonClient(
+            arakoon.Arakoon.ArakoonClientConfig(cluster_id, cli_cfg_only_master ) )
         assert_raises( ArakoonNoMaster, new_cli.whoMaster )
         new_cli._dropConnections()
         
@@ -494,7 +506,7 @@ def test_block_master_ports () :
     old_master_id = cli.whoMaster()
 
     master_ports = get_node_ports( old_master_id )
-    master_client_port = q.config.arakoon.getNodeConfig( old_master_id ) ["client_port"]
+    master_client_port = q.config.arakoon.getNodeConfig(cluster_id,old_master_id ) ["client_port"]
     master_ports.remove( master_client_port )
     block_rules = list()
     for master_port in master_ports:

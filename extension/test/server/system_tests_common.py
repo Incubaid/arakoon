@@ -354,7 +354,7 @@ def get_memory_usage(node_name):
         return 0
     
 def collapse(name, n):
-    config = getConfig(cluster_id, name)
+    config = getConfig(name)
     data_dir = config['home']
     rc = subprocess.call([binary_full_path, '--collapse',data_dir,str(n)])
     return rc
