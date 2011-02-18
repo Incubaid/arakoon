@@ -97,7 +97,8 @@ def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
 
 def dump_tlog (node_id, tlog_number) :
-    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    global cluster_id
+    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
     tlog_full_path =  q.system.fs.joinPaths ( node_home_dir, "%03d.tlog" % tlog_number  )
     cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
     logging.debug( "Dumping file %s" % tlog_full_path )
@@ -119,12 +120,14 @@ def get_diff_path():
     return "/usr/bin/diff"
 
 def get_node_db_file( node_id ) :
-    node_home_dir = q.config.arakoon.getNodeConfig( node_id ) ['home']
+    global cluster_id
+    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
     db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
     return db_file
     
-def dump_store( node_id ): 
-    stat = q.cmdtools.arakoon.getStatusOne( node_id )
+def dump_store( node_id ):
+    global cluster_id
+    stat = q.cmdtools.arakoon.getStatusOne(cluster_id, node_id )
     assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
     db_file = get_node_db_file ( node_id )
     dump_file = db_file + ".dump" 
@@ -817,12 +820,12 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             raise
                      
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
-
+    global cluster_id
     for i in range (iter_cnt) :
         time.sleep( 1.0 * int_start_stop )
-        q.cmdtools.arakoon.stopOne ( node_names[node_index] )
+        q.cmdtools.arakoon.stopOne (cluster_id, node_names[node_index] )
         time.sleep( 1.0 * int_stop_start )
-        q.cmdtools.arakoon.startOne ( node_names[node_index] )
+        q.cmdtools.arakoon.startOne (cluster_id, node_names[node_index] )
         
 
 def restart_single_slave_scenario( restart_cnt, set_cnt ) :
@@ -836,6 +839,6 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     time.sleep( 5.0 )
     
     assert_last_i_in_sync ( node_names[0], node_names[1] )
-    q.cmdtools.arakoon.stop()
+    stop_all()
     compare_stores( node_names[0], node_names[1] )
 
