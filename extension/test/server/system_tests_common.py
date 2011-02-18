@@ -352,18 +352,22 @@ def collapse(name, n):
     return rc
 
 def add_node ( i ):
-    logging.info( "Adding node %s to config", node_names[ i ] )
+    ni = node_names[i]
+    logging.info( "Adding node %s to config", ni )
+    global cluster_id
     
-    (db_dir,log_dir) = build_node_dir_names( node_names[ i ] )
+    (db_dir,log_dir) = build_node_dir_names(ni)
     
-    q.config.arakoon.addNode ( node_names[i], node_ips[i], 
-                               client_port=node_client_base_port + i,
-                               messaging_port=node_msg_base_port + i, 
-                               log_dir = log_dir,
-                               log_level = 'debug',
-                               home = db_dir)
-    q.config.arakoon.addLocalNode ( node_names[i] )
-    q.config.arakoon.createDirs( node_names[i] )
+    q.config.arakoon.addNode (
+        cluster_id,
+        ni, node_ips[i], 
+        client_port=node_client_base_port + i,
+        messaging_port=node_msg_base_port + i, 
+        log_dir = log_dir,
+        log_level = 'debug',
+        home = db_dir)
+    q.config.arakoon.addLocalNode (cluster_id, ni )
+    q.config.arakoon.createDirs(cluster_id, ni)
 
 def start_all() :
     q.cmdtools.arakoon.start(cluster_id)

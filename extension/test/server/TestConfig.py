@@ -163,10 +163,12 @@ class TestConfig:
         assert_false(config.checkParam("global",'master'))
 
     def testForceUnknownMaster(self):
+        cid = self._cluster_id
         for i in range(0,3):
-           q.config.arakoon.addNode("arakoon_%s" % i)
+            ni = '%s_%i' % (cid,i)
+            q.config.arakoon.addNode(cid, ni)
 
-        assert_raises(Exception, q.config.arakoon.forceMaster,"arakoon_4")
+        assert_raises(Exception, q.config.arakoon.forceMaster,cid, "arakoon_4")
 
     def testSetQuorum(self):
         cid = self._cluster_id 
@@ -188,46 +190,60 @@ class TestConfig:
             ni = '%s_%i' % (cid, i)
             q.config.arakoon.addNode(cid, ni)
 
-        assert_raises(Exception, q.config.arakoon.setQuorum, "bla")
-        assert_raises(Exception, q.config.arakoon.setQuorum, -1)
-        assert_raises(Exception, q.config.arakoon.setQuorum, 4)
+        assert_raises(Exception, q.config.arakoon.setQuorum, cid,"bla")
+        assert_raises(Exception, q.config.arakoon.setQuorum, cid,-1)
+        assert_raises(Exception, q.config.arakoon.setQuorum, cid,4)
 
 
     def testGetClientConfig(self):
-        q.config.arakoon.setUp(3)
-
-        assert_equals(q.config.arakoon.getClientConfig(), {"arakoon_0": ("127.0.0.1", 7080), "arakoon_1": ("127.0.0.1", 7081),"arakoon_2": ("127.0.0.1", 7082)})
+        cid = self._cluster_id
+        q.config.arakoon.setUp(cid,3)
+        n0 = '%s_%i' % (cid,0)
+        n1 = '%s_%i' % (cid,1)
+        n2 = '%s_%i' % (cid,2)
+        assert_equals(q.config.arakoon.getClientConfig(cid),
+                      {n0: ("127.0.0.1", 7080),
+                       n1: ("127.0.0.1", 7081),
+                       n2: ("127.0.0.1", 7082)})
 
     def testListNodes(self):
-        q.config.arakoon.setUp(3)
-
-        assert_equals(q.config.arakoon.listNodes(), ["arakoon_0", "arakoon_1", "arakoon_2"])
+        cid = self._cluster_id
+        q.config.arakoon.setUp(cid,3)
+        templates = ["%s_0", "%s_1", "%s_2"]
+        ns = map(lambda t: t % cid,templates)
+        assert_equals(q.config.arakoon.listNodes(cid), ns)
 
     def testGetNodeConfig(self):
-        q.config.arakoon.setUp(3)
-
-        assert_equals(q.config.arakoon.getNodeConfig("arakoon_0"), \
-                      {'client_port': '7080', \
-                       'home': '/opt/qbase3/var/db/arakoon/arakoon_0', \
-                       'ip': '127.0.0.1', \
-                       'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', \
-                       'log_level': 'info', \
-                       'messaging_port': '10000', \
-                       'name': 'arakoon_0'})
+        cid = self._cluster_id
+        q.config.arakoon.setUp(cid, 3)
+        n0 = '%s_%i' % (cid, 0)
+        
+        assert_equals(q.config.arakoon.getNodeConfig(cid,n0),
+                      {'client_port': '7080', 
+                       'home': '/opt/qbase3/var/db/%s/%s' % (cid, n0), 
+                       'ip': '127.0.0.1', 
+                       'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
+                       'log_level': 'info', 
+                       'messaging_port': '10000', 
+                       'name': n0})
 
     def testGetNodeConfigUnknownNode(self):
-        q.config.arakoon.setUp(3)
+        cid = self._cluster_id
+        q.config.arakoon.setUp(cid,3)
 
-        assert_raises(Exception, q.config.arakoon.getNodeConfig, "arakoon")
+        assert_raises(Exception, q.config.arakoon.getNodeConfig, cid,"arakoon")
 
     def testCreateDirs(self):
         cid = self._cluster_id
         n0 = '%s_%i' % (cid, 0)
         q.config.arakoon.addNode(cid, n0)
         q.config.arakoon.createDirs(cid,n0)
-
-        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, cid, n0)))
-        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)))
+        p0 = q.system.fs.joinPaths(q.dirs.logDir, cid, n0)
+        p1 = q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)
+        print p0
+        print p1
+        assert_true(q.system.fs.exists(p0))
+        assert_true(q.system.fs.exists(p1))
 
     def testRemoveDirs(self):
         cid = self._cluster_id
@@ -235,10 +251,10 @@ class TestConfig:
         q.config.arakoon.addNode(cid,n0)
         q.config.arakoon.createDirs(cid,n0)
         q.config.arakoon.removeDirs(cid,n0)
-
-        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, cid, n0)))
-        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, "db",
-                                                              cid, n0)))
+        p0 = q.system.fs.joinPaths(q.dirs.logDir, cid, n0)
+        p1 = q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)
+        assert_false(q.system.fs.exists(p0))
+        assert_false(q.system.fs.exists(p1))
 
     def testAddLocalNode(self):
         
@@ -283,20 +299,27 @@ class TestConfig:
         assert_raises(Exception, q.config.arakoon.addLocalNode, "arakoon_0")
 
     def testRemoveLocalNode(self):
+        cid = self._cluster_id
+        n1 = '%s_%i' % (cid,1)
         for i in range(0,3):
-            q.config.arakoon.addNode("arakoon_%s" % i)
+            ni = '%s_%i' % (cid,i)
+            q.config.arakoon.addNode(cid, ni)
 
-        q.config.arakoon.addLocalNode("arakoon_1")
+        q.config.arakoon.addLocalNode(cid,n1)
 
-        q.config.arakoon.removeLocalNode("arakoon_1")
+        q.config.arakoon.removeLocalNode(cid,n1)
 
 
     def testListLocalNodes(self):
+        cid = self._cluster_id
+        names = []
         for i in range(0,3):
-            q.config.arakoon.addNode("arakoon_%s" % i)
-            q.config.arakoon.addLocalNode("arakoon_%s" % i)
+            ni = '%s_%i' % (cid, i)
+            names.append(ni)
+            q.config.arakoon.addNode(cid,ni)
+            q.config.arakoon.addLocalNode(cid,ni)
 
-        assert_equals(q.config.arakoon.listLocalNodes(), ["arakoon_0", "arakoon_1", "arakoon_2"])
+        assert_equals(q.config.arakoon.listLocalNodes(cid), names)
 
 if __name__ == '__main__' :
     from pymonkey import InitBase

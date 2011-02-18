@@ -90,11 +90,11 @@ class ArakoonConfig:
             config.addParam(name, "group", group)
 
         if log_dir is None:
-            log_dir = q.system.fs.joinPaths(q.dirs.logDir, "arakoon", name)
+            log_dir = q.system.fs.joinPaths(q.dirs.logDir, clusterId, name)
         config.addParam(name, "log_dir", log_dir) 
 
         if home is None:
-            home = q.system.fs.joinPaths(q.dirs.varDir, "db", "arakoon", name)
+            home = q.system.fs.joinPaths(q.dirs.varDir, "db", clusterId, name)
         config.addParam(name, "home", home)
 
         if tlog_dir:
@@ -206,11 +206,13 @@ class ArakoonConfig:
 
         if quorum:
             try :
-                if ( int(quorum) != quorum or quorum < 0 or quorum > len( self.listNodes(cluster = clusterId))) :
+                if ( int(quorum) != quorum or
+                     quorum < 0 or
+                     quorum > len( self.listNodes(clusterId))) :
                     raise Exception ( "Illegal value for quorum %s" % quorum )
                 
             except:
-                raise Exception( "Illegal value for quorum" )
+                raise Exception("Illegal value for quorum %s " % quorum)
             
             if config.checkParam("global", "quorum"):
                 config.setParam("global", "quorum", int(quorum))
@@ -302,7 +304,8 @@ class ArakoonConfig:
 
             return
 
-        raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+        msg = "No node with name %s configured in cluster %s" % (name,clusterId)
+        raise Exception(msg)
 
     def removeDirs(self, clusterId, name):
         """
