@@ -113,39 +113,51 @@ class TestConfig:
         assert_raises(Exception, q.config.arakoon.addNode,"arakoon_0","192.168.0.1",7081,12345,"depug")
 
     def testAddNodeDuplicateName(self):
-        q.config.arakoon.addNode("arakoon_0")
-        assert_raises(Exception, q.config.arakoon.addNode,"arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid,0)
+        q.config.arakoon.addNode(cid,n0)
+        assert_raises(Exception, q.config.arakoon.addNode,cid,n0)
 
     def testRemoveNode(self):
-        q.config.arakoon.addNode("arakoon_0")
-        q.config.arakoon.addNode("arakoon_1")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid,0)
+        n1 = '%s_%i' % (cid,1)
+        
+        q.config.arakoon.addNode(cid,n0)
+        q.config.arakoon.addNode(cid,n1)
 
-        q.config.arakoon.removeNode("arakoon_0")
+        q.config.arakoon.removeNode(cid,n0)
 
-        config = q.config.getInifile("arakoon")
-        assert_equals(config.getSectionAsDict("global")['nodes'],'arakoon_1')
-        assert_false(config.checkSection("arakoon_0"))
+        config = q.config.getInifile(cid)
+        assert_equals(config.getSectionAsDict("global")['nodes'],n1)
+        assert_false(config.checkSection(n0))
 
     def testRemoveUnknownNode(self):
-        q.config.arakoon.setUp(3)
+        cid = self._cluster_id
+        q.config.arakoon.setUp(cid,3)
 
         assert_raises(Exception, q.config.arakoon.removeNode, "arakoon_4")
 
     def testForceMaster(self):
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid,0)
+        n1 = '%s_%i' % (cid,1)
+
         for i in range(0,3):
-            q.config.arakoon.addNode("arakoon_%s" % i)
+            ni = '%s_%i' % (cid,i)
+            q.config.arakoon.addNode(cid, ni)
 
-        q.config.arakoon.forceMaster("arakoon_0")
+        q.config.arakoon.forceMaster(cid, n0)
 
-        config = q.config.getInifile("arakoon")
-        assert_equals(config.getValue("global",'master'), 'arakoon_0')
+        config = q.config.getInifile(cid)
+        assert_equals(config.getValue("global",'master'), n0)
 
-        q.config.arakoon.forceMaster("arakoon_1")
+        q.config.arakoon.forceMaster(cid,n1)
 
-        config = q.config.getInifile("arakoon")
-        assert_equals(config.getValue("global",'master'), 'arakoon_1')
+        config = q.config.getInifile(cid)
+        assert_equals(config.getValue("global",'master'), n1)
 
-        q.config.arakoon.forceMaster()
+        q.config.arakoon.forceMaster(cid)
 
         config = q.config.getInifile("arakoon")
         assert_false(config.checkParam("global",'master'))
@@ -209,29 +221,24 @@ class TestConfig:
         assert_raises(Exception, q.config.arakoon.getNodeConfig, "arakoon")
 
     def testCreateDirs(self):
-        q.config.arakoon.addNode("arakoon_0")
-        q.config.arakoon.createDirs("arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid, 0)
+        q.config.arakoon.addNode(cid, n0)
+        q.config.arakoon.createDirs(cid,n0)
 
-        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, \
-                        "arakoon", \
-                        "arakoon_0")))
-        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, \
-                        "db", \
-                        "arakoon", \
-                        "arakoon_0")))
+        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, cid, n0)))
+        assert_true(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)))
 
     def testRemoveDirs(self):
-        q.config.arakoon.addNode("arakoon_0")
-        q.config.arakoon.createDirs("arakoon_0")
-        q.config.arakoon.removeDirs("arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid, 0)
+        q.config.arakoon.addNode(cid,n0)
+        q.config.arakoon.createDirs(cid,n0)
+        q.config.arakoon.removeDirs(cid,n0)
 
-        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, \
-                        "arakoon", \
-                        "arakoon_0")))
-        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, \
-                        "db", \
-                        "arakoon", \
-                        "arakoon_0")))
+        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.logDir, cid, n0)))
+        assert_false(q.system.fs.exists(q.system.fs.joinPaths(q.dirs.varDir, "db",
+                                                              cid, n0)))
 
     def testAddLocalNode(self):
         
@@ -257,16 +264,21 @@ class TestConfig:
                       {'nodes': '%s,%s' % (n1,n0)})
 
     def testAddLocalNodeUnknownNode(self):
-        assert_raises(Exception, q.config.arakoon.addLocalNode, "arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid,0)
+        assert_raises(Exception, q.config.arakoon.addLocalNode, cid, n0)
 
-        q.config.arakoon.addNode("arakoon_0")
-        q.config.arakoon.addLocalNode("arakoon_0")
+        q.config.arakoon.addNode(cid, n0)
+        q.config.arakoon.addLocalNode(cid, n0)
 
-        assert_raises(Exception, q.config.arakoon.addLocalNode, "arakoon_1")
+        n1 = '%s_%i' % (cid,1)
+        assert_raises(Exception, q.config.arakoon.addLocalNode, cid,n1)
 
     def testAddLocalNodeDuplicateNode(self):
-        q.config.arakoon.addNode("arakoon_0")
-        q.config.arakoon.addLocalNode("arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_%i' % (cid,0)
+        q.config.arakoon.addNode(cid, n0)
+        q.config.arakoon.addLocalNode(cid,n0)
 
         assert_raises(Exception, q.config.arakoon.addLocalNode, "arakoon_0")
 
