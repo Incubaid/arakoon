@@ -102,12 +102,12 @@ class ArakoonCmdtools:
 
         self._stopOne(clusterId, nodeName)
 
-    def restartOne(self, nodeName, cluster = "arakoon"):
+    def restartOne(self, clusterId, nodeName):
         """
         Restart the node with a given name in the supplied cluster
-
+        @param clusterId the arakoon cluster name
         @param nodeName The name of the node
-        @param cluster the arakoon cluster name
+
         """
         if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
             raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
@@ -146,9 +146,12 @@ class ArakoonCmdtools:
 
 
     def _stopOne(self, clusterId, name):
-        subprocess.call(['pkill', \
-                         '-f', \
-                         '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
+        subprocess.call(['pkill', 
+                         '-f', 
+                         '%s -config %s/%s.cfg --node %s' % (self._binary,
+                                                             self._cfgPath,
+                                                             clusterId,
+                                                             name)], 
                         close_fds=True)
 
         i = 0
@@ -157,17 +160,21 @@ class ArakoonCmdtools:
             i += 1
 
             if i == 10:
-                subprocess.call(['pkill', \
-                                 '-9', \
-                                 '-f', \
-                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
+                subprocess.call(['pkill', 
+                                 '-9', 
+                                 '-f', 
+                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], 
                                 close_fds=True)
                 break
             else:
-                subprocess.call(['pkill', \
-                                 '-f', \
-                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
-                            close_fds=True)
+                subprocess.call(['pkill', 
+                                 '-f', 
+                                 '%s -config %s/%s.cfg --node %s' % (self._binary,
+                                                                     self._cfgPath,
+                                                                     clusterId,
+                                                                     name)], 
+                                close_fds=True)
+    
     def _restartOne(self,clusterId, name):
         self._stopOne(clusterId, name)
         self._startOne(clusterId, name)
@@ -177,18 +184,23 @@ class ArakoonCmdtools:
         if self._getStatusOne(clusterId, name) == q.enumerators.AppStatusType.HALTED:
             return None
         
-        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary, self._cfgPath, clusterId, name)
+        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary,
+                                                                self._cfgPath,
+                                                                clusterId, name)
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
         else :
             return int(stdout)
                 
-    def _getStatusOne(self,clusterId, name, cluster = "arakoon"):
-        ret = subprocess.call(['pgrep', \
-                               '-f', \
-                               '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
-                               close_fds=True, \
+    def _getStatusOne(self,clusterId, name):
+        ret = subprocess.call(['pgrep', 
+                               '-f', 
+                               '%s -config %s/%s.cfg --node %s' % (self._binary,
+                                                                   self._cfgPath,
+                                                                   clusterId,
+                                                                   name)], 
+                               close_fds=True, 
                                stdout=subprocess.PIPE)
 
         if ret == 0:

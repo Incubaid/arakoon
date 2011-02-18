@@ -417,7 +417,7 @@ class ArakoonConfig:
         """
         
         for i in range(0, number_of_nodes):
-            nodeName = "arakoon_%s" %i
+            nodeName = "%s_%i" %(clusterId, i)
             self.addNode(clusterId = clusterId,
                          name=nodeName,
                          client_port=7080+i,
@@ -426,7 +426,7 @@ class ArakoonConfig:
             self.createDirs(clusterId, nodeName)
 
         if number_of_nodes > 0:
-            self.forceMaster("arakoon_0", clusterId)
+            self.forceMaster(clusterId, "%s_0" % clusterId)
         
         config = q.config.getInifile(clusterId)
         config.addParam( 'global', 'cluster_id', clusterId)
