@@ -27,19 +27,26 @@ class ArakoonConfig:
     """
     Class for automated setup of Arakoon nodes
     """
-    def addNode(self, name, ip = "127.0.0.1", client_port = 7080, messaging_port = 10000,
+    def __servernodes(self, clusterId):
+        return '%s_servernodes' % clusterId
+    
+    def addNode(self, name,
+                clusterId,
+                ip = "127.0.0.1",
+                client_port = 7080,
+                messaging_port = 10000,
                 log_level = "info",
                 log_dir = None,
                 home = None,
                 tlog_dir = None,
-                cluster = "arakoon",
+
                 user = None,
                 group = None ):
         """
         Add a node to the configuration of the supplied cluster
 
         The function also creates 
-
+        @param clusterId the arakoon cluster name
         @param name the name of the node, should be unique across the environment
         @param ip the ip this node shoulc be contacted on
         @param client_port the port the clients should use to contact this node
@@ -48,23 +55,24 @@ class ArakoonConfig:
         @param log_dir the directory used for logging
         @param home the directory used for the nodes data
         @param tlog_dir the directory used for tlogs (if none, home will be used)
-        @param cluster the arakoon cluster name
+
         """
+        self.__validateName(clusterId)
         self.__validateName(name)
-        self.__validateName(cluster)
+
         self.__validateLogLevel(log_level)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
             config.addSection("global")
-            config.addParam("global","cluster_id",cluster)
+            config.addParam("global","cluster_id",clusterId)
             config.addParam("global","nodes", "")
 
         nodes = self.__getNodes(config)
 
         if name in nodes:
-            raise Exception("There is already a node with name %s configured in cluster %s" % (name, cluster) )
+            raise Exception("There is already a node with name %s configured in cluster %s" % (name, clusterId) )
 
         nodes.append(name)
         config.addSection(name)
@@ -95,16 +103,16 @@ class ArakoonConfig:
 
         config.write()
 
-    def removeNode(self, name, cluster = "arakoon"):
+    def removeNode(self, clusterId, name):
         """
         Remove a node from the configuration of the supplied cluster
 
         @param name the name of the node as configured in the config file
-        @param cluster the name of the arakoon cluster
+        @param clusterId: the name of the arakoon cluster
         """
         self.__validateName(name)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
             raise Exception("No node with name %s configured in cluster %s" % (name, cluster) )
@@ -112,7 +120,7 @@ class ArakoonConfig:
         nodes = self.__getNodes(config)
 
         if name in nodes:
-            self.removeLocalNode(name, cluster = cluster)
+            self.removeLocalNode(name, clusterId)
 
             config.removeSection(name)
 
@@ -124,17 +132,17 @@ class ArakoonConfig:
 
         raise Exception("No node with name %s configured in cluster %s" % (name, cluster) )
 
-    def setMasterLease(self, duration=None, cluster = "arakoon"):
+    def setMasterLease(self, clusterId, duration=None):
         """
         Set the master lease duration in the supplied cluster
 
         @param duration The duration of the master lease in seconds
-        @param cluster the name of the arakoon cluster
+        @param clusterId the id of the arakoon cluster
         """
         section = "global"
         key = "lease_expiry"
         
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection( section ):
             raise Exception("Section '%s' not found in config for cluster %s" % (section,cluster) )
@@ -151,24 +159,24 @@ class ArakoonConfig:
 
         config.write()
         
-    def forceMaster(self, name=None, cluster = "arakoon"):
+    def forceMaster(self, clusterId, name=None):
         """
         Force a master in the supplied cluster
 
         @param name the name of the master to force. If None there is no longer a forced master
-        @param cluster the name of the arakoon cluster
+        @param clusterId: the id of the arakoon cluster
         """
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+            raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
         if name:
             nodes = self.__getNodes(config)
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+                raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
             if config.checkParam("global", "master"):
                 config.setParam("global", "master", name)
@@ -179,7 +187,7 @@ class ArakoonConfig:
 
         config.write()
 
-    def setQuorum(self, quorum=None, cluster = "arakoon"):
+    def setQuorum(self, clusterId, quorum=None):
         """
         Set the quorum for the supplied cluster
 
@@ -197,7 +205,7 @@ class ArakoonConfig:
 
         if quorum:
             try :
-                if ( int(quorum) != quorum or quorum < 0 or quorum > len( self.listNodes(cluster = cluster))) :
+                if ( int(quorum) != quorum or quorum < 0 or quorum > len( self.listNodes(cluster = clusterId))) :
                     raise Exception ( "Illegal value for quorum" )
                 
             except:
@@ -213,14 +221,14 @@ class ArakoonConfig:
         config.write()
 
 
-    def getClientConfig(self, cluster = "arakoon"):
+    def getClientConfig(self, clusterId):
         """
         Get an object that contains all node information in the supplied cluster
 
-        @param cluster the name of the arakoon cluster
+        @param clusterId the name of the arakoon cluster
         @return dict the dict can be used as param for the ArakoonConfig object
         """
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
     
         clientconfig = dict()
 
@@ -232,18 +240,18 @@ class ArakoonConfig:
 
         return clientconfig
 
-    def listNodes(self, cluster = "arakoon"):
+    def listNodes(self, clusterId):
         """
         Get a list of all node names in the supplied cluster
 
         @param cluster the name of the arakoon cluster
         @return list of strings containing the node names
         """
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         return self.__getNodes(config)
 
-    def getNodeConfig(self, name, cluster = "arakoon"):
+    def getNodeConfig(self, clusterId, name):
         """
         Get the parameters of a node section 
 
@@ -254,17 +262,17 @@ class ArakoonConfig:
         """
         self.__validateName(name)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         nodes = self.__getNodes(config)
 
         if name in nodes:
             return config.getSectionAsDict(name)
         else:
-            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+            raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
 
-    def createDirs(self, name, cluster = "arakoon"):
+    def createDirs(self, clusterId, name):
         """
         Create the Directories for a local arakoon node in the supplied cluster
 
@@ -273,10 +281,10 @@ class ArakoonConfig:
         """
         self.__validateName(name)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+            raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
         nodes = self.__getNodes(config)
 
@@ -295,7 +303,7 @@ class ArakoonConfig:
 
         raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
 
-    def removeDirs(self, name, cluster = "arakoon"):
+    def removeDirs(self, clusterId, name):
         """
         Remove the Directories for a local arakoon node in the supplied cluster
 
@@ -304,10 +312,10 @@ class ArakoonConfig:
         """
         self.__validateName(name)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection('global'):
-            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+            raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
 
         nodes = self.__getNodes(config)
@@ -328,7 +336,7 @@ class ArakoonConfig:
 
 
 
-    def addLocalNode(self, name, cluster = "arakoon"):
+    def addLocalNode(self, clusterId, name):
         """
         Add a node to the list of nodes that have to be started locally
         from the supplied cluster
@@ -338,15 +346,15 @@ class ArakoonConfig:
         """
         self.__validateName(name)
 
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
-            raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+            raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
         nodes = self.__getNodes(config)
-
+        config_name = self.__servernodes(clusterId)
         if name in nodes:
-            nodesconfig = q.config.getInifile("arakoonservernodes")
+            nodesconfig = q.config.getInifile(config_name)
 
             if not nodesconfig.checkSection("global"):
                 nodesconfig.addSection("global")
@@ -354,7 +362,7 @@ class ArakoonConfig:
 
             nodes = self.__getNodes(nodesconfig)
             if name in nodes:
-                raise Exception("There is already a node with name %s configured in cluster %s" % (name, cluster) )
+                raise Exception("There is already a node with name %s configured in cluster %s" % (name, clusterId) )
             nodes.append(name)
             nodesconfig.setParam("global","nodes", ",".join(nodes))
 
@@ -362,9 +370,9 @@ class ArakoonConfig:
 
             return
         
-        raise Exception("No node with name %s configured in cluster %s" % (name,cluster) )
+        raise Exception("No node with name %s configured in cluster %s" % (name,clusterId) )
 
-    def removeLocalNode(self, name, cluster = "arakoon"):
+    def removeLocalNode(self, clusterId, name):
         """
         Remove a node from the list of nodes that have to be started locally
         from the supplied cluster
@@ -373,8 +381,8 @@ class ArakoonConfig:
         @param cluster the name of the arakoon cluster
         """
         self.__validateName(name)
-
-        config = q.config.getInifile("%sservernodes" % cluster)
+        config_name = self.__servernodes(clusterId)
+        config = q.config.getInifile(config_name)
 
         if not config.checkSection("global"):
             return
@@ -386,50 +394,51 @@ class ArakoonConfig:
             config.setParam("global","nodes", ",".join(nodes))
             config.write()
 
-    def listLocalNodes(self, cluster = "arakoon"):
+    def listLocalNodes(self, clusterId):
         """
         Get a list of the local nodes in the supplied cluster
 
         @param cluster the name of the arakoon cluster
         @return list of strings containing the node names
         """
-        config = q.config.getInifile("%sservernodes" % cluster)
+        config_name = self.__servernodes(clusterId)
+        config = q.config.getInifile(config_name)
 
         return self.__getNodes(config)
 
-    def setUp(self, number_of_nodes ):
+    def setUp(self, clusterId, number_of_nodes ):
         """
         Sets up a local environment
 
         @param number_of_nodes the number of nodes in the environment
-        @param cluster the name of the arakoon cluster
+        @param clusterId: the id of the arakoon cluster
 
         @return the dict that can be used as a param for the ArakoonConfig object
         """
         
-        cluster = "arakoon"
-        
         for i in range(0, number_of_nodes):
             nodeName = "arakoon_%s" %i
-            self.addNode(name=nodeName, client_port=7080+i,messaging_port=10000+i, cluster = cluster)
-            self.addLocalNode(nodeName, cluster = cluster)
-            self.createDirs(nodeName, cluster = cluster)
+            self.addNode(clusterId = clusterId,
+                         name=nodeName,
+                         client_port=7080+i,
+                         messaging_port=10000+i)
+            self.addLocalNode(clusterId,nodeName)
+            self.createDirs(clusterId, nodeName)
 
         if number_of_nodes > 0:
-            self.forceMaster("arakoon_0", cluster = cluster)
+            self.forceMaster("arakoon_0", clusterId)
         
-        config = q.config.getInifile(cluster)
-        config.addParam( 'global', 'cluster_id', cluster)
+        config = q.config.getInifile(clusterId)
+        config.addParam( 'global', 'cluster_id', clusterId)
 
-    def tearDown(self, removeDirs=True ):
+    def tearDown(self, clusterId, removeDirs=True ):
         """
         Tears down a local environment
 
         @param removeDirs remove the log and home dir
         @param cluster the name of the arakoon cluster
         """
-        cluster = "arakoon"
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection('global'):
             return
@@ -439,12 +448,12 @@ class ArakoonConfig:
 
         for node in nodes:
             if removeDirs:
-                self.removeDirs(node, cluster = cluster)
+                self.removeDirs(clusterId, node)
 
-            self.removeNode(node, cluster = cluster)
+            self.removeNode(clusterId, node)
         
         if self.__getForcedMaster(config):
-            self.forceMaster(cluster = cluster)
+            self.forceMaster(clusterId)
 
     def __getForcedMaster(self, config):
         if not config.checkSection("global"):

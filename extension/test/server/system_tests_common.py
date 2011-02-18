@@ -78,7 +78,8 @@ if __name__ == "__main__" :
     from pymonkey import InitBase
 
 data_base_dir = None
-node_names = [ "arakoon_0", "arakoon_1", "arakoon_2" ]
+cluster_id = 'sturdy'
+node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
 node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
 node_client_base_port = 7080
 node_msg_base_port = 10000
@@ -365,7 +366,7 @@ def add_node ( i ):
     q.config.arakoon.createDirs( node_names[i] )
 
 def start_all() :
-    q.cmdtools.arakoon.start()
+    q.cmdtools.arakoon.start(cluster_id)
     time.sleep(5.0)  
 
 def restart_random_node():
@@ -379,10 +380,10 @@ def delayed_restart_all_nodes() :
 def delayed_restart_nodes(node_list) :
     downtime = random.random() * 60.0
     for node_name in node_list :
-        q.cmdtools.arakoon.stopOne( node_name )
+        q.cmdtools.arakoon.stopOne(cluster_id, node_name )
     time.sleep( downtime )
     for node_name in node_list :
-        q.cmdtools.arakoon.startOne( node_name )
+        q.cmdtools.arakoon.startOne(cluster_id, node_name )
 
 def delayed_restart_1st_node ():
     delayed_restart_nodes( [ node_names[0] ] )
@@ -397,11 +398,11 @@ def restart_nodes_wf_sim( n ):
     wf_step_duration = 0.2
     
     for i in range (n):
-        q.cmdtools.arakoon.stopOne( node_names[i] )
+        q.cmdtools.arakoon.stopOne(cluster_id, node_names[i] )
         time.sleep( wf_step_duration )
     
     for i in range (n):    
-        q.cmdtools.arakoon.startOne( node_names[i] )
+        q.cmdtools.arakoon.startOne(cluster_id, node_names[i] )
         time.sleep( wf_step_duration )
 
 def getRandomString( length = 16 ) :
@@ -421,21 +422,23 @@ def build_node_dir_names ( nodeName ):
     return (db_dir,log_dir)
 
 def setup_n_nodes ( n, force_master, home_dir ):
-
+    global cluster_id
     q.system.process.run( "/sbin/iptables -F" )
     cfg_list = q.config.list()
     
-    if "arakoon" in cfg_list :
-        logging.info( "Clearing server config" )
-        q.config.remove("arakoon")
+    if cluster_id in cfg_list :
+        logging.info( "Clearing server config %s" )
+        q.config.remove(cluster_id)
+
+    config_name = '%s_nodes' % cluster_id
+    if config_name in cfg_list :
+        logging.info( "Clearing %s" % config_name)
+        q.config.remove(config_name)
     
-    if "arakoonnodes" in cfg_list :
-        logging.info( "Clearing client config" )
-        q.config.remove("arakoonnodes")
-        
-    if "arakoonservernodes" in cfg_list :
-        logging.info( "Clearing client config" )
-        q.config.remove("arakoonservernodes")
+    localnodes_name = '%s_servernodes' % cluster_id
+    if localnodes_name in cfg_list :
+        logging.info( "Clearing %s" % localnodes_name)
+        q.config.remove(localnodes_name)
     
     if q.system.fs.exists( home_dir ) :
         logging.info( "Removing home dir" )
@@ -448,24 +451,27 @@ def setup_n_nodes ( n, force_master, home_dir ):
     for i in range (n) :
         nodeName = node_names[ i ]
         (db_dir,log_dir) = build_node_dir_names( nodeName )
-        q.config.arakoon.addNode(name=nodeName, client_port=7080+i,messaging_port=10000+i,
+        q.config.arakoon.addNode(clusterId = cluster_id,
+                                 name=nodeName,
+                                 client_port=7080+i,
+                                 messaging_port=10000+i,
                log_dir = log_dir, home = db_dir )
-        q.config.arakoon.addLocalNode(nodeName)
-        q.config.arakoon.createDirs(nodeName)
+        q.config.arakoon.addLocalNode(cluster_id, nodeName)
+        q.config.arakoon.createDirs(cluster_id, nodeName)
 
     if force_master:
         logging.info( "Forcing master to %s", node_names[0] )
         q.config.arakoon.forceMaster( node_names[0] )
     else :
         logging.info( "Using master election" )
-        q.config.arakoon.forceMaster( None )
+        q.config.arakoon.forceMaster(cluster_id, None )
     
         
     logging.info( "Creating client config" )
-    q.config.arakoonnodes.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
     
     logging.info( "Changing log level to debug for all nodes" )
-    config = q.config.getInifile("arakoon")
+    config = q.config.getInifile(cluster_id)
     
     for i in range(n) :
         config.setParam(node_names[i],"log_level","debug")
@@ -510,7 +516,7 @@ def basic_teardown( removeDirs ):
     for i in range( len(node_names) ):
         destroy_ram_fs( i )
         
-    q.config.arakoon.tearDown( removeDirs )
+    q.config.arakoon.tearDown( removeDirs ) 
     if removeDirs:
         q.system.fs.removeDirTree( data_base_dir )
         
@@ -518,7 +524,8 @@ def basic_teardown( removeDirs ):
 
 
 def get_client ():
-    return q.clients.arakoon.getClient() 
+    global cluster_id
+    return q.clients.arakoon.getClient(cluster_id) 
 
 
 def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None ):

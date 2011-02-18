@@ -31,11 +31,13 @@ class ArakoonClient:
     Arakoon client management
     """
     
-    def getClient(self):
+    def getClient(self, clusterId):
         """
         Get arakoonclient
-
+        @type clusterId: string
+        @param clusterId: cluster for that client
         @return arakoon client object
-        """        
-        config = ArakoonClientConfig(q.config.arakoonnodes.getNodes())
+        """
+        nodes = q.config.arakoonnodes.getNodes(clusterId)
+        config = ArakoonClientConfig(clusterId, nodes)
         return Arakoon.ArakoonClient(config)

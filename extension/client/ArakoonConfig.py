@@ -26,7 +26,10 @@ class ArakoonConfig:
     """
     Configuration of Arakoon nodes
     """
-    def addNode(self, name, ip, client_port):
+    def __inifile_of(self, clusterId):
+        return "%s_nodes" % clusterId
+    
+    def addNode(self, clusterId, name, ip, client_port):
         """
         Add a node to the client configuration
 
@@ -35,11 +38,13 @@ class ArakoonConfig:
         @param client_port: the port of the node
         """
         self.__validateName(name)
-
-        config = q.config.getInifile("arakoonnodes")
+        self.__validateName(clusterId)
+        inifile = self.__inifile_of(clusterId)
+        config = q.config.getInifile(inifile)
 
         if not config.checkSection("global"):
             config.addSection("global")
+            config.addParam("global", "cluster_id", clusterId)
             config.addParam("global","nodes", "")
 
         nodes = self.__getNodes(config)
@@ -57,15 +62,16 @@ class ArakoonConfig:
 
         config.write()
 
-    def removeNode(self, name):
+    def removeNode(self, clusterId, name):
         """
         Remove a node
 
         @param name the name of the node
         """
+        self.__validateName(clusterId)
         self.__validateName(name)
-
-        config = q.config.getInifile("arakoonnodes")
+        config_name = self.__inifile_of(clusterId)
+        config = q.config.getInifile(config_name)
 
         if not config.checkSection("global"):
             raise Exception("No node with name %s configured" % name)
@@ -83,13 +89,15 @@ class ArakoonConfig:
 
         raise Exception("No node with name %s configured" % name)
 
-    def getNodes(self):
+    def getNodes(self, clusterId):
         """
         Get an object that contains all node information
-
+        @type clusterId: string
+        @param clusterId: specifies the cluster
         @return dict the dict can be used as param for the ArakoonConfig object
         """
-        config = q.config.getInifile("arakoonnodes")
+        inifile = self.__inifile_of(clusterId)
+        config = q.config.getInifile(inifile)
     
         clientconfig = dict()
 
@@ -102,17 +110,19 @@ class ArakoonConfig:
 
         return clientconfig
 
-    def generateClientConfigFromServerConfig(self):
+    def generateClientConfigFromServerConfig(self, clusterId):
         """
         Generate the client config file from the servers
         """
-        serverConfig = q.config.getInifile("arakoon")
+        inifile = self.__inifile_of(clusterId)
+        serverConfig = q.config.getInifile("inifile")
 
         if serverConfig.checkSection("global"):
             nodes = self.__getNodes(serverConfig)
 
             for name in nodes:
-                self.addNode(name,
+                self.addNode(clusterId,
+                             name,
                              serverConfig.getValue(name, "ip"),
                              serverConfig.getValue(name, "client_port"))
 

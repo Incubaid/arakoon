@@ -36,71 +36,71 @@ class ArakoonCmdtools:
         self._binary = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoond")
         self._cfgPath = q.system.fs.joinPaths(q.dirs.cfgDir, "qconfig")
 
-    def start(self, cluster = "arakoon"):
+    def start(self, clusterId):
         """
         start all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(cluster = cluster):
-            self._startOne(name, cluster = cluster)
+        for name in q.config.arakoon.listLocalNodes(clusterId):
+            self._startOne(clusterId,name)
 
-    def stop(self, cluster = "arakoon"):
+    def stop(self, clusterId):
         """
         stop all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(cluster = cluster):
-            self._stopOne(name, cluster = cluster)
+        for name in q.config.arakoon.listLocalNodes(clusterId):
+            self._stopOne(clusterId, name)
 
 
-    def restart(self, cluster = "arakoon"):
+    def restart(self, clusterId):
         """
         Restart all nodes in the supplied cluster
         
-        @param cluster the arakoon cluster name
+        @param clusterId the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(cluster = cluster):
-            self._restartOne(name, cluster = cluster)
+        for name in q.config.arakoon.listLocalNodes(clusterId):
+            self._restartOne(clusterId, name)
 
-    def getStatus(self, cluster = "arakoon"):
+    def getStatus(self, clusterId):
         """
         Get the status of all nodes in the supplied cluster
 
-        @param cluster the arakoon cluster name
+        @param clusterId the arakoon cluster name
         @return dict node name -> status (q.enumerators.AppStatusType)
         """
         status = {}
 
-        for name in q.config.arakoon.listLocalNodes(cluster = cluster):
-            status[name] = self._getStatusOne(name, cluster = cluster)
+        for name in q.config.arakoon.listLocalNodes(clusterId):
+            status[name] = self._getStatusOne(clusterId, name)
 
         return status
 
-    def startOne(self, nodeName, cluster = "arakoon"):
+    def startOne(self, clusterId, nodeName):
         """
         Start the node with a given name
-
+        @param clusterId the arakoon cluster name
         @param nodeName The name of the node
-        @param cluster the arakoon cluster name
+
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster))
+        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
 
-        self._startOne(nodeName, cluster = cluster)
+        self._startOne(clusterId, nodeName)
 
-    def stopOne(self, nodeName, cluster = "arakoon"):
+    def stopOne(self, clusterId, nodeName):
         """
         Stop the node with a given name
-
+        @param clusterId the arakoon cluster name
         @param nodeName The name of the node
-        @param cluster the arakoon cluster name
-        """
-        if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster))
 
-        self._stopOne(nodeName, cluster = cluster)
+        """
+        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
+
+        self._stopOne(clusterId, nodeName)
 
     def restartOne(self, nodeName, cluster = "arakoon"):
         """
@@ -109,29 +109,29 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
         @param cluster the arakoon cluster name
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster) )
+        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
 
-        self._restartOne(nodeName, cluster = cluster)
+        self._restartOne(clusterId, nodeName)
 
-    def getStatusOne(self, nodeName, cluster = "arakoon"):
+    def getStatusOne(self, clusterId, nodeName):
         """
         Get the status node with a given name in the supplied cluster
-
+        @param clusterId the arakoon cluster name
         @param nodeName The name of the node
-        @param cluster the arakoon cluster name
+
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(cluster = cluster):
-            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, cluster) )
+        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
 
-        return self._getStatusOne(nodeName, cluster = cluster)
+        return self._getStatusOne(nodeName, clusterId)
 
-    def _startOne(self, name, cluster = "arakoon"):
-        if self._getStatusOne(name, cluster = cluster) == q.enumerators.AppStatusType.RUNNING:
+    def _startOne(self, clusterId, name):
+        if self._getStatusOne(clusterId, name) == q.enumerators.AppStatusType.RUNNING:
             return
         
         kwargs = { }
-        config = q.config.arakoon.getNodeConfig(name)
+        config = q.config.arakoon.getNodeConfig(clusterId, name)
         if 'user' in config :
             kwargs['user'] = config ['user']
             
@@ -140,19 +140,19 @@ class ArakoonCmdtools:
         
         
         command = '%s -config %s --node %s' % (self._binary, 
-             '%s/%s.cfg' % (self._cfgPath, cluster),  name)
+             '%s/%s.cfg' % (self._cfgPath, clusterId),  name)
             
         pid = q.system.process.runDaemon(command, **kwargs)
 
 
-    def _stopOne(self, name, cluster = "arakoon"):
+    def _stopOne(self, clusterId, name):
         subprocess.call(['pkill', \
                          '-f', \
-                         '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                         '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
                         close_fds=True)
 
         i = 0
-        while(self._getStatusOne(name, cluster = cluster) == q.enumerators.AppStatusType.RUNNING):
+        while(self._getStatusOne(clusterId, name) == q.enumerators.AppStatusType.RUNNING):
             time.sleep(1)
             i += 1
 
@@ -160,7 +160,7 @@ class ArakoonCmdtools:
                 subprocess.call(['pkill', \
                                  '-9', \
                                  '-f', \
-                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                                 '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
                                 close_fds=True)
                 break
             else:
@@ -168,26 +168,26 @@ class ArakoonCmdtools:
                                  '-f', \
                                  '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                             close_fds=True)
-    def _restartOne(self,name, cluster = "arakoon"):
-        self._stopOne(name, cluster = cluster)
-        self._startOne(name, cluster = cluster)
+    def _restartOne(self,clusterId, name):
+        self._stopOne(clusterId, name)
+        self._startOne(clusterId, name)
 
 
-    def _getPid(self, name, cluster="arakoon"):
-        if self._getStatusOne(name, cluster) == q.enumerators.AppStatusType.HALTED:
+    def _getPid(self, clusterId, name):
+        if self._getStatusOne(clusterId, name) == q.enumerators.AppStatusType.HALTED:
             return None
         
-        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary, self._cfgPath, cluster, name)
+        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary, self._cfgPath, clusterId, name)
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
         else :
             return int(stdout)
                 
-    def _getStatusOne(self,name, cluster = "arakoon"):
+    def _getStatusOne(self,clusterId, name, cluster = "arakoon"):
         ret = subprocess.call(['pgrep', \
                                '-f', \
-                               '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
+                               '%s -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, clusterId, name)], \
                                close_fds=True, \
                                stdout=subprocess.PIPE)
 
@@ -197,7 +197,7 @@ class ArakoonCmdtools:
             return q.enumerators.AppStatusType.HALTED
 
     @staticmethod
-    def getStorageUtilization(node=None, cluster = "arakoon"):
+    def getStorageUtilization(clusterId, node=None):
         '''Calculate and return the disk usage of the supplied arakoon cluster on the system
 
         When no node name is given, the aggregate consumption of all nodes
@@ -219,10 +219,10 @@ class ArakoonCmdtools:
         :raise ValueError: No such local node
         '''
 
-        local_nodes = q.config.arakoon.listLocalNodes(cluster = cluster)
+        local_nodes = q.config.arakoon.listLocalNodes(clusterId)
 
         if node is not None and node not in local_nodes:
-            raise ValueError(EXC_MSG_NOT_LOCAL_FMT % (node, cluster))
+            raise ValueError(EXC_MSG_NOT_LOCAL_FMT % (node, clusterId))
 
         def helper(config):
             home = config['home']
@@ -234,7 +234,7 @@ class ArakoonCmdtools:
                 (file_ for file_ in files
                     if any(file_.endswith(ext) for ext in exts))
 
-            tlog_files = matching_files('.tlc', '.tlog')
+            tlog_files = matching_files('.tlc', '.tlog','.tlf')
             db_files = matching_files('.db', '.db.wal')
             log_files = matching_files('') # Every string ends with ''
 
@@ -290,7 +290,7 @@ class ArakoonCmdtools:
         
         else:
             if not clusterCredentials or len(clusterCredentials) < len(nodes_list):
-                raise NameError('Error: QShel is Not interactive')
+                raise NameError('Error: QShell is Not interactive')
             
             else:
                 q.gui.dialog.message("All Nodes have Credentials.")
