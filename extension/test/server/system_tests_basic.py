@@ -25,18 +25,20 @@ import logging
 
 @with_custom_setup ( setup_1_node_forced_master, basic_teardown )
 def test_start_stop_single_node_forced () :
+    global cluster_id
     assert_running_nodes ( 1 )
-    q.cmdtools.arakoon.stop() 
+    q.cmdtools.arakoon.stop(cluster_id) 
     assert_running_nodes ( 0 )
-    q.cmdtools.arakoon.start() 
+    q.cmdtools.arakoon.start(cluster_id) 
     assert_running_nodes ( 1 )
 
 @with_custom_setup ( setup_3_nodes_forced_master, basic_teardown )
 def test_start_stop_three_nodes_forced () :
+    global cluster_id
     assert_running_nodes ( 3 )
-    q.cmdtools.arakoon.stop() 
+    q.cmdtools.arakoon.stop(cluster_id) 
     assert_running_nodes ( 0 )
-    q.cmdtools.arakoon.start() 
+    q.cmdtools.arakoon.start(cluster_id) 
     assert_running_nodes ( 3 )
 
 @with_custom_setup( default_setup, basic_teardown )        

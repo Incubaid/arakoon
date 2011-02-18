@@ -114,8 +114,7 @@ class ArakoonConfig:
         """
         Generate the client config file from the servers
         """
-        inifile = self.__inifile_of(clusterId)
-        serverConfig = q.config.getInifile("inifile")
+        serverConfig = q.config.getInifile(clusterId)
 
         if serverConfig.checkSection("global"):
             nodes = self.__getNodes(serverConfig)
