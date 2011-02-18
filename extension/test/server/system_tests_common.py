@@ -375,6 +375,9 @@ def start_all() :
     q.cmdtools.arakoon.start(cluster_id)
     time.sleep(5.0)  
 
+def stop_all():
+    q.cmdtools.arakoon.stop(cluster_id)
+
 def restart_random_node():
     node_index = random.randint(0, len(node_names) - 1)
     node_name = node_names [node_index ]
@@ -735,13 +738,15 @@ def retrying_set_get_and_delete( client, key, value ):
 def add_node_scenario ( node_to_add_index ):
     iterate_n_times( 100, simple_set )
     
-    q.cmdtools.arakoon.stop()
+    stop_all()
     
     add_node( node_to_add_index )
+    global cluster_id
+    sn = '%s_nodes' % cluster_id
+    if cluster_id in q.config.list():
+        q.config.remove(sn)
     
-    if "arakoonnodes" in q.config.list():
-        q.config.remove("arakoonnodes")   
-    q.config.arakoonnodes.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
     
     start_all()
 
