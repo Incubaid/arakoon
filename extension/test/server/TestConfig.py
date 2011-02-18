@@ -26,36 +26,53 @@ from nose.tools import *
 import os
 
 class TestConfig:
+    def __init__(self):
+        self._cluster_id = 'sturdy'
+
+    def __servernodes(self):
+        return '%s_servernodes' % self._cluster_id
+
     def setup(self):
-        if "arakoon" in q.config.list():
-            q.config.remove("arakoon")
-        if "arakoonservernodes" in q.config.list():
-            q.config.remove("arakoonservernodes")
+        cid = self._cluster_id
+        if cid in q.config.list():
+            q.config.remove(cid)
+
+        sn = self.__servernodes()
+        if sn in q.config.list():
+            q.config.remove(sn)
 
     def teardown(self):
-        if "arakoon" in q.config.list():
-            q.config.remove("arakoon")
-        if "arakoonservernodes" in q.config.list():
-            q.config.remove("arakoonservernodes")
+        cid = self._cluster_id
+        if cid in q.config.list():
+            q.config.remove(cid)
+
+        sn = self.__servernodes()
+        if sn in q.config.list():
+            q.config.remove(sn)
 
     def testAddNode(self):
-        q.config.arakoon.addNode("arakoon_0")
+        cid = self._cluster_id
+        n0 = '%s_0' % cid
+        n1 = '%s_1' % cid
         
-        config = q.config.getInifile("arakoon")
+        q.config.arakoon.addNode(cid, n0)
+        
+        config = q.config.getInifile(cid)
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': 'arakoon_0',
-                       'cluster_id':'arakoon'
+                      {'nodes': n0,
+                       'cluster_id': cid
                        })
-        assert_equals(config.getSectionAsDict("arakoon_0"),
+        assert_equals(config.getSectionAsDict(n0),
                       { 'client_port': '7080', 
-                        'home': '/opt/qbase3/var/db/arakoon/arakoon_0', 
+                        'home': '/opt/qbase3/var/db/%s/%s' % (cid,n0), 
                         'ip': '127.0.0.1', 
-                        'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', 
+                        'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
                         'log_level': 'info', 
                         'messaging_port': '10000', 
-                        'name': 'arakoon_0'})
+                        'name': n0})
         
-        q.config.arakoon.addNode("arakoon_1",
+        q.config.arakoon.addNode(cid,
+                                 n1,
                                  "192.168.0.1",
                                  7081,
                                  12345,
@@ -63,29 +80,29 @@ class TestConfig:
                                  "/tmp",
                                  "/tmp/joe")
     
-        config = q.config.getInifile("arakoon")
+        config = q.config.getInifile(cid)
         
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': 'arakoon_0,arakoon_1',
-                       'cluster_id':'arakoon'})
+                      {'nodes': '%s,%s' % (n0,n1),
+                       'cluster_id':cid})
 
-        assert_equals(config.getSectionAsDict("arakoon_0"),
+        assert_equals(config.getSectionAsDict(n0),
                       { 'client_port': '7080', 
-                        'home': '/opt/qbase3/var/db/arakoon/arakoon_0', 
+                        'home': '/opt/qbase3/var/db/%s/%s' % (cid,n0), 
                         'ip': '127.0.0.1', 
-                        'log_dir': '/opt/qbase3/var/log/arakoon/arakoon_0', 
+                        'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
                         'log_level': 'info', 
                         'messaging_port': '10000', 
-                        'name': 'arakoon_0'})
+                        'name': n0})
     
-        assert_equals(config.getSectionAsDict("arakoon_1"),
+        assert_equals(config.getSectionAsDict(n1),
                       { 'client_port': '7081', 
                         'home': '/tmp/joe', 
                         'ip': '192.168.0.1', 
                         'log_dir': '/tmp', 
                         'log_level': 'debug', 
                         'messaging_port': '12345', 
-                        'name': 'arakoon_1'})
+                        'name': n1})
 
     def testAddNodeInvalidName(self):
         assert_raises(Exception, q.config.arakoon.addNode,"arak oon")
@@ -140,20 +157,24 @@ class TestConfig:
         assert_raises(Exception, q.config.arakoon.forceMaster,"arakoon_4")
 
     def testSetQuorum(self):
+        cid = self._cluster_id 
         for i in range(0,3):
-           q.config.arakoon.addNode("arakoon_%s" % i)
+           ni = '%s_%i' % (cid, i)
+           q.config.arakoon.addNode(cid, ni)
 
-        q.config.arakoon.setQuorum(1)
-        config = q.config.getInifile("arakoon")
+        q.config.arakoon.setQuorum(cid,1)
+        config = q.config.getInifile(cid)
         assert_equals(config.getValue("global", 'quorum'), '1')
 
-        q.config.arakoon.setQuorum(2)
-        config = q.config.getInifile("arakoon")
+        q.config.arakoon.setQuorum(cid,2)
+        config = q.config.getInifile(cid)
         assert_equals(config.getValue("global", 'quorum'), '2')
 
     def testSetIllegalQuorum(self):
+        cid = self._cluster_id
         for i in range(0,3):
-           q.config.arakoon.addNode("arakoon_%s" % i)
+            ni = '%s_%i' % (cid, i)
+            q.config.arakoon.addNode(cid, ni)
 
         assert_raises(Exception, q.config.arakoon.setQuorum, "bla")
         assert_raises(Exception, q.config.arakoon.setQuorum, -1)
@@ -213,18 +234,27 @@ class TestConfig:
                         "arakoon_0")))
 
     def testAddLocalNode(self):
+        
+        cid = self._cluster_id
         for i in range(0,3):
-            q.config.arakoon.addNode("arakoon_%s" % i)
+            q.config.arakoon.addNode(cid, "%s_%s" % (cid,i))
 
-        q.config.arakoon.addLocalNode("arakoon_1")
+        n0 = '%s_0' % cid
+        n1 = '%s_1' % cid
+        
+        q.config.arakoon.addLocalNode(cid, n1)
 
-        config = q.config.getInifile("arakoonservernodes")
-        assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_1'})
+        sn = self.__servernodes()
+        
+        config = q.config.getInifile(sn)
+        assert_equals(config.getSectionAsDict("global"),
+                      {'nodes': n1})
 
-        q.config.arakoon.addLocalNode("arakoon_0")
+        q.config.arakoon.addLocalNode(cid, n0)
 
-        config = q.config.getInifile("arakoonservernodes")
-        assert_equals(config.getSectionAsDict("global"), {'nodes': 'arakoon_1,arakoon_0'})
+        config = q.config.getInifile(sn)
+        assert_equals(config.getSectionAsDict("global"),
+                      {'nodes': '%s,%s' % (n1,n0)})
 
     def testAddLocalNodeUnknownNode(self):
         assert_raises(Exception, q.config.arakoon.addLocalNode, "arakoon_0")

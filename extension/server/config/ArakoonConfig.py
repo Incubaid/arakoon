@@ -30,8 +30,9 @@ class ArakoonConfig:
     def __servernodes(self, clusterId):
         return '%s_servernodes' % clusterId
     
-    def addNode(self, name,
+    def addNode(self,
                 clusterId,
+                name,
                 ip = "127.0.0.1",
                 client_port = 7080,
                 messaging_port = 10000,
@@ -197,7 +198,7 @@ class ArakoonConfig:
         @param quorum the forced quorom. If None, the default is used 
         @param cluster the name of the arakoon cluster
         """
-        config = q.config.getInifile(cluster)
+        config = q.config.getInifile(clusterId)
 
         if not config.checkSection("global"):
             config.addSection("global")
@@ -206,7 +207,7 @@ class ArakoonConfig:
         if quorum:
             try :
                 if ( int(quorum) != quorum or quorum < 0 or quorum > len( self.listNodes(cluster = clusterId))) :
-                    raise Exception ( "Illegal value for quorum" )
+                    raise Exception ( "Illegal value for quorum %s" % quorum )
                 
             except:
                 raise Exception( "Illegal value for quorum" )
