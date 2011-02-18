@@ -392,10 +392,10 @@ def delayed_restart_all_nodes() :
 def delayed_restart_nodes(node_list) :
     downtime = random.random() * 60.0
     for node_name in node_list :
-        q.cmdtools.arakoon.stopOne(cluster_id, node_name )
+        stopOne(node_name )
     time.sleep( downtime )
     for node_name in node_list :
-        q.cmdtools.arakoon.startOne(cluster_id, node_name )
+        startOne(node_name )
 
 def delayed_restart_1st_node ():
     delayed_restart_nodes( [ node_names[0] ] )
@@ -410,11 +410,11 @@ def restart_nodes_wf_sim( n ):
     wf_step_duration = 0.2
     
     for i in range (n):
-        q.cmdtools.arakoon.stopOne(cluster_id, node_names[i] )
+        stopOne(node_names[i] )
         time.sleep( wf_step_duration )
     
     for i in range (n):    
-        q.cmdtools.arakoon.startOne(cluster_id, node_names[i] )
+        startOne(node_names[i] )
         time.sleep( wf_step_duration )
 
 def getRandomString( length = 16 ) :
@@ -527,7 +527,7 @@ def basic_teardown( removeDirs ):
     global cluster_id
     if cluster_id in q.config.list():
         logging.info( "Stopping arakoon daemons" )
-        q.cmdtools.arakoon.stop(cluster_id)
+        stop_all()
     
     for i in range( len(node_names) ):
         destroy_ram_fs( i )
@@ -812,20 +812,20 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
             master_id = cli.whoMaster()
             cli._dropConnections()
-            q.cmdtools.arakoon.stopOne( master_id )
-            q.cmdtools.arakoon.startOne( master_id )
+            stopOne( master_id )
+            startOne( master_id )
         except:
             logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
             raise
                      
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
-    global cluster_id
     for i in range (iter_cnt) :
+        node = node_names[node_index]
         time.sleep( 1.0 * int_start_stop )
-        q.cmdtools.arakoon.stopOne (cluster_id, node_names[node_index] )
+        stopOne(node)
         time.sleep( 1.0 * int_stop_start )
-        q.cmdtools.arakoon.startOne (cluster_id, node_names[node_index] )
+        startOne(node)
         
 
 def restart_single_slave_scenario( restart_cnt, set_cnt ) :

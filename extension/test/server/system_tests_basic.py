@@ -297,24 +297,14 @@ def test_3_nodes_stop_all_start_slaves ():
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, node_names )
     
-    q.cmdtools.arakoon.stop()
+    stop_all()
     for slave in slaves:
-        q.cmdtools.arakoon.startOne( slave )
+        startOne( slave )
     
     cli._dropConnections()
     cli = get_client()
     stored_value = cli.get( key )
     assert_equals( stored_value, value, "Stored value mismatch for key '%s' ('%s' != '%s')" % (key, value, stored_value) )
     
-if __name__ == "__main__" :
-    from pymonkey import InitBase
 
-    setup_3_nodes_forced_master ()
-    q.cmdtools.arakoon.stopOne( "arakoon_1" )
-    cli = get_client()    
-    cli.set( "key", "value" )
-
-
-#   test_restart_single_slave_short ()
-    teardown()
 

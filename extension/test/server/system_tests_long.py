@@ -44,16 +44,16 @@ def test_delete_non_existing_with_catchup ():
     cli.set(key,value)
     
     slave = node_names[1]
-    q.cmdtools.arakoon.startOne( slave )
+    startOne( slave )
     time.sleep(2.0)
-    log_dir = q.config.arakoon.getNodeConfig( slave ) ['log_dir']
+    log_dir = q.config.arakoon.getNodeConfig(cluster_id, slave ) ['log_dir']
     log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
     
 @with_custom_setup( setup_2_nodes_forced_master, basic_teardown )
 def test_expect_progress_fixed_master ():
-    q.cmdtools.arakoon.stopOne( node_names[1] )
+    stopOne( node_names[1] )
     key='key'
     value='value'
     cli = get_client()
@@ -340,7 +340,7 @@ def test_sso_deployment():
     q.config.arakoonnodes.generateClientConfigFromServerConfig()
     
     restart_nodes_wf_sim( 2 )
-    q.cmdtools.arakoon.startOne( node_names[2] )
+    startOne( node_names[2] )
     time.sleep( 0.3 )
     assert_running_nodes ( 3 )
     
@@ -362,7 +362,7 @@ def test_3_nodes_2_slaves_down ():
     
     slaves = filter( lambda n: n != master_id, node_names )
     for slave in slaves:
-        q.cmdtools.arakoon.stopOne( slave )
+        stopOne( slave )
     
     assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
             
