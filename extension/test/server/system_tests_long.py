@@ -31,7 +31,7 @@ def test_single_client_100000_sets():
 
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_delete_non_existing_with_catchup ():
-    q.cmdtools.arakoon.stopOne( node_names[1] )
+    stopOne( node_names[1] )
     key='key'
     value='value'
     cli = get_client()
@@ -61,9 +61,10 @@ def test_expect_progress_fixed_master ():
         cli.set(key,value)
     except:
         pass
-    q.cmdtools.arakoon.restart()
+    restart_all()
     time.sleep(1.0)
-    assert_true( cli.expectProgressPossible(), "Master store counter is ahead of slave" )
+    assert_true( cli.expectProgressPossible(),
+                 "Master store counter is ahead of slave" )
     
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_restart_single_slave_long ():
@@ -77,7 +78,7 @@ def test_20_clients_1000_sets() :
 @with_custom_setup( setup_3_nodes, basic_teardown)
 def test_tlog_rollover():
     iterate_n_times( 150000, simple_set )
-    q.cmdtools.arakoon.stop()
+    stop_all()
     start_all()
     iterate_n_times( 150000, simple_set )
 
@@ -99,9 +100,9 @@ def test_restart_master_long ():
     assert_equals(  value, set_value , 
         "Key '%s' does not have expected value ('%s' iso '%s')" % (key, set_value, value) )
     
-    q.cmdtools.arakoon.stop()
+    stop_all()
     start_all()
-    q.cmdtools.arakoon.stop()
+    stop_all()
     
     assert_last_i_in_sync( node_names[0], node_names[1] )
     assert_last_i_in_sync( node_names[2], node_names[1] )
@@ -120,7 +121,7 @@ def test_master_reelect():
     value = "v"
     cli.set(key ,value )
     
-    q.cmdtools.arakoon.stopOne( master_id )
+    stopOne( master_id )
     
     time.sleep( 1.5 * lease_duration )
     
@@ -130,12 +131,12 @@ def test_master_reelect():
     assert_not_equals ( new_master_id, master_id, "No new master elected, same master. Aborting.")
     
     assert_equals( cli.get(key), value)
-    q.cmdtools.arakoon.startOne( master_id )
+    startOne( master_id )
     
     # Give old master some time to catch up
     time.sleep( 5.0 )
     
-    q.cmdtools.arakoon.stopOne ( new_master_id )
+    stopOne ( new_master_id )
     
     time.sleep( 2.0 * lease_duration )
     
@@ -149,7 +150,7 @@ def test_master_reelect():
 def test_large_tlog_collection_restart():
     
     iterate_n_times( 100002, simple_set )
-    q.cmdtools.arakoon.stop()
+    stop_all()
     start_all()
     iterate_n_times( 100, set_get_and_delete )
     
@@ -162,7 +163,7 @@ def test_3_node_stop_master_slaves_restart():
     cli = get_client()
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, node_names )
-    q.cmdtools.arakoon.stopOne( master )
+    stopOne( master )
     logging.info ( lease_duration )
     nap_time = 2 * lease_duration
     logging.info( "Stopped master. Sleeping for %0.2f secs" % nap_time )
@@ -173,15 +174,15 @@ def test_3_node_stop_master_slaves_restart():
     logging.info( "Stopping old slaves")
     for node in slaves:
         print "Stopping %s" % node
-        q.cmdtools.arakoon.stopOne( node )
+        stopOne( node )
     
     logging.info( "Starting old master")
-    q.cmdtools.arakoon.startOne( master )
+    startOne( master )
     time.sleep(0.2)
     
     logging.info( "Starting old slaves")
     for node in slaves:
-        q.cmdtools.arakoon.startOne( node )
+        startOne( node )
     
     cli._dropConnections()
     cli = get_client()
@@ -198,7 +199,7 @@ def test_missed_accept ():
     
     # Give the new node some time to recognize the master 
     time.sleep(0.5)
-    q.cmdtools.arakoon.stopOne( node_names[1] )
+    stopOne( node_names[1] )
     
     cli = get_client()
     try:
@@ -206,13 +207,13 @@ def test_missed_accept ():
     except Exception, ex:
         logging.info( "Caught exception (%s: '%s'" , ex.__class__.__name__, ex )
 
-    q.cmdtools.arakoon.startOne ( node_names[1] )
+    startOne ( node_names[1] )
     # Give the node some time to catch up
     time.sleep( 1.0 )
     
     iterate_n_times( 1000, set_get_and_delete )
     time.sleep(1.0)
-    q.cmdtools.arakoon.stop()
+    stop_all()
     assert_last_i_in_sync( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
 
@@ -223,12 +224,12 @@ def test_is_progress_possible():
     create_and_wait_for_thread_list( [write_loop] )
    
     logging.info( "Stored all keys" ) 
-    q.cmdtools.arakoon.stop()
+    stop_all()
 
     whipe(node_names[1])
 
     cli = get_client()
-    q.cmdtools.arakoon.start()
+    start_all()
     logging.info( "nodes started" )
     assert_false( cli.expectProgressPossible() )
     
@@ -275,11 +276,11 @@ def test_catchup_exercises():
     
     def do_one(n, max_wait):
         iterate_n_times(n, simple_set)
-        q.cmdtools.arakoon.stop()
+        stop_all()
         logging.info("stopped all nodes")
         whipe(node_names[1])
 
-        q.cmdtools.arakoon.start()
+        start_all()
         cli = get_client ()
         
         assert_false(cli.expectProgressPossible())
@@ -314,30 +315,30 @@ def test_sso_deployment():
     non_retrying_write_loop = lambda: iterate_n_times( 10000, set_get_and_delete, startSuffix = 2000000  )
     
     add_node( 1 )
-    config = q.config.getInifile("arakoon")
+    config = q.config.getInifile(cluster_id)
     config.setParam(node_names[1],"log_level","debug")
     config.write()
         
     if "arakoonnodes" in q.config.list():
         q.config.remove("arakoonnodes")   
-    q.config.arakoonnodes.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
             
     restart_nodes_wf_sim( 1 )
-    q.cmdtools.arakoon.startOne( node_names[1] )
+    startOne( node_names[1] )
     
     create_and_wait_for_thread_list ( [ large_write_loop ] )
     
     add_node( 2 )
-    config = q.config.getInifile("arakoon")
+    config = q.config.getInifile(cluster_id)
     config.setParam(node_names[2],"log_level","debug")
     config.write()
     
-    q.config.arakoon.forceMaster( None )
+    q.config.arakoon.forceMaster(cluster_id, None )
     
-    if "arakoonnodes" in q.config.list():
-        q.config.remove("arakoonnodes")   
+    if cluster_id in q.config.list():
+        q.config.remove(cluster_id)   
 
-    q.config.arakoonnodes.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
     
     restart_nodes_wf_sim( 2 )
     startOne( node_names[2] )

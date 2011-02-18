@@ -110,7 +110,10 @@ class TestConfig:
         assert_raises(Exception, q.config.arakoon.addNode,"arako,on")
 
     def testAddNodeInvalidLogLevel(self):
-        assert_raises(Exception, q.config.arakoon.addNode,"arakoon_0","192.168.0.1",7081,12345,"depug")
+        assert_raises(Exception, q.config.arakoon.addNode,
+                      'sturdy',
+                      'sturdy_0',
+                      "192.168.0.1",7081,12345,"depug")
 
     def testAddNodeDuplicateName(self):
         cid = self._cluster_id

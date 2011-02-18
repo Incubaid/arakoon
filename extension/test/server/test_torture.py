@@ -29,27 +29,22 @@ def last_slave(master_id):
     slaves = filter(lambda x: x!= master_id, Common.node_names)
     return slaves [-1]
 
-def start_node(node_id):
-    q.cmdtools.arakoon.startOne(node_id)
-
-def stop_node(node_id):
-    q.cmdtools.arakoon.stopOne(node_id)
     
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_slave():
     cli = Common.get_client()
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
-    stop_node(slave_id)
+    Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 2000
     Common.iterate_n_times( n, Common.simple_set)
     cycles = 100 
     for i in range(cycles):
         print ("starting cycle %i" % i)
-        start_node(slave_id)
+        Common.startOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
-        stop_node(slave_id)
+        Common.stopOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
     print "phewy!"
 
@@ -58,16 +53,16 @@ def test_fat_shaky_slave():
     cli = Common.get_client()
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
-    stop_node(slave_id)
+    Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 20000
     Common.iterate_n_times( n, Common.simple_set)
     cycles = 10 
     for i in range(cycles):
         print ("starting cycle %i" % i)
-        start_node(slave_id)
+        Common.startOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
-        stop_node(slave_id)
+        Common.stopOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
     print "phewy!"
 
@@ -77,15 +72,14 @@ def test_shaky_cluster():
     names = Common.node_names
     def stop_all():
         for node_name in names:
-            q.cmdtools.arakoon.stopOne(node_name)
+            Common.stopOne(node_name)
     
     def start_all():
         for node_name in names:
-            q.cmdtools.arakoon.startOne(node_name)
+            Common.startOne(node_name)
     
     for i in range(n):
-        stop_all()
-        start_all()
+        Common.restart_all()
         Common.assert_running_nodes(3)
     
         

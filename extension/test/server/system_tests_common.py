@@ -278,6 +278,9 @@ def startOne(name):
     global cluster_id
     q.cmdtools.arakoon.startOne(cluster_id, name)
 
+def restart_all():
+    q.cmdtools.arakoon.restart(cluster_id)
+    
 def rotate_logs( max_logs_to_keep = 5, compress_old_files = True):
     for node_name in node_names:
         rotate_log( node_name, max_logs_to_keep)
@@ -380,6 +383,10 @@ def start_all() :
 
 def stop_all():
     q.cmdtools.arakoon.stop(cluster_id)
+
+def restart_all():
+    stop_all()
+    start_all()
 
 def restart_random_node():
     node_index = random.randint(0, len(node_names) - 1)
