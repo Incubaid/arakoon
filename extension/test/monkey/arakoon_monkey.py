@@ -160,7 +160,7 @@ def health_check() :
     logging.info( "Starting health check" )
  
     cli = get_client() 
-    encodedHello = arakoon.ArakoonProtocol.ArakoonProtocol.encodeHello( "me", "arakoon" )
+    encodedPing = arakoon.ArakoonProtocol.ArakoonProtocol.encodePing( "me", cluster_id )
     
     global monkey_dies
     
@@ -173,7 +173,7 @@ def health_check() :
     # Do a hello to all nodes
     for node in node_names :
         try :
-            con = cli._sendMessage( node, encodedHello )
+            con = cli._sendMessage( node, encodedPing )
             reply = con.decodeStringResult()
             logging.info ( "Node %s is responsive: '%s'" , node, reply )
         except Exception, ex:     
@@ -194,7 +194,7 @@ def health_check() :
     
     # Give the nodes some time to sync up
     time.sleep(2.0)
-    q.cmdtools.arakoon.stop()
+    stop_all()
     
     # Make sure the tlogs are in sync
     assert_last_i_in_sync( node_names[0], node_names[1] )
@@ -235,7 +235,7 @@ def memory_monitor():
             
             if used > MEM_MAX_KB:
                 logging.critical( "!!!! %s uses more than %d kB of memory (%d) " % (name, MEM_MAX_KB, used))
-                q.cmdtools.arakoon.stop()
+                stop_all()
                 monkey_dies = True
             else :
                 logging.info( "Node %s under memory threshold (%d)" % (name, used) )
