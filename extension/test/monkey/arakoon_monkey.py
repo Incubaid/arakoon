@@ -170,7 +170,7 @@ def health_check() :
     # Make sure all processes are running
     assert_running_nodes( 3 )
     
-    # Do a hello to all nodes
+    # Do a ping to all nodes
     for node in node_names :
         try :
             con = cli._sendMessage( node, encodedPing )

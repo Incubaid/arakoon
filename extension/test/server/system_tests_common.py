@@ -446,7 +446,7 @@ def setup_n_nodes ( n, force_master, home_dir ):
     cfg_list = q.config.list()
     
     if cluster_id in cfg_list :
-        logging.info( "Clearing server config %s" )
+        logging.info( "Clearing server config %s ", cluster_id )
         q.config.remove(cluster_id)
 
     config_name = '%s_nodes' % cluster_id
@@ -500,7 +500,7 @@ def setup_n_nodes ( n, force_master, home_dir ):
     config.write()
     
     
-    logging.info( "Starting arakoon" )
+    logging.info( "Starting cluster" )
     start_all() 
    
     logging.info( "Setup complete" )
