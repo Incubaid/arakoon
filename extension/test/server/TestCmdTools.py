@@ -56,19 +56,7 @@ class TestCmdTools:
         q.cmdtools.arakoon.start(cid)
         assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
 
-    def testGetStatus(self):
-        cid = self._cluster_id
-        q.cmdtools.arakoon.start(cid)
-        assert_equals(q.cmdtools.arakoon.getStatus(cid),
-                      {self._n0: q.enumerators.AppStatusType.RUNNING,
-                       self._n1: q.enumerators.AppStatusType.RUNNING,
-                       self._n2: q.enumerators.AppStatusType.RUNNING})
 
-        q.cmdtools.arakoon.stopOne(cid, self._n0)
-        assert_equals(q.cmdtools.arakoon.getStatus(cid),
-                      {self._n0: q.enumerators.AppStatusType.HALTED, 
-                       self._n1: q.enumerators.AppStatusType.RUNNING,
-                       self._n2: q.enumerators.AppStatusType.RUNNING})
 
     def testStop(self):
         cid = self._cluster_id
@@ -119,18 +107,30 @@ class TestCmdTools:
     def testStopOneUnknown(self):
          assert_raises(Exception, q.cmdtools.arakoon.stopOne, "arakoon0")
 
+    def testGetStatus(self):
+        cid = self._cluster_id
+        q.cmdtools.arakoon.start(cid)
+        assert_equals(q.cmdtools.arakoon.getStatus(cid),
+                      {self._n0: q.enumerators.AppStatusType.RUNNING,
+                       self._n1: q.enumerators.AppStatusType.RUNNING,
+                       self._n2: q.enumerators.AppStatusType.RUNNING})
+
+        q.cmdtools.arakoon.stopOne(cid, self._n0)
+        assert_equals(q.cmdtools.arakoon.getStatus(cid),
+                      {self._n0: q.enumerators.AppStatusType.HALTED, 
+                       self._n1: q.enumerators.AppStatusType.RUNNING,
+                       self._n2: q.enumerators.AppStatusType.RUNNING})
+        
     def testGetStatusOne(self):
         cid = self._cluster_id
         q.cmdtools.arakoon.start(cid)
         q.cmdtools.arakoon.stopOne(cid,self._n0)
-
-        assert_equals(q.cmdtools.arakoon.getStatusOne(cid, self._n0),
-                      q.enumerators.AppStatusType.HALTED)
-        assert_equals(q.cmdtools.arakoon.getStatusOne(cid, self._n1),
-                      q.enumerators.AppStatusType.RUNNING)
+        gos = q.cmdtools.arakoon.getStatusOne
+        assert_equals(gos(cid, self._n0), q.enumerators.AppStatusType.HALTED)
+        assert_equals(gos(cid, self._n1), q.enumerators.AppStatusType.RUNNING)
 
     def testGetStatusOneUnknown(self):
-        assert_raises(Exception, q.cmdtools.arakoon.getStatusOne, "arakoon0")
+        assert_raises(Exception, q.cmdtools.arakoon.getStatusOne, "whatever")
 
     def testRestartOne(self):
         cid = self._cluster_id

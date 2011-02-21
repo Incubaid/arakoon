@@ -97,7 +97,8 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
 
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+        localNodes = q.config.arakoon.listLocalNodes(clusterId)
+        if not nodeName in localNodes:
             raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
 
         self._stopOne(clusterId, nodeName)
@@ -124,7 +125,7 @@ class ArakoonCmdtools:
         if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
             raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
 
-        return self._getStatusOne(nodeName, clusterId)
+        return self._getStatusOne(clusterId, nodeName)
 
     def _startOne(self, clusterId, name):
         if self._getStatusOne(clusterId, name) == q.enumerators.AppStatusType.RUNNING:
@@ -194,19 +195,15 @@ class ArakoonCmdtools:
             return int(stdout)
                 
     def _getStatusOne(self,clusterId, name):
-        ret = subprocess.call(['pgrep', 
-                               '-f', 
-                               '%s -config %s/%s.cfg --node %s' % (self._binary,
-                                                                   self._cfgPath,
-                                                                   clusterId,
-                                                                   name)], 
-                               close_fds=True, 
-                               stdout=subprocess.PIPE)
-
+        cmd = ['pgrep','-f',
+               '%s -config %s/%s.cfg --node %s' %
+               (self._binary, self._cfgPath, clusterId, name)]
+        ret = subprocess.call(cmd,close_fds=True, stdout=subprocess.PIPE)
+        result = q.enumerators.AppStatusType.HALTED
         if ret == 0:
-            return q.enumerators.AppStatusType.RUNNING
-        else:
-            return q.enumerators.AppStatusType.HALTED
+            result = q.enumerators.AppStatusType.RUNNING
+
+        return result
 
     @staticmethod
     def getStorageUtilization(clusterId, node=None):

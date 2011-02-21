@@ -121,7 +121,7 @@ class ArakoonConfig:
         nodes = self.__getNodes(config)
 
         if name in nodes:
-            self.removeLocalNode(name, clusterId)
+            self.removeLocalNode(clusterId, name)
 
             config.removeSection(name)
 
@@ -449,7 +449,7 @@ class ArakoonConfig:
 
 
         nodes = self.__getNodes(config)
-
+        
         for node in nodes:
             if removeDirs:
                 self.removeDirs(clusterId, node)
