@@ -316,14 +316,13 @@ def test_sso_deployment():
     config = q.config.getInifile(cluster_id)
     config.setParam(node_names[1],"log_level","debug")
     config.write()
-        
-    if cluster_id in q.config.list():
-        sn = "%s_nodes" % cluster_id
-        q.config.remove(sn)   
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+
+    regenerateClientConfig()
             
     restart_nodes_wf_sim( 1 )
-    startOne( node_names[1] )
+    n1 = node_names[1]
+    logging.info("going to start %s", n1)
+    startOne(n1 )
     
     create_and_wait_for_thread_list ( [ large_write_loop ] )
     
@@ -333,11 +332,9 @@ def test_sso_deployment():
     config.write()
     
     q.config.arakoon.forceMaster(cluster_id, None )
-    
-    if cluster_id in q.config.list():
-        q.config.remove(cluster_id)   
+    logging.info("2 node config without forced master")
 
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+    regenerateClientConfig()
     
     restart_nodes_wf_sim( 2 )
     startOne( node_names[2] )

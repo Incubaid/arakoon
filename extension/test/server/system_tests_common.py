@@ -330,6 +330,15 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
 def getConfig(name):
     return q.config.arakoon.getNodeConfig(cluster_id, name)
 
+
+def regenerateClientConfig():
+    global cluster_id
+    sn = "%s_nodes" % cluster_id
+    if sn in q.config.list():  
+        q.config.remove(sn)   
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+
+
 def whipe(name):
     config = getConfig(name)
     data_dir = config['home']
