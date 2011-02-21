@@ -282,9 +282,6 @@ def test_catchup_exercises():
 
         start_all()
         cli = get_client ()
-        
-        assert_false(cli.expectProgressPossible())
-    
         counter = 0
         up2date = False
 
@@ -292,13 +289,14 @@ def test_catchup_exercises():
             time.sleep( 1.0 )
             counter += 1
             up2date = cli.expectProgressPossible()
+            logging.info("up2date=%s", up2date)
     
         if counter >= max_wait :
             raise Exception ("Node did not catchup in a timely fashion")
 
-    n = 1000
-    w = 10
-    for i in range(7):
+    n = 20000
+    w = 20
+    for i in range(5):
         do_one(n,w)
         n = n * 2
         w = w * 2
