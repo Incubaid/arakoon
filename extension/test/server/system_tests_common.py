@@ -278,6 +278,9 @@ def startOne(name):
     global cluster_id
     q.cmdtools.arakoon.startOne(cluster_id, name)
 
+def catchupOnly(name):
+    q.cmdtools.arakoon.catchupOnly(cluster_id, name)
+    
 def restart_all():
     q.cmdtools.arakoon.restart(cluster_id)
     

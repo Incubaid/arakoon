@@ -78,6 +78,10 @@ class ArakoonCmdtools:
 
         return status
 
+    def _requireLocal(self, clusterId, nodeName):
+        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
+    
     def startOne(self, clusterId, nodeName):
         """
         Start the node with a given name
@@ -85,11 +89,25 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
 
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
-            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
-
+        self._requireLocal(clusterId, nodeName)
         self._startOne(clusterId, nodeName)
 
+    
+    def catchupOnly(self, clusterId, nodeName):
+        """
+        make the node catchup, but don't start it.
+        (This is handy if you want to minimize downtime before you,
+         go from a 1 node setup to a 2 node setup)
+        """
+        self._requireLocal(clusterId, nodeName)
+        cmd = [self._binary,
+               '-config',
+               '%s/%s.cfg' % (self._cfgPath, clusterId),
+               '--node',
+               nodeName,
+               '-catchup-only']
+        subprocess.call(cmd)
+        
     def stopOne(self, clusterId, nodeName):
         """
         Stop the node with a given name
@@ -97,10 +115,7 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
 
         """
-        localNodes = q.config.arakoon.listLocalNodes(clusterId)
-        if not nodeName in localNodes:
-            raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
-
+        self._requireLocal(clusterId,nodeName)
         self._stopOne(clusterId, nodeName)
 
     def restartOne(self, clusterId, nodeName):
@@ -110,9 +125,7 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
 
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
-            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
-
+        self._requireLocal(clusterId, nodeName)
         self._restartOne(clusterId, nodeName)
 
     def getStatusOne(self, clusterId, nodeName):
@@ -122,9 +135,7 @@ class ArakoonCmdtools:
         @param nodeName The name of the node
 
         """
-        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
-            raise Exception( EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId) )
-
+        self._requireLocal(clusterId, nodeName)
         return self._getStatusOne(clusterId, nodeName)
 
     def _startOne(self, clusterId, name):
