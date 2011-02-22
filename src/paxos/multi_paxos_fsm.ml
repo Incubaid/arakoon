@@ -38,6 +38,9 @@ let forced_master_suggest constants (n,i) () =
   let n' = update_n constants n in
   mcast constants (Prepare (n',i)) >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
+  let tlog_coll = constants.tlog_coll in
+  tlog_coll # get_last_update i >>= fun l_upd ->
+  let v = l_upd in
   let v = Update.make_update_value (Update.make_master_set me None) in
   let who_voted = [me] in
   let v_lims = 0, [(v,1)] in
