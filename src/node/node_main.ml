@@ -144,12 +144,16 @@ let log_prelude() =
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
 
 let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll = 
+  Lwt_log.info "ONLY CATCHUP" >>= fun () ->
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
   make_store db_name >>= fun (store:Store.store) ->
   make_tlog_coll me.tlog_dir >>= fun tlc ->
-  let mr_name = "xxx" in
+  let mr_name = 
+    let fo = List.hd other_configs in
+    fo.node_name 
+  in
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -158,7 +162,11 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
 
 
 let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
+  let dump_crash_log = ref None in
   let cluster_cfg = make_config () in
+  let cfgs = cluster_cfg.cfgs in
+  let me, others = _split name cfgs in
+  dump_crash_log := _config_logging me.node_name make_config;
   if catchup_only 
   then 
     begin
@@ -169,8 +177,6 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
     end
   else
     begin
-      let dump_crash_log = ref None in
-      let cfgs = cluster_cfg.cfgs in
       let cluster_id = cluster_cfg.cluster_id in
       let forced_master = cluster_cfg._forced_master in
       let lease_period = cluster_cfg._lease_period in
@@ -178,8 +184,6 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let names = List.map (fun cfg -> cfg.node_name) cfgs in
       let n_names = List.length names in
       let other_names = List.filter (fun n -> n <> name) names in
-      let me, others = _split name cfgs in
-      dump_crash_log := _config_logging me.node_name make_config ;
       let _ = Lwt_unix.on_signal 10
 	(fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
