@@ -117,56 +117,62 @@ let slave_steady_state constants state event =
 	    end
 	  | Prepare(n',i') ->
 	    if n' <= n then
-	      begin
-		begin
-		  if n' <> -1L then
-		    let reply = Nak(n',(n,nak_max)) in
-		    log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
-		    send reply me source
-		  else Lwt.return ()
-		end >>= fun () ->
-		Lwt.return (Slave_steady_state state)
+        begin
+		      begin
+	          if n' <> -1L then
+	            let reply = Nak(n',(n,nak_max)) in
+	            log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
+	            send reply me source
+	          else Lwt.return ()
+	        end >>= fun () ->
+        Lwt.return (Slave_steady_state state)
 	      end
 	    else (* n' > n *) 
 	      begin
-        let store = constants.store in
-        store # consensus_i () >>= fun s_i ->
-        let nak_max =
-        match s_i with 
-          | Some si -> Sn.succ si
-          | None -> Sn.start
-        in
-        can_promise store constants.lease_expiration source >>= fun can_pr ->
-        if not can_pr 
-        then
-          log ~me "slave_steady_state: dropping prepare, still have active lease" >>= fun () ->
-          Lwt.return (Slave_steady_state state)
-        else 
-          begin
-            if (i' < nak_max && nak_max <> Sn.start)  
-            then 
-              begin
-                let reply = Nak(n', (n,nak_max)) in
-                log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
+          let store = constants.store in
+          store # consensus_i () >>= fun s_i ->
+          let nak_max =
+          match s_i with 
+            | Some si -> Sn.succ si
+            | None -> Sn.start
+          in
+          if (i' < nak_max && nak_max <> Sn.start)  
+          then 
+            begin
+              let reply = Nak(n', (n,nak_max)) in
+              log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
                 send reply me source >>= fun () ->
                 Lwt.return (Slave_steady_state state)
-              end
-            else
-              begin
-                constants.get_value( nak_max ) >>= fun lv ->
-                let reply = Promise(n',nak_max,lv ) in
-                log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
-                send reply me source >>= fun () ->
-                if i' > i then
-                  Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-                  let new_state = (source,cu_pred,n',i') in
-                  Lwt.return (Slave_discovered_other_master new_state)
-                else
-                  let maybe_previous = Some (previous, Sn.pred i) in
-                  Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
-              end
+            end
+          else
+            begin
+              can_promise store constants.lease_expiration source >>= fun can_pr ->
+              if not can_pr 
+              then
+                begin
+                  log ~me "slave_steady_state: dropping prepare, still have active lease" >>= fun () -> 
+                  Lwt.return (Slave_steady_state state)
+                end
+              else
+                begin   
+                  constants.get_value( nak_max ) >>= fun lv ->
+                  let reply = Promise(n',nak_max,lv ) in
+                  log ~me "steady state :: replying with %S" (string_of reply) >>= fun () ->
+                  send reply me source >>= fun () ->
+                  if i' > i then
+                    begin
+                      Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+                      let new_state = (source,cu_pred,n',i') in
+                      Lwt.return (Slave_discovered_other_master new_state)
+                    end
+                  else
+                    begin
+                      let maybe_previous = Some (previous, Sn.pred i) in
+                      Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
+                    end
+                end
+             end
     	    end
-        end 
 	  | Nak (n',(n'',i'')) ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->

@@ -117,10 +117,20 @@ let stable_master constants (v',n,new_i) = function
           end
           else
           begin
-            let reply = Promise(n',new_i,None) in
-            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
-            constants.send reply me source >>= fun () ->
-            Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
+            can_promise constants.store constants.lease_expiration source >>= fun can_pr ->
+            if not can_pr 
+            then 
+              begin
+                log ~me "stable_master -> Dropping prepare - lease still active" >>= fun () ->
+                Lwt.return (Stable_master (v',n,new_i))
+              end
+            else
+              begin
+		            let reply = Promise(n',new_i,None) in
+		            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
+		            constants.send reply me source >>= fun () ->
+		            Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
+              end
           end
         end
 		    else
