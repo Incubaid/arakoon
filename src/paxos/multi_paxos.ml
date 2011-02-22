@@ -50,7 +50,7 @@ let can_promise store lease_expiration requester =
     | Some (m, ml) ->
       let l64 = Int64.of_int lease_expiration in
       if (
-        ( (Int64.add ml l64) < Int64.of_float (Unix.time()) )
+        ( (Int64.add ml l64) > Int64.of_float (Unix.time()) )
         &&
         (String.compare requester m) <> 0
         )
