@@ -201,6 +201,7 @@ and daemonize = ref false
 and test_repeat_count = ref 1
 and counter = ref 0
 and n_tlogs = ref 1
+and catchup_only = ref false
 and tlog_dir = ref "/tmp"
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
@@ -265,6 +266,8 @@ let actions = [
   (* ("-port", Arg.Set_int port, "specifies server port"); *)
   ("-config", Arg.Set_string config_file,
    "specifies config file (default = cfg/arakoon.ini )");
+  ("-catchup-only", Arg.Set catchup_only,
+   "will only do a catchup of the node, without actually starting it (option to --node)");
   ("-daemonize", Arg.Set daemonize,
    "add if you want the process to daemonize (only for --node)");
   ("-value_size", Arg.Set_int size,
@@ -310,7 +313,7 @@ let do_server node =
   match node with
     | Node ->
       let make_config () = Node_cfg.read_config !config_file in
-      let main_t = (Node_main.main_t make_config !node_id !daemonize) in
+      let main_t = (Node_main.main_t make_config !node_id !daemonize !catchup_only) in
       Lwt_main.run main_t;
       0
     | TestNode ->

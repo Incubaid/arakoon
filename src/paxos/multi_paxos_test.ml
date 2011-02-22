@@ -86,6 +86,7 @@ let test_generic network_factory n_nodes () =
 	      other_cfgs = [];
 	      lease_expiration = 60;
 	      inject_event = inject_ev inject_buffer;
+	      cluster_id = "whatever";
 	     }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -250,6 +251,7 @@ let test_master_loop network_factory ()  =
 		   other_cfgs = [];
 		   lease_expiration = 60;
 		   inject_event = inject_event;
+		   cluster_id = "whatever";
 		  } in
   let continue = ref 2 in
   let c0_t () =
@@ -368,6 +370,7 @@ let test_simulation filters () =
 		   other_cfgs = [];
 		   lease_expiration = 60;
 		   inject_event = inject_event;
+		   cluster_id = "whatever";
 		  } in
   let c0_t () =
     let expected prev_key key =

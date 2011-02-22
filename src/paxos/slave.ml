@@ -424,7 +424,8 @@ let slave_discovered_other_master constants state () =
   if current_i < future_i then
     begin
       log ~me "slave_discovered_other_master: catching up from %s" master >>= fun () ->
-      Catchup.catchup me other_cfgs (store, tlog_coll)
+      let cluster_id = constants.cluster_id in
+      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll)
 	current_i master (future_n, future_i) >>= fun (future_n', current_i', vo') ->
       (* start up lease expiration *) 
       start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () ->

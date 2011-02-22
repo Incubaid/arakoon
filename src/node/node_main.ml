@@ -136,22 +136,27 @@ let log_prelude() =
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
 
+let only_catchup () = Llio.lwt_failfmt "not implemented"
 
-
-let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
-  let dump_crash_log = ref None in
-  let cluster_cfg = make_config () in
-  let cfgs = cluster_cfg.cfgs in
-  let forced_master = cluster_cfg._forced_master in
-  let lease_period = cluster_cfg._lease_period in
-  let quorum_function = cluster_cfg.quorum_function in 
-  let names = List.map (fun cfg -> cfg.node_name) cfgs in
-  let n_names = List.length names in
-  let other_names = List.filter (fun n -> n <> name) names in
-  let splitted, others = _split name cfgs in
-    match splitted with
-      | None -> failwith (name ^ " is not known in config")
-      | Some me ->
+let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
+  if catchup_only 
+  then only_catchup ()
+  else
+    begin
+      let dump_crash_log = ref None in
+      let cluster_cfg = make_config () in
+      let cfgs = cluster_cfg.cfgs in
+      let cluster_id = cluster_cfg.cluster_id in
+      let forced_master = cluster_cfg._forced_master in
+      let lease_period = cluster_cfg._lease_period in
+      let quorum_function = cluster_cfg.quorum_function in 
+      let names = List.map (fun cfg -> cfg.node_name) cfgs in
+      let n_names = List.length names in
+      let other_names = List.filter (fun n -> n <> name) names in
+      let splitted, others = _split name cfgs in
+      match splitted with
+	| None -> failwith (name ^ " is not known in config")
+	| Some me ->
 	  dump_crash_log := _config_logging me.node_name make_config ;
 	  let _ = Lwt_unix.on_signal 10
 	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
@@ -259,10 +264,13 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
 		Multi_paxos.network_of_messaging messaging in
 	      
 	      let on_consensus (v,(n: Sn.t), (i: Sn.t) ) =
-          let u = Update.update_from_value v in
-          match u with 
-            | Update.MasterSet(m,l) -> store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
-            | _ ->	Store.on_consensus store (v,n,i) 
+		let u = Update.update_from_value v in
+		match u with 
+		  | Update.MasterSet(m,l) -> 
+		    begin
+		      store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
+		    end
+		  | _ -> Store.on_consensus store (v,n,i) 
 	      in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i 
 	      in
@@ -276,12 +284,15 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
 		Lwt_log.debug_f "log_update %s=>%S" 
 		  (Sn.string_of i) 
 		  (Tlogwriter.string_of wr_result) >>= fun () ->
-    begin
-    match u with
-      | Update.MasterSet (m,l) ->
-        store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
-      | _ -> Lwt.return()
-    end >>= fun () ->
+		begin
+		  match u with
+		    | Update.MasterSet (m,l) ->
+		      begin
+			store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
+		      end
+		    | _ -> Lwt.return()
+		end 
+		>>= fun () ->
 		Lwt.return v
               in
 	      
@@ -320,6 +331,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
 		  (quorum_function: int -> int)
 		  (forced_master : string option)
 		  store tlog_coll others lease_period inject_event 
+		  ~cluster_id 
 		  
 	      in Lwt.return ((forced_master,constants, buffers, new_i, vo), 
 			     service, rapporting)
@@ -355,22 +367,23 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize =
 		    )
 		    (fun () -> Lwt_log.fatal "after pick" >>= fun() ->
 		      match ! dump_crash_log with
-            | None -> Lwt_log.info "Not dumping state"
-            | Some f -> f() )
+			| None -> Lwt_log.info "Not dumping state"
+			| Some f -> f() )
 		end
 	      ])
 	    (fun exn -> Lwt_log.fatal ~exn "going down")
+    end
 
 
-
-let main_t make_config name daemonize =
+let main_t make_config name daemonize catchup_only=
   let make_store = Local_store.make_local_store in
   let make_tlog_coll = Tlc2.make_tlc2
   in
-  _main_2 make_store make_tlog_coll make_config ~name ~daemonize 
+  _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 
 let test_t make_config name =
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
-  let daemonize = false in
-  _main_2 make_store make_tlog_coll make_config ~name ~daemonize 
+  let daemonize = false 
+  and catchup_only = false in
+  _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only

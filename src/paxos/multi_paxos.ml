@@ -104,6 +104,7 @@ type constants =
      other_cfgs:Node_cfg.Node_cfg.t list;
      lease_expiration: int;
      inject_event: paxos_event -> unit Lwt.t;
+     cluster_id : string;
     }
 
 let am_forced_master constants me =
@@ -118,7 +119,8 @@ let is_election constants =
 
 let make me others send receive get_value 
     on_accept on_consensus on_witness
-    quorum_function forced_master store tlog_coll other_cfgs lease_expiration inject_event =
+    quorum_function forced_master store tlog_coll 
+    other_cfgs lease_expiration inject_event ~cluster_id =
   {
     me=me;
     others=others;
@@ -134,6 +136,7 @@ let make me others send receive get_value
     other_cfgs = other_cfgs;
     lease_expiration = lease_expiration;
     inject_event = inject_event;
+    cluster_id = cluster_id;
   }
 
 let mcast constants msg =

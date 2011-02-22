@@ -49,7 +49,7 @@ let compare_store_tlc store tlc =
     then Lwt.return Store_1_behind
     else Lwt.return Store_n_behind
 
-let catchup_tlog me other_configs (current_i: Sn.t) mr_name (store,tlog_coll)
+let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,tlog_coll)
     =
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
@@ -69,7 +69,6 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name (store,tlog_coll)
   in
 
   let copy_tlog connection =
-    let cluster_id = "todo" in
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,update) =
       Lwt_log.debug_f "%s:%s => tlog" 
@@ -154,12 +153,12 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     Lwt.return (too_far_i, vo)
   end
 
-let catchup me other_configs dbt current_i mr_name (future_n,future_i) =
+let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_i) =
   Lwt_log.info_f "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
-  catchup_tlog me other_configs current_i mr_name dbt >>= fun too_far_i ->
+  catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
   catchup_store me dbt too_far_i >>= fun (end_i,vo) ->
   Lwt_log.info_f "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
