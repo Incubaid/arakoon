@@ -268,14 +268,20 @@ let protocol backend connection =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
   in
+  let check_cluster cluster_id = 
+    backend # check ~cluster_id >>= fun ok ->
+    if ok then Lwt.return ()
+    else Llio.lwt_failfmt "WRONG CLUSTER: %s" cluster_id
+  in
   let prologue () = 
     Lwt_log.debug "prologue" >>= fun () ->
     Llio.input_int32  ic >>= fun magic ->
     Llio.input_int    ic >>= fun version ->
     Lwt_log.debug_f "magic=%lx;version=%x" magic version >>= fun () ->
     check magic version  >>= fun () ->
-    Llio.input_string ic >>= fun cluster ->
-    Lwt_log.warning_f "TODO: check cluster %s" cluster >>= fun () ->
+    Llio.input_string ic >>= fun cluster_id ->
+    check_cluster cluster_id >>= fun () ->
+    Lwt_log.debug "done prologue" >>= fun () ->
     Lwt.return () 
   in
   let rec loop () =

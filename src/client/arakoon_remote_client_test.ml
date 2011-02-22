@@ -47,7 +47,7 @@ let __client_server_wrapper__ cluster real_test =
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
-  let backend = new test_backend "Zen" in
+  let backend = new test_backend _CLUSTER in
   let server = Server.make_server_thread ~setup_callback "127.0.0.1" port
     (Client_protocol.protocol backend) in
 
@@ -66,7 +66,7 @@ let __client_server_wrapper__ cluster real_test =
 
 let test_ping () =
   let real_test client =
-    client # ping "test_hello" _CLUSTER >>= fun server_version ->
+    client # ping "test_ping" _CLUSTER >>= fun server_version ->
     OUnit.assert_equal server_version "test_backend.0.0.0";
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test

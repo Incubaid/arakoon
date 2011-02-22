@@ -73,8 +73,9 @@ class sync_backend cfg push_update
   (store:Store.store) 
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
-  quorum_function n_nodes
-  expect_reachable
+  ~quorum_function n_nodes
+  ~expect_reachable
+  ~test 
   =
   let my_name =  Node_cfg.node_name cfg in
   
@@ -283,4 +284,8 @@ object(self: #backend)
 
   method get_statistics () = _stats
 
+  method check ~cluster_id = 
+    let r = test ~cluster_id in
+    Lwt.return r
+    
 end

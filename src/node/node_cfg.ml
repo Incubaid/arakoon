@@ -208,4 +208,5 @@ module Node_cfg = struct
 
   let get_node_cfgs_from_file () = read_config !config_file 
 
+  let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
 end
