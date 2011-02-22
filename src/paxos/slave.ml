@@ -278,24 +278,27 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
     in
     begin
     can_promise store constants.lease_expiration source >>= fun can_pr ->
-    if not can_pr
+    
+    if n' < n || (i' < nak_max && nak_max <> Sn.start) 
     then
-      log ~me "dropping prepare, still have active lease" >>= fun () ->
-      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-    else 
-    begin
-      if n' < n || (i' < nak_max && nak_max <> Sn.start) 
+      let (next_n, reply) = n, Nak(n',(n,nak_max)) in
+      send reply me source >>= fun () ->
+  	  log ~me "slave_wait_for_accept: sent %s" (string_of reply) >>= fun () ->
+      Lwt.return (Slave_wait_for_accept (next_n, i, vo, maybe_previous))
+    else
+      if not can_pr
       then
-        Lwt.return ( n, Nak(n',(n,nak_max)) )  
-      else
-        start_lease_expiration_thread constants n' constants.lease_expiration >>= fun _ ->
-        constants.get_value (i') >>= fun vo_2 ->
-        Lwt.return ( n',Promise (n',i',vo_2) )
-      end
-      >>= fun (next_n, reply) ->
-		  send reply me source >>= fun () ->
-  		log ~me "slave_wait_for_accept: sent %s" (string_of reply) >>= fun () ->
-	  	Lwt.return (Slave_wait_for_accept (next_n, i, vo, maybe_previous))
+        log ~me "dropping prepare, still have active lease" >>= fun () ->
+        Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
+      else 
+        begin
+          start_lease_expiration_thread constants n' constants.lease_expiration >>= fun _ ->
+          constants.get_value (i') >>= fun vo_2 ->
+          let (next_n, reply) = n',Promise (n',i',vo_2) in
+          send reply me source >>= fun () ->
+  	      log ~me "slave_wait_for_accept: sent %s" (string_of reply) >>= fun () ->
+          Lwt.return (Slave_wait_for_accept (next_n, i, vo, maybe_previous))
+        end
     end
 	  end
 	  | Accept (n',i',v) when n'=n ->
