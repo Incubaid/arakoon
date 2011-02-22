@@ -45,8 +45,20 @@ let paxos_fatal me fmt =
   in
   Printf.ksprintf k fmt
 
-
-
+let can_promise store lease_expiration requester =
+  store # who_master() >>= function
+    | Some (m, ml) ->
+      let l64 = Int64.of_int lease_expiration in
+      if (
+        ( (Int64.add ml l64) < Int64.of_float (Unix.time()) )
+        &&
+        (String.compare requester m) <> 0
+        )
+      then 
+        Lwt.return false
+      else 
+        Lwt.return true
+    | None -> Lwt.return true
 
 type ballot = int * string list (* still needed, & who voted *)
 
