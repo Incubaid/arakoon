@@ -263,7 +263,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       | None -> Sn.start
     in
     begin
-    if i' < nak_max && nak_max <> Sn.start 
+    if n' < n || (i' < nak_max && nak_max <> Sn.start) 
     then
       Lwt.return ( n, Nak(n',(n,nak_max)) )  
     else
