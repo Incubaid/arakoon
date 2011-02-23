@@ -37,7 +37,8 @@ let collapse_until tlog_dir head_name too_far_i =
   in
   if start_i >= too_far_i 
   then
-    let msg = Printf.sprintf "Store counter (%s) is ahead of end point (%s). Aborting"
+    let msg = Printf.sprintf 
+      "Store counter (%s) is ahead of end point (%s). Aborting"
       (Sn.string_of start_i) tfs in
     Lwt.fail (Failure msg) 
   else
@@ -46,29 +47,34 @@ let collapse_until tlog_dir head_name too_far_i =
       let add_to_store (i,update) = 
 	match !acc with
 	  | None ->
-	    let () = acc := Some(i,update) in
-	    Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) >>= fun () ->
-	    Lwt.return ()
-	      | Some (pi,pu) ->
-		if pi < i then
-		  begin
-		    Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
-		    Store.safe_insert_update store pi pu >>= fun _ ->
-		    let () = acc := Some(i,update) in
-		    Lwt.return ()
-		  end
-		else
-		  begin
-		    Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-		    let () = acc := Some(i,update) in
-		    Lwt.return ()
-		  end
+	    begin
+	      let () = acc := Some(i,update) in
+	      Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) 
+	      >>= fun () ->
+	      Lwt.return ()
+	    end
+	  | Some (pi,pu) ->
+	    if pi < i then
+	      begin
+		Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
+		Store.safe_insert_update store pi pu >>= fun _ ->
+		let () = acc := Some(i,update) in
+		Lwt.return ()
+	      end
+	    else
+	      begin
+		Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+		let () = acc := Some(i,update) in
+		Lwt.return ()
+	      end
       in
-      Lwt_log.debug_f "collapse_until: start_i=%s" (Sn.string_of start_i) >>= fun () ->
-      Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i add_to_store >>= fun () ->
+      Lwt_log.debug_f "collapse_until: start_i=%s" (Sn.string_of start_i) 
+      >>= fun () ->
+      Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i add_to_store 
+      >>= fun () ->
       store # close ()
     end
-
+      
 
 
 let mv_file source target = 
