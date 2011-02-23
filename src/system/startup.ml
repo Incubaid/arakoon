@@ -79,7 +79,7 @@ let _dump_tlc ~tlcs node =
 
 
 let post_failure () = 
-  let lease_period = 10 in
+  let lease_period = 2 in
   let node0 = "was_master" in
   let node1 = "was_slave1" in
   let node2 = "was_slave2" in
@@ -90,7 +90,7 @@ let post_failure () =
     cfgs = [node0_cfg;node1_cfg;node2_cfg] ;
     _forced_master = None;
     quorum_function = Quorum.quorum_function;
-    _lease_period = 10;
+    _lease_period = 2;
     cluster_id = "ricky";
   }
   in
@@ -128,7 +128,7 @@ let post_failure () =
 
     
 let restart_slaves () =
-  let lease_period = 10 in
+  let lease_period = 2 in
   let node0 = "slave0" in
   let node1 = "slave1" in
   let node2 = "was_master" in
@@ -139,7 +139,7 @@ let restart_slaves () =
     {cfgs = [node0_cfg;node1_cfg;node2_cfg];
      _forced_master = None;
      quorum_function = Quorum.quorum_function;
-     _lease_period = 10;
+     _lease_period = 2;
      cluster_id = "ricky";
     }
   in
