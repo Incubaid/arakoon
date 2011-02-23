@@ -85,7 +85,7 @@ let unlink_file target =
   Unix.unlink target; 
   Lwt.return ()
 
-let collapse_many tlog_dir tlog_names head_name = 
+let collapse_many tlog_dir tlog_names head_name cb = 
   Lwt_log.debug_f "collapse_many" >>= fun () ->
   let new_name = head_name ^ ".next" in
   let cn1 = Filename.concat tlog_dir head_name 
@@ -116,5 +116,7 @@ let collapse_many tlog_dir tlog_names head_name =
   Lwt_list.iter_s
     (fun tlog_name -> 
       let cn = Filename.concat tlog_dir tlog_name in
-      unlink_file cn )
+      unlink_file cn >>= fun () ->
+      cb () 
+    )
     tlog_names

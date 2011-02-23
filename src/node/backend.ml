@@ -50,4 +50,6 @@ class type backend = object
   method get_statistics: unit -> Statistics.t
 
   method check: cluster_id:string -> bool Lwt.t
+
+  method collapse : int -> (unit -> unit Lwt.t) -> unit Lwt.t
 end
