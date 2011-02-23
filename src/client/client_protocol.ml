@@ -271,6 +271,7 @@ let one_command (ic,oc) backend =
 	  Lwt_io.flush oc
 	in
 	Llio.input_int ic >>= fun n ->
+	Llio.output_int oc 0 >>= fun () -> (* ok *)
 	backend # collapse n cb >>= fun () ->
 	Lwt.return ()
       end

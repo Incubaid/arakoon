@@ -24,12 +24,17 @@ open Update
 open Common
 open Lwt
 
+
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+
+  method collapse: int -> unit Lwt.t
+
 end
+
 
 class remote_nodestream (ic,oc) = 
   let request f =
@@ -39,6 +44,7 @@ class remote_nodestream (ic,oc) =
     Lwt_io.flush oc
   in
 object(self :# nodestream)
+
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
     (tlog_coll: Tlogcollection.tlog_collection) 
     ~head_saved_cb
@@ -80,6 +86,30 @@ object(self :# nodestream)
     in
     request outgoing >>= fun () ->
     response ic incoming  
+
+
+  method collapse n =
+    let outgoing buf =
+      command_to buf COLLAPSE_TLOGS;
+      Llio.int_to buf n
+    in
+    let incoming ic =
+      let rec loop i =
+	if i = 0 
+	then Lwt.return ()
+	else 
+	  begin
+	    Llio.input_int64 ic >>= fun took ->
+	    Lwt_log.debug_f "collapsing one file took %Li" took >>= fun () ->
+	    loop (i-1)
+	  end
+      in
+      loop n
+    in
+    request outgoing >>= fun () ->
+    response ic incoming
+
+
 end
 
 let prologue cluster connection =

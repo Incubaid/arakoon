@@ -43,3 +43,21 @@ let collapse tlog_dir n_tlogs =
   let cb () = Lwt_log.debug "collapsed one" in
   Lwt_main.run (collapse_lwt tlog_dir n_tlogs cb);
   0
+
+
+let collapse_remote ip port cluster_id n = 
+  let t () = 
+    let address = Network.make_address ip port in
+    let collapse conn =
+      Remote_nodestream.make_remote_nodestream cluster_id conn
+      >>= fun (client:Remote_nodestream.nodestream) ->
+      client # collapse n >>= fun () ->
+      Lwt.return 0 
+    in
+    Lwt.catch
+      (fun () -> Lwt_io.with_connection address collapse)
+      (fun exn -> Lwt_log.fatal ~exn "remote_collapsing_failed" 
+	>>= fun () -> Lwt.return (-1)
+      )
+  in
+  Lwt_main.run (t () )

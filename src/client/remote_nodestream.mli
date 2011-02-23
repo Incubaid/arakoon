@@ -4,6 +4,8 @@ class type nodestream = object
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+      
+  method collapse: int -> unit Lwt.t
 end
 
 val make_remote_nodestream : 

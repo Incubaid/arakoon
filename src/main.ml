@@ -48,6 +48,7 @@ type local_action =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | Collapse
+  | Collapse_remote
 
 type server_action =
   | Node
@@ -195,6 +196,9 @@ and filter = ref ""
 and node_id = ref ""
 and key = ref ""
 and value = ref ""
+and ip = ref "127.0.0.1"
+and port = ref 4000
+and cluster_id = ref "<none>"
 and size = ref 10 
 and tx_size = ref 100
 and daemonize = ref false
@@ -277,8 +281,16 @@ let actions = [
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
   ("--collapse", Arg.Tuple[set_laction Collapse;
 			   Arg.Set_string tlog_dir;
-			   Arg.Set_int n_tlogs;],
+			   Arg.Set_int n_tlogs;],   
    "<tlog_dir> <n> collapses n tlogs from <tlog_dir> into head database");
+  ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
+				  Arg.Set_string cluster_id;
+				  Arg.Set_string ip;
+				  Arg.Set_int port;
+				  Arg.Set_int n_tlogs;
+				 ], 
+   "<cluster_id> <ip> <port> <n> tells node to collapse <n> tlogs into its head database");
+
   
 ] in
 
@@ -307,6 +319,8 @@ let do_local = function
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
   | Collapse -> Collapser_main.collapse !tlog_dir !n_tlogs
+  | Collapse_remote -> Collapser_main.collapse_remote 
+    !ip !port !cluster_id !n_tlogs
 
 in
 let do_server node =
