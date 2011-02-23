@@ -448,11 +448,16 @@ let wait_for_promises constants state event =
                     end
               end
             | Accept (n',_i,_v) when n' < n ->
-              begin
-		log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
-		>>= fun () ->
-		Lwt.return (Wait_for_promises state)
-              end
+              if i <= _i 
+              then
+                log ~me "wait_for_promises: master still active, received %S -> back to fake prepare"  (string_of msg) >>= fun () ->
+                Lwt.return (Slave_fake_prepare (i,n))
+              else
+	              begin
+			            log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
+			             >>= fun () ->
+			            Lwt.return (Wait_for_promises state)
+	              end
             | Accept (n',_i,_v) ->
               if n' = n && _i < i 
               then

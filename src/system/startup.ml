@@ -63,7 +63,7 @@ let _make_store stores now node_x db_name =
 let _make_run 
     ?(forced_master=None) 
     ?(quorum_function= fun n -> (n/2)+1)
-    ?(lease_period = 10)
+    ?(lease_period = 2)
     ~stores ~tlcs ~now ~updates ~get_cfgs node_x () = 
   Node_main._main_2 
     (_make_store stores now node_x)
@@ -85,7 +85,7 @@ let _dump_tlc ~tlcs node =
 
 
 let post_failure () = 
-  let lease_period = 10 in
+  let lease_period = 2 in
   let node0 = "was_master" in
   let node1 = "was_slave1" in
   let node2 = "was_slave2" in
@@ -126,7 +126,7 @@ let post_failure () =
 
     
 let restart_slaves () =
-  let lease_period = 10 in
+  let lease_period = 2 in
   let node0 = "slave0" in
   let node1 = "slave1" in
   let node2 = "was_master" in
