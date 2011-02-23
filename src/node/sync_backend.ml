@@ -287,5 +287,9 @@ object(self: #backend)
   method check ~cluster_id = 
     let r = test ~cluster_id in
     Lwt.return r
-    
+
+  method collapse n cb = 
+    let tlog_dir = Node_cfg.tlog_dir cfg in
+    Collapser_main.collapse_lwt tlog_dir n cb >>= fun () ->
+    Lwt.return ()
 end

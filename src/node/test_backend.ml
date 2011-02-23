@@ -141,4 +141,15 @@ class test_backend my_name = object(self:#backend)
   method check ~cluster_id = 
     let r = my_name = cluster_id in
     Lwt.return r
+
+  method collapse n cb = 
+    let rec loop i = 
+      if i = 0 
+      then Lwt.return ()
+      else 
+	cb () >>= fun () ->
+        loop (i-1)
+    in
+    loop n
+      
 end

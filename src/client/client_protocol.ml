@@ -260,6 +260,20 @@ let one_command (ic,oc) backend =
 	Llio.output_string oc bs >>= fun () ->
 	Lwt_io.flush oc
       end
+    | COLLAPSE_TLOGS ->
+      begin
+	let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
+	let t0 = sw() in
+	let cb = fun () -> 
+	  let ts = sw() in
+	  let d = Int64.sub ts t0 in
+	  Llio.output_int64 oc d >>= fun () ->
+	  Lwt_io.flush oc
+	in
+	Llio.input_int ic >>= fun n ->
+	backend # collapse n cb >>= fun () ->
+	Lwt.return ()
+      end
 
 let protocol backend connection =
   info "client_protocol" >>= fun () ->
