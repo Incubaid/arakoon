@@ -451,7 +451,7 @@ let wait_for_promises constants state event =
               end
             | Accept (n',_i,_v) when n' < n ->
               begin
-                if i <= _i
+                if i < _i
                 then
                   begin
                     log ~me "wait_for_promises: still have an active master (received %s) -> back to fake prepare"  (string_of msg) >>= fun () ->
