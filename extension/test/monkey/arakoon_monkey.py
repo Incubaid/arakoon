@@ -308,8 +308,8 @@ def make_monkey_run() :
         rotate_logs(5,False)
         
         toWipe = node_names[random.randint(0,2)]
-        #logging.info("Wiping node %s" % toWipe)
-        #whipe(toWipe)
+        logging.info("Wiping node %s" % toWipe)
+        whipe(toWipe)
         
         toCollapse = node_names[random.randint(0,2)]
         while toCollapse == toWipe:
