@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-ocamlbuild main.native
+
+ocamlbuild $@ main.native
 
 mkdir -p /opt/qbase3/apps/arakoon/bin/
 cp main.native /opt/qbase3/apps/arakoon/bin/arakoond
