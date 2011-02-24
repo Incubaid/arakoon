@@ -86,6 +86,7 @@ node_msg_base_port = 10000
 daemon_name = "arakoond"
 binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoond"
 lease_duration = 2.0
+tlog_entries_per_tlog = 1000
 
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
@@ -301,7 +302,7 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     if compress_old_files:
         old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d.gz" % (node_name) )
     else :
-        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d" )
+        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d" % (node_name) )
         
     tmp_log_file = log_file + ".1"
     

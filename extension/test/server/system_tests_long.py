@@ -82,6 +82,35 @@ def test_tlog_rollover():
     start_all()
     iterate_n_times( 150000, simple_set )
 
+@with_custom_setup( setup_2_nodes, basic_teardown)
+def test_catchup_while_collapsing():
+    iterate_n_times( 2*tlog_entries_per_tlog, simple_set )
+    
+    stop_all()
+    whipe( node_names[0] )
+    startOne(node_names[1])
+    
+    delayed_start = lambda: startOne(node_names[0])
+    collapser = lambda: collapse(node_names[1])
+    
+    create_and_wait_for_thread_list( [delayed_start, collapser] )
+    cli = get_client()
+    
+    time_out = 120
+    iter_cnt = 0
+    
+    while iter_cnt > time_out :
+        assert_running_nodes ( 2 )
+        if cli.expectProgressPossible() :
+            break
+        iter_cnt += 1
+        time.sleep(1.0)
+        
+    stop_all()
+    assert_last_i_in_sync( node_names[0], node_names[1])
+    compare_stores( node_names[0], node_names[1] )
+    pass   
+
 @with_custom_setup( default_setup, basic_teardown )
 def test_restart_master_long ():
     restart_iter_cnt = 10

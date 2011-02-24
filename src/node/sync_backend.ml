@@ -78,6 +78,8 @@ class sync_backend cfg push_update
   ~test 
   =
   let my_name =  Node_cfg.node_name cfg in
+  let locked_tlogs = Hashtbl.create 8 in
+  let blockers_cond = Lwt_condition.create() in
   
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
@@ -119,12 +121,49 @@ object(self: #backend)
       | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
       | Store.Ok _ -> Lwt.return ()
 
+  method private block_collapser (i: Sn.t) =
+    let tlog_file_n = Tlc2.get_file_number i  in
+    Hashtbl.add locked_tlogs tlog_file_n "locked"
+    
+  method private unblock_collapser i =
+    let tlog_file_n = Tlc2.get_file_number i in
+    Hashtbl.remove locked_tlogs tlog_file_n;
+    Lwt_condition.signal blockers_cond () 
+    
+  method private wait_for_tlog_release tlog_file_n =
+    let blocking_requests = [] in
+    let maybe_add_blocker tlog_num s blockers =
+      if tlog_file_n >= tlog_num 
+      then
+        tlog_num :: blockers 
+      else 
+        blockers
+    in
+    let blockers = Hashtbl.fold  maybe_add_blocker locked_tlogs blocking_requests in
+    if List.length blockers > 0 then
+      Lwt_condition.wait blockers_cond >>= fun () ->
+      self # wait_for_tlog_release tlog_file_n
+    else 
+      Lwt.return ()
   
   method range (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _only_if_master () >>= fun () ->
     store # range first finc last linc max
 
+  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+  
+    Lwt.finalize(
+      fun () ->
+        begin
+          self # block_collapser start_i ;
+          self # _last_entries start_i oc
+        end
+    ) (
+      fun () ->
+        Lwt.return ( self # unblock_collapser start_i )  
+    )
+  
   method range_entries (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _only_if_master () >>= fun () ->
@@ -168,7 +207,7 @@ object(self: #backend)
     let msg = Printf.sprintf "Arakoon %S" Version.version in
     Lwt.return (0l, msg)
 
-  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+  method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
     store # consensus_i () >>= fun consensus_i ->
     begin 
@@ -290,6 +329,11 @@ object(self: #backend)
 
   method collapse n cb = 
     let tlog_dir = Node_cfg.tlog_dir cfg in
-    Collapser_main.collapse_lwt tlog_dir n cb >>= fun () ->
+    let new_cb tlog_name =
+      let file_num = Tlc2.get_number tlog_name in
+      cb() >>= fun () ->
+      self # wait_for_tlog_release (Sn.of_int file_num) 
+    in
+    Collapser_main.collapse_lwt tlog_dir n new_cb >>= fun () ->
     Lwt.return ()
 end

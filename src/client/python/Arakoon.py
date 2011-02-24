@@ -67,7 +67,9 @@ def retryDuringMasterReelection (f):
             try :
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected):
+            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected) as ex:
+                if len( self._config.getNodes().keys()) == 0 :
+                    raise ArakoonInvalidConfig( "Empty client configuration" )
                 self._masterId = None
                 self._dropConnections()
                 sleepPeriod = backoffPeriod * tryCount

@@ -83,7 +83,7 @@ let test_collapse_many dn =
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = "head.db" in
   let make_file_names list = List.map (fun n -> n ^ Tlc2.archive_extension) list in
-  let cb () = Lwt_log.debug "collapsed one"
+  let cb fn = Lwt_log.debug_f "collapsed %s" fn
   in
   Collapser.collapse_many dn (make_file_names ["000"]) storename cb >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->

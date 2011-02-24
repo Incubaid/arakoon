@@ -28,7 +28,15 @@ class ArakoonException (Exception) :
         if ( self._msg is not None and msg == "" ):
             msg = self._msg
         Exception.__init__ (self, msg)
-        
+
+class ArakoonInvalidConfig( ArakoonException, RuntimeError ):
+    _msg = "Invalid configuration"
+    
+    def __init__ (self, additionalInfo="" ):
+        if additionalInfo != "" :
+            self._msg = "%s: %s" % (self._msg, additionalInfo)
+            
+            
 class ArakoonNotFound( ArakoonException, KeyError ):
     _msg = "Key not found"
     

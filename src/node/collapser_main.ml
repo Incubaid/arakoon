@@ -40,7 +40,7 @@ let collapse_lwt tlog_dir n_tlogs cb =
   Lwt.return ()
 
 let collapse tlog_dir n_tlogs =
-  let cb () = Lwt_log.debug "collapsed one" in
+  let cb fn = Lwt_log.debug_f "collapsed one %s" fn in
   Lwt_main.run (collapse_lwt tlog_dir n_tlogs cb);
   0
 

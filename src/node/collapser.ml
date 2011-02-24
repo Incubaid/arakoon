@@ -114,9 +114,9 @@ let collapse_many tlog_dir tlog_names head_name cb =
   collapse_until tlog_dir new_name future_i >>= fun () ->
   mv_file cn2 cn1 >>= fun () -> (* new head becomes effective head *)
   Lwt_list.iter_s
-    (fun tlog_name -> 
+    (fun tlog_name ->
       let cn = Filename.concat tlog_dir tlog_name in
-      unlink_file cn >>= fun () ->
-      cb () 
+      cb tlog_name >>= fun () ->
+      unlink_file cn
     )
     tlog_names

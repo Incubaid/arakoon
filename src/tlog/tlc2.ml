@@ -493,3 +493,13 @@ let truncate_tlog filename =
     end
   in Lwt_main.run t
 
+let get_file_number i =
+  let j = 
+	  if i = Sn.start
+	    then
+	      Sn.start
+	    else
+	      Sn.pred i
+  in
+  Sn.div j (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
+  
