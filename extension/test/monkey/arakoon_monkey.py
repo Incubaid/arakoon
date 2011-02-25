@@ -88,7 +88,6 @@ def generate_work_list( iter_cnt ):
             tmp_f = generate_lambda( fun, i*AM_MAX_WORKITEM_OPS)
         
         f_list.append( generate_lambda( wrapper, tmp_f ) )
-        
     log.close()
     return (disruptive_f, f_list ) 
 
@@ -148,15 +147,42 @@ def play_iteration( iteration ):
         
         if thr is not None:
             thr_list.append( thr )
+
+    def sleeper():
+        logging.info("Going to sleep for 120s")
+        time.sleep( 120.0 )
+        logging.info("Slept for 120s")
         
-    
+    thr = create_and_start_thread( sleeper )
+    thr_list.append(thr)
     disruptive_f ()
     
     for thr in thr_list:
         thr.join()
 
+def wait_for_it () :
+    global monkey_dies
+    if not monkey_dies:
+        logging.info( "Work is done. Waiting for nodes to get in sync." )
+        in_sync = False
+        allowed_time_left = 120
+        while (not in_sync and allowed_time_left > 0) :
+            i0 = int( get_last_i_tlog ( node_names[0] ))
+            i1 = int( get_last_i_tlog ( node_names[1] ))
+            i2 = int( get_last_i_tlog ( node_names[2] ))
+            if abs(i0 - i1) < 3 and  abs(i0 - i2) < 3  and abs(i2 - i1) < 3 :
+                in_sync = True
+            else:
+                logging.info( "Nodes still not in sync")
+                assert_running_nodes(3)
+                time.sleep(5.0) 
+                allowed_time_left -= 5.0
+        
+        if allowed_time_left <= 0 :
+            logging.critical("!!! Nodes out of sync. Timeout exceeded.")
+            monkey_dies = True
 def health_check() :
-   
+
     logging.info( "Starting health check" )
  
     cli = get_client() 
@@ -254,7 +280,6 @@ def make_monkey_run() :
     q.config.arakoon.tearDown(cluster_id) 
     #setup_3_nodes_forced_master()
     setup_3_nodes( system_tests_common.data_base_dir )
-    time.sleep( 5.0 )
     monkey_dir = get_monkey_work_dir()
     if q.system.fs.exists( monkey_dir ) :
         q.system.fs.removeDirTree( monkey_dir )
@@ -278,11 +303,13 @@ def make_monkey_run() :
                 if thr.isAlive() :
                     logging.fatal( "Thread did not complete in a timely fashion.")
                     monkey_dies = True
+                    
+            if not monkey_dies :
+                wait_for_it ()  
             
-            if not monkey_dies:
-                logging.info( "Work is done. Starting little safety nap." )
-                time.sleep( lease_duration )     
+            if not monkey_dies :  
                 health_check ()
+            
         except SystemExit, ex:
             if str(ex) == "0":
                 sys.exit(0)
@@ -311,6 +338,8 @@ def make_monkey_run() :
         logging.info("Wiping node %s" % toWipe)
         whipe(toWipe)
         
+        start_all()
+        
         toCollapse = node_names[random.randint(0,2)]
         while toCollapse == toWipe:
             toCollapse = node_names[random.randint(0,2)]
@@ -320,7 +349,7 @@ def make_monkey_run() :
             if collapse(toCollapse, collapse_candidate_count ) != 0:
                 logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
-        start_all()
+        
  
 def send_email(from_addr, to_addr_list, cc_addr_list,
               subject, message,

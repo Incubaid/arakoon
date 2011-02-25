@@ -33,8 +33,8 @@ let collapse_lwt tlog_dir n_tlogs cb =
 	| hd::tl -> take_n (hd::acc) tl (i-1)
   in
   let to_collapse = take_n [] entries n_tlogs in
-  Lwt_io.printl "going to collapse" >>= fun () ->
-  Lwt_list.iter_s (fun e -> Lwt_io.printl ("\t" ^e)) to_collapse >>= fun () ->
+  Lwt_log.debug "going to collapse" >>= fun () ->
+  Lwt_list.iter_s (fun e -> Lwt_log.debug ("\t" ^e)) to_collapse >>= fun () ->
   Collapser.collapse_many tlog_dir to_collapse Collapser.head_name cb
   >>= fun () ->
   Lwt.return ()

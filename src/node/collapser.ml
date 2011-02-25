@@ -106,7 +106,7 @@ let collapse_many tlog_dir tlog_names head_name cb =
   let new_c = List.hd sorted in
   let border_i = 
     Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int (new_c+1)) in
-  let future_i = Sn.add border_i (Sn.of_int 10) in
+  let future_i = Sn.add border_i (Sn.of_int 1) in
   Lwt_log.debug_f "collapse_many: entriesPerFile=%i;new_c=%i; future_i = %s" 
     !Tlogcommon.tlogEntriesPerFile
     new_c (Sn.string_of future_i) 

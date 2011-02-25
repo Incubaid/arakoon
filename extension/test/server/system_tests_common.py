@@ -267,6 +267,11 @@ def get_last_tlog_id ( node_id ):
 def get_last_i_tlog ( node_id ):
     tlog_dump = dump_tlog ( node_id, get_last_tlog_id(node_id) ) 
     tlog_dump_list = tlog_dump.split("\n")
+    tlog_first_entry = tlog_dump_list[0]
+    tlog_first_i = int(tlog_first_entry.split(":") [0].lstrip(" "))
+    if tlog_first_i % tlog_entries_per_tlog != 0 :
+        test_failed = True
+        raise Exception( "Problem with tlog rollover, first entry (%d) incorrect" % tlog_first_i ) 
     tlog_last_entry = tlog_dump_list [-2]
     tlog_last_i = tlog_last_entry.split(":") [0].lstrip( " 0" )
     return tlog_last_i
@@ -367,9 +372,11 @@ def get_memory_usage(node_name):
         return 0
     
 def collapse(name, n):
+    global cluster_id
     config = getConfig(name)
-    data_dir = config['home']
-    rc = subprocess.call([binary_full_path, '--collapse',data_dir,str(n)])
+    ip = config['ip']
+    port = config['client_port']
+    rc = subprocess.call([binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
     return rc
 
 def add_node ( i ):
@@ -392,7 +399,7 @@ def add_node ( i ):
 
 def start_all() :
     q.cmdtools.arakoon.start(cluster_id)
-    time.sleep(5.0)  
+    time.sleep(3.0)  
 
 def stop_all():
     q.cmdtools.arakoon.stop(cluster_id)
