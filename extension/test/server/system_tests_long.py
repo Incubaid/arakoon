@@ -91,7 +91,7 @@ def test_catchup_while_collapsing():
     startOne(node_names[1])
     
     delayed_start = lambda: startOne(node_names[0])
-    collapser = lambda: collapse(node_names[1])
+    collapser = lambda: collapse(node_names[1] )
     
     create_and_wait_for_thread_list( [delayed_start, collapser] )
     cli = get_client()

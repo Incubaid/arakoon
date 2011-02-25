@@ -371,8 +371,10 @@ def get_memory_usage(node_name):
         logging.error( "Coud not determine memory usage: %s" % ex )
         return 0
     
-def collapse(name, n):
+def collapse(name, n = -1):
     global cluster_id
+    if n == -1 :
+        n = get_tlog_count(name) - 1
     config = getConfig(name)
     ip = config['ip']
     port = config['client_port']
