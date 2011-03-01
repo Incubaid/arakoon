@@ -172,7 +172,9 @@ object(self: #backend)
   method prefix_keys (prefix:string) (max:int) =
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _only_if_master () >>= fun () ->
-    store # prefix_keys prefix max
+    store # prefix_keys prefix max >>= fun key_list ->
+    Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
+    Lwt.return key_list
 
   method set key value =
     log_o self "set %S %S" key value >>= fun () ->
