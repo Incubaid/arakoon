@@ -23,7 +23,10 @@ import socket
 import logging
 import struct
 
-from ArakoonProtocol import ArakoonProtocol, ARA_CMD_MAG, ARA_CMD_VER
+
+_COLLAPSE_TLOGS = 0x14
+_MAGIC   = 0xb1ff0000
+_VERSION = 0x00000000
 
 def _int_to(i):
     r = struct.pack("I", i)
@@ -43,8 +46,8 @@ def _string_to(s):
     return r
 
 def _prologue(clusterId, socket):
-    m  = _int_to(ARA_CMD_MAG)
-    m += _int_to(ARA_CMD_VER)
+    m  = _int_to(_MAGIC)
+    m += _int_to(_VERSION)
     m += _string_to(clusterId)
     socket.sendall(m)
 
@@ -72,8 +75,6 @@ def _receive_string(socket):
     return s
 
 
-_COLLAPSE_TLOGS = 0x14
-    
     
 def collapse(ip, port, clusterId, n):
     """
@@ -89,7 +90,7 @@ def collapse(ip, port, clusterId, n):
     s.connect(sa)
     try:
         _prologue(clusterId, s)
-        cmd  = _int_to(_COLLAPSE_TLOGS | ARA_CMD_MAG)
+        cmd  = _int_to(_COLLAPSE_TLOGS | _MAGIC)
         cmd += _int_to(n)
         s.send(cmd)
         rc = _receive_int(s)
