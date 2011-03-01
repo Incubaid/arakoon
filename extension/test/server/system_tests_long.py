@@ -99,7 +99,7 @@ def test_catchup_while_collapsing():
     time_out = 120
     iter_cnt = 0
     
-    while iter_cnt > time_out :
+    while iter_cnt < time_out :
         assert_running_nodes ( 2 )
         if cli.expectProgressPossible() :
             break
