@@ -3,15 +3,16 @@
 module Node = struct
   let exec = "./main.native" 
   let names = ["arakoon_0";"arakoon_1";"arakoon_2"] 
+  let cfg_name = (Unix.getcwd()) ^ "/cfg/arakoon.ini" 
 
   let _node_cmd fmt name = 
-    let cmd = Printf.sprintf fmt exec name in
+    let cmd = Printf.sprintf fmt exec name cfg_name in
     print_endline cmd; 
     Sys.command cmd
   
-  let start name = _node_cmd "%s --node %s -daemonize" name
+  let start name = _node_cmd "%s --node %s -config %s -daemonize" name
     
-  let stop name = _node_cmd "pkill -f '%s --node %s'" name
+  let stop name = _node_cmd "pkill -f '%s --node %s -config %s'" name
 
   let start_all () =
    List.iter (fun n -> ignore (start n)) names 
