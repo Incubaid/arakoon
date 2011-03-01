@@ -25,7 +25,7 @@ from pymonkey import q
 import os
 import os.path
 import itertools
-
+import ArakoonRemoteControl
 import subprocess
 import time
 
@@ -118,6 +118,18 @@ class ArakoonCmdtools:
         self._requireLocal(clusterId,nodeName)
         self._stopOne(clusterId, nodeName)
 
+    def remoteCollapse(self, clusterId, nodeName, n):
+        """
+        Tell the targetted node to collapse n tlog files
+        @type clusterId: string
+        @type nodeName: string
+        @type n: int
+        """
+        config = q.config.arakoon.getNodeConfig(clusterId, nodeName)
+        ip = config['ip']
+        port = int(config['client_port'])
+        ArakoonRemoteControl.collapse(ip,port,clusterId, n)
+        
     def restartOne(self, clusterId, nodeName):
         """
         Restart the node with a given name in the supplied cluster
