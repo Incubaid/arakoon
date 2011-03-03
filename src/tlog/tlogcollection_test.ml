@@ -81,6 +81,8 @@ let test_rollover_1002 (dn, factory) =
   let uos = Log_extra.option_to_string Update.string_of uo in
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
+  (* wait so all the compression can finish on terribly slow virtual machines *)
+  Lwt_unix.sleep 5.0 >>= fun () -> 
   Lwt.return ()
 
 
