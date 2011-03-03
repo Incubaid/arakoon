@@ -136,10 +136,7 @@ object(self : # messaging )
 
   method private _make_sender_loop target target_q =
     let rec _loop_for_q () = 
-      Lwt_log.debug_f "sender_loop %s going to take from q" target >>= fun () ->
       Lwt_buffer.take target_q >>= fun (source, target, msg) ->
-      Lwt_log.debug_f "sender_loop %s got %S" target (Message.string_of msg) 
-      >>= fun () -> 
       let ao = self # _get_target_address ~target in
       begin
 	match ao with
