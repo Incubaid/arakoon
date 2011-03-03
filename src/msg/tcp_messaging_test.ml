@@ -106,7 +106,9 @@ let make_transport address =
   (tcp_transport :> messaging) 
     
 let eventually_die ?(t=10.0) () = 
-  Lwt_unix.sleep t >>= fun () -> OUnit.assert_failure "test takes too long:aborting"
+  Lwt_unix.sleep t >>= fun () -> 
+  let msg = Printf.sprintf "test takes too long (> %2f)" t in
+  OUnit.assert_failure msg
   
 let test_pingpong_1x1 () = 
   let port = 40010 in
