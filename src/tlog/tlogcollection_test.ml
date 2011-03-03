@@ -73,7 +73,7 @@ let test_rollover_1002 (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := n in
   factory dn >>= fun c ->
   let update = Update.Set("x","y") in
-  let n_updates = 1002 * 5 + 3 in
+  let n_updates = 1002 * n + 3 in
   _log_repeat c update n_updates >>= fun () ->
   c # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
@@ -82,7 +82,7 @@ let test_rollover_1002 (dn, factory) =
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
   (* wait so all the compression can finish on terribly slow virtual machines *)
-  Lwt_unix.sleep 5.0 >>= fun () -> 
+  Lwt_unix.sleep 10.0 >>= fun () -> 
   Lwt.return ()
 
 
