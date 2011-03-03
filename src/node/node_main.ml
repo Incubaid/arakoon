@@ -161,6 +161,44 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
     (store,tlc)  current_i mr_name (future_n,future_i) 
 
 
+module X = struct 
+      (* Need to find a name for this: 
+	 the idea is to lift stuff out of _main_2 
+      *)
+  
+  let on_consensus store (v,(n: Sn.t), (i: Sn.t) ) =
+    let u = Update.update_from_value v in
+    match u with 
+      | Update.MasterSet(m,l) -> 
+	begin
+	  store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
+	end
+      | _ -> Store.on_consensus store (v,n,i) 
+
+  
+  let on_accept tlog_coll store (v,n,i) =
+    Lwt_log.debug_f "on_accept: n:%s i:%s" 
+      (Sn.string_of n) (Sn.string_of i)
+    >>= fun () ->
+    let Value.V(update_string) = v in
+    let u, _ = Update.from_buffer update_string 0 in
+    tlog_coll # log_update i u >>= fun wr_result ->
+    Lwt_log.debug_f "log_update %s=>%S" 
+      (Sn.string_of i) 
+      (Tlogwriter.string_of wr_result) >>= fun () ->
+    begin
+      match u with
+	| Update.MasterSet (m,l) ->
+	  begin
+	    let now = Int64.of_float (Unix.gettimeofday ()) in
+	    store # set_master_no_inc m now >>= fun _ -> Lwt.return ()
+	  end
+	| _ -> Lwt.return()
+    end 
+    >>= fun () ->
+    Lwt.return v
+end
+
 let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
   let dump_crash_log = ref None in
   let cluster_cfg = make_config () in
@@ -289,38 +327,9 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  let send, receive, run, register =
 	    Multi_paxos.network_of_messaging messaging in
 	  
-	  let on_consensus (v,(n: Sn.t), (i: Sn.t) ) =
-	    let u = Update.update_from_value v in
-	    match u with 
-	      | Update.MasterSet(m,l) -> 
-		begin
-		  store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
-		end
-	      | _ -> Store.on_consensus store (v,n,i) 
-	  in
-	  let on_witness (name:string) (i: Sn.t) = backend # witness name i 
-	  in
-	  let on_accept (v,n,i) =
-	    Lwt_log.debug_f "on_accept: n:%s i:%s" 
-	      (Sn.string_of n) (Sn.string_of i)
-	    >>= fun () ->
-	    let Value.V(update_string) = v in
-	    let u, _ = Update.from_buffer update_string 0 in
-	    tlog_coll # log_update i u >>= fun wr_result ->
-	    Lwt_log.debug_f "log_update %s=>%S" 
-	      (Sn.string_of i) 
-	      (Tlogwriter.string_of wr_result) >>= fun () ->
-	    begin
-	      match u with
-		| Update.MasterSet (m,l) ->
-		  begin
-		    store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
-		  end
-		| _ -> Lwt.return()
-	    end 
-	    >>= fun () ->
-	    Lwt.return v
-          in
+	  let on_consensus = X.on_consensus store in
+	  let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+	  let on_accept = X.on_accept tlog_coll store in
 	  
 	  let get_last_value (i:Sn.t) =
 	    begin

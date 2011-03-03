@@ -448,12 +448,16 @@ let slave_discovered_other_master constants state () =
   in
   if current_i < future_i then
     begin
-      log ~me "slave_discovered_other_master: catching up from %s" master >>= fun () ->
+      log ~me "slave_discovered_other_master: catching up from %s" master 
+      >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll)
-	current_i master (future_n, future_i) >>= fun (future_n', current_i', vo') ->
+	current_i master (future_n, future_i) 
+      >>= fun (future_n', current_i', vo') ->
       (* start up lease expiration *) 
-      start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () ->
+      start_lease_expiration_thread constants future_n' 
+	constants.lease_expiration 
+      >>= fun () ->
       begin
 	let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
 			    Sn.pred current_i') (* pred =  consensus_i *)
@@ -477,19 +481,23 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
       tlog_coll # get_last_i () >>= fun f_i ->
       tlog_coll # get_last_update f_i >>= fun vo ->
-      start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
+      start_lease_expiration_thread constants future_n constants.lease_expiration 
+      >>= fun () ->
       
       begin
       match vo with 
-      | None -> Lwt_log.debug "slave_discovered_other_master: no previous" >>= fun () -> Lwt.return None
-      | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i) >>= fun () ->
+      | None -> Lwt_log.debug "slave_discovered_other_master: no previous" 
+		>>= fun () -> Lwt.return None
+      | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" 
+	(Sn.string_of f_i) >>= fun () ->
         Lwt.return ( Some ( Update.make_update_value u , f_i ) )
       end >>= fun vo' ->
       Lwt.return (Slave_wait_for_accept (future_n, current_i, None, vo'))
     end
   else
     begin
-      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election" >>= fun () ->
+      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election"
+      >>= fun () ->
       (* we have to go to election here or we can get in a situation where
          everybody just waits for each other *)
       let new_n = update_n constants future_n in

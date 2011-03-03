@@ -144,13 +144,13 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	    begin
 	      log ~me "got %s => go to catchup" (string_of msg) >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
 	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	    end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
 	    begin
 	      log ~me "got %s => we're in sync" (string_of msg) >>= fun () ->
-        (* pick in @ steady state *)
+              (* pick in @ steady state *)
 	      constants.get_value i2 >>= fun p ->
 	      match p with
           | None ->
