@@ -28,27 +28,35 @@ import os
 class TestCmdTools:
     def __init__(self):
         cid = 'sturdy'
-        self._cluster_id = cid
+        self._clusterId = cid
         self._n0 = "%s_0" % cid
         self._n1 = "%s_1" % cid
         self._n2 = "%s_2" % cid
-        
+
+    def _serverNodes(self):
+        return "%s_servernodes" % self._clusterId
+
+    def _getCluster(self):
+        return q.config.arakoon.getCluster(self._clusterId)
+    
     def setup(self):
-        if self._cluster_id in q.config.list():
-            q.config.remove(self._cluster_id)
+        if self._clusterId in q.config.list():
+            q.config.remove(self._clusterId)
         
-        servernodes = "%s_servernodes" % self._cluster_id
+        servernodes = self._serverNodes()
         if servernodes in q.config.list():
             q.config.remove(servernodes)
 
-        q.config.arakoon.setUp(self._cluster_id, 3)
+        cluster = self._getCluster()
+        cluster.setUp(3)
 
     def teardown(self):
-        q.cmdtools.arakoon.stop(self._cluster_id)
-        q.config.arakoon.tearDown(self._cluster_id)
+        cluster = self._getCluster()
+        q.cmdtools.arakoon.stop(self._clusterId)
+        cluster.tearDown()
 
     def testStart(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
 
@@ -59,7 +67,7 @@ class TestCmdTools:
 
 
     def testStop(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
 
@@ -71,7 +79,7 @@ class TestCmdTools:
         assert_equals(q.system.process.checkProcess( "arakoond"), 1)
 
     def testRestart(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
 
@@ -86,7 +94,7 @@ class TestCmdTools:
         assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
 
     def testStartOne(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.startOne(cid, self._n0)
         assert_equals(q.system.process.checkProcess( "arakoond", 1), 0)
 
@@ -97,7 +105,7 @@ class TestCmdTools:
         assert_raises(Exception, q.cmdtools.arakoon.startOne, "arakoon0")
 
     def testStopOne(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         q.cmdtools.arakoon.stopOne(cid, self._n0)
         assert_equals(q.system.process.checkProcess( "arakoond", 2), 0)
@@ -108,7 +116,7 @@ class TestCmdTools:
          assert_raises(Exception, q.cmdtools.arakoon.stopOne, "arakoon0")
 
     def testGetStatus(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         assert_equals(q.cmdtools.arakoon.getStatus(cid),
                       {self._n0: q.enumerators.AppStatusType.RUNNING,
@@ -122,7 +130,7 @@ class TestCmdTools:
                        self._n2: q.enumerators.AppStatusType.RUNNING})
         
     def testGetStatusOne(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         q.cmdtools.arakoon.stopOne(cid,self._n0)
         gos = q.cmdtools.arakoon.getStatusOne
@@ -133,7 +141,7 @@ class TestCmdTools:
         assert_raises(Exception, q.cmdtools.arakoon.getStatusOne, "whatever")
 
     def testRestartOne(self):
-        cid = self._cluster_id
+        cid = self._clusterId
         q.cmdtools.arakoon.start(cid)
         q.cmdtools.arakoon.stopOne(cid,self._n0)
 

@@ -36,14 +36,18 @@ class ArakoonCmdtools:
         self._binary = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoond")
         self._cfgPath = q.system.fs.joinPaths(q.dirs.cfgDir, "qconfig")
 
+    def _getCfg(self, clusterId):
+        return q.config.arakoon.getCluster(clusterId)
+    
     def start(self, clusterId):
         """
         start all nodes in the supplied cluster
         
         @param cluster the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(clusterId):
-            self._startOne(clusterId,name)
+        cluster = self._getCfg(clusterId)
+        for name in cluster.listLocalNodes():
+            self._startOne(clusterId, name)
 
     def stop(self, clusterId):
         """
@@ -51,7 +55,9 @@ class ArakoonCmdtools:
         
         @param cluster the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(clusterId):
+        cluster = self._getCfg(clusterId)
+        
+        for name in cluster.listLocalNodes():
             self._stopOne(clusterId, name)
 
 
@@ -61,7 +67,8 @@ class ArakoonCmdtools:
         
         @param clusterId the arakoon cluster name
         """
-        for name in q.config.arakoon.listLocalNodes(clusterId):
+        cluster = self._getCfg(clusterId)
+        for name in cluster.listLocalNodes():
             self._restartOne(clusterId, name)
 
     def getStatus(self, clusterId):
@@ -72,14 +79,15 @@ class ArakoonCmdtools:
         @return dict node name -> status (q.enumerators.AppStatusType)
         """
         status = {}
-
-        for name in q.config.arakoon.listLocalNodes(clusterId):
+        cluster = self._getCfg(clusterId)
+        for name in cluster.listLocalNodes():
             status[name] = self._getStatusOne(clusterId, name)
 
         return status
 
     def _requireLocal(self, clusterId, nodeName):
-        if not nodeName in q.config.arakoon.listLocalNodes(clusterId):
+        cluster = self._getCfg(clusterId)
+        if not nodeName in cluster.listLocalNodes():
             raise Exception(EXC_MSG_NOT_LOCAL_FMT % (nodeName, clusterId))
     
     def startOne(self, clusterId, nodeName):
@@ -125,7 +133,8 @@ class ArakoonCmdtools:
         @type nodeName: string
         @type n: int
         """
-        config = q.config.arakoon.getNodeConfig(clusterId, nodeName)
+        cluster = self._getCfg(clusterId)
+        config = cluster.getNodeConfig(clusterId, nodeName)
         ip = config['ip']
         port = int(config['client_port'])
         ArakoonRemoteControl.collapse(ip,port,clusterId, n)
@@ -155,7 +164,8 @@ class ArakoonCmdtools:
             return
         
         kwargs = { }
-        config = q.config.arakoon.getNodeConfig(clusterId, name)
+        cluster = self._getCfg(clusterId)
+        config = cluster.getNodeConfig(name)
         if 'user' in config :
             kwargs['user'] = config ['user']
             
@@ -230,7 +240,7 @@ class ArakoonCmdtools:
 
     @staticmethod
     def getStorageUtilization(clusterId, node=None):
-        '''Calculate and return the disk usage of the supplied arakoon cluster on the system
+        """Calculate and return the disk usage of the supplied arakoon cluster on the system
 
         When no node name is given, the aggregate consumption of all nodes
         configured in the supplied cluster on the system is returned.
@@ -249,9 +259,9 @@ class ArakoonCmdtools:
         :rtype: `dict`
 
         :raise ValueError: No such local node
-        '''
-
-        local_nodes = q.config.arakoon.listLocalNodes(clusterId)
+        """
+        cluster = self._getCfg(clusterId)
+        local_nodes = cluster.listLocalNodes(clusterId)
 
         if node is not None and node not in local_nodes:
             raise ValueError(EXC_MSG_NOT_LOCAL_FMT % (node, clusterId))
@@ -280,8 +290,7 @@ class ArakoonCmdtools:
             }
 
         nodes = (node, ) if node is not None else local_nodes
-        stats = (helper(q.config.arakoon.getNodeConfig(node, cluster = cluster))
-            for node in nodes)
+        stats = (helper(cluster.getNodeConfig(node)) for node in nodes)
 
         result = {}
         for stat in stats:
@@ -290,7 +299,14 @@ class ArakoonCmdtools:
 
         return result
 
-    def gatherEvidence(self, destination, clusterCredentials=None, includeLogs=True, includeDB=True, includeTLogs=True, includeConfig=True):
+    def gatherEvidence(self,
+                       destination,
+                       clusterId,
+                       clusterCredentials=None,
+                       includeLogs=True,
+                       includeDB=True,
+                       includeTLogs=True,
+                       includeConfig=True):
         """
         @param destination : path INCLUDING FILENAME where the evidence archive is saved. Can be URI, in other words, ftp://..., smb://, /tmp, ...
         @param clusterCredentials : dict of tuples e.g. {"node1" ('login', 'password'), "node2" ('login', 'password'), "node3" ('login', 'password')}
@@ -300,14 +316,16 @@ class ArakoonCmdtools:
         @param includeConfig : Boolean value indicating that the arakoon configuration files should be included in the resulting archive
         
         """
-        
-        nodes_list = q.config.arakoon.listNodes()
-        diff_list = q.config.arakoon.listNodes()
+        cluster = self._getCfg(clusterId)
+        nodes_list = cluster.listNodes()
+        diff_list = cluster.listNodes()
         
         if q.qshellconfig.interactive:
             
             if not clusterCredentials:
-                clusterCredentials = self._getClusterCredentials(nodes_list, diff_list)
+                clusterCredentials = self._getClusterCredentials(cluster,
+                                                                 nodes_list,
+                                                                 diff_list)
             
             elif len(clusterCredentials) < len(nodes_list):
                 nodes_list = [x for x in nodes_list if x not in clusterCredentials]
@@ -318,7 +336,12 @@ class ArakoonCmdtools:
             else:
                 q.gui.dialog.message("All Nodes have Credentials.")
             
-            self._transferFiles(destination, clusterCredentials, includeLogs, includeDB, includeTLogs, includeConfig)
+            self._transferFiles(destination,
+                                clusterCredentials,
+                                includeLogs,
+                                includeDB,
+                                includeTLogs,
+                                includeConfig)
         
         else:
             if not clusterCredentials or len(clusterCredentials) < len(nodes_list):
@@ -326,10 +349,17 @@ class ArakoonCmdtools:
             
             else:
                 q.gui.dialog.message("All Nodes have Credentials.")
-                self._transferFiles(destination, clusterCredentials, includeLogs, includeDB, includeTLogs, includeConfig)
+                self._transferFiles(destination,
+                                    clusterCredentials,
+                                    includeLogs,
+                                    includeDB,
+                                    includeTLogs,
+                                    includeConfig)
 
 
-    def _getClusterCredentials(self, nodes_list, diff_list):
+    def _getClusterCredentials(self, cluster,
+                               nodes_list,
+                               diff_list):
         clusterCredentials = dict()
         same_credentials_nodes = list()
         
@@ -338,7 +368,7 @@ class ArakoonCmdtools:
             
             if nodename in diff_list:
                 
-                node_config = q.config.arakoon.getNodeConfig(nodename)
+                node_config = cluster.getNodeConfig(nodename)
                 node_ip = node_config['ip']
                 
                 node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
@@ -372,14 +402,20 @@ class ArakoonCmdtools:
         return clusterCredentials
 
 
-    def _transferFiles(self, destination, clusterCredentials, includeLogs=True, includeDB=True, includeTLogs=True, includeConfig=True):
+    def _transferFiles(self, destination,
+                       clusterId,
+                       clusterCredentials,
+                       includeLogs=True,
+                       includeDB=True,
+                       includeTLogs=True,
+                       includeConfig=True):
         """
         
         This function copies the logs, db, tlog and config files to a Temp folder on the machine running the script then compresses the Temp 
         folder and places a copy at the destination provided at the beginning
         """
-        
-        nodes_list = q.config.arakoon.listNodes()
+        cluster = q.config.arakoon.getCluster(clusterId)
+        nodes_list = cluster.listNodes()
         archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , 'Archive')
         
         cfs = q.cloud.system.fs 
@@ -389,7 +425,7 @@ class ArakoonCmdtools:
             node_folder  = sfs.joinPaths( archive_folder, nodename)
             
             sfs.createDir(node_folder)
-            configDict = q.config.arakoon.getNodeConfig(nodename)
+            configDict = cluster.getNodeConfig(nodename)
             source_ip = configDict['ip']
             
             userName = clusterCredentials[nodename][0]
