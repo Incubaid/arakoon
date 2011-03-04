@@ -102,9 +102,9 @@ module Node_cfg = struct
       let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
       nodes
     in
-    let lease_expiry inifile =
+    let get_lease_period inifile =
       try
-	let les = (inifile # getval "global" "lease_expiry") in
+	let les = (inifile # getval "global" "lease_period") in
 	Scanf.sscanf les "%i" (fun i -> i)
       with (Inifiles.Invalid_element _) -> default_lease_period
     in
@@ -143,7 +143,7 @@ module Node_cfg = struct
       let home = get_string "home" in
       let tlog_dir = try get_string "tlog_dir" with _ -> home in
       let log_level = String.lowercase (get_string "log_level") in
-      let lease_period = lease_expiry inifile in
+      let lease_period = get_lease_period inifile in
       let log_dir = get_string "log_dir" in
 	{node_name=node_name;
 	 ip=ip;
@@ -187,7 +187,7 @@ module Node_cfg = struct
 	  failwith msg
       with (Inifiles.Invalid_element _) -> Quorum.quorum_function
     in
-    let lease_period = lease_expiry inifile in
+    let lease_period = get_lease_period inifile in
     let cluster_id = get_cluster_id inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
