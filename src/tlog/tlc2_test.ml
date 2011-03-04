@@ -42,8 +42,8 @@ let prepare_tlog_scenarios (dn,factory) =
 
 let test_interrupted_rollover (dn,factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
-  let fn = Filename.concat dn "001.tlog" in
-  Unix.unlink fn;
+  (*let fn = Filename.concat dn "001.tlog" in
+  Unix.unlink fn; *)
   factory dn >>= fun tlog_coll ->
   let update = Update.make_master_set "me" None in
   tlog_coll # log_update 5L update >>= fun _ ->
@@ -82,8 +82,8 @@ let test_validate_at_rollover_boundary (dn,factory) =
   Tlc2.get_tlog_names dn >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
-  let msg = Printf.sprintf "Number of tlogs incorrect. Expected 3, got %d" n in
-  Lwt.return (OUnit.assert_equal ~msg n 3)
+  let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
+  Lwt.return (OUnit.assert_equal ~msg n 2)
 
 let test_iterate4 (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
@@ -142,14 +142,18 @@ let test_iterate6 (dn,factory) =
     else
       begin
         let is = string_of_int i in
+	let sni = Sn.of_int i in
         let update = Update.Set("test_iterate_" ^ is ,is) in
           begin
             if i != 19
             then 
-              tlc # log_update (Sn.of_int i) update 
+              tlc # log_update sni update 
             else
-              tlc # log_update (Sn.of_int i) update >>= fun _ ->
-              tlc # log_update (Sn.of_int i) update 
+	      begin
+		tlc # log_update sni update >>= fun _ ->
+		let u2 = Update.Set("something_else","gotcha") in
+		tlc # log_update sni u2
+	      end
           end >>= fun _ ->
         loop (i+1)
       end
@@ -160,12 +164,14 @@ let test_iterate6 (dn,factory) =
   let too_far_i = Sn.of_int 20 in
   tlc # iterate start_i too_far_i
     (fun (i,u) -> sum := !sum + (Int64.to_int i); 
-      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      Lwt_log.debug_f "i=%s : %s" 
+	(Sn.string_of i) (Update.string_of u)
+      >>= fun () ->
       Lwt.return ())
   >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
-  OUnit.assert_equal ~printer:string_of_int 38 !sum;
+  OUnit.assert_equal ~printer:string_of_int 19 !sum;
   Lwt.return () 
 
 let suite = "tlc2" >:::[
