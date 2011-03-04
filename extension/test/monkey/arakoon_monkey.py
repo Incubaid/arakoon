@@ -277,7 +277,8 @@ def make_monkey_run() :
     t.start()
     
     stop_all()
-    q.config.arakoon.tearDown(cluster_id) 
+    cluster = q.config.arakoon.getCluster(cluster_id)
+    cluster.tearDown() 
     #setup_3_nodes_forced_master()
     setup_3_nodes( system_tests_common.data_base_dir )
     monkey_dir = get_monkey_work_dir()
