@@ -334,6 +334,8 @@ def make_monkey_run() :
  
         rotate_logs(5,False)
         
+        stop_all()
+        
         toWipe = node_names[random.randint(0,2)]
         logging.info("Wiping node %s" % toWipe)
         whipe(toWipe)
