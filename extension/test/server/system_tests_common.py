@@ -97,9 +97,13 @@ proc = q.system.process
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
 
+def _getCfg():
+    global cluster_id 
+    return q.config.arakoon.getCluster(cluster_id)
+
 def dump_tlog (node_id, tlog_number) :
-    global cluster_id
-    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
+    cluster = _getCfg()
+    node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_full_path =  q.system.fs.joinPaths ( node_home_dir, "%03d.tlog" % tlog_number  )
     cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
     logging.debug( "Dumping file %s" % tlog_full_path )
@@ -121,15 +125,17 @@ def get_diff_path():
     return "/usr/bin/diff"
 
 def get_node_db_file( node_id ) :
-    global cluster_id
-    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
+    cluster = _getCfg()
+    node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
     return db_file
     
 def dump_store( node_id ):
     global cluster_id
     stat = q.cmdtools.arakoon.getStatusOne(cluster_id, node_id )
-    assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+    assert_equals( stat,
+                   q.enumerators.AppStatusType.HALTED,
+                   "Can only dump the store of a node that is not running")
     db_file = get_node_db_file ( node_id )
     dump_file = db_file + ".dump" 
     cmd = get_tcbmgr_path() + " list -pv " + db_file
@@ -239,14 +245,17 @@ def compare_stores( node1_id, node2_id ):
     return True
 
 def get_tlog_count (node_id ):
-    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
-    tlogs = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
-    tlogs.extend( q.system.fs.listFilesInDir( node_home_dir, filter="*.tlc" ) )
-    tlogs.extend( q.system.fs.listFilesInDir( node_home_dir, filter="*.tlf" ) )
+    cluster = _getCfg()
+    node_home_dir = cluster.getNodeConfig(node_id ) ['home']
+    ls = q.system.fs.listFilesInDir
+    tlogs =      ls( node_home_dir, filter="*.tlog" )
+    tlogs.extend(ls( node_home_dir, filter="*.tlc" ) )
+    tlogs.extend(ls( node_home_dir, filter="*.tlf" ) )
     return len(tlogs)
     
 def get_last_tlog_id ( node_id ):
-    node_home_dir = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
+    cluster = _getCfg()
+    node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_max_id = 0
     tlog_id = None
     tlogs_for_node = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
@@ -337,7 +346,8 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     
     
 def getConfig(name):
-    return q.config.arakoon.getNodeConfig(cluster_id, name)
+    cluster = _getCfg()
+    return cluster.getNodeConfig(name)
 
 
 def regenerateClientConfig():
@@ -384,20 +394,18 @@ def collapse(name, n = -1):
 def add_node ( i ):
     ni = node_names[i]
     logging.info( "Adding node %s to config", ni )
-    global cluster_id
-    
     (db_dir,log_dir) = build_node_dir_names(ni)
-    
-    q.config.arakoon.addNode (
-        cluster_id,
-        ni, node_ips[i], 
-        client_port=node_client_base_port + i,
-        messaging_port=node_msg_base_port + i, 
-        log_dir = log_dir,
-        log_level = 'debug',
+    cluster = _getCfg()
+    cluster.addNode (
+        ni,
+        node_ips[i], 
+        clientPort = node_client_base_port + i,
+        messagingPort= node_msg_base_port + i, 
+        logDir = log_dir,
+        logLevel = 'debug',
         home = db_dir)
-    q.config.arakoon.addLocalNode (cluster_id, ni )
-    q.config.arakoon.createDirs(cluster_id, ni)
+    cluster.addLocalNode (ni )
+    cluster.createDirs(ni)
 
 def start_all() :
     q.cmdtools.arakoon.start(cluster_id)
@@ -492,22 +500,22 @@ def setup_n_nodes ( n, force_master, home_dir ):
     for i in range (n) :
         nodeName = node_names[ i ]
         (db_dir,log_dir) = build_node_dir_names( nodeName )
-        q.config.arakoon.addNode(cluster_id,
-                                 name=nodeName,
-                                 client_port=7080+i,
-                                 messaging_port=10000+i,
-                                 log_dir = log_dir,
-                                 home = db_dir )
+        cluster = _getCfg()
+        cluster.addNode(name=nodeName,
+                        clientPort = 7080+i,
+                        messagingPort = 10000+i,
+                        logDir = log_dir,
+                        home = db_dir )
         
-        q.config.arakoon.addLocalNode(cluster_id, nodeName)
-        q.config.arakoon.createDirs(cluster_id, nodeName)
+        cluster.addLocalNode(nodeName)
+        cluster.createDirs(nodeName)
 
     if force_master:
         logging.info( "Forcing master to %s", node_names[0] )
-        q.config.arakoon.forceMaster(cluster_id, node_names[0] )
+        cluster.forceMaster(node_names[0] )
     else :
         logging.info( "Using master election" )
-        q.config.arakoon.forceMaster(cluster_id, None )
+        cluster.forceMaster(None )
     
         
     logging.info( "Creating client config" )
@@ -560,8 +568,9 @@ def basic_teardown( removeDirs ):
     
     for i in range( len(node_names) ):
         destroy_ram_fs( i )
-        
-    q.config.arakoon.tearDown(cluster_id, removeDirs ) 
+
+    cluster = _getCfg()
+    cluster.tearDown(removeDirs ) 
     if removeDirs:
         q.system.fs.removeDirTree( data_base_dir )
         
