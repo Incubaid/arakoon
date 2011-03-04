@@ -33,7 +33,7 @@ class TestConfig:
         return '%s_servernodes' % self._clusterId
 
     def _getCluster(self):
-        return q.config.arakoon.getCluster(self._clusterId)
+        return q.manage.arakoon.getCluster(self._clusterId)
     
     def setup(self):
         cid = self._clusterId
