@@ -370,7 +370,7 @@ def whipe(name):
 
 def get_memory_usage(node_name):
     cluster = _getCluster()
-    pid = cluster._getPid(cluster_id, node_name )
+    pid = cluster._getPid(node_name )
     if pid is None:
         return 0
     cmd = "ps -p %s -o vsz" % (pid)
