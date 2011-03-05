@@ -46,7 +46,8 @@ def test_delete_non_existing_with_catchup ():
     slave = node_names[1]
     startOne( slave )
     time.sleep(2.0)
-    log_dir = q.config.arakoon.getNodeConfig(cluster_id, slave ) ['log_dir']
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster.getNodeConfig(slave ) ['log_dir']
     log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
@@ -373,8 +374,8 @@ def test_sso_deployment():
     config = q.config.getInifile(cluster_id)
     config.setParam(node_names[2],"log_level","debug")
     config.write()
-    
-    q.config.arakoon.forceMaster(cluster_id, None )
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster.forceMaster(None )
     logging.info("2 node config without forced master")
 
     regenerateClientConfig()
