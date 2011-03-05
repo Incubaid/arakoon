@@ -97,12 +97,12 @@ proc = q.system.process
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
 
-def _getCfg():
+def _getCluster():
     global cluster_id 
-    return q.config.arakoon.getCluster(cluster_id)
+    return q.manage.arakoon.getCluster(cluster_id)
 
 def dump_tlog (node_id, tlog_number) :
-    cluster = _getCfg()
+    cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_full_path =  q.system.fs.joinPaths ( node_home_dir, "%03d.tlog" % tlog_number  )
     cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
@@ -125,14 +125,14 @@ def get_diff_path():
     return "/usr/bin/diff"
 
 def get_node_db_file( node_id ) :
-    cluster = _getCfg()
+    cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
     return db_file
     
 def dump_store( node_id ):
-    global cluster_id
-    stat = q.cmdtools.arakoon.getStatusOne(cluster_id, node_id )
+    cluster = _getCluster()
+    stat = cluster.getStatusOne(node_id )
     assert_equals( stat,
                    q.enumerators.AppStatusType.HALTED,
                    "Can only dump the store of a node that is not running")
@@ -158,9 +158,10 @@ def compare_stores( node1_id, node2_id ):
     # Line 2 contains the master lease, can be different as it contains a timestamp
     d1_fd = open ( dump1, "r" )
     d2_fd = open ( dump2, "r" )
-    
+
+    cluster = _getCluster()
     def get_i ( node_id ):
-        stat = q.cmdtools.arakoon.getStatusOne(cluster_id, node_id )
+        stat = cluster.getStatusOne(node_id )
         assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
         db_file = get_node_db_file(node_id)
         cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
@@ -245,7 +246,7 @@ def compare_stores( node1_id, node2_id ):
     return True
 
 def get_tlog_count (node_id ):
-    cluster = _getCfg()
+    cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     ls = q.system.fs.listFilesInDir
     tlogs =      ls( node_home_dir, filter="*.tlog" )
@@ -254,7 +255,7 @@ def get_tlog_count (node_id ):
     return len(tlogs)
     
 def get_last_tlog_id ( node_id ):
-    cluster = _getCfg()
+    cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_max_id = 0
     tlog_id = None
@@ -286,18 +287,20 @@ def get_last_i_tlog ( node_id ):
     return tlog_last_i
 
 def stopOne(name):
-    global cluster_id
-    q.cmdtools.arakoon.stopOne(cluster_id, name)
+    cluster = _getCluster()
+    cluster.stopOne(name)
 
 def startOne(name):
-    global cluster_id
-    q.cmdtools.arakoon.startOne(cluster_id, name)
+    cluster = _getCluster()
+    cluster.startOne(name)
 
 def catchupOnly(name):
-    q.cmdtools.arakoon.catchupOnly(cluster_id, name)
+    cluster = _getCluster()
+    cluster.catchupOnly(name)
     
 def restart_all():
-    q.cmdtools.arakoon.restart(cluster_id)
+    cluster = _getCluster()
+    cluster.restart()
     
 def rotate_logs( max_logs_to_keep = 5, compress_old_files = True):
     for node_name in node_names:
@@ -346,7 +349,7 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     
     
 def getConfig(name):
-    cluster = _getCfg()
+    cluster = _getCluster()
     return cluster.getNodeConfig(name)
 
 
@@ -366,7 +369,8 @@ def whipe(name):
     logging.info("whiped %s" % name)
 
 def get_memory_usage(node_name):
-    pid = q.cmdtools.arakoon._getPid(cluster_id, node_name )
+    cluster = _getCluster()
+    pid = cluster._getPid(cluster_id, node_name )
     if pid is None:
         return 0
     cmd = "ps -p %s -o vsz" % (pid)
@@ -395,7 +399,7 @@ def add_node ( i ):
     ni = node_names[i]
     logging.info( "Adding node %s to config", ni )
     (db_dir,log_dir) = build_node_dir_names(ni)
-    cluster = _getCfg()
+    cluster = _getCluster()
     cluster.addNode (
         ni,
         node_ips[i], 
@@ -408,11 +412,13 @@ def add_node ( i ):
     cluster.createDirs(ni)
 
 def start_all() :
-    q.cmdtools.arakoon.start(cluster_id)
+    cluster = _getCluster()
+    cluster.start()
     time.sleep(3.0)  
 
 def stop_all():
-    q.cmdtools.arakoon.stop(cluster_id)
+    cluster = _getCluster()
+    cluster.stop()
 
 def restart_all():
     stop_all()
@@ -500,7 +506,7 @@ def setup_n_nodes ( n, force_master, home_dir ):
     for i in range (n) :
         nodeName = node_names[ i ]
         (db_dir,log_dir) = build_node_dir_names( nodeName )
-        cluster = _getCfg()
+        cluster = _getCluster()
         cluster.addNode(name=nodeName,
                         clientPort = 7080+i,
                         messagingPort = 10000+i,
@@ -569,7 +575,7 @@ def basic_teardown( removeDirs ):
     for i in range( len(node_names) ):
         destroy_ram_fs( i )
 
-    cluster = _getCfg()
+    cluster = _getCluster()
     cluster.tearDown(removeDirs ) 
     if removeDirs:
         q.system.fs.removeDirTree( data_base_dir )
