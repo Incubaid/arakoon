@@ -47,7 +47,7 @@ def test_delete_non_existing_with_catchup ():
     startOne( slave )
     time.sleep(2.0)
     cluster = q.manage.arakoon.getCluster(cluster_id)
-    cluster.getNodeConfig(slave ) ['log_dir']
+    log_dir = cluster.getNodeConfig(slave ) ['log_dir']
     log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )

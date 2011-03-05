@@ -89,15 +89,14 @@ def setup_3_nodes_ram_fs ( home_dir ):
     logging.info( "Creating data base dir %s" % home_dir )
     
     q.system.fs.createDir ( home_dir )
-    
+    cluster = q.manage.arakoon.getCluster(cluster_id)    
     try :
         for i in range( len(node_names) ):
             mount_ram_fs ( i )
             nodeName = node_names[i]
             (db_dir,log_dir) = build_node_dir_names( node_names[ i ] )
-    
-            q.config.arakoon.addNode (
-                cluster_id,
+
+            cluster.addNode (
                 node_names[i], node_ips[i], 
                 client_port=node_client_base_port + i,
                 messaging_port=node_msg_base_port + i, 
@@ -120,7 +119,7 @@ def setup_3_nodes_ram_fs ( home_dir ):
     
 
     logging.info( "Creating client config" )
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+    cluster.generateClientConfigFromServerConfig()
             
     start_all()
 
@@ -139,8 +138,9 @@ def teardown_ram_fs ( removeDirs ):
         
     for i in range ( len( node_names ) ):
         destroy_ram_fs( i )
-        
-    q.config.arakoon.tearDown(cluster_id)
+
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster.tearDown()
 
 
 def fill_disk ( file_to_write ) :
@@ -506,7 +506,8 @@ def test_block_master_ports () :
     old_master_id = cli.whoMaster()
 
     master_ports = get_node_ports( old_master_id )
-    master_client_port = q.config.arakoon.getNodeConfig(cluster_id,old_master_id ) ["client_port"]
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    master_client_port = cluster.getNodeConfig(old_master_id ) ["client_port"]
     master_ports.remove( master_client_port )
     block_rules = list()
     for master_port in master_ports:
