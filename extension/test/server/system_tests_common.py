@@ -307,7 +307,8 @@ def rotate_logs( max_logs_to_keep = 5, compress_old_files = True):
         rotate_log( node_name, max_logs_to_keep, compress_old_files)
 
 def send_signal ( node_name, signal ):
-    pid = q.cmdtools.arakoon._getPid( cluster_id, node_name )
+    cluster = _getCluster()
+    pid = cluster._getPid(node_name)
     if pid is not None:
         q.system.process.kill( pid, signal )
 
