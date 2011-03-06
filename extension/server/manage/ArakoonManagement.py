@@ -27,6 +27,8 @@ import os.path
 import itertools
 import subprocess
 import time
+import string
+import logging
 
 class ArakoonManagement:
     def getCluster(self, clusterId):
@@ -627,11 +629,12 @@ class ArakoonCluster:
 
 
     def _stopOne(self, name):
-        tpl = (self._binary,self._cfgPath,self._clusterId,name)
-        subprocess.call(['pkill', 
-                         '-f', 
-                         '%s -config %s/%s.cfg --node %s' % tpl], 
-                        close_fds=True)
+        tpl = (self._binary, self._cfgPath, self._clusterId,name)
+        cmd = ['pkill', 
+               '-f', 
+               '%s -config %s/%s.cfg --node %s' % tpl]
+        logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
+        subprocess.call(cmd, close_fds=True)
 
         i = 0
         while(self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING):
@@ -639,6 +642,7 @@ class ArakoonCluster:
             i += 1
 
             if i == 10:
+                logging.debug("stopping '%s' with -9")
                 subprocess.call(['pkill', 
                                  '-9', 
                                  '-f', 
@@ -646,10 +650,7 @@ class ArakoonCluster:
                                 close_fds=True)
                 break
             else:
-                subprocess.call(['pkill', 
-                                 '-f', 
-                                 '%s -config %s/%s.cfg --node %s' % tpl], 
-                                close_fds=True)
+                subprocess.call(cmd, close_fds=True)
     
     def _restartOne(self, name):
         self._stopOne(name)

@@ -418,6 +418,7 @@ def start_all() :
     time.sleep(3.0)  
 
 def stop_all():
+    logging.info("stop_all")
     cluster = _getCluster()
     cluster.stop()
 
