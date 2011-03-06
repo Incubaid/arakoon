@@ -62,6 +62,11 @@ class ArakoonClientConfig :
         """
         self._clusterId = clusterId
         self._nodes = nodes
+    
+    def __repr__(self):
+        r = "ArakoonClientConfig(%s,%s)" % (self._clusterId,
+                                            str(self._nodes))
+        return r
 
     @staticmethod
     def getNoMasterRetryPeriod() :

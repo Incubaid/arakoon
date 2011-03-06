@@ -150,15 +150,24 @@ def test_master_reelect():
     key = "k"
     value = "v"
     cli.set(key ,value )
-    
+
+    logging.info("stopping master:%s", master_id)
     stopOne( master_id )
-    
-    time.sleep( 1.5 * lease_duration )
+
+    delay = 1.5 * lease_duration
+    time.sleep(delay)
+    logging.info("waited %s, for reelection to happen" % delay)
+    logging.info("config=%s" % (cli._config))
     
     cli._masterId = None
+    
     new_master_id = cli.whoMaster()
-    assert_not_equals ( new_master_id, None, "No new master elected, no master. Aborting.")
-    assert_not_equals ( new_master_id, master_id, "No new master elected, same master. Aborting.")
+    assert_not_equals ( new_master_id,
+                        None,
+                        "No new master elected, no master. Aborting.")
+    assert_not_equals ( new_master_id,
+                        master_id,
+                        "No new master elected, same master. Aborting.")
     
     assert_equals( cli.get(key), value)
     startOne( master_id )
@@ -172,8 +181,12 @@ def test_master_reelect():
     
     cli = get_client()
     newest_master_id = cli.whoMaster()
-    assert_not_equals ( newest_master_id, None, "No new master elected, no master. Aborting.")
-    assert_not_equals ( newest_master_id, new_master_id, "No new master elected, same master. Aborting.")
+    assert_not_equals ( newest_master_id,
+                        None,
+                        "No new master elected, no master. Aborting.")
+    assert_not_equals ( newest_master_id,
+                        new_master_id,
+                        "No new master elected, same master. Aborting.")
 
 
 @with_custom_setup( setup_3_nodes, basic_teardown)
