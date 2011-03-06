@@ -98,16 +98,17 @@ def setup_3_nodes_ram_fs ( home_dir ):
 
             cluster.addNode (
                 node_names[i], node_ips[i], 
-                client_port=node_client_base_port + i,
-                messaging_port=node_msg_base_port + i, 
-                log_dir = log_dir,
+                clientPort=node_client_base_port + i,
+                messagingPort=node_msg_base_port + i, 
+                logDir = log_dir,
                 home = db_dir)
-            q.config.arakoon.addLocalNode (cluster_id, node_names[i] )
-            q.config.arakoon.createDirs(cluster_id, node_names[i] )
+            cluster.addLocalNode (node_names[i] )
+            cluster.createDirs(node_names[i] )
 
     except Exception as ex:
         teardown_ram_fs( True )
-
+        raise ex
+    
     logging.info( "Changing log level to debug for all nodes" )
     config = q.config.getInifile(cluster_id)
     
@@ -119,7 +120,7 @@ def setup_3_nodes_ram_fs ( home_dir ):
     
 
     logging.info( "Creating client config" )
-    cluster.generateClientConfigFromServerConfig()
+    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
             
     start_all()
 
@@ -204,7 +205,8 @@ def test_disk_full_on_slave ():
     
 def disk_full_scenario( node_id, cli ):
     global cluster_id
-    node_home = q.config.arakoon.getNodeConfig(cluster_id, node_id ) ['home']
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    node_home = cluster.getNodeConfig(node_id ) ['home']
     
     disk_filling = q.system.fs.joinPaths( node_home , "filling")
     disk_filler = lambda: fill_disk ( disk_filling )
@@ -222,7 +224,7 @@ def disk_full_scenario( node_id, cli ):
     cli._dropConnections()
    
     # Make sure the node with a full disk is no longer running
-    assert_equals( q.cmdtools.arakoon.getStatusOne(cluster_id, node_id),
+    assert_equals( cluster.getStatusOne(node_id),
                    q.enumerators.AppStatusType.HALTED,
                    'Node with full disk is still running') 
     time.sleep( 2*lease_duration )
