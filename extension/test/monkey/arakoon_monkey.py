@@ -164,23 +164,35 @@ def wait_for_it () :
     global monkey_dies
     if not monkey_dies:
         logging.info( "Work is done. Waiting for nodes to get in sync." )
-        in_sync = False
-        allowed_time_left = 300
-        while (not in_sync and allowed_time_left > 0) :
+        i0 = int( get_last_i_tlog ( node_names[0] ))
+        i1 = int( get_last_i_tlog ( node_names[1] ))
+        i2 = int( get_last_i_tlog ( node_names[2] ))
+        all_i = [i0, i1, i2]
+        i_max = max(all_i)
+        i_min = min(all_i)
+        to_do = i_max - i_min
+        go_on = to_do > 3
+        
+        while go_on:
+            previous = to_do
+            time.sleep(5.0)
             i0 = int( get_last_i_tlog ( node_names[0] ))
             i1 = int( get_last_i_tlog ( node_names[1] ))
             i2 = int( get_last_i_tlog ( node_names[2] ))
-            if abs(i0 - i1) < 3 and  abs(i0 - i2) < 3  and abs(i2 - i1) < 3 :
-                in_sync = True
+            all_i = [i0,i1, i2]
+            i_max = max(all_i)
+            i_min = min(all_i)
+            to_do = i_max - i_min
+            if to_do < 3:
+                go_on = False
+            elif previous - to_update < 5000:
+                logging.info("still not in sync and too slow (%i,%i,%i)",
+                             i0,i1,i2)
+                monkey_dies = True
+                go_on = False
             else:
-                logging.info( "Nodes still not in sync (%i,%i,%i)", i0,i1,i2)
-                assert_running_nodes(3)
-                time.sleep(5.0) 
-                allowed_time_left -= 5.0
-        
-        if allowed_time_left <= 0 :
-            logging.critical("!!! Nodes out of sync. Timeout exceeded.")
-            monkey_dies = True
+                assert_nodes_running(3)
+
 def health_check() :
 
     logging.info( "Starting health check" )
