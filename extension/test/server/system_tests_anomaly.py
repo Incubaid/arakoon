@@ -115,7 +115,7 @@ def setup_3_nodes_ram_fs ( home_dir ):
     for i in range( len(node_names) ) :
         config.setParam(node_names[i],"log_level","debug")
     
-    config.setParam( 'global', 'lease_expiry', str(int(lease_duration)) )    
+    config.setParam( 'global', 'lease_period', str(int(lease_duration)) )    
     config.write()
     
 

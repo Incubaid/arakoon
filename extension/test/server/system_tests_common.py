@@ -534,7 +534,7 @@ def setup_n_nodes ( n, force_master, home_dir ):
     
     for i in range(n) :
         config.setParam(node_names[i],"log_level","debug")
-    config.setParam( 'global', 'lease_expiry', str(int(lease_duration)) )    
+    config.setParam( 'global', 'lease_period', str(int(lease_duration)) )    
     config.write()
     
     
