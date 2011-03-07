@@ -6,8 +6,9 @@ ocamlbuild $@ main.native
 
 mkdir -p /opt/qbase3/apps/arakoon/bin/
 cp main.native /opt/qbase3/apps/arakoon/bin/arakoond
-cp -r extension/server /opt/qbase3/lib/pymonkey/extensions/arakoon/
-cp -r extension/client /opt/qbase3/lib/pymonkey/extensions/arakoon/
+cp -r extension/server /opt/qbase3/lib/pymonkey/extensions/arakoon/server
+cp -r extension/client /opt/qbase3/lib/pymonkey/extensions/arakoon/client
+
 mkdir -p /opt/qbase3/var/tests/arakoon_system_tests/
 touch /opt/qbase3/var/tests/arakoon_system_tests/__init__.py
 cp -r extension/test/* /opt/qbase3/var/tests/arakoon_system_tests/
