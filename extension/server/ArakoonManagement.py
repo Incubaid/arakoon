@@ -765,6 +765,7 @@ class ArakoonCluster:
 
         return result
 
+'''
     def gatherEvidence(self,
                        destination,
                        clusterCredentials=None,
@@ -936,3 +937,4 @@ class ArakoonCluster:
         
         q.system.fs.removeDirTree( archive_folder )
         q.system.fs.unlink( archive_file )
+'''
