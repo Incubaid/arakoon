@@ -171,7 +171,7 @@ def wait_for_it () :
         i_max = max(all_i)
         i_min = min(all_i)
         to_do = i_max - i_min
-        go_on = to_do > 3
+        go_on = to_do >= 3
         
         while go_on:
             previous = to_do
@@ -185,7 +185,7 @@ def wait_for_it () :
             to_do = i_max - i_min
             if to_do < 3:
                 go_on = False
-            elif previous - to_update < 5000:
+            elif previous - to_do < 5000:
                 logging.info("still not in sync and too slow (%i,%i,%i)",
                              i0,i1,i2)
                 monkey_dies = True
