@@ -38,6 +38,29 @@ class ArakoonManagement:
         """
         return ArakoonCluster(clusterId)
 
+    def upgrade(self):
+        """
+        update configs for the 'arakoon' cluster from 0.8.2 to 0.9.0
+        """
+        fs = q.system.fs
+        jp = fs.joinPaths
+        cfgDir = jp(q.dirs.cfgDir,'qconfig')
+        if fs.exists(jp(cfgDir,'arakoon.cfg')):
+            cfg = q.config.getInifile('arakoon')
+            cfg.addParam('global','cluster_id','arakoon')
+            cfg.write()
+
+        nodes_source = jp(cfgDir,'arakoonnodes.cfg')
+        nodes_target = jp(cfgDir,'arakoon_nodes.cfg')
+        if fs.exists(nodes_source):
+            fs.moveFile(nodes_source,nodes_target)
+
+        servernodes_source = jp(cfgDir,'arakoonservernodes.cfg')
+        servernodes_target = jp(cfgDir,'arakoon_servernodes.cfg')
+        if fs.exists(servernodes_source):
+            fs.moveFile(servernodes_source, servernodes_target)
+        
+
 class ArakoonCluster:
 
     def __init__(self, clusterId):
