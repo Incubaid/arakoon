@@ -705,8 +705,7 @@ class ArakoonCluster:
 
         return result
 
-    @staticmethod
-    def getStorageUtilization(node=None):
+    def getStorageUtilization(self, node = None):
         """Calculate and return the disk usage of the supplied arakoon cluster on the system
 
         When no node name is given, the aggregate consumption of all nodes
