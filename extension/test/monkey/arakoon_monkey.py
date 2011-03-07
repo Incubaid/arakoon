@@ -165,7 +165,7 @@ def wait_for_it () :
     if not monkey_dies:
         logging.info( "Work is done. Waiting for nodes to get in sync." )
         in_sync = False
-        allowed_time_left = 120
+        allowed_time_left = 300
         while (not in_sync and allowed_time_left > 0) :
             i0 = int( get_last_i_tlog ( node_names[0] ))
             i1 = int( get_last_i_tlog ( node_names[1] ))
@@ -173,7 +173,7 @@ def wait_for_it () :
             if abs(i0 - i1) < 3 and  abs(i0 - i2) < 3  and abs(i2 - i1) < 3 :
                 in_sync = True
             else:
-                logging.info( "Nodes still not in sync")
+                logging.info( "Nodes still not in sync (%i,%i,%i)", i0,i1,i2)
                 assert_running_nodes(3)
                 time.sleep(5.0) 
                 allowed_time_left -= 5.0
