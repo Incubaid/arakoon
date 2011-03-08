@@ -187,7 +187,7 @@ def wait_for_it () :
             logging.info ("done=%i; todo=%i", done, to_do)
             if to_do < 3:
                 go_on = False
-            elif done > 0 and done < 3000:
+            elif done > 0 and done < 500:
                 logging.info("still not in sync and too slow (%i,%i,%i)",
                              i0,i1,i2)
                 monkey_dies = True
