@@ -21,3 +21,4 @@ true: warn_error_F
 "src/system": include
 "src/inifiles": include
 "examples/ocaml": include
+<**/main.*{byte,native}>: is_main

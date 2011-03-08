@@ -149,11 +149,11 @@ let _ = dispatch & function
 	A"-ccopt";A"-msse4.2";
       ]);
 
-    dep ["ocaml";"link"]["src/otc/libotc.a"];
+    dep ["ocaml";"link";"is_main"]["src/otc/libotc.a"];
 
-    dep ["ocaml";"link"]["src/libcutil.a"];
+    dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
-    flag ["ocaml";"link"](
+    flag ["ocaml";"link";"is_main"](
       S[A"-linkpkg";
 	A"-ccopt"; A("-L" ^ tc_home);
 	A"-ccopt"; A"-ltokyocabinet";

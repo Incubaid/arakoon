@@ -33,7 +33,8 @@ install_client:
 	  _build/src/client/arakoon_client.cmi \
 	  _build/src/client/arakoon_remote_client.mli \
 	  _build/src/client/arakoon_remote_client.cmi \
-	  _build/src/client/arakoon_remote_client.cmx 
+	  _build/src/client/arakoon_remote_client.cmx \
+          _build/src/arakoon_client.a 
 
 uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
