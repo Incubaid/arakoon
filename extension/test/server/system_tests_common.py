@@ -133,9 +133,9 @@ def get_node_db_file( node_id ) :
 def dump_store( node_id ):
     cluster = _getCluster()
     stat = cluster.getStatusOne(node_id )
-    assert_equals( stat,
-                   q.enumerators.AppStatusType.HALTED,
-                   "Can only dump the store of a node that is not running")
+    msg = "Can only dump the store of a node that is not running (status is %s)" % stat
+    assert_equals( stat, q.enumerators.AppStatusType.HALTED, msg)
+
     db_file = get_node_db_file ( node_id )
     dump_file = db_file + ".dump" 
     cmd = get_tcbmgr_path() + " list -pv " + db_file
