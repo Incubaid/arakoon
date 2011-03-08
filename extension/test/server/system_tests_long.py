@@ -74,7 +74,7 @@ def test_restart_single_slave_long ():
 @with_custom_setup( default_setup, basic_teardown )
 def test_20_clients_1000_sets() :
     arakoon.ArakoonProtocol.ARA_CFG_TIMEOUT = 60.0
-    create_and_wait_for_threads ( 20, 1000, simple_set, 100.0 )
+    create_and_wait_for_threads ( 20, 1000, simple_set, 200.0 )
 
 @with_custom_setup( setup_3_nodes, basic_teardown)
 def test_tlog_rollover():
