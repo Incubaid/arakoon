@@ -86,17 +86,19 @@ let test_validate_at_rollover_boundary (dn,factory) =
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
 let test_iterate4 (dn, factory) =
+  Lwt_log.debug "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
   let update = Update.Set("test_iterate4","xxx") in
   Tlogcollection_test._log_repeat tlc update 120 >>= fun () ->
-  Lwt_unix.sleep 2.0 >>= fun () -> (* compression should have callback *)
+  Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
   let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
   Unix.unlink fnc;
   (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
   Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
+  Lwt_log.debug_f "end of test_iterate4" >>= fun () -> 
   Lwt.return ()
 
 
