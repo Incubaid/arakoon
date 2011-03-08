@@ -193,7 +193,7 @@ def wait_for_it () :
                 monkey_dies = True
                 go_on = False
             else:
-                assert_nodes_running(3)
+                assert_running_nodes(3)
 
 def health_check() :
 
