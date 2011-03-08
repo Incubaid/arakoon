@@ -86,6 +86,7 @@ let test_validate_at_rollover_boundary (dn,factory) =
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
 let test_iterate4 (dn, factory) =
+  Lwt_log.debug "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
   let update = Update.Set("test_iterate4","xxx") in
@@ -97,6 +98,7 @@ let test_iterate4 (dn, factory) =
   tlc # get_infimum_i () >>= fun inf ->
   Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
+  Lwt_log.debug_f "end of test_iterate4" >>= fun () ->
   Lwt.return ()
 
 
