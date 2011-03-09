@@ -630,6 +630,11 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         return self._getStatusOne(nodeName)
 
+    def _cmdLine(self, name):
+        template = '%s --node %s -config %s/%s.cfg'
+        tpl = (self._binary, name, self._cfgPath, self._clusterId)
+        return template % tpl
+    
     def _startOne(self, name):
         if self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING:
             return
@@ -643,19 +648,13 @@ class ArakoonCluster:
             kwargs ['group'] = config ['group']
         
         
-        command = '%s -config %s --node %s' % (self._binary, 
-                                               '%s/%s.cfg' % (self._cfgPath,
-                                                              self._clusterId),
-                                               name)
-            
+        command = self._cmdLine(name)
         pid = q.system.process.runDaemon(command, **kwargs)
 
 
     def _stopOne(self, name):
-        tpl = (self._binary, self._cfgPath, self._clusterId,name)
-        cmd = ['pkill', 
-               '-f', 
-               '%s -config %s/%s.cfg --node %s' % tpl]
+        line = self._cmdLine(name)
+        cmd = ['pkill', '-f',  line]
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
         subprocess.call(cmd, close_fds=True)
 
@@ -666,11 +665,7 @@ class ArakoonCluster:
 
             if i == 10:
                 logging.debug("stopping '%s' with -9")
-                subprocess.call(['pkill', 
-                                 '-9', 
-                                 '-f', 
-                                 '%s -config %s/%s.cfg --node %s' % tpl],
-                                close_fds=True)
+                subprocess.call(['pkill', '-9', '-f', line], close_fds=True)
                 break
             else:
                 subprocess.call(cmd, close_fds=True)
@@ -683,11 +678,8 @@ class ArakoonCluster:
     def _getPid(self, name):
         if self._getStatusOne(name) == q.enumerators.AppStatusType.HALTED:
             return None
-        
-        cmd = 'pgrep -o -f "%s -config %s/%s.cfg --node %s"' % (self._binary,
-                                                                self._cfgPath,
-                                                                self._clusterId,
-                                                                name)
+        line = self._cmdLine(name)
+        cmd = 'pgrep -o -f "%s"' % line
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
@@ -695,10 +687,9 @@ class ArakoonCluster:
             return int(stdout)
                 
     def _getStatusOne(self,name):
-        cmd = ['pgrep','-f',
-               '%s -config %s/%s.cfg --node %s' %
-               (self._binary, self._cfgPath, self._clusterId, name)]
-        ret = subprocess.call(cmd,close_fds=True, stdout=subprocess.PIPE)
+        line = self._cmdLine(name)
+        cmd = ['pgrep','-f', line]
+        ret = subprocess.call(cmd, close_fds=True, stdout=subprocess.PIPE)
         result = q.enumerators.AppStatusType.HALTED
         if ret == 0:
             result = q.enumerators.AppStatusType.RUNNING
