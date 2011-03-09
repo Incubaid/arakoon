@@ -339,7 +339,7 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     shift_logs()
     if fs.isFile( log_file ):
         fs.renameFile ( log_file, tmp_log_file )
-        if cluster.getStatus(node_name) == q.enumerators.AppStatusType.RUNNING:
+        if cluster.getStatusOne(node_name) == q.enumerators.AppStatusType.RUNNING:
             send_signal ( node_name, signal.SIGUSR1 )
         
         if compress_old_files:
