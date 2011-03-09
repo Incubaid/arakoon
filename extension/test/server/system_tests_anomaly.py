@@ -282,12 +282,8 @@ def get_node_block_rules( node_id ):
     return node_block_rules
     
 def get_node_ports ( node_id ):
-    tmp = "pgrep -f '\-config /opt/qbase3/cfg/qconfig/%s.cfg \-\-node %s'" 
-    cmd = tmp % (cluster_id, node_id)
-    (exitcode,stdout,stderr) = q.system.process.run( cmd )
-    assert_equals( exitcode, 0, "Could not determine pid for %s" % node_id )
-    node_pid = stdout.strip()
-    
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    node_pid = cluster._getPid(node_id)
     cmd = "netstat -natp | grep %s\/arakoond | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid 
     (exitcode,stdout,stderr) = q.system.process.run( cmd )
     print stdout
