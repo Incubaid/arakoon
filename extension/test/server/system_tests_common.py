@@ -335,11 +335,13 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
             new_log_name = old_log_fmt % (j + 1)
             if fs.isFile( log_to_move ) :
                 fs.renameFile ( log_to_move, new_log_name )
-    
+    cluster = _getCluster()
     shift_logs()
     if fs.isFile( log_file ):
         fs.renameFile ( log_file, tmp_log_file )
-        send_signal ( node_name, signal.SIGUSR1 )
+        if cluster.getStatus(node_name) == q.enumerators.AppStatusType.RUNNING:
+            send_signal ( node_name, signal.SIGUSR1 )
+        
         if compress_old_files:
             cf = gzip.open( old_log_fmt % 1 , 'w')
             orig = open(tmp_log_file, 'r' )
