@@ -630,10 +630,16 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         return self._getStatusOne(nodeName)
 
+    def _cmd(self, name):
+        r =  [self._binary,'--node',name,'-config',
+              '%s/%s.cfg' % (self._cfgPath, self._clusterId),
+              '-daemonize']
+        return r
+    
     def _cmdLine(self, name):
-        template = '%s --node %s -config %s/%s.cfg'
-        tpl = (self._binary, name, self._cfgPath, self._clusterId)
-        return template % tpl
+        cmd = self._cmd(name)
+        cmdLine = string.join(cmd, ' ')
+        return cmdLine
     
     def _startOne(self, name):
         if self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING:
@@ -641,15 +647,19 @@ class ArakoonCluster:
         
         kwargs = { }
         config = self.getNodeConfig(name)
+        cmd = []
         if 'user' in config :
-            kwargs['user'] = config ['user']
+            cmd = ['sudo']
+            cmd.append('-u')
+            cmd.append(config['user'])
             
-        if 'group' in config :
-            kwargs ['group'] = config ['group']
-        
-        
-        command = self._cmdLine(name)
-        pid = q.system.process.runDaemon(command, **kwargs)
+        #if 'group' in config :
+        #    kwargs ['group'] = config ['group']
+        # ???
+        command = self._cmd(name)
+        cmd.extend(command)
+        logging.debug('calling: %s', str(cmd))
+        subprocess.call(cmd, close_fds = True)
 
 
     def _stopOne(self, name):
