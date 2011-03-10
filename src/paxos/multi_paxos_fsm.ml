@@ -101,6 +101,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 		            | Some si -> Sn.succ si
 		        end in
 		        constants.get_value(nak_max) >>= fun lv ->
+            start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
 			      let reply = Promise(n,nak_max,lv) in
 			      log ~me "replying with %S" (string_of reply) >>= fun () ->
 			      send reply me source >>= fun () ->
@@ -287,7 +288,7 @@ let wait_for_promises constants state event =
                       >>= fun () ->
                       if n'' > n || i' > i then
                         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-                        let needs_new_lease = (n' <> n) in
+                        let needs_new_lease = (n'' <> n) in
 			                  Lwt.return (Slave_discovered_other_master (source,cu_pred,n'',i', needs_new_lease))
                       else
 			let new_n = update_n constants (max n n'') in
@@ -373,6 +374,7 @@ let wait_for_promises constants state event =
 		        constants.send reply me source >>= fun () ->
 		        if i' = nak_max 
 		        then
+              start_lease_expiration_thread constants n' constants.lease_expiration >>= fun () ->
 		          Lwt.return (Slave_wait_for_accept (n', i, None, pr_up_with_i))
 		        else
 		          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
@@ -635,6 +637,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	          	        constants.send reply me source >>= fun () ->
 	                      begin
 	                        if i' = i then
+                            start_lease_expiration_thread constants n' constants.lease_expiration >>= fun () ->
 	              	          Lwt.return (Slave_wait_for_accept (n',i, None, Some (v,i) ))
 	                        else
 	                          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
