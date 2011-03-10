@@ -706,7 +706,7 @@ class ArakoonCluster:
         pid_list = pids.split()
         logging.debug('pid_list=%s',pid_list)
         for pid in pid_list:
-            f = open('/proc/%s/cmdline','r')
+            f = open('/proc/%s/cmdline' % pid,'r')
             startup = f.read()
             f.close()
             logging.debug("pid=%s; cmdline=%s", pid, startup)
