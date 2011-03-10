@@ -112,7 +112,7 @@ let slave_steady_state constants state event =
 		      (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let needs_new_lease = ( n' != n ) in 
+        let needs_new_lease = ( n' <> n ) in 
         let new_state = (source,cu_pred,n',i',needs_new_lease) in 
         Lwt.return (Slave_discovered_other_master(new_state) ) 
 	    end
@@ -163,7 +163,7 @@ let slave_steady_state constants state event =
                   if i' > i then
                     begin
                       Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-                      let needs_new_lease = (n' != n) in
+                      let needs_new_lease = (n' <> n) in
                       let new_state = (source,cu_pred,n',i', needs_new_lease) in
                       Lwt.return (Slave_discovered_other_master new_state)
                     end
@@ -295,7 +295,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       else 
         begin
           begin
-            if n' != n 
+            if n' <> n 
             then
               start_lease_expiration_thread constants n' constants.lease_expiration
             else
@@ -322,7 +322,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         begin
 	        if i' > i then 
             Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-            let needs_new_lease = ( n' != n ) in
+            let needs_new_lease = ( n' <> n ) in
             Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i', needs_new_lease) )   
           else
           begin
@@ -368,7 +368,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             (Sn.string_of i) (Sn.string_of i')  
           >>= fun () -> 
           Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-          let needs_new_lease = (n' != n) in
+          let needs_new_lease = (n' <> n) in
           let new_state = (source, cu_pred, n', i', needs_new_lease) in 
           Lwt.return (Slave_discovered_other_master(new_state) ) 
         else
@@ -468,6 +468,7 @@ let slave_discovered_other_master constants state () =
       begin
       if new_lease_expiration
       then
+        Lwt_log.debug "slave_discovered_other_master: Starting lease..." >>= fun () ->
         start_lease_expiration_thread constants future_n'	constants.lease_expiration
       else
         Lwt.return()
@@ -496,9 +497,14 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
       tlog_coll # get_last_i () >>= fun f_i ->
       tlog_coll # get_last_update f_i >>= fun vo ->
-      start_lease_expiration_thread constants future_n constants.lease_expiration 
+      begin
+        if new_lease_expiration
+        then
+          start_lease_expiration_thread constants future_n constants.lease_expiration
+        else
+          Lwt.return ()
+      end
       >>= fun () ->
-      
       begin
       match vo with 
       | None -> Lwt_log.debug "slave_discovered_other_master: no previous" 
