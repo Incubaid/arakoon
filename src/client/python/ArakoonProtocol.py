@@ -306,6 +306,15 @@ def _unpackInt(buf, offset):
     r=struct.unpack_from( "I", buf,offset)
     return r[0], offset + ARA_TYPE_INT_SIZE
 
+def _unpackInt64(buf, offset):
+    r= struct.unpack_from("q", buf, offset)
+    return r[0], offset + 8
+
+def _unpackString(buf, offset):
+    size,o2 = _unpackInt(buf, offset)
+    v = buf[o2:o2 + size]
+    return v, o2+size
+
 def _recvInt ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
     i,o2 = _unpackInt(buf,0)
