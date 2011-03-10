@@ -169,6 +169,7 @@ let slave_steady_state constants state event =
                     end
                   else
                     begin
+                      start_lease_expiration_thread constants n' constants.lease_expiration >>= fun () ->
                       let maybe_previous = Some (previous, Sn.pred i) in
                       Lwt.return (Slave_wait_for_accept (n', i, None, maybe_previous))
                     end
@@ -350,13 +351,6 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      log ~me "replying with %S" (string_of reply) >>= fun () ->
 	      send reply me source >>= fun () -> 
 	      (* TODO: should assert we really have a MasterSet here *)
-	      begin 
-		if (is_election constants) && (n <> n')  then
-		  start_lease_expiration_thread constants n 
-		    constants.lease_expiration
-		else Lwt.return () 
-	      end
-	      >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i', v))
 	    end
     end
@@ -461,8 +455,7 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: catching up from %s" master 
       >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll)
-	current_i master (future_n, future_i) 
+      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
       (* start up lease expiration *) 
       begin
@@ -471,6 +464,7 @@ let slave_discovered_other_master constants state () =
         Lwt_log.debug "slave_discovered_other_master: Starting lease..." >>= fun () ->
         start_lease_expiration_thread constants future_n'	constants.lease_expiration
       else
+        Lwt_log.debug "slave_discovered_other_master: No new lease needed..." >>= fun () ->
         Lwt.return()
       end 
       >>= fun () ->
@@ -500,6 +494,7 @@ let slave_discovered_other_master constants state () =
       begin
         if new_lease_expiration
         then
+          Lwt_log.debug "slave_discovered_other_master: New lease is starting" >>= fun () ->
           start_lease_expiration_thread constants future_n constants.lease_expiration
         else
           Lwt.return ()
