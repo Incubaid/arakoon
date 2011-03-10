@@ -35,6 +35,7 @@ module Node_cfg = struct
 	    log_level:string;
 	    lease_period:int;
 	    forced_master: string option;
+	    laggy : bool;
 	   }
 
   type cluster_cfg = 
@@ -60,6 +61,7 @@ module Node_cfg = struct
 	log_level = "DEBUG";
 	lease_period = lease_period;
 	forced_master = forced_master;
+	laggy = false;
       }
     in
     let rec loop acc = function
@@ -83,7 +85,8 @@ module Node_cfg = struct
   let string_of (t:t) =
     let template =
       "{node_name=\"%s\"; ip=\"%s\"; client_port=%d; " ^^
-	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; log_dir=\"%s\"; log_level=\"%s\" }"
+	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; " ^^ 
+	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b}"
     in
       Printf.sprintf template
 	t.node_name t.ip t.client_port t.messaging_port 
@@ -91,6 +94,7 @@ module Node_cfg = struct
 	t.tlog_dir
 	t.log_dir
 	t.log_level
+	t.laggy
 
   let tlog_dir t = t.tlog_dir 
   let tlog_file_name t =
@@ -135,7 +139,11 @@ module Node_cfg = struct
 		      e config_file)
       in
       let get_int x = Scanf.sscanf (get_string x) "%i" (fun i -> i) in
-
+      let get_laggy () = 
+	try let s = inifile # getval node_section "laggy" in
+	    s = "true" 
+	with (Inifiles.Invalid_element e ) -> false
+      in
       let node_name = node_section in
       let ip = get_string "ip" in
       let client_port = get_int "client_port" in
@@ -143,6 +151,7 @@ module Node_cfg = struct
       let home = get_string "home" in
       let tlog_dir = try get_string "tlog_dir" with _ -> home in
       let log_level = String.lowercase (get_string "log_level") in
+      let laggy = get_laggy () in
       let lease_period = get_lease_period inifile in
       let log_dir = get_string "log_dir" in
 	{node_name=node_name;
@@ -155,6 +164,7 @@ module Node_cfg = struct
 	 log_level = log_level;
 	 lease_period = lease_period;
 	 forced_master = fm;
+	 laggy = laggy;
 	}
     in
     let inifile = new Inifiles.inifile config_file in

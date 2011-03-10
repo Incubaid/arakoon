@@ -102,7 +102,7 @@ object(self)
 end 
   
 let make_transport address = 
-  let tcp_transport = new tcp_messaging address in
+  let tcp_transport = new tcp_messaging address (fun _ _ _-> false) in
   (tcp_transport :> messaging) 
     
 let eventually_die ?(t=10.0) () = 

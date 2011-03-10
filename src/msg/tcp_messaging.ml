@@ -35,7 +35,9 @@ type mq = (Message.t * id) LWTQ.t
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()
 
-class tcp_messaging my_address =
+type drop_function = Message.t -> string -> string -> bool
+
+class tcp_messaging my_address (drop_it: drop_function) =
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 0 in
   let my_host, my_port = my_address in
@@ -286,9 +288,11 @@ object(self : # messaging )
 	    let (source:id), pos1 = Llio.string_from buffer 0 in
 	    let target, pos2 = Llio.string_from buffer pos1 in
 	    let msg, _   = Message.from_buffer buffer pos2 in
-	    let q = self # get_buffer target in
-	    Lwt_buffer.add (msg, source) q >>=  fun () ->
-	    loop ()
+	    if drop_it msg source target then loop () 
+	    else
+	      let q = self # get_buffer target in
+	      Lwt_buffer.add (msg, source) q >>=  fun () ->
+	      loop ()
 	  end
 	in
 	catch

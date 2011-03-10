@@ -77,12 +77,24 @@ let _config_logging me get_cfgs =
   else
     None
 
-let _config_messaging me others =
+let _config_messaging me others laggy =
+  let drop_it = match laggy with
+    | true -> let count = ref 0 in
+	      let f msg source target = 
+		let () = incr count in
+		match !count with
+		  | x when x >= 1000 -> let () = count := 0 in false
+		  | x when x >=  800 -> true
+		  | _ -> false
+	      in
+	      f
+    | false -> (fun _ _ _ -> false)
+  in
   let mapping = List.map
     (fun cfg -> (cfg.node_name, (cfg.ip, cfg.messaging_port)))
     others
   in
-  let messaging = new tcp_messaging (me.ip, me.messaging_port) in
+  let messaging = new tcp_messaging (me.ip, me.messaging_port) drop_it in
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
@@ -227,7 +239,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       in
       log_prelude() >>= fun () ->
       let my_name = me.node_name in
-      let messaging  = _config_messaging me cfgs in
+      let messaging  = _config_messaging me cfgs me.laggy in
       let build_startup_state () = 
 	begin
 	  Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
