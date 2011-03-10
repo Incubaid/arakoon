@@ -705,6 +705,12 @@ class ArakoonCluster:
         pids = proc.communicate()[0]
         pid_list = pids.split()
         logging.debug('pid_list=%s',pid_list)
+        for pid in pid_list:
+            f = open('/cat/%s/cmdline','r')
+            startup = f.read()
+            f.close()
+            logging.debug("pid=%s; cmdline=%s", pid, startup)
+        
         lenp = len(pid_list)
         result = None
         if lenp == 1:
