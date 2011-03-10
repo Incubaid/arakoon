@@ -530,14 +530,22 @@ class ArakoonProtocol :
         buffer = _recvString(con)
         #struct.unpack("ddddd...", buffer) would have been better...
         start,o2        = _unpackFloat(buffer,0)
-        last, o3        = _unpackFloat(buffer,o2)
-        avg_set_size,o4 = _unpackFloat(buffer,o3)
-        avg_get_size,o5 = _unpackFloat(buffer,o4)
-        n_sets,o6       = _unpackInt(buffer,o5)
-        n_gets,o7       = _unpackInt(buffer,o6)
-        n_deletes,o8    = _unpackInt(buffer,o7)
-        n_multigets,o9  = _unpackInt(buffer,o8)
-        n_sequences,o10 = _unpackInt(buffer,o9)
+        last, o3        = _unpackFloat(buffer, o2)
+        avg_set_size,o4 = _unpackFloat(buffer, o3)
+        avg_get_size,o5 = _unpackFloat(buffer, o4)
+        n_sets,o6       = _unpackInt(buffer, o5)
+        n_gets,o7       = _unpackInt(buffer, o6)
+        n_deletes,o8    = _unpackInt(buffer, o7)
+        n_multigets,o9  = _unpackInt(buffer, o8)
+        n_sequences,o10 = _unpackInt(buffer, o9)
+        n_entries, o11  = _unpackInt(buffer, o10)
+        node_is = []
+        offset = o11
+        for j in range(n_entries):
+            name, offset = _unpackString(buffer, offset)
+            i,    offset = _unpackInt64(buffer,  offset)
+            node_is.append((name,i))
+        
         result['start'] = start
         result['last'] = last
         result['avg_set_size'] = avg_set_size
@@ -547,4 +555,5 @@ class ArakoonProtocol :
         result['n_deletes'] = n_deletes
         result['n_multigets'] = n_multigets
         result['n_sequences'] = n_sequences
+        result['node_is'] = node_is
         return result

@@ -31,6 +31,7 @@ module Statistics = struct
     mutable n_deletes:int;
     mutable n_multigets:int;
     mutable n_sequences:int;
+    mutable node_is:(string * Sn.t) list;
   }
   
   let create () = 
@@ -43,6 +44,7 @@ module Statistics = struct
      n_deletes = 0;
      n_multigets = 0;
      n_sequences = 0;
+     node_is = [];
     }
 
   let _clock t = t.last <- Unix.gettimeofday()
@@ -75,6 +77,9 @@ module Statistics = struct
     _clock t;
     t.n_multigets <- t.n_multigets + 1
 
+  let new_node_is t node_is =
+    t.node_is <- node_is
+
   let to_buffer b t =
     Llio.float_to b t.start;
     Llio.float_to b t.last;
@@ -84,7 +89,15 @@ module Statistics = struct
     Llio.int_to   b t.n_gets;
     Llio.int_to   b t.n_deletes;
     Llio.int_to   b t.n_multigets;
-    Llio.int_to   b t.n_sequences
+    Llio.int_to   b t.n_sequences;
+    Llio.int_to   b (List.length t.node_is);
+    List.iter 
+      (fun (n,i) -> 
+	Llio.string_to b n;
+	Sn.sn_to b i;
+      ) 
+      t.node_is
+      
 
   let from_buffer buffer pos =
     let start,pos2         = Llio.float_from buffer pos   in
@@ -96,6 +109,18 @@ module Statistics = struct
     let n_deletes, pos8    = Llio.int_from   buffer pos7  in
     let n_multigets, pos9  = Llio.int_from   buffer pos8  in
     let n_sequences, pos10 = Llio.int_from   buffer pos9  in
+    let n_pairs, pos11     = Llio.int_from   buffer pos10 in
+
+    let rec build acc j pos=
+      if j = 0 then List.rev acc, pos
+      else
+	let name,p = Llio.string_from buffer pos in
+	let i,pos' = Sn.sn_from buffer p in
+	let acc' = (name,i)::acc in
+	build acc' (j-1) pos' 
+    in
+    let node_is,_ = build [] n_pairs pos11
+    in
     let s = {start = start;
 	     last = last;
 	     avg_set_size = avg_set_size;
@@ -105,6 +130,7 @@ module Statistics = struct
 	     n_deletes = n_deletes;
 	     n_multigets = n_multigets;
 	     n_sequences  = n_sequences;
+	     node_is = node_is;
 	    } 
     in
     s, pos10
@@ -120,7 +146,12 @@ module Statistics = struct
 	"n_deletes: %i, " ^^
 	"n_multigets: %i, " ^^
 	"n_sequences: %i"  ^^
+	"node_is: %s" ^^
 	"}"
+    in
+    let node_iss = 
+      Log_extra.string_of_list (fun (n,i) ->
+	Printf.sprintf "(%s,%s)" n (Sn.string_of i)) t.node_is
     in
     Printf.sprintf template 
       t.start 
@@ -132,4 +163,5 @@ module Statistics = struct
       t.n_deletes
       t.n_multigets
       t.n_sequences
+      node_iss
 end

@@ -84,7 +84,7 @@ let _config_messaging me others laggy =
 		let () = incr count in
 		match !count with
 		  | x when x >= 1000 -> let () = count := 0 in false
-		  | x when x >=  800 -> true
+		  | x when x >=  980 -> true
 		  | _ -> false
 	      in
 	      f
