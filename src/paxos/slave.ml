@@ -294,7 +294,13 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
       else 
         begin
-          start_lease_expiration_thread constants n' constants.lease_expiration >>= fun _ ->
+          begin
+            if n' != n 
+            then
+              start_lease_expiration_thread constants n' constants.lease_expiration
+            else
+              Lwt.return () 
+          end >>= fun () ->
           constants.get_value (i') >>= fun vo_2 ->
           let (next_n, reply) = n',Promise (n',i',vo_2) in
           send reply me source >>= fun () ->
@@ -345,7 +351,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      send reply me source >>= fun () -> 
 	      (* TODO: should assert we really have a MasterSet here *)
 	      begin 
-		if is_election constants then
+		if (is_election constants) && (n <> n')  then
 		  start_lease_expiration_thread constants n 
 		    constants.lease_expiration
 		else Lwt.return () 
