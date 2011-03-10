@@ -303,8 +303,13 @@ object(self: #backend)
   method witness name i = 
     Hashtbl.replace witnessed name i;
     Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
-    let node_is = Hashtbl.fold (fun k v acc -> (k,v)::acc) witnessed [] in
-    Statistics.new_node_is _stats node_is;
+    let other_is = Hashtbl.fold (fun k v acc -> (k,v)::acc) witnessed [] in
+    store # consensus_i () >>= fun cio ->
+    begin
+      match cio with
+	| None -> Statistics.new_node_is _stats other_is;
+	| Some ci -> Statistics.new_node_is _stats ((my_name, ci)::other_is)
+    end;
     Lwt.return ()
 
   method expect_progress_possible () = 

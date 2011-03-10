@@ -145,7 +145,7 @@ module Statistics = struct
 	"n_gets: %i, " ^^
 	"n_deletes: %i, " ^^
 	"n_multigets: %i, " ^^
-	"n_sequences: %i"  ^^
+	"n_sequences: %i, "  ^^
 	"node_is: %s" ^^
 	"}"
     in
