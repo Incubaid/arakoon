@@ -693,17 +693,26 @@ class ArakoonCluster:
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
-        else :
+        else: 
             return int(stdout)
                 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-f', line]
-        ret = subprocess.call(cmd, close_fds=True, stdout=subprocess.PIPE)
-        result = q.enumerators.AppStatusType.HALTED
-        if ret == 0:
+        proc = subprocess.Popen(cmd,
+                                close_fds = True,
+                                stdout=subprocess.PIPE)
+        pids = proc.communicate()[0]
+        pid_list = pids.split()
+        logging.debug('pid_list=%s',pid_list)
+        lenp = len(pid_list)
+        result = None
+        if lenp == 1:
             result = q.enumerators.AppStatusType.RUNNING
-
+        elif lenp == 0:
+            result = q.enumerators.AppStatusType.HALTED
+        else:
+            raise Exception("multiple matches", pid_list)
         return result
 
     def getStorageUtilization(self, node = None):
