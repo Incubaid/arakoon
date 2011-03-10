@@ -112,7 +112,8 @@ let slave_steady_state constants state event =
 		      (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let new_state = (source,cu_pred,n',i') in 
+        let needs_new_lease = ( n' != n ) in 
+        let new_state = (source,cu_pred,n',i',needs_new_lease) in 
         Lwt.return (Slave_discovered_other_master(new_state) ) 
 	    end
 	  | Prepare(n',i') ->
@@ -162,7 +163,8 @@ let slave_steady_state constants state event =
                   if i' > i then
                     begin
                       Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-                      let new_state = (source,cu_pred,n',i') in
+                      let needs_new_lease = (n' != n) in
+                      let new_state = (source,cu_pred,n',i', needs_new_lease) in
                       Lwt.return (Slave_discovered_other_master new_state)
                     end
                   else
@@ -314,7 +316,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         begin
 	        if i' > i then 
             Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-            Lwt.return( Slave_discovered_other_master(source,cu_pred,n',i') )   
+            let needs_new_lease = ( n' != n ) in
+            Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i', needs_new_lease) )   
           else
           begin
 	          constants.on_accept (v,n,i') >>= fun v ->
@@ -359,7 +362,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             (Sn.string_of i) (Sn.string_of i')  
           >>= fun () -> 
           Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-          let new_state = (source,cu_pred,n',i') in 
+          let needs_new_lease = (n' != n) in
+          let new_state = (source, cu_pred, n', i', needs_new_lease) in 
           Lwt.return (Slave_discovered_other_master(new_state) ) 
         else
 	        log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
@@ -440,7 +444,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
    depending on if there was an existing value or not *)
 
 let slave_discovered_other_master constants state () =
-  let (master, current_i, future_n, future_i) = state in
+  let (master, current_i, future_n, future_i, new_lease_expiration) = state in
   let me = constants.me
   and other_cfgs = constants.other_cfgs
   and store = constants.store
@@ -455,8 +459,13 @@ let slave_discovered_other_master constants state () =
 	current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
       (* start up lease expiration *) 
-      start_lease_expiration_thread constants future_n' 
-	constants.lease_expiration 
+      begin
+      if new_lease_expiration
+      then
+        start_lease_expiration_thread constants future_n'	constants.lease_expiration
+      else
+        Lwt.return()
+      end 
       >>= fun () ->
       begin
 	let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)

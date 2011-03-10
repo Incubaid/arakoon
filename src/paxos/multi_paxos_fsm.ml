@@ -139,13 +139,15 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	    begin
 	      log ~me "fake prepare response: discovered master" >>= fun () ->
         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+        let needs_new_lease = (n' != n2) in
+	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2, needs_new_lease))
 	    end
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	    begin
 	      log ~me "got %s => go to catchup" (string_of msg) >>= fun () ->
-              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+        let needs_new_lease = (n' != n2) in
+	      Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2, needs_new_lease))
 	    end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
 	    begin
@@ -285,7 +287,8 @@ let wait_for_promises constants state event =
                       >>= fun () ->
                       if n'' > n || i' > i then
                         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-			                  Lwt.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
+                        let needs_new_lease = (n' != n) in
+			                  Lwt.return (Slave_discovered_other_master (source,cu_pred,n'',i', needs_new_lease))
                       else
 			let new_n = update_n constants (max n n'') in
 			Lwt.return (Election_suggest (new_n,i, Some wanted))
@@ -373,7 +376,8 @@ let wait_for_promises constants state event =
 		          Lwt.return (Slave_wait_for_accept (n', i, None, pr_up_with_i))
 		        else
 		          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-		          let new_state = (source,cu_pred,n',i') in 
+              let needs_new_lease = (n' != n) in
+		          let new_state = (source,cu_pred,n',i', needs_new_lease) in 
 		          Lwt.return (Slave_discovered_other_master(new_state) )
           end
       end
@@ -428,7 +432,8 @@ let wait_for_promises constants state event =
 			then 
         begin
           Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-          Lwt.return (Slave_discovered_other_master (source, cu_pred, n', i'))
+          let needs_new_lease = (n' != n) in
+          Lwt.return (Slave_discovered_other_master (source, cu_pred, n', i', needs_new_lease))
         end
 			else
 			  begin
@@ -633,7 +638,8 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	              	          Lwt.return (Slave_wait_for_accept (n',i, None, Some (v,i) ))
 	                        else
 	                          Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-	                          let new_state = (source,cu_pred,n',i') in 
+                            let needs_new_lease = (n' != n) in
+	                          let new_state = (source,cu_pred,n',i', needs_new_lease) in 
 	                          Lwt.return (Slave_discovered_other_master(new_state) )
 	                      end
 	                  end
@@ -676,7 +682,8 @@ let wait_for_accepteds constants state (event:paxos_event) =
         (* Become slave, goto catchup *)
         log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
         Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let new_state = (source,cu_pred,n,i') in 
+        let needs_new_lease = (n' != n) in
+        let new_state = (source,cu_pred,n,i', needs_new_lease) in 
         Lwt.return (Slave_discovered_other_master new_state)
       end
 	  | Accept (n',i',v') -> (* n' = n *)
