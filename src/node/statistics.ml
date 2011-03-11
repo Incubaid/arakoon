@@ -31,7 +31,7 @@ module Statistics = struct
     mutable n_deletes:int;
     mutable n_multigets:int;
     mutable n_sequences:int;
-    mutable node_is:(string * Sn.t) list;
+    mutable node_is:(string , Sn.t) Hashtbl.t;
   }
   
   let create () = 
@@ -44,7 +44,7 @@ module Statistics = struct
      n_deletes = 0;
      n_multigets = 0;
      n_sequences = 0;
-     node_is = [];
+     node_is = Hashtbl.create 5;
     }
 
   let _clock t = t.last <- Unix.gettimeofday()
@@ -77,8 +77,8 @@ module Statistics = struct
     _clock t;
     t.n_multigets <- t.n_multigets + 1
 
-  let new_node_is t node_is =
-    t.node_is <- node_is
+  let witness t name i =
+    Hashtbl.replace t.node_is name i
 
   let to_buffer b t =
     Llio.float_to b t.start;
@@ -90,13 +90,13 @@ module Statistics = struct
     Llio.int_to   b t.n_deletes;
     Llio.int_to   b t.n_multigets;
     Llio.int_to   b t.n_sequences;
-    Llio.int_to   b (List.length t.node_is);
-    List.iter 
-      (fun (n,i) -> 
+    Llio.int_to   b (Hashtbl.length t.node_is);
+    Hashtbl.iter 
+      (fun n i -> 
 	Llio.string_to b n;
 	Sn.sn_to b i;
-      ) 
-      t.node_is
+      )  t.node_is
+
       
 
   let from_buffer buffer pos =
@@ -111,15 +111,16 @@ module Statistics = struct
     let n_sequences, pos10 = Llio.int_from   buffer pos9  in
     let n_pairs, pos11     = Llio.int_from   buffer pos10 in
 
-    let rec build acc j pos=
-      if j = 0 then List.rev acc, pos
+    let node_is = Hashtbl.create 5 in
+    let rec build j pos=
+      if j = 0 then () 
       else
 	let name,p = Llio.string_from buffer pos in
 	let i,pos' = Sn.sn_from buffer p in
-	let acc' = (name,i)::acc in
-	build acc' (j-1) pos' 
+	let () = Hashtbl.replace node_is name i in
+	build (j-1) pos' 
     in
-    let node_is,_ = build [] n_pairs pos11
+    let () = build n_pairs pos11
     in
     let s = {start = start;
 	     last = last;
@@ -149,9 +150,10 @@ module Statistics = struct
 	"node_is: %s" ^^
 	"}"
     in
-    let node_iss = 
-      Log_extra.string_of_list (fun (n,i) ->
-	Printf.sprintf "(%s,%s)" n (Sn.string_of i)) t.node_is
+    let node_iss = Buffer.create 100 in
+    let () = Hashtbl.fold (fun n i () ->
+      Buffer.add_string node_iss (Printf.sprintf "(%s,%s)" n (Sn.string_of i)))
+      t.node_is ()
     in
     Printf.sprintf template 
       t.start 
@@ -163,5 +165,5 @@ module Statistics = struct
       t.n_deletes
       t.n_multigets
       t.n_sequences
-      node_iss
+      (Buffer.contents node_iss)
 end

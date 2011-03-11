@@ -548,12 +548,12 @@ class ArakoonProtocol :
         n_multigets,o9  = _unpackInt(buffer, o8)
         n_sequences,o10 = _unpackInt(buffer, o9)
         n_entries, o11  = _unpackInt(buffer, o10)
-        node_is = []
+        node_is = {}
         offset = o11
         for j in range(n_entries):
             name, offset = _unpackString(buffer, offset)
             i,    offset = _unpackInt64(buffer,  offset)
-            node_is.append((name,i))
+            node_is[name]=i
         
         result['start'] = start
         result['last'] = last

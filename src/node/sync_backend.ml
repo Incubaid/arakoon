@@ -301,14 +301,13 @@ object(self: #backend)
 	  Lwt.return ()
 
   method witness name i = 
-    Hashtbl.replace witnessed name i;
+    Statistics.witness _stats name i;
     Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
-    let other_is = Hashtbl.fold (fun k v acc -> (k,v)::acc) witnessed [] in
     store # consensus_i () >>= fun cio ->
     begin
       match cio with
-	| None -> Statistics.new_node_is _stats other_is;
-	| Some ci -> Statistics.new_node_is _stats ((my_name, ci)::other_is)
+	| None -> ()
+	| Some ci -> Statistics.witness _stats my_name  ci
     end;
     Lwt.return ()
 
