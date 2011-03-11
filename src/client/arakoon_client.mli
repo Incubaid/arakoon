@@ -16,7 +16,7 @@ class type client = object
   method exists: key -> bool Lwt.t
 
   (** retrieves the value for a key *)
-  method get: key -> value Lwt.t
+  method get: ?allow_dirty:bool -> key -> value Lwt.t
   (** or fails with Arakoon_exc.Exception (E_NOT_FOUND,_) if there is none *)
 
     

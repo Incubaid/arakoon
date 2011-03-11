@@ -41,7 +41,7 @@ let _progress t0 n step =
   else
     Lwt.return()
 
-let _get client t0 max_n =
+let _get (client:Arakoon_client.client) t0 max_n =
   let rec loop n = 
     if n = max_n 
     then Lwt.return ()
@@ -128,7 +128,7 @@ let _range client ()  =
   Lwt_io.printlf "#keys %i" (List.length keys)
 
 
-let benchmark ?(size=10) ?(tx_size=100) client =
+let benchmark ?(size=10) ?(tx_size=100) (client:Arakoon_client.client) =
   let sz = if size < 10 then 10 else size in
   client # who_master () >>= fun master ->
   Lwt_io.printlf "Master %s; size=%i" 

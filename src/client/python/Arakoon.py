@@ -102,6 +102,7 @@ class ArakoonClient :
         self.__lock = threading.RLock()
         self._masterId = None
         self._connections = dict()
+        self._allowDirty = False
 
     def _initialize(self, config ):
         self._config = config
@@ -147,11 +148,10 @@ class ArakoonClient :
 
         @type key: string
         @param key: The key whose value you are interested in
-
         @rtype: string
         @return: The value associated with the given key
         """
-        msg = ArakoonProtocol.encodeGet(key)
+        msg = ArakoonProtocol.encodeGet(key, self._allowDirty)
         conn = self._sendToMaster (msg)
         result = conn.decodeStringResult()
         return result

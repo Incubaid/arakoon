@@ -311,7 +311,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	    Lwt_log.debug_f "pushing client event (done)"
 	  in
 	  let expect_reachable = messaging # expect_reachable in
-	  let backend =
+	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
 	    new Sync_backend.sync_backend me client_push
 	      store tlog_coll lease_period
@@ -319,6 +319,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	      ~expect_reachable
 	      ~test
 	  in
+	  let backend = (sb :> Backend.backend) in
 	  let rapporting () = 
 	    let rec _inner () =
 	      Lwt_unix.sleep 60.0 >>= fun () ->

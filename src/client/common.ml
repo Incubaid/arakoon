@@ -24,7 +24,7 @@ open Lwt
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
-let _VERSION = 0
+let _VERSION = 1
 (*
 let _STRLEN_SIZE = 4
 let _CMD_SIZE   = 4
@@ -146,8 +146,9 @@ let exists_to buffer key =
   command_to buffer EXISTS;
   Llio.string_to buffer key
 
-let get_to buffer key =
+let get_to ~allow_dirty buffer key =
   command_to buffer GET;
+  Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key
 
 let set_to buffer key value =

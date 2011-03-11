@@ -34,11 +34,14 @@ let cucu s =
 
 let _CLUSTER = "sweety"
 
-let __client_server_wrapper__ cluster real_test =
+type real_test = Arakoon_client.client -> unit Lwt.t
+
+let __client_server_wrapper__ cluster (real_test:real_test) =
   let port = 7777 in
   let conversation connection  =
     cucu "started conversation" >>= fun () ->
-    make_remote_client cluster connection >>= fun client ->
+    make_remote_client cluster connection 
+    >>= fun (client:Arakoon_client.client) ->
     real_test client >>= fun () -> Lwt.return ()
   in
   let sleep, notifier = wait () in
@@ -47,7 +50,8 @@ let __client_server_wrapper__ cluster real_test =
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
-  let backend = new test_backend _CLUSTER in
+  let tb = new test_backend _CLUSTER in
+  let backend = (tb :> Backend.backend) in
   let server = Server.make_server_thread ~setup_callback "127.0.0.1" port
     (Client_protocol.protocol backend) in
 
@@ -86,7 +90,7 @@ let test_wrong_cluster () =
   in __client_server_wrapper__ wrong_cluster real_test
 
 let test_set_get () =
-  let real_test client =
+  let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # get "key" >>= fun value ->
     OUnit.assert_equal value "value";
@@ -94,7 +98,7 @@ let test_set_get () =
   in __client_server_wrapper__ _CLUSTER real_test
 
 let test_delete () =
-  let real_test client =
+  let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # delete "key" >>= fun () ->
     Lwt.catch
@@ -126,7 +130,7 @@ let test_delete () =
   in __client_server_wrapper__ _CLUSTER real_test
 
 let test_sequence () =
-  let real_test client = 
+  let real_test (client:Arakoon_client.client) = 
     client # set "XXX0" "YYY0" >>= fun () ->
     let changes = [Arakoon_client.Set("XXX1","YYY1");
 		   Arakoon_client.Set("XXX2","YYY2");

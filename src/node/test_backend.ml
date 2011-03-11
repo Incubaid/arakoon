@@ -76,7 +76,7 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.add key value _kv;
     Lwt.return ()
 
-  method get (key:string) =
+  method get ?(allow_dirty=false) (key:string) =
     let value = StringMap.find key _kv in
     Lwt.return value
 

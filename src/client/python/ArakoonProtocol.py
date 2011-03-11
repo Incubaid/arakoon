@@ -184,7 +184,7 @@ ARA_TYPE_BOOL_SIZE = 1
 
 # Magic used to mask each command
 ARA_CMD_MAG = 0xb1ff0000
-ARA_CMD_VER = 0x00000000
+ARA_CMD_VER = 0x00000001
 # Hello command
 ARA_CMD_HEL = 0x00000001 | ARA_CMD_MAG
 # Who is master?
@@ -401,8 +401,11 @@ class ArakoonProtocol :
         return _packInt(ARA_CMD_EXISTS) + _packString(key)
 
     @staticmethod
-    def encodeGet( key ):
-        return _packInt( ARA_CMD_GET ) + _packString(key)
+    def encodeGet(key , allowDirty):
+        msg = _packInt(ARA_CMD_GET)
+        msg += _packBool(allowDirty)
+        msg += _packString(key)
+        return msg
 
     @staticmethod
     def encodeSet( key, value ):

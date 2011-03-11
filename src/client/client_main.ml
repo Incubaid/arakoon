@@ -79,7 +79,7 @@ let set cfg_name key value =
   with_master_client cfg_name (fun client -> client # set key value)
 
 let get cfg_name key =
-  let f client =
+  let f (client:Arakoon_client.client) =
     client # get key >>= fun value ->
     Lwt_io.printlf "%S%!" value
   in

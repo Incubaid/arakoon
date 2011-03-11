@@ -117,7 +117,7 @@ let nothing_on_slave (cluster_cfg, _) =
   test_slaves cluster_cfg
 
 
-let _get_after_set client =
+let _get_after_set (client:Arakoon_client.client) =
   client # set "set" "some_value" >>= fun () ->
   client # get "set" >>= fun value ->
   if value <> "some_value"
@@ -140,7 +140,7 @@ let _exists client =
       Lwt_log.info_f" Mickey's not in there, as expected"
   end
 
-let _delete_after_set client =
+let _delete_after_set (client:Arakoon_client.client) =
   let key = "_delete_after_set" in
   client # set key "xxx" >>= fun () ->
   client # delete key    >>= fun () ->
@@ -353,7 +353,7 @@ let trivial_master (cluster_cfg, _) =
   let master_cfg =
     List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
   in
-  let f client =
+  let f (client:Arakoon_client.client) =
     _get_after_set client >>= fun () ->
     _delete_after_set client >>= fun () ->
     _exists client >>= fun () ->

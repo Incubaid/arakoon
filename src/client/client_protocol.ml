@@ -73,7 +73,7 @@ let handle_exception oc exn=
   then Lwt.fail exn
   else Lwt.return ()
 
-let one_command (ic,oc) backend =
+let one_command (ic,oc) (backend:Backend.backend) =
   read_command (ic,oc) >>= function
     | PING ->
 	begin
@@ -93,11 +93,12 @@ let one_command (ic,oc) backend =
 	  (handle_exception oc)
       end
     | GET ->
-	begin
+      begin
+	  Llio.input_bool   ic >>= fun allow_dirty ->
           Llio.input_string ic >>= fun  key ->
-	  Lwt_log.debug_f "GET %S" key >>= fun () ->
+	  Lwt_log.debug_f "GET (%b) %S" allow_dirty key >>= fun () ->
 	  Lwt.catch
-	    (fun () -> backend # get key >>= fun value ->
+	    (fun () -> backend # get ~allow_dirty key >>= fun value ->
 	       response_rc_string oc 0l value)
 	    (handle_exception oc)
 	end

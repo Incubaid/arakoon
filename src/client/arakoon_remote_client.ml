@@ -40,8 +40,8 @@ object(self: #Arakoon_client.client)
     request (fun buf -> exists_to buf key) >>= fun () ->
     response ic Llio.input_bool
 
-  method get key =
-    request (fun buf -> get_to buf key) >>= fun () ->
+  method get ?(allow_dirty=false) key =
+    request (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
     response ic Llio.input_string
 
   method set key value =

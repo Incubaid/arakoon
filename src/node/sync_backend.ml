@@ -91,7 +91,8 @@ object(self: #backend)
     self # _only_if_master () >>= fun () ->
     store # exists key
 
-  method get key = log_o self "get %s" key >>= fun () ->
+  method get ?(allow_dirty=false) key = 
+    log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
     self # _only_if_master () >>= fun () ->
     Lwt.catch
       (fun () -> 
