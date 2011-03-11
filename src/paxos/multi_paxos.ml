@@ -189,3 +189,58 @@ let start_election_timeout constants n =
   in
   let () = Lwt.ignore_result (t ()) in
   Lwt.return ()
+
+type prepare_repsonse =
+  | Prepare_dropped
+  | Promise_sent_up2date
+  | Promise_sent_needs_catchup
+  | Nak_sent
+
+let handle_prepare constants dest n n' i' =
+  let me = constants.me in
+  begin
+    can_promise constants.store constants.lease_expiration dest >>= fun can_pr ->
+    if not can_pr && n' >= 0L
+    then
+      begin 
+        log ~me "handle_prepare: Dropping prepare - lease still active" >>= fun () ->
+        Lwt.return Prepare_dropped
+      end
+    else 
+      begin
+        let store = constants.store in
+        store # consensus_i () >>= fun s_i ->
+        let nak_max = 
+        begin
+          match s_i with
+          | None -> Sn.start
+          | Some si -> Sn.succ si
+		    end in
+        constants.get_value(nak_max) >>= fun lv ->
+        
+        if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 
+        then
+          (* Send Nak, other node is behind *)
+          let reply = Nak( n',(n,nak_max)) in
+          Lwt.return (Nak_sent, reply) 
+        else
+          begin
+            (* We will send a Promise, start election timer *)
+            constants.get_value(nak_max) >>= fun lv ->
+            let reply = Promise(n',nak_max,lv) in
+            log ~me "handle_prepare: starting election timer" >>= fun () ->
+            start_election_timeout constants n' >>= fun () ->
+            if i' > nak_max
+            then
+              (* Send Promise, but I need catchup *)
+              Lwt.return(Promise_sent_needs_catchup, reply)
+            else (* i' = i *)
+              (* Send Promise, we are in sync *)
+              Lwt.return(Promise_sent_up2date, reply)
+          end 
+      end >>= fun (ret_val, reply) ->
+      log ~me "handle_prepare replying with %S" (string_of reply) >>= fun () ->
+      constants.send reply me dest >>= fun () ->
+      Lwt.return ret_val
+  end
+      

@@ -45,7 +45,7 @@ class with_custom_setup ():
             global data_base_dir
             data_base_dir = q.system.fs.joinPaths( q.dirs.tmpDir, 'arakoon_system_tests' , func.func_name )
             global test_failed
-            test_tailed = False
+            test_failed = False
             fatal_ex = None
             home_dir = data_base_dir
             self.__setup( home_dir )

@@ -38,10 +38,6 @@ let master_consensus constants ((mo:master_option),v,n,i) () =
 	finished so
       | None -> (* first time consensus on master *)
 	begin
-	  (if not (am_forced_master constants constants.me)
-	   then start_lease_expiration_thread constants n (constants.lease_expiration/2)
-	   else Lwt.return ()) 
-	  >>= fun () ->
 	  let me = constants.me in
 	  log ~me "running as STABLE MASTER n:%s i:%s" 
 	    (Sn.string_of n) (Sn.string_of (Sn.succ i))
@@ -88,63 +84,34 @@ let stable_master constants (v',n,new_i) = function
 	let me = constants.me in
 	log ~me "got msg %S from node %S" (string_of msg) source >>= fun () ->
 	match msg with
-	  | Prepare (n',i') when n' <= n ->
-	    begin
-	      constants.on_witness source i' >>= fun () ->
-	      Lwt_log.debug "Nak-ing Prepare with lower or equal n when running as master"
-	      >>= fun () ->
-	      let reply = Nak(n',(n,Sn.pred new_i)) in
-	      constants.send reply me source  >>= fun () ->
-	      Lwt.return (Stable_master (v',n,new_i))
-	    end
-	  | Prepare (n',i') when n' > n ->
-	    begin
-	      constants.on_witness source i' >>= fun () ->
-	      if am_forced_master constants me
+	  | Prepare (n',i') ->
+      begin
+        if am_forced_master constants me
 	      then
           let new_n = update_n constants n' in
             Lwt.return (Forced_master_suggest (new_n,new_i))
-	      else if is_election constants
-	      then
-        begin
-          if i' < new_i 
-          then
+	      else
           begin
-            let reply = Nak(n',(n,new_i)) in
-            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
-            constants.send reply me source >>= fun () ->
-            Lwt.return (Stable_master (v',n,new_i))
+            handle_prepare constants source n n' i' >>= function
+              | Nak_sent 
+              | Prepare_dropped ->
+                Lwt.return  (Stable_master (v',n,new_i) )
+              | Promise_sent_up2date ->
+                let tlog_coll = constants.tlog_coll in
+				        tlog_coll # get_last_i () >>= fun tlc_i ->
+				        tlog_coll # get_last_update tlc_i >>= fun l_update ->
+				        let l_uval = 
+				        begin
+				          match l_update with 
+				            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+				            | None -> None
+				        end in
+					      Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
+              | Promise_sent_needs_catchup ->
+                Store.get_catchup_start_i constants.store >>= fun i ->
+                Lwt.return (Slave_discovered_other_master (source, i, n', i'))
           end
-          else
-          begin
-            can_promise constants.store constants.lease_expiration source >>= fun can_pr ->
-            if not can_pr 
-            then 
-              begin
-                log ~me "stable_master -> Dropping prepare - lease still active" >>= fun () ->
-                Lwt.return (Stable_master (v',n,new_i))
-              end
-            else
-              begin
-		            let reply = Promise(n',new_i,None) in
-		            log ~me "stable_master: replying with %S to %s" (string_of reply) source >>= fun () ->
-		            constants.send reply me source >>= fun () ->
-		            Lwt.return (Slave_wait_for_accept (n',new_i, None, None))
-              end
-          end
-        end
-		    else
-		paxos_fatal me "stable_master: received %S when forced slave, forced slave should never get in stable_master in the first place!" (string_of msg)
-	    end
-	      (* TODO: paxos fatal on messages from the future *)
-	      (* | Accepted (n2,i2) (* when i2 < new_i *) ->
-		 begin
-	      (* < new_i since on_consensus was called on new_i -1 *)
-		 Lwt_log.debug_f "stable_master dropping old %s from %s"
-		 (MPMessage.string_of msg') source
-		 >>= fun () ->
-		 Lwt.return (Stable_master (q,v',n,new_i))
-		 end *)
+      end
 	  | _ ->
 	    begin
 	      log ~me "stable_master received %S: dropping" (string_of msg)
@@ -163,6 +130,13 @@ let stable_master constants (v',n,new_i) = function
 
 let master_dictate constants (mo,v,n,i) () =
   constants.on_accept (v,n,i) >>= fun v ->
+  begin
+  let u = Update.update_from_value v in
+  match u with 
+    | Update.MasterSet(m,l) ->
+      start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
+    | _ -> Lwt.return ()
+  end >>= fun () ->
   mcast constants (Accept(n,i,v)) >>= fun () ->
   let me = constants.me in
   log ~me "master_dictate" >>= fun () ->

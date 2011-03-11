@@ -46,7 +46,7 @@ type transitions =
   | Slave_wait_for_accept of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
 				Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
   | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * 
-					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * bool)
+					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
   | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
 			      Messaging.id list * Value.t * 
