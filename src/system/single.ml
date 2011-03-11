@@ -97,12 +97,13 @@ let nothing_on_slave (cluster_cfg, _) =
 	   Lwt.return ()
       )
   in
+
   let test_slave cluster_id cfg =
     Lwt_log.info_f "slave=%s" cfg.node_name  >>= fun () ->
-      let f client =
+      let f (client:Arakoon_client.client) =
 	set_on_slave client >>= fun () ->
         delete_on_slave client >>= fun () ->
-	test_and_set_on_slave client
+	test_and_set_on_slave client 
       in
 	Client_main.with_client cfg cluster_id f
   in
@@ -116,6 +117,45 @@ let nothing_on_slave (cluster_cfg, _) =
   in
   test_slaves cluster_cfg
 
+let dirty_on_slave (cluster_cfg,_) = 
+  Lwt_log.debug "dirty_on_slave" >>= fun () ->
+  let cfgs = cluster_cfg.cfgs in
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
+  in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id
+    (fun client -> client # set "xxx" "xxx")
+  >>= fun () ->
+
+  let find_slaves cfgs =
+    let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> master_name) cfgs in
+    Lwt.return slave_cfgs
+  in
+  let do_slave cluster_id cfg = 
+    let dirty_get (client:Arakoon_client.client) = 
+      Lwt_log.debug "dirty_get" >>= fun () ->
+      Lwt.catch
+	(fun () -> client # get ~allow_dirty:true "xxx" >>= fun v ->
+	  Lwt_log.debug_f "dirty_get:result = %s" v 
+	)
+	(function 
+	  | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND,"xxx") -> 
+	    Lwt_log.debug "dirty_get yielded a not_found" 
+	  | e -> Lwt.fail e)
+    in
+    Client_main.with_client cfg cluster_id dirty_get
+  in
+  let do_slaves ccfg =
+    find_slaves cfgs >>= fun slave_cfgs ->
+    let rec loop = function
+      | [] -> Lwt.return ()
+      | cfg::rest -> do_slave ccfg.cluster_id cfg >>= fun () ->
+	loop rest
+    in
+    loop slave_cfgs
+  in
+  do_slaves cluster_cfg
 
 let _get_after_set (client:Arakoon_client.client) =
   client # set "set" "some_value" >>= fun () ->
@@ -460,6 +500,7 @@ let elect_master =
     [
       "all_same_master"  >:: w all_same_master;
       "nothing_on_slave" >:: w nothing_on_slave;
+      "dirty_on_slave"   >:: w dirty_on_slave;
       "trivial_master"   >:: w trivial_master;
       "trivial_master2"  >:: w trivial_master2;
       "trivial_master3"  >:: w trivial_master3;

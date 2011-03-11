@@ -93,7 +93,7 @@ object(self: #backend)
 
   method get ?(allow_dirty=false) key = 
     log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     Lwt.catch
       (fun () -> 
 	store # get key >>= fun v -> 
@@ -300,6 +300,11 @@ object(self: #backend)
 	  Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
 	else
 	  Lwt.return ()
+
+  method private _only_if_master_or_dirty allow_dirty = 
+    if allow_dirty 
+    then Lwt.return ()
+    else self # _only_if_master ()
 
   method witness name i = 
     Statistics.witness _stats name i;
