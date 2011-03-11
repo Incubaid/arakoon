@@ -164,7 +164,7 @@ let _get_after_set (client:Arakoon_client.client) =
   then Llio.lwt_failfmt "\"%S\" <> \"some_value\"" value
   else Lwt.return ()
 
-let _exists client =
+let _exists (client:Arakoon_client.client) =
   client # set "Geronimo" "Stilton" >>= fun () ->
   client # exists "Geronimo" >>= fun yes ->
   client # exists "Mickey" >>= fun no ->

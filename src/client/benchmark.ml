@@ -56,7 +56,7 @@ let _get (client:Arakoon_client.client) t0 max_n =
   in
   loop 0
 
-let _get_transactions client t0 max_n t size = 
+let _get_transactions (client:Arakoon_client.client) t0 max_n t size = 
   let n_transactions = (max_n + t -1) / t in
   let rec loop_t i =
     if i = n_transactions 
@@ -119,7 +119,7 @@ let _fill_transactions client t0 max_n tx_size size=
   loop_t 0
 
 
-let _range client ()  =
+let _range (client:Arakoon_client.client) ()  =
   let first = _cat "key" 1
   and last = _cat "key" 9999
   in

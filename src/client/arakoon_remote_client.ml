@@ -36,8 +36,8 @@ class remote_client (ic,oc) =
   in
 object(self: #Arakoon_client.client)
 
-  method exists key =
-    request (fun buf -> exists_to buf key) >>= fun () ->
+  method exists ?(allow_dirty=false) key =
+    request (fun buf -> exists_to ~allow_dirty buf key) >>= fun () ->
     response ic Llio.input_bool
 
   method get ?(allow_dirty=false) key =
@@ -52,25 +52,25 @@ object(self: #Arakoon_client.client)
     request (fun buf -> delete_to buf key) >>= fun () ->
     response ic nothing
 
-  method range first finc last linc max =
-    request (fun buf -> range_to buf first finc last linc max) >>= fun () ->
+  method range ?(allow_dirty=false) first finc last linc max =
+    request (fun buf -> range_to buf ~allow_dirty first finc last linc max) >>= fun () ->
     response ic key_list
 
-  method range_entries ~first ~finc ~last ~linc ~max =
-    request (fun buf -> range_entries_to buf first finc last linc max)
+  method range_entries ?(allow_dirty=false) ~first ~finc ~last ~linc ~max =
+    request (fun buf -> range_entries_to buf ~allow_dirty first finc last linc max)
     >>= fun () ->
     response ic kv_list
 
-  method prefix_keys pref max =
-    request (fun buf -> prefix_keys_to buf pref max) >>= fun () ->
+  method prefix_keys ?(allow_dirty=false) pref max =
+    request (fun buf -> prefix_keys_to buf ~allow_dirty pref max) >>= fun () ->
     response ic key_list
 
   method test_and_set key expected wanted =
     request (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
     response ic Llio.input_string_option
 
-  method multi_get keys = 
-    request (fun buf -> multiget_to buf keys) >>= fun () ->
+  method multi_get ?(allow_dirty=false) keys = 
+    request (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
     response ic value_list
 
   method sequence changes = 

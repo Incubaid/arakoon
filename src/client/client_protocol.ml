@@ -85,10 +85,11 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	end
     | EXISTS ->
       begin
+	Llio.input_bool ic   >>= fun allow_dirty ->
 	Llio.input_string ic >>= fun key ->
-	Lwt_log.debug_f "EXISTS %S" key >>= fun () ->
+	Lwt_log.debug_f "EXISTS (%b) %S" allow_dirty key >>= fun () ->
 	Lwt.catch
-	  (fun () -> backend # exists key >>= fun exists ->
+	  (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
 	    response_rc_bool oc 0l exists)
 	  (handle_exception oc)
       end
@@ -124,48 +125,52 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    (handle_exception oc)
 	end
     | RANGE ->
-	begin
-          Llio.input_string_option ic >>= fun (first:string option) ->
-          Llio.input_bool          ic >>= fun finc  ->
-          Llio.input_string_option ic >>= fun (last:string option)  ->
-          Llio.input_bool          ic >>= fun linc  ->
-          Llio.input_int           ic >>= fun max   ->
-          Lwt_log.debug_f "RANGE %s %b %s %b %i" (p_option first) finc (p_option last) linc max
-             >>= fun () ->
-          Lwt.catch
-	    (fun () ->
-	       backend # range first finc last linc max >>= fun list ->
-	       Llio.output_int32 oc 0l >>= fun () ->
-               Llio.output_int oc (List.length list)  >>= fun () ->
-               Lwt_list.iter_s (Llio.output_string oc) list >>= fun () ->
-	       Lwt_io.flush oc
-	    )
-	    (handle_exception oc)
+      begin
+	Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_string_option ic >>= fun (first:string option) ->
+        Llio.input_bool          ic >>= fun finc  ->
+        Llio.input_string_option ic >>= fun (last:string option)  ->
+        Llio.input_bool          ic >>= fun linc  ->
+        Llio.input_int           ic >>= fun max   ->
+        Lwt_log.debug_f "RANGE (%b) %s %b %s %b %i" allow_dirty 
+	  (p_option first) finc (p_option last) linc max
+        >>= fun () ->
+        Lwt.catch
+	  (fun () ->
+	    backend # range ~allow_dirty first finc last linc max >>= fun list ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+            Llio.output_int oc (List.length list)  >>= fun () ->
+            Lwt_list.iter_s (Llio.output_string oc) list >>= fun () ->
+	    Lwt_io.flush oc
+	  )
+	  (handle_exception oc)
 	end
     | RANGE_ENTRIES ->
-	begin
-	  Llio.input_string_option ic >>= fun first ->
-	  Llio.input_bool          ic >>= fun finc  ->
-	  Llio.input_string_option ic >>= fun last  ->
-	  Llio.input_bool          ic >>= fun linc  ->
-	  Llio.input_int           ic >>= fun max   ->
-	  Lwt_log.debug_f "RANGE_ENTRIES %S %b %S %b %i" (p_option first) finc (p_option last) linc max
-	    >>= fun () ->
-          Lwt.catch
-	    (fun () ->
-	       backend # range_entries first finc last linc max
-	       >>= fun (list:(string*string) list) ->
-	       Llio.output_int32 oc 0l >>= fun () ->
-		 let size = List.length list in
-		 Lwt_log.debug_f "size = %i" size >>= fun () ->
-	       Llio.output_int oc size >>= fun () ->
-	       Lwt_list.iter_s
-		 (fun (k,v) ->
-		    Llio.output_string oc k >>= fun () ->
-		    Llio.output_string oc v) list >>= fun () ->
-	       Lwt_io.flush oc
-	    )
-	    (handle_exception oc)
+      begin
+	Llio.input_bool          ic >>= fun allow_dirty ->  
+	Llio.input_string_option ic >>= fun first ->
+	Llio.input_bool          ic >>= fun finc  ->
+	Llio.input_string_option ic >>= fun last  ->
+	Llio.input_bool          ic >>= fun linc  ->
+	Llio.input_int           ic >>= fun max   ->
+	Lwt_log.debug_f "RANGE_ENTRIES (%b) %S %b %S %b %i" 
+	  allow_dirty (p_option first) finc (p_option last) linc max
+	>>= fun () ->
+        Lwt.catch
+	  (fun () ->
+	    backend # range_entries ~allow_dirty first finc last linc max
+	    >>= fun (list:(string*string) list) ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    let size = List.length list in
+	    Lwt_log.debug_f "size = %i" size >>= fun () ->
+	    Llio.output_int oc size >>= fun () ->
+	    Lwt_list.iter_s
+	      (fun (k,v) ->
+		Llio.output_string oc k >>= fun () ->
+		Llio.output_string oc v) list >>= fun () ->
+	    Lwt_io.flush oc
+	  )
+	  (handle_exception oc)
 	end
     | LAST_ENTRIES ->
 	begin
@@ -202,9 +207,10 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	end
     | PREFIX_KEYS ->
       begin
+	Llio.input_bool   ic >>= fun allow_dirty ->
 	Llio.input_string ic >>= fun key ->
-	Llio.input_int ic >>= fun max ->
-	backend # prefix_keys key max >>= fun keys ->
+	Llio.input_int    ic >>= fun max ->
+	backend # prefix_keys ~allow_dirty key max >>= fun keys ->
         let size = List.length keys in
 	Llio.output_int oc 0 >>= fun () ->
         Lwt_log.debug_f "size = %i" size >>= fun () ->
@@ -214,7 +220,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | MULTI_GET ->
       begin
-	Llio.input_int ic >>= fun length ->
+	Llio.input_bool ic >>= fun allow_dirty ->
+	Llio.input_int  ic >>= fun length ->
 	let rec loop keys i = 
 	  if i = 0
 	  then Lwt.return keys
@@ -227,7 +234,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	loop [] length >>= fun keys ->
 	Lwt.catch
 	  (fun () ->
-	    backend # multi_get keys >>= fun values ->
+	    backend # multi_get ~allow_dirty keys >>= fun values ->
 	    Llio.output_int oc 0 >>= fun () ->
 	    Llio.output_int oc length >>= fun () ->
 	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->

@@ -152,7 +152,7 @@ let test_sequence () =
   __client_server_wrapper__ _CLUSTER real_test
 
 
-let _test_range client =
+let _test_range (client:Arakoon_client.client) =
   let clear () =
     client # range None true None true 1000 >>= fun xn ->
     Lwt_list.iter_s
@@ -205,7 +205,7 @@ let _test_range client =
 let test_range () =
   __client_server_wrapper__ _CLUSTER _test_range
 
-let _prefix_keys_test client =
+let _prefix_keys_test (client:Arakoon_client.client) =
   let cat s i = s ^ (string_of_int i) in
   client # set "foo" "bar" >>= fun () ->
   client # set "foo2" "bar2" >>= fun () ->

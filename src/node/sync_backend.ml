@@ -86,12 +86,12 @@ object(self: #backend)
   val witnessed = Hashtbl.create 10 
   val _stats = Statistics.create ()
 
-  method exists key =
+  method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # exists key
 
-  method get ?(allow_dirty=false) key = 
+  method get ~allow_dirty key = 
     log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
     self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     Lwt.catch
@@ -147,9 +147,9 @@ object(self: #backend)
     else 
       Lwt.return ()
   
-  method range (first:string option) finc (last:string option) linc max =
+  method range ~allow_dirty (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # range first finc last linc max
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
@@ -165,14 +165,15 @@ object(self: #backend)
         Lwt.return ( self # unblock_collapser start_i )  
     )
   
-  method range_entries (first:string option) finc (last:string option) linc max =
+  method range_entries ~allow_dirty 
+    (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # range_entries first finc last linc max
 
-  method prefix_keys (prefix:string) (max:int) =
+  method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # prefix_keys prefix max >>= fun key_list ->
     Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
     Lwt.return key_list
@@ -253,9 +254,9 @@ object(self: #backend)
     let update_stats () = Statistics.new_sequence _stats in
     self # _update_rendezvous update update_stats
 
-  method multi_get (keys:string list) =
+  method multi_get ~allow_dirty (keys:string list) =
     log_o self "multi_get" >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
     Statistics.new_multiget _stats;
     Lwt.return values
@@ -301,7 +302,7 @@ object(self: #backend)
 	else
 	  Lwt.return ()
 
-  method private _only_if_master_or_dirty allow_dirty = 
+  method private _only_if_master_or_dirty (allow_dirty:bool) = 
     if allow_dirty 
     then Lwt.return ()
     else self # _only_if_master ()

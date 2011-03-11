@@ -134,7 +134,7 @@ class ArakoonClient :
         @param key : key
         @returen : True if there is a value for that key, False otherwise
         """
-        msg = ArakoonProtocol.encodeExists(key)
+        msg = ArakoonProtocol.encodeExists(key, self._allowDirty)
         conn = self._sendToMaster(msg)
         return conn.decodeBoolResult()
 
@@ -165,7 +165,7 @@ class ArakoonClient :
         @rtype: string list
         @return: the values associated with the respective keys
         """
-        msg = ArakoonProtocol.encodeMultiGet(keys)
+        msg = ArakoonProtocol.encodeMultiGet(keys, self._allowDirty)
         conn = self._sendToMaster(msg)
         result = conn.decodeStringListResult()
         return result
@@ -249,7 +249,7 @@ class ArakoonClient :
         @return: Returns a list containing all matching keys
         """
         msg = ArakoonProtocol.encodeRange( beginKey, beginKeyIncluded, endKey,
-                                           endKeyIncluded, maxElements)
+                                           endKeyIncluded, maxElements, self._allowDirty)
         conn = self._sendToMaster( msg )
         return conn.decodeStringListResult()
     
@@ -277,7 +277,9 @@ class ArakoonClient :
         @rtype: list of strings
         @return: Returns a list containing all matching key-value pairs
         """
-        msg = ArakoonProtocol.encodeRangeEntries(first, finc, last, linc, maxElements)
+        msg = ArakoonProtocol.encodeRangeEntries(first, finc,
+                                                 last, linc, maxElements,
+                                                 self._allowDirty)
         conn = self._sendToMaster(msg)
         result = conn.decodeStringPairListResult()
         return result
@@ -300,7 +302,7 @@ class ArakoonClient :
         @rtype: list of strings
         @return: Returns a list of keys matching the provided prefix
         """
-        msg = ArakoonProtocol.encodePrefixKeys( keyPrefix, maxElements )
+        msg = ArakoonProtocol.encodePrefixKeys( keyPrefix, maxElements, self._allowDirty)
         conn = self._sendToMaster( msg )
         return conn.decodeStringListResult( )
 

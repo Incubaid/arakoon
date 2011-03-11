@@ -397,8 +397,11 @@ class ArakoonProtocol :
         return _packInt( ARA_CMD_WHO )
 
     @staticmethod
-    def encodeExists(key):
-        return _packInt(ARA_CMD_EXISTS) + _packString(key)
+    def encodeExists(key, allowDirty):
+        msg = _packInt(ARA_CMD_EXISTS)
+        msg += _packBool(allowDirty)
+        msg += _packString(key)
+        return msg
 
     @staticmethod
     def encodeGet(key , allowDirty):
@@ -426,22 +429,24 @@ class ArakoonProtocol :
         return _packInt ( ARA_CMD_DEL ) + _packString ( key )
 
     @staticmethod
-    def encodeRange( bKey, bInc, eKey, eInc, maxCnt ):
-        retVal = _packInt( ARA_CMD_RAN ) + _packStringOption( bKey ) + _packBool ( bInc )
+    def encodeRange( bKey, bInc, eKey, eInc, maxCnt , allowDirty):
+        retVal = _packInt( ARA_CMD_RAN ) + _packBool(allowDirty)
+        retVal += _packStringOption( bKey ) + _packBool ( bInc )
         retVal += _packStringOption( eKey ) + _packBool (eInc) + _packSignedInt (maxCnt)
         return  retVal
 
     @staticmethod
-    def encodeRangeEntries(first, finc, last, linc, maxEntries):
-        r = _packInt(ARA_CMD_RAN_E)
+    def encodeRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
+        r = _packInt(ARA_CMD_RAN_E) + _packBool(allowDirty)
         r += _packStringOption(first) + _packBool(finc)
         r += _packStringOption(last)  + _packBool(linc)
         r += _packSignedInt(maxEntries)
         return r
 
     @staticmethod
-    def encodePrefixKeys( key, maxCnt ):
-        retVal = _packInt( ARA_CMD_PRE) + _packString( key )
+    def encodePrefixKeys( key, maxCnt, allowDirty ):
+        retVal = _packInt( ARA_CMD_PRE) + _packBool(allowDirty)
+        retVal += _packString( key )
         retVal += _packSignedInt( maxCnt )
         return retVal
 
@@ -453,8 +458,8 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
-    def encodeMultiGet(keys):
-        retVal = _packInt(ARA_CMD_MULTI_GET)
+    def encodeMultiGet(keys, allowDirty):
+        retVal = _packInt(ARA_CMD_MULTI_GET) + _packBool(allowDirty)
         retVal += _packInt(len(keys))
         for key in keys:
             retVal += _packString(key)

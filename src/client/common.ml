@@ -142,8 +142,9 @@ let response ic f =
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
-let exists_to buffer key =
+let exists_to buffer ~allow_dirty key =
   command_to buffer EXISTS;
+  Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key
 
 let get_to ~allow_dirty buffer key =
@@ -160,24 +161,27 @@ let delete_to buffer key =
   command_to buffer DELETE;
   Llio.string_to buffer key
 
-let range_to b first finc last linc max =
+let range_to b ~allow_dirty first finc last linc max =
   command_to b RANGE;
+  Llio.bool_to b allow_dirty;
   Llio.string_option_to b first;
   Llio.bool_to b finc;
   Llio.string_option_to b last;
   Llio.bool_to b linc;
   Llio.int_to b max
 
-let range_entries_to b first finc last linc max =
+let range_entries_to b ~allow_dirty first finc last linc max =
   command_to b RANGE_ENTRIES;
+  Llio.bool_to b allow_dirty;
   Llio.string_option_to b first;
   Llio.bool_to b finc;
   Llio.string_option_to b last;
   Llio.bool_to b linc;
   Llio.int_to b max
 
-let prefix_keys_to b prefix max =
+let prefix_keys_to b ~allow_dirty prefix max =
   command_to b PREFIX_KEYS;
+  Llio.bool_to b allow_dirty;
   Llio.string_to b prefix;
   Llio.int_to b max
 
@@ -187,8 +191,9 @@ let test_and_set_to b key expected wanted =
   Llio.string_option_to b expected;
   Llio.string_option_to b wanted
 
-let multiget_to b keys =
+let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
+  Llio.bool_to b allow_dirty;
   Llio.int_to b (List.length keys);
   List.iter (Llio.string_to b) keys
 

@@ -69,14 +69,14 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt.return r
 
-  method exists (key:string) =
+  method exists ~allow_dirty (key:string) =
     Lwt.return (StringMap.mem key _kv)
 
   method set (key:string) (value:string) =
     _kv <- StringMap.add key value _kv;
     Lwt.return ()
 
-  method get ?(allow_dirty=false) (key:string) =
+  method get ~allow_dirty (key:string) =
     let value = StringMap.find key _kv in
     Lwt.return value
 
@@ -91,7 +91,7 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
-  method multi_get (keys: string list) = 
+  method multi_get ~allow_dirty (keys: string list) = 
     let values = List.fold_left 
       (fun acc k -> 
 	let v = StringMap.find k _kv in
@@ -100,19 +100,19 @@ class test_backend my_name = object(self:#backend)
     in 
     Lwt.return values
 		    
-  method range_entries (first:string option) (finc:bool)
+  method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
     info_f "range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
-  method range (first:string option) (finc:bool)
+  method range ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_ _kv first finc last linc max in
     info_f "range: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
-  method prefix_keys (prefix:string) (max:int) =
+  method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
       (fun k v a ->
