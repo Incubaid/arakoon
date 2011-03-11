@@ -175,10 +175,10 @@ def wait_for_it () :
         
         while go_on:
             previous = to_do
-            time.sleep(5.0)
-            i0 = int( get_last_i_tlog ( node_names[0] ))
-            i1 = int( get_last_i_tlog ( node_names[1] ))
-            i2 = int( get_last_i_tlog ( node_names[2] ))
+            time.sleep(10.0)
+            i0 = int( get_last_i_tlog ( node_names[0] ))# This can be slow.
+            i1 = int( get_last_i_tlog ( node_names[1] ))#
+            i2 = int( get_last_i_tlog ( node_names[2] ))#
             all_i = [i0,i1, i2]
             i_max = max(all_i)
             i_min = min(all_i)
