@@ -664,7 +664,7 @@ class ArakoonCluster:
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
-        cmd = ['pkill', '-f',  line]
+        cmd = ['pkill', '-fx',  line]
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
         subprocess.call(cmd, close_fds=True)
 
@@ -675,7 +675,7 @@ class ArakoonCluster:
 
             if i == 10:
                 logging.debug("stopping '%s' with -9")
-                subprocess.call(['pkill', '-9', '-f', line], close_fds=True)
+                subprocess.call(['pkill', '-9', '-fx', line], close_fds=True)
                 break
             else:
                 subprocess.call(cmd, close_fds=True)
