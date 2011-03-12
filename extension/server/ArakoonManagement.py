@@ -689,7 +689,7 @@ class ArakoonCluster:
         if self._getStatusOne(name) == q.enumerators.AppStatusType.HALTED:
             return None
         line = self._cmdLine(name)
-        cmd = 'pgrep -o -f "%s"' % line
+        cmd = 'pgrep -o -fx "%s"' % line
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
@@ -698,7 +698,7 @@ class ArakoonCluster:
                 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
-        cmd = ['pgrep','-f', line]
+        cmd = ['pgrep','-fx', line]
         proc = subprocess.Popen(cmd,
                                 close_fds = True,
                                 stdout=subprocess.PIPE)
