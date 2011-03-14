@@ -318,9 +318,10 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         if elections_needed then
           begin
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
-            begin
+            (* begin *)
             Store.get_succ_store_i constants.store >>= fun el_i ->
-            let el_up =
+            constants.get_value( el_i ) >>= fun el_up ->
+            (*
             begin
               if el_i = (Sn.pred i) 
               then 
@@ -332,9 +333,11 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
               else None
             end
             in
+            
             Lwt.return (el_i,el_up)
             end
             >>= fun (el_i, el_up) ->
+            *)
             let new_n = update_n constants n in
             Lwt.return (Election_suggest (new_n, el_i, el_up))
           end

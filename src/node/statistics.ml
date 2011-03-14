@@ -33,7 +33,10 @@ module Statistics = struct
     mutable n_sequences:int;
     mutable node_is:(string , Sn.t) Hashtbl.t;
   }
-  
+ 
+  let get_witnessed t =
+      t.node_is
+ 
   let create () = 
     {start = Unix.gettimeofday();
      last  = Unix.gettimeofday();

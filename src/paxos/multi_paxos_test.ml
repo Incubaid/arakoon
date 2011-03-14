@@ -201,7 +201,7 @@ let test_master_loop network_factory ()  =
   let get_buffer, send, nw_run, nw_register = 
     network_factory () in
   let me = "c0" in
-  let i0 = 666L in
+  let i0 = 0L in
   let others = [] in
   let values = ["1";"2";"3";"4";"5"] in
   let finished = fun (a:Store.update_result) ->
@@ -316,7 +316,7 @@ let test_simulation filters () =
 
    let me = "c0" in
   let current_n = 42L in
-  let current_i = 666L in
+  let current_i = 0L in
   let on_accept me (v,n,i) =
     log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return v

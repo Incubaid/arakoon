@@ -162,13 +162,7 @@ let promises_check_done constants state () =
       log ~me "promises_check_done: consensus on %s" (Sn.string_of i)
       >>= fun () ->
       constants.on_accept (bv,n,i) >>= fun v ->
-      begin
-        let u = Update.update_from_value v in
-        match u with 
-          | Update.MasterSet(m,l) ->
-            start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
-          | _ -> Lwt.return ()
-      end >>= fun () ->
+      start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
       let msg = Accept(n,i,bv) in
       mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in

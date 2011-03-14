@@ -198,6 +198,7 @@ type prepare_repsonse =
 
 let handle_prepare constants dest n n' i' =
   let me = constants.me in
+  constants.on_witness dest i' >>= fun () ->
   begin
     can_promise constants.store constants.lease_expiration dest >>= fun can_pr ->
     if not can_pr && n' >= 0L

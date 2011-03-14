@@ -326,11 +326,11 @@ object(self: #backend)
 	let count,s = Hashtbl.fold
 	  (fun name ci (count,s) -> 
 	    let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
-	    if (expect_reachable ~target:name) && 
+	    if (expect_reachable ~target:name) &&  
 	      (ci = i || (Sn.pred ci) = i )
 	    then  count+1,s' 
 	    else  count,s') 
-	  witnessed (1,"") in
+	  ( Statistics.get_witnessed _stats ) (1,"") in
 	let v = count >= q in
 	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
 	>>= fun () ->
