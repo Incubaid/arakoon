@@ -86,29 +86,32 @@ module Update = struct
   let rec from_buffer b pos =
     let kind, pos1 = Llio.int_from b pos in
     match kind with
-      | 1 -> let k,pos2 = Llio.string_from b pos1 in
-		 let v,pos3 = Llio.string_from b pos2 in
-		 Set(k,v), pos3
-      | 2 -> let k, pos2 = Llio.string_from b pos1 in
+      | 1 -> 
+        let k,pos2 = Llio.string_from b pos1 in
+        let v,pos3 = Llio.string_from b pos2 in
+        Set(k,v), pos3
+      | 2 -> 
+        let k, pos2 = Llio.string_from b pos1 in
 		    Delete k, pos2
       | 3 ->
-	let k, pos2 = Llio.string_from b pos1 in
-	let e, pos3 = Llio.string_option_from b pos2 in
-	let w, pos4 = Llio.string_option_from b pos3 in
-	TestAndSet(k,e,w), pos4
-      | 4 -> let m,pos2 = Llio.string_from b pos1 in
-	     let i,pos3 = Llio.int64_from b pos2 in
-		       MasterSet (m,i), pos3
-
+        let k, pos2 = Llio.string_from b pos1 in
+        let e, pos3 = Llio.string_option_from b pos2 in
+        let w, pos4 = Llio.string_option_from b pos3 in
+        TestAndSet(k,e,w), pos4
+      | 4 -> 
+        let m,pos2 = Llio.string_from b pos1 in
+        let i,pos3 = Llio.int64_from b pos2 in
+        MasterSet (m,i), pos3
       | 5 ->
-	let n,pos2 = Llio.int_from b pos1 in
-	let rec loop i acc pos=
-	  if i = n then Sequence (List.rev acc), pos
-	  else
-	    let u, next_pos = from_buffer b pos in
-	    loop (i+1) (u::acc) next_pos
-	in
-	loop 0 [] pos2
+        let n,pos2 = Llio.int_from b pos1 in
+        let rec loop i acc pos=
+        if i = n 
+        then 
+          Sequence (List.rev acc), pos
+        else
+          let u, next_pos = from_buffer b pos in
+          loop (i+1) (u::acc) next_pos in
+          loop 0 [] pos2
       | 6 -> Nop, pos1
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 

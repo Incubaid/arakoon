@@ -123,8 +123,8 @@ let slave_steady_state constants state event =
           | Nak_sent ->
             Lwt.return (Slave_steady_state state)
           | Promise_sent_up2date ->
-            let state = (n',i,previous) in
-            Lwt.return (Slave_steady_state state)
+            Store.get_succ_store_i constants.store >>= fun next_i ->
+            Lwt.return (Slave_wait_for_accept (n', next_i, None, None))
           | Promise_sent_needs_catchup ->
             Store.get_catchup_start_i constants.store >>= fun i ->
             let new_state = (source, i, n', i') in 

@@ -203,7 +203,18 @@ let test_master_loop network_factory ()  =
   let me = "c0" in
   let i0 = 0L in
   let others = [] in
-  let values = ["1";"2";"3";"4";"5"] in
+  let rec create_values n values =
+    if n = 0 
+    then
+      values
+    else
+      let key = Printf.sprintf "key_%d" n in
+      let value = Printf.sprintf "value_%d" n in
+      let actual_update = Update.Set( key, value ) in
+      let actual_value = Update.make_update_value actual_update in
+      actual_value :: ( create_values (n-1) values ) 
+  in
+  let values = create_values 5 [] in
   let finished = fun (a:Store.update_result) ->
     log "finished" >>= fun () ->
     Lwt.return ()
@@ -212,7 +223,7 @@ let test_master_loop network_factory ()  =
   let () = Lwt.ignore_result (
     Lwt_list.iter_s
       (fun x ->
-	Lwt_buffer.add (Some (Value.create x),finished) client_buffer 
+	Lwt_buffer.add (Some (x),finished) client_buffer 
 	>>= fun () ->
 	Lwt_unix.sleep 2.0
       ) values
@@ -260,8 +271,12 @@ let test_master_loop network_factory ()  =
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	| (Multi_paxos_type.Stable_master x) ->
-	  if !continue = 0 then Lwt.return (Some x) else
-	    let () = continue := (!continue -1) in Lwt.return None
+	  if !continue = 0 
+    then 
+      Lwt.return (Some x) 
+    else
+	    let () = continue := (!continue -1) in 
+      Lwt.return None
 	| _ -> Lwt.return None
     in
     let current_n = Sn.start in
