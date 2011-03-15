@@ -88,8 +88,12 @@ let stable_master constants (v',n,new_i) = function
       begin
         if am_forced_master constants me
 	      then
-          let new_n = update_n constants n' in
+          if n' > 0L 
+          then
+            let new_n = update_n constants n' in
             Lwt.return (Forced_master_suggest (new_n,new_i))
+          else
+            Lwt.return (Stable_master (v',n,new_i) )
 	      else
           begin
             handle_prepare constants source n n' i' >>= function
