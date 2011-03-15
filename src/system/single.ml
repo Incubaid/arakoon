@@ -41,6 +41,7 @@ let should_fail x error_msg success_msg =
 
 
 let all_same_master (cluster_cfg, _) =
+  Lwt_log.debug ".... STARTING ALL SAME MASTER ...."
   let masters = ref [] in
   let do_one cfg =
     Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
@@ -68,6 +69,7 @@ let all_same_master (cluster_cfg, _) =
 	  rest
       end
   in
+  Lwt_log.debug ".... ALL SAME MASTER TESTING ...."
   let () = test !masters in
   Lwt.return ()
 
