@@ -424,21 +424,20 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    begin
 	      constants.on_witness source i' >>= fun () ->
 	      if n' <= n then
-		begin
-		  let reason = Printf.sprintf
-		    "already reached consensus on (%s,%s)" 
-		    (Sn.string_of n) (Sn.string_of i) 
-		  in
-		  drop msg reason
-		end
-      else
-        begin
-          let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
-            (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
-          drop msg reason
-        end
+          begin
+					  let reason = Printf.sprintf
+					    "already reached consensus on (%s,%s)" 
+					    (Sn.string_of n) (Sn.string_of i) 
+					  in
+					  drop msg reason
+					end
+	      else
+		      begin
+		        let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
+			        (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
+			      drop msg reason
+			    end
 	    end
-
 	  | Prepare (n',i') -> (* n' > n *)
 	    begin
 	      if am_forced_master constants me
@@ -447,19 +446,23 @@ let wait_for_accepteds constants state (event:paxos_event) =
           then
             let reply = Nak( n', (n,i) ) in
             constants.send reply me source >>= fun () ->
+            let followup = Accept( n, i, v) in
+            constants.send followup me source >>= fun () ->
             Lwt.return (Wait_for_accepteds state)
           else
             Lwt.return (Forced_master_suggest (n',i))
 	      else 
-		      begin
-		        match mo with
-		        | None -> Lwt.return ()
-		        | Some finished -> 
-		          let msg = "lost master role during wait_for_accepteds while handling client request" in
-		          let rc = Arakoon_exc.E_NOT_MASTER in
-		          let result = Store.Update_fail (rc, msg) in
-              finished result
-          end >>= fun () ->
+          let lost_master_role () =
+			      begin
+			        match mo with
+			        | None -> Lwt.return ()
+			        | Some finished -> 
+			          let msg = "lost master role during wait_for_accepteds while handling client request" in
+			          let rc = Arakoon_exc.E_NOT_MASTER in
+			          let result = Store.Update_fail (rc, msg) in
+	              finished result
+	          end
+          in
           begin
             handle_prepare constants source n n' i' >>= function
               | Prepare_dropped
@@ -475,9 +478,11 @@ let wait_for_accepteds constants state (event:paxos_event) =
 				            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
 				            | None -> None
 				        end in
+                lost_master_role () >>= fun () ->
 					      Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
               | Promise_sent_needs_catchup ->
                 Store.get_catchup_start_i constants.store >>= fun i ->
+                lost_master_role () >>= fun () ->
                 Lwt.return (Slave_discovered_other_master (source, i, n', i'))
           end
       end 
@@ -540,7 +545,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		  constants.others in
 		Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
 		mcast constants msg >>= fun () ->
-		Lwt.return (Wait_for_accepteds state)
+    Lwt.return (Wait_for_accepteds state)
 	      end
 	    else
 	      begin

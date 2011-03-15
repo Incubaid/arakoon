@@ -76,7 +76,7 @@ def retryDuringMasterReelection (f):
                 if time.time() + sleepPeriod > deadline :
                     raise 
                 tryCount += 1.0
-                ArakoonClientLogger.logWarning( "Master not found. Retrying in %0.2f sec." % sleepPeriod)
+                ArakoonClientLogger.logWarning( "Master not found (%s). Retrying in %0.2f sec." % (ex, sleepPeriod) )
                 time.sleep( sleepPeriod )
         return retVal
     

@@ -366,7 +366,6 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
       let reply = Promise(future_n, future_i,None) in
       constants.send reply me master >>= fun () ->
-      start_election_timeout constants future_n >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
@@ -377,7 +376,9 @@ let slave_discovered_other_master constants state () =
 	      Multi_paxos.mcast constants fake >>= fun () ->
 	
 	      match vo' with
-	      | Some v -> Lwt.return (Slave_steady_state (future_n', current_i', v))
+	      | Some v ->
+          start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () -> 
+          Lwt.return (Slave_steady_state (future_n', current_i', v))
 	      | None -> 
           let vo =
             begin
@@ -385,6 +386,7 @@ let slave_discovered_other_master constants state () =
                 | None -> None
                 | Some u -> Some ( u, current_i' )
             end in
+          start_election_timeout constants future_n >>= fun () ->
           Lwt.return (Slave_wait_for_accept (future_n', current_i', None, vo))
       end
     end
