@@ -1,0 +1,29 @@
+#ifndef __ARAKOON_CONSTANTS_H__
+#define __ARAKOON_CONSTANTS_H__
+
+#define MXLEN_CLUSTERNAME	128
+#define MXLEN_NODENAME 		128
+#define MXLEN_HOSTNAME 		512
+#define MXLEN_ERRMSG		512
+#define MXLEN_REQ			1024
+
+typedef enum {
+	RC_SUCCESS 			= 0,
+	RC_NO_ENT 			= 1,
+	RC_NO_MASTER		= 2,
+	RC_NOT_MASTER 		= 4,
+	RC_NOT_FOUND 		= 5,
+	RC_WRONG_CLUSTER 	= 6,
+	RC_UNKNOWN_NODE 	= 128,
+	RC_CANNOT_CONNECT 	= 255,
+	RC_SOCKREAD_ERR 	= 256,
+	RC_SOCKWRITE_ERR	= 257,
+	RC_BUF_TOO_SMALL	= 512,
+	RC_INVALID_POINTER 	= 513
+} ara_rc ;
+
+
+#define RET_IF_FAILED(a) if( (rc = a) != RC_SUCCESS ) return rc
+
+
+#endif
