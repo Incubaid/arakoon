@@ -27,6 +27,7 @@ open Update
 open Lwt
 open Lwt_buffer
 open Tlogcommon
+open Gc
 
 let rec _split node_name cfgs =
   let rec loop me_o others = function
@@ -329,7 +330,13 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	      let sqs = Lwt_unix.sleep_queue_size () in
 	      let ns = Lwt_unix.get_new_sleeps () in
 	      let wcl = Lwt_unix.wait_children_length () in
-	      Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i" sqs ns wcl
+	      let stat = Gc.stat () in
+	      let factor = float (Sys.word_size / 8) in
+	      let allocated = (stat.minor_words +.
+		stat.major_words -. stat.promoted_words) *. 
+		(factor /. 1024.0) 
+	      in
+	      Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i\nallocated=%fKB" sqs ns wcl allocated 
 	      >>= fun () ->
 	      _inner ()
 	    in
