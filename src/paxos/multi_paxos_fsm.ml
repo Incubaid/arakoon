@@ -440,6 +440,17 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    end
 	  | Prepare (n',i') -> (* n' > n *)
 	    begin
+	      let lost_master_role () =
+			      begin
+			        match mo with
+			        | None -> Lwt.return ()
+			        | Some finished -> 
+			          let msg = "lost master role during wait_for_accepteds while handling client request" in
+			          let rc = Arakoon_exc.E_NOT_MASTER in
+			          let result = Store.Update_fail (rc, msg) in
+	              finished result
+	          end
+	      in
 	      if am_forced_master constants me
 	      then
           if n' <= n
@@ -450,19 +461,9 @@ let wait_for_accepteds constants state (event:paxos_event) =
             constants.send followup me source >>= fun () ->
             Lwt.return (Wait_for_accepteds state)
           else
+            lost_master_role() >>= fun () ->
             Lwt.return (Forced_master_suggest (n',i))
 	      else 
-          let lost_master_role () =
-			      begin
-			        match mo with
-			        | None -> Lwt.return ()
-			        | Some finished -> 
-			          let msg = "lost master role during wait_for_accepteds while handling client request" in
-			          let rc = Arakoon_exc.E_NOT_MASTER in
-			          let result = Store.Update_fail (rc, msg) in
-	              finished result
-	          end
-          in
           begin
             handle_prepare constants source n n' i' >>= function
               | Prepare_dropped

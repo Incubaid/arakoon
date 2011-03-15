@@ -412,27 +412,33 @@ let slave_discovered_other_master constants state () =
     end
   else
     begin
-      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election"
-      >>= fun () ->
-      (* we have to go to election here or we can get in a situation where
-         everybody just waits for each other *)
-      let new_n = update_n constants future_n in
-      let store = constants.store in
-      store # consensus_i () >>= fun store_i ->
-      let suc_store = 
-      begin
-        match store_i with
-          | None -> Sn.start
-          | Some si -> Sn.succ si
-      end in
-      let tlog_coll = constants.tlog_coll in
-      tlog_coll # get_last_update( suc_store ) >>= fun l_up ->
-      let l_up_v =
-      begin 
-        match l_up with
-          | None -> None
-          | Some up -> Some ( Update.make_update_value up )
-      end in 
-      Lwt.return (Election_suggest (new_n, suc_store, l_up_v))
+      if is_election constants
+      then 
+	      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election"
+	      >>= fun () ->
+	      (* we have to go to election here or we can get in a situation where
+	         everybody just waits for each other *)
+	      let new_n = update_n constants future_n in
+	      let store = constants.store in
+	      store # consensus_i () >>= fun store_i ->
+	      let suc_store = 
+	      begin
+	        match store_i with
+	          | None -> Sn.start
+	          | Some si -> Sn.succ si
+	      end in
+	      let tlog_coll = constants.tlog_coll in
+	      tlog_coll # get_last_update( suc_store ) >>= fun l_up ->
+	      let l_up_v =
+	      begin 
+	        match l_up with
+	          | None -> None
+	          | Some up -> Some ( Update.make_update_value up )
+	      end in 
+	      Lwt.return (Election_suggest (new_n, suc_store, l_up_v))
+      else
+        log ~me "slave_discovered_other_master: forced slave, back to slave mode" >>= fun () ->
+        Store.get_succ_store_i constants.store >>= fun next_i ->
+        Lwt.return (Slave_wait_for_accept( future_n, next_i, None, None ) )
     end
 
