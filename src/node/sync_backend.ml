@@ -269,7 +269,6 @@ object(self: #backend)
     store # who_master ()
 
   method who_master () =
-    log_o self "who_master" >>= fun () ->
     self # _who_master () >>= fun mo ->
     let result,argumentation = 
       match mo with

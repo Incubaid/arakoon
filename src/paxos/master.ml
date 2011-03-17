@@ -142,7 +142,6 @@ let master_dictate constants (mo,v,n,i) () =
   end >>= fun () ->
   mcast constants (Accept(n,i,v)) >>= fun () ->
   let me = constants.me in
-  log ~me "master_dictate" >>= fun () ->
   let others = constants.others in
   let needed = constants.quorum_function (List.length others + 1) in
   let needed' = needed - 1 in

@@ -24,11 +24,6 @@ open Lwt
 open Tlogcommon
 open Common
 
-type writeResult = WRSuccess | WRIgnored | WRCatchupNeeded
-let string_of = function
-  | WRSuccess -> "WRSuccess"
-  | WRIgnored -> "WRIgnored"
-  | WRCatchupNeeded -> "WRCatchupNeeded"
 
 class tlogWriter oc lastI =
 
@@ -38,23 +33,18 @@ class tlogWriter oc lastI =
 
     method getLastI () = lastWrittenI 
 
-    method closeChannel () =
-      Lwt_io.close oc
+    method closeChannel () = Lwt_io.close oc
 
     method log_update i update =
-      if i < lastWrittenI
-      then Lwt.return WRIgnored
-      else if not ( isValidSuccessor i lastWrittenI ) then
-	begin
-	  Lwt_log.info_f "i=%s &  lastWrittenI=%s => WRCatchupNeeded" (Sn.string_of i) (Sn.string_of lastWrittenI) >>= fun () ->
-	  Lwt.return WRCatchupNeeded
-	end
-      else
+      if isValidSuccessor i lastWrittenI  then
 	begin
           write_entry oc i update >>= fun () ->
           Lwt_io.flush oc >>= fun () ->
 	  let () = lastWrittenI <- i in
-          Lwt.return WRSuccess
+          Lwt.return ()
         end
+      else
+	Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
+
 
  end

@@ -303,7 +303,7 @@ object(self: # tlog_collection)
       | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
     in
     _previous_update <- Some (i,update);
-    Lwt.return Tlogwriter.WRSuccess
+    Lwt.return ()
     
   method private _prelude i =
     match _oc with

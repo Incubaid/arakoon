@@ -55,7 +55,7 @@ object (self: #tlog_collection)
   method  log_update i u =
     let () = data <- (i,u)::data in
     let () = last_update <- (Some (i,u)) in
-    Lwt.return Tlogwriter.WRSuccess
+    Lwt.return ()
 
   method get_last_update i =
     match last_update with
