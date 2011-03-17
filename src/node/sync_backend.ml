@@ -41,29 +41,31 @@ exception Forced_stop
 let make_went_well stats_cb awake sleeper =
   fun b ->
     begin
-		Lwt_log.debug "went_well" >>= fun () ->
-		Lwt.catch ( fun () ->
-			Lwt.return (Lwt.wakeup awake b)
-		) ( fun e ->
-		match e with 
-			| Invalid_argument s ->		
-				let t = state sleeper in
-				begin
-				match t with
-					| Fail ex ->
-						Lwt_log.error "Lwt.wakeup error: Sleeper already failed before. Re-raising" >>= fun () ->
-						Lwt.fail ex
-					| Return v ->
-						Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
-					| Sleep ->
-						Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
-				end
-			| _ -> Lwt.fail e
-		) >>= fun () ->
-		stats_cb ();
-		Lwt_log.debug "went_well finished" >>= fun () ->
-		Lwt.return ()
-		end
+      Lwt.catch 
+	( fun () ->Lwt.return (Lwt.wakeup awake b)) 
+	( fun e ->
+	  match e with 
+	    | Invalid_argument s ->		
+	      let t = state sleeper in
+	      begin
+		match t with
+		  | Fail ex ->
+		    begin
+		      Lwt_log.error 
+			"Lwt.wakeup error: Sleeper already failed before. Re-raising" 
+		      >>= fun () ->
+		      Lwt.fail ex
+		    end
+		  | Return v ->
+		    Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
+		  | Sleep ->
+		    Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
+	      end
+	    | _ -> Lwt.fail e
+	) >>= fun () ->
+      stats_cb ();
+      Lwt.return ()
+    end
 
 
 

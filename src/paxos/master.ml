@@ -66,8 +66,6 @@ let stable_master constants (v',n,new_i) = function
 	end
     | FromClient (vo, finished) ->
       begin
-	let me = constants.me in
-	log ~me "got msg from client" >>= fun () ->
 	match vo with
 	  | None ->
 	    begin
@@ -82,46 +80,47 @@ let stable_master constants (v',n,new_i) = function
     | FromNode (msg,source) ->
       begin
 	let me = constants.me in
-	log ~me "got msg %S from node %S" (string_of msg) source >>= fun () ->
 	match msg with
 	  | Prepare (n',i') ->
-      begin
-        if am_forced_master constants me
+	    begin
+              if am_forced_master constants me
 	      then
-          if n' > 0L 
-          then
-            let new_n = update_n constants n' in
-            Lwt.return (Forced_master_suggest (new_n,new_i))
-          else
-            Lwt.return (Stable_master (v',n,new_i) )
+		if n' > 0L 
+		then
+		  let new_n = update_n constants n' in
+		  Lwt.return (Forced_master_suggest (new_n,new_i))
+		else
+		  Lwt.return (Stable_master (v',n,new_i) )
 	      else
-          begin
-            handle_prepare constants source n n' i' >>= function
-              | Nak_sent 
-              | Prepare_dropped ->
-                Lwt.return  (Stable_master (v',n,new_i) )
-              | Promise_sent_up2date ->
-                let tlog_coll = constants.tlog_coll in
-				        tlog_coll # get_last_i () >>= fun tlc_i ->
-				        tlog_coll # get_last_update tlc_i >>= fun l_update ->
-				        let l_uval = 
-				        begin
-				          match l_update with 
-				            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-				            | None -> None
-				        end in
-					      Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
-              | Promise_sent_needs_catchup ->
-                Store.get_catchup_start_i constants.store >>= fun i ->
-                Lwt.return (Slave_discovered_other_master (source, i, n', i'))
-          end
-      end
+		begin
+		  handle_prepare constants source n n' i' >>= function
+		    | Nak_sent 
+		    | Prepare_dropped ->
+                      Lwt.return  (Stable_master (v',n,new_i) )
+		    | Promise_sent_up2date ->
+		      begin
+			let tlog_coll = constants.tlog_coll in
+			tlog_coll # get_last_i () >>= fun tlc_i ->
+			tlog_coll # get_last_update tlc_i >>= fun l_update ->
+			let l_uval = 
+			  begin
+			    match l_update with 
+			      | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			      | None -> None
+			  end in
+			Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
+		      end
+		    | Promise_sent_needs_catchup ->
+                      Store.get_catchup_start_i constants.store >>= fun i ->
+                      Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+		end
+	    end
 	  | _ ->
 	    begin
 	      log ~me "stable_master received %S: dropping" (string_of msg)
 	      >>= fun () ->
 	      Lwt.return (Stable_master (v',n,new_i))
-
+		
 	    end
       end
     | ElectionTimeout n' -> 
