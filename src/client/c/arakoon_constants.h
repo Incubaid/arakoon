@@ -6,6 +6,7 @@
 #define MXLEN_HOSTNAME 		512
 #define MXLEN_ERRMSG		512
 #define MXLEN_REQ			1024
+#define MXLEN_PROLOGUE		256
 
 typedef enum {
 	RC_SUCCESS 			= 0,

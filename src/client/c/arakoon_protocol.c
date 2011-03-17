@@ -5,6 +5,7 @@
 #include "arakoon_protocol.h"
 #include "util.h"
 
+int ARA_VERSION = 1;
 char ARA_MAGIC[] = {0xff, 0xb1};
 
 // Hello command
@@ -31,12 +32,12 @@ void build_opcode( char* buffer, char* operation, size_t* offset) {
 }
 
 void add_uint32_to_buf( char* buffer, uint32_t value, size_t* offset) {
-	memcpy(buffer+(*offset), &value,sizeof(uint32_t));
+	*( (uint32_t*) (buffer+ *offset)) = value ;
 	(*offset) += sizeof(uint32_t);
 }
 
 void add_int32_to_buf( char* buffer, int32_t value, size_t* offset) {
-	memcpy(buffer+(*offset), &value,sizeof(int32_t));
+	*( (int32_t*) (buffer+ *offset)) = value ;
 	(*offset) += sizeof(int32_t);
 }
 
@@ -76,6 +77,7 @@ void check_req_buf_size( size_t required, size_t actual ) {
 		bail("Request buffer too small");
 	}
 }
+
 size_t build_req_set ( size_t buf_size, char* buffer,
 		uint32_t key_size, const char* key,
 		uint32_t value_size, const char* value)
@@ -90,11 +92,12 @@ size_t build_req_set ( size_t buf_size, char* buffer,
 
 
 size_t build_req_get( size_t buf_size, char* buffer,
-		uint32_t key_size, const char* key)
+		uint32_t key_size, const char* key, int allow_dirty)
 {
-	check_req_buf_size( 2*sizeof(uint32_t) + key_size, buf_size);
+	check_req_buf_size( 2*sizeof(uint32_t) + key_size + 1, buf_size);
 	size_t offset = 0;
 	build_opcode (buffer, ARA_CMD_GET, &offset);
+	add_bool_to_buf(buffer, allow_dirty, &offset);
 	add_string_to_buf(buffer, key_size, key, &offset);
 	return offset;
 }
@@ -123,22 +126,25 @@ size_t build_req_hello( size_t buf_size, char* buffer,
 }
 
 size_t build_req_exists( size_t buf_size, char* buffer,
-		uint32_t key_size, const char* key)
+		uint32_t key_size, const char* key, int allow_dirty)
 {
-	check_req_buf_size( 2*sizeof(uint32_t) + key_size, buf_size);
+	check_req_buf_size( 2*sizeof(uint32_t) + key_size + 1, buf_size);
 	size_t offset = 0;
 	build_opcode(buffer, ARA_CMD_EXISTS, &offset);
+	add_bool_to_buf(buffer, allow_dirty, &offset);
 	add_string_to_buf(buffer, key_size, key, &offset);
 	return offset;
 }
 
 size_t build_req_range( size_t buf_size, char* buffer,
 		size_t b_key_size, const char* b_key, int b_key_included,
-		size_t e_key_size, const char* e_key, int e_key_included, int max_cnt)
+		size_t e_key_size, const char* e_key, int e_key_included,
+		int max_cnt, int allow_dirty)
 {
-	check_req_buf_size( 2 + 3*sizeof(uint32_t) + b_key_size + e_key_size, buf_size );
+	check_req_buf_size( 2 + 3*sizeof(uint32_t) + b_key_size + e_key_size + 1, buf_size );
 	size_t offset = 0;
 	build_opcode(buffer, ARA_CMD_RAN, &offset);
+	add_bool_to_buf(buffer, allow_dirty, &offset);
 	add_string_option_to_buf(buffer, b_key_size, b_key, &offset);
 	add_bool_to_buf(buffer, b_key_included, &offset);
 	add_string_option_to_buf(buffer, e_key_size, e_key, &offset);
@@ -162,5 +168,24 @@ ara_rc check_for_error (int* sock, ara_cluster_t* cluster, size_t err_msg_size, 
 		RET_IF_FAILED( recv_string(sock, MXLEN_ERRMSG, cluster->last_error, err_msg_size, err_msg ) ) ;
 	}
 	return response;
+}
+
+
+size_t build_prologue(size_t buffer_size, char* buffer, ara_cluster_t* cluster ) {
+	size_t required_size = 3*sizeof(uint32_t) + cluster->cluster_id_size;
+
+	if ( buffer_size >= required_size ) {
+		// Magic
+		size_t offset = 0;
+		buffer[offset++] = 0x00;
+		buffer[offset++] = 0x00;
+		buffer[offset++] = ARA_MAGIC[0];
+		buffer[offset++] = ARA_MAGIC[1];
+		// Version
+		add_int32_to_buf(buffer, ARA_VERSION, &offset);
+		// Cluster
+		add_string_to_buf(buffer, cluster->cluster_id_size, cluster->cluster_id, &offset);
+	}
+	return required_size;
 }
 

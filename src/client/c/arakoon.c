@@ -75,12 +75,30 @@ void print_cluster(ara_cluster_t clu) {
 	}
 }
 
+int send_prologue( ara_cluster_t* cluster, int* sock ) {
+	char prologue_buf [MXLEN_PROLOGUE];
+	size_t prologue_size;
+	int rc = RC_SUCCESS;
+
+	prologue_size = build_prologue(MXLEN_PROLOGUE, prologue_buf, cluster);
+	if (prologue_size > MXLEN_PROLOGUE ) {
+		rc = RC_BUF_TOO_SMALL;
+	}
+	if ( rc == RC_SUCCESS ) {
+		rc = send_n_bytes( sock, prologue_size, prologue_buf, get_timeout(), MXLEN_ERRMSG, cluster->last_error);
+	}
+	return rc;
+}
 
 int open_connection(ara_cluster_t* cluster, const char* node_name, int*sock ) {
 	ara_node_list_elem_t* iter = cluster->nodes;
 	while (iter) {
 		if( strcmp(iter->cur->name, node_name) == 0) {
-			return open_socket( iter->cur->address, iter->cur->port, sock, MXLEN_ERRMSG, cluster->last_error);
+			int rc = open_socket( iter->cur->address, iter->cur->port, sock, MXLEN_ERRMSG, cluster->last_error);
+			if (rc == RC_SUCCESS ) {
+				rc = send_prologue( cluster, sock );
+			}
+			return rc;
 		}
 		iter = iter->next;
 	}
@@ -185,9 +203,9 @@ ara_rc who_master(ara_cluster_t* cluster, size_t master_buf_len, char* master_bu
 	return rc;
 }
 
-ara_rc exists(ara_cluster_t* cluster, size_t key_size, const char* key, int* key_exists ) {
+ara_rc exists(ara_cluster_t* cluster, size_t key_size, const char* key, int allow_dirty, int* key_exists ) {
 	ara_rc rc ;
-	size_t actual_size = build_req_exists(MXLEN_REQ, cluster->cmd_buf, key_size, key);
+	size_t actual_size = build_req_exists(MXLEN_REQ, cluster->cmd_buf, key_size, key, allow_dirty);
 	RET_IF_FAILED( send_to_master(cluster,actual_size,cluster->cmd_buf) );
 	RET_IF_FAILED( check_for_error(&cluster->master_sock,cluster,MXLEN_ERRMSG, cluster->last_error) );
 	RET_IF_FAILED( recv_bool(&cluster->master_sock, key_exists, MXLEN_ERRMSG, cluster->last_error) );
@@ -203,9 +221,9 @@ ara_rc hello(ara_cluster_t* cluster, size_t client_id_size, const char* client_i
 	RET_IF_FAILED( recv_string(&cluster->master_sock, max_response_size, response, MXLEN_ERRMSG, cluster->last_error) );
 	return rc;
 }
-ara_rc get(ara_cluster_t* cluster, size_t key_size, const char*key, size_t max_value_size, char* value) {
+ara_rc get(ara_cluster_t* cluster, size_t key_size, const char*key, int allow_dirty, size_t max_value_size, char* value) {
 	ara_rc rc;
-	size_t actual_size = build_req_get(MXLEN_REQ, cluster->cmd_buf, key_size, key);
+	size_t actual_size = build_req_get(MXLEN_REQ, cluster->cmd_buf, key_size, key, allow_dirty);
 	RET_IF_FAILED( send_to_master(cluster,actual_size,cluster->cmd_buf) );
 	RET_IF_FAILED( check_for_error(&cluster->master_sock,cluster,MXLEN_ERRMSG, cluster->last_error) );
 	RET_IF_FAILED( recv_string(&cluster->master_sock, max_value_size, value, MXLEN_ERRMSG, cluster->last_error) );
@@ -226,11 +244,11 @@ int get_last_error( ara_cluster_t* cluster, size_t buf_size, char* buf) {
 }
 
 ara_rc range(ara_cluster_t* cluster, size_t b_key_size, const char* b_key, int b_key_included,
-		size_t e_key_size, const char* e_key, int e_key_included, int max_cnt, key_list_t* key_list)
+		size_t e_key_size, const char* e_key, int e_key_included, int max_cnt, int allow_dirty, key_list_t* key_list)
 {
 	ara_rc rc;
 	size_t actual_size = build_req_range(MXLEN_REQ, cluster->cmd_buf, b_key_size, b_key,
-			b_key_included, e_key_size, e_key, e_key_included, max_cnt);
+			b_key_included, e_key_size, e_key, e_key_included, max_cnt, allow_dirty);
 	RET_IF_FAILED( send_to_master(cluster,actual_size,cluster->cmd_buf) );
 	RET_IF_FAILED( check_for_error(&cluster->master_sock,cluster,MXLEN_ERRMSG, cluster->last_error) );
 	RET_IF_FAILED( recv_string_list(&cluster->master_sock,key_list,MXLEN_ERRMSG, cluster->last_error));
@@ -241,8 +259,8 @@ ara_rc range(ara_cluster_t* cluster, size_t b_key_size, const char* b_key, int b
 int main(int argc, char** argv) {
 	char my_cluster_name [] = "mycluster";
 	ara_cluster_t clu = create_empty_cluster( strlen(my_cluster_name), my_cluster_name);
-	clu = add_node_to_cluster( clu, "arakoon_0", "127.0.0.1", 7080);
-	clu = add_node_to_cluster( clu, "arakoon_1", "127.0.0.1", 7081);
+	clu = add_node_to_cluster( clu, "node1", "127.0.0.1", 7080);
+	// clu = add_node_to_cluster( clu, "arakoon_1", "127.0.0.1", 7081);
 	print_cluster(clu);
 
 	const char key1[] = "keeeyy";
@@ -254,13 +272,15 @@ int main(int argc, char** argv) {
 	ara_rc rc ;
 	rc = set(&clu, strlen(key1), key1, strlen(value1), value1);
 	if (rc != RC_SUCCESS) {
-		puts("Got back error on set");
+		puts("ERROR on set");
 		get_last_error(&clu, msg_size, msg);
 		printf( "%d, %s\n", rc, msg);
+	} else {
+		puts("SUCCESS on set");
 	}
 	size_t value_size = 256;
 	char value [value_size];
-	rc = get(&clu, strlen(key1), key1, value_size, value);
+	rc = get(&clu, strlen(key1), key1, 0, value_size, value);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on get");
 		get_last_error(&clu, value_size, value);
@@ -269,7 +289,7 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on get");
 		puts(value);
 	}
-	rc = get(&clu, strlen(key2), key2, value_size, value);
+	rc = get(&clu, strlen(key2), key2, 0, value_size, value);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on get2");
 		get_last_error(&clu, value_size, value);
@@ -287,7 +307,7 @@ int main(int argc, char** argv) {
 		printf ("%u, %s...\n", rc, value);
 	}
 	int is_there;
-	rc = exists(&clu, strlen(key2), key2, &is_there) ;
+	rc = exists(&clu, strlen(key2), key2, 0, &is_there) ;
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on exists1");
 		get_last_error(&clu, value_size, value);
@@ -296,7 +316,7 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on exists1");
 		printf("%d\n", is_there);
 	}
-	rc = exists(&clu, strlen(key1), key1, &is_there) ;
+	rc = exists(&clu, strlen(key1), key1, 0, &is_there) ;
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on exists2");
 		get_last_error(&clu, value_size, value);
@@ -336,7 +356,7 @@ int main(int argc, char** argv) {
 	set(&clu, strlen(end_key),end_key,strlen(end_key),end_key);
 	key_list_t res_list;
 	puts("Starting range");
-	rc = range(&clu, strlen(begin_key),begin_key,1,strlen(end_key),end_key,1,-1, &res_list);
+	rc = range(&clu, strlen(begin_key),begin_key,1,strlen(end_key),end_key,1,-1,0, &res_list);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on range");
 		get_last_error(&clu, value_size, value);
