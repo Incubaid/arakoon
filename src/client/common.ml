@@ -53,7 +53,7 @@ type client_command =
 
 
 let code2int = [
-  PING,                    0x1l ;
+  PING,                     0x1l ;
   WHO_MASTER,               0x2l ;
   EXISTS,                   0x7l ;
   GET,                      0x8l ;

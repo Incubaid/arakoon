@@ -39,56 +39,61 @@ let setup_crash_log crash_file_gen =
   in
   let level_to_string lvl =
   begin
-	  match lvl with
-	    | Lwt_log.Debug -> "debug"
-	    | Lwt_log.Info -> "info"
-	    | Lwt_log.Notice -> "notice"
-	    | Lwt_log.Warning -> "warning"
-	    | Lwt_log.Error -> "error" 
-	    | Lwt_log.Fatal -> "fatal"
+    match lvl with
+      | Lwt_log.Debug -> "debug"
+      | Lwt_log.Info -> "info"
+      | Lwt_log.Notice -> "notice"
+      | Lwt_log.Warning -> "warning"
+      | Lwt_log.Error -> "error" 
+      | Lwt_log.Fatal -> "fatal"
   end 
   in
   
-  let rec remove_n_elements n =
-    match n with
-      | 0  -> ()
-      | n' -> 
-        let _ = Lwt_sequence.take_opt_l circ_buf in
-        let () = (msg_cnt := !msg_cnt - 1) in
-        remove_n_elements (n-1)
+  let rec remove_n_elements = function
+    | 0  -> ()
+    | n -> 
+      let _ = Lwt_sequence.take_opt_l circ_buf in
+      let () = (msg_cnt := !msg_cnt - 1) in
+      remove_n_elements (n-1)
   in
   
   let add_msg lvl msg  =
     let () = (msg_cnt := !msg_cnt + 1) in
     let full_msg = Printf.sprintf "%Ld: %s: %s" (Int64.of_float ( Unix.time() )) lvl msg in
     let _ = Lwt_sequence.add_r full_msg circ_buf  in
-    lvl 
+    ()
   in
   
   let add_to_crash_log section level msgs =
     let new_msg_cnt = List.length msgs in
     let total_msgs = !msg_cnt + new_msg_cnt in
-    let () =
-      begin
-        if  total_msgs > max_crash_log_size 
-        then
-          remove_n_elements (total_msgs - max_crash_log_size)
-        else
-          ()
-      end
+    let () = 
+      if  total_msgs > 11 * max_crash_log_size then
+	begin
+	  let to_delete = total_msgs - max_crash_log_size in
+	  (* let () = Printf.printf "removing %i%!\n" to_delete in *)
+	  remove_n_elements to_delete;
+	  (* Gc.compact() *)
+	end
     in
-    let _ = List.fold_left add_msg (level_to_string level) msgs in
+    let lvls = level_to_string level in
+    let () = List.iter (add_msg lvls) msgs  in
     Lwt.return () 
   in 
   
   let dump_crash_log () =  
     let dump_msgs oc =
-      let dump_msg msg =
-        let line = msg ^ "\n" in
-        ignore( Lwt_io.write oc line )
+      let rec loop () =
+	let msg = Lwt_sequence.take_l circ_buf in
+	Lwt_io.write_line oc msg >>= fun () ->
+	loop ()
       in
-      Lwt.return (Lwt_sequence.iter_l dump_msg circ_buf)
-    in 
+      Lwt.catch 
+	loop
+	(function 
+	  | End_of_file -> Lwt.return ()
+	  | e -> Lwt.fail e)
+    in
     let crash_file_path = crash_file_gen () in
     Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs
   in 
@@ -111,9 +116,13 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
   let (log_crash_msg, close_crash_log, dump_crash_log) = setup_crash_log crash_log_prefix in 
   
   let add_log_msg section level msgs =
-    let log_file_msg msg = Lwt_log.log ~section:file_section ~logger:file_logger ~level msg in 
+    let log_file_msg msg = Lwt_log.log 
+      ~section:file_section 
+      ~logger:file_logger 
+      ~level msg 
+    in 
     Lwt_list.iter_s log_file_msg msgs >>= fun _ -> 
-    log_crash_msg section level msgs
+    log_crash_msg section level msgs 
   in
     
   let close_default_logger () =
