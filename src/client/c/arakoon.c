@@ -25,6 +25,7 @@ create_empty_cluster(size_t cluster_id_size, const char* cluster_id) {
 	ret.last_error[0]='\0';
 	ret.master_sock = -1;
 	ret.master_name[0] = '\0';
+        ret.cmd_buf = checked_malloc(MXLEN_REQ);
 	return ret;
 }
 
@@ -61,6 +62,7 @@ void cleanup_cluster(ara_cluster_t* cluster) {
 		free(prev);
 	}
 	cluster->nodes = NULL;
+        free(cluster->cmd_buf);
 	bound_strncpy(cluster->cluster_id,"",MXLEN_CLUSTERNAME);
 }
 
@@ -255,6 +257,68 @@ ara_rc range(ara_cluster_t* cluster, size_t b_key_size, const char* b_key, int b
 	return rc;
 }
 
+ara_rc range_entries(ara_cluster_t* cluster, size_t b_key_size, const char* b_key, int b_key_included,
+		size_t e_key_size, const char* e_key, int e_key_included, int max_cnt, int allow_dirty, kv_pair_list_t* kv_list)
+{
+    ara_rc rc;
+    size_t actual_size = build_req_range_entries(MXLEN_REQ, cluster->cmd_buf, b_key_size, b_key,
+                    b_key_included, e_key_size, e_key, e_key_included, max_cnt, allow_dirty);
+    RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
+    RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
+    RET_IF_FAILED( recv_kv_list(&cluster->master_sock, kv_list, MXLEN_ERRMSG, cluster->last_error));
+    return rc;
+}
+
+ara_rc test_and_set (ara_cluster_t *cluster, size_t key_size, const char* key, size_t old_value_size, const char* old_value,
+                size_t new_value_size, const char* new_value, size_t max_return_value_size, char* return_value)
+{
+    ara_rc rc;
+    size_t actual_size = build_req_test_and_set(MXLEN_REQ,cluster->cmd_buf, key_size, key, old_value_size, old_value,
+                    new_value_size, new_value);
+    RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
+    RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
+    RET_IF_FAILED( recv_string(&cluster->master_sock, max_return_value_size, return_value, MXLEN_ERRMSG, cluster->last_error) );
+
+    return rc;
+}
+
+ara_rc multi_get (ara_cluster_t *cluster, key_list_t key_list, value_list_t* value_list)
+{
+    ara_rc rc;
+    size_t list_buf_size = get_list_size(key_list);
+    if(list_buf_size > MXLEN_REQ)
+    {
+        cluster->cmd_buf = checked_malloc(list_buf_size);
+    }
+    size_t actual_size = build_req_multi_get(list_buf_size,cluster->cmd_buf, key_list);
+    RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
+    RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
+    RET_IF_FAILED( recv_string_list(&cluster->master_sock, value_list, MXLEN_ERRMSG, cluster->last_error));
+
+    return rc;
+}
+
+ara_rc expect_progress_possible (ara_cluster_t *cluster, int *result)
+{
+    ara_rc rc;
+    size_t actual_size = build_req_expect_progress(MXLEN_REQ,cluster->cmd_buf);
+    RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
+    RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
+    RET_IF_FAILED( recv_bool(&cluster->master_sock, result, MXLEN_ERRMSG, cluster->last_error) );
+
+    return rc;
+}
+
+ara_rc sequence (ara_cluster_t *cluster, kv_pair_list_t key_value_list)
+{
+    ara_rc rc;
+    size_t actual_size = build_sequence(MXLEN_REQ,cluster->cmd_buf, key_value_list);
+    RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
+    RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
+
+    return rc;
+}
+
 
 int main(int argc, char** argv) {
 	char my_cluster_name [] = "mycluster";
@@ -364,7 +428,7 @@ int main(int argc, char** argv) {
 	} else {
 		puts("SUCCESS on range");
 		printf("Range got back %u elements\n", res_list.count);
-		key_list_elem_t iter = res_list.first_ptr;
+		object_list_elem_t iter = res_list.first_ptr;
 		while ( iter ) {
 			puts( iter->cur.str );
 			iter = iter->next;

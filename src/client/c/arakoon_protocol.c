@@ -72,10 +72,65 @@ void add_string_option_to_buf( char* buffer, size_t str_size, const char* str, s
 	}
 }
 
+void add_string_list_to_buf (char* buffer, key_list_t key_list, size_t* offset)
+{
+    add_string_to_buf(buffer, key_list.first_ptr->cur.size, key_list.first_ptr->cur.str, offset);
+    struct pstring_list_elem *p = key_list.first_ptr->next;
+    while(p)
+    {
+        add_string_to_buf(buffer, p->cur.size, p->cur.str, offset);
+        p = p->next;
+    }
+}
+
+void add_string_pair_list_to_buf (char* buffer, kv_pair_list_t key_value_list, size_t* offset)
+{
+    add_string_to_buf(buffer, key_value_list.first_ptr->cur.key_size, key_value_list.first_ptr->cur.key, offset);
+    add_string_to_buf(buffer, key_value_list.first_ptr->cur.value_size, key_value_list.first_ptr->cur.value, offset);
+    struct sized_kv_pair_list_elem *p = key_value_list.first_ptr->next;
+    while(p)
+    {
+        add_string_to_buf(buffer, p->cur.key_size, p->cur.key, offset);
+        add_string_to_buf(buffer, p->cur.value_size, p->cur.value, offset);
+        p = p->next;
+    }
+
+}
+
 void check_req_buf_size( size_t required, size_t actual ) {
 	if( required > actual ) {
 		bail("Request buffer too small");
 	}
+}
+
+int get_list_size (key_list_t key_list)
+{
+    int total_key_size = 0;
+    struct pstring_list_elem *p = key_list.first_ptr->next;
+    total_key_size += key_list.first_ptr->cur.size;
+    while(p)
+    {
+        total_key_size += p->cur.size;
+        p = p->next;
+    }
+
+    return total_key_size;
+}
+
+int get_pair_list_size (kv_pair_list_t key_value_list)
+{
+    int total_pair_size = 0;
+    struct sized_kv_pair_list_elem *p = key_value_list.first_ptr->next;
+    total_pair_size += key_value_list.first_ptr->cur.key_size;
+    total_pair_size += key_value_list.first_ptr->cur.value_size;
+    while(p)
+    {
+        total_pair_size += p->cur.key_size;
+        total_pair_size += p->cur.value_size;
+        p = p->next;
+    }
+
+    return total_pair_size;
 }
 
 size_t build_req_set ( size_t buf_size, char* buffer,
@@ -168,6 +223,73 @@ ara_rc check_for_error (int* sock, ara_cluster_t* cluster, size_t err_msg_size, 
 		RET_IF_FAILED( recv_string(sock, MXLEN_ERRMSG, cluster->last_error, err_msg_size, err_msg ) ) ;
 	}
 	return response;
+}
+
+size_t build_req_range_entries( size_t buf_size, char* buffer,
+		size_t b_key_size, const char* b_key, int b_key_included,
+		size_t e_key_size, const char* e_key, int e_key_included,
+                int max_cnt, int allow_dirty)
+{
+    /*1-byte bool + 1-byte bool + 1-byte bool + 1-int + 1-int + 1-int  (i.e the combined sizes of the arguments + opcode)*/
+    check_req_buf_size( 3 + 3*sizeof(uint32_t) + b_key_size + e_key_size, buf_size );
+    size_t offset = 0;
+    build_opcode(buffer, ARA_CMD_RAN_E, &offset);
+    add_string_option_to_buf(buffer, b_key_size, b_key, &offset);
+    add_bool_to_buf(buffer, b_key_included, &offset);
+    add_string_option_to_buf(buffer, e_key_size, e_key, &offset);
+    add_bool_to_buf(buffer, e_key_included, &offset);
+    add_int32_to_buf(buffer,(int32_t) max_cnt, &offset);
+    add_bool_to_buf(buffer, allow_dirty, &offset);
+    return offset;
+}
+
+size_t build_req_test_and_set(size_t buf_size, char* buffer, size_t key_size, const char* key,
+                size_t old_value_size , const char* old_value, size_t new_value_size, const char* new_value)
+{
+    /*1-int + 1-int + 1-int + 1-int(i.e the combined sizes of the arguments + opcode)*/
+    check_req_buf_size( 4*sizeof(uint32_t) + key_size + old_value_size + new_value_size, buf_size );
+    size_t offset = 0;
+    build_opcode(buffer, ARA_CMD_TAS, &offset);
+    add_string_option_to_buf(buffer, key_size, key, &offset);
+    add_string_option_to_buf(buffer, old_value_size, old_value, &offset);
+    add_string_option_to_buf(buffer, new_value_size, new_value, &offset);
+
+    return offset;
+    
+}
+
+size_t build_req_multi_get (size_t buf_size, char* buffer, key_list_t key_list)
+{
+    /*1-int + 1-int(i.e the combined sizes of the arguments + opcode)*/
+    check_req_buf_size( 2*sizeof(uint32_t) + get_list_size(key_list), buf_size );
+    size_t offset = 0;
+    build_opcode(buffer, ARA_CMD_MULTI_GET, &offset);
+
+    add_string_list_to_buf(buffer, key_list, &offset);
+
+    return offset;
+}
+
+size_t build_req_expect_progress (size_t buf_size, char *buffer)
+{
+    /*1-int (i.e the combined sizes of the arguments + opcode)*/
+    check_req_buf_size( sizeof(uint32_t) , buf_size );
+    size_t offset = 0;
+    build_opcode(buffer, ARA_CMD_EXP_PROG, &offset);
+
+    return offset;
+}
+
+size_t build_sequence (size_t buf_size, char* buffer, kv_pair_list_t key_value_list)
+{
+    /*1-int + 1-int(i.e the combined sizes of the arguments + opcode)*/
+    check_req_buf_size( 2*sizeof(uint32_t) + get_pair_list_size(key_value_list), buf_size );
+    size_t offset = 0;
+    build_opcode(buffer, ARA_CMD_SEQ, &offset);
+
+    add_string_pair_list_to_buf(buffer, key_value_list, &offset);
+
+    return offset;
 }
 
 

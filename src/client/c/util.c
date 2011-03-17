@@ -22,8 +22,8 @@ key_list_t init_key_list() {
 }
 
 void cleanup_key_list( key_list_t* kl ) {
-	key_list_elem_t iter = NULL;
-	key_list_elem_t prev = NULL;
+	object_list_elem_t iter = NULL;
+	object_list_elem_t prev = NULL;
 	iter = kl->first_ptr;
 	while (iter) {
 		if( iter->cur.str ) {
@@ -189,26 +189,26 @@ ara_rc recv_string_option( int* sock, size_t buf_size, char* buffer, int* is_set
 }
 
 ara_rc recv_bool( int* sock, int* val,size_t err_msg_size, char* err_msg) {
-	char bool;
+	char boolean;
 	ara_rc rc;
-	RET_IF_FAILED(recv_n_bytes(sock,1,&bool,get_timeout(), err_msg_size, err_msg) );
-	if (bool != '\0') {
+	RET_IF_FAILED(recv_n_bytes(sock,1,&boolean,get_timeout(), err_msg_size, err_msg) );
+	if (boolean != '\0') {
 		*val = 1;
 	} else {
 		*val = 0;
 	}
 	return RC_SUCCESS;
 }
-ara_rc recv_string_list(int* sock, key_list_t* key_list, size_t err_msg_size, char* err_msg) {
+ara_rc recv_string_list(int* sock, string_list_t* string_list, size_t err_msg_size, char* err_msg) {
 	ara_rc rc ;
 	uint32_t i;
-	*key_list = init_key_list();
-	if( key_list == NULL ) {
+	*string_list = init_key_list();
+	if( string_list == NULL ) {
 		return RC_INVALID_POINTER;
 	}
-	RET_IF_FAILED( recv_uint32( sock, &(key_list->count), err_msg_size, err_msg ) );
-	for ( i = 0; i < key_list->count ; i++) {
-		key_list_elem_t new_elem = (key_list_elem_t) checked_malloc( sizeof( struct pstring_list_elem )) ;
+	RET_IF_FAILED( recv_uint32( sock, &(string_list->count), err_msg_size, err_msg ) );
+	for ( i = 0; i < string_list->count ; i++) {
+		object_list_elem_t new_elem = (object_list_elem_t) checked_malloc( sizeof( struct pstring_list_elem )) ;
 		new_elem->cur.str = NULL;
 		rc = recv_uint32( sock, &(new_elem->cur.size), err_msg_size, err_msg ) ;
 		if( rc == RC_SUCCESS ) {
@@ -217,11 +217,43 @@ ara_rc recv_string_list(int* sock, key_list_t* key_list, size_t err_msg_size, ch
 			new_elem->cur.str[new_elem->cur.size] = 0x00;
 		}
 		if( rc != RC_SUCCESS ) {
-			cleanup_key_list( key_list );
+			cleanup_key_list( string_list );
 			return rc;
 		}
-		new_elem->next = key_list->first_ptr;
-		key_list->first_ptr = new_elem;
+		new_elem->next = string_list->first_ptr;
+		string_list->first_ptr = new_elem;
 	}
 	return rc;
+}
+
+ara_rc recv_kv_list(int* sock, kv_pair_list_t* kv_list, size_t err_msg_size, char* err_msg) {
+    ara_rc rc ;
+    uint32_t i;
+    *kv_list = init_kv_pair_list();
+    if( kv_list == NULL ) {
+            return RC_INVALID_POINTER;
+    }
+    RET_IF_FAILED( recv_uint32( sock, &(kv_list->count), err_msg_size, err_msg ) );
+    for ( i = 0; i < kv_list->count ; i++) {
+            kv_pair_list_elem_t new_elem = (kv_pair_list_elem_t) checked_malloc( sizeof( struct sized_kv_pair_list_elem )) ;
+            new_elem->cur.key = NULL;
+            new_elem->cur.value = NULL;
+            rc = recv_uint32( sock, &(new_elem->cur.key_size), err_msg_size, err_msg ) ;
+            rc = recv_uint32( sock, &(new_elem->cur.value_size), err_msg_size, err_msg ) ;
+            if( rc == RC_SUCCESS ) {
+                    new_elem->cur.key = (char*) checked_malloc( new_elem->cur.key_size + 1);
+                    new_elem->cur.value = (char*) checked_malloc( new_elem->cur.value_size + 1);
+                    rc = recv_n_bytes(sock, new_elem->cur.key_size, new_elem->cur.key, get_timeout(), err_msg_size, err_msg);
+                    rc = recv_n_bytes(sock, new_elem->cur.value_size, new_elem->cur.value, get_timeout(), err_msg_size, err_msg);
+                    new_elem->cur.key[new_elem->cur.key_size] = 0x00;
+                    new_elem->cur.value[new_elem->cur.value_size] = 0x00;
+            }
+            if( rc != RC_SUCCESS ) {
+                    cleanup_kv_pair_list( kv_list );
+                    return rc;
+            }
+            new_elem->next = kv_list->first_ptr;
+            kv_list->first_ptr = new_elem;
+    }
+    return rc;
 }

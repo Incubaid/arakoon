@@ -21,7 +21,8 @@ struct _ara_cluster_t {
 	char cluster_id [MXLEN_CLUSTERNAME + 1];
 	ara_node_list_elem_t* nodes;
 	char last_error[MXLEN_ERRMSG + 1];
-	char cmd_buf [MXLEN_REQ];
+	//char cmd_buf [MXLEN_REQ];
+        char *cmd_buf;
 	int master_sock;
 	char master_name[MXLEN_NODENAME];
 };
@@ -48,13 +49,15 @@ struct pstring_list_elem {
 	struct pstring cur;
 	struct pstring_list_elem* next;
 };
-typedef struct pstring_list_elem* key_list_elem_t;
+typedef struct pstring_list_elem* object_list_elem_t;
 
-struct key_list_type {
+struct object_list_type {
 	uint32_t count;
-	key_list_elem_t first_ptr;
+	object_list_elem_t first_ptr;
 };
-typedef struct key_list_type key_list_t;
+typedef struct object_list_type key_list_t;
+typedef struct object_list_type value_list_t;
+typedef struct object_list_type string_list_t;
 
 struct sized_kv_pair_list_elem {
 	struct sized_kv_pair cur;
