@@ -21,7 +21,7 @@ ara_rc recv_uint32( int* sock, uint32_t* val,size_t err_msg_size, char* err_msg)
 ara_rc recv_bool( int* sock, int* val,size_t err_msg_size, char* err_msg);
 ara_rc recv_string( int* sock, size_t buf_size, char* buffer,size_t err_msg_size, char* err_msg);
 ara_rc recv_string_option( int* sock, size_t buf_size, char* buffer, int* is_set,size_t err_msg_size, char* err_msg);
-ara_rc recv_string_list(int* sock, key_list_t* list, size_t err_msg_size, char* err_msg) ;
+ara_rc recv_string_list(int* sock, string_list_t* list, size_t err_msg_size, char* err_msg) ;
 
 size_t get_timeout();
 
