@@ -438,7 +438,7 @@ class ArakoonCluster:
 
         return self.__getNodes(config)
 
-    def setUp(self, numberOfNodes):
+    def setUp(self, numberOfNodes, basePort = 7080):
         """
         Sets up a local environment
 
@@ -446,13 +446,18 @@ class ArakoonCluster:
         @return the dict that can be used as a param for the ArakoonConfig object
         """
         cid = self._clusterId
+        clientPort = basePort
+        messagingPort = basePort + 1
         for i in range(0, numberOfNodes):
             nodeName = "%s_%i" %(cid, i)
+            
             self.addNode(name = nodeName,
-                         clientPort = 7080+i,
-                         messagingPort = 10000+i)
+                         clientPort = clientPort,
+                         messagingPort = messagingPort)
             self.addLocalNode(nodeName)
             self.createDirs(nodeName)
+            clientPort += 10
+            messagingPort += 10
 
         if numberOfNodes > 0:
             self.forceMaster("%s_0" % cid)
