@@ -200,23 +200,40 @@ let handle_prepare constants dest n n' i' =
   let me = constants.me in
   constants.on_witness dest i' >>= fun () ->
   begin
-    can_promise constants.store constants.lease_expiration dest >>= fun can_pr ->
+    can_promise constants.store constants.lease_expiration dest 
+    >>= fun can_pr ->
     if not can_pr && n' >= 0L
     then
       begin 
-        log ~me "handle_prepare: Dropping prepare - lease still active" >>= fun () ->
-        Lwt.return Prepare_dropped
+        log ~me "handle_prepare: Dropping prepare - lease still active" 
+	>>= fun () ->
+        (* 
+	   Lwt.return Prepare_dropped
+	*)
+	let store = constants.store in
+        store # consensus_i () >>= fun s_i ->
+        let nak_max = 
+          begin
+            match s_i with
+              | None -> Sn.start
+              | Some si -> Sn.succ si
+	  end in
+	let reply = Nak( n',(n,nak_max)) in
+	log ~me "handle_prepare replying with %S" (string_of reply) 
+	>>= fun () ->
+	constants.send reply me dest >>= fun () ->
+	Lwt.return Nak_sent
       end
     else 
       begin
         let store = constants.store in
         store # consensus_i () >>= fun s_i ->
         let nak_max = 
-        begin
-          match s_i with
-          | None -> Sn.start
-          | Some si -> Sn.succ si
-		    end in
+          begin
+            match s_i with
+              | None -> Sn.start
+              | Some si -> Sn.succ si
+	  end in
         constants.get_value(nak_max) >>= fun lv ->
         
         if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 

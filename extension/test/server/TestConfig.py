@@ -219,8 +219,8 @@ class TestConfig:
         n2 = '%s_%i' % (cid,2)
         assert_equals(cluster.getClientConfig(),
                       {n0: ("127.0.0.1", 7080),
-                       n1: ("127.0.0.1", 7081),
-                       n2: ("127.0.0.1", 7082)})
+                       n1: ("127.0.0.1", 7090),
+                       n2: ("127.0.0.1", 7100)})
 
     def testListNodes(self):
         cid = self._clusterId
@@ -242,7 +242,7 @@ class TestConfig:
                        'ip': '127.0.0.1', 
                        'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
                        'log_level': 'info', 
-                       'messaging_port': '10000', 
+                       'messaging_port': '7081', 
                        'name': n0})
 
     def testGetNodeConfigUnknownNode(self):

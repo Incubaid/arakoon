@@ -81,41 +81,42 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
     | FromNode(msg,source) ->
       begin
 	let me = constants.me in
-	log ~me "slave_waiting_for_prepare: %S" (MPMessage.string_of msg) >>= fun () ->
+	log ~me "slave_waiting_for_prepare: %S" (MPMessage.string_of msg) 
+	>>= fun () ->
 	match msg with
 	  | Prepare(n',i') ->
 	    begin
-        handle_prepare constants source current_n n' i' >>= function
-          | Nak_sent
-          | Prepare_dropped ->
-            Lwt.return( Slave_waiting_for_prepare(current_i, current_n ) )
-          | Promise_sent_up2date ->
-            let tlog_coll = constants.tlog_coll in
-		        tlog_coll # get_last_i () >>= fun tlc_i ->
-		        tlog_coll # get_last_update tlc_i >>= fun l_update ->
-		        let l_uval = 
-		        begin
-		          match l_update with 
-		            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-		            | None -> None
-		        end in
-			      Lwt.return (Slave_wait_for_accept (n', current_i, None, l_uval))
-          | Promise_sent_needs_catchup ->
-            Store.get_catchup_start_i constants.store >>= fun i ->
-            let state = (source, i, n',i') in 
-            Lwt.return (Slave_discovered_other_master state)
+              handle_prepare constants source current_n n' i' >>= function
+		| Nak_sent
+		| Prepare_dropped ->
+		  Lwt.return( Slave_waiting_for_prepare(current_i, current_n ) )
+		| Promise_sent_up2date ->
+		  let tlog_coll = constants.tlog_coll in
+		  tlog_coll # get_last_i () >>= fun tlc_i ->
+		  tlog_coll # get_last_update tlc_i >>= fun l_update ->
+		  let l_uval = 
+		    begin
+		      match l_update with 
+			| Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			| None -> None
+		    end in
+		  Lwt.return (Slave_wait_for_accept (n', current_i, None, l_uval))
+		    | Promise_sent_needs_catchup ->
+		      Store.get_catchup_start_i constants.store >>= fun i ->
+		      let state = (source, i, n',i') in 
+		      Lwt.return (Slave_discovered_other_master state)
 	    end
 	  | Nak(n',(n2, i2)) when n' = -1L ->
 	    begin
 	      log ~me "fake prepare response: discovered master" >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	    end
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	    begin
 	      log ~me "got %s => go to catchup" (string_of msg) >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              Lwt.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	    end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
 	    begin
@@ -124,16 +125,16 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	      constants.get_value i2 >>= fun p ->
 	      match p with
           | None ->
-          begin
-		        Lwt.return (Slave_waiting_for_prepare (i2,current_n) )
-          end
+            begin
+	      Lwt.return (Slave_waiting_for_prepare (i2,current_n) )
+            end
           | Some v ->
-          begin
-            log ~me "reentering steady state @(%s,%s)" 
-              (Sn.string_of n2) (Sn.string_of i2) 
-            >>= fun () ->
-            Lwt.return (Slave_steady_state (n2, i2, v))
-		      end
+            begin
+              log ~me "reentering steady state @(%s,%s)" 
+		(Sn.string_of n2) (Sn.string_of i2) 
+              >>= fun () ->
+              Lwt.return (Slave_steady_state (n2, i2, v))
+	    end
 	    end
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
 	    Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
@@ -145,7 +146,8 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
   let n, i, who_voted, wanted, (v_lims:v_limits), i_lim = state in
-  (* 3 cases:
+  (* 
+     3 cases:
      -) too early to decide
      -) consensus on some value (either my wanted or another)
      -) no consensus possible anymore. (split vote)
@@ -288,19 +290,21 @@ let wait_for_promises constants state event =
                     | Prepare_dropped -> 
                       Lwt.return (Wait_for_promises state)
                     | Promise_sent_up2date ->
-                      let tlog_coll = constants.tlog_coll in
-							        tlog_coll # get_last_i () >>= fun tlc_i ->
-							        tlog_coll # get_last_update tlc_i >>= fun l_update ->
-							        let l_uval = 
-							        begin
-							          match l_update with 
-							            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-							            | None -> None
-							        end in
-								      Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
-                    | Promise_sent_needs_catchup ->
-                      Store.get_catchup_start_i constants.store >>= fun i ->
-                      Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+		      begin
+			let tlog_coll = constants.tlog_coll in
+			tlog_coll # get_last_i () >>= fun tlc_i ->
+			tlog_coll # get_last_update tlc_i >>= fun l_update ->
+			let l_uval = 
+			  begin
+			    match l_update with 
+			      | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			      | None -> None
+			  end in
+			Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
+		      end
+		    | Promise_sent_needs_catchup ->
+		      Store.get_catchup_start_i constants.store >>= fun i ->
+		      Lwt.return (Slave_discovered_other_master (source, i, n', i'))
               end
             | Accept (n',_i,_v) when n' < n ->
               begin
