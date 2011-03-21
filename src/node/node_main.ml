@@ -78,7 +78,7 @@ let _config_logging me get_cfgs =
   else
     None
 
-let _config_messaging me others laggy =
+let _config_messaging me others cookie laggy =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
 	      let f msg source target = 
@@ -95,7 +95,8 @@ let _config_messaging me others laggy =
     (fun cfg -> (cfg.node_name, (cfg.ip, cfg.messaging_port)))
     others
   in
-  let messaging = new tcp_messaging (me.ip, me.messaging_port) drop_it in
+  let messaging = new tcp_messaging 
+    (me.ip, me.messaging_port) cookie drop_it in
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
@@ -237,7 +238,8 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       in
       log_prelude() >>= fun () ->
       let my_name = me.node_name in
-      let messaging  = _config_messaging me cfgs me.laggy in
+      let cookie = cluster_id in
+      let messaging  = _config_messaging me cfgs cookie me.laggy in
       let build_startup_state () = 
 	begin
 	  Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)

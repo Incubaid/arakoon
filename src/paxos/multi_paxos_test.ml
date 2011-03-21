@@ -317,7 +317,7 @@ let build_perfect () =
 
 
 let build_tcp () =
-  let (m : messaging) = new tcp_messaging ("127.0.0.1", 7777) 
+  let (m : messaging) = new tcp_messaging ("127.0.0.1", 7777) "yummie"
     (fun _ _ _ -> false) 
   in
   let network = network_of_messaging m in

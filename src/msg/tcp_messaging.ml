@@ -37,9 +37,9 @@ let no_callback () = Lwt.return ()
 
 type drop_function = Message.t -> string -> string -> bool
 
-class tcp_messaging my_address (drop_it: drop_function) =
+class tcp_messaging my_address my_cookie (drop_it: drop_function) =
   let _MAGIC = 0xB0BAFE7L in
-  let _VERSION = 0 in
+  let _VERSION = 1 in
   let my_host, my_port = my_address in
   let me = Printf.sprintf "(%s,%i)" my_host my_port 
   in
@@ -91,20 +91,17 @@ object(self : # messaging )
 
 
 
-  method get_buffer target =
-    if Hashtbl.mem _id2address target then
-      try Hashtbl.find _qs target
-      with | Not_found ->
-	begin
-	  let tq = 
-	    let capacity = Some 1000
-	    and leaky = true in 
-	    Lwt_buffer.create ~capacity ~leaky () in
-	  let () = Hashtbl.add _qs target tq in
-          tq
-	end
-    else
-      failwith (Printf.sprintf "we don't know %s (it was never registered)" target)
+  method private get_buffer (target:id) =   
+    try Hashtbl.find _qs target
+    with | Not_found ->
+      begin
+	let tq = 
+	  let capacity = Some 1000
+	  and leaky = true in 
+	  Lwt_buffer.create ~capacity ~leaky () in
+	let () = Hashtbl.add _qs target tq in
+        tq
+      end
 
   method recv_message ~target =
     let q = self # get_buffer target in 
@@ -121,11 +118,12 @@ object(self : # messaging )
     let my_ip, my_port = my_address in
     Llio.output_int64 oc _MAGIC >>= fun () ->
     Llio.output_int oc _VERSION >>= fun () ->
+    Llio.output_string oc my_cookie >>= fun () ->
     Llio.output_string oc my_ip >>= fun () ->
     Llio.output_int oc my_port  >>= fun () ->
     Lwt.return (ic,oc)
-      (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
-	 on local host *)
+  (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
+     on local host *)
 
   method private _get_connection address =
     try
@@ -272,10 +270,17 @@ object(self : # messaging )
 	if magic = _MAGIC && version = _VERSION then Lwt.return () 
 	else Llio.lwt_failfmt "MAGIC %Lx or VERSION %x mismatch" magic version
     in
+    let _check_cookie cookie =
+      if cookie <> my_cookie 
+      then Llio.lwt_failfmt "COOKIE %s mismatch" cookie
+      else Lwt.return ()
+    in
     let protocol (ic,oc) =
       Llio.input_int64 ic >>= fun magic ->
       Llio.input_int ic >>= fun version ->
       _check_mv magic version >>= fun () ->
+      Llio.input_string ic >>= fun cookie ->
+      _check_cookie cookie >>= fun () ->
       Llio.input_string ic >>= fun ip ->
       Llio.input_int ic    >>= fun port ->
       self # _maybe_insert_connection (ip,port) >>= fun () ->
@@ -288,11 +293,20 @@ object(self : # messaging )
 	    let (source:id), pos1 = Llio.string_from buffer 0 in
 	    let target, pos2 = Llio.string_from buffer pos1 in
 	    let msg, _   = Message.from_buffer buffer pos2 in
+	    Lwt_log.debug_f "message from %s for %s" source target >>= fun () ->
 	    if drop_it msg source target then loop () 
 	    else
-	      let q = self # get_buffer target in
-	      Lwt_buffer.add (msg, source) q >>=  fun () ->
-	      loop ()
+	      begin
+		begin
+		  if not (Hashtbl.mem _id2address source)
+		  then let () = Hashtbl.add _id2address source (ip,port) in
+		       Lwt_log.debug_f "registered %s => (%s,%i)" source ip port 
+		  else Lwt.return () 
+		end >>= fun () ->
+		let q = self # get_buffer target in
+		Lwt_buffer.add (msg, source) q >>=  fun () ->
+		loop ()
+	      end
 	  end
 	in
 	catch
