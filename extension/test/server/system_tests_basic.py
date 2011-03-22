@@ -308,5 +308,23 @@ def test_3_nodes_stop_all_start_slaves ():
     stored_value = cli.get( key )
     assert_equals( stored_value, value, "Stored value mismatch for key '%s' ('%s' != '%s')" % (key, value, stored_value) )
     
-
-
+@with_custom_setup( default_setup, basic_teardown )
+def test_get_storage_utilization():
+    cl = q.manage.arakoon.getCluster( cluster_id )
+    
+    def get_total_size( d ):
+        assert_not_equals( d['log'], 0, "Log dir cannot be empty")
+        assert_not_equals( d['db'], 0 , "Db dir cannot be empty")
+        assert_not_equals( d['tlog'], 0, "Tlog dir cannot be empty")
+        return d['log'] + d['tlog'] + d['db'] 
+        
+    d = cl.getStorageUtilization()
+    total = get_total_size(d)
+    d = cl.getStorageUtilization( node_names[0] )
+    n1 = get_total_size(d)
+    d = cl.getStorageUtilization( node_names[1] )
+    n2 = get_total_size(d)
+    d = cl.getStorageUtilization( node_names[2] )
+    n3 = get_total_size(d)
+    assert_equals(n1+n2+n3, total, "Sum of storage size per node should be same as total")
+    
