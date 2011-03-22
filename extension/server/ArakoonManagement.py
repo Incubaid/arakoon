@@ -356,9 +356,7 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        nodes = self.__getNodes(config)
-
-        if name in nodes:
+        if config.checkSection(name):
             home = config.getValue(name, "home")
             q.system.fs.createDir(home)
 
@@ -383,9 +381,7 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        nodes = self.__getNodes(config)
-
-        if name in nodes:
+        if config.checkSection(name):
             home = config.getValue(name, "home")
             q.system.fs.removeDirTree(home)
 
@@ -411,9 +407,8 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        nodes = self.__getNodes(config)
         config_name = self._servernodes()
-        if name in nodes:
+        if config.checkSection(name): 
             nodesconfig = q.config.getInifile(config_name)
 
             if not nodesconfig.checkSection("global"):
@@ -429,7 +424,6 @@ class ArakoonCluster:
             nodesconfig.write()
 
             return
-        
         raise Exception("No node %s" % name)
 
     def removeLocalNode(self, name):
