@@ -38,7 +38,9 @@ let _make_cfg name n lease_period =
     log_level = "DEBUG";
     lease_period = lease_period;
     forced_master = None;
-    laggy = false;
+    is_laggy = false;
+    is_learner = false;
+    targets = [];
   }
 
 let _make_tlog_coll tlcs updates tlc_name = 
