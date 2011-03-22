@@ -338,10 +338,7 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-
-        nodes = self.__getNodes(config)
-
-        if name in nodes:
+        if config.checkSection(name):
             return config.getSectionAsDict(name)
         else:
             raise Exception("No node with name %s configured" % name)

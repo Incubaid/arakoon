@@ -48,6 +48,7 @@ def test_learner():
     time.sleep(60.0) # 1000/s in catchup should be no problem
     #use a client ??"
     stop_all()
-    assert_last_i_in_sync( node_names[0], name )
+    i2 = int(get_last_i_tlog(name))
+    assert_true(i2 > 54321)
 
     
