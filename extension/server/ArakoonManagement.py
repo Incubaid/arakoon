@@ -50,15 +50,42 @@ class ArakoonManagement:
             cfg.addParam('global','cluster_id','arakoon')
             cfg.write()
 
+        def maybe_move (source, target):
+            if fs.exists( source ):
+                fs.moveFile(source, target)
+        
         nodes_source = jp(cfgDir,'arakoonnodes.cfg')
         nodes_target = jp(cfgDir,'arakoon_nodes.cfg')
-        if fs.exists(nodes_source):
-            fs.moveFile(nodes_source,nodes_target)
+        maybe_move (nodes_source,nodes_target)
 
         servernodes_source = jp(cfgDir,'arakoonservernodes.cfg')
         servernodes_target = jp(cfgDir,'arakoon_servernodes.cfg')
-        if fs.exists(servernodes_source):
-            fs.moveFile(servernodes_source, servernodes_target)
+        maybe_move (servernodes_source, servernodes_target)
+            
+        """
+        update configs for the 'arakoon' cluster to the 0.10 way of doing things
+        """
+        new_cfg_dir = jp(cfgDir,'arakoon','arakoon')
+        
+        nodes_source = nodes_target
+        nodes_target = jp(new_cfg_dir, nodes_source)
+        if fs.exists( nodes_source ):
+            fs.moveFile(nodes_source, nodes_target)
+            cfgFile = q.config.getInifile('arakoonclients')
+            cfgFile.addParam("arakoon", "path", nodes_target)
+
+        servernodes_source = servernodes_target
+        servernodes_target = jp(new_cfg_dir, nodes_source)
+        maybe_move (servernodes_source, servernodes_target)
+        
+        cluster_source = jp(cfgDir,'arakoon.cfg')
+        cluster_target = jp(new_cfg_dir, 'arakoon.cfg' )
+        if fs.exists( cluster_source ):
+            fs.moveFile(cluster_source, cluster_target)
+            cfgFile = q.config.getInifile('arakoonclusters')
+            cfgFile.addParam("arakoon", "path", cluster_target)
+        
+        
         
 
 class ArakoonCluster:
