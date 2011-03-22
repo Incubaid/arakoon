@@ -71,5 +71,17 @@ struct kv_pair_list_type {
 };
 typedef struct kv_pair_list_type kv_pair_list_t;
 
+struct sequence_element {
+    uint32_t type;
+    sized_kv_pair_t kv_pair;
+    struct sequence_element *next;
+};
+typedef struct sequence_element* sequence_element_t;
+
+struct s_sequence {
+    uint32_t count;
+    sequence_element_t first_ptr;
+};
+typedef struct s_sequence sequence_t;
 
 #endif //__ARAKOON_PRIVATE_H__
