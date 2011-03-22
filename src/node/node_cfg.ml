@@ -35,7 +35,9 @@ module Node_cfg = struct
 	    log_level:string;
 	    lease_period:int;
 	    forced_master: string option;
-	    laggy : bool;
+	    is_laggy : bool;
+	    is_learner : bool;
+	    targets : string list;
 	   }
 
   type cluster_cfg = 
@@ -61,7 +63,9 @@ module Node_cfg = struct
 	log_level = "DEBUG";
 	lease_period = lease_period;
 	forced_master = forced_master;
-	laggy = false;
+	is_laggy = false;
+	is_learner = false;
+	targets = [];
       }
     in
     let rec loop acc = function
@@ -86,7 +90,7 @@ module Node_cfg = struct
     let template =
       "{node_name=\"%s\"; ip=\"%s\"; client_port=%d; " ^^
 	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; " ^^ 
-	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b}"
+	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b; is_learner=%b}"
     in
       Printf.sprintf template
 	t.node_name t.ip t.client_port t.messaging_port 
@@ -94,111 +98,123 @@ module Node_cfg = struct
 	t.tlog_dir
 	t.log_dir
 	t.log_level
-	t.laggy
+	t.is_laggy
+	t.is_learner
 
   let tlog_dir t = t.tlog_dir 
   let tlog_file_name t =
     t.home ^ "/" ^ t.node_name ^ ".tlog"
 
+  let _get_string_list inifile section name =
+    let nodes_s = inifile # getval section name in
+    let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
+    nodes
+
+  let _node_names inifile = _get_string_list inifile "global" "cluster"
+
+  let _get_lease_period inifile =
+    try
+      let les = (inifile # getval "global" "lease_period") in
+      Scanf.sscanf les "%i" (fun i -> i)
+    with (Inifiles.Invalid_element _) -> default_lease_period
+
+  let _forced_master inifile =
+    try
+      let m = (inifile # getval "global" "master") in
+      let nodes = _node_names inifile in
+      if not (List.mem m nodes)
+      then
+	failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
+      else Some m
+    with (Inifiles.Invalid_element _) -> None
+
+  let _get_cluster_id inifile =
+    try
+      let cids = inifile # getval "global" "cluster_id" in
+      Scanf.sscanf cids "%s" (fun s -> s)
+    with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
+
+  let _get_quorum_function inifile = 
+    let nodes = _node_names inifile in
+    let n_nodes = List.length nodes in    
+    try
+      let qs = (inifile # getval "global" "quorum") in
+      let qi = Scanf.sscanf qs "%i" (fun i -> i) in
+      if 1 <= qi & qi <= n_nodes 
+      then fun n -> qi
+      else
+	let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
+	  qi n_nodes in
+	failwith msg
+    with (Inifiles.Invalid_element _) -> Quorum.quorum_function
+
+  let _get_bool inifile node_section x = 
+      try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
+      with (Inifiles.Invalid_element _) -> false
+
+
+  let _node_config inifile node_name fm =
+    let get_string x =
+      try
+	let strip s = Scanf.sscanf s "%s" (fun i -> i) in
+	let with_spaces= inifile # getval node_name x in
+	strip with_spaces
+      with (Inifiles.Invalid_element e) ->
+	failwith (Printf.sprintf "'%s' was missing from node: %s" e node_name)
+    in
+    let get_bool x = _get_bool inifile node_name x in
+    let get_int x = Scanf.sscanf (get_string x) "%i" (fun i -> i) in
+    let ip = get_string "ip" in
+    let client_port = get_int "client_port" in
+    let messaging_port = get_int "messaging_port" in
+    let home = get_string "home" in
+    let tlog_dir = try get_string "tlog_dir" with _ -> home in
+    let log_level = String.lowercase (get_string "log_level")  in
+    let is_laggy = get_bool "laggy" in
+    let is_learner = get_bool "learner" in
+    let targets = 
+      if is_learner 
+      then _get_string_list inifile node_name "targets"
+      else []
+    in
+    let lease_period = _get_lease_period inifile in
+    let log_dir = get_string "log_dir" in
+    {node_name=node_name;
+     ip=ip;
+     client_port=client_port;
+     messaging_port= messaging_port;
+     home=home;
+     tlog_dir = tlog_dir;
+     log_dir = log_dir;
+     log_level = log_level;
+     lease_period = lease_period;
+     forced_master = fm;
+     is_laggy = is_laggy;
+     is_learner = is_learner;
+     targets = targets;
+    }
+
+
   let read_config config_file =
-    let node_names inifile = 
-      let nodes_s = inifile # getval "global" "nodes" in
-      let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
-      nodes
-    in
-    let get_lease_period inifile =
-      try
-	let les = (inifile # getval "global" "lease_period") in
-	Scanf.sscanf les "%i" (fun i -> i)
-      with (Inifiles.Invalid_element _) -> default_lease_period
-    in
-    let forced_master inifile =
-      try
-	let m = (inifile # getval "global" "master") in
-	let nodes = node_names inifile in
-	if not (List.mem m nodes)
-	then
-	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-        else Some m
-      with (Inifiles.Invalid_element _) -> None
-    in
-    let get_cluster_id inifile =
-      try
-	let cids = inifile # getval "global" "cluster_id" in
-	Scanf.sscanf cids "%s" (fun s -> s)
-      with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
-    in
-    let node_config inifile node_section fm =
-      let get_string x =
-	try
-	  let strip s = Scanf.sscanf s "%s" (fun i -> i) in
-	  let with_spaces= inifile # getval node_section x in
-	  strip with_spaces
-	with (Inifiles.Invalid_element e) ->
-	  failwith (Printf.sprintf "'%s' was missing from %s"
-		      e config_file)
-      in
-      let get_int x = Scanf.sscanf (get_string x) "%i" (fun i -> i) in
-      let get_laggy () = 
-	try let s = inifile # getval node_section "laggy" in
-	    s = "true" 
-	with (Inifiles.Invalid_element e ) -> false
-      in
-      let node_name = node_section in
-      let ip = get_string "ip" in
-      let client_port = get_int "client_port" in
-      let messaging_port = get_int "messaging_port" in
-      let home = get_string "home" in
-      let tlog_dir = try get_string "tlog_dir" with _ -> home in
-      let log_level = String.lowercase (get_string "log_level") in
-      let laggy = get_laggy () in
-      let lease_period = get_lease_period inifile in
-      let log_dir = get_string "log_dir" in
-	{node_name=node_name;
-	 ip=ip;
-	 client_port=client_port;
-	 messaging_port= messaging_port;
-	 home=home;
-	 tlog_dir = tlog_dir;
-	 log_dir = log_dir;
-	 log_level = log_level;
-	 lease_period = lease_period;
-	 forced_master = fm;
-	 laggy = laggy;
-	}
-    in
     let inifile = new Inifiles.inifile config_file in
-    let fm = forced_master inifile in
-    let nodes = node_names inifile in
-    let n_nodes = List.length nodes in
+    let fm = _forced_master inifile in
+    let nodes = _node_names inifile in
     let cfgs, remaining = List.fold_left
       (fun (a,remaining) section ->
-	if List.mem section nodes
+	if List.mem section nodes || _get_bool inifile section "learner"
 	then
-	  let cfg = node_config inifile section fm in
+	  let cfg = _node_config inifile section fm in
 	  let new_remaining = List.filter (fun x -> x <> section) remaining in
 	  (cfg::a, new_remaining)
 	else (a,remaining))
       ([],nodes) (inifile # sects) in
     let () = if List.length remaining > 0 then
 	failwith ("Can't find config section for: " ^ (String.concat "," remaining))
-    in
+    in  
     
-    
-    let quorum_function =
-      try
-	let qs = (inifile # getval "global" "quorum") in
-	let qi = Scanf.sscanf qs "%i" (fun i -> i) in
-	if 1 <= qi & qi <= n_nodes then
-	  fun n -> qi
-	else
-	  let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
-	    qi n_nodes in
-	  failwith msg
-      with (Inifiles.Invalid_element _) -> Quorum.quorum_function
-    in
-    let lease_period = get_lease_period inifile in
-    let cluster_id = get_cluster_id inifile in
+    let quorum_function = _get_quorum_function inifile in
+    let lease_period = _get_lease_period inifile in
+    let cluster_id = _get_cluster_id inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
 	_forced_master = fm;
@@ -219,4 +235,6 @@ module Node_cfg = struct
   let get_node_cfgs_from_file () = read_config !config_file 
 
   let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
+
+
 end

@@ -231,15 +231,20 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in 
       let names = List.map (fun cfg -> cfg.node_name) cfgs in
+      let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
+      let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_names = List.length names in
-      let other_names = List.filter (fun n -> n <> name) names in
+      let other_names = 
+	if me.is_learner 
+	then me.targets 
+	else List.filter (fun n -> n <> name) in_cluster_names in
       let _ = Lwt_unix.on_signal 10
 	(fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
       log_prelude() >>= fun () ->
       let my_name = me.node_name in
       let cookie = cluster_id in
-      let messaging  = _config_messaging me cfgs cookie me.laggy in
+      let messaging  = _config_messaging me cfgs cookie me.is_laggy in
       let build_startup_state () = 
 	begin
 	  Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
