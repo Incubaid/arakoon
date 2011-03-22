@@ -107,6 +107,10 @@ class ArakoonCluster:
 
     def _getConfigFile(self):
         config = q.config.getInifile(self._clusterId)
+        if not config.checkSection("global"):
+            config.addSection("global")
+            config.addParam("global","cluster_id",self._clusterId)
+            config.addParam("global","cluster", "")
         return config
     
     def addNode(self,
@@ -143,11 +147,6 @@ class ArakoonCluster:
 
 
         config = self._getConfigFile()
-        if not config.checkSection("global"):
-            config.addSection("global")
-            config.addParam("global","cluster_id",self._clusterId)
-            config.addParam("global","cluster", "")
-
         nodes = self.__getNodes(config)
 
         if name in nodes:
@@ -198,9 +197,6 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        if not config.checkSection("global"):
-            raise Exception("No node with name %s" % name)
-
         nodes = self.__getNodes(config)
         
         if name in nodes:
@@ -248,9 +244,6 @@ class ArakoonCluster:
         @param clusterId: the id of the arakoon cluster
         """
         config = self._getConfigFile()
-        if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
-
         if name:
             nodes = self.__getNodes(config)
 
@@ -277,11 +270,6 @@ class ArakoonCluster:
         @param quorum the forced quorom. If None, the default is used 
         """
         config = self._getConfigFile()
-
-        if not config.checkSection("global"):
-            config.addSection("global")
-            config.addParam("global","cluster", "")
-
         if quorum:
             try :
                 if ( int(quorum) != quorum or
@@ -310,12 +298,11 @@ class ArakoonCluster:
         config = self._getConfigFile()
         clientconfig = dict()
 
-        if config.checkSection("global"):
-            nodes = self.__getNodes(config)
+        nodes = self.__getNodes(config)
 
-            for name in nodes:
-                clientconfig[name] = (config.getValue(name, "ip"),
-                                      int(config.getValue(name, "client_port")))
+        for name in nodes:
+            clientconfig[name] = (config.getValue(name, "ip"),
+                                  int(config.getValue(name, "client_port")))
 
         return clientconfig
 
@@ -355,9 +342,6 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        if not config.checkSection("global"):
-            raise Exception("No node with name %s configured" % name)
-
         nodes = self.__getNodes(config)
 
         if name in nodes:
@@ -385,10 +369,6 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        if not config.checkSection('global'):
-            raise Exception("No node with name %s" % name )
-
-
         nodes = self.__getNodes(config)
 
         if name in nodes:
@@ -417,10 +397,6 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-
-        if not config.checkSection("global"):
-            raise Exception("No node %s" % name )
-
         nodes = self.__getNodes(config)
         config_name = self._servernodes()
         if name in nodes:
@@ -509,10 +485,6 @@ class ArakoonCluster:
         @param cluster the name of the arakoon cluster
         """
         config = self._getConfigFile()
-
-        if not config.checkSection('global'):
-            return
-
         nodes = self.__getNodes(config)
         
         for node in nodes:
