@@ -47,6 +47,13 @@ class ArakoonUnknownNode (ArakoonException):
         self._msg = ArakoonUnknownNode._msgF % nodeId
         ArakoonException.__init__( self, self._msg )
 
+class ArakoonNodeNotLocal( ArakoonException ):
+    _msgF = "%s is not a local node"
+    
+    def __init__ (self, node):
+        self._msg = ArakoonNodeNotLocal._msgF % ( node )
+        ArakoonException.__init__( self, self._msg )
+        
 class ArakoonNotConnected( ArakoonException ):
     _msgF = "No connection available to node at '%s:%s'"
 
