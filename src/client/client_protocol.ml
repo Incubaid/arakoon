@@ -235,6 +235,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
     | SEQUENCE ->
       begin
 	Llio.input_string ic >>= fun data ->
+        Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
 	let update,_ = Update.from_buffer data 0 in
 	match update with
 	  | Update.Sequence updates ->
