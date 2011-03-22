@@ -63,7 +63,7 @@ class TestConfig:
         
         config = q.config.getInifile(cid)
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': n0,
+                      {'cluster': n0,
                        'cluster_id': cid
                        })
         assert_equals(config.getSectionAsDict(n0),
@@ -86,7 +86,7 @@ class TestConfig:
         config = q.config.getInifile(cid)
         
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': '%s,%s' % (n0,n1),
+                      {'cluster': '%s,%s' % (n0,n1),
                        'cluster_id':cid})
 
         assert_equals(config.getSectionAsDict(n0),
@@ -139,7 +139,7 @@ class TestConfig:
         cluster.removeNode(n0)
 
         config = q.config.getInifile(cid)
-        assert_equals(config.getSectionAsDict("global")['nodes'],n1)
+        assert_equals(config.getSectionAsDict("global")['cluster'],n1)
         assert_false(config.checkSection(n0))
 
     def testRemoveUnknownNode(self):
@@ -293,13 +293,13 @@ class TestConfig:
         
         config = q.config.getInifile(sn)
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': n1})
+                      {'cluster': n1})
 
         cluster.addLocalNode(n0)
 
         config = q.config.getInifile(sn)
         assert_equals(config.getSectionAsDict("global"),
-                      {'nodes': '%s,%s' % (n1,n0)})
+                      {'cluster': '%s,%s' % (n1,n0)})
 
     def testAddLocalNodeUnknownNode(self):
         cid = self._clusterId

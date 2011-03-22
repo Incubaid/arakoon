@@ -92,20 +92,23 @@ class ArakoonCluster:
                 tlogDir = None,
                 user = None,
                 group = None,
+                isLearner = False,
+                targets = None,
                 isLocal = True):
         """
         Add a node to the configuration of the supplied cluster
 
         The function also creates 
-        @param name the name of the node, should be unique across the environment
-        @param ip the ip this node shoulc be contacted on
-        @param clientPort the port the clients should use to contact this node
-        @param messagingPort the port the other nodes should use to contact this node
-        @param logLevel the loglevel (debug info notice warning error fatal)
-        @param logDir the directory used for logging
-        @param home the directory used for the nodes data
-        @param tlogDir the directory used for tlogs (if none, home will be used)
-
+        @param name  the name of the node, should be unique across the environment
+        @param ip   the ip this node shoulc be contacted on
+        @param clientPort   the port the clients should use to contact this node
+        @param messagingPort  the port the other nodes should use to contact this node
+        @param logLevel   the loglevel (debug info notice warning error fatal)
+        @param logDir   the directory used for logging
+        @param home   the directory used for the nodes data
+        @param tlogDir   the directory used for tlogs (if none, home will be used)
+        @param isLearner   whether this node is a learner node or not
+        @param targets   for a learner node the targets (string list) it learns from
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -115,14 +118,15 @@ class ArakoonCluster:
         if not config.checkSection("global"):
             config.addSection("global")
             config.addParam("global","cluster_id",self._clusterId)
-            config.addParam("global","nodes", "")
+            config.addParam("global","cluster", "")
 
         nodes = self.__getNodes(config)
 
         if name in nodes:
             raise Exception("node %s already present" % name )
-
-        nodes.append(name)
+        if not isLearner:
+            nodes.append(name)
+        
         config.addSection(name)
         config.addParam(name, "name", name)
         config.addParam(name, "ip", ip)
@@ -148,8 +152,12 @@ class ArakoonCluster:
 
         if tlogDir:
             config.addParam(name,"tlog_dir", tlogDir)
+
+        if isLearner:
+            config.addParam(name, "learner", "true")
+            config.addParam(name, "targets", string.join(targets,","))
         
-        config.setParam("global","nodes", ",".join(nodes))
+        config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
 
@@ -171,7 +179,7 @@ class ArakoonCluster:
             self.removeLocalNode(name)
             config.removeSection(name)
             nodes.remove(name)
-            config.setParam("global","nodes", ",".join(nodes))
+            config.setParam("global","cluster", ",".join(nodes))
             config.write()
             return
 
@@ -244,7 +252,7 @@ class ArakoonCluster:
 
         if not config.checkSection("global"):
             config.addSection("global")
-            config.addParam("global","nodes", "")
+            config.addParam("global","cluster", "")
 
         if quorum:
             try :
@@ -392,13 +400,13 @@ class ArakoonCluster:
 
             if not nodesconfig.checkSection("global"):
                 nodesconfig.addSection("global")
-                nodesconfig.addParam("global","nodes", "")
+                nodesconfig.addParam("global","cluster", "")
 
             nodes = self.__getNodes(nodesconfig)
             if name in nodes:
                 raise Exception("node %s already present" % name)
             nodes.append(name)
-            nodesconfig.setParam("global","nodes", ",".join(nodes))
+            nodesconfig.setParam("global","cluster", ",".join(nodes))
 
             nodesconfig.write()
 
@@ -424,7 +432,7 @@ class ArakoonCluster:
 
         if name in nodes:
             nodes.remove(name)
-            config.setParam("global","nodes", ",".join(nodes))
+            config.setParam("global","cluster", ",".join(nodes))
             config.write()
 
     def listLocalNodes(self):
@@ -501,14 +509,17 @@ class ArakoonCluster:
     def __getNodes(self, config):
         if not config.checkSection("global"):
             return []
-
-        nodes = config.getValue("global", "nodes").strip()
-        # "".split(",") -> ['']
-        if nodes == "":
-            return []
-        nodes = nodes.split(",")
-        nodes = map(lambda x: x.strip(), nodes)
-
+        nodes = []
+        try:
+            line = config.getValue("global", "cluster").strip()
+            # "".split(",") -> ['']
+            if line == "":
+                nodes =  []
+            else:
+                nodes = line.split(",")
+                nodes = map(lambda x: x.strip(), nodes)
+        except LookupError:
+            pass
         return nodes
 
     def __validateInt(self,name, value):
