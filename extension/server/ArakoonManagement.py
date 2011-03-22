@@ -29,6 +29,7 @@ import subprocess
 import time
 import string
 import logging
+from arakoon.ArakoonExceptions import *
 
 class ArakoonManagement:
     def getCluster(self, clusterId):
@@ -512,13 +513,11 @@ class ArakoonCluster:
         if not config.checkSection('global'):
             return
 
-
         nodes = self.__getNodes(config)
         
         for node in nodes:
             if removeDirs:
                 self.removeDirs(node)
-
             self.removeNode(node)
         
         if self.__getForcedMaster(config):
@@ -791,7 +790,7 @@ class ArakoonCluster:
         local_nodes = self.listLocalNodes()
 
         if node is not None and node not in local_nodes:
-            raise ValueError(EXC_MSG_NOT_LOCAL_FMT % node)
+            raise ArakoonNodeNotLocal ( node )
 
         def helper(config):
             home = config['home']
@@ -817,7 +816,7 @@ class ArakoonCluster:
             }
 
         nodes = (node, ) if node is not None else local_nodes
-        stats = (helper(cluster.getNodeConfig(node)) for node in nodes)
+        stats = (helper(self.getNodeConfig(node)) for node in nodes)
 
         result = {}
         for stat in stats:
