@@ -103,9 +103,35 @@ class ArakoonClient :
         self._masterId = None
         self._connections = dict()
         self._allowDirty = False
+        nodeList = self._config.getNodes().keys()
+        if len(nodeList) == 0:
+            raise ArakoonInvalidConfig("Node list empty.")
+        self._dirtyReadNode = random.choice( nodeList )
 
     def _initialize(self, config ):
         self._config = config
+
+    @SignatureValidator('string')
+    def setDirtyReadNode(self, node):
+        """
+        Set the node that will be used for dirty read operations
+        
+        @type node : string
+        @param node : the node identifier
+        @rtype: void
+        """
+        if node not in self._config.getNodes().keys():
+            raise ArakoonUnknownNode( node )
+        self._dirtyReadNode = node
+    
+    def getDirtyReadNode(self):
+        """
+        Retrieve the node that will be used for dirty read operations
+        
+        @rtype: string
+        @return : the node identifier
+        """
+        return self._dirtyReadNode
 
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
@@ -135,7 +161,10 @@ class ArakoonClient :
         @returen : True if there is a value for that key, False otherwise
         """
         msg = ArakoonProtocol.encodeExists(key, self._allowDirty)
-        conn = self._sendToMaster(msg)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         return conn.decodeBoolResult()
 
     @retryDuringMasterReelection
@@ -152,7 +181,10 @@ class ArakoonClient :
         @return: The value associated with the given key
         """
         msg = ArakoonProtocol.encodeGet(key, self._allowDirty)
-        conn = self._sendToMaster (msg)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         result = conn.decodeStringResult()
         return result
 
@@ -166,7 +198,10 @@ class ArakoonClient :
         @return: the values associated with the respective keys
         """
         msg = ArakoonProtocol.encodeMultiGet(keys, self._allowDirty)
-        conn = self._sendToMaster(msg)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         result = conn.decodeStringListResult()
         return result
     
@@ -250,7 +285,10 @@ class ArakoonClient :
         """
         msg = ArakoonProtocol.encodeRange( beginKey, beginKeyIncluded, endKey,
                                            endKeyIncluded, maxElements, self._allowDirty)
-        conn = self._sendToMaster( msg )
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         return conn.decodeStringListResult()
     
     @retryDuringMasterReelection
@@ -280,7 +318,10 @@ class ArakoonClient :
         msg = ArakoonProtocol.encodeRangeEntries(first, finc,
                                                  last, linc, maxElements,
                                                  self._allowDirty)
-        conn = self._sendToMaster(msg)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         result = conn.decodeStringPairListResult()
         return result
 
@@ -303,7 +344,10 @@ class ArakoonClient :
         @return: Returns a list of keys matching the provided prefix
         """
         msg = ArakoonProtocol.encodePrefixKeys( keyPrefix, maxElements, self._allowDirty)
-        conn = self._sendToMaster( msg )
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
         return conn.decodeStringListResult( )
 
     def whoMaster(self):
