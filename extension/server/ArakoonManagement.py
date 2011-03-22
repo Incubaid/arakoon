@@ -402,7 +402,7 @@ class ArakoonCluster:
             q.system.fs.removeDirTree(logDir)
             return
         
-        raise Exception("No node %s" % tpl )
+        raise Exception("No node %s" % name )
 
 
 
