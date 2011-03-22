@@ -45,7 +45,7 @@ class ArakoonConfig:
         if not config.checkSection("global"):
             config.addSection("global")
             config.addParam("global", "cluster_id", clusterId)
-            config.addParam("global","nodes", "")
+            config.addParam("global",'cluster', "")
 
         nodes = self.__getNodes(config)
 
@@ -58,7 +58,7 @@ class ArakoonConfig:
         config.addParam(name, "ip", ip) 
         config.addParam(name, "client_port", client_port)
 
-        config.setParam("global","nodes", ",".join(nodes))
+        config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
 
@@ -82,7 +82,7 @@ class ArakoonConfig:
             config.removeSection(name)
 
             nodes.remove(name)
-            config.setParam("global","nodes", ",".join(nodes))
+            config.setParam("global",'cluster', ",".join(nodes))
 
             config.write()
             return
@@ -129,7 +129,7 @@ class ArakoonConfig:
         if not config.checkSection("global"):
             return []
 
-        nodes = config.getValue("global", "nodes").strip()
+        nodes = config.getValue("global", "cluster").strip()
         # "".split(",") -> ['']
         if nodes == "":
             return []
