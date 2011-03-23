@@ -78,7 +78,7 @@ def _receive_string(socket):
     
 def collapse(ip, port, clusterId, n):
     """
-    tell the node listening on (ip, port) to collapse n tlog files into its head
+    tell the node listening on (ip, port) to collapse, and keep n tlog files 
     @type ip: string
     @type port: int
     @type n: int
@@ -97,7 +97,8 @@ def collapse(ip, port, clusterId, n):
         if rc:
             msg   = _receive_string(s)
             raise Exception(rc, msg)
-        for i in range(n):
+        collapse_count = _receive_int(socket)
+        for i in range(collapse_count):
             took = _receive_int64(s)
             logging.info("took %l", took)
     finally:

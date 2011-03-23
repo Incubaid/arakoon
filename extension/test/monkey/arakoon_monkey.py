@@ -360,10 +360,11 @@ def make_monkey_run() :
         toCollapse = node_names[random.randint(0,2)]
         while toCollapse == toWipe:
             toCollapse = node_names[random.randint(0,2)]
+            
         collapse_candidate_count = get_tlog_count (toCollapse ) -1 
         if collapse_candidate_count > 0 :
             logging.info("Collapsing node %s" % toCollapse )
-            if collapse(toCollapse, collapse_candidate_count ) != 0:
+            if collapse(toCollapse, 1 ) != 0:
                 logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
         

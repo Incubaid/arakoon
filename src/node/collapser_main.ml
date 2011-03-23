@@ -22,26 +22,40 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let collapse_lwt tlog_dir n_tlogs cb = 
+let collapse_lwt tlog_dir n_tlogs cb' cb = 
   Tlc2.get_tlog_names tlog_dir >>= fun entries -> 
-  let rec take_n acc entries i= 
-    if i = 0 
+  Lwt_list.iter_s (fun e -> Lwt_log.debug e) entries >>= fun () ->
+  let rec take_n acc entries to_keep = 
+    if (List.length entries) <= to_keep
     then List.rev acc
     else 
-      match entries with
-	| [] -> failwith "not enough entries to collapse"
-	| hd::tl -> take_n (hd::acc) tl (i-1)
+      let hd = List.hd entries in
+      let tl = List.tl entries in 
+      take_n (hd::acc) tl to_keep
   in
   let to_collapse = take_n [] entries n_tlogs in
-  Lwt_log.debug "going to collapse" >>= fun () ->
-  Lwt_list.iter_s (fun e -> Lwt_log.debug ("\t" ^e)) to_collapse >>= fun () ->
-  Collapser.collapse_many tlog_dir to_collapse Collapser.head_name cb
+  let n_to_collapse = List.length to_collapse in
+  cb' n_to_collapse >>= fun () ->
+  begin
+	  if n_to_collapse > 0 
+	  then
+	    begin
+	      Lwt_log.debug_f "going to collapse %d tlogs: " n_to_collapse >>= fun () ->
+	      Lwt_list.iter_s (fun e -> Lwt_log.debug ("\t" ^e)) to_collapse >>= fun () ->
+	      Collapser.collapse_many tlog_dir to_collapse Collapser.head_name cb
+      end
+	  else 
+	    begin
+        Lwt_log.debug "nothing to collapse, not enough tlogs"
+      end
+  end
   >>= fun () ->
   Lwt.return ()
 
 let collapse tlog_dir n_tlogs =
+  let cb' n = Lwt_log.debug_f "collapsing total of %d" n in
   let cb fn = Lwt_log.debug_f "collapsed one %s" fn in
-  Lwt_main.run (collapse_lwt tlog_dir n_tlogs cb);
+  Lwt_main.run (collapse_lwt tlog_dir n_tlogs cb' cb);
   0
 
 

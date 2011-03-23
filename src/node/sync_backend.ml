@@ -343,13 +343,13 @@ object(self: #backend)
     let r = test ~cluster_id in
     Lwt.return r
 
-  method collapse n cb = 
+  method collapse n cb' cb = 
     let tlog_dir = Node_cfg.tlog_dir cfg in
     let new_cb tlog_name =
       let file_num = Tlc2.get_number tlog_name in
       cb() >>= fun () ->
       self # wait_for_tlog_release (Sn.of_int file_num) 
     in
-    Collapser_main.collapse_lwt tlog_dir n new_cb >>= fun () ->
+    Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
     Lwt.return ()
 end

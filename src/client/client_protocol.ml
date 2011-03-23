@@ -264,6 +264,9 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
 	let t0 = sw() in
+  let cb' = fun n ->
+    Llio.output_int oc n
+  in
 	let cb = fun () -> 
 	  let ts = sw() in
 	  let d = Int64.sub ts t0 in
@@ -272,7 +275,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	in
 	Llio.input_int ic >>= fun n ->
 	Llio.output_int oc 0 >>= fun () -> (* ok *)
-	backend # collapse n cb >>= fun () ->
+	backend # collapse n cb' cb >>= fun () ->
 	Lwt.return ()
       end
 

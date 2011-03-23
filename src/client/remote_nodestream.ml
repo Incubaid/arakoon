@@ -94,17 +94,18 @@ object(self :# nodestream)
       Llio.int_to buf n
     in
     let incoming ic =
+      Llio.input_int ic >>= fun collapse_count ->
       let rec loop i =
-	if i = 0 
-	then Lwt.return ()
-	else 
-	  begin
-	    Llio.input_int64 ic >>= fun took ->
-	    Lwt_log.debug_f "collapsing one file took %Li" took >>= fun () ->
-	    loop (i-1)
-	  end
+      	if i = 0 
+        	then Lwt.return ()
+	      else 
+      	  begin
+	          Llio.input_int64 ic >>= fun took ->
+	          Lwt_log.debug_f "collapsing one file took %Li" took >>= fun () ->
+	          loop (i-1)
+	        end
       in
-      loop n
+      loop collapse_count
     in
     request outgoing >>= fun () ->
     response ic incoming
