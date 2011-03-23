@@ -53,13 +53,16 @@ class ArakoonManagement:
 
         def maybe_move (source, target):
             if fs.exists( source ):
+                targetDir = q.system.fs.getDirName(target)
+                q.system.fs.createDir(targetDir)
                 fs.moveFile(source, target)
         
         def change_nodes_to_cluster( config ):
-            if config.checkValue('global', 'nodes') :
+            if config.checkParam('global', 'nodes') :
                 val = config.getValue('global', 'nodes')
                 config.addParam('global', 'cluster', val)
                 config.removeParam('global','nodes')
+                config.write()
         
         nodes_source = jp(cfgDir,'arakoonnodes.cfg')
         nodes_target = jp(cfgDir,'arakoon_nodes.cfg')
@@ -78,8 +81,11 @@ class ArakoonManagement:
         nodes_source = nodes_target
         nodes_target = jp(new_cfg_dir, 'arakoon_client.cfg')
         if fs.exists( nodes_source ):
+            targetDir = q.system.fs.getDirName(nodes_target)
+            q.system.fs.createDir(targetDir)
             fs.moveFile(nodes_source, nodes_target)
             cfgFile = q.config.getInifile('arakoonclients')
+            cfgFile.addSection("arakoon")
             cfgFile.addParam("arakoon", "path", new_cfg_dir)
             cfg = q.config.getInifile( nodes_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
@@ -87,6 +93,8 @@ class ArakoonManagement:
         servernodes_source = servernodes_target
         servernodes_target = jp(new_cfg_dir, 'arakoon_local_nodes.cfg')
         if fs.exists( servernodes_source):
+            targetDir = q.system.fs.getDirName(servernodes_target)
+            q.system.fs.createDir(targetDir)
             fs.moveFile (servernodes_source, servernodes_target)
             cfg = q.config.getInifile( servernodes_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
@@ -94,8 +102,11 @@ class ArakoonManagement:
         cluster_source = jp(cfgDir,'arakoon.cfg')
         cluster_target = jp(new_cfg_dir, 'arakoon.cfg' )
         if fs.exists( cluster_source ):
+            targetDir = q.system.fs.getDirName(cluster_target)
+            q.system.fs.createDir(targetDir)
             fs.moveFile(cluster_source, cluster_target)
             cfgFile = q.config.getInifile('arakoonclusters')
+            cfgFile.addSection("arakoon")
             cfgFile.addParam("arakoon", "path", new_cfg_dir)
             cfg = q.config.getInifile( cluster_target.split('.')[0] )
             change_nodes_to_cluster( cfg )

@@ -186,6 +186,12 @@ class ArakoonClient:
             node_dict = {}
             clientCfg = self._getConfig(clusterId, configName)
             cfgFile = q.config.getInifile( clientCfg )
+            if not cfgFile.checkSection("global") :
+                if configName is not None:
+                    msg = "Named client '%s' for cluster '%s' does not exist" % (configName, clusterId)
+                else :
+                    msg = "No client available for cluster '%s'" % clusterId 
+                q.errorconditionhandler.raiseError(msg )
             clusterParam = cfgFile.getValue("global", "cluster")
             for node in clusterParam.split(",") :
                 node = node.strip()
@@ -222,9 +228,7 @@ class ArakoonClient:
             cfgDir = q.system.fs.joinPaths(q.dirs.cfgDir, "qconfig", "arakoon", clusterId)
             clientConfig.addParam(clusterId, "path", cfgDir)
             clientConfig.write()
-        else:
-            q.gui.dialog.message('There is a client already configured for cluster [%s].' %clusterId)
-
+        
         cfgFile = self._getConfig(clusterId, configName)
         return ArakoonClientExtConfig(clusterId, cfgFile)
         
