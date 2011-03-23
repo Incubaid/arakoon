@@ -26,18 +26,213 @@ from arakoon import Arakoon
 from arakoon.ArakoonProtocol import ArakoonClientConfig
 from arakoon.ArakoonProtocol import ArakoonNotFound
 
+class ArakoonClientExtConfig:
+    """
+    Configuration of Arakoon nodes
+    """
+    def __init__(self, clusterId, configPath):
+        self._clusterId = clusterId
+        self._configPath = configPath
+
+    def addNode(self, name, ip, client_port):
+        """
+        Add a node to the client configuration
+
+        @param name: the name of the node
+        @param ip: the ip  the node
+        @param client_port: the port of the node
+        """
+        self.__validateName(name)
+        
+        clusterId = self._clusterId
+        inifile_path = self._configPath
+        
+        config = q.config.getInifile(inifile_path)
+
+        if not config.checkSection("global"):
+            config.addSection("global")
+            config.addParam("global", "cluster_id", clusterId)
+            config.addParam("global","cluster", "")
+
+        nodes = self.__getNodes(config)
+
+        if name in nodes:
+            raise Exception("There is already a node with name %s configured" % name)
+
+        nodes.append(name)
+        config.addSection(name)
+        config.addParam(name, "name", name)
+        config.addParam(name, "ip", ip) 
+        config.addParam(name, "client_port", client_port)
+
+        config.setParam("global","cluster", ",".join(nodes))
+
+        config.write()
+
+    def removeNode(self, name):
+        """
+        Remove a node
+
+        @param name the name of the node
+        """
+        self.__validateName(name)
+
+        config = q.config.getInifile(self._configPath)
+
+        if not config.checkSection("global"):
+            raise Exception("No node with name %s configured" % name)
+
+        nodes = self.__getNodes(config)
+
+        if name in nodes:
+            config.removeSection(name)
+
+            nodes.remove(name)
+            config.setParam("global","cluster", ",".join(nodes))
+
+            config.write()
+            return
+
+        raise Exception("No node with name %s configured" % name)
+
+    def getNodes(self):
+        """
+        Get an object that contains all node information
+        @type clusterId: string
+        @param clusterId: specifies the cluster
+        @return dict the dict can be used as param for the ArakoonConfig object
+        """
+
+        config = q.config.getInifile(self._configPath)
+    
+        clientconfig = dict()
+
+        if config.checkSection("global"):
+            nodes = self.__getNodes(config)
+
+            for name in nodes:
+                clientconfig[name] = (config.getValue(name, "ip"),
+                                      config.getValue(name, "client_port"))
+
+        return clientconfig
+
+    def generateFromServerConfig(self):
+        """
+        Generate the client config file from the servers
+        """
+        clusterId = self._clusterId
+        
+        try:
+            clustersCfg = q.config.getConfig('arakoonclusters')
+            clusterExists = clustersCfg.has_key(clusterId)
+        except Exception as ex:
+            raise ex
+            clusterExists = False
+            
+        if not clusterExists:
+            q.errorconditionhandler.raiseError("No server cluster %s is defined." % clusterId)
+
+        serverConfigDir = clustersCfg[clusterId]["path"]
+        serverConfigPath =  q.system.fs.joinPaths( serverConfigDir, clusterId)
+        serverConfig = q.config.getInifile(serverConfigPath)
+
+        if serverConfig.checkSection("global"):
+            nodes = self.__getNodes(serverConfig)
+
+            for name in nodes:
+                self.addNode(name,
+                             serverConfig.getValue(name, "ip"),
+                             serverConfig.getValue(name, "client_port"))
+
+    def __getNodes(self, config):
+        if not config.checkSection("global"):
+            return []
+
+        nodes = config.getValue("global", "cluster").strip()
+        # "".split(",") -> ['']
+        if nodes == "":
+            return []
+        nodes = nodes.split(",")
+        nodes = map(lambda x: x.strip(), nodes)
+
+        return nodes
+
+
+    def __validateName(self, name):
+        if name is None:
+            raise Exception("A name should be passed. None is not an option")
+
+        if not type(name) == type(str()):
+            raise Exception("Name should be of type string")
+
+        for char in [' ', ',', '#']:
+            if char in name:
+                raise Exception("name should not contain %s" % char)
+            
 class ArakoonClient:
     """
     Arakoon client management
     """
-    
-    def getClient(self, clusterId):
+        
+    def getClient(self, clusterId, configName = None):
         """
-        Get arakoonclient
+        Gets an Arakoon client object for an existing cluster
         @type clusterId: string
-        @param clusterId: cluster for that client
+        @param clusterId: the name of the cluster for which you want to get a client
         @return arakoon client object
         """
-        nodes = q.config.arakoonnodes.getNodes(clusterId)
-        config = ArakoonClientConfig(clusterId, nodes)
-        return Arakoon.ArakoonClient(config)
+        clientConfig = q.config.getInifile("arakoonclients")
+        if not clientConfig.checkSection(clusterId):
+            q.errorconditionhandler.raiseError("No such client configured for cluster [%s]." %clusterId)
+        else:
+            node_dict = {}
+            clientCfg = self._getConfig(clusterId, configName)
+            cfgFile = q.config.getInifile( clientCfg )
+            clusterParam = cfgFile.getValue("global", "cluster")
+            for node in clusterParam.split(",") :
+                node = node.strip()
+                ip  = cfgFile.getValue(node, "ip") 
+                port = cfgFile.getValue(node, "client_port") 
+                ip_port = (ip, port)
+                node_dict.update({node: ip_port})
+            config = ArakoonClientConfig(clusterId, node_dict)
+            return Arakoon.ArakoonClient(config)
+
+    def listClients(self):
+        """
+        Returns a list with the existing clients.
+        """
+        config = q.config.getInifile("arakoonclients")
+        return config.getSections() 
+
+    def getClientConfig (self, clusterId, configName = None):
+        """
+        Adds an Arakoon client to the configuration.
+        @type clusterId: string
+        @param clusterId: the name of the cluster for which you want to add a client
+        """
+        
+        #clusterConfig = q.config.getInifile("arakoonclusters")
+        #if not clusterConfig.checkSection(clusterId):
+        #    q.errorconditionhandler.raiseError("No cluster with that name is configured.")
+
+        clientConfig = q.config.getInifile("arakoonclients")
+        if not clientConfig.checkSection(clusterId):
+            clientConfig.addSection(clusterId)
+            cfgDir = q.system.fs.joinPaths(q.dirs.cfgDir, "qconfig", "arakoon", clusterId)
+            clientConfig.addParam(clusterId, "path", cfgDir)
+            clientConfig.write()
+        else:
+            q.gui.dialog.message('There is a client already configured for cluster [%s].' %clusterId)
+
+        cfgFile = self._getConfig(clusterId, configName)
+        return ArakoonClientExtConfig(clusterId, cfgFile)
+        
+    def _getConfig(self, clusterId, configName):
+        clientsCfg = q.config.getConfig( "arakoonclients")
+        clusterDir = clientsCfg[clusterId]["path"]
+        if configName is None:
+            return q.system.fs.joinPaths( clusterDir, "%s_client" % clusterId)
+        else:
+            return q.system.fs.joinPaths( clusterDir, "%s_client_%s" % (clusterId, configName))
+        

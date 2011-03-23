@@ -76,16 +76,16 @@ class ArakoonManagement:
         new_cfg_dir = jp(cfgDir,'arakoon','arakoon')
         
         nodes_source = nodes_target
-        nodes_target = jp(new_cfg_dir, nodes_source)
+        nodes_target = jp(new_cfg_dir, 'arakoon_client.cfg')
         if fs.exists( nodes_source ):
             fs.moveFile(nodes_source, nodes_target)
             cfgFile = q.config.getInifile('arakoonclients')
-            cfgFile.addParam("arakoon", "path", nodes_target)
+            cfgFile.addParam("arakoon", "path", new_cfg_dir)
             cfg = q.config.getInifile( nodes_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
 
         servernodes_source = servernodes_target
-        servernodes_target = jp(new_cfg_dir, nodes_source)
+        servernodes_target = jp(new_cfg_dir, 'arakoon_local_nodes.cfg')
         if fs.exists( servernodes_source):
             fs.moveFile (servernodes_source, servernodes_target)
             cfg = q.config.getInifile( servernodes_target.split('.')[0] )
@@ -96,12 +96,36 @@ class ArakoonManagement:
         if fs.exists( cluster_source ):
             fs.moveFile(cluster_source, cluster_target)
             cfgFile = q.config.getInifile('arakoonclusters')
-            cfgFile.addParam("arakoon", "path", cluster_target)
+            cfgFile.addParam("arakoon", "path", new_cfg_dir)
             cfg = q.config.getInifile( cluster_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
         
-        
-        
+    def listClusters(self):
+        """
+        Returns a list with the existing clusters.
+        """
+        config = q.config.getInifile("arakoonclusters")
+        return config.getSections()
+
+    def start(self):
+        """
+        Starts all clusters.
+        """
+        [clus.start() for clus in [self.getCluster(cluster) for cluster in self.listClusters()]]
+
+    def stop(self):
+        """
+        Stops all clusters.
+        """
+        [clus.stop() for clus in [self.getCluster(cluster) for cluster in self.listClusters()]]
+
+    def restart(self):
+        """
+        Restarts all clusters.
+        """
+        self.stop()
+        self.start()
+       
 
 class ArakoonCluster:
 
@@ -109,23 +133,34 @@ class ArakoonCluster:
         self.__validateName(clusterId)
         self._clusterId = clusterId
         self._binary = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoond")
-        self._cfgPath = q.system.fs.joinPaths(q.dirs.cfgDir, "qconfig")
+        self._arakoonDir = q.system.fs.joinPaths(q.dirs.cfgDir, "arakoon")
+        
+        clusterConfig = q.config.getInifile("arakoonclusters")
+        if not clusterConfig.checkSection(self._clusterId):
+            
+            clusterPath = q.system.fs.joinPaths(q.dirs.cfgDir,"qconfig", "arakoon", clusterId)
+            clusterConfig.addSection(self._clusterId)
+            clusterConfig.addParam(self._clusterId, "path", clusterPath)
 
+            if not q.system.fs.exists(self._arakoonDir):
+                q.system.fs.createDir(self._arakoonDir)
 
-    
+            if not q.system.fs.exists(clusterPath):
+                q.system.fs.createDir(clusterPath)
+
+        self._clusterPath = clusterConfig.getValue( self._clusterId, "path" )
+        
     def _servernodes(self):
-        return '%s_servernodes' % self._clusterId
+        return '%s_local_nodes' % self._clusterId
 
     def __repr__(self):
         return "<ArakoonCluster:%s>" % self._clusterId
 
     def _getConfigFile(self):
-        config = q.config.getInifile(self._clusterId)
-        if not config.checkSection("global"):
-            config.addSection("global")
-            config.addParam("global","cluster_id",self._clusterId)
-            config.addParam("global","cluster", "")
-        return config
+        clusterConfig = q.config.getInifile("arakoonclusters")
+        cfgDir = clusterConfig.getValue( self._clusterId, "path")
+        cfgFile = q.system.fs.joinPaths( cfgDir, self._clusterId )
+        return q.config.getInifile( cfgFile )
     
     def addNode(self,
                 name,
@@ -197,7 +232,10 @@ class ArakoonCluster:
         if isLearner:
             config.addParam(name, "learner", "true")
             config.addParam(name, "targets", string.join(targets,","))
-        
+
+        if not config.checkSection("global") :
+            config.addSection("global")        
+            config.addParam("global", "cluster_id", self._clusterId)
         config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
@@ -233,7 +271,7 @@ class ArakoonCluster:
         section = "global"
         key = "lease_period"
         
-        config = q.config.getInifile(clusterId)
+        config = self._getConfigFile()
 
         if not config.checkSection( section ):
             raise Exception("Section '%s' not found in config" % section )
@@ -274,6 +312,18 @@ class ArakoonCluster:
 
         config.write()
 
+    def setLogLevel(self, level, nodes=None):
+        if nodes is None:
+            nodes = self.listNodes()
+        else:
+            for n in nodes :
+                self.__validateName( n )
+        self.__validateLogLevel( level )
+        config = self._getConfigFile()
+        
+        for n in nodes:
+            config.setParam( n, "log_level", level )
+                
     def setQuorum(self, quorum=None):
         """
         Set the quorum for the supplied cluster
@@ -320,6 +370,7 @@ class ArakoonCluster:
 
         return clientconfig
 
+   
     def listNodes(self):
         """
         Get a list of all node names in the supplied cluster
@@ -414,7 +465,8 @@ class ArakoonCluster:
         nodes = self.__getNodes(config)
         config_name = self._servernodes()
         if name in nodes:
-            nodesconfig = q.config.getInifile(config_name)
+            config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
+            nodesconfig = q.config.getInifile(config_name_path)
 
             if not nodesconfig.checkSection("global"):
                 nodesconfig.addSection("global")
@@ -441,8 +493,9 @@ class ArakoonCluster:
         """
         self.__validateName(name)
         config_name = self._servernodes()
-        config = q.config.getInifile(config_name)
-
+        config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
+        config = q.config.getInifile(config_name_path)
+        
         if not config.checkSection("global"):
             return
 
@@ -460,7 +513,8 @@ class ArakoonCluster:
         @return list of strings containing the node names
         """
         config_name = self._servernodes()
-        config = q.config.getInifile(config_name)
+        config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
+        config = q.config.getInifile(config_name_path)
 
         return self.__getNodes(config)
 
@@ -508,6 +562,18 @@ class ArakoonCluster:
         
         if self.__getForcedMaster(config):
             self.forceMaster(None)
+            
+    def remove(self):
+        
+        clientConf = q.config.getInifile("arakoonclients")
+        clientConf.removeSection(self._clusterId)
+        clientConf.write()
+
+        clusterConf = q.config.getInifile("arakoonclusters")
+        clusterConf.removeSection(self._clusterId)
+        clusterConf.write()
+
+        q.system.fs.removeDirTree(self._clusterPath)
 
     def __getForcedMaster(self, config):
         if not config.checkSection("global"):
@@ -615,7 +681,7 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         cmd = [self._binary,
                '-config',
-               '%s/%s.cfg' % (self._cfgPath, self._clusterId),
+               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
                '--node',
                nodeName,
                '-catchup-only']
@@ -660,7 +726,7 @@ class ArakoonCluster:
 
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
-              '%s/%s.cfg' % (self._cfgPath, self._clusterId),
+              '%s/%s.cfg' % (self._clusterPath, self._clusterId),
               '-daemonize']
         return r
     

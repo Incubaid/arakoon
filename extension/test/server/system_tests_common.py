@@ -48,6 +48,8 @@ class with_custom_setup ():
             test_failed = False
             fatal_ex = None
             home_dir = data_base_dir
+            if q.system.fs.exists( data_base_dir):
+                q.system.fs.removeDirTree( data_base_dir )
             self.__setup( home_dir )
             try:
                 func(*args,**kwargs)
@@ -358,11 +360,14 @@ def getConfig(name):
 
 def regenerateClientConfig():
     global cluster_id
-    sn = "%s_nodes" % cluster_id
-    if sn in q.config.list():  
-        q.config.remove(sn)   
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
-
+    clientsCfg = q.config.getConfig("arakoonclients")
+    if cluster_id in clientsCfg.keys():
+        clusterDir = clientsCfg[cluster_id]["path"]
+        clientCfgFile = q.system.fs.joinPaths(clusterDir, "%s_client.cfg" % cluster_id)
+        q.system.fs.removeFile( clientCfgFile)
+    cliCfg = q.clients.arakoon.getClientConfig( cluster_id )
+    cliCfg.generateFromServerConfig()
+    
 
 def whipe(name):
     config = getConfig(name)
@@ -485,26 +490,10 @@ def setup_n_nodes ( n, force_master, home_dir ):
     q.system.process.run( "/sbin/iptables -F" )
     cfg_list = q.config.list()
     
-    if cluster_id in cfg_list :
-        logging.info( "Clearing server config %s ", cluster_id )
-        q.config.remove(cluster_id)
-
-    config_name = '%s_nodes' % cluster_id
-    if config_name in cfg_list :
-        logging.info( "Clearing %s" % config_name)
-        q.config.remove(config_name)
-    
-    localnodes_name = '%s_servernodes' % cluster_id
-    if localnodes_name in cfg_list :
-        logging.info( "Clearing %s" % localnodes_name)
-        q.config.remove(localnodes_name)
-    
-    if q.system.fs.exists( home_dir ) :
-        logging.info( "Removing home dir" )
-        q.system.fs.removeDirTree( data_base_dir )
-                    
+    cluster = q.manage.arakoon.getCluster( cluster_id )
+    cluster.tearDown()
+        
     logging.info( "Creating data base dir %s" % data_base_dir )
-    
     q.system.fs.createDir ( data_base_dir )
     
     for i in range (n) :
@@ -527,17 +516,13 @@ def setup_n_nodes ( n, force_master, home_dir ):
         logging.info( "Using master election" )
         cluster.forceMaster(None )
     
-        
+    
+    
     logging.info( "Creating client config" )
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+    regenerateClientConfig()
     
     logging.info( "Changing log level to debug for all nodes" )
-    config = q.config.getInifile(cluster_id)
-    
-    for i in range(n) :
-        config.setParam(node_names[i],"log_level","debug")
-    config.setParam( 'global', 'lease_period', str(int(lease_duration)) )    
-    config.write()
+    cluster.setLogLevel("debug")
     
     
     logging.info( "Starting cluster" )
@@ -572,7 +557,8 @@ def dummy_teardown():
 def basic_teardown( removeDirs ):
     logging.info("basic_teardown(%s)" % removeDirs)
     global cluster_id
-    if cluster_id in q.config.list():
+    clusters = q.config.getConfig("arakoonclusters")
+    if cluster_id in clusters.keys() :
         logging.info( "Stopping arakoon daemons" )
         stop_all()
     
@@ -583,7 +569,9 @@ def basic_teardown( removeDirs ):
     cluster.tearDown(removeDirs ) 
     if removeDirs:
         q.system.fs.removeDirTree( data_base_dir )
-        
+    
+    cluster.remove()
+    
     logging.info( "Teardown complete" )
 
 
@@ -800,8 +788,7 @@ def add_node_scenario ( node_to_add_index ):
     if cluster_id in q.config.list():
         q.config.remove(sn)
     
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
-    
+    regenerateClientConfig()
     start_all()
 
     iterate_n_times( 100, assert_get )
@@ -888,8 +875,6 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     
     # Give the slave some time to catch up 
     time.sleep( 5.0 )
-    
-    assert_last_i_in_sync ( node_names[0], node_names[1] )
     stop_all()
+    assert_last_i_in_sync ( node_names[0], node_names[1] )
     compare_stores( node_names[0], node_names[1] )
-

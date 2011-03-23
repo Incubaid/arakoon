@@ -120,7 +120,8 @@ def setup_3_nodes_ram_fs ( home_dir ):
     
 
     logging.info( "Creating client config" )
-    q.config.arakoonnodes.generateClientConfigFromServerConfig(cluster_id)
+    cliCfg = q.clients.arakoon.getClientConfig(cluster_id)
+    cliCfg.generateFromServerConfig()
             
     start_all()
 
