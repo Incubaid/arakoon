@@ -25,7 +25,8 @@ import logging
 
 @with_custom_setup(setup_2_nodes, basic_teardown)
 def test_learner():
-    iterate_n_times(54321, simple_set)
+    op_count = 54321
+    iterate_n_times(op_count, simple_set)
     cluster = q.manage.arakoon.getCluster(cluster_id)
     logging.info("adding learner")
     name = node_names[2]
@@ -45,10 +46,10 @@ def test_learner():
     cluster.startOne(name)
     
     assert_running_nodes(3)
-    time.sleep(60.0) # 1000/s in catchup should be no problem
+    time.sleep(op_count / 1000 + 1 ) # 1000/s in catchup should be no problem
     #use a client ??"
     stop_all()
     i2 = int(get_last_i_tlog(name))
-    assert_true(i2 > 54321)
+    assert_true(i2 >= op_count - 1)
 
     

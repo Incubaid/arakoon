@@ -231,6 +231,8 @@ class ArakoonCluster:
 
         if isLearner:
             config.addParam(name, "learner", "true")
+            if targets is None:
+                targets = self.listNodes()
             config.addParam(name, "targets", string.join(targets,","))
 
         if not config.checkSection("global") :
@@ -407,9 +409,8 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        nodes = self.__getNodes(config)
-
-        if name in nodes:
+        
+        if config.checkSection(name):
             home = config.getValue(name, "home")
             q.system.fs.createDir(home)
 
@@ -464,7 +465,7 @@ class ArakoonCluster:
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
         config_name = self._servernodes()
-        if name in nodes:
+        if config.checkSection(name):
             config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
             nodesconfig = q.config.getInifile(config_name_path)
 
@@ -499,9 +500,7 @@ class ArakoonCluster:
         if not config.checkSection("global"):
             return
 
-        nodes = self.__getNodes(config)
-
-        if name in nodes:
+        if config.checkSection(name):
             nodes.remove(name)
             config.setParam("global","cluster", ",".join(nodes))
             config.write()
