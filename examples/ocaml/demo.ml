@@ -48,10 +48,9 @@ let demo (client:Arakoon_client.client) =
   client # set "foo" "bar" >>= fun () ->
   client # get "foo" >>= fun v ->
   Lwt_io.printlf "foo=%s" v >>= fun () ->
-  client # delete "foo" 
-  (* >>= fun () ->
+  client # delete "foo" >>= fun () ->
   client # exists "foo" >>= fun e -> 
-  Lwt_io.printlf "have foo? %b" e *)
+  Lwt_io.printlf "have foo? %b" e 
 
 let _ = 
   let cluster_id = "ricky" in
