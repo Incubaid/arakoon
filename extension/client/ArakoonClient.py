@@ -98,8 +98,6 @@ class ArakoonClientExtConfig:
     def getNodes(self):
         """
         Get an object that contains all node information
-        @type clusterId: string
-        @param clusterId: specifies the cluster
         @return dict the dict can be used as param for the ArakoonConfig object
         """
 
@@ -210,6 +208,8 @@ class ArakoonClient:
         Adds an Arakoon client to the configuration.
         @type clusterId: string
         @param clusterId: the name of the cluster for which you want to add a client
+        @type configName: optional string
+        @param configName: the name of the client configuration for this cluster
         """
         
         #clusterConfig = q.config.getInifile("arakoonclusters")

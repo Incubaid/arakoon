@@ -107,6 +107,22 @@ class ArakoonClient :
         if len(nodeList) == 0:
             raise ArakoonInvalidConfig("Node list empty.")
         self._dirtyReadNode = random.choice( nodeList )
+    
+    def allowDirtyReads(self):
+        """
+        Allow the client to read values from a potential slave. 
+        
+        Enabling this can give back outdated values!
+        """
+        self._allowDirty = True
+        
+    def disallowDirtyReads(self):
+        """
+        Disallow the client to read values from a potential slave.   
+        
+        Enabling dirty reads can give back outdated values!
+        """
+        self._allowDirty = False
 
     def _initialize(self, config ):
         self._config = config

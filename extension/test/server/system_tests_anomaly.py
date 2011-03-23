@@ -69,27 +69,15 @@ def setup_3_nodes_ram_fs ( home_dir ):
     
     cfg_list = q.config.list()
     global cluster_id
-    if cluster_id in cfg_list :
-        logging.info( "Clearing server config" )
-        q.config.remove(cluster_id)
-    client_cfg = "%s_nodes" % cluster_id
-    if client_cfg in cfg_list :
-        logging.info( "Clearing client config" )
-        q.config.remove(client_cfg)
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster.remove()
     
-    sn = "%s_servernodes" % cluster_id
-    if sn in cfg_list :
-        logging.info( "Clearing client config" )
-        q.config.remove(sn)
-        
-    if q.system.fs.exists( home_dir ) :
-        logging.info( "Removing home dir" )
-        q.system.fs.removeDirTree( home_dir )
-                    
+    cluster = q.manage.arakoon.getCluster(cluster_id)    
+    
     logging.info( "Creating data base dir %s" % home_dir )
     
     q.system.fs.createDir ( home_dir )
-    cluster = q.manage.arakoon.getCluster(cluster_id)    
+        
     try :
         for i in range( len(node_names) ):
             mount_ram_fs ( i )
@@ -110,18 +98,11 @@ def setup_3_nodes_ram_fs ( home_dir ):
         raise ex
     
     logging.info( "Changing log level to debug for all nodes" )
-    config = q.config.getInifile(cluster_id)
-    
-    for i in range( len(node_names) ) :
-        config.setParam(node_names[i],"log_level","debug")
-    
-    config.setParam( 'global', 'lease_period', str(int(lease_duration)) )    
-    config.write()
-    
+    cluster.setLogLevel("debug")
+    cluster.setMasterLease(int(lease_duration))
 
     logging.info( "Creating client config" )
-    cliCfg = q.clients.arakoon.getClientConfig(cluster_id)
-    cliCfg.generateFromServerConfig()
+    regenerateClientConfig()
             
     start_all()
 

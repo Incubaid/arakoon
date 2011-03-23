@@ -30,29 +30,21 @@ class TestConfig:
         self._clusterId = 'sturdy'
 
     def __servernodes(self):
-        return '%s_servernodes' % self._clusterId
+        return '%s_local_nodes' % self._clusterId
 
     def _getCluster(self):
         return q.manage.arakoon.getCluster(self._clusterId)
     
     def setup(self):
         cid = self._clusterId
-        if cid in q.config.list():
-            q.config.remove(cid)
-
-        sn = self.__servernodes()
-        if sn in q.config.list():
-            q.config.remove(sn)
-
+        cl = q.manage.arakoon.getCluster( cid )
+        cl.remove()
+        
     def teardown(self):
         cid = self._clusterId
-        if cid in q.config.list():
-            q.config.remove(cid)
-
-        sn = self.__servernodes()
-        if sn in q.config.list():
-            q.config.remove(sn)
-
+        cl = q.manage.arakoon.getCluster( cid )
+        cl.remove()
+        
     def testAddNode(self):
         cid = self._clusterId
         n0 = '%s_0' % cid
@@ -61,7 +53,7 @@ class TestConfig:
         cluster = self._getCluster()
         cluster.addNode(n0)
         
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getSectionAsDict("global"),
                       {'cluster': n0,
                        'cluster_id': cid
@@ -83,7 +75,7 @@ class TestConfig:
                         "/tmp",
                         "/tmp/joe")
     
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         
         assert_equals(config.getSectionAsDict("global"),
                       {'cluster': '%s,%s' % (n0,n1),
@@ -138,7 +130,7 @@ class TestConfig:
 
         cluster.removeNode(n0)
 
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getSectionAsDict("global")['cluster'],n1)
         assert_false(config.checkSection(n0))
 
@@ -161,17 +153,17 @@ class TestConfig:
 
         cluster.forceMaster(n0)
 
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getValue("global",'master'), n0)
 
         cluster.forceMaster(n1)
 
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getValue("global",'master'), n1)
 
         cluster.forceMaster(None)
 
-        config = q.config.getInifile("arakoon")
+        config = cluster._getConfigFile()
         assert_false(config.checkParam("global",'master'))
 
     def testForceUnknownMaster(self):
@@ -191,11 +183,11 @@ class TestConfig:
            cluster.addNode(ni)
 
         cluster.setQuorum(1)
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getValue("global", 'quorum'), '1')
 
         cluster.setQuorum(2)
-        config = q.config.getInifile(cid)
+        config = cluster._getConfigFile()
         assert_equals(config.getValue("global", 'quorum'), '2')
 
     def testSetIllegalQuorum(self):
@@ -291,13 +283,14 @@ class TestConfig:
 
         sn = self.__servernodes()
         
-        config = q.config.getInifile(sn)
+        cfgPath = q.system.fs.joinPaths( q.dirs.cfgDir, "qconfig", "arakoon", cid, "%s_local_nodes" % cid)        
+        config = q.config.getInifile( cfgPath )
         assert_equals(config.getSectionAsDict("global"),
                       {'cluster': n1})
 
         cluster.addLocalNode(n0)
 
-        config = q.config.getInifile(sn)
+        config = q.config.getInifile( cfgPath )
         assert_equals(config.getSectionAsDict("global"),
                       {'cluster': '%s,%s' % (n1,n0)})
 
