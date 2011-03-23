@@ -370,10 +370,9 @@ def test_sso_deployment():
     non_retrying_write_loop = lambda: iterate_n_times( 10000, set_get_and_delete, startSuffix = 2000000  )
     
     add_node( 1 )
-    config = q.config.getInifile(cluster_id)
-    config.setParam(node_names[1],"log_level","debug")
-    config.write()
-
+    cl = _getCluster()
+    cl.setLogLevel("debug")
+    
     regenerateClientConfig()
             
     restart_nodes_wf_sim( 1 )
@@ -384,11 +383,9 @@ def test_sso_deployment():
     create_and_wait_for_thread_list ( [ large_write_loop ] )
     
     add_node( 2 )
-    config = q.config.getInifile(cluster_id)
-    config.setParam(node_names[2],"log_level","debug")
-    config.write()
-    cluster = q.manage.arakoon.getCluster(cluster_id)
-    cluster.forceMaster(None )
+    cl = _getCluster()
+    cl.setLogLevel("debug")
+    cl.forceMaster(None )
     logging.info("2 node config without forced master")
 
     regenerateClientConfig()
