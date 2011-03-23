@@ -572,7 +572,9 @@ class ArakoonCluster:
         
         if self.__getForcedMaster(config):
             self.forceMaster(None)
-            
+        
+        self.remove()
+        
     def remove(self):
         
         clientConf = q.config.getInifile("arakoonclients")

@@ -54,6 +54,7 @@ class TestCmdTools:
         cluster = self._getCluster()
         cluster.stop()
         cluster.tearDown()
+        cluster.remove()
 
     def testStart(self):
         cluster = self._getCluster()
