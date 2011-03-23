@@ -11,7 +11,7 @@ Homepage: http://www.arakoon.org
 Package: arakoon
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: a simple consistent distributed key/value store
+Description:A simple consistent distributed key/value store
   Arakoon tries to be a consistent distributed key value store.
   Technically, it's a ocaml implementation of multipaxos on top of 
   Tokyo Cabinet 
@@ -21,4 +21,3 @@ Architecture : any
 Section: libs
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: ocaml client library for Arakoon
- <long description, indented with spaces>
