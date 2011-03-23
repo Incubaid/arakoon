@@ -10,10 +10,11 @@ char* bound_strncpy(char* dst, const char* src, size_t size);
 
 int open_socket(const char* address, int port, int* sock, size_t err_msg_size, char* err_msg);
 
+sequence_t init_sequence();
 kv_pair_list_t init_kv_pair_list();
 void cleanup_kv_pair_list( kv_pair_list_t* kv_pair_list);
 key_list_t init_key_list();
-void cleanup_key_list( key_list_t* key_list );
+void cleanup_key_list( string_list_t* kl );
 
 
 ara_rc recv_n_bytes(int* sock, size_t n, char* buffer, size_t timeout, size_t err_msg_size, char* err_msg);

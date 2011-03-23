@@ -41,9 +41,13 @@ size_t build_req_range_entries( size_t buf_size, char* buffer,
 size_t build_req_test_and_set(size_t buf_size, char* buffer, size_t key_size, const char* key,
                 size_t old_value_size , const char* old_value, size_t new_value_size, const char* new_value);
 
-size_t build_req_multi_get (size_t buf_size, char* buffer, key_list_t key_list);
+size_t build_req_multi_get (size_t buf_size, char* buffer, key_list_t key_list, int allow_dirty);
 
 size_t build_req_expect_progress (size_t buf_size, char *buffer);
+
+size_t build_req_sequence (size_t buf_size, char* buffer, sequence_t kv_sequence);
+
+size_t build_req_update(size_t buf_size, char* buffer, sequence_t kv_sequence);
 
 int get_list_size (key_list_t key_list);
 

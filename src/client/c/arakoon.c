@@ -25,7 +25,7 @@ create_empty_cluster(size_t cluster_id_size, const char* cluster_id) {
 	ret.last_error[0]='\0';
 	ret.master_sock = -1;
 	ret.master_name[0] = '\0';
-        ret.cmd_buf = checked_malloc(MXLEN_REQ);
+	ret.cmd_buf = checked_malloc(MXLEN_REQ);
 	return ret;
 }
 
@@ -270,27 +270,27 @@ ara_rc range_entries(ara_cluster_t* cluster, size_t b_key_size, const char* b_ke
 }
 
 ara_rc test_and_set (ara_cluster_t *cluster, size_t key_size, const char* key, size_t old_value_size, const char* old_value,
-                size_t new_value_size, const char* new_value, size_t max_return_value_size, char* return_value)
+                size_t new_value_size, const char* new_value, int* is_set, size_t max_return_value_size, char* return_value)
 {
     ara_rc rc;
     size_t actual_size = build_req_test_and_set(MXLEN_REQ,cluster->cmd_buf, key_size, key, old_value_size, old_value,
                     new_value_size, new_value);
     RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
     RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
-    RET_IF_FAILED( recv_string(&cluster->master_sock, max_return_value_size, return_value, MXLEN_ERRMSG, cluster->last_error) );
-
+    RET_IF_FAILED( recv_string_option(&cluster->master_sock, max_return_value_size, return_value, is_set, MXLEN_ERRMSG, cluster->last_error) );
+    
     return rc;
 }
 
-ara_rc multi_get (ara_cluster_t *cluster, key_list_t key_list, value_list_t* value_list)
+ara_rc multi_get (ara_cluster_t *cluster, key_list_t key_list, int allow_dirty, value_list_t* value_list)
 {
     ara_rc rc;
     size_t list_buf_size = get_list_size(key_list);
     if(list_buf_size > MXLEN_REQ)
     {
-        cluster->cmd_buf = checked_malloc(list_buf_size);
+        cluster->cmd_buf = checked_malloc(list_buf_size * 2);
     }
-    size_t actual_size = build_req_multi_get(list_buf_size,cluster->cmd_buf, key_list);
+    size_t actual_size = build_req_multi_get(list_buf_size*2,cluster->cmd_buf, key_list, allow_dirty);
     RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
     RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
     RET_IF_FAILED( recv_string_list(&cluster->master_sock, value_list, MXLEN_ERRMSG, cluster->last_error));
@@ -309,10 +309,19 @@ ara_rc expect_progress_possible (ara_cluster_t *cluster, int *result)
     return rc;
 }
 
-ara_rc sequence (ara_cluster_t *cluster, kv_pair_list_t key_value_list)
+ara_rc sequence (ara_cluster_t *cluster, sequence_t kv_sequence)
 {
     ara_rc rc;
-    size_t actual_size = build_sequence(MXLEN_REQ,cluster->cmd_buf, key_value_list);
+    size_t list_buf_size = get_sequence_size(kv_sequence);
+    if(list_buf_size > MXLEN_REQ)
+    {
+        cluster->cmd_buf = checked_malloc(list_buf_size * 2);
+    }
+    else { 
+        list_buf_size = MXLEN_REQ;
+    }
+        
+    size_t actual_size = build_req_sequence(list_buf_size,cluster->cmd_buf, kv_sequence);
     RET_IF_FAILED( send_to_master(cluster, actual_size, cluster->cmd_buf) );
     RET_IF_FAILED( check_for_error(&cluster->master_sock, cluster, MXLEN_ERRMSG, cluster->last_error) );
 
@@ -334,6 +343,8 @@ int main(int argc, char** argv) {
 	size_t msg_size = 256;
 	char msg[msg_size];
 	ara_rc rc ;
+
+        /*1. TEST: SET*/
 	rc = set(&clu, strlen(key1), key1, strlen(value1), value1);
 	if (rc != RC_SUCCESS) {
 		puts("ERROR on set");
@@ -342,6 +353,8 @@ int main(int argc, char** argv) {
 	} else {
 		puts("SUCCESS on set");
 	}
+
+        /*2. TEST: GET*/
 	size_t value_size = 256;
 	char value [value_size];
 	rc = get(&clu, strlen(key1), key1, 0, value_size, value);
@@ -353,6 +366,8 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on get");
 		puts(value);
 	}
+
+        /*3. TEST: GET with Failure*/
 	rc = get(&clu, strlen(key2), key2, 0, value_size, value);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on get2");
@@ -362,6 +377,8 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on get2");
 		puts(value);
 	}
+
+        /*4. TEST: WHO MASTER*/
 	rc = who_master(&clu,value_size,value);
 	if( rc == RC_SUCCESS ) {
 		printf("Found master: %s\n", value) ;
@@ -370,6 +387,8 @@ int main(int argc, char** argv) {
 		get_last_error(&clu,value_size,value);
 		printf ("%u, %s...\n", rc, value);
 	}
+
+        /*5. TEST: EXISTS*/
 	int is_there;
 	rc = exists(&clu, strlen(key2), key2, 0, &is_there) ;
 	if (rc!= RC_SUCCESS) {
@@ -380,6 +399,8 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on exists1");
 		printf("%d\n", is_there);
 	}
+
+        /*6. TEST: EXISTS*/
 	rc = exists(&clu, strlen(key1), key1, 0, &is_there) ;
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on exists2");
@@ -389,6 +410,8 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on exists2");
 		printf("%d\n", is_there);
 	}
+
+        /*7. TEST: HELLO*/
 	rc = hello(&clu, 4, "meme", value_size, value);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on hello");
@@ -398,6 +421,8 @@ int main(int argc, char** argv) {
 		puts("SUCCESS on hello");
 		printf("%s\n", value);
 	}
+
+        /*8. TEST: DELETE*/
 	rc = delete(&clu, strlen(key1), key1);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on delete 1");
@@ -406,6 +431,8 @@ int main(int argc, char** argv) {
 	} else {
 		puts("SUCCESS on delete 1");
 	}
+
+        /*9. TEST: DELETE with Failure*/
 	rc = delete(&clu, strlen(key2), key2);
 	if (rc!= RC_SUCCESS) {
 		puts("ERROR on delete 2");
@@ -414,6 +441,8 @@ int main(int argc, char** argv) {
 	} else {
 		puts("SUCCESS on delete 2");
 	}
+
+        /*10. TEST: RANGE*/
 	char begin_key [] = "begin_key";
 	char end_key [] = "end_key";
 	set(&clu, strlen(begin_key),begin_key,strlen(begin_key),begin_key);
@@ -434,7 +463,167 @@ int main(int argc, char** argv) {
 			iter = iter->next;
 		}
 	}
-	cleanup_cluster(&clu);
+
+        /*11. TEST: EXPECT_PROGRESS_POSSIBLE*/
+        int progress;
+        rc = expect_progress_possible(&clu, &progress);
+	if (rc!= RC_SUCCESS) {
+		puts("ERROR on Expect Progress Possible");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+		puts("SUCCESS on Expect Progress Possible");
+		printf("%d\n", progress);
+	}
+
+        /*12. TEST: TEST AND SET*/
+	const char keytest[] = "keytest";
+	const char valueold[] = "old value";
+        const char valuenew[] = "new value";
+        char valuereturn[12];
+        int is_set;
+        memset(valuereturn,0,sizeof(valuereturn));
+	set(&clu, strlen(keytest),keytest,strlen(valueold),valueold);
+        rc = test_and_set(&clu, strlen(keytest), keytest, strlen(valueold), valueold, strlen(valuenew), valuenew, &is_set,
+                sizeof(valuereturn), valuereturn);
+	if (rc != RC_SUCCESS) {
+		puts("ERROR on Test and Set");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+            if(strncmp(valuenew,valuereturn,strlen(valuenew))!=0)
+            {
+                puts("SUCCESS on Test and Set");
+                printf("%s\n", valuenew);
+            }
+            else
+            {
+                puts("FAILED Test and Set with INVALID return");
+            }
+	}
+
+        /*13. TEST: TEST AND SET with Failure*/
+        memset(valuereturn, 0, sizeof(valuereturn));
+	set(&clu, strlen(keytest), keytest, strlen(valueold), valueold);
+        rc = test_and_set(&clu, strlen(keytest), keytest, strlen(valuenew), valuenew, strlen(valuenew), valuenew, &is_set,
+                sizeof(valuereturn), valuereturn);
+	if (rc != RC_SUCCESS) {
+		puts("ERROR on Test and Set");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+                puts("SUCCESS on Test and Set");
+                printf("New: %s\nOld: %s\n", valuenew, valuereturn);
+	}
+
+        /*14. TEST: RANGE ENTRIES*/
+        kv_pair_list_t kv_list;
+	rc = range_entries(&clu, strlen(begin_key), begin_key, 1, strlen(end_key), end_key, 1, -1, 0, &kv_list);
+	if (rc!= RC_SUCCESS) {
+		puts("ERROR on range entries");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+		puts("SUCCESS on range entries");
+		printf("Range Entries got back %u elements\n", kv_list.count);
+		kv_pair_list_elem_t iter = kv_list.first_ptr;
+		while ( iter ) {
+                    printf("Key:%s Value:%s\n",iter->cur.key, iter->cur.value);
+                    iter = iter->next;
+		}
+	}
+
+        /*15. TEST: MULTI GET*/
+        key_list_t key_list;
+        value_list_t value_list;
+
+        int i;
+        key_list = init_key_list();
+        for( i = 0; i<3; i++)
+        {
+            object_list_elem_t new_elem = (object_list_elem_t) checked_malloc( sizeof( struct pstring_list_elem )) ;
+            char *new_key = checked_malloc(10);
+            char new_value[10];
+            snprintf(new_key, sizeof(new_key),"Key%d",i);
+            snprintf(new_value, sizeof(new_value), "Value%d",i);
+
+            new_elem->cur.size = strlen(new_key);
+            new_elem->cur.str = new_key;
+            set(&clu, strlen(new_key), new_key, strlen(new_value), new_value);
+
+            new_elem->next = key_list.first_ptr;
+            key_list.first_ptr = new_elem;
+            key_list.count++;
+        }
+        printf("Set Done\n");
+        
+        rc = multi_get(&clu, key_list, 0, &value_list);
+	if (rc!= RC_SUCCESS) {
+		puts("ERROR on Multi Get");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+		puts("SUCCESS on Multi Get");
+		printf("Range Entries got back %u elements\n", value_list.count);
+		object_list_elem_t iterv = value_list.first_ptr;
+                object_list_elem_t iterk = key_list.first_ptr;
+		while ( iterv ) {
+                    printf("Key:%s Value:%s\n",iterk->cur.str, iterv->cur.str);
+                    iterv = iterv->next;
+                    iterk = iterk->next;
+		}
+                cleanup_key_list(&value_list);
+	}
+        cleanup_key_list(&key_list);
+
+        /*16. TEST: SEQUENCE*/
+        sequence_t seq;
+        char *seqkey = "KeySeq";
+
+        /*Key to be deleted by sequence*/
+        set(&clu, strlen(seqkey), seqkey, strlen(seqkey), seqkey);
+        i = 0;
+        seq = init_sequence();
+        for( i = 0; i<3; i++)
+        {
+            char *new_key = checked_malloc(10);
+            sequence_element_t seq_elem = (sequence_element_t) checked_malloc( sizeof (struct sequence_element) );
+
+            snprintf(new_key, sizeof(new_key), "KeySeq%d",i);
+            seq_elem->type = SEQ_SET;
+            seq_elem->kv_pair.key_size = strlen(new_key);
+            seq_elem->kv_pair.value_size = strlen(new_key);
+            seq_elem->kv_pair.key = new_key;
+            seq_elem->kv_pair.value = new_key;
+
+            seq_elem->next = seq.first_ptr;
+            seq.first_ptr = seq_elem;
+
+            seq.count++;
+        }
+        sequence_element_t seq_elem = (sequence_element_t) checked_malloc( sizeof (struct sequence_element) );
+        seq_elem->type = SEQ_DEL;
+        seq_elem->kv_pair.key = seqkey;
+        seq_elem->kv_pair.key_size = strlen(seqkey);
+        seq_elem->kv_pair.value = NULL;
+        seq_elem->kv_pair.value_size = 0;
+
+        seq_elem->next = seq.first_ptr;
+        seq.first_ptr = seq_elem;
+
+        seq.count++;
+
+        printf("Set Done\n");
+
+        rc = sequence (&clu, seq);
+	if (rc!= RC_SUCCESS) {
+		puts("ERROR on Sequence");
+		get_last_error(&clu, value_size, value);
+		printf( "%u, %s\n", rc, value );
+	} else {
+		puts("SUCCESS on Sequence");
+	}
+
 	cleanup_cluster(&clu);
 	return 0;
 }

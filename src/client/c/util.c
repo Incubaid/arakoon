@@ -14,6 +14,13 @@
 
 const char err_msg_create_socket[] = "Could not create socket";
 
+sequence_t init_sequence() {
+	sequence_t ret;
+	ret.count = 0;
+	ret.first_ptr = NULL;
+	return ret;
+}
+
 key_list_t init_key_list() {
 	key_list_t ret;
 	ret.count = 0;
@@ -21,7 +28,7 @@ key_list_t init_key_list() {
 	return ret;
 }
 
-void cleanup_key_list( key_list_t* kl ) {
+void cleanup_key_list( string_list_t* kl ) {
 	object_list_elem_t iter = NULL;
 	object_list_elem_t prev = NULL;
 	iter = kl->first_ptr;
@@ -239,19 +246,28 @@ ara_rc recv_kv_list(int* sock, kv_pair_list_t* kv_list, size_t err_msg_size, cha
             new_elem->cur.key = NULL;
             new_elem->cur.value = NULL;
             rc = recv_uint32( sock, &(new_elem->cur.key_size), err_msg_size, err_msg ) ;
+            if( rc == RC_SUCCESS ) {
+                new_elem->cur.key = (char*) checked_malloc( new_elem->cur.key_size + 1);
+                rc = recv_n_bytes(sock, new_elem->cur.key_size, new_elem->cur.key, get_timeout(), err_msg_size, err_msg);
+                new_elem->cur.key[new_elem->cur.key_size] = 0x00;
+            }
+            else
+            {
+                cleanup_kv_pair_list( kv_list );
+                return rc;
+            }
             rc = recv_uint32( sock, &(new_elem->cur.value_size), err_msg_size, err_msg ) ;
             if( rc == RC_SUCCESS ) {
-                    new_elem->cur.key = (char*) checked_malloc( new_elem->cur.key_size + 1);
-                    new_elem->cur.value = (char*) checked_malloc( new_elem->cur.value_size + 1);
-                    rc = recv_n_bytes(sock, new_elem->cur.key_size, new_elem->cur.key, get_timeout(), err_msg_size, err_msg);
-                    rc = recv_n_bytes(sock, new_elem->cur.value_size, new_elem->cur.value, get_timeout(), err_msg_size, err_msg);
-                    new_elem->cur.key[new_elem->cur.key_size] = 0x00;
-                    new_elem->cur.value[new_elem->cur.value_size] = 0x00;
+                new_elem->cur.value = (char*) checked_malloc( new_elem->cur.value_size + 1);
+                rc = recv_n_bytes(sock, new_elem->cur.value_size, new_elem->cur.value, get_timeout(), err_msg_size, err_msg);
+                new_elem->cur.value[new_elem->cur.value_size] = 0x00;
             }
-            if( rc != RC_SUCCESS ) {
-                    cleanup_kv_pair_list( kv_list );
-                    return rc;
+            else
+            {
+                cleanup_kv_pair_list( kv_list );
+                return rc;
             }
+
             new_elem->next = kv_list->first_ptr;
             kv_list->first_ptr = new_elem;
     }
