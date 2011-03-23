@@ -524,6 +524,9 @@ def setup_n_nodes ( n, force_master, home_dir ):
     logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
     
+    lease = int(lease_duration)
+    logging.info( "Setting lease expiration to %d" % lease)
+    cluster.setMasterLease( lease )
     
     logging.info( "Starting cluster" )
     start_all() 
