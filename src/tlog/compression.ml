@@ -29,8 +29,10 @@ let tlog_name archive_name =
   assert (ext=".aar");
   String.sub archive_name 0 (len-4)
     
+let jobs = ref 0
 
 let compress_tlog tlog_name archive_name =
+  incr jobs;
   let limit = 1024 * 1024 in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
     (fun ic ->
@@ -43,10 +45,9 @@ let compress_tlog tlog_name archive_name =
 		Tlogcommon.entry_to buffer i u;
 		let (last_i':Sn.t) = if i > last_i then i else last_i 
 		in
-		if Buffer.length buffer < limit then
-		  fill_buffer (buffer:Buffer.t) last_i' (counter+1)
-		else
-		  Lwt.return (last_i',counter)
+		if Buffer.length buffer < limit 
+		then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
+		else Lwt.return (last_i',counter)
 	      )
 	      (function 
 		| End_of_file -> Lwt.return (last_i,counter)
@@ -63,7 +64,12 @@ let compress_tlog tlog_name archive_name =
 	  let rec loop () = 
 	    fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
 	    if counter = 0 
-	    then Lwt.return ()
+	    then 
+	      begin 
+		decr jobs;
+		Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
+		Lwt.return ()
+	      end
 	    else
 	      begin
 		compress_and_write last_i buffer >>= fun () ->

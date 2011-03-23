@@ -19,34 +19,44 @@ COMPILING:
 we use ocamlbuild combined with ocamlfind as main driver for our builds.
 
 manifesto
-ocamlbuild manifest.pdf     ==> _build/manifest.pdf
+	ocamlbuild manifest.pdf     ==> _build/manifest.pdf
 
 executable
-ocamlbuild main.native      ==> main.native
+	ocamlbuild main.native      ==> main.native
 
 libraries
-ocamlbuild arakoon_client.cma arakoon_client.cmxa ==>
-  _build/src/arakoon_client.cma
-  _build/src/arakoon_client.cmxa
-  src/client/arakoon_exc.mli
-  _build/src/client/arakoon_exc.cmi
-  _build/src/client/arakoon_exc.cmx
-  src/client/arakoon_client.mli
-  _build/src/client/arakoon_client.cmi
-  _build/src/client/arakoon_client.cmx
-  src/client/arakoon_remote_client.mli
-  _build/src/client/arakoon_remote_client.cmi
-  _build/src/client/arakoon_remote_client.cmx
+	ocamlbuild arakoon_client.cma arakoon_client.cmxa ==>
+  		_build/src/arakoon_client.cma
+  		_build/src/arakoon_client.cmxa
+  		src/client/arakoon_exc.mli
+  		_build/src/client/arakoon_exc.cmi
+  		_build/src/client/arakoon_exc.cmx
+  		src/client/arakoon_client.mli
+  		_build/src/client/arakoon_client.cmi
+  		_build/src/client/arakoon_client.cmx
+  		src/client/arakoon_remote_client.mli
+  		_build/src/client/arakoon_remote_client.cmi
+  		_build/src/client/arakoon_remote_client.cmx
 
 RUNNING THE TESTS:
 
-./main.native --run-all-tests
+	./main.native --run-all-tests
 
 COVERAGE:
 Bisect needs to be installed. (get it from http://bisect.x9c.fr/)
 
-ocamlbuild -tag use_bisect -tag use_macro main.d.byte
-./report.sh
+	ocamlbuild -tag use_bisect -tag use_macro main.d.byte
+	./report.sh
+
+DEBIAN packages:
+	fakeroot debian/rules clean
+	fakeroot debian/rules build
+	fakeroot debian/rules binary
+
+Python egg:
+	python setup.py bdist_egg
+
+
 
 have fun,
 

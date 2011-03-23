@@ -23,6 +23,8 @@ typedef enum {
 	RC_INVALID_POINTER 	= 513
 } ara_rc ;
 
+#define SEQ_SET 0
+#define SEQ_DEL 1
 
 #define RET_IF_FAILED(a) if( (rc = a) != RC_SUCCESS ) return rc
 

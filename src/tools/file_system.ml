@@ -45,3 +45,9 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
       Lwt_io.with_file ~mode:Lwt_io.output target 
 	(fun oc ->copy_all ic oc)
     )
+
+let rename source target = 
+  Lwt_log.debug_f "rename %s -> %s" source target >>= fun () ->
+  Lwt_preemptive.detach (fun () -> Unix.rename source target) () >>= fun () ->
+  Lwt.return ()
+

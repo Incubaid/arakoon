@@ -333,8 +333,7 @@ object(self: # tlog_collection)
     let compress () =
       Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
       Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-      Lwt_log.debug_f "Renaming: %s to %s" tlc_temp tlc >>= fun () ->
-      Unix.rename tlc_temp tlc;
+      File_system.rename tlc_temp tlc >>= fun () ->
       Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
       let msg = 
 	try
