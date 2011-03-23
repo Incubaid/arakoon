@@ -30,8 +30,13 @@ open Tlogcommon
 let setup factory () =
   Lwt_log.info "setup" >>= fun () ->
   let dn = "/tmp/tlogcollection" in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
-  let () = Unix.mkdir dn 0o755 in
+  Lwt_preemptive.detach
+    (fun () ->
+      let _ = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
+      let () = Unix.mkdir dn 0o755 in
+      ())
+    ()
+  >>= fun ()->
   Lwt.return (dn, factory)
 
 
