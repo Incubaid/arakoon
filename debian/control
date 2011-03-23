@@ -1,5 +1,5 @@
 Source: arakoon
-Section: unknown
+Section: database
 Priority: extra
 Maintainer: Romain Slootmaekers <romain.slootmaekers@incubaid.com>
 Build-Depends: debhelper (>= 7), ocaml-nox (>= 3.11.1-3~), dh-ocaml (>= 0.9), ocaml-findlib (>= 1.2.5),
@@ -11,8 +11,10 @@ Homepage: http://www.arakoon.org
 Package: arakoon
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Arakoon is a simple distributed key/value store
- <insert long description, indented with spaces>
+Description: a simple consistent distributed key/value store
+  Arakoon tries to be a consistent distributed key value store.
+  Technically, it's a ocaml implementation of multipaxos on top of 
+  Tokyo Cabinet 
 
 Package: libarakoon-ocaml-dev
 Architecture : any
