@@ -17,7 +17,7 @@ RUNNING A SINGLE NODE TEST SERVER:
 
 create the following configuration:
     [global]
-    nodes = arakoon_0
+    cluster = arakoon_0
     cluster_id = my_cluster 
 
     [arakoon_0]
