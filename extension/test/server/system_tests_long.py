@@ -25,6 +25,10 @@ from system_tests_common import *
 import logging
 import subprocess
 
+def _getCluster():
+    global cluster_id
+    return q.manage.arakoon.getCluster(cluster_id)
+
 @with_custom_setup( default_setup, basic_teardown )
 def test_single_client_100000_sets():
     iterate_n_times( 100000, simple_set )
