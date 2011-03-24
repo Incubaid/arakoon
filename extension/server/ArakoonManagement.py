@@ -1062,7 +1062,7 @@ class ArakoonCluster:
                 q.cloud.system.fs.copyFile(source_path +  clusterNodesPath, 'file://' + node_folder)
             
             
-        archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterId + '_cluster_credentials.tgz')
+        archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterId + '_cluster_evidence.tgz')
         q.system.fs.targzCompress( archive_folder,  archive_file)
         cfs.copyFile('file://' + archive_file , destination)
         q.system.fs.removeDirTree( archive_folder )

@@ -341,12 +341,19 @@ def test_get_storage_utilization():
 @with_custom_setup( default_setup, basic_teardown )
 def test_gather_evidence():
     
+    import system_tests_common
+    data_base_dir = system_tests_common.data_base_dir
+    
     cluster = q.manage.arakoon.getCluster(cluster_id)
-    destination = q.system.fs.joinPaths('file://%s' %q.dirs.baseDir)
+    dest_file = q.system.fs.joinPaths( data_base_dir, "evidence.tgz" )
+    dest_dir = q.system.fs.joinPaths( data_base_dir, "evidence" )
+    destination = 'file://%s' % dest_file 
     cluster.gatherEvidence(destination, test = True)
-    tgz_file = q.system.fs.joinPaths(destination, '%s_cluster_details.tgz' %cluster_id)
-    test = q.cloud.system.fs.sourcePathExists(tgz_file)
-    if test:
-        logging.debug('Cluster evidence were gathered successfully')
-    else:
-        logging.debug('Cluster evidence were not gathered')
+    
+    q.system.fs.targzUncompress(dest_file, dest_dir)
+    nodes = q.system.fs.listDirsInDir(dest_dir)
+    files = []
+    for node in nodes:
+        files.extend(q.system.fs.listFilesInDir(node))
+    assert_equals(len(nodes),3, "Did not get data from all nodes")
+    assert_equals(len(files) > 12, True , "Did not gather enough files")
