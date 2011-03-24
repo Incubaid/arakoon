@@ -42,6 +42,12 @@ let should_fail x error_msg success_msg =
 
 let all_same_master (cluster_cfg, _) =
   Lwt_log.debug ".... STARTING ALL SAME MASTER ...." >>= fun () ->
+  let set_one client =
+    client # set "key" "value" 
+  in
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs) in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
   let masters = ref [] in
   let do_one cfg =
     Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
