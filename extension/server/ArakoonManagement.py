@@ -985,7 +985,7 @@ class ArakoonCluster:
                             else:
                                 diff_list = list(set(diff_list).difference(set(same_credentials_nodes)))
             if test:
-                clusterCredentials[nodename] = ('test', 'testscript')
+                clusterCredentials[nodename] = ('hudson', 'hudson')
         #end for
         return clusterCredentials
 

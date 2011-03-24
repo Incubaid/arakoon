@@ -336,4 +336,17 @@ def test_get_storage_utilization():
     n3 = get_total_size(d)
     sum = n1+n2+n3
     assert_equals(sum, total, "Sum of storage size per node (%d) should be same as total (%d)" % (sum,total))
+
+
+@with_custom_setup( default_setup, basic_teardown )
+def test_gather_evidence():
     
+    cluster = q.manage.arakoon.getCluster(cluster_id)
+    destination = q.system.fs.joinPaths('file://%s' %q.dirs.baseDir)
+    cluster.gatherEvidence(destination, test = True)
+    tgz_file = q.system.fs.joinPaths(destination, '%s_cluster_details.tgz' %cluster_id)
+    test = q.cloud.system.fs.sourcePathExists(tgz_file)
+    if test:
+        logging.debug('Cluster evidence were gathered successfully')
+    else:
+        logging.debug('Cluster evidence were not gathered')
