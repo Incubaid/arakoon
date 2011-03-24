@@ -364,7 +364,8 @@ def regenerateClientConfig():
     if cluster_id in clientsCfg.keys():
         clusterDir = clientsCfg[cluster_id]["path"]
         clientCfgFile = q.system.fs.joinPaths(clusterDir, "%s_client.cfg" % cluster_id)
-        q.system.fs.removeFile( clientCfgFile)
+        if q.system.fs.exists( clientCfgFile):
+            q.system.fs.removeFile( clientCfgFile)
     cliCfg = q.clients.arakoon.getClientConfig( cluster_id )
     cliCfg.generateFromServerConfig()
     
