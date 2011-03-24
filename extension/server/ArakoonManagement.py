@@ -889,14 +889,13 @@ class ArakoonCluster:
 
         return result
 
-'''
     def gatherEvidence(self,
                        destination,
                        clusterCredentials=None,
                        includeLogs=True,
                        includeDB=True,
                        includeTLogs=True,
-                       includeConfig=True):
+                       includeConfig=True, test = False):
         """
         @param destination : path INCLUDING FILENAME where the evidence archive is saved. Can be URI, in other words, ftp://..., smb://, /tmp, ...
         @param clusterCredentials : dict of tuples e.g. {"node1" ('login', 'password'), "node2" ('login', 'password'), "node3" ('login', 'password')}
@@ -912,12 +911,12 @@ class ArakoonCluster:
         if q.qshellconfig.interactive:
             
             if not clusterCredentials:
-                clusterCredentials = self._getClusterCredentials(nodes_list,diff_list)
+                clusterCredentials = self._getClusterCredentials(nodes_list,diff_list,test)
             
             elif len(clusterCredentials) < len(nodes_list):
                 nodes_list = [x for x in nodes_list if x not in clusterCredentials]
                 diff_list = [x for x in nodes_list if x not in clusterCredentials]
-                sub_clusterCredentials = self._getClusterCredentials(nodes_list, diff_list)
+                sub_clusterCredentials = self._getClusterCredentials(nodes_list, diff_list, test)
                 clusterCredentials.update(sub_clusterCredentials)
                 
             else:
@@ -946,45 +945,47 @@ class ArakoonCluster:
 
     def _getClusterCredentials(self, 
                                nodes_list,
-                               diff_list):
+                               diff_list, test):
         clusterCredentials = dict()
         same_credentials_nodes = list()
         
         for nodename in nodes_list:
             node_passwd = ''
-            
-            if nodename in diff_list:
-                
-                node_config = self.getNodeConfig(nodename)
-                node_ip = node_config['ip']
-                
-                node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
-                if node_login == '':
-                    node_login = 'root'
-                
-                while node_passwd == '':
-                    node_passwd = q.gui.dialog.askPassword('Please provide password for %s @ %s' % (nodename, node_ip))
-                    if node_passwd == '':
-                        q.gui.dialog.message("Error: Password is Empty.")
-                
-                clusterCredentials[nodename] = (node_login, node_passwd)
-                
-                if len(diff_list) > 1:
-                    same_credentials = q.gui.dialog.askYesNo('Do you want to set the same credentials for any other node?')
+            if not test:
+                if nodename in diff_list:
                     
-                    diff_list.remove(nodename)
+                    node_config = self.getNodeConfig(nodename)
+                    node_ip = node_config['ip']
+               
+                    node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
+                    if node_login == '':
+                        node_login = 'root'
                     
-                    if same_credentials:
+                    while node_passwd == '':
+                        node_passwd = q.gui.dialog.askPassword('Please provide password for %s @ %s' % (nodename, node_ip))
+                        if node_passwd == '':
+                            q.gui.dialog.message("Error: Password is Empty.")
+                    
+                    clusterCredentials[nodename] = (node_login, node_passwd)
+                    
+                    if len(diff_list) > 1:
+                        same_credentials = q.gui.dialog.askYesNo('Do you want to set the same credentials for any other node?')
                         
-                        same_credentials_nodes = q.gui.dialog.askChoiceMultiple("Please choose node(s) that will take same credentials:",diff_list)
+                        diff_list.remove(nodename)
                         
-                        for node in same_credentials_nodes:
-                            clusterCredentials[node] = (node_login, node_passwd)
-                        #end for
-                        if len(same_credentials_nodes) == len(diff_list):
-                            break
-                        else:
-                            diff_list = list(set(diff_list).difference(set(same_credentials_nodes)))
+                        if same_credentials:
+                            
+                            same_credentials_nodes = q.gui.dialog.askChoiceMultiple("Please choose node(s) that will take same credentials:",diff_list)
+                            
+                            for node in same_credentials_nodes:
+                                clusterCredentials[node] = (node_login, node_passwd)
+                            #end for
+                            if len(same_credentials_nodes) == len(diff_list):
+                                break
+                            else:
+                                diff_list = list(set(diff_list).difference(set(same_credentials_nodes)))
+            if test:
+                clusterCredentials[nodename] = ('test', 'testscript')
         #end for
         return clusterCredentials
 
@@ -1002,7 +1003,8 @@ class ArakoonCluster:
         folder and places a copy at the destination provided at the beginning
         """
         nodes_list = self.listNodes()
-        archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , 'Archive')
+        archive_name = self._clusterId + "_cluster_details"
+        archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , archive_name)
         
         cfs = q.cloud.system.fs 
         sfs = q.system.fs
@@ -1020,11 +1022,10 @@ class ArakoonCluster:
             source_path = 'sftp://' + userName + ':' + password + '@' + source_ip
             
             if includeDB:
-                dbfile = sfs.joinPaths(configDict['home'], (nodename +'.db'))
                 db_files = cfs.listDir( source_path + configDict['home'] )
                 files2copy = filter ( lambda fn : fn.startswith( nodename ), db_files )
                 for fn in files2copy :
-                    full_db_file = source_path + fn
+                    full_db_file = source_path + configDict['home'] + "/" + fn
                     cfs.copyFile(full_db_file , 'file://' + node_folder)
                 
             
@@ -1032,7 +1033,7 @@ class ArakoonCluster:
                 
                 for fname in cfs.listDir(source_path + configDict['log_dir']):
                     if fname.startswith(nodename):
-                        fileinlog = cfs.joinPaths(configDict['log_dir'] ,fname)
+                        fileinlog = q.system.fs.joinPaths(configDict['log_dir'] ,fname)
                         cfs.copyFile(source_path + fileinlog, 'file://' + node_folder)
             
             if includeTLogs:
@@ -1048,17 +1049,21 @@ class ArakoonCluster:
                     if fname.endswith('.tlog') or fname.endswith('.tlc') or fname.endswith('.tlf'):
                         tlogfile = q.system.fs.joinPaths(source_dir ,fname)
                         cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
-                
-            q.cloud.system.fs.copyFile(source_path + '/opt/qbase3/cfg/qconfig/arakoon.cfg', 'file://' + node_folder)
-            q.cloud.system.fs.copyFile(source_path + '/opt/qbase3/cfg/qconfig/arakoonnodes.cfg', 'file://' + node_folder)
+
             
-        #end for 
-        fs = q.system.fs
-        archive_file = fs.joinPaths( q.dirs.tmpDir, 'Archive.tgz') 
+            clusterName = self._clusterId + '.cfg'
+            clusterNodes = self._clusterId + '_local_nodes.cfg'
+
+            clusterPath = q.system.fs.joinPaths(self._clusterPath, clusterName)
+            q.cloud.system.fs.copyFile(source_path + clusterPath, 'file://' + node_folder)
+
+            clusterNodesPath = q.system.fs.joinPaths(self._clusterPath, clusterNodes)
+            if q.cloud.system.fs.sourcePathExists('file://' + clusterNodesPath):
+                q.cloud.system.fs.copyFile(source_path +  clusterNodesPath, 'file://' + node_folder)
+            
+            
+        archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterId + '_cluster_credentials.tgz')
         q.system.fs.targzCompress( archive_folder,  archive_file)
-        
-        q.cloud.system.fs.copyFile('file://' + archive_file , destination)
-        
+        cfs.copyFile('file://' + archive_file , destination)
         q.system.fs.removeDirTree( archive_folder )
         q.system.fs.unlink( archive_file )
-'''
