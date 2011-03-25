@@ -44,8 +44,30 @@ versions = map( fs.getBaseName, version_dirs )
 prev_version = '0.0.0'
 
 prev_version_dir_server = None
+
+def is_better_version ( version, new_version, best_version ) :
+
+    def split_version ( v ) :
+        parts = v.split('.')
+        if len(parts) < 3 :
+            return (0, 0, 0)
+        return ( int(parts[0]), int(parts[1]), int(parts[2]) )
+
+    def compare_version (v, ov) :
+        (v1, v2, v3) = split_version(v)
+        (ov1, ov2, ov3) = split_version(ov)
+        nv = v1 * 1000000 + v2 * 1000 + v3
+        nov = ov1 * 1000000 + ov2 * 1000 + ov3
+        if nv > nov :
+            return 1
+        if nv < nov :
+            return -1
+        return 0
+
+    return compare_version( version, best_version ) == 1 and compare_version(version,new_version) == -1
+  
 for v in versions:
-    if v > prev_version and v < new_version:
+    if is_better_version(v, new_version, prev_version) :
         prev_version_dir_server = fs.joinPaths ( versions_dir , v )
         prev_version = v
 
