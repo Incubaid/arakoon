@@ -364,7 +364,7 @@ let slave_discovered_other_master constants state () =
   if current_i < future_i then
     begin
       log ~me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
-      let reply = Promise(future_n, future_i,None) in
+      let reply = Promise(future_n, current_i,None) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
