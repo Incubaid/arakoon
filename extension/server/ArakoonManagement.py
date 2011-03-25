@@ -908,7 +908,7 @@ class ArakoonCluster:
         nodes_list = self.listNodes()
         diff_list = self.listNodes()
         
-        if q.qshellconfig.interactive:
+        if q.qshellconfig.interactive or test:
             
             if not clusterCredentials:
                 clusterCredentials = self._getClusterCredentials(nodes_list,diff_list,test)
