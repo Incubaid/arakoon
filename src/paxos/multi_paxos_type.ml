@@ -49,11 +49,11 @@ type transitions =
 					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
   | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			      Messaging.id list * Value.t * 
+			      Messaging.id list * 
 			      v_limits * 
 			      (string * Mp_msg.MPMessage.n) option)
   | Wait_for_promises of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			    Messaging.id list * Value.t * 
+			    Messaging.id list * 
 			    v_limits * 
 			    (string * Mp_msg.MPMessage.n) option)
   | Accepteds_check_done of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
