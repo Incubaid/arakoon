@@ -209,6 +209,27 @@ module X = struct
     end 
     >>= fun () ->
     Lwt.return v
+
+  let rapporting backend () = 
+    let rec _inner () =
+      Lwt_unix.sleep 60.0 >>= fun () ->
+      let stats = backend # get_statistics () in
+      Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
+      >>= fun () ->
+      let sqs = Lwt_unix.sleep_queue_size () in
+      let ns = Lwt_unix.get_new_sleeps () in
+      let wcl = Lwt_unix.wait_children_length () in
+      let stat = Gc.stat () in
+      let factor = float (Sys.word_size / 8) in
+      let allocated = (stat.minor_words +.
+			 stat.major_words -. stat.promoted_words) *. 
+	(factor /. 1024.0) 
+      in
+      Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i\nallocated=%fKB" sqs ns wcl allocated 
+      >>= fun () ->
+      _inner ()
+    in
+    _inner ()
 end
 
 let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
@@ -231,15 +252,13 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in 
-      (* let names = List.map (fun cfg -> cfg.node_name) cfgs in *)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-      (*let n_names = List.length names in*)
       let other_names = 
 	if me.is_learner 
 	then me.targets 
-	else List.filter (fun n -> n <> name) in_cluster_names in
+	else List.filter ((<>) name) in_cluster_names in
       let _ = Lwt_unix.on_signal 10
 	(fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
@@ -249,7 +268,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let messaging  = _config_messaging me cfgs cookie me.is_laggy in
       let build_startup_state () = 
 	begin
-	  Lwt_list.iter_s (fun n -> Lwt_log.info_f "other: %s" n)
+	  Lwt_list.iter_s (Lwt_log.info_f "other: %s")
 	    other_names >>= fun () ->
 	  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
 	  Lwt_log.info_f "quorum_function gives %i for %i" 
@@ -324,27 +343,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	      ~test
 	  in
 	  let backend = (sb :> Backend.backend) in
-	  let rapporting () = 
-	    let rec _inner () =
-	      Lwt_unix.sleep 60.0 >>= fun () ->
-	      let stats = backend # get_statistics () in
-	      Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
-	      >>= fun () ->
-	      let sqs = Lwt_unix.sleep_queue_size () in
-	      let ns = Lwt_unix.get_new_sleeps () in
-	      let wcl = Lwt_unix.wait_children_length () in
-	      let stat = Gc.stat () in
-	      let factor = float (Sys.word_size / 8) in
-	      let allocated = (stat.minor_words +.
-		stat.major_words -. stat.promoted_words) *. 
-		(factor /. 1024.0) 
-	      in
-	      Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i\nallocated=%fKB" sqs ns wcl allocated 
-	      >>= fun () ->
-	      _inner ()
-	    in
-	    _inner ()
-	  in
+
        	  let service = _config_service me backend in
 	  
 	  let send, receive, run, register =
@@ -392,7 +391,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	      ~cluster_id 
 	      
 	  in Lwt.return ((master,constants, buffers, new_i, vo), 
-			 service, rapporting)
+			 service, X.rapporting backend)
 	end
 	  
       in
