@@ -85,8 +85,8 @@ node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
 node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
 node_client_base_port = 7080
 node_msg_base_port = 10000
-daemon_name = "arakoond"
-binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoond"
+daemon_name = "arakoon"
+binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoon"
 lease_duration = 2.0
 tlog_entries_per_tlog = 1000
 
@@ -115,7 +115,7 @@ def dump_tlog (node_id, tlog_number) :
     return stdout
 
 def get_arakoon_binary() :
-    return fs.joinPaths( get_arakoon_bin_dir(), 'arakoond')
+    return fs.joinPaths( get_arakoon_bin_dir(), 'arakoon')
 
 def get_arakoon_bin_dir():
     return fs.joinPaths( q.dirs.appDir, "arakoon", "bin")

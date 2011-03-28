@@ -59,48 +59,48 @@ class TestCmdTools:
     def testStart(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
         #starting twice should not throw anything
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
 
 
     def testStop(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoond"), 1)
+        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
 
         #stopping twice should not throw anything
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoond"), 1)
+        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
 
     def testRestart(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
         cluster.restart()
         #@TODO check if the pids are different
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoond"), 1)
+        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
 
         cluster.restart()
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
 
     def testStartOne(self):
         cluster = self._getCluster()
         cluster.startOne(self._n0)
-        assert_equals(q.system.process.checkProcess( "arakoond", 1), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 1), 0)
 
         cluster.startOne(self._n1)
-        assert_equals(q.system.process.checkProcess( "arakoond", 2), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
 
     def testStartOneUnkown(self):
         cluster = self._getCluster()
@@ -110,8 +110,8 @@ class TestCmdTools:
         cluster = self._getCluster()
         cluster.start()
         cluster.stopOne(self._n0)
-        assert_equals(q.system.process.checkProcess( "arakoond", 2), 0)
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 1)
+        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 1)
 
 
     def testStopOneUnknown(self):
@@ -150,8 +150,8 @@ class TestCmdTools:
         cluster.stopOne(self._n0)
 
         cluster.restartOne(self._n1)
-        assert_equals(q.system.process.checkProcess( "arakoond", 2), 0)
-        assert_equals(q.system.process.checkProcess( "arakoond", 3), 1)
+        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
+        assert_equals(q.system.process.checkProcess( "arakoon", 3), 1)
 
 
     def testRestartOneUnknown(self):

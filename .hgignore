@@ -6,11 +6,9 @@ dist/*
 arakoon.egg-info/*
 arakoon.docdir*
 build/*
-main.native
-main.byte
-main.d.byte
-benchmark.native
-benchmark.byte
+arakoon.native
+arakoon.byte
+arakoon.d.byte
 *.pyc
 *.orig
 

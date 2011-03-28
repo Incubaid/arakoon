@@ -266,7 +266,7 @@ def get_node_block_rules( node_id ):
 def get_node_ports ( node_id ):
     cluster = q.manage.arakoon.getCluster(cluster_id)
     node_pid = cluster._getPid(node_id)
-    cmd = "netstat -natp | grep %s\/arakoond | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid 
+    cmd = "netstat -natp | grep %s\/arakoon | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid 
     (exitcode,stdout,stderr) = q.system.process.run( cmd )
     print stdout
     print stderr

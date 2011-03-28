@@ -10,16 +10,16 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild main.byte main.native arakoon_client.cma arakoon_client.cmxa manifest.pdf
+	ocamlbuild arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa manifest.pdf
 
 test:
-	./main.native --run-all-tests
+	./arakoon.native --run-all-tests
 
 install: install_client install_server
 
 install_server:
 	mkdir -p $(DESTDIR)/usr/bin/
-	cp ./main.native $(DESTDIR)/usr/bin/arakoon
+	cp ./arakoon.native $(DESTDIR)/usr/bin/arakoon
 
 install_client:
 	mkdir -p $(OCAML_LIBDIR)
