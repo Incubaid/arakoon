@@ -47,7 +47,7 @@ let master_consensus constants ((mo:master_option),v,n,i) () =
   Lwt.return (Stable_master state)
 
 
-(* an active master responsing on requests from the client *)
+
 let stable_master constants (v',n,new_i) = function
     | LeaseExpired n' ->
       let me = constants.me in

@@ -231,10 +231,11 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in 
-      let names = List.map (fun cfg -> cfg.node_name) cfgs in
+      (* let names = List.map (fun cfg -> cfg.node_name) cfgs in *)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
-      let n_names = List.length names in
+      let n_nodes = List.length in_cluster_names in
+      (*let n_names = List.length names in*)
       let other_names = 
 	if me.is_learner 
 	then me.targets 
@@ -252,7 +253,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	    other_names >>= fun () ->
 	  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
 	  Lwt_log.info_f "quorum_function gives %i for %i" 
-	    (quorum_function n_names) n_names >>= fun () ->
+	    (quorum_function n_nodes) n_nodes >>= fun () ->
 	  let db_name = full_db_name me in
 	  make_store db_name >>= fun (store:Store.store) ->
           Lwt.catch
@@ -318,7 +319,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
 	    new Sync_backend.sync_backend me client_push
 	      store tlog_coll lease_period
-	      ~quorum_function n_names 
+	      ~quorum_function n_nodes
 	      ~expect_reachable
 	      ~test
 	  in
