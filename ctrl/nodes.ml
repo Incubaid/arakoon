@@ -1,7 +1,7 @@
 (* of course, this will only work on the right OS ;) *)
 
 module Node = struct
-  let exec = "./main.native" 
+  let exec = "./arakoon.native" 
   let names = ["arakoon_0";"arakoon_1";"arakoon_2"] 
   let cfg_name = (Unix.getcwd()) ^ "/cfg/arakoon.ini" 
 
