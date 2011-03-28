@@ -25,6 +25,7 @@ open Lwt
 
 open Node_cfg.Node_cfg
 open Update
+open Master_type
 
 let _make_cfg name n lease_period =
   {
@@ -37,7 +38,7 @@ let _make_cfg name n lease_period =
     log_dir = "none";
     log_level = "DEBUG";
     lease_period = lease_period;
-    forced_master = None;
+    master = Elected;
     is_laggy = false;
     is_learner = false;
     targets = [];
@@ -91,7 +92,7 @@ let post_failure () =
   let node2_cfg = _make_cfg node2 2 lease_period in
   let cluster_cfg = {
     cfgs = [node0_cfg;node1_cfg;node2_cfg] ;
-    _forced_master = None;
+    _master = Elected;
     quorum_function = Quorum.quorum_function;
     _lease_period = 2;
     cluster_id = "ricky";
@@ -140,7 +141,7 @@ let restart_slaves () =
   let node2_cfg = _make_cfg node2 2 lease_period in
   let cluster_cfg = 
     {cfgs = [node0_cfg;node1_cfg;node2_cfg];
-     _forced_master = None;
+     _master = Elected;
      quorum_function = Quorum.quorum_function;
      _lease_period = 2;
      cluster_id = "ricky";

@@ -26,7 +26,7 @@ open Node_cfg.Node_cfg
 open Arakoon_remote_client
 open Network
 open Update
-
+open Master_type
 
 let should_fail x error_msg success_msg =
   Lwt.catch 
@@ -491,7 +491,7 @@ let teardown (_, j) =
   Lwt.return ()
 
 let force_master =
-  let w f = Extra.lwt_bracket (setup (Some "t_arakoon_0")) f teardown in
+  let w f = Extra.lwt_bracket (setup (Forced "t_arakoon_0")) f teardown in
   "force_master" >:::
     [
       "all_same_master" >:: w all_same_master;
@@ -503,7 +503,7 @@ let force_master =
     ]
 
 let elect_master =
-  let w f = Extra.lwt_bracket (setup None) f teardown in
+  let w f = Extra.lwt_bracket (setup Elected) f teardown in
   "elect_master" >:::
     [
       "all_same_master"  >:: w all_same_master;

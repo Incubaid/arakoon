@@ -31,7 +31,7 @@ open Update
 open Mp_msg
 open Common
 open Store
-
+open Master_type
 
 let _s_ = function
   | Some x -> "Some " ^ x
@@ -274,8 +274,8 @@ object(self: #backend)
       match mo with
 	| None -> None,"young cluster"
 	| Some (m,ls) ->
-	  match Node_cfg.forced_master cfg with
-	    | None ->
+	  match Node_cfg.get_master cfg with
+	    | Elected | Preferred _ ->
 	      begin
 	      if (m = my_name ) && (ls < instantiation_time)
 	      then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
@@ -286,7 +286,8 @@ object(self: #backend)
 		  (Some m,"inside lease")
 		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
 	      end
-	    | x -> x,"forced master"
+	    | Forced x -> Some x,"forced master"
+
     in
     log_o self "master:%s (%s)" (string_option_to_string result) argumentation 
     >>= fun () ->

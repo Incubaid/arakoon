@@ -28,6 +28,7 @@ open Lwt
 open Lwt_buffer
 open Tlogcommon
 open Gc
+open Master_type
 
 let rec _split node_name cfgs =
   let rec loop me_o others = function
@@ -227,7 +228,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
   else
     begin
       let cluster_id = cluster_cfg.cluster_id in
-      let forced_master = cluster_cfg._forced_master in
+      let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in 
       let names = List.map (fun cfg -> cfg.node_name) cfgs in
@@ -304,7 +305,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  in
 	  Catchup.verify_n_catchup_store me.node_name 
 	    (store,tlog_coll,lastI) 
-	    current_i forced_master 
+	    current_i master 
 	  >>= fun (new_i, vo) ->
 	  
 	  let client_buffer =
@@ -385,22 +386,22 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	      get_last_value 
 	      on_accept on_consensus on_witness
 	      (quorum_function: int -> int)
-	      (forced_master : string option)
+	      (master : master)
 	      store tlog_coll others lease_period inject_event 
 	      ~cluster_id 
 	      
-	  in Lwt.return ((forced_master,constants, buffers, new_i, vo), 
+	  in Lwt.return ((master,constants, buffers, new_i, vo), 
 			 service, rapporting)
 	end
 	  
       in
-      let start_backend (forced_master, constants, buffers, new_i, vo) =
+      let start_backend (master, constants, buffers, new_i, vo) =
 	let to_run = 
-	  match forced_master with
-	    | Some master  -> if master = my_name 
+	  match master with
+	    | Forced master  -> if master = my_name 
 	      then Multi_paxos_fsm.enter_forced_master
 	      else Multi_paxos_fsm.enter_forced_slave 
-	    | None -> Multi_paxos_fsm.enter_simple_paxos
+	    | _ -> Multi_paxos_fsm.enter_simple_paxos
 	in to_run constants buffers new_i vo
       in
       Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->

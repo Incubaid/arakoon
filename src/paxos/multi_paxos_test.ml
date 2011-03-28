@@ -29,6 +29,7 @@ open Extra
 open Multi_paxos
 open Update
 open Lwt_buffer
+open Master_type
 
 let sn2s = Sn.string_of 
 
@@ -80,7 +81,7 @@ let test_generic network_factory n_nodes () =
 	      on_consensus = on_consensus "???";
 	      on_witness = on_witness;
 	      quorum_function = Multi_paxos.quorum_function;
-	      forced_master=None;
+	      master=Elected;
 	      store = store;
 	      tlog_coll = tlog_coll;
 	      other_cfgs = [];
@@ -256,7 +257,7 @@ let test_master_loop network_factory ()  =
 		   on_consensus = on_consensus;
 		   on_witness = on_witness;
 		   quorum_function = Multi_paxos.quorum_function;
-		   forced_master = None;
+		   master = Elected;
 		   store = store;
 		   tlog_coll = tlog_coll;
 		   other_cfgs = [];
@@ -381,7 +382,7 @@ let test_simulation filters () =
 		   on_consensus = on_consensus me;
 		   on_witness = on_witness;
 		   quorum_function = Multi_paxos.quorum_function;
-		   forced_master = None;
+		   master = Elected;
 		   store = store;
 		   tlog_coll = tlog_coll;
 		   other_cfgs = [];

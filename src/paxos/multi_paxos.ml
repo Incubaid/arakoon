@@ -25,6 +25,7 @@ open Lwt
 open MPMessage
 open Messaging
 open Multi_paxos_type
+open Master_type
 
 let log ?(me="???") x =
   let k s= Lwt_log.debug (me ^ ": " ^ s) in
@@ -110,7 +111,7 @@ type constants =
        Store.update_result Lwt.t;
      on_witness: id -> Sn.t -> unit Lwt.t;
      quorum_function: int -> int;
-     forced_master: string option;
+     master: master;
      store:Store.store;
      tlog_coll:Tlogcollection.tlog_collection;
      other_cfgs:Node_cfg.Node_cfg.t list;
@@ -120,18 +121,19 @@ type constants =
     }
 
 let am_forced_master constants me =
-  match constants.forced_master with
-    | None -> false
-    | Some x -> x = me
+  match constants.master with
+    | Elected -> false
+    | Preferred _ -> false
+    | Forced x -> x = me
 
 let is_election constants =
-  match constants.forced_master with
-    | None -> true
-    | Some _ -> false
+  match constants.master with
+    | Elected | Preferred _ -> true
+    | Forced _ -> false
 
 let make me others send receive get_value 
     on_accept on_consensus on_witness
-    quorum_function forced_master store tlog_coll 
+    quorum_function (master:master) store tlog_coll 
     other_cfgs lease_expiration inject_event ~cluster_id =
   {
     me=me;
@@ -142,7 +144,7 @@ let make me others send receive get_value
     on_consensus = on_consensus;
     on_witness = on_witness;
     quorum_function = quorum_function;
-    forced_master = forced_master;
+    master = master;
     store = store;
     tlog_coll = tlog_coll;
     other_cfgs = other_cfgs;

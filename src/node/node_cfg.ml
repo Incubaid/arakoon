@@ -23,8 +23,10 @@ If not, see <http://www.gnu.org/licenses/>.
 let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_period = 10
+open Master_type
 
 module Node_cfg = struct
+
   type t = {node_name:string;
 	    ip:string;
 	    client_port:int;
@@ -34,7 +36,7 @@ module Node_cfg = struct
 	    log_dir:string;
 	    log_level:string;
 	    lease_period:int;
-	    forced_master: string option;
+	    master: master;
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
@@ -42,13 +44,13 @@ module Node_cfg = struct
 
   type cluster_cfg = 
       { cfgs: t list;
-	_forced_master: string option;
+	_master: master;
 	quorum_function: int -> int;
 	_lease_period: int;
 	cluster_id : string;
       }
 
-  let make_test_config n_nodes forced_master lease_period = 
+  let make_test_config n_nodes master lease_period = 
     let make_one n =
       let ns = (string_of_int n) in
       let home = "#MEM#t_arakoon_" ^ ns in
@@ -62,7 +64,7 @@ module Node_cfg = struct
 	log_dir = "none";
 	log_level = "DEBUG";
 	lease_period = lease_period;
-	forced_master = forced_master;
+	master = master;
 	is_laggy = false;
 	is_learner = false;
 	targets = [];
@@ -78,7 +80,7 @@ module Node_cfg = struct
     let lease_period = default_lease_period in
     let cluster_id = "ricky" in
     let cluster_cfg = { cfgs= cfgs; 
-			_forced_master = forced_master;
+			_master = master;
 			quorum_function = quorum_function;
 			_lease_period = lease_period;
 			cluster_id = cluster_id}
@@ -118,15 +120,25 @@ module Node_cfg = struct
       Scanf.sscanf les "%i" (fun i -> i)
     with (Inifiles.Invalid_element _) -> default_lease_period
 
+  let _get_bool inifile node_section x = 
+      try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
+      with (Inifiles.Invalid_element _) -> false
+
   let _forced_master inifile =
-    try
-      let m = (inifile # getval "global" "master") in
-      let nodes = _node_names inifile in
-      if not (List.mem m nodes)
-      then
-	failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-      else Some m
-    with (Inifiles.Invalid_element _) -> None
+    let master =
+      try
+	let m = (inifile # getval "global" "master") in
+	let nodes = _node_names inifile in
+	if not (List.mem m nodes)
+	then
+	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
+	else 
+	  if _get_bool inifile "global" "preferred_master" 
+	  then (Preferred m)
+	  else (Forced m)
+      with (Inifiles.Invalid_element _) -> Elected
+    in
+    master
 
   let _get_cluster_id inifile =
     try
@@ -148,12 +160,10 @@ module Node_cfg = struct
 	failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
-  let _get_bool inifile node_section x = 
-      try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
-      with (Inifiles.Invalid_element _) -> false
 
 
-  let _node_config inifile node_name fm =
+
+  let _node_config inifile node_name master =
     let get_string x =
       try
 	let strip s = Scanf.sscanf s "%s" (fun i -> i) in
@@ -188,7 +198,7 @@ module Node_cfg = struct
      log_dir = log_dir;
      log_level = log_level;
      lease_period = lease_period;
-     forced_master = fm;
+     master = master;
      is_laggy = is_laggy;
      is_learner = is_learner;
      targets = targets;
@@ -217,7 +227,7 @@ module Node_cfg = struct
     let cluster_id = _get_cluster_id inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
-	_forced_master = fm;
+	_master = fm;
 	quorum_function = quorum_function;
 	_lease_period = lease_period;
 	cluster_id = cluster_id}
@@ -230,7 +240,7 @@ module Node_cfg = struct
 
   let client_address t = Network.make_address t.ip t.client_port
   
-  let forced_master t = t.forced_master
+  let get_master t = t.master
 
   let get_node_cfgs_from_file () = read_config !config_file 
 

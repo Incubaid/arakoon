@@ -332,7 +332,7 @@ let do_server node =
       0
     | TestNode ->
       let lease_period = 60 in 
-      let node = Some "t_arakoon_0" in
+      let node = Master_type.Forced "t_arakoon_0" in
       let make_config () = Node_cfg.make_test_config 3 node lease_period in
       let main_t = (Node_main.test_t make_config !node_id) in
       Lwt_main.run main_t;
