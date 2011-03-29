@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from pymonkey import q
 from nose.tools import *
-
+import subprocess
 import os
 
 class TestCmdTools:
@@ -56,51 +56,55 @@ class TestCmdTools:
         cluster.tearDown()
         cluster.remove()
 
+    def _assert_n_running(self,n):
+        output = subprocess.Popen(['pgrep','arakoon'],
+                                  stdout = subprocess.PIPE).communicate()[0]
+        lines = output.split()
+        assert_equals(len(lines),n)
+
     def testStart(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
+        self._assert_n_running(3)
 
         #starting twice should not throw anything
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
+        self._assert_n_running(3)
 
 
 
     def testStop(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
+        self._assert_n_running(3)
 
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
+        self._assert_n_running(0)
 
         #stopping twice should not throw anything
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
+        self._assert_n_running(0)
 
     def testRestart(self):
         cluster = self._getCluster()
         cluster.start()
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
+        self._assert_n_running(3)
 
         cluster.restart()
         #@TODO check if the pids are different
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
-
+        self._assert_n_running(3)
         cluster.stop()
-        assert_equals(q.system.process.checkProcess( "arakoon"), 1)
+        self._assert_n_running(0)
 
         cluster.restart()
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 0)
+        self._assert_n_running(3)
 
     def testStartOne(self):
         cluster = self._getCluster()
         cluster.startOne(self._n0)
-        assert_equals(q.system.process.checkProcess( "arakoon", 1), 0)
-
+        self._assert_n_running(1)
         cluster.startOne(self._n1)
-        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
+        self._assert_n_running(2)
 
     def testStartOneUnkown(self):
         cluster = self._getCluster()
@@ -110,9 +114,7 @@ class TestCmdTools:
         cluster = self._getCluster()
         cluster.start()
         cluster.stopOne(self._n0)
-        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 1)
-
+        self._assert_n_running(2)
 
     def testStopOneUnknown(self):
         cluster = self._getCluster()
@@ -148,10 +150,8 @@ class TestCmdTools:
         cluster = self._getCluster()
         cluster.start()
         cluster.stopOne(self._n0)
-
         cluster.restartOne(self._n1)
-        assert_equals(q.system.process.checkProcess( "arakoon", 2), 0)
-        assert_equals(q.system.process.checkProcess( "arakoon", 3), 1)
+        self._assert_n_running(2)
 
 
     def testRestartOneUnknown(self):

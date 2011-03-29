@@ -9,6 +9,9 @@ build/*
 arakoon.native
 arakoon.byte
 arakoon.d.byte
+debian/tmp/*
+debian/libarakoon-ocaml-dev/*
+debian/arakoon/*
 *.pyc
 *.orig
 
