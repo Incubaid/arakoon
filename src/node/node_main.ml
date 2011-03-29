@@ -221,10 +221,7 @@ let _main_2 make_store make_tlog_coll get_cfgs
 	      let client_buffer =
 		let capacity = (Some 10) in
 		Lwt_buffer.create ~capacity () in
-	      let client_push v =
-		Lwt_log.debug_f "pushing client event" >>= fun () ->
-		Lwt_buffer.add v client_buffer >>= fun () ->
-		Lwt_log.debug_f "pushing client event (done)"
+	      let client_push v = Lwt_buffer.add v client_buffer
 	      in
 	      let expect_reachable = messaging # expect_reachable in
 	      let backend =
@@ -266,16 +263,13 @@ let _main_2 make_store make_tlog_coll get_cfgs
 		>>= fun () ->
 		let Value.V(update_string) = v in
 		let u, _ = Update.from_buffer update_string 0 in
-		tlog_coll # log_update i u >>= fun wr_result ->
-		Lwt_log.debug_f "log_update %s=>%S" 
-		  (Sn.string_of i) 
-		  (Tlogwriter.string_of wr_result) >>= fun () ->
-    begin
-    match u with
-      | Update.MasterSet (m,l) ->
-        store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
-      | _ -> Lwt.return()
-    end >>= fun () ->
+		tlog_coll # log_update i u >>= fun _ ->
+		begin
+		  match u with
+		    | Update.MasterSet (m,l) ->
+		      store # set_master_no_inc m l >>= fun _ -> Lwt.return ()
+			| _ -> Lwt.return()
+		end >>= fun () ->
 		Lwt.return v
               in
 	      

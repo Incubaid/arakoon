@@ -844,18 +844,15 @@ let rec paxos_produce buffers
        match best with
         | Some Inject_ready ->
 	  begin
-	    log ~me "taking from inject" >>= fun () ->
 	    Lwt_buffer.take buffers.inject_buffer
 	  end
 	| Some Client_ready ->
 	  begin
-	    log ~me "taking from client" >>= fun () ->
 	    Lwt_buffer.take buffers.client_buffer >>= fun x ->
 	    Lwt.return (FromClient x)
 	  end
 	| Some Node_ready ->
 	  begin
-	    log ~me "taking from node" >>= fun () ->
 	    Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
 	    let msg2 = MPMessage.of_generic msg in
 	    Lwt.return (FromNode (msg2,source))

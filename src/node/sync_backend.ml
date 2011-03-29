@@ -41,29 +41,27 @@ exception Forced_stop
 let make_went_well stats_cb awake sleeper =
   fun b ->
     begin
-		Lwt_log.debug "went_well" >>= fun () ->
-		Lwt.catch ( fun () ->
-			Lwt.return (Lwt.wakeup awake b)
-		) ( fun e ->
-		match e with 
-			| Invalid_argument s ->		
-				let t = state sleeper in
-				begin
-				match t with
-					| Fail ex ->
-						Lwt_log.error "Lwt.wakeup error: Sleeper already failed before. Re-raising" >>= fun () ->
-						Lwt.fail ex
-					| Return v ->
-						Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
-					| Sleep ->
-						Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
-				end
-			| _ -> Lwt.fail e
-		) >>= fun () ->
-		stats_cb ();
-		Lwt_log.debug "went_well finished" >>= fun () ->
-		Lwt.return ()
-		end
+      Lwt.catch ( fun () ->
+	Lwt.return (Lwt.wakeup awake b)
+      ) ( fun e ->
+	match e with 
+	  | Invalid_argument s ->		
+	    let t = state sleeper in
+	    begin
+	      match t with
+		| Fail ex ->
+		  Lwt_log.error "Lwt.wakeup error: Sleeper already failed before. Re-raising" >>= fun () ->
+		  Lwt.fail ex
+		    | Return v ->
+		      Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
+		    | Sleep ->
+		      Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
+	    end
+	  | _ -> Lwt.fail e
+      ) >>= fun () ->
+      stats_cb ();
+      Lwt.return ()
+    end
 
 
 
@@ -135,15 +133,13 @@ object(self: #backend)
     store # prefix_keys prefix max
 
   method set key value =
-    log_o self "set %S %S" key value >>= fun () ->
+    log_o self "set %S ..." key >>= fun () ->
     let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
 
   method test_and_set key expected (wanted:string option) =
-    log_o self "test_and_set %s %s %s" key 
-      (string_option_to_string expected) 
-      (string_option_to_string wanted)
+    log_o self "test_and_set %s ... ..." key 
     >>= fun () ->
     self # _only_if_master () >>= fun () ->
     let update = Update.TestAndSet(key, expected, wanted) in
@@ -156,7 +152,7 @@ object(self: #backend)
       | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
       | Store.Ok x -> Lwt.return x
 
-  method delete key = log_o self "delete %S" key >>= fun () ->
+  method delete key = log_o self "delete %s" key >>= fun () ->
     self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
     let update_stats () = Statistics.new_delete _stats in
@@ -221,7 +217,6 @@ object(self: #backend)
     store # who_master ()
 
   method who_master () =
-    log_o self "who_master" >>= fun () ->
     self # _who_master () >>= fun mo ->
     let result,argumentation = 
       match mo with

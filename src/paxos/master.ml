@@ -70,8 +70,6 @@ let stable_master constants (v',n,new_i) = function
 	end
     | FromClient (vo, finished) ->
       begin
-	let me = constants.me in
-	log ~me "got msg from client" >>= fun () ->
 	match vo with
 	  | None ->
 	    begin

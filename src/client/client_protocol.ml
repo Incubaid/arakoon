@@ -29,7 +29,6 @@ open Update
 open Statistics
 
 let read_command (ic,oc) =
-  debug "read_command" >>= fun () ->
   Llio.input_int32 ic >>= fun masked ->
     let magic = Int32.logand masked _MAGIC in
       begin
@@ -39,12 +38,11 @@ let read_command (ic,oc) =
   else
     let as_int32 = Int32.logand masked _MASK in
       try
-        Lwt_log.debug_f "command=%08lx" as_int32 >>= fun () ->
         Lwt.return (List.assoc as_int32 int2code)
       with Not_found ->
         Llio.output_int32 oc 5l >>= fun () ->
-    let msg = Printf.sprintf "%lx not found" as_int32 in
-      Llio.output_string oc msg >>= fun () ->
+	let msg = Printf.sprintf "%lx not found" as_int32 in
+	Llio.output_string oc msg >>= fun () ->
         Lwt.fail (Failure msg)
       end
 
@@ -78,14 +76,12 @@ let one_command (ic,oc) backend =
     | HELLO ->
 	begin
           Llio.input_string ic >>= fun client ->
-	    Lwt_log.debug_f "HELLO %S" client >>= fun () ->
             backend # hello client >>= fun server ->
               response_rc_string oc 0l server
 	end
     | EXISTS ->
       begin
 	Llio.input_string ic >>= fun key ->
-	Lwt_log.debug_f "EXISTS %S" key >>= fun () ->
 	Lwt.catch
 	  (fun () -> backend # exists key >>= fun exists ->
 	    response_rc_bool oc 0l exists)
@@ -94,7 +90,6 @@ let one_command (ic,oc) backend =
     | GET ->
 	begin
           Llio.input_string ic >>= fun  key ->
-	  Lwt_log.debug_f "GET %S" key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # get key >>= fun value ->
 	       response_rc_string oc 0l value)
@@ -104,7 +99,6 @@ let one_command (ic,oc) backend =
 	begin
           Llio.input_string ic >>= fun key ->
           Llio.input_string ic >>= fun value ->
-	  Lwt_log.debug_f "SET %S:%S" key value >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # set key value >>= fun () ->
 	       response_ok_unit oc
@@ -114,7 +108,6 @@ let one_command (ic,oc) backend =
     | DELETE ->
 	begin
           Llio.input_string ic >>= fun key ->
-          Lwt_log.debug_f "DELETE %S" key >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	       backend # delete key >>= fun () ->
@@ -179,7 +172,6 @@ let one_command (ic,oc) backend =
       end
     | WHO_MASTER ->
 	begin
-	Lwt_log.debug "WHO_MASTER" >>= fun () ->
 	backend # who_master () >>= fun m ->
 	  Llio.output_int32 oc 0l >>= fun () ->
 	  Llio.output_string_option oc m >>= fun () ->
@@ -187,7 +179,6 @@ let one_command (ic,oc) backend =
 	end
     | EXPECT_PROGRESS_POSSIBLE ->
       begin
-	Lwt_log.debug "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
 	backend # expect_progress_possible () >>= fun poss ->
 	Llio.output_int32 oc 0l >>= fun () ->
 	Llio.output_bool oc poss >>= fun () ->

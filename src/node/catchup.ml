@@ -62,8 +62,8 @@ let catchup_tlog me other_configs (current_i: Sn.t) mr_name
     let client = new remote_nodestream connection in
 
     let f (i,update) =
-      Lwt_log.debug_f "%s:%s => tlog" 
-	(Sn.string_of i) (Update.string_of update) >>= fun () ->
+      (*Lwt_log.debug_f "%s:%s => tlog" 
+	(Sn.string_of i) (Update.string_of update) >>= fun () -> *)
       tlog_coll # log_update i update >>=
 	fun _ -> 
       Lwt.return ()
