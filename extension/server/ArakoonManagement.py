@@ -20,7 +20,11 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pymonkey import q
+try:
+    from pymonkey import q
+except ImportError:
+    from pylabs import q
+
 import os 
 import ArakoonRemoteControl
 import os.path
@@ -29,7 +33,15 @@ import subprocess
 import time
 import string
 import logging
-from arakoon.ArakoonExceptions import *
+
+from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
+
+def which_arakoon():
+    path = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoon")
+    if q.system.fs.isFile(path):
+        return path
+    else:
+        return "arakoon"
 
 class ArakoonManagement:
     def getCluster(self, clusterId):
@@ -143,7 +155,7 @@ class ArakoonCluster:
     def __init__(self, clusterId):
         self.__validateName(clusterId)
         self._clusterId = clusterId
-        self._binary = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoon")
+        self._binary = which_arakoon()
         self._arakoonDir = q.system.fs.joinPaths(q.dirs.cfgDir, "arakoon")
         
         clusterConfig = q.config.getInifile("arakoonclusters")
@@ -751,7 +763,6 @@ class ArakoonCluster:
         if self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING:
             return
         
-        kwargs = { }
         config = self.getNodeConfig(name)
         cmd = []
         if 'user' in config :

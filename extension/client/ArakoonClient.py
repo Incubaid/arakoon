@@ -20,11 +20,13 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pymonkey import q,i
+try:
+    from pymonkey import q
+except ImportError:
+    from pylabs import q
 
 from arakoon import Arakoon 
 from arakoon.ArakoonProtocol import ArakoonClientConfig
-from arakoon.ArakoonProtocol import ArakoonNotFound
 
 class ArakoonClientExtConfig:
     """
@@ -239,4 +241,3 @@ class ArakoonClient:
             return q.system.fs.joinPaths( clusterDir, "%s_client" % clusterId)
         else:
             return q.system.fs.joinPaths( clusterDir, "%s_client_%s" % (clusterId, configName))
-        
