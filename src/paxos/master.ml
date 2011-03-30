@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Multi_paxos_type
+open Master_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
@@ -59,10 +60,25 @@ let stable_master constants (v',n,new_i) = function
 	end
       else
 	begin
-	  log ~me "stable_master: half-lease_expired: update lease." >>= fun () ->
-	  let v = Update.make_update_value (Update.make_master_set me None) in
-	  (* TODO: we need election timeout as well here *)
-	  Lwt.return (Master_dictate (None,v,n,new_i))
+	  let extend () = 
+	    log ~me "stable_master: half-lease_expired: update lease." 
+	    >>= fun () ->
+	    let ms = Update.make_master_set me None in
+	    let v = Update.make_update_value ms in
+		(* TODO: we need election timeout as well here *)
+	    Lwt.return (Master_dictate (None,v,n,new_i))
+	  in
+	  match constants.master with
+	    | Preferred p when p <> me ->
+	      let diff = Sn.diff new_i (constants.last_witnessed p) in
+	      if diff < (Sn.of_int 5) then
+		begin
+		  log ~me "stable_master: handover to %s" p >>= fun () ->
+		  Lwt.return (Stable_master (v', n, new_i))
+		end
+	      else
+		extend () 
+	    | _ -> extend()
 	end
     | FromClient (vo, finished) ->
       begin

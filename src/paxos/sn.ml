@@ -30,6 +30,7 @@ let div = Int64.div
 let add = Int64.add 
 let rem = Int64.rem
 
+let diff a b = Int64.abs (Int64.sub a b) 
 let of_int = Int64.of_int 
 let to_int = Int64.to_int
 let of_int32 i32 = Int64.of_int32

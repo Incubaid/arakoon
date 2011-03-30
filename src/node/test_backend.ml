@@ -134,6 +134,9 @@ class test_backend my_name = object(self:#backend)
     Lwt_list.iter_s do_one updates
     
   method witness name i = Lwt.return ()
+
+  method last_witnessed name = Sn.start
+
   method expect_progress_possible () = Lwt.return false
 
   method get_statistics () = Statistics.create() 

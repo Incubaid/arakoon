@@ -110,6 +110,7 @@ type constants =
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
        Store.update_result Lwt.t;
      on_witness: id -> Sn.t -> unit Lwt.t;
+     last_witnessed: id -> Sn.t;
      quorum_function: int -> int;
      master: master;
      store:Store.store;
@@ -132,7 +133,7 @@ let is_election constants =
     | Forced _ -> false
 
 let make me others send receive get_value 
-    on_accept on_consensus on_witness
+    on_accept on_consensus on_witness last_witnessed
     quorum_function (master:master) store tlog_coll 
     other_cfgs lease_expiration inject_event ~cluster_id =
   {
@@ -143,6 +144,7 @@ let make me others send receive get_value
     on_accept = on_accept;
     on_consensus = on_consensus;
     on_witness = on_witness;
+    last_witnessed = last_witnessed;
     quorum_function = quorum_function;
     master = master;
     store = store;

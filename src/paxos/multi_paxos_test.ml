@@ -61,7 +61,7 @@ let test_generic network_factory n_nodes () =
       >>= fun () -> Lwt.return (Store.Ok None)
   in
   let on_witness who i = Lwt.return () in
-
+  let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
@@ -80,6 +80,7 @@ let test_generic network_factory n_nodes () =
 	      on_accept= on_accept "???";
 	      on_consensus = on_consensus "???";
 	      on_witness = on_witness;
+	      last_witnessed = last_witnessed;
 	      quorum_function = Multi_paxos.quorum_function;
 	      master=Elected;
 	      store = store;
@@ -239,6 +240,7 @@ let test_master_loop network_factory ()  =
     Lwt.return v
   in
   let on_witness who i = Lwt.return () in
+  let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
@@ -256,6 +258,7 @@ let test_master_loop network_factory ()  =
 		   on_accept = on_accept;
 		   on_consensus = on_consensus;
 		   on_witness = on_witness;
+		   last_witnessed = last_witnessed;
 		   quorum_function = Multi_paxos.quorum_function;
 		   master = Elected;
 		   store = store;
@@ -343,6 +346,7 @@ let test_simulation filters () =
     Lwt.return (Store.Ok None)
   in
   let on_witness who i = Lwt.return () in
+  let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
   let buffers = Hashtbl.create 7 in
@@ -381,6 +385,7 @@ let test_simulation filters () =
 		   on_accept = on_accept me;
 		   on_consensus = on_consensus me;
 		   on_witness = on_witness;
+		   last_witnessed = last_witnessed;
 		   quorum_function = Multi_paxos.quorum_function;
 		   master = Elected;
 		   store = store;

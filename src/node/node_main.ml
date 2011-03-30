@@ -270,6 +270,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	begin
 	  Lwt_list.iter_s (Lwt_log.info_f "other: %s")
 	    other_names >>= fun () ->
+	  Lwt_log.info_f "master=%s" (master2s master) >>= fun () ->
 	  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
 	  Lwt_log.info_f "quorum_function gives %i for %i" 
 	    (quorum_function n_nodes) n_nodes >>= fun () ->
@@ -351,6 +352,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  
 	  let on_consensus = X.on_consensus store in
 	  let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+	  let last_witnessed (name:string) = backend # last_witnessed name in
 	  let on_accept = X.on_accept tlog_coll store in
 	  
 	  let get_last_value (i:Sn.t) =
@@ -384,7 +386,9 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  let constants = 
 	    Multi_paxos.make my_name other_names send receive 
 	      get_last_value 
-	      on_accept on_consensus on_witness
+	      on_accept on_consensus 
+	      on_witness
+	      last_witnessed
 	      (quorum_function: int -> int)
 	      (master : master)
 	      store tlog_coll others lease_period inject_event 

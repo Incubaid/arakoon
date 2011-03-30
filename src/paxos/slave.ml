@@ -69,39 +69,39 @@ let slave_steady_state constants state event =
 	    begin
 	      let reply = Accepted(n,i) in
 	      begin
-          constants.store # consensus_i () >>= fun m_store_i ->
-          begin
-            match m_store_i with
-              | None -> constants.on_consensus (previous, n, Sn.pred i)
-              | Some store_i ->
-                let prev_i = Sn.pred i in
-                if (Sn.compare store_i (Sn.pred prev_i) ) == 0
-                then
-                  constants.on_consensus (previous, n,prev_i) 
-                else
-                  if Sn.compare store_i prev_i == 0
-                  then 
-                    Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
-                    Lwt.return (Store.Ok None)
-                  else
-                  Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
+		constants.store # consensus_i () >>= fun m_store_i ->
+		begin
+		  match m_store_i with
+		    | None -> constants.on_consensus (previous, n, Sn.pred i)
+		    | Some store_i ->
+                      let prev_i = Sn.pred i in
+                      if (Sn.compare store_i (Sn.pred prev_i) ) == 0
+                      then
+			constants.on_consensus (previous, n,prev_i) 
+                      else
+			if Sn.compare store_i prev_i == 0
+			then 
+			  Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
+                      Lwt.return (Store.Ok None)
+			else
+			  Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
 	        end 
-        end >>= fun _ ->
+              end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun v ->
-        begin
-        let u = Update.update_from_value v in
-        match u with 
-          | Update.MasterSet(m,l) ->
-            start_lease_expiration_thread constants n constants.lease_expiration
-          | _ -> Lwt.return ()
-        end >>= fun () ->
-        log ~me "steady_state :: replying with %S" (string_of reply) 
+              begin
+		let u = Update.update_from_value v in
+		match u with 
+		  | Update.MasterSet(m,l) ->
+		    start_lease_expiration_thread constants n constants.lease_expiration
+		  | _ -> Lwt.return ()
+              end >>= fun () ->
+              log ~me "steady_state :: replying with %S" (string_of reply) 
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
 	  | Accept (n',i',v) when 
-        (n'<=n && i'<i) || (n'< n && i'=i)  ->
+              (n'<=n && i'<i) || (n'< n && i'=i)  ->
 	    begin
 	      log ~me "slave_steady_state received old %S for my n, ignoring" 
 		(string_of msg) >>= fun () ->
@@ -110,26 +110,26 @@ let slave_steady_state constants state event =
 	  | Accept (n',i',v) ->
 	    begin
 	      log ~me "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
-		      (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
+		(Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let new_state = (source,cu_pred,n',i') in 
-        Lwt.return (Slave_discovered_other_master(new_state) ) 
+              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              let new_state = (source,cu_pred,n',i') in 
+              Lwt.return (Slave_discovered_other_master(new_state) ) 
 	    end
 	  | Prepare(n',i') ->
-      begin
-        handle_prepare constants source n n' i' >>= function
-          | Prepare_dropped 
-          | Nak_sent ->
-            Lwt.return (Slave_steady_state state)
-          | Promise_sent_up2date ->
-            Store.get_succ_store_i constants.store >>= fun next_i ->
-            Lwt.return (Slave_wait_for_accept (n', next_i, None, None))
-          | Promise_sent_needs_catchup ->
-            Store.get_catchup_start_i constants.store >>= fun i ->
-            let new_state = (source, i, n', i') in 
-            Lwt.return (Slave_discovered_other_master(new_state) ) 
-      end
+	    begin
+              handle_prepare constants source n n' i' >>= function
+		| Prepare_dropped 
+		| Nak_sent ->
+		  Lwt.return (Slave_steady_state state)
+		| Promise_sent_up2date ->
+		  Store.get_succ_store_i constants.store >>= fun next_i ->
+		  Lwt.return (Slave_wait_for_accept (n', next_i, None, None))
+		    | Promise_sent_needs_catchup ->
+		      Store.get_catchup_start_i constants.store >>= fun i ->
+		      let new_state = (source, i, n', i') in 
+		      Lwt.return (Slave_discovered_other_master(new_state) ) 
+	    end
 	  | Nak (n',(n'',i'')) ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
@@ -166,14 +166,14 @@ let slave_steady_state constants state event =
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
 	      let new_n = update_n constants n in
-        Store.get_succ_store_i constants.store >>= fun el_i ->
-        let el_up =
-          begin
-            if el_i = (Sn.pred i) 
-            then Some previous
-            else None
-          end
-        in
+              Store.get_succ_store_i constants.store >>= fun el_i ->
+              let el_up =
+		begin
+		  if el_i = (Sn.pred i) 
+		  then Some previous
+		  else None
+		end
+              in
 	      Lwt.return (Election_suggest (new_n, el_i, el_up ))
 	    end
 	  else
@@ -205,7 +205,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	match msg with
 	  | Prepare (n',i') ->
       begin
-	      constants.on_witness source i' >>= fun () ->
+	constants.on_witness source i' >>= fun () ->
         handle_prepare constants source n n' i' >>= function
           | Prepare_dropped -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
           | Nak_sent -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )

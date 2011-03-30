@@ -30,7 +30,7 @@ open Lwt_buffer
 open Fsm
 open Multi_paxos_type
 open Multi_paxos
-
+open Master_type
 
 (* a forced master always suggests himself *)
 let forced_master_suggest constants (n,i) () =
@@ -67,7 +67,14 @@ let election_suggest constants (n,i,vo) () =
   in
   log ~me "election_suggest: n=%s i=%s %s"  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
   start_election_timeout constants n >>= fun () ->
-  mcast constants (Prepare (n,i)) >>= fun () ->
+  let delay =
+    match constants.master with
+      | Preferred p when p <> me -> 1 + (constants.lease_expiration /2)
+      | _ -> 0
+  in
+  let df = float delay in
+  Lwt.ignore_result 
+    (Lwt_unix.sleep df >>= fun () -> mcast constants (Prepare (n,i)));
   let who_voted = [me] in
   let i_lim = Some (me,i) in
   let state = (n, i, who_voted, v_lims, i_lim) in

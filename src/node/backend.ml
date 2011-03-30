@@ -52,6 +52,8 @@ class type backend = object
 
   method witness : string -> Sn.t -> unit Lwt.t
 
+  method last_witnessed : string -> Sn.t
+
   method expect_progress_possible : unit -> bool Lwt.t
     
   method get_statistics: unit -> Statistics.t

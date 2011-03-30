@@ -83,6 +83,11 @@ module Statistics = struct
   let witness t name i =
     Hashtbl.replace t.node_is name i
 
+  let last_witnessed t name = 
+    if Hashtbl.mem t.node_is name 
+    then Hashtbl.find t.node_is name
+    else Sn.of_int (-1000)
+      
   let to_buffer b t =
     Llio.float_to b t.start;
     Llio.float_to b t.last;

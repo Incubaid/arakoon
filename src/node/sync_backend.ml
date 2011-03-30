@@ -320,6 +320,8 @@ object(self: #backend)
     end;
     Lwt.return ()
 
+  method last_witnessed name = Statistics.last_witnessed _stats name
+    
   method expect_progress_possible () = 
     store # consensus_i () >>= function 
       | None -> Lwt.return false

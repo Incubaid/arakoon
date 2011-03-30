@@ -21,3 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 type master = Elected | Forced of string | Preferred of string
+
+let master2s = function
+  | Elected -> "Elected"
+  | Forced s -> Printf.sprintf "(Forced %s)" s
+  | Preferred s -> Printf.sprintf "(Preferred %s)" s
