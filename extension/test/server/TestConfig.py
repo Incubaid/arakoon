@@ -187,7 +187,7 @@ class TestConfig:
         config = cluster._getConfigFile()
         ok = config.checkParam("global", "preferred_master")
         assert_true(ok)
-        p = config.getParam("global", "preferred_master")
+        p = config.getValue("global", "preferred_master")
         assert_equals(p,'true')
         
     def testSetQuorum(self):

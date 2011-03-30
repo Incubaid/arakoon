@@ -304,10 +304,7 @@ class ArakoonCluster:
         if duration:
             if not isinstance( duration, int ) :
                 raise AttributeError( "Invalid value for lease duration (expected int, got: '%s')" % duration)
-            if config.checkParam(section, key):
-                config.setParam(section, key, duration)
-            else:
-                config.addParam(section, key, duration)
+            config.setParam(section, key, duration)
         else:
             config.removeParam(section, key)
 
@@ -325,10 +322,7 @@ class ArakoonCluster:
         pm = 'preferred_master'
         m = 'master'
         def _set(s,a,v):
-            if config.checkParam(s,a):
-                config.setParam(s,a,v)
-            else:
-                config.addParam(s,a,v)
+            config.addParam(s,a,v)
         if name:
             nodes = self.__getNodes(config)
 
@@ -354,7 +348,7 @@ class ArakoonCluster:
         config = self._getConfigFile()
         
         for n in nodes:
-            config.setParam( n, "log_level", level )
+            config.addParam( n, "log_level", level )
                 
     def setQuorum(self, quorum=None):
         """
@@ -376,10 +370,7 @@ class ArakoonCluster:
             except:
                 raise Exception("Illegal value for quorum %s " % quorum)
             
-            if config.checkParam("global", "quorum"):
-                config.setParam("global", "quorum", int(quorum))
-            else:
-                config.addParam("global", "quorum", int(quorum))
+            config.addParam("global", "quorum", int(quorum))
         else: 
             config.removeParam("global", "quorum")
             
