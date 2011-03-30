@@ -313,7 +313,7 @@ class ArakoonCluster:
 
         config.write()
         
-    def forceMaster(self, name=None):
+    def forceMaster(self, name=None, preferred = False):
         """
         Force a master in the supplied cluster
 
@@ -321,20 +321,27 @@ class ArakoonCluster:
         @param clusterId: the id of the arakoon cluster
         """
         config = self._getConfigFile()
+        g = 'global'
+        pm = 'preferred_master'
+        m = 'master'
+        def _set(s,a,v):
+            if config.checkParam(s,a):
+                config.setParam(s,a,v)
+            else:
+                config.addParam(s,a,v)
         if name:
             nodes = self.__getNodes(config)
 
             self.__validateName(name)
             if not name in nodes:
                 raise Exception("No node with name %s configured in cluster %s" % name)
-
-            if config.checkParam("global", "master"):
-                config.setParam("global", "master", name)
-            else:
-                config.addParam("global", "master", name)
+            _set(g,m,name)
+            if preferred:
+                _set(g,pm,'true')
         else:
-            config.removeParam("global", "master")
-
+            config.removeParam(g, m)
+            if config.checkParam(g, pm):
+                config.removeParam(g, pm)
         config.write()
 
     def setLogLevel(self, level, nodes=None):

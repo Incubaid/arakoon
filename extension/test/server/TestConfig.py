@@ -166,6 +166,8 @@ class TestConfig:
         config = cluster._getConfigFile()
         assert_false(config.checkParam("global",'master'))
 
+
+        
     def testForceUnknownMaster(self):
         cid = self._clusterId
         cluster = self._getCluster()
@@ -175,6 +177,19 @@ class TestConfig:
 
         assert_raises(Exception, cluster.forceMaster, "arakoon_4")
 
+    def testPreferredMaster(self):
+        cid = self._clusterId
+        cluster = self._getCluster()
+        for i in range(0,3):
+            ni = '%s_%i' % (cid,i)
+            cluster.addNode(ni)
+        cluster.forceMaster('%s_0' % cid, preferred = True)
+        config = cluster._getConfigFile()
+        ok = config.checkParam("global", "preferred_master")
+        assert_true(ok)
+        p = config.getParam("global", "preferred_master")
+        assert_equals(p,'true')
+        
     def testSetQuorum(self):
         cid = self._clusterId
         cluster = self._getCluster()
