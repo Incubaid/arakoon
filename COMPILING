@@ -22,7 +22,7 @@ manifesto
 	ocamlbuild manifest.pdf     ==> _build/manifest.pdf
 
 executable
-	ocamlbuild main.native      ==> main.native
+	ocamlbuild arakoon.native      ==> arakoon.native
 
 libraries
 	ocamlbuild arakoon_client.cma arakoon_client.cmxa ==>
