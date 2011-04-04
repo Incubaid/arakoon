@@ -1,7 +1,7 @@
 # -*- conf -*-
 
 description = "Arakoon client"
-version = "0.8"
+version = "0.10"
 exists_if = "arakoon_client.cma,arakoon_client.cmxa,arakoon_client.cmxs"
 requires = "threads lwt lwt.unix"
 archive(byte) = "arakoon_client.cma"
