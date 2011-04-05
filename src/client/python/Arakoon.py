@@ -309,7 +309,12 @@ class ArakoonClient :
     
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
-    def range_entries(self, first, finc, last, linc, maxElements= -1):
+    def range_entries(self,
+                      beginKey,
+                      beginKeyIncluded,
+                      endKey,
+                      endKeyIncluded,
+                      maxElements= -1):
         """
         Perform a range query on the store, retrieving the set of matching key-value pairs
 
@@ -331,8 +336,11 @@ class ArakoonClient :
         @rtype: list of strings
         @return: Returns a list containing all matching key-value pairs
         """
-        msg = ArakoonProtocol.encodeRangeEntries(first, finc,
-                                                 last, linc, maxElements,
+        msg = ArakoonProtocol.encodeRangeEntries(beginKey,
+                                                 beginKeyIncluded,
+                                                 endKey,
+                                                 endKeyIncluded,
+                                                 maxElements,
                                                  self._allowDirty)
         if self._allowDirty:
             conn = self._sendMessage(self._dirtyReadNode, msg)
