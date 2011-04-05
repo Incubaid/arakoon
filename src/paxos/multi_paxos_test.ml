@@ -75,6 +75,7 @@ let test_generic network_factory n_nodes () =
   in
   let base = {me = "???";
 	      others = [] ;
+	      is_learner = false;
 	      send = send;
 	      get_value = get_value;
 	      on_accept= on_accept "???";
@@ -252,7 +253,9 @@ let test_master_loop network_factory ()  =
       | None -> Lwt.return None 
       | Some up -> Lwt.return ( Some (Update.make_update_value up) )
   in
-  let constants = {me = me; others = others;
+  let constants = {me = me; 
+		   is_learner = false;
+		   others = others;
 		   send = send;
 		   get_value = get_value;
 		   on_accept = on_accept;
@@ -379,6 +382,7 @@ let test_simulation filters () =
       | Some up -> Lwt.return ( Some (Update.make_update_value up) )
   in
   let constants = {me = me;
+		   is_learner = false;
 		   others = ["c1";"c2"];
 		   send = send;
 		   get_value = get_value;

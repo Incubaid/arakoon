@@ -119,6 +119,7 @@ type constants =
      lease_expiration: int;
      inject_event: paxos_event -> unit Lwt.t;
      cluster_id : string;
+     is_learner: bool;
     }
 
 let am_forced_master constants me =
@@ -132,12 +133,13 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | Forced _ -> false
 
-let make me others send receive get_value 
+let make me is_learner others send receive get_value 
     on_accept on_consensus on_witness last_witnessed
     quorum_function (master:master) store tlog_coll 
     other_cfgs lease_expiration inject_event ~cluster_id =
   {
     me=me;
+    is_learner = is_learner;
     others=others;
     send = send;
     get_value= get_value;

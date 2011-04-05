@@ -384,7 +384,9 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	     election_timeout_buffer)
 	  in
 	  let constants = 
-	    Multi_paxos.make my_name other_names send receive 
+	    Multi_paxos.make my_name 
+	      me.is_learner 
+	      other_names send receive 
 	      get_last_value 
 	      on_accept on_consensus 
 	      on_witness
@@ -404,7 +406,12 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  match master with
 	    | Forced master  -> if master = my_name 
 	      then Multi_paxos_fsm.enter_forced_master
-	      else Multi_paxos_fsm.enter_forced_slave 
+	      else 
+		begin
+		  if me.is_learner 
+		  then Multi_paxos_fsm.enter_simple_paxos
+		  else Multi_paxos_fsm.enter_forced_slave 
+		end
 	    | _ -> Multi_paxos_fsm.enter_simple_paxos
 	in to_run constants buffers new_i vo
       in
