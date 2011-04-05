@@ -276,8 +276,8 @@ let wait_for_promises constants state event =
                     Lwt.return (Forced_master_suggest (n3,i))
 		  end
 		else 
-                  if is_election constants
-                  then
+                  (* if is_election constants 
+                  then *)
                     begin
                       log ~me "wait_for_promises; discovered other node" 
                       >>= fun () ->
@@ -288,11 +288,11 @@ let wait_for_promises constants state event =
 			let new_n = update_n constants (max n n'') in
 			Lwt.return (Election_suggest (new_n,i, wanted))
                     end
-                  else (* forced_slave *) (* this state is impossible?! *)
+                  (* else (* forced_slave *) (* this state is impossible?! *)
                     begin
                       log ~me "wait_for_promises; forced slave back waiting for prepare" >>= fun () ->
                       Lwt.return (Slave_waiting_for_prepare (i,n))
-                    end
+                    end *)
               end
             | Prepare (n',i') ->
               begin

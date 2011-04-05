@@ -152,7 +152,7 @@ let slave_steady_state constants state event =
     | LeaseExpired n' -> 
       let ns  = (Sn.string_of n) 
       and ns' = (Sn.string_of n') in
-      if (not (is_election constants)) || n' < n
+      if (not (is_election constants || constants.is_learner)) || n' < n
       then 
 	begin
 	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns 
@@ -216,60 +216,60 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             Lwt.return( Slave_discovered_other_master state )
       end
    | Accept (n',i',v) when n'=n ->
-	    begin
-        constants.on_witness source i' >>= fun () ->
-        let tlog_coll = constants.tlog_coll in
-        tlog_coll # get_last_i () >>= fun tlc_i ->
-        if i' < tlc_i 
-        then 
-          log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
-          Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
-        else
-        begin
-	        if i' > i then 
-            Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-            Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
-          else
-          begin
-	          constants.on_accept (v,n,i') >>= fun v ->
-            begin
-              let u = Update.update_from_value v in
-			        match u with 
-			          | Update.MasterSet(m,l) ->
-			            start_lease_expiration_thread constants n constants.lease_expiration 
-			          | _ -> Lwt.return ()
-			      end >>= fun () ->
-              match maybe_previous with
-              | None -> log ~me "No previous" >>= fun () -> Lwt.return()
-              | Some( pv, pi ) -> 
-                constants.store # consensus_i () >>= fun (store_i) ->
-                begin
-                match store_i with
-                | Some s_i ->
-                  if (Sn.compare s_i pi) == 0 
-                  then Lwt_log.debug "slave_wait_for_accept: Not pushing previous"
-                  else 
-                    begin
-                    Lwt_log.debug_f "slave_wait_for_accept: Pushing previous (%s %s)" 
-                      (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
-                    constants.on_consensus(pv,n,pi) >>= fun _ ->
-                    Lwt.return ()
-                    end
-                | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
-                end
-        end >>= fun _ ->
-	      let reply = Accepted(n,i') in
-	      log ~me "replying with %S" (string_of reply) >>= fun () ->
-	      send reply me source >>= fun () -> 
+     begin
+       constants.on_witness source i' >>= fun () ->
+       let tlog_coll = constants.tlog_coll in
+       tlog_coll # get_last_i () >>= fun tlc_i ->
+       if i' < tlc_i 
+       then 
+         log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
+       Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
+       else
+         begin
+	   if i' > i then 
+             Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+           Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
+           else
+             begin
+	       constants.on_accept (v,n,i') >>= fun v ->
+               begin
+		 let u = Update.update_from_value v in
+		 match u with 
+		   | Update.MasterSet(m,l) ->
+		     start_lease_expiration_thread constants n constants.lease_expiration 
+		   | _ -> Lwt.return ()
+	       end >>= fun () ->
+               match maybe_previous with
+		 | None -> log ~me "No previous" >>= fun () -> Lwt.return()
+		 | Some( pv, pi ) -> 
+                   constants.store # consensus_i () >>= fun (store_i) ->
+                   begin
+		     match store_i with
+		       | Some s_i ->
+			 if (Sn.compare s_i pi) == 0 
+			 then Lwt_log.debug "slave_wait_for_accept: Not pushing previous"
+			 else 
+			   begin
+			     Lwt_log.debug_f "slave_wait_for_accept: Pushing previous (%s %s)" 
+			       (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
+			     constants.on_consensus(pv,n,pi) >>= fun _ ->
+			     Lwt.return ()
+			   end
+                       | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
+                   end
+             end >>= fun _ ->
+	   let reply = Accepted(n,i') in
+	   log ~me "replying with %S" (string_of reply) >>= fun () ->
+	   send reply me source >>= fun () -> 
 	      (* TODO: should assert we really have a MasterSet here *)
-	      Lwt.return (Slave_steady_state (n, Sn.succ i', v))
-	    end
-    end
-	  | Accept (n',i',v) when n' < n ->
-	    begin
-        if i' > i 
-        then
-          log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
+	   Lwt.return (Slave_steady_state (n, Sn.succ i', v))
+	 end
+     end
+   | Accept (n',i',v) when n' < n ->
+     begin
+       if i' > i 
+       then
+         log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
             (Sn.string_of i) (Sn.string_of i')  
           >>= fun () -> 
           Store.get_catchup_start_i constants.store >>= fun cu_pred ->
@@ -305,7 +305,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       end
     | ElectionTimeout n' 
     | LeaseExpired n' ->
-      if (not (is_election constants)) || n' < n
+      if (not (is_election constants || constants.is_learner)) || n' < n
       then 
         begin
         let ns = (Sn.string_of n) and
