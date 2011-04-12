@@ -45,7 +45,7 @@ RUNNING THE TESTS:
 COVERAGE:
 Bisect needs to be installed. (get it from http://bisect.x9c.fr/)
 
-	ocamlbuild -tag use_bisect -tag use_macro main.d.byte
+	ocamlbuild -tag use_bisect -tag use_macro arakoon.d.byte
 	./report.sh
 
 DEBIAN packages:

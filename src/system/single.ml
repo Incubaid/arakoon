@@ -482,7 +482,7 @@ let setup master () =
     )
   in
   let () = Lwt.ignore_result j in
-  Lwt_unix.sleep 1.4 >>= fun () -> (* TODO: have callback for STABLE MASTER *)
+  Lwt_unix.sleep 2.4 >>= fun () -> (* TODO: have callback for STABLE MASTER *)
   Lwt.return (make_config (), j)
 
 let teardown (_, j) =
