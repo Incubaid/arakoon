@@ -18,6 +18,7 @@ Description:A simple consistent distributed key/value store
 
 Package: libarakoon-ocaml-dev
 Architecture : any
-Section: libs
+Section: ocaml
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: ocaml client library for Arakoon
+ Implementation of the Arakoon protocol

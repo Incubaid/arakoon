@@ -1,11 +1,8 @@
 /usr/lib/ocaml/arakoon_client/META
 /usr/lib/ocaml/arakoon_client/arakoon_client.cma
 /usr/lib/ocaml/arakoon_client/arakoon_exc.cmi            
-/usr/lib/ocaml/arakoon_client/arakoon_remote_client.cmx
 /usr/lib/ocaml/arakoon_client/arakoon_client.cmi   
-/usr/lib/ocaml/arakoon_client/arakoon_exc.cmx            
 /usr/lib/ocaml/arakoon_client/arakoon_remote_client.mli
-/usr/lib/ocaml/arakoon_client/arakoon_client.cmxa  
 /usr/lib/ocaml/arakoon_client/arakoon_exc.mli            
 /usr/lib/ocaml/arakoon_client/arakoon_client.mli   
 /usr/lib/ocaml/arakoon_client/arakoon_remote_client.cmi

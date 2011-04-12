@@ -10,7 +10,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa manifest.pdf
+	ocamlbuild arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a manifest.pdf
 
 test:
 	./arakoon.native --run-all-tests
@@ -28,12 +28,10 @@ install_client:
 	  _build/src/arakoon_client.cmxa \
 	  _build/src/client/arakoon_exc.mli \
 	  _build/src/client/arakoon_exc.cmi \
-	  _build/src/client/arakoon_exc.cmx \
 	  _build/src/client/arakoon_client.mli \
 	  _build/src/client/arakoon_client.cmi \
 	  _build/src/client/arakoon_remote_client.mli \
 	  _build/src/client/arakoon_remote_client.cmi \
-	  _build/src/client/arakoon_remote_client.cmx \
           _build/src/arakoon_client.a 
 
 uninstall_client:
