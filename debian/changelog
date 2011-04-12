@@ -1,3 +1,35 @@
+arakoon (0.10.0-1) unstable; urgency=low
+  The most notable here is the addition of 'learner nodes', 
+  and 'Preferred master' functionality. 
+  Here is the quick list:
+  * [ARAKOON-160] node fails when storing values >= 16MB  
+  * [ARAKOON-157] client lib misses Sn. META still refers to 0.8
+  * [ARAKOON-158] Learner node is not updated
+  * [ARAKOON-159] Parameters in range_entries are wrongly documented
+    and are different from range in the pylabs arakoon extension
+  * [ARAKOON-150] Preferred master
+  * [ARAKOON-155] arakoon executable is named arakoond in qshell
+    but named arakoon in debian package, which is confusing
+  * [ARAKOON-151] When a slave lags behind continuously 
+    multiple lease expiration threads are started
+  * [ARAKOON-154] Start port in setup function
+  * [ARAKOON-152] getCluster support in Q-shell
+  * [ARAKOON-149] Dirty reads
+  * [ARAKOON-70] Arakoon proxy functionality (Learner nodes)
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Tue, 12 Apr 2011 12:00:00 +0200
+
+arakoon (0.9.0-1) unstable; urgency=low
+  This cycle focussed on adding the collapsing of tlogs into a head database.
+  * [ARAKOON-143] failed compression of tlog file will cause 
+    problems for collapse
+  * [ARAKOON-141] cloning as catchup
+  * [ARAKOON-83] add possibility to define clusterid for 
+    a certain set of arakoon nodes
+  * [ARAKOON-82] add protocol version check
+  * [ARAKOON-71] Run arakoon as a different user
+  * [ARAKOON-31] tlog collapser
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Tue, 8 Mar 2011 12:00:00 +0200
+
 arakoon (0.8.2-1) unstable; urgency=low
   This cycle the focus was on bugfixing.
   Full details are in the Arakoon Jira. Here's the quick list
@@ -73,6 +105,7 @@ arakoon (0.8.2-1) unstable; urgency=low
   * [ARAKOON-76] multicast of messages is serial, which sometimes gives 
       bad performance
   * [ARAKOON-71] Run Arakoon as a different user
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Thu, 16 Feb 2011 12:00:00 +0200
 
 arakoon (0.8.1-1) unstable; urgency=low
 
@@ -104,9 +137,11 @@ arakoon (0.8.1-1) unstable; urgency=low
   * [ARAKOON-46] Keys is present in tlog but not in tc on some nodes 
       of the cluster
   * [ARAKOON-44] Arakoon deamon should die if it detects a corrupt tlog
-  
+
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Tue, 1 Feb 2011 12:00:00 +0200
+
 arakoon (0.8.0-1) unstable; urgency=low
 
   * Initial Public Release. Please bear with us
 
- -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Mon, 25 Oct 2010 21:40:27 +0200
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Mon, 21 Oct 2010 21:40:27 +0200
