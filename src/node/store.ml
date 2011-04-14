@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Update
 open Lwt
 open Log_extra
-
+open Otc
 
 let __i_key = "*i"
 let __master_key  = "*master"
@@ -55,6 +55,8 @@ class type store = object
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method get_filename: unit -> string 
+
+  method user_function: string -> string option -> (string option) Lwt.t
 end
 
 exception Key_not_found of string ;;
@@ -104,6 +106,22 @@ let _insert_update (store:store) update =
 	    in 
 	    Lwt.return (Update_fail (rc,msg))
 	)
+    | Update.UserFunction(name,po) ->
+      Lwt.catch
+	(fun () ->
+	  (* let f = Registry.Registry.lookup name in *)
+	  let r = match po with
+	    | None -> Some "None whatSoever"
+	    | Some s -> Some ("Hey, " ^ s ^ " use Trojan XXL!")
+	  in
+	  Lwt.return (Ok r)
+	)
+	(function
+	  | e -> 
+	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	    and msg = Printexc.to_string e 
+	    in
+	    Lwt.return (Update_fail (rc,msg)))
     | Update.Sequence updates ->
       Lwt.catch
         (fun () ->

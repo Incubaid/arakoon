@@ -192,6 +192,18 @@ object(self: #backend)
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
 
+  method user_function name po = 
+    log_o self "user_function %s" name >>= fun () ->
+    let update = Update.UserFunction(name,po) in
+    let p_value = Update.make_update_value update in
+    let sleep, awake = Lwt.wait() in
+    let went_well = make_went_well (fun () -> ()) awake sleep in
+    push_update (Some p_value, went_well) >>= fun () ->
+    sleep >>= function
+      | Store.Stop -> Lwt.fail Forced_stop
+      | Store.Update_fail(rc,str) -> Lwt.fail(Failure str)
+      | Store.Ok x -> Lwt.return x
+
   method test_and_set key expected (wanted:string option) =
     log_o self "test_and_set %s %s %s" key 
       (string_option_to_string expected) 

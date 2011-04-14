@@ -76,6 +76,11 @@ let all_same_master (cluster_cfg, _) =
       end
   in
   Lwt_log.debug ".... ALL SAME MASTER TESTING ...." >>= fun () ->
+  Lwt_list.iter_s 
+    (function 
+      | None -> Lwt_log.debug "None"
+      | Some m -> Lwt_log.debug_f "Some %s" m
+    ) !masters >>= fun () ->
   let () = test !masters in
   Lwt.return ()
 
@@ -249,7 +254,28 @@ let _test_and_set_3 (client: Arakoon_client.client) =
 	else Lwt.return ()
       end
   end
-  
+
+let _user_function (client: Arakoon_client.client) = 
+  Lwt_log.info "_user_function" >>= fun () ->
+  let i2s i = 
+    let b = Buffer.create 4 in 
+    let () = Llio.int_to b i in
+    Buffer.contents b
+  in
+  let s2i s =  let r, _ = Llio.int_from s 0 in r 
+  in
+  let three = i2s 3 in
+  client # set "max" three >>= fun() ->
+  let name = "update_max" in
+  let po = Some (i2s 4) in
+  client # user_function name po >>= function
+    | None   -> Llio.lwt_failfmt "should not be None"
+    | Some s -> 
+      let i = s2i s in
+      Lwt_log.info_f "got %i" i >>= fun () ->
+      assert_equal ~printer:string_of_int ~msg:"maximum is incorrect" i 4;
+      Lwt.return ()
+	
 
 let _range_1 (client: Arakoon_client.client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
@@ -393,14 +419,16 @@ let _multi_get (client: Arakoon_client.client) =
   
 
 
+let _with_master_client cluster_cfg f =
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
+  in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+
+
 
 let trivial_master (cluster_cfg, _) =
-  let cfgs = cluster_cfg.cfgs in
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
-  in
   let f (client:Arakoon_client.client) =
     _get_after_set client >>= fun () ->
     _delete_after_set client >>= fun () ->
@@ -408,15 +436,12 @@ let trivial_master (cluster_cfg, _) =
     _test_and_set_1 client >>= fun () ->
     _test_and_set_2 client >>= fun () ->
     _test_and_set_3 client 
+
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master_client cluster_cfg f
+
 
 let trivial_master2 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
   let f client =
     _test_and_set_3 client >>= fun () ->
     _range_1 client >>= fun () ->
@@ -424,38 +449,24 @@ let trivial_master2 (cluster_cfg,_) =
     _prefix_keys client >>= fun () ->
     _detailed_range client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
-
+  _with_master_client cluster_cfg f
 
 let trivial_master3 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
   let f client =
     _sequence client >>= fun () ->
     _sequence2 client >>= fun () ->
     _sequence3 client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master_client cluster_cfg f
 
-let trivial_master4 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _multi_get
 
-let trivial_master5 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
+let trivial_master4 (cluster_cfg,_) = _with_master_client cluster_cfg _multi_get
 
-let setup () =
-  Lwt.return (read_config "cfg/arakoon.ini", ())
+let trivial_master5 (cluster_cfg,_) = _with_master_client cluster_cfg _progress_possible
+
+let user_function (cluster_cfg,_) = _with_master_client cluster_cfg _user_function
+
+let setup () = Lwt.return (read_config "cfg/arakoon.ini", ())
 
 let teardown (_,()) =
   Lwt.return ()
@@ -470,7 +481,8 @@ let client_suite =
     ]
 
 let setup master () =
-  let lease_period = 60 in
+  Lwt_log.debug "--- SETUP --- " >>= fun () ->
+  let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config 3 master lease_period in
   let t0 = Node_main.test_t make_config "t_arakoon_0" in
   let t1 = Node_main.test_t make_config "t_arakoon_1" in
@@ -483,10 +495,11 @@ let setup master () =
   in
   let () = Lwt.ignore_result j in
   Lwt_unix.sleep 2.4 >>= fun () -> (* TODO: have callback for STABLE MASTER *)
+  Lwt_log.debug "--- END OF SETUP ---" >>= fun () ->
   Lwt.return (make_config (), j)
 
 let teardown (_, j) =
-  Lwt_log.info_f "cancelling j" >>= fun () ->
+  Lwt_log.debug "--- TEAR DOWN --" >>= fun () ->
   let () = Lwt.cancel j in
   Lwt.return ()
 
@@ -500,6 +513,7 @@ let force_master =
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
       "trivial_master4" >:: w trivial_master4;
+      "trivial_master5" >:: w trivial_master5;
     ]
 
 let elect_master =
@@ -514,4 +528,5 @@ let elect_master =
       "trivial_master3"  >:: w trivial_master3;
       "trivial_master4"  >:: w trivial_master4;
       "trivial_master5"  >:: w trivial_master5;
+      "user_function"    >:: w user_function;
     ]

@@ -30,6 +30,7 @@ module Update = struct
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | Nop
+    | UserFunction of string * string option
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -61,6 +62,12 @@ module Update = struct
       let () = loop updates in
       Buffer.contents buf
     | Nop -> "NOP"
+    | UserFunction (name,param) -> 
+      let ps = match param with
+	| None -> 0
+	| Some p -> String.length p
+      in
+      Printf.sprintf "UserFunction;%s;%i" name ps
 
   let rec to_buffer b t =
     match t with
@@ -87,6 +94,10 @@ module Update = struct
 	List.iter f us
       | Nop -> 
 	Llio.int_to b 6
+      | UserFunction (name,param) ->
+	Llio.int_to b 7;
+	Llio.string_to b name;
+	Llio.string_option_to b param
 
 
   let rec from_buffer b pos =
@@ -119,6 +130,13 @@ module Update = struct
           loop (i+1) (u::acc) next_pos in
           loop 0 [] pos2
       | 6 -> Nop, pos1
+
+      | 7 ->
+	let n , pos2 = Llio.string_from b pos1 in
+	let po, pos3 = Llio.string_option_from b pos2 in
+	let r = UserFunction(n,po) in
+	r, pos3
+
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

@@ -101,6 +101,7 @@ let _config_messaging me others cookie laggy =
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
+
 open Mp_msg
 
 let _check_tlogs collection tlog_dir =
@@ -254,6 +255,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let quorum_function = cluster_cfg.quorum_function in 
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
+      Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
       let n_nodes = List.length in_cluster_names in
       let other_names = 
 	if me.is_learner 

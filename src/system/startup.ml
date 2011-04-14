@@ -96,6 +96,7 @@ let post_failure () =
     quorum_function = Quorum.quorum_function;
     _lease_period = 2;
     cluster_id = "ricky";
+    plugins = [];
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -145,6 +146,7 @@ let restart_slaves () =
      quorum_function = Quorum.quorum_function;
      _lease_period = 2;
      cluster_id = "ricky";
+     plugins = [];
     }
   in
   let get_cfgs () = cluster_cfg in 

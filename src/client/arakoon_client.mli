@@ -52,6 +52,7 @@ method range_entries:
       Note that wanted can be None and can be used to delete a value
   *)
 
+  method user_function: string -> string option -> (string option) Lwt.t
   method ping: string -> string -> string Lwt.t
 
   method sequence: change list -> unit Lwt.t (* ... hm ... *)

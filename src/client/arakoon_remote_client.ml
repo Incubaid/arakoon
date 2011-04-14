@@ -69,6 +69,10 @@ object(self: #Arakoon_client.client)
     request (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
     response ic Llio.input_string_option
 
+  method user_function name po = 
+    request (fun buf -> user_function_to buf name po) >>= fun () ->
+    response ic Llio.input_string_option
+
   method multi_get ?(allow_dirty=false) keys = 
     request (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
     response ic value_list

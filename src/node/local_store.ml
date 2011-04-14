@@ -98,6 +98,12 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
+open Registry
+let _user_function bdb (name:string) (po:string option) =
+  let f = Registry.lookup name in
+  let ro = f bdb po in
+  ro
+
 let _set_master bdb master (lease_start:int64) =  
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
@@ -111,6 +117,8 @@ let rec _sequence bdb updates =
     | Update.Delete key -> _delete bdb key
     | Update.TestAndSet(key,expected, wanted) ->
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
+    | Update.UserFunction(name, po) ->
+      let _ = _user_function bdb name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
     | Update.Nop -> ()
@@ -273,6 +281,13 @@ object(self: #store)
       | ex -> Lwt.fail ex
     )
 
+  method user_function name (po:string option) = 
+    Lwt_log.debug_f "user_function :%s" name >>= fun () ->
+    Hotc.transaction db
+      (fun db -> 
+	_incr_i db >>= fun () ->
+	let (ro:string option) = _user_function db name po in
+	Lwt.return ro)
 
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)

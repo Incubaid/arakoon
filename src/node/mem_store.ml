@@ -169,6 +169,10 @@ object (self: #store)
   method reopen when_closed = Lwt.return ()
 
   method get_filename () = failwith "not supported"
+
+  method user_function name f = 
+    Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
+    Lwt.return None
 end
 
 let make_mem_store db_name =

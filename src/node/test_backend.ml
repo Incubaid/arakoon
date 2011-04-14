@@ -91,6 +91,8 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
+  method user_function name po = Lwt.return None
+
   method multi_get ~allow_dirty (keys: string list) = 
     let values = List.fold_left 
       (fun acc k -> 

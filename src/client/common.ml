@@ -50,6 +50,7 @@ type client_command =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | COLLAPSE_TLOGS
+  | USER_FUNCTION
 
 
 let code2int = [
@@ -69,6 +70,7 @@ let code2int = [
   EXPECT_PROGRESS_POSSIBLE, 0x12l;
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
+  USER_FUNCTION           , 0x15l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
@@ -190,6 +192,11 @@ let test_and_set_to b key expected wanted =
   Llio.string_to b key;
   Llio.string_option_to b expected;
   Llio.string_option_to b wanted
+
+let user_function_to b name po = 
+  command_to b USER_FUNCTION;
+  Llio.string_to b name;
+  Llio.string_option_to b po
 
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;

@@ -61,4 +61,6 @@ class type backend = object
   method check: cluster_id:string -> bool Lwt.t
 
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
+
+  method user_function : string -> string option -> (string option) Lwt.t
 end

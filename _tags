@@ -6,6 +6,7 @@ true: pkg_lwt, pkg_lwt.preemptive, pkg_lwt.unix
 true: pkg_oUnit
 true: pkg_bz2
 true: pkg_threads
+true: pkg_dynlink
 true: warn_error_F
 "doc": include
 "src":include
@@ -20,5 +21,6 @@ true: warn_error_F
 "src/node": include
 "src/system": include
 "src/inifiles": include
+"src/plugins":include
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main
