@@ -9,6 +9,8 @@ build/*
 arakoon.native
 arakoon.byte
 arakoon.d.byte
+plugin_demo.byte
+plugin_demo.native
 debian/tmp/*
 debian/libarakoon-ocaml-dev/*
 debian/arakoon/*

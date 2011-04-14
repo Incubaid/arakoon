@@ -119,7 +119,7 @@ module Node_cfg = struct
 
   let _plugins inifile = 
     try
-      _get_string_list inifile "global" "extensions"
+      _get_string_list inifile "global" "plugins"
     with Inifiles.Invalid_element _ -> []
 
   let _get_lease_period inifile =

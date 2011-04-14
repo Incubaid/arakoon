@@ -24,3 +24,4 @@ true: warn_error_F
 "src/plugins":include
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main
+

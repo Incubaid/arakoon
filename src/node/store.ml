@@ -109,12 +109,8 @@ let _insert_update (store:store) update =
     | Update.UserFunction(name,po) ->
       Lwt.catch
 	(fun () ->
-	  (* let f = Registry.Registry.lookup name in *)
-	  let r = match po with
-	    | None -> Some "None whatSoever"
-	    | Some s -> Some ("Hey, " ^ s ^ " use Trojan XXL!")
-	  in
-	  Lwt.return (Ok r)
+	  store # user_function name po >>= fun ro ->
+	  Lwt.return (Ok ro)
 	)
 	(function
 	  | e -> 
