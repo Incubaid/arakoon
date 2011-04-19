@@ -200,9 +200,15 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	Llio.input_string ic >>= fun name ->
 	Llio.input_string_option ic >>= fun po ->
-	backend # user_function name po >>=fun ro ->
-	Llio.output_int oc 0 >>= fun () ->
-	Llio.output_string_option oc ro >>= fun () ->
+	Lwt.catch
+	  (fun () ->
+	    begin
+	      backend # user_function name po >>=fun ro ->
+	      Llio.output_int oc 0 >>= fun () ->
+	      Llio.output_string_option oc ro 
+	    end)
+	  (handle_exception oc)
+	>>= fun () ->
 	Lwt_io.flush oc
       end
     | PREFIX_KEYS ->

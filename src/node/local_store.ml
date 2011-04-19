@@ -283,11 +283,18 @@ object(self: #store)
 
   method user_function name (po:string option) = 
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    Hotc.transaction db
-      (fun db -> 
-	_incr_i db >>= fun () ->
-	let (ro:string option) = _user_function db name po in
-	Lwt.return ro)
+    Lwt.catch (
+      fun () ->
+	Hotc.transaction db
+	  (fun db -> 
+	    _incr_i db >>= fun () ->
+	    let (ro:string option) = _user_function db name po in
+	    Lwt.return ro)
+    )
+      (function 
+	| ex ->
+	  Hotc.transaction db (fun db -> _incr_i db) 
+	  >>= fun () -> Lwt.fail ex)
 
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)
