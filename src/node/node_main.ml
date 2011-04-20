@@ -146,7 +146,7 @@ let _log_rotate cfg i get_cfgs =
   Lwt_log.close logger >>= fun () ->
   Lwt.return ()
 
-let log_prelude() =
+let log_prelude cluster_cfg =
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
@@ -154,6 +154,10 @@ let log_prelude() =
   Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Hard) 
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
+  >>= fun () ->
+  Lwt_log.info_f "master=%s" (master2s cluster_cfg._master) >>= fun () ->
+  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
+  Lwt.return ()
 
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
@@ -262,7 +266,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let _ = Lwt_unix.on_signal 10
 	(fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
-      log_prelude() >>= fun () ->
+      log_prelude cluster_cfg >>= fun () ->
       let my_name = me.node_name in
       let cookie = cluster_id in
       let messaging  = _config_messaging me cfgs cookie me.is_laggy in
@@ -270,8 +274,6 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	begin
 	  Lwt_list.iter_s (Lwt_log.info_f "other: %s")
 	    other_names >>= fun () ->
-	  Lwt_log.info_f "master=%s" (master2s master) >>= fun () ->
-	  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
 	  Lwt_log.info_f "quorum_function gives %i for %i" 
 	    (quorum_function n_nodes) n_nodes >>= fun () ->
 	  let db_name = full_db_name me in
