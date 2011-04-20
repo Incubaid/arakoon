@@ -114,6 +114,7 @@ let _insert_update (store:store) update =
 	  Lwt.return (Ok ro)
 	)
 	(function
+	  | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
 	  | e -> 
 	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	    and msg = Printexc.to_string e 

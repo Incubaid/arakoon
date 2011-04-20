@@ -223,7 +223,7 @@ object(self: #backend)
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail(rc,str) -> Lwt.fail(Failure str)
+      | Store.Update_fail(rc,str) -> Lwt.fail(Common.XException (rc,str))
       | Store.Ok x -> Lwt.return x
 
   method test_and_set key expected (wanted:string option) =
