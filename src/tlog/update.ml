@@ -30,6 +30,7 @@ module Update = struct
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | Nop
+    | Assert of string * string option
     | UserFunction of string * string option
 
   let make_master_set me maybe_lease =
@@ -37,16 +38,16 @@ module Update = struct
       | None -> MasterSet (me,0L)
       | Some lease -> MasterSet (me,lease)
 
+  let _size_of = function
+    | None -> 0
+    | Some w -> String.length w
+
   let rec string_of = function
     | Set (k,v)             -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
     | Delete k              -> Printf.sprintf "Delete    ;%S" k
     | MasterSet (m,i)       -> Printf.sprintf "MasterSet ;%S;%Ld" m i
     | TestAndSet (k, _, wo) -> 
-      let ws = 
-	match wo with
-	  | None -> 0
-	  | Some w -> String.length w
-      in
+      let ws = _size_of wo in
       Printf.sprintf "TestAndSet;%S;%i" k ws
     | Sequence updates ->
       let buf = Buffer.create (64 * List.length updates) in
@@ -62,11 +63,12 @@ module Update = struct
       let () = loop updates in
       Buffer.contents buf
     | Nop -> "NOP"
+    | Assert (key, vo) -> 
+      let vs = _size_of vo in
+      Printf.sprintf "Assert    ;%S;%i" key vs
+      
     | UserFunction (name,param) -> 
-      let ps = match param with
-	| None -> 0
-	| Some p -> String.length p
-      in
+      let ps = _size_of param in
       Printf.sprintf "UserFunction;%s;%i" name ps
 
   let rec to_buffer b t =
@@ -94,6 +96,10 @@ module Update = struct
 	List.iter f us
       | Nop -> 
 	Llio.int_to b 6
+      | Assert (k,vo) ->
+	Llio.int_to  b 8;
+	Llio.string_to b k;
+	Llio.string_option_to b vo
       | UserFunction (name,param) ->
 	Llio.int_to b 7;
 	Llio.string_to b name;
@@ -136,7 +142,10 @@ module Update = struct
 	let po, pos3 = Llio.string_option_from b pos2 in
 	let r = UserFunction(n,po) in
 	r, pos3
-
+      | 8 ->
+	let k, pos2 = Llio.string_from b pos1 in
+	let vo, pos3 = Llio.string_option_from b pos2 in
+	Assert(k,vo), pos3
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

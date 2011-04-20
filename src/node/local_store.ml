@@ -98,6 +98,20 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
+let _assert bdb key vo = 
+  let pk = _p key in
+  match vo with
+    | None -> 
+      begin 
+	try let _ = Bdb.get bdb pk in false 
+	with Not_found -> true
+      end
+    | Some v ->
+      begin
+	try let v' = Bdb.get bdb pk in v = v'
+	with Not_found -> false
+      end
+    
 open Registry
 let _user_function bdb (name:string) (po:string option) =
   let f = Registry.lookup name in
@@ -119,6 +133,8 @@ let rec _sequence bdb updates =
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.UserFunction(name, po) ->
       let _ = _user_function bdb name po in ()
+    | Update.Assert(k,vo) ->
+      let _ = _assert bdb k vo in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
     | Update.Nop -> ()
@@ -296,6 +312,13 @@ object(self: #store)
 	  Hotc.transaction db (fun db -> _incr_i db) 
 	  >>= fun () -> Lwt.fail ex)
 
+  method aSSert key (vo:string option) =
+    Lwt_log.debug "local_store :: aSSert" >>= fun () ->
+    Hotc.transaction db 
+      (fun db -> _incr_i db >>= fun () ->
+	let r = _assert db key vo in
+	Lwt.return r)
+      
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)
 

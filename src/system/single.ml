@@ -276,6 +276,20 @@ let _user_function (client: Arakoon_client.client) =
       assert_equal ~printer:string_of_int ~msg:"maximum is incorrect" i 4;
       Lwt.return ()
 	
+let _assert1 (client: Arakoon_client.client) = 
+  Lwt_log.info "_assert1" >>= fun () ->
+  client # set "my_value" "my_value" >>= fun () ->
+  client # aSSert "my_value" (Some "my_value") >>= fun () ->
+  Lwt.return ()
+
+let _assert2 (client: Arakoon_client.client) = 
+  Lwt_log.info "_assert2" >>= fun () ->
+  client # set "x" "x" >>= fun () ->
+  should_fail 
+    (fun () -> client # aSSert "x" (Some "y") )
+    "PROBLEM:_assert2: yielded unit"
+    "_assert2: ok, this get should indeed fail"
+
 
 let _range_1 (client: Arakoon_client.client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
@@ -466,6 +480,9 @@ let trivial_master5 (cluster_cfg,_) = _with_master_client cluster_cfg _progress_
 
 let user_function (cluster_cfg,_) = _with_master_client cluster_cfg _user_function
 
+let assert1 (cluster_cfg,_) = _with_master_client cluster_cfg _assert1
+let assert2 (cluster_cfg,_) = _with_master_client cluster_cfg _assert2
+
 let setup () = Lwt.return (read_config "cfg/arakoon.ini", ())
 
 let teardown (_,()) =
@@ -529,4 +546,6 @@ let elect_master =
       "trivial_master4"  >:: w trivial_master4;
       "trivial_master5"  >:: w trivial_master5;
       "user_function"    >:: w user_function;
+      "assert1"          >:: w assert1;
+      "assert2"          >:: w assert2;
     ]

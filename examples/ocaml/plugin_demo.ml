@@ -44,16 +44,24 @@ let with_master_client cluster_id cfgs f =
   with_client cluster_id master_cfg f
 
 
+let vo2s = function
+  | None -> "None"
+  | Some v -> Printf.sprintf "got %S" v
+
 let plugin_demo (client:Arakoon_client.client) =
   let n = "update_max" in
   client # user_function n (Some "0") >>= fun _ ->
   client # user_function n (Some "23") >>= fun _ ->
   client # user_function n (Some "5") >>= fun vo ->
-  let msg = match vo with
-    | None -> "got None"
-    | Some v -> Printf.sprintf "got %S" v
-  in
-  Lwt_io.printl msg
+  Lwt_io.printl (vo2s vo) >>= fun () ->
+  Lwt.catch
+    (fun () -> client # user_function n (Some "x") 
+      >>= fun vo -> Lwt_io.printl (vo2s vo)
+    )
+    (function e -> 
+      let s = Printexc.to_string e in 
+      Lwt_io.printlf "oops %s" s
+    )
 
 
 let _ = 

@@ -192,6 +192,28 @@ object(self: #backend)
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
 
+  method aSSert ~allow_dirty (key:string) (vo:string option) = 
+    log_o self "aSSert %S %S" key (string_option_to_string vo) 
+    >>= fun () -> 
+    begin
+      let update = Update.Assert(key,vo) in
+      let p_value = Update.make_update_value update in 
+      let sleep,awake = Lwt.wait() in
+      let went_well = make_went_well (fun () -> ()) awake sleep in
+      push_update (Some p_value, went_well) >>= fun () ->
+      sleep >>= fun sr ->
+      log_o self "after sleep" >>= fun () -> 
+      match sr with
+	| Store.Stop -> Lwt.fail Forced_stop
+	| Store.Update_fail(rc,str) -> 
+	  log_o self "Update_fail case" >>= fun () ->
+	  Lwt.fail(Failure str)
+	| Store.Ok _ -> 
+	  log_o self "Update Ok case" >>= fun () ->
+	  Lwt.return ()
+    end
+
+
   method user_function name po = 
     log_o self "user_function %s" name >>= fun () ->
     let update = Update.UserFunction(name,po) in

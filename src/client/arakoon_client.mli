@@ -40,6 +40,8 @@ method range_entries:
 
   method set: key -> value -> unit Lwt.t
 
+  method aSSert : ?allow_dirty:bool -> key -> value option -> unit Lwt.t
+
   method delete: key -> unit Lwt.t
 
 

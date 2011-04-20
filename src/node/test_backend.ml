@@ -76,6 +76,20 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.add key value _kv;
     Lwt.return ()
 
+  method aSSert ~allow_dirty (key:string) (vo: string option) =
+    Lwt_log.debug_f "test_backend :: aSSert %s" key >>= fun () ->
+    let ok = match vo with
+      | None -> StringMap.mem key _kv = false
+      | Some v -> StringMap.find key _kv = v
+    in
+    if not ok 
+    then 
+      let rc = Arakoon_exc.E_ASSERTION_FAILED
+      and msg = Printf.sprintf "assert %s %S" key ("XXX") 
+      in Lwt.fail (Arakoon_exc.Exception (rc, msg))
+    else Lwt.return ()
+
+
   method get ~allow_dirty (key:string) =
     let value = StringMap.find key _kv in
     Lwt.return value

@@ -101,6 +101,16 @@ object (self: #store)
     let () = master <- Some (master', now64()) in
     Lwt.return ()
 
+  method aSSert key vo =
+    let r = 
+      match vo with
+	| None -> not (StringMap.mem key kv)
+	| Some v -> 
+	  begin 
+	    try StringMap.find key kv = v 
+	    with Not_found -> false 
+	  end
+    in Lwt.return r
   method who_master () =
     Lwt.return master
 

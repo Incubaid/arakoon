@@ -38,6 +38,7 @@ type client_command =
   | WHO_MASTER
   | EXISTS
   | GET
+  | ASSERT
   | SET
   | DELETE
   | RANGE
@@ -71,6 +72,7 @@ let code2int = [
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
   USER_FUNCTION           , 0x15l;
+  ASSERT                  , 0x16l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
@@ -153,6 +155,12 @@ let get_to ~allow_dirty buffer key =
   command_to buffer GET;
   Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key
+
+let assert_to ~allow_dirty buffer key vo =
+  command_to buffer ASSERT;
+  Llio.bool_to buffer allow_dirty;
+  Llio.string_to buffer key;
+  Llio.string_option_to buffer vo
 
 let set_to buffer key value =
   command_to buffer SET;

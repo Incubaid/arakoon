@@ -12,7 +12,9 @@ let update_max bdb po =
   in
   let v' = match po with
     | None -> 0
-    | Some s -> s2i s 
+    | Some s -> 
+      try s2i s 
+      with _ -> raise (Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "invalid arg"))
   in
   let m = max v v' in
   let ms = i2s m in
