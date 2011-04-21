@@ -4,9 +4,9 @@ Implementing the nodes in ocaml using Ocsigen's LWT library gives ample control 
 Besides the obvious ocaml client, Arakoon provides a pure python client as well. We have other in house projects that need it.
 
 \subsection{other clients}
-We've more or less catered for our own needs (Python and ocaml).
+We've more or less catered for our own needs (Python,ocaml and C).
 Other clients will have to implement our client-node protocol. 
-Meanwhile, someone wrote an experimental Erlang client in less than a day's work. We're also contemplating a pure C client.
+Meanwhile, someone wrote an experimental Erlang client in less than a day's work. We're starting to run into problems because we have to maintain 3 clients instead of one.
 
 \subsection{local key/value store}
 We've picked tokyo cabinet. 

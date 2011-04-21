@@ -94,6 +94,7 @@ let _ = dispatch & function
        "doc/part3.tex";
        "doc/state_machine.tex";
        "doc/states.eps";
+       "doc/nursery.tex";
       ];
     rule "Extract .tar.gz"
       ~dep:"3rd-party/%(f).tar.gz"

@@ -1,0 +1,25 @@
+%\section{Scaling arakoon}
+%We want to be able to use arakoon for increasingly large key-value spaces. 
+%For a single arakoon cluster the capacity is limited by the size of a single disk. So it is only natural to allow different arakoon clusters to team up. 
+%A nursery\footnote{after a \emph{a nursery of raccoons}} provides a semi-unified view on a set of arakoon clusters. 
+%Each cluster is uniquely responsible for a prefix range. 
+%\subsection{Limitations}
+%\subsubsection{impact on sequences}
+%Sequences are multiple updates that are done atomically. 
+%Since atomicity can only be achieved inside 1 cluster, this means that all keys for a sequence need to share the same prefix.
+%\subsubsection{impact on ranges}
+%Every cluster is responsible for a specific range. 
+%As client range query will only be served by a single cluster, it means that only ranges that are subranges of cluster ranges can be served.
+%\subsection{Migrations}
+%Once a cluster is filled, one needs to be able to split it, or move part of its range elsewhere. This process is called migration.
+%Each cluster has a \emph{public} range $[k_b,k_e)$ it serves. 
+%Each cluster also has a \emp{private} range it contains. 
+%As such, migrating a part of a cluster's range to another cluster becomes feasible. If we're moving keys away from a \emph{source} cluster to a \emph{target} cluster, we
+%\begin{itemize}
+%\item{} step 1
+%\item{} step 2
+%\item{} step 3
+%\item{} step 4
+%\end{itemize}
+%\section{Limitations to Tokyo Cabinet}
+%Tokyo Cabinet will not cope with values of 1MB; event 10KB gives problems if yo%u don't tweak the parameters. In essence, allowing both 1B and 1MB in the same %Btree will explode.

@@ -122,7 +122,7 @@ let _maybe_daemonize daemonize cfg get_cfgs =
 	~stdout:`Dev_null
 	~stderr:`Dev_null
 	();
-      let _ = _config_logging cfg.node_name get_cfgs in
+      (* let _ = _config_logging cfg.node_name get_cfgs in *)
       Lwt.return()
     end
   else
@@ -270,12 +270,14 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       let my_name = me.node_name in
       let cookie = cluster_id in
       let messaging  = _config_messaging me cfgs cookie me.is_laggy in
+      Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
+      Lwt_list.iter_s (Lwt_log.info_f "other: %s")
+	other_names >>= fun () ->
+      Lwt_log.info_f "quorum_function gives %i for %i" 
+	(quorum_function n_nodes) n_nodes >>= fun () ->
+      Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
       let build_startup_state () = 
 	begin
-	  Lwt_list.iter_s (Lwt_log.info_f "other: %s")
-	    other_names >>= fun () ->
-	  Lwt_log.info_f "quorum_function gives %i for %i" 
-	    (quorum_function n_nodes) n_nodes >>= fun () ->
 	  let db_name = full_db_name me in
 	  make_store db_name >>= fun (store:Store.store) ->
           Lwt.catch
@@ -417,9 +419,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	    | _ -> Multi_paxos_fsm.enter_simple_paxos
 	in to_run constants buffers new_i vo
       in
-      Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
       _maybe_daemonize daemonize me make_config >>= fun _ ->
-      Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
       Lwt.catch
 	(fun () ->
 	  Lwt.pick [ 
