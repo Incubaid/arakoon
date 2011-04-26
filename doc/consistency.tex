@@ -1,9 +1,9 @@
 
 \section{Consistent updates}
 An update is sent to the master.
-The master adds it to its log, and tries to get concensus about the update with the slaves.
-Once concensus has been reached about the first log entry,
-the master  adds the entry to the persistent local key-value store.
+The master adds it to its log, and tries to get consensus about the update with the slaves.
+Once consensus has been reached about the first log entry,
+the master adds the entry to the persistent local key-value store.
 Slaves can move the updates from their log
 into their local key-value store asynchronously.
 
@@ -52,7 +52,8 @@ Its replication counter I is still within the log of the master
 So the slave first downloads the missing part of the log.
 Then it iterates over the tlog while adding the missing updates to the store.
 When finished the client again compares its log state with that of the other nodes. 
-It's either in back in sync or again within in a small lapse.
+It's either in back in sync or again within in a small lapse. 
+When the master is under load, it can be that a slave loops here until the master slows down.
 
 \paragraph{big lapse}
 Small lapse would be enough if one keeps the log files. 

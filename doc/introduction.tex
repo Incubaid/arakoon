@@ -3,7 +3,7 @@
 This document was written mainly before we started building Arakoon. 
 It served the purpose as a basis of discussion, 
 trying to get consensus on what we were going to build, before we build it. 
-We regularly come back to this document to record decisions, and to keep it anchored to reality. Currently, it's not well structured, the focus being on \emph{getting the information in there first}. 
+We regularly come back to this document to record decisions, and to keep it anchored to reality. Currently, it's not very well structured, the focus being on \emph{getting the information in there first}. 
 Hopefully there will eventually be time to clean it up.
 \subsection{why Arakoon?}
 We have been using several distributed non relational data stores for a long time now, and it has not been a satisfying experience.
@@ -43,6 +43,8 @@ Keyspace supports this, but not when there is no expected value.
 This makes it impossible to atomically set a value only if it was not present.
 An Arakoon \emph{test\_and\_set} can be used to set a new value, 
 update an existing value, or remove an existing value.
+It's also important to notice Arakoon returns the \emph{old} value after a
+\emph{test\_and\_set}, allowing one to determine whether an update took place
 \paragraph{Keyspace defects}
 \begin{itemize}
 
@@ -51,7 +53,8 @@ update an existing value, or remove an existing value.
 \item{} Keyspace nodes happily accept data even when the disk is full.
 \item{} Several cluster in limbo (no updates possible) scenarios.
 \item{} abandoned python client. There used to be a pure python client, 
-but now it's abandoned in favour of a \emph{SWIGed around C} library. 
+but now it's abandoned in favour of a \emph{SWIGed around C} library, 
+which enforces it's own reconnection strategy.
 \item{} Berkeley DB. 
 
 \end{itemize}

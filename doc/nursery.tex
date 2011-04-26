@@ -5,7 +5,8 @@ So it is only natural to allow different arakoon clusters to team up.
 A nursery\footnote{after a \emph{a nursery of raccoons}} provides a semi-unified view on a set of arakoon clusters. 
 Each cluster is uniquely responsible for a prefix range. 
 \subsection{Limitations}
-The simple strategy of mapping a cluster to a range of keys already implies some limitations compared to the single cluster setup. As a result applications willing to scale from a single cluster to a nursery need to do some planning.
+The simple strategy of mapping a cluster to a range of keys already implies some limitations compared to the single cluster setup. 
+As a result, applications willing to scale from a single cluster to a nursery need to do some planning.
 \subsubsection{impact on sequences}
 Sequences are multiple updates that are done atomically. 
 Since atomicity can only be achieved inside 1 cluster, this means that all keys for a sequence need to share the same prefix. 
@@ -29,14 +30,12 @@ $[k_e,k_z)$ to $[k_e - a, k_z)$
         update the private range on the source to $[k_e - a, k_e)$.
 \end{itemize}
 This work can be done by a privileged client responsible for the migration. 
-That client can die at any point, and at resumption figure out what it needs to do to complete the task. 
+That client can die at any point, and figure out, at resumption, what it needs to do to complete the task. 
 The problem with the migration strategy is that there is a point in time where none of the clusters is serving $[k_e -a, k_e)$, so any request for anything in that range is refused.
+
 \subsection{Client side support}
 \ldots routing tables \ldots how to get them \ldots \\
 It's not really important that the nursery clients have correct routing tables. 
 If a client asks something from a cluster that's not able to comply, it will simply refuse. This means that either there is some migration, or that the client has outdated routing information. In that case, it can simply refetch the ranges from the clusters it knows.
 
-\section{Limitations to Tokyo Cabinet}
-Tokyo Cabinet will not cope with values of 1MB; 
-even 10KB gives problems if you don't tweak the parameters. 
-In essence, allowing both 1B and 1MB in the same Btree will explode.
+

@@ -11,7 +11,10 @@ Meanwhile, someone wrote an experimental Erlang client in less than a day's work
 \subsection{local key/value store}
 We've picked tokyo cabinet. 
 Our client interface matches its api quite well. 
-It might be an idea to make this pluggable, but we don't need this at the moment
+It might be an idea to make this pluggable, but we don't need this at the moment.
+Tokyo Cabinet is great for small values, but it will not cope with values of 1MB; 
+even 10KB gives problems if you don't tweak the parameters. 
+In essence, allowing both 1B and 1MB in the same BTree will eventually explode.
 
 \subsection{forced master and quorum}
 We needed to solve the case where you have only 2 nodes.

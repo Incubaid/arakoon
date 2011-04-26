@@ -13,21 +13,27 @@ Just above the socket layer, there's an abstract messaging layer, where you can 
 The client node communication has different needs, and hence a rpc like approach will be used. Following table describes what we do with primitives.
 Just note that a list should be written out head first, so that naieve de-serialization will return the original.
 \begin{table}[ht]
-\begin{tabular}{lll}
+\begin{tabular}{|l|l|l|}
+\hline
 type  &   marshalled form & size (bytes)          \\
 \hline
 bool        & false $\rightarrow 0 | $ true $ \rightarrow 1   $ & 1 \\
-int32       & big endian          & 4             \\
-int64       & big endian          & 8             \\
+int32       & little endian          & 4             \\
+int64       & little endian          & 8             \\
 string      & [size:$int_{32}$][bytes] & 4 + n     \\
 float       & IEE754 double       & 8             \\
 x option    & 0x00 (None) or 0x01 [x] & $|x| + 1$ \\
-x list      & [size:$int_{32}$][$x_{n-1}$]\ldots[$x_{0}$] \\
-x array     & [size:$int_{32}$][$x_{0}$]\ldots[$x_{n-1}$] \\
-\hline \\
-Set(key,value) & [1:$int_{32}$][key:string][value:string]\\
-Delete(key) & [2:$int_{32}$][key:string]\\
-sequence    & [size(data):$int_{32}$][$bytes(data)$] \\
+x list      & [size:$int_{32}$][$x_{n-1}$]\ldots[$x_{0}$]       &\\
+x array     & [size:$int_{32}$][$x_{0}$]\ldots[$x_{n-1}$]       &\\
+\hline 
+1:int32     & 0x01000000         & \\
+70000:int32 & 0x70110100         & \\
+3.14:float  & 0x1f85eb51b81e0940 & \\
+\hline 
+Set(key,value) & [1:$int_{32}$][key:string][value:string] & \\
+Delete(key) & [2:$int_{32}$][key:string]                  & \\
+sequence    & [size(data):$int_{32}$][$bytes(data)$]      & \\
+
 \hline
 \end{tabular}
 \end{table}
@@ -57,27 +63,13 @@ Then the response code and response are written.
 If a failure happens, the server writes out a return code different from zero, and a string with a message after which he closes the connection.
 
 The command codes and return codes are listed below.
-The first thing a client does after establishing a connection is a \emph{hello} call so that the server can identify the client (handy for logging, etc).
-\begin{table}[ht]
-\begin{tabular}{ll}
-return code & condition \\
-\hline
-0x0000 0000  & success!  \\
-0x0000 0001  & command has no magic  \\
-0x0000 0002  & too many dead nodes \\
-0x0000 0003  & no hello        \\
-0x0000 0004  & not master      \\
-0x0000 0005  & not found       \\
-\ldots       & \ldots          \\
-0x0000 00ff  & unknown failure \\
-\end{tabular}
-\end{table}
 
 \begin{table}[ht]
-\begin{tabular}{ll}
+\begin{tabular}{|l|l|}
+\hline
 command & code \\
 \hline
-hello          & 0x0000 0001 \\
+ping           & 0x0000 0001 \\
 who\_master    & 0x0000 0002 \\
 exists         & 0x0000 0007 \\
 get            & 0x0000 0008 \\
@@ -91,6 +83,24 @@ range\_enties  & 0x0000 000f \\
 sequence       & 0x0000 0010 \\
 multi\_get     & 0x0000 0011 \\
 expect\_progress\_possible & 0x0000 0012 \\
+user\_function & 0x0000 0015 \\
+assert         & 0x0000 0016 \\
 \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\begin{tabular}{|l|l|}
+\hline
+return code & condition \\
+\hline
+0x0000 0000  & success!  \\
+0x0000 0001  & command has no magic  \\
+0x0000 0002  & too many dead nodes \\
+0x0000 0003  & no hello        \\
+0x0000 0004  & not master      \\
+0x0000 0005  & not found       \\
+\ldots       & \ldots          \\
+0x0000 00ff  & unknown failure \\
 \end{tabular}
 \end{table}

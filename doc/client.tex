@@ -10,20 +10,20 @@ we need to introduce some notational tools to make it easier to convey things in
 \hline
   :                & has type \\
 unit               & aka void  \\
-a list             & a list of items of type a \\
-a array            & a fixed size sequence of items of type a \\
-a option           & either (Some a) or None \\
+x list             & a list of items of type x \\
+x array            & a fixed size sequence of items of type x \\
+x option           & either (Some x) or None \\
 string             & char array \\
 
-$ a \rightarrow b$ & a function from a to b \\
-a C.t              & something that eventually yields something of type a \\
+$ x \rightarrow y$ & a function from x to y \\
+x C.t              & something that \emph{eventually yields} something of type x \\
 \hline
 \end{tabular}
 \end{table}
 
 For example $ a : string $ just means that $a$ is a $string$;
-$fibonacci : int \rightarrow int$ just means that fibonnacci is a function that takes an integer, and produces an integer as result;
-$cat : string \rightarrow string \rightarrow string$ reads as 'cat is a function that takes 2 strings and yields a string as result'
+$fibonacci : int \rightarrow int$ just means that fibonnacci is a function that takes an integer, and returns an integer as result;
+$cat : string \rightarrow string \rightarrow string$ reads as 'cat is a function that takes 2 strings and returns a string as result'
 
 $write: channel \rightarrow string \rightarrow unit\ C.t$ reads as 'write takes a channel and a string and eventually yields unit.
 
@@ -42,7 +42,15 @@ You can look up a value if you have the key. It will eventually yield either a v
 \paragraph{set : key $\rightarrow$ value $\rightarrow$ unit C.t}
 You can update a value for a key, regardless of current value (if any).
 \paragraph{delete : key $\rightarrow$ unit C.t}
-You can remove a key/value pair. There was a suggestion to open this op to allow a regular expression.
+You can remove a key/value pair. 
+There was a suggestion to open this op to allow a regular expression.
+
+\paragraph{test\_and\_set : key $\rightarrow$ value option $\rightarrow$ value option $\rightarrow$ (value option) C.t} This is a careful update.
+\emph{test\_and\_set k expected new} only modifies the value to \emph{new} if the old value is \emph{expected}.
+The originaly stored value will be returned.
+Using a \emph{value option} instead of a value allows you to only set a value only if there was none for that key.
+Using \emph{None} as new allows you to do a careful delete as well.
+
 \paragraph{range : key option $\rightarrow$ bool $\rightarrow$
   key option $\rightarrow$ bool $\rightarrow$
   int $\rightarrow$ key list C.t}
@@ -57,24 +65,19 @@ The keys fall in the range \emph{kbey..ekey}.
 will yield a list of key value pairs.
 The parameters have the same semantics as for the range method.
 
-\paragraph{test\_and\_set : key $\rightarrow$ value option $\rightarrow$ value option $\rightarrow$ (value option) C.t} This is a careful update.
-\emph{test\_and\_set k expected new} only modifies the value to \emph{new} if the old value is \emph{expected}.
-The originaly stored value will be returned.
-Using a \emph{value option} instead of a value allows you to only set a value only if there was none for that key.
-Using \emph{None} as new allows you to do a careful delete as well.
-\paragraph{hello : string $\rightarrow$ string $\rightarrow$ string C.t}
-The client identifies itself to the server and tells the server the cluster id, 
-and the server replies with its version string.
+\paragraph{sequence: update list $\rightarrow$ unit C.t}
+Provides an atomic multi-update. Either all updates are performed or none. 
+While this is not a full transaction, it provides enough functionality to safeguard consistency.
+
+%\paragraph{hello : string $\rightarrow$ string $\rightarrow$ string C.t}
+%The client identifies itself to the server and tells the server the cluster id, and the server replies with its version string.
+
 \paragraph{who\_master: unit $\rightarrow$ string option C.t}
 Allows the client to know which node currently acts as master.
 If there is no master, or it is not known to this node, the result is None.
 %
 %\paragraph{last\_entries: int $\rightarrow$ out\_channel $\rightarrow$ unit C.t}
 %allows the client to stream the transaction log into a channel, starting from entry $i$
-
-\paragraph{sequence: update list $\rightarrow$ unit C.t}
-Provides an atomic multi-update. Either all updates are performed or none. 
-While this is not a full transaction, it provides enough functionality to safeguard consistency.
 
 \paragraph{multi\_get: key list $\rightarrow$ (value list) C.t}
 Allows you to fetch multiple values in one roundtrip to the server.
