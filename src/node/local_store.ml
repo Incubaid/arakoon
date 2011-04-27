@@ -293,8 +293,13 @@ object(self: #store)
       | Key_not_found key -> Hotc.transaction db ( fun db ->
           _incr_i db
         ) >>= fun () ->
-        Lwt.fail ( Key_not_found key )
-      | ex -> Lwt.fail ex
+        Lwt.fail (Key_not_found key)
+      | Common.XException (rc,msg) ->
+        Hotc.transaction db ( fun db ->
+          _incr_i db
+        ) >>= fun () ->
+        Lwt.fail  ( Common.XException (rc,msg) )
+      | ex ->  Lwt.fail ex
     )
 
   method user_function name (po:string option) = 
@@ -306,18 +311,18 @@ object(self: #store)
 	    _incr_i db >>= fun () ->
 	    let (ro:string option) = _user_function db name po in
 	    Lwt.return ro)
-    )
-      (function 
-	| ex ->
-	  Hotc.transaction db (fun db -> _incr_i db) 
-	  >>= fun () -> Lwt.fail ex)
+    ) (function 
+      | Common.XException(rc, msg) ->
+        Hotc.transaction db ( fun db -> _incr_i db ) >>= fun () ->
+        Lwt.fail  ( Common.XException (rc,msg) )
+      | ex -> Lwt.fail ex)
 
   method aSSert key (vo:string option) =
     Lwt_log.debug "local_store :: aSSert" >>= fun () ->
     Hotc.transaction db 
       (fun db -> _incr_i db >>= fun () ->
-	let r = _assert db key vo in
-	Lwt.return r)
+    let r = _assert db key vo in
+    Lwt.return r)
       
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)
