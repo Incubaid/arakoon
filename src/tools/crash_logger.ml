@@ -91,7 +91,7 @@ let setup_crash_log crash_file_gen =
       Lwt.catch 
 	loop
 	(function 
-	  | End_of_file -> Lwt.return ()
+	  | Lwt_sequence.Empty -> Lwt.return ()
 	  | e -> Lwt.fail e)
     in
     let crash_file_path = crash_file_gen () in

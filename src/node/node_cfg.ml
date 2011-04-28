@@ -246,5 +246,18 @@ module Node_cfg = struct
 
   let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
 
-
+  open Lwt
+  let validate_dirs t = 
+    Lwt_log.debug "Node_cfg.validate_dirs" >>= fun () ->
+    let is_ok name = 
+      try
+	let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
+      with _ -> false
+    in
+    let home_ok = is_ok t.home
+    and tlog_ok = is_ok t.tlog_dir in
+    if home_ok && tlog_ok then Lwt.return ()
+    else 
+      let d = if home_ok then t.tlog_dir else t.home in
+      Llio.lwt_failfmt "dir '%s' :non existing or insufficient permissions" d
 end
