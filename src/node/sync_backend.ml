@@ -82,6 +82,11 @@ class sync_backend cfg push_update
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
   let blockers_cond = Lwt_condition.create() in
+  let assert_value_size value = 
+    let length = String.length value in
+    if length >= (8 * 1024 * 1024) then
+      raise (Arakoon_exc.Exception (Arakoon_exc.E_UNKNOWN_FAILURE, "value too large"))
+  in
   
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
@@ -181,7 +186,8 @@ object(self: #backend)
     Lwt.return key_list
 
   method set key value =
-    log_o self "set %S %S" key value >>= fun () ->
+    log_o self "set %S" key >>= fun () ->
+    let () = assert_value_size value in
     let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
@@ -191,6 +197,10 @@ object(self: #backend)
       (string_option_to_string expected) 
       (string_option_to_string wanted)
     >>= fun () ->
+    let () = match wanted with
+      | None -> ()
+      | Some w -> assert_value_size w 
+    in 
     self # _only_if_master () >>= fun () ->
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
