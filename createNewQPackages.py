@@ -99,6 +99,7 @@ p.install()
 
 packages = list()
 p = createNewPackage('arakoon', 'Version %s of the arakoon key value store' % new_version, prev_version, new_version )
+p.qpackage.addDependency( 'pylabs.org', 'arakoon_client', [q.enumerators.PlatformType.LINUX64], minversion=new_version, maxversion=new_version, dependencytype=q.enumerators.DependencyType4.RUNTIME)
 packages.append(p)
 createNewPackage('arakoon_client', 'Version %s of the arakoon client' % new_version, prev_version, new_version )
 packages.append(p)
