@@ -627,8 +627,8 @@ class ArakoonCluster:
         if not typ == type(1):
             raise Exception("%s=%s (type = %s) but should be an int" % (name, value, typ))
     def __validateName(self, name):
-        if name is None:
-            raise Exception("A name should be passed. None is not an option")
+        if name is None or name.strip() == "":
+            raise Exception("A name should be passed.  An empty name is not an option")
 
         if not type(name) == type(str()):
             raise Exception("Name should be of type strinq.config.getInifile(clusterId)g")
