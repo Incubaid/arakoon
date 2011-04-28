@@ -26,7 +26,7 @@ import struct
 
 _COLLAPSE_TLOGS = 0x14
 _MAGIC   = 0xb1ff0000
-_VERSION = 0x00000000
+_VERSION = 0x00000001
 
 def _int_to(i):
     r = struct.pack("I", i)
@@ -45,33 +45,33 @@ def _string_to(s):
     r = struct.pack("I%ds" % size, size, s)
     return r
 
-def _prologue(clusterId, socket):
+def _prologue(clusterId, sock):
     m  = _int_to(_MAGIC)
     m += _int_to(_VERSION)
     m += _string_to(clusterId)
-    socket.sendall(m)
+    sock.sendall(m)
 
-def _receive_all(socket,n):
+def _receive_all(sock,n):
     todo = n
     r = ""
     while todo:
-        chunk = socket.recv(todo)
+        chunk = sock.recv(todo)
         todo -= len(chunk)
         r += chunk
     return r
 
-def _receive_int(socket):
-    sizes = _receive_all(socket,4)
+def _receive_int(sock):
+    sizes = _receive_all(sock,4)
     i,_  = _int_from(sizes,0)
     return i
 
-def _receive_int64(socket):
-    buf = _receive_all(socket, 8)
+def _receive_int64(sock):
+    buf = _receive_all(sock, 8)
     i64,_ = _int64_from(buf,0)
     
-def _receive_string(socket):
-    size = _receive_int(socket)
-    s = _receive_all(socket,size)
+def _receive_string(sock):
+    size = _receive_int(sock)
+    s = _receive_all(sock,size)
     return s
 
 
@@ -97,7 +97,7 @@ def collapse(ip, port, clusterId, n):
         if rc:
             msg   = _receive_string(s)
             raise Exception(rc, msg)
-        collapse_count = _receive_int(socket)
+        collapse_count = _receive_int(s)
         for i in range(collapse_count):
             took = _receive_int64(s)
             logging.info("took %l", took)
