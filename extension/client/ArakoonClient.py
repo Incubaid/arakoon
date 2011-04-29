@@ -36,13 +36,13 @@ class ArakoonClientExtConfig:
         self._clusterId = clusterId
         self._configPath = configPath
 
-    def addNode(self, name, ip, client_port):
+    def addNode(self, name, ip, clientPort):
         """
         Add a node to the client configuration
 
         @param name: the name of the node
         @param ip: the ip  the node
-        @param client_port: the port of the node
+        @param clientPort: the port of the node
         """
         self.__validateName(name)
         
@@ -65,7 +65,7 @@ class ArakoonClientExtConfig:
         config.addSection(name)
         config.addParam(name, "name", name)
         config.addParam(name, "ip", ip) 
-        config.addParam(name, "client_port", client_port)
+        config.addParam(name, "client_port", clientPort)
 
         config.setParam("global","cluster", ",".join(nodes))
 
