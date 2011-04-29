@@ -276,6 +276,8 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       Lwt_log.info_f "quorum_function gives %i for %i" 
 	(quorum_function n_nodes) n_nodes >>= fun () ->
       Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
+      Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
+
       let build_startup_state () = 
 	begin
 	  let db_name = full_db_name me in
@@ -425,23 +427,21 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	  Lwt.pick [ 
 	    messaging # run ();
 	    begin
-	      Lwt.finalize 
-		(fun () ->
-		  build_startup_state () >>= fun (start_state,
-						  service, 
-						  rapporting) -> 
-		  Lwt.pick[ start_backend start_state;
-			    service ();
-			    rapporting();
-			  ]
-		)
-		(fun () -> Lwt_log.fatal "after pick" >>= fun() ->
-		  match ! dump_crash_log with
-		    | None -> Lwt_log.info "Not dumping state"
-		    | Some f -> f() )
+	      build_startup_state () >>= fun (start_state,
+					      service, 
+					      rapporting) -> 
+	      Lwt.pick[ start_backend start_state;
+			service ();
+			rapporting();
+		      ]
 	    end
 	  ])
-	(fun exn -> Lwt_log.fatal ~exn "going down")
+	(fun exn -> 
+	  Lwt_log.fatal ~exn "going down" >>= fun () ->
+	  Lwt_log.fatal "after pick" >>= fun() ->
+	  match ! dump_crash_log with
+	    | None -> Lwt_log.info "Not dumping state"
+	    | Some f -> f() )
     end
 
 
