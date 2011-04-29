@@ -276,10 +276,10 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
       Lwt_log.info_f "quorum_function gives %i for %i" 
 	(quorum_function n_nodes) n_nodes >>= fun () ->
       Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
-      Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
 
       let build_startup_state () = 
 	begin
+	  Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
 	  let db_name = full_db_name me in
 	  make_store db_name >>= fun (store:Store.store) ->
           Lwt.catch

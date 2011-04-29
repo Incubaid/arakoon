@@ -259,6 +259,6 @@ module Node_cfg = struct
     if home_ok && tlog_ok then Lwt.return ()
     else 
       let d = if home_ok then t.tlog_dir else t.home in
-      Llio.lwt_failfmt "dir '%s' :non existing or insufficient permissions" d
+      Llio.lwt_failfmt "dir '%s' : non existing or insufficient permissions" d
 
 end
