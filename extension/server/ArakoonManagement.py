@@ -328,7 +328,7 @@ class ArakoonCluster:
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % name)
+                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId) )
             _set(g,m,name)
             if preferred:
                 _set(g,pm,'true')
