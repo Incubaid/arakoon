@@ -521,11 +521,14 @@ class ArakoonCluster:
         if not config.checkSection("global"):
             return
 
-        if config.checkSection(name):
+        node_str = config.getValue("global", "cluster").strip()
+        nodes = node_str.split(',')
+        if name in nodes:
             nodes.remove(name)
-            config.setParam("global","cluster", ",".join(nodes))
+            node_str = ','.join(nodes)
+            config.setParam("global","cluster", node_str)
             config.write()
-
+            
     def listLocalNodes(self):
         """
         Get a list of the local nodes in the supplied cluster
