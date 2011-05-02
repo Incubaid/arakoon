@@ -81,13 +81,16 @@ def collapse(ip, port, clusterId, n):
     tell the node listening on (ip, port) to collapse, and keep n tlog files 
     @type ip: string
     @type port: int
-    @type n: int
+    @type n: int > 0
     @type clusterId:string
     @param clusterId: must match cluster id of the node
     """
+    if n < 1: 
+        raise ValueError("%i is not acceptable" % n)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sa = (ip, port)
     s.connect(sa)
+    
     try:
         _prologue(clusterId, s)
         cmd  = _int_to(_COLLAPSE_TLOGS | _MAGIC)
