@@ -201,6 +201,7 @@ and port = ref 4000
 and cluster_id = ref "<none>"
 and size = ref 10 
 and tx_size = ref 100
+and max_n = ref (1000 * 1000 )
 and daemonize = ref false
 and test_repeat_count = ref 1
 and counter = ref 0
@@ -278,6 +279,7 @@ let actions = [
    "size of the values (only for --benchmark)");
   ("-tx_size", Arg.Set_int tx_size,
    "size of transactions (only for --benchmark)");
+  ("-max_n", Arg.Set_int max_n, "benchmark size (for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
   ("--collapse", Arg.Tuple[set_laction Collapse;
 			   Arg.Set_string tlog_dir;
@@ -313,7 +315,7 @@ let do_local = function
   | UncompressTlog -> uncompress_tlog !filename
   | SET -> Client_main.set !config_file !key !value
   | GET -> Client_main.get !config_file !key
-  | BENCHMARK -> Client_main.benchmark !config_file !size !tx_size
+  | BENCHMARK -> Client_main.benchmark !config_file !size !tx_size !max_n
   | DELETE -> Client_main.delete !config_file !key
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
