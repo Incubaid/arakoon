@@ -569,7 +569,10 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             tryCnt += 1
             client.set( key,value )
             assert_equals( client.get(key), value )
-            client.delete( key )
+            try:
+                client.delete( key )
+            except ArakoonNotFound:
+                logging.debug("Not found furing master switch")
             # assert_raises ( ArakoonNotFound, client.get, key )
             failed = False
             last_ex = None
