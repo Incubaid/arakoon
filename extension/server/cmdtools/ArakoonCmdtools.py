@@ -158,6 +158,12 @@ class ArakoonCmdtools:
                                  '-f', \
                                  '%s -daemonize -config %s/%s.cfg --node %s' % (self._binary, self._cfgPath, cluster, name)], \
                                 close_fds=True)
+                cnt = 0
+                while (self._getStatusOne(name, cluster) == q.enumerators.AppStatusType.RUNNING ) :
+                    time.sleep(1)
+                    cnt += 1
+                    if( cnt > 10):
+                        break
                 break
             else:
                 subprocess.call(['pkill', \
