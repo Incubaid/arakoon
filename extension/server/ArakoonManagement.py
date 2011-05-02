@@ -794,6 +794,12 @@ class ArakoonCluster:
             if i == 10:
                 logging.debug("stopping '%s' with -9")
                 subprocess.call(['pkill', '-9', '-fx', line], close_fds=True)
+                cnt = 0
+                while (self._getStatusOne(name, cluster = cluster) == q.enumerators.AppStatusType.RUNNING ) :
+                    time.sleep(1)
+                    cnt += 1
+                    if( cnt > 10):
+                        break
                 break
             else:
                 subprocess.call(cmd, close_fds=True)
