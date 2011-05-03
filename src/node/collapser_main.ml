@@ -61,6 +61,11 @@ let collapse tlog_dir n_tlogs =
 
 let collapse_remote ip port cluster_id n = 
   let t () = 
+    begin
+      if n < 1 
+      then Lwt.fail (Failure ("n should be >= 1"))
+      else Lwt.return ()
+    end >>= fun () ->
     let address = Network.make_address ip port in
     let collapse conn =
       Remote_nodestream.make_remote_nodestream cluster_id conn

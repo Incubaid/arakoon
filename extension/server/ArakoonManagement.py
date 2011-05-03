@@ -725,7 +725,7 @@ class ArakoonCluster:
         """
         Tell the targetted node to collapse n tlog files
         @type nodeName: string
-        @type n: int
+        @type n: int > 0
         """
         config = self.getNodeConfig(nodeName)
         ip = config['ip']

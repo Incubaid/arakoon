@@ -128,14 +128,17 @@ let _range (client:Arakoon_client.client) ()  =
   Lwt_io.printlf "#keys %i" (List.length keys)
 
 
-let benchmark ?(size=10) ?(tx_size=100) (client:Arakoon_client.client) =
+let benchmark 
+    ?(size=10) 
+    ?(tx_size=100) 
+    ?(max_n = 1000 * 1000)
+    (client:Arakoon_client.client) =
   let sz = if size < 10 then 10 else size in
   client # who_master () >>= fun master ->
   Lwt_io.printlf "Master %s; size=%i" 
     (Log_extra.string_option_to_string master)
     sz
   >>= fun () ->
-  let max_n = 1000 * 1000 in
   (* last_entries () >>= fun () -> *)
   Lwt_io.printlf "going to do %i 'sets' of %i bytes" max_n sz >>= fun () ->
   let t0 = Unix.gettimeofday () in

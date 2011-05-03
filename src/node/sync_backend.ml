@@ -357,6 +357,15 @@ object(self: #backend)
     Lwt.return r
 
   method collapse n cb' cb = 
+    begin
+      if n < 1 then 
+	let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	and msg = Printf.sprintf "%i is not acceptable" n
+	in
+	Lwt.fail (XException(rc,msg))
+      else
+	Lwt.return ()
+    end >>= fun () ->
     let tlog_dir = Node_cfg.tlog_dir cfg in
     let new_cb tlog_name =
       let file_num = Tlc2.get_number tlog_name in
