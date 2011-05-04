@@ -42,6 +42,7 @@ let _make_cfg name n lease_period =
     is_laggy = false;
     is_learner = false;
     targets = [];
+    is_test = true;
   }
 
 let _make_tlog_coll tlcs updates tlc_name = 

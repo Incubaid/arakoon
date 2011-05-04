@@ -40,6 +40,7 @@ module Node_cfg = struct
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
+	    is_test : bool;
 	   }
 
   type cluster_cfg = 
@@ -53,7 +54,7 @@ module Node_cfg = struct
   let make_test_config n_nodes master lease_period = 
     let make_one n =
       let ns = (string_of_int n) in
-      let home = "#MEM#t_arakoon_" ^ ns in
+      let home = ":MEM#t_arakoon_" ^ ns in
       {
 	node_name = "t_arakoon_" ^ ns;
 	ip = "127.0.0.1";
@@ -61,13 +62,14 @@ module Node_cfg = struct
 	messaging_port = (4010 + n);
 	home = home;
 	tlog_dir = home;
-	log_dir = "none";
+	log_dir = ":None";
 	log_level = "DEBUG";
 	lease_period = lease_period;
 	master = master;
 	is_laggy = false;
 	is_learner = false;
 	targets = [];
+	is_test = true;
       }
     in
     let rec loop acc = function
@@ -202,6 +204,7 @@ module Node_cfg = struct
      is_laggy = is_laggy;
      is_learner = is_learner;
      targets = targets;
+     is_test = false;
     }
 
 
@@ -249,16 +252,19 @@ module Node_cfg = struct
   open Lwt
   let validate_dirs t = 
     Lwt_log.debug "Node_cfg.validate_dirs" >>= fun () ->
-    let is_ok name = 
-      try
-	let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
-      with _ -> false
-    in
-    let home_ok = is_ok t.home
-    and tlog_ok = is_ok t.tlog_dir in
-    if home_ok && tlog_ok then Lwt.return ()
-    else 
-      let d = if home_ok then t.tlog_dir else t.home in
-      Llio.lwt_failfmt "dir '%s' : non existing or insufficient permissions" d
-
+    if t.is_test then Lwt.return ()
+    else
+      begin
+	let is_ok name = 
+	  try
+	    let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
+	  with _ -> false
+	in
+	let home_ok = is_ok t.home
+	and tlog_ok = is_ok t.tlog_dir in
+	if home_ok && tlog_ok then Lwt.return ()
+	else 
+	  let d = if home_ok then t.tlog_dir else t.home in
+	  Llio.lwt_failfmt "dir '%s' : non existing or insufficient permissions" d
+      end 
 end

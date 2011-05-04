@@ -73,7 +73,7 @@ let _config_logging me get_cfgs =
   let common_prefix = log_dir ^ "/" ^ node_name in
   let log_file_name = common_prefix ^ ".log" in
   let get_crash_file_name () = Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
-  if log_dir <> "none"
+  if not cfg.is_test 
   then
     Some ( Crash_logger.setup_default_logger level log_file_name get_crash_file_name )
   else
