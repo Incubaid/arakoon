@@ -198,10 +198,10 @@ let test_validate_corrupt_1 (dn,factory) =
   _log_repeat tlc update 42 >>= fun () ->
   tlc # close () >>= fun () ->
   let fn = Filename.concat dn "000.tlog" in
-  let fd = Lwt_unix.openfile fn [Unix.O_RDWR] 0o640 in
-  let _ = Lwt_unix.lseek fd 666 Unix.SEEK_SET in
+  Lwt_unix.openfile fn [Unix.O_RDWR] 0o640 >>= fun fd ->
+  Lwt_unix.lseek fd 666 Unix.SEEK_SET >>= fun _ ->
   Lwt_unix.write fd "\x00\x00\x00\x00\x00\x00" 0 6 >>= fun _ ->
-  Lwt_unix.close fd;
+  Lwt_unix.close fd >>= fun () ->
   Lwt_log.info_f "corrupted 6 bytes" >>= fun () ->
   Lwt.catch
     (fun () -> 

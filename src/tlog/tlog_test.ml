@@ -34,13 +34,13 @@ open Extra
 let fileName = "/tmp/log"
 
 let setupTlogWriter () =
-  let outputChannel = Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC ]
-    ~perm:0o644 ~mode:Lwt_io.output fileName in
-  new tlogWriter outputChannel Sn.start
+  Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC ]
+    ~perm:0o644 ~mode:Lwt_io.output fileName >>= fun oc ->
+  Lwt.return (new tlogWriter oc Sn.start)
 
 let setupTlogReader () =
-  let ic = Lwt_io.open_file ~mode:Lwt_io.input fileName in
-  new tlogReader ic
+  Lwt_io.open_file ~mode:Lwt_io.input fileName >>= fun ic ->
+  Lwt.return (new tlogReader ic)
 
 let compareDigests calculatedMd5Hex expectedMd5Hex =
   if calculatedMd5Hex <>  expectedMd5Hex
@@ -110,8 +110,8 @@ let test_validate_empty (tlogWriter, tlogReader) =
 
 let setup () =
   Lwt_log.info "Tlog_test.setup" >>= fun () ->
-  let tlogWriter = setupTlogWriter () in
-  let tlogReader = setupTlogReader () in
+  setupTlogWriter () >>= fun tlogWriter ->
+  setupTlogReader () >>= fun tlogReader ->
   Lwt.return ( tlogWriter, tlogReader )
 
 let teardown (tlogWriter,tlogReader) =

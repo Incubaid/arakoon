@@ -54,5 +54,5 @@ let __open_connection socket_address =
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
       Lwt.return (ic,oc))
     (fun exn -> Lwt_log.info ~exn "__open_connection failed" >>= fun () ->
-      Lwt_unix.close socket;
+      Lwt_unix.close socket >>= fun () ->
       Lwt.fail exn)

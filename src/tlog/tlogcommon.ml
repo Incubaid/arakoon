@@ -35,7 +35,7 @@ let tlogFileRegex =
 
 
 let lwt_directory_list dn =
-  let h = Lwt_unix.opendir dn in
+  Lwt_unix.opendir dn >>= fun h ->
   let rec loop acc  =
     Lwt.catch
       (fun () ->
@@ -51,7 +51,7 @@ let lwt_directory_list dn =
   in
   Lwt.finalize
     (fun () -> loop [])
-    (fun () -> let () = Lwt_unix.closedir h in Lwt.return ())
+    (fun () -> Lwt_unix.closedir h)
 
 let isValidSuccessor i prevI =
   i = prevI || i = Sn.succ prevI 

@@ -108,12 +108,12 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
   let file_section = Lwt_log.Section.make "file_section" in
   Lwt_log.Section.set_level file_section file_log_level;
   Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
-  let file_logger = Lwt_log.file
-      ~template:"$(date): $(level): $(message)"
-      ~mode:`Append ~file_name:file_log_path ()
-  in
-  
-  let (log_crash_msg, close_crash_log, dump_crash_log) = setup_crash_log crash_log_prefix in 
+  Lwt_log.file
+    ~template:"$(date): $(level): $(message)"
+    ~mode:`Append ~file_name:file_log_path ()
+  >>= fun file_logger ->
+  let (log_crash_msg, close_crash_log, dump_crash_log) = 
+    setup_crash_log crash_log_prefix in 
   
   let add_log_msg section level msgs =
     let log_file_msg msg = Lwt_log.log 
@@ -121,7 +121,7 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
       ~logger:file_logger 
       ~level msg 
     in 
-    Lwt_list.iter_s log_file_msg msgs >>= fun _ -> 
+    Lwt_list.iter_s log_file_msg msgs >>= fun () -> 
     log_crash_msg section level msgs 
   in
     
@@ -132,7 +132,7 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
   
   let default_logger = Lwt_log.make add_log_msg close_default_logger in
   Lwt_log.default := default_logger;
-  dump_crash_log
+  Lwt.return dump_crash_log
    
 
       

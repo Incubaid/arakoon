@@ -40,7 +40,6 @@ let deny (ic,oc) =
 
 let session_thread protocol fd = 
   info "starting session " >>= fun () ->
-  let close () = Lwt_unix.close fd; Lwt.return () in
   Lwt.catch
     (fun () ->
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
@@ -50,7 +49,7 @@ let session_thread protocol fd =
     (function
       | FOOBAR as foobar-> Lwt.fail foobar
       | exn -> info ~exn "exiting session")
-  >>= close 
+  >>= fun () -> Lwt_unix.close fd
     
 let make_server_thread 
     ?(setup_callback=no_callback) 
@@ -109,8 +108,7 @@ let make_server_thread
       Lwt.catch
 	(fun ()  -> setup_callback () >>= fun () -> server_loop ())
 	(fun exn -> info_f ~exn "shutting down server on port %i" port)
-	     >>= fun () ->
-      Lwt_unix.close listening_socket;
-      Lwt.return ()
+      >>= fun () ->
+      Lwt_unix.close listening_socket
     in r
   end

@@ -55,10 +55,6 @@ let before_space s =
     String.before s (String.index s ' ')
   with Not_found -> s
 
-(* this lists all supported packages *)
-let find_packages () =
-  List.map before_space (split_nl & run_and_read "ocamlfind list")
-
 let path_to_bisect_instrument () =
   try
     let r = run_and_read "ocamlfind query bisect" in
@@ -68,11 +64,6 @@ let path_to_bisect_instrument () =
   with _ -> "___could_not_find_bisect___"
 
 let _ = dispatch & function
-  | Before_options ->
-    Options.ocamlc   := ocamlfind  & S[A"ocamlc";  A"-thread";];
-    Options.ocamlopt := ocamlfind  & S[A"ocamlopt";A"-thread";];
-    Options.ocamldoc := ocamlfind  & S[A"ocamldoc"];
-    Options.ocamldep := ocamlfind  & A"ocamldep"
   | After_rules ->
     rule "version.ml" ~prod: "version.ml" make_version;
     rule "LaTeX to PDF"
@@ -155,10 +146,16 @@ let _ = dispatch & function
     dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
     flag ["ocaml";"link";"is_main"](
-      S[A"-linkpkg";
-	A"-ccopt"; A("-L" ^ tc_home);
-	A"-ccopt"; A"-ltokyocabinet";
+      S[A"-thread";
+	A"-linkpkg";
+	(*A"-ccopt"; A("-L" ^ tc_home);*)
+	(*A"-ccopt"; A"-ltokyocabinet";*)
+	A"src/libcutil.a";
+	A"src/otc/libotc.a";
+	A"3rd-party/tokyocabinet-1.4.45/libtokyocabinet.a";
+	
        ]);
+    flag ["ocaml";"compile";] (S[A"-thread"]);
 
     flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
@@ -166,8 +163,7 @@ let _ = dispatch & function
        (S[A"-warn-error";A"A"]);
 
     (* dependency of wrapper on tc *)
-    dep ["compile";"c";"file:src/otc/otc_wrapper.c"]
-      ["3rd-party/tokyocabinet-1.4.45.make"];
+    dep ["compile";"c";"file:src/otc/otc_wrapper.c"][tc_home ^ ".make"];
 
     flag ["pp"; "camlp4of"] & S[A"-loc"; A"loc"] ;
 
@@ -189,20 +185,5 @@ let _ = dispatch & function
     
     flag ["pp";"use_macro";"small_tlogs";
 	  "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
-
-
-
-
-    (* For each ocamlfind package one inject the -package option when
-    	* compiling, computing dependencies, generating documentation and
-    	* linking. *)
-    List.iter begin fun pkg ->
-      flag ["ocaml"; "compile";  "pkg_"^pkg] & S[A"-package"; A pkg];
-      flag ["ocaml"; "ocamldep"; "pkg_"^pkg] & S[A"-package"; A pkg];
-      flag ["ocaml"; "doc";      "pkg_"^pkg] & S[A"-package"; A pkg];
-      (* only use -package for linking programs, not for linking .cma or .cmxa libraries *)
-      flag ["ocaml"; "link"; "program"; "pkg_"^pkg] & S[A"-package"; A pkg];
-      flag ["ocaml"; "infer_interface"; "pkg_"^pkg] & S[A"-package"; A pkg];
-    end (find_packages ());
 
   | _ -> ()

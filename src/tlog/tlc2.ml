@@ -225,11 +225,9 @@ let get_count tlog_names =
 let _init_oc tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
-  let (oc:Lwt_io.output_channel) = 
-    Lwt_io.open_file ~flags:[Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY]
-      ~perm:0o644
-      ~mode: Lwt_io.output full_name
-  in oc
+  Lwt_io.open_file ~flags:[Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY]
+    ~perm:0o644
+    ~mode: Lwt_io.output full_name
 
 let iterate_tlog_dir tlog_dir start_i too_far_i f =
   let tfs = Sn.string_of too_far_i in
@@ -311,7 +309,7 @@ object(self: # tlog_collection)
 	begin
 	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	  _outer <- Sn.to_int outer;
-	  let oc = _init_oc tlog_dir _outer in
+	  _init_oc tlog_dir _outer >>= fun oc ->
 	  _oc <- Some oc;
 	  Lwt.return oc
 	end
@@ -347,7 +345,7 @@ object(self: # tlog_collection)
     Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
     >>= fun () ->
     _outer <- _outer + 1;
-    let new_oc = _init_oc tlog_dir _outer in
+    _init_oc tlog_dir _outer >>= fun new_oc ->
     _oc <- Some new_oc;
     Lwt.return new_oc
 

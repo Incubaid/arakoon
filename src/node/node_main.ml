@@ -75,9 +75,14 @@ let _config_logging me get_cfgs =
   let get_crash_file_name () = Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
   if not cfg.is_test 
   then
-    Some ( Crash_logger.setup_default_logger level log_file_name get_crash_file_name )
+    begin 
+      Crash_logger.setup_default_logger level log_file_name get_crash_file_name 
+      >>= fun logger -> Lwt.return (Some logger)
+    end
   else
-    None
+    begin
+      Lwt.return None
+    end
 
 let _config_messaging me others cookie laggy =
   let drop_it = match laggy with
@@ -220,16 +225,16 @@ module X = struct
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
       >>= fun () ->
-      let sqs = Lwt_unix.sleep_queue_size () in
-      let ns = Lwt_unix.get_new_sleeps () in
-      let wcl = Lwt_unix.wait_children_length () in
+      (* let sqs = Lwt_unix.sleep_queue_size () in *)
+      (* let ns = Lwt_unix.get_new_sleeps () in *)
+      (* let wcl = Lwt_unix.wait_children_length () in *)
       let stat = Gc.stat () in
       let factor = float (Sys.word_size / 8) in
       let allocated = (stat.minor_words +.
 			 stat.major_words -. stat.promoted_words) *. 
 	(factor /. 1024.0) 
       in
-      Lwt_log.info_f "sleeping_queue_size=%i\nnew_sleeps=%i\nwait_children_length=%i\nallocated=%fKB" sqs ns wcl allocated 
+      Lwt_log.info_f "nallocated=%fKB" allocated 
       >>= fun () ->
       _inner ()
     in
@@ -237,11 +242,10 @@ module X = struct
 end
 
 let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
-  let dump_crash_log = ref None in
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
-  dump_crash_log := _config_logging me.node_name make_config;
+  _config_logging me.node_name make_config >>= fun dump_crash_log ->
   if catchup_only 
   then 
     begin
@@ -439,7 +443,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	(fun exn -> 
 	  Lwt_log.fatal ~exn "going down" >>= fun () ->
 	  Lwt_log.fatal "after pick" >>= fun() ->
-	  match ! dump_crash_log with
+	  match dump_crash_log with
 	    | None -> Lwt_log.info "Not dumping state"
 	    | Some f -> f() )
     end

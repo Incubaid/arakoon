@@ -1,12 +1,11 @@
 true: debug
 true: annot
-true: pkg_unix
-true: pkg_str
-true: pkg_lwt, pkg_lwt.preemptive, pkg_lwt.unix
-true: pkg_oUnit
-true: pkg_bz2
-true: pkg_threads
-true: warn_error_F
+true: package(lwt)
+true: package(lwt.preemptive)
+true: package(lwt.unix)
+true: package(oUnit)
+true: package(bz2)
+true: package(str)
 "doc": include
 "src":include
 "src/otc":include

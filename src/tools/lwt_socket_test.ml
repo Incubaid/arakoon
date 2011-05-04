@@ -34,8 +34,8 @@ let test_leak () =
       begin
         Lwt_unix.accept listening_socket >>= fun (fd,_addr) ->
 	Lwt_unix.wait_read fd >>= fun () ->
-        let () = Lwt_unix.close fd in
-        let () = Lwt_unix.close listening_socket in
+        Lwt_unix.close fd >>= fun () ->
+        Lwt_unix.close listening_socket >>= fun () ->
         Lwt.return ()
       end;
       begin
