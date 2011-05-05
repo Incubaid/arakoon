@@ -1,17 +1,12 @@
 PREREQUISITES:
 
-ocaml              >= 3.11.0  : aptitude
-ocaml-findlib      >= 1.2.2   : aptitude
-libounit-ocaml-dev >= 1.0.3   : aptitude
-libreact-ocaml-dev            : aptitude
-libtext-ocaml-dev             : aptitude
-camlp4-extra                  : aptitude
-bzip2                         : aptitude
-libbz2-dev                    : aptitude
-libbz2-ocaml-dev              : aptitude
-ocaml-lwt          =  2.1.1   : darcs get --to-match 'hash 20100825112633-c41ad-c9fab33910d2bb5f4d96ee7807e8c88f26b44739' http://ocsigen.org/darcs/lwt/
-                                make
-                                sudo make install
+ocaml   3.12       
+findlib 1.2.7     
+lwt	2.3.0
+ounit	1.1.0    
+react   0.9.2     
+camlbz2 0.6.0    
+
 
 
 COMPILING:
@@ -22,7 +17,7 @@ manifesto
 	ocamlbuild manifest.pdf     ==> _build/manifest.pdf
 
 executable
-	ocamlbuild arakoon.native      ==> arakoon.native
+	ocamlbuild -use-ocamlfind arakoon.native      ==> arakoon.native
 
 libraries
 	ocamlbuild arakoon_client.cma arakoon_client.cmxa ==>

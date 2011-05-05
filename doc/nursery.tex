@@ -2,14 +2,14 @@
 We want to be able to use arakoon for increasingly large key-value spaces. 
 For a single arakoon cluster the capacity is limited by the size of a single disk. 
 So it is only natural to allow different arakoon clusters to team up. 
-A nursery\footnote{after a \emph{a nursery of raccoons}} provides a semi-unified view on a set of arakoon clusters. 
+A \emph{nursery}\footnote{after a \emph{a nursery of raccoons}} provides a semi-unified view on a set of arakoon clusters. 
 Each cluster is uniquely responsible for a prefix range. 
 \subsection{Limitations}
 The simple strategy of mapping a cluster to a range of keys already implies some limitations compared to the single cluster setup. 
 As a result, applications willing to scale from a single cluster to a nursery need to do some planning.
 \subsubsection{impact on sequences}
 Sequences are multiple updates that are done atomically. 
-Since atomicity can only be achieved inside 1 cluster, this means that all keys for a sequence need to share the same prefix. 
+Since atomicity can only be achieved inside 1 cluster\footnote{you could build transactionality across clusters, but it's a can of worms}, this means that all keys for a sequence need to share the same prefix. 
 \subsubsection{impact on ranges}
 Every cluster is responsible for a specific range. 
 As client range query will only be served by a single cluster, it means that only ranges that are subranges of cluster ranges can be served.
@@ -34,8 +34,29 @@ That client can die at any point, and figure out, at resumption, what it needs t
 The problem with the migration strategy is that there is a point in time where none of the clusters is serving $[k_e -a, k_e)$, so any request for anything in that range is refused.
 
 \subsection{Client side support}
-\ldots routing tables \ldots how to get them \ldots \\
-It's not really important that the nursery clients have correct routing tables. 
-If a client asks something from a cluster that's not able to comply, it will simply refuse. This means that either there is some migration, or that the client has outdated routing information. In that case, it can simply refetch the ranges from the clusters it knows.
+Each client needs to know which cluster is responsible for a certain key(-range). 
+This information is kept in a routing table. At construction time, a client fetches this from a designated Arakoon that knows all the clusters in a nursery. 
+The privileged clients performing migrations also must update this designated arakoon. 
+As far as clients are concerned, it's not really important that the nursery clients have correct routing tables: 
+If a client asks something from a cluster that's not able to comply, it will simply refuse. 
+This means that either, there is some migration, or that the client has outdated routing information. 
+In that case, it can simply refetch the ranges from the clusters it knows, or refetch it from the designated arakoon that keeps this information.
+\subsection{Problems}
+We depend on having a designated arakoon that knows all the clusters in a nursery, and their routing tables. 
+So conceptually, we introduced a single point of failure. 
+Since this point is in reality an arakoon cluster which is synchronuously replicated, that should not pose big practical problems.
+\paragraph{}
+Having to maintain configuration of (multiple/many?) arakoon clusters on lots of machines will become a significant problem. 
+As this information is both crucial, and maintained by humans, which is a recipe for disaster. In time, we should move to service discovery. 
+Possible options are:
+\begin{itemize}
+  \item{XMPP disco}
+  \item{DNS-Based Service Discovery}
+  \item{openSLP}
+  \item{Salutation}
+  \item{UPnP}
+  \item{svrloc}
+  \item{\ldots}
+\end{itemize}
 
 

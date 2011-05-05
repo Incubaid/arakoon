@@ -10,7 +10,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a manifest.pdf
+	ocamlbuild -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a manifest.pdf
 
 test:
 	./arakoon.native --run-all-tests
