@@ -17,17 +17,17 @@ As client range query will only be served by a single cluster, it means that onl
 Once a cluster is filled, one needs to be able to split it, or move part of its range elsewhere. This process is called migration.
 Each cluster has a \emph{public} range $[k_b,k_e)$ it serves to clients, as well as a \emph{private} range it contains. 
 As such, migrating a part of a cluster's range to another cluster becomes feasible. 
-If we're moving keys away from a \emph{source} cluster $[k_b,k_e)$ 
-to a \emph{target} cluster $[k_e,k_f)$, we
+If we're moving keys away from a \emph{source} cluster $[k_b, k_e)$ 
+to a \emph{target} cluster $[k_e, k_z)$, we
 \begin{itemize}
 \item{} shrink the public range of the source cluster from 
-$[k_b,k_e)$ to $[k_b, k_e - a)$. 
-The private range of the source remains $[k_b,k_e)$
+$[k_b, k_e)$ to $[k_b, k_e - a)$. 
+The private range of the source remains $[k_b, k_e)$
 \item{} add the key/value pairs in $[k_e - a,k_e)$ to the target cluster
 \item{} extend the public range of the target cluster from
 $[k_e,k_z)$ to $[k_e - a, k_z)$
 \item{} delete the key/value pairs on the source in $[k_e -a,k_e)$.
-        update the private range on the source to $[k_e - a, k_e)$.
+        update the private range on the source to $[k_b, k_e-a)$.
 \end{itemize}
 This work can be done by a privileged client responsible for the migration. 
 That client can die at any point, and figure out, at resumption, what it needs to do to complete the task. 
