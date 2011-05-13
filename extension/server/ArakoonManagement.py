@@ -330,7 +330,8 @@ class ArakoonCluster:
         Force a master in the supplied cluster
 
         @param name the name of the master to force. If None there is no longer a forced master
-        @param clusterId: the id of the arakoon cluster
+        @param preferred: Set given node to be preferred master
+        @type preferred: `bool`
         """
         config = self._getConfigFile()
         g = 'global'
