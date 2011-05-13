@@ -53,8 +53,23 @@ class ArakoonManagement:
 
     def upgrade(self):
         """
-        update configs for the 'arakoon' cluster from 0.8.2 to 0.9.0
+        update configs for the 'arakoon' cluster from 0.8.2 to 0.10.0
         """
+
+        # Remove 'old' extension
+        import shutil
+
+        base = os.path.join(q.dirs.baseDir, 'lib', 'pymonkey', 'extensions',
+            'arakoon', 'server')
+        for name in 'config', 'cmdtools':
+            sub = os.path.join(base, name)
+
+            if not os.path.isdir(sub):
+                continue
+
+            shutil.rmtree(sub)
+
+
         fs = q.system.fs
         jp = fs.joinPaths
         cfgDir = jp(q.dirs.cfgDir,'qconfig')
