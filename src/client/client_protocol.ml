@@ -26,6 +26,7 @@ open Lwt_log
 open Log_extra
 open Extra
 open Update
+open Range
 open Statistics
 
 let read_command (ic,oc) =
@@ -283,6 +284,15 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    backend # collapse n cb' cb >>= fun () ->
 	    Lwt_log.info "... DONE ..." >>= fun () ->
 	    Lwt.return ()
+	  )
+	  (handle_exception oc)
+      end
+    | SET_RANGE ->
+      begin
+	Range.input_range ic >>= fun range ->
+	Lwt.catch
+	  (fun () -> backend # set_range range >>= fun () ->
+	    response_ok_unit oc
 	  )
 	  (handle_exception oc)
       end

@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
+open Range
 open Common
 open Lwt
 
@@ -111,6 +112,13 @@ object(self :# nodestream)
     response ic incoming
 
 
+  method set_range range =
+    let outgoing buf = 
+      command_to buf SET_RANGE;
+      Range.range_to buf range
+    in
+    request outgoing >>= fun () ->
+    response ic nothing
 end
 
 let prologue cluster connection =

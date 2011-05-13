@@ -21,6 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
+open Range
+
 open Statistics
 
 class type backend = object
@@ -61,4 +63,6 @@ class type backend = object
   method check: cluster_id:string -> bool Lwt.t
 
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
+
+  method set_range : Range.t -> unit Lwt.t
 end

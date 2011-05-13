@@ -50,6 +50,7 @@ type client_command =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | COLLAPSE_TLOGS
+  | SET_RANGE
 
 
 let code2int = [
@@ -69,6 +70,7 @@ let code2int = [
   EXPECT_PROGRESS_POSSIBLE, 0x12l;
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
+  SET_RANGE               , 0x15l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
@@ -207,15 +209,5 @@ let ping_to b client_id cluster_id =
   command_to b PING;
   Llio.string_to b client_id;
   Llio.string_to b cluster_id
-
-(*
-let sequence b updates =
-  command_to b SEQUENCE;
-  Llio.int_to b (List.length updates);
-  let do_one = function
-    | _ -> failwith "not implemented" 
-  in
-  List.iter do_one updates
-*)
 
 exception XException of Arakoon_exc.rc * string

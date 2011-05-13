@@ -24,6 +24,9 @@ open OUnit
 let single = Single.client_suite
 
 let startup = Startup.suite
+
 let suite = "acceptance" >::: [
   single;
-  startup]
+  startup;
+]
+

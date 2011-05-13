@@ -155,4 +155,5 @@ class test_backend my_name = object(self:#backend)
     in
     loop n
       
+  method set_range range = failwith "not implemented"
 end
