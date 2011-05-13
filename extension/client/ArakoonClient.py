@@ -140,6 +140,9 @@ class ArakoonClientExtConfig:
             nodes = self.__getNodes(serverConfig)
 
             for name in nodes:
+                if name in self.getNodes():
+                    self.removeNode(name)
+
                 self.addNode(name,
                              serverConfig.getValue(name, "ip"),
                              serverConfig.getValue(name, "client_port"))
