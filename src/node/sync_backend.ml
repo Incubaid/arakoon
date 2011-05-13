@@ -28,6 +28,7 @@ open Log_extra
 open Hotc
 open Otc
 open Update
+open Range
 open Mp_msg
 open Common
 open Store
@@ -191,6 +192,11 @@ object(self: #backend)
     let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
+
+  method set_range range =
+    log_o self "set_range %s" (Range.to_string range)>>= fun () ->
+    let update = Update.SetRange range in
+    self # _update_rendezvous update (fun () -> ())
 
   method test_and_set key expected (wanted:string option) =
     log_o self "test_and_set %s %s %s" key 

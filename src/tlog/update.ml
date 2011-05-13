@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Log_extra
+open Range
 
 module Update = struct
   type t =
@@ -29,6 +30,7 @@ module Update = struct
     | MasterSet of string * int64
     | TestAndSet of string * string option * string option
     | Sequence of t list
+    | SetRange of Range.t
     | Nop
 
   let make_master_set me maybe_lease =
@@ -37,9 +39,9 @@ module Update = struct
       | Some lease -> MasterSet (me,lease)
 
   let rec string_of = function
-    | Set (k,v)             -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
-    | Delete k              -> Printf.sprintf "Delete    ;%S" k
-    | MasterSet (m,i)       -> Printf.sprintf "MasterSet ;%S;%Ld" m i
+    | Set (k,v)                 -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
+    | Delete k                  -> Printf.sprintf "Delete    ;%S" k
+    | MasterSet (m,i)           -> Printf.sprintf "MasterSet ;%S;%Ld" m i
     | TestAndSet (k, _, wo) -> 
       let ws = 
 	match wo with
@@ -60,6 +62,7 @@ module Update = struct
       in
       let () = loop updates in
       Buffer.contents buf
+    | SetRange range -> Printf.sprintf "SetRange  ;%s" (Range.to_string range)
     | Nop -> "NOP"
 
   let rec to_buffer b t =
@@ -87,6 +90,10 @@ module Update = struct
 	List.iter f us
       | Nop -> 
 	Llio.int_to b 6
+      | SetRange range ->
+	Llio.int_to b 7;
+	Range.range_to b range
+
 
 
   let rec from_buffer b pos =
@@ -119,6 +126,9 @@ module Update = struct
           loop (i+1) (u::acc) next_pos in
           loop 0 [] pos2
       | 6 -> Nop, pos1
+      | 7 -> 
+	let range,pos2 = Range.range_from b pos1 in
+	SetRange range, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

@@ -25,6 +25,7 @@ open Hotc
 open Mp_msg
 open Lwt
 open Update
+open Range
 open Log_extra
 open Store
 
@@ -35,6 +36,19 @@ let _consensus_i db =
     Lwt.return (Some i)
   with Not_found ->
     Lwt.return None
+
+let _get_range db = 
+  try
+    let range_s = Bdb.get db __range_key in
+    let range,_ = Range.range_from range_s 0 in
+    Lwt.return range
+  with Not_found -> Lwt.return Range.max
+
+let _set_range db range = 
+  let buf = Buffer.create 80 in
+  let () = Range.range_to buf range in
+  let range_s = Buffer.contents buf in
+  Bdb.put db __range_key range_s
 
 
 let _incr_i db =
@@ -113,6 +127,7 @@ let rec _sequence bdb updates =
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
+    | Update.SetRange range -> _set_range bdb range
     | Update.Nop -> ()
   in let get_key = function
     | Update.Set (key,value) -> Some key
@@ -132,12 +147,20 @@ let rec _sequence bdb updates =
 
 
 
-class local_store db =
-
-
+class local_store db (range:Range.t) =
 
 object(self: #store)
+  val mutable _range = range
 
+  method _range_ok key =
+    let ok = Range.is_ok _range key in
+    if ok 
+    then ()
+    else 
+      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
+				 Printf.sprintf "%s not in range" key)
+      in raise ex
+      
   method exists key =
     Lwt.catch
       (fun () ->
@@ -289,10 +312,15 @@ object(self: #store)
     Hotc.reopen db f >>= fun () ->
     Lwt.return ()
 
+  method set_range range = 
+    Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
+    _range <- range;
+    Hotc.transaction db (fun db -> _set_range db range;Lwt.return ())
 end
 
 let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
-  let store = new local_store db in
+  Hotc.transaction db _get_range >>= fun range ->
+  let store = new local_store db range in
   let store2 = (store :> store) in
   Lwt.return store2

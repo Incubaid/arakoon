@@ -24,6 +24,7 @@ open Store
 open Lwt
 open Log_extra
 open Update
+open Range
 
 module StringMap = Map.Make(String);;
 
@@ -38,6 +39,7 @@ object (self: #store)
   val mutable i = None
   val mutable kv = StringMap.empty
   val mutable master = None
+  val mutable _range = Range.max
 
   method incr_i () =
     Lwt.return (self # _incr_i ())
@@ -169,6 +171,11 @@ object (self: #store)
   method reopen when_closed = Lwt.return ()
 
   method get_filename () = failwith "not supported"
+
+  method set_range range = 
+    Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
+    _range <- range;
+    Lwt.return ()
 end
 
 let make_mem_store db_name =
