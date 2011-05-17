@@ -93,20 +93,39 @@ module NC = struct
     }
 
   let _get_client t nn = 
+    let (cn,node) = nn in
+    Lwt_log.debug_f "_get_client(%s,%s)" cn node >>= fun () ->
     match Hashtbl.find t.clients nn with
-      | Address (ip,port) -> Llio.lwt_failfmt "Address?"
+      | Address (ip,port) -> 
+	begin
+	  try_connect (ip,port) >>= function
+	    | Some (ic,oc) -> 
+	      Arakoon_remote_client.make_remote_client cn (ic,oc) >>= fun client ->
+	      let r = Client client in
+	      let () = Hashtbl.add t.clients nn r in
+	      Lwt.return client
+	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
+	end
       | Client c -> Lwt.return c
   
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
     let node_names = ClientCfg.node_names ccfg in
-    Lwt_io.printf "names:%s" (Log_extra.string_of_list (fun s->s) node_names) 
+    Lwt_log.debug_f "names:%s" (Log_extra.string_of_list (fun s->s) node_names) 
     >>= fun () ->
     Lwt_list.map_p 
-      (fun n -> let nn = (cn,n) in _get_client t nn) node_names 
+      (fun n -> 
+	let nn = (cn,n) in 
+	_get_client t nn
+      ) 
+      node_names 
     >>= fun clients ->
-    Llio.lwt_failfmt "_find_master_remote"
+    Lwt.choose (List.map (fun c -> c # who_master()) clients) 
+    >>= function
+      | None -> Llio.lwt_failfmt "no master for %s" cn
+      | Some master -> Lwt.return master
     
+	
   let _find_master t cn = 
     let m = Hashtbl.find t.masters cn in
     match m with
@@ -120,23 +139,38 @@ module NC = struct
     _get_client t nn >>= fun client ->
     client # set key value
 
-  let close t = Lwt.return ()
+
+  let get t key = 
+    let cn = NCFG.find_cluster t.rc key in
+    _find_master t cn >>= fun master ->
+    let nn = cn, master in
+    _get_client t nn >>= fun client ->
+    client # get key 
+
+  let close t = Llio.lwt_failfmt "close not implemented"
 end
 
 let main () =
+  All_test.configure_logging ();
   let repr = [("left", "k")], "right" in
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
   let right_cfg = ClientCfg.make () in
-  let () = ClientCfg.add left_cfg "1" ("127.0.0.1", 5000) in
-  let () = ClientCfg.add right_cfg "one" ("127.0.0.1", 6000) in
+  let () = ClientCfg.add left_cfg "1" ("127.0.0.1", 4000) in
+  let () = ClientCfg.add right_cfg "one" ("127.0.0.1", 4010) in
   let nursery_cfg = NCFG.make routing in
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
   let client = NC.make nursery_cfg in
-  let t () = 
-    NC.set client "a" "A" >>= fun () ->
+  let test k v = 
+    NC.set client k v >>= fun () ->
+    NC.get client k >>= fun v' ->
+    Lwt_log.debug_f "get '%s' yields %s" k v' >>= fun () ->
     Lwt_log.debug "done"
+  in
+  let t () = 
+    test "a" "A" >>= fun () ->
+    test "z" "Z" 
   in
   Lwt_main.run (t ())
 
