@@ -51,3 +51,14 @@ let rename source target =
   Lwt_preemptive.detach (fun () -> Unix.rename source target) () >>= fun () ->
   Lwt.return ()
 
+let stat filename = 
+  Lwt_log.debug_f "stat %s" filename >>= fun () ->
+  Lwt_preemptive.detach Unix.stat filename 
+
+let exists filename = 
+  Lwt.catch 
+    (fun () -> stat filename >>= fun _ -> Lwt.return true)
+    (function 
+      | Unix.Unix_error (Unix.ENOENT,_,_) -> Lwt.return false
+      | e -> Lwt.fail e
+    )

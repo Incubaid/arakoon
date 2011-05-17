@@ -285,6 +285,7 @@ let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
 	begin
 	  Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
 	  let db_name = full_db_name me in
+	  Collapser.maybe_copy_head me.tlog_dir db_name >>= fun () ->
 	  make_store db_name >>= fun (store:Store.store) ->
           Lwt.catch
 	    ( fun () -> make_tlog_coll me.tlog_dir) 

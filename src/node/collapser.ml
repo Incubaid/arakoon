@@ -24,6 +24,17 @@ open Lwt
 
 let head_name = Tlogcollection.head_name
 
+let maybe_copy_head tlog_dir db_name = 
+  Lwt_log.debug_f "maybe_copy_head %s %s" tlog_dir db_name >>= fun () ->
+  let full_head = Filename.concat tlog_dir head_name in
+  File_system.exists full_head >>= fun head_exists ->
+  File_system.exists db_name   >>= fun db_exists ->
+  Lwt_log.debug_f "exists? %s %b" full_head head_exists >>= fun () ->
+  Lwt_log.debug_f "exists? %s %b" db_name db_exists >>= fun () ->
+  if head_exists && not db_exists 
+  then File_system.copy_file full_head db_name 
+  else Lwt.return ()
+
 let collapse_until tlog_dir head_name too_far_i =
   let tfs = Sn.string_of too_far_i in
   Lwt_log.debug_f "collapse_until %s" tfs >>= fun () ->

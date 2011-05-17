@@ -285,14 +285,14 @@ let actions = [
   ("--collapse", Arg.Tuple[set_laction Collapse;
 			   Arg.Set_string tlog_dir;
 			   Arg.Set_int n_tlogs;],   
-   "<tlog_dir> <n> collapses n tlogs from <tlog_dir> into head database");
+   "<tlog_dir> <n> collapses all but <n> tlogs from <tlog_dir> into head database");
   ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
 				  Arg.Set_string cluster_id;
 				  Arg.Set_string ip;
 				  Arg.Set_int port;
 				  Arg.Set_int n_tlogs;
 				 ], 
-   "<cluster_id> <ip> <port> <n> tells node to collapse <n> tlogs into its head database");
+   "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
 
   
 ] in
