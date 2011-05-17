@@ -37,15 +37,15 @@ let collapse_lwt tlog_dir n_tlogs cb' cb =
   let n_to_collapse = List.length to_collapse in
   cb' n_to_collapse >>= fun () ->
   begin
-	  if n_to_collapse > 0 
-	  then
-	    begin
-	      Lwt_log.debug_f "going to collapse %d tlogs: " n_to_collapse >>= fun () ->
-	      Lwt_list.iter_s (fun e -> Lwt_log.debug ("\t" ^e)) to_collapse >>= fun () ->
-	      Collapser.collapse_many tlog_dir to_collapse Collapser.head_name cb
+    if n_to_collapse > 0 
+    then
+      begin
+	Lwt_log.debug_f "going to collapse %d tlogs: " n_to_collapse >>= fun () ->
+	Lwt_list.iter_s (fun e -> Lwt_log.debug ("\t" ^e)) to_collapse >>= fun () ->
+	Collapser.collapse_many tlog_dir to_collapse Collapser.head_name cb
       end
-	  else 
-	    begin
+    else 
+      begin
         Lwt_log.debug "nothing to collapse, not enough tlogs"
       end
   end
