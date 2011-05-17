@@ -19,5 +19,6 @@ true: package(str)
 "src/node": include
 "src/system": include
 "src/inifiles": include
+"src/nursery": include
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main

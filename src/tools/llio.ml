@@ -211,6 +211,23 @@ let input_string_option ic =
     | false -> Lwt.return None
     | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
  
+let hashtbl_to buf e2 h =
+  let len = Hashtbl.length h in
+  int_to buf len;
+  Hashtbl.iter (fun k v -> e2 buf k v) h
+
+let hashtbl_from buf ef pos =
+  let len,p1 = int_from buf pos in
+  let r = Hashtbl.create len in 
+  let rec loop pos = function
+    | 0 -> r, pos
+    | i -> let (k,v), p1 = ef buf pos in
+	   let () = Hashtbl.add r k v in
+	   loop p1 (i-1)
+  in
+  loop pos len 
+
+
 let copy_stream ~length ~ic ~oc =
   Lwt_log.debug_f "copy_stream ~length:%Li" length >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
@@ -234,3 +251,4 @@ let copy_stream ~length ~ic ~oc =
   in
   loop n_bs >>= fun () ->
   Lwt_log.debug "done: copy_stream"
+
