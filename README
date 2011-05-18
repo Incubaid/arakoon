@@ -30,14 +30,14 @@ create the following configuration:
 
 A sample configuration like this can be found in the cfg dir.
 
-Just running './main.native --node arakoon_0' starts a 1 node cluster for you to play with.
+Just running './arakoon.native --node arakoon_0' starts a 1 node cluster for you to play with.
 
 You can get/set values from the command line using :
-./main.native --set key value  
-./main.native --get key
+./arakoon.native --set key value  
+./arakoon.native --get key
 
 to get an overview of what else the command line provides.
-./main.native --help
+./arakoon.native --help
 
 have fun,
 
