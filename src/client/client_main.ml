@@ -65,38 +65,48 @@ let find_master cluster_cfg =
       end
   in loop cfgs
 
+let run f = Lwt_main.run (f ()); 0
+
 let with_master_client cfg_name f =
   let ccfg = read_config cfg_name in
   let cfgs = ccfg.cfgs in
-  let t () =
-    find_master ccfg >>= fun master_name ->
-    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
-    with_client master_cfg ccfg.cluster_id f
-  in
-  Lwt_main.run (t());0
-
+  find_master ccfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
+  with_client master_cfg ccfg.cluster_id f
+  
 let set cfg_name key value =
-  with_master_client cfg_name (fun client -> client # set key value)
+  let t () = with_master_client cfg_name (fun client -> client # set key value)
+  in run t
 
 let get cfg_name key =
   let f (client:Arakoon_client.client) =
     client # get key >>= fun value ->
     Lwt_io.printlf "%S%!" value
   in
-  with_master_client cfg_name f
+  let t () = with_master_client cfg_name f in
+  run t
 
 let delete cfg_name key =
-  with_master_client cfg_name (fun client -> client # delete key )
+  let t () = with_master_client cfg_name (fun client -> client # delete key )
+  in 
+  run t
 
-let benchmark cfg_name size tx_size max_n = 
-  with_master_client cfg_name (Benchmark.benchmark ~size ~tx_size ~max_n)
+let benchmark cfg_name size tx_size max_n n_clients = 
+  let t () = 
+    let with_c = with_master_client cfg_name in
+    Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
+  in
+  run t
+  
 
 let expect_progress_possible cfg_name =
   let f client = 
     client # expect_progress_possible () >>= fun b ->
     Lwt_io.printlf "%b" b
   in
-  with_master_client cfg_name f
+  let t () = with_master_client cfg_name f
+  in
+  run t
 
 
 let statistics cfg_name =
@@ -105,7 +115,8 @@ let statistics cfg_name =
     let rep = Statistics.string_of statistics in
     Lwt_io.printl rep
   in
-  with_master_client cfg_name f
+  let t () = with_master_client cfg_name f
+  in run t
 
 let who_master cfg_name () =
   let cluster_cfg = read_config cfg_name in
@@ -113,4 +124,4 @@ let who_master cfg_name () =
     find_master cluster_cfg >>= fun master_name ->
     Lwt_io.printl master_name
   in
-  Lwt_main.run (t());0
+  run t 

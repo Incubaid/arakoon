@@ -206,6 +206,7 @@ and daemonize = ref false
 and test_repeat_count = ref 1
 and counter = ref 0
 and n_tlogs = ref 1
+and n_clients = ref 1
 and catchup_only = ref false
 and tlog_dir = ref "/tmp"
 in
@@ -281,6 +282,8 @@ let actions = [
    "size of transactions (only for --benchmark)");
   ("-max_n", Arg.Set_int max_n,
    "<benchmark size> (for --benchmark)");
+  ("-n_clients", Arg.Set_int n_clients,
+   "<n_clients> (for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
   ("--collapse", Arg.Tuple[set_laction Collapse;
 			   Arg.Set_string tlog_dir;
@@ -316,7 +319,8 @@ let do_local = function
   | UncompressTlog -> uncompress_tlog !filename
   | SET -> Client_main.set !config_file !key !value
   | GET -> Client_main.get !config_file !key
-  | BENCHMARK -> Client_main.benchmark !config_file !size !tx_size !max_n
+  | BENCHMARK -> 
+    Client_main.benchmark !config_file !size !tx_size !max_n !n_clients
   | DELETE -> Client_main.delete !config_file !key
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file

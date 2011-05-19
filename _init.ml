@@ -12,6 +12,7 @@
 #require "str";;
 #load "log_extra.cmo";;
 #load "llio.cmo";;
+#load "range.cmo";;
 #load "sn.cmo";;
 #load "arakoon_exc.cmo";;
 #load "statistics.cmo";;
