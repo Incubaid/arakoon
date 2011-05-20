@@ -241,7 +241,9 @@ module X = struct
     _inner ()
 end
 
-let _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only=
+let _main_2 make_store make_tlog_coll make_config ~name 
+    ~daemonize ~catchup_only=
+  Lwt_io.set_default_buffer_size 32768;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in

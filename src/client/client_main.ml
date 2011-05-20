@@ -92,6 +92,7 @@ let delete cfg_name key =
   run t
 
 let benchmark cfg_name size tx_size max_n n_clients = 
+  Lwt_io.set_default_buffer_size 32768;
   let t () = 
     let with_c = with_master_client cfg_name in
     Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
