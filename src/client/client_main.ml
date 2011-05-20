@@ -89,6 +89,7 @@ let delete cfg_name key =
   with_master_client cfg_name (fun client -> client # delete key )
 
 let benchmark cfg_name size tx_size max_n= 
+  Lwt_io.set_default_buffer_size 32768;
   with_master_client cfg_name (Benchmark.benchmark ~size ~tx_size ~max_n)
 
 let expect_progress_possible cfg_name =
