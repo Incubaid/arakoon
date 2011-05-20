@@ -56,7 +56,16 @@ let collapse_until tlog_dir head_name too_far_i =
   else
     begin
       let acc = ref None in
+      let maybe_sleep i = (* this makes it slower, 
+			     and gives others a chance too 
+			  *)
+	let d = Sn.rem i (Sn.of_int 100) in
+	if d = Sn.start then
+	  Lwt_unix.sleep 0.1
+	else Lwt.return ()
+      in
       let add_to_store (i,update) = 
+	maybe_sleep i >>= fun () ->
 	match !acc with
 	  | None ->
 	    begin
@@ -82,7 +91,11 @@ let collapse_until tlog_dir head_name too_far_i =
       in
       Lwt_log.debug_f "collapse_until: start_i=%s" (Sn.string_of start_i) 
       >>= fun () ->
-      Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i add_to_store 
+      let ay = Lwt_unix.auto_yield 0.01 in
+      let a2sy (i,update) = 
+	ay ()>>= fun () -> add_to_store (i,update)
+      in
+      Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i a2sy
       >>= fun () ->
       store # close ()
     end
