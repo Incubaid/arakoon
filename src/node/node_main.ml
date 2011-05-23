@@ -408,13 +408,19 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      (quorum_function: int -> int)
 	      (master : master)
 	      store tlog_coll others lease_period inject_event 
-	      ~cluster_id 
-	      
+	      ~cluster_id
+
 	  in Lwt.return ((master,constants, buffers, new_i, vo), 
 			 service, X.rapporting backend)
 	end
 	  
       in
+
+      let killswitch = Lwt_mutex.create () in
+      Lwt_mutex.lock killswitch >>= fun () ->
+      let unlock_killswitch () = Lwt_mutex.unlock killswitch in
+      let listen_for_sigterm () = Lwt_mutex.lock killswitch in
+
       let start_backend (master, constants, buffers, new_i, vo) =
 	let to_run = 
 	  match master with
@@ -434,6 +440,9 @@ let _main_2 make_store make_tlog_coll make_config ~name
       Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
       Lwt.catch
 	(fun () ->
+          let _ = Lwt_unix.on_signal 15
+            (fun i -> unlock_killswitch ())
+          in
 	  Lwt.pick [ 
 	    messaging # run ();
 	    begin
@@ -442,10 +451,13 @@ let _main_2 make_store make_tlog_coll make_config ~name
 					      rapporting) -> 
 	      Lwt.pick[ start_backend start_state;
 			service ();
-			rapporting();
+			rapporting ();
+                        listen_for_sigterm ();
 		      ]
 	    end
-	  ])
+	  ] >>= fun () ->
+        Lwt_log.info "Completed shutdown"
+        )
 	(fun exn -> 
 	  Lwt_log.fatal ~exn "going down" >>= fun () ->
 	  match ! dump_crash_log with
