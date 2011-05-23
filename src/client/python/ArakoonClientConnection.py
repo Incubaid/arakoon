@@ -57,7 +57,7 @@ class ArakoonClientConnection :
             self._socket.sendall( msg )
         except Exception, ex:
             self.close()
-            ArakoonClientLogger.warning( "Error while sending data to (%s,%s) => %s: '%s'" , 
+            ArakoonClientLogger.logWarning( "Error while sending data to (%s,%s) => %s: '%s'" , 
                 self._nodeLocation[0], self._nodeLocation[1], ex.__class__.__name__, ex  ) 
             raise ArakoonSockSendError ()
 
