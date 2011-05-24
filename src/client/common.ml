@@ -51,6 +51,8 @@ type client_command =
   | STATISTICS
   | COLLAPSE_TLOGS
   | SET_RANGE
+  | GET_ROUTING
+  | SET_ROUTING
 
 
 let code2int = [
@@ -71,6 +73,8 @@ let code2int = [
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
   SET_RANGE               , 0x15l;
+  GET_ROUTING             , 0x16l;
+  SET_ROUTING             , 0x17l;
 ]
 
 let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int

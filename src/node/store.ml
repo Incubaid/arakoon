@@ -22,12 +22,14 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Update
 open Range
+open Routing
 open Lwt
 open Log_extra
 
 
 let __i_key = "*i"
 let __range_key = "*range"
+let __routing_key = "*routing"
 let __master_key  = "*master"
 let __lease_key = "*lease"
 let __prefix = "@"
@@ -59,6 +61,8 @@ class type store = object
   method get_filename: unit -> string 
 
   method set_range: Range.t -> unit Lwt.t
+  method get_routing : unit -> Routing.t Lwt.t
+  method set_routing : Routing.t -> unit Lwt.t
 end
 
 exception Key_not_found of string ;;
@@ -140,6 +144,19 @@ let _insert_update (store:store) update =
 	    and msg = Printexc.to_string e 
 	    in
 	    Lwt.return (Update_fail (rc,msg)))
+    | Update.SetRouting routing ->
+      Lwt.catch
+	(fun () ->
+	  store # set_routing routing >>= fun () ->
+	  Lwt.return (Ok None))
+	(function
+	  | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+	  | e ->
+	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	    and msg = Printexc.to_string e
+	    in
+	    Lwt.return (Update_fail (rc,msg))
+	)
     | Update.Nop -> Lwt.return (Ok None)
 
 let safe_insert_update (store:store) (i:Sn.t) update =

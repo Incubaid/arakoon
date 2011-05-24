@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Log_extra
 open Range
+open Routing
 
 module Update = struct
   type t =
@@ -31,6 +32,7 @@ module Update = struct
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | SetRange of Range.t
+    | SetRouting of Routing.t
     | Nop
 
   let make_master_set me maybe_lease =
@@ -62,7 +64,8 @@ module Update = struct
       in
       let () = loop updates in
       Buffer.contents buf
-    | SetRange range -> Printf.sprintf "SetRange  ;%s" (Range.to_string range)
+    | SetRange range ->     Printf.sprintf "SetRange  ;%s" (Range.to_string range)
+    | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
     | Nop -> "NOP"
 
   let rec to_buffer b t =

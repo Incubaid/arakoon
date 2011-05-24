@@ -25,6 +25,7 @@ open Lwt
 open Log_extra
 open Update
 open Range
+open Routing
 
 module StringMap = Map.Make(String);;
 
@@ -40,6 +41,7 @@ object (self: #store)
   val mutable kv = StringMap.empty
   val mutable master = None
   val mutable _range = Range.max
+  val mutable _routing = None
 
   method incr_i () =
     Lwt.return (self # _incr_i ())
@@ -176,6 +178,16 @@ object (self: #store)
     Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
     _range <- range;
     Lwt.return ()
+
+  method get_routing () = 
+    match _routing with
+      | None -> Llio.lwt_failfmt "no routing"
+      | Some r -> Lwt.return r
+
+  method set_routing r =
+    _routing <- Some r;
+    Lwt.return () 
+
 end
 
 let make_mem_store db_name =

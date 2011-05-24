@@ -27,6 +27,7 @@ open Log_extra
 open Extra
 open Update
 open Range
+open Routing
 open Statistics
 
 let read_command (ic,oc) =
@@ -294,6 +295,22 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  (fun () -> backend # set_range range >>= fun () ->
 	    response_ok_unit oc
 	  )
+	  (handle_exception oc)
+      end
+    | GET_ROUTING ->
+      Lwt.catch 
+	(fun () -> backend # get_routing () >>= fun routing ->
+	  Llio.output_int oc 0 >>= fun () ->
+	  Routing.output_routing oc routing 
+	)
+	(handle_exception oc)
+    | SET_ROUTING ->
+      begin 
+	Routing.input_routing ic >>= fun routing ->
+	Lwt.catch
+	  (fun () ->
+	    backend # set_routing routing >>= fun () ->
+	    response_ok_unit oc)
 	  (handle_exception oc)
       end
 

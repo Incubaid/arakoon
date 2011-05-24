@@ -1,4 +1,5 @@
 open Update
+open Routing
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
@@ -6,6 +7,9 @@ class type nodestream = object
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       
   method collapse: int -> unit Lwt.t
+
+  method set_routing: Routing.t -> unit Lwt.t
+  method get_routing: unit -> Routing.t Lwt.t
 end
 
 val make_remote_nodestream : 

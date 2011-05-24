@@ -26,6 +26,7 @@ open Mp_msg
 open Lwt
 open Update
 open Range
+open Routing
 open Log_extra
 open Store
 
@@ -44,12 +45,24 @@ let _get_range db =
     Lwt.return range
   with Not_found -> Lwt.return Range.max
 
+let _get_routing db = 
+  try 
+    let routing_s = Bdb.get db __routing_key in
+    let routing,_ = Routing.routing_from routing_s 0 in
+    Lwt.return (Some routing)
+  with Not_found -> Lwt.return None
+
 let _set_range db range = 
   let buf = Buffer.create 80 in
   let () = Range.range_to buf range in
   let range_s = Buffer.contents buf in
   Bdb.put db __range_key range_s
 
+let _set_routing db routing =
+  let buf = Buffer.create 80 in
+  let () = Routing.routing_to buf routing in
+  let routing_s = Buffer.contents buf in
+  Bdb.put db __routing_key routing_s
 
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
@@ -128,6 +141,7 @@ let rec _sequence bdb updates =
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
     | Update.SetRange range -> _set_range bdb range
+    | Update.SetRouting r   -> _set_routing bdb r
     | Update.Nop -> ()
   in let get_key = function
     | Update.Set (key,value) -> Some key
@@ -147,10 +161,11 @@ let rec _sequence bdb updates =
 
 
 
-class local_store db (range:Range.t) =
+class local_store db (range:Range.t) (routing:Routing.t option) =
 
 object(self: #store)
   val mutable _range = range
+  val mutable _routing = routing
 
   method _range_ok key =
     let ok = Range.is_ok _range key in
@@ -316,11 +331,23 @@ object(self: #store)
     Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
     _range <- range;
     Hotc.transaction db (fun db -> _set_range db range;Lwt.return ())
+
+  method get_routing () = 
+    Lwt_log.debug "get_routing " >>= fun () ->
+    match _routing with
+      | None -> Llio.lwt_failfmt "no routing"
+      | Some r -> Lwt.return r
+
+  method set_routing r =
+    Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
+    _routing <- Some r;
+    Hotc.transaction db (fun db -> _set_routing db r; Lwt.return ())
 end
 
 let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
   Hotc.transaction db _get_range >>= fun range ->
-  let store = new local_store db range in
+  Hotc.transaction db _get_routing >>= fun routing_o ->
+  let store = new local_store db range routing_o in
   let store2 = (store :> store) in
   Lwt.return store2

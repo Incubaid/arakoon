@@ -80,6 +80,19 @@ module Routing = struct
     in
     _build pos
 
+  let output_routing oc routing = 
+    let buf = Buffer.create 97 in
+    let () = routing_to buf routing in
+    let s = Buffer.contents buf in
+    Llio.output_string oc s
+
+  open Lwt
+
+  let input_routing ic = 
+    Llio.input_string ic >>= fun s ->
+    let r,_ = routing_from s 0 in
+    Lwt.return r
+    
   let find cfg key = 
     let rec go = function
       | Cluster x -> x

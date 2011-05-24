@@ -25,6 +25,7 @@ open Lwt_log
 open Backend
 open Statistics
 open Update
+open Routing
 open Common
 
 module StringMap = Map.Make(String);;
@@ -60,6 +61,7 @@ let range_ kv first finc last linc max =
 
 class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
+  val mutable _routing = (None: Routing.t option)
 
   method hello (client_id:string) (cluster_id:string) = 
     let r = 
@@ -156,4 +158,13 @@ class test_backend my_name = object(self:#backend)
     loop n
       
   method set_range range = failwith "not implemented"
+
+  method get_routing () = 
+    match _routing with
+      | None -> Llio.lwt_failfmt "no routing"
+      | Some r -> Lwt.return r
+
+  method set_routing r =
+    _routing <- Some r;
+    Lwt.return ()
 end

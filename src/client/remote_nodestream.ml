@@ -22,20 +22,21 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Update
 open Range
+open Routing
 open Common
 open Lwt
-
 
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
-
+      
   method collapse: int -> unit Lwt.t
 
+  method set_routing: Routing.t -> unit Lwt.t
+  method get_routing: unit -> Routing.t Lwt.t
 end
-
 
 class remote_nodestream (ic,oc) = 
   let request f =
@@ -118,6 +119,24 @@ object(self :# nodestream)
       Range.range_to buf range
     in
     request outgoing >>= fun () ->
+    response ic nothing
+
+  method get_routing () =
+    let outgoing buf = command_to buf GET_ROUTING
+    in
+    request outgoing >>= fun () ->
+    response ic Routing.input_routing
+
+  method set_routing r = 
+    let outgoing buf = 
+      command_to buf SET_ROUTING;
+      let b' = Buffer.create 100 in
+      Routing.routing_to b' r;
+      let size = Buffer.length b' in
+      Llio.int_to buf size;
+      Buffer.add_buffer buf b'
+    in
+    request outgoing >>= fun  () ->
     response ic nothing
 end
 

@@ -193,6 +193,12 @@ object(self: #backend)
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets
 
+  method set_routing r = 
+    log_o self "set_routing" >>= fun () ->
+    let update = Update.SetRouting r in
+    let cb () = () in
+    self # _update_rendezvous update cb
+
   method set_range range =
     log_o self "set_range %s" (Range.to_string range)>>= fun () ->
     let update = Update.SetRange range in
@@ -380,4 +386,19 @@ object(self: #backend)
     in
     Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
     Lwt.return ()
+
+  method get_routing () = 
+    self # _only_if_master () >>= fun () ->
+    Lwt.catch
+      (fun () -> 
+	store # get_routing ()  >>= fun r -> 
+	Lwt.return r)
+      (fun exc ->
+	match exc with
+	  | Store.CorruptStore ->
+	    begin
+	      Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
+	      Lwt.fail Server.FOOBAR
+	    end
+	  | ext -> Lwt.fail ext)    
 end
