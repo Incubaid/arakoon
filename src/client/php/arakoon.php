@@ -25,7 +25,6 @@ class Arakoon
         @param config: The L{ArakoonClientConfig} object to be used by the client. Defaults to None in which
         case a default L{ArakoonClientConfig} object will be created.
     */
-
     public function __construct($config) {
         if ($config == null){
             $config = new ArakoonClientConfig();
@@ -78,7 +77,6 @@ class Arakoon
         $cfg = new ArakoonClientConfig($clusterId, $nodes_array);
         return new Arakoon($cfg);
     }
-        
     
     /*
      * Allow the client to read values from a potential slave.         
@@ -124,7 +122,7 @@ class Arakoon
      * @return: The master identifier and its version in a single string
     */
     function hello ($clientId, $clusterId='arakoon'){
-        $encoded = ArakoonProtocol::encodeHello($clientId,$clusterId);
+        $encoded = ArakoonProtocol::encodePing($clientId,$clusterId);
         $conn = $this->sendToMaster($encoded);
         return $conn->decodeStringResult();
     }
@@ -154,9 +152,7 @@ class Arakoon
      * @rtype: string
      * @return: The value associated with the given key
      */    
-    function get($key){
-        arakoonLog(__FUNCTION__, "get $key ") ;      
-        
+    function get($key){ 
         $msg = ArakoonProtocol::encodeGet($key, $this->allowDirty);
         if ($this->allowDirty)
             $conn = $this->sendMessage($this->dirtyReadNode, $msg);
@@ -180,7 +176,7 @@ class Arakoon
         else{
             $conn = $this->sendToMaster($msg);
         }
-        $result = $conn.decodeStringListResult();
+        $result = $conn->decodeStringListResult();
         return $result;
     }
     
@@ -200,8 +196,6 @@ class Arakoon
      * 
      */
     function set($key, $value){
-        arakoonLog(__FUNCTION__, "set $key $value") ;
-        
         $conn = $this->sendToMaster(ArakoonProtocol::encodeSet($key, $value ));
         $conn->decodeVoidResult();
     }
@@ -214,8 +208,6 @@ class Arakoon
      * 
      */
     function sequence($seq){
-        arakoonLog(__FUNCTION__, "");
-        
         $encoded = ArakoonProtocol::encodeSequence($seq);
         $conn = $this->sendToMaster($encoded);
         $conn->decodeVoidResult();
@@ -347,7 +339,6 @@ class Arakoon
             return $conn->decodeBoolResult();
         }
         catch (Exception $ex){
-            arakoonLog(__FUNCTION__, "Exception: $ex");
             return FALSE;
         }
     }
@@ -381,13 +372,10 @@ class Arakoon
         if ($this->masterId == null){
             # Prepare to ask random nodes who is master
             $nodeIds = array_keys($this->config->getNodes());
-            //shuffle($nodeIds);
+            shuffle($nodeIds);
 
             foreach($nodeIds as $node){
                 try{
-                    echo __FUNCTION__ . " node dump: ";
-                    var_dump($node);
-                    echo "<br>";                    
                     $this->masterId = $this->getMasterIdFromNode($node);
                     $tmpMaster = $this->masterId;
 
@@ -401,7 +389,6 @@ class Arakoon
                             }
                         }
                         else{
-                            arakoonLog(__FUNCTION__, "Node '$node' doesnt know master<br>");
                             //ArakoonClientLogger::logWarning( "Node '%s' does not know who the master is", $node );
                         }
                     }
@@ -413,7 +400,7 @@ class Arakoon
                             
                 }    
                 catch (Exception $ex){
-                    # Exceptions will occur when nodes are down, simply ignore and try the next node
+                    //Exceptions will occur when nodes are down, simply ignore and try the next node
                     //ArakoonClientLogger.logWarning( "Could not query node '%s' to see who is master", node )
                     //ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
                 }
@@ -430,9 +417,7 @@ class Arakoon
     }
     
     private function sendToMaster($msg){
-        arakoonLog(__FUNCTION__, "Message: $msg");
         $this->determineMaster();
-        arakoonLog(__FUNCTION__, "MasterId: $this->masterId");
         $retVal = $this->sendMessage($this->masterId, $msg );
         if ($retVal == null){
             throw new Exception('Error, sendToMaster Failed');
@@ -450,16 +435,12 @@ class Arakoon
     }
     
     private function getMasterIdFromNode($nodeId){
-        arakoonLog(__FUNCTION__, "node: $nodeId");
-        
         $conn = $this->sendMessage( $nodeId , ArakoonProtocol::encodeWhoMaster() );
         $masterId = $conn->decodeStringOptionResult();
         return $masterId;
     }
     
     private  function sendMessage($nodeId, $msgBuffer, $tryCount=-1){
-        arakoonLog(__FUNCTION__, "node: $nodeId");
-        
         $result = null;
 
         if ($tryCount == -1)
@@ -478,7 +459,6 @@ class Arakoon
                     $connection->send($msgBuffer);
 
                     // Message sent correctly, return client connection so result can be read
-                    arakoonLog(__FUNCTION__, "SUCCESS in sendMessage to:'$nodeId', with Message:'$msgBuffer'");
                     $result = $connection;
                     break;
                 } 
@@ -489,7 +469,6 @@ class Arakoon
                     $this->connections[$nodeId]->close();
                     unset($this->connections[$nodeId]);
                     $this->masterId = null;
-                    arakoonLog(__FUNCTION__, "Failed in sendMessage to:'$nodeId', with Message:'$msgBuffer'");
                 }
         }
         if ($result == null){
@@ -503,8 +482,6 @@ class Arakoon
     }
     
     private function getConnection($nodeId){
-        arakoonLog(__FUNCTION__, "dump: ".var_dump($nodeId));
-        
         $connection = null;
         if (array_key_exists($nodeId, $this->connections)){
             $connection = $this->connections[$nodeId];

@@ -35,7 +35,6 @@ class ArakoonClientConnection
         }
         sendPrologue($this->socket, $this->clusterId);
         return $this->connected = True;
-        arakoonLog(__FUNCTION__, "Connected!");
     }
 
     function send($msg){

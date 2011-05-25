@@ -1,8 +1,8 @@
 <?php
 
 /*Default cfg files in PYLABS*/
-define("ARA_CFG_QBASE3_PATH","/opt/qbase5/cfg/qconfig/arakoonclients.cfg");
-define("ARA_CFG_QBASE5_PATH","/opt/qbase3/cfg/qconfig/arakoonclients.cfg");
+define("ARA_CFG_QBASE3_PATH","/opt/qbase3/cfg/qconfig/arakoonclients.cfg");
+define("ARA_CFG_QBASE5_PATH","/opt/qbase5/cfg/qconfig/arakoonclients.cfg");
 
 
 define("ARA_CFG_TRY_CNT", 1);

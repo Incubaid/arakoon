@@ -49,7 +49,6 @@ function readExactNBytes($con, $n ){
         $a = array($con->socket);
         $null = null;
         $stat = socket_select( $a, $null, $null, $timeout );
-        arakoonLog(__FUNCTION__, " socket select returned $stat");
         if ($stat !== FALSE){
             $newChunk = "";
             $newChunk = socket_read($con->socket, $bytesRemaining);
@@ -103,7 +102,6 @@ function recvInt($con){
     $buf = readExactNBytes($con, ARA_TYPE_INT_SIZE);
     
     list($i,$o2) = unpackInt($buf,0);
-    arakoonLog(__FUNCTION__, "Received ".strlen($buf)." Returning: $i");
     return $i;
 }
     
@@ -259,12 +257,10 @@ class ArakoonProtocol
     }
 
     static function encodeSequence($seq){
-        arakoonLog(__FUNCTION__, "") ;
         $r = new StringIO();
         $seq->write($r);
         $flattened = $r->getValue();
         $r->close();
-        arakoonLog(__FUNCTION__, "Flattened Sequence: $flattened") ;
         return packInt(ARA_CMD_SEQ) . packString($flattened);
     }
         
@@ -335,7 +331,6 @@ class ArakoonProtocol
     }
     
     static function decodeStringOptionResult($con){
-        arakoonLog(__FUNCTION__, "");
         ArakoonProtocol::evaluateErrorCode($con);
         return recvStringOption($con);
     }
@@ -403,9 +398,6 @@ class ArakoonProtocol
     
     static function evaluateErrorCode($con){
         $errorCode = recvInt($con);
-        
-        arakoonLog(__FUNCTION__, "Error: $errorCode");
-        //  ArakoonException( "Received invalid response from the server" )
         if ($errorCode == ARA_ERR_SUCCESS)
             return;
         else
