@@ -1,6 +1,6 @@
 <?php
 
-include_once 'ara_def.php';
+require_once 'ara_def.php';
 
 function arakoonLog($function, $message)
 {
@@ -77,6 +77,7 @@ class ArakoonClientConfig
     static function getBackoffInterval(){
         return ARA_CFG_CONN_BACKOFF;
     }
+    
     /*Retrieve location of the server node with give node identifier
 
         A location is a pair consisting of a hostname or ip address as first element.
@@ -89,9 +90,7 @@ class ArakoonClientConfig
         @return: Returns a pair with the nodes hostname or ip and the tcp port, e.g. ("127.0.0.1", 4000)
     */ 
     function getNodeLocation($nodeId){
-        return $this->nodes[$nodeId ];
-
-   
+        return $this->nodes[$nodeId ];   
     }
 
     /*
