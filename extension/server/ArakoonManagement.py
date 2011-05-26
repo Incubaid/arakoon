@@ -344,7 +344,7 @@ class ArakoonCluster:
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId))
+                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId) )
             _set(g,m,name)
             if preferred:
                 _set(g,pm,'true')
@@ -544,7 +544,7 @@ class ArakoonCluster:
             node_str = ','.join(nodes)
             config.setParam("global","cluster", node_str)
             config.write()
-            
+
     def listLocalNodes(self):
         """
         Get a list of the local nodes in the supplied cluster
@@ -741,7 +741,7 @@ class ArakoonCluster:
         """
         Tell the targetted node to collapse n tlog files
         @type nodeName: string
-        @type n: int > 0
+        @type n: int
         """
         config = self.getNodeConfig(nodeName)
         ip = config['ip']
@@ -806,12 +806,18 @@ class ArakoonCluster:
         while(self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING):
             time.sleep(1)
             i += 1
+            logging.debug("'%s' is still running... waiting" % name)
+            q.logger.log("'%s' is still running... waiting" % name, level = 3)
 
             if i == 10:
-                logging.debug("stopping '%s' with -9")
+                logging.debug("stopping '%s' with kill -9" % name)
+                q.logger.log("stopping '%s' with kill -9" % name, level = 3)
                 subprocess.call(['pkill', '-9', '-fx', line], close_fds=True)
                 cnt = 0
-                while (self._getStatusOne(name, cluster = cluster) == q.enumerators.AppStatusType.RUNNING ) :
+                while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
+                    logging.debug("'%s' is STILL running... waiting" % name)
+                    q.logger.log("'%s' is STILL running... waiting" % name, 
+                                 level = 3)
                     time.sleep(1)
                     cnt += 1
                     if( cnt > 10):

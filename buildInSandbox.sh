@@ -2,7 +2,7 @@
 set -e
 
 
-ocamlbuild $@ arakoon.native
+ocamlbuild $@ -use-ocamlfind arakoon.native
 
 mkdir -p /opt/qbase3/apps/arakoon/bin/
 cp arakoon.native /opt/qbase3/apps/arakoon/bin/arakoon
