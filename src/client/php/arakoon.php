@@ -1,7 +1,7 @@
 <?php
 
-include 'ara_connection.php';
-include 'ara_config.php';
+include_once 'ara_connection.php';
+include_once 'ara_config.php';
 include_once 'ara_protocol.php';
 include_once 'ara_def.php';
 
@@ -31,11 +31,8 @@ class Arakoon
         }
 
         $this->config = $config;
-        //self.__lock = threading.RLock()
         $nodeList = array_keys($this->config->getNodes());
         if (count($nodeList) == 0){
-            //echo 'Error';
-            //raise ArakoonInvalidConfig("Node list empty.")
             throw new Exception('Error, Node list empty!');
         }
         $this->dirtyReadNode = $nodeList[array_rand($nodeList)];
@@ -78,10 +75,6 @@ class Arakoon
         return new Arakoon($cfg);
     }
     
-    /*
-     * Allow the client to read values from a potential slave.         
-     * Enabling this can give back outdated values!
-     */
     function allowDirtyReads(){
         $this->allowDirty = TRUE;
     }
@@ -98,7 +91,7 @@ class Arakoon
     */
     function setDirtyReadNode($node){
         if (!in_array($node, array_keys($this->config->getNodes())))
-                throw new Exception ("Unkown Node $node");
+                throw new Exception ("Unkown Node: $node");
         $this->dirtyReadNode = $node;
     }
 
@@ -154,10 +147,12 @@ class Arakoon
      */    
     function get($key){ 
         $msg = ArakoonProtocol::encodeGet($key, $this->allowDirty);
-        if ($this->allowDirty)
+        if ($this->allowDirty){
             $conn = $this->sendMessage($this->dirtyReadNode, $msg);
-        else
+        }
+        else{
             $conn = $this->sendToMaster($msg);
+        }
         return $conn->decodeStringResult();
     }
     
@@ -196,7 +191,7 @@ class Arakoon
      * 
      */
     function set($key, $value){
-        $conn = $this->sendToMaster(ArakoonProtocol::encodeSet($key, $value ));
+        $conn = $this->sendToMaster(ArakoonProtocol::encodeSet($key, $value));
         $conn->decodeVoidResult();
     }
     
@@ -409,7 +404,6 @@ class Arakoon
         }
         if ($this->masterId == null){
             //ArakoonClientLogger::logError( "Could not determine master."  );
-            //throw new Exception($message, $code, $previous); //raise ArakoonNoMaster()
             throw new Exception('Error, Could not determine master!');
         }
 
@@ -422,7 +416,6 @@ class Arakoon
         if ($retVal == null){
             throw new Exception('Error, sendToMaster Failed');
         }
-            //raise ArakoonNoMasterResult ()
         return $retVal;
     }
     
@@ -451,13 +444,10 @@ class Arakoon
             if ($i > 0){
                 $maxSleep = $i * ArakoonClientConfig::getBackoffInterval();
                 $this->sleep(rand(0, $maxSleep) );
-            }
-            //TODO make some lockingwith self.__lock :
-                
+            }   
                 try{
                     $connection = $this->getConnection( $nodeId );
                     $connection->send($msgBuffer);
-
                     // Message sent correctly, return client connection so result can be read
                     $result = $connection;
                     break;
@@ -465,15 +455,20 @@ class Arakoon
                 catch ( Exception $ex){
                     $fmt = "Attempt %d to exchange message with node %s failed with error (%s).";
                     //ArakoonClientLogger::logWarning($fmt , $i, $nodeId, $ex);
-                    # Get rid of the connection in case of an exception
-                    $this->connections[$nodeId]->close();
-                    unset($this->connections[$nodeId]);
-                    $this->masterId = null;
+                    //Get rid of the connection in case of an exception
+                    try{
+                        $this->connections[$nodeId]->close();
+                        unset($this->connections[$nodeId]);
+                        $this->masterId = null;
+                    }
+                    catch (Exception $ex){
+                        throw new Exception("Couldnt close connection with node: $nodeId");
+                    }
                 }
         }
         if ($result == null){
-            # If result is None, this means that all retries failed.
-            # Re-raise the last exception to escalate the problem
+            // If result is None, this means that all retries failed.
+            // Re-raise the last exception to escalate the problem
             throw new Exception('Error, All Retries Failed');
         }
 
@@ -492,17 +487,20 @@ class Arakoon
             $connection = new ArakoonClientConnection($nodeLocation , $clusterId);
             $this->connections[$nodeId] = $connection;
         }
-        return $connection;
-
-   
+        return $connection;   
     }
     
     private function dropConnections(){
         $keysToRemove = array_keys($this->connections);
         
         foreach($keysToRemove as $key){
-            $this->connections[$key]->close();
-            unset ($this->connections[$key]);
+            try {
+                $this->connections[$key]->close();
+                unset ($this->connections[$key]);                
+            }
+            catch(Exception $ex){
+                /*Log Error*/
+            }
         }
     }
     

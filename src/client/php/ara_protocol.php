@@ -1,6 +1,6 @@
 <?php
 
-include_once 'ara_def.php';
+require_once 'ara_def.php';
 
 
 function packString($toPack){
@@ -88,13 +88,13 @@ function unpackInt($buf, $offset){
 }
 
 function unpackInt64($buf, $offset){
-    /*TODO*/
+    $msg = __FUNCTION__ . " Not Implemented";
+    throw new Exception($msg);
 }
     
 function unpackString($buf, $offset){
     list($size,$o2) = unpackInt($buf, $offset);
     $v = substr($buf, $o2, o2+$size);
-    //v = buf[o2:o2 + size];
     return array($v, $o2+$size);    
 }
     
@@ -404,16 +404,16 @@ class ArakoonProtocol
             $errorMsg = recvString($con);
 
         if ($errorCode == ARA_ERR_NOT_FOUND){
-            1/0;
-            //raise ArakoonNotFound(errorMsg);
+            $msg = __FUNCTION__ . " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            throw new Exception($msg);
         }
         if ($errorCode == ARA_ERR_NOT_MASTER){
-            1/0;
-            //raise ArakoonNodeNotMaster();
+            $msg = __FUNCTION__ . " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            throw new Exception($msg);
         }
         if (errorCode != ARA_ERR_SUCCESS){
-            1/0;
-            //raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) );
+            $msg = __FUNCTION__ . " Error: $errorCode";
+            throw new Exception($msg);
         }
     }
     

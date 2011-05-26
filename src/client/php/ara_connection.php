@@ -1,6 +1,6 @@
 <?php
 
-include_once 'ara_protocol.php';
+require_once 'ara_protocol.php';
 
 class ArakoonClientConnection
 {
@@ -40,10 +40,11 @@ class ArakoonClientConnection
     function send($msg){
         if(!$this->connected){
             if(!$this->reconnect()){
-                return FALSE;
+                $msg = __FUNCTION__ . " Connection failed!";
+                throw new Exception($msg);
             }
         }
-        socket_write($this->socket, $msg);      
+        return socket_write($this->socket, $msg);
     }
     
     function isConnected()
@@ -57,6 +58,7 @@ class ArakoonClientConnection
         }
         socket_close($this->socket);
         $this->connected = FALSE;
+        return TRUE;
     }
     
     
