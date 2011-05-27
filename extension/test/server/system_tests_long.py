@@ -25,6 +25,9 @@ from system_tests_common import *
 import logging
 import subprocess
 
+import time
+import threading
+
 def _getCluster():
     global cluster_id
     return q.manage.arakoon.getCluster(cluster_id)
@@ -316,7 +319,47 @@ def test_collapse():
         counter = counter + 1
         up2date = cli.expectProgressPossible()
     logging.info("catchup from collapsed node finished")
-    
+
+@with_custom_setup(setup_1_node, basic_teardown)
+def test_concurrent_collapse_fails():
+    zero = node_names[0]
+
+    n = 298765
+    iterate_n_times(n, simple_set)
+    logging.info("Did %i sets, now going into collapse scenario", n)
+
+    class SecondCollapseThread(threading.Thread):
+        def __init__(self, sleep_time):
+            threading.Thread.__init__(self)
+
+            self.sleep_time = sleep_time
+            self.exception_received = False
+
+        def run(self):
+            logging.info('Second collapser thread started, sleeping...')
+            time.sleep(self.sleep_time)
+
+            logging.info('Starting concurrent collapse')
+            rc = collapse(zero, 1)
+
+            logging.info('Concurrent collapse returned %d', rc)
+
+            if rc == 255:
+                self.exception_received = True
+
+    s = SecondCollapseThread(5)
+    assert not s.exception_received
+
+    logging.info('Launching second collapser thread')
+    s.start()
+
+    logging.info('Launching main collapse')
+    collapse(zero, 1)
+
+    logging.info("collapsing finished")
+
+    assert_true(s.exception_received)
+
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_exercises():
     time.sleep(1.0) # ??

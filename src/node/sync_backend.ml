@@ -82,6 +82,7 @@ class sync_backend cfg push_update
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
   let blockers_cond = Lwt_condition.create() in
+  let collapsing_lock = Lwt_mutex.create() in
   let assert_value_size value = 
     let length = String.length value in
     if length >= (8 * 1024 * 1024) then
@@ -364,14 +365,24 @@ object(self: #backend)
 	in
 	Lwt.fail (XException(rc, msg))
       else
-	Lwt.return () 
+        Lwt_log.debug_f "collapsing_lock locked: %s"
+          (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
+        if Lwt_mutex.is_locked collapsing_lock then
+          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+          and msg = "Collapsing already in progress"
+          in
+          Lwt.fail (XException(rc,msg))
+        else
+  	  Lwt.return ()
     end >>= fun () ->
-    let tlog_dir = Node_cfg.tlog_dir cfg in
-    let new_cb tlog_name =
-      let file_num = Tlc2.get_number tlog_name in
-      cb() >>= fun () ->
-      self # wait_for_tlog_release (Sn.of_int file_num) 
-    in
-    Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
-    Lwt.return ()
+    Lwt_mutex.with_lock collapsing_lock (fun () ->
+      let tlog_dir = Node_cfg.tlog_dir cfg in
+      let new_cb tlog_name =
+        let file_num = Tlc2.get_number tlog_name in
+        cb() >>= fun () ->
+        self # wait_for_tlog_release (Sn.of_int file_num)
+      in
+      Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
+      Lwt.return ()
+    )
 end
