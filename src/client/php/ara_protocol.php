@@ -1,5 +1,6 @@
 <?php
 
+require_once 'logging.php';
 require_once 'ara_def.php';
 
 
@@ -404,15 +405,18 @@ class ArakoonProtocol
             $errorMsg = recvString($con);
 
         if ($errorCode == ARA_ERR_NOT_FOUND){
-            $msg = __FUNCTION__ . " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            $msg = " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
         if ($errorCode == ARA_ERR_NOT_MASTER){
-            $msg = __FUNCTION__ . " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            $msg = " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
         if (errorCode != ARA_ERR_SUCCESS){
-            $msg = __FUNCTION__ . " Error: $errorCode";
+            $msg = " Error: $errorCode";
+            Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
     }

@@ -1,13 +1,13 @@
 <?php
 
-include_once 'ara_connection.php';
-include_once 'ara_config.php';
-include_once 'ara_protocol.php';
-include_once 'ara_def.php';
+require_once 'logging.php';
+require_once 'ara_connection.php';
+require_once 'ara_config.php';
+require_once 'ara_protocol.php';
+require_once 'ara_def.php';
 
 class Arakoon
-{
-    
+{   
     private $masterId = null;
     private $config = null;
     private $connections = array();
@@ -90,8 +90,9 @@ class Arakoon
      * @rtype: void
     */
     function setDirtyReadNode($node){
-        if (!in_array($node, array_keys($this->config->getNodes())))
+        if (!in_array($node, array_keys($this->config->getNodes()))){
                 throw new Exception ("Unkown Node: $node");
+        }
         $this->dirtyReadNode = $node;
     }
 
@@ -384,26 +385,26 @@ class Arakoon
                             }
                         }
                         else{
-                            //ArakoonClientLogger::logWarning( "Node '%s' does not know who the master is", $node );
+                            Logging::warning("Node '$node' does not know who the master is", __FILE__, __FUNCTION__, __LINE__);
                         }
                     }
                     catch (Exception $ex){    
-                        //ArakoonClientLogger::logWarning( "Could not validate master on node '%s'", $tmpMaster );
-                        //ArakoonClientLogger::logDebug( "%s" % (ex));
+                        Logging::warning("Could not validate master on node '$tmpMaster'", __FILE__, __FUNCTION__, __LINE__);
+                        Logging::debug("Exception: $ex", __FILE__, __FUNCTION__, __LINE__);
                         $this->masterId = null;
                     }
                             
                 }    
                 catch (Exception $ex){
                     //Exceptions will occur when nodes are down, simply ignore and try the next node
-                    //ArakoonClientLogger.logWarning( "Could not query node '%s' to see who is master", node )
-                    //ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
+                    Logging::warning("Could not query node '$node' to see who is master", __FILE__, __FUNCTION__, __LINE__);
+                    Logging::debug("Exception: $ex", __FILE__, __FUNCTION__, __LINE__);                    
                 }
             }
                 
         }
         if ($this->masterId == null){
-            //ArakoonClientLogger::logError( "Could not determine master."  );
+            Logging::fatal("Could not determine master.", __FILE__, __FUNCTION__, __LINE__);
             throw new Exception('Error, Could not determine master!');
         }
 
@@ -414,14 +415,16 @@ class Arakoon
         $this->determineMaster();
         $retVal = $this->sendMessage($this->masterId, $msg );
         if ($retVal == null){
+            Logging::error("Send To Master Failed!", __FILE__, __FUNCTION__, __LINE__);
             throw new Exception('Error, sendToMaster Failed');
         }
         return $retVal;
     }
     
     private function validateMasterId($masterId){
-        if ($masterId == null)
+        if ($masterId == null){
             return False;
+        }
         $otherMasterId = $this->getMasterIdFromNode($masterId);
         return $masterId == $otherMasterId;
    
@@ -436,9 +439,10 @@ class Arakoon
     private  function sendMessage($nodeId, $msgBuffer, $tryCount=-1){
         $result = null;
 
-        if ($tryCount == -1)
+        if ($tryCount == -1){
             $tryCount = $this->config->getTryCount();
-
+        }
+        
         for ($i=0; $i < $tryCount; $i++){
 
             if ($i > 0){
@@ -448,13 +452,11 @@ class Arakoon
                 try{
                     $connection = $this->getConnection( $nodeId );
                     $connection->send($msgBuffer);
-                    // Message sent correctly, return client connection so result can be read
                     $result = $connection;
                     break;
                 } 
                 catch ( Exception $ex){
-                    $fmt = "Attempt %d to exchange message with node %s failed with error (%s).";
-                    //ArakoonClientLogger::logWarning($fmt , $i, $nodeId, $ex);
+                    Logging::warning("Attempt $i to exchange message with node $nodeId failed with error ($ex).", __FILE__, __FUNCTION__, __LINE__);
                     //Get rid of the connection in case of an exception
                     try{
                         $this->connections[$nodeId]->close();
@@ -462,18 +464,19 @@ class Arakoon
                         $this->masterId = null;
                     }
                     catch (Exception $ex){
-                        throw new Exception("Couldnt close connection with node: $nodeId");
+                        Logging::warning("Couldnt close connection with node: $nodeId", __FILE__, __FUNCTION__, __LINE__);                        
+                        //throw new Exception("Couldnt close connection with node: $nodeId");
                     }
                 }
         }
         if ($result == null){
             // If result is None, this means that all retries failed.
             // Re-raise the last exception to escalate the problem
+            Logging::fatal("Error, All Retries Failed to Send Message", __FILE__, __FUNCTION__, __LINE__);
             throw new Exception('Error, All Retries Failed');
         }
 
         return $result;
-
     }
     
     private function getConnection($nodeId){
@@ -482,10 +485,15 @@ class Arakoon
             $connection = $this->connections[$nodeId];
         }
         if ($connection == null){
-            $nodeLocation = $this->config->getNodeLocation($nodeId);
-            $clusterId = $this->config->getClusterId();
-            $connection = new ArakoonClientConnection($nodeLocation , $clusterId);
-            $this->connections[$nodeId] = $connection;
+            try{
+                $nodeLocation = $this->config->getNodeLocation($nodeId);
+                $clusterId = $this->config->getClusterId();
+                $connection = new ArakoonClientConnection($nodeLocation , $clusterId);
+                $this->connections[$nodeId] = $connection;
+                
+            }catch(Exception $ex){
+                Logging::error("Cannot create new connection. Exception: $ex", __FILE__, __FUNCTION__, __LINE__);
+            }
         }
         return $connection;   
     }
@@ -499,7 +507,7 @@ class Arakoon
                 unset ($this->connections[$key]);                
             }
             catch(Exception $ex){
-                /*Log Error*/
+                Logging::error("Cannot close connection with node: {$this->connections[$key]}", __FILE__, __FUNCTION__, __LINE__);
             }
         }
     }

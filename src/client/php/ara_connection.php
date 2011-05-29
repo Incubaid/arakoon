@@ -1,5 +1,6 @@
 <?php
 
+require_once 'logging.php';
 require_once 'ara_protocol.php';
 
 class ArakoonClientConnection
@@ -29,9 +30,16 @@ class ArakoonClientConnection
         $this->close();
 
         $this->socket = socket_create(AF_INET, SOCK_STREAM, 0);
-        $err = socket_connect($this->socket, $this->nodeLocation['ip'], $this->nodeLocation['port']);
-        if (!$err){
-            return FALSE;
+        try{
+            Logging::trace("Trying to establish connection with node with ip {$this->nodeLocation['ip']}", __FILE__, __FUNCTION__, __LINE__);
+            $err = socket_connect($this->socket, $this->nodeLocation['ip'], $this->nodeLocation['port']);
+            if (!$err){
+                Logging::fatal("Cannot connect to node with ip {$this->nodeLocation['ip']}", __FILE__, __FUNCTION__, __LINE__);
+                return FALSE;
+            }            
+        }catch(Exception $ex){
+            Logging::fatal("Cannot connect to node with ip {$this->nodeLocation['ip']}", __FILE__, __FUNCTION__, __LINE__);
+            throw new Exception("Cannot connect to node with ip {$this->nodeLocation['ip']}, Exception $ex");
         }
         sendPrologue($this->socket, $this->clusterId);
         return $this->connected = True;
@@ -40,7 +48,8 @@ class ArakoonClientConnection
     function send($msg){
         if(!$this->connected){
             if(!$this->reconnect()){
-                $msg = __FUNCTION__ . " Connection failed!";
+                $msg = "Send Connection failed!";
+                Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);                
                 throw new Exception($msg);
             }
         }

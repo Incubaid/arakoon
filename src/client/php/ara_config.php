@@ -1,17 +1,10 @@
 <?php
 
 require_once 'ara_def.php';
-
-function arakoonLog($function, $message)
-{
-    echo "$function | $message <br>";
-}
-
+require_once 'logging.php';
 
 class ArakoonClientConfig
 {
-
-
     private $clusterId = null;
     private $nodes = null;
 
@@ -23,10 +16,9 @@ class ArakoonClientConfig
           - nodeids as keys
           - (hostname/ip, tcp port) tuples as value
         e.g. ::
-            cfg = ArakoonClientConfig ('ricky',
-                { "myFirstNode" : ( "127.0.0.1", 4000 ),
-                  "mySecondNode" : ( "127.0.0.1", 5000 ) ,
-                  "myThirdNode"  : ( "127.0.0.1", 6000 ) } )
+            $nodes = array(
+                'sampleapp_0' => array('ip'=>'127.0.0.1', 'port' => 20100)
+            );
 
         @type clusterId: string
         @param clusterId: name of the cluster
@@ -90,7 +82,11 @@ class ArakoonClientConfig
         @return: Returns a pair with the nodes hostname or ip and the tcp port, e.g. ("127.0.0.1", 4000)
     */ 
     function getNodeLocation($nodeId){
-        return $this->nodes[$nodeId ];   
+        if (!key_exists($nodeId, $this->nodes)){
+            Logging::error("Invalid node: $nodeId", __FILE__, __FUNCTION__, __LINE__);
+            throw new Exception("Invalid node: $nodeId");
+        }
+        return $this->nodes[$nodeId];   
     }
 
     /*

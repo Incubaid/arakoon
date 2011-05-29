@@ -1,14 +1,21 @@
 <?php
+require_once 'logging.php';
 require_once 'arakoon.php';
 require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'php_unit_test_framework/text_test_runner.php';
 require_once 'php_unit_test_framework/xhtml_test_runner.php';
 
+define("ARAKOON_CLUSTER", "sampleapp");
+
+/*Initialize Logging*/
+Logging::setup("log.txt", Logging::TRACE, true);
+Logging::debug("Unit Testing started");
+
 /*
  * TODO: Run python script to construct the Arakoon server
  */
 
-define("ARAKOON_CLUSTER", "sampleapp");
+
 
 function GetArakoon()
 {
