@@ -365,6 +365,31 @@ class ArakoonCluster:
         
         for n in nodes:
             config.addParam( n, "log_level", level )
+        
+    
+    def _changeTlogCompression(self, nodes, value):
+        if nodes is None:
+            nodes = self.listNodes()
+        else:
+            for n in nodes :
+                self.__validateName( n )
+        config = self._getConfigFile()
+        for n in nodes:
+            config.addParam(n, "disable_tlog_compression", value )
+            
+    def enableTlogCompression(self, nodes=None):
+        """
+        Enables tlog compression for the given nodes (this is enabled by default)
+        @param nodes List of node names
+        """
+        self._changeTlogCompression(nodes, 'false')
+    
+    def disableTlogCompression(self, nodes=None):
+        """
+        Disables tlog compression for the given nodes
+        @param nodes List of node names
+        """
+        self._changeTlogCompression(nodes, 'true')
                 
     def setQuorum(self, quorum=None):
         """
