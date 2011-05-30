@@ -46,6 +46,7 @@ class ArakoonClientConnection
     }
 
     function send($msg){
+        Logging::trace("Enter", __FILE__, __FUNCTION__, __LINE__);
         if(!$this->connected){
             if(!$this->reconnect()){
                 $msg = "Send Connection failed!";
@@ -63,11 +64,10 @@ class ArakoonClientConnection
     
     function close(){
         if(!$this->connected){
-            return TRUE;
+            return;
         }
         socket_close($this->socket);
         $this->connected = FALSE;
-        return TRUE;
     }
     
     

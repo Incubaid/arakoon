@@ -5,27 +5,39 @@ require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'php_unit_test_framework/text_test_runner.php';
 require_once 'php_unit_test_framework/xhtml_test_runner.php';
 
-define("ARAKOON_CLUSTER", "sampleapp");
+define("ARAKOON_CLUSTER", "phpclient");
+define("ARAKOON_CLUSTER_PORT", 15500);
+define("ARAKOON_CLUSTER_IP", "127.0.0.1");
 
 /*Initialize Logging*/
-Logging::setup("log.txt", Logging::TRACE, true);
+Logging::setup("log.txt", Logging::ERROR, true);
 Logging::debug("Unit Testing started");
 
 /*
- * TODO: Run python script to construct the Arakoon server
+ * Run python script to construct the Arakoon server
  */
+if (file_exists("setup.py")){
+    exec("python setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
+}
 
+Logging::debug("Setup done!");
 
+function tearDownArakoon(){
+    if (file_exists("setup.py")){
+        exec("python setup.py --stop");
+    }    
+}
 
 function GetArakoon()
 {
     $clusterId = ARAKOON_CLUSTER;
+    $nodeId = ARAKOON_CLUSTER . "_0";
     $nodes = array(
-        'sampleapp_0' => array('ip'=>'127.0.0.1', 'port' => 20100)
+        $nodeId => array('ip' => ARAKOON_CLUSTER_IP, 'port' => ARAKOON_CLUSTER_PORT)
     );
 
     $cfg = new ArakoonClientConfig ($clusterId, $nodes);
-    $arakoon = new Arakoon($cfg);      
+    $arakoon = new Arakoon($cfg);
     return $arakoon;
 }
 
@@ -419,6 +431,11 @@ $suite->AddTest('ArakoonDelete');
 $suite->AddTest('ArakoonPrefix');
 $suite->AddTest('ArakoonExpectProgressPossible');
 $suite->AddTest('ArakoonHelloWhoMaster');
+
+/*
+ * Python script to Tear Down the Arakoon Server
+ */
+tearDownArakoon();
 
 $runner = new XMLTestRunner();
 $runner->Run($suite, 'report');

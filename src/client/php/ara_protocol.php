@@ -38,6 +38,7 @@ function sendPrologue($socket, $clusterId){
 }
 
 function readExactNBytes($con, $n ){
+    Logging::trace("Enter", __FILE__, __FUNCTION__, __LINE__);    
     if (!$con->isConnected()){
         $msg = __FUNCTION__." Socket is not connected";
         throw new Exception($msg);
@@ -48,13 +49,17 @@ function readExactNBytes($con, $n ){
 
     while ($bytesRemaining > 0){
         $a = array($con->socket);
-        $null = null;
-        $stat = socket_select( $a, $null, $null, $timeout );
+        $nullval = null; /*passed by reference*/
+        Logging::trace("Trying to Socket Select $timeout", __FILE__, __FUNCTION__, __LINE__);
+        $stat = socket_select($a, $nullval, $nullval, $timeout);
         if ($stat !== FALSE){
+            Logging::trace("Socket Select returned $stat", __FILE__, __FUNCTION__, __LINE__);
             $newChunk = "";
             $newChunk = socket_read($con->socket, $bytesRemaining);
+            Logging::trace("Socket read returned for reading $bytesRemaining", __FILE__, __FUNCTION__, __LINE__);
             $newChunkSize = strlen($newChunk);
             if ($newChunkSize == 0){
+                Logging::trace("Socket read length $newChunkSize", __FILE__, __FUNCTION__, __LINE__);
                 $con->close();           
                 return FALSE;
             }
@@ -67,7 +72,7 @@ function readExactNBytes($con, $n ){
             throw new Exception($msg);
         }
     }
-
+    Logging::trace("Leave with $tmpResult", __FILE__, __FUNCTION__, __LINE__);
     return $tmpResult;
 
 }
@@ -253,8 +258,8 @@ class ArakoonProtocol
         return $msg;
     }
 
-    static function encodeSet($key, $value ){
-        return packInt( ARA_CMD_SET ) . packString( $key ) . packString ( $value );
+    static function encodeSet($key, $value){
+        return packInt(ARA_CMD_SET) . packString($key) . packString($value);
     }
 
     static function encodeSequence($seq){
@@ -405,17 +410,17 @@ class ArakoonProtocol
             $errorMsg = recvString($con);
 
         if ($errorCode == ARA_ERR_NOT_FOUND){
-            $msg = " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            $msg = "Error: " . ARA_ERR_NOT_FOUND . " , Message: $errorMsg";
             Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
         if ($errorCode == ARA_ERR_NOT_MASTER){
-            $msg = " Error: " . ARA_ERR_NOT_FOUND . " Message: $errorMsg";
+            $msg = "Error: " . ARA_ERR_NOT_FOUND . " , Message: $errorMsg";
             Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
         if (errorCode != ARA_ERR_SUCCESS){
-            $msg = " Error: $errorCode";
+            $msg = "Error: $errorCode" . " , Message: $errorMsg";
             Logging::error($msg, __FILE__, __FUNCTION__, __LINE__);
             throw new Exception($msg);
         }
