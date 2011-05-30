@@ -466,4 +466,19 @@ def test_3_nodes_2_slaves_down ():
             
     cli._dropConnections()
 
-
+@with_custom_setup( default_setup, basic_teardown )
+def test_disable_tlog_compression():
+    
+    clu = _getCluster()
+    clu.disableTlogCompression()
+    clu.restart()
+    time.sleep(1.0)
+    
+    iterate_n_times( 2*100000, simple_set )
+    
+    node_id = node_names[0]
+    node_home_dir = clu.getNodeConfig(node_id) ['home']
+    ls = q.system.fs.listFilesInDir
+    tlogs = ls( node_home_dir, filter="*.tlog" )
+    
+    assert_equals(len(tlogs), 3, "Wrong number of uncompressed tlogs (%d != %d)" % (3, len(tlogs))) 
