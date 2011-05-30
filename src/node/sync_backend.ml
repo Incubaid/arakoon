@@ -83,7 +83,7 @@ class sync_backend cfg push_update
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
   let blockers_cond = Lwt_condition.create() in
-  let collapsing_lock = Lwt_mutex.creat() in
+  let collapsing_lock = Lwt_mutex.create() in
   let assert_value_size value = 
     let length = String.length value in
     if length >= (8 * 1024 * 1024) then
