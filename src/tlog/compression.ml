@@ -66,15 +66,18 @@ let compress_tlog tlog_name archive_name =
 	    if counter = 0 
 	    then 
 	      begin 
-		decr jobs;
-		Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
-		Lwt.return ()
-	      end
-	    else
-	      begin
-		compress_and_write last_i buffer >>= fun () ->
-		let () = Buffer.clear buffer in
-		loop ()
+          decr jobs;
+          Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
+          Lwt.return ()
+        end
+      else
+        begin
+          let start = Unix.time() in
+          compress_and_write last_i buffer >>= fun () ->
+          let () = Buffer.clear buffer in
+          let delta  = Unix.time() -. start in
+          Lwt_unix.sleep (2.0 *. delta) >>= fun () ->
+          loop ()
 	      end
 	  in
 	  loop ()

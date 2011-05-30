@@ -164,7 +164,7 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
   make_store db_name >>= fun (store:Store.store) ->
-  make_tlog_coll me.tlog_dir >>= fun tlc ->
+  make_tlog_coll me.tlog_dir true >>= fun tlc ->
   let mr_name = 
     let fo = List.hd other_configs in
     fo.node_name 
@@ -291,7 +291,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	  Collapser.maybe_copy_head me.tlog_dir db_name >>= fun () ->
 	  make_store db_name >>= fun (store:Store.store) ->
           Lwt.catch
-	    ( fun () -> make_tlog_coll me.tlog_dir) 
+	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression) 
 	    ( function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
                 store # consensus_i () >>= fun store_i ->
@@ -321,7 +321,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
                       Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
 			last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir
+                      make_tlog_coll me.tlog_dir me.use_compression
 		    end
                   else 
 		    begin

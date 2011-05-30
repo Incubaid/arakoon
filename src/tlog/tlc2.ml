@@ -275,7 +275,7 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
   >>= fun x ->
   Lwt.return ()    
     
-class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option)= 
+class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option) (use_compression:bool) = 
   let inner = 
     match last with
       | None -> 0
@@ -344,7 +344,13 @@ object(self: # tlog_collection)
       Lwt_log.debug ("end of compress : " ^ msg) >>= fun () ->
       Lwt.return () 
     in 
-    Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
+    begin
+      if use_compression 
+      then
+        Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) ()
+      else
+        Lwt.return ()
+    end 
     >>= fun () ->
     _outer <- _outer + 1;
     let new_oc = _init_oc tlog_dir _outer in
@@ -442,7 +448,7 @@ let get_last_tlog tlog_dir =
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
 
-let make_tlc2 tlog_dir =
+let make_tlc2 tlog_dir use_compression =
   Lwt_log.debug "make_tlc" >>= fun () ->
   get_last_tlog tlog_dir >>= fun (new_c,fn) ->
   _validate_one fn >>= fun last ->
@@ -452,7 +458,7 @@ let make_tlc2 tlog_dir =
       | Some (li,_) -> "Some" ^ (Sn.string_of li)
   in
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir new_c last in
+  let col = new tlc2 tlog_dir new_c last use_compression in
   Lwt.return col
 
 

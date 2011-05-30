@@ -25,7 +25,8 @@ open Lwt
 open Update
 open Extra
 
-let wrap_tlc = Tlogcollection_test.wrap Tlc2.make_tlc2
+let create_test_tlc dn = Tlc2.make_tlc2 dn true
+let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
 let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in

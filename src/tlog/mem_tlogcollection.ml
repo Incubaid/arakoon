@@ -25,7 +25,7 @@ open Tlogcommon
 open Lwt
 
 
-class mem_tlog_collection tlog_dir =
+class mem_tlog_collection tlog_dir use_compression =
 object (self: #tlog_collection)
 
   val mutable data = []
@@ -81,7 +81,7 @@ object (self: #tlog_collection)
   method close () = Lwt.return ()
 end
 
-let make_mem_tlog_collection tlog_dir =
-  let x = new mem_tlog_collection tlog_dir in
+let make_mem_tlog_collection tlog_dir use_compression =
+  let x = new mem_tlog_collection tlog_dir use_compression in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2
