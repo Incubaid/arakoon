@@ -334,20 +334,7 @@ let do_server node =
   match node with
     | Node ->
       let make_config () = Node_cfg.read_config !config_file in
-      let _ = make_config () in (* see if we get here *)
-      begin
-	if !daemonize then
-	  begin
-	    Lwt_daemon.daemonize
-	      ~syslog:false
-	      ~stdin:`Close
-	      ~stdout:`Dev_null
-	      ~stderr:`Dev_null
-	      ();
-	  end
-	else
-	  ()
-      end;
+      Daemons.maybe_daemonize !daemonize make_config;
       let main_t = (Node_main.main_t make_config !node_id !daemonize !catchup_only) in
       Lwt_main.run main_t;
       0

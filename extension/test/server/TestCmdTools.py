@@ -24,6 +24,7 @@ from pymonkey import q
 from nose.tools import *
 import subprocess
 import os
+import time
 
 class TestCmdTools:
     def __init__(self):
@@ -113,7 +114,10 @@ class TestCmdTools:
     def testStopOne(self):
         cluster = self._getCluster()
         cluster.start()
+        t0 = time.clock()
         cluster.stopOne(self._n0)
+        t1 = time.clock()
+        assert_true(t1 - t0 < 2.0, "took too long")
         self._assert_n_running(2)
 
     def testStopOneUnknown(self):

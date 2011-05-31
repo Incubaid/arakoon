@@ -118,23 +118,6 @@ let _check_tlogs collection tlog_dir =
   end >>= fun () ->
   Lwt.return lastI
 
-(*
-let _maybe_daemonize daemonize cfg get_cfgs =
-  if daemonize then
-    begin
-      Lwt_daemon.daemonize
-	~syslog:false
-	~stdin:`Close
-	~stdout:`Keep
-	~stderr:`Keep
-	();
-      Printf.printf "HIER%!";
-      (* let _ = _config_logging cfg.node_name get_cfgs in *)
-      Lwt.return()
-    end
-  else
-    Lwt.return ()
-*)
 
 let _config_service cfg backend=
   let port = cfg.client_port in
