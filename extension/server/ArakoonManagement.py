@@ -800,10 +800,12 @@ class ArakoonCluster:
         line = self._cmdLine(name)
         cmd = ['pkill', '-fx',  line]
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
-        subprocess.call(cmd, close_fds=True)
-
+        rc = subprocess.call(cmd, close_fds = True)
+        q.logger.log("%s=>rc=%i" % (cmd,rc), level = 3)
         i = 0
         while(self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING):
+            rc = subprocess.call(cmd, close_fds = True)
+            q.logger.log("%s=>rc=%i" % (cmd,rc), level = 3)
             time.sleep(1)
             i += 1
             logging.debug("'%s' is still running... waiting" % name)
@@ -812,7 +814,7 @@ class ArakoonCluster:
             if i == 10:
                 logging.debug("stopping '%s' with kill -9" % name)
                 q.logger.log("stopping '%s' with kill -9" % name, level = 3)
-                subprocess.call(['pkill', '-9', '-fx', line], close_fds=True)
+                subprocess.call(['pkill', '-9', '-fx', line], close_fds = True)
                 cnt = 0
                 while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
                     logging.debug("'%s' is STILL running... waiting" % name)
@@ -850,6 +852,12 @@ class ArakoonCluster:
                                 stdout=subprocess.PIPE)
         pids = proc.communicate()[0]
         pid_list = pids.split()
+        rc = proc.returncode
+        t = (str(cmd), rc, pid_list)
+        q.logger.log( '%s=>rc=%i (%s)' % t)
+        logging.debug('%s=>rc=%i (%s)' % t)
+
+
         logging.debug('pid_list=%s',pid_list)
         for pid in pid_list:
             try:

@@ -118,21 +118,23 @@ let _check_tlogs collection tlog_dir =
   end >>= fun () ->
   Lwt.return lastI
 
+(*
 let _maybe_daemonize daemonize cfg get_cfgs =
   if daemonize then
     begin
       Lwt_daemon.daemonize
 	~syslog:false
 	~stdin:`Close
-	~stdout:`Dev_null
-	~stderr:`Dev_null
+	~stdout:`Keep
+	~stderr:`Keep
 	();
+      Printf.printf "HIER%!";
       (* let _ = _config_logging cfg.node_name get_cfgs in *)
       Lwt.return()
     end
   else
     Lwt.return ()
-
+*)
 
 let _config_service cfg backend=
   let port = cfg.client_port in
@@ -434,12 +436,16 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	    | _ -> Multi_paxos_fsm.enter_simple_paxos
 	in to_run constants buffers new_i vo
       in
-      _maybe_daemonize daemonize me make_config >>= fun _ ->
+      (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
 	(fun () ->
           let _ = Lwt_unix.on_signal 15
-            (fun i -> unlock_killswitch ())
+            (fun i -> 
+	      Printf.printf "XXX\n%!";
+	      unlock_killswitch ()
+	    )
           in
+	  Lwt_io.printlf "HIER OOK%!" >>= fun () ->
 	  Lwt.pick [ 
 	    messaging # run ();
 	    begin
@@ -449,7 +455,10 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      Lwt.pick[ start_backend start_state;
 			service ();
 			rapporting ();
-                        listen_for_sigterm ();
+                        (listen_for_sigterm () >>= fun () ->
+			 Lwt_log.info "got sigterm" >>= fun () ->
+			 Lwt_io.printlf "(stdout)got sigterm")
+			;
 		      ]
 	    end
 	  ] >>= fun () ->
