@@ -25,7 +25,12 @@ Arakoon Cluster Setup
 """
 
 
-from pylabs.InitBase import q
+
+try:
+    from pylabs.InitBase import q
+except ImportError:
+    from pymonkey.InitBase import q
+
 import sys
 import optparse
 
