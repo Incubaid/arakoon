@@ -31,6 +31,8 @@ require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'php_unit_test_framework/text_test_runner.php';
 require_once 'php_unit_test_framework/xhtml_test_runner.php';
 
+define("ARAKOON_QBASE_QSHEL", "/opt/qbase/qshell -f");
+
 define("ARAKOON_CLUSTER", "phpclient");
 define("ARAKOON_CLUSTER_PORT", 15500);
 define("ARAKOON_CLUSTER_IP", "127.0.0.1");
@@ -43,7 +45,7 @@ Logging::debug("Unit Testing started");
  * Run python script to construct the Arakoon server
  */
 if (file_exists("setup.py")){
-    exec("python setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
+    exec(ARAKOON_QBASE_QSHEL . " setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
 }
 
 Logging::debug("Setup done!");
