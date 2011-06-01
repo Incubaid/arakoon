@@ -97,19 +97,28 @@ def createNewPackage( package_name, package_description, old_version, new_versio
 p = i.qp.find( 'arakoon_dev', version='0.8.0' )
 p.install()
 
+def replace_deps( p, deps_to_replace):
+    deps = p.qpackage.dependencies
+    for dep in deps:
+        if dep.name in deps_to_replace:
+            p.qpackage.removeDependency( dep )
+    for dep in deps_to_replace:
+        p.qpackage.addDependency( 'pylabs.org', dep, [q.enumerators.PlatformType.LINUX64], minversion=new_version, maxversion=new_version, dependencytype=q.enumerators.DependencyType4.RUNTIME)
+
+
 packages = list()
+
+
+p = createNewPackage('arakoon_client', 'Version %s of the arakoon client' % new_version, prev_version, new_version )
+packages.append(p)
+
 p = createNewPackage('arakoon', 'Version %s of the arakoon key value store' % new_version, prev_version, new_version )
+replace_deps(p, ['arakoon_client'])
 packages.append(p)
-createNewPackage('arakoon_client', 'Version %s of the arakoon client' % new_version, prev_version, new_version )
-packages.append(p)
+
 p = createNewPackage('arakoon_system_tests', 'Version %s of the arakoon system tests' % new_version, prev_version, new_version )
-deps = p.qpackage.dependencies
-deps_to_replace = ['arakoon','arakoon_client']
-for dep in deps:
-    if dep.name in deps_to_replace:
-        p.qpackage.removeDependency( dep )
-for dep in deps_to_replace:
-    p.qpackage.addDependency( 'pylabs.org', dep, [q.enumerators.PlatformType.LINUX64], minversion=new_version, maxversion=new_version, dependencytype=q.enumerators.DependencyType4.RUNTIME)
+deps_to_replace = ['arakoon']
+replace_deps(p, deps_to_replace)
 p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
 packages.append(p)
 
