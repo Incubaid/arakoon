@@ -478,7 +478,11 @@ $suite->AddTest('ArakoonHelloWhoMaster');
  */
 tearDownArakoon();
 
-$runner = new XMLTestRunner();
-$runner->Run($suite, 'report');
+//$runner = new XMLTestRunner();
+//$runner->Run($suite, 'report');
+
+$runner = new XMLHudsonTestRunner();
+$runner->Run($suite, 'hreport');
+
 
 ?>
