@@ -445,8 +445,7 @@ class ArakoonHelloWhoMaster extends TestCase
             $ErrFunctions[] = array('result' => TRUE, 'name' => 'HELLO / WHO-MASTER');
         }
 
-        //$this->AssertNotEquals(strlen($hello), 0, 'Hello Failed!');
-        $this->AssertEquals(strlen($hello), 0, 'Hello Failed!');
+        $this->AssertNotEquals(strlen($hello), 0, 'Hello Failed!');
         $this->AssertNotEquals(strlen($master), 0, 'Master Failed!');
         
         $this->AddMessage("HELLO, MASTER: $hello, $master");
