@@ -45,14 +45,27 @@ Logging::debug("Unit Testing started");
  * Run python script to construct the Arakoon server
  */
 if (file_exists("setup.py")){
-    exec(ARAKOON_QBASE_QSHEL . " setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
+    exec(getPythonPath() . " setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
 }
 
 Logging::debug("Setup done!");
 
+function getPythonPath()
+{
+    if(file_exists(ARA_PYTHON_QBASE5_PATH)){
+        return "python";
+    }
+    elseif(file_exists(ARA_PYTHON_QBASE3_PATH)){
+        return ARA_PYTHON_QBASE3_PATH;
+    }
+    else{
+        throw new Exception("Error: Couldn't find a valid Arakoon Pylabs environment!");
+    }
+}
+
 function tearDownArakoon(){
     if (file_exists("setup.py")){
-        exec("python setup.py --stop");
+        exec(getPythonPath() . " setup.py --stop");
     }    
 }
 
