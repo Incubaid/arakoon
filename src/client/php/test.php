@@ -445,7 +445,8 @@ class ArakoonHelloWhoMaster extends TestCase
             $ErrFunctions[] = array('result' => TRUE, 'name' => 'HELLO / WHO-MASTER');
         }
 
-        $this->AssertNotEquals(strlen($hello), 0, 'Hello Failed!');
+        //$this->AssertNotEquals(strlen($hello), 0, 'Hello Failed!');
+        $this->AssertEquals(strlen($hello), 0, 'Hello Failed!');
         $this->AssertNotEquals(strlen($master), 0, 'Master Failed!');
         
         $this->AddMessage("HELLO, MASTER: $hello, $master");
@@ -477,9 +478,6 @@ $suite->AddTest('ArakoonHelloWhoMaster');
  * Python script to Tear Down the Arakoon Server
  */
 tearDownArakoon();
-
-//$runner = new XMLTestRunner();
-//$runner->Run($suite, 'report');
 
 $runner = new XMLHudsonTestRunner();
 $runner->Run($suite, 'hreport');
