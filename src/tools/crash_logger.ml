@@ -22,21 +22,17 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let maybe_circ_buf = ref None
+
+
+
+type e = {t :float; 
+	  lvl:string;
+	  msg:string}
+let circ_buf = Lwt_sequence.create()
 let msg_cnt = ref 0
 
 let setup_crash_log crash_file_gen =
   let max_crash_log_size = 1000 in
-  let circ_buf = 
-  begin
-    match !maybe_circ_buf with
-      | None -> 
-        let new_circ_buf = Lwt_sequence.create() in
-        maybe_circ_buf := Some new_circ_buf ;
-        new_circ_buf
-      | Some cb -> cb
-  end
-  in
   let level_to_string lvl =
   begin
     match lvl with
@@ -53,14 +49,14 @@ let setup_crash_log crash_file_gen =
     | 0  -> ()
     | n -> 
       let _ = Lwt_sequence.take_opt_l circ_buf in
-      let () = (msg_cnt := !msg_cnt - 1) in
+      let () = decr msg_cnt in
       remove_n_elements (n-1)
   in
   
   let add_msg lvl msg  =
-    let () = (msg_cnt := !msg_cnt + 1) in
-    let full_msg = Printf.sprintf "%Ld: %s: %s" (Int64.of_float ( Unix.time() )) lvl msg in
-    let _ = Lwt_sequence.add_r full_msg circ_buf  in
+    let () = incr msg_cnt in
+    let e = {t = Unix.time();lvl = lvl; msg = msg} in
+    let _ = Lwt_sequence.add_r e circ_buf  in
     ()
   in
   
@@ -84,7 +80,10 @@ let setup_crash_log crash_file_gen =
   let dump_crash_log () =  
     let dump_msgs oc =
       let rec loop () =
-	let msg = Lwt_sequence.take_l circ_buf in
+
+	let e = Lwt_sequence.take_l circ_buf in
+	let msg = Printf.sprintf "%Ld: %s: %s" 
+	  (Int64.of_float e.t) e.lvl e.msg in
 	Lwt_io.write_line oc msg >>= fun () ->
 	loop ()
       in
