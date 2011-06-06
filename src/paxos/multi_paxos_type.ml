@@ -27,44 +27,43 @@ type master_option = finished_fun option
 type v_limits = int * (Value.t * int) list 
      (* number of times None was chosen;
         all Some v promises and their frequency *)
-
+type n = Sn.t
+type i = Sn.t
 type transitions =
   (* dummy to always have a previous transition *)
   | Start_transition
 
   (* forced master only *)
-  | Forced_master_suggest of (Sn.t * Sn.t)
+  | Forced_master_suggest of (n * i)
 
   (* election only *)
-  | Election_suggest of (Sn.t * Sn.t * Value.t option)
+  | Election_suggest of (n * i * Value.t option)
 
   (* slave or pending slave *)
-  | Slave_fake_prepare of (Sn.t * Sn.t)
-  | Slave_waiting_for_prepare of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
-  | Slave_steady_state of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			     Value.t )
-  | Slave_wait_for_accept of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+  | Slave_fake_prepare of (n * i)
+  | Slave_waiting_for_prepare of (n * i)
+  | Slave_steady_state of (n * i * Value.t )
+  | Slave_wait_for_accept of (n * i * 
 				Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
   | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * 
 					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
-  | Promises_check_done of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+  | Promises_check_done of (n * i * 
 			      Messaging.id list * 
 			      v_limits * 
 			      (string * Mp_msg.MPMessage.n) option)
-  | Wait_for_promises of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
-			    Messaging.id list * 
+  | Wait_for_promises of (n * i * Messaging.id list * 
 			    v_limits * 
 			    (string * Mp_msg.MPMessage.n) option)
-  | Accepteds_check_done of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+  | Accepteds_check_done of (master_option * n * i * 
 			       (int * Messaging.id list) * Value.t)
-  | Wait_for_accepteds of (master_option * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * 
+  | Wait_for_accepteds of (master_option * n * i * 
 			     (int * Messaging.id list) * Value.t)
 
   (* active master only *)
-  | Master_consensus of (master_option * Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
-  | Stable_master of (Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
-  | Master_dictate of (master_option * Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
+  | Master_consensus of (master_option * Value.t * n * i)
+  | Stable_master of (Value.t * n * i)
+  | Master_dictate of (master_option * Value.t * n * i)
 
 (* utility functions *)
 let show_transition = function
@@ -83,3 +82,4 @@ let show_transition = function
   | Master_consensus _ -> "Master_consensus"
   | Stable_master _ -> "Stable_master"
   | Master_dictate _ -> "Master_dictate"
+

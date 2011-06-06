@@ -655,8 +655,12 @@ let machine constants =
     (Unit_arg (election_suggest constants state), nop)
   | Start_transition -> failwith "Start_transition?"
 
+let __tracing = ref false
+
 let trace_transition me key =
-      log ~me "new transition: %s" (show_transition key)
+  if !__tracing 
+  then log ~me "new transition: %s" (show_transition key)
+  else Lwt.return ()
 
 type ready_result =
   | Inject_ready

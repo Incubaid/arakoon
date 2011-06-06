@@ -64,7 +64,7 @@ let setup_crash_log crash_file_gen =
     let new_msg_cnt = List.length msgs in
     let total_msgs = !msg_cnt + new_msg_cnt in
     let () = 
-      if  total_msgs > 11 * max_crash_log_size then
+      if  total_msgs > 2 * max_crash_log_size then
 	begin
 	  let to_delete = total_msgs - max_crash_log_size in
 	  (* let () = Printf.printf "removing %i%!\n" to_delete in *)
