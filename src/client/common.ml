@@ -71,7 +71,10 @@ let code2int = [
   COLLAPSE_TLOGS          , 0x14l;
 ]
 
-let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
+let int2code = 
+  let r = Hashtbl.create 47 in
+  let () = List.iter (fun (a,b) -> Hashtbl.add r b a) code2int in
+  r
 
 let command_to buffer command =
   let c = List.assoc command code2int in

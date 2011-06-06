@@ -28,7 +28,13 @@ open Multi_paxos_type
 open Master_type
 
 let log ?(me="???") x =
-  let k s= Lwt_log.debug (me ^ ": " ^ s) in
+  let k s= 
+    let r = Buffer.create (String.length me + String.length s + 1) in
+    Buffer.add_string r me;
+    Buffer.add_string r ": ";
+    Buffer.add_string r s;
+    Lwt_log.debug (Buffer.contents r)
+  in
   Printf.ksprintf k x
 
 let quorum_function = Quorum.quorum_function

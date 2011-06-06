@@ -22,45 +22,33 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let maybe_circ_buf = ref None
+type e = {t:float;l:Lwt_log.level;m:string}
+let circ_buf = Lwt_sequence.create() 
 let msg_cnt = ref 0
 
 let setup_crash_log crash_file_gen =
   let max_crash_log_size = 1000 in
-  let circ_buf = 
-  begin
-    match !maybe_circ_buf with
-      | None -> 
-        let new_circ_buf = Lwt_sequence.create() in
-        maybe_circ_buf := Some new_circ_buf ;
-        new_circ_buf
-      | Some cb -> cb
-  end
-  in
-  let level_to_string lvl =
-  begin
-    match lvl with
+  let level2s = function
       | Lwt_log.Debug -> "debug"
       | Lwt_log.Info -> "info"
       | Lwt_log.Notice -> "notice"
       | Lwt_log.Warning -> "warning"
       | Lwt_log.Error -> "error" 
       | Lwt_log.Fatal -> "fatal"
-  end 
   in
   
   let rec remove_n_elements = function
     | 0  -> ()
     | n -> 
       let _ = Lwt_sequence.take_opt_l circ_buf in
-      let () = (msg_cnt := !msg_cnt - 1) in
+      let () = decr msg_cnt in
       remove_n_elements (n-1)
   in
   
   let add_msg lvl msg  =
-    let () = (msg_cnt := !msg_cnt + 1) in
-    let full_msg = Printf.sprintf "%Ld: %s: %s" (Int64.of_float ( Unix.time() )) lvl msg in
-    let _ = Lwt_sequence.add_r full_msg circ_buf  in
+    let () = incr msg_cnt in
+    let e = {t=Unix.time();l = lvl;m = msg} in
+    let _ = Lwt_sequence.add_r e circ_buf  in
     ()
   in
   
@@ -68,24 +56,22 @@ let setup_crash_log crash_file_gen =
     let new_msg_cnt = List.length msgs in
     let total_msgs = !msg_cnt + new_msg_cnt in
     let () = 
-      if  total_msgs > 11 * max_crash_log_size then
+      if  total_msgs > 3 * max_crash_log_size then
 	begin
 	  let to_delete = total_msgs - max_crash_log_size in
-	  (* let () = Printf.printf "removing %i%!\n" to_delete in *)
 	  remove_n_elements to_delete;
-	  (* Gc.compact() *)
 	end
     in
-    let lvls = level_to_string level in
-    let () = List.iter (add_msg lvls) msgs  in
+    let () = List.iter (add_msg level) msgs  in
     Lwt.return () 
   in 
   
   let dump_crash_log () =  
     let dump_msgs oc =
       let rec loop () =
-	let msg = Lwt_sequence.take_l circ_buf in
-	Lwt_io.write_line oc msg >>= fun () ->
+	let e = Lwt_sequence.take_l circ_buf in	
+	let ls = level2s e.l in
+	Lwt_io.fprintlf oc "%Ld: %s: %s" (Int64.of_float e.t) ls e.m >>= fun () ->
 	loop ()
       in
       Lwt.catch 
