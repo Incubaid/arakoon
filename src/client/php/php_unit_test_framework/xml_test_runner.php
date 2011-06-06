@@ -1,4 +1,5 @@
 <?php
+/*
 //////////////////////////////////////////////////////////
 ///
 /// $Author: edheal $
@@ -32,9 +33,12 @@
 /// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ///
 //////////////////////////////////////////////////////////
+ * 
+ */
 
 require_once 'php_unit_test.php';
 
+/*
 //////////////////////////////////////////////////////////
 /// \brief Test runner to generate XML reports.
 ///
@@ -48,6 +52,7 @@ require_once 'php_unit_test.php';
 ///
 /// \todo Create a schema (XSD) for future developers.
 //////////////////////////////////////////////////////////
+*/
 class XMLTestRunner extends TestRunner
 {
   //////////////////////////////////////////////////////////
@@ -181,4 +186,135 @@ class XMLTestRunner extends TestRunner
     return parent::Run($suite, $filename, $extension);
   }
 }
+
+
+class XMLHudsonTestRunner extends TestRunner
+{
+  //////////////////////////////////////////////////////////
+  /// Generates the report in XML.
+  //////////////////////////////////////////////////////////
+  public function Report()
+  {
+    $report = '<?xml version="1.0" encoding="UTF-8"?>';
+    
+    $testCaseReport = "";$testPassed=0;
+    
+    $end = $this->GetNumberOfTestCaseResults();
+    
+    for ($loop = 0; $loop < $end; ++$loop)
+    {
+      $testCaseResult = $this->GetTestCaseResult($loop);
+      if($testCaseResult->TestPassed() == TRUE){
+          $testPassed++;
+      }
+      $testCaseReport .= $this->ReportTestCase($testCaseResult);
+    }
+    
+    $report .= '<testsuite  name="ArakoonPHPTests" tests="'.$end.'" failures="'.($end-$testPassed).'">'.
+    $testCaseReport.'</testsuite>';
+    return $report;
+  }
+  
+  private function ReportEvent(Event &$event)
+  {
+    $report = '        <type>' .
+              htmlentities($event->GetTypeAsString()) .
+              "</type>\n";
+    $report .= '        <time>' .
+               htmlentities($event->GetTime()) .
+               "</time>\n";
+    $type = $event->GetType();
+    if (EventType::START_SETUP() == $type ||
+        EventType::END_SETUP() == $type ||
+        EventType::START_RUN() == $type ||
+        EventType::END_RUN() == $type ||
+        EventType::START_TEAR_DOWN() == $type ||
+        EventType::END_TEAR_DOWN() == $type)
+    {
+      return $report;
+    }
+    if (EventType::USER_MSG() != $type ||
+        EventType::PASS_MSG() != $type ||
+        EventType::FAIL_MSG() != $type)
+    {
+      $report .= '        <reason>' .
+                 htmlentities($event->GetReason()) .
+                 "</reason>\n";
+    }
+    if (EventType::SYS_MSG() != $type)
+    {
+      $report .= '        <message>' .
+              htmlentities($event->GetMessage()) .
+              "</message>\n";
+    }
+    if (EventType::SYS_MSG() != $type &&
+        EventType::USER_MSG() != $type &&
+        EventType::FAIL_MSG() != $type &&
+        EventType::PASS_MSG() != $type &&
+        EventType::EXCEPTION_THROWN() != $type)
+    {
+      $report .= "        <actual>\n" .
+                 '          <type>' . htmlentities($event->GetActualType()) . "</type>\n" .
+                 '          <value>'.
+                 htmlentities($event->GetActualValue()) .
+                 "</value></actual>\n";
+      $report .= "        <comparison>\n" .
+                 '          <type>' . htmlentities($event->GetComparisonType()) . "</type>\n" .
+                 '          <value>'.
+                 htmlentities($event->GetComparisonValue()) .
+                 "</value></comparison>\n";
+    }
+    if (EventType::SYS_MSG() != $type)
+    {
+      $report .= '        <file>' .
+                 htmlentities($event->GetFile()) .
+                 "</file>\n";
+      $report .= '        <line>' .
+                 htmlentities($event->GetLine()) .
+                 "</line>\n";
+    }
+    return $report;
+  }
+  
+  private function ReportTestCase(&$testCaseResult)
+  {  
+    if($testCaseResult->TestPassed()){
+        $close = "/>";
+    }
+    else{
+        $close = '><failure type="FAIL"> Test Case Failed </failure></testcase>';
+    }
+      
+    $report = '<testcase classname="'.$testCaseResult->GetName().'" name="'.$testCaseResult->GetName().'"'.$close;
+
+    return $report;
+  }
+  
+  /*
+  //////////////////////////////////////////////////////
+  /// Runs all the test cases in the $suite, with the 
+  /// option of storing the results in a file.
+  /// \param[in] TestSuite &$suite The suite of tests to run.
+  /// \param[in] string $filename Filename is either:
+  ///                             - null - <em>stdout</em> is used;
+  ///                             - '' - A temporary filename is used, with
+  ///                               the filename written to <em>stdout</em>;
+  ///                             - any other string - The given filename is used.
+  /// \param[in] string $extension The extension to use for the file. Defaults to 'xml'
+  /// \return Returns one of the following values:
+  ///         - 0  - All tests passed;
+  ///         - -1 - One or more tests failed;
+  ///         - -2 - Unable to open file;
+  ///         - -3 - Unable to write to file.
+  //////////////////////////////////////////////////////
+  */
+  public function Run(TestSuite &$suite,
+                      $filename = null,
+                      $extension = 'xml')
+  {
+    return parent::Run($suite, $filename, $extension);
+  }
+    
+}
+
 ?>

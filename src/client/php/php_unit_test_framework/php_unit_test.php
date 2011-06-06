@@ -1411,13 +1411,16 @@ class TestSuite
   private $testCases;    // A list of test cases.
   private $allPassed;    // True if all passed, false otherwise.
   
+  private $suiteName;    // <EDIT> Suite Name
+  
   //////////////////////////////////////////////////////////
   /// Constructs the test suite object.
   //////////////////////////////////////////////////////////
-  public function __construct()
+  public function __construct($name="")
   {
     $this->anyFailed = false;
     $this->testCases = array();
+    $this->suiteName = $name;
   }
  
   //////////////////////////////////////////////////////////
@@ -1427,6 +1430,15 @@ class TestSuite
   {
     return $this->allPassed;
   }
+  
+  //////////////////////////////////////////////////////////
+  /// Returns name of the suite
+  //////////////////////////////////////////////////////////
+  public function GetSuiteName()
+  {
+    return $this->suiteName;
+  }
+  
   
   //////////////////////////////////////////////////////////
   /// Adds a test case to the test suite.

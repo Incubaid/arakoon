@@ -31,6 +31,8 @@ require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'php_unit_test_framework/text_test_runner.php';
 require_once 'php_unit_test_framework/xhtml_test_runner.php';
 
+define("ARAKOON_QBASE_QSHEL", "/opt/qbase3/qshell -f");
+
 define("ARAKOON_CLUSTER", "phpclient");
 define("ARAKOON_CLUSTER_PORT", 15500);
 define("ARAKOON_CLUSTER_IP", "127.0.0.1");
@@ -43,14 +45,27 @@ Logging::debug("Unit Testing started");
  * Run python script to construct the Arakoon server
  */
 if (file_exists("setup.py")){
-    exec("python setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
+    exec(getPythonPath() . " setup.py -c '". ARAKOON_CLUSTER . "' -p " . ARAKOON_CLUSTER_PORT);
 }
 
 Logging::debug("Setup done!");
 
+function getPythonPath()
+{
+    if(file_exists(ARA_PYTHON_QBASE5_PATH)){
+        return "python";
+    }
+    elseif(file_exists(ARA_PYTHON_QBASE3_PATH)){
+        return ARA_PYTHON_QBASE3_PATH;
+    }
+    else{
+        throw new Exception("Error: Couldn't find a valid Arakoon Pylabs environment!");
+    }
+}
+
 function tearDownArakoon(){
     if (file_exists("setup.py")){
-        exec("python setup.py --stop");
+        exec(getPythonPath() . " setup.py --stop");
     }    
 }
 
@@ -463,7 +478,8 @@ $suite->AddTest('ArakoonHelloWhoMaster');
  */
 tearDownArakoon();
 
-$runner = new XMLTestRunner();
-$runner->Run($suite, 'report');
+$runner = new XMLHudsonTestRunner();
+$runner->Run($suite, 'hreport');
+
 
 ?>
