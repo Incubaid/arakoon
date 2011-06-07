@@ -44,8 +44,8 @@ let read_command (ic,oc) =
       begin
 	let as_int32 = Int32.logand masked _MASK in
 	try
-          Lwt_log.debug_f "command=%08lx" as_int32 >>= fun () ->
-          Lwt.return (List.assoc as_int32 int2code)
+	  let c = lookup_code as_int32 in
+          Lwt.return c
 	with Not_found ->
           Llio.output_int32 oc 5l >>= fun () ->
 	  let msg = Printf.sprintf "%lx not found" as_int32 in

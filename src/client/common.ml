@@ -77,7 +77,12 @@ let code2int = [
   SET_ROUTING             , 0x17l;
 ]
 
-let int2code = List.fold_left (fun acc (a,b) -> (b,a)::acc) [] code2int
+let int2code = 
+  let r = Hashtbl.create 31 in
+  let () = List.iter (fun (a,b) -> Hashtbl.add r b a) code2int in
+  r
+
+let lookup_code i32 = Hashtbl.find int2code i32
 
 let command_to buffer command =
   let c = List.assoc command code2int in
