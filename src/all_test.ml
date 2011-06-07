@@ -35,7 +35,10 @@ let configure_logging () =
 
 let tokyo_tests = "tokyo" >::: [Otc_test.suite;Hotc_test.suite;]
 
-let tools_tests = "tools" >::: [Server_test.suite;Backoff_test.suite;]
+let tools_tests = "tools" >::: [Server_test.suite;
+				Backoff_test.suite;
+				Cllio_test.suite;
+			       ]
 
 let client_tests = "client" >::: [Arakoon_remote_client_test.suite;
 				  Remote_nodestream_test.suite;
