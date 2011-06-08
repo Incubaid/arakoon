@@ -87,7 +87,7 @@ module Node_cfg = struct
 			quorum_function = quorum_function;
 			_lease_period = lease_period;
 			cluster_id = cluster_id;
-			plugins = ["plugin_update_max"];
+			plugins = [];
 		      }
     in
     cluster_cfg

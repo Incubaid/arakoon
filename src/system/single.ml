@@ -455,7 +455,8 @@ let trivial_master5 (cluster_cfg,_) =
   Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
 
 let setup () =
-  Lwt.return (read_config "cfg/arakoon.ini", ())
+  let cfg = Node_cfg.Node_cfg.make_test_config 3 Elected 2 in
+  Lwt.return (cfg, ())
 
 let teardown (_,()) =
   Lwt.return ()
