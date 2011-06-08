@@ -24,3 +24,4 @@ true: package(dynlink)
 "src/plugins": include
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main
+<examples/ocaml/plugin_demo.{byte,native}>: is_main
