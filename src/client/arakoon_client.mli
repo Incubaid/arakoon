@@ -62,4 +62,5 @@ method range_entries:
 
   method statistics: unit -> Statistics.t Lwt.t
 
+  method user_function: string -> string option -> string option Lwt.t
 end

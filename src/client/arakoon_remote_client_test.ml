@@ -152,6 +152,16 @@ let test_sequence () =
   __client_server_wrapper__ _CLUSTER real_test
 
 
+let _test_user_function (client:Arakoon_client.client) = 
+  client # user_function "reverse" (Some "echo") >>= fun ro ->
+  Lwt_log.debug_f "we got %s" (string_option_to_string ro) >>= fun () ->
+  OUnit.assert_equal ro  (Some "ohce");
+  Lwt.return ()
+
+let test_user_function () = 
+  __client_server_wrapper__ _CLUSTER _test_user_function
+
+
 let _test_range (client:Arakoon_client.client) =
   let clear () =
     client # range None true None true 1000 >>= fun xn ->
@@ -205,6 +215,7 @@ let _test_range (client:Arakoon_client.client) =
 let test_range () =
   __client_server_wrapper__ _CLUSTER _test_range
 
+
 let _prefix_keys_test (client:Arakoon_client.client) =
   let cat s i = s ^ (string_of_int i) in
   client # set "foo" "bar" >>= fun () ->
@@ -251,4 +262,5 @@ let suite = "remote_client" >::: [
   "prefix_keys"  >:: test_prefix_keys;
   "test_and_set_to_none"  >:: test_and_set_to_none;
   "sequence"   >:: test_sequence;
+  "user_function" >:: test_user_function;
 ]

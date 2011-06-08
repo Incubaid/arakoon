@@ -93,7 +93,18 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
-  method user_function name po = Lwt.return None
+  method user_function name po = 
+    match name with
+      | "reverse" ->
+	begin
+	  match po with
+	    | None -> Lwt.return None
+	    | Some s ->
+	      let r = ref "" in
+	      String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
+	      Lwt.return (Some !r)
+	end
+      | _ -> Lwt.return None
 
   method multi_get ~allow_dirty (keys: string list) = 
     let values = List.fold_left 
