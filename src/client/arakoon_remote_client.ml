@@ -71,7 +71,7 @@ object(self: #Arakoon_client.client)
 
   method user_function name po = 
     request (fun buf -> user_function_to buf name po) >>= fun () ->
-    response id Llio.input_string_option
+    response ic Llio.input_string_option
 
   method multi_get ?(allow_dirty=false) keys = 
     request (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
