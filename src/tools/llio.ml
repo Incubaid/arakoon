@@ -172,7 +172,9 @@ let output_string oc (s:string) =
   let size = String.length s in
     output_int32 oc (Int32.of_int size) >>= fun () ->
       Lwt_io.write oc s
-    
+
+
+
 let input_string ic =
   input_int ic >>= fun size ->
     if size > (16*1024*1024) then
@@ -181,6 +183,15 @@ let input_string ic =
     let result = String.create size2 in
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
+
+let output_string_pair oc (s0,s1) = 
+  output_string oc s0 >>= fun () ->
+  output_string oc s1 
+
+let input_string_pair ic =
+  input_string ic >>= fun s0 ->
+  input_string ic >>= fun s1 ->
+  Lwt.return (s0,s1)
 
 let input_list input_element ic =
   input_int ic >>= fun size ->
@@ -217,7 +228,8 @@ let option_from (f:string -> int -> 'a * int) string pos =
 let string_option_to buff so =  option_to string_to buff so
 
 let string_option_from string pos = option_from string_from string pos
-      
+
+
 
 let input_string_option ic =
   input_bool ic >>= function

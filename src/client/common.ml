@@ -120,9 +120,8 @@ let kv_array ic =
       then Lwt.return result
       else
 	begin
-	  Llio.input_string ic >>= fun key ->
-          Llio.input_string ic >>= fun value ->
-	  result.(i) <- (key , value);
+	  Llio.input_string_pair ic >>= fun p ->
+	  result.(i) <- p;
 	  loop (i+1)
 	end
     in loop 0

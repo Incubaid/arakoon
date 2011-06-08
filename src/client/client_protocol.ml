@@ -156,11 +156,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    Llio.output_int32 oc 0l >>= fun () ->
 	    let size = List.length list in
 	    Lwt_log.debug_f "size = %i" size >>= fun () ->
-	    let output_element oc (k,v) = 
-	      Llio.output_string oc k >>= fun () ->
-	      Llio.output_string oc v
-	    in
-	    Llio.output_list output_element oc list
+	    Llio.output_list Llio.output_string_pair oc list
 	  )
 	  (handle_exception oc)
 	end
