@@ -182,6 +182,19 @@ let input_string ic =
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
 
+let input_list input_element ic =
+  input_int ic >>= fun size ->
+  let rec loop i acc = 
+    if i = 0
+    then Lwt.return acc
+    else input_element ic >>= fun s -> loop (i-1) (s:: acc)
+  in
+  loop size []
+
+let output_list output_element oc list = 
+  output_int oc (List.length list)  >>= fun () ->
+  Lwt_list.iter_s (output_element oc) list 
+
 let output_string_option oc = function
   | None -> output_bool oc false
   | Some s -> 

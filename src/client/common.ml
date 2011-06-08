@@ -127,26 +127,16 @@ let kv_array ic =
 	end
     in loop 0
 
-let value_list ic =
-  Llio.input_int ic >>= fun size ->
-  let rec loop i acc =
-    if i = size
-    then Lwt.return acc
-    else Llio.input_string ic >>= fun s -> loop (i+1) (s :: acc)
-  in loop 0 []
-
+let value_list ic = Llio.input_list Llio.input_string ic
 let key_list = value_list
 
 let kv_list ic =
-  Llio.input_int ic >>= fun size ->
-  let rec loop i acc =
-    if i = size
-    then Lwt.return acc
-    else
-      Llio.input_string ic >>= fun k ->
+  let input_element ic =
+    Llio.input_string ic >>= fun k ->
     Llio.input_string ic >>= fun v ->
-    loop (i+1) ((k,v) :: acc)
-  in loop 0 []
+    Lwt.return (k,v)
+  in
+  Llio.input_list input_element ic
 
 let response ic f =
   Llio.input_int32 ic >>= function

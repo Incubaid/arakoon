@@ -137,9 +137,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  (fun () ->
 	    backend # range ~allow_dirty first finc last linc max >>= fun list ->
 	    Llio.output_int32 oc 0l >>= fun () ->
-            Llio.output_int oc (List.length list)  >>= fun () ->
-            Lwt_list.iter_s (Llio.output_string oc) list >>= fun () ->
-	    Lwt_io.flush oc
+	    Llio.output_list Llio.output_string oc list
 	  )
 	  (handle_exception oc)
 	end
@@ -158,12 +156,11 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    Llio.output_int32 oc 0l >>= fun () ->
 	    let size = List.length list in
 	    Lwt_log.debug_f "size = %i" size >>= fun () ->
-	    Llio.output_int oc size >>= fun () ->
-	    Lwt_list.iter_s
-	      (fun (k,v) ->
-		Llio.output_string oc k >>= fun () ->
-		Llio.output_string oc v) list >>= fun () ->
-	    Lwt_io.flush oc
+	    let output_element oc (k,v) = 
+	      Llio.output_string oc k >>= fun () ->
+	      Llio.output_string oc v
+	    in
+	    Llio.output_list output_element oc list
 	  )
 	  (handle_exception oc)
 	end
@@ -171,22 +168,19 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	Sn.input_sn ic >>= fun i ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	backend # last_entries i oc >>= fun () ->
-        Lwt_io.flush oc
+	backend # last_entries i oc
       end
     | WHO_MASTER ->
       begin
 	backend # who_master () >>= fun m ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_string_option oc m >>= fun () ->
-	Lwt_io.flush oc
+	Llio.output_string_option oc m 
       end
     | EXPECT_PROGRESS_POSSIBLE ->
       begin
 	backend # expect_progress_possible () >>= fun poss ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_bool oc poss >>= fun () ->
-	Lwt_io.flush oc
+	Llio.output_bool oc poss 
       end
     | TEST_AND_SET ->
       begin
@@ -195,8 +189,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
         Llio.input_string_option ic >>= fun wanted ->
 	backend # test_and_set key expected wanted >>= fun vo ->
 	Llio.output_int oc 0 >>= fun () ->
-        Llio.output_string_option oc vo >>= fun () ->
-	Lwt_io.flush oc
+        Llio.output_string_option oc vo 
       end
     | USER_FUNCTION ->
       begin
@@ -211,8 +204,6 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    end
 	  )
 	  (handle_exception oc)
-	>>= fun () ->
-	Lwt_io.flush oc
       end
     | PREFIX_KEYS ->
       begin
@@ -224,8 +215,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	Llio.output_int oc 0 >>= fun () ->
         Lwt_log.debug_f "size = %i" size >>= fun () ->
 	Llio.output_int oc size >>= fun () ->
-	Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
-	Lwt_io.flush oc
+	Lwt_list.iter_s (Llio.output_string oc) keys 
       end
     | MULTI_GET ->
       begin
@@ -246,8 +236,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    backend # multi_get ~allow_dirty keys >>= fun values ->
 	    Llio.output_int oc 0 >>= fun () ->
 	    Llio.output_int oc length >>= fun () ->
-	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-	    Lwt_io.flush oc)
+	    Lwt_list.iter_s (Llio.output_string oc) values 
+	  )
 	  (handle_exception oc)
       end
     | SEQUENCE ->
@@ -275,8 +265,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	Statistics.to_buffer b s;
 	let bs = Buffer.contents b in
 	Llio.output_int oc 0 >>= fun () ->
-	Llio.output_string oc bs >>= fun () ->
-	Lwt_io.flush oc
+	Llio.output_string oc bs 
       end
     | COLLAPSE_TLOGS ->
       begin
@@ -284,8 +273,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	let t0 = sw() in
 	let cb' n = 
 	  Lwt_log.debug "CB'" >>= fun () ->
-    Llio.output_int oc 0 >>= fun () -> (* ok *)
-    Lwt_io.flush oc >>= fun () ->
+	  Llio.output_int oc 0 >>= fun () -> (* ok *)
+	  Lwt_io.flush oc >>= fun () ->
 	  Llio.output_int oc n
 	in
 	let cb () = 
@@ -309,7 +298,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	Range.input_range ic >>= fun range ->
 	Lwt.catch
-	  (fun () -> backend # set_range range >>= fun () ->
+	  (fun () -> 
+	    backend # set_range range >>= fun () ->
 	    response_ok_unit oc
 	  )
 	  (handle_exception oc)
