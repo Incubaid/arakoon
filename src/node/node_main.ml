@@ -258,6 +258,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	(fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
       log_prelude cluster_cfg >>= fun () ->
+      Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
       let my_name = me.node_name in
       let cookie = cluster_id in
       let messaging  = _config_messaging me cfgs cookie me.is_laggy in

@@ -60,6 +60,7 @@ class type store = object
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method get_filename: unit -> string 
 
+  method user_function : string -> string option -> (string option) Lwt.t
   method set_range: Range.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t
@@ -111,6 +112,20 @@ let _insert_update (store:store) update =
 	    and msg = Printexc.to_string e
 	    in 
 	    Lwt.return (Update_fail (rc,msg))
+	)
+    | Update.UserFunction(name,po) ->
+      Lwt.catch
+	(fun () ->
+	  store # user_function name po >>= fun ro ->
+	  Lwt.return (Ok ro)
+	)
+	(function
+	  | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
+	  | e ->
+	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	    and msg = Printexc.to_string e
+	    in
+	    Lwt.return (Update_fail(rc,msg))
 	)
     | Update.Sequence updates ->
       Lwt.catch

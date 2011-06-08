@@ -34,22 +34,23 @@ module Update = struct
     | SetRange of Range.t
     | SetRouting of Routing.t
     | Nop
+    | UserFunction of string * string option
 
   let make_master_set me maybe_lease =
     match maybe_lease with
       | None -> MasterSet (me,0L)
       | Some lease -> MasterSet (me,lease)
 
+  let _size_of = function
+    | None -> 0
+    | Some w -> String.length w
+
   let rec string_of = function
     | Set (k,v)                 -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
     | Delete k                  -> Printf.sprintf "Delete    ;%S" k
     | MasterSet (m,i)           -> Printf.sprintf "MasterSet ;%S;%Ld" m i
     | TestAndSet (k, _, wo) -> 
-      let ws = 
-	match wo with
-	  | None -> 0
-	  | Some w -> String.length w
-      in
+      let ws = _size_of wo in
       Printf.sprintf "TestAndSet;%S;%i" k ws
     | Sequence updates ->
       let buf = Buffer.create (64 * List.length updates) in
@@ -67,6 +68,9 @@ module Update = struct
     | SetRange range ->     Printf.sprintf "SetRange  ;%s" (Range.to_string range)
     | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
     | Nop -> "NOP"
+    | UserFunction (name,param) ->
+      let ps = _size_of param in
+      Printf.sprintf "UserFunction;%s;%i" name ps
 
   let rec to_buffer b t =
     match t with
@@ -93,8 +97,12 @@ module Update = struct
 	List.iter f us
       | Nop -> 
 	Llio.int_to b 6
-      | SetRange range ->
+      | UserFunction (name, param) ->
 	Llio.int_to b 7;
+	Llio.string_to b name;
+	Llio.string_option_to b param
+      | SetRange range ->
+	Llio.int_to b 9;
 	Range.range_to b range
 
 
@@ -129,7 +137,12 @@ module Update = struct
           loop (i+1) (u::acc) next_pos in
           loop 0 [] pos2
       | 6 -> Nop, pos1
-      | 7 -> 
+      | 7 ->
+	let n,  pos2 = Llio.string_from b pos1 in
+	let po, pos3 = Llio.string_option_from b pos2 in
+	let r = UserFunction(n,po) in
+	r, pos3
+      | 9 -> 
 	let range,pos2 = Range.range_from b pos1 in
 	SetRange range, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)

@@ -49,6 +49,7 @@ module Node_cfg = struct
 	quorum_function: int -> int;
 	_lease_period: int;
 	cluster_id : string;
+	plugins: string list;
       }
 
   let make_test_config n_nodes master lease_period = 
@@ -85,7 +86,9 @@ module Node_cfg = struct
 			_master = master;
 			quorum_function = quorum_function;
 			_lease_period = lease_period;
-			cluster_id = cluster_id}
+			cluster_id = cluster_id;
+			plugins = ["plugin_update_max"];
+		      }
     in
     cluster_cfg
     
@@ -115,6 +118,12 @@ module Node_cfg = struct
     nodes
 
   let _node_names inifile = _get_string_list inifile "global" "cluster"
+
+  let _plugins inifile = 
+    try
+      _get_string_list inifile "global" "plugins"
+    with Inifiles.Invalid_element _ -> []
+
 
   let _get_lease_period inifile =
     try
@@ -212,6 +221,7 @@ module Node_cfg = struct
     let inifile = new Inifiles.inifile config_file in
     let fm = _forced_master inifile in
     let nodes = _node_names inifile in
+    let plugin_names = _plugins inifile in
     let cfgs, remaining = List.fold_left
       (fun (a,remaining) section ->
 	if List.mem section nodes || _get_bool inifile section "learner"
@@ -233,7 +243,9 @@ module Node_cfg = struct
 	_master = fm;
 	quorum_function = quorum_function;
 	_lease_period = lease_period;
-	cluster_id = cluster_id}
+	cluster_id = cluster_id;
+	plugins = plugin_names;
+      }
     in
     cluster_cfg
 

@@ -6,6 +6,7 @@ true: package(lwt.unix)
 true: package(oUnit)
 true: package(bz2)
 true: package(str)
+true: package(dynlink)
 "doc": include
 "src":include
 "src/otc":include
@@ -20,5 +21,6 @@ true: package(str)
 "src/system": include
 "src/inifiles": include
 "src/nursery": include
+"src/plugins": include
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main

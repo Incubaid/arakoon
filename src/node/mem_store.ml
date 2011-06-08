@@ -174,6 +174,10 @@ object (self: #store)
 
   method get_filename () = failwith "not supported"
 
+  method user_function name po = 
+    Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
+    Lwt.return None
+
   method set_range range = 
     Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
     _range <- range;

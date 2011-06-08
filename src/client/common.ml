@@ -50,6 +50,7 @@ type client_command =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | COLLAPSE_TLOGS
+  | USER_FUNCTION
   | SET_RANGE
   | GET_ROUTING
   | SET_ROUTING
@@ -72,9 +73,10 @@ let code2int = [
   EXPECT_PROGRESS_POSSIBLE, 0x12l;
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
-  SET_RANGE               , 0x15l;
-  GET_ROUTING             , 0x16l;
-  SET_ROUTING             , 0x17l;
+  USER_FUNCTION           , 0x15l;
+  SET_RANGE               , 0x16l;
+  GET_ROUTING             , 0x17l;
+  SET_ROUTING             , 0x18l;
 ]
 
 let int2code = 
@@ -201,6 +203,12 @@ let test_and_set_to b key expected wanted =
   Llio.string_to b key;
   Llio.string_option_to b expected;
   Llio.string_option_to b wanted
+
+let user_function_to b name po = 
+  command_to b USER_FUNCTION;
+  Llio.string_to b name;
+  Llio.int_to b (List.length keys);
+  List.iter (Llio.string_to b) keys
 
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;

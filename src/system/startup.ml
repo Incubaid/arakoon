@@ -97,6 +97,7 @@ let post_failure () =
     quorum_function = Quorum.quorum_function;
     _lease_period = 2;
     cluster_id = "ricky";
+    plugins = [];
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -146,10 +147,11 @@ let restart_slaves () =
      quorum_function = Quorum.quorum_function;
      _lease_period = 2;
      cluster_id = "ricky";
+     plugins = [];
     }
   in
   let get_cfgs () = cluster_cfg in 
-  let u0 = Update.MasterSet(node0,0L) in
+  let u0 = Update.MasterSet(node0, 0L) in
   let u1 = Update.Set("xxx","xxx") in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
