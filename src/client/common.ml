@@ -207,8 +207,7 @@ let test_and_set_to b key expected wanted =
 let user_function_to b name po = 
   command_to b USER_FUNCTION;
   Llio.string_to b name;
-  Llio.int_to b (List.length keys);
-  List.iter (Llio.string_to b) keys
+  Llio.string_option_to b po
 
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
