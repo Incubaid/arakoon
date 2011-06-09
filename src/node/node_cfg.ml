@@ -40,7 +40,8 @@ module Node_cfg = struct
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
-      use_compression : bool;
+	    use_compression : bool;
+	    is_test: bool;
 	   }
 
   type cluster_cfg = 
@@ -69,7 +70,8 @@ module Node_cfg = struct
 	is_laggy = false;
 	is_learner = false;
 	targets = [];
-  use_compression = true;
+	use_compression = true;
+	is_test = true;
       }
     in
     let rec loop acc = function
@@ -206,6 +208,7 @@ module Node_cfg = struct
      is_learner = is_learner;
      targets = targets;
      use_compression = use_compression;
+     is_test = false;
     }
 
 
@@ -253,15 +256,19 @@ module Node_cfg = struct
   open Lwt
   let validate_dirs t = 
     Lwt_log.debug "Node_cfg.validate_dirs" >>= fun () ->
-    let is_ok name = 
-      try
-	let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
-      with _ -> false
-    in
-    let home_ok = is_ok t.home
-    and tlog_ok = is_ok t.tlog_dir in
-    if home_ok && tlog_ok then Lwt.return ()
-    else 
-      let d = if home_ok then t.tlog_dir else t.home in
-      Llio.lwt_failfmt "dir '%s' :non existing or insufficient permissions" d
+    if t.is_test then Lwt.return () 
+    else
+      begin
+	let is_ok name = 
+	  try
+	    let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
+	  with _ -> false
+	in
+	let home_ok = is_ok t.home
+	and tlog_ok = is_ok t.tlog_dir in
+	if home_ok && tlog_ok then Lwt.return ()
+	else 
+	  let d = if home_ok then t.tlog_dir else t.home in
+	  Llio.lwt_failfmt "dir '%s' :non existing or insufficient permissions" d
+      end
 end
