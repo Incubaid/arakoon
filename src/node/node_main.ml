@@ -175,14 +175,15 @@ module X = struct
 	 the idea is to lift stuff out of _main_2 
       *)
   
-  let on_consensus store (v,(n: Sn.t), (i: Sn.t) ) =
+  let on_consensus store vni =
+    let (v,n,i) = vni in
     let u = Update.update_from_value v in
     match u with 
       | Update.MasterSet(m,l) -> 
 	begin
 	  store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
 	end
-      | _ -> Store.on_consensus store (v,n,i) 
+      | _ -> Store.on_consensus store vni
 
   
   let on_accept tlog_coll store (v,n,i) =
