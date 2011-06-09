@@ -56,7 +56,6 @@ let slave_steady_state constants state event =
   let (n,i,previous) = state in
   let me = constants.me in
   let store = constants.store in
-  store # consensus_i () >>= fun s_i ->
   match event with
     | FromNode (msg,source) ->
       begin
@@ -69,7 +68,7 @@ let slave_steady_state constants state event =
 	    begin
 	      let reply = Accepted(n,i) in
 	      begin
-		constants.store # consensus_i () >>= fun m_store_i ->
+		store # consensus_i () >>= fun m_store_i ->
 		begin
 		  match m_store_i with
 		    | None -> constants.on_consensus (previous, n, Sn.pred i)
