@@ -77,7 +77,7 @@ object(self : # messaging )
   method private _get_send_q ~target = 
     try Hashtbl.find _outgoing target 
     with Not_found -> 
-      let capacity = Some 20000 in
+      let capacity = Some 1000 in
       let leaky = true in
       let fresh = Lwt_buffer.create ~capacity ~leaky () in
       let loop = self # _make_sender_loop target fresh in

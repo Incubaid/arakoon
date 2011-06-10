@@ -139,13 +139,25 @@ let rec _sequence bdb updates =
         in match key with
         | Some key -> raise (Key_not_found key)
         | None -> raise Not_found
-  in List.iter helper updates;
+  in List.iter helper updates
 
 
+
+
+let _tx_with_incr db (f:Otc.Bdb.bdb -> 'a Lwt.t) = 
+    Lwt.catch
+      (fun () -> 
+	Hotc.transaction db
+	  (fun db ->
+	    _incr_i db >>= fun () ->
+	    f db >>= fun (a:'a) ->
+	    Lwt.return a)
+      )
+      (fun ex -> 
+	Hotc.transaction db _incr_i >>= fun () -> 
+	Lwt.fail ex)
 
 class local_store db mlo =
-
-
 
 object(self: #store)
   val mutable _mlo = mlo
@@ -181,9 +193,7 @@ object(self: #store)
 	in 
 	Lwt.return (List.rev vs))
   
-  method incr_i () =
-    Hotc.transaction db
-      ( fun db -> _incr_i db )
+  method incr_i () = Hotc.transaction db _incr_i
       
   method range first finc last linc max =
     Hotc.transaction db
@@ -215,73 +225,43 @@ object(self: #store)
 
   method set key value =
     Lwt.catch
-      (fun () ->
-	Hotc.transaction db
-	  (fun db ->
-	    _incr_i db >>= fun () ->
-	    _set db key value;
-	    Lwt.return ())
-      )
+      (fun () -> _tx_with_incr db (fun db -> _set db key value;Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
   method set_master master lease =
-    Hotc.transaction db
+    _tx_with_incr db 
       (fun db ->
-	_incr_i db >>= fun () ->
 	_set_master db master lease ;
 	_mlo <- Some (master,lease);
 	Lwt.return ()
       )
 
   method set_master_no_inc master lease = 
-    Hotc.transaction db (fun db -> 
-      _set_master db master lease;
-      _mlo <- Some (master,lease);
-      Lwt.return ()
-    )
+    Hotc.transaction db
+      (fun db -> 
+	_set_master db master lease;
+	_mlo <- Some (master,lease);
+	Lwt.return ()
+      )
 
-  method who_master () =
-    Lwt.return _mlo
-    (* Hotc.transaction db (fun db -> _who_master db) *)
+  method who_master () = Lwt.return _mlo
+
 
   method delete key =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db ( fun db ->
-        _delete db key ;
-        _incr_i db )
-    ) ( function 
-      | Not_found -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail Not_found 
-      | ex -> Lwt.fail ex
-    ) 
-    
+    _tx_with_incr db
+      (fun db -> _delete db key; Lwt.return ())
 
   method test_and_set key expected wanted =
-    Hotc.transaction db
-      (fun db ->
-	_incr_i db >>= fun () ->
+    _tx_with_incr db
+      (fun db -> 
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
 
   method sequence updates =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db
-        (fun db ->
-  	  _incr_i db >>= fun () ->
-	  _sequence db updates;
-  	  Lwt.return ())
-    ) ( function 
-      | Key_not_found key -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail ( Key_not_found key )
-      | ex -> Lwt.fail ex
-    )
-
+    _tx_with_incr db
+      (fun db -> _sequence db updates; Lwt.return ())
 
   method consensus_i () =
     Hotc.transaction db _consensus_i
