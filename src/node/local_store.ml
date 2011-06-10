@@ -36,7 +36,6 @@ let _consensus_i db =
   with Not_found ->
     Lwt.return None
 
-
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
   let new_i =
@@ -54,6 +53,18 @@ let _incr_i db =
     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
   >>= fun () -> *)
   Lwt.return ()
+      
+
+let _who_master db = 
+  try
+    let m = Bdb.get db __master_key in
+    let ls_buff = Bdb.get db __lease_key in
+    let ls,_ = Llio.int64_from ls_buff 0 in
+    Lwt.return (Some (m,ls))
+  with Not_found -> 
+    Lwt.return None
+	
+
 
 let _p key = __prefix ^ key
 let _f = function
@@ -132,11 +143,12 @@ let rec _sequence bdb updates =
 
 
 
-class local_store db =
+class local_store db mlo =
 
 
 
 object(self: #store)
+  val mutable _mlo = mlo
 
   method exists key =
     Lwt.catch
@@ -219,23 +231,20 @@ object(self: #store)
       (fun db ->
 	_incr_i db >>= fun () ->
 	_set_master db master lease ;
+	_mlo <- Some (master,lease);
 	Lwt.return ()
       )
 
   method set_master_no_inc master lease = 
-    Hotc.transaction db (fun db -> _set_master db master lease;Lwt.return ())
+    Hotc.transaction db (fun db -> 
+      _set_master db master lease;
+      _mlo <- Some (master,lease);
+      Lwt.return ()
+    )
 
   method who_master () =
-    Lwt.catch
-      (fun () ->
-	Hotc.transaction db
-	  (fun db -> 
-	    let m = Bdb.get db __master_key in
-	    let ls_buff = Bdb.get db __lease_key in
-	    let ls,_ = Llio.int64_from ls_buff 0 in
-	    Lwt.return (Some (m,ls)))
-      )
-      (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
+    Lwt.return _mlo
+    (* Hotc.transaction db (fun db -> _who_master db) *)
 
   method delete key =
     Lwt.catch ( fun() ->
@@ -275,7 +284,7 @@ object(self: #store)
 
 
   method consensus_i () =
-    Hotc.transaction db (fun db -> _consensus_i db)
+    Hotc.transaction db _consensus_i
 
   method close () =
     Hotc.close db >>= fun () ->
@@ -293,6 +302,7 @@ end
 
 let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
-  let store = new local_store db in
+  Hotc.transaction db _who_master >>= fun mlo ->
+  let store = new local_store db mlo in
   let store2 = (store :> store) in
   Lwt.return store2

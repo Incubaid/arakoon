@@ -167,7 +167,8 @@ let mcast constants msg =
   let send = constants.send in
   let me = constants.me in
   let others = constants.others in
-  Lwt_list.iter_p (fun o -> send msg me o) others
+  (* things are decoupled: send is actually just an enqueue *)
+  Lwt_list.iter_s (fun o -> send msg me o) others 
 
 
 let update_n constants n =
