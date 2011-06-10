@@ -375,7 +375,7 @@ object(self: #backend)
         else
   	  Lwt.return ()
     end >>= fun () ->
-    Lwt_mutex.with_lock collapsing_lock (fun () ->
+    Lwt_fixes.with_lock collapsing_lock (fun () ->
       let tlog_dir = Node_cfg.tlog_dir cfg in
       let new_cb tlog_name =
         let file_num = Tlc2.get_number tlog_name in

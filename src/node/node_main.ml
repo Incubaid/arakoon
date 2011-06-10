@@ -419,8 +419,9 @@ let _main_2 make_store make_tlog_coll make_config ~name
 
       let killswitch = Lwt_mutex.create () in
       Lwt_mutex.lock killswitch >>= fun () ->
+      Lwt_unix.yield() >>= fun () ->
       let unlock_killswitch () = Lwt_mutex.unlock killswitch in
-      let listen_for_sigterm () = Lwt_mutex.lock killswitch in
+      let listen_for_sigterm () = Lwt_mutex.lock killswitch >>= fun () -> Lwt_unix.yield() in
 
       let start_backend (master, constants, buffers, new_i, vo) =
 	let to_run = 

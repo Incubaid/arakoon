@@ -34,7 +34,7 @@ module Hotc = struct
 
 
   let _do_locked t f =
-    Lwt.catch (fun () -> Lwt_mutex.with_lock t.mutex f)
+    Lwt.catch (fun () -> Lwt_fixes.with_lock t.mutex f)
       (fun e -> Lwt.fail e)
 
   let _open t = 

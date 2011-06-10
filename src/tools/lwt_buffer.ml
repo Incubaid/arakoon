@@ -52,7 +52,7 @@ module Lwt_buffer = struct
       | Some c -> Queue.length t.q = c
 
   let add e t =
-    Lwt_mutex.with_lock t.full_m (fun () ->
+    Lwt_fixes.with_lock t.full_m (fun () ->
       let _add e = 
 	let () = Queue.add e t.q in
 	let () = Lwt_condition.signal t.empty () in
@@ -72,7 +72,7 @@ module Lwt_buffer = struct
     ) 
       
   let take t =
-    Lwt_mutex.with_lock t.empty_m (fun () ->
+    Lwt_fixes.with_lock t.empty_m (fun () ->
       if Queue.is_empty t.q
       then Lwt_condition.wait ~mutex:t.empty_m t.empty
       else Lwt.return ()
@@ -82,7 +82,7 @@ module Lwt_buffer = struct
     Lwt.return e
 
   let wait_for_item t =
-    Lwt_mutex.with_lock t.empty_m (fun () ->
+    Lwt_fixes.with_lock t.empty_m (fun () ->
       if Queue.is_empty t.q then
 	Lwt_condition.wait t.empty
       else Lwt.return ()

@@ -36,7 +36,7 @@ module LWTQ = struct
   }
 
   let add e t =
-    Lwt_mutex.with_lock t.m (fun () ->
+    Lwt_fixes.with_lock t.m (fun () ->
       let () = Queue.add e t.q in
       Lwt.return ()
     ) >>= fun () ->
@@ -54,7 +54,7 @@ module LWTQ = struct
       return e
 
   let take t = (* blocked if empty *)
-    Lwt_mutex.with_lock t.m (_take t)
+    Lwt_fixes.with_lock t.m (_take t)
 
   let length t = Queue.length t.q
 end
