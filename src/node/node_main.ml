@@ -389,7 +389,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
 		| Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
 		| _ -> inject_buffer, "inject"
 	    in
-	    Lwt_log.info_f "XXX injecting event into %s" name >>= fun () ->
+	    Lwt_log.debug_f "XXX injecting event into %s" name >>= fun () ->
 	    Lwt_buffer.add e buffer
 	  in
 	  let buffers = Multi_paxos_fsm.make_buffers
