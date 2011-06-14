@@ -406,14 +406,16 @@ let _multi_get (client: Arakoon_client.client) =
   
 
 
-
-let trivial_master (cluster_cfg, _) =
-  let cfgs = cluster_cfg.cfgs in
+let _with_master (cluster_cfg, _) f =
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+    List.hd 
+      (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+
+let trivial_master tpl =
   let f (client:Arakoon_client.client) =
     _get_after_set client >>= fun () ->
     _delete_after_set client >>= fun () ->
@@ -422,14 +424,10 @@ let trivial_master (cluster_cfg, _) =
     _test_and_set_2 client >>= fun () ->
     _test_and_set_3 client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
-let trivial_master2 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
+
+let trivial_master2 tpl =
   let f client =
     _test_and_set_3 client >>= fun () ->
     _range_1 client >>= fun () ->
@@ -437,50 +435,26 @@ let trivial_master2 (cluster_cfg,_) =
     _prefix_keys client >>= fun () ->
     _detailed_range client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
 
-let trivial_master3 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
+let trivial_master3 tpl =
   let f client =
     _sequence client >>= fun () ->
     _sequence2 client >>= fun () ->
     _sequence3 client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
-let trivial_master4 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _multi_get
+let trivial_master4 tpl = _with_master tpl _multi_get
 
-let trivial_master5 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
+let trivial_master5 tpl = _with_master tpl _progress_possible
 
 
-let assert1 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _assert1
 
-let assert2 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _assert2
+let assert1 tpl = _with_master tpl _assert1
+
+let assert2 tpl = _with_master tpl _assert2
 
 let setup () =
   Lwt.return (read_config "cfg/arakoon.ini", ())
