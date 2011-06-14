@@ -30,17 +30,22 @@ module Update = struct
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | Nop
+    | Assert of string * string option
 
   let make_master_set me maybe_lease =
     match maybe_lease with
       | None -> MasterSet (me,0L)
       | Some lease -> MasterSet (me,lease)
 
+  let _size_of = function
+    | None -> 0
+    | Some w -> String.length w
+
   let rec string_of = function
-    | Set (k,_) -> Printf.sprintf "Set(%S,...)" k
-    | Delete k  -> Printf.sprintf "Delete %S" k
-    | MasterSet (m,i) -> Printf.sprintf "MasterSet (%S,%Ld)" m i
-    | TestAndSet (k, _, _) -> Printf.sprintf "TestAndSet(%S, _, _)" k
+    | Set (k,v)             -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
+    | Delete k              -> Printf.sprintf "Delete    ;%S" k
+    | MasterSet (m,i)       -> Printf.sprintf "MasterSet ;%S;%Ld" m i
+    | TestAndSet (k, _, wo) -> Printf.sprintf "TestAndSet;%S;%i" k (_size_of wo)
     | Sequence updates ->
       let buf = Buffer.create (64 * List.length updates) in
       let () = Buffer.add_string buf "Sequence([" in
@@ -55,6 +60,7 @@ module Update = struct
       let () = loop updates in
       Buffer.contents buf
     | Nop -> "NOP"
+    | Assert (key,vo)       -> Printf.sprintf "Assert    ;%S;%i" key (_size_of vo) 
 
   let rec to_buffer b t =
     match t with
@@ -81,6 +87,11 @@ module Update = struct
 	List.iter f us
       | Nop -> 
 	Llio.int_to b 6
+      | Assert (k,vo) ->
+	Llio.int_to b 8;
+	Llio.string_to b k;
+	Llio.string_option_to b vo
+
 
 
   let rec from_buffer b pos =
@@ -113,6 +124,10 @@ module Update = struct
           loop (i+1) (u::acc) next_pos in
           loop 0 [] pos2
       | 6 -> Nop, pos1
+      | 8 ->
+	let k, pos2 = Llio.string_from b pos1 in
+	let vo,pos3 = Llio.string_option_from b pos2 in
+	Assert (k,vo) , pos3
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

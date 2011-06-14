@@ -250,6 +250,19 @@ let _test_and_set_3 (client: Arakoon_client.client) =
       end
   end
   
+let _assert1 (client: Arakoon_client.client) =
+  Lwt_log.info "_assert1" >>= fun () ->
+  client # set "my_value" "my_value" >>= fun () ->
+  client # aSSert "my_value" (Some "my_value") >>= fun () ->
+  Lwt.return ()
+
+let _assert2 (client: Arakoon_client.client) = 
+  Lwt_log.info "_assert2" >>= fun () ->
+  client # set "x" "x" >>= fun () ->
+  should_fail 
+    (fun () -> client # aSSert "x" (Some "y"))
+    "PROBLEM:_assert2: yielded unit"
+    "_assert2: ok, this aSSert should indeed fail"
 
 let _range_1 (client: Arakoon_client.client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
@@ -454,6 +467,21 @@ let trivial_master5 (cluster_cfg,_) =
   in
   Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
 
+
+let assert1 (cluster_cfg,_) = 
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
+  in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id _assert1
+
+let assert2 (cluster_cfg,_) = 
+  Client_main.find_master cluster_cfg >>= fun master_name ->
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+			      cluster_cfg.cfgs)
+  in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id _assert2
+
 let setup () =
   Lwt.return (read_config "cfg/arakoon.ini", ())
 
@@ -500,6 +528,9 @@ let force_master =
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
       "trivial_master4" >:: w trivial_master4;
+      "trivial_master5" >:: w trivial_master5;
+      "assert1"         >:: w assert1;
+      "assert2"         >:: w assert2;
     ]
 
 let elect_master =
@@ -514,4 +545,6 @@ let elect_master =
       "trivial_master3"  >:: w trivial_master3;
       "trivial_master4"  >:: w trivial_master4;
       "trivial_master5"  >:: w trivial_master5;
+      "assert1"          >:: w assert1;
+      "assert2"          >:: w assert2;
     ]

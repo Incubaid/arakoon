@@ -27,6 +27,7 @@ class type backend = object
   method exists: allow_dirty:bool -> string -> bool Lwt.t
   method get: allow_dirty:bool -> string -> string Lwt.t
   method set: string -> string -> unit Lwt.t
+  method aSSert: allow_dirty: bool -> string -> string option -> unit Lwt.t
   method delete: string -> unit Lwt.t
   method test_and_set: string -> string option -> string option -> (string option) Lwt.t
   method range:

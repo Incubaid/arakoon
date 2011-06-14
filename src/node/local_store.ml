@@ -109,6 +109,20 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
+let _assert bdb key vo =
+  let pk = _p key in
+  match vo with
+    | None ->
+      begin
+	try let _ = Bdb.get bdb pk in false
+	with Not_found -> true
+      end
+    | Some v ->
+      begin
+	try let v' = Bdb.get bdb pk in v = v'
+	with Not_found -> false
+      end
+
 let _set_master bdb master (lease_start:int64) =  
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
@@ -122,6 +136,8 @@ let rec _sequence bdb updates =
     | Update.Delete key -> _delete bdb key
     | Update.TestAndSet(key,expected, wanted) ->
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
+    | Update.Assert(k,vo) ->
+      let _ = _assert bdb k vo in () 
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
     | Update.Nop -> ()
@@ -262,6 +278,9 @@ object(self: #store)
   method sequence updates =
     _tx_with_incr db
       (fun db -> _sequence db updates; Lwt.return ())
+
+  method aSSert key (vo:string option) =
+    _tx_with_incr db (fun db -> let r = _assert db key vo in Lwt.return r)
 
   method consensus_i () =
     Hotc.transaction db _consensus_i

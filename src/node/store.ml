@@ -55,6 +55,7 @@ class type store = object
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method get_filename: unit -> string 
+  method aSSert: string -> string option -> bool Lwt.t
 end
 
 exception Key_not_found of string ;;
@@ -125,6 +126,17 @@ let _insert_update (store:store) update =
             Lwt.return (Update_fail (rc,msg))
         )
     | Update.Nop -> Lwt.return (Ok None)
+    | Update.Assert(k,vo) ->
+      Lwt.catch
+	(fun () -> store # aSSert k vo >>= function
+	  | true -> Lwt.return (Ok None)
+	  | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+	)
+	(fun e ->
+	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	  and msg = Printexc.to_string e
+	  in Lwt.return (Update_fail(rc, msg)))
+
 
 let safe_insert_update (store:store) (i:Sn.t) update =
   (* TODO: race condition:

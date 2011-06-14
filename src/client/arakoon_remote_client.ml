@@ -48,6 +48,10 @@ object(self: #Arakoon_client.client)
     request (fun buf -> set_to buf key value) >>= fun () ->
     response ic nothing
 
+  method aSSert ?(allow_dirty=false) key vo = 
+    request (fun buf -> assert_to ~allow_dirty buf key vo) >>= fun () ->
+    response ic nothing
+
   method delete key =
     request (fun buf -> delete_to buf key) >>= fun () ->
     response ic nothing
