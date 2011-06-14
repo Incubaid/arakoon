@@ -156,6 +156,30 @@ def prefix_scenario( start_suffix ):
     
     client._dropConnections ()
 
+@with_custom_setup(default_setup, basic_teardown)
+def test_aSSert_scenario_1():
+    client = get_client()
+    client.set('x','x')
+    try:
+        client.aSSert('x','x') 
+    except ArakoonException as ex:
+        logging.error ( "Bad stuff happened: %s" % ex)
+        assert_equals(True,False)
+
+@with_custom_setup(default_setup, basic_teardown)
+def test_aSSert_scenario_2():
+    client = get_client()
+    client.set('x','x')
+    assert_raises( ArakoonAssertionFailed, client.aSSert, 'x', None)
+
+@with_custom_setup(default_setup, basic_teardown)
+def test_aSSert_scenario_3():
+    client = get_client()
+    client.set('x','x')
+    seq = Sequence([Assert('x','x')])
+    client.sequence(seq)
+        
+    
 @with_custom_setup( default_setup, basic_teardown )
 def test_prefix ():
     prefix_scenario(1000)

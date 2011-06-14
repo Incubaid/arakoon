@@ -34,7 +34,7 @@ open Store
 open Master_type
 
 let _s_ = function
-  | Some x -> "Some " ^ x
+ | Some x -> "Some " ^ x
   | None -> "None"
 
 exception Forced_stop
@@ -205,8 +205,10 @@ object(self: #backend)
       log_o self "after sleep" >>= fun () ->
       match sr with
 	| Store.Stop -> Lwt.fail Forced_stop
-	| Store.Update_fail(rc,str) -> log_o self "Update_fail case" >>= fun () ->
-	  Lwt.fail (Failure str)
+	| Store.Update_fail(rc,str) -> 
+	  log_o self "Update Fail case (%li)" 
+	    (Arakoon_exc.int32_of_rc rc)>>= fun () ->
+	  Lwt.fail (Common.XException(rc,str))
 	| Store.Ok _ -> 
 	  log_o self "Update Ok case" >>= fun () ->
 	  Lwt.return ()

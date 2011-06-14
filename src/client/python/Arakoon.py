@@ -241,6 +241,25 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
         conn.decodeVoidResult()
 
+    @retryDuringMasterReelection
+    @SignatureValidator('string','string_option')
+    def aSSert(self, key, vo):
+        """
+        verifies the value for key to match vo
+        @type key: string
+        @type vo: string_option
+        @param key: the key to be verified
+        @param vo: what the value should be (can be None)
+        @rtype: void
+        """
+        msg = ArakoonProtocol.encodeAssert(key, vo, self._allowDirty)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
+        result = conn.decodeVoidResult()
+        return result
+
     
     @retryDuringMasterReelection
     @SignatureValidator( 'sequence' )

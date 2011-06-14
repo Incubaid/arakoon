@@ -204,7 +204,10 @@ ARA_CMD_PRE = 0x0000000c | ARA_CMD_MAG
 # Test and set a value
 ARA_CMD_TAS = 0x0000000d | ARA_CMD_MAG
 # range entries
+
 ARA_CMD_RAN_E = 0x0000000f | ARA_CMD_MAG
+
+
 
 #sequence
 ARA_CMD_SEQ                      = 0x00000010 | ARA_CMD_MAG
@@ -214,6 +217,8 @@ ARA_CMD_MULTI_GET                = 0x00000011 | ARA_CMD_MAG
 ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
 
 ARA_CMD_STATISTICS               = 0x00000013 | ARA_CMD_MAG
+
+ARA_CMD_ASSERT                   = 0x00000016 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -226,7 +231,7 @@ ARA_ERR_NOT_MASTER = 4
 ARA_ERR_NOT_FOUND = 5
 # wrong cluster
 ARA_ERR_WRONG_CLUSTER = 6
-
+ARA_ERR_ASSERTION_FAILED = 7
 
 
 def _packString( toPack ):
@@ -361,6 +366,16 @@ class Delete(Update):
         fob.write(_packInt(2))
         fob.write(_packString(self._key))
 
+class Assert(Update):
+    def __init__(self, key,vo):
+        self._key = key
+        self._vo = vo
+
+    def write(self, fob):
+        fob.write(_packInt(8))
+        fob.write(_packString(self._key))
+        fob.write(_packStringOption(self._vo))
+                  
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -401,6 +416,14 @@ class ArakoonProtocol :
         msg = _packInt(ARA_CMD_EXISTS)
         msg += _packBool(allowDirty)
         msg += _packString(key)
+        return msg
+
+    @staticmethod
+    def encodeAssert(key, vo, allowDirty):
+        msg = _packInt(ARA_CMD_ASSERT)
+        msg += _packBool(allowDirty)
+        msg += _packString(key)
+        msg += _packStringOption(vo)
         return msg
 
     @staticmethod
@@ -491,7 +514,8 @@ class ArakoonProtocol :
 
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
-        
+        if errorCode == ARA_ERR_ASSERTION_FAILED:
+            raise ArakoonAssertionFailed()
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 
