@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from system_tests_common import *
 import logging
+import arakoon.ArakoonProtocol
 
 @with_custom_setup ( setup_1_node_forced_master, basic_teardown )
 def test_start_stop_single_node_forced () :
@@ -176,7 +177,9 @@ def test_aSSert_scenario_2():
 def test_aSSert_scenario_3():
     client = get_client()
     client.set('x','x')
-    seq = Sequence([Assert('x','x')])
+    ass = arakoon.ArakoonProtocol.Assert('x','x')
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addUpdate(ass)
     client.sequence(seq)
         
     

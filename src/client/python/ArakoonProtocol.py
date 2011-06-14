@@ -367,7 +367,7 @@ class Delete(Update):
         fob.write(_packString(self._key))
 
 class Assert(Update):
-    def __init__(self, key,vo):
+    def __init__(self, key, vo):
         self._key = key
         self._vo = vo
 
