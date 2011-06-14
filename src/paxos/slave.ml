@@ -259,6 +259,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
              end >>= fun _ ->
 	   let reply = Accepted(n,i') in
 	   log ~me "replying with %S" (string_of reply) >>= fun () ->
+	   Lwt_log.info "SLAVE" >>= fun () ->
 	   send reply me source >>= fun () -> 
 	      (* TODO: should assert we really have a MasterSet here *)
 	   Lwt.return (Slave_steady_state (n, Sn.succ i', v))
