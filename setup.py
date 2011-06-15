@@ -1,11 +1,15 @@
+import string
 from setuptools import setup
-
 
 from subprocess import Popen, PIPE
 
 def get_info(option):
     v = Popen(["hg","id",option], stdout=PIPE).communicate()[0]
-    return v
+    vs = string.strip(v)
+    return vs
+
+def get_branch():
+    return get_info('-b')
 
 def get_tag():
     return get_info('-t')
@@ -27,7 +31,7 @@ Mercurial version: %s
 """ % (get_version(),)
 
 setup(name='arakoon',
-      version=get_tag(),
+      version="%s" % get_branch(),
       package_dir={'arakoon':'src/client/python'},
       packages=['arakoon'],
       data_files = [('license',['COPYING'])],
