@@ -1,3 +1,10 @@
+arakoon (0.11.0-1) unstable; urgency=low
+  new feature: Asserts (also in sequence)
+  * [ARAKOON-198] assert to sequences
+  * [ARAKOON-192] ocaml client sometimes does not get a connection
+  * [ARAKOON-183] support for rolling upgrades
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Wed, 15 Jun 2011 12:00:00 +0200
+  
 arakoon (0.10.1-1) unstable; urgency=low
   The most notable here is optionality of tlog compression,
   throttling of collapse, and better SIGTERM handling
