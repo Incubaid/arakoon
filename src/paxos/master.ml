@@ -154,11 +154,9 @@ let stable_master constants (v',n,new_i) = function
 let master_dictate constants (mo,v,n,i) () =
   constants.on_accept (v,n,i) >>= fun v ->
   begin
-  let u = Update.update_from_value v in
-  match u with 
-    | Update.MasterSet(m,l) ->
-      start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
-    | _ -> Lwt.return ()
+    if Update.is_master_set v
+    then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
+    else Lwt.return ()
   end >>= fun () ->
   mcast constants (Accept(n,i,v)) >>= fun () ->
   let me = constants.me in

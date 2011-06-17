@@ -88,12 +88,11 @@ let slave_steady_state constants state event =
               end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun v ->
               begin
-		let u = Update.update_from_value v in
-		match u with 
-		  | Update.MasterSet(m,l) ->
-		    start_lease_expiration_thread constants n constants.lease_expiration
-		  | _ -> Lwt.return ()
-              end >>= fun () ->
+		if Update.is_master_set v
+		then start_lease_expiration_thread constants n constants.lease_expiration
+		else Lwt.return ()
+	      end
+	      >>= fun () ->
               log ~me "steady_state :: replying with %S" (string_of reply) 
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
@@ -232,11 +231,9 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
              begin
 	       constants.on_accept (v,n,i') >>= fun v ->
                begin
-		 let u = Update.update_from_value v in
-		 match u with 
-		   | Update.MasterSet(m,l) ->
-		     start_lease_expiration_thread constants n constants.lease_expiration 
-		   | _ -> Lwt.return ()
+		 if Update.is_master_set v 
+		 then start_lease_expiration_thread constants n constants.lease_expiration 
+		 else Lwt.return ()
 	       end >>= fun () ->
                match maybe_previous with
 		 | None -> log ~me "No previous" >>= fun () -> Lwt.return()
