@@ -33,7 +33,8 @@ let jobs = ref 0
 
 let compress_tlog tlog_name archive_name =
   incr jobs;
-  let limit = 1024 * 1024 in
+  let limit = 896 * 1024 in
+  let buffer_size = limit + 65536 in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output archive_name
@@ -60,7 +61,7 @@ let compress_tlog tlog_name archive_name =
 	    Llio.output_int64 oc last_i >>= fun () ->
 	    Llio.output_string oc output 
 	  in
-	  let buffer = Buffer.create limit in
+	  let buffer = Buffer.create buffer_size in
 	  let rec loop () = 
 	    fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
 	    if counter = 0 
