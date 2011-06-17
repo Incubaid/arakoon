@@ -147,7 +147,14 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
 	    Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
       end
-    | _ -> paxos_fatal constants.me "Slave_waiting_for_prepare only wants FromNode"
+    | ElectionTimeout n'
+    | LeaseExpired n' ->
+      if n' = current_n then
+         Lwt.return (Slave_fake_prepare (current_i, current_n) )
+      else 
+         Lwt.return (Slave_waiting_for_prepare (current_i, current_n))
+    | FromClient msg -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
+     
 
 
 (* a potential master is waiting for promises and if enough
@@ -616,7 +623,6 @@ type product_wanted =
 
 let machine constants = 
   let nop = Nop in
-  let node_only = Node_only in
   let full = Full in
   let node_and_timeout = Node_and_timeout in
   let node_and_inject_and_timeout = Node_and_inject_and_timeout in
@@ -627,7 +633,7 @@ let machine constants =
   | Slave_fake_prepare i ->
     (Unit_arg (Slave.slave_fake_prepare constants i), nop)
   | Slave_waiting_for_prepare state ->
-    (Msg_arg (slave_waiting_for_prepare constants state), node_only)
+    (Msg_arg (slave_waiting_for_prepare constants state), node_and_inject_and_timeout)
   | Slave_wait_for_accept state ->
     (Msg_arg (Slave.slave_wait_for_accept constants state), node_and_inject_and_timeout)
   | Slave_steady_state state ->
