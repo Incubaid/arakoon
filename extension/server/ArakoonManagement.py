@@ -864,11 +864,13 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fx', line]
+        logging.debug("pgrep = %s", cmd)
         proc = subprocess.Popen(cmd,
                                 close_fds = True,
                                 stdout=subprocess.PIPE)
         pids = proc.communicate()[0]
         pid_list = pids.split()
+
         logging.debug('pid_list=%s',pid_list)
         for pid in pid_list:
             try:

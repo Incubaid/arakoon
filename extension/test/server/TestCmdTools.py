@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from pymonkey import q
 from nose.tools import *
+import logging
 import subprocess
 import os
 
@@ -57,10 +58,14 @@ class TestCmdTools:
         cluster.remove()
 
     def _assert_n_running(self,n):
-        output = subprocess.Popen(['pgrep','arakoon'],
-                                  stdout = subprocess.PIPE).communicate()[0]
-        lines = output.split()
-        assert_equals(len(lines),n)
+        cluster = self._getCluster()
+        status = cluster.getStatus()
+        logging.debug('status=%s', status)
+        c = 0
+        for key in status.keys():
+            if status[key] == q.enumerators.AppStatusType.RUNNING:
+                c = c + 1
+        assert_equals(c, n)
 
     def testStart(self):
         cluster = self._getCluster()
@@ -113,6 +118,7 @@ class TestCmdTools:
     def testStopOne(self):
         cluster = self._getCluster()
         cluster.start()
+        logging.debug ("cluster should be running")
         cluster.stopOne(self._n0)
         self._assert_n_running(2)
 
