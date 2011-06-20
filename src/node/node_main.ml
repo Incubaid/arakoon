@@ -177,14 +177,15 @@ module X = struct
   
   let on_consensus store vni =
     let (v,n,i) = vni in
-    let u = Update.update_from_value v in
-    match u with 
-      | Update.MasterSet(m,l) -> 
+    begin
+      if Update.is_master_set v
+      then 
 	begin
 	  store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
 	end
-      | _ -> Store.on_consensus store vni
-
+      else
+	Store.on_consensus store vni
+    end
   
   let on_accept tlog_coll store (v,n,i) =
     Lwt_log.debug_f "on_accept: n:%s i:%s" 

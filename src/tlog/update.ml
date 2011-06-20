@@ -154,8 +154,8 @@ module Update = struct
     let s = Buffer.contents b in
     Value.create s
 
-  let update_from_value (Value.V buf) =
-    let (u,_) = from_buffer buf 0 in
-    u
+  let is_master_set (Value.V buf) = 
+    let kind,_ = Llio.int_from buf 0 in
+    kind = 4
 
 end
