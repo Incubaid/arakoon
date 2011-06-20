@@ -217,6 +217,28 @@ object(self: #backend)
       | Store.Update_fail(rc,str) -> Lwt.fail(Common.XException (rc,str))
       | Store.Ok x -> Lwt.return x
   
+  method aSSert ~allow_dirty (key:string) (vo:string option) = 
+    log_o self "aSSert %S ..." key >>= fun () ->
+    begin
+      let update = Update.Assert(key,vo) in
+      let p_value = Update.make_update_value update in
+      let sleep,awake = Lwt.wait() in
+      let went_well = make_went_well (fun () -> ()) awake sleep in
+      push_update (Some p_value, went_well) >>= fun () ->
+      sleep >>= fun sr ->
+      log_o self "after sleep" >>= fun () ->
+      match sr with
+	| Store.Stop -> Lwt.fail Forced_stop
+	| Store.Update_fail(rc,str) -> 
+	  log_o self "Update Fail case (%li)" 
+	    (Arakoon_exc.int32_of_rc rc)>>= fun () ->
+	  Lwt.fail (Common.XException(rc,str))
+	| Store.Ok _ -> 
+	  log_o self "Update Ok case" >>= fun () ->
+	  Lwt.return ()
+    end
+      
+
   method test_and_set key expected (wanted:string option) =
     log_o self "test_and_set %s %s %s" key 
       (string_option_to_string expected) 

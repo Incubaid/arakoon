@@ -250,6 +250,20 @@ let _test_and_set_3 (client: Arakoon_client.client) =
       end
   end
   
+let _assert1 (client: Arakoon_client.client) =
+  Lwt_log.info "_assert1" >>= fun () ->
+  client # set "my_value" "my_value" >>= fun () ->
+  client # aSSert "my_value" (Some "my_value") >>= fun () ->
+  Lwt.return ()
+
+let _assert2 (client: Arakoon_client.client) = 
+  Lwt_log.info "_assert2" >>= fun () ->
+  client # set "x" "x" >>= fun () ->
+  should_fail 
+    (fun () -> client # aSSert "x" (Some "y"))
+    "PROBLEM:_assert2: yielded unit"
+    "_assert2: ok, this aSSert should indeed fail"
+
 
 let _range_1 (client: Arakoon_client.client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
@@ -392,15 +406,17 @@ let _multi_get (client: Arakoon_client.client) =
     (fun exn -> Lwt_log.debug ~exn "is this ok?")
   
 
-
-
-let trivial_master (cluster_cfg, _) =
-  let cfgs = cluster_cfg.cfgs in
+let _with_master (cluster_cfg, _) f =
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs)
+    List.hd 
+      (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
+  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+
+
+let trivial_master tpl =
   let f (client:Arakoon_client.client) =
     _get_after_set client >>= fun () ->
     _delete_after_set client >>= fun () ->
@@ -409,14 +425,10 @@ let trivial_master (cluster_cfg, _) =
     _test_and_set_2 client >>= fun () ->
     _test_and_set_3 client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
-let trivial_master2 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
+
+let trivial_master2 tpl =
   let f client =
     _test_and_set_3 client >>= fun () ->
     _range_1 client >>= fun () ->
@@ -424,35 +436,25 @@ let trivial_master2 (cluster_cfg,_) =
     _prefix_keys client >>= fun () ->
     _detailed_range client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
 
-let trivial_master3 (cluster_cfg,_) =
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
+let trivial_master3 tpl =
   let f client =
     _sequence client >>= fun () ->
     _sequence2 client >>= fun () ->
     _sequence3 client 
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  _with_master tpl f
 
-let trivial_master4 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _multi_get
+let trivial_master4 tpl = _with_master tpl _multi_get 
 
-let trivial_master5 (cluster_cfg,_) = 
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-			      cluster_cfg.cfgs)
-  in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id _progress_possible
+let trivial_master5 tpl = _with_master tpl _progress_possible
+
+let assert1 tpl = _with_master tpl _assert1
+
+let assert2 tpl = _with_master tpl _assert2
+
 
 let setup () =
   let cfg = Node_cfg.Node_cfg.make_test_config 3 Elected 2 in
@@ -491,28 +493,26 @@ let teardown (_, j) =
   let () = Lwt.cancel j in
   Lwt.return ()
 
-let force_master =
-  let w f = Extra.lwt_bracket (setup (Forced "t_arakoon_0")) f teardown in
-  "force_master" >:::
+let make_suite name w =
+  name >:::
     [
       "all_same_master" >:: w all_same_master;
       "nothing_on_slave">:: w nothing_on_slave;
+      "dirty_on_slave"   >:: w dirty_on_slave;
       "trivial_master"  >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
       "trivial_master4" >:: w trivial_master4;
+      "trivial_master5" >:: w trivial_master5;
+      "assert1" >:: w assert1;
+      "assert2" >:: w assert2;
     ]
+
+let force_master =
+  let w f = Extra.lwt_bracket (setup (Forced "t_arakoon_0")) f teardown in
+  make_suite "force_master" w
+
 
 let elect_master =
   let w f = Extra.lwt_bracket (setup Elected) f teardown in
-  "elect_master" >:::
-    [
-      "all_same_master"  >:: w all_same_master;
-      "nothing_on_slave" >:: w nothing_on_slave;
-      "dirty_on_slave"   >:: w dirty_on_slave;
-      "trivial_master"   >:: w trivial_master;
-      "trivial_master2"  >:: w trivial_master2;
-      "trivial_master3"  >:: w trivial_master3;
-      "trivial_master4"  >:: w trivial_master4;
-      "trivial_master5"  >:: w trivial_master5;
-    ]
+  make_suite "elect_master" w

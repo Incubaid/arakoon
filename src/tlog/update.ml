@@ -34,6 +34,7 @@ module Update = struct
     | SetRange of Range.t
     | SetRouting of Routing.t
     | Nop
+    | Assert of string * string option
     | UserFunction of string * string option
 
   let make_master_set me maybe_lease =
@@ -68,6 +69,7 @@ module Update = struct
     | SetRange range ->     Printf.sprintf "SetRange  ;%s" (Range.to_string range)
     | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
     | Nop -> "NOP"
+    | Assert (key,vo)       -> Printf.sprintf "Assert    ;%S;%i" key (_size_of vo)
     | UserFunction (name,param) ->
       let ps = _size_of param in
       Printf.sprintf "UserFunction;%s;%i" name ps
@@ -101,6 +103,10 @@ module Update = struct
 	Llio.int_to b 7;
 	Llio.string_to b name;
 	Llio.string_option_to b param
+      | Assert (k,vo) ->
+	Llio.int_to b 8;
+	Llio.string_to b k;
+	Llio.string_option_to b vo
       | SetRange range ->
 	Llio.int_to b 9;
 	Range.range_to b range
@@ -142,6 +148,10 @@ module Update = struct
 	let po, pos3 = Llio.string_option_from b pos2 in
 	let r = UserFunction(n,po) in
 	r, pos3
+      | 8 ->
+	let k, pos2 = Llio.string_from b pos1 in
+	let vo,pos3 = Llio.string_option_from b pos2 in
+	Assert (k,vo) , pos3
       | 9 -> 
 	let range,pos2 = Range.range_from b pos1 in
 	SetRange range, pos2

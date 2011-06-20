@@ -106,6 +106,17 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    response_rc_string oc 0l value)
 	  (handle_exception oc)
       end
+    | ASSERT ->
+      begin
+	Llio.input_bool ic          >>= fun allow_dirty ->
+	Llio.input_string ic        >>= fun key ->
+	Llio.input_string_option ic >>= fun vo ->
+	Lwt.catch
+	  (fun () -> backend # aSSert ~allow_dirty key vo >>= fun () ->
+	    response_ok_unit oc
+	  )
+	  (handle_exception oc)
+      end
     | SET ->
 	begin
           Llio.input_string ic >>= fun key ->

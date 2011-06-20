@@ -7,6 +7,7 @@ type rc =
   | E_NOT_MASTER
   | E_NOT_FOUND
   | E_WRONG_CLUSTER
+  | E_ASSERTION_FAILED
   | E_UNKNOWN_FAILURE
 
 val int32_of_rc : rc -> int32
