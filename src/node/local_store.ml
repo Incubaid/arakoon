@@ -82,6 +82,15 @@ let _incr_i db =
   >>= fun () -> *)
   Lwt.return ()
 
+let _who_master db = 
+  try
+    let m = Bdb.get db __master_key in
+    let ls_buff = Bdb.get db __lease_key in
+    let ls,_ = Llio.int64_from ls_buff 0 in
+    Lwt.return (Some (m,ls))
+  with Not_found -> 
+    Lwt.return None
+
 let _p key = __prefix ^ key
 let _f = function
   | Some x -> (Some (_p x))
@@ -167,15 +176,36 @@ let rec _sequence bdb updates =
         in match key with
         | Some key -> raise (Key_not_found key)
         | None -> raise Not_found
-  in List.iter helper updates;
+  in List.iter helper updates
 
 
+let _set_master bdb master (lease_start:int64) =  
+  Bdb.put bdb __master_key master;
+  let buffer =  Buffer.create 8 in
+  let () = Llio.int64_to buffer lease_start in
+  let lease = Buffer.contents buffer in
+  Bdb.put bdb __lease_key lease
 
-class local_store db (range:Range.t) (routing:Routing.t option) =
+
+let _tx_with_incr db (f:Otc.Bdb.bdb -> 'a Lwt.t) = 
+  Lwt.catch
+    (fun () ->
+      Hotc.transaction db
+	(fun db ->
+	  _incr_i db >>= fun () ->
+	  f db >>= fun (a:'a) ->
+	  Lwt.return a)
+    )
+    (fun ex ->
+      Hotc.transaction db _incr_i >>= fun () ->
+      Lwt.fail ex)
+
+class local_store db (range:Range.t) (routing:Routing.t option) mlo =
 
 object(self: #store)
   val mutable _range = range
   val mutable _routing = routing
+  val mutable _mlo = mlo
 
   method _range_ok key =
     let ok = Range.is_ok _range key in
@@ -217,9 +247,8 @@ object(self: #store)
 	in 
 	Lwt.return (List.rev vs))
   
-  method incr_i () =
-    Hotc.transaction db
-      ( fun db -> _incr_i db )
+  method incr_i () = Hotc.transaction db _incr_i
+
       
   method range first finc last linc max =
     Hotc.transaction db
@@ -251,91 +280,47 @@ object(self: #store)
 
   method set key value =
     Lwt.catch
-      (fun () ->
-	Hotc.transaction db
-	  (fun db ->
-	    _incr_i db >>= fun () ->
-	    _set db key value;
-	    Lwt.return ())
-      )
+      (fun () -> _tx_with_incr db (fun db -> _set db key value; Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
   method set_master master lease =
-    Hotc.transaction db
+    _tx_with_incr db
       (fun db ->
-	_incr_i db >>= fun () ->
 	_set_master db master lease ;
+	_mlo <- Some (master,lease);
 	Lwt.return ()
       )
 
   method set_master_no_inc master lease = 
-    Hotc.transaction db (fun db -> _set_master db master lease;Lwt.return ())
-
-  method who_master () =
-    Lwt.catch
-      (fun () ->
-	Hotc.transaction db
-	  (fun db -> 
-	    let m = Bdb.get db __master_key in
-	    let ls_buff = Bdb.get db __lease_key in
-	    let ls,_ = Llio.int64_from ls_buff 0 in
-	    Lwt.return (Some (m,ls)))
+    Hotc.transaction db 
+      (fun db -> _set_master db master lease;
+	_mlo <- Some (master,lease);
+	Lwt.return ()
       )
-      (function | Not_found -> Lwt.return None | exn -> Lwt.fail exn)
+
+  method who_master () = Lwt.return _mlo
 
   method delete key =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db ( fun db ->
-        _delete db key ;
-        _incr_i db )
-    ) ( function 
-      | Not_found -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail Not_found 
-      | ex -> Lwt.fail ex
-    ) 
-    
+    _tx_with_incr db (fun db -> _delete db key; Lwt.return ())
 
   method test_and_set key expected wanted =
-    Hotc.transaction db
+    _tx_with_incr db 
       (fun db ->
-	_incr_i db >>= fun () ->
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
 
   method sequence updates =
-    Lwt.catch ( fun() ->
-      Hotc.transaction db
-        (fun db ->
-  	  _incr_i db >>= fun () ->
-	  _sequence db updates;
-  	  Lwt.return ())
-    ) ( function 
-      | Key_not_found key -> Hotc.transaction db ( fun db ->
-          _incr_i db
-        ) >>= fun () ->
-        Lwt.fail ( Key_not_found key )
-      | ex -> Lwt.fail ex
-    )
+    _tx_with_incr db
+      (fun db -> _sequence db updates; Lwt.return ())
 
   method user_function name (po:string option) = 
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    Lwt.catch (
-      fun () ->
-	Hotc.transaction db
-	  (fun db -> 
-	    _incr_i db >>= fun () ->
-	    let (ro:string option) = _user_function db name po in
-	    Lwt.return ro)
-    )
-      (function 
-	| ex ->
-	  Hotc.transaction db (fun db -> _incr_i db) 
-	  >>= fun () -> Lwt.fail ex)
-      
+    _tx_with_incr db
+      (fun db -> 
+	let (ro:string option) = _user_function db name po in
+	Lwt.return ro)
       
   method consensus_i () =
     Hotc.transaction db (fun db -> _consensus_i db)
@@ -373,6 +358,7 @@ let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
   Hotc.transaction db _get_range >>= fun range ->
   Hotc.transaction db _get_routing >>= fun routing_o ->
-  let store = new local_store db range routing_o in
+  Hotc.transaction db _who_master >>= fun mlo ->
+  let store = new local_store db range routing_o mlo in
   let store2 = (store :> store) in
   Lwt.return store2
