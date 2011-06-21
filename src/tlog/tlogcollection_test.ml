@@ -222,7 +222,8 @@ let test_validate_corrupt_1 (dn,factory) =
   Lwt.return ()
 
 let wrap factory test = lwt_bracket (setup factory) test teardown
-let wrap_memory = wrap Mem_tlogcollection.make_mem_tlog_collection
+let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn true 
+let wrap_memory = wrap create_test_tlc
 
 let suite_mem = "mem_tlogcollection" >::: [
   "empty_collection" >:: wrap_memory test_empty_collection;

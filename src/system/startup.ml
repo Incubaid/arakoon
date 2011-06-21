@@ -42,11 +42,12 @@ let _make_cfg name n lease_period =
     is_laggy = false;
     is_learner = false;
     targets = [];
+    use_compression = true;
     is_test = true;
   }
 
-let _make_tlog_coll tlcs updates tlc_name = 
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name >>= fun tlc ->
+let _make_tlog_coll tlcs updates tlc_name use_compression = 
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 
     | u :: us -> 

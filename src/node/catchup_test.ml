@@ -69,7 +69,7 @@ let setup () =
     
 let test_common () =
   Lwt_log.info "test_common" >>= fun () ->
-  Tlc2.make_tlc2 _dir_name >>= fun tlog_coll ->
+  Tlc2.make_tlc2 _dir_name true>>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
@@ -86,7 +86,7 @@ let teardown () =
 
 let _tic filler_function name =
   Tlogcommon.tlogEntriesPerFile := 101; 
-  Tlc2.make_tlc2 _dir_name >>= fun tlog_coll ->
+  Tlc2.make_tlc2 _dir_name true>>= fun tlog_coll ->
   filler_function tlog_coll 1000 >>= fun () ->
   let tlog_i = Sn.of_int 1000 in 
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in

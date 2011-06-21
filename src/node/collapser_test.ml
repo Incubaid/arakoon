@@ -54,7 +54,7 @@ let _make_updates tlc n =
 let test_collapse_until dn = 
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Lwt_log.debug_f "dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn >>= fun tlc ->
+  Tlc2.make_tlc2 dn true >>= fun tlc ->
   _make_updates tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -77,7 +77,7 @@ let test_collapse_until dn =
 let test_collapse_many dn =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn >>= fun tlc ->
+  Tlc2.make_tlc2 dn true >>= fun tlc ->
   _make_updates tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 

@@ -65,7 +65,7 @@ let test_generic network_factory n_nodes () =
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
     tlog_coll # get_last_update i >>= function
       | None -> Lwt.return None 
@@ -247,7 +247,7 @@ let test_master_loop network_factory ()  =
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
     tlog_coll # get_last_update i >>= function
       | None -> Lwt.return None 
@@ -374,8 +374,8 @@ let test_simulation filters () =
       Lwt_log.debug_f "got (%s,%s,%s) => dropping" msg_s source target
   in
   
-  Mem_store.make_mem_store "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" >>= fun tlog_coll ->
+  Mem_store.make_mem_store "MEM#store"  >>= fun store ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
     tlog_coll # get_last_update i >>= function
       | None -> Lwt.return None 

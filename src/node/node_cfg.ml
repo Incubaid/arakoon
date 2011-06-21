@@ -40,6 +40,7 @@ module Node_cfg = struct
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
+            use_compression : bool;
 	    is_test : bool;
 	   }
 
@@ -70,6 +71,7 @@ module Node_cfg = struct
 	is_laggy = false;
 	is_learner = false;
 	targets = [];
+        use_compression = true;
 	is_test = true;
       }
     in
@@ -193,6 +195,7 @@ module Node_cfg = struct
     let log_level = String.lowercase (get_string "log_level")  in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
+    let use_compression = not (get_bool "disable_tlog_compression") in
     let targets = 
       if is_learner 
       then _get_string_list inifile node_name "targets"
@@ -213,6 +216,7 @@ module Node_cfg = struct
      is_laggy = is_laggy;
      is_learner = is_learner;
      targets = targets;
+     use_compression = use_compression;
      is_test = false;
     }
 
