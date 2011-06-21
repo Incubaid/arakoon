@@ -236,7 +236,14 @@ let wait_for_promises constants state event =
               if List.mem source who_voted then
                 drop msg "duplicate promise"
               else
-                let v_lims' = update_votes v_lims limit in
+                let v_lims' = 
+                begin
+                   if new_i < i then
+                     let (nnones, nsomes) = v_lims in
+                     (nnones+1, nsomes)
+                   else
+                     update_votes v_lims limit 
+                end in
                 let who_voted' = source :: who_voted in
                 let new_ilim = match i_lim with
                   | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
