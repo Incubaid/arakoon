@@ -231,6 +231,16 @@ end
 let _main_2 make_store make_tlog_coll make_config ~name 
     ~daemonize ~catchup_only=
   Lwt_io.set_default_buffer_size 32768;
+    let control  = {
+     minor_heap_size = 32 * 1024;
+     major_heap_increment = 124 * 1024;
+     space_overhead = 80;
+     verbose = 0;
+     max_overhead = 0;
+     stack_limit = 256 * 1024;
+     allocation_policy = 1; 
+  } in
+  Gc.set control;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in

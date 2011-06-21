@@ -1,6 +1,6 @@
 # This makefile wrapper makes DEBIAN packaging easier. 
 
-OCAML_VERSION ?= 3.11.2
+OCAML_VERSION ?= 3.12.0
 OCAML_LIBDIR ?= $(DESTDIR)/usr/lib/ocaml/
 OCAML_FIND ?= ocamlfind
 
