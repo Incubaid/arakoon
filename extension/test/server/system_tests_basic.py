@@ -69,7 +69,12 @@ def test_large_value ():
     except ArakoonException as inst:
         logging.info('inst=%s', inst)
     
-        
+@with_custom_setup(setup_1_node_forced_master, basic_teardown)
+def test_assert():
+    client = get_client()
+    client.set ('test_assert','test_assert')
+    client.aSSert('test_assert', 'test_assert')    
+    
 def range_scenario ( start_suffix ):
 
     iterate_n_times( 100, simple_set, startSuffix = start_suffix )
