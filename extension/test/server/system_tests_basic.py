@@ -83,7 +83,10 @@ def test_assert():
     seq2 = arakoon.ArakoonProtocol.Sequence() 
     seq2.addAssert('test_assert','test_assert')
     seq2.addSet('test_assert','changed2')
-    client.sequence(seq2)
+    try:
+        client.sequence(seq2)
+    except ArakoonException as inst:
+        pass
     v = client.get('test_assert')
     assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))    
 

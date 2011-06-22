@@ -137,7 +137,12 @@ let rec _sequence bdb updates =
     | Update.TestAndSet(key,expected, wanted) ->
       let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.Assert(k,vo) ->
-      let _ = _assert bdb k vo in () 
+      begin
+	match _assert bdb k vo 
+	with
+	| true -> () 
+	| false -> raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
+      end
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
     | Update.Nop -> ()

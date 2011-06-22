@@ -70,8 +70,10 @@ class ArakoonNoMasterResult( ArakoonException ):
 class ArakoonNodeNotMaster( ArakoonException ):
     _msg = "Cannot perform operation on non-master node"
 
-class ArakoonAssertionFailed(ArakoonException):    
-    _msg = "Assert did not yield expected result"
+class ArakoonAssertionFailed(ArakoonException):
+    def __init__(self,msg):
+        ArakoonException.__init__(self,msg)
+
 
 class ArakoonSocketException ( ArakoonException ):
     pass
