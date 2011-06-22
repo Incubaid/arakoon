@@ -9,6 +9,7 @@ type change =
   | Delete of key
   | TestAndSet of key * value option * value option
   | Sequence of change list
+  | Assert of key * value option
 
 class type client = object
 

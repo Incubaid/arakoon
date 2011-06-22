@@ -86,6 +86,7 @@ object(self: #Arakoon_client.client)
 	| Arakoon_client.Delete k -> Update.Delete k
 	| Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
 	| Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
+	| Arakoon_client.Assert (k,vo) -> Update.Assert(k,vo)
       in
       let updates = List.map c2u changes in
       let seq = Update.Sequence updates in

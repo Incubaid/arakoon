@@ -67,6 +67,7 @@ type update_result =
   | Update_fail of Arakoon_exc.rc * string
 
 let _insert_update (store:store) update =
+  Lwt_log.debug_f "ZZZ:_insert_update: %s" (Update.string_of update) >>= fun () ->
   let with_error notfound_msg f =
     Lwt.catch
       (fun () ->
@@ -162,7 +163,7 @@ let _insert (store:store) v i =
   _insert_update store u
 
 let on_consensus (store:store) (v,n,i) =
-  Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s" 
+  Lwt_log.debug_f "on_consensus=> store n=%s i=%s" 
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
   store # consensus_i () >>= fun m_store_i -> 

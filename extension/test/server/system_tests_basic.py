@@ -59,7 +59,44 @@ def test_deploy_2_to_3():
 @with_custom_setup( default_setup, basic_teardown )
 def test_range ():
     range_scenario ( 1000 )
-        
+
+
+@with_custom_setup(setup_1_node_forced_master, basic_teardown)
+def test_assert():
+    client = get_client()
+    client.set ('test_assert','test_assert')
+    client.aSSert('test_assert', 'test_assert')    
+    try:
+        client.aSSert('test_assert','something_else')
+        raise Exception('this should not happen')
+    except ArakoonException as inst:
+        logging.info('inst=%s',inst)
+
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addAssert('test_assert','test_assert')
+    seq.addSet('test_assert','changed')
+    client.sequence( seq )
+    v = client.get('test_assert')
+
+    assert_equals(v, 'changed', 'first_sequence')
+
+    seq2 = arakoon.ArakoonProtocol.Sequence() 
+    seq2.addAssert('test_assert','test_assert')
+    seq2.addSet('test_assert','changed2')
+    client.sequence(seq2)
+    v = client.get('test_assert')
+    assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))    
+
+@with_custom_setup ( setup_1_node_forced_master, basic_teardown )
+def test_large_value ():
+    value = 'x' * (10 * 1024 * 1024)
+    client = get_client()
+    try:
+        client.set ('some_key', value)
+        raise Exception('this should have failed')
+    except ArakoonException as inst:
+        logging.info('inst=%s', inst)
+    
 def range_scenario ( start_suffix ):
 
     iterate_n_times( 100, simple_set, startSuffix = start_suffix )
