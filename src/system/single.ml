@@ -280,13 +280,20 @@ let _assert3 (client:client) =
   client # sequence updates >>= fun () ->
   client # get k >>= fun v2 ->
   OUnit.assert_equal v2 "REALLY";
-  client # sequence updates >>= fun () ->
-  let u2 = [
-    Arakoon_client.Assert(k,Some k);
-    Arakoon_client.Set(k,"NO WAY")
-  ]
-  in
-  client # sequence u2 >>= fun () ->
+  Lwt.catch
+    (fun () ->
+      client # sequence updates >>= fun () ->
+      let u2 = [
+	Arakoon_client.Assert(k,Some k);
+	Arakoon_client.Set(k,"NO WAY")
+      ]
+      in
+      client # sequence u2)
+  (function
+    | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
+    | ex -> Lwt.fail ex
+  )
+  >>= fun () ->
   client # get k >>= fun  v3 ->
   OUnit.assert_equal v2 "REALLY";
   Lwt.return ()

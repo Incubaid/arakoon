@@ -156,15 +156,21 @@ object (self: #store)
   method sequence updates = 
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let () = self # _incr_i () in 
-    let do_one =  function
-      | Update.Set (k,v) -> 
-	Lwt_log.debug_f "set # %S %S" k v >>= fun () -> 
-	self # set_no_incr k v
-      | Update.Delete k  -> 
-	Lwt_log.debug_f "delete # %S" k >>= fun () ->
-	self # delete_no_incr k >>= fun () ->
-	Lwt_log.debug "done delete"
-      | _ -> Llio.lwt_failfmt "Sequence only supports SET & DELETE"
+    let do_one u =  
+      let u_s = (Update.string_of u) in
+      Lwt_log.debug_f "u=%s" u_s >>= fun () ->
+      match u with
+      | Update.Set (k,v) -> self # set_no_incr k v
+      | Update.Delete k  -> self # delete_no_incr k 
+      | Update.Assert(k,vo) -> 
+	begin
+	  self # aSSert k vo >>= function
+	    | true -> Lwt.return ()
+	    | false -> 
+	      let ex = Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k) in
+	      Lwt.fail ex
+	end
+      | _ -> Llio.lwt_failfmt "Sequence does not support %s" u_s
     in
     let old_kv = kv in
     Lwt.catch
