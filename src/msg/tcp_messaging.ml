@@ -285,16 +285,18 @@ object(self : # messaging )
       Llio.input_int ic    >>= fun port ->
       self # _maybe_insert_connection (ip,port) >>= fun () ->
       begin
-	let rec loop () =
+	let rec loop buffer =
 	  begin
 	    Llio.input_int ic >>= fun msg_size ->
-	    let buffer = String.create msg_size in
-	    Lwt_io.read_into_exactly ic buffer 0 msg_size >>= fun () ->
-	    let (source:id), pos1 = Llio.string_from buffer 0 in
-	    let target, pos2 = Llio.string_from buffer pos1 in
-	    let msg, _   = Message.from_buffer buffer pos2 in
-	    Lwt_log.debug_f "message from %s for %s" source target >>= fun () ->
-	    if drop_it msg source target then loop () 
+	    let buffer' = 
+	      if msg_size > String.length buffer then String.create msg_size
+	      else buffer
+	    in
+	    Lwt_io.read_into_exactly ic buffer' 0 msg_size >>= fun () ->
+	    let (source:id), pos1 = Llio.string_from buffer' 0 in
+	    let target, pos2 = Llio.string_from buffer' pos1 in
+	    let msg, _   = Message.from_buffer buffer' pos2 in
+	    if drop_it msg source target then loop buffer'
 	    else
 	      begin
 		begin
@@ -305,12 +307,12 @@ object(self : # messaging )
 		end >>= fun () ->
 		let q = self # get_buffer target in
 		Lwt_buffer.add (msg, source) q >>=  fun () ->
-		loop ()
+		loop buffer'
 	      end
 	  end
 	in
 	catch
-	  (fun () -> loop ())
+	  (fun () -> loop (String.create 4096))
 	  (fun exn ->
 	    Lwt_log.info ~exn "going to drop outgoing connection as well" >>= fun () ->
 	    let address = (ip,port) in
