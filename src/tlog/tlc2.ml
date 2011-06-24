@@ -28,7 +28,7 @@ open Unix.LargeFile
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_extension = ".tlf"
 let archive_name c = Printf.sprintf "%03i.tlf" c
