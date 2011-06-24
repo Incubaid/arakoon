@@ -83,6 +83,21 @@ let collapse_until tlog_dir head_name too_far_i =
       >>= fun () ->
       Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i add_to_store 
       >>= fun () ->
+      store # consensus_i () >>= fun m_si ->
+      let si = match m_si with
+        | None -> Sn.start
+        | Some i -> i
+      in
+      
+      Lwt_log.debug_f "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
+      if si = Sn.pred (Sn.pred too_far_i) then
+        Lwt.return ()
+      else
+        let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
+        Lwt_log.debug msg >>= fun () ->
+        store # close () >>= fun () ->
+        Lwt.fail (Failure msg)
+      >>= fun () ->
       store # close ()
     end
       
