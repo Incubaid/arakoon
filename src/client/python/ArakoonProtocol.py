@@ -387,6 +387,9 @@ class Sequence(Update):
     def addDelete(self, key):
         self._updates.append(Delete(key))
 
+    def addAssert(self, key,vo):
+        self._updates.append(Assert(key,vo))
+
     def write(self, fob):
         fob.write( _packInt(5))
         fob.write( _packInt(len(self._updates)))

@@ -74,7 +74,29 @@ def test_assert():
     client = get_client()
     client.set ('test_assert','test_assert')
     client.aSSert('test_assert', 'test_assert')    
+    try:
+        client.aSSert('test_assert','something_else')
+        raise Exception('this should not happen')
+    except ArakoonException as inst:
+        logging.info('inst=%s',inst)
+
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addAssert('test_assert','test_assert')
+    seq.addSet('test_assert','changed')
+    client.sequence( seq )
+    v = client.get('test_assert')
+
+    assert_equals(v, 'changed', 'first_sequence')
+
+    seq2 = arakoon.ArakoonProtocol.Sequence() 
+    seq2.addAssert('test_assert','test_assert')
+    seq2.addSet('test_assert','changed2')
+    client.sequence(seq2)
+    v = client.get('test_assert')
+    assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
+
     
+
 def range_scenario ( start_suffix ):
 
     iterate_n_times( 100, simple_set, startSuffix = start_suffix )
