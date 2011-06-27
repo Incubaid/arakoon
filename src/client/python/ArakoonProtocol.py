@@ -514,7 +514,8 @@ class ArakoonProtocol :
 
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
-        
+        if errorCode == ARA_ERR_ASSERTION_FAILED:
+            raise ArakoonAssertionFailed(errorMsg)        
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 

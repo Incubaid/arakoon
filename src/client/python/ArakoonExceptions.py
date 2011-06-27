@@ -72,6 +72,8 @@ class ArakoonNodeNotMaster( ArakoonException ):
 
 class ArakoonAssertionFailed(ArakoonException):    
     _msg = "Assert did not yield expected result"
+    def __init__(self,msg):
+        ArakoonException.__init__(self,msg)
 
 
 class ArakoonSocketException ( ArakoonException ):

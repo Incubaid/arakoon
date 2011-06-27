@@ -58,10 +58,14 @@ class TestCmdTools:
         cluster.remove()
 
     def _assert_n_running(self,n):
-        output = subprocess.Popen(['pgrep','arakoon'],
-                                  stdout = subprocess.PIPE).communicate()[0]
-        lines = output.split()
-        assert_equals(len(lines),n)
+        cluster = self._getCluster()
+        status = cluster.getStatus()
+        logging.debug('status=%s', status)
+        c = 0
+        for key in status.keys():
+            if status[key] == q.enumerators.AppStatusType.RUNNING:
+                c = c + 1
+        assert_equals(c, n)
 
     def testStart(self):
         cluster = self._getCluster()

@@ -143,6 +143,8 @@ let _insert_update (store:store) update =
             let rc = Arakoon_exc.E_NOT_FOUND
             and msg = "Not_found" in
             Lwt.return (Update_fail (rc,msg))
+	  | Arakoon_exc.Exception(rc,msg) ->
+	    Lwt.return (Update_fail(rc,msg))
           | e ->
             let rc = Arakoon_exc.E_UNKNOWN_FAILURE
             and msg = Printexc.to_string e
