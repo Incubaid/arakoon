@@ -7,6 +7,7 @@ type value = string
 type change =
   | Set of key * value
   | Delete of key
+  | Assert of (key * value option)
   | TestAndSet of key * value option * value option
   | Sequence of change list
 

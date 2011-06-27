@@ -50,6 +50,8 @@ let rc_of_int32 = function
   | 0x03l -> E_NO_HELLO
   | 0x04l -> E_NOT_MASTER
   | 0x05l -> E_NOT_FOUND
+  | 0x06l -> E_WRONG_CLUSTER
+  | 0x07l -> E_ASSERTION_FAILED
   | 0xffl -> E_UNKNOWN_FAILURE
   | _     -> E_UNKNOWN_FAILURE
 

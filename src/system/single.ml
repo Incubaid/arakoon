@@ -165,14 +165,16 @@ let dirty_on_slave (cluster_cfg,_) =
   in
   do_slaves cluster_cfg
 
-let _get_after_set (client:Arakoon_client.client) =
+type client = Arakoon_client.client
+
+let _get_after_set (client:client) =
   client # set "set" "some_value" >>= fun () ->
   client # get "set" >>= fun value ->
   if value <> "some_value"
   then Llio.lwt_failfmt "\"%S\" <> \"some_value\"" value
   else Lwt.return ()
 
-let _exists (client:Arakoon_client.client) =
+let _exists (client:client) =
   client # set "Geronimo" "Stilton" >>= fun () ->
   client # exists "Geronimo" >>= fun yes ->
   client # exists "Mickey" >>= fun no ->
@@ -188,7 +190,7 @@ let _exists (client:Arakoon_client.client) =
       Lwt_log.info_f" Mickey's not in there, as expected"
   end
 
-let _delete_after_set (client:Arakoon_client.client) =
+let _delete_after_set (client:client) =
   let key = "_delete_after_set" in
   client # set key "xxx" >>= fun () ->
   client # delete key    >>= fun () ->
@@ -201,7 +203,7 @@ let _delete_after_set (client:Arakoon_client.client) =
     "get after delete yields, which is A PROBLEM!"
     "get after delete fails, which was intended"
 
-let _test_and_set_1 (client:Arakoon_client.client) =
+let _test_and_set_1 (client:client) =
   Lwt_log.info_f "_test_and_set_1" >>= fun () ->
   let wanted_s = "value!" in
   let wanted = Some wanted_s in
@@ -221,7 +223,7 @@ let _test_and_set_1 (client:Arakoon_client.client) =
   Lwt.return ()
 
 
-let _test_and_set_2 (client: Arakoon_client.client) =
+let _test_and_set_2 (client: client) =
   Lwt_log.info_f "_test_and_set_2" >>= fun () ->
   let wanted = Some "wrong!" in
   client # test_and_set "test_and_set" (Some "x") wanted
@@ -233,7 +235,7 @@ let _test_and_set_2 (client: Arakoon_client.client) =
   end >>= fun () ->
   Lwt.return ()
 
-let _test_and_set_3 (client: Arakoon_client.client) = 
+let _test_and_set_3 (client: client) = 
   Lwt_log.info_f "_test_and_set_3" >>= fun () ->
   let key = "_test_and_set_3" in
   let value = "bla bla" in
@@ -250,13 +252,13 @@ let _test_and_set_3 (client: Arakoon_client.client) =
       end
   end
   
-let _assert1 (client: Arakoon_client.client) =
+let _assert1 (client: client) =
   Lwt_log.info "_assert1" >>= fun () ->
   client # set "my_value" "my_value" >>= fun () ->
   client # aSSert "my_value" (Some "my_value") >>= fun () ->
   Lwt.return ()
 
-let _assert2 (client: Arakoon_client.client) = 
+let _assert2 (client: client) = 
   Lwt_log.info "_assert2" >>= fun () ->
   client # set "x" "x" >>= fun () ->
   should_fail 
@@ -264,8 +266,39 @@ let _assert2 (client: Arakoon_client.client) =
     "PROBLEM:_assert2: yielded unit"
     "_assert2: ok, this aSSert should indeed fail"
 
+let _assert3 (client:client) = 
+  Lwt_log.info "_assert3" >>= fun () ->
+  let k = "_assert3" in
+  client # set k k >>= fun () ->
+  Lwt_log.info "_assert3: value set" >>= fun () ->
+  let updates = [
+    Arakoon_client.Assert(k,Some k);
+    Arakoon_client.Set(k, "REALLY")
+  ]
+  in
+  client # sequence updates >>= fun () ->
+  client # get k >>= fun v2 ->
+  OUnit.assert_equal v2 "REALLY";
+  Lwt.catch
+    (fun () ->
+      client # sequence updates >>= fun () ->
+      let u2 = [
+	Arakoon_client.Assert(k,Some k);
+	Arakoon_client.Set(k,"NO WAY")
+      ]
+      in
+      client # sequence u2)
+  (function
+    | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
+    | ex -> Lwt.fail ex
+  )
+  >>= fun () ->
+  client # get k >>= fun  v3 ->
+  OUnit.assert_equal v2 "REALLY";
+  Lwt.return ()
 
-let _range_1 (client: Arakoon_client.client) =
+
+let _range_1 (client: client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
   let rec fill i =
     if i = 100
@@ -282,7 +315,7 @@ let _range_1 (client: Arakoon_client.client) =
   then Llio.lwt_failfmt "size should be 10 and is %i" size
   else Lwt.return ()
 
-let _range_entries_1 (client: Arakoon_client.client) =
+let _range_entries_1 (client: client) =
   Lwt_log.info_f "_range_entries_1" >>= fun () ->
   let rec fill i =
     if i = 100
@@ -303,7 +336,7 @@ let _detailed_range client =
   Lwt_log.info_f "_detailed_range" >>= fun () ->
   Arakoon_remote_client_test._test_range client
 
-let _prefix_keys (client:Arakoon_client.client) =
+let _prefix_keys (client:client) =
   Lwt_log.info_f "_prefix_keys" >>= fun () ->
   Arakoon_remote_client_test._prefix_keys_test client
 
@@ -316,7 +349,7 @@ let _list_entries (client:Nodestream.nodestream) =
       let f (i,update) = Lwt.return () in
       client # iterate Sn.start f)
 *)
-let _sequence (client: Arakoon_client.client) =
+let _sequence (client: client) =
   Lwt_log.info_f "_sequence" >>= fun () ->
   client # set "XXX0" "YYY0" >>= fun () ->
   let updates = [Arakoon_client.Set("XXX1","YYY1");
@@ -336,7 +369,7 @@ let _sequence (client: Arakoon_client.client) =
   OUnit.assert_bool "XXX0 should not be there" (not exists);
   Lwt.return ()
 
-let _sequence2 (client: Arakoon_client.client) = 
+let _sequence2 (client: client) = 
   Lwt_log.info_f "_sequence" >>= fun () ->
   let k1 = "I_DO_NOT_EXIST" in
   let k2 = "I_SHOULD_NOT_EXIST" in
@@ -357,7 +390,7 @@ let _sequence2 (client: Arakoon_client.client) =
     "_sequence2: ok, this get should indeed fail"
   >>= fun () -> Lwt.return ()
 
-let _sequence3 (client: Arakoon_client.client) = 
+let _sequence3 (client: client) = 
   Lwt_log.info_f "_sequence3" >>= fun () ->
   let k1 = "sequence3:key1" 
   and k2 = "sequence3:key2" 
@@ -375,13 +408,13 @@ let _sequence3 (client: Arakoon_client.client) =
     "ok: all-or-noting changes"
   >>= fun () -> Lwt_log.info_f "sequence3.ok"
 
-let _progress_possible (client:Arakoon_client.client) = 
+let _progress_possible (client:client) = 
   Lwt_log.info_f "_progress_possible" >>= fun () ->
   client # expect_progress_possible () >>= fun b ->
   OUnit.assert_equal ~msg:"we should have the possibility of progress here" b true;
   Lwt.return ()
 
-let _multi_get (client: Arakoon_client.client) = 
+let _multi_get (client: client) = 
   let key1 = "_multi_get:key1"
   and key2 = "_multi_get:key2" 
   in
@@ -417,7 +450,7 @@ let _with_master (cluster_cfg, _) f =
 
 
 let trivial_master tpl =
-  let f (client:Arakoon_client.client) =
+  let f (client:client) =
     _get_after_set client >>= fun () ->
     _delete_after_set client >>= fun () ->
     _exists client >>= fun () ->
@@ -455,6 +488,7 @@ let assert1 tpl = _with_master tpl _assert1
 
 let assert2 tpl = _with_master tpl _assert2
 
+let assert3 tpl = _with_master tpl _assert3
 
 let setup () =
   let cfg = Node_cfg.Node_cfg.make_test_config 3 Elected 2 in
@@ -506,6 +540,7 @@ let make_suite name w =
       "trivial_master5" >:: w trivial_master5;
       "assert1" >:: w assert1;
       "assert2" >:: w assert2;
+      "assert3" >:: w assert3;
     ]
 
 let force_master =
