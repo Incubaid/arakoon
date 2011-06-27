@@ -70,6 +70,10 @@ class ArakoonNoMasterResult( ArakoonException ):
 class ArakoonNodeNotMaster( ArakoonException ):
     _msg = "Cannot perform operation on non-master node"
 
+class ArakoonAssertionFailed(ArakoonException):    
+    _msg = "Assert did not yield expected result"
+
+
 class ArakoonSocketException ( ArakoonException ):
     pass
 

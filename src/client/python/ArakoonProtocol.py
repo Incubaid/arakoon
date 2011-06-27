@@ -183,28 +183,29 @@ ARA_TYPE_INT_SIZE = 4
 ARA_TYPE_BOOL_SIZE = 1
 
 # Magic used to mask each command
-ARA_CMD_MAG = 0xb1ff0000
-ARA_CMD_VER = 0x00000001
+ARA_CMD_MAG    = 0xb1ff0000
+ARA_CMD_VER    = 0x00000001
 # Hello command
-ARA_CMD_HEL = 0x00000001 | ARA_CMD_MAG
+ARA_CMD_HEL    = 0x00000001 | ARA_CMD_MAG
 # Who is master?
-ARA_CMD_WHO = 0x00000002 | ARA_CMD_MAG
+ARA_CMD_WHO    = 0x00000002 | ARA_CMD_MAG
 # Existence of a value for a key
-ARA_CMD_EXISTS = 0x07    | ARA_CMD_MAG
+ARA_CMD_EXISTS = 0x00000007 | ARA_CMD_MAG
 # Get a value
-ARA_CMD_GET = 0x00000008 | ARA_CMD_MAG
+ARA_CMD_GET    = 0x00000008 | ARA_CMD_MAG
 # Update a value
-ARA_CMD_SET = 0x00000009 | ARA_CMD_MAG
+ARA_CMD_SET    = 0x00000009 | ARA_CMD_MAG
 # Delete a key value pair
-ARA_CMD_DEL = 0x0000000a | ARA_CMD_MAG
+ARA_CMD_ASSERT = 0x00000016 | ARA_CMD_MAG
+ARA_CMD_DEL    = 0x0000000a | ARA_CMD_MAG
 # Get a range of keys
-ARA_CMD_RAN = 0x0000000b | ARA_CMD_MAG
+ARA_CMD_RAN    = 0x0000000b | ARA_CMD_MAG
 # Get keys matching a prefix
-ARA_CMD_PRE = 0x0000000c | ARA_CMD_MAG
+ARA_CMD_PRE    = 0x0000000c | ARA_CMD_MAG
 # Test and set a value
-ARA_CMD_TAS = 0x0000000d | ARA_CMD_MAG
+ARA_CMD_TAS    = 0x0000000d | ARA_CMD_MAG
 # range entries
-ARA_CMD_RAN_E = 0x0000000f | ARA_CMD_MAG
+ARA_CMD_RAN_E  = 0x0000000f | ARA_CMD_MAG
 
 #sequence
 ARA_CMD_SEQ                      = 0x00000010 | ARA_CMD_MAG
@@ -226,7 +227,7 @@ ARA_ERR_NOT_MASTER = 4
 ARA_ERR_NOT_FOUND = 5
 # wrong cluster
 ARA_ERR_WRONG_CLUSTER = 6
-
+ARA_ERR_ASSERTION_FAILED = 7
 
 
 def _packString( toPack ):
@@ -361,6 +362,16 @@ class Delete(Update):
         fob.write(_packInt(2))
         fob.write(_packString(self._key))
 
+class Assert(Update):
+    def __init__(self, key, vo):
+        self._key = key
+        self._vo = vo
+
+    def write(self, fob):
+        fob.write(_packInt(8))
+        fob.write(_packString(self._key))
+        fob.write(_packStringOption(self._vo))
+
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -375,6 +386,9 @@ class Sequence(Update):
     @SignatureValidator( 'string' )
     def addDelete(self, key):
         self._updates.append(Delete(key))
+
+    def addAssert(self, key,vo):
+        self._updates.append(Assert(key,vo))
 
     def write(self, fob):
         fob.write( _packInt(5))
@@ -402,6 +416,15 @@ class ArakoonProtocol :
         msg += _packBool(allowDirty)
         msg += _packString(key)
         return msg
+
+    @staticmethod
+    def encodeAssert(key, vo, allowDirty):
+        msg = _packInt(ARA_CMD_ASSERT)
+        msg += _packBool(allowDirty)
+        msg += _packString(key)
+        msg += _packStringOption(vo)
+        return msg
+
 
     @staticmethod
     def encodeGet(key , allowDirty):
