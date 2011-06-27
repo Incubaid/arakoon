@@ -50,17 +50,17 @@ class Arakoon
      * @param ArakoonClientConfig config: The L{ArakoonClientConfig} object to be used by the client. Defaults to None in which
      * case a default L{ArakoonClientConfig} object will be created.
     */
-    public function __construct($config) {
-        if ($config == null){
+    public function __construct($config = NULL) {
+        if ($config == NULL)
+        {
             $config = new ArakoonClientConfig();
         }
 
         $this->config = $config;
-        $nodeList = array_keys($this->config->getNodes());
-        if (count($nodeList) == 0){
+        $nodes = $this->config->getNodes();
+        if (count($nodes) == 0){
             throw new Exception('Error, Node list empty!');
         }
-        $this->dirtyReadNode = $nodeList[array_rand($nodeList)];
     }
     
     /*
@@ -394,7 +394,8 @@ class Arakoon
 
         if ($this->masterId == null){
             # Prepare to ask random nodes who is master
-            $nodeIds = array_keys($this->config->getNodes());
+            $nodes = $this->config->getNodes();
+            $nodeIds = array_keys($nodes);
             shuffle($nodeIds);
 
             foreach($nodeIds as $node){

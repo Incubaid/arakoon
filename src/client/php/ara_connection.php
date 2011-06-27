@@ -58,7 +58,7 @@ class ArakoonClientConnection
         $this->socket = socket_create(AF_INET, SOCK_STREAM, 0);
         try{
             Logging::trace("Trying to establish connection with node with ip {$this->nodeLocation['ip']}", __FILE__, __FUNCTION__, __LINE__);
-            $err = socket_connect($this->socket, $this->nodeLocation['ip'], $this->nodeLocation['port']);
+            $err = socket_connect($this->socket, $this->nodeLocation['ip'], $this->nodeLocation['client_port']);
             if (!$err){
                 Logging::fatal("Cannot connect to node with ip {$this->nodeLocation['ip']}", __FILE__, __FUNCTION__, __LINE__);
                 return FALSE;
