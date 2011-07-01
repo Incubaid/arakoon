@@ -214,6 +214,8 @@ ARA_CMD_MULTI_GET                = 0x00000011 | ARA_CMD_MAG
 ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
 
 ARA_CMD_STATISTICS               = 0x00000013 | ARA_CMD_MAG
+# User Function
+ARA_CMD_USER_FUNCTION = 0x00000015 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -241,6 +243,9 @@ def _packStringOption ( toPack = None ):
 
 def _packInt ( toPack ):
     return struct.pack( "I", toPack )
+
+def _packInt64 ( toPack ):
+    return struct.pack( "q", toPack )
 
 def _packSignedInt ( toPack ):
     return struct.pack( "i", toPack )
@@ -474,6 +479,14 @@ class ArakoonProtocol :
     def encodeStatistics():
         retVal = _packInt(ARA_CMD_STATISTICS)
         return retVal
+    
+    @staticmethod
+    def encodeUserFunction(name, argument):
+        retVal = _packInt(ARA_CMD_USER_FUNCTION)
+        retVal += _packString(name)
+        retVal += _packStringOption(argument)
+        return retVal
+
     
     @staticmethod
     def _evaluateErrorCode( con ):
