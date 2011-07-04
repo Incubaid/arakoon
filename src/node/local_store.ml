@@ -30,6 +30,8 @@ open Routing
 open Log_extra
 open Store
 
+
+
 let _consensus_i db =
   try
     let i_string = Bdb.get db __i_key in
@@ -152,9 +154,21 @@ let _assert bdb key vo =
 
 open Registry
 
+class bdb_user_db prefix bdb = 
+  let make_k k = prefix ^ k in
+object (self : # user_db)
+
+  method put k v = Bdb.put bdb (make_k k) v
+    
+  method get k = Bdb.get bdb (make_k k)
+end
+
+
 let _user_function bdb (name:string) (po:string option) = 
   let f = Registry.lookup name in
-  let ro = f bdb po in
+  let bdb_inner = new bdb_user_db __prefix bdb in
+  let inner = (bdb_inner :> user_db) in
+  let ro = f inner po in
   ro
 
 
