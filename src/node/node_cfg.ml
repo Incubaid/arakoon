@@ -131,7 +131,8 @@ module Node_cfg = struct
   let _forced_master inifile =
     let master =
       try
-	let m = (inifile # getval "global" "master") in
+	let m_s = (inifile # getval "global" "master") in
+	let m = Scanf.sscanf m_s "%s" (fun s -> s) in
 	let nodes = _node_names inifile in
 	if not (List.mem m nodes)
 	then
