@@ -104,10 +104,10 @@ let collapse_until tlog_dir head_name too_far_i =
       in
       
       Lwt_log.debug_f "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
+      begin
       if si = Sn.pred (Sn.pred too_far_i) then
         Lwt.return ()
       else
-      begin
         let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
         Lwt_log.debug msg >>= fun () ->
         store # close () >>= fun () ->
