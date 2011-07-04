@@ -25,3 +25,4 @@ true: package(dynlink)
 "examples/ocaml": include
 <**/arakoon.*{byte,native}>: is_main
 <examples/ocaml/plugin_demo.{byte,native}>: is_main
+<src/arakoon_client.*{cma,cmxa}>: use_thread

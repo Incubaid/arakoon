@@ -184,5 +184,5 @@ let _ = dispatch & function
     
     flag ["pp";"use_macro";"small_tlogs";
 	  "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
-
+    flag ["library";"use_thread"](S[A"-thread"]);
   | _ -> ()
