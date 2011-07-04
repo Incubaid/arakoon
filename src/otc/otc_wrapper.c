@@ -100,14 +100,14 @@ value bdb_make(value unit)
   CAMLreturn(alloc_bdb(tcbdbnew()));
 }
 
-value bdb_delete(value bdb)
+void bdb_delete(value bdb)
 {
   CAMLparam1(bdb);
   tcbdbdel(Bdb_val(bdb));
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_dbopen(value bdb, value filename, value mode)
+void bdb_dbopen(value bdb, value filename, value mode)
 {
   CAMLparam2(bdb, filename);
 
@@ -115,17 +115,17 @@ value bdb_dbopen(value bdb, value filename, value mode)
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_dbclose(value bdb)
+void bdb_dbclose(value bdb)
 {
   CAMLparam1(bdb);
   if (!tcbdbclose(Bdb_val(bdb)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
 value bdb_cur_make(value bdb)
@@ -134,52 +134,52 @@ value bdb_cur_make(value bdb)
   CAMLreturn(alloc_bdbcur(tcbdbcurnew(Bdb_val(bdb))));
 }
 
-value bdb_cur_delete(value bdbcur) {
+void bdb_cur_delete(value bdbcur) {
   CAMLparam1(bdbcur);
   tcbdbcurdel(Bdbcur_val(bdbcur));
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
 
 
-value bdb_first(value bdb, value bdbcur)
+void bdb_first(value bdb, value bdbcur)
 {
   CAMLparam2(bdb, bdbcur);
   if (!tcbdbcurfirst(Bdbcur_val(bdbcur)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_next(value bdb, value bdbcur)
+void bdb_next(value bdb, value bdbcur)
 {
   CAMLparam2(bdb, bdbcur);
   if (!tcbdbcurnext(Bdbcur_val(bdbcur)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_prev(value bdb, value bdbcur)
+void bdb_prev(value bdb, value bdbcur)
 {
   CAMLparam2(bdb, bdbcur);
   if (!tcbdbcurprev(Bdbcur_val(bdbcur)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_last(value bdb, value bdbcur)
+void bdb_last(value bdb, value bdbcur)
 {
   CAMLparam2(bdb, bdbcur);
   if (!tcbdbcurlast(Bdbcur_val(bdbcur)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
 value bdb_key(value bdb, value bdbcur)
@@ -234,17 +234,17 @@ value bdb_record(value bdb, value bdbcur)
   CAMLreturn(res_tup);
 }
 
-value bdb_jump(value bdb, value bdbcur, value key)
+void bdb_jump(value bdb, value bdbcur, value key)
 {
   CAMLparam3(bdb, bdbcur, key);
   if (!tcbdbcurjump2(Bdbcur_val(bdbcur), String_val(key)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_cur_put(value bdb, value bdbcur, value val, value option)
+void bdb_cur_put(value bdb, value bdbcur, value val, value option)
 {
   CAMLparam4(bdb, bdbcur, val, option);
   const int vlen = caml_string_length(val);
@@ -252,10 +252,10 @@ value bdb_cur_put(value bdb, value bdbcur, value val, value option)
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_put(value bdb, value key, value val)
+void bdb_put(value bdb, value key, value val)
 {
   CAMLparam3(bdb, key, val);
   const int klen = caml_string_length(key);
@@ -264,10 +264,10 @@ value bdb_put(value bdb, value key, value val)
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_putkeep(value bdb, value key, value val)
+void bdb_putkeep(value bdb, value key, value val)
 {
   CAMLparam3(bdb, key, val);
   const int klen = caml_string_length(key);
@@ -276,7 +276,7 @@ value bdb_putkeep(value bdb, value key, value val)
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
 value bdb_get(value bdb, value key)
@@ -296,7 +296,7 @@ value bdb_get(value bdb, value key)
   CAMLreturn(res);
 }
 
-value bdb_out(value bdb, value key)
+void bdb_out(value bdb, value key)
 {
   CAMLparam2(bdb, key);
   CAMLlocal1(res);
@@ -306,47 +306,47 @@ value bdb_out(value bdb, value key)
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_cur_out(value bdb, value bdbcur)
+void bdb_cur_out(value bdb, value bdbcur)
 {
   CAMLparam2(bdb, bdbcur);
   if (!tcbdbcurout(Bdbcur_val(bdbcur)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_tranbegin(value bdb)
+void bdb_tranbegin(value bdb)
 {
   CAMLparam1(bdb);
   if (!tcbdbtranbegin(Bdb_val(bdb)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_trancommit(value bdb)
+void bdb_trancommit(value bdb)
 {
   CAMLparam1(bdb);
   if (!tcbdbtrancommit(Bdb_val(bdb)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
-value bdb_tranabort(value bdb)
+void bdb_tranabort(value bdb)
 {
   CAMLparam1(bdb);
   if (!tcbdbtranabort(Bdb_val(bdb)))
     {
       bdb_handle_error(Bdb_val(bdb));
     }
-  CAMLreturn(Val_unit);
+  CAMLreturn0;
 }
 
 value bdb_range_native(
@@ -428,7 +428,7 @@ bdb_range_bytecode( value * argv, int argn )
 }
 
 
-value bdb_optimize(value bdb)
+value bdb_optimize(value bdb) 
 {
   CAMLparam1(bdb);
   int res = tcbdboptimize(Bdb_val(bdb), 0, 0, 0, -1, -1, UINT8_MAX);
