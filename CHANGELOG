@@ -1,38 +1,7 @@
-h2. Arakoon 0.8.0 release notes
-h3. What is release 0.8.0
-Arakoon 0.8.0 is the first public release. It contains a minimal set of features required for a distributed key-value store.
-Arakoon is released under a dual license model as specified on the [licensing page|http://www.arakoon.org/display/ARAKOON/licensing]
+For changesets:
 
-h5. Our Aim
-We want a simple distributed key-value store that is easy to understand and use; while at the same time takes into consideration the following factors:
+https://bitbucket.org/despiegk/arakoon/changesets
 
-h5. Consistency
-The system as a whole needs to provide a consistent view on the distributed state. This stems from the experience that eventual consistency is too heavy a burden for a user application to manage.
+For bugreports:
 
-A simple example is the retrieval of the value for a key where you might receive none, one or multiple values depending on the weather conditions. The next question is always: Why don't a get a result? Is it because there is no value, or merely because I currently cannot retrieve it?
-
-h5. Conditional and Atomic Updates
-We don't need full blown transactions (would be nice to have though), but we do need updates that abort if the state is not what we expect it to be. So at least an atomic conditional update and an atomic multi-update are needed.
-
-h5. Robustness
-The system must be able to cope with failure of individual components, without concessions to consistency.
-However, whenever consistency can no longer be guaranteed, updates must simply fail.
-
-h5. Locality Control
-When we deploy a system over 2 datacenters, we want guarantees that the entire state is indeed present in both datacenters. This is something we could not get from distributed hash tables using consistent hashing.
-
-h5. Healing & Recovery
-Whenever a component dies and is subsequently revived or replaced, the system must be able to guide that component towards a situation where that node again fully participates. If this cannot be done fully automatically, then human intervention should be trivial.
-
-h5. Explicit Failure
-Whenever there is something wrong, failure should propagate quite quickly.
-This in contrast to systems that keep on trying to remedy the situation themselves all the time.
-
-h3. Known issues
-* Transaction logs are never collapsed. The next major release will include a tool to do this. [Jira issue|http://jira.incubaid.com/browse/ARAKOON-31]
-* Argument and docstring not present in ArakoonClient. [Jira issue|http://jira.incubaid.com/browse/ARAKOON-26]
-
-If you experience any problems with this release, please fill a bug in our Jira bugtracking system as described on the [contact us page|http://www.arakoon.org/display/ARAKOON/Contact+Us] and specify 0.8.0 as affected version.
-
-h3. Documentation
-Check the [documentation section|http://www.arakoon.org/display/ARAKOON/Documentation] on the Arakoon portal for how to get started.
+http://jira.arakoon.org ??
