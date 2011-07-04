@@ -288,6 +288,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  Lwt_log.debug "CB" >>= fun () ->
 	  let ts = sw() in
 	  let d = Int64.sub ts t0 in
+    Llio.output_int oc 0 >>= fun () ->
 	  Llio.output_int64 oc d >>= fun () ->
 	  Lwt_io.flush oc
 	in

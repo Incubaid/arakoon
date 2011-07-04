@@ -73,7 +73,11 @@ def _receive_string(sock):
     size = _receive_int(sock)
     s = _receive_all(sock,size)
     return s
-
+def check_error_code(sock):
+    rc = _receive_int(sock)
+    if rc:
+        msg = _receive_string(sock)
+        raise Exception (msg)
 
     
 def collapse(ip, port, clusterId, n):
@@ -96,12 +100,10 @@ def collapse(ip, port, clusterId, n):
         cmd  = _int_to(_COLLAPSE_TLOGS | _MAGIC)
         cmd += _int_to(n)
         s.send(cmd)
-        rc = _receive_int(s)
-        if rc:
-            msg   = _receive_string(s)
-            raise Exception(rc, msg)
+        check_error_code(s)
         collapse_count = _receive_int(s)
         for i in range(collapse_count):
+            check_error_code(s)
             took = _receive_int64(s)
             logging.info("took %l", took)
     finally:
