@@ -109,7 +109,7 @@ void bdb_delete(value bdb)
 
 void bdb_dbopen(value bdb, value filename, value mode)
 {
-  CAMLparam2(bdb, filename);
+  CAMLparam3(bdb, filename, mode);
 
   if (!tcbdbopen(Bdb_val(bdb), String_val(filename), Int_val(mode)))
     {
