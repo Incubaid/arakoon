@@ -72,6 +72,7 @@ let _get_transactions (client:Arakoon_client.client) max_n t size (t0:float) oc=
 	    build (key::acc) (j+1)
 	in 
 	let keys = build [] 0 in
+	_progress t0 i 1000 oc >>= fun () ->
 	client # multi_get keys >>= fun values ->
 	loop_t (i+1)
       end
@@ -112,6 +113,7 @@ let _fill_transactions client max_n tx_size size (t0:float) oc =
 	    let u = Set (_cat "key" c, value) in
 	    build (u::acc) (j+1)
 	in
+	_progress t0 i 1000 oc >>= fun () -> 
 	let s = build [] 0 in
 	client # sequence s >>= fun () ->
 	loop_t (i+1)
