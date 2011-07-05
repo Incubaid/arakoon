@@ -20,80 +20,166 @@ env = {'PATH': string.join([PREFIX + '/bin',
                             '/bin',
                             '/usr/bin',
                             ],':')}
+
+extract_flags = {
+    '.tar.gz':'-zxvf',
+    '.tar.bz2':'-jxvf',
+    '.tbz': '-jxvf',
+    }
+
+class Lib:
+    def __init__(self, name, extension, url_t):
+        self._name = name
+        self._extension = extension
+        self._archive = name + extension
+        self._url = url_t % self._archive
+
+    def download(self):
+        fn = '%s/%s' % (ROOT, self._archive)
+        sh(['wget', '-O', fn, self._url])
+    def extract(self):
+        flags = extract_flags[self._extension]
+        sh(['tar', flags, self._archive], cwd = ROOT)
+
+    def sh(self,cmd):
+        d = '%s/%s' % (ROOT, self._name)
+        sh(cmd, cwd = d, env = env)
+
 def install_ocaml():
-    cb = 'ocaml-%s' % OCAML
-    archive = '%s.tar.bz2' % cb
-    url = 'http://caml.inria.fr/pub/distrib/ocaml-3.12/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    sh(['wget', '-O', fn, url])
-    sh(['tar', '-jxvf', archive], cwd = ROOT)
-    d = '%s/%s' %(ROOT, cb)
-    sh(['./configure', '--prefix',PREFIX], cwd = d)
-    sh(['make','world.opt'], cwd = d)
-    sh(['make','install'], cwd = d)
+    lib = Lib('ocaml-%s' % OCAML,'.tar.bz2',
+              'http://caml.inria.fr/pub/distrib/ocaml-3.12/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['./configure', '--prefix',PREFIX])
+    lib.sh(['make','world.opt'])
+    lib.sh(['make','install'])
 
 def install_ocamlfind():
-    name = 'findlib-1.2.7'
-    archive = name + '.tar.gz'
-    url = 'http://download.camlcity.org/download/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    sh(['wget', '-O', fn, url])
-    sh(['tar','-zxvf', archive], cwd = ROOT)
-    d = '%s/%s' % (ROOT, name)
-    sh(['./configure'], cwd = d , env = env)
-    sh(['make','all','opt','install'], cwd = d, env = env)
+    lib = Lib('findlib-1.2.7', '.tar.gz',
+              'http://download.camlcity.org/download/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['./configure'])
+    lib.sh(['make','all','opt','install'])
 
 def install_ounit():
-    name = 'ounit-1.1.0'
-    archive = name + '.tar.gz'
-    url = 'http://forge.ocamlcore.org/frs/download.php/495/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    sh(['wget', '-O', fn, url])
-    sh(['tar','-zxvf',archive ], cwd = ROOT)
-    d = '%s/%s' % (ROOT, name)
-    sh(['ocaml', 'setup.ml', '-configure'], cwd = d, env = env)
-    sh(['ocaml', 'setup.ml', '-build'], cwd = d, env = env)
-    sh(['ocaml', 'setup.ml', '-install'], cwd = d, env = env)
+    lib = Lib('ounit-1.1.0','.tar.gz',
+              'http://forge.ocamlcore.org/frs/download.php/495/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['ocaml', 'setup.ml', '-configure'])
+    lib.sh(['ocaml', 'setup.ml', '-build'])
+    lib.sh(['ocaml', 'setup.ml', '-install'])
     
 def install_react():
-    name = 'react-0.9.2'
-    archive =  name + '.tbz'
-    url = 'http://erratique.ch/software/react/releases/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    
-    sh(['wget', '-O', fn, url])
-    sh(['tar','-jxvf', archive], cwd = ROOT)
-    d = '%s/%s' % (ROOT, name)
-    sh(['chmod','u+x','build'], cwd = d)
-    sh(['./build'], cwd = d, env = env)
-    sh(['./build','install'], cwd = d, env = env)
-    sh(['mv', '%s/lib/ocaml/react' % PREFIX, '%s/lib/ocaml/site-lib/' % PREFIX])
+    lib = Lib('react-0.9.2','.tbz',
+              'http://erratique.ch/software/react/releases/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['chmod','u+x','build'])
+    lib.sh(['./build'])
+    lib.sh(['./build','install'])
+    sh(['mv', '%s/lib/ocaml/react' % PREFIX, 
+        '%s/lib/ocaml/site-lib/' % PREFIX])
 
 def install_lwt():
-    name = 'lwt-2.3.0'
-    archive = name + '.tar.gz'
-    url = 'http://ocsigen.org/download/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    sh(['wget', '-O', fn, url])
-    sh(['tar','-zxvf', archive], cwd = ROOT)
-    d = '%s/%s' % (ROOT, name)
-    sh(['rm','-f',  'setup.data','setup.log'], cwd = d)
-    sh(['make','clean'], cwd = d, env = env)
-    sh(['ocaml', 'setup.ml', '-configure', '--prefix', PREFIX], cwd = d, env = env)
-    sh(['ocaml', 'setup.ml', '-build'], cwd = d, env = env)
-    sh(['ocaml', 'setup.ml', '-install'], cwd = d, env = env)
+    lib = Lib('lwt-2.3.0','.tar.gz',
+              'http://ocsigen.org/download/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['rm','-f',  'setup.data','setup.log'])
+    lib.sh(['make','clean'])
+    lib.sh(['ocaml', 'setup.ml', '-configure', '--prefix', PREFIX])
+    lib.sh(['ocaml', 'setup.ml', '-build'])
+    lib.sh(['ocaml', 'setup.ml', '-install'])
 
 def install_camlbz2():
-    name = 'camlbz2-0.6.0'
-    archive = name + '.tar.gz'
-    url = 'https://forge.ocamlcore.org/frs/download.php/72/%s' % archive
-    fn = '%s/%s' % (ROOT, archive)
-    sh(['wget', '-O', fn, url])
-    sh(['tar', '-zxvf', archive], cwd = ROOT)
-    d = '%s/%s' % (ROOT, name)
-    sh(['./configure'], cwd = d, env = env)
-    sh(['make', 'all'], cwd = d, env = env)
-    sh(['make', 'install'], cwd = d, env = env)
+    lib = Lib('camlbz2-0.6.0','.tar.gz',
+              'https://forge.ocamlcore.org/frs/download.php/72/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['./configure'])
+    lib.sh(['make', 'all'])
+    lib.sh(['make', 'install'])
+
+def install_lablgtk():
+    lib = Lib('lablgtk-2.14.2',
+              '.tar.gz',
+              'http://wwwfun.kurims.kyoto-u.ac.jp/soft/olabl/dist/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['./configure','--prefix=%s' % PREFIX])
+    lib.sh(['make','world'])
+    lib.sh(['make', 'install'])
+
+
+def install_cairo_ocaml():
+    lib = Lib('cairo-ocaml-1.2.0',
+              '.tar.bz2',
+              'http://cgit.freedesktop.org/cairo-ocaml/snapshot/%s')    
+    lib.download()
+    lib.extract()
+    lib.sh(['aclocal','-I','support'])
+    lib.sh(['autoconf'])
+    lib.sh(['./configure','--prefix=%s' % PREFIX])
+    lib.sh(['make'])
+    lib.sh(['make', 'install'])
+
+def install_ocamlviz():
+    lib = Lib('ocamlviz-1.01', '.tar.gz',
+              'http://ocamlviz.forge.ocamlcore.org/%s')
+    lib.download()
+    lib.extract()
+    # the rest is foefelare-trucare(TM)
+    d = '%s/%s' % (ROOT, 'ocamlviz') ## differs from the rest
+    sh(['autoconf'], cwd = d, env = env)
+    sh(['./configure','--prefix=%s' % PREFIX ], cwd = d , env = env)
+    sh(['make'], cwd = d, env = env)
+    sh(['make','install'], cwd = d, env = env)
+    LIBDIR = PREFIX + '/lib/ocaml/site-lib/ocamlviz'
+    sh(['mkdir','-p',LIBDIR])
+    files = ['src/ocamlviz.mli',
+             'src/ocamlviz.cmi', 
+             'src/ocamlviz_threads.cmi']
+    cmd = ['cp','-f']
+    cmd.extend(files)
+    cmd.append(LIBDIR)
+    sh(cmd, cwd = d)
+
+    files2 = [
+        'libocamlviz.a',
+        'libocamlviz.cma',
+        'libocamlviz.cmxa',
+        'camlp4/pa_ocamlviz.cmi',
+        'camlp4/pa_ocamlviz.cmo',
+        ]
+    cmd = ['cp','-f']
+    cmd.extend(files2)
+    cmd.append(LIBDIR)
+    sh(cmd,cwd = d)
+    sh(['cp','-f','ascii.opt', PREFIX + '/bin/ocamlviz-ascii'], cwd =d)
+    sh(['cp','-f','gui.opt', PREFIX + '/bin/ocamlviz'], cwd = d)
+    # create a META file
+    meta = """
+version = "1.0.1"
+description = "real time profiling"
+requires = "unix"
+archive(byte) = "libocamlviz.cma"
+archive(native) = "libocamlviz.cmxa"
+exists_if = "libocamlviz.cma"
+
+package "syntax" (
+  exists_if = "pa_ocamlviz.cmo"
+  description = "auto instrumentation sugars for ocamlviz"
+  requires = "camlp4"
+  archive(syntax,preprocessor) = "pa_ocamlviz.cmo"
+
+)
+"""
+    f = open('%s/META' % LIBDIR, 'w')
+    f.write(meta)
+    f.close()
+
 
 def do_it():
     mr_proper()
@@ -104,6 +190,10 @@ def do_it():
     install_react()
     install_lwt()
     install_camlbz2()
+    install_lablgtk()
+    install_cairo_ocaml()
+    install_ocamlviz()
+    #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
     print '\n\nnow prepend %s/bin to your PATH' % PREFIX
 
 if __name__ == '__main__':
