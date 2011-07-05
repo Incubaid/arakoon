@@ -20,7 +20,7 @@ executable
 	ocamlbuild -use-ocamlfind arakoon.native      ==> arakoon.native
 
 libraries
-	ocamlbuild arakoon_client.cma arakoon_client.cmxa ==>
+	ocamlbuild -use-ocamlfind arakoon_client.cma arakoon_client.cmxa ==>
   		_build/src/arakoon_client.cma
   		_build/src/arakoon_client.cmxa
   		src/client/arakoon_exc.mli

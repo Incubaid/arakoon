@@ -5,9 +5,9 @@ object
   method delete: string -> unit
 end
 
-module Registry = struct
+
+module Registry : sig
   type f = user_db -> string option -> string option
-  let _r = Hashtbl.create 42
-  let register name (f:f) = Hashtbl.replace _r name f
-  let lookup name = Hashtbl.find _r name
-end
+  val register : string -> f -> unit
+  val lookup : string -> f
+end 

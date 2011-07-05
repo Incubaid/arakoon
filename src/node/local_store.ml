@@ -154,19 +154,20 @@ let _assert bdb key vo =
 
 open Registry
 
-class bdb_user_db prefix bdb = 
-  let make_k k = prefix ^ k in
+class bdb_user_db bdb = 
 object (self : # user_db)
 
-  method put k v = Bdb.put bdb (make_k k) v
+  method set k v = Bdb.put bdb (_p k) v
     
-  method get k = Bdb.get bdb (make_k k)
+  method get k = Bdb.get bdb (_p k)
+
+  method delete k = Bdb.out bdb (_p k)
 end
 
 
 let _user_function bdb (name:string) (po:string option) = 
   let f = Registry.lookup name in
-  let bdb_inner = new bdb_user_db __prefix bdb in
+  let bdb_inner = new bdb_user_db bdb in
   let inner = (bdb_inner :> user_db) in
   let ro = f inner po in
   ro
