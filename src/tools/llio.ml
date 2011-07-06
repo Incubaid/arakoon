@@ -206,6 +206,19 @@ let output_list output_element oc list =
   output_int oc (List.length list)  >>= fun () ->
   Lwt_list.iter_s (output_element oc) list 
 
+let list_to buf e_to list =
+  int_to buf (List.length list);
+  List.iter (e_to buf) (List.rev list)
+
+let list_from s e_from pos = 
+  let size,p0 = int_from s pos in
+  let rec loop acc p = function
+    | 0 -> acc
+    | i -> let e,p' = e_from s p in
+	   loop (e::acc) p' (i-1)
+  in loop [] p0 size
+
+
 let output_string_option oc = function
   | None -> output_bool oc false
   | Some s -> 
