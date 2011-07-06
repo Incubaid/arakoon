@@ -25,6 +25,7 @@ from nose.tools import *
 import subprocess
 import os
 import time
+import logging
 
 class TestCmdTools:
     def __init__(self):
