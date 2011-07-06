@@ -107,6 +107,8 @@ let _filter =
     let key' = String.sub key 1 (l-1) in
     key'::acc) []
 
+let _get bdb key = Bdb.get bdb (_p key)
+
 let _set bdb key value = Bdb.put bdb (_p key) value
 
 let _delete bdb key    = Bdb.out bdb (_p key)
@@ -136,6 +138,20 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
+let _range_entries bdb first finc last linc max =
+  let keys_array = Bdb.range bdb (_f first) finc (_l last) linc max in
+  let keys_list = Array.to_list keys_array in
+  let x = List.fold_left
+    (fun ret_list k ->
+      let l = String.length k in
+      ((String.sub k 1 (l-1)), Bdb.get bdb k) :: ret_list )
+    [] 
+    keys_list
+  in x
+
+
+
+
 let _assert bdb key vo =
   let pk = _p key in
   match vo with
@@ -157,11 +173,16 @@ open Registry
 class bdb_user_db bdb = 
 object (self : # user_db)
 
-  method set k v = Bdb.put bdb (_p k) v
+  method set k v = _set bdb k v
     
-  method get k = Bdb.get bdb (_p k)
+  method get k = _get bdb k
 
-  method delete k = Bdb.out bdb (_p k)
+  method delete k = _delete bdb k
+  
+  method test_and_set k e w = _test_and_set bdb k e w
+
+  method range_entries first finc last linc max =
+    _range_entries bdb first finc last linc max
 end
 
 
@@ -295,18 +316,10 @@ object(self: #store)
 
   method range_entries first finc last linc max =
     Hotc.transaction db
-      (fun db ->
-	let keys_array = Bdb.range db (_f first) finc (_l last) linc max in
-	let keys_list = Array.to_list keys_array in
-	let x = List.fold_left
-	  (fun ret_list k ->
-	    let l = String.length k in
-	    ((String.sub k 1 (l-1)), Bdb.get db k) :: ret_list )
-          [] 
-	  keys_list
-	in Lwt.return x
+      (fun db -> let r = _range_entries db first finc last linc max in
+		 Lwt.return r
       )
-
+     
   method prefix_keys prefix max =
     Hotc.transaction db
       (fun db ->
