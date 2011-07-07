@@ -320,6 +320,15 @@ def _unpackString(buf, offset):
     v = buf[o2:o2 + size]
     return v, o2+size
 
+def _unpackStringList(buf, offset):
+    size,offset = _unpackInt(buf, offset)
+    retVal = []
+    for i in range( size ) :
+        x, offset = _unpackString(buf, offset)
+        retVal.append(x)
+    return retVal
+
+
 def _recvInt ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
     i,o2 = _unpackInt(buf,0)
