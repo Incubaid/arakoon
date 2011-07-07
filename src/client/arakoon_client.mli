@@ -67,4 +67,6 @@ method range_entries:
   method expect_progress_possible: unit -> bool Lwt.t
 
   method statistics: unit -> Statistics.t Lwt.t
+  
+  method get_key_count: unit -> int64 Lwt.t
 end

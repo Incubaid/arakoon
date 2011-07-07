@@ -434,3 +434,10 @@ value bdb_optimize(value bdb)
   int res = tcbdboptimize(Bdb_val(bdb), 0, 0, 0, -1, -1, UINT8_MAX);
   CAMLreturn(res?Val_true:Val_false);
 }
+
+value bdb_key_count(value bdb)
+{
+  CAMLparam1(bdb);
+  uint64_t count = tcbdbrnum( Bdb_val(bdb) );
+  CAMLreturn ( copy_int64(count) );
+}

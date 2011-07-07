@@ -424,3 +424,14 @@ def test_gather_evidence():
         files.extend(q.system.fs.listFilesInDir(node))
     assert_equals(len(nodes),3, "Did not get data from all nodes")
     assert_equals(len(files) > 12, True , "Did not gather enough files")
+
+@with_custom_setup( default_setup, basic_teardown ) 
+def test_get_key_count():
+    cli = get_client()
+    c = cli.getKeyCount()
+    assert_equals(c, 0, "getKeyCount should return 0 but got %d" % c)
+    test_size = 100
+    iterate_n_times( test_size, simple_set )
+    c = cli.getKeyCount()
+    assert_equals(c, test_size, "getKeyCount should return %d but got %d" % (test_size, c) )
+

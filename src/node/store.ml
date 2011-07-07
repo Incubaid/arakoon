@@ -56,6 +56,7 @@ class type store = object
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method get_filename: unit -> string 
   method aSSert: string -> string option -> bool Lwt.t
+  method get_key_count : unit -> int64 Lwt.t
 end
 
 exception Key_not_found of string ;;

@@ -91,3 +91,8 @@ class ArakoonClientConnection :
 
     def decodeStatistics(self):
         return ArakoonProtocol.decodeStatistics(self)
+    
+    def decodeInt64Result(self):
+        return ArakoonProtocol.decodeInt64Result(self)
+
+

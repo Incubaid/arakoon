@@ -51,6 +51,7 @@ type client_command =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | COLLAPSE_TLOGS
+  | GET_KEY_COUNT
 
 
 let code2int = [
@@ -71,6 +72,7 @@ let code2int = [
   STATISTICS              , 0x13l;
   COLLAPSE_TLOGS          , 0x14l;
   ASSERT                  , 0x16l;
+  GET_KEY_COUNT           , 0x1al;
 ]
 
 let int2code = 
@@ -219,6 +221,9 @@ let ping_to b client_id cluster_id =
   command_to b PING;
   Llio.string_to b client_id;
   Llio.string_to b cluster_id
+  
+let get_key_count_to b =
+  command_to b GET_KEY_COUNT
 
 (*
 let sequence b updates =

@@ -301,6 +301,13 @@ object(self: #store)
     Lwt_log.debug "local_store :: reopen() " >>= fun () ->
     Hotc.reopen db f >>= fun () ->
     Lwt.return ()
+    
+  method get_key_count () =
+    Lwt_log.debug "local_store::get_key_count" >>= fun () ->
+    Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
+    (* Leave out administrative keys *)
+    Lwt.return ( Int64.sub raw_count 3L ) 
+
 
 end
 

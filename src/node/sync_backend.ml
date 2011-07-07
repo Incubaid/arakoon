@@ -406,4 +406,8 @@ object(self: #backend)
       Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
       Lwt.return ()
     )
+    
+  method get_key_count () =
+    store # get_key_count ()
+    
 end

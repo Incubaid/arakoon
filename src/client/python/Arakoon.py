@@ -139,7 +139,18 @@ class ArakoonClient :
         if node not in self._config.getNodes().keys():
             raise ArakoonUnknownNode( node )
         self._dirtyReadNode = node
-    
+
+    @retryDuringMasterReelection 
+    def getKeyCount (self) :
+        """
+        Retrieve the number of keys in the database on the master
+        
+        @rtype: int
+        """
+        encoded = ArakoonProtocol.encodeGetKeyCount()
+        conn = self._sendToMaster(encoded)
+        return conn.decodeInt64Result()
+         
     def getDirtyReadNode(self):
         """
         Retrieve the node that will be used for dirty read operations

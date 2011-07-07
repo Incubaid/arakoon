@@ -56,6 +56,9 @@ let read_command (ic,oc) =
 let response_ok_unit oc =
   Llio.output_int32 oc 0l
 
+let response_ok_int64 oc i64 =
+  Llio.output_int32 oc 0l >>= fun () ->
+  Llio.output_int64 oc i64
 
 let response_rc_string oc rc string =
   Llio.output_int32 oc rc >>= fun () ->
@@ -294,6 +297,15 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
 
+      end
+
+    | GET_KEY_COUNT ->
+      begin
+        Lwt.catch 
+          (fun() ->
+            backend # get_key_count () >>= fun kc ->
+            response_ok_int64 oc kc)
+          (handle_exception oc)
       end
 
 let protocol backend connection =
