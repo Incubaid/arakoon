@@ -443,7 +443,6 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      unlock_killswitch ()
 	    )
           in
-	  Lwt_io.printlf "HIER OOK%!" >>= fun () ->
 	  Lwt.pick [ 
 	    messaging # run ();
 	    begin

@@ -70,4 +70,6 @@ method range_entries:
   method statistics: unit -> Statistics.t Lwt.t
 
   method user_function: string -> string option -> string option Lwt.t
+  
+  method get_key_count: unit -> int64 Lwt.t
 end

@@ -55,7 +55,7 @@ type client_command =
   | SET_RANGE
   | GET_ROUTING
   | SET_ROUTING
-
+  | GET_KEY_COUNT
 
 let code2int = [
   PING,                     0x1l ;
@@ -79,6 +79,7 @@ let code2int = [
   SET_RANGE               , 0x17l;
   GET_ROUTING             , 0x18l;
   SET_ROUTING             , 0x19l;
+  GET_KEY_COUNT           , 0x1al;
 ]
 
 let int2code = 
@@ -222,5 +223,8 @@ let ping_to b client_id cluster_id =
   command_to b PING;
   Llio.string_to b client_id;
   Llio.string_to b cluster_id
+
+let get_key_count_to b =
+  command_to b GET_KEY_COUNT
 
 exception XException of Arakoon_exc.rc * string

@@ -66,6 +66,8 @@ class type store = object
   method set_range: Range.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t
+
+  method get_key_count : unit -> int64 Lwt.t
 end
 
 exception Key_not_found of string ;;

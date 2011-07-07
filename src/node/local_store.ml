@@ -406,6 +406,12 @@ object(self: #store)
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
     Hotc.transaction db (fun db -> _set_routing db r; Lwt.return ())
+
+  method get_key_count () =
+    Lwt_log.debug "local_store::get_key_count" >>= fun () ->
+    Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
+    (* Leave out administrative keys *)
+    Lwt.return ( Int64.sub raw_count 3L ) 
 end
 
 let make_local_store db_name =

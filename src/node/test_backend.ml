@@ -194,4 +194,11 @@ class test_backend my_name = object(self:#backend)
   method set_routing r =
     _routing <- Some r;
     Lwt.return ()
+
+  method get_key_count () =
+    let inc key value size =
+      Int64.succ size
+    in
+    Lwt.return (StringMap.fold inc _kv 0L)
+    
 end

@@ -445,5 +445,9 @@ object(self: #backend)
 	      Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
 	      Lwt.fail Server.FOOBAR
 	    end
-	  | ext -> Lwt.fail ext)    
+	  | ext -> Lwt.fail ext)   
+
+
+  method get_key_count () =
+    store # get_key_count ()  
 end

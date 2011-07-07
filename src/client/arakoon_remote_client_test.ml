@@ -240,6 +240,27 @@ let _prefix_keys_test (client:Arakoon_client.client) =
 let test_prefix_keys () =
   __client_server_wrapper__ _CLUSTER _prefix_keys_test
 
+let test_get_key_count () = 
+  let real_test client = 
+    client # get_key_count () >>= fun result ->
+    let msg = "Get key count should be zero but got " ^ (Int64.to_string result) in
+    OUnit.assert_equal ~msg result 0L;
+    let rec do_set = function 
+    | 0 -> Lwt.return ()
+    | i -> 
+       let str = Printf.sprintf "%d" i in
+       client # set str str >>= fun () ->
+       do_set (i-1)
+    in
+    do_set 100 >>= fun () ->
+    client # get_key_count () >>= fun result ->
+    let msg = "Get key count should be 100 but got " ^ (Int64.to_string result) in
+    OUnit.assert_equal ~msg result 100L;
+    Lwt.return ()
+  in 
+  __client_server_wrapper__ _CLUSTER real_test
+
+
 let test_and_set_to_none () =
   let real_test client =
     let key = "test_and_set_key" in
@@ -263,4 +284,5 @@ let suite = "remote_client" >::: [
   "test_and_set_to_none"  >:: test_and_set_to_none;
   "sequence"   >:: test_sequence;
   "user_function" >:: test_user_function;
+  "get_key_count" >:: test_get_key_count;
 ]

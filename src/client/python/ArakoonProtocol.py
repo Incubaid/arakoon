@@ -179,6 +179,7 @@ def dump(src, length=8):
     return result
 
 # Define the size of an int in bytes
+ARA_TYPE_INT64_SIZE = 8
 ARA_TYPE_INT_SIZE = 4
 ARA_TYPE_BOOL_SIZE = 1
 
@@ -215,6 +216,8 @@ ARA_CMD_MULTI_GET                = 0x00000011 | ARA_CMD_MAG
 ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
 
 ARA_CMD_STATISTICS               = 0x00000013 | ARA_CMD_MAG
+
+ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -319,6 +322,11 @@ def _unpackString(buf, offset):
 def _recvInt ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
     i,o2 = _unpackInt(buf,0)
+    return i
+
+def _recvInt64 ( con ):
+    buf = _readExactNBytes( con, ARA_TYPE_INT64_SIZE )
+    i,o2 = _unpackInt64(buf,0)
     return i
 
 def _recvBool ( con ):
@@ -520,6 +528,11 @@ class ArakoonProtocol :
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 
     @staticmethod
+    def decodeInt64Result( con ) :
+        ArakoonProtocol._evaluateErrorCode( con )
+        return _recvInt64( con )
+
+    @staticmethod
     def decodeVoidResult( con ):
         ArakoonProtocol._evaluateErrorCode( con )
 
@@ -598,3 +611,7 @@ class ArakoonProtocol :
         result['n_sequences'] = n_sequences
         result['node_is'] = node_is
         return result
+
+    @staticmethod
+    def encodeGetKeyCount () :
+        return _packInt(ARA_CMD_KEY_COUNT) 

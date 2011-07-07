@@ -117,10 +117,13 @@ object(self: #Arakoon_client.client)
 	Lwt.return s
       )
 
-
   method ping client_id cluster_id =
     request (fun buf -> ping_to buf client_id cluster_id) >>= fun () ->
     response ic Llio.input_string
+
+  method get_key_count () =
+    request (fun buf -> get_key_count_to buf ) >>= fun () ->
+    response ic Llio.input_int64
 end
 
 let prologue cluster connection =

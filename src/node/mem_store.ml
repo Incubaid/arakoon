@@ -211,6 +211,11 @@ object (self: #store)
     _routing <- Some r;
     Lwt.return () 
 
+  method get_key_count () =
+    let inc key value size =
+      Int64.succ size
+    in
+    Lwt.return (StringMap.fold inc kv 0L)
 end
 
 let make_mem_store db_name =
