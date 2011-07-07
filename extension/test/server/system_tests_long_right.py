@@ -295,74 +295,6 @@ def test_is_progress_possible():
     cli.set('k','v')
 
 
-@with_custom_setup(setup_2_nodes, basic_teardown)
-def test_collapse():
-    zero = node_names[0]
-    one = node_names[1]
-    n = 298765
-    iterate_n_times(n, simple_set)
-    logging.info("did %i sets, now going into collapse scenario" % n)
-    collapse(zero,1)
-    logging.info("collapsing done")
-    stopOne(one)
-    whipe(one)
-    startOne(one)
-    cli = get_client()
-    assert_false(cli.expectProgressPossible())
-    up2date = False
-    counter = 0
-    while not up2date and counter < 100:
-        time.sleep(1.0)
-        counter = counter + 1
-        up2date = cli.expectProgressPossible()
-    logging.info("catchup from collapsed node finished")
-    
-@with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
-def test_catchup_exercises():
-    time.sleep(1.0) # ??
-    
-    def do_one(n, max_wait):
-        iterate_n_times(n, simple_set)
-        stop_all()
-        logging.info("stopped all nodes")
-        whipe(node_names[1])
-
-        start_all()
-        cli = get_client ()
-        counter = 0
-        up2date = False
-
-        while not up2date and counter < max_wait :
-            time.sleep( 1.0 )
-            counter += 1
-            up2date = cli.expectProgressPossible()
-            logging.info("up2date=%s", up2date)
-    
-        if counter >= max_wait :
-            raise Exception ("Node did not catchup in a timely fashion")
-
-    n = 20000
-    w = 40 # 500/s should be more than enough even for dss driven vmachines
-    for i in range(5):
-        do_one(n,w)
-        n = n * 2
-        w = w * 2
-
-@with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
-def test_catchup_only():
-    iterate_n_times(123000,simple_set)
-    n1 = node_names[1]
-    stopOne(n1)
-    whipe(n1)
-    logging.info("catchup-only")
-    catchupOnly(n1)
-    logging.info("done with catchup-only")
-    startOne(n1)
-    cli = get_client()
-    time.sleep(1.0)
-    up2date = cli.expectProgressPossible()
-    assert_true(up2date)
-
 @with_custom_setup( setup_1_node_forced_master, basic_teardown )
 def test_sso_deployment():
     global test_failed
@@ -424,43 +356,6 @@ def test_3_nodes_2_slaves_down ():
     cli._dropConnections()
 
 
-@with_custom_setup(setup_1_node, basic_teardown)
-def test_concurrent_collapse_fails():
-    zero = node_names[0]
-    n = 298765
-    iterate_n_times(n, simple_set)
-    logging.info("Did %i sets, now going into collapse scenario", n)
-    
-    class SecondCollapseThread(threading.Thread):
-        def __init__(self, sleep_time):
-            threading.Thread.__init__(self)
-            
-            self.sleep_time = sleep_time
-            self.exception_received = False
-    
-        def run(self):
-            logging.info('Second collapser thread started, sleeping...')
-            time.sleep(self.sleep_time)
-            
-            logging.info('Starting concurrent collapse')
-            rc = collapse(zero, 1)
-   
-            logging.info('Concurrent collapse returned %d', rc)
-
-            if rc == 255:
-                self.exception_received = True
-
-    s = SecondCollapseThread(5)
-    assert not s.exception_received
-       
-    logging.info('Launching second collapser thread')
-    s.start()
-
-    logging.info('Launching main collapse')
-    collapse(zero, 1)
-       
-    logging.info("collapsing finished")
-    assert_true(s.exception_received)
 
 @with_custom_setup( default_setup, basic_teardown )
 def test_disable_tlog_compression():
