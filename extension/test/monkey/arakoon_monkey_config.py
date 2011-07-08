@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 from arakoon.ArakoonExceptions import *
 from system_tests_common import *
 from system_tests_anomaly import *
-from system_tests_basic import *
+from quick.system_tests_basic import *
 
 import arakoon
 
