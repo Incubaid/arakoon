@@ -45,14 +45,22 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     real_test client >>= fun () -> Lwt.return ()
   in
   let sleep, notifier = wait () in
+  let sleep2, notifier2 = wait () in
   let setup_callback () =
     info "callback" >>= fun () ->
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
+  let teardown_callback () = 
+    Lwt.wakeup notifier2();
+    Lwt.return ()
+  in
   let tb = new test_backend _CLUSTER in
   let backend = (tb :> Backend.backend) in
-  let server = Server.make_server_thread ~setup_callback "127.0.0.1" port
+  let server = Server.make_server_thread 
+    ~setup_callback 
+    ~teardown_callback
+    "127.0.0.1" port
     (Client_protocol.protocol backend) in
 
   let client_t () =
@@ -64,9 +72,13 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     Lwt_io.close oc >>= fun () ->
     Lwt.return ()
   in
-
-    Lwt_main.run (Lwt.pick [client_t ();
-          server ();])
+  let main () =
+    Lwt.pick [client_t ();
+	      server ();] >>= fun () -> 
+    sleep2 >>= fun () ->
+    Lwt_log.info "server down"
+  in
+  Lwt_main.run (main());;
 
 let test_ping () =
   let real_test client =
