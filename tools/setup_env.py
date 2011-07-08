@@ -7,13 +7,14 @@ OCAML='3.12.1'
 ROOT = '../ROOT' #keep it outside our own tree otherwise the arakoon ocamlbuild complains
 PREFIX = "%s/%s" % (os.path.realpath(ROOT),'OCAML')
 
-def sh(x, **kwargs): 
+def sh(x, **kwargs):
     print x
-    subprocess.call(x,**kwargs)
+    if subprocess.call(x,**kwargs):
+        raise RuntimeError("Failed to run %s %s" % (x, kwargs))
 
 def mr_proper():
     sh (['rm','-rf', ROOT])
-    
+
 
 print PREFIX
 env = {'PATH': string.join([PREFIX + '/bin',
@@ -70,7 +71,7 @@ def install_ounit():
     lib.sh(['ocaml', 'setup.ml', '-configure'])
     lib.sh(['ocaml', 'setup.ml', '-build'])
     lib.sh(['ocaml', 'setup.ml', '-install'])
-    
+
 def install_react():
     lib = Lib('react-0.9.2','.tbz',
               'http://erratique.ch/software/react/releases/%s')
@@ -83,6 +84,10 @@ def install_react():
         '%s/lib/ocaml/site-lib/' % PREFIX])
 
 def install_lwt():
+    # Tell lwt where libev can be found
+    env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
+    env['LIBRARY_PATH'] = '%s/lib' % PREFIX
+
     lib = Lib('lwt-2.3.0','.tar.gz',
               'http://ocsigen.org/download/%s')
     lib.download()
@@ -116,7 +121,7 @@ def install_lablgtk():
 def install_cairo_ocaml():
     lib = Lib('cairo-ocaml-1.2.0',
               '.tar.bz2',
-              'http://cgit.freedesktop.org/cairo-ocaml/snapshot/%s')    
+              'http://cgit.freedesktop.org/cairo-ocaml/snapshot/%s')
     lib.download()
     lib.extract()
     lib.sh(['aclocal','-I','support'])
@@ -180,6 +185,18 @@ package "syntax" (
     f.write(meta)
     f.close()
 
+def install_libev():
+    lib = Lib('libev-4.04','.tar.gz',
+              'http://dist.schmorp.de/libev/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['./configure', '--prefix=%s' % PREFIX])
+    lib.sh(['make'])
+    lib.sh(['make', 'install'])
+
+
+
+
 
 def do_it():
     mr_proper()
@@ -188,6 +205,7 @@ def do_it():
     install_ocamlfind()
     install_ounit()
     install_react()
+    install_libev()
     install_lwt()
     install_camlbz2()
     install_lablgtk()
