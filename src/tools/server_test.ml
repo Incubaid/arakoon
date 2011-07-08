@@ -78,14 +78,20 @@ let test_echo () =
 
 let test_max_connections () = 
   let sleep, notifier = wait () in
+  let sleep2, notifier2 = wait() in
   let setup_callback () = 
     Lwt.wakeup notifier () ; 
     Lwt.return () 
   in
+  let teardown_callback () = 
+    Lwt.wakeup notifier2 ();
+    Lwt.return ()
+  in
   let port = 6666 in
   let host = "127.0.0.1" in
   let server = Server.make_server_thread ~max_connections:2
-    ~setup_callback host port echo_protocol 
+    ~setup_callback ~teardown_callback
+    host port echo_protocol 
   in
   let n_problems = ref 0 in
   let client i = 
@@ -116,7 +122,7 @@ let test_max_connections () =
 	      client 1;
 	      client 2;
 	      server()] 
-    >>= fun () ->
+    >>= fun () -> sleep2 >>= fun () ->
     Lwt_log.debug_f "n_problems = %i" !n_problems >>= fun () ->
     OUnit.assert_equal !n_problems 1;
     Lwt.return () 
