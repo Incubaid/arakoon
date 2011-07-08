@@ -20,7 +20,18 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from system_tests_common import *
+from .. import system_tests_common
+from ..system_tests_common import with_custom_setup
+from ..system_tests_common import setup_1_node_forced_master
+from ..system_tests_common import setup_2_nodes_forced_master
+from ..system_tests_common import setup_3_nodes_forced_master
+from ..system_tests_common import setup_3_nodes
+from ..system_tests_common import default_setup
+from ..system_tests_common import basic_teardown
+from ..system_tests_common import q
+from ..system_tests_common import cluster_id
+from nose.tools import *
+#from pymonkey import q, i
 import logging
 
 @with_custom_setup ( setup_1_node_forced_master, basic_teardown )
@@ -411,8 +422,6 @@ def test_get_storage_utilization():
 
 @with_custom_setup( default_setup, basic_teardown )
 def test_gather_evidence():
-    
-    import system_tests_common
     data_base_dir = system_tests_common.data_base_dir
     
     cluster = q.manage.arakoon.getCluster(cluster_id)
