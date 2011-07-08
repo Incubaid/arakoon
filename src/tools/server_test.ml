@@ -35,14 +35,20 @@ let echo_protocol (ic,oc) =
 
 let test_echo () = 
   let sleep, notifier = wait () in
+  let sleep2, notifier2 = wait() in
   let setup_callback () = 
     Lwt.wakeup notifier () ; 
     Lwt.return () 
+  in
+  let teardown_callback () = 
+    Lwt.wakeup notifier2 ();
+    Lwt.return ()
   in
   let port = 6666 in
   let host = "127.0.0.1" in
   let server = Server.make_server_thread 
     ~setup_callback host port echo_protocol 
+    ~teardown_callback
   in
   let client () = 
     debug "sleeping until server socket started" >>= fun () -> 
@@ -61,8 +67,13 @@ let test_echo () =
     conversation connection >>= fun () ->
     info "end of conversation" 
   in 
-  Lwt_main.run (Lwt.pick [client ();
-			  server()]);;
+  let main () = 
+    Lwt.pick [client (); server()] >>= fun () -> 
+    sleep2 >>= fun () ->
+    Lwt_log.info "end_of_main" 
+  in
+  Lwt_main.run (main())
+
 
 
 let test_max_connections () = 

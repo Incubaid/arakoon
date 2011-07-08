@@ -53,6 +53,7 @@ let session_thread protocol fd =
     
 let make_server_thread 
     ?(setup_callback=no_callback) 
+    ?(teardown_callback = no_callback)
     ?(max_connections = 200)
     host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
@@ -109,6 +110,7 @@ let make_server_thread
 	(fun ()  -> setup_callback () >>= fun () -> server_loop ())
 	(fun exn -> info_f ~exn "shutting down server on port %i" port)
       >>= fun () ->
-      Lwt_unix.close listening_socket
+      Lwt_unix.close listening_socket >>= fun () ->
+      teardown_callback()
     in r
   end
