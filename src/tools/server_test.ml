@@ -35,15 +35,12 @@ let echo_protocol (ic,oc) =
 
 let test_echo () = 
   let sleep, notifier = wait () in
-  let sleep2, notifier2 = wait() in
+  let td_var = Lwt_mvar.create_empty () in
   let setup_callback () = 
     Lwt.wakeup notifier () ; 
     Lwt.return () 
   in
-  let teardown_callback () = 
-    Lwt.wakeup notifier2 ();
-    Lwt.return ()
-  in
+  let teardown_callback () = Lwt_mvar.put td_var () in
   let port = 6666 in
   let host = "127.0.0.1" in
   let server = Server.make_server_thread 
@@ -69,7 +66,7 @@ let test_echo () =
   in 
   let main () = 
     Lwt.pick [client (); server()] >>= fun () -> 
-    sleep2 >>= fun () ->
+    Lwt_mvar.take td_var  >>= fun () ->
     Lwt_log.info "end_of_main" 
   in
   Lwt_main.run (main())
@@ -78,15 +75,13 @@ let test_echo () =
 
 let test_max_connections () = 
   let sleep, notifier = wait () in
-  let sleep2, notifier2 = wait() in
+  let td_var = Lwt_mvar.create () in
   let setup_callback () = 
     Lwt.wakeup notifier () ; 
     Lwt.return () 
   in
-  let teardown_callback () = 
-    Lwt.wakeup notifier2 ();
-    Lwt.return ()
-  in
+ 
+  let teardown_callback () = Lwt_mvar.put td_var () in
   let port = 6666 in
   let host = "127.0.0.1" in
   let server = Server.make_server_thread ~max_connections:2
@@ -122,7 +117,7 @@ let test_max_connections () =
 	      client 1;
 	      client 2;
 	      server()] 
-    >>= fun () -> sleep2 >>= fun () ->
+    >>= fun () -> Lwt_mvar.take td_var >>= fun () ->
     Lwt_log.debug_f "n_problems = %i" !n_problems >>= fun () ->
     OUnit.assert_equal !n_problems 1;
     Lwt.return () 

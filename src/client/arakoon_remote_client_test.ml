@@ -45,16 +45,13 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     real_test client >>= fun () -> Lwt.return ()
   in
   let sleep, notifier = wait () in
-  let sleep2, notifier2 = wait () in
+  let td_var = Lwt_mvar.create () in
   let setup_callback () =
     info "callback" >>= fun () ->
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
-  let teardown_callback () = 
-    Lwt.wakeup notifier2();
-    Lwt.return ()
-  in
+  let teardown_callback () = Lwt_mvar.put td_var () in
   let tb = new test_backend _CLUSTER in
   let backend = (tb :> Backend.backend) in
   let server = Server.make_server_thread 
@@ -75,7 +72,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   let main () =
     Lwt.pick [client_t ();
 	      server ();] >>= fun () -> 
-    sleep2 >>= fun () ->
+    Lwt_mvar.take td_var  >>= fun () ->
     Lwt_log.info "server down"
   in
   Lwt_main.run (main());;
