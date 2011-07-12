@@ -24,6 +24,7 @@ from ..system_tests_common import assert_last_i_in_sync
 from ..system_tests_common import basic_teardown
 from ..system_tests_common import cluster_id
 from ..system_tests_common import collapse
+from ..system_tests_common import compare_stores
 from ..system_tests_common import create_and_start_thread
 from ..system_tests_common import create_and_wait_for_threads
 from ..system_tests_common import create_and_wait_for_thread_list
@@ -32,6 +33,7 @@ from ..system_tests_common import default_setup
 from ..system_tests_common import node_names
 from ..system_tests_common import iterate_n_times
 from ..system_tests_common import regenerateClientConfig
+from ..system_tests_common import restart_nodes_wf_sim
 from ..system_tests_common import setup_2_nodes
 from ..system_tests_common import setup_3_nodes
 from ..system_tests_common import setup_1_node_forced_master
