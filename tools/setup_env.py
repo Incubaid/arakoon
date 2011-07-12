@@ -1,15 +1,18 @@
 import subprocess
 import os
 import string
-import sys
+
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-r", "--root", dest="root", default="../ROOT",
+        help="Root directory for the env", metavar="ROOT")
+parser.add_option("-y", "--no-x", dest="no_x", default=False,
+        action="store_true", help="Do not build anything depending on X")
+(options, args) = parser.parse_args()
 
 OCAML='3.12.1'
-
-if len(sys.argv) == 2:
-    ROOT = os.path.realpath(sys.argv[1])
-else:
-    ROOT = os.path.realpath('../ROOT') #keep it outside our own tree otherwise the arakoon ocamlbuild complains
-
+ROOT = os.path.realpath(options.root)
 PREFIX = "%s/%s" % (ROOT,'OCAML')
 
 def sh(x, **kwargs):
@@ -90,7 +93,6 @@ def install_react():
 
 def install_lwt():
     # Tell lwt where libev can be found
-    env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
 
     lib = Lib('lwt-2.3.0','.tar.gz',
@@ -205,7 +207,7 @@ def install_libev():
 
 def do_it():
     mr_proper()
-    sh(['mkdir',ROOT])
+    sh(['mkdir', ROOT])
     install_ocaml()
     install_ocamlfind()
     install_ounit()
@@ -213,9 +215,10 @@ def do_it():
     install_libev()
     install_lwt()
     install_camlbz2()
-    install_lablgtk()
-    install_cairo_ocaml()
-    install_ocamlviz()
+    if not options.no_x:
+        install_lablgtk()
+        install_cairo_ocaml()
+        install_ocamlviz()
     #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
     print '\n\nnow prepend %s/bin to your PATH' % PREFIX
 
