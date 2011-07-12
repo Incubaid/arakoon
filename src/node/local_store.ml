@@ -32,6 +32,15 @@ open Store
 open Unix.LargeFile
 
 
+let _save_i i db =
+  let is =
+    let buf = Buffer.create 10 in
+    let () = Sn.sn_to buf i in
+    Buffer.contents buf
+  in
+  let () = Bdb.put db __i_key is in
+  Lwt.return ()
+
 let _consensus_i db =
   try
     let i_string = Bdb.get db __i_key in
@@ -246,20 +255,21 @@ let _set_master bdb master (lease_start:int64) =
   Bdb.put bdb __lease_key lease
 
 
-let _tx_with_incr db (f:Otc.Bdb.bdb -> 'a Lwt.t) = 
+let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t) =
+  let new_i = incr () in 
   Lwt.catch
     (fun () ->
       Hotc.transaction db
 	(fun db ->
-	  _incr_i db >>= fun () ->
+    _save_i new_i db >>= fun () ->
 	  f db >>= fun (a:'a) ->
 	  Lwt.return a)
     )
     (fun ex ->
-      Hotc.transaction db _incr_i >>= fun () ->
+      Hotc.transaction db (_save_i new_i) >>= fun () ->
       Lwt.fail ex)
 
-class local_store db_location (db:Hotc.t) (range:Range.t) (routing:Routing.t option) mlo store_i =
+class local_store (db_location:string) (db:Hotc.t) (range:Range.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
   val my_location = db_location 
@@ -270,7 +280,7 @@ object(self: #store)
   val mutable _store_i = store_i 
 
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
-       "Invalid operation on quiesced operation")
+       "Invalid operation on quiesced store")
 
   method quiesce () =
     begin
@@ -337,21 +347,24 @@ object(self: #store)
 	Lwt.return (List.rev vs))
 
   method private _incr_i_cached () =
-    _store_i <- 
+    let incr = 
     begin
       match _store_i with
-        | None -> Some Sn.start
-        | Some i -> Some (Sn.succ i)
-    end
-      
+        | None -> Sn.start
+        | Some i -> (Sn.succ i)
+    end; 
+    in
+    _store_i <- Some incr ; 
+    incr
+    
   method incr_i () =
-    self # _incr_i_cached ();
+    let new_i = self # _incr_i_cached () in
     begin
     if _quiesced 
     then
       Lwt.return ()
     else
-      Hotc.transaction db _incr_i
+      Hotc.transaction db (_save_i new_i)
     end
 
       
@@ -374,17 +387,15 @@ object(self: #store)
 	Lwt.return keys_list
       )
 
-
   method set key value =
     Lwt.catch
-      (fun () -> self # _incr_i_cached (); _tx_with_incr db (fun db -> _set db key value; Lwt.return ()))
+      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set db key value; Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
   method set_master master lease =
-    self # _incr_i_cached ();
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db ->
 	_set_master db master lease ;
 	_mlo <- Some (master,lease);
@@ -404,29 +415,24 @@ object(self: #store)
   method who_master () = Lwt.return _mlo
 
   method delete key =
-    self # _incr_i_cached ();
-    _tx_with_incr db (fun db -> _delete db key; Lwt.return ())
+    _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete db key; Lwt.return ())
 
   method test_and_set key expected wanted =
-    self # _incr_i_cached ();
-    _tx_with_incr db 
+    _tx_with_incr (self # _incr_i_cached) db 
       (fun db ->
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
 
   method sequence updates =
-    self # _incr_i_cached ();
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db  
       (fun db -> _sequence db updates; Lwt.return ())
 
   method aSSert key (vo:string option) =
-    self # _incr_i_cached ();
-    _tx_with_incr db (fun db -> let r = _assert db key vo in Lwt.return r)
+    _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert db key vo in Lwt.return r)
 
   method user_function name (po:string option) = 
-    self # _incr_i_cached ();
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db 
       (fun db -> 
 	let (ro:string option) = _user_function db name po in
 	Lwt.return ro)
