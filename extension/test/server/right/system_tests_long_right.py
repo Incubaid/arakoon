@@ -28,6 +28,7 @@ from ..system_tests_common import basic_teardown
 from ..system_tests_common import default_setup
 from ..system_tests_common import setup_2_nodes
 from ..system_tests_common import setup_3_nodes
+from ..system_tests_common import setup_1_node_forced_master
 from ..system_tests_common import setup_2_nodes_forced_master
 from ..system_tests_common import setup_3_nodes_forced_master
 from ..system_tests_common import node_names
