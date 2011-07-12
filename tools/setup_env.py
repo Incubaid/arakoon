@@ -9,6 +9,8 @@ parser.add_option("-r", "--root", dest="root", default="../ROOT",
         help="Root directory for the env", metavar="ROOT")
 parser.add_option("-y", "--no-x", dest="no_x", default=False,
         action="store_true", help="Do not build anything depending on X")
+parser.add_option("-c", "--client", dest="client", default=False,
+        action="store_true", help="Include the client interfaces")
 (options, args) = parser.parse_args()
 
 OCAML='3.12.1'
@@ -202,9 +204,12 @@ def install_libev():
     lib.sh(['make'])
     lib.sh(['make', 'install'])
 
-
-
-
+def install_client():
+    env['LIBRARY_PATH'] = os.path.join(PREFIX, "lib")
+    sh(["ocamlbuild", "-use-ocamlfind", " arakoon_client.cma", "arakoon_client.cmxa", "arakoon_client.a"])
+    env['OCAML_LIBDIR'] = os.path.join(PREFIX, "lib", "ocaml", "site-lib")
+    sh(["make", "uninstall_client"])
+    sh(["make", "install_client"])
 
 def do_it():
     mr_proper()
@@ -220,6 +225,8 @@ def do_it():
         install_lablgtk()
         install_cairo_ocaml()
         install_ocamlviz()
+    if options.client:
+        install_client()
     #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
     print '\n\nnow prepend %s/bin to your PATH' % PREFIX
 
