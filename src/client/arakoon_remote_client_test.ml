@@ -45,7 +45,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     real_test client >>= fun () -> Lwt.return ()
   in
   let sleep, notifier = wait () in
-  let td_var = Lwt_mvar.create () in
+  let td_var = Lwt_mvar.create_empty () in
   let setup_callback () =
     info "callback" >>= fun () ->
     Lwt.wakeup notifier ();
