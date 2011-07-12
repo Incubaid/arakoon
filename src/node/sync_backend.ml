@@ -72,7 +72,7 @@ let make_went_well stats_cb awake sleeper =
 
 
 
-class sync_backend cfg push_update 
+class sync_backend cfg push_update push_node_msg
   (store:Store.store) 
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
@@ -120,17 +120,17 @@ object(self: #backend)
 	  | ext -> Lwt.fail ext)
 
 
-  method private _update_rendezvous update update_stats = 
+  method private _update_rendezvous update update_stats push = 
     self # _only_if_master () >>= fun () ->
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
     let went_well = make_went_well update_stats awake sleep in
-    push_update (Some p_value, went_well) >>= fun () ->
+    push (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
       | Store.Ok _ -> Lwt.return ()
-
+      
   method private block_collapser (i: Sn.t) =
     let tlog_file_n = Tlc2.get_file_number i  in
     Hashtbl.add locked_tlogs tlog_file_n "locked"
@@ -192,18 +192,18 @@ object(self: #backend)
     let () = assert_value_size value in
     let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value in
-    self # _update_rendezvous update update_sets
+    self # _update_rendezvous update update_sets push_update
 
   method set_routing r = 
     log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in
     let cb () = () in
-    self # _update_rendezvous update cb
+    self # _update_rendezvous update cb push_update
 
   method set_range range =
     log_o self "set_range %s" (Range.to_string range)>>= fun () ->
     let update = Update.SetRange range in
-    self # _update_rendezvous update (fun () -> ())
+    self # _update_rendezvous update (fun () -> ()) push_update
 
   method user_function name po = 
     log_o self "user_function %s" name >>= fun () ->
@@ -263,7 +263,7 @@ object(self: #backend)
     self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
     let update_stats () = Statistics.new_delete _stats in
-    self # _update_rendezvous update update_stats 
+    self # _update_rendezvous update update_stats push_update
 
   method hello (client_id:string) (cluster_id:string) =
     log_o self "hello %S %S" client_id cluster_id >>= fun () -> 
@@ -311,7 +311,7 @@ object(self: #backend)
     log_o self "sequence" >>= fun () ->
     let update = Update.Sequence updates in
     let update_stats () = Statistics.new_sequence _stats in
-    self # _update_rendezvous update update_stats
+    self # _update_rendezvous update update_stats push_update
 
   method multi_get ~allow_dirty (keys:string list) =
     log_o self "multi_get" >>= fun () ->
@@ -350,6 +350,17 @@ object(self: #backend)
     >>= fun () ->
     Lwt.return result
 
+  method private _not_if_master() =
+    self # who_master () >>= function
+      | None ->
+        Lwt.return () 
+      | Some m ->
+        if m = my_name
+        then
+          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+        else
+          Lwt.return ()
+      
   method private _only_if_master() =
     self # who_master () >>= function
       | None ->
@@ -450,4 +461,50 @@ object(self: #backend)
 
   method get_key_count () =
     store # get_key_count ()  
+    
+  method get_db m_oc =
+    self # _not_if_master () >>= fun () ->
+    Lwt_log.debug "get_db: enter" >>= fun () ->
+    let result = ref Multi_paxos.Quiesced_fail in
+    begin
+      match m_oc with
+        | None -> 
+          let ex = XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only stream on a valid out channel") in
+          Lwt.fail ex
+        | Some oc -> Lwt.return oc
+    end >>= fun oc ->
+    let sleep, awake = Lwt.wait() in
+    let update = Multi_paxos.Quiesce (sleep, awake) in
+    Lwt_log.debug "get_db: Pushing quiesce request" >>= fun () ->
+    push_node_msg update >>= fun () ->
+    Lwt.finalize 
+    ( fun () ->
+	    begin
+	      Lwt_log.debug "get_db: waiting for quiesce request to be completed" >>= fun () ->
+	      sleep >>= fun res ->
+	      result := res;
+	      match res with
+	        | Multi_paxos.Quiesced_ok -> store # copy_store oc
+	        | Multi_paxos.Quiesced_fail_master ->
+	          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+	        | Multi_paxos.Quiesced_fail ->
+	          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
+	    end
+    )
+    ( fun () ->
+      begin
+        let res = !result in
+        begin
+	        match res with 
+	          | Multi_paxos.Quiesced_ok ->
+	                Lwt_log.debug "get_db: Leaving quisced state" >>= fun () ->
+	                let update = Multi_paxos.Unquiesce in
+	                push_node_msg update 
+	          | _ -> Lwt.return ()
+        end >>= fun () ->
+        Lwt_log.debug "get_db: All done"
+      end
+    )
+    
+        
 end

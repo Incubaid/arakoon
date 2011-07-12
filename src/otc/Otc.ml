@@ -34,7 +34,10 @@ module Bdb = struct
   let onolck  = 16
   let olcknb  = 32
   let otsync  = 64
-
+  
+  let default_mode = 6 (*(oreader lor owriter lor ocreat lor olcknb)*)
+  let readonly_mode = (oreader lor onolck)
+  
   type bdbcur (* type stays abstract *)
 
   external first: bdb -> bdbcur -> unit = "bdb_first"

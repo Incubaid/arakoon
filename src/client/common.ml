@@ -56,6 +56,7 @@ type client_command =
   | GET_ROUTING
   | SET_ROUTING
   | GET_KEY_COUNT
+  | GET_DB
 
 let code2int = [
   PING,                     0x1l ;
@@ -80,6 +81,7 @@ let code2int = [
   GET_ROUTING             , 0x18l;
   SET_ROUTING             , 0x19l;
   GET_KEY_COUNT           , 0x1al;
+  GET_DB                  , 0x1bl;
 ]
 
 let int2code = 
@@ -226,5 +228,6 @@ let ping_to b client_id cluster_id =
 
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
+  
 
 exception XException of Arakoon_exc.rc * string

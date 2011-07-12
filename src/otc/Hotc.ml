@@ -37,11 +37,10 @@ module Hotc = struct
     Lwt.catch (fun () -> Lwt_mutex.with_lock t.mutex f)
       (fun e -> Lwt.fail e)
 
-  let _open t = 
-    Bdb._dbopen t.bdb t.filename
-      (Bdb.oreader lor Bdb.owriter lor Bdb.ocreat lor Bdb.olcknb)
+  let _open t mode = 
+    Bdb._dbopen t.bdb t.filename mode
 
-  let _open_lwt t = Lwt.return (_open t)
+  let _open_lwt t mode = Lwt.return (_open t mode )
     
   let _close t =
     Bdb._dbclose t.bdb
@@ -54,22 +53,21 @@ module Hotc = struct
       bdb = Bdb._make ();
       mutex = Lwt_mutex.create ();
     } in
-    _do_locked res (fun () ->_open_lwt res) >>= fun () ->
+    _do_locked res (fun () ->_open_lwt res Bdb.default_mode) >>= fun () ->
     Lwt.return res
 
   let close t = 
     _do_locked t (fun () -> _close_lwt t)
 
 
-
   let filename t = t.filename
 
-  let reopen t when_closed=
+  let reopen t when_closed mode=
     _do_locked t
       (fun () ->
 	_close_lwt t >>= fun () -> 
 	when_closed () >>= fun () ->
-	_open_lwt  t 
+	_open_lwt  t mode
       )
 
   let _delete t = 

@@ -79,8 +79,8 @@ let test_generic network_factory n_nodes () =
 	      send = send;
 	      get_value = get_value;
 	      on_accept= on_accept "???";
-	      on_consensus = on_consensus "???";
-	      on_witness = on_witness;
+        on_consensus = on_consensus "???";
+        on_witness = on_witness;
 	      last_witnessed = last_witnessed;
 	      quorum_function = Multi_paxos.quorum_function;
 	      master=Elected;
@@ -90,6 +90,7 @@ let test_generic network_factory n_nodes () =
 	      lease_expiration = 60;
 	      inject_event = inject_ev inject_buffer;
 	      cluster_id = "whatever";
+        quiesced = false;
 	     }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -259,7 +260,7 @@ let test_master_loop network_factory ()  =
 		   send = send;
 		   get_value = get_value;
 		   on_accept = on_accept;
-		   on_consensus = on_consensus;
+       on_consensus = on_consensus;
 		   on_witness = on_witness;
 		   last_witnessed = last_witnessed;
 		   quorum_function = Multi_paxos.quorum_function;
@@ -270,6 +271,7 @@ let test_master_loop network_factory ()  =
 		   lease_expiration = 60;
 		   inject_event = inject_event;
 		   cluster_id = "whatever";
+       quiesced = false;
 		  } in
   let continue = ref 2 in
   let c0_t () =
@@ -398,6 +400,7 @@ let test_simulation filters () =
 		   lease_expiration = 60;
 		   inject_event = inject_event;
 		   cluster_id = "whatever";
+       quiesced = false;
 		  } in
   let c0_t () =
     let expected prev_key key =

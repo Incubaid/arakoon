@@ -29,7 +29,7 @@ open Range
 open Routing
 open Log_extra
 open Store
-
+open Unix.LargeFile
 
 
 let _consensus_i db =
@@ -259,13 +259,43 @@ let _tx_with_incr db (f:Otc.Bdb.bdb -> 'a Lwt.t) =
       Hotc.transaction db _incr_i >>= fun () ->
       Lwt.fail ex)
 
-class local_store db (range:Range.t) (routing:Routing.t option) mlo =
+class local_store db_location (db:Hotc.t) (range:Range.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
+  val my_location = db_location 
   val mutable _range = range
   val mutable _routing = routing
   val mutable _mlo = mlo
+  val mutable _quiesced = false
+  val mutable _store_i = store_i 
 
+  val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
+       "Invalid operation on quiesced operation")
+
+  method quiesce () =
+    begin
+	    if _quiesced then
+	      Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+	    else
+        begin
+          _quiesced <- true;
+		      self # reopen (fun () -> Lwt.return ()) >>= fun () ->
+		      Lwt.return ()
+        end
+    end
+    
+  method unquiesce () =
+    _quiesced <- false; 
+    self # reopen (fun () -> Lwt.return ()) >>= fun () ->
+    Hotc.transaction db _consensus_i >>= fun store_i ->
+    _store_i <- store_i;
+    Lwt.return ()
+  
+  method quiesced () = _quiesced
+     
+  method private open_db () =
+    Hotc._open_lwt db 
+  
   method _range_ok key =
     let ok = Range.is_ok _range key in
     if ok 
@@ -305,8 +335,24 @@ object(self: #store)
 	  [] keys
 	in 
 	Lwt.return (List.rev vs))
-  
-  method incr_i () = Hotc.transaction db _incr_i
+
+  method private _incr_i_cached () =
+    _store_i <- 
+    begin
+      match _store_i with
+        | None -> Some Sn.start
+        | Some i -> Some (Sn.succ i)
+    end
+      
+  method incr_i () =
+    self # _incr_i_cached ();
+    begin
+    if _quiesced 
+    then
+      Lwt.return ()
+    else
+      Hotc.transaction db _incr_i
+    end
 
       
   method range first finc last linc max =
@@ -331,12 +377,13 @@ object(self: #store)
 
   method set key value =
     Lwt.catch
-      (fun () -> _tx_with_incr db (fun db -> _set db key value; Lwt.return ()))
+      (fun () -> self # _incr_i_cached (); _tx_with_incr db (fun db -> _set db key value; Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
   method set_master master lease =
+    self # _incr_i_cached ();
     _tx_with_incr db
       (fun db ->
 	_set_master db master lease ;
@@ -344,32 +391,40 @@ object(self: #store)
 	Lwt.return ()
       )
 
-  method set_master_no_inc master lease = 
-    Hotc.transaction db 
-      (fun db -> _set_master db master lease;
-	_mlo <- Some (master,lease);
-	Lwt.return ()
-      )
+  method set_master_no_inc master lease =
+    _mlo <- Some (master,lease);
+    if _quiesced then
+      Lwt.return ()
+    else 
+        Hotc.transaction db 
+        (fun db -> _set_master db master lease;
+	           Lwt.return ()
+        )
 
   method who_master () = Lwt.return _mlo
 
   method delete key =
+    self # _incr_i_cached ();
     _tx_with_incr db (fun db -> _delete db key; Lwt.return ())
 
   method test_and_set key expected wanted =
+    self # _incr_i_cached ();
     _tx_with_incr db 
       (fun db ->
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
 
   method sequence updates =
+    self # _incr_i_cached ();
     _tx_with_incr db
       (fun db -> _sequence db updates; Lwt.return ())
 
   method aSSert key (vo:string option) =
+    self # _incr_i_cached ();
     _tx_with_incr db (fun db -> let r = _assert db key vo in Lwt.return r)
 
   method user_function name (po:string option) = 
+    self # _incr_i_cached ();
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
     _tx_with_incr db
       (fun db -> 
@@ -377,7 +432,7 @@ object(self: #store)
 	Lwt.return ro)
       
   method consensus_i () =
-    Hotc.transaction db (fun db -> _consensus_i db)
+    Lwt.return _store_i
       
   method close () =
     Hotc.close db >>= fun () ->
@@ -386,9 +441,16 @@ object(self: #store)
       
   method get_filename () = Hotc.filename db
     
-  method reopen f = 
+  method reopen f =
+    let mode = 
+    begin
+      if _quiesced then
+        Bdb.readonly_mode
+      else
+        Bdb.default_mode
+    end in 
     Lwt_log.debug "local_store :: reopen() " >>= fun () ->
-    Hotc.reopen db f >>= fun () ->
+    Hotc.reopen db f mode >>= fun () ->
     Lwt.return ()
 
   method set_range range = 
@@ -412,6 +474,28 @@ object(self: #store)
     Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
     (* Leave out administrative keys *)
     Lwt.return ( Int64.sub raw_count 3L ) 
+    
+  method copy_store (oc: Lwt_io.output_channel) =
+    if _quiesced then
+    begin
+      let db_name = my_location in
+      let stat = Unix.LargeFile.stat db_name in
+      let length = stat.st_size in
+      Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+      Llio.output_int oc 0 >>= fun () ->
+      Llio.output_int64 oc length >>= fun () ->
+      Lwt_io.with_file
+        ~flags:[Unix.O_RDONLY]
+        ~mode:Lwt_io.input
+        db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+      >>= fun () ->
+      Lwt_io.flush oc
+    end 
+    else
+    begin
+      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+      raise ex
+    end
 end
 
 let make_local_store db_name =
@@ -419,6 +503,7 @@ let make_local_store db_name =
   Hotc.transaction db _get_range >>= fun range ->
   Hotc.transaction db _get_routing >>= fun routing_o ->
   Hotc.transaction db _who_master >>= fun mlo ->
-  let store = new local_store db range routing_o mlo in
+  Hotc.transaction db _consensus_i >>= fun store_i ->
+  let store = new local_store db_name db range routing_o mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

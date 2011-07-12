@@ -131,7 +131,12 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		    | x -> x
 		  in
 		  Store.safe_insert_update store pi pu' >>= fun _ ->
-		  let () = acc := Some(i,update) in
+      begin
+      store # consensus_i () >>= function
+        | None -> Lwt_log.debug "Store still empty" 
+        | Some cons_i -> Lwt_log.debug_f "Store counter is at %s" (Sn.string_of cons_i)
+      end >>= fun () ->
+      let () = acc := Some(i,update) in
 		  Lwt.return ()
 		end
 	      else
@@ -205,3 +210,31 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
       in
       Lwt.fail (Failure msg)
 
+let get_db db_name cluster_id cfgs =
+
+  let get_db_from_stream conn = 
+    make_remote_nodestream cluster_id conn >>= fun (client:nodestream) ->
+    client # get_db db_name 
+  in
+  let try_db_download m_success cfg =
+    begin
+      match m_success with
+        | Some s -> Lwt.return m_success
+        | None ->
+          Lwt.catch 
+          ( fun () ->
+            Lwt_log.info_f "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
+            let address = Node_cfg.client_address cfg in
+            Lwt_io.with_connection address get_db_from_stream >>= fun () -> 
+            Lwt_log.info "get_db: Download succeeded" >>= fun () ->
+            Lwt.return (Some (Node_cfg.node_name cfg))
+          ) 
+          ( fun e ->
+            Lwt_log.error_f "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () -> 
+            Lwt.return None
+          )
+    end
+  in
+  Lwt_list.fold_left_s try_db_download None cfgs >>= function
+    | None -> Lwt.fail (Failure "Aborting... Could not perform db hot copy from any of the nodes")
+    | Some n ->  Lwt.return (Some n)

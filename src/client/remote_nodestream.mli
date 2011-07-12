@@ -10,6 +10,8 @@ class type nodestream = object
 
   method set_routing: Routing.t -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
+  
+  method get_db: string -> unit Lwt.t
 end
 
 val make_remote_nodestream : 

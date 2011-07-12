@@ -56,31 +56,41 @@ let read_command (ic,oc) =
 
 
 let response_ok_unit oc =
-  Llio.output_int32 oc 0l
+  Llio.output_int32 oc 0l >>= fun () ->
+  Lwt.return false
 
 let response_ok_int64 oc i64 =
   Llio.output_int32 oc 0l >>= fun () ->
-  Llio.output_int64 oc i64
+  Llio.output_int64 oc i64 >>= fun () ->
+  Lwt.return false
 
 let response_rc_string oc rc string =
   Llio.output_int32 oc rc >>= fun () ->
-  Llio.output_string oc string
+  Llio.output_string oc string >>= fun () ->
+  Lwt.return false
 
 let response_rc_bool oc rc b =
   Llio.output_int32 oc rc >>= fun () ->
-  Llio.output_bool oc b
+  Llio.output_bool oc b >>= fun () ->
+  Lwt.return false
 
 let handle_exception oc exn= 
-  let rc, msg, is_fatal = match exn with
-  | XException(rc, msg) -> rc,msg, false
-  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false
-  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true
-  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false
+  let rc, msg, is_fatal, close_socket = match exn with
+  | XException(rc, msg) -> rc,msg, false, true
+  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false
+  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true
+  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true
   in 
+  Lwt_log.error_f "Exception during client request (%s)" (Printexc.to_string exn) >>= fun () ->
   Arakoon_exc.output_exception oc rc msg >>= fun () ->
+  begin
+	  if close_socket 
+	  then Lwt_log.debug "Closing client socket" >>= fun () -> Lwt_io.close oc 
+	  else Lwt.return ()
+  end >>= fun () ->
   if is_fatal 
   then Lwt.fail exn
-  else Lwt.return ()
+  else Lwt.return close_socket
 
 let one_command (ic,oc) (backend:Backend.backend) =
   read_command (ic,oc) >>= function
@@ -151,9 +161,10 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  (fun () ->
 	    backend # range ~allow_dirty first finc last linc max >>= fun list ->
 	    Llio.output_int32 oc 0l >>= fun () ->
-	    Llio.output_list Llio.output_string oc list
+	    Llio.output_list Llio.output_string oc list >>= fun () ->
+      Lwt.return false
 	  )
-	  (handle_exception oc)
+	  (handle_exception oc )
 	end
     | RANGE_ENTRIES ->
       begin
@@ -170,7 +181,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    Llio.output_int32 oc 0l >>= fun () ->
 	    let size = List.length list in
 	    Lwt_log.debug_f "size = %i" size >>= fun () ->
-	    Llio.output_list Llio.output_string_pair oc list
+	    Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+      Lwt.return false
 	  )
 	  (handle_exception oc)
 	end
@@ -178,19 +190,22 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	Sn.input_sn ic >>= fun i ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	backend # last_entries i oc
+	backend # last_entries i oc >>= fun () ->
+      Lwt.return false
       end
     | WHO_MASTER ->
       begin
 	backend # who_master () >>= fun m ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_string_option oc m 
+	Llio.output_string_option oc m >>= fun () ->
+  Lwt.return false
       end
     | EXPECT_PROGRESS_POSSIBLE ->
       begin
 	backend # expect_progress_possible () >>= fun poss ->
 	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_bool oc poss 
+	Llio.output_bool oc poss >>= fun () ->
+  Lwt.return false
       end
     | TEST_AND_SET ->
       begin
@@ -199,7 +214,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
         Llio.input_string_option ic >>= fun wanted ->
 	backend # test_and_set key expected wanted >>= fun vo ->
 	Llio.output_int oc 0 >>= fun () ->
-        Llio.output_string_option oc vo 
+        Llio.output_string_option oc vo >>= fun () ->
+      Lwt.return false
       end
     | USER_FUNCTION ->
       begin
@@ -210,7 +226,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    begin
 	      backend # user_function name po >>= fun ro ->
 	      Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_string_option oc ro 
+	      Llio.output_string_option oc ro >>= fun () ->
+        Lwt.return false
 	    end
 	  )
 	  (handle_exception oc)
@@ -225,7 +242,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	Llio.output_int oc 0 >>= fun () ->
         Lwt_log.debug_f "size = %i" size >>= fun () ->
 	Llio.output_int oc size >>= fun () ->
-	Lwt_list.iter_s (Llio.output_string oc) keys 
+	Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
+  Lwt.return false
       end
     | MULTI_GET ->
       begin
@@ -246,7 +264,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    backend # multi_get ~allow_dirty keys >>= fun values ->
 	    Llio.output_int oc 0 >>= fun () ->
 	    Llio.output_int oc length >>= fun () ->
-	    Lwt_list.iter_s (Llio.output_string oc) values 
+	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+      Lwt.return false
 	  )
 	  (handle_exception oc)
       end
@@ -275,7 +294,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	Statistics.to_buffer b s;
 	let bs = Buffer.contents b in
 	Llio.output_int oc 0 >>= fun () ->
-	Llio.output_string oc bs 
+	Llio.output_string oc bs >>= fun () ->
+      Lwt.return false
       end
     | COLLAPSE_TLOGS ->
       begin
@@ -301,7 +321,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    Lwt_log.info "... Start collapsing ..." >>= fun () ->
 	    backend # collapse n cb' cb >>= fun () ->
 	    Lwt_log.info "... Finished collapsing ..." >>= fun () ->
-	    Lwt.return ()
+	    Lwt.return false
 	  )
 	  (handle_exception oc)
       end
@@ -319,7 +339,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
       Lwt.catch 
 	(fun () -> backend # get_routing () >>= fun routing ->
 	  Llio.output_int oc 0 >>= fun () ->
-	  Routing.output_routing oc routing 
+	  Routing.output_routing oc routing >>= fun () ->
+    Lwt.return false
 	)
 	(handle_exception oc)
     | SET_ROUTING ->
@@ -339,7 +360,15 @@ let one_command (ic,oc) (backend:Backend.backend) =
             response_ok_int64 oc kc)
           (handle_exception oc)
       end
-
+    | GET_DB ->
+      begin
+        Lwt.catch 
+          (fun() ->
+            backend # get_db (Some oc) >>= fun () ->
+            Lwt.return false
+          ) 
+          (handle_exception oc)
+      end
 let protocol backend connection =
   info "client_protocol" >>= fun () ->
   let ic,oc = connection in
@@ -361,9 +390,16 @@ let protocol backend connection =
     Lwt.return () 
   in
   let rec loop () =
-    one_command connection backend >>= fun () ->
-    Lwt_io.flush oc >>= fun() ->
-    loop ()
+    begin
+	    one_command connection backend >>= fun closed ->
+	    if closed 
+	    then Lwt_log.debug "leaving client loop" >>= fun () -> Lwt.return ()
+	    else
+	      begin
+	        Lwt_io.flush oc >>= fun() ->
+	        loop ()
+	      end
+    end 
   in
   prologue () >>= fun () ->
   loop () 

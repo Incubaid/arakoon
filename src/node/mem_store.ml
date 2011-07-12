@@ -106,6 +106,12 @@ object (self: #store)
     Lwt.return ()
 
 
+  method quiesce () = Lwt.return () 
+  
+  method unquiesce () = Lwt.return () 
+  
+  method quiesced () = false
+  
   method aSSert key vo =
     let r = 
       match vo with
@@ -216,6 +222,8 @@ object (self: #store)
       Int64.succ size
     in
     Lwt.return (StringMap.fold inc kv 0L)
+    
+  method copy_store c = Lwt.return ()
 end
 
 let make_mem_store db_name =

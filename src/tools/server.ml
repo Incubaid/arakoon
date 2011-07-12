@@ -49,7 +49,10 @@ let session_thread protocol fd =
     (function
       | FOOBAR as foobar-> Lwt.fail foobar
       | exn -> info ~exn "exiting session")
-  >>= fun () -> Lwt_unix.close fd
+  >>= fun () -> 
+  Lwt.catch 
+  ( fun () -> Lwt_unix.close fd )
+  ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
     
 let make_server_thread 
     ?(setup_callback=no_callback) 

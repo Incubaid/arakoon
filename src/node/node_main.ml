@@ -154,15 +154,28 @@ let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
 let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll = 
   Lwt_log.info "ONLY CATCHUP" >>= fun () ->
+  let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
+  begin
+	  if node_cnt > 1 then
+	    Catchup.get_db db_name cluster_id other_configs 
+	  else
+	    Lwt.return None
+  end 
+  >>= fun m_mr_name ->
+  let mr_name = 
+    begin
+      match m_mr_name with
+        | Some m -> m
+        | None -> 
+            let fo = List.hd other_configs in
+            fo.node_name
+    end
+  in
   make_store db_name >>= fun (store:Store.store) ->
   make_tlog_coll me.tlog_dir me.use_compression >>= fun tlc ->
-  let mr_name = 
-    let fo = List.hd other_configs in
-    fo.node_name 
-  in
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -347,10 +360,13 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	    Lwt_buffer.create ~capacity () in
 	  let client_push v = Lwt_buffer.add v client_buffer 
 	  in
-	  let expect_reachable = messaging # expect_reachable in
+    let node_buffer = messaging # get_buffer my_name in
+    let expect_reachable = messaging # expect_reachable in
+    let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+    let inject_push v = Lwt_buffer.add v inject_buffer in
 	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
-	    new Sync_backend.sync_backend me client_push
+	    new Sync_backend.sync_backend me client_push inject_push
 	      store tlog_coll lease_period
 	      ~quorum_function n_nodes
 	      ~expect_reachable
@@ -358,13 +374,13 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	  in
 	  let backend = (sb :> Backend.backend) in
 
-       	  let service = _config_service me backend in
+    let service = _config_service me backend in
 	  
 	  let send, receive, run, register =
 	    Multi_paxos.network_of_messaging messaging in
 	  
 	  let on_consensus = X.on_consensus store in
-	  let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+    let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	  let last_witnessed (name:string) = backend # last_witnessed name in
 	  let on_accept = X.on_accept tlog_coll store in
 	  
@@ -378,8 +394,6 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      Lwt.return r
 	    end
 	  in
-	  let node_buffer = messaging # get_buffer my_name in
-	  let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	  let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	  let inject_event (e:Multi_paxos.paxos_event) =
 	    let buffer,name = 
@@ -401,13 +415,15 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      me.is_learner 
 	      other_names send receive 
 	      get_last_value 
-	      on_accept on_consensus 
-	      on_witness
+	      on_accept 
+        on_consensus
+        on_witness
 	      last_witnessed
 	      (quorum_function: int -> int)
 	      (master : master)
 	      store tlog_coll others lease_period inject_event 
 	      ~cluster_id
+        false
 
 	  in Lwt.return ((master,constants, buffers, new_i, vo), 
 			 service, X.rapporting backend)

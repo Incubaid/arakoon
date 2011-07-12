@@ -34,6 +34,7 @@ let __master_key  = "*master"
 let __lease_key = "*lease"
 let __prefix = "@"
 
+
 (** common interface for stores *)
 class type store = object
   method exists: string -> bool Lwt.t
@@ -55,7 +56,6 @@ class type store = object
   *)
   method consensus_i: unit -> Sn.t option Lwt.t
   method incr_i: unit -> unit Lwt.t
-
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method get_filename: unit -> string 
@@ -68,6 +68,11 @@ class type store = object
   method set_routing : Routing.t -> unit Lwt.t
 
   method get_key_count : unit -> int64 Lwt.t
+  
+  method quiesce : unit -> unit Lwt.t
+  method unquiesce : unit -> unit Lwt.t
+  method quiesced : unit -> bool 
+  method copy_store : Lwt_io.output_channel -> unit Lwt.t
 end
 
 exception Key_not_found of string ;;
@@ -207,7 +212,16 @@ let safe_insert_update (store:store) (i:Sn.t) update =
 	else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
   end
   >>= fun () ->
-  _insert_update store update
+  if store # quiesced () 
+  then
+    begin
+      store # incr_i () >>= fun () ->
+      Lwt.return (Ok None)
+    end
+  else
+    begin
+      _insert_update store update
+    end
 
 let _insert (store:store) v i =
   let Value.V(update_string) = v in
@@ -235,8 +249,16 @@ let on_consensus (store:store) (v,n,i) =
       Llio.lwt_failfmt "Invalid store update requested (%s : %s)" 
 	(Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
-  _insert store v i >>= fun maybe_result ->
-  Lwt.return maybe_result
+  if store # quiesced () then
+    begin
+      store # incr_i () >>= fun () ->
+      Lwt.return (Ok None)
+    end 
+  else
+    begin 
+      _insert store v i >>= fun maybe_result ->
+      Lwt.return maybe_result
+    end
 
 let get_succ_store_i (store:store) =
   store # consensus_i () >>= fun m_si ->

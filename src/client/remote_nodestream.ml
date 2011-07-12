@@ -36,6 +36,8 @@ class type nodestream = object
 
   method set_routing: Routing.t -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
+  
+  method get_db: string -> unit Lwt.t
 end
 
 class remote_nodestream (ic,oc) = 
@@ -143,6 +145,19 @@ object(self :# nodestream)
     in
     request outgoing >>= fun  () ->
     response ic nothing
+    
+  method get_db db_location =
+    
+    let outgoing buf =
+      command_to buf GET_DB;
+    in
+    let incoming ic =
+      Llio.input_int64 ic >>= fun length -> 
+      Lwt_io.with_file ~mode:Lwt_io.output db_location (fun oc -> Llio.copy_stream ~length ~ic ~oc)
+    in
+    request outgoing >>= fun () ->
+    response ic incoming
+      
 end
 
 let prologue cluster connection =
