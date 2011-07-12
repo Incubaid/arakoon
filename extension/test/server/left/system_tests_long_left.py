@@ -20,8 +20,15 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+from ..system_tests_common import with_custom_setup
+from ..system_tests_common import setup_1_node, setup_2_nodes
+from ..system_tests_common import setup_2_nodes_forced_master
+from ..system_tests_common import basic_teardown
+from ..system_tests_common import node_names
+from ..system_tests_common import iterate_n_times
+from ..system_tests_common import simple_set
+from ..system_tests_common import collapse
 
-from system_tests_common import *
 import logging
 import subprocess
 

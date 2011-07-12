@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-import system_tests_common as Common
+from .. import system_tests_common as Common
 from pymonkey import q
 import logging
 
