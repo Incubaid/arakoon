@@ -30,6 +30,7 @@ from ..system_tests_common import simple_set
 from ..system_tests_common import collapse
 from ..system_tests_common import startOne
 from ..system_tests_common import stopOne
+from ..system_tests_common import start_all
 from ..system_tests_common import stop_all
 from ..system_tests_common import whipe
 from nose.tools import *
