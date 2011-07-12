@@ -31,14 +31,21 @@ from ..system_tests_common import setup_3_nodes
 from ..system_tests_common import setup_1_node_forced_master
 from ..system_tests_common import setup_2_nodes_forced_master
 from ..system_tests_common import setup_3_nodes_forced_master
+from ..system_tests_common import simple_set
 from ..system_tests_common import node_names
 from ..system_tests_common import iterate_n_times
 from ..system_tests_common import startOne
 from ..system_tests_common import stopOne
 from ..system_tests_common import get_client
 from ..system_tests_common import restart_all
+from ..system_tests_common import restart_single_slave_scenario
+from ..system_tests_common import create_and_start_thread
+from ..system_tests_common import create_and_wait_for_thread_list
+from ..system_tests_common import assert_not_equals
+from ..system_tests_common import q
 
 import logging
+import time
 import subprocess
 
 def _getCluster():
