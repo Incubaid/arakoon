@@ -21,7 +21,16 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from system_tests_common import *
+from ..system_tests_common import with_custom_setup
+from ..system_tests_common import default_setup
+from ..system_tests_common import cluster_id
+from ..system_tests_common import basic_teardown
+from ..system_tests_common import default_setup
+from ..system_tests_common import setup_3_nodes
+from ..system_tests_common import setup_3_nodes_forced_master
+
+
+
 import logging
 import subprocess
 
