@@ -19,6 +19,8 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
+
+from ..system_tests_common import assert_running_nodes
 from ..system_tests_common import add_node
 from ..system_tests_common import assert_last_i_in_sync
 from ..system_tests_common import basic_teardown
