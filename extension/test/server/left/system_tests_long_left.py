@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from ..system_tests_common import with_custom_setup
+from ..system_tests_common import get_client
 from ..system_tests_common import setup_1_node, setup_2_nodes
 from ..system_tests_common import setup_2_nodes_forced_master
 from ..system_tests_common import basic_teardown
@@ -30,6 +31,7 @@ from ..system_tests_common import simple_set
 from ..system_tests_common import collapse
 from ..system_tests_common import startOne
 from ..system_tests_common import stopOne
+from ..system_tests_common import catchupOnly
 from ..system_tests_common import start_all
 from ..system_tests_common import stop_all
 from ..system_tests_common import whipe
