@@ -1,11 +1,16 @@
-
 import subprocess
 import os
 import string
+import sys
 
 OCAML='3.12.1'
-ROOT = '../ROOT' #keep it outside our own tree otherwise the arakoon ocamlbuild complains
-PREFIX = "%s/%s" % (os.path.realpath(ROOT),'OCAML')
+
+if len(sys.argv) == 2:
+    ROOT = os.path.realpath(sys.argv[1])
+else:
+    ROOT = os.path.realpath('../ROOT') #keep it outside our own tree otherwise the arakoon ocamlbuild complains
+
+PREFIX = "%s/%s" % (ROOT,'OCAML')
 
 def sh(x, **kwargs):
     print x
