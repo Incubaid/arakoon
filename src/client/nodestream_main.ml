@@ -19,13 +19,19 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
+open Node_cfg
+open Remote_nodestream
+open Lwt
+open Network
 
-let with_nodestream cfg f =
-  let host = cfg.ip
-  and port = cfg.client_port in
-  let sa = make_address host port in
+let get_db ip port cluster_id location =
   let do_it connection =
-    let client = new remote_node_stream connection in
-      f client
+    make_remote_nodestream cluster_id connection >>= fun client ->
+    client # get_db location
   in
-    Lwt_io.with_connection sa do_it
+  let address = make_address ip port in
+  let t () = 
+    Lwt_io.with_connection address do_it  >>= fun () ->
+    Lwt.return 0
+  in
+  Lwt_main.run( t()) 

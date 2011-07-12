@@ -49,6 +49,7 @@ type local_action =
   | STATISTICS
   | Collapse
   | Collapse_remote
+  | Backup_db
 
 type server_action =
   | Node
@@ -209,6 +210,7 @@ and n_tlogs = ref 1
 and n_clients = ref 1
 and catchup_only = ref false
 and tlog_dir = ref "/tmp"
+and location = ref ""
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
 let set_laction a = set_action (LocalAction a) in
@@ -296,8 +298,14 @@ let actions = [
 				  Arg.Set_int n_tlogs;
 				 ], 
    "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
-
-  
+   ("--backup-db", Arg.Tuple[set_laction Backup_db;
+                  Arg.Set_string cluster_id;
+                  Arg.Set_string ip;
+                  Arg.Set_int port;
+                  Arg.Set_string location;
+                 ],
+   "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
+    
 ] in
 
 let options = [] in
@@ -328,7 +336,8 @@ let do_local = function
   | Collapse -> Collapser_main.collapse !tlog_dir !n_tlogs
   | Collapse_remote -> Collapser_main.collapse_remote 
     !ip !port !cluster_id !n_tlogs
-
+  | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
+  
 in
 let do_server node =
   match node with
