@@ -94,6 +94,7 @@ def install_react():
 def install_lwt():
     # Tell lwt where libev can be found
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
+    env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
 
     lib = Lib('lwt-2.3.0','.tar.gz',
               'http://ocsigen.org/download/%s')
