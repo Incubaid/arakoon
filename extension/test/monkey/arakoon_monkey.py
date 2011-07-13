@@ -271,11 +271,11 @@ def memory_monitor():
     
     while monkey_dies == False :
         for name in C.node_names:
-            used = get_memory_usage( name )
+            used = C.get_memory_usage( name )
             
             if used > MEM_MAX_KB:
                 logging.critical( "!!!! %s uses more than %d kB of memory (%d) " % (name, MEM_MAX_KB, used))
-                stop_all()
+                C.stop_all()
                 monkey_dies = True
             else :
                 logging.info( "Node %s under memory threshold (%d)" % (name, used) )
