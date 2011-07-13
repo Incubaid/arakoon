@@ -20,17 +20,19 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from system_tests_common import *
+from .. import system_tests_common as Common
+from nose.tools import assert_true
+import time
 import logging
 
-@with_custom_setup(setup_2_nodes, basic_teardown)
+@Common.with_custom_setup(Common.setup_2_nodes, Common.basic_teardown)
 def test_learner():
     op_count = 54321
-    iterate_n_times(op_count, simple_set)
+    Common.iterate_n_times(op_count, simple_set)
     cluster = q.manage.arakoon.getCluster(cluster_id)
     logging.info("adding learner")
-    name = node_names[2]
-    (db_dir, log_dir) = build_node_dir_names(name)
+    name = Common.node_names[2]
+    (db_dir, log_dir) = Common.build_node_dir_names(name)
     cluster.addNode(name,
                     node_ips[2],
                     clientPort = node_client_base_port + 2,
@@ -45,10 +47,10 @@ def test_learner():
     cluster.createDirs(name)
     cluster.startOne(name)
     
-    assert_running_nodes(3)
+    Common.assert_running_nodes(3)
     time.sleep(op_count / 1000 + 1 ) # 1000/s in catchup should be no problem
     #use a client ??"
-    stop_all()
+    Common.stop_all()
     i2 = int(get_last_i_tlog(name))
     assert_true(i2 >= op_count - 1)
 
