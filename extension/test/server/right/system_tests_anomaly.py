@@ -493,11 +493,11 @@ def test_block_master_ports () :
         
         return new_master_id
     
-    cli = get_client()
+    cli = Common.get_client()
     old_master_id = cli.whoMaster()
 
-    master_ports = get_node_ports( old_master_id )
-    cluster = q.manage.arakoon.getCluster(cluster_id)
+    master_ports = Common.get_node_ports( old_master_id )
+    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
     master_client_port = cluster.getNodeConfig(old_master_id ) ["client_port"]
     master_ports.remove( master_client_port )
     block_rules = list()
