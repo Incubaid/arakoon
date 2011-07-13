@@ -215,7 +215,7 @@ def disk_full_scenario( node_id, cli ):
                       'Node with full disk is still running') 
     time.sleep( 2* Common.lease_duration )
     
-    cli2 = get_client()
+    cli2 = Common.get_client()
     cli2.whoMaster()
     cli2._dropConnections()
    
@@ -353,7 +353,7 @@ def test_block_single_slave_ports_loop () :
     Common.create_and_wait_for_thread_list( [write_loop, block_loop] )
     
     # Make sure the slave is notified of running behind
-    cli = get_client()
+    cli = Common.get_client()
     cli.set( 'key', 'value')
     
     # Give the slave some time to catchup
@@ -496,7 +496,7 @@ def test_block_master_ports () :
     cli = Common.get_client()
     old_master_id = cli.whoMaster()
 
-    master_ports = Common.get_node_ports( old_master_id )
+    master_ports = get_node_ports( old_master_id )
     cluster = q.manage.arakoon.getCluster(Common.cluster_id)
     master_client_port = cluster.getNodeConfig(old_master_id ) ["client_port"]
     master_ports.remove( master_client_port )
