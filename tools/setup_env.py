@@ -1,8 +1,11 @@
+import functools
 import subprocess
 import os
 import string
 
 from optparse import OptionParser
+
+OLD_CWD = os.getcwd()
 
 parser = OptionParser()
 parser.add_option("-r", "--root", dest="root", default="../ROOT",
@@ -48,11 +51,12 @@ class Lib:
     def download(self):
         fn = '%s/%s' % (ROOT, self._archive)
         sh(['wget', '-O', fn, self._url])
+
     def extract(self):
         flags = extract_flags[self._extension]
         sh(['tar', flags, self._archive], cwd = ROOT)
 
-    def sh(self,cmd):
+    def sh(self, cmd):
         d = '%s/%s' % (ROOT, self._name)
         sh(cmd, cwd = d, env = env)
 
@@ -206,10 +210,11 @@ def install_libev():
 
 def install_client():
     env['LIBRARY_PATH'] = os.path.join(PREFIX, "lib")
-    sh(["ocamlbuild", "-use-ocamlfind", " arakoon_client.cma", "arakoon_client.cmxa", "arakoon_client.a"])
+    client_sh = functools.partial(sh, cwd=OLD_CWD, env=env)
+    client_sh(["ocamlbuild", "-use-ocamlfind", "arakoon_client.cma", "arakoon_client.cmxa", "arakoon_client.a"])
     env['OCAML_LIBDIR'] = os.path.join(PREFIX, "lib", "ocaml", "site-lib")
-    sh(["make", "uninstall_client"])
-    sh(["make", "install_client"])
+    client_sh(["make", "uninstall_client"])
+    client_sh(["make", "install_client"])
 
 def do_it():
     mr_proper()
