@@ -23,10 +23,13 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as Common
 from ..system_tests_common import q
+from .. import system_tests_common
+
+from arakoon.ArakoonExceptions import *
 
 from nose.plugins.skip import Skip, SkipTest
 import nose.tools as NT
-from .. import system_tests_common
+
 import logging
 import time
 
@@ -230,7 +233,7 @@ def disk_full_scenario( node_id, cli ):
     
     Common.stop_all()
     Common.assert_last_i_in_sync ( node_id, node_2 )
-    compare_stores( node_id, node_2 )
+    Common.compare_stores( node_id, node_2 )
     Common.start_all()
     
     Common.iterate_n_times( 500, set_get_and_delete , 100000 )
