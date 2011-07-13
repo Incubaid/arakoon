@@ -36,7 +36,7 @@ import time
 from pymonkey import q
 import arakoon_monkey_config as MConfig
 from arakoon_system_tests.server import system_tests_common as C
-
+from arakoon.ArakoonProtocol import ArakoonProtocol
 MEM_MAX_KB = 1024 * 128
 monkey_dies = False
 
@@ -200,7 +200,7 @@ def health_check() :
     logging.info( "Starting health check" )
  
     cli = C.get_client() 
-    encodedPing = arakoon.ArakoonProtocol.ArakoonProtocol.encodePing( "me", C.cluster_id )
+    encodedPing = ArakoonProtocol.encodePing( "me", C.cluster_id )
     
     global monkey_dies
     
