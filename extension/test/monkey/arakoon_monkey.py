@@ -211,7 +211,7 @@ def health_check() :
     C.assert_running_nodes( 3 )
     
     # Do a ping to all nodes
-    for node in node_names :
+    for node in C.node_names :
         try :
             con = cli._sendMessage( node, encodedPing )
             reply = con.decodeStringResult()

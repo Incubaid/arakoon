@@ -26,7 +26,7 @@ from ..system_tests_common import q
 from .. import system_tests_common
 
 from arakoon.ArakoonExceptions import *
-
+import arakoon
 from nose.plugins.skip import Skip, SkipTest
 import nose.tools as NT
 
@@ -472,13 +472,14 @@ def test_block_master_ports () :
     def validate_reelection( old_master_id) :
         
         # Leave some time for re-election
-        time.sleep( 1.5 * lease_duration )
+        time.sleep( 1.5 * Common.lease_duration )
     
         cli_cfg_no_master = dict ( cli._config.getNodes() )
         # Kick out old master out of config, he is unaware of who is master
         cli_cfg_no_master.pop(old_master_id) 
         new_cli = arakoon.Arakoon.ArakoonClient(
-            arakoon.Arakoon.ArakoonClientConfig(cluster_id, cli_cfg_no_master) )
+            arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id, 
+                                                cli_cfg_no_master) )
         
         new_master_id = new_cli.whoMaster()
             
@@ -490,7 +491,8 @@ def test_block_master_ports () :
             if key == old_master_id :
                 cli_cfg_only_master [ key ] = cli._config.getNodeLocation( key  )
         new_cli = arakoon.Arakoon.ArakoonClient(
-            arakoon.Arakoon.ArakoonClientConfig(cluster_id, cli_cfg_only_master ) )
+            arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id, 
+                                                cli_cfg_only_master ) )
         NT.assert_raises( ArakoonNoMaster, new_cli.whoMaster )
         new_cli._dropConnections()
         
@@ -516,6 +518,6 @@ def test_block_master_ports () :
     flush_all_rules()
     
     cli._masterId = None
-    set_get_and_delete( cli, "k1", "v1")
+    Common.set_get_and_delete( cli, "k1", "v1")
     cli._dropConnections()
     
