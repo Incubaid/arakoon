@@ -21,10 +21,13 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from system_tests_common import *
+from .. import system_tests_common as Common
+from ..system_tests_common import q
+
 from nose.plugins.skip import Skip, SkipTest
 import system_tests_common
 import logging
+import time
 
 if __name__ == '__main__' :
     from pymonkey import InitBase
@@ -32,11 +35,11 @@ if __name__ == '__main__' :
     
 def mount_ram_fs ( node_index ) :
     
-    (mount_target,log_dir) = build_node_dir_names( node_names[node_index] )
-    
-    if q.system.fs.exists( mount_target ) :
+    (mount_target,log_dir) = Common.build_node_dir_names( Common.node_names[node_index] )
+    fs = q.system.fs
+    if fs.exists( mount_target ) :
         try:
-            stopOne( node_names[node_index] )
+            Common.stopOne( node_names[node_index] )
         except:
             pass
         try :
@@ -44,14 +47,12 @@ def mount_ram_fs ( node_index ) :
             run_cmd ( cmd )
         except :
             pass
-        q.system.fs.removeDirTree( mount_target )
+        fs.removeDirTree( mount_target )
     
-    q.system.fs.createDir ( mount_target )
+    fs.createDir ( mount_target )
     
-    if not q.system.fs.isDir( mount_target ) :
+    if not fs.isDir( mount_target ) :
         raise Exception( "%s is not valid mount target as it is not a directory")
-    
-    
     try :
         cmd = "mke2fs -q -m 0 /dev/ram%d" % (node_index)
         run_cmd ( cmd )
@@ -61,18 +62,17 @@ def mount_ram_fs ( node_index ) :
         
     except Exception, ex :
         logging.error( "Caught exception: %s" , ex )
-        stopOne( node_names[node_index] )
+        Common.stopOne( node_names[node_index] )
         destroy_ram_fs ( node_index )
     
     
 def setup_3_nodes_ram_fs ( home_dir ):
-    
     cfg_list = q.config.list()
-    global cluster_id
-    cluster = q.manage.arakoon.getCluster(cluster_id)
+
+    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
     cluster.remove()
     
-    cluster = q.manage.arakoon.getCluster(cluster_id)    
+    cluster = q.manage.arakoon.getCluster(Common.cluster_id)    
     
     logging.info( "Creating data base dir %s" % home_dir )
     
@@ -82,16 +82,16 @@ def setup_3_nodes_ram_fs ( home_dir ):
         for i in range( len(node_names) ):
             mount_ram_fs ( i )
             nodeName = node_names[i]
-            (db_dir,log_dir) = build_node_dir_names( node_names[ i ] )
-
+            (db_dir,log_dir) = Common.build_node_dir_names( Common.node_names[ i ] )
+            nn = Common.node_names[i]
             cluster.addNode (
-                node_names[i], node_ips[i], 
-                clientPort=node_client_base_port + i,
-                messagingPort=node_msg_base_port + i, 
+                nn, Common.node_ips[i], 
+                clientPort = Common.node_client_base_port + i,
+                messagingPort = Common.node_msg_base_port + i, 
                 logDir = log_dir,
                 home = db_dir)
-            cluster.addLocalNode (node_names[i] )
-            cluster.createDirs(node_names[i] )
+            cluster.addLocalNode(nn)
+            cluster.createDirs(nn)
 
     except Exception as ex:
         teardown_ram_fs( True )
@@ -102,18 +102,18 @@ def setup_3_nodes_ram_fs ( home_dir ):
     cluster.setMasterLease(int(lease_duration))
 
     logging.info( "Creating client config" )
-    regenerateClientConfig()
+    Common.regenerateClientConfig()
             
-    start_all()
+    Common.start_all()
 
 def teardown_ram_fs ( removeDirs ):
 
     logging.info( "Tearing down" )
-    stop_all()
+    Common.stop_all()
     
     # Copy over log files
     if not removeDirs:
-        destination = q.dirs.tmpDir + system_tests_common.data_base_dir [1:]
+        destination = q.dirs.tmpDir + Common.data_base_dir [1:]
         if q.system.fs.exists( destination ):
             q.system.fs.removeDirTree( destination )
         q.system.fs.createDir(destination)
@@ -172,11 +172,12 @@ def block_tcp_port ( tcp_port ):
         
     apply_iptables_rules( current_rules ) 
     
-@with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )    
+@Common.with_custom_setup(Common.setup_3_nodes_ram_fs, 
+                          Common.teardown_ram_fs )    
 def test_disk_full_on_slave ():
-    cli = get_client()
+    cli = Common.get_client()
     master_id = cli.whoMaster()
-    slave_id = node_names[0]
+    slave_id = Common.node_names[0]
     if slave_id == master_id:
         slave_id = node_names[1]
 
@@ -186,8 +187,7 @@ def test_disk_full_on_slave ():
     
     
 def disk_full_scenario( node_id, cli ):
-    global cluster_id
-    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
     node_home = cluster.getNodeConfig(node_id ) ['home']
     
     disk_filling = q.system.fs.joinPaths( node_home , "filling")
