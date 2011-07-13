@@ -59,6 +59,8 @@ from ..system_tests_common import q
 from ..system_tests_common import tlog_entries_per_tlog
 from ..system_tests_common import retrying_set_get_and_delete
 from ..system_tests_common import delayed_master_restart_loop
+from ..system_tests_common import get_entries_per_tlog
+
 from arakoon.ArakoonExceptions import *
 import arakoon
 import logging
@@ -406,12 +408,18 @@ def test_disable_tlog_compression():
     clu.restart()
     time.sleep(1.0)
     
-    iterate_n_times( 2*100000, simple_set )
+    tlog_size = get_entries_per_tlog() 
     
+    num_tlogs = 2
+    test_size = num_tlogs*tlog_size
+    iterate_n_times(test_size, simple_set )
+    
+    logging.info("Tlog_size: %d", tlog_size)
     node_id = node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
     ls = q.system.fs.listFilesInDir
+    time.sleep(2.0)
     tlogs = ls( node_home_dir, filter="*.tlog" )
-    
-    assert_equals(len(tlogs), 3, "Wrong number of uncompressed tlogs (%d != %d)" % (3, len(tlogs))) 
+    expected = num_tlogs + 1 
+    assert_equals(len(tlogs), expected, "Wrong number of uncompressed tlogs (%d != %d)" % (expected, len(tlogs))) 
  
