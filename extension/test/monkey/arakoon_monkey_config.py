@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from arakoon.ArakoonExceptions import *
-from ..server import system_tests_common
+from arakoon_system_tests.server import system_tests_common as C
 #from right.system_tests_anomaly import *
 #from quick.system_tests_basic import *
 
@@ -35,10 +35,10 @@ def dummy():
     pass 
 
 monkey_catalogue = [
-    ( set_get_and_delete, True ) ,
-    ( prefix_scenario, False ) ,
-    ( range_scenario, False ) ,
-    ( range_entries_scenario, False ) ,
+    ( C.set_get_and_delete, True ) ,
+    ( C.prefix_scenario, False ) ,
+    ( C.range_scenario, False ) ,
+    ( C.range_entries_scenario, False ) ,
     #( tes_and_set_scenario, False )
     ]
 

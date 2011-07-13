@@ -22,20 +22,20 @@ If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 
-
 from pymonkey import InitBase
 
 import copy
 import re
 import logging
 import random
-import sys
 import smtplib
 import traceback
+import threading
+import time
 
 from pymonkey import q
-from arakoon_monkey_config import *
-
+import arakoon_monkey_config as MConfig
+from arakoon_system_tests.server import system_tests_common as C
 
 MEM_MAX_KB = 1024 * 128
 monkey_dies = False
@@ -59,49 +59,50 @@ def generate_work_list( iter_cnt ):
     global disruptive_f 
     log = get_work_list_log_write( iter_cnt )
     
-    admin_f = random.choice( monkey_disruptions_catalogue )
+    admin_f = random.choice( MConfig.monkey_disruptions_catalogue )
     disruption = "%s\n" %  admin_f[0].func_name
     logging.info( "Disruption for this iteration is: %s" % disruption.strip() )
     log.write ( disruption )
     disruptive_f = admin_f[0] 
     
-    work_list_size = random.randint( 2, AM_WORK_LIST_MAX_ITEMS)
+    work_list_size = random.randint( 2, MConfig.AM_WORK_LIST_MAX_ITEMS)
     
     f_list = []
     
     for i in range(work_list_size):
-        cat_entry =  random.choice( monkey_catalogue )
+        cat_entry =  random.choice( MConfig.monkey_catalogue )
         fun = cat_entry[0] 
-        
+        iops = i * MConfig.AM_MAX_WORKITEM_OPS
         if ( cat_entry [1] == True ) :
-            random_n = random.randint( 100, AM_MAX_WORKITEM_OPS )
-            work_item = "%s %d %d\n" % (fun.func_name, random_n, i*AM_MAX_WORKITEM_OPS )
+            random_n = random.randint( 100, MConfig.AM_MAX_WORKITEM_OPS )
+            work_item = "%s %d %d\n" % (fun.func_name, random_n, iops)
             logging.info( "Adding work item: %s" % work_item.strip() )
             log.write( work_item )
-            tmp_f = generate_lambda( iterate_n_times, random_n, fun, i*AM_MAX_WORKITEM_OPS )
+            tmp_f = C.generate_lambda( C.iterate_n_times, random_n, fun, iops )
          
         else :
-            work_item = "%s %d\n" % (fun.func_name, i*AM_MAX_WORKITEM_OPS)
+            work_item = "%s %d\n" % (fun.func_name, 
+                                     iops)
             log.write ( work_item )
             logging.info( "Adding work item: %s" % work_item.strip())
-            tmp_f = generate_lambda( fun, i*AM_MAX_WORKITEM_OPS)
+            tmp_f = C.generate_lambda( fun, iops)
         
-        f_list.append( generate_lambda( wrapper, tmp_f ) )
+        f_list.append( C.generate_lambda( wrapper, tmp_f ) )
     log.close()
     return (disruptive_f, f_list ) 
 
 def build_function_dict() :
     ret_val = dict()
-    for item in monkey_catalogue:
+    for item in MConfig.monkey_catalogue:
         ret_val[ item[0].func_name ] = item
         
-    for item in monkey_disruptions_catalogue:
+    for item in MConfig.monkey_disruptions_catalogue:
         ret_val[ item[0].func_name ] = item
 
     return ret_val
 
 f_dict = build_function_dict()
-disruptive_f = dummy 
+disruptive_f = MConfig.dummy 
 
 def wrapper( f ):
     try:
@@ -269,7 +270,7 @@ def memory_monitor():
     global monkey_dies
     
     while monkey_dies == False :
-        for name in node_names:
+        for name in C.node_names:
             used = get_memory_usage( name )
             
             if used > MEM_MAX_KB:
@@ -284,22 +285,22 @@ def make_monkey_run() :
   
     global monkey_dies
     
-    system_tests_common.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
+    C.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
     
     t = threading.Thread( target=memory_monitor)
     t.start()
     
-    stop_all()
-    cluster = q.manage.arakoon.getCluster(cluster_id)
+    C.stop_all()
+    cluster = q.manage.arakoon.getCluster(C.cluster_id)
     cluster.tearDown() 
     #setup_3_nodes_forced_master()
-    setup_3_nodes( system_tests_common.data_base_dir )
+    C.setup_3_nodes( C.data_base_dir )
     monkey_dir = get_monkey_work_dir()
     if q.system.fs.exists( monkey_dir ) :
         q.system.fs.removeDirTree( monkey_dir )
     q.system.fs.createDir( monkey_dir )
     iteration = 0 
-    start_all()
+    C.start_all()
     time.sleep( 1.0 )
     while( True ) :
         iteration += 1
@@ -308,7 +309,7 @@ def make_monkey_run() :
         try:
             (disruption, f_list) = generate_work_list( iteration )
             logging.info( "Starting iteration %d" % iteration )
-            thr_list = create_and_start_thread_list( f_list )
+            thr_list = C.create_and_start_thread_list( f_list )
             
             disruption ()
             
@@ -449,10 +450,11 @@ def euthanize_this_monkey() :
         escalate_dying_monkey()
     except Exception, ex:
         logging.fatal( "Could not escalate dead monkey => %s: '%s'" % (ex.__class__.__name__, ex) )
-    stop_all()
+    C.stop_all()
     sys.exit( 255 )
     
 if __name__ == "__main__" :
+    print sys.path
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
