@@ -900,3 +900,41 @@ def prefix_scenario( start_suffix ):
     assert_key_list ( start_suffix + 90, 7, key_list)
     
     client._dropConnections ()
+
+def range_scenario ( start_suffix ):
+
+    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
+    
+    client = get_client()
+    
+    start_key = key_format_str % (start_suffix )
+    end_key = key_format_str % (start_suffix + 100 )
+    test_key = key_format_str % (start_suffix + 25)
+    test_key_2 = key_format_str % (start_suffix + 50)
+    
+    key_list = client.range( test_key , True, end_key , False )
+    assert_key_list ( start_suffix+25, 75, key_list )
+    
+    key_list = client.range( test_key , False, end_key , False )
+    assert_key_list ( start_suffix+26, 74, key_list )
+    
+    key_list = client.range( test_key, True, end_key , False, 10 )
+    assert_key_list ( start_suffix+25, 10, key_list )
+    
+    key_list = client.range( start_key, True, test_key , False )
+    assert_key_list ( start_suffix, 25, key_list)
+    
+    key_list = client.range( start_key, True, test_key , True )
+    assert_key_list ( start_suffix, 26, key_list)
+    
+    key_list = client.range( start_key, True, test_key , False, 10 )
+    assert_key_list ( start_suffix, 10, key_list )
+    
+    key_list = client.range( test_key, True, test_key_2 , False )
+    assert_key_list ( start_suffix+25, 25, key_list )
+    
+    key_list = client.range( test_key, False, test_key_2 , True )
+    assert_key_list ( start_suffix+26, 25, key_list )
+    
+    key_list = client.range( test_key, True, test_key_2 , False, 10 )
+    assert_key_list ( start_suffix+25, 10, key_list )
