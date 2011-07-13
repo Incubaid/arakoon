@@ -884,3 +884,19 @@ def get_entries_per_tlog():
     (exit,stdout,stderr) = q.system.process.run(cmd)
     assert_equals( exit, 0 )
     return int(stdout.split('\n')[-2].split(':')[1])
+
+def prefix_scenario( start_suffix ):
+    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
+    
+    test_key_pref = key_format_str  % ( start_suffix + 90 ) 
+    test_key_pref = test_key_pref [:-1]
+    
+    client = get_client()
+    
+    key_list = client.prefix( test_key_pref )
+    assert_key_list ( start_suffix + 90, 10, key_list)
+    
+    key_list = client.prefix( test_key_pref, 7 )
+    assert_key_list ( start_suffix + 90, 7, key_list)
+    
+    client._dropConnections ()

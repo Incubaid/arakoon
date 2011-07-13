@@ -46,6 +46,7 @@ from ..system_tests_common import assert_key_list
 from ..system_tests_common import stop_all
 from ..system_tests_common import getRandomString
 from ..system_tests_common import startOne
+from ..system_tests_common import prefix_scenario
 from arakoon.ArakoonExceptions import *
 import arakoon
 import time
@@ -185,21 +186,6 @@ def range_entries_scenario( start_suffix ):
     key_value_list = client.range_entries( test_key, True, test_key_2 , False, 10 )
     assert_key_value_list ( start_suffix + 25, 10, key_value_list )
     
-def prefix_scenario( start_suffix ):
-    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
-    
-    test_key_pref = key_format_str  % ( start_suffix + 90 ) 
-    test_key_pref = test_key_pref [:-1]
-    
-    client = get_client()
-    
-    key_list = client.prefix( test_key_pref )
-    assert_key_list ( start_suffix + 90, 10, key_list)
-    
-    key_list = client.prefix( test_key_pref, 7 )
-    assert_key_list ( start_suffix + 90, 7, key_list)
-    
-    client._dropConnections ()
 
 
 @with_custom_setup(default_setup, basic_teardown)
