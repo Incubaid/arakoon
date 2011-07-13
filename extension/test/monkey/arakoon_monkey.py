@@ -164,9 +164,9 @@ def wait_for_it () :
     global monkey_dies
     if not monkey_dies:
         logging.info( "Work is done. Waiting for nodes to get in sync." )
-        i0 = int( get_last_i_tlog ( node_names[0] ))
-        i1 = int( get_last_i_tlog ( node_names[1] ))
-        i2 = int( get_last_i_tlog ( node_names[2] ))
+        i0 = int( C.get_last_i_tlog ( C.node_names[0] ))
+        i1 = int( C.get_last_i_tlog ( C.node_names[1] ))
+        i2 = int( C.get_last_i_tlog ( C.node_names[2] ))
         all_i = [i0, i1, i2]
         i_max = max(all_i)
         i_min = min(all_i)
@@ -176,9 +176,9 @@ def wait_for_it () :
         while go_on:
             previous = to_do
             time.sleep(10.0)
-            i0 = int( get_last_i_tlog ( node_names[0] ))# This can be slow.
-            i1 = int( get_last_i_tlog ( node_names[1] ))#
-            i2 = int( get_last_i_tlog ( node_names[2] ))#
+            i0 = int( C.get_last_i_tlog ( node_names[0] ))# This can be slow.
+            i1 = int( C.get_last_i_tlog ( node_names[1] ))#
+            i2 = int( C.get_last_i_tlog ( node_names[2] ))#
             all_i = [i0,i1, i2]
             i_max = max(all_i)
             i_min = min(all_i)
@@ -193,7 +193,7 @@ def wait_for_it () :
                 monkey_dies = True
                 go_on = False
             else:
-                assert_running_nodes(3)
+                C.assert_running_nodes(3)
 
 def health_check() :
 
