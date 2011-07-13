@@ -22,7 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 
-sys.path.append( '../server' )
 
 from pymonkey import InitBase
 
@@ -36,7 +35,7 @@ import traceback
 
 from pymonkey import q
 from arakoon_monkey_config import *
-from system_tests_common import *
+
 
 MEM_MAX_KB = 1024 * 128
 monkey_dies = False
