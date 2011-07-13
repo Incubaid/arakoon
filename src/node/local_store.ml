@@ -457,6 +457,8 @@ object(self: #store)
     end in 
     Lwt_log.debug "local_store :: reopen() " >>= fun () ->
     Hotc.reopen db f mode >>= fun () ->
+    Hotc.transaction db _consensus_i >>= fun store_i ->
+    _store_i <- store_i ;
     Lwt.return ()
 
   method set_range range = 
