@@ -209,12 +209,25 @@ def install_libev():
     lib.sh(['make', 'install'])
 
 def install_client():
-    env['LIBRARY_PATH'] = os.path.join(PREFIX, "lib")
     client_sh = functools.partial(sh, cwd=OLD_CWD, env=env)
     client_sh(["ocamlbuild", "-use-ocamlfind", "arakoon_client.cma", "arakoon_client.cmxa", "arakoon_client.a"])
-    env['OCAML_LIBDIR'] = os.path.join(PREFIX, "lib", "ocaml", "site-lib")
-    client_sh(["make", "uninstall_client"])
-    client_sh(["make", "install_client"])
+    client_sh(["ocamlfind", "remove", "arakoon_client"])
+    client_sh(["ocamlfind", "install", "arakoon_client",
+        "META",
+        "_build/src/arakoon_client.cma",
+        "_build/src/arakoon_client.cmxa",
+        "_build/src/client/arakoon_exc.mli",
+        "_build/src/client/arakoon_exc.cmi",
+        "_build/src/client/arakoon_client.mli",
+        "_build/src/client/arakoon_client.cmi",
+        "_build/src/client/arakoon_remote_client.mli",
+        "_build/src/client/arakoon_remote_client.cmi",
+        "_build/src/plugins/registry.mli",
+        "_build/src/plugins/registry.cmi",
+        "_build/src/tools/llio.mli",
+        "_build/src/tools/llio.cmi",
+        "_build/src/arakoon_client.a"
+        ])
 
 def do_it():
     mr_proper()
