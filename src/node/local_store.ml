@@ -296,10 +296,7 @@ object(self: #store)
     
   method unquiesce () =
     _quiesced <- false; 
-    self # reopen (fun () -> Lwt.return ()) >>= fun () ->
-    Hotc.transaction db _consensus_i >>= fun store_i ->
-    _store_i <- store_i;
-    Lwt.return ()
+    self # reopen (fun () -> Lwt.return ()) 
   
   method quiesced () = _quiesced
      
