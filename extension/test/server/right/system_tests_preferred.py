@@ -20,32 +20,34 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from system_tests_common import *
+from .. import system_tests_common as Common
+import nose.tools as NT
+import time
 import logging
 
-@with_custom_setup(setup_3_nodes, basic_teardown)
+@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_prefered_master():
     cluster = q.manage.arakoon.getCluster(cluster_id)
     cluster.stop()
-    pm = node_names[0]
+    pm = Common.node_names[0]
     cluster.forceMaster(pm,preferred=True)
     cluster.start()
-    assert_running_nodes(3)
+    Common.assert_running_nodes(3)
     time.sleep(4.0 * lease_duration)
     logging.info("all should be well")
-    client = get_client()
+    client = Common.get_client()
     master = client.whoMaster()
-    assert_equals(pm, master)
+    NT.assert_equals(pm, master)
     cluster.stopOne(pm)
     time.sleep(8.0 * lease_duration)
-    client = get_client()
+    client = Common.get_client()
     master2 = client.whoMaster()
     logging.info("master2 = %s",master2)
-    assert_equals(True, master2 != pm)
+    NT.assert_equals(True, master2 != pm)
     cluster.startOne(pm)
     time.sleep(4.0* lease_duration)
-    client = get_client()
+    client = Common.get_client()
     master3 = client.whoMaster()
     logging.info("master3 = %s", master3)
-    assert_equals(master3,pm)
+    NT.assert_equals(master3,pm)
     

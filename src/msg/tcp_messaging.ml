@@ -264,7 +264,7 @@ object(self : # messaging )
     else
       Lwt_log.debug_f "XXX first connection with (%S,%i)" host port
 
-  method run ?(up_and_running=no_callback)  () =
+  method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback)  () =
     Lwt_log.info_f "tcp_messaging %s: run" me >>= fun () ->
     let _check_mv magic version = 
 	if magic = _MAGIC && version = _VERSION then Lwt.return () 
@@ -285,22 +285,20 @@ object(self : # messaging )
       Llio.input_int ic    >>= fun port ->
       self # _maybe_insert_connection (ip,port) >>= fun () ->
       begin
-	let msg_buffer = ref (String.create 4096) in
-	let rec loop () =
+	let rec loop b0 =
 	  begin
 	    Llio.input_int ic >>= fun msg_size ->
-	    let () = 
-	      if msg_size > String.length (!msg_buffer) 
-	      then msg_buffer := String.create msg_size
-	      else ()
+	    let b1 = 
+	      if msg_size > String.length b0
+	      then String.create msg_size
+	      else b0
 	    in
-	    let buf_s = !msg_buffer in
-	    Lwt_io.read_into_exactly ic buf_s 0 msg_size >>= fun () ->
-	    let (source:id), pos1 = Llio.string_from buf_s 0 in
-	    let target, pos2 = Llio.string_from buf_s pos1 in
-	    let msg, _   = Message.from_buffer buf_s pos2 in
+	    Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
+	    let (source:id), pos1 = Llio.string_from b1 0 in
+	    let target, pos2 = Llio.string_from b1 pos1 in
+	    let msg, _   = Message.from_buffer b1 pos2 in
 	    (*Lwt_log.debug_f "message from %s for %s" source target >>= fun () ->*)
-	    if drop_it msg source target then loop () 
+	    if drop_it msg source target then loop b1
 	    else
 	      begin
 		begin
@@ -311,12 +309,12 @@ object(self : # messaging )
 		end >>= fun () ->
 		let q = self # get_buffer target in
 		Lwt_buffer.add (msg, source) q >>=  fun () ->
-		loop ()
+		loop b1
 	      end
 	  end
 	in
 	catch
-	  (fun () -> loop ())
+	  (fun () -> loop (String.create 1024))
 	  (fun exn ->
 	    Lwt_log.info ~exn "going to drop outgoing connection as well" >>= fun () ->
 	    let address = (ip,port) in
@@ -326,7 +324,8 @@ object(self : # messaging )
       end
     in
     let server_t = Server.make_server_thread 
-      ~setup_callback:up_and_running
+      ~setup_callback
+      ~teardown_callback
       my_host my_port protocol
     in
     _running <- true;
