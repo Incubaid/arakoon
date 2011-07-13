@@ -236,7 +236,7 @@ def disk_full_scenario( node_id, cli ):
     Common.compare_stores( node_id, node_2 )
     Common.start_all()
     
-    Common.iterate_n_times( 500, set_get_and_delete , 100000 )
+    Common.iterate_n_times( 500, Common.set_get_and_delete , 100000 )
     key_list = cli.prefix( "key_", 500 )
     Common.assert_key_list( 0, 500, key_list )
     
@@ -411,14 +411,14 @@ def test_block_two_slaves_ports () :
     
     NT.assert_raises( ArakoonException, cli.set, "k", "v" )
     
-    time.sleep( lease_duration  )
+    time.sleep( Common.lease_duration  )
     cli._masterId = None
     NT.assert_raises( ArakoonNoMaster, cli.whoMaster )
     
     unblock_node_ports( slave_1_id )
     unblock_node_ports( slave_2_id )
     
-    iterate_n_times( 1000, set_get_and_delete, 20000 )
+    iterate_n_times( 1000, Common.set_get_and_delete, 20000 )
     
 
 @Common.with_custom_setup(Common.default_setup, 
