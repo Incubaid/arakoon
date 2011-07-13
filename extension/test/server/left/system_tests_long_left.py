@@ -35,6 +35,9 @@ from ..system_tests_common import catchupOnly
 from ..system_tests_common import start_all
 from ..system_tests_common import stop_all
 from ..system_tests_common import whipe
+from ..system_tests_common import lease_duration
+from ..system_tests_common import compare_stores
+
 from nose.tools import *
 
 import time
@@ -143,14 +146,12 @@ def test_catchup_exercises():
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_only():
     iterate_n_times(123000,simple_set)
+    n0 = node_names[0]
     n1 = node_names[1]
     stopOne(n1)
     whipe(n1)
     logging.info("catchup-only")
     catchupOnly(n1)
     logging.info("done with catchup-only")
-    startOne(n1)
-    cli = get_client()
-    time.sleep(1.0)
-    up2date = cli.expectProgressPossible()
-    assert_true(up2date)
+    stopOne(n0)
+    compare_stores(n1,n0)

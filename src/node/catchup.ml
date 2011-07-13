@@ -235,6 +235,4 @@ let get_db db_name cluster_id cfgs =
           )
     end
   in
-  Lwt_list.fold_left_s try_db_download None cfgs >>= function
-    | None -> Lwt.fail (Failure "Aborting... Could not perform db hot copy from any of the nodes")
-    | Some n ->  Lwt.return (Some n)
+  Lwt_list.fold_left_s try_db_download None cfgs 
