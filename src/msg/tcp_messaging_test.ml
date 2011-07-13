@@ -118,15 +118,21 @@ let test_pingpong_1x1 () =
   let () = transport # register_receivers mapping in
   let player_a = new player "a" transport in
   let cvar = Lwt_condition.create () in
-  let up_and_running () = Lwt_condition.broadcast cvar (); Lwt.return () in
-  Lwt_main.run (Lwt.pick [ transport # run ~up_and_running (); 
-			   begin 
-			     Lwt_condition.wait cvar >>= fun () ->
-			     Lwt_log.debug "going to serve" >>= fun () ->
+  let td = Lwt_mvar.create_empty () in
+  let setup_callback () = Lwt_condition.broadcast cvar (); Lwt.return () in
+  let teardown_callback () = Lwt_mvar.put td () in
+  let main_t () = 
+    Lwt.pick [ transport # run ~setup_callback ~teardown_callback (); 
+	       begin 
+		 Lwt_condition.wait cvar >>= fun () ->
+		 Lwt_log.debug "going to serve" >>= fun () ->
 			     player_a # serve "a"
-			   end;
-			   eventually_die ()
-			 ])
+	       end;
+	       eventually_die ()
+	     ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
+    Lwt_log.info "end of scenario"
+  in
+  Lwt_main.run (main_t());;
     
 let test_pingpong_2x2 () = 
   let port_a = 40010 
@@ -136,18 +142,28 @@ let test_pingpong_2x2 () =
   in
   let transport_a = make_transport address_a in
   let transport_b = make_transport address_b in
+  let m_tda = Lwt_mvar.create_empty () in 
+  let m_tdb = Lwt_mvar.create_empty () in
+  let tda () = Lwt_mvar.put m_tda () in
+  let tdb () = Lwt_mvar.put m_tdb () in
   let mapping = [("a", address_a);
 		 ("b", address_b);] in
   let () = transport_a # register_receivers mapping in
   let () = transport_b # register_receivers mapping in
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
-  Lwt_main.run (Lwt.pick [ transport_a # run ();
-			   transport_b # run ();
-			   player_a # serve "b";
-			   player_b # run 0 ();
-			   eventually_die ()
-			 ])
+  let main_t () = 
+    Lwt.pick [ transport_a # run ~teardown_callback:tda ();
+	       transport_b # run ~teardown_callback:tdb ();
+	       player_a # serve "b";
+	       player_b # run 0 ();
+	       eventually_die ()
+	     ] >>= fun () ->
+    Lwt_mvar.take m_tda >>= fun () ->
+    Lwt_mvar.take m_tdb >>= fun () ->
+    Lwt_log.info "end of scenario"
+  in
+  Lwt_main.run (main_t())
     
 let test_pingpong_multi_server () =
   let port_a = 40010
@@ -169,16 +185,29 @@ let test_pingpong_multi_server () =
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
   let player_c = new player "c" transport_c in
+  let m_tda = Lwt_mvar.create_empty () in 
+  let m_tdb = Lwt_mvar.create_empty () in
+  let m_tdc = Lwt_mvar.create_empty () in
+  let tda () = Lwt_mvar.put m_tda () in
+  let tdb () = Lwt_mvar.put m_tdb () in
+  let tdc () = Lwt_mvar.put m_tdc () in
   let timeout = 60.0 in 
-  Lwt_main.run (Lwt.pick [ transport_a # run ();
-                           transport_b # run ();
-                           transport_c # run ();
-                           player_a # multi_serve 10000 ["b"; "c" ] ;
-                           player_b # run 0 ();
-                           player_c # play_dead ();
-                           eventually_die ~t:timeout () 
-                         ])
-
+  let main_t () =
+    Lwt.pick [ transport_a # run ~teardown_callback:tda();
+               transport_b # run ~teardown_callback:tdb();
+               transport_c # run ~teardown_callback:tdc();
+               player_a # multi_serve 10000 ["b"; "c" ] ;
+               player_b # run 0 ();
+               player_c # play_dead ();
+               eventually_die ~t:timeout () 
+             ]
+    >>= fun () ->
+    Lwt_mvar.take m_tda >>= fun () ->
+    Lwt_mvar.take m_tdb >>= fun () ->
+    Lwt_mvar.take m_tdc >>= fun () ->
+    Lwt_log.info "end of scenario"
+  in
+  Lwt_main.run (main_t());;
 
 
 let test_pingpong_restart () = 
