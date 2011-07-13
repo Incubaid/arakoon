@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from arakoon.ArakoonExceptions import *
-from ..server.system_tests_common import *
+from ..server import system_tests_common
 #from right.system_tests_anomaly import *
 #from quick.system_tests_basic import *
 
