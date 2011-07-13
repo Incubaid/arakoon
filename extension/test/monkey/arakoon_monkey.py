@@ -199,8 +199,8 @@ def health_check() :
 
     logging.info( "Starting health check" )
  
-    cli = get_client() 
-    encodedPing = arakoon.ArakoonProtocol.ArakoonProtocol.encodePing( "me", cluster_id )
+    cli = C.get_client() 
+    encodedPing = arakoon.ArakoonProtocol.ArakoonProtocol.encodePing( "me", C.cluster_id )
     
     global monkey_dies
     
@@ -208,7 +208,7 @@ def health_check() :
         return
     
     # Make sure all processes are running
-    assert_running_nodes( 3 )
+    C.assert_running_nodes( 3 )
     
     # Do a ping to all nodes
     for node in node_names :
@@ -228,21 +228,21 @@ def health_check() :
     
     # Perform a basic set get and delete to see the cluster can make progress
     cli.set( key, value )
-    assert_equals( cli.get( key ), value )
+    NT.assert_equals( cli.get( key ), value )
     cli.delete( key )
-    assert_raises( ArakoonNotFound, cli.get, key ) 
+    NT.assert_raises( ArakoonNotFound, cli.get, key ) 
     
     # Give the nodes some time to sync up
     time.sleep(2.0)
-    stop_all()
+    C.stop_all()
     
     # Make sure the tlogs are in sync
-    assert_last_i_in_sync( node_names[0], node_names[1] )
-    assert_last_i_in_sync( node_names[1], node_names[2] )
+    C.assert_last_i_in_sync( C.node_names[0], C.node_names[1] )
+    C.assert_last_i_in_sync( C.node_names[1], C.node_names[2] )
     # Make sure the stores are equal
     
-    compare_stores( node_names[0], node_names[1] )
-    compare_stores( node_names[2], node_names[1] )
+    C.compare_stores( C.node_names[0], C.node_names[1] )
+    C.compare_stores( C.node_names[2], C.node_names[1] )
     
     
     cli._dropConnections()
