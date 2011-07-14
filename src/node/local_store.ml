@@ -314,26 +314,28 @@ object(self: #store)
       
   method exists key =
     Lwt.catch
-      (fun () ->
-	Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key))) >>= fun _ ->
-	Lwt.return true
+      ( fun () ->
+        let bdb = Hotc.get_bdb db in
+        Lwt.return (Bdb.get bdb (_p key)) >>= fun _ ->
+	      Lwt.return true
       )
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
 
   method get key =
     Lwt.catch
-      (fun () -> Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key))))
+      (fun () -> 
+        let bdb = Hotc.get_bdb db in
+        Lwt.return (Bdb.get bdb (_p key)))
       (function 
 	| Failure _ -> Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
-  method multi_get keys = 
-    Hotc.transaction db 
-      (fun db -> 
-	let vs = List.fold_left 
+  method multi_get keys =
+    let bdb = Hotc.get_bdb db in 
+    let vs = List.fold_left 
 	  (fun acc key -> 
 	    try
-	      let v = Bdb.get db (_p key) in 
+	      let v = Bdb.get bdb (_p key) in 
 	      v::acc
 	    with Not_found -> 
 	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
@@ -341,7 +343,7 @@ object(self: #store)
 	  )
 	  [] keys
 	in 
-	Lwt.return (List.rev vs))
+	Lwt.return (List.rev vs)
 
   method private _incr_i_cached () =
     let incr = 
@@ -366,24 +368,21 @@ object(self: #store)
 
       
   method range first finc last linc max =
-    Hotc.transaction db
-      (fun db -> Lwt.return (Bdb.range db (_f first) finc (_l last) linc max)) >>= fun r ->
+    let bdb = Hotc.get_bdb db in 
+    Lwt.return (Bdb.range bdb (_f first) finc (_l last) linc max) >>= fun r ->
     Lwt.return (_filter r)
 
   method range_entries first finc last linc max =
-    Hotc.transaction db
-      (fun db -> let r = _range_entries db first finc last linc max in
-		 Lwt.return r
-      )
+    let bdb = Hotc.get_bdb db in 
+    let r = _range_entries bdb first finc last linc max in
+		Lwt.return r
      
   method prefix_keys prefix max =
-    Hotc.transaction db
-      (fun db ->
-	let keys_array = Bdb.prefix_keys db (_p prefix) max in
-	let keys_list = _filter keys_array in
-	Lwt.return keys_list
-      )
-
+    let bdb = Hotc.get_bdb db in 
+    let keys_array = Bdb.prefix_keys bdb (_p prefix) max in
+	  let keys_list = _filter keys_array in
+	  Lwt.return keys_list
+    
   method set key value =
     Lwt.catch
       (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set db key value; Lwt.return ()))
@@ -452,9 +451,12 @@ object(self: #store)
       else
         Bdb.default_mode
     end in 
-    Lwt_log.debug "local_store :: reopen() " >>= fun () ->
+    Lwt_log.debug "local_store::reopen calling Hotc::reopen" >>= fun () ->
     Hotc.reopen db f mode >>= fun () ->
-    Hotc.transaction db _consensus_i >>= fun store_i ->
+    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
+    (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
+    let bdb = Hotc.get_bdb db in
+    _consensus_i bdb >>= fun store_i -> 
     _store_i <- store_i ;
     Lwt.return ()
 

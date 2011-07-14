@@ -35,7 +35,7 @@ module Bdb = struct
   let olcknb  = 32
   let otsync  = 64
   
-  let default_mode = 6 (*(oreader lor owriter lor ocreat lor olcknb)*)
+  let default_mode = (oreader lor owriter lor ocreat lor olcknb)
   let readonly_mode = (oreader lor onolck)
   
   type bdbcur (* type stays abstract *)

@@ -26,6 +26,7 @@ from ..system_tests_common import setup_1_node_forced_master
 from ..system_tests_common import setup_2_nodes_forced_master
 from ..system_tests_common import setup_3_nodes_forced_master
 from ..system_tests_common import setup_3_nodes
+from ..system_tests_common import setup_2_nodes
 from ..system_tests_common import default_setup
 from ..system_tests_common import basic_teardown
 from ..system_tests_common import q
@@ -46,6 +47,10 @@ from ..system_tests_common import assert_key_list
 from ..system_tests_common import stop_all
 from ..system_tests_common import getRandomString
 from ..system_tests_common import startOne
+from ..system_tests_common import stopOne
+from ..system_tests_common import get_node_db_file
+from ..system_tests_common import compare_stores
+from ..system_tests_common import _getCluster
 from ..system_tests_common import prefix_scenario
 from ..system_tests_common import range_scenario
 from ..system_tests_common import range_entries_scenario
@@ -380,3 +385,25 @@ def test_get_key_count():
     iterate_n_times( test_size, simple_set )
     c = cli.getKeyCount()
     assert_equals(c, test_size, "getKeyCount should return %d but got %d" % (test_size, c) )
+
+@with_custom_setup (setup_2_nodes, basic_teardown )
+def test_download_db():
+    iterate_n_times( 100, simple_set )
+    cli = get_client()
+    m = cli.whoMaster()
+    clu = _getCluster()
+    assert_raises(Exception, clu.backupDb, m, "/tmp/backup")
+    stop_all()
+    
+    n0 = node_names[0]
+    n1 = node_names[1]
+    startOne(n0)
+    time.sleep(0.1)
+    db_file = get_node_db_file (n1)
+    clu.backupDb(n0, db_file)
+    assert_running_nodes(1)
+    stop_all()
+    compare_stores(n0,n1)
+    
+    
+    
