@@ -32,6 +32,8 @@ module Hotc = struct
     mutex:Lwt_mutex.t;
   }
 
+  let get_bdb (wrapper: t) =
+    wrapper.bdb
 
   let _do_locked t f =
     Lwt.catch (fun () -> Lwt_mutex.with_lock t.mutex f)

@@ -25,6 +25,7 @@ import struct
 
 
 _COLLAPSE_TLOGS = 0x14
+_DOWNLOAD_DB = 0x1b
 _MAGIC   = 0xb1ff0000
 _VERSION = 0x00000001
 
@@ -56,6 +57,8 @@ def _receive_all(sock,n):
     r = ""
     while todo:
         chunk = sock.recv(todo)
+        if chunk == "" :
+            raise RuntimeError("Not enough data on socket. Aborting...")
         todo -= len(chunk)
         r += chunk
     return r
@@ -68,11 +71,13 @@ def _receive_int(sock):
 def _receive_int64(sock):
     buf = _receive_all(sock, 8)
     i64,_ = _int64_from(buf,0)
+    return i64
     
 def _receive_string(sock):
     size = _receive_int(sock)
     s = _receive_all(sock,size)
     return s
+
 def check_error_code(sock):
     rc = _receive_int(sock)
     if rc:
@@ -109,9 +114,31 @@ def collapse(ip, port, clusterId, n):
     finally:
         s.close()
         
-        
-        
-        
+def downloadDb(ip, port, clusterId, location):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sa = (ip, port)
+    s.connect(sa)
+    
+    def log ( msg ):
+        f = open('/tmp/log', 'a')
+        f.write(msg + "\n")
+        f.close()
+    try:
+        with open(location,'w+b') as db_file:
+            _prologue(clusterId, s)
+            cmd  = _int_to(_DOWNLOAD_DB | _MAGIC)
+            s.send(cmd)
+            check_error_code(s)
+            db_size = _receive_int64(s)
+            log ("DB size is %dL bytes" % db_size )
+            while (db_size > 0 ) :
+                chunkSize = min(4*1024, db_size)
+                chunk = _receive_all(s, chunkSize)
+                log ("Writing %s bytes to file\n" % str(len(chunk)))
+                db_size -= len(chunk)
+                db_file.write(chunk)
+    finally:
+        s.close()
     
     
     

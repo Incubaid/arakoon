@@ -790,6 +790,20 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         return self._getStatusOne(nodeName)
 
+    def backupDb(self, nodeName, location):
+        """
+        Make a backup the live database to the specified file
+        
+        @param nodeName The name of the node you want to backup
+        @param location The path to the file where the backup should be stored
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip = config['ip']
+        port = int(config['client_port'])
+        ArakoonRemoteControl.downloadDb(ip,port,self._clusterId, location)
+        
+
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
