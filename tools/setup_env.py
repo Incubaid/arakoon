@@ -224,6 +224,7 @@ def install_client():
         "_build/src/client/arakoon_remote_client.cmi",
         "_build/src/plugins/registry.mli",
         "_build/src/plugins/registry.cmi",
+        "_build/src/node/node_cfg.cmi",
         "_build/src/tools/llio.mli",
         "_build/src/tools/llio.cmi",
         "_build/src/arakoon_client.a"
