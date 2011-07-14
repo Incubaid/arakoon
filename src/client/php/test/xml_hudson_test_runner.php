@@ -68,7 +68,7 @@ class XmlHudsonTestRunner extends TestRunner
 		$testCount = $this->GetNumberOfTestCaseResults(); 
 		$testPassedCount = 0;
 		
-		for ($i = 0; $i < $testCount; ++$i)
+		for ($i = 0; $i < $testCount; $i++)
 		{
 			if($this->GetTestCaseResult($i)->TestPassed())
 			{
@@ -79,7 +79,14 @@ class XmlHudsonTestRunner extends TestRunner
 		$testSuiteXmlPieces = array();
 		array_push($testSuiteXmlPieces, '<?xml version="1.0" encoding="UTF-8"?>');
 		array_push($testSuiteXmlPieces, '<testsuite  name="'. $this->_name . '" tests="' . $testCount . '" failures="' . ($testCount - $testPassedCount)  . '">');
-		array_push($testSuiteXmlPieces, $this->generateTestCaseXml());
+		
+		for ($i = 0; $i < $testCount; $i++)
+		{
+			$testCaseResult = $this->GetTestCaseResult($i);
+			$testCaseXml = $this->generateTestCaseXml($testCaseResult);
+			array_push($testSuiteXmlPieces, $testCaseXml);
+		}
+		
 		array_push($testSuiteXmlPieces, '</testsuite>');
 		
 		return join($testSuiteXmlPieces);
@@ -90,44 +97,36 @@ class XmlHudsonTestRunner extends TestRunner
 	 *
 	 * @return string
 	 */
-	private function generateTestCaseXml()
+	private function generateTestCaseXml(TestCaseResult &$testCaseResult)
 	{		
 		$testCaseXmlPieces = array();
-		$testCount = $this->GetNumberOfTestCaseResults();
+		array_push($testCaseXmlPieces, '<testcase id="');
+		array_push($testCaseXmlPieces, $testCaseResult->GetId());
+		array_push($testCaseXmlPieces, '" classname="');
+		array_push($testCaseXmlPieces, $testCaseResult->GetName());
+		array_push($testCaseXmlPieces, '" name="');
+		array_push($testCaseXmlPieces, $testCaseResult->GetName());
 		
-		for ($i = 0; $i < $testCount; ++$i)
+		if($testCaseResult->TestPassed())
 		{
-			$testCaseResult = $this->GetTestCaseResult($i);
-
-			array_push($testCaseXmlPieces, '<testcase id="');
-			array_push($testCaseXmlPieces, $testCaseResult->GetId());
-			array_push($testCaseXmlPieces, '" classname="');
-			array_push($testCaseXmlPieces, $testCaseResult->GetName());
-			array_push($testCaseXmlPieces, '" name="');
-			array_push($testCaseXmlPieces, $testCaseResult->GetName());
-			
-			if($testCaseResult->TestPassed())
-			{
-				array_push($testCaseXmlPieces, '" />');
-			}
-			else
-			{
-				array_push($testCaseXmlPieces, '">');
-				
-				for ($i = 0; $i < $testCaseResult->GetNumberOfEvents(); $i++)
-				{
-					$event = $testCaseResult->GetEvent($i);
-					
-					if ($event->GetType() == EventType::FAIL())
-					{
-						array_push($testCaseXmlPieces, '<failure>' . $event->GetMessage() . '</failure>');
-					}
-				}
-				
-				array_push($testCaseXmlPieces, '</testcase>');
-			}
+			array_push($testCaseXmlPieces, '" />');
 		}
-
+		else
+		{
+			array_push($testCaseXmlPieces, '">');			
+			for ($i = 0; $i < $testCaseResult->GetNumberOfEvents(); $i++)
+			{
+				$event = $testCaseResult->GetEvent($i);
+				
+				if ($event->GetType() == EventType::FAIL() || EventType::FAIL_MSG())
+				{
+					$message = $event->GetMessage();
+					if (!empty($message))
+					array_push($testCaseXmlPieces, '<failure>reason: ' . $message . '</failure>');
+				}
+			}			
+			array_push($testCaseXmlPieces, '</testcase>');
+		}
 		return join($testCaseXmlPieces);
 	}
 

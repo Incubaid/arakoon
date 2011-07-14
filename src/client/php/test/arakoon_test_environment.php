@@ -29,20 +29,33 @@
  * ArakoonTestClient class (singleton)
  */
 
-require_once '../arakoon.php';
+require_once '../Arakoon/Client.php';
 
 class ArakoonTestEnvironment
 {
 	private static $_instance = NULL;
 	
-	private $_client;
-	private $_clientConfig;		
+	private $_client;	
 	
+	/**
+	 * @todo document
+	 */
 	private function __construct()
 	{
 
 	}
-
+	
+	/**
+	 * @todo document
+	 */
+	public function getClient()
+	{
+		return $this->_client;
+	}
+	
+	/**
+	 * @todo document
+	 */
     static public function getInstance()
     {
         if (self::$_instance == NULL)
@@ -52,49 +65,50 @@ class ArakoonTestEnvironment
         
         return self::$_instance;
     }
-    
-	public function getClient()
-    {
-    	return $this->_client;
-    }
-    
-	public function getClientConfig()
-    {
-    	return $this->_clientConfig;
-    }
-    
+
+    /**
+	 * @todo document
+	 */
 	public function setup($config, $arakoonExeCmd, $configFilePath)
 	{
-		$this->_clientConfig = $config;
-		$this->_client = new Arakoon($this->_clientConfig);
-		
-		foreach ($this->_clientConfig->getNodes() as $nodeId => $node)
+		// setup nodes
+		$this->_client = new Arakoon_Client($config);		
+		foreach ($config->getNodes() as $node)
 		{
-			if (!file_exists($node['home']))
+			$id = $node->getId();
+			$homeDir = $node->getHome();
+			if (!file_exists($homeDir))
 			{
-				mkdir($node['home']);
+				mkdir($homeDir);
 			}
 			
-			shell_exec($arakoonExeCmd . ' -config ' . $configFilePath . ' -daemonize --node ' . $nodeId);
+			shell_exec($arakoonExeCmd . ' -config ' . $configFilePath . ' -daemonize --node ' . $id);
 		}
 		
-		// sleep 1 second to ensure Arakoon nodes are up
-		sleep(1);
+		sleep(1); // sleep 1 second to ensure Arakoon nodes are up
 	}
 	
+	/**
+	 * @todo document
+	 */
 	public function tearDown()
 	{
-		foreach ($this->_clientConfig->getNodes() as $nodeId => $node)
+		$config = $this->_client->getConfig();
+		foreach ($config->getNodes() as $nodeId => $node)
 		{
-			if (file_exists($node['home']))
+			$homeDir = $node->getHome();
+			if (file_exists($homeDir))
 			{
-				$this->recursiveRemoveDir($node['home']);
+				$this->recursiveRemoveDir($homeDir);
 			}
 		}
 			
 		shell_exec('killall arakoon');
 	}
 	
+	/**
+	 * @todo document
+	 */
 	private function recursiveRemoveDir($dir)
 	{
 		$removeSucces = TRUE;
@@ -132,5 +146,4 @@ class ArakoonTestEnvironment
 		}
 	}
 }
-
 ?>
