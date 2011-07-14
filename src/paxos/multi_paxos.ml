@@ -99,11 +99,18 @@ let update_votes (nones,somes) = function
     let tmp = build_new [] somes in
     let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
     (nones, somes')
-				      
+
+type quiesce_result =
+  | Quiesced_ok
+  | Quiesced_fail_master
+  | Quiesced_fail
+  			      
 type paxos_event =
   | FromClient of ((Value.t option) * (Store.update_result -> unit Lwt.t))
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of Sn.t
+  | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
+  | Unquiesce
   | ElectionTimeout of Sn.t
 
 type constants =
@@ -278,3 +285,35 @@ let handle_prepare constants dest n n' i' =
       Lwt.return ret_val
   end
       
+let safe_wakeup sleeper awake value =
+  Lwt.catch 
+  ( fun () -> Lwt.return (Lwt.wakeup awake value) )
+  ( fun e -> 
+    match e with
+      | Invalid_argument s ->
+        let t = state sleeper in
+        begin
+          match t with
+            | Fail ex -> Lwt.fail ex
+            | Return v -> Lwt.return ()
+            | Sleep -> Lwt.fail (Failure "Wakeup error, sleeper is still sleeping")
+        end
+      | _ -> Lwt.fail e
+   ) 
+
+let fail_quiesce_request store sleeper awake reason =
+  safe_wakeup sleeper awake reason
+  
+let handle_quiesce_request store sleeper (awake: quiesce_result Lwt.u) =
+  store # quiesce () >>= fun () ->
+  safe_wakeup sleeper awake Quiesced_ok
+
+let handle_unquiesce_request constants n =
+  let store = constants.store in
+  let tlog_coll = constants.tlog_coll in
+  Store.get_succ_store_i store  >>= fun too_far_i ->
+  store # unquiesce () >>= fun () ->
+  Catchup.catchup_store "handle_unquiesce" (store,tlog_coll) too_far_i >>= fun (i,vo) ->
+  start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+  Lwt.return (i,vo)
+  

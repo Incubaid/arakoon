@@ -52,6 +52,7 @@ type client_command =
   | STATISTICS
   | COLLAPSE_TLOGS
   | GET_KEY_COUNT
+  | GET_DB
 
 
 let code2int = [
@@ -73,6 +74,7 @@ let code2int = [
   COLLAPSE_TLOGS          , 0x14l;
   ASSERT                  , 0x16l;
   GET_KEY_COUNT           , 0x1al;
+  GET_DB                  , 0x1bl;
 ]
 
 let int2code = 

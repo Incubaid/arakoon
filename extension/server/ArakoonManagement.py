@@ -641,6 +641,19 @@ class ArakoonCluster:
 
         q.system.fs.removeDirTree(self._clusterPath)
 
+    def backupDb(self, nodeName, location):
+        """
+        Make a backup the live database to the specified file
+        
+        @param nodeName The name of the node you want to backup
+        @param location The path to the file where the backup should be stored
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip = config['ip']
+        port = int(config['client_port'])
+        ArakoonRemoteControl.downloadDb(ip,port,self._clusterId, location)
+        
     def __getForcedMaster(self, config):
         if not config.checkSection("global"):
             return []

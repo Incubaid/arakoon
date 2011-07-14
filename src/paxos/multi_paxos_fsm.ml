@@ -155,6 +155,13 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
          Lwt.return (Slave_waiting_for_prepare (current_i, current_n))
     | FromClient msg -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
      
+    | Quiesce (sleep,awake) ->
+      handle_quiesce_request constants.store sleep awake >>= fun () ->
+      Lwt.return (Slave_waiting_for_prepare (current_i,current_n) )
+      
+    | Unquiesce ->
+      handle_unquiesce_request constants current_n >>= fun (store_i, vo) ->
+      Lwt.return (Slave_waiting_for_prepare (current_i,current_n) )
 
 
 (* a potential master is waiting for promises and if enough
@@ -211,10 +218,10 @@ let promises_check_done constants state () =
 (* a potential master is waiting for promises and receives a msg *)
 let wait_for_promises constants state event =
   let me = constants.me in
+  let (n, i, who_voted, v_lims, i_lim) = state in
   match event with
     | FromNode (msg,source) ->
       begin
-        let (n, i, who_voted, v_lims, i_lim) = state in
         let wanted =
         begin
           let nnones, nsomes = v_lims in
@@ -397,7 +404,7 @@ let wait_for_promises constants state event =
               Some bv
         end
         in
-      if n' = n then
+      if n' = n  && not ( constants.store # quiesced () )then
 	begin
 	  log ~me "wait_for_promises: election timeout, restart from scratch"	  
 	  >>= fun () ->
@@ -408,9 +415,18 @@ let wait_for_promises constants state event =
 	  Lwt.return (Wait_for_promises state)
 	end
     | LeaseExpired _ ->
-      paxos_fatal me "wait_for_promises: don't want LeaseExpired"
+      Lwt_log.debug "Ignoring lease expiration" >>= fun () ->
+      Lwt.return (Wait_for_promises state)
     | FromClient _ -> 
       paxos_fatal me "wait_for_promises: don't want FromClient"
+    
+    | Quiesce (sleep,awake) ->
+      handle_quiesce_request constants.store sleep awake >>= fun () ->
+      Lwt.return (Wait_for_promises state)
+      
+    | Unquiesce ->
+      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      Lwt.return (Wait_for_promises state)
   
   
 (* a (potential or full) master is waiting for accepteds and if he has received
@@ -616,6 +632,13 @@ let wait_for_accepteds constants state (event:paxos_event) =
       end
 	  
 
+    | Quiesce (sleep,awake) ->
+      fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+      Lwt.return (Wait_for_accepteds state)
+      
+    | Unquiesce ->
+      Lwt.fail (Failure "Unexpected unquiesce request while running as master")
+      
 
 
 
@@ -650,7 +673,7 @@ let machine constants =
     (Unit_arg (Slave.slave_discovered_other_master constants state), nop)
 
   | Wait_for_promises state ->
-    (Msg_arg (wait_for_promises constants state), node_and_timeout)
+    (Msg_arg (wait_for_promises constants state), node_and_inject_and_timeout)
   | Promises_check_done state ->
     (Unit_arg (promises_check_done constants state), nop)
   | Wait_for_accepteds state ->

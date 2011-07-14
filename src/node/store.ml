@@ -57,6 +57,11 @@ class type store = object
   method get_filename: unit -> string 
   method aSSert: string -> string option -> bool Lwt.t
   method get_key_count : unit -> int64 Lwt.t
+    
+  method quiesce : unit -> unit Lwt.t
+  method unquiesce : unit -> unit Lwt.t
+  method quiesced : unit -> bool 
+  method copy_store : Lwt_io.output_channel -> unit Lwt.t
 end
 
 exception Key_not_found of string ;;
@@ -158,7 +163,16 @@ let safe_insert_update (store:store) (i:Sn.t) update =
 	else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
   end
   >>= fun () ->
-  _insert_update store update
+  if store # quiesced () 
+  then
+    begin
+      store # incr_i () >>= fun () ->
+      Lwt.return (Ok None)
+    end
+  else
+    begin
+      _insert_update store update
+    end
 
 let _insert (store:store) v i =
   let Value.V(update_string) = v in

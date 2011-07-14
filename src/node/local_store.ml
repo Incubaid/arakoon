@@ -28,6 +28,19 @@ open Update
 open Log_extra
 open Store
 
+open Unix.LargeFile
+
+
+let _save_i i db =
+  let is =
+    let buf = Buffer.create 10 in
+    let () = Sn.sn_to buf i in
+    Buffer.contents buf
+  in
+  let () = Bdb.put db __i_key is in
+  Lwt.return ()
+
+
 let _consensus_i db =
   try
     let i_string = Bdb.get db __i_key in
@@ -165,94 +178,138 @@ let rec _sequence bdb updates =
 
 
 
-let _tx_with_incr db (f:Otc.Bdb.bdb -> 'a Lwt.t) = 
-    Lwt.catch
-      (fun () -> 
-	Hotc.transaction db
-	  (fun db ->
-	    _incr_i db >>= fun () ->
-	    f db >>= fun (a:'a) ->
-	    Lwt.return a)
-      )
-      (fun ex -> 
-	Hotc.transaction db _incr_i >>= fun () -> 
-	Lwt.fail ex)
+let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t) =
+  let new_i = incr () in 
+  Lwt.catch
+    (fun () ->
+      Hotc.transaction db
+    (fun db ->
+    _save_i new_i db >>= fun () ->
+      f db >>= fun (a:'a) ->
+      Lwt.return a)
+    )
+    (fun ex ->
+      Hotc.transaction db (_save_i new_i) >>= fun () ->
+      Lwt.fail ex)
 
-class local_store db mlo =
+class local_store db_location db mlo store_i =
 
 object(self: #store)
   val mutable _mlo = mlo
+  val my_location = db_location
+  val mutable _quiesced = false
+  val mutable _store_i = store_i
+  
+  val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
+     "Invalid operation on quiesced store")
 
+  method quiesce () =
+    begin
+      if _quiesced then
+        Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+      else
+        begin
+          _quiesced <- true;
+          self # reopen (fun () -> Lwt.return ()) >>= fun () ->
+          Lwt.return ()
+        end
+    end
+    
+  method unquiesce () =
+    _quiesced <- false; 
+    self # reopen (fun () -> Lwt.return ()) 
+  
+  method quiesced () = _quiesced
+  
+  
   method exists key =
     Lwt.catch
       (fun () ->
-	Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key))) >>= fun _ ->
-	Lwt.return true
+        let bdb = Hotc.get_bdb db in
+        Lwt.return (Bdb.get bdb (_p key)) >>= fun _ ->
+        Lwt.return true
       )
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
 
   method get key =
     Lwt.catch
-      (fun () -> Hotc.transaction db (fun db -> Lwt.return (Bdb.get db (_p key))))
+      (fun () -> 
+        let bdb = Hotc.get_bdb db in
+        Lwt.return (Bdb.get bdb (_p key)))
       (function 
 	| Failure _ -> Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
   method multi_get keys = 
-    Hotc.transaction db 
-      (fun db -> 
-	let vs = List.fold_left 
+    let bdb = Hotc.get_bdb db in
+    let vs = List.fold_left 
 	  (fun acc key -> 
 	    try
-	      let v = Bdb.get db (_p key) in 
+	      let v = Bdb.get bdb (_p key) in 
 	      v::acc
 	    with Not_found -> 
 	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
 	      raise exn
 	  )
 	  [] keys
-	in 
-	Lwt.return (List.rev vs))
+	  in 
+	  Lwt.return (List.rev vs)
   
-  method incr_i () = Hotc.transaction db _incr_i
+  method private _incr_i_cached () =
+    let incr = 
+    begin
+      match _store_i with
+        | None -> Sn.start
+        | Some i -> (Sn.succ i)
+    end; 
+    in
+    _store_i <- Some incr ; 
+    incr
+    
+  method incr_i () =
+    let new_i = self # _incr_i_cached () in
+    begin
+    if _quiesced 
+    then
+      Lwt.return ()
+    else
+      Hotc.transaction db (_save_i new_i)
+    end
       
   method range first finc last linc max =
-    Hotc.transaction db
-      (fun db -> Lwt.return (Bdb.range db (_f first) finc (_l last) linc max)) >>= fun r ->
+    let bdb = Hotc.get_bdb db in
+    Lwt.return (Bdb.range bdb (_f first) finc (_l last) linc max) >>= fun r ->
     Lwt.return (_filter r)
 
   method range_entries first finc last linc max =
-    Hotc.transaction db
-      (fun db ->
-	let keys_array = Bdb.range db (_f first) finc (_l last) linc max in
-	let keys_list = Array.to_list keys_array in
-	let x = List.fold_left
+    let bdb = Hotc.get_bdb db in
+	  let keys_array = Bdb.range bdb (_f first) finc (_l last) linc max in
+	  let keys_list = Array.to_list keys_array in
+	  let x = List.fold_left
 	  (fun ret_list k ->
 	    let l = String.length k in
-	    ((String.sub k 1 (l-1)), Bdb.get db k) :: ret_list )
+	    ((String.sub k 1 (l-1)), Bdb.get bdb k) :: ret_list )
           [] 
 	  keys_list
-	in Lwt.return x
-      )
+	  in Lwt.return x
+      
 
   method prefix_keys prefix max =
-    Hotc.transaction db
-      (fun db ->
-	let keys_array = Bdb.prefix_keys db (_p prefix) max in
-	let keys_list = _filter keys_array in
-	Lwt.return keys_list
-      )
-
+    let bdb = Hotc.get_bdb db in
+	  let keys_array = Bdb.prefix_keys bdb (_p prefix) max in
+	  let keys_list = _filter keys_array in
+	  Lwt.return keys_list
+    
 
   method set key value =
     Lwt.catch
-      (fun () -> _tx_with_incr db (fun db -> _set db key value;Lwt.return ()))
+      (fun () -> _tx_with_incr (self # _incr_i_cached)  db (fun db -> _set db key value;Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
   method set_master master lease =
-    _tx_with_incr db 
+    _tx_with_incr (self # _incr_i_cached)  db 
       (fun db ->
 	_set_master db master lease ;
 	_mlo <- Some (master,lease);
@@ -271,24 +328,24 @@ object(self: #store)
 
 
   method delete key =
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db -> _delete db key; Lwt.return ())
 
   method test_and_set key expected wanted =
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db -> 
 	let r = _test_and_set db key expected wanted in
 	Lwt.return r)
 
   method sequence updates =
-    _tx_with_incr db
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db -> _sequence db updates; Lwt.return ())
 
   method aSSert key (vo:string option) =
-    _tx_with_incr db (fun db -> let r = _assert db key vo in Lwt.return r)
+    _tx_with_incr (self # _incr_i_cached) db (fun db -> let r = _assert db key vo in Lwt.return r)
 
   method consensus_i () =
-    Hotc.transaction db _consensus_i
+    Lwt.return _store_i
 
   method close () =
     Hotc.close db >>= fun () ->
@@ -298,9 +355,21 @@ object(self: #store)
   method get_filename () = Hotc.filename db
 
   method reopen f = 
-    Lwt_log.debug "local_store :: reopen() " >>= fun () ->
-    Hotc.reopen db f >>= fun () ->
+    let mode = 
+    begin
+      if _quiesced then
+        Bdb.readonly_mode
+      else
+        Bdb.default_mode
+    end in 
+    Lwt_log.debug "local_store::reopen calling Hotc::reopen" >>= fun () ->
+    Hotc.reopen db f mode >>= fun () ->
+    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
+    let bdb = Hotc.get_bdb db in
+    _consensus_i bdb >>= fun store_i -> 
+    _store_i <- store_i ;
     Lwt.return ()
+
     
   method get_key_count () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
@@ -308,12 +377,34 @@ object(self: #store)
     (* Leave out administrative keys *)
     Lwt.return ( Int64.sub raw_count 3L ) 
 
+  method copy_store (oc: Lwt_io.output_channel) =
+    if _quiesced then
+    begin
+      let db_name = my_location in
+      let stat = Unix.LargeFile.stat db_name in
+      let length = stat.st_size in
+      Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+      Llio.output_int oc 0 >>= fun () ->
+      Llio.output_int64 oc length >>= fun () ->
+      Lwt_io.with_file
+        ~flags:[Unix.O_RDONLY]
+        ~mode:Lwt_io.input
+        db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+      >>= fun () ->
+      Lwt_io.flush oc
+    end 
+    else
+    begin
+      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+      raise ex
+    end
 
 end
 
 let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
   Hotc.transaction db _who_master >>= fun mlo ->
-  let store = new local_store db mlo in
+  Hotc.transaction db _consensus_i >>= fun store_i ->
+  let store = new local_store db_name db mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

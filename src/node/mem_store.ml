@@ -194,6 +194,14 @@ object (self: #store)
     in
     Lwt.return (StringMap.fold inc kv 0L)
 
+  method quiesce () = Lwt.return () 
+  
+  method unquiesce () = Lwt.return () 
+  
+  method quiesced () = false
+  
+  method copy_store c = Lwt.return ()
+
 end
 
 let make_mem_store db_name =

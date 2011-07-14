@@ -6,6 +6,8 @@ class type nodestream = object
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       
   method collapse: int -> unit Lwt.t
+  
+  method get_db: string -> unit Lwt.t
 end
 
 val make_remote_nodestream : 

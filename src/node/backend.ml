@@ -64,4 +64,7 @@ class type backend = object
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
   
   method get_key_count: unit -> int64 Lwt.t
+  
+  method get_db: Lwt_io.output_channel option -> unit Lwt.t
+
 end

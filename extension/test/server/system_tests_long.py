@@ -394,17 +394,15 @@ def test_catchup_exercises():
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_only():
     iterate_n_times(123000,simple_set)
+    n0 = node_names[0]
     n1 = node_names[1]
     stopOne(n1)
     whipe(n1)
     logging.info("catchup-only")
     catchupOnly(n1)
     logging.info("done with catchup-only")
-    startOne(n1)
-    cli = get_client()
-    time.sleep(1.0)
-    up2date = cli.expectProgressPossible()
-    assert_true(up2date)
+    stopOne(n0)
+    compare_stores(n1,n0)
 
 @with_custom_setup( setup_1_node_forced_master, basic_teardown )
 def test_sso_deployment():
@@ -474,11 +472,18 @@ def test_disable_tlog_compression():
     clu.restart()
     time.sleep(1.0)
     
-    iterate_n_times( 2*100000, simple_set )
+    tlog_size = get_entries_per_tlog() 
     
+    num_tlogs = 2
+    test_size = num_tlogs*tlog_size
+    iterate_n_times(test_size, simple_set )
+    
+    logging.info("Tlog_size: %d", tlog_size)
     node_id = node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
     ls = q.system.fs.listFilesInDir
+    time.sleep(2.0)
     tlogs = ls( node_home_dir, filter="*.tlog" )
-    
-    assert_equals(len(tlogs), 3, "Wrong number of uncompressed tlogs (%d != %d)" % (3, len(tlogs))) 
+    expected = num_tlogs + 1 
+    assert_equals(len(tlogs), expected, "Wrong number of uncompressed tlogs (%d != %d)" % (expected, len(tlogs))) 
+ 

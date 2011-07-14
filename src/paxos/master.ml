@@ -148,6 +148,13 @@ let stable_master constants (v',n,new_i) = function
       log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
       Lwt.return (Stable_master (v',n,new_i))
 
+    | Quiesce (sleep,awake) ->
+      fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+      Lwt.return (Stable_master (v',n,new_i))
+      
+    | Unquiesce ->
+      Lwt.fail (Failure "Unexpected unquiesce request while running as master")
+      
 (* a master informes the others of a new value by means of Accept
    messages and then waits for Accepted responses *)
 

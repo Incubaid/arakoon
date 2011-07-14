@@ -32,6 +32,8 @@ class type nodestream = object
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
 
   method collapse: int -> unit Lwt.t
+  
+  method get_db: string -> unit Lwt.t
 
 end
 
@@ -115,6 +117,17 @@ object(self :# nodestream)
     request outgoing >>= fun () ->
     response ic incoming
 
+  method get_db db_location =
+    
+    let outgoing buf =
+      command_to buf GET_DB;
+    in
+    let incoming ic =
+      Llio.input_int64 ic >>= fun length -> 
+      Lwt_io.with_file ~mode:Lwt_io.output db_location (fun oc -> Llio.copy_stream ~length ~ic ~oc)
+    in
+    request outgoing >>= fun () ->
+    response ic incoming
 
 end
 

@@ -71,7 +71,7 @@ let make_went_well stats_cb awake sleeper =
 
 
 
-class sync_backend cfg push_update 
+class sync_backend cfg push_update push_node_msg
   (store:Store.store) 
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
@@ -324,7 +324,18 @@ object(self: #backend)
     log_o self "master:%s (%s)" (string_option_to_string result) argumentation 
     >>= fun () ->
     Lwt.return result
-
+    
+  method private _not_if_master() =
+    self # who_master () >>= function
+      | None ->
+        Lwt.return () 
+      | Some m ->
+        if m = my_name
+        then
+          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+        else
+          Lwt.return ()
+      
   method private _only_if_master() =
     self # who_master () >>= function
       | None ->
@@ -409,5 +420,50 @@ object(self: #backend)
     
   method get_key_count () =
     store # get_key_count ()
+
+    
+  method get_db m_oc =
+    self # _not_if_master () >>= fun () ->
+    Lwt_log.debug "get_db: enter" >>= fun () ->
+    let result = ref Multi_paxos.Quiesced_fail in
+    begin
+      match m_oc with
+        | None -> 
+          let ex = XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only stream on a valid out channel") in
+          Lwt.fail ex
+        | Some oc -> Lwt.return oc
+    end >>= fun oc ->
+    let sleep, awake = Lwt.wait() in
+    let update = Multi_paxos.Quiesce (sleep, awake) in
+    Lwt_log.debug "get_db: Pushing quiesce request" >>= fun () ->
+    push_node_msg update >>= fun () ->
+    Lwt.finalize 
+    ( fun () ->
+        begin
+          Lwt_log.debug "get_db: waiting for quiesce request to be completed" >>= fun () ->
+          sleep >>= fun res ->
+          result := res;
+          match res with
+            | Multi_paxos.Quiesced_ok -> store # copy_store oc
+            | Multi_paxos.Quiesced_fail_master ->
+              Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+            | Multi_paxos.Quiesced_fail ->
+              Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
+        end
+    )
+    ( fun () ->
+      begin
+        let res = !result in
+        begin
+            match res with 
+              | Multi_paxos.Quiesced_ok ->
+                    Lwt_log.debug "get_db: Leaving quisced state" >>= fun () ->
+                    let update = Multi_paxos.Unquiesce in
+                    push_node_msg update 
+              | _ -> Lwt.return ()
+        end >>= fun () ->
+        Lwt_log.debug "get_db: All done"
+      end
+    )
     
 end

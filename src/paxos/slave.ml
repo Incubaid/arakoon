@@ -27,18 +27,25 @@ open Mp_msg.MPMessage
 open Update
 
 let time_for_elections constants n' maybe_previous =
-  let ns' = Sn.string_of n' in
-  let last_accepted_lease () = constants.store # who_master() >>= fun maybe_stored ->
-  match maybe_stored with
-    | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
-    | Some (sm,sd) -> Lwt.return( "stored", (sm,sd) )
-  in
-  last_accepted_lease () >>= fun (origine,(am,al)) ->
-  let now = Int64.of_float (Unix.time()) in
-  Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
-  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
-  let diff = abs (Int64.to_int (Int64.sub now al)) in
-  Lwt.return ( diff >= constants.lease_expiration )
+  begin
+  if ( constants.store # quiesced () ) then
+    Lwt.return false
+  else
+    begin
+          let ns' = Sn.string_of n' in
+          let last_accepted_lease () = constants.store # who_master() >>= fun maybe_stored ->
+          match maybe_stored with
+            | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
+            | Some (sm,sd) -> Lwt.return( "stored", (sm,sd) )
+          in
+          last_accepted_lease () >>= fun (origine,(am,al)) ->
+          let now = Int64.of_float (Unix.time()) in
+          Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
+          ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
+          let diff = abs (Int64.to_int (Int64.sub now al)) in
+          Lwt.return ( diff >= constants.lease_expiration )
+    end
+  end
 
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
@@ -187,7 +194,14 @@ let slave_steady_state constants state event =
       let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
       cb result >>= fun () ->
       Lwt.return (Slave_steady_state(n,i,previous))
+
+    | Quiesce (sleep,awake) ->
+      handle_quiesce_request constants.store sleep awake >>= fun () ->
+      Lwt.return (Slave_steady_state state)
       
+    | Unquiesce ->
+      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      Lwt.return (Slave_steady_state state)      
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
@@ -343,8 +357,15 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
           end
 
-    | _ -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
+    | FromClient msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
 
+    | Quiesce (sleep,awake) ->
+      handle_quiesce_request constants.store sleep awake >>= fun () ->
+      Lwt.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
+      
+    | Unquiesce ->
+      handle_unquiesce_request constants n >>= fun (store_i, store_vo) ->
+      Lwt.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
 
 
 (* a pending slave that discovered another master has to do

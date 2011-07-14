@@ -175,5 +175,6 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt.return (StringMap.fold inc _kv 0L)
 
+  method get_db s = Lwt.return ()
       
 end
