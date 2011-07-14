@@ -450,6 +450,23 @@ class ArakoonClient :
         msg = ArakoonProtocol.encodeTestAndSet( key, oldValue, newValue )
         conn = self._sendToMaster( msg )
         return conn.decodeStringOptionResult()
+        
+    @retryDuringMasterReelection
+    @SignatureValidator('string', 'string_option')
+    def userFunction(self, name, argument): #pylint: disable-msg=C0103
+        '''Call a user-defined function on the server
+        @param name: Name of user function
+        @type name: string
+        @param argument: Optional function argument
+        @type argument: string option
+
+        @return: Function result
+        @rtype: string option
+        '''
+          
+        msg = ArakoonProtocol.encodeUserFunction(name, argument)
+        conn = self._sendToMaster(msg)
+        return conn.decodeStringOptionResult()
 
     def _determineMaster(self):
         nodeIds = []

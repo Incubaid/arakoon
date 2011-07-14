@@ -217,6 +217,8 @@ ARA_CMD_EXPECT_PROGRESS_POSSIBLE = 0x00000012 | ARA_CMD_MAG
 
 ARA_CMD_STATISTICS               = 0x00000013 | ARA_CMD_MAG
 
+ARA_CMD_USER_FUNCTION            = 0x00000015 | ARA_CMD_MAG
+
 ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 
 # Arakoon error codes
@@ -245,6 +247,9 @@ def _packStringOption ( toPack = None ):
 
 def _packInt ( toPack ):
     return struct.pack( "I", toPack )
+
+def _packInt64 ( toPack ):
+    return struct.pack( "q", toPack )
 
 def _packSignedInt ( toPack ):
     return struct.pack( "i", toPack )
@@ -318,6 +323,15 @@ def _unpackString(buf, offset):
     size,o2 = _unpackInt(buf, offset)
     v = buf[o2:o2 + size]
     return v, o2+size
+    
+def _unpackStringList(buf, offset):
+    size,offset = _unpackInt(buf, offset)
+    retVal = []
+    for i in range( size ) :
+        x, offset = _unpackString(buf, offset)
+        retVal.append(x)
+    return retVal
+
 
 def _recvInt ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
@@ -451,10 +465,8 @@ class ArakoonProtocol :
         seq.write(r)
         flattened = r.getvalue()
         r.close()
-        return _packInt(ARA_CMD_SEQ) + _packString(flattened)
+        return _packInt(ARA_CMD_SEQ) + _packString(flattened)     
         
-        
-
     @staticmethod
     def encodeDelete( key ):
         return _packInt ( ARA_CMD_DEL ) + _packString ( key )
@@ -505,6 +517,14 @@ class ArakoonProtocol :
     def encodeStatistics():
         retVal = _packInt(ARA_CMD_STATISTICS)
         return retVal
+
+    @staticmethod    
+    def encodeUserFunction(name, argument):
+        retVal = _packInt(ARA_CMD_USER_FUNCTION)
+        retVal += _packString(name)
+        retVal += _packStringOption(argument)
+        return retVal
+    
     
     @staticmethod
     def _evaluateErrorCode( con ):
