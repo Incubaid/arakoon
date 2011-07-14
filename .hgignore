@@ -14,7 +14,9 @@ debian/libarakoon-ocaml-dev/*
 debian/arakoon/*
 *.pyc
 *.orig
-
+.paths
+.project
+.settings/*
 syntax:regexp
 ^_build
 ~$
