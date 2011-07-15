@@ -76,6 +76,7 @@ let response_rc_bool oc rc b =
 
 let handle_exception oc exn= 
   let rc, msg, is_fatal, close_socket = match exn with
+  | XException(Arakoon_exc.E_NOT_FOUND, msg) -> Arakoon_exc.E_NOT_FOUND,msg, false, false
   | XException(rc, msg) -> rc,msg, false, true
   | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false
   | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true
