@@ -141,6 +141,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
               log ~me "reentering steady state @(%s,%s)" 
 		(Sn.string_of n2) (Sn.string_of i2) 
               >>= fun () ->
+              start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
               Lwt.return (Slave_steady_state (n2, i2, v))
 	    end
 	    end
@@ -358,8 +359,8 @@ let wait_for_promises constants state event =
                 if i < _i
                 then
                   begin
-                    log ~me "wait_for_promises: still have an active master (received %s) -> back to fake prepare"  (string_of msg) >>= fun () ->
-                    Lwt.return (Slave_fake_prepare (i,n'))
+                    log ~me "wait_for_promises: still have an active master (received %s) -> catching up from master"  (string_of msg) >>= fun () ->
+                    Lwt.return (Slave_discovered_other_master (source, i, n', _i))
 		              end
                 else
 		              log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
