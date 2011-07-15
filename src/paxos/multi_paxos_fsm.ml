@@ -142,6 +142,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
               log ~me "reentering steady state @(%s,%s)" 
 		(Sn.string_of n2) (Sn.string_of i2) 
               >>= fun () ->
+              start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
               Lwt.return (Slave_steady_state (n2, i2, v))
 	    end
 	    end
