@@ -441,7 +441,8 @@ def test_download_db():
     iterate_n_times( 100, simple_set )
     cli = get_client()
     m = cli.whoMaster()
-    clu = _getCluster()
+    global cluster_id
+    clu = q.manage.arakoon.getCluster(cluster_id)
     assert_raises(Exception, clu.backupDb, m, "/tmp/backup")
     stop_all()
     
