@@ -359,8 +359,8 @@ let wait_for_promises constants state event =
                 if i < _i
                 then
                   begin
-                    log ~me "wait_for_promises: still have an active master (received %s) -> back to fake prepare"  (string_of msg) >>= fun () ->
-                    Lwt.return (Slave_fake_prepare (i,n'))
+                    log ~me "wait_for_promises: still have an active master (received %s) -> catching up from master"  (string_of msg) >>= fun () ->
+                    Lwt.return (Slave_discovered_other_master (source, i, n', _i))
 		              end
                 else
 		              log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
