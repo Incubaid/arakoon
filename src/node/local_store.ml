@@ -317,12 +317,14 @@ object(self: #store)
       )
 
   method set_master_no_inc master lease = 
-    Hotc.transaction db
-      (fun db -> 
-	_set_master db master lease;
-	_mlo <- Some (master,lease);
-	Lwt.return ()
-      )
+    _mlo <- Some (master,lease);
+    if _quiesced then
+      Lwt.return ()
+    else 
+        Hotc.transaction db 
+        (fun db -> _set_master db master lease;
+               Lwt.return ()
+        )
 
   method who_master () = Lwt.return _mlo
 
