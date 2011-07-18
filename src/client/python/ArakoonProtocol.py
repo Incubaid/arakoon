@@ -315,6 +315,10 @@ def _unpackInt(buf, offset):
     r=struct.unpack_from( "I", buf,offset)
     return r[0], offset + ARA_TYPE_INT_SIZE
 
+def _unpackSignedInt(buf, offset):
+    r=struct.unpack_from( "i", buf,offset)
+    return r[0], offset + ARA_TYPE_INT_SIZE
+
 def _unpackInt64(buf, offset):
     r= struct.unpack_from("q", buf, offset)
     return r[0], offset + 8
