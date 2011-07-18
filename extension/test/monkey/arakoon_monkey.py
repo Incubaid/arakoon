@@ -367,7 +367,7 @@ def make_monkey_run() :
         collapse_candidate_count = C.get_tlog_count (toCollapse ) -1 
         if collapse_candidate_count > 0 :
             logging.info("Collapsing node %s" % toCollapse )
-            if collapse(toCollapse, 1 ) != 0:
+            if C.collapse(toCollapse, 1 ) != 0:
                 logging.error( "Could not collapse tlog of node %s" % toCollapse )
         
         
