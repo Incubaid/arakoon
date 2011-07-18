@@ -48,8 +48,7 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
 
 let rename source target = 
   Lwt_log.debug_f "rename %s -> %s" source target >>= fun () ->
-  Lwt_preemptive.detach (fun () -> Unix.rename source target) () >>= fun () ->
-  Lwt.return ()
+  Lwt_unix.rename source target
 
 let stat filename = 
   Lwt_log.debug_f "stat %s" filename >>= fun () ->

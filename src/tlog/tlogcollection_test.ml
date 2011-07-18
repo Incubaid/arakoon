@@ -87,7 +87,9 @@ let test_rollover_1002 (dn, factory) =
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
   (* wait so all the compression can finish on terribly slow virtual machines *)
-  Lwt_unix.sleep 10.0 >>= fun () -> 
+  let s = 10.0 in
+  Lwt_log.info_f "going to sleep %fs" s >>= fun () ->
+  Lwt_unix.sleep s >>= fun () -> 
   Lwt.return ()
 
 

@@ -333,20 +333,19 @@ object(self: # tlog_collection)
       Compression.compress_tlog tlu tlc_temp  >>= fun () ->
       File_system.rename tlc_temp tlc >>= fun () ->
       Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
-      let msg = 
-	try
-	  Unix.unlink tlu;
-	  "ok: unlinked " ^ tlu
-	with _ -> Printf.sprintf "warning: unlinking of %s failed" tlu
-      in
-      Lwt_log.debug ("end of compress : " ^ msg) >>= fun () ->
-      Lwt.return () 
+      Lwt.catch
+	(fun () -> 
+	  Lwt_unix.unlink tlu >>= fun () ->
+	  Lwt.return ("ok: unlinked " ^ tlu)
+	)
+	(fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
+      >>= fun msg ->
+      Lwt_log.debug ("end of compress : " ^ msg) 
     in 
     begin
-      if use_compression then
-        Lwt_preemptive.detach (fun () -> Lwt.ignore_result (compress ())) () 
-      else
-        Lwt.return ()
+      if use_compression 
+      then compress ()
+      else Lwt.return ()
     end
     >>= fun () ->
     _outer <- _outer + 1;
