@@ -41,6 +41,8 @@ from arakoon.ArakoonExceptions import *
 MEM_MAX_KB = 1024 * 128
 monkey_dies = False
 
+random.seed(42)
+
 def get_monkey_work_dir() :
     return q.system.fs.joinPaths( q.dirs.tmpDir, "arakoon_monkey" )
 
