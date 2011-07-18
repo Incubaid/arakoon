@@ -24,7 +24,7 @@ require_once 'Set.php';
 require_once 'Delete.php';
 
 /**
- * This class represents the Arakoon_Client_Operation_Sequence class.
+ * Arakoon_Client_Operation_Sequence
  * 
  * @category   	Arakoon
  * @package    	Arakoon_Client

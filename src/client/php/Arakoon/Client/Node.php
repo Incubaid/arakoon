@@ -21,7 +21,7 @@
  */
 
 /**
- * This class represents the Arakoon_Client_Config_Node class.
+ * Arakoon_Client_Node
  *
  * @category   	Arakoon
  * @package    	Arakoon_Client

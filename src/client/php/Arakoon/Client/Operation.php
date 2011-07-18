@@ -48,7 +48,7 @@ abstract class Arakoon_Client_Operation
     	
     	if (!isset($key))
 		{
-			throw new Exception('Key invalid');
+			throw new Arakoon_Client_Exception('Key invalid');
 		}
     }
         
@@ -59,7 +59,7 @@ abstract class Arakoon_Client_Operation
     {
     	if (mb_strlen($key) > Arakoon_Client_Config::MAX_KEY_BYTE_SIZE)
 		{
-			throw new Exception('Key exceeds max size (8mb)');
+			throw new Arakoon_Client_Exception('Key exceeds max size (8mb)');
 		}
     }
     
@@ -72,7 +72,7 @@ abstract class Arakoon_Client_Operation
     	
     	if (!isset($value))
 		{
-			throw new Exception('Value invalid');
+			throw new Arakoon_Client_Exception('Value invalid');
 		}
     }
     
@@ -83,7 +83,7 @@ abstract class Arakoon_Client_Operation
     {
     	if (mb_strlen($value) > Arakoon_Client_Config::MAX_KEY_BYTE_SIZE)
 		{
-			throw new Exception('Key exceeds max size (8mb)');
+			throw new Arakoon_Client_Exception('Key exceeds max size (8mb)');
 		}
     }
 }

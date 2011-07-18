@@ -21,9 +21,10 @@
  */
 
 require_once 'Node.php';
+require_once 'Exception.php';
 
 /**
- * This class represents the Arakoon_Client_Config class.
+ * Arakoon_Client_Config
  *
  * @category   	Arakoon
  * @package    	Arakoon_Client
@@ -33,7 +34,7 @@ require_once 'Node.php';
 class Arakoon_Client_Config
 { 
 	const DEFAULT_CLUSTER_ID 			= 'arakoon';
-	const MESSAGE_TRY_COUNT 			= 1;			// amount of attempts before a message should be tried before giving up on
+	const SEND_MESSAGE_TRY_COUNT		= 1;			// amount of attempts before a message should be tried before giving up on
 	const CONNECTION_TIMEOUT 			= 60;			// tcp connection timeout
 	const CONNECTION_BACKOFF_INTERVAL 	= 5;			// max interval in seconds a client should wait untill attempting to send another message to the server
 	const NO_MASTER_RETRY_PERIOD 		= 60;	   		// period in seconds in which messages can be sent to re-elect a master (no master scenario)
@@ -67,7 +68,7 @@ class Arakoon_Client_Config
      * 
      *  @param 	string 					$filePath path to the Arakoon client configuration ini file
      *  @return Arakoon_Client_Config	Arakoon client configuration
-     *  @throws Exception 				when fhe file extention of the file isn't supported
+     *  @throws Arakoon_Client_Config 				when fhe file extention of the file isn't supported
      */
 	public static function createFromFile($filePath)
 	{
@@ -79,7 +80,7 @@ class Arakoon_Client_Config
 		}
 		else
 		{
-			throw new Exception("Config file extention not supported!");	
+			throw new Arakoon_Client_Exception("Config file extention not supported!");	
 		}
 	}
 	
@@ -123,23 +124,23 @@ class Arakoon_Client_Config
 	/**
      * Validates an Arakoon client configuration array.
      * 
-     * @throws Exception when a required part of the Arakoon client configuration array is undefined
+     * @throws Arakoon_Client_Config when a required part of the Arakoon client configuration array is undefined
      */
 	private static function validate(array $config)
 	{	
         if (!array_key_exists(self::GLOBAL_KEY, $config))
         {
-            throw new Exception('Global section undefined');
+            throw new Arakoon_Client_Config('Global section undefined');
         }
         
         if (!array_key_exists(self::CLUSTER_KEY, $config[self::GLOBAL_KEY]))
         {
-            throw new Exception('Cluster undefined!');
+            throw new Arakoon_Client_Config('Cluster undefined!');
         }	
         
 		if (!array_key_exists(self::CLUSTER_ID_KEY, $config[self::GLOBAL_KEY]))
         {
-            throw new Exception('Cluster identifier undefined!');
+            throw new Arakoon_Client_Config('Cluster identifier undefined!');
         }        
         
         $nodeNames = split(',', $config[self::GLOBAL_KEY][self::CLUSTER_KEY]);        
@@ -153,7 +154,7 @@ class Arakoon_Client_Config
 	        }
 	        else
 	        {
-	        	throw new Exception('Node ($nodeName) section undefined');
+	        	throw new Arakoon_Client_Config("Node ($nodeName) section undefined");
 	        }
         }
 	}
@@ -161,23 +162,23 @@ class Arakoon_Client_Config
 	/**
      * Validates an Arakoon node configuration array.
      * 
-     * @throws Exception when a required part of the Arakoon node configuration array is undefined
+     * @throws Arakoon_Client_Config when a required part of the Arakoon node configuration array is undefined
      */
 	private static function validateNode(array $node)
 	{			
 		if (!array_key_exists(self::IP_KEY, $node))
         {
-            throw new Exception('Node ip undefined!');
+            throw new Arakoon_Client_Config('Node ip undefined!');
         }
 		
         if (!array_key_exists(self::CLIENT_PORT_KEY, $node))
         {
-            throw new Exception('Node client port undefined!');
+            throw new Arakoon_Client_Config('Node client port undefined!');
         }
         
 		if (!array_key_exists(self::HOME_KEY, $node))
         {
-            throw new Exception('Node home undefined!');
+            throw new Arakoon_Client_Config('Node home undefined!');
         }
 	}
     
@@ -231,8 +232,8 @@ class Arakoon_Client_Config
      */
     public function nodeExists($nodeId)
     {
-    	$exists = FALSE;  
-    	  	
+    	$exists = FALSE;
+    	    	  	
     	foreach ($this->_nodes as $node)
     	{
     		if ($node->getId() == $nodeId)
@@ -243,6 +244,26 @@ class Arakoon_Client_Config
     	} 
     	   	
     	return $exists;
+    }
+    
+	/**
+     * Checks if the Arakoon client configuration contains a node with the given node identifier.
+     * If not an exception is thrown.
+     * 
+     * @param	string 	$nodeId node identifier that needs to be checked
+     * @return	void
+     * @throws	Arakoon_Client_Exception when given node identifier doesn't exist
+     */
+    public function assertNodeExists($nodeId)
+    {
+    	$exists = $this->nodeExists($nodeId);
+    	
+    	if (!$exists)
+    	{
+			$message = "No node exists with the given node identifier ($nodeId)";
+    		Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
+			throw new Arakoon_Client_Exception($message);    		
+    	}
     }
 }
 ?>

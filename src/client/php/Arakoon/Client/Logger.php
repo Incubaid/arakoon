@@ -21,7 +21,7 @@
  */
 
 /**
- * This class represents the Arakoon_Client_LoggerLevel class.
+ * Arakoon_Client_LoggerLevel
  *
  * @category   	Arakoon
  * @package    	Arakoon_Client

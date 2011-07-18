@@ -20,18 +20,22 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'Client/Logger.php';
 require_once 'Client/Config.php';
+require_once 'Client/Exception.php';
+require_once 'Client/Logger.php';
 require_once 'Client/NodeConnection.php';
-require_once 'Client/Protocol.php';
+require_once 'Client/NotFoundException.php';
+require_once 'Client/NotMasterException.php';
 require_once 'Client/Operation.php';
+require_once 'Client/Operation/Delete.php';
 require_once 'Client/Operation/Sequence.php';
 require_once 'Client/Operation/Set.php';
-require_once 'Client/Operation/Delete.php';
+require_once 'Client/Protocol.php';
+require_once 'Client/WrongClusterException.php';
 
 /**
- * This class represents the Arakoon_Client class.
- * 
+ * Arakoon_Client
+ *
  * @category   	Arakoon
  * @package    	Arakoon_Client
  * @copyright 	Copyright (C) 2010 Incubaid BVBA
@@ -48,29 +52,29 @@ class Arakoon_Client
 	/**
 	 * Constructor of an Arakoon_Client object.
 	 *
-	 * @param 	ArakoonClientConfig $config contains info on the nodes and defaults to NULL in wich case a default ArakoonClientConfig 
+	 * @param 	ArakoonClientConfig $config contains info on the nodes and defaults to NULL in wich case a default ArakoonClientConfig
 	 * @return 	void
 	 */
 	public function __construct(Arakoon_Client_Config $config=NULL)
-	{	
+	{
 		if ($config == NULL)
 		{
-			$config = new Arakoon_Client_Config();			
+			$config = new Arakoon_Client_Config();
 		}
-		
-		$nodes = $config->getNodes();		
+
+		$nodes = $config->getNodes();
 		if (count($nodes) == 0)
 		{
-			throw new Exception('Config doesn\'t contain any nodes');
+			throw new Arakoon_Client_Exception('Config doesn\'t contain any nodes');
 		}
-		
+
 		$this->_config = $config;
-		$this->_connections = array();		
+		$this->_connections = array();
 		$this->_allowDirtyReadsReads = FALSE;
 		$this->_dirtyReadNodeId = array_rand(array_keys($nodes));
 		$this->_masterId = NULL;
 	}
-	
+
 	/**
 	 * Allows the use of dirty reads.
 	 *
@@ -90,10 +94,10 @@ class Arakoon_Client
 	{
 		$this->_allowDirtyReads = FALSE;
 	}
-	
+
 	/**
 	 * Gets the configuration object assigned to the Arakoon client.
-	 * 
+	 *
 	 * @return Arakoon_Client_Config
 	 */
 	public function getConfig()
@@ -110,7 +114,7 @@ class Arakoon_Client
 	{
 		return $this->_dirtyReadNodeId;
 	}
-	
+
 	/**
 	 * Sets the node for dirty read operations using the given node identifier.
 	 *
@@ -118,38 +122,35 @@ class Arakoon_Client
 	 * @return	void
 	 */
 	public function setDirtyReadNode($nodeId)
-	{		
-		if ($this->_config->nodeExists($nodeId))
-		{
-			$this->_dirtyReadNodeId = $nodeId;			
-		}
-		else
-		{
-			throw new Exception("Unkown node identifier ($nodeId)");
-		}		
+	{
+		$this->_config->assertNodeExists($nodeId);
+		$this->_dirtyReadNodeId = $nodeId;
 	}
-	
+
 	/**
 	 * @todo document
 	 */
 	public function expectProgressPossible()
 	{
-		$result = FALSE;		
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$result = FALSE;
 		$message = Arakoon_Client_Protocol::encodeExpectProgressPossible();
-		
+
 		try
 		{
-			$connection = $this->sendMessageToMaster($message);
-			$result = Arakoon_Client_Protocol::decodeBoolResult($connection);
+			$result = $this->sendMsgDecodeResult($message, 'Bool');
 		}
 		catch (Exception $ex)
 		{
-			Arakoon_Client_Protocol::logError("Received exception $ex", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logError("Received exception $ex", __FILE__, __FUNCTION__, __LINE__);
 		}
-		
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Deletes a key-value pair using the given key
 	 *
@@ -159,12 +160,15 @@ class Arakoon_Client
 	 */
 	public function delete($key)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$deleteOperation = new Arakoon_Client_Operation_Delete($key);
 		$message = $deleteOperation->encode();
-		$connection = $this->sendMessageToMaster($message);
-		Arakoon_Client_Protocol::decodeVoidResult($connection);
+		$this->sendMsgDecodeResult($message, 'Void');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
 	}
-	
+
 	/**
 	 * Checks if a key-value pair exists using it's given key
 	 *
@@ -173,29 +177,50 @@ class Arakoon_Client
 	 */
 	public function exists($key)
 	{
-		$message = Arakoon_Client_Protocol::encodeExists($key, $this->_allowDirtyReads);		
-		$connection = $this->sendReadMessage($message);
-		$result = Arakoon_Client_Protocol::decodeBoolResult($connection);
-		
-		return $result; 
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeExists($key, $this->_allowDirtyReads);
+		$result = $this->sendMsgDecodeResult($message, 'Bool', TRUE);
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
 	}
-	
+
 	/**
 	 * Retrieves a key-value pair it's value using the given key.
-	 * 
+	 *
 	 * @param 	string 		$key key whose value you are interested in
 	 * @return 	string 		the value associated with the given key
 	 * @throws 	Exception	when the given key doesn't exists
 	 */
 	public function get($key)
 	{
-		$message = Arakoon_Client_Protocol::encodeGet($key, $this->_allowDirtyReads);		
-		$connection = $this->sendReadMessage($message);
-		$result = Arakoon_Client_Protocol::decodeStringResult($connection);
-		
-		return $result; 		
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeGet($key, $this->_allowDirtyReads);
+		$result = $this->sendMsgDecodeResult($message, 'String');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
 	}
-	
+
+	/**
+	 * @todo document
+	 */
+	public function getKeyCount()
+	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeGetKeyCount();
+		$result = $this->sendMsgDecodeResult($message, 'Int64');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
+	}
+
 	/**
 	 * Sends a hello message to the master node with a given client id and cluster id
 	 * and returns the master node id and the arakoon version
@@ -206,30 +231,36 @@ class Arakoon_Client
 	 */
 	public function hello($clientId, $clusterId=ArakoonClientConfig::DEFAULT_CLUSTER_ID)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$message = Arakoon_Client_Protocol::encodeHello($clientId, $clusterId);
-		$connection = $this->sendMessageToMaster($message);
-		$result = Arakoon_Client_Protocol::decodeStringResult($connection);
-		
+		$result = $this->sendMsgDecodeResult($message, 'String');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
-	
+
+
 	/**
 	 * Retrieves the values for the keys in the given array
 	 * If one or more of the keys doesn't exist an empty list will be returned
-	 * 
+	 *
 	 * @param 	array $key		array containing the keys wich values needs to be retrieved
 	 * @return 	array $values	the values associated with the respective keys
 	 */
 	public function multiGet($keys)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$message = Arakoon_Client_Protocol::encodeMultiGet($keys, $this->_allowDirtyReads);
-		$connection = $this->sendReadMessage($message);
-		$result = Arakoon_Client_Protocol::decodeStringListResult($connection);
-		
+		$result = $this->sendMsgDecodeResult($message, 'StringList');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Retrieves a set of keys that match the provided prefix
 	 * You can indicate whether the prefix should be included in the result set if there is a key that matches exactly
@@ -241,13 +272,16 @@ class Arakoon_Client
 	 */
 	public function prefix($keyPrefix , $maxElements = -1)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$message = Arakoon_Client_Protocol::encodePrefix($keyPrefix, $maxElements, $this->_allowDirtyReads);
-		$connection = $this->sendReadMessage($message);
-		$result = Arakoon_Client_Protocol::decodeStringListResult($connection); 
-		
+		$result = $this->sendMsgDecodeResult($message, 'StringList');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Performs a range query on the store, retrieving the set of matching keys
 	 * Retrieve a set of keys that lexographically fall between the beginKey and the endKey
@@ -265,13 +299,16 @@ class Arakoon_Client
 	 */
 	public function range($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements = -1)
 	{
-		$message = Arakoon_Client_Protocol::encodeRange($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);		
-		$connection = $this->sendReadMessage($message);	
-		$result = Arakoon_Client_Protocol::decodeStringListResult($connection);
-		
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeRange($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
+		$result = $this->sendMsgDecodeResult($message, 'StringList');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Perform a range query on the store, retrieving the set of matching key-value pairs
 	 * Retrieve a set of keys that lexographically fall between the beginKey and the endKey
@@ -288,28 +325,34 @@ class Arakoon_Client
 	 */
 	public function rangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements = -1)
 	{
-		$message = Arakoon_Client_Protocol::encodeRangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);		
-		$connection = $this->sendReadMessage($message);	
-		$result = Arakoon_Client_Protocol::decodeStringPairListResult($connection);
-		
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeRangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
+		$result = $this->sendMsgDecodeResult($message, 'StringPairList');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Executes a sequence of operations using the "all or nothing" concept
 	 * meaning if one operation should fails all the other will too
-	 * 
+	 *
 	 * @param Sequence $sequence : Sequence of operations
 	 *
 	 * @return void
 	 */
 	public function sequence(Arakoon_Client_Operation_Sequence $sequence)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$message = $sequence->encode();
-		$connection = $this->sendMessageToMaster($message);
-		Arakoon_Client_Protocol::decodeVoidResult($connection);
+		$this->sendMsgDecodeResult($message, 'Void');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
 	}
-	
+
 	/**
 	 * Updates the value associated with the given key
 	 * If the key doesn't exists, a new key value pair will be created
@@ -322,34 +365,32 @@ class Arakoon_Client
 	 */
 	public function set($key, $value)
 	{
-		if (!isset($key))
-		{
-			throw new Exception('Key invalid');
-		}
-		
-		if (!isset($value))
-		{
-			throw new Exception('Value invalid');
-		}
-		
-		$setOperation = new Arakoon_Client_Operation_Set($key, $value);		
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$setOperation = new Arakoon_Client_Operation_Set($key, $value);
 		$message = $setOperation->encode();
-		$connection = $this->sendMessageToMaster($message);
-		Arakoon_Client_Protocol::decodeVoidResult($connection);
-	}	
-	
+		$result = $this->sendMsgDecodeResult($message, 'Void');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
+	}
+
 	/**
 	 * @todo document
 	 */
 	public function statistics()
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$message = Arakoon_Client_Protocol::encodeStatistics();
-		$connection = $this->sendMessageToMaster($message);
-		$result = Arakoon_Client_Protocol::decodeStatisticsResult($connection);
-		
+		$result = $this->sendMsgDecodeResult($message, 'Statistics');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Conditionaly update the value associcated with the provided key.
 	 * The value associated with key will be updated to newValue if the current value in the store equals oldValue
@@ -364,17 +405,20 @@ class Arakoon_Client
 	 */
 	public function testAndSet($key, $oldValue, $newValue)
 	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		Arakoon_Client_Operation::validateKey($key);
 		Arakoon_Client_Operation::validateValueSize($oldValue);
 		Arakoon_Client_Operation::validateValueSize($newValue);
-		
+
 		$message = Arakoon_Client_Protocol::encodeTestAndSet($key, $oldValue, $newValue);
-		$connection = $this->sendMessageToMaster($message);
-		$result = Arakoon_Client_Protocol::decodeStringOptionResult($connection);
-		
+		$result = $this->sendMsgDecodeResult($message, 'StringOption');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
 		return $result;
 	}
-	
+
 	/**
 	 * Gets the master node its identifier..
 	 *
@@ -382,7 +426,13 @@ class Arakoon_Client
 	 */
 	public function whoMaster()
 	{
-		return $this->getMasterId();
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$masterId = $this->getMasterId();
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $masterId;
 	}
 
 	/**
@@ -393,11 +443,16 @@ class Arakoon_Client
 	 */
 	private function getMasterIdFromNode($nodeId)
 	{
-		$message = Arakoon_Client_Protocol::encodeWhoMaster();		
-		$connection = $this->sendMessageToNode($nodeId, $message);		
-		return Arakoon_Client_Protocol::decodeStringOptionResult($connection);
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$message = Arakoon_Client_Protocol::encodeWhoMaster();
+		$result = $this->sendMsgToNodeDecodeResult($nodeId, $message, 'StringOption');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
 	}
-	
+
 	/**
 	 * Checks if a given node identifier is equal to the master identifier.
 	 *
@@ -406,17 +461,20 @@ class Arakoon_Client
 	 */
 	private function isMaster($nodeId)
 	{
-		if (!$this->_config->nodeExists($nodeId))
-		{
-			Arakoon_Client_Logger::logWarning("Unknown node identifier ($nodeId)", __FILE__, __FUNCTION__, __LINE__);
-			throw new Exception("Unkown node identifier ($nodeId)");			
-		}
-		
+		$this->_config->assertNodeExists($nodeId);
 		$masterId = $this->getMasterIdFromNode($nodeId);
-		
-		return $nodeId == $masterId;		 
+
+		return $nodeId == $masterId;
 	}
-	
+
+	/**
+	 * @todo document
+	 */
+	private function resetMaster()
+	{
+		$this->_master = NULL;
+	}
+
 	/**
 	 * @todo document
 	 */
@@ -424,18 +482,18 @@ class Arakoon_Client
 	{
 		if (isset($this->_masterId))
 		{
-			return $this->_masterId;				
+			return $this->_masterId;
 		}
-		
+
 		$nodes = $this->_config->getNodes();
 		shuffle($nodes);
-		
+
 		while (count($nodes) > 0)
 		{
 			$randomNode = array_pop($nodes);
-			$randomNodeId = $randomNode->getId();			
+			$randomNodeId = $randomNode->getId();
 			$possibleMasterId = $this->getMasterIdFromNode($randomNodeId);
-			
+				
 			if ($this->_config->nodeExists($possibleMasterId))
 			{
 				if (($randomNodeId == $possibleMasterId) || $this->isMaster($possibleMasterId))
@@ -445,10 +503,10 @@ class Arakoon_Client
 				}
 				else
 				{
-					Arakoon_Client_Logger::logWarning("Node ($randomNodeId) does not know who master is", __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logWarning("Node ($randomNodeId) doesn't know who master is", __FILE__, __FUNCTION__, __LINE__);
 				}
-				
-				// remove possible master id to reduce unnecessary calls
+
+				// remove possible master id to prevent unnecessary calls
 				for ($i = 0; $i < count($shuffledNodes); $i++)
 				{
 					if ($shuffledNodes[$i]->getId() == $possibleMasterId)
@@ -460,14 +518,14 @@ class Arakoon_Client
 			else
 			{
 				Arakoon_Client_Logger::logWarning("Unknown node identifier ($possibleMasterId)", __FILE__, __FUNCTION__, __LINE__);
-			}		
+			}
 		}
-		
+
 		if ($this->_masterId == NULL)
 		{
 			Arakoon_Client_Logger::logFatal("Could not determine master", __FILE__, __FUNCTION__, __LINE__);
-			throw new Exception('Could not determine master');
-		}	
+			throw new Arakoon_Client_Exception('Could not determine master');
+		}
 
 		return $this->_masterId;
 	}
@@ -475,70 +533,107 @@ class Arakoon_Client
 	/**
 	 * @todo document
 	 */
-	private function sendReadMessage($message)
+	private function sendMsgDecodeResult($message, $decodeFunc, $isRead = FALSE, $sendMsgTryCount = Arakoon_Client_Config::SEND_MESSAGE_TRY_COUNT)
 	{
-		if ($this->_allowDirtyReads)
-		{
-			return $this->sendMessageToNode($this->_dirtyReadNodeId, $message);
-		}
-		else
-		{
-			return $this->sendMessageToMaster($message);
-		}
-	}
-	
-	private function sendMessageToMaster($message)
-	{
-		$masterId = $this->getMasterId();
-		return $this->sendMessageToNode($masterId, $message);
-	}
-	
-	/**
-	 * Retrieves the connection to node using the given node id
-	 *
-	 * @param string $nodeId 						: id of the node to connect to
-	 * @param string $message 						: message that needs to be send to the node
-	 *
-	 * @return ArakoonClientConnection $connection 	: node connection
-	 */
-	private function sendMessageToNode($nodeId, $message, $tryCount=Arakoon_Client_Config::MESSAGE_TRY_COUNT)
-	{
-		$connection = NULL;
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
 		$succes = FALSE;
-		
-		for ($i = 0; $i < $tryCount; $i++)
+
+		for ($i = 0; $i < $sendMsgTryCount; $i++)
 		{
-			if ($i > 0)
-			{
-				sleep(rand(0, ArakoonClientConfig::CONNECTION_BACKOFF_INTERVAL));
-			}
-			
-			try
-			{
-				$connection = $this->getNodeConnection($nodeId);				
-				$succes = $connection->sendMessage($message);
+			$currentTime = time();
+			$deadLine = time() + Arakoon_Client_Config::NO_MASTER_RETRY_PERIOD;
+			$backOffCounter = 0;
 				
-				if ($succes)
-				{
-					break;
-				}				
-			}
-			catch (Exception $exception)
+			while ($currentTime < $deadLine)
 			{
-				Arakoon_Client_Logger::logDebug('Exception: $exception', __FILE__, __FUNCTION__, __LINE__);
-				Arakoon_Client_Logger::logWarning("Attempt $i to send a message to a node ($nodeId) failed (exception: $exception).", __FILE__, __FUNCTION__, __LINE__);				
-				$this->dropNodeConnection($nodeId);
-				$this->_masterId = NULL;
+				if ($backOffCounter > 0)
+				{
+					$backOffPeriod = rand(0, Arakoon_Client_Config::CONNECTION_BACKOFF_INTERVAL);
+					Arakoon_Client_Logger::logWarning("Backing off for $backOffPeriod seconds", __FILE__, __FUNCTION__, __LINE__);
+					sleep($backOffPeriod);
+				}
+					
+				$sendToMaster = !($isRead && $this->_allowDirtyReads);
+					
+				$nodeId = ($sendToMaster) ? $this->getMasterId() : $this->getDirtyReadNode();
+					
+				try
+				{
+					$result = $this->sendMsgToNodeDecodeResult($nodeId, $message, $decodeFunc);
+					$succes = TRUE;
+					break;
+				}
+				catch(Exception $exception)
+				{
+					$exceptionClass = get_class($exception);
+					if ($exceptionClass == 'Arakoon_Client_Exception')
+					{
+						break;
+					}
+					else
+					{						
+						throw $exception;
+					}				
+
+					if ($sendToMaster)
+					{
+						$this->resetMaster();
+					}
+					
+					Arakoon_Client_Logger::logDebug("Exception: $exception", __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logWarning("Attempt $i to send a message to a node ($nodeId) failed", __FILE__, __FUNCTION__, __LINE__);
+				}
+					
+				$currentTime = time();
+				$backOffCounter++;
 			}
 		}
-		
+
 		if (!$succes)
 		{
-			Arakoon_Client_Logger::logFatal("All connection retries failed", __FILE__, __FUNCTION__, __LINE__);						
-			throw new Exception('All connection retries failed');
+			$fatalMsg = "All attemps ($sendMsgTryCount) to send a message and decode its result failed";
+			Arakoon_Client_Logger::logFatal($fatalMsg, __FILE__, __FUNCTION__, __LINE__);
+				
+			throw new Arakoon_Client_Exception($fatalMsg);
 		}
+			
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
+	}
+
+	/**
+	 * @todo document
+	 */
+	private function sendMsgToNodeDecodeResult($nodeId, $message, $decodeFunc)
+	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$result = NULL;
+		$connection = NULL;
 		
-		return $connection;
+		try
+		{
+			$connection = $this->getNodeConnection($nodeId);
+			$connection->writeBytes($message);
+				
+			$decodeFunc = 'Arakoon_Client_Protocol::decode' . $decodeFunc . 'Result';
+			$result = call_user_func($decodeFunc, $connection);
+		}
+		catch(Exception $exception)
+		{
+			$this->dropNodeConnection($nodeId);
+			
+			$warningMessage = "Could't send message to node ($nodeId) and decode result";
+			Arakoon_Client_Logger::logWarning($warningMessage, __FILE__, __FUNCTION__, __LINE__);					
+			
+			throw $exception;
+		}
+			
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+
+		return $result;
 	}
 
 	/**
@@ -550,21 +645,14 @@ class Arakoon_Client
 	 */
 	private function getNodeConnection($nodeId)
 	{
-		if (!$this->_config->nodeExists($nodeId))
-		{
-			$message = "Unknown node identifier ($nodeId)";
-			Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
-			throw new Exception($message);			
-		}
-				
 		if (!array_key_exists($nodeId, $this->_connections))
 		{
 			$this->connectToNode($nodeId);
 		}
-		
+
 		return $this->_connections[$nodeId];
 	}
-	
+
 	/**
 	 * Creates a new connection to a node using the given node id
 	 *
@@ -574,28 +662,37 @@ class Arakoon_Client
 	 */
 	private function connectToNode($nodeId)
 	{
+		$this->_config->assertNodeExists($nodeId);
 		$node = $this->_config->getNode($nodeId);
-		$connection = new Arakoon_Client_NodeConnection($node->getIp(), $node->getClientPort(), TRUE);
+		$connection = new Arakoon_Client_NodeConnection($node);
 		$this->_connections[$nodeId] = $connection;
-		
-		$prologueMsg = Arakoon_Client_Protocol::EncodePrologue($this->_config->getClusterId());			
-		$connection->sendMessage($prologueMsg);
+
+		$prologueBuffer = Arakoon_Client_Protocol::EncodePrologue($this->_config->getClusterId());
+		$connection->writeBytes($prologueBuffer);
 	}
-	
+
 	/**
 	 * @todo document
 	 */
 	private function dropNodeConnection($nodeId)
 	{
-		$this->_connections[$nodeId]->close();
+		if (!array_key_exists($nodeId, $this->_connections))
+		{
+			$message = "No node connection found with the given node identifier ($nodeId)";
+			Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
+			throw new Arakoon_Client_Exception($message);
+		}
+
+		$this->_connections[$nodeId]->disconnect();
 		unset($this->_connections[$nodeId]);
+		$this->_connections = array_values($this->_connections);
 	}
-	
+
 	/**
 	 * @todo document
 	 */
 	private function dropAllNodeConnections()
-	{	
+	{
 		foreach($this->_connections as $nodeId->$connection)
 		{
 			dropNodeConnection($nodeId);

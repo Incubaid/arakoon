@@ -21,6 +21,7 @@
  */
 
 require_once 'Logger.php';
+require_once 'Exception.php';
 
 /**
  * Arakoon_Client_Protocol
@@ -40,6 +41,7 @@ class Arakoon_Client_Protocol
 	const OP_CODE_EXPECT_PROGRESS_POSSIBLE	= 0x00000012;
 	const OP_CODE_GET						= 0x00000008;
 	const OP_CODE_HELLO						= 0x00000001;
+	const OP_CODE_GET_KEY_COUNT				= 0x0000001a;
 	const OP_CODE_MAGIC 					= 0xb1ff0000;
 	const OP_CODE_MULTI_GET					= 0x00000011;
 	const OP_CODE_PREFIX					= 0x0000000c;
@@ -77,7 +79,7 @@ class Arakoon_Client_Protocol
 
 	/**
      * Constructor of an Arakoon_Client_Protocol object.
-     * It is a private constructor because the class only contains static functions.
+     * The constructor is private, because the class only contains static functions.
      * 
      * @return void
      */
@@ -219,7 +221,7 @@ class Arakoon_Client_Protocol
 	{
 		// on x64, we can just use int
 		if ( ((int)4294967296)!=0 )
-			return (((int)$hi)<<32) + ((int)$lo);
+		return (((int)$hi)<<32) + ((int)$lo);
 	
 		// workaround signed/unsigned braindamage on x32
 		$hi = sprintf ( "%u", $hi );
@@ -259,8 +261,7 @@ class Arakoon_Client_Protocol
      */
 	public static function unpackInt64($buffer, $offset)
 	{
-
-		$data = unpack('Iint', substr($buffer, $offset));
+		$data = unpack('Iint', $buffer);
 		return array($data['int'], $offset + self::TYPE_SIZE_INT_64);
 	}
 		
@@ -313,6 +314,16 @@ class Arakoon_Client_Protocol
 	    list($integer, $offset) = self::unpackInt($buffer, 0);
 	    return $integer;
 	}
+	
+	/**
+     * @todo document
+     */
+	private static function readInt64($connection)
+	{
+    	$buffer = $connection->readBytes(self::TYPE_SIZE_INT_64);    
+	    list($integer, $offset) = self::unpackInt($buffer, 0);
+	    return $integer;
+	}	
 		
 	/**
      * @todo document
@@ -400,6 +411,16 @@ class Arakoon_Client_Protocol
         $buffer  = self::packInt(self::OP_CODE_HELLO | self::OP_CODE_MAGIC);
         $buffer .= self::packString($clientId);
         $buffer .= self::packString($clusterId);
+        
+        return $buffer;
+    }
+    
+	/**
+     * @todo document
+     */
+	public static function encodeGetKeyCount()
+	{
+        $buffer  = self::packInt(self::OP_CODE_GET_KEY_COUNT | self::OP_CODE_MAGIC);
         
         return $buffer;
     }
@@ -545,6 +566,17 @@ class Arakoon_Client_Protocol
 	/**
      * @todo document
      */
+	public static function decodeInt64Result($connection)
+	{
+    	self::evaluateResultCode($connection);
+    	$int64 = self::readInt64($connection);
+        
+    	return $int64;
+	}	
+	
+	/**
+     * @todo document
+     */
 	public static function decodeStatisticsResult($connection)
 	{
         self::evaluateResultCode($connection);
@@ -668,30 +700,30 @@ class Arakoon_Client_Protocol
         if ($resultCode != self::RESULT_CODE_SUCCES)
         {
         	$resultMsg = self::readString($connection);
+        	$exceptionMsg = "An error occured (code: $resultCode) while executing an Arakoon operation (message: $resultMsg)";
+        	$exception = NULL;
         	
 	        switch($resultCode)
 	        {	        		
 	        	case self::RESULT_CODE_NOT_FOUND:
-	        		$exceptionMsg = 'A \'not found\'';
+	        		$exception = new Arakoon_Client_NotFoundException($exceptionMsg);
 	        		break;
 	            	            	
 	        	case self::RESULT_CODE_NOT_MASTER:
-	        		$exceptionMsg = 'A \'not master\'';
+	        		$exception = new Arakoon_Client_NotMasterException($exceptionMsg);
 	        		break;
 	        		
         		case self::RESULT_CODE_WRONG_CLUSTER:
-	        		$exceptionMsg = 'A \'wrong cluster\'';
+	        		$exception = new Arakoon_Client_WrongClusterException($exceptionMsg);
 	        		break;
 	        		
 	        	default:
-	        		$exceptionMsg = 'An ';
+	        		$exception = new Arakoon_Client_Exception();
 	        		break;	            
 	        }
 	        
-	        $exceptionMsg .= " error occured (code: $resultCode) while executing an Arakoon operation (message: $resultMsg)";
-	        	        	        
 	        Arakoon_Client_Logger::logError($exceptionMsg, __FILE__, __FUNCTION__, __LINE__);
-	        throw new Exception($exceptionMsg);	        
+	        throw $exception;    
         }
     }
 }

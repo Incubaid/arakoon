@@ -21,7 +21,7 @@
  */
 
 /**
- * This class represents the Arakoon_Client_Operation_Delete class.
+ * Arakoon_Client_Operation_Delete
  * 
  * @category   	Arakoon
  * @package    	Arakoon_Client
