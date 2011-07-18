@@ -102,7 +102,7 @@ def install_lwt():
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
     env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
 
-    lib = Lib('lwt-2.3.0','.tar.gz',
+    lib = Lib('lwt-2.3.1','.tar.gz',
               'http://ocsigen.org/download/%s')
     lib.download()
     lib.extract()
