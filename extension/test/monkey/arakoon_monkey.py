@@ -348,21 +348,21 @@ def make_monkey_run() :
         if monkey_dies :
             euthanize_this_monkey ()
  
-        rotate_logs(5,False)
+        C.rotate_logs(5,False)
         
-        stop_all()
+        C.stop_all()
         
-        toWipe = node_names[random.randint(0,2)]
+        toWipe = C.node_names[random.randint(0,2)]
         logging.info("Wiping node %s" % toWipe)
-        whipe(toWipe)
+        C.whipe(toWipe)
         
-        start_all()
+        C.start_all()
         
-        toCollapse = node_names[random.randint(0,2)]
+        toCollapse = C.node_names[random.randint(0,2)]
         while toCollapse == toWipe:
-            toCollapse = node_names[random.randint(0,2)]
+            toCollapse = C.node_names[random.randint(0,2)]
             
-        collapse_candidate_count = get_tlog_count (toCollapse ) -1 
+        collapse_candidate_count = C.get_tlog_count (toCollapse ) -1 
         if collapse_candidate_count > 0 :
             logging.info("Collapsing node %s" % toCollapse )
             if collapse(toCollapse, 1 ) != 0:
