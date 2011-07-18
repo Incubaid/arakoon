@@ -238,12 +238,12 @@ def health_check() :
     # Give the nodes some time to sync up
     time.sleep(2.0)
     C.stop_all()
-    
+    logging.info("tlogs in sync?")
     # Make sure the tlogs are in sync
     C.assert_last_i_in_sync( C.node_names[0], C.node_names[1] )
     C.assert_last_i_in_sync( C.node_names[1], C.node_names[2] )
     # Make sure the stores are equal
-    
+    logging.info("stores equal?")
     C.compare_stores( C.node_names[0], C.node_names[1] )
     C.compare_stores( C.node_names[2], C.node_names[1] )
     
@@ -353,11 +353,11 @@ def make_monkey_run() :
         C.rotate_logs(5,False)
         
         C.stop_all()
-        
+        logging.info("stopped all, going to wipe")
         toWipe = C.node_names[random.randint(0,2)]
         logging.info("Wiping node %s" % toWipe)
         C.whipe(toWipe)
-        
+        logging.info("starting all")
         C.start_all()
         
         toCollapse = C.node_names[random.randint(0,2)]
