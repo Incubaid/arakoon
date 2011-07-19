@@ -74,7 +74,9 @@ Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE);
 /**
  * setup test
  */
+
 $testSuite = new TestSuite();
+
 $testSuite->AddTest('SetTestCase');
 $testSuite->AddTest('SetNoneKeyTestCase');
 $testSuite->AddTest('SetNoneValueTestCase');
@@ -83,20 +85,31 @@ $testSuite->AddTest('SetMaxKeySizeExceededTestCase');
 
 $testSuite->AddTest('GetExistingKeyTestCase');
 $testSuite->AddTest('GetNonExistingKeyTestCase');
+$testSuite->AddTest('GetNoneKeyTestCase');
 
 $testSuite->AddTest('DeleteExistingKeyTestCase');
 $testSuite->AddTest('DeleteNonExistingKeyTestCase');
-
-$testSuite->AddTest('ExistsExistingKeyTestCase');
-$testSuite->AddTest('ExistsNonExistingKeyTestCase');
 
 $testSuite->AddTest('SequenceValidTestCase');
 $testSuite->AddTest('SequenceInvalidSetTestCase');
 $testSuite->AddTest('SequenceInvalidDeleteTestCase');
 
-$testSuite->AddTest('RangeExistingKeysBorderLessTestCase');
+$testSuite->AddTest('ExistsExistingKeyTestCase');
+$testSuite->AddTest('ExistsNonExistingKeyTestCase');
+$testSuite->AddTest('ExistsNoneKeyTestCase');
+
+$testSuite->AddTest('RangeExistingKeysNoBordersTestCase');
+$testSuite->AddTest('RangeExistingKeysBeginBorderTestCase');
+$testSuite->AddTest('RangeExistingKeysEndBorderTestCase');
+$testSuite->AddTest('RangeExistingKeysBothBordersTestCase');
+$testSuite->AddTest('RangeExistingKeysMaxTestCase');
 $testSuite->AddTest('RangeNonExistingKeysTestCase');
-$testSuite->AddTest('RangeEntriesExistingKeysTestCase');
+
+$testSuite->AddTest('RangeEntriesExistingKeysNoBordersTestCase');
+$testSuite->AddTest('RangeEntriesExistingKeysBeginBorderTestCase');
+$testSuite->AddTest('RangeEntriesExistingKeysEndBorderTestCase');
+$testSuite->AddTest('RangeEntriesExistingKeysBothBordersTestCase');
+$testSuite->AddTest('RangeEntriesExistingKeysMaxTestCase');
 $testSuite->AddTest('RangeEntriesNonExistingKeysTestCase');
 
 $testSuite->AddTest('TestAndSetExistingKeyExpectedValueTestCase');
@@ -108,13 +121,18 @@ $testSuite->AddTest('MultiGetNonExistingKeysTestCase');
 
 $testSuite->AddTest('PrefixValidTestCase');
 $testSuite->AddTest('PrefixInvalidTestCase');
+$testSuite->AddTest('PrefixNoneTestCase');
+
+$testSuite->AddTest('AssertExistingKeyExpectedValueTestCase');
+$testSuite->AddTest('AssertExistingKeyNotExpectedValueTestCase');
+$testSuite->AddTest('AssertNonExistingKeyTestCase');
+$testSuite->AddTest('AssertNoneKeyTestCase');
+
 $testSuite->AddTest('ExpectProgressPossibleTestCase');
 $testSuite->AddTest('HelloTestCase');
 $testSuite->AddTest('WhoMasterTestCase');
-// $testSuite->AddTest('StatisticsTestCase');
-// $testSuite->AddTest('GetKeyCountTestCase');
-
-//$testEnvironment->tearDownMaster();
+$testSuite->AddTest('StatisticsTestCase');
+$testSuite->AddTest('GetKeyCountTestCase');
 
 /**
  * run test
@@ -125,5 +143,5 @@ $testRunner->Run($testSuite, 'all_nodes_up_test_report');
 /**
  * teardown Arakoon
  */ 
-//$testEnvironment->tearDown();
+$testEnvironment->tearDown();
 ?>

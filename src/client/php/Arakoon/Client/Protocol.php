@@ -20,8 +20,12 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'Logger.php';
+require_once 'AssertFailedException.php';
 require_once 'Exception.php';
+require_once 'Logger.php';
+require_once 'NotFoundException.php';
+require_once 'NotMasterException.php';
+require_once 'WrongClusterException.php';
 
 /**
  * Arakoon_Client_Protocol
@@ -36,6 +40,7 @@ class Arakoon_Client_Protocol
 	/**
 	 * Operation codes
 	 */
+	const OP_CODE_ASSERT					= 0x00000016;
 	const OP_CODE_DELETE					= 0x0000000a;
 	const OP_CODE_EXISTS					= 0x07;
 	const OP_CODE_EXPECT_PROGRESS_POSSIBLE	= 0x00000012;
@@ -51,19 +56,22 @@ class Arakoon_Client_Protocol
 	const OP_CODE_SET						= 0x00000009;
 	const OP_CODE_STATISTICS				= 0x00000013;
 	const OP_CODE_TEST_AND_SET				= 0x0000000d;
+	const OP_CODE_USER_FUNCTION				= 0x00000015;
 	const OP_CODE_VERSION					= 0x00000001;
 	const OP_CODE_WHO_MASTER 				= 0x00000002;
 	
 	/**
 	 * Sequenced operation codes
 	 */
-	const OP_CODE_SEQUENCED_DELETE			= 2;
-	const OP_CODE_SEQUENCED_SET				= 1;
-	const OP_CODE_SEQUENCED_SEQUENCE		= 5;
+	const OP_CODE_SEQUENCED_ASSERT		= 8;
+	const OP_CODE_SEQUENCED_DELETE		= 2;
+	const OP_CODE_SEQUENCED_SET			= 1;
+	const OP_CODE_SEQUENCED_SEQUENCE	= 5;
 	
 	/**
 	 * Result codes
 	 */
+	const RESULT_CODE_ASSERT_FAILED	= 7;
     const RESULT_CODE_SUCCES 		= 0;
     const RESULT_CODE_NOT_MASTER 	= 4;
     const RESULT_CODE_NOT_FOUND 	= 5;
@@ -197,6 +205,7 @@ class Arakoon_Client_Protocol
 	    return array($data['float'], $offset + self::TYPE_SIZE_FLOAT);
 	}
 
+	
 	/**
      * Unpacks an integer.
      * 
@@ -261,7 +270,17 @@ class Arakoon_Client_Protocol
      */
 	public static function unpackInt64($buffer, $offset)
 	{
+		if (PHP_INT_SIZE == 4)
+		{
+			$fatalMsg = 'Cannot unpack 64 bit integer in a 32 environment';
+			Arakoon_Client_Logger::logFatal($fatalMsg, __FILE__, __FUNCTION__, __LINE__);
+			
+			throw new Arakoon_Client_Exception($fatalMsg);	
+		}
+		
+		$buffer = substr($buffer, $offset, self::TYPE_SIZE_INT_64);
 		$data = unpack('Iint', $buffer);
+
 		return array($data['int'], $offset + self::TYPE_SIZE_INT_64);
 	}
 		
@@ -332,7 +351,7 @@ class Arakoon_Client_Protocol
 	{
 	    $byteCount = self::readInt($connection);
 	    $buffer = $connection->readBytes($byteCount);
-	    return self::unpackEntireString($buffer);
+	    return $buffer;
 	}
 
 	/**
@@ -616,7 +635,7 @@ class Arakoon_Client_Protocol
         $statistics['n_multigets'] = $n_multigets;
         $statistics['n_sequences'] = $n_sequences;
         $statistics['node_is'] = $node_is;
-        
+
         return $statistics;
     }
     
@@ -717,6 +736,9 @@ class Arakoon_Client_Protocol
 	        		$exception = new Arakoon_Client_WrongClusterException($exceptionMsg);
 	        		break;
 	        		
+        		case self::RESULT_CODE_ASSERT_FAILED:
+        			$exception = new Arakoon_Client_AssertFailedException($exceptionMsg);
+
 	        	default:
 	        		$exception = new Arakoon_Client_Exception();
 	        		break;	            

@@ -265,6 +265,32 @@ class GetNonExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
+ * GetNoneKeyTestCase class
+ */
+class GetNoneKeyTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('get none key test',
+							'gets the value of a non-existing key-value pair using a none key and checks if an exception is thrown',
+							'get-none-key');
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$getResult = $this->arakoonClient->get(NULL);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
  * DeleteExistingKeyTestCase class
  */
 class DeleteExistingKeyTestCase extends ArakoonDefaultTestCase
@@ -417,7 +443,9 @@ class ExistsExistingKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('exists existing key test', 'checks if a existing key exists', 'exist-existing-key');
+		parent::__construct('exists existing key test',
+							'checks if a existing key exists',
+							'exist-existing-key');
 	}
 
 	public function SetUp()
@@ -439,13 +467,41 @@ class ExistsNonExistingKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('exists non existing key test', 'checks if a non-existing key exists', 'exists-non-existing-key');
+		parent::__construct('exists non existing key test',
+							'checks if a non-existing key exists',
+							'exists-non-existing-key');
 	}
 
 	public function Run()
 	{
 		$keyExists = $this->arakoonClient->exists($this->key);
 		$this->AssertEquals($keyExists, 0, 'key exists while it shouldn\'t');
+	}
+}
+
+/**
+ * ExistsNoneKeyTestCase class
+ */
+class ExistsNoneKeyTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('exists none key test',
+							'checks if a none key exists',
+							'exists-none-key');
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$getResult = $this->arakoonClient->exists(NULL);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
 	}
 }
 
@@ -485,15 +541,15 @@ class ArakoonRangeDefaultTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * RangeExistingKeysBorderLessTestCase class
+ * RangeExistingKeysNoBordersTestCase class
  */
-class RangeExistingKeysBorderLessTestCase extends ArakoonRangeDefaultTestCase
+class RangeExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('range existing keys border less test',
+		parent::__construct('range existing keys no borders test',
 							'gets a range of keys using existing keys',
-							'range-existing-keys-border-less');
+							'range-existing-keys-no-borders');
 	}
 
 	public function Run()
@@ -506,7 +562,7 @@ class RangeExistingKeysBorderLessTestCase extends ArakoonRangeDefaultTestCase
 		// check range count without max
 		$count = count($rangeResult);
 		$expectedCount = self::RANGE_END_INDEX - self::RANGE_BEGIN_INDEX - 1;
-		$this->AssertEquals($count, $expectedCount, 'result count differs the expected result count ('. $expectedCount .')');
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
 	
 		// check range order
 		for ($i = 0; $i < $count; $i++)
@@ -521,53 +577,133 @@ class RangeExistingKeysBorderLessTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeExistingKeysTestCase class
+ * RangeExistingKeysBeginBorderTestCase class
  */
-class RangeExistingKeysTestCase extends ArakoonDefaultTestCase
+class RangeExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTestCase
 {
-	const MAX_RANGE_ELEMENTS = 5;
-
 	public function __construct()
 	{
-		parent::__construct('range existing keys test', 'gets a range of keys using existing keys', 'range-existing-keys');
+		parent::__construct('range existing keys begin border test',
+							'gets a range of keys using existing keys',
+							'range-existing-keys-begin-border');
 	}
 
-	public function SetUp()
-	{
-		$this->keys = array();
-		$this->values = array();
-		$sequence = new Arakoon_Client_Operation_Sequence();
-		foreach(range('a', 'z') as $letter)
+	public function Run()
+	{	 
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+
+		$rangeResult = $this->arakoonClient->range($beginKey, TRUE, $endKey, FALSE);
+
+		// check range count without max
+		$count = count($rangeResult);
+		$expectedCount = self::RANGE_END_INDEX - (self::RANGE_BEGIN_INDEX - 1) - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
 		{
-			$key = $this->prefix .'_'. $letter .'_key';
-			$value = $this->prefix .'_'. $letter .'_value';			 
-			array_push($this->keys, $key);
-			$sequence->addSetOperation($key, $value);
+			if ($rangeResult[$i] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['key'])
+			{
+				$this->Fail('values not in right order');
+				break;	
+			}		
 		}
-		$this->arakoonClient->sequence($sequence);
+	}
+}
+
+/**
+ * RangeExistingKeysEndBorderTestCase class
+ */
+class RangeExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range existing keys end border test',
+							'gets a range of keys using existing keys',
+							'range-existing-keys-end-border');
+	}
+
+	public function Run()
+	{	 
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+
+		$rangeResult = $this->arakoonClient->range($beginKey, FALSE, $endKey, TRUE);
+
+		// check range count without max
+		$count = count($rangeResult);
+		$expectedCount = (self::RANGE_END_INDEX + 1) - self::RANGE_BEGIN_INDEX - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if ($rangeResult[$i] != $this->pairs[$i + self::RANGE_BEGIN_INDEX + 1]['key'])
+			{
+				$this->Fail('values not in right order');
+				break;	
+			}		
+		}
+	}
+}
+
+/**
+ * RangeExistingKeysBothBordersTestCase class
+ */
+class RangeExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range existing keys both borders test',
+							'gets a range of keys using existing keys',
+							'range-existing-keys-both-borders');
+	}
+
+	public function Run()
+	{	 
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+
+		$rangeResult = $this->arakoonClient->range($beginKey, TRUE, $endKey, TRUE);
+
+		// check range count without max
+		$count = count($rangeResult);
+		$expectedCount = (self::RANGE_END_INDEX + 1) - (self::RANGE_BEGIN_INDEX - 1) - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if ($rangeResult[$i] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['key'])
+			{
+				$this->Fail('values not in right order');
+				break;	
+			}		
+		}
+	}
+}
+
+/**
+ * RangeExistingKeysMaxTestCase class
+ */
+class RangeExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range existing keys max test',
+							'gets a range of keys using existing keys',
+							'range-existing-keys-max');
 	}
 
 	public function Run()
 	{
-		$keyCount = count($this->keys);
-		$errorMsg ='Range existing keys test failed!';
-		 
-		$range1Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range1Result), $keyCount, $errorMsg);
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
 		
-		
-
-		$range2Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range2Result), $keyCount - 1, $errorMsg);
-
-		$range3Result = $this->arakoonClient->range($this->keys[0], FALSE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range3Result), $keyCount - 1, $errorMsg);
-
-		$range4Result = $this->arakoonClient->range($this->keys[0], FALSE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range4Result), $keyCount - 2, $errorMsg);
-
-		$range5Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE, self::MAX_RANGE_ELEMENTS);
-		$this->AssertEquals(count($range5Result), self::MAX_RANGE_ELEMENTS, $errorMsg);
+		$rangeResult = $this->arakoonClient->range($beginKey, FALSE, $endKey, FALSE, self::MAX_RANGE_ELEMENTS);
+		$count = count($rangeResult);
+		$this->AssertEquals($count, self::MAX_RANGE_ELEMENTS, 'result count (' . $count . ') differs the expected result count (' . self::MAX_RANGE_ELEMENTS .')');
 	}
 }
 
@@ -576,91 +712,176 @@ class RangeExistingKeysTestCase extends ArakoonDefaultTestCase
  */
 class RangeNonExistingKeysTestCase extends ArakoonDefaultTestCase
 {
-	const MAX_RANGE_ELEMENTS = 5;
-
 	public function __construct()
 	{
 		parent::__construct('range non existing keys test', 'gets a range of keys using non-existing keys', 'range-non-existing-keys');
 	}
 
-	public function SetUp()
-	{
-		$this->keys = array();
-		foreach(range('a', 'z') as $letter)
-		{
-			$key = $this->prefix .'_'. $letter .'_key';			 
-			array_push($this->keys, $key);
-		}
-	}
-
 	public function Run()
 	{
-		$keyCount = count($this->keys);
-		$errorMsg ='Range non existing keys test failed!';
-		 
-		$range1Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range1Result), 0, $errorMsg);
-
-		$range2Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range2Result), 0, $errorMsg);
-
-		$range3Result = $this->arakoonClient->range($this->keys[0], FALSE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range3Result), 0, $errorMsg);
-
-		$range4Result = $this->arakoonClient->range($this->keys[0], FALSE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range4Result), 0, $errorMsg);
-
-		$range5Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE, self::MAX_RANGE_ELEMENTS);
-		$this->AssertEquals(count($range5Result), 0, $errorMsg);
+		$rangeResult = $this->arakoonClient->range($this->beginKey, FALSE, $this->endKey, FALSE);
+		$count = count($rangeResult);
+		$expectedCount = 0;
+		$this->AssertEquals($count, $expectedCount, "result count (' . $count . ') differs the expected result count ($expectedCount)");
 	}
 }
 
 /**
- * RangeEntriesExistingKeysTestCase class
+ * RangeEntriesExistingKeysNoBordersTestCase class
  */
-class RangeEntriesExistingKeysTestCase extends ArakoonDefaultTestCase
+class RangeEntriesExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestCase
 {
-	const MAX_RANGE_ELEMENTS = 5;
-
 	public function __construct()
 	{
-		parent::__construct('range entries existing keys test', 'gets a range of key-value pairs using existing keys', 'range-entries-existing-keys');
-	}
-
-	public function SetUp()
-	{
-		$this->keys = array();
-		$sequence = new Arakoon_Client_Operation_Sequence();
-		foreach(range('a', 'z') as $letter)
-		{
-			$key = $this->prefix .'_'. $letter .'_key';
-			$value = $this->prefix .'_'. $letter .'_value';			 
-			array_push($this->keys, $key);
-			$sequence->addSetOperation($key, $value);
-		}
-
-		$this->arakoonClient->sequence($sequence);
+		parent::__construct('range entries existing keys no borders test',
+							'gets a range of key-value pairs using existing keys',
+							'range-entries-existing-keys-no-borders');
 	}
 
 	public function Run()
 	{
-		$keyCount = count($this->keys);
-		$errorMsg ='Range entries existing keys test failed!';
-		 
-		$range1Result = $this->arakoonClient->rangeEntries($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range1Result), $keyCount, $errorMsg);
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
 
-		$range2Result = $this->arakoonClient->rangeEntries($this->keys[0], TRUE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range2Result), $keyCount - 1, $errorMsg);
+		$rangeResult = $this->arakoonClient->rangeEntries($beginKey, FALSE, $endKey, FALSE);
+		$count = count($rangeResult);
+		$expectedCount = self::RANGE_END_INDEX - self::RANGE_BEGIN_INDEX - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if (($rangeResult[$i][0] != $this->pairs[$i + self::RANGE_BEGIN_INDEX + 1]['key']) || ($rangeResult[$i][1] != $this->pairs[$i + self::RANGE_BEGIN_INDEX + 1]['value']))
+			{
+				$this->Fail('key-values not in right order');
+				break;	
+			}		
+		}
+	}
+}
 
-		$range3Result = $this->arakoonClient->rangeEntries($this->keys[0], FALSE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range3Result), $keyCount - 1, $errorMsg);
+/**
+ * RangeEntriesExistingKeysBeginBorderTestCase class
+ */
+class RangeEntriesExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range entries existing keys begin border test',
+							'gets a range of key-value pairs using existing keys',
+							'range-entries-existing-keys-begin-border');
+	}
 
-		$range4Result = $this->arakoonClient->rangeEntries($this->keys[0], FALSE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range4Result), $keyCount - 2, $errorMsg);
+	public function Run()
+	{
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
 
-		$range5Result = $this->arakoonClient->range($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE, self::MAX_RANGE_ELEMENTS);
-		$this->AssertEquals(count($range5Result), self::MAX_RANGE_ELEMENTS, $errorMsg);
+		$rangeResult = $this->arakoonClient->rangeEntries($beginKey, TRUE, $endKey, FALSE);
+		$count = count($rangeResult);
+		$expectedCount = self::RANGE_END_INDEX - (self::RANGE_BEGIN_INDEX - 1) - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if (($rangeResult[$i][0] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['key']) || ($rangeResult[$i][1] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['value']))
+			{
+				$this->Fail('key-values not in right order');
+				break;	
+			}		
+		}
+	}
+}
+
+/**
+ * RangeEntriesExistingKeysEndBorderTestCase class
+ */
+class RangeEntriesExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range entries existing keys end border test',
+							'gets a range of key-value pairs using existing keys',
+							'range-entries-existing-keys-end-border');
+	}
+
+	public function Run()
+	{
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+
+		$rangeResult = $this->arakoonClient->rangeEntries($beginKey, FALSE, $endKey, TRUE);
+		$count = count($rangeResult);
+		$expectedCount = (self::RANGE_END_INDEX + 1) - self::RANGE_BEGIN_INDEX - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if (($rangeResult[$i][0] != $this->pairs[$i + self::RANGE_BEGIN_INDEX + 1]['key']) || ($rangeResult[$i][1] != $this->pairs[$i + self::RANGE_BEGIN_INDEX + 1]['value']))
+			{
+				$this->Fail('key-values not in right order');
+				break;	
+			}		
+		}
+	}
+}
+
+/**
+ * RangeEntriesExistingKeysBothBordersTestCase class
+ */
+class RangeEntriesExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range entries existing keys both borders test',
+							'gets a range of key-value pairs using existing keys',
+							'range-entries-existing-keys-both-borders');
+	}
+
+	public function Run()
+	{
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+
+		$rangeResult = $this->arakoonClient->rangeEntries($beginKey, TRUE, $endKey, TRUE);
+		$count = count($rangeResult);
+		$expectedCount = (self::RANGE_END_INDEX + 1) - (self::RANGE_BEGIN_INDEX - 1) - 1;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count ('. $expectedCount .')');
+	
+		// check range order
+		for ($i = 0; $i < $count; $i++)
+		{
+			if (($rangeResult[$i][0] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['key']) || ($rangeResult[$i][1] != $this->pairs[$i + self::RANGE_BEGIN_INDEX]['value']))
+			{
+				$this->Fail('key-values not in right order');
+				break;	
+			}		
+		}
+	}
+}
+
+/**
+ * RangeEntriesExistingKeysMaxTestCase class
+ */
+class RangeEntriesExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range entries existing keys max test',
+							'gets a range of keys using existing keys',
+							'range-entries-existing-keys-max');
+	}
+
+	public function Run()
+	{
+		$beginKey = $this->pairs[self::RANGE_BEGIN_INDEX]['key'];
+		$endKey = $this->pairs[self::RANGE_END_INDEX]['key'];
+		
+		$rangeResult = $this->arakoonClient->rangeEntries($beginKey, FALSE, $endKey, FALSE, self::MAX_RANGE_ELEMENTS);
+		$count = count($rangeResult);
+		$this->AssertEquals($count, self::MAX_RANGE_ELEMENTS, 'result count (' . $count . ') differs the expected result count (' . self::MAX_RANGE_ELEMENTS .')');
 	}
 }
 
@@ -669,42 +890,19 @@ class RangeEntriesExistingKeysTestCase extends ArakoonDefaultTestCase
  */
 class RangeEntriesNonExistingKeysTestCase extends ArakoonDefaultTestCase
 {
-	const MAX_RANGE_ELEMENTS = 5;
-
 	public function __construct()
 	{
-		parent::__construct('range entries non existing keys test', 'gets a range of key-value pairs using non-existing keys', 'range-entries-non-existing-keys');
+		parent::__construct('range entries non existing keys test',
+							'gets a range of key-value pairs using non-existing keys',
+							'range-entries-non-existing-keys');
 	}
-
-	public function SetUp()
-	{
-		$this->keys = array();
-		foreach(range('a', 'z') as $letter)
-		{
-			$key = $this->prefix .'_'. $letter .'_key';			 
-			array_push($this->keys, $key);
-		}
-	}
-
+	
 	public function Run()
 	{
-		$keyCount = count($this->keys);
-		$errorMsg ='Range entries non existing keys test failed!';
-		 
-		$range1Result = $this->arakoonClient->rangeEntries($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range1Result), 0, $errorMsg);
-
-		$range2Result = $this->arakoonClient->rangeEntries($this->keys[0], TRUE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range2Result), 0, $errorMsg);
-
-		$range3Result = $this->arakoonClient->rangeEntries($this->keys[0], FALSE, $this->keys[$keyCount - 1], TRUE);
-		$this->AssertEquals(count($range3Result), 0, $errorMsg);
-
-		$range4Result = $this->arakoonClient->rangeEntries($this->keys[0], FALSE, $this->keys[$keyCount - 1], FALSE);
-		$this->AssertEquals(count($range4Result), 0, $errorMsg);
-
-		$range5Result = $this->arakoonClient->rangeEntries($this->keys[0], TRUE, $this->keys[$keyCount - 1], TRUE, self::MAX_RANGE_ELEMENTS);
-		$this->AssertEquals(count($range5Result), 0, $errorMsg);
+		$rangeResult = $this->arakoonClient->rangeEntries($this->beginKey, FALSE, $this->endKey, FALSE);
+		$rangeCount = count($rangeResult);
+		$expectedCount = 0;
+		$this->AssertEquals($rangeCount, $expectedCount, 'result count differs the expected result count (' . $expectedCount . ')');
 	}
 }
 
@@ -990,7 +1188,7 @@ class StatisticsTestCase extends ArakoonDefaultTestCase
 	public function __construct()
 	{
 		parent::__construct('get statistics',
-							'gets statistics from an Arakoon and check if they are returned',
+							'gets statistics check if they are returned',
 							'get-statistics');
 	}
 
@@ -998,7 +1196,6 @@ class StatisticsTestCase extends ArakoonDefaultTestCase
 	{
 		$statistics = $this->arakoonClient->statistics();
 		$this->AssertNotEquals(count($statistics), 0, 'no statistics returned');
-		var_dump($statistics);
 	}
 }
 
@@ -1010,14 +1207,128 @@ class GetKeyCountTestCase extends ArakoonDefaultTestCase
 	public function __construct()
 	{
 		parent::__construct('get key count test',
-							'gets key count from an Arakoon an check if a integer is returned',
+							'gets key count an check if it is returned',
 							'get-key-count');
 	}
 
 	public function Run()
 	{
-		$this->arakoonClient->getKeyCount();
-		$this->AssertNotEquals($existsResult, 0, 'key count equals 0');
+		$keyCount = $this->arakoonClient->getKeyCount();
+		$this->AssertNotEquals($keyCount, 0, 'key count equals 0');
+	}
+}
+
+/**
+ * AssertExistingKeyExpectedValueTestCase class
+ */
+class AssertExistingKeyExpectedValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('assert existing key expected value test',
+							'asserts using an existing key and an expected value and checks if it\'s a success',
+							'assert-existing-key-expected-value');
+	}
+
+	public function SetUp()
+	{
+		$this->arakoonClient->set($this->key1, $this->value1);
+	}
+	
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->assert($this->key1, $this->value1);
+			$this->Pass('no exception was thrown');
+		}
+		catch (Exception $exception)
+		{
+			$this->Fail('an exception was thrown while it shouldn\'t have');
+		}
+	}
+}
+
+/**
+ * AssertExistingKeyNotExpectedValueTestCase class
+ */
+class AssertExistingKeyNotExpectedValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('assert existing key not expected value test',
+							'asserts using an existing key and a not expected value and checks if an exception is thrown',
+							'assert-existing-key-not-expected-value');
+	}
+
+	public function SetUp()
+	{
+		$this->arakoonClient->set($this->key1, $this->value1);
+	}
+	
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->assert($this->key1, $this->value2);
+			$this->Fail('no exception was thrown while it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('an exception was thrown');
+		}
+	}
+}
+
+/**
+ * AssertNonExistingKeyExpectedValueTestCase class
+ */
+class AssertNonExistingKeyTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('assert non-existing key expected value test',
+							'asserts using a non-existing key and checks if an exception is thrown ',
+							'assert-non-existing-key-expected-value');
+	}
+	
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->assert($this->key1, $this->value1);
+			$this->Fail('no exception was thrown while it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('an exception was thrown');
+		}
+	}
+}
+
+/**
+ * AssertNoneKeyTestCase class
+ */
+class AssertNoneKeyTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('assert none key expected value test',
+							'asserts using a none key and checks if an exception is thrown',
+							'assert-none-key-expected-value');
+	}
+	
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->assert(NULL, $this->value1);
+			$this->Fail('no exception was thrown while it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('an exception was thrown');
+		}
 	}
 }
 ?>

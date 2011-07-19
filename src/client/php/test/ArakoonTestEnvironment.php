@@ -118,7 +118,6 @@ class ArakoonTestEnvironment
 	{
 		$master = shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' --who-master');
 		shell_exec('pkill -f ' . $master);
-		var_dump($master);
 	}
 	
 	/**

@@ -130,6 +130,20 @@ class Arakoon_Client
 	/**
 	 * @todo document
 	 */
+	public function assert($key, $expectedValue)
+	{
+		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+
+		$assertOperation = new Arakoon_Client_Operation_Assert($key, $expectedValue);
+		$message = $assertOperation->encode();
+		$this->sendMsgDecodeResult($message, 'Void');
+
+		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+	}
+	
+	/**
+	 * @todo document
+	 */
 	public function expectProgressPossible()
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
@@ -178,7 +192,9 @@ class Arakoon_Client
 	public function exists($key)
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
-
+		
+		Arakoon_Client_Operation::validateKey($key);
+		
 		$message = Arakoon_Client_Protocol::encodeExists($key, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'Bool', TRUE);
 
@@ -197,7 +213,9 @@ class Arakoon_Client
 	public function get($key)
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
-
+	
+		Arakoon_Client_Operation::validateKey($key);
+		
 		$message = Arakoon_Client_Protocol::encodeGet($key, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'String');
 
@@ -274,6 +292,8 @@ class Arakoon_Client
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
 
+		Arakoon_Client_Operation::validateKeyPrefix($keyPrefix);
+		
 		$message = Arakoon_Client_Protocol::encodePrefix($keyPrefix, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringList');
 
@@ -301,6 +321,9 @@ class Arakoon_Client
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
 
+		Arakoon_Client_Operation::validateKey($beginKey);
+		Arakoon_Client_Operation::validateKey($endKey);
+		
 		$message = Arakoon_Client_Protocol::encodeRange($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringList');
 
@@ -326,7 +349,10 @@ class Arakoon_Client
 	public function rangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements = -1)
 	{
 		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
-
+		
+		Arakoon_Client_Operation::validateKey($beginKey);
+		Arakoon_Client_Operation::validateKey($endKey);
+		
 		$message = Arakoon_Client_Protocol::encodeRangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringPairList');
 
