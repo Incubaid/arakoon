@@ -81,8 +81,8 @@ let test_common () =
   Catchup.catchup_store me (store,tlog_coll) 500L >>= fun(end_i,vo) ->
   Lwt_log.info "TODO: validate store after this" >>= fun ()->
   tlog_coll # close () >>= fun () ->
-  store # close () >>= fun () ->
-  Lwt.return ()
+  store # close () 
+
 
 let teardown () = 
   Lwt_log.info "Catchup_test.teardown" >>= fun () ->
@@ -91,12 +91,9 @@ let teardown () =
       File_system.lwt_directory_list _dir_name >>= fun entries ->
       Lwt_list.iter_s (fun i -> 
 	let fn = _dir_name ^ "/" ^ i in
-        Lwt_unix.unlink fn >>= fun () ->
-	Lwt.return ()) entries 
+        Lwt_unix.unlink fn) entries 
     )
-    (fun exn -> 
-      Lwt_log.debug ~exn "ignoring" >>= fun () ->
-      Lwt.return ())
+    (fun exn -> Lwt_log.debug ~exn "ignoring" )
     >>= fun () ->
   Lwt_log.debug "end of teardown"
 
@@ -112,8 +109,8 @@ let _tic filler_function name =
   >>= fun (new_i,vo) ->
   Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
-  store # close () >>= fun () ->
-  Lwt.return ()
+  store # close () 
+
 
 
 let test_interrupted_catchup () =
