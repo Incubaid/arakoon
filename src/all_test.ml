@@ -60,8 +60,7 @@ let collapser   = "collapser" >::: [Collapser_test.suite]
 let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]
 
 let system = "system" >::: [
-  (*Single.client_suite;
-  Single.force_master;
+  Single.force_master;(*
   Single.elect_master;
   Startup.suite;*)
 ]

@@ -40,44 +40,50 @@ let should_fail x error_msg success_msg =
   else Lwt.return ()
 
 
-let all_same_master (cluster_cfg, _) =
-  Lwt_log.debug ".... STARTING ALL SAME MASTER ...." >>= fun () ->
-  let set_one client =
-    client # set "key" "value" 
-  in
-  Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs) in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
-  let masters = ref [] in
-  let do_one cfg =
-    Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
-    let f client =
-      client # who_master () >>= function master ->
-	masters := master :: !masters;
-	Lwt.return ()
+let all_same_master (cluster_cfg, all_t) =
+  Lwt_unix.sleep 5.0 >>= fun () ->
+  let scenario () = 
+    Lwt_log.debug "all_same_master: start of scenario" >>= fun () ->
+    let set_one client = client # set "key" "value" in
+    Client_main.find_master cluster_cfg >>= fun master_name ->
+    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+				cluster_cfg.cfgs) 
     in
-    Client_main.with_client cfg cluster_cfg.cluster_id f
+    Client_main.with_client master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
+    let masters = ref [] in
+    let do_one cfg =
+      Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
+      let f client =
+	client # who_master () >>= function master ->
+	  masters := master :: !masters;
+	  Lwt.return ()
+      in
+      Client_main.with_client cfg cluster_cfg.cluster_id f
+    in
+    let cfgs = cluster_cfg.cfgs in
+    Lwt_list.iter_s do_one cfgs >>= fun () ->
+    assert_equal ~printer:string_of_int 
+      (List.length cfgs)
+      (List.length !masters);
+    let test = function
+      | [] -> assert_failure "can't happen"
+      | s :: rest ->
+	begin
+	  List.iter
+	    (fun s' ->
+	      if s <> s' then assert_failure "different"
+	      else match s with | None -> assert_failure "None" | _ -> ()
+	    )
+	    rest
+	end
+    in
+    Lwt_log.debug "all_same_master:testing" >>= fun () ->
+    let () = test !masters in
+    Lwt.return ()
   in
-  let cfgs = cluster_cfg.cfgs in
-  Lwt_list.iter_s do_one cfgs >>= fun () ->
-  assert_equal ~msg:"not all nodes were up"
-    (List.length cfgs)
-    (List.length !masters);
-  let test = function
-    | [] -> assert_failure "can't happen"
-    | s :: rest ->
-      begin
-	List.iter
-	  (fun s' ->
-	    if s <> s' then assert_failure "different"
-	    else match s with | None -> assert_failure "None" | _ -> ()
-	  )
-	  rest
-      end
-  in
-  Lwt_log.debug ".... ALL SAME MASTER TESTING ...." >>= fun () ->
-  let () = test !masters in
-  Lwt.return ()
+  Lwt.pick [Lwt.join all_t;
+	    scenario () ]
+  
 
 let nothing_on_slave (cluster_cfg, _) =
   let cfgs = cluster_cfg.cfgs in
@@ -490,48 +496,23 @@ let assert2 tpl = _with_master tpl _assert2
 
 let assert3 tpl = _with_master tpl _assert3
 
-let setup () =
-  let cfg = Node_cfg.Node_cfg.make_test_config 3 Elected 2 in
-  Lwt.return (cfg, ())
-
-let teardown (_,()) =
-  Lwt.return ()
-
-let client_suite =
-  let w f = Extra.lwt_bracket setup f teardown in
-  "single" >:::
-    [
-      "all_same_master" >:: w all_same_master;
-      "nothing_on_slave" >:: w nothing_on_slave;
-      "trivial_master" >:: w trivial_master;
-    ]
 
 let setup master () =
-  let lease_period = 60 in
+  let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config 3 master lease_period in
   let t0 = Node_main.test_t make_config "t_arakoon_0" in
   let t1 = Node_main.test_t make_config "t_arakoon_1" in
   let t2 = Node_main.test_t make_config "t_arakoon_2" in
-  let j = Lwt.catch (fun () -> Lwt.join [t0;t1;t2;])
-    (fun e ->
-      Lwt_log.info_f "XXX error in node: %s" (Printexc.to_string e) >>= fun () ->
-      Lwt.fail e
-    )
-  in
-  let () = Lwt.ignore_result j in
-  Lwt_unix.sleep 2.4 >>= fun () -> (* TODO: have callback for STABLE MASTER *)
-  Lwt.return (make_config (), j)
+  let all_t = [t0;t1;t2] in
+  Lwt.return (make_config (), all_t)
 
-let teardown (_, j) =
-  Lwt_log.info_f "cancelling j" >>= fun () ->
-  let () = Lwt.cancel j in
-  Lwt.return ()
+let teardown (_, all_t) = Lwt.return ()
 
 let make_suite name w =
   name >:::
     [
       "all_same_master" >:: w all_same_master;
-      "nothing_on_slave">:: w nothing_on_slave;
+      (* "nothing_on_slave">:: w nothing_on_slave;
       "dirty_on_slave"   >:: w dirty_on_slave;
       "trivial_master"  >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
@@ -540,7 +521,7 @@ let make_suite name w =
       "trivial_master5" >:: w trivial_master5;
       "assert1" >:: w assert1;
       "assert2" >:: w assert2;
-      "assert3" >:: w assert3;
+      "assert3" >:: w assert3; *)
     ]
 
 let force_master =
