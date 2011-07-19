@@ -54,7 +54,7 @@ let tlog_tests = "tlogs" >::: [Tlog_test.suite;
 			       Tlogcollection_test.suite_mem;
 			       Tlc2_test.suite;
 			      ]
-let small_catchup = "small_catchup" >:::[(* Catchup_test.suite; *)]
+let small_catchup = "small_catchup" >:::[Catchup_test.suite;]
 let compression = "compression" >::: [Compression_test.suite;]
 let collapser   = "collapser" >::: [(*Collapser_test.suite*)]
 let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]

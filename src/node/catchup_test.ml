@@ -62,10 +62,14 @@ let _fill2 tlog_coll n =
   _loop 0
 
 let setup () = 
-  Lwt_log.info "Catchup_test.setup">>= fun () ->
-  let _ = Sys.command ("rm -rf " ^ _dir_name) in
-  let _ = Sys.command ("mkdir " ^ _dir_name ) in
-  Lwt.return ()
+  Lwt_log.info "Catchup_test.setup" >>= fun () ->
+  Lwt.catch
+    (fun () -> 
+      File_system.rmdir _dir_name >>= fun () ->
+      File_system.mkdir _dir_name 0o750
+    )
+    (fun exn -> Lwt_log.warning ~exn "ignoring" )
+
     
 let test_common () =
   Lwt_log.info "test_common" >>= fun () ->
@@ -82,7 +86,19 @@ let test_common () =
 
 let teardown () = 
   Lwt_log.info "Catchup_test.teardown" >>= fun () ->
-  Lwt.return ()
+  Lwt.catch
+    (fun () ->
+      File_system.lwt_directory_list _dir_name >>= fun entries ->
+      Lwt_list.iter_s (fun i -> 
+	let fn = _dir_name ^ "/" ^ i in
+        Lwt_unix.unlink fn >>= fun () ->
+	Lwt.return ()) entries 
+    )
+    (fun exn -> 
+      Lwt_log.debug ~exn "ignoring" >>= fun () ->
+      Lwt.return ())
+    >>= fun () ->
+  Lwt_log.debug "end of teardown"
 
 let _tic filler_function name =
   Tlogcommon.tlogEntriesPerFile := 101; 
