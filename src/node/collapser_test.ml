@@ -99,8 +99,9 @@ let setup () =
   Lwt_log.info "Collapser_test.setup" >>= fun () ->
   let dn = "/tmp/collapser" in
   let _ = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in
-  let () = Unix.mkdir dn 0o755 in
+  File_system.mkdir dn 0o755 >>= fun () -> 
   Lwt.return dn
+
 
 let teardown dn =
   Lwt_log.debug_f "teardown %s" dn
