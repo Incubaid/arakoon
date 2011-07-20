@@ -30,7 +30,7 @@ require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'ArakoonTestEnvironment.php';
 
 /**
- * ArakoonDefaultTestCase class
+ * ArakoonDefaultTestCase
  */
 abstract class ArakoonDefaultTestCase extends TestCase
 {
@@ -88,14 +88,14 @@ abstract class ArakoonDefaultTestCase extends TestCase
 }
 
 /**
- * SetTestCase class
+ * SetTestCase
  */
 class SetTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('set test',
-							'sets a key-value pair and checks if it\'s key exists',
+							'sets a key-value pair and checks if its key exists',
 							'set');
 	}
 
@@ -108,7 +108,7 @@ class SetTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SetNoneKeyTestCase class
+ * SetNoneKeyTestCase
  */
 class SetNoneKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -134,7 +134,7 @@ class SetNoneKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SetNoneValueTestCase class
+ * SetNoneValueTestCase
  */
 class SetNoneValueTestCase extends ArakoonDefaultTestCase
 {
@@ -160,14 +160,14 @@ class SetNoneValueTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SetMaxKeySizeTestCase class
+ * SetMaxKeySizeTestCase
  */
 class SetMaxKeySizeTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('set max key size test',
-							'sets a key-value pair using a key that has the max key size (8mb) and checks if it\'s key exists',
+							'sets a key-value pair using a key that has the max key size (8mb) and checks if its key exists',
 							'set-max-key-size');
 	}
 
@@ -185,14 +185,14 @@ class SetMaxKeySizeTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SetMaxKeySizeExceededTestCase class
+ * SetMaxKeySizeExceededTestCase
  */
 class SetMaxKeySizeExceededTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('set max key size exceeded test',
-							'sets a key-value pair using a key that exceeds the max key size (8mb) and checks if it\'s key exists',
+							'sets a key-value pair using a key that exceeds the max key size (8mb) and checks if its key exists',
 							'set-max-key-size-exceeded');
 	}
 
@@ -216,14 +216,14 @@ class SetMaxKeySizeExceededTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * GetExistingKeyTestCase class
+ * GetExistingKeyTestCase
  */
 class GetExistingKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('get existing key test',
-							'gets the value of an existing key-value pair using it\'s key and checks if it\'s correct',
+							'gets the value of an existing key-value pair using its key and checks if it\'s correct',
 							'get-existing-key');
 	}
 
@@ -239,14 +239,14 @@ class GetExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * GetNonExistingKeyTestCase class
+ * GetNonExistingKeyTestCase
  */
 class GetNonExistingKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('get non existing key test',
-							'gets the value of a non-existing key-value pair using it\'s key and checks if an exception is thrown',
+							'gets the value of a non-existing key-value pair using its key and checks if an exception is thrown',
 							'get-non-existing-key');
 	}
 
@@ -265,7 +265,7 @@ class GetNonExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * GetNoneKeyTestCase class
+ * GetNoneKeyTestCase
  */
 class GetNoneKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -291,14 +291,14 @@ class GetNoneKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * DeleteExistingKeyTestCase class
+ * DeleteExistingKeyTestCase
  */
 class DeleteExistingKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('delete existing key test',
-							'deletes an existing key-value pair using it\'s key and checks if it still exists',
+							'deletes an existing key-value pair using its key and checks if it still exists',
 							'delete-existing-key');
 	}
 
@@ -317,7 +317,7 @@ class DeleteExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * DeleteNonExistingKeyTestCase class
+ * DeleteNonExistingKeyTestCase
  */
 class DeleteNonExistingKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -343,49 +343,87 @@ class DeleteNonExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SequenceValidTestCase class
+ * DeleteNoneKeyTestCase
+ */
+class DeleteNoneKeyTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('delete none key test',
+							'deletes a non-existing key-value pair using a none key and checks if an exception is thrown',
+							'delete-none-key');
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->delete(NULL);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * SequenceValidTestCase
  */
 class SequenceValidTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('sequence valid test',
-							'executes a sequence containing valid operations and check if all operations are executed',
+							'executes a sequence containing all possible valid operations and check if all operations are executed',
 							'sequence-valid');
 	}
 
 	public function SetUp()
 	{
 		$this->arakoonClient->set($this->key2, $this->value2);
+		$this->arakoonClient->set($this->key4, $this->value4);
 	}
 
 	public function Run()
 	{
+		$subSequence = new Arakoon_Client_Operation_Sequence();
+		$subSequence->addSetOperation($this->key1, $this->value1);
+		$subSequence->addDeleteOperation($this->key2);
+		$subSequence->addAssertOperation($this->key1, $this->value1);	
+		
 		$sequence = new Arakoon_Client_Operation_Sequence();
-		$sequence->addSetOperation($this->key1, $this->value1);
-		$sequence->addDeleteOperation($this->key2);
-		//$sequence->addAssert($this->key1, $this->value1);
-		//$sequence->addUserFunction($this->userFunction);		
-
+		$sequence->addSetOperation($this->key3, $this->value3);
+		$sequence->addDeleteOperation($this->key4);
+		$sequence->addAssertOperation($this->key3, $this->value3);
+		$sequence->addSequenceOperation($subSequence);
+		
 		$this->arakoonClient->sequence($sequence);
 
 		$exists1Result = $this->arakoonClient->exists($this->key1);
 		$this->AssertEquals($exists1Result, 1, 'key of previously set key-value pair doesnt\'t exist');
 
 		$exists2Result = $this->arakoonClient->exists($this->key2);
-		$this->AssertEquals($exists2Result, 0, 'key of deleted key-value pair still exists');		
+		$this->AssertEquals($exists2Result, 0, 'key of deleted key-value pair still exists');
+
+		$exists1Result = $this->arakoonClient->exists($this->key3);
+		$this->AssertEquals($exists1Result, 1, 'key of previously set key-value pair doesnt\'t exist');
+
+		$exists2Result = $this->arakoonClient->exists($this->key4);
+		$this->AssertEquals($exists2Result, 0, 'key of deleted key-value pair still exists');	
 	}
 }
 
 /**
- * SequenceInvalidSetTestCase class
+ * SequenceInvalidSetTestCase
  */
 class SequenceInvalidSetTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('sequence invalid set test',
-							'executes a sequence containing an invalid set operation and checks an exception is thrown',
+							'executes a sequence containing an invalid set operation and checks an if exception is thrown',
 							'sequence-invalid-set');
 	}
 
@@ -407,14 +445,14 @@ class SequenceInvalidSetTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * SequenceInvalidSetTestCase class
+ * SequenceInvalidSetTestCase
  */
 class SequenceInvalidDeleteTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('sequence invalid delete test',
-							'executes a sequence containing an invalid delete operation and checks an exception is thrown',
+							'executes a sequence containing an invalid delete operation and checks an if exception is thrown',
 							'sequence-invalid-delete');
 	}
 
@@ -437,7 +475,37 @@ class SequenceInvalidDeleteTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * ExistsExistingKeyTestCase class
+ * SequenceInvalidAssertTestCase
+ */
+class SequenceInvalidAssertTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('sequence invalid assert test',
+							'executes a sequence containing an invalid assert operation and checks if an exception is thrown',
+							'sequence-invalid-assert');
+	}
+
+	public function Run()
+	{	
+		$sequence = new Arakoon_Client_Operation_Sequence();
+		
+		try
+		{
+			$sequence->addAssertOperation($this->key, $this->value);
+		
+			$this->arakoonClient->sequence($sequence);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{			
+			$this->Pass('an exception was thrown');
+		}
+	}
+}
+
+/**
+ * ExistsExistingKeyTestCase
  */
 class ExistsExistingKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -461,7 +529,7 @@ class ExistsExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * ExistsNonExistingKeyTestCase class
+ * ExistsNonExistingKeyTestCase
  */
 class ExistsNonExistingKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -480,14 +548,14 @@ class ExistsNonExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * ExistsNoneKeyTestCase class
+ * ExistsNoneKeyTestCase
  */
 class ExistsNoneKeyTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('exists none key test',
-							'checks if a none key exists',
+							'checks if a none key exists and checks if an exception is thrown',
 							'exists-none-key');
 	}
 
@@ -506,7 +574,7 @@ class ExistsNoneKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * ArakoonRangeDefaultTestCase class
+ * ArakoonRangeDefaultTestCase
  */
 class ArakoonRangeDefaultTestCase extends ArakoonDefaultTestCase
 {
@@ -541,14 +609,14 @@ class ArakoonRangeDefaultTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * RangeExistingKeysNoBordersTestCase class
+ * RangeExistingKeysNoBordersTestCase
  */
 class RangeExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range existing keys no borders test',
-							'gets a range of keys using existing keys',
+							'gets a range of keys using existing keys without the borders and checks if the key count and order are correct ',
 							'range-existing-keys-no-borders');
 	}
 
@@ -577,14 +645,14 @@ class RangeExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeExistingKeysBeginBorderTestCase class
+ * RangeExistingKeysBeginBorderTestCase
  */
 class RangeExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range existing keys begin border test',
-							'gets a range of keys using existing keys',
+							'gets a range of keys using existing keys including the begin border and checks if the key count and order are correct ',
 							'range-existing-keys-begin-border');
 	}
 
@@ -613,14 +681,14 @@ class RangeExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeExistingKeysEndBorderTestCase class
+ * RangeExistingKeysEndBorderTestCase
  */
 class RangeExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range existing keys end border test',
-							'gets a range of keys using existing keys',
+							'gets a range of keys using existing keys including the end border and checks if the key count and order are correct ',
 							'range-existing-keys-end-border');
 	}
 
@@ -649,14 +717,14 @@ class RangeExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeExistingKeysBothBordersTestCase class
+ * RangeExistingKeysBothBordersTestCase
  */
 class RangeExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range existing keys both borders test',
-							'gets a range of keys using existing keys',
+							'gets a range of keys using existing keys including both borders and checks if the key count and order are correct ',
 							'range-existing-keys-both-borders');
 	}
 
@@ -685,14 +753,14 @@ class RangeExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeExistingKeysMaxTestCase class
+ * RangeExistingKeysMaxTestCase
  */
 class RangeExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range existing keys max test',
-							'gets a range of keys using existing keys',
+							'gets a range of keys using existing keys limiting the result to a given maximum and checks if the key count and order are correct ',
 							'range-existing-keys-max');
 	}
 
@@ -708,13 +776,15 @@ class RangeExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeNonExistingKeysTestCase class
+ * RangeNonExistingKeysTestCase
  */
 class RangeNonExistingKeysTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('range non existing keys test', 'gets a range of keys using non-existing keys', 'range-non-existing-keys');
+		parent::__construct('range non existing keys test',
+							'gets a range of keys using non-existing keys and checks if the key count is correct',
+							'range-non-existing-keys');
 	}
 
 	public function Run()
@@ -722,19 +792,45 @@ class RangeNonExistingKeysTestCase extends ArakoonDefaultTestCase
 		$rangeResult = $this->arakoonClient->range($this->beginKey, FALSE, $this->endKey, FALSE);
 		$count = count($rangeResult);
 		$expectedCount = 0;
-		$this->AssertEquals($count, $expectedCount, "result count (' . $count . ') differs the expected result count ($expectedCount)");
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count (' . $expectedCount . ')');
 	}
 }
 
 /**
- * RangeEntriesExistingKeysNoBordersTestCase class
+ * RangeNoneKeysTestCase
+ */
+class RangeNoneKeysTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('range none keys test',
+							'gets a range of keys using none keys and checks if the key count is correct',
+							'range-none-keys');
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$rangeResult = $this->arakoonClient->range(NULL, FALSE, NULL, FALSE);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * RangeEntriesExistingKeysNoBordersTestCase
  */
 class RangeEntriesExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries existing keys no borders test',
-							'gets a range of key-value pairs using existing keys',
+							'gets a range of key-value pairs using existing keys without the borders and checks if the key count and order are correct',
 							'range-entries-existing-keys-no-borders');
 	}
 
@@ -761,14 +857,14 @@ class RangeEntriesExistingKeysNoBordersTestCase extends ArakoonRangeDefaultTestC
 }
 
 /**
- * RangeEntriesExistingKeysBeginBorderTestCase class
+ * RangeEntriesExistingKeysBeginBorderTestCase
  */
 class RangeEntriesExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries existing keys begin border test',
-							'gets a range of key-value pairs using existing keys',
+							'gets a range of key-value pairs using existing keys including the begin border and checks if the key count and order are correct',
 							'range-entries-existing-keys-begin-border');
 	}
 
@@ -795,14 +891,14 @@ class RangeEntriesExistingKeysBeginBorderTestCase extends ArakoonRangeDefaultTes
 }
 
 /**
- * RangeEntriesExistingKeysEndBorderTestCase class
+ * RangeEntriesExistingKeysEndBorderTestCase
  */
 class RangeEntriesExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries existing keys end border test',
-							'gets a range of key-value pairs using existing keys',
+							'gets a range of key-value pairs using existing keys including the end border and checks if the key count and order are correct',
 							'range-entries-existing-keys-end-border');
 	}
 
@@ -829,14 +925,14 @@ class RangeEntriesExistingKeysEndBorderTestCase extends ArakoonRangeDefaultTestC
 }
 
 /**
- * RangeEntriesExistingKeysBothBordersTestCase class
+ * RangeEntriesExistingKeysBothBordersTestCase
  */
 class RangeEntriesExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries existing keys both borders test',
-							'gets a range of key-value pairs using existing keys',
+							'gets a range of key-value pairs using existing keys including both borders and checks if the key count and order are correct',
 							'range-entries-existing-keys-both-borders');
 	}
 
@@ -863,14 +959,14 @@ class RangeEntriesExistingKeysBothBordersTestCase extends ArakoonRangeDefaultTes
 }
 
 /**
- * RangeEntriesExistingKeysMaxTestCase class
+ * RangeEntriesExistingKeysMaxTestCase
  */
 class RangeEntriesExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries existing keys max test',
-							'gets a range of keys using existing keys',
+							'gets a range of key-value pairs using existing keys limiting the result to a given maximum and checks if the key count and order are correct',
 							'range-entries-existing-keys-max');
 	}
 
@@ -886,14 +982,14 @@ class RangeEntriesExistingKeysMaxTestCase extends ArakoonRangeDefaultTestCase
 }
 
 /**
- * RangeEntriesNonExistingKeysTestCase class
+ * RangeEntriesNonExistingKeysTestCase
  */
 class RangeEntriesNonExistingKeysTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('range entries non existing keys test',
-							'gets a range of key-value pairs using non-existing keys',
+							'gets a range of key-value pairs using non-existing keys and checks if the key count is correct',
 							'range-entries-non-existing-keys');
 	}
 	
@@ -907,13 +1003,41 @@ class RangeEntriesNonExistingKeysTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * TestAndSetExistingKeyTestCase class
+ * RangeEntriesNoneKeysTestCase
  */
-class TestAndSetExistingKeyExpectedValueTestCase extends ArakoonDefaultTestCase
+class RangeEntriesNoneKeysTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('test and set existing key test', 'tests a key-value pair using an existing key', 'test-and-set-existing-key');
+		parent::__construct('range entries none keys test',
+							'gets a range of key-value pairs using none keys and checks if the key count is correct',
+							'range-entries-none-keys');
+	}
+	
+	public function Run()
+	{
+		try
+		{
+			$rangeResult = $this->arakoonClient->rangeEntries(NULL, FALSE, NULL, FALSE);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * TestAndSetExistingKeyExpectedValueNewValueTestCase
+ */
+class TestAndSetExistingKeyExpectedValueNewValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('test and set existing key expected value new value test',
+							'tests and sets an existing key-value pair using its key, an expected value and an new value and checks if the key-value pair is updated',
+							'test-and-set-existing-key-expected-value-new-value');
 	}
 
 	public function SetUp()
@@ -923,30 +1047,103 @@ class TestAndSetExistingKeyExpectedValueTestCase extends ArakoonDefaultTestCase
 
 	public function Run()
 	{
-		$result = $this->arakoonClient->testAndSet($this->key1, $this->value1, $this->value2);
-		$this->AssertEquals($result, $this->value1, 'result differs the expected result');
+		$originalValue = $this->arakoonClient->testAndSet($this->key1, $this->value1, $this->value2);
+		$updatedValue = $this->arakoonClient->get($this->key1);
+		$this->AssertEquals($updatedValue, $this->value2, 'value not updated');
 	}
 }
 
 /**
- * TestAndSetNonExistingKeyTestCase class
+ * TestAndSetExistingKeyExpectedValueNoneValueTestCase
  */
-class TestAndSetNonExistingKeyTestCase extends ArakoonDefaultTestCase
+class TestAndSetExistingKeyExpectedValueNoneValueTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('test and set non existing key test', 'tests a key-value pair using an non-existing key', 'test-and-set-non-existing-key');
+		parent::__construct('test and set existing key expected value none value test',
+							'tests and sets an existing key-value pair using its key, an expected value and a none value and checks if the key value pair is removed',
+							'test-and-set-existing-key-expected-value-none-value');
+	}
+
+	public function SetUp()
+	{
+		$this->arakoonClient->set($this->key1, $this->value1);
 	}
 
 	public function Run()
 	{
-		$result = $this->arakoonClient->testAndSet($this->key1, $this->value1, $this->value2);
-		$this->AssertEquals($result, NULL, 'result differs the expect result (none)');
+		$originalValue = $this->arakoonClient->testAndSet($this->key1, $this->value1, NULL);
+		$exists = $this->arakoonClient->exists($this->key1);
+		$this->AssertEquals($exists, 0, 'key-value pair not removed');
 	}
 }
 
 /**
- * TestAndSetNoneKeyTestCase class
+ * TestAndSetExistingKeyUnexpectedValueTestCase
+ */
+class TestAndSetExistingKeyUnexpectedValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('test and set existing key unexpected value test',
+							'tests and sets an existing key-value pair using its key and an unexpected value and check if the key-value pair isn\'t updated',
+							'test-and-set-existing-key-unexpected-value');
+	}
+
+	public function SetUp()
+	{
+		$this->arakoonClient->set($this->key1, $this->value1);
+	}
+
+	public function Run()
+	{
+		$originalValue = $this->arakoonClient->testAndSet($this->key1, $this->value2, $this->value3);
+		$updatedValue = $this->arakoonClient->get($this->key1);
+		$this->AssertEquals($originalValue, $updatedValue,  'value updated when it shouldn\'t');
+	}
+}
+
+/**
+ * TestAndSetNonExistingKeyExpectedValueNewValueTestCase
+ */
+class TestAndSetNonExistingKeyExpectedValueNewValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('test and set non existing key expected value new value test',
+							'tests and sets an non-existing key-value pair using a non-existing key, an expected value and a new value and checks if none is returned',
+							'test-and-set-non-existing-key-expected-value-new-value');
+	}
+
+	public function Run()
+	{
+		$originalValue = $this->arakoonClient->testAndSet($this->key1, $this->value1, $this->value2);
+		$this->AssertEquals($originalValue, NULL,  'original value (' . $originalValue . ') returned when none should be returned');
+	}
+}
+
+/**
+ * TestAndSetNonExistingKeyNoneValueNewValueTestCase
+ */
+class TestAndSetNonExistingKeyNoneValueNewValueTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('test and set non existing key none value new value test',
+							'tests and sets an non-existing key-value pair using a non-existing key, a none value and a new value and check if the key-value pair is created',
+							'test-and-set-non-existing-key-none-value-new-value');
+	}
+
+	public function Run()
+	{
+		$originalValue = $this->arakoonClient->testAndSet($this->key1, NULL, $this->value1);
+		$exists = $this->arakoonClient->exists($this->key1);
+		$this->AssertEquals($exists, 1, 'key-value pair doesn\'t exists while it should');
+	}
+}
+
+/**
+ * TestAndSetNoneKeyTestCase
  */
 class TestAndSetNoneKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -972,7 +1169,7 @@ class TestAndSetNoneKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * MultiGetExistingKeysTestCase class
+ * MultiGetExistingKeysTestCase
  */
 class MultiGetExistingKeysTestCase extends ArakoonDefaultTestCase
 {
@@ -1020,7 +1217,7 @@ class MultiGetExistingKeysTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * MultiGetNonExistingKeysTestCase class
+ * MultiGetNonExistingKeysTestCase
  */
 class MultiGetNonExistingKeysTestCase extends ArakoonDefaultTestCase
 {
@@ -1039,7 +1236,7 @@ class MultiGetNonExistingKeysTestCase extends ArakoonDefaultTestCase
 		$sequence = new Arakoon_Client_Operation_Sequence();		 
 		for ($i = 0; $i < self::KEY_VALUE_PAIR_COUNT; $i++)
 		{
-			$key = "key$i";
+			$key = 'key' . $i;
 			$this->keys[] = $this->$key;
 		}
 	}
@@ -1059,17 +1256,79 @@ class MultiGetNonExistingKeysTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * PrefixValidTestCase class
+ * MultiGetNoneKeysTestCase
  */
-class PrefixValidTestCase extends ArakoonDefaultTestCase
+class MultiGetNoneKeysTestCase extends ArakoonDefaultTestCase
 {
 	const KEY_VALUE_PAIR_COUNT = 5;
 
 	public function __construct()
 	{
-		parent::__construct('valid prefix test',
-							'gets a collection of keys beginning with a valid prefix',
-							'valid-prefix');
+		parent::__construct('multi get none keys test',
+							'gets a list of values using none keys and checks if an exception is thrown',
+							'multi-get-none-keys');
+	}
+
+	public function SetUp()
+	{
+		$this->keys = array();
+		$this->keys[] = NULL;
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$multiGetResult = $this->arakoonClient->multiGet($this->keys);
+			$this->Fail('no exception was thrown while it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('an exception was thrown');
+		}
+	}
+}
+
+/**
+ * MultiGetEmptyTestCase
+ */
+class MultiGetEmptyTestCase extends ArakoonDefaultTestCase
+{
+	const KEY_VALUE_PAIR_COUNT = 5;
+
+	public function __construct()
+	{
+		parent::__construct('multi get empty',
+							'gets a list of values using none keys and checks if an exception is thrown',
+							'multi-get-empty');
+	}
+
+	public function SetUp()
+	{
+		$this->keys = array();
+	}
+
+	public function Run()
+	{
+		$multiGetResult = $this->arakoonClient->multiGet($this->keys);
+		$count = count($multiGetResult);
+		$expectedCount = 0;
+		$this->AssertEquals($count, $expectedCount, 'result count (' . $count . ') differs the expected result count (' . $expectedCount . ')');
+	}
+}
+
+/**
+ * PrefixExistingTestCase
+ */
+class PrefixExistingTestCase extends ArakoonDefaultTestCase
+{
+	const KEY_VALUE_PAIR_COUNT = 5;
+
+	public function __construct()
+	{
+		parent::__construct('prefix existing test',
+							'gets a list of keys beginning with an existing prefix and checks if all expected values are returned in the right order ',
+							'prefix-existing');
 	}
 
 	public function SetUp()
@@ -1079,8 +1338,8 @@ class PrefixValidTestCase extends ArakoonDefaultTestCase
 			 
 		for ($i = 0; $i < self::KEY_VALUE_PAIR_COUNT; $i++)
 		{			
-			$key = $this->prefix . "_key_$i";
-			$value = $this->prefix . "_value_$i";
+			$key = $this->prefix . '_key_' . $i;
+			$value = $this->prefix . '_value_' . $i;
 			array_push($this->keys, $key);
 			$sequence->addSetOperation($key, $value);
 		}
@@ -1105,15 +1364,15 @@ class PrefixValidTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * PrefixInvalidTestCase class
+ * PrefixNonExistingTestCase
  */
-class PrefixInvalidTestCase extends ArakoonDefaultTestCase
+class PrefixNonExistingTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
-		parent::__construct('invalid prefix test',
-							'gets a collection of keys beginning with an invalid prefix',
-							'invalid-prefix');
+		parent::__construct('prefix non-existing test',
+							'gets a list of keys beginning with a non-existing prefix and checks if an empty list is returned ',
+							'prefix-non-existing');
 	}
 
 	public function Run()
@@ -1124,7 +1383,33 @@ class PrefixInvalidTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * ExpectProgressPossibleTestCase class
+ * PrefixNoneTestCase
+ */
+class PrefixNoneTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('prefix none test',
+							'gets a list of keys beginning with a none prefix and checks if an exception is thrown',
+							'prefix-none');
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$prefixResult = $this->arakoonClient->prefix(NULL);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * ExpectProgressPossibleTestCase
  */
 class ExpectProgressPossibleTestCase extends ArakoonDefaultTestCase
 {
@@ -1143,7 +1428,7 @@ class ExpectProgressPossibleTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * HelloTestCase class
+ * HelloTestCase
  */
 class HelloTestCase extends ArakoonDefaultTestCase
 {
@@ -1156,20 +1441,20 @@ class HelloTestCase extends ArakoonDefaultTestCase
 
 	public function Run()
 	{
-		$helloResult = $this->arakoonClient->hello("clientId", $this->arakoonClientConfig->getClusterId());
+		$helloResult = $this->arakoonClient->hello('clientId', $this->arakoonClientConfig->getClusterId());
 		$this->AssertNotEquals(strlen($helloResult), 0, 'no version string returned');
 	}
 }
 
 /**
- * WhoMasterTestCase class
+ * WhoMasterTestCase
  */
 class WhoMasterTestCase extends ArakoonDefaultTestCase
 {
 	public function __construct()
 	{
 		parent::__construct('who master test',
-							'requests the master node id and checks if the master node it\'s id is is returned',
+							'requests the master node id and checks if the master node its id is is returned',
 							'who-master');
 	}
 
@@ -1181,7 +1466,7 @@ class WhoMasterTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * WhoMasterTestCase class
+ * WhoMasterTestCase
  */
 class StatisticsTestCase extends ArakoonDefaultTestCase
 {
@@ -1200,7 +1485,7 @@ class StatisticsTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * GetKeyCountTestCase class
+ * GetKeyCountTestCase
  */
 class GetKeyCountTestCase extends ArakoonDefaultTestCase
 {
@@ -1219,7 +1504,7 @@ class GetKeyCountTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * AssertExistingKeyExpectedValueTestCase class
+ * AssertExistingKeyExpectedValueTestCase
  */
 class AssertExistingKeyExpectedValueTestCase extends ArakoonDefaultTestCase
 {
@@ -1250,7 +1535,7 @@ class AssertExistingKeyExpectedValueTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * AssertExistingKeyNotExpectedValueTestCase class
+ * AssertExistingKeyNotExpectedValueTestCase
  */
 class AssertExistingKeyNotExpectedValueTestCase extends ArakoonDefaultTestCase
 {
@@ -1281,7 +1566,7 @@ class AssertExistingKeyNotExpectedValueTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * AssertNonExistingKeyExpectedValueTestCase class
+ * AssertNonExistingKeyExpectedValueTestCase
  */
 class AssertNonExistingKeyTestCase extends ArakoonDefaultTestCase
 {
@@ -1307,7 +1592,7 @@ class AssertNonExistingKeyTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * AssertNoneKeyTestCase class
+ * AssertNoneKeyTestCase
  */
 class AssertNoneKeyTestCase extends ArakoonDefaultTestCase
 {

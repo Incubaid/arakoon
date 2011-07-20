@@ -65,7 +65,7 @@ class Arakoon_Client_NodeConnection
 	 */
 	public function connect()
 	{				
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Enter', __FILE__, __FUNCTION__, __LINE__);
 		
 		if ($this->isConnected())
 		{
@@ -83,7 +83,7 @@ class Arakoon_Client_NodeConnection
 		
 		try
 		{
-			Arakoon_Client_Logger::logTrace("Connecting to $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logTrace('Connecting to ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 
 			$connected = socket_connect($this->_socket, $this->_ip, $this->_port);
 			 
@@ -92,20 +92,20 @@ class Arakoon_Client_NodeConnection
 				throw new Arakoon_Client_Exception();
 			}
 			
-			Arakoon_Client_Logger::logTrace("Connected to $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logTrace('Connected ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 		}
 		catch(Exception $exception)
 		{
 			$lastSocketError = socket_last_error($this->_socket);			
-			Arakoon_Client_Logger::logDebug("Last socket socket error: $lastSocketError", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logDebug('Last socket socket error: ' . $lastSocketError, __FILE__, __FUNCTION__, __LINE__);
 			
-			$fatalMsg = "Cannot connect to ip $this->_ip on port $this->_port due a socket error (error: $error)";										
+			$fatalMsg = 'Cannot connect to ip ' . $this->_ip . ' on port ' . $this->_port . 'due a socket error (error: ' . $error . ')';										
 			Arakoon_Client_Logger::logFatal($fatalMsg, __FILE__, __FUNCTION__, __LINE__);
 							 
 			throw new Arakoon_Client_Exception($fatalMsg);
 		}	
 		
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 	}
 
 	/**
@@ -146,22 +146,22 @@ class Arakoon_Client_NodeConnection
 		{
 			try
 			{
-				Arakoon_Client_Logger::logTrace("Disconnecting from $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logTrace('Disconnecting from ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 				
 				socket_close($this->_socket);
 				$this->_socket = NULL;
 				
-				Arakoon_Client_Logger::logTrace("Disconnected from $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logTrace('Disconnected from ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 			}
 			catch (Exception $exception)
 			{
-				Arakoon_Client_Logger::logWarning("Could not disconnect from $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
-				Arakoon_Client_Logger::logDebug("Exception: $exception", __FILE__, __FUNCTION__, __LINE__);			
+				Arakoon_Client_Logger::logWarning('Could not disconnect from ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logDebug('Exception: ' . $exception, __FILE__, __FUNCTION__, __LINE__);			
 			}
 		}
 		else
 		{
-			Arakoon_Client_Logger::logTrace("Already disconnected from $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logTrace('Already disconnected from ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 		}
 	}
 	 	
@@ -179,7 +179,7 @@ class Arakoon_Client_NodeConnection
 		
 		$bufferByteCount = strlen($buffer);
 		
-		Arakoon_Client_Logger::logTrace("Trying to socket write $bufferByteCount bytes to $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Trying to socket write ' . $bufferByteCount . ' bytes to ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 		
 		$writtenByteCount = socket_write($this->_socket, $buffer);
 		
@@ -190,11 +190,11 @@ class Arakoon_Client_NodeConnection
 			
     		if ($timedOut)
     		{
-    			$warningMsg = "Socket write to  $this->_ip on port $this->_port timed out after " . Arakoon_Client_Config::CONNECTION_TIMEOUT . ' seconds';
+    			$warningMsg = 'Socket write to ' . $this->_ip . ' on port ' . $this->_port . 'timed out after ' . Arakoon_Client_Config::CONNECTION_TIMEOUT . ' seconds';
     		}
     		else
     		{	    			
-    			$warningMsg = "Could not socket write $bufferByteCount bytes to $this->_ip on port $this->_port";
+    			$warningMsg = 'Could not socket write ' . $bufferByteCount . ' bytes to ' . $this->_ip . ' on port ' . $this->_port;
     		}
 	    		
     		$this->disconnect();
@@ -204,7 +204,7 @@ class Arakoon_Client_NodeConnection
 		}
 		else
 		{
-			Arakoon_Client_Logger::logTrace("Successfully wrote $writtenByteCount bytes to $this->_ip on port $this->_port", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logTrace('Successfully wrote ' . $writtenByteCount . ' bytes to ' . $this->_ip . ' on port ' . $this->_port, __FILE__, __FUNCTION__, __LINE__);
 		}
 		
 		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
@@ -227,12 +227,12 @@ class Arakoon_Client_NodeConnection
     	
     	while ($bytesRemaining > 0)
 	    {   	
-        	Arakoon_Client_Logger::logTrace("Trying to socket read $bytesRemaining bytes", __FILE__, __FUNCTION__, __LINE__);	
+        	Arakoon_Client_Logger::logTrace('Trying to socket read ' . $bytesRemaining . ' bytes', __FILE__, __FUNCTION__, __LINE__);	
         	
             $chunk = socket_read($this->_socket, $bytesRemaining);
 	        $chunkByteSize = strlen($chunk);
 
-	        Arakoon_Client_Logger::logTrace("Socket read returned $chunkByteSize bytes after requesting $bytesRemaining bytes", __FILE__, __FUNCTION__, __LINE__);
+	        Arakoon_Client_Logger::logTrace('Socket read returned ' . $chunkByteSize . ' bytes after requesting ' . $bytesRemaining . ' bytes', __FILE__, __FUNCTION__, __LINE__);
 	            	
 	        if ($chunkByteSize == 0)
 	        {            
@@ -240,16 +240,16 @@ class Arakoon_Client_NodeConnection
 	        	$errorCode = socket_last_error($this->_socket);
 	        	$errorMsg = socket_strerror($errorCode);
 	        			
-				Arakoon_Client_Logger::logDebug('Last socket socket error: $lastSocketError', __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logDebug('Last socket socket error:' . $lastSocketError, __FILE__, __FUNCTION__, __LINE__);
 				$warningMsg = NULL;
 				
 	    		if ($errorCode == $timeOutErrorCode)
 	    		{
-	    			$warningMsg = "Socket read from  $this->_ip on port $this->_port timed out after " . Arakoon_Client_Config::CONNECTION_TIMEOUT . ' seconds';
+	    			$warningMsg = 'Socket read from ' . $this->_ip . ' on port ' . $this->_port. ' timed out after ' . Arakoon_Client_Config::CONNECTION_TIMEOUT . ' seconds';
 	    		}
 	    		else
 	    		{	    			
-	    			$warningMsg = "Could not socket read bytes from  $this->_ip on port $this->_port";		
+	    			$warningMsg = 'Could not socket read bytes from ' . $this->_ip . ' on port ' . $this->_port;		
 	    		}
 	    		
 	    		$this->disconnect();

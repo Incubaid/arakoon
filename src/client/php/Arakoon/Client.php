@@ -132,13 +132,13 @@ class Arakoon_Client
 	 */
 	public function assert($key, $expectedValue)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Enter', __FILE__, __FUNCTION__, __LINE__);
 
-		$assertOperation = new Arakoon_Client_Operation_Assert($key, $expectedValue);
+		$assertOperation = new Arakoon_Client_Operation_Assert($key, $expectedValue, $this->_allowDirtyReads);
 		$message = $assertOperation->encode();
 		$this->sendMsgDecodeResult($message, 'Void');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 	}
 	
 	/**
@@ -146,7 +146,7 @@ class Arakoon_Client
 	 */
 	public function expectProgressPossible()
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$result = FALSE;
 		$message = Arakoon_Client_Protocol::encodeExpectProgressPossible();
@@ -157,10 +157,10 @@ class Arakoon_Client
 		}
 		catch (Exception $ex)
 		{
-			Arakoon_Client_Logger::logError("Received exception $ex", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logError('Received exception ' . $ex, __FILE__, __FUNCTION__, __LINE__);
 		}
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -174,13 +174,15 @@ class Arakoon_Client
 	 */
 	public function delete($key)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Enter', __FILE__, __FUNCTION__, __LINE__);
 
+		Arakoon_Client_Operation::validateKey($key);
+		
 		$deleteOperation = new Arakoon_Client_Operation_Delete($key);
 		$message = $deleteOperation->encode();
 		$this->sendMsgDecodeResult($message, 'Void');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 	}
 
 	/**
@@ -191,14 +193,14 @@ class Arakoon_Client
 	 */
 	public function exists($key)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Enter', __FILE__, __FUNCTION__, __LINE__);
 		
 		Arakoon_Client_Operation::validateKey($key);
 		
 		$message = Arakoon_Client_Protocol::encodeExists($key, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'Bool', TRUE);
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -212,14 +214,14 @@ class Arakoon_Client
 	 */
 	public function get($key)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 	
 		Arakoon_Client_Operation::validateKey($key);
 		
 		$message = Arakoon_Client_Protocol::encodeGet($key, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'String');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -229,12 +231,12 @@ class Arakoon_Client
 	 */
 	public function getKeyCount()
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$message = Arakoon_Client_Protocol::encodeGetKeyCount();
 		$result = $this->sendMsgDecodeResult($message, 'Int64');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -249,12 +251,12 @@ class Arakoon_Client
 	 */
 	public function hello($clientId, $clusterId=ArakoonClientConfig::DEFAULT_CLUSTER_ID)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$message = Arakoon_Client_Protocol::encodeHello($clientId, $clusterId);
 		$result = $this->sendMsgDecodeResult($message, 'String');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -269,12 +271,14 @@ class Arakoon_Client
 	 */
 	public function multiGet($keys)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
+		Arakoon_Client_Operation::validateKeys($keys);
+		
 		$message = Arakoon_Client_Protocol::encodeMultiGet($keys, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringList');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -290,14 +294,14 @@ class Arakoon_Client
 	 */
 	public function prefix($keyPrefix , $maxElements = -1)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		Arakoon_Client_Operation::validateKeyPrefix($keyPrefix);
 		
 		$message = Arakoon_Client_Protocol::encodePrefix($keyPrefix, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringList');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -319,7 +323,7 @@ class Arakoon_Client
 	 */
 	public function range($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements = -1)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		Arakoon_Client_Operation::validateKey($beginKey);
 		Arakoon_Client_Operation::validateKey($endKey);
@@ -327,7 +331,7 @@ class Arakoon_Client
 		$message = Arakoon_Client_Protocol::encodeRange($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringList');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -348,7 +352,7 @@ class Arakoon_Client
 	 */
 	public function rangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements = -1)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 		
 		Arakoon_Client_Operation::validateKey($beginKey);
 		Arakoon_Client_Operation::validateKey($endKey);
@@ -356,7 +360,7 @@ class Arakoon_Client
 		$message = Arakoon_Client_Protocol::encodeRangeEntries($beginKey, $includeBeginKey, $endKey, $includeEndKey, $maxElements, $this->_allowDirtyReads);
 		$result = $this->sendMsgDecodeResult($message, 'StringPairList');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -371,12 +375,12 @@ class Arakoon_Client
 	 */
 	public function sequence(Arakoon_Client_Operation_Sequence $sequence)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$message = $sequence->encode();
 		$this->sendMsgDecodeResult($message, 'Void');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 	}
 
 	/**
@@ -391,13 +395,13 @@ class Arakoon_Client
 	 */
 	public function set($key, $value)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$setOperation = new Arakoon_Client_Operation_Set($key, $value);
 		$message = $setOperation->encode();
 		$result = $this->sendMsgDecodeResult($message, 'Void');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -407,12 +411,12 @@ class Arakoon_Client
 	 */
 	public function statistics()
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$message = Arakoon_Client_Protocol::encodeStatistics();
 		$result = $this->sendMsgDecodeResult($message, 'Statistics');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -431,7 +435,7 @@ class Arakoon_Client
 	 */
 	public function testAndSet($key, $oldValue, $newValue)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		Arakoon_Client_Operation::validateKey($key);
 		Arakoon_Client_Operation::validateValueSize($oldValue);
@@ -440,7 +444,7 @@ class Arakoon_Client
 		$message = Arakoon_Client_Protocol::encodeTestAndSet($key, $oldValue, $newValue);
 		$result = $this->sendMsgDecodeResult($message, 'StringOption');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -452,11 +456,11 @@ class Arakoon_Client
 	 */
 	public function whoMaster()
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$masterId = $this->getMasterId();
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $masterId;
 	}
@@ -469,12 +473,12 @@ class Arakoon_Client
 	 */
 	private function getMasterIdFromNode($nodeId)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$message = Arakoon_Client_Protocol::encodeWhoMaster();
 		$result = $this->sendMsgToNodeDecodeResult($nodeId, $message, 'StringOption');
 
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -529,7 +533,7 @@ class Arakoon_Client
 				}
 				else
 				{
-					Arakoon_Client_Logger::logWarning("Node ($randomNodeId) doesn't know who master is", __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logWarning('Node (' . $randomNodeId . ') doesn\'t know who master is', __FILE__, __FUNCTION__, __LINE__);
 				}
 
 				// remove possible master id to prevent unnecessary calls
@@ -543,13 +547,13 @@ class Arakoon_Client
 			}
 			else
 			{
-				Arakoon_Client_Logger::logWarning("Unknown node identifier ($possibleMasterId)", __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logWarning('Unknown node identifier (' . $possibleMasterId . ')', __FILE__, __FUNCTION__, __LINE__);
 			}
 		}
 
 		if ($this->_masterId == NULL)
 		{
-			Arakoon_Client_Logger::logFatal("Could not determine master", __FILE__, __FUNCTION__, __LINE__);
+			Arakoon_Client_Logger::logFatal('Could not determine master', __FILE__, __FUNCTION__, __LINE__);
 			throw new Arakoon_Client_Exception('Could not determine master');
 		}
 
@@ -561,7 +565,7 @@ class Arakoon_Client
 	 */
 	private function sendMsgDecodeResult($message, $decodeFunc, $isRead = FALSE, $sendMsgTryCount = Arakoon_Client_Config::SEND_MESSAGE_TRY_COUNT)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$succes = FALSE;
 
@@ -576,7 +580,7 @@ class Arakoon_Client
 				if ($backOffCounter > 0)
 				{
 					$backOffPeriod = rand(0, Arakoon_Client_Config::CONNECTION_BACKOFF_INTERVAL);
-					Arakoon_Client_Logger::logWarning("Backing off for $backOffPeriod seconds", __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logWarning('Backing off for ' . $backOffPeriod . 'seconds', __FILE__, __FUNCTION__, __LINE__);
 					sleep($backOffPeriod);
 				}
 					
@@ -607,8 +611,8 @@ class Arakoon_Client
 						$this->resetMaster();
 					}
 					
-					Arakoon_Client_Logger::logDebug("Exception: $exception", __FILE__, __FUNCTION__, __LINE__);
-					Arakoon_Client_Logger::logWarning("Attempt $i to send a message to a node ($nodeId) failed", __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logDebug('Exception: ' . $exception, __FILE__, __FUNCTION__, __LINE__);
+					Arakoon_Client_Logger::logWarning('Attempt ' . $i . 'to send a message to a node (' . $nodeId . ') failed', __FILE__, __FUNCTION__, __LINE__);
 				}
 					
 				$currentTime = time();
@@ -618,13 +622,13 @@ class Arakoon_Client
 
 		if (!$succes)
 		{
-			$fatalMsg = "All attemps ($sendMsgTryCount) to send a message and decode its result failed";
+			$fatalMsg = 'All attemps (' . $sendMsgTryCount . ') to send a message and decode its result failed';
 			Arakoon_Client_Logger::logFatal($fatalMsg, __FILE__, __FUNCTION__, __LINE__);
 				
 			throw new Arakoon_Client_Exception($fatalMsg);
 		}
 			
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -634,7 +638,7 @@ class Arakoon_Client
 	 */
 	private function sendMsgToNodeDecodeResult($nodeId, $message, $decodeFunc)
 	{
-		Arakoon_Client_Logger::logTrace("Enter", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('enter', __FILE__, __FUNCTION__, __LINE__);
 
 		$result = NULL;
 		$connection = NULL;
@@ -651,13 +655,13 @@ class Arakoon_Client
 		{
 			$this->dropNodeConnection($nodeId);
 			
-			$warningMessage = "Could't send message to node ($nodeId) and decode result";
+			$warningMessage = 'Could\'t send message to node (' . $nodeId . ') and decode result';
 			Arakoon_Client_Logger::logWarning($warningMessage, __FILE__, __FUNCTION__, __LINE__);					
 			
 			throw $exception;
 		}
 			
-		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
+		Arakoon_Client_Logger::logTrace('Leave', __FILE__, __FUNCTION__, __LINE__);
 
 		return $result;
 	}
@@ -704,7 +708,7 @@ class Arakoon_Client
 	{
 		if (!array_key_exists($nodeId, $this->_connections))
 		{
-			$message = "No node connection found with the given node identifier ($nodeId)";
+			$message = 'No node connection found with the given node identifier (' . $nodeId . ')';
 			Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
 			throw new Arakoon_Client_Exception($message);
 		}

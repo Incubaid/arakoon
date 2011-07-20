@@ -74,13 +74,13 @@ class Arakoon_Client_Config
 	{
 		$extention = substr(strrchr($filePath, '.'), 1);
 		
-		if ($extention == "ini")
+		if ($extention == 'ini')
 		{
 			return Arakoon_Client_Config::CreateFromIniFile($filePath);			
 		}
 		else
 		{
-			throw new Arakoon_Client_Exception("Config file extention not supported!");	
+			throw new Arakoon_Client_Exception('onfig file extention not supported!');	
 		}
 	}
 	
@@ -154,7 +154,7 @@ class Arakoon_Client_Config
 	        }
 	        else
 	        {
-	        	throw new Arakoon_Client_Config("Node ($nodeName) section undefined");
+	        	throw new Arakoon_Client_Config('Node (' . $nodeName . ') section undefined');
 	        }
         }
 	}
@@ -260,7 +260,7 @@ class Arakoon_Client_Config
     	
     	if (!$exists)
     	{
-			$message = "No node exists with the given node identifier ($nodeId)";
+			$message = 'No node exists with the given node identifier (' . $nodeId . ')';
     		Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
 			throw new Arakoon_Client_Exception($message);    		
     	}

@@ -54,35 +54,35 @@ class Arakoon_Client_LoggerLevel
      */
     public static function getName($level)
     {              
-    	$name = "";    
+    	$name = '';    
         switch($level)
         {
             case self::TRACE:
-                $name = "TRACE";
+                $name = 'TRACE';
                 break;
                 
             case self::DEBUG:
-                $name = "DEBUG";
+                $name = 'DEBUG';
                 break;
                 
             case self::INFO:
-                $name = "INFO";
+                $name = 'INFO';
                 break;
                 
             case self::WARNING:
-                $name = "WARNING";
+                $name = 'WARNING';
                 break;
                 
             case self::ERROR:
-                $name = "ERROR";
+                $name = 'ERROR';
                 break;
                 
             case self::FATAL:
-                $name = "FATAL";
+                $name = 'FATAL';
                 break;               
                  
             default:
-                $name = "UNDEFINED";
+                $name = 'UNDEFINED';
         }        
         return $name;
     }  
@@ -231,7 +231,7 @@ class Arakoon_Client_Logger
     	}
     	else
     	{
-         	throw new Exception("Invalid log level ($level)");
+         	throw new Exception('Invalid log level (' . $level . ')');
        	}
     }
     
@@ -246,7 +246,7 @@ class Arakoon_Client_Logger
     	    	
     	if (empty($logger->_logFileDestination))
     	{
-    		throw new Exception("Log file path not set!");
+    		throw new Exception('Log file path not set!');
     	}
     	
     	try
@@ -255,7 +255,7 @@ class Arakoon_Client_Logger
     	}
     	catch(Exception $exception)
     	{
-    		throw new Exception("Could not clean log file (exception: $exception)");
+    		throw new Exception('Could not clean log file (exception: ' . $exception . ')');
     	}
     }
 
@@ -366,7 +366,7 @@ class Arakoon_Client_Logger
 		$name = Arakoon_Client_LoggerLevel::getName($level);
 		$fileBase = (!empty($file)) ? basename($file) : '';
 		
-		$line = "$time | $name [$fileBase] | $function | $line] $message \n";
+		$line = $time . ' | ' . $name . ' [' . $fileBase . '] | ' . $function . ' | ' . $line . ']' . $message . '\n';
     	
         if ($logger->_level <= $level && $logger->_enabled)
         {

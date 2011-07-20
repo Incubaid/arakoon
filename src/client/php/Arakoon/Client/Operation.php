@@ -51,6 +51,17 @@ abstract class Arakoon_Client_Operation
 			throw new Arakoon_Client_Exception('Key invalid');
 		}
     }
+    
+	/**
+     * @todo document
+     */
+	public static function validateKeys(array $keys)
+    {
+    	foreach ($keys as $key)
+    	{
+    		self::validateKey($key);
+    	}    	
+    }
         
     /**
      * @todo document
@@ -60,6 +71,17 @@ abstract class Arakoon_Client_Operation
     	if (mb_strlen($key) > Arakoon_Client_Config::MAX_KEY_BYTE_SIZE)
 		{
 			throw new Arakoon_Client_Exception('Key exceeds max size (8mb)');
+		}
+    }
+    
+	/**
+     * @todo document
+     */
+    public static function validateKeyPrefix($key)
+    {
+    	if (!isset($key))
+		{
+			throw new Arakoon_Client_Exception('Key prefix invalid');
 		}
     }
     

@@ -89,10 +89,12 @@ $testSuite->AddTest('GetNoneKeyTestCase');
 
 $testSuite->AddTest('DeleteExistingKeyTestCase');
 $testSuite->AddTest('DeleteNonExistingKeyTestCase');
+$testSuite->AddTest('DeleteNoneKeyTestCase');
 
 $testSuite->AddTest('SequenceValidTestCase');
 $testSuite->AddTest('SequenceInvalidSetTestCase');
 $testSuite->AddTest('SequenceInvalidDeleteTestCase');
+$testSuite->AddTest('SequenceInvalidAssertTestCase');
 
 $testSuite->AddTest('ExistsExistingKeyTestCase');
 $testSuite->AddTest('ExistsNonExistingKeyTestCase');
@@ -104,6 +106,7 @@ $testSuite->AddTest('RangeExistingKeysEndBorderTestCase');
 $testSuite->AddTest('RangeExistingKeysBothBordersTestCase');
 $testSuite->AddTest('RangeExistingKeysMaxTestCase');
 $testSuite->AddTest('RangeNonExistingKeysTestCase');
+$testSuite->AddTest('RangeNoneKeysTestCase');
 
 $testSuite->AddTest('RangeEntriesExistingKeysNoBordersTestCase');
 $testSuite->AddTest('RangeEntriesExistingKeysBeginBorderTestCase');
@@ -111,16 +114,22 @@ $testSuite->AddTest('RangeEntriesExistingKeysEndBorderTestCase');
 $testSuite->AddTest('RangeEntriesExistingKeysBothBordersTestCase');
 $testSuite->AddTest('RangeEntriesExistingKeysMaxTestCase');
 $testSuite->AddTest('RangeEntriesNonExistingKeysTestCase');
+$testSuite->AddTest('RangeEntriesNoneKeysTestCase');
 
-$testSuite->AddTest('TestAndSetExistingKeyExpectedValueTestCase');
-$testSuite->AddTest('TestAndSetNonExistingKeyTestCase');
+$testSuite->AddTest('TestAndSetExistingKeyExpectedValueNewValueTestCase');
+$testSuite->AddTest('TestAndSetExistingKeyExpectedValueNoneValueTestCase');
+$testSuite->AddTest('TestAndSetExistingKeyUnexpectedValueTestCase');
+$testSuite->AddTest('TestAndSetNonExistingKeyExpectedValueNewValueTestCase');
+$testSuite->AddTest('TestAndSetNonExistingKeyNoneValueNewValueTestCase');
 $testSuite->AddTest('TestAndSetNoneKeyTestCase');
 
 $testSuite->AddTest('MultiGetExistingKeysTestCase');
 $testSuite->AddTest('MultiGetNonExistingKeysTestCase');
+$testSuite->AddTest('MultiGetNoneKeysTestCase');
+$testSuite->AddTest('MultiGetEmptyTestCase');
 
-$testSuite->AddTest('PrefixValidTestCase');
-$testSuite->AddTest('PrefixInvalidTestCase');
+$testSuite->AddTest('PrefixExistingTestCase');
+$testSuite->AddTest('PrefixNonExistingTestCase');
 $testSuite->AddTest('PrefixNoneTestCase');
 
 $testSuite->AddTest('AssertExistingKeyExpectedValueTestCase');

@@ -48,7 +48,7 @@ class Arakoon_Client_Operation_Sequence extends Arakoon_Client_Operation
     /**
      * @todo document
      */
-    public function addOperation($operation)
+    private function addOperation($operation)
     {
         $this->_operations[] = $operation;
     }
@@ -62,16 +62,7 @@ class Arakoon_Client_Operation_Sequence extends Arakoon_Client_Operation
     	$this->addOperation($assertOperation);
     }
     
-    /**
-     * @todo document
-     */
-    public function addSetOperation($key, $value)
-    {
-    	$setOperation = new Arakoon_Client_Operation_Set($key, $value);
-    	$this->addOperation($setOperation);
-    }
-    
-    /**
+	/**
      * @todo document
      */
 	public function addDeleteOperation($key)
@@ -79,6 +70,23 @@ class Arakoon_Client_Operation_Sequence extends Arakoon_Client_Operation
     	$deleteOperation = new Arakoon_Client_Operation_Delete($key);
     	$this->addOperation($deleteOperation);
     }
+    
+    /**
+     * @todo document
+     */
+	public function addSequenceOperation($sequenceOperation)
+    {
+    	$this->addOperation($sequenceOperation);
+    }
+    
+    /**
+     * @todo document
+     */
+    public function addSetOperation($key, $value)
+    {
+    	$setOperation = new Arakoon_Client_Operation_Set($key, $value);
+    	$this->addOperation($setOperation);
+    }        
     
 	/**
      * @todo document
