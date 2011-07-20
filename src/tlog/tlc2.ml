@@ -58,7 +58,7 @@ let get_number fn =
   int_of_string pre
 
 let get_tlog_names tlog_dir = 
-  lwt_directory_list tlog_dir >>= fun entries ->
+  File_system.lwt_directory_list tlog_dir >>= fun entries ->
   let filtered = List.filter 
     (fun e -> Str.string_match file_regexp e 0) 
     entries 

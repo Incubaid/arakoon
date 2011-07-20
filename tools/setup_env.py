@@ -25,8 +25,8 @@ def sh(x, **kwargs):
     if subprocess.call(x,**kwargs):
         raise RuntimeError("Failed to run %s %s" % (x, kwargs))
 
-def mr_proper():
-    sh (['rm','-rf', ROOT])
+def clean():
+    sh (['rm','-rf', PREFIX])
 
 
 print PREFIX
@@ -50,7 +50,8 @@ class Lib:
 
     def download(self):
         fn = '%s/%s' % (ROOT, self._archive)
-        sh(['wget', '-O', fn, self._url])
+        if not os.path.exists(fn):
+            sh(['wget', '-O', fn, self._url])
 
     def extract(self):
         flags = extract_flags[self._extension]
@@ -100,12 +101,18 @@ def install_react():
 def install_lwt():
     # Tell lwt where libev can be found
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
-    env['C_INCLUDE_PATH'] = '%s' % PREFIX
-
-    lib = Lib('lwt-2.3.1','.tar.gz',
+    env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
+    name = 'lwt-2.3.1'
+    lib = Lib(name, '.tar.gz',
               'http://ocsigen.org/download/%s')
     lib.download()
     lib.extract()
+    # apply patch:
+    mydir = os.path.dirname(os.path.abspath(__file__))
+    patch_file = os.path.join(mydir,'patch.lwt_io')
+    lib.sh(['patch','--verbose','--directory=%s/%s' % (ROOT, name),
+            '-p0', # '--dry-run' ,
+            '-i', patch_file])
     lib.sh(['rm','-f',  'setup.data','setup.log'])
     lib.sh(['make','clean'])
     lib.sh(['ocaml', 'setup.ml', '-configure', '--prefix', PREFIX])
@@ -231,8 +238,8 @@ def install_client():
         ])
 
 def do_it():
-    mr_proper()
-    sh(['mkdir', ROOT])
+    clean()
+    sh(['mkdir', '-p', ROOT])
     install_ocaml()
     install_ocamlfind()
     install_ounit()
