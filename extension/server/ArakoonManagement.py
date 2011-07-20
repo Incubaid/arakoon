@@ -726,7 +726,7 @@ class ArakoonCluster:
 
     def _requireLocal(self, nodeName):
         if not nodeName in self.listLocalNodes():
-            raise Exception(EXC_MSG_NOT_LOCAL_FMT % nodeName)
+            raise ArakoonNodeNotLocal( nodeName)
     
     def startOne(self, nodeName):
         """
