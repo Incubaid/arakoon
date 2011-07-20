@@ -102,21 +102,24 @@ let test_max_connections () =
         Lwt_io.printlf "%s ? %s" word word'
       in 
       Lwt.catch
-	(fun () -> Lwt_list.iter_s test_one words )
+	(fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
 	(function 
 	  | Canceled as e -> Lwt.fail e
 	  | exn -> incr n_problems;Lwt_log.info_f ~exn "client %i had problems" i)
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
-    Lwt_io.open_connection address >>= fun connection ->
-    conversation connection >>= fun () ->
-    info "end of conversation" 
+(*    Lwt_io.with_connection address conversation  >>= fun () -> *)
+    Lwt_io.open_connection address >>= fun conn ->
+    conversation conn >>= fun () ->
+    info "end of conversation." 
   in 
   let main_t = 
     Lwt.pick [client 0;
 	      client 1;
 	      client 2;
-	      server()] 
+	      server();
+              Lwt_unix.sleep 0.3
+             ] 
     >>= fun () -> Lwt_mvar.take td_var >>= fun () ->
     Lwt_log.debug_f "n_problems = %i" !n_problems >>= fun () ->
     OUnit.assert_equal !n_problems 1;

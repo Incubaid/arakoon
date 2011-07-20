@@ -108,7 +108,8 @@ def install_lwt():
     lib.download()
     lib.extract()
     # apply patch:
-    patch_file = os.path.abspath('tools/patch.lwt_io')
+    mydir = os.path.dirname(os.path.abspath(__file__))
+    patch_file = os.path.join(mydir,'patch.lwt_io')
     lib.sh(['patch','--verbose','--directory=%s/%s' % (ROOT, name),
             '-p0', # '--dry-run' ,
             '-i', patch_file])
