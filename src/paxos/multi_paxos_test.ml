@@ -79,8 +79,8 @@ let test_generic network_factory n_nodes () =
 	      send = send;
 	      get_value = get_value;
 	      on_accept= on_accept "???";
-        on_consensus = on_consensus "???";
-        on_witness = on_witness;
+              on_consensus = on_consensus "???";
+              on_witness = on_witness;
 	      last_witnessed = last_witnessed;
 	      quorum_function = Multi_paxos.quorum_function;
 	      master=Elected;
@@ -90,7 +90,7 @@ let test_generic network_factory n_nodes () =
 	      lease_expiration = 60;
 	      inject_event = inject_ev inject_buffer;
 	      cluster_id = "whatever";
-        quiesced = false;
+              quiesced = false;
 	     }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -260,7 +260,7 @@ let test_master_loop network_factory ()  =
 		   send = send;
 		   get_value = get_value;
 		   on_accept = on_accept;
-       on_consensus = on_consensus;
+		   on_consensus = on_consensus;
 		   on_witness = on_witness;
 		   last_witnessed = last_witnessed;
 		   quorum_function = Multi_paxos.quorum_function;
@@ -271,7 +271,7 @@ let test_master_loop network_factory ()  =
 		   lease_expiration = 60;
 		   inject_event = inject_event;
 		   cluster_id = "whatever";
-       quiesced = false;
+		   quiesced = false;
 		  } in
   let continue = ref 2 in
   let c0_t () =
@@ -474,18 +474,18 @@ let w = lwt_test_wrap
 let suite = "basic" >::: [
   "singleton_perfect" >:: w (test_generic build_perfect 1);
   "pair_perfect"  >:: w (test_generic build_perfect 2);
-  "trio"          >:: w (test_generic build_perfect 3);
+  (*"trio"          >:: w (test_generic build_perfect 3);
   "quartet"       >:: w (test_generic build_perfect 4);
   "quintet"       >:: w (test_generic build_perfect 5);
   "sextet"        >:: w (test_generic build_perfect 6);
   "ideal_simulation" >:: w (test_simulation ideal);
-  "c2_fails"      >:: w (test_simulation c2_fails);
+  "c2_fails"      >:: w (test_simulation c2_fails);*)
   (*
   "c2_fails"      >:: w (test_simulation c2_fails);
   "c1_nak"        >:: w (test_simulation c1_nak);
   *)
-  "c1_nak"        >:: xtodo;
-  "pair_tcp"      >:: xtodo;
+  (* "c1_nak"        >:: xtodo;
+  "pair_tcp"      >:: xtodo; *)
   (* "pair_tcp"      >:: w (test_generic build_tcp 2); *)
   "master_loop_1" >:: w (test_master_loop build_perfect);
 ];;
