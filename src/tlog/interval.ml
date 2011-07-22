@@ -1,4 +1,4 @@
-module Range = struct
+module Interval = struct
   type t = (string option * string option) * (string option * string option)
 
   let make pu_b pu_e pr_b pr_e = ((pu_b,pu_e),(pr_b,pr_e))
@@ -19,7 +19,7 @@ module Range = struct
     Printf.sprintf "(%s,%s),(%s,%s)" 
       (so2s pu_b) (so2s pu_e) (so2s pr_b) (so2s pr_e)
 
-  let range_to buf t=
+  let interval_to buf t=
     let (pu_b,pu_e),(pr_b,pr_e) = t in
     let so2 buf x= Llio.string_option_to buf x in
     so2 buf pu_b;
@@ -27,7 +27,7 @@ module Range = struct
     so2 buf pr_b;
     so2 buf pr_e
 
-  let range_from s pos = 
+  let interval_from s pos = 
     let sof s pos = Llio.string_option_from s pos in
     let pu_b,p1 = sof s pos in
     let pu_e,p2 = sof s p1 in
@@ -37,7 +37,7 @@ module Range = struct
     r,p4
 
   open Lwt  
-  let output_range oc t= 
+  let output_interval oc t= 
     let o_so = Llio.output_string_option oc in
     let (pu_b,pu_e),(pr_b,pr_e) = t in
     o_so pu_b >>= fun () ->
@@ -46,7 +46,7 @@ module Range = struct
     o_so pr_e >>= fun () ->
     Lwt.return ()
 
-  let input_range ic =
+  let input_interval ic =
     let i_so = Llio.input_string_option ic in
     i_so >>= fun pu_b ->
     i_so >>= fun pu_e ->

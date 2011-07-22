@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
-open Range
+open Interval
 open Routing
 open Statistics
 
@@ -67,7 +67,7 @@ class type backend = object
 
   method user_function: string -> string option -> (string option) Lwt.t
 
-  method set_range : Range.t -> unit Lwt.t
+  method set_interval : Interval.t -> unit Lwt.t
 
   method get_routing: unit -> Routing.t Lwt.t
   method set_routing: Routing.t -> unit Lwt.t

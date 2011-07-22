@@ -25,7 +25,7 @@ open Hotc
 open Mp_msg
 open Lwt
 open Update
-open Range
+open Interval
 open Routing
 open Log_extra
 open Store
@@ -49,12 +49,12 @@ let _consensus_i db =
   with Not_found ->
     Lwt.return None
 
-let _get_range db = 
+let _get_interval db = 
   try
-    let range_s = Bdb.get db __range_key in
-    let range,_ = Range.range_from range_s 0 in
-    Lwt.return range
-  with Not_found -> Lwt.return Range.max
+    let interval_s = Bdb.get db __interval_key in
+    let interval,_ = Interval.interval_from interval_s 0 in
+    Lwt.return interval
+  with Not_found -> Lwt.return Interval.max
 
 let _get_routing db = 
   try 
@@ -63,11 +63,11 @@ let _get_routing db =
     Lwt.return (Some routing)
   with Not_found -> Lwt.return None
 
-let _set_range db range = 
+let _set_interval db range = 
   let buf = Buffer.create 80 in
-  let () = Range.range_to buf range in
+  let () = Interval.interval_to buf range in
   let range_s = Buffer.contents buf in
-  Bdb.put db __range_key range_s
+  Bdb.put db __interval_key range_s
 
 let _set_routing db routing =
   let buf = Buffer.create 80 in
@@ -227,7 +227,7 @@ let rec _sequence bdb updates =
       let _ = _user_function bdb name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
     | Update.Sequence us -> _sequence bdb us
-    | Update.SetRange range -> _set_range bdb range
+    | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
     | Update.Nop -> ()
   in let get_key = function
@@ -269,11 +269,12 @@ let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t)
       Hotc.transaction db (_save_i new_i) >>= fun () ->
       Lwt.fail ex)
 
-class local_store (db_location:string) (db:Hotc.t) (range:Range.t) (routing:Routing.t option) mlo store_i =
+class local_store (db_location:string) (db:Hotc.t) 
+  (interval:Interval.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
   val my_location = db_location 
-  val mutable _range = range
+  val mutable _interval = interval
   val mutable _routing = routing
   val mutable _mlo = mlo
   val mutable _quiesced = false
@@ -303,13 +304,13 @@ object(self: #store)
   method private open_db () =
     Hotc._open_lwt db 
   
-  method _range_ok key =
-    let ok = Range.is_ok _range key in
+  method _interval_ok key =
+    let ok = Interval.is_ok _interval key in
     if ok 
     then ()
     else 
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
-				 Printf.sprintf "%s not in range" key)
+				 Printf.sprintf "%s not in interval" key)
       in raise ex
       
   method exists key =
@@ -460,10 +461,11 @@ object(self: #store)
     _store_i <- store_i ;
     Lwt.return ()
 
-  method set_range range = 
-    Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
-    _range <- range;
-    Hotc.transaction db (fun db -> _set_range db range;Lwt.return ())
+  method set_interval interval = 
+    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) 
+    >>= fun () ->
+    _interval <- interval;
+    Hotc.transaction db (fun db -> _set_interval db interval;Lwt.return ())
 
   method get_routing () = 
     Lwt_log.debug "get_routing " >>= fun () ->
@@ -507,10 +509,10 @@ end
 
 let make_local_store db_name =
   Hotc.create db_name >>= fun db ->
-  Hotc.transaction db _get_range >>= fun range ->
+  Hotc.transaction db _get_interval >>= fun interval ->
   Hotc.transaction db _get_routing >>= fun routing_o ->
   Hotc.transaction db _who_master >>= fun mlo ->
   Hotc.transaction db _consensus_i >>= fun store_i ->
-  let store = new local_store db_name db range routing_o mlo store_i in
+  let store = new local_store db_name db interval routing_o mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

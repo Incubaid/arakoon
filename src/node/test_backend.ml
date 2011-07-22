@@ -184,7 +184,7 @@ class test_backend my_name = object(self:#backend)
     in
     loop n
       
-  method set_range range = failwith "not implemented"
+  method set_interval interval = failwith "not implemented"
 
   method get_routing () = 
     match _routing with

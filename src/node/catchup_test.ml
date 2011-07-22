@@ -63,12 +63,13 @@ let _fill2 tlog_coll n =
 
 let setup () = 
   Lwt_log.info "Catchup_test.setup" >>= fun () ->
-  Lwt.catch
-    (fun () -> 
-      File_system.rmdir _dir_name >>= fun () ->
-      File_system.mkdir _dir_name 0o750
-    )
-    (fun exn -> Lwt_log.warning ~exn "ignoring" )
+  let ignore_ex f = 
+    Lwt.catch 
+      f
+      (fun exn -> Lwt_log.warning ~exn "ignoring")
+  in
+  ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
+  ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 )
 
     
 let test_common () =

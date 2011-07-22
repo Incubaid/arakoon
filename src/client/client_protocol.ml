@@ -26,7 +26,7 @@ open Lwt_log
 open Log_extra
 open Extra
 open Update
-open Range
+open Interval
 open Routing
 open Statistics
 
@@ -326,12 +326,12 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
       end
-    | SET_RANGE ->
+    | SET_INTERVAL ->
       begin
-	Range.input_range ic >>= fun range ->
+	Interval.input_interval ic >>= fun interval ->
 	Lwt.catch
 	  (fun () -> 
-	    backend # set_range range >>= fun () ->
+	    backend # set_interval interval >>= fun () ->
 	    response_ok_unit oc
 	  )
 	  (handle_exception oc)

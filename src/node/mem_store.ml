@@ -24,7 +24,7 @@ open Store
 open Lwt
 open Log_extra
 open Update
-open Range
+open Interval
 open Routing
 
 module StringMap = Map.Make(String);;
@@ -40,7 +40,7 @@ object (self: #store)
   val mutable i = None
   val mutable kv = StringMap.empty
   val mutable master = None
-  val mutable _range = Range.max
+  val mutable _interval = Interval.max
   val mutable _routing = None
 
   method incr_i () =
@@ -203,9 +203,9 @@ object (self: #store)
     Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
     Lwt.return None
 
-  method set_range range = 
-    Lwt_log.debug_f "set_range %s" (Range.to_string range) >>= fun () ->
-    _range <- range;
+  method set_interval iv = 
+    Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
+    _interval <- iv;
     Lwt.return ()
 
   method get_routing () = 

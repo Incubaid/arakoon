@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open OUnit
 open Update
-open Range
+open Interval
 let _b2b u = 
   let b = Buffer.create 1024 in
   let () = Update.to_buffer b u in
@@ -41,17 +41,17 @@ let test_sequence () =
   let s' = _b2b s in
   _cmp s s'
 
-let test_range() = 
-  let r0 = Range.max in
-  let u0 = Update.SetRange r0 in
+let test_interval() = 
+  let r0 = Interval.max in
+  let u0 = Update.SetInterval r0 in
   let u0' = _b2b u0 in
   _cmp u0 u0';
   let r1 = ((Some "b",Some "k"),(Some "a",Some "z")) in
-  let u1 = Update.SetRange r1 in
+  let u1 = Update.SetInterval r1 in
   let u1' = _b2b u1 in
   _cmp u1 u1'
 
 let suite = "update" >:::[
   "sequence" >:: test_sequence;
-  "range" >:: test_range;
+  "interval" >:: test_interval;
 ]

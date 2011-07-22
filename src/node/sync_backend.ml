@@ -28,7 +28,7 @@ open Log_extra
 open Hotc
 open Otc
 open Update
-open Range
+open Interval
 open Mp_msg
 open Common
 open Store
@@ -200,9 +200,9 @@ object(self: #backend)
     let cb () = () in
     self # _update_rendezvous update cb push_update
 
-  method set_range range =
-    log_o self "set_range %s" (Range.to_string range)>>= fun () ->
-    let update = Update.SetRange range in
+  method set_interval iv =
+    log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
+    let update = Update.SetInterval iv in
     self # _update_rendezvous update (fun () -> ()) push_update
 
   method user_function name po = 

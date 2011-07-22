@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
-open Range
+open Interval
 open Routing
 open Common
 open Lwt
@@ -120,10 +120,10 @@ object(self :# nodestream)
     response ic incoming
 
 
-  method set_range range =
+  method set_interval iv =
     let outgoing buf = 
-      command_to buf SET_RANGE;
-      Range.range_to buf range
+      command_to buf SET_INTERVAL;
+      Interval.interval_to buf iv
     in
     request outgoing >>= fun () ->
     response ic nothing

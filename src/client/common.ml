@@ -52,7 +52,7 @@ type client_command =
   | STATISTICS
   | COLLAPSE_TLOGS
   | USER_FUNCTION
-  | SET_RANGE
+  | SET_INTERVAL
   | GET_ROUTING
   | SET_ROUTING
   | GET_KEY_COUNT
@@ -77,7 +77,7 @@ let code2int = [
   COLLAPSE_TLOGS          , 0x14l;
   USER_FUNCTION           , 0x15l;
   ASSERT                  , 0x16l;
-  SET_RANGE               , 0x17l;
+  SET_INTERVAL            , 0x17l;
   GET_ROUTING             , 0x18l;
   SET_ROUTING             , 0x19l;
   GET_KEY_COUNT           , 0x1al;

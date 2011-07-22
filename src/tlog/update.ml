@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Log_extra
-open Range
+open Interval
 open Routing
 
 module Update = struct
@@ -31,7 +31,7 @@ module Update = struct
     | MasterSet of string * int64
     | TestAndSet of string * string option * string option
     | Sequence of t list
-    | SetRange of Range.t
+    | SetInterval of Interval.t
     | SetRouting of Routing.t
     | Nop
     | Assert of string * string option
@@ -66,7 +66,7 @@ module Update = struct
       in
       let () = loop updates in
       Buffer.contents buf
-    | SetRange range ->     Printf.sprintf "SetRange  ;%s" (Range.to_string range)
+    | SetInterval range ->     Printf.sprintf "SetInterval  ;%s" (Interval.to_string range)
     | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
     | Nop -> "NOP"
     | Assert (key,vo)       -> Printf.sprintf "Assert    ;%S;%i" key (_size_of vo)
@@ -107,9 +107,9 @@ module Update = struct
 	Llio.int_to b 8;
 	Llio.string_to b k;
 	Llio.string_option_to b vo
-      | SetRange range ->
+      | SetInterval interval ->
 	Llio.int_to b 9;
-	Range.range_to b range
+	Interval.interval_to b interval
 
 
 
@@ -153,8 +153,8 @@ module Update = struct
 	let vo,pos3 = Llio.string_option_from b pos2 in
 	Assert (k,vo) , pos3
       | 9 -> 
-	let range,pos2 = Range.range_from b pos1 in
-	SetRange range, pos2
+	let interval,pos2 = Interval.interval_from b pos1 in
+	SetInterval interval, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

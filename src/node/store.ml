@@ -21,14 +21,14 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Update
-open Range
+open Interval
 open Routing
 open Lwt
 open Log_extra
 
 
 let __i_key = "*i"
-let __range_key = "*range"
+let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
 let __lease_key = "*lease"
@@ -63,7 +63,7 @@ class type store = object
   method aSSert: string -> string option -> bool Lwt.t
 
   method user_function : string -> string option -> (string option) Lwt.t
-  method set_range: Range.t -> unit Lwt.t
+  method set_interval: Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t
 
@@ -158,10 +158,10 @@ let _insert_update (store:store) update =
             in
             Lwt.return (Update_fail (rc,msg))
         )
-    | Update.SetRange range ->
+    | Update.SetInterval interval ->
       Lwt.catch
 	(fun () ->
-	  store # set_range range >>= fun () ->
+	  store # set_interval interval >>= fun () ->
 	  Lwt.return (Ok None))
 	(function 
 	  | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
