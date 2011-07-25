@@ -1616,4 +1616,27 @@ class AssertNoneKeyTestCase extends ArakoonDefaultTestCase
 		}
 	}
 }
+
+/**
+ * SetWhileTestCase class
+ */
+class SetWhileOneDownTestCase extends ArakoonDefaultTestCase
+{
+    	public function __construct()
+	{
+		parent::__construct('set while test',
+							'sets a key-value pair and checks if it\'s key exists',
+							'set while one node down');
+	}
+
+	public function Run()
+	{	
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killOneNode();
+                $this->arakoonClient->set($this->key, $this->value);
+		$existsResult = $this->arakoonClient->exists($this->key);
+		$this->AssertEquals($existsResult, 1, 'key of previously set key-value pair doesn\'t exist');
+	}
+}
+
 ?>

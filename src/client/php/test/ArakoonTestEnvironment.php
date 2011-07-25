@@ -87,7 +87,7 @@ class ArakoonTestEnvironment
 				mkdir($homeDir);
 			}
 			
-			shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
+			shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
 		}
 		
 		sleep(1); // sleep 1 second to ensure Arakoon nodes are up
@@ -116,7 +116,7 @@ class ArakoonTestEnvironment
 	 */
 	public function tearDownMaster()
 	{
-		$master = shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' --who-master');
+		$master = shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' --who-master');
 		shell_exec('pkill -f ' . $master);
 	}
 	
@@ -159,5 +159,15 @@ class ArakoonTestEnvironment
 			$removeSucces = FALSE;
 		}
 	}
+
+        public function killOneNode()
+        {
+                $config = $this->_client->getConfig();
+                $nodes = $config->getNodes();
+                $node = array_rand($nodes, 1);
+                shell_exec("pkill -f arakoon_$node");
+                sleep(2); // sleep 2 second to ensure Arakoon nodes are updated
+        }
+
 }
 ?>

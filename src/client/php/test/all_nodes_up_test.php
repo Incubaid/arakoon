@@ -143,6 +143,8 @@ $testSuite->AddTest('WhoMasterTestCase');
 $testSuite->AddTest('StatisticsTestCase');
 $testSuite->AddTest('GetKeyCountTestCase');
 
+$testSuite->AddTest('SetWhileOneDownTestCase');
+
 /**
  * run test
  */
