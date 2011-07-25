@@ -366,13 +366,13 @@ class Arakoon_Client_Logger
 		$name = Arakoon_Client_LoggerLevel::getName($level);
 		$fileBase = (!empty($file)) ? basename($file) : '';
 		
-		$line = $time . ' | ' . $name . ' [' . $fileBase . '] | ' . $function . ' | ' . $line . ']' . $message . '\n';
+		$line = $time . ' | ' . $name . ' [' . $fileBase . '] | ' . $function . ' | ' . $line . ']' . $message . "\n";
     	
         if ($logger->_level <= $level && $logger->_enabled)
         {
         	try
         	{
-        		error_log($line, 3 , $logger->_logFileDestination);
+        		error_log($line, 3, $logger->_logFileDestination);
         	}
         	catch (Exception $exception)
         	{
