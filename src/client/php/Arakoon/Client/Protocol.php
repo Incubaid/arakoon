@@ -20,12 +20,12 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'AssertFailedException.php';
-require_once 'Exception.php';
-require_once 'Logger.php';
-require_once 'NotFoundException.php';
-require_once 'NotMasterException.php';
-require_once 'WrongClusterException.php';
+require_once "AssertFailedException.php";
+require_once "Exception.php";
+require_once "Logger.php";
+require_once "NotFoundException.php";
+require_once "NotMasterException.php";
+require_once "WrongClusterException.php";
 
 /**
  * Arakoon_Client_Protocol
@@ -108,7 +108,7 @@ class Arakoon_Client_Protocol
      */
 	public static function packBool($data)
 	{
-		$buffer = pack('c', $data); // char format is used because there is no boolean format available
+		$buffer = pack("c", $data); // char format is used because there is no boolean format available
     	return $buffer;
 	}
 	
@@ -117,7 +117,7 @@ class Arakoon_Client_Protocol
      */
 	public static function packInt($data)
 	{
-	    $buffer =  pack('I', $data);
+	    $buffer =  pack("I", $data);
 	    return $buffer;
 	}
 	
@@ -126,7 +126,7 @@ class Arakoon_Client_Protocol
      */
 	public static function packSignedInt($data)
 	{
-	    $buffer =  pack('i', $data);
+	    $buffer =  pack("i", $data);
 	    return $buffer;
 	}
 	
@@ -135,7 +135,7 @@ class Arakoon_Client_Protocol
      */
 	public static function packString($data)
 	{
-    	$buffer =  pack('Ia*', strlen($data), $data);
+    	$buffer =  pack("Ia*", strlen($data), $data);
     	return $buffer;
 	}
 	
@@ -144,7 +144,7 @@ class Arakoon_Client_Protocol
      */
 	public static function packStringOption($data)
 	{
-		$buffer = '';
+		$buffer = "";
 		
 		if (empty($data))
 		{
@@ -171,8 +171,8 @@ class Arakoon_Client_Protocol
      */
 	public static function unpackBool($buffer)
 	{
-		$data = unpack('cbool', $buffer);
-		return $data['bool'];
+		$data = unpack("cbool", $buffer);
+		return $data["bool"];
 	}
 	
 	/**
@@ -184,8 +184,8 @@ class Arakoon_Client_Protocol
      */
 	public static function unpackEntireString($buffer)
 	{
-	    $data = unpack('a*string', $buffer);
-		return $data['string'];
+	    $data = unpack("a*string", $buffer);
+		return $data["string"];
 	}
 	
 	/**
@@ -195,14 +195,14 @@ class Arakoon_Client_Protocol
 	{
 	    if($offset > 0)
 	    {
-	        $data = unpack('c{' . $offset . '}char/dfloat', $buffer);
+	        $data = unpack("c{$offset}char/dfloat", $buffer);
 	    }
 	    else
 	    {
-	        $data = unpack('dfloat', $buffer);
+	        $data = unpack("dfloat", $buffer);
 	    }    
 	    
-	    return array($data['float'], $offset + self::TYPE_SIZE_FLOAT);
+	    return array($data["float"], $offset + self::TYPE_SIZE_FLOAT);
 	}
 
 	
@@ -216,14 +216,14 @@ class Arakoon_Client_Protocol
 	{
 	    if($offset > 0)
 	    {
-	    	$data = unpack('c{' . $offset . '}char/Iint', $buffer);
+	    	$data = unpack("c{$offset}char/Iint", $buffer);
 	    }
 	    else
 	    {
-	        $data = unpack('Iint', $buffer);
+	        $data = unpack("Iint", $buffer);
 	    }
 	    
-	    return array($data['int'], $offset + self::TYPE_SIZE_INT_32);
+	    return array($data["int"], $offset + self::TYPE_SIZE_INT_32);
 	}
 	
 	/**
@@ -233,16 +233,16 @@ class Arakoon_Client_Protocol
 	{
 		if (PHP_INT_SIZE == 4)
 		{
-			$fatalMsg = 'Cannot unpack 64 bit integer in a 32 environment';
+			$fatalMsg = "Cannot unpack 64 bit integer in a 32 environment";
 			Arakoon_Client_Logger::logFatal($fatalMsg, __FILE__, __FUNCTION__, __LINE__);
 			
 			throw new Arakoon_Client_Exception($fatalMsg);	
 		}
 		
 		$buffer = substr($buffer, $offset, self::TYPE_SIZE_INT_64);
-		$data = unpack('Iint', $buffer);
+		$data = unpack("Iint", $buffer);
 
-		return array($data['int'], $offset + self::TYPE_SIZE_INT_64);
+		return array($data["int"], $offset + self::TYPE_SIZE_INT_64);
 	}
 		
 	/**
@@ -519,8 +519,7 @@ class Arakoon_Client_Protocol
      */
     public static function encodeWhoMaster()
     {
-        //return self::packInt(self::OP_CODE_WHO_MASTER | self::OP_CODE_MAGIC);
-        $buffer = pack('I', self::OP_CODE_WHO_MASTER | self::OP_CODE_MAGIC);;
+        $buffer = self::packInt(self::OP_CODE_WHO_MASTER | self::OP_CODE_MAGIC);
         
         return $buffer; 
     }
@@ -586,16 +585,16 @@ class Arakoon_Client_Protocol
             $cycleOffset = $tempOffset2;
         }
         
-        $statistics['start'] = $start;
-        $statistics['last'] = $last;
-        $statistics['avg_set_size'] = $avg_set_size;
-        $statistics['avg_get_size'] = $avg_get_size;
-        $statistics['n_sets'] = $n_sets;
-        $statistics['n_gets'] = $n_gets;
-        $statistics['n_deletes'] = $n_deletes;
-        $statistics['n_multigets'] = $n_multigets;
-        $statistics['n_sequences'] = $n_sequences;
-        $statistics['node_is'] = $node_is;
+        $statistics["start"] = $start;
+        $statistics["last"] = $last;
+        $statistics["avg_set_size"] = $avg_set_size;
+        $statistics["avg_get_size"] = $avg_get_size;
+        $statistics["n_sets"] = $n_sets;
+        $statistics["n_gets"] = $n_gets;
+        $statistics["n_deletes"] = $n_deletes;
+        $statistics["n_multigets"] = $n_multigets;
+        $statistics["n_sequences"] = $n_sequences;
+        $statistics["node_is"] = $node_is;
 
         return $statistics;
     }
@@ -680,7 +679,7 @@ class Arakoon_Client_Protocol
         if ($resultCode != self::RESULT_CODE_SUCCES)
         {
         	$resultMsg = self::readString($connection);
-        	$exceptionMsg = 'An error occured (code: ' . $resultCode . ') while executing an Arakoon operation (message: ' . $resultMsg . ')';
+        	$exceptionMsg = "An error occured (code: $resultCode) while executing an Arakoon operation (message: $resultMsg)";
         	$exception = NULL;
         	
 	        switch($resultCode)
