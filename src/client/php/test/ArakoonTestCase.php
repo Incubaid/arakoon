@@ -1629,13 +1629,42 @@ class SetWhileOneDownTestCase extends ArakoonDefaultTestCase
 							'set while one node down');
 	}
 
-	public function Run()
-	{	
+	public function Setup()
+	{
                 $testEnvironment = ArakoonTestEnvironment::getInstance();
                 $testEnvironment->killOneNode();
+	}
+
+	public function Run()
+	{	
                 $this->arakoonClient->set($this->key, $this->value);
 		$existsResult = $this->arakoonClient->exists($this->key);
 		$this->AssertEquals($existsResult, 1, 'key of previously set key-value pair doesn\'t exist');
+	}
+}
+
+/**
+ * ExpectProgressPossibleWhileOneDownTestCase class
+ */
+class ExpectProgressPossibleWhileOneDownTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('expect progress possible test while one node down',
+							'determines if progress is possible',
+							'expect-progress-possible-while-one-down');
+	}
+
+	public function Setup()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killOneNode();
+	}
+
+	public function Run()
+	{
+		$result = $this->arakoonClient->expectProgressPossible();
+		$this->AssertEquals($result, 1, 'negative result returned');
 	}
 }
 
