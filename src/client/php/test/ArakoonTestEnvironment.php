@@ -166,7 +166,7 @@ class ArakoonTestEnvironment
                 $nodes = $config->getNodes();
                 $node = array_rand($nodes, 1);
                 shell_exec("pkill -f arakoon_$node");
-                sleep(2); // sleep 2 second to ensure Arakoon nodes are updated
+                sleep(5); // sleep 5 second to ensure Arakoon nodes are updated
         }
 
 }

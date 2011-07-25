@@ -240,7 +240,7 @@ class Arakoon_Client_NodeConnection
 	        	$errorCode = socket_last_error($this->_socket);
 	        	$errorMsg = socket_strerror($errorCode);
 	        			
-				Arakoon_Client_Logger::logDebug('Last socket socket error:' . $lastSocketError, __FILE__, __FUNCTION__, __LINE__);
+				Arakoon_Client_Logger::logDebug("Last socket socket error:" . $lastSocketError, __FILE__, __FUNCTION__, __LINE__);
 				$warningMsg = NULL;
 				
 	    		if ($errorCode == $timeOutErrorCode)

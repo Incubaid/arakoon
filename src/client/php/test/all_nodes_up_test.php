@@ -144,6 +144,7 @@ $testSuite->AddTest('StatisticsTestCase');
 $testSuite->AddTest('GetKeyCountTestCase');
 
 $testSuite->AddTest('SetWhileOneDownTestCase');
+$testSuite->AddTest('ExpectProgressPossibleWhileOneDownTestCase');
 
 /**
  * run test
