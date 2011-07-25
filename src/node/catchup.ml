@@ -153,6 +153,17 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
       ( option_to_string Sn.string_of store_i')
   >>= fun () ->
+    begin
+    
+      let si = match store_i' with
+      | Some i -> i
+      | None -> Sn.start
+    in
+    if si < (Sn.pred too_far_i) then
+         Lwt.fail (Failure "Catchup store failed. Store counter is too low" )
+      else 
+        Lwt.return ()
+    end >>= fun () ->
   (* TODO: straighten interface *)
     let vo = match !acc with
       | None -> None
