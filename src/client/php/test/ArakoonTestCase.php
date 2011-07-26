@@ -28,6 +28,7 @@
 require_once '../Arakoon/Client/Config.php';
 require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'ArakoonTestEnvironment.php';
+require_once 'AuxiliaryScript.php';
 
 /**
  * ArakoonDefaultTestCase
@@ -1641,6 +1642,12 @@ class SetWhileOneDownTestCase extends ArakoonDefaultTestCase
 		$existsResult = $this->arakoonClient->exists($this->key);
 		$this->AssertEquals($existsResult, 1, 'key of previously set key-value pair doesn\'t exist');
 	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
+	}
 }
 
 /**
@@ -1665,6 +1672,88 @@ class ExpectProgressPossibleWhileOneDownTestCase extends ArakoonDefaultTestCase
 	{
 		$result = $this->arakoonClient->expectProgressPossible();
 		$this->AssertEquals($result, 1, 'negative result returned');
+	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
+	}
+}
+
+/**
+ * SetWhileTestCase class
+ */
+class SetWhileAllDownTestCase extends ArakoonDefaultTestCase
+{
+    	public function __construct()
+	{
+		parent::__construct('set while all down test',
+							'sets a key-value pair and checks if it\'s key exists',
+							'set-while-all-nodes-down');
+	}
+
+	public function Setup()
+	{
+		$testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killAllNodes();
+	}
+
+	public function Run()
+	{
+		try
+		{
+			$this->arakoonClient->set($this->key, $this->value);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
+	}
+}
+
+/**
+ * ExpectProgressPossibleWhileOneDownTestCase class
+ */
+class ExpectProgressPossibleWhileAllDownTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('expect progress possible test while all nodes down',
+							'determines if progress is possible',
+							'expect-progress-possible-while-all-down');
+	}
+
+	public function Setup()
+	{
+		$testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killAllNodes();
+	}
+
+	public function Run()
+	{
+		try
+		{
+                        $result = $this->arakoonClient->expectProgressPossible();
+                        $this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+                        $this->Pass('exception was thrown');
+		}
+	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
 	}
 }
 
