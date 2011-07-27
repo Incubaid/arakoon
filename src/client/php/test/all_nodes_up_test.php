@@ -143,11 +143,6 @@ $testSuite->AddTest('WhoMasterTestCase');
 $testSuite->AddTest('StatisticsTestCase');
 $testSuite->AddTest('GetKeyCountTestCase');
 
-$testSuite->AddTest('SetWhileOneDownTestCase');
-$testSuite->AddTest('ExpectProgressPossibleWhileOneDownTestCase');
-//$testSuite->AddTest('SetWhileAllDownTestCase');
-//$testSuite->AddTest('ExpectProgressPossibleWhileAllDownTestCase');
-
 /**
  * run test
  */

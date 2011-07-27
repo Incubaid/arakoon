@@ -28,7 +28,6 @@
 require_once '../Arakoon/Client/Config.php';
 require_once 'php_unit_test_framework/php_unit_test.php';
 require_once 'ArakoonTestEnvironment.php';
-require_once 'AuxiliaryScript.php';
 
 /**
  * ArakoonDefaultTestCase
@@ -1748,6 +1747,69 @@ class ExpectProgressPossibleWhileAllDownTestCase extends ArakoonDefaultTestCase
 		{
                         $this->Pass('exception was thrown');
 		}
+	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
+	}
+}
+
+/**
+ * SetWhileMasterTestCase class
+ */
+class SetWhileMasterDownTestCase extends ArakoonDefaultTestCase
+{
+    	public function __construct()
+	{
+		parent::__construct('set while master failover test',
+							'sets a key-value pair and checks if it\'s key exists',
+							'set while master node down');
+	}
+
+	public function Setup()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killMasterNode();
+	}
+
+	public function Run()
+	{
+                $this->arakoonClient->set($this->key, $this->value);
+		$existsResult = $this->arakoonClient->exists($this->key);
+		$this->AssertEquals($existsResult, 1, 'key of previously set key-value pair doesn\'t exist');
+	}
+
+        public function TearDown()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->startAllNodes();
+	}
+}
+
+/**
+ * ExpectProgressPossibleWhileMasterDownTestCase class
+ */
+class ExpectProgressPossibleWhileMasterDownTestCase extends ArakoonDefaultTestCase
+{
+	public function __construct()
+	{
+		parent::__construct('expect progress possible test while master node down',
+							'determines if progress is possible',
+							'expect-progress-possible-while-master-down');
+	}
+
+	public function Setup()
+	{
+                $testEnvironment = ArakoonTestEnvironment::getInstance();
+                $testEnvironment->killMasterNode();
+	}
+
+	public function Run()
+	{
+		$result = $this->arakoonClient->expectProgressPossible();
+		$this->AssertEquals($result, 1, 'negative result returned');
 	}
 
         public function TearDown()

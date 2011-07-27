@@ -179,8 +179,26 @@ class ArakoonTestEnvironment
 //                 $node = array_rand($nodes, 1);
         }
 
+        public function killMasterNode()
+        {
+                $arakoonClient = $this->getClient();
+                $master = $arakoonClient->whoMaster();
+                $config = $this->_client->getConfig();
+                foreach ($config->getNodes() as $node)
+                {
+                    $id = $node->getId();
+                    if ($master == $id)
+                    {
+                        shell_exec("pkill -f $id");
+                        break;
+                    }
+                }
+//                sleep(5); // sleep 1 second to ensure Arakoon nodes are up
+        }
+
         public function startAllNodes()
         {
+                shell_exec('killall arakoon');
                 $config = $this->_client->getConfig();
                 foreach ($config->getNodes() as $node)
                 {
