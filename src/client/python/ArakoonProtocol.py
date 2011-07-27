@@ -221,6 +221,8 @@ ARA_CMD_USER_FUNCTION            = 0x00000015 | ARA_CMD_MAG
 
 ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 
+ARA_CMD_CONFIRM = 0x0000001c | ARA_CMD_MAG
+
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -462,6 +464,10 @@ class ArakoonProtocol :
     @staticmethod
     def encodeSet( key, value ):
         return _packInt( ARA_CMD_SET ) + _packString( key ) + _packString ( value )
+
+    @staticmethod
+    def encodeConfirm(key, value):
+        return _packInt(ARA_CMD_CONFIRM) + _packString(key) + _packString(value)
 
     @staticmethod
     def encodeSequence(seq):

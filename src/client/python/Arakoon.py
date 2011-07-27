@@ -253,6 +253,18 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @retryDuringMasterReelection
+    @SignatureValidator('string','string')
+    def confirm(self, key,value):
+        """
+        Do nothing if the value associated with the given key is this value; 
+        otherwise, behave as set(key,value)
+        @rtype: void
+        """
+        msg = ArakoonProtocol.encodeConfirm(key,value)
+        conn = self._sendToMaster(msg)
+        conn.decodeVoidResult()
+        
+    @retryDuringMasterReelection
     @SignatureValidator('string','string_option')
     def aSSert(self, key, vo):
         """
