@@ -698,7 +698,8 @@ class Arakoon_Client_Protocol
 	        		
         		case self::RESULT_CODE_ASSERT_FAILED:
         			$exception = new Arakoon_Client_AssertFailedException($exceptionMsg);
-
+					break;
+					
 	        	default:
 	        		$exception = new Arakoon_Client_Exception();
 	        		break;	            

@@ -87,7 +87,8 @@ class ArakoonTestEnvironment
 				mkdir($homeDir);
 			}
 			
-			shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
+			// shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
+			shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
 		}
 		
 		sleep(1); // sleep 1 second to ensure Arakoon nodes are up
