@@ -48,7 +48,7 @@ class Arakoon_Client_Operation_Delete extends Arakoon_Client_Operation
      */
     public function encode($sequenced = FALSE)
     {
-    	$buffer = '';
+    	$buffer = "";
     	
     	if ($sequenced)
     	{
