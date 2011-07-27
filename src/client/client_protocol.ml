@@ -370,6 +370,17 @@ let one_command (ic,oc) (backend:Backend.backend) =
           ) 
           (handle_exception oc)
       end
+    | CONFIRM ->
+	begin
+          Llio.input_string ic >>= fun key ->
+          Llio.input_string ic >>= fun value ->
+	  Lwt.catch
+	    (fun () -> backend # confirm key value >>= fun () ->
+	      response_ok_unit oc
+	    )
+	    (handle_exception oc)
+	end
+
 let protocol backend connection =
   info "client_protocol" >>= fun () ->
   let ic,oc = connection in

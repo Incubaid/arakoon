@@ -57,6 +57,7 @@ type client_command =
   | SET_ROUTING
   | GET_KEY_COUNT
   | GET_DB
+  | CONFIRM
 
 let code2int = [
   PING,                     0x1l ;
@@ -82,6 +83,7 @@ let code2int = [
   SET_ROUTING             , 0x19l;
   GET_KEY_COUNT           , 0x1al;
   GET_DB                  , 0x1bl;
+  CONFIRM                 , 0x1cl;
 ]
 
 let int2code = 
@@ -167,6 +169,11 @@ let assert_to ~allow_dirty buffer key vo =
 
 let set_to buffer key value =
   command_to buffer SET;
+  Llio.string_to buffer key;
+  Llio.string_to buffer value
+
+let confirm_to buffer key value = 
+  command_to buffer CONFIRM;
   Llio.string_to buffer key;
   Llio.string_to buffer value
 

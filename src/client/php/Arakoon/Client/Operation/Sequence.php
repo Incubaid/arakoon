@@ -20,9 +20,9 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'Assert.php';
-require_once 'Set.php';
-require_once 'Delete.php';
+require_once "Assert.php";
+require_once "Set.php";
+require_once "Delete.php";
 
 /**
  * Arakoon_Client_Operation_Sequence
@@ -93,7 +93,7 @@ class Arakoon_Client_Operation_Sequence extends Arakoon_Client_Operation
      */
     public function encode($sequenced = FALSE)
     {
-    	$buffer = '';
+    	$buffer = "";
     	
     	if ($sequenced)
     	{

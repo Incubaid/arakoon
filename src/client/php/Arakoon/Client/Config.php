@@ -20,8 +20,8 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'Node.php';
-require_once 'Exception.php';
+require_once "Node.php";
+require_once "Exception.php";
 
 /**
  * Arakoon_Client_Config
@@ -33,7 +33,7 @@ require_once 'Exception.php';
  */
 class Arakoon_Client_Config
 { 
-	const DEFAULT_CLUSTER_ID 			= 'arakoon';
+	const DEFAULT_CLUSTER_ID 			= "arakoon";
 	const SEND_MESSAGE_TRY_COUNT		= 1;			// amount of attempts before a message should be tried before giving up on
 	const CONNECTION_TIMEOUT 			= 60;			// tcp connection timeout
 	const CONNECTION_BACKOFF_INTERVAL 	= 5;			// max interval in seconds a client should wait untill attempting to send another message to the server
@@ -41,12 +41,12 @@ class Arakoon_Client_Config
 	const MAX_KEY_BYTE_SIZE				= 8388608;		// key maximum byte size (8mb)
 	const MAX_VALUE_BYTE_SIZE			= 8388608;		// value maximum byte size (8mb)
 	
-	const GLOBAL_KEY 		= 'global';
-	const CLUSTER_KEY 		= 'cluster';
-	const CLUSTER_ID_KEY	= 'cluster_id';
-	const IP_KEY 			= 'ip';
-	const CLIENT_PORT_KEY	= 'client_port';
-	const HOME_KEY			= 'home';
+	const GLOBAL_KEY 		= "global";
+	const CLUSTER_KEY 		= "cluster";
+	const CLUSTER_ID_KEY	= "cluster_id";
+	const IP_KEY 			= "ip";
+	const CLIENT_PORT_KEY	= "client_port";
+	const HOME_KEY			= "home";
 		
     private $_clusterId;
     private $_nodes;
@@ -72,15 +72,15 @@ class Arakoon_Client_Config
      */
 	public static function createFromFile($filePath)
 	{
-		$extention = substr(strrchr($filePath, '.'), 1);
+		$extention = substr(strrchr($filePath, "."), 1);
 		
-		if ($extention == 'ini')
+		if ($extention == "ini")
 		{
 			return Arakoon_Client_Config::CreateFromIniFile($filePath);			
 		}
 		else
 		{
-			throw new Arakoon_Client_Exception('onfig file extention not supported!');	
+			throw new Arakoon_Client_Exception("Config file extention not supported!");	
 		}
 	}
 	
@@ -106,7 +106,7 @@ class Arakoon_Client_Config
 	private static function parse(array $configArray)
 	{        
 		$clusterId = $configArray[self::GLOBAL_KEY][self::CLUSTER_ID_KEY];		
-		$nodeIds = split(',', $configArray[self::GLOBAL_KEY][self::CLUSTER_KEY]);	
+		$nodeIds = split(",", $configArray[self::GLOBAL_KEY][self::CLUSTER_KEY]);	
 		$nodes = array();
 			
 		foreach($nodeIds as $nodeId)
@@ -130,20 +130,20 @@ class Arakoon_Client_Config
 	{	
         if (!array_key_exists(self::GLOBAL_KEY, $config))
         {
-            throw new Arakoon_Client_Config('Global section undefined');
+            throw new Arakoon_Client_Config("Global section undefined");
         }
         
         if (!array_key_exists(self::CLUSTER_KEY, $config[self::GLOBAL_KEY]))
         {
-            throw new Arakoon_Client_Config('Cluster undefined!');
+            throw new Arakoon_Client_Config("Cluster undefined!");
         }	
         
 		if (!array_key_exists(self::CLUSTER_ID_KEY, $config[self::GLOBAL_KEY]))
         {
-            throw new Arakoon_Client_Config('Cluster identifier undefined!');
+            throw new Arakoon_Client_Config("Cluster identifier undefined!");
         }        
         
-        $nodeNames = split(',', $config[self::GLOBAL_KEY][self::CLUSTER_KEY]);        
+        $nodeNames = split(",", $config[self::GLOBAL_KEY][self::CLUSTER_KEY]);        
 		foreach($nodeNames as $nodeName)
 		{
             $nodeName = trim($nodeName);
@@ -154,7 +154,7 @@ class Arakoon_Client_Config
 	        }
 	        else
 	        {
-	        	throw new Arakoon_Client_Config('Node (' . $nodeName . ') section undefined');
+	        	throw new Arakoon_Client_Config("Node ($nodeName) section undefined");
 	        }
         }
 	}
@@ -168,17 +168,17 @@ class Arakoon_Client_Config
 	{			
 		if (!array_key_exists(self::IP_KEY, $node))
         {
-            throw new Arakoon_Client_Config('Node ip undefined!');
+            throw new Arakoon_Client_Config("Node ip undefined!");
         }
 		
         if (!array_key_exists(self::CLIENT_PORT_KEY, $node))
         {
-            throw new Arakoon_Client_Config('Node client port undefined!');
+            throw new Arakoon_Client_Config("Node client port undefined!");
         }
         
 		if (!array_key_exists(self::HOME_KEY, $node))
         {
-            throw new Arakoon_Client_Config('Node home undefined!');
+            throw new Arakoon_Client_Config("Node home undefined!");
         }
 	}
     
@@ -260,7 +260,7 @@ class Arakoon_Client_Config
     	
     	if (!$exists)
     	{
-			$message = 'No node exists with the given node identifier (' . $nodeId . ')';
+			$message = "No node exists with the given node identifier ($nodeId)";
     		Arakoon_Client_Logger::logWarning($message, __FILE__, __FUNCTION__, __LINE__);
 			throw new Arakoon_Client_Exception($message);    		
     	}
