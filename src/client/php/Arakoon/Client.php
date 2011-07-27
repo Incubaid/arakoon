@@ -750,7 +750,6 @@ class Arakoon_Client
 
 		$this->_connections[$nodeId]->disconnect();
 		unset($this->_connections[$nodeId]);
-		$this->_connections = array_values($this->_connections);
 		
 		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
 	}
@@ -760,9 +759,9 @@ class Arakoon_Client
 	 */
 	private function dropAllNodeConnections()
 	{
-		foreach($this->_connections as $nodeId->$connection)
+		foreach($this->_connections as $nodeId => $connection)
 		{
-			dropNodeConnection($nodeId);
+			$this->dropNodeConnection($nodeId);
 		}
 	}
 }
