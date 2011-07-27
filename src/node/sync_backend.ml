@@ -194,6 +194,20 @@ object(self: #backend)
     let update_sets () = Statistics.new_set _stats key value in
     self # _update_rendezvous update update_sets push_update
 
+
+  method confirm key value =
+    log_o self "confirm %S" key >>= fun () ->
+    let () = assert_value_size value in
+    self # exists ~allow_dirty:false key >>= function
+      | true -> 
+	begin
+	  store # get key >>= fun old_value ->
+	  if old_value = value 
+	  then Lwt.return ()
+	  else self # set key value
+	end
+      | false -> self # set key value
+
   method set_routing r = 
     log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in

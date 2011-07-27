@@ -41,6 +41,10 @@ method range_entries:
 
   method set: key -> value -> unit Lwt.t
 
+  method confirm: key -> value -> unit Lwt.t
+  (** [confirm key value] does nothing if this value was already
+      associated to the key, otherwise, it behaves as [set key value]
+  *)
   method aSSert: ?allow_dirty:bool -> key -> value option -> unit Lwt.t
   (**
      [aSSert key vo] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if

@@ -78,6 +78,10 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.add key value _kv;
     Lwt.return ()
 
+  method confirm (key:string) (value:string) = 
+    if StringMap.mem key _kv && StringMap.find key _kv = value then Lwt.return ()
+    else self # set key value
+      
   method aSSert ~allow_dirty (key:string) (vo: string option) =
     Lwt_log.debug_f "test_backend :: aSSert %s" key >>= fun () ->
     let ok = match vo with

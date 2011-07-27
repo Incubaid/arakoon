@@ -106,6 +106,22 @@ let test_set_get () =
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test
 
+let test_confirm () =
+  let real_test (client:Arakoon_client.client) = 
+    let key = "key" and value = "value" in
+    client # confirm key value >>= fun () ->
+    client # get key >>= fun v2 ->
+    OUnit.assert_equal v2 value;
+    client # confirm key value >>= fun () ->
+    client # get key >>= fun v3 ->
+    OUnit.assert_equal v3 value;
+    client # confirm key "something else" >>= fun () ->
+    client # get key >>= fun v4 ->
+    OUnit.assert_equal v4 "something else";
+    Lwt.return ()
+  in
+  __client_server_wrapper__ _CLUSTER real_test
+
 let test_delete () =
   let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
@@ -294,4 +310,5 @@ let suite = "remote_client" >::: [
   "sequence"   >:: test_sequence;
   "user_function" >:: test_user_function;
   "get_key_count" >:: test_get_key_count;
+  "confirm"    >:: test_confirm;
 ]
