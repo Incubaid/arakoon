@@ -74,7 +74,6 @@ Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE, TRUE)
 /**
  * setup test
  */
-
 $testSuite = new TestSuite();
 
 $testSuite->AddTest('SetTestCase');

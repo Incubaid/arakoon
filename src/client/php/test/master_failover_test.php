@@ -41,26 +41,25 @@ else
 $config = Arakoon_Client_Config::CreateFromFile($configFilePath);
 $testEnvironment = ArakoonTestEnvironment::getInstance();
 $testEnvironment->setup($config, $arakoonExeCmd, $configFilePath);
-Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE);
+$testEnvironment->stopMaster();
+Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE, TRUE);
 
 /**
  * setup test
  */
-
 $testSuite = new TestSuite();
 
-$testSuite->AddTest('SetWhileMasterDownTestCase');
-$testSuite->AddTest('ExpectProgressPossibleWhileMasterDownTestCase');
+$testSuite->AddTest('SetMasterFailoverTestCase');
+$testSuite->AddTest('ExpectProgressPossibleMasterFailoverTestCase');
 
 /**
  * run test
  */
-$testRunner = new XmlHudsonTestRunner('arakoon-client-unit-tests');
+$testRunner = new XmlHudsonTestRunner('arakoon-client-master-failover-unit-tests');
 $testRunner->Run($testSuite, 'master_failover_test_report');
 
 /**
  * teardown Arakoon
  */
 $testEnvironment->tearDown();
-
 ?>

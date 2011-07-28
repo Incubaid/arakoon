@@ -59,7 +59,7 @@ class Arakoon_Client_NodeConnection
 	/**
 	 * @todo document
 	 */
-	public function socketConnectErrorHandler($errno, $errstr, $errfile, $errline)
+	private function socketConnectErrorHandler($errno, $errstr, $errfile, $errline)
 	{
 		 throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
 	}

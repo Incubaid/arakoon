@@ -29,7 +29,7 @@
  * ArakoonTestClient class (singleton)
  */
 
-require_once '../Arakoon/Client.php';
+require_once "../Arakoon/Client.php";
 
 class ArakoonTestEnvironment
 {
@@ -71,13 +71,19 @@ class ArakoonTestEnvironment
     /**
 	 * @todo document
 	 */
-	public function setup($config, $arakoonExeCmd, $configFilePath)
+	public function setup($config, $arakoonExeCmd, $configFilePath, $autoStart = TRUE)
 	{
+		if ($this->_client != null)
+		{
+			throw new Exception("Test environment already running");		
+		}
+		
 		// setup nodes
 		$this->_client = new Arakoon_Client($config);	
 		$this->_arakoonExeCmd = $arakoonExeCmd;
 		$this->_configFilePath = $configFilePath;
 		
+		// create arakoon directories
 		foreach ($config->getNodes() as $node)
 		{
 			$id = $node->getId();
@@ -86,12 +92,13 @@ class ArakoonTestEnvironment
 			{
 				mkdir($homeDir);
 			}
-			
-			// shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
-			shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
 		}
 		
-		sleep(1); // sleep 1 second to ensure Arakoon nodes are up
+		if ($autoStart)
+		{
+			$this->startAllNodes();
+			sleep(1); // sleep 1 second to ensure Arakoon nodes are up
+		}
 	}
 	
 	/**
@@ -99,6 +106,9 @@ class ArakoonTestEnvironment
 	 */
 	public function tearDown()
 	{
+		$this->stopAllNodes();
+
+		// remove arakoon directories		
 		$config = $this->_client->getConfig();
 		foreach ($config->getNodes() as $nodeId => $node)
 		{
@@ -108,19 +118,6 @@ class ArakoonTestEnvironment
 				$this->recursiveRemoveDir($homeDir);
 			}
 		}
-			
-		shell_exec('killall arakoon');
-	}
-	
-	/**
-	 * @todo document
-	 */
-	public function tearDownMaster()
-	{
-//		$master = shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' --who-master');
-                $arakoonClient = $this->getClient();
-                $master = $arakoonClient->whoMaster();
-		shell_exec('pkill -f ' . $master);
 	}
 	
 	/**
@@ -130,7 +127,7 @@ class ArakoonTestEnvironment
 	{
 		$removeSucces = TRUE;
 	
-		if(substr($dir,-1) == '/')
+		if(substr($dir,-1) == "/")
 		{
 			$dir = substr($dir, 0, -1);
 		}
@@ -141,7 +138,7 @@ class ArakoonTestEnvironment
 				
 			while ($contents = readdir($dirHandle))
 			{
-				if($contents != '.' && $contents != '..')
+				if($contents != "." && $contents != "..")
 				{
 					$path = $dir . "/" . $contents;
 						
@@ -163,57 +160,79 @@ class ArakoonTestEnvironment
 		}
 	}
 
-        public function killOneNode()
-        {
-                $arakoonClient = $this->getClient();
-                $master = $arakoonClient->whoMaster();
-                $config = $this->_client->getConfig();
-                foreach ($config->getNodes() as $node)
-                {
-                    $id = $node->getId();
-                    if ($master !== $id)
-                    {
-                        shell_exec("pkill -f $id");
-                        break;
-                    }
-                }
-//                 $node = array_rand($nodes, 1);
+	/**
+	 * @todo document
+	 */
+  	public function stopNotMaster()
+    {
+        $master = $this->_client->whoMaster();
+        $config = $this->_client->getConfig();
+        
+        foreach ($config->getNodes() as $node)
+       	{
+     		$nodeId = $node->getId();
+     		
+         	if ($nodeId != $master)
+           	{
+          		$this->stopNode($nodeId);
+          		break;
+          	}
         }
+    }
 
-        public function killMasterNode()
+    /**
+	 * @todo document
+	 */
+	public function stopMaster()
+	{
+      	$master = $this->_client->whoMaster();
+      	$this->stopNode($master);
+  	}
+  	
+  	/**
+	 * @todo document
+	 */
+  	public function startNode($nodeId)
+    {
+    	$staticLibLink = "LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib";
+    	//$staticLibLink = "LD_LIBRARY_PATH=/usr/local/lib";
+     	shell_exec("$staticLibLink $this->_arakoonExeCmd -config $this->_configFilePath -daemonize --node $nodeId");
+   	}
+   	
+   	/**
+	 * @todo document
+	 */
+	public function startAllNodes()
+    {
+    	$config = $this->_client->getConfig();
+    	
+    	foreach ($config->getNodes() as $node)
         {
-                $arakoonClient = $this->getClient();
-                $master = $arakoonClient->whoMaster();
-                $config = $this->_client->getConfig();
-                foreach ($config->getNodes() as $node)
-                {
-                    $id = $node->getId();
-                    if ($master == $id)
-                    {
-                        shell_exec("pkill -f $id");
-                        break;
-                    }
-                }
-//                sleep(5); // sleep 1 second to ensure Arakoon nodes are up
-        }
+        	$nodeId = $node->getId();        	
+        	$this->startNode($nodeId);
+		}
+    }
+    
+    /**
+	 * @todo document
+	 */
+   	public function stopNode($nodeId)
+   	{
+   		shell_exec("pkill -f $nodeId");
+   	}
 
-        public function startAllNodes()
+   	/**
+	 * @todo document
+	 */
+  	public function stopAllNodes()
+    {
+    	$config = $this->_client->getConfig();
+    	
+    	foreach ($config->getNodes() as $node)
         {
-                shell_exec('killall arakoon');
-                $config = $this->_client->getConfig();
-                foreach ($config->getNodes() as $node)
-                {
-                    $id = $node->getId();
-                    //shell_exec('LD_LIBRARY_PATH=/usr/local/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
-                    shell_exec('LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib ' . $this->_arakoonExeCmd . ' -config ' . $this->_configFilePath . ' -daemonize --node ' . $id);
-                }
-                sleep(1); // sleep 1 second to ensure Arakoon nodes are up
-        }
-
-        public function killAllNodes()
-        {
-                shell_exec('killall arakoon');
-        }
-
+        	$nodeId = $node->getId();        	
+        	$this->stopNode($nodeId);
+		}
+    }
 }
 ?>

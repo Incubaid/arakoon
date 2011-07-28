@@ -41,26 +41,25 @@ else
 $config = Arakoon_Client_Config::CreateFromFile($configFilePath);
 $testEnvironment = ArakoonTestEnvironment::getInstance();
 $testEnvironment->setup($config, $arakoonExeCmd, $configFilePath);
-Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE);
+$testEnvironment->stopNotMaster();
+Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE, TRUE);
 
 /**
  * setup test
  */
-
 $testSuite = new TestSuite();
 
-$testSuite->AddTest('SetWhileOneDownTestCase');
-$testSuite->AddTest('ExpectProgressPossibleWhileOneDownTestCase');
+$testSuite->AddTest('SetOneDownTestCase');
+$testSuite->AddTest('ExpectProgressPossibleOneDownTestCase');
 
 /**
  * run test
  */
-$testRunner = new XmlHudsonTestRunner('arakoon-client-unit-tests');
+$testRunner = new XmlHudsonTestRunner('arakoon-client-one-node-down-unit-tests');
 $testRunner->Run($testSuite, 'one_node_down_test_report');
 
 /**
  * teardown Arakoon
  */
 $testEnvironment->tearDown();
-
 ?>

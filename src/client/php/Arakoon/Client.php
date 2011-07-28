@@ -158,7 +158,7 @@ class Arakoon_Client
 		catch (Exception $exception)
 		{
 			Arakoon_Client_Logger::logDebug("Exception $exception", __FILE__, __FUNCTION__, __LINE__);
-			$result = False;			
+			$result = 0;			
 		}
 
 		Arakoon_Client_Logger::logTrace("Leave", __FILE__, __FUNCTION__, __LINE__);
@@ -613,6 +613,7 @@ class Arakoon_Client
 			{
 				$sendToMaster = !($isRead && $this->_allowDirtyReads);
 				$doBackOff = !($sendToMaster && !isset($this->_masterId)) && $backOffCounter > 0;
+				$nodeId = NULL;
 				
 				if ($doBackOff)
 				{
@@ -630,6 +631,8 @@ class Arakoon_Client
 				}
 				catch(Exception $exception)
 				{
+					$succes = FALSE;
+					
 					$exceptionClass = get_class($exception);					
 					if ($exceptionClass != "Arakoon_Client_Exception" && $exceptionClass != "Arakoon_Client_NotMasterException")
 					{
