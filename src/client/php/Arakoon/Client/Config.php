@@ -50,7 +50,7 @@ class Arakoon_Client_Config
 		
     private $_clusterId;
     private $_nodes;
-
+    
     /**
      * Constructor of an Arakoon_Client_Config object.
      * 
@@ -62,7 +62,7 @@ class Arakoon_Client_Config
         $this->_clusterId = $clusterId;
         $this->_nodes = $nodes;
     }
-    
+
     /**
      * Creates an Arakoon client configuration from a file.
      * 
@@ -127,7 +127,7 @@ class Arakoon_Client_Config
      * @throws Arakoon_Client_Config when a required part of the Arakoon client configuration array is undefined
      */
 	private static function validate(array $config)
-	{	
+	{       
         if (!array_key_exists(self::GLOBAL_KEY, $config))
         {
             throw new Arakoon_Client_Config("Global section undefined");
@@ -191,7 +191,7 @@ class Arakoon_Client_Config
     {
         return $this->_clusterId;
     }
-    
+   
 	/**
      * Gets a node from the Arakoon client configuration with the given node identifier.
      * 

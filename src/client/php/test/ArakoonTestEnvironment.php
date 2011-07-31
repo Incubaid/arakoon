@@ -54,7 +54,18 @@ class ArakoonTestEnvironment
 	{
 		return $this->_client;
 	}
-	
+
+        public function getConfigFilePath()
+        {
+
+            return $this->_configFilePath;
+        }
+
+        public function setConfigclient($config)
+        {
+
+            $this->_client = new Arakoon_Client($config);
+        }
 	/**
 	 * @todo document
 	 */
@@ -194,8 +205,8 @@ class ArakoonTestEnvironment
 	 */
   	public function startNode($nodeId)
     {
-    	$staticLibLink = "LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib";
-    	//$staticLibLink = "LD_LIBRARY_PATH=/usr/local/lib";
+    	//$staticLibLink = "LD_LIBRARY_PATH=/home/jonas/incubaid/projects/arakoon/ROOT/OCAML/lib";
+    	$staticLibLink = "LD_LIBRARY_PATH=/usr/local/lib";
      	shell_exec("$staticLibLink $this->_arakoonExeCmd -config $this->_configFilePath -daemonize --node $nodeId");
    	}
    	
