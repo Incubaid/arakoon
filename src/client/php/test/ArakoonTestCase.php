@@ -1772,4 +1772,178 @@ class ExpectProgressPossibleAllNodesDownTestCase extends ArakoonDefaultTestCase
 		$this->AssertEquals($result, 0, 'positive result returned');
 	}
 }
+
+
+/**
+ * ====================================================================================================
+ * INVALID CLIENT CONFIGURATION TEST CASES
+ * ====================================================================================================
+ */
+
+/**
+ * UndefinedClusterIdTestCase class
+ */
+class UndefinedClusterIdTestCase extends ArakoonDefaultTestCase
+{
+   	public function __construct()
+	{
+		parent::__construct('undefined cluster id',
+							'sets a key-value pair using a client configured with an undefined cluster id ',
+							'undefined-cluster-id');
+	}
+
+	public function Run()
+	{
+		try
+		{
+                        $testEnvironment = ArakoonTestEnvironment::getInstance();
+                        $configFilePath = $testEnvironment->getConfigFilePath();
+                        $configArray = parse_ini_file($configFilePath , true);
+                        $clusterId = "undefined";
+                        $nodeIds = explode(",", $configArray["global"]["cluster"]);
+                        $nodes = array();
+
+                        foreach($nodeIds as $nodeId)
+                        {
+                                $nodeId = trim($nodeId);
+                                $ip = $configArray[$nodeId]["ip"];
+                                $clientPort = $configArray[$nodeId]["client_port"];
+                                $home = $configArray[$nodeId]["home"];
+                                $nodes[] = new Arakoon_Client_Node($nodeId, $ip, $clientPort, $home);
+                        }
+
+                        $config =  new Arakoon_Client_Config($clusterId, $nodes);
+                        $testEnvironment->setConfigclient($config);
+
+                        $arakoonClient = $testEnvironment->getClient();
+			$arakoonClient->set($this->key, $this->value);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * UnknownNodeTestCase class
+ */
+class UnknownNodeTestCase extends ArakoonDefaultTestCase
+{
+   	public function __construct()
+	{
+		parent::__construct('unknown node',
+							'sets a key-value-pair using a client that tries to connect to an unknown node ',
+							'unknown-node');
+	}
+
+	public function Run()
+	{
+		try
+		{
+                        $testEnvironment = ArakoonTestEnvironment::getInstance();
+                        $configFilePath = $testEnvironment->getConfigFilePath();
+                        $configArray = parse_ini_file($configFilePath , true);
+                        $clusterId = $configArray["global"]["cluster_id"];
+                        $nodeIds = explode(",", $configArray["global"]["cluster"]);
+                        $nodes = array();
+                        foreach($nodeIds as $nodeId)
+                        {
+                                $nodeId = "unknown";
+                                $ip = $configArray[$nodeId]["ip"];
+                                $clientPort = $configArray[$nodeId]["client_port"];
+                                $home = $configArray[$nodeId]["home"];
+                                $nodes[] = new Arakoon_Client_Node($nodeId, $ip, $clientPort, $home);
+                        }
+                        $config =  new Arakoon_Client_Config($clusterId, $nodes);
+                        $testEnvironment->setConfigclient($config);
+                        $arakoonClient = $testEnvironment->getClient();
+			$arakoonClient->set($this->key, $this->value);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * EmptyClusterTestCase class
+ */
+class EmptyClusterTestCase extends ArakoonDefaultTestCase
+{
+   	public function __construct()
+	{
+		parent::__construct('empty cluster',
+							'sets a key-value pair using a client configured with an empty cluster ',
+							'empty-cluster');
+	}
+
+	public function Run()
+	{
+		try
+		{
+                        $testEnvironment = ArakoonTestEnvironment::getInstance();
+                        $configFilePath = $testEnvironment->getConfigFilePath();
+                        $configArray = parse_ini_file($configFilePath , true);
+                        $clusterId = $configArray["global"]["cluster_id"];
+                        $nodeIds = explode(",", $configArray["global"]["cluster"]);
+                        $nodes = array();                        
+                        $config =  new Arakoon_Client_Config($clusterId, $nodes);
+                        $testEnvironment->setConfigclient($config);
+                        $arakoonClient = $testEnvironment->getClient();
+			$arakoonClient->set($this->key, $this->value);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
+
+/**
+ * InvalidClientPortTestCase class
+ */
+class InvalidClientPortTestCase extends ArakoonDefaultTestCase
+{
+   	public function __construct()
+	{
+		parent::__construct('invalid client port',
+							'sets a key-value pair using a client that tries to connect to a node with an invalid port',
+							'invalid-client-port');
+	}
+
+	public function Run()
+	{
+		try
+		{
+                        $testEnvironment = ArakoonTestEnvironment::getInstance();
+                        $configFilePath = $testEnvironment->getConfigFilePath();
+                        $configArray = parse_ini_file($configFilePath , true);
+                        $clusterId = $configArray["global"]["cluster_id"];
+                        $nodeIds = explode(",", $configArray["global"]["cluster"]);
+                        $nodes = array();
+                        foreach($nodeIds as $nodeId)
+                        {
+                                $nodeId = trim($nodeId);
+                                $ip = $configArray[$nodeId]["ip"];
+                                $clientPort = "";
+                                $home = $configArray[$nodeId]["home"];
+                                $nodes[] = new Arakoon_Client_Node($nodeId, $ip, $clientPort, $home);
+                        }
+                        $config =  new Arakoon_Client_Config($clusterId, $nodes);
+                        $testEnvironment->setConfigclient($config);
+                        $arakoonClient = $testEnvironment->getClient();
+			$arakoonClient->set($this->key, $this->value);
+			$this->Fail('no exception was thrown when it should have');
+		}
+		catch (Exception $exception)
+		{
+			$this->Pass('exception was thrown');
+		}
+	}
+}
 ?>
