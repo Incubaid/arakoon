@@ -1850,11 +1850,11 @@ class UnknownNodeTestCase extends ArakoonDefaultTestCase
                         $nodes = array();
                         foreach($nodeIds as $nodeId)
                         {
-                                $nodeId = "unknown";
+                                $nodeId = trim($nodeId);
                                 $ip = $configArray[$nodeId]["ip"];
                                 $clientPort = $configArray[$nodeId]["client_port"];
                                 $home = $configArray[$nodeId]["home"];
-                                $nodes[] = new Arakoon_Client_Node($nodeId, $ip, $clientPort, $home);
+                                $nodes[] = new Arakoon_Client_Node("undefined" + $nodeId, $ip, $clientPort, $home);
                         }
                         $config =  new Arakoon_Client_Config($clusterId, $nodes);
                         $testEnvironment->setConfigclient($config);
