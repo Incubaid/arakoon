@@ -45,7 +45,7 @@ let compress_tlog tlog_name archive_name =
 		Tlogcommon.entry_to buffer i u;
 		let (last_i':Sn.t) = if i > last_i then i else last_i 
 		in
-		if Buffer.length buffer < limit 
+		if Buffer.length buffer < limit || counter = 0
 		then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
 		else Lwt.return (last_i',counter)
 	      )
