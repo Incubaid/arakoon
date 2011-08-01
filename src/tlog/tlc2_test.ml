@@ -183,9 +183,9 @@ let test_compression_bug (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
   factory dn >>= fun tlc ->
-  
+  let n = 12 in
   let rec loop i = 
-    if i = 12 then Lwt.return () 
+    if i = n then Lwt.return () 
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
       let update = Update.Set(key, v) in
@@ -201,13 +201,13 @@ let test_compression_bug (dn, factory) =
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn >>= fun tlc2 ->
-  tlc2 # iterate 0L 14L  
+  tlc2 # iterate 0L (Sn.of_int n)   
     (fun (i,u) -> entries := i :: !entries;
       Lwt_log.debug_f "ENTRY: i=%Li" i) 
   >>= fun () ->
   OUnit.assert_equal 
     ~printer:string_of_int 
-    ~msg:"tlc has a hole" 13 (List.length !entries);
+    ~msg:"tlc has a hole" n (List.length !entries);
   Lwt.return ()
 
 let suite = "tlc2" >:::[
