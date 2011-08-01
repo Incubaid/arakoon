@@ -76,7 +76,7 @@ let rmdir name = Lwt_unix.rmdir name
 
 let stat filename = 
   Lwt_log.debug_f "stat %s" filename >>= fun () ->
-  Lwt_preemptive.detach Unix.stat filename 
+  Lwt_unix.stat filename
 
 let exists filename = 
   Lwt.catch 
