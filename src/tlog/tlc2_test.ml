@@ -21,6 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open OUnit
+open Unix
 open Lwt
 open Update
 open Extra
@@ -177,6 +178,37 @@ let test_iterate6 (dn,factory) =
   OUnit.assert_equal ~printer:string_of_int 19 !sum;
   Lwt.return () 
 
+let test_compression_bug (dn, factory) =
+  let () = Tlogcommon.tlogEntriesPerFile := 10 in
+  let v = String.create (1024 * 1024) in
+  factory dn >>= fun tlc ->
+  let n = 12 in
+  let rec loop i = 
+    if i = n then Lwt.return () 
+    else
+      let key = Printf.sprintf "test_compression_bug_%i" i in
+      let update = Update.Set(key, v) in
+      let sni = Sn.of_int i in
+      tlc # log_update sni update >>= fun () ->
+      loop (i+1) 
+  in
+  tlc # log_update 0L (Update.Set("xxx","XXX")) >>= fun () ->
+  loop 1 >>= fun () ->
+  tlc # close () >>= fun () ->
+  Lwt_unix.sleep 20.0 >>= fun () ->
+  File_system.stat (dn ^ "/000.tlf") >>= fun stat ->
+  OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
+  let entries = ref [] in
+  factory dn >>= fun tlc2 ->
+  tlc2 # iterate 0L (Sn.of_int n)   
+    (fun (i,u) -> entries := i :: !entries;
+      Lwt_log.debug_f "ENTRY: i=%Li" i) 
+  >>= fun () ->
+  OUnit.assert_equal 
+    ~printer:string_of_int 
+    ~msg:"tlc has a hole" n (List.length !entries);
+  Lwt.return ()
+
 let suite = "tlc2" >:::[
   "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
   "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
@@ -194,4 +226,5 @@ let suite = "tlc2" >:::[
   "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;
   "test_rollover_boundary" >:: wrap_tlc test_validate_at_rollover_boundary;
   "test_interrupted_rollover" >:: wrap_tlc test_interrupted_rollover;
+  "test_compression_bug" >:: wrap_tlc test_compression_bug;
 ]

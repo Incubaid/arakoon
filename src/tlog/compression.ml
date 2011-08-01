@@ -46,7 +46,7 @@ let compress_tlog tlog_name archive_name =
 		Tlogcommon.entry_to buffer i u;
 		let (last_i':Sn.t) = if i > last_i then i else last_i 
 		in
-		if Buffer.length buffer < limit 
+		if Buffer.length buffer < limit || counter = 0
 		then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
 		else Lwt.return (last_i',counter)
 	      )
@@ -67,18 +67,18 @@ let compress_tlog tlog_name archive_name =
 	    if counter = 0 
 	    then 
 	      begin 
-          decr jobs;
-          Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
-          Lwt.return ()
-        end
-      else
-        begin
-          let start = Unix.time() in
-          compress_and_write last_i buffer >>= fun () ->
-          let () = Buffer.clear buffer in
-          let delta  = Unix.time() -. start in
-          Lwt_unix.sleep (2.0 *. delta) >>= fun () ->
-          loop ()
+		decr jobs;
+		Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
+		Lwt.return ()
+              end
+	    else
+              begin
+		let start = Unix.time() in
+		compress_and_write last_i buffer >>= fun () ->
+		let () = Buffer.clear buffer in
+		let delta  = Unix.time() -. start in
+		Lwt_unix.sleep (2.0 *. delta) >>= fun () ->
+		loop ()
 	      end
 	  in
 	  loop ()
