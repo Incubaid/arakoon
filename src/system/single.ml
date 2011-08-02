@@ -290,11 +290,14 @@ let _assert3 (client:client) =
       in
       client # sequence u2)
   (function
-    | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
-    | ex -> Lwt.fail ex
+    | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> 
+      Lwt.return ()
+    | exn -> Lwt_log.fatal "oops" ~exn >>= fun () -> Lwt.fail exn
   )
   >>= fun () ->
+  Lwt_log.debug "getting" >>= fun () ->
   client # get k >>= fun  v3 ->
+  Lwt_log.debug "got" >>= fun () ->
   OUnit.assert_equal v2 "REALLY";
   Lwt.return ()
 
