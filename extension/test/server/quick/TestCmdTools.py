@@ -130,13 +130,16 @@ class TestCmdTools:
         assert_raises(Exception, cluster.stopOne, "arakoon0")
 
     def testGetStatus(self):
+        logging.info('1')
         cluster = self._getCluster()
+        logging.info('2')
         cluster.start()
+        logging.info('3')
         assert_equals(cluster.getStatus(),
                       {self._n0: q.enumerators.AppStatusType.RUNNING,
                        self._n1: q.enumerators.AppStatusType.RUNNING,
                        self._n2: q.enumerators.AppStatusType.RUNNING})
-
+        logging.info('4')
         cluster.stopOne(self._n0)
         assert_equals(cluster.getStatus(),
                       {self._n0: q.enumerators.AppStatusType.HALTED, 
