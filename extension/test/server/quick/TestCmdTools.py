@@ -42,6 +42,7 @@ class TestCmdTools:
         return q.manage.arakoon.getCluster(self._clusterId)
     
     def setup(self):
+        logging.info('setup')
         if self._clusterId in q.config.list():
             q.config.remove(self._clusterId)
         
@@ -53,6 +54,7 @@ class TestCmdTools:
         cluster.setUp(3)
 
     def teardown(self):
+        logging.info('teardown')
         cluster = self._getCluster()
         cluster.stop()
         cluster.tearDown()
