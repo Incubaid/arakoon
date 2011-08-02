@@ -31,7 +31,8 @@ let tlog_name archive_name =
     
 
 let compress_tlog tlog_name archive_name =
-  let limit = 1024 * 1024 in
+  let limit = 896 * 1024 in
+  let buffer_size = limit + (64 * 1024) in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output archive_name
@@ -43,10 +44,9 @@ let compress_tlog tlog_name archive_name =
 		Tlogcommon.entry_to buffer i u;
 		let (last_i':Sn.t) = if i > last_i then i else last_i 
 		in
-		if Buffer.length buffer < limit then
-		  fill_buffer (buffer:Buffer.t) last_i' (counter+1)
-		else
-		  Lwt.return (last_i',counter)
+		if Buffer.length buffer < limit || counter = 0 
+		then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
+		else Lwt.return (last_i',counter)
 	      )
 	      (function 
 		| End_of_file -> Lwt.return (last_i,counter)
@@ -59,7 +59,7 @@ let compress_tlog tlog_name archive_name =
 	    Llio.output_int64 oc last_i >>= fun () ->
 	    Llio.output_string oc output 
 	  in
-	  let buffer = Buffer.create limit in
+	  let buffer = Buffer.create buffer_size in
 	  let rec loop () = 
 	    fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
 	    if counter = 0 
