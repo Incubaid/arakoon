@@ -15,7 +15,13 @@ folder = sys.argv[2]
 prev_i = -1
 files = filter(lambda f: f.endswith(".tlf") or f.endswith(".tlc"), 
                os.listdir(folder))
-files.sort()
+def n_from(e): 
+    return int(e[:e.index('.')])
+
+def cmp(a,b):
+    return n_from(a) - n_from(b)
+
+files.sort(cmp)
 n=4
 
 for f in files:
