@@ -342,7 +342,11 @@ in
 let do_server node =
   match node with
     | Node ->
-      let canonical = Filename.concat (Unix.getcwd()) !config_file in
+      let canonical = 
+	if !config_file.[0] = '/' 
+	then !config_file
+	else Filename.concat (Unix.getcwd()) !config_file 
+      in
       let make_config () = Node_cfg.read_config canonical in
       Daemons.maybe_daemonize !daemonize make_config;
       let main_t = (Node_main.main_t make_config 
