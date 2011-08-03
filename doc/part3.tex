@@ -1,12 +1,14 @@
 \subsection{nodes in ocaml}
 Implementing the nodes in ocaml using Ocsigen's LWT library gives ample control over the fine grained concurrency we need through monadic coroutines.
-\subsection{Pure Python client}
-Besides the obvious ocaml client, Arakoon provides a pure python client as well. We have other in house projects that need it.
-
-\subsection{other clients}
-We've more or less catered for our own needs (Python,ocaml and C).
-Other clients will have to implement our client-node protocol. 
-Meanwhile, someone wrote an experimental Erlang client in less than a day's work. We're starting to run into problems because we have to maintain 3 clients instead of one.
+\subsection{Other clients}
+Besides the obvious ocaml client, Arakoon provides some clients written in other languages:
+\begin{itemize}
+\item{python}
+\item{php}
+\item{C}
+\end{itemize}
+These are pure clients, in the sense that for example the Python client is 100\% Python and not a wrapped C client. 
+We might have to reconsider this strategy as the number of different clients grows. \ldots meanwhile, there are unconfirmed rumours about an Erlang client in the wilde.
 
 \subsection{local key/value store}
 We've picked tokyo cabinet. 

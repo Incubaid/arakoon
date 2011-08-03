@@ -50,6 +50,7 @@ type local_action =
   | Collapse
   | Collapse_remote
   | Backup_db
+  | NumberOfValues
 
 type server_action =
   | Node
@@ -305,6 +306,8 @@ let actions = [
                   Arg.Set_string location;
                  ],
    "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
+   ("--n-values", set_laction NumberOfValues, 
+    "returns the number of values in the store")
     
 ] in
 
@@ -337,6 +340,7 @@ let do_local = function
   | Collapse_remote -> Collapser_main.collapse_remote 
     !ip !port !cluster_id !n_tlogs
   | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
+  | NumberOfValues -> Client_main.get_key_count !config_file ()
   
 in
 let do_server node =

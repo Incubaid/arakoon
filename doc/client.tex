@@ -36,11 +36,19 @@ There are no strict size limitations, which means that they such be small enough
 Values are strings too.
 \paragraph{type update}
 An update is either $Set(key,value)$ or $Delete(key)$.
+
 \paragraph{exists : key $\rightarrow$ bool C.t} See if a value exists for a specific key, without retrieving it.
+
 \paragraph{get : key $\rightarrow$ value C.t}
 You can look up a value if you have the key. It will eventually yield either a value, or raise an exception.
+
 \paragraph{set : key $\rightarrow$ value $\rightarrow$ unit C.t}
 You can update a value for a key, regardless of current value (if any).
+
+\paragraph{confirm : key $\rightarrow$ value $\rightarrow$ unit C.t}
+If \emph{get key} would yield this \emph{value} then this does nothing, 
+else, it behaves as a set.
+
 \paragraph{delete : key $\rightarrow$ unit C.t}
 You can remove a key/value pair. 
 There was a suggestion to open this op to allow a regular expression.
@@ -58,6 +66,7 @@ Using \emph{None} as new allows you to do a careful delete as well.
 $max$ is the maximum number of keys (if $max < 0$ then you want them all).
 The keys fall in the range \emph{kbey..ekey}.
 \emph{binc} and \emph{einc} specify if the borders are included (\emph{true}) or not.
+
 \paragraph{range\_entries: key option $\rightarrow$ bool $\rightarrow$
   key option $\rightarrow$ bool $\rightarrow$
   int $\rightarrow$ bool $\rightarrow$ (key * value) list C.t
@@ -65,9 +74,14 @@ The keys fall in the range \emph{kbey..ekey}.
 will yield a list of key value pairs.
 The parameters have the same semantics as for the range method.
 
+
 \paragraph{sequence: update list $\rightarrow$ unit C.t}
 Provides an atomic multi-update. Either all updates are performed or none. 
 While this is not a full transaction, it provides enough functionality to safeguard consistency.
+
+\paragraph{assert : key $\rightarrow$ value option $\rightarrow$ unit C.t}
+\emph{assert key vo} throws an exception if the value associated with the key is not what was expected. 
+This can be used to interrupt sequences.
 
 %\paragraph{hello : string $\rightarrow$ string $\rightarrow$ string C.t}
 %The client identifies itself to the server and tells the server the cluster id, and the server replies with its version string.
@@ -86,3 +100,12 @@ Allows you to fetch multiple values in one roundtrip to the server.
 Asks the master node if it thinks progress is possible. 
 This means that the master has seen enough that indicates enough slaves are still following its lead. 
 False positives are possible.
+
+\paragraph{user\_function: string $\rightarrow$ 
+  string option $\rightarrow$ 
+  string option C.t}
+Allows user registered manipulation of the store. 
+More about this in \ref{user_functions}
+
+\paragraph{get\_key\_count: unit $\rightarrow$ int64 C.t}
+Yields the number of items stored in arakoon.

@@ -86,6 +86,15 @@ let get cfg_name key =
   let t () = with_master_client cfg_name f in
   run t
 
+
+let get_key_count cfg_name () = 
+  let f (client:Arakoon_client.client) = 
+    client # get_key_count () >>= fun c64 ->
+    Lwt_io.printlf "%Li%!" c64
+  in
+  let t () = with_master_client cfg_name f in
+  run t
+
 let delete cfg_name key =
   let t () = with_master_client cfg_name (fun client -> client # delete key )
   in 
