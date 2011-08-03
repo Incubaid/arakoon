@@ -84,6 +84,7 @@ let _ = dispatch & function
        "doc/restarting.tex";
        "doc/part3.tex";
        "doc/state_machine.tex";
+       "doc/user_functions.tex";
        "doc/states.eps";
        "doc/nursery.tex";
       ];

@@ -26,13 +26,14 @@ x option    & 0x00 (None) or 0x01 [x] & $|x| + 1$ \\
 x list      & [size:$int_{32}$][$x_{n-1}$]\ldots[$x_{0}$]       &\\
 x array     & [size:$int_{32}$][$x_{0}$]\ldots[$x_{n-1}$]       &\\
 \hline 
-1:int32     & 0x01000000         & \\
-70000:int32 & 0x70110100         & \\
-3.14:float  & 0x1f85eb51b81e0940 & \\
+1:int32     & 0x01 0x00 0x00 0x00         & \\
+70000:int32 & 0x70 0x11 0x01 0x00         & \\
+3.14:float  & 0x1f85eb51b81e0940          & \\
 \hline 
 Set(key,value) & [1:$int_{32}$][key:string][value:string] & \\
-Delete(key) & [2:$int_{32}$][key:string]                  & \\
-sequence    & [size(data):$int_{32}$][$bytes(data)$]      & \\
+Delete(key)  & [2:$int_{32}$][key:string]                  & \\
+Assert(k,vo) & [8:$int_{32}$][key:string][vo: string option] & \\
+sequence     & [size(data):$int_{32}$][$bytes(data)$]      & \\
 
 \hline
 \end{tabular}
@@ -69,22 +70,24 @@ The command codes and return codes are listed below.
 \hline
 command & code \\
 \hline
-ping           & 0x0000 0001 \\
-who\_master    & 0x0000 0002 \\
-exists         & 0x0000 0007 \\
-get            & 0x0000 0008 \\
-set            & 0x0000 0009 \\
-delete         & 0x0000 000a \\
-range          & 0x0000 000b \\
-prefix\_keys   & 0x0000 000c \\
-test\_and\_set & 0x0000 000d \\
-last\_entries  & 0x0000 000e \\
-range\_enties  & 0x0000 000f \\
-sequence       & 0x0000 0010 \\
-multi\_get     & 0x0000 0011 \\
+ping            & 0x0000 0001 \\
+who\_master     & 0x0000 0002 \\
+exists          & 0x0000 0007 \\
+get             & 0x0000 0008 \\
+set             & 0x0000 0009 \\
+delete          & 0x0000 000a \\
+range           & 0x0000 000b \\
+prefix\_keys    & 0x0000 000c \\
+test\_and\_set  & 0x0000 000d \\
+last\_entries   & 0x0000 000e \\
+range\_enties   & 0x0000 000f \\
+sequence        & 0x0000 0010 \\
+multi\_get      & 0x0000 0011 \\
 expect\_progress\_possible & 0x0000 0012 \\
-user\_function & 0x0000 0015 \\
-assert         & 0x0000 0016 \\
+user\_function  & 0x0000 0015 \\
+assert          & 0x0000 0016 \\
+get\_key\_count & 0x0000 001a \\
+confirm         & 0x0000 001b \\
 \hline
 \end{tabular}
 \end{table}
@@ -100,6 +103,8 @@ return code & condition \\
 0x0000 0003  & no hello        \\
 0x0000 0004  & not master      \\
 0x0000 0005  & not found       \\
+0x0000 0006  & wrong cluster   \\
+0x0000 0007  & assertion failed \\
 \ldots       & \ldots          \\
 0x0000 00ff  & unknown failure \\
 \end{tabular}
