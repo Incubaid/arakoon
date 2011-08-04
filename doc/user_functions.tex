@@ -87,3 +87,7 @@ This file needs to be available in the home directory of \emph{all} the nodes of
 
 \subsection{Important remarks}
 Once a user function is installed, it needs to remain available, with the same functionality for as long as user function calles are stored inside the transaction logs, as they need to be re-evaluated when one replays a transaction log to a store (for example when a node crashed, leaving a corrupt database behind).
+\paragraph{}
+
+The input and output are of type \emph{String option}, which means that if you want to pass in a string list, you need to device some kind of (de)marshalling. 
+Furtunately, the \emph{Llio} module is available both on client and server side, and has most things you need.
