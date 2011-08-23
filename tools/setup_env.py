@@ -9,11 +9,17 @@ OLD_CWD = os.getcwd()
 
 parser = OptionParser()
 parser.add_option("-r", "--root", dest="root", default="../ROOT",
-        help="Root directory for the env", metavar="ROOT")
+                  help="Root directory for the env", metavar="ROOT")
 parser.add_option("-y", "--no-x", dest="no_x", default=False,
-        action="store_true", help="Do not build anything depending on X")
+                  action="store_true", 
+                  help="Do not build anything depending on X")
 parser.add_option("-c", "--client", dest="client", default=False,
-        action="store_true", help="Include the client interfaces")
+                  action="store_true", 
+                  help="Include the client interfaces")
+parser.add_option("-b", "--bisect", dest = "bisect", default = False,
+                  action = "store_true",
+                  help = "Install bisect")
+                  
 (options, args) = parser.parse_args()
 
 OCAML='3.12.1'
@@ -236,6 +242,23 @@ def install_client():
         "_build/src/arakoon_client.a"
         ])
 
+def install_bisect():
+    url = 'http://bisect.x9c.fr'
+    sh (['darcs','get',url], cwd = ROOT)
+    cwd = ROOT + '/bisect.x9c.fr'
+    sh (['sh','configure'], cwd = cwd)
+    sh (['make', 'all'], cwd = cwd)
+    sh (['make','install'], cwd = cwd)
+    t_dir = '_build/src/threads'
+    # This should not be necessary, but there's a bug in the Makefile
+    sh (['cp', 
+         t_dir + '/bisectThread.cmi',
+         t_dir + '/bisectThread.cmo',
+         t_dir + '/bisectThread.cmx',
+         t_dir + '/bisectThread.mli',
+         PREFIX + '/lib/ocaml/site-lib/bisect/'],
+        cwd = cwd)
+ 
 def do_it():
     clean()
     sh(['mkdir', '-p', ROOT])
@@ -252,8 +275,13 @@ def do_it():
         install_ocamlviz()
     if options.client:
         install_client()
+    if options.bisect:
+        install_bisect()
     #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
     print '\n\nnow prepend %s/bin to your PATH' % PREFIX
 
+
 if __name__ == '__main__':
     do_it()
+
+
