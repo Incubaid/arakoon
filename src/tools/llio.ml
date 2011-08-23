@@ -26,17 +26,20 @@ let lwt_failfmt fmt =
   let k x = Lwt.fail (Failure x) in
   Printf.ksprintf k fmt
 
+let (<: ) = Int32.shift_left 
+let (<::) = Int64.shift_left
+let (>: ) = Int32.shift_right_logical 
+let (>::) = Int64.shift_right_logical
+let (|: ) = Int32.logor 
+let (|::) = Int64.logor
 
 let int32_from buff pos =
   let i32 i= Int32.of_int (Char.code buff.[pos + i]) in
   let b0 = i32 0
-  and b1 = i32 1
-  and b2 = i32 2
-  and b3 = i32 3 in
-  let (<<) = Int32.shift_left
-  and (||) = Int32.logor in
-  let result =
-    b0 || (b1 << 8) || (b2 << 16) || (b3 << 24)
+  and b1s = i32 1 <: 8
+  and b2s = i32 2 <: 16
+  and b3s = i32 3 <: 24 in
+  let result = b0 |: b1s |: b2s |: b3s
   in result, pos + 4
 
 let int_from buff pos =
@@ -44,12 +47,10 @@ let int_from buff pos =
     Int32.to_int r ,pos'
 
 let int32_to buffer i32 =
-  let (<<) = Int32.shift_left in
-  let (>>) = Int32.shift_right_logical in
   let char_at n =
     let pos = n * 8 in
-    let mask = Int32.of_int 0xff << pos in
-    let code = (Int32.logand i32 mask)  >> pos in
+    let mask = Int32.of_int 0xff <: pos in
+    let code = (Int32.logand i32 mask) >: pos in
     Char.chr (Int32.to_int code)
   in
   let add i = Buffer.add_char buffer (char_at i) in
@@ -62,29 +63,25 @@ let int_to buffer i = int32_to buffer (Int32.of_int i)
 
 let int64_from buf pos =
     let i64 i= Int64.of_int (Char.code buf.[pos + i]) in
-    let b0 = i64 0 in
-    let b1 = i64 1 in
-    let b2 = i64 2 in
-    let b3 = i64 3 in
-    let b4 = i64 4 in
-    let b5 = i64 5 in
-    let b6 = i64 6 in
-    let b7 = i64 7 in
-    let (<<) = Int64.shift_left
-    and (||) = Int64.logor in
+    let b0 = i64 0 
+    and b1s = i64 1 <:: 8
+    and b2s = i64 2 <:: 16
+    and b3s = i64 3 <:: 24
+    and b4s = i64 4 <:: 32
+    and b5s = i64 5 <:: 40
+    and b6s = i64 6 <:: 48
+    and b7s = i64 7 <:: 56 in
     let r =
-      b0 || (b1 << 8)  || (b2 << 16) || (b3 << 24) ||
-	(b4 <<32)|| (b5 <<40)  || (b6 << 48) || (b7 << 56)
+      b0 |:: b1s |:: b2s |:: b3s 
+      |:: b4s |:: b5s |:: b6s |:: b7s
     in
       r,pos + 8 
 
 let int64_to buf i64 =
-  let (<<) = Int64.shift_left
-  and (>>>) = Int64.shift_right_logical in
   let char_at n =
     let pos = n * 8 in
-    let mask = Int64.of_int 0xff << pos in
-    let code = (Int64.logand i64 mask) >>> pos in
+    let mask = Int64.of_int 0xff <:: pos in
+    let code = (Int64.logand i64 mask) >:: pos in
     Char.chr (Int64.to_int code)
   in
   let set x = Buffer.add_char buf (char_at x) in
