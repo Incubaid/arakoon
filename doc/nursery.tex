@@ -3,26 +3,28 @@ We want to be able to use arakoon for increasingly large key-value spaces.
 For a single arakoon cluster the capacity is limited by the size of a single disk. 
 So it is only natural to allow different arakoon clusters to team up. 
 A \emph{nursery}\footnote{after a \emph{a nursery of raccoons}} provides a semi-unified view on a set of arakoon clusters. 
-Each cluster is uniquely responsible for a prefix range. 
+Each cluster is uniquely responsible for a key prefix interval. 
 \subsection{Limitations}
-The simple strategy of mapping a cluster to a range of keys already implies some limitations compared to the single cluster setup. 
+The simple strategy of mapping a cluster to an interval of keys already implies some limitations compared to the single cluster setup. 
 As a result, applications willing to scale from a single cluster to a nursery need to do some planning.
 \subsubsection{impact on sequences}
 Sequences are multiple updates that are done atomically. 
 Since atomicity can only be achieved inside 1 cluster\footnote{you could build transactionality across clusters, but it's a can of worms}, this means that all keys for a sequence need to share the same prefix. 
 \subsubsection{impact on ranges}
-Every cluster is responsible for a specific range. 
-As client range query will only be served by a single cluster, it means that only ranges that are subranges of cluster ranges can be served.
+Every cluster is responsible for a specific interval. 
+As client range query will only be served by a single cluster, it means that only ranges that fit within a cluster interval can be served.
 \subsection{Migrations}
-Once a cluster is filled, one needs to be able to split it, or move part of its range elsewhere. This process is called migration.
-Each cluster has a \emph{public} range $[k_b,k_e)$ it serves to clients, as well as a \emph{private} range it contains. 
-As such, migrating a part of a cluster's range to another cluster becomes feasible. 
+Once a cluster is filled, one needs to be able to split it, or move part of its interval elsewhere. 
+This process is called migration.
+Each cluster has a \emph{public} interval $[k_b,k_e)$ it serves to clients, 
+as well as a \emph{private} interval it contains. 
+As such, migrating a part of a cluster's interval to another cluster becomes feasible. 
 If we're moving keys away from a \emph{source} cluster $[k_b, k_e)$ 
 to a \emph{target} cluster $[k_e, k_z)$, we
 \begin{itemize}
-\item{} shrink the public range of the source cluster from 
+\item{} shrink the public interval of the source cluster from 
 $[k_b, k_e)$ to $[k_b, k_e - a)$. 
-The private range of the source remains $[k_b, k_e)$
+The private interval of the source remains $[k_b, k_e)$
 \item{} add the key/value pairs in $[k_e - a,k_e)$ to the target cluster
 \item{} extend the public range of the target cluster from
 $[k_e,k_z)$ to $[k_e - a, k_z)$
@@ -31,7 +33,11 @@ $[k_e,k_z)$ to $[k_e - a, k_z)$
 \end{itemize}
 This work can be done by a privileged client responsible for the migration. 
 That client can die at any point, and figure out, at resumption, what it needs to do to complete the task. 
-The problem with the migration strategy is that there is a point in time where none of the clusters is serving $[k_e -a, k_e)$, so any request for anything in that range is refused.
+The problem with the migration strategy is that there is a point in time where none of the clusters is serving $[k_e -a, k_e)$, so any request for anything in that interval is refused.
+\paragraph{}
+Large migrations (and most of them will be), need to be done in multiple smaller steps.
+This means we repeatedly have to execute the above procedure, 
+each time choosing an \emph{a} that chips off a set of key value pairs that can be migrated using a multiget and a sequence.
 
 \subsection{Client side support}
 Each client needs to know which cluster is responsible for a certain key(-range). 
