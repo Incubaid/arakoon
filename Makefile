@@ -41,6 +41,12 @@ install_client:
 uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
 
+coverage:
+	ocamlbuild -use-ocamlfind \
+	-tag 'package(bisect)' \
+	-tag 'syntax(camlp4o)' \
+	-tag 'syntax(bisect_pp)' \
+	arakoon.byte
 
 .PHONY: install test build install_client
          
