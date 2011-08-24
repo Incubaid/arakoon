@@ -165,12 +165,15 @@ def play_iteration( iteration ):
 
 def wait_for_it () :
     global monkey_dies
+    def last_i(nn):
+        node_name = C.node_names[nn]
+        i_s = C.get_last_i_tlog2(node_name)
+        i = int(i_s)
+        return i
+
     if not monkey_dies:
         logging.info( "Work is done. Waiting for nodes to get in sync." )
-        i0 = int( C.get_last_i_tlog ( C.node_names[0] ))
-        i1 = int( C.get_last_i_tlog ( C.node_names[1] ))
-        i2 = int( C.get_last_i_tlog ( C.node_names[2] ))
-        all_i = [i0, i1, i2]
+        all_i = [last_i(nn) for nn in xrange(3)]
         i_max = max(all_i)
         i_min = min(all_i)
         to_do = i_max - i_min
@@ -179,10 +182,7 @@ def wait_for_it () :
         while go_on:
             previous = to_do
             time.sleep(10.0)
-            i0 = int( C.get_last_i_tlog ( C.node_names[0] ))# This can be slow.
-            i1 = int( C.get_last_i_tlog ( C.node_names[1] ))#
-            i2 = int( C.get_last_i_tlog ( C.node_names[2] ))#
-            all_i = [i0,i1, i2]
+            all_i = [last_i(nn) for nn in xrange(3)]
             i_max = max(all_i)
             i_min = min(all_i)
             to_do = i_max - i_min
@@ -191,8 +191,7 @@ def wait_for_it () :
             if to_do < 3:
                 go_on = False
             elif done > 0 and done < 500:
-                logging.info("still not in sync and too slow (%i,%i,%i)",
-                             i0,i1,i2)
+                logging.info("still not in sync and too slow %s", all_i)
                 monkey_dies = True
                 go_on = False
             else:

@@ -26,6 +26,7 @@ from nose.tools import *
 from functools import wraps
 import traceback
 import sys
+import struct
 import subprocess
 import signal
 import gzip
@@ -275,6 +276,27 @@ def get_last_tlog_id ( node_id ):
         raise Exception ("Not a single tlog found in %s" % node_home_dir )
         
     return tlog_max_id
+
+def get_last_i_tlog2(node_id):
+    """ should be way faster """
+    number = get_last_tlog_id(node_id)
+    cluster = _getCluster()
+    home = cluster.getNodeConfig(node_id )['home']
+    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    f = open(tlog_full_path,'rb')
+    data = f.read()
+    f.close()
+    index = 0
+    dlen = len(data)
+    sn = None
+    while index < dlen:
+        sn = struct.unpack_from("q", data, index)[0]
+        index = index + 8
+        index = index + 4 # skip crc32
+        elen = struct.unpack_from("I", data,index)[0]
+        index = index + 4 + elen 
+    return sn
+        
     
 def get_last_i_tlog ( node_id ):
     tlog_dump = dump_tlog ( node_id, get_last_tlog_id(node_id) ) 
