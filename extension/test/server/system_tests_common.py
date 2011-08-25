@@ -826,8 +826,8 @@ def assert_key_value_list( start_suffix, list_size, list ):
         assert_equals ( (key,value) , list [i] )
 
 def assert_last_i_in_sync ( node_1, node_2 ):
-    last_i_0 = get_last_i_tlog( node_1 )
-    last_i_1 = get_last_i_tlog( node_2 )    
+    last_i_0 = get_last_i_tlog2(node_1)
+    last_i_1 = get_last_i_tlog2(node_2)    
     abs_diff = abs(int(last_i_0) - int(last_i_1) )
     assert_equals( max(abs_diff,1) , 1, 
                    "Values for i are invalid %s %s" % (last_i_0, last_i_1) )  
