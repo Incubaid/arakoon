@@ -224,6 +224,17 @@ object (self: #store)
     Lwt.return (StringMap.fold inc kv 0L)
     
   method copy_store c = Lwt.return ()
+
+  method get_tail lower = 
+    Lwt_log.debug_f "mem_store :: get_tail %s" lower >>= fun () ->
+    let all = StringMap.fold 
+      (fun k v acc -> 
+	if lower < k
+	then (k,v)::acc 
+	else acc) 
+      kv [] 
+    in
+    Lwt.return all
 end
 
 let make_mem_store db_name =

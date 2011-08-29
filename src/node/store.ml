@@ -73,6 +73,7 @@ class type store = object
   method unquiesce : unit -> unit Lwt.t
   method quiesced : unit -> bool 
   method copy_store : Lwt_io.output_channel -> unit Lwt.t
+  method get_tail : string -> (string * string) list Lwt.t
 end
 
 exception Key_not_found of string ;;

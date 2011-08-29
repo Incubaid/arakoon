@@ -208,5 +208,14 @@ class test_backend my_name = object(self:#backend)
   method get_db s =
     Lwt.return ()
 
-  method get_tail lower = Lwt.return ([]: ((string * string) list))
+  method get_tail lower = 
+    let all = StringMap.fold 
+      (fun k v acc -> 
+	if lower < k
+	then (k,v)::acc 
+	else acc) 
+      _kv [] 
+    in
+    Lwt.return all
+
 end

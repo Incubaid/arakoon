@@ -39,7 +39,7 @@ class type nodestream = object
   
   method get_db: string -> unit Lwt.t
 
-  (* method get_tail: string -> ((string * string) list) Lwt.t*)
+  method get_tail: string -> ((string * string) list) Lwt.t
 
 end
 
@@ -52,7 +52,7 @@ class remote_nodestream (ic,oc) =
   in
 object(self :# nodestream)
 
-  method get_tail (lower:string) = Lwt.return ([]: (string * string) list) 
+
 
 
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
@@ -164,7 +164,14 @@ object(self :# nodestream)
     request outgoing >>= fun () ->
     response ic incoming
 
-  
+  method get_tail (lower:string) = 
+    let outgoing buf = 
+      command_to buf GET_TAIL;
+      Llio.string_to buf lower
+    in
+    
+    request outgoing >>= fun () ->
+    response ic Llio.input_kv_list
 end
 
 let prologue cluster connection =

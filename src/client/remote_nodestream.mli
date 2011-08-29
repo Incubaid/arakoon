@@ -1,5 +1,6 @@
 open Update
 open Routing
+
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
@@ -12,6 +13,8 @@ class type nodestream = object
   method get_routing: unit -> Routing.t Lwt.t
   
   method get_db: string -> unit Lwt.t
+
+  method get_tail: string -> ((string * string) list) Lwt.t
 end
 
 val make_remote_nodestream : 

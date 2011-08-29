@@ -505,6 +505,30 @@ object(self: #store)
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
       raise ex
     end
+
+  method get_tail lower =
+    Hotc.transaction db 
+      (fun txdb -> Hotc.with_cursor txdb 
+	(fun lcdb cursor ->
+	  let limit = 2 * 1024 in
+	  let () = Bdb.last lcdb cursor in
+	  let r = 
+	    let rec loop acc ts =
+	      if ts < limit 
+	      then 
+		let k = Bdb.key   lcdb cursor in
+		let v = Bdb.value lcdb cursor in
+		let () = Bdb.prev lcdb cursor in
+		let acc' = (k,v) :: acc in
+		let ts' = ts + String.length k + String.length v in
+		loop acc' ts' 
+	      else acc
+	    in
+	    loop [] 0
+	  in
+	  Lwt.return r
+	))
+
 end
 
 let make_local_store db_name =

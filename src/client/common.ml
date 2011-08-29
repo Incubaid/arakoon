@@ -89,7 +89,7 @@ let code2int = [
 ]
 
 let int2code = 
-  let r = Hashtbl.create 31 in
+  let r = Hashtbl.create 41 in
   let () = List.iter (fun (a,b) -> Hashtbl.add r b a) code2int in
   r
 

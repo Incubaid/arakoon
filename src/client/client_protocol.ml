@@ -48,7 +48,7 @@ let read_command (ic,oc) =
           Lwt.return c
 	with Not_found ->
           Llio.output_int32 oc 5l >>= fun () ->
-	  let msg = Printf.sprintf "%lx not found" as_int32 in
+	  let msg = Printf.sprintf "%lx: command not found" as_int32 in
 	  Llio.output_string oc msg >>= fun () ->
           Lwt.fail (Failure msg)
       end

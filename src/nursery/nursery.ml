@@ -148,6 +148,12 @@ module NC = struct
     client # get key 
 
   let close t = Llio.lwt_failfmt "close not implemented"
+
+
+  let migrate t start_key = 
+    let from_cn = NCFG.find_cluster t.rc start_key in
+    let to_cn = NCFG.next t.rc from_cn in
+    Llio.lwt_failfmt "not implemented"
 end
 
 let main () =
