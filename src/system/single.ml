@@ -446,7 +446,8 @@ let _multi_get (client: client) =
   
 
 let _with_master (cluster_cfg, _) f =
-  Lwt_unix.sleep 5.0 >>= fun () -> (* let the cluster reach stability *) 
+  let sp = float(cluster_cfg._lease_period) in
+  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *) 
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
@@ -514,12 +515,12 @@ let make_suite name w =
     [
       "all_same_master" >:: w 4000 all_same_master;
       (* "nothing_on_slave">:: w nothing_on_slave;
-      "dirty_on_slave"   >:: w dirty_on_slave;
-      "trivial_master"  >:: w trivial_master;
-      "trivial_master2" >:: w trivial_master2;
-      "trivial_master3" >:: w trivial_master3;
-      "trivial_master4" >:: w trivial_master4;
-      "trivial_master5" >:: w trivial_master5; *)
+      "dirty_on_slave"   >:: w dirty_on_slave; *)
+      "trivial_master"  >:: w 4300 trivial_master; 
+      "trivial_master2" >:: w 4400 trivial_master2;
+      "trivial_master3" >:: w 4500 trivial_master3;
+      "trivial_master4" >:: w 4600 trivial_master4;
+      "trivial_master5" >:: w 4700 trivial_master5; 
       "assert1" >:: w 5000 assert1; 
       "assert2" >:: w 5100 assert2;
       "assert3" >:: w 5200 assert3; 
