@@ -132,6 +132,7 @@ let nothing_on_slave (cluster_cfg, _) =
   test_slaves cluster_cfg
 
 let dirty_on_slave (cluster_cfg,_) = 
+  Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Lwt_log.debug "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
   Client_main.find_master cluster_cfg >>= fun master_name ->
@@ -510,27 +511,27 @@ let setup master base () =
 
 let teardown (_, all_t) = Lwt.return ()
 
-let make_suite name w =
+let make_suite base name w =
   name >:::
     [
-      "all_same_master" >:: w 4000 all_same_master;
-      (* "nothing_on_slave">:: w nothing_on_slave;
-      "dirty_on_slave"   >:: w dirty_on_slave; *)
-      "trivial_master"  >:: w 4300 trivial_master; 
-      "trivial_master2" >:: w 4400 trivial_master2;
-      "trivial_master3" >:: w 4500 trivial_master3;
-      "trivial_master4" >:: w 4600 trivial_master4;
-      "trivial_master5" >:: w 4700 trivial_master5; 
-      "assert1" >:: w 5000 assert1; 
-      "assert2" >:: w 5100 assert2;
-      "assert3" >:: w 5200 assert3; 
+      "all_same_master" >:: w base all_same_master;
+      (* "nothing_on_slave">:: w nothing_on_slave; *)
+      "dirty_on_slave"   >:: w (base +200) dirty_on_slave; 
+      "trivial_master"  >:: w  (base +300) trivial_master; 
+      "trivial_master2" >:: w  (base +400) trivial_master2;
+      "trivial_master3" >:: w  (base +500) trivial_master3;
+      "trivial_master4" >:: w  (base +600) trivial_master4;
+      "trivial_master5" >:: w  (base +700) trivial_master5; 
+      "assert1" >:: w (base + 800) assert1; 
+      "assert2" >:: w (base + 900) assert2;
+      "assert3" >:: w (base + 1000) assert3; 
     ]
 
 let force_master =
   let w base f = Extra.lwt_bracket (setup (Forced "t_arakoon_0") base) f teardown in
-  make_suite "force_master" w
+  make_suite 4000 "force_master" w
 
 
 let elect_master =
   let w base f = Extra.lwt_bracket (setup Elected base) f teardown in
-  make_suite "elect_master" w
+  make_suite 6000 "elect_master" w
