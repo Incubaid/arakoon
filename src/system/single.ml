@@ -446,6 +446,7 @@ let _multi_get (client: client) =
   
 
 let _with_master (cluster_cfg, _) f =
+  Lwt_unix.sleep 5.0 >>= fun () -> (* let the cluster reach stability *) 
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
@@ -497,9 +498,9 @@ let assert2 tpl = _with_master tpl _assert2
 let assert3 tpl = _with_master tpl _assert3
 
 
-let setup master () =
+let setup master base () =
   let lease_period = 10 in
-  let make_config () = Node_cfg.Node_cfg.make_test_config 3 master lease_period in
+  let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
   let t0 = Node_main.test_t make_config "t_arakoon_0" in
   let t1 = Node_main.test_t make_config "t_arakoon_1" in
   let t2 = Node_main.test_t make_config "t_arakoon_2" in
@@ -511,24 +512,24 @@ let teardown (_, all_t) = Lwt.return ()
 let make_suite name w =
   name >:::
     [
-      "all_same_master" >:: w all_same_master;
+      "all_same_master" >:: w 4000 all_same_master;
       (* "nothing_on_slave">:: w nothing_on_slave;
       "dirty_on_slave"   >:: w dirty_on_slave;
       "trivial_master"  >:: w trivial_master;
       "trivial_master2" >:: w trivial_master2;
       "trivial_master3" >:: w trivial_master3;
       "trivial_master4" >:: w trivial_master4;
-      "trivial_master5" >:: w trivial_master5;
-      "assert1" >:: w assert1;
-      "assert2" >:: w assert2;
-      "assert3" >:: w assert3; *)
+      "trivial_master5" >:: w trivial_master5; *)
+      "assert1" >:: w 5000 assert1; 
+      "assert2" >:: w 5100 assert2;
+      "assert3" >:: w 5200 assert3; 
     ]
 
 let force_master =
-  let w f = Extra.lwt_bracket (setup (Forced "t_arakoon_0")) f teardown in
+  let w base f = Extra.lwt_bracket (setup (Forced "t_arakoon_0") base) f teardown in
   make_suite "force_master" w
 
 
 let elect_master =
-  let w f = Extra.lwt_bracket (setup Elected) f teardown in
+  let w base f = Extra.lwt_bracket (setup Elected base) f teardown in
   make_suite "elect_master" w

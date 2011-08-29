@@ -53,15 +53,15 @@ module Node_cfg = struct
 	plugins: string list;
       }
 
-  let make_test_config n_nodes master lease_period = 
+  let make_test_config ?(base=4000) n_nodes master lease_period = 
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
       {
 	node_name = "t_arakoon_" ^ ns;
 	ip = "127.0.0.1";
-	client_port = (4000 + n);
-	messaging_port = (4010 + n);
+	client_port = (base + n);
+	messaging_port = (base + 10 + n);
 	home = home;
 	tlog_dir = home;
 	log_dir = ":None";
