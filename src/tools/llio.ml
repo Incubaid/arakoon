@@ -22,6 +22,9 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
+type lwtoc = Lwt_io.output_channel
+type lwtic = Lwt_io.input_channel
+
 let lwt_failfmt fmt = 
   let k x = Lwt.fail (Failure x) in
   Printf.ksprintf k fmt
@@ -199,9 +202,15 @@ let input_list input_element ic =
   in
   loop size []
 
+let input_string_list ic = input_list input_string ic
+
+let input_kv_list ic = input_list input_string_pair ic
+
 let output_list output_element oc list = 
   output_int oc (List.length list)  >>= fun () ->
   Lwt_list.iter_s (output_element oc) list 
+
+let output_kv_list oc = output_list output_string_pair oc
 
 let list_to buf e_to list =
   int_to buf (List.length list);

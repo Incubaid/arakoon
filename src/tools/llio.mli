@@ -20,6 +20,9 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+type lwtoc = Lwt_io.output_channel
+type lwtic = Lwt_io.input_channel
+
 val lwt_failfmt :  ('a, unit, string, 'b Lwt.t) format4 -> 'a
 
 val bool_to  : Buffer.t -> bool   -> unit
@@ -40,30 +43,30 @@ val string_from: string -> int -> string * int
 val option_from: (string -> int -> 'a * int) -> string -> int -> 'a option * int
 val string_option_from: string -> int -> string option * int
 
-val output_bool: Lwt_io.output_channel -> bool   -> unit Lwt.t
-val output_int: Lwt_io.output_channel -> int     -> unit Lwt.t
-val output_int32: Lwt_io.output_channel -> int32 -> unit Lwt.t
-val output_int64: Lwt_io.output_channel -> int64 -> unit Lwt.t
-val output_string_option: Lwt_io.output_channel  -> string option -> unit Lwt.t
-val output_string: Lwt_io.output_channel -> string -> unit Lwt.t
-val output_list: 
-  (Lwt_io.output_channel -> 'a -> unit Lwt.t) ->
-  Lwt_io.output_channel -> 'a list -> unit Lwt.t
+val output_bool:          lwtoc -> bool          -> unit Lwt.t
+val output_int:           lwtoc -> int           -> unit Lwt.t
+val output_int32:         lwtoc -> int32         -> unit Lwt.t
+val output_int64:         lwtoc -> int64         -> unit Lwt.t
+val output_string_option: lwtoc -> string option -> unit Lwt.t
+val output_string:        lwtoc -> string        -> unit Lwt.t
+val output_list:        
+  (lwtoc -> 'a -> unit Lwt.t) ->
+   lwtoc -> 'a list -> unit Lwt.t
 
-val output_string_pair : Lwt_io.output_channel -> (string * string) -> unit Lwt.t
+val output_kv_list: lwtoc -> ((string*string) list) -> unit Lwt.t
 
-val input_bool: Lwt_io.input_channel -> bool Lwt.t
-val input_int: Lwt_io.input_channel -> int Lwt.t
-val input_int32: Lwt_io.input_channel -> int32 Lwt.t
-val input_int64: Lwt_io.input_channel -> int64 Lwt.t
-val input_string: Lwt_io.input_channel -> string Lwt.t
-val input_string_option: Lwt_io.input_channel -> (string option) Lwt.t
-val input_string_pair: Lwt_io.input_channel -> (string * string) Lwt.t
-val input_list:(Lwt_io.input_channel -> 'a Lwt.t) -> Lwt_io.input_channel -> 'a list Lwt.t
+val output_string_pair : lwtoc -> (string * string) -> unit Lwt.t
+
+val input_bool: lwtic   -> bool Lwt.t
+val input_int:  lwtic   -> int Lwt.t
+val input_int32: lwtic  -> int32 Lwt.t
+val input_int64: lwtic  -> int64 Lwt.t
+val input_string: lwtic -> string Lwt.t
+val input_string_option: lwtic -> (string option) Lwt.t
+val input_string_pair: lwtic -> (string * string) Lwt.t
+val input_list:(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
+val input_string_list: lwtic -> string list Lwt.t
+val input_kv_list: lwtic -> ((string * string) list) Lwt.t
 
 
-val copy_stream:  
-  length:int64 -> 
-  ic:Lwt_io.input_channel -> 
-  oc:Lwt_io.output_channel 
-  -> unit Lwt.t
+val copy_stream:  length:int64 -> ic:lwtic -> oc:lwtoc -> unit Lwt.t

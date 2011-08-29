@@ -246,7 +246,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
         Lwt_log.debug_f "size = %i" size >>= fun () ->
 	Llio.output_int oc size >>= fun () ->
 	Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
-  Lwt.return false
+	Lwt.return false
       end
     | MULTI_GET ->
       begin
@@ -268,7 +268,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    Llio.output_int oc 0 >>= fun () ->
 	    Llio.output_int oc length >>= fun () ->
 	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-      Lwt.return false
+	    Lwt.return false
 	  )
 	  (handle_exception oc)
       end
@@ -314,7 +314,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  Lwt_log.debug "CB" >>= fun () ->
 	  let ts = sw() in
 	  let d = Int64.sub ts t0 in
-    Llio.output_int oc 0 >>= fun () ->
+	  Llio.output_int oc 0 >>= fun () ->
 	  Llio.output_int64 oc d >>= fun () ->
 	  Lwt_io.flush oc
 	in
@@ -343,7 +343,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	(fun () -> backend # get_routing () >>= fun routing ->
 	  Llio.output_int oc 0 >>= fun () ->
 	  Routing.output_routing oc routing >>= fun () ->
-    Lwt.return false
+	  Lwt.return false
 	)
 	(handle_exception oc)
     | SET_ROUTING ->
@@ -382,6 +382,19 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    )
 	    (handle_exception oc)
 	end
+
+    | GET_TAIL ->
+      begin
+	Llio.input_string ic >>= fun lower ->
+	Lwt.catch
+	  (fun () -> 
+	    backend # get_tail lower >>= fun kvs ->
+	    Llio.output_int oc 0 >>= fun () ->
+	    Llio.output_kv_list oc kvs >>= fun () ->
+	    Lwt.return false
+	  )
+	  (handle_exception oc)
+      end
 
 let protocol backend connection =
   info "client_protocol" >>= fun () ->

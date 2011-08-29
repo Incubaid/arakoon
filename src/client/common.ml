@@ -58,6 +58,7 @@ type client_command =
   | GET_KEY_COUNT
   | GET_DB
   | CONFIRM
+  | GET_TAIL
 
 let code2int = [
   PING,                     0x1l ;
@@ -84,6 +85,7 @@ let code2int = [
   GET_KEY_COUNT           , 0x1al;
   GET_DB                  , 0x1bl;
   CONFIRM                 , 0x1cl;
+  GET_TAIL                , 0x1dl;
 ]
 
 let int2code = 
@@ -133,16 +135,8 @@ let kv_array ic =
 	end
     in loop 0
 
-let value_list ic = Llio.input_list Llio.input_string ic
-let key_list = value_list
 
-let kv_list ic =
-  let input_element ic =
-    Llio.input_string ic >>= fun k ->
-    Llio.input_string ic >>= fun v ->
-    Lwt.return (k,v)
-  in
-  Llio.input_list input_element ic
+
 
 let response ic f =
   Llio.input_int32 ic >>= function

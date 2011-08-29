@@ -207,4 +207,6 @@ class test_backend my_name = object(self:#backend)
   
   method get_db s =
     Lwt.return ()
+
+  method get_tail lower = Lwt.return ([]: ((string * string) list))
 end

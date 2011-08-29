@@ -62,16 +62,16 @@ object(self: #Arakoon_client.client)
 
   method range ?(allow_dirty=false) first finc last linc max =
     request (fun buf -> range_to buf ~allow_dirty first finc last linc max) >>= fun () ->
-    response ic key_list
+    response ic Llio.input_string_list
 
   method range_entries ?(allow_dirty=false) ~first ~finc ~last ~linc ~max =
     request (fun buf -> range_entries_to buf ~allow_dirty first finc last linc max)
     >>= fun () ->
-    response ic kv_list
+    response ic Llio.input_kv_list
 
   method prefix_keys ?(allow_dirty=false) pref max =
     request (fun buf -> prefix_keys_to buf ~allow_dirty pref max) >>= fun () ->
-    response ic key_list
+    response ic Llio.input_string_list
 
   method test_and_set key expected wanted =
     request (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
@@ -83,7 +83,7 @@ object(self: #Arakoon_client.client)
 
   method multi_get ?(allow_dirty=false) keys = 
     request (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
-    response ic value_list
+    response ic Llio.input_string_list
 
   method sequence changes = 
     let outgoing buf = 

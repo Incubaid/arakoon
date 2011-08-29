@@ -520,5 +520,7 @@ object(self: #backend)
       end
     )
     
-        
+  method get_tail lower = 
+    Lwt_log.debug "get_tail" >>= fun () ->
+    Lwt.return ([]: ((string * string) list))
 end

@@ -38,6 +38,9 @@ class type nodestream = object
   method get_routing: unit -> Routing.t Lwt.t
   
   method get_db: string -> unit Lwt.t
+
+  (* method get_tail: string -> ((string * string) list) Lwt.t*)
+
 end
 
 class remote_nodestream (ic,oc) = 
@@ -48,6 +51,9 @@ class remote_nodestream (ic,oc) =
     Lwt_io.flush oc
   in
 object(self :# nodestream)
+
+  method get_tail (lower:string) = Lwt.return ([]: (string * string) list) 
+
 
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
     (tlog_coll: Tlogcollection.tlog_collection) 
@@ -157,7 +163,8 @@ object(self :# nodestream)
     in
     request outgoing >>= fun () ->
     response ic incoming
-      
+
+  
 end
 
 let prologue cluster connection =

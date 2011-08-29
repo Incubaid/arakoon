@@ -77,4 +77,5 @@ class type backend = object
   
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
 
+  method get_tail: string -> ((string * string) list) Lwt.t
 end
