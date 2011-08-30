@@ -237,6 +237,12 @@ ARA_ERR_WRONG_CLUSTER = 6
 ARA_ERR_ASSERTION_FAILED = 7
 
 
+NAMED_FIELD_TYPE_INT    = 1
+NAMED_FIELD_TYPE_INT64  = 2
+NAMED_FIELD_TYPE_FLOAT  = 3
+NAMED_FIELD_TYPE_STRING = 4
+NAMED_FIELD_TYPE_LIST   = 5
+
 def _packString( toPack ):
     toPackLength = len( toPack )
     return struct.pack("I%ds" % ( toPackLength), toPackLength, toPack )
@@ -353,6 +359,33 @@ def _recvStringOption ( con ):
     else :
         return None
 
+def _unpackNamedField(buf, offset):
+    type, offset = _unpackInt(buf, offset)
+    name, offset = _unpackString(buf, offset)
+    result = dict()
+    
+    if type == NAMED_FIELD_TYPE_INT:
+        result[name], offset = _unpackInt(buf,offset)
+        return result, offset
+    if type == NAMED_FIELD_TYPE_INT64:
+        result[name], offset = _unpackInt64(buf,offset)
+        return result, offset
+    if type == NAMED_FIELD_TYPE_FLOAT:
+        result[name], offset = _unpackFloat(buf,offset)
+        return result, offset
+    if type == NAMED_FIELD_TYPE_STRING:
+        result[name], offset = _unpackString(buf,offset)
+        return result, offset
+    if type == NAMED_FIELD_TYPE_LIST:
+        length, offset = _unpackInt(buf,offset)
+        localDict = dict()
+        for i in range(length):
+            field, offset = _unpackNamedField(buf, offset)
+            localDict.update( field )
+        result[name] = localDict
+        return result, offset
+    
+    raise ArakoonException("Cannot decode named field %s. Invalid type: %d" % (name,type) )
 
 class Update(object):
     pass
@@ -583,37 +616,10 @@ class ArakoonProtocol :
     @staticmethod
     def decodeStatistics(con):
         ArakoonProtocol._evaluateErrorCode(con)
-        result = {}
-        buffer = _recvString(con)
-        #struct.unpack("ddddd...", buffer) would have been better...
-        start,o2        = _unpackFloat(buffer,0)
-        last, o3        = _unpackFloat(buffer, o2)
-        avg_set_size,o4 = _unpackFloat(buffer, o3)
-        avg_get_size,o5 = _unpackFloat(buffer, o4)
-        n_sets,o6       = _unpackInt(buffer, o5)
-        n_gets,o7       = _unpackInt(buffer, o6)
-        n_deletes,o8    = _unpackInt(buffer, o7)
-        n_multigets,o9  = _unpackInt(buffer, o8)
-        n_sequences,o10 = _unpackInt(buffer, o9)
-        n_entries, o11  = _unpackInt(buffer, o10)
-        node_is = {}
-        offset = o11
-        for j in range(n_entries):
-            name, offset = _unpackString(buffer, offset)
-            i,    offset = _unpackInt64(buffer,  offset)
-            node_is[name]=i
         
-        result['start'] = start
-        result['last'] = last
-        result['avg_set_size'] = avg_set_size
-        result['avg_get_size'] = avg_get_size
-        result['n_sets'] = n_sets
-        result['n_gets'] = n_gets
-        result['n_deletes'] = n_deletes
-        result['n_multigets'] = n_multigets
-        result['n_sequences'] = n_sequences
-        result['node_is'] = node_is
-        return result
+        buffer = _recvString(con)
+        result, offset = _unpackNamedField(buffer,0)
+        return result['arakoon_stats']
     
     @staticmethod
     def encodeGetKeyCount () :
