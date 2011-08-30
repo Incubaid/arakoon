@@ -448,10 +448,39 @@ let get_last_tlog tlog_dir =
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
 
+
+let maybe_correct tlog_dir new_c last = 
+  if new_c > 0 && last = None then
+    begin
+     (* somebody sabotaged us:
+	(s)he deleted the .tlog file but we have .tlf's 
+	meaning rotation happened correctly.
+	We have to take counter measures:
+	uncompress the .tlf into .tlog and remove it.
+     *)
+      let pc = new_c - 1 in
+      let tlc_name = Filename.concat tlog_dir (archive_name pc) in
+      let tlu_name = Filename.concat tlog_dir (file_name pc)  in
+      Lwt_log.warning "Sabotage!" >>= fun () ->
+      Lwt_log.info_f "Counter Sabotage: decompress %s into %s" 
+	tlc_name tlu_name
+      >>= fun () ->
+      Compression.uncompress_tlog tlc_name tlu_name >>= fun () ->
+      Lwt_log.info_f "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->
+      Unix.unlink tlc_name;
+      Lwt_log.info "Counter Sabotage finished" >>= fun () ->
+      _validate_one tlu_name >>= fun last ->
+      Lwt.return (new_c -1 , last)
+
+    end
+  else
+    Lwt.return (new_c, last)
+
 let make_tlc2 tlog_dir use_compression =
   Lwt_log.debug "make_tlc" >>= fun () ->
   get_last_tlog tlog_dir >>= fun (new_c,fn) ->
   _validate_one fn >>= fun last ->
+  maybe_correct tlog_dir new_c last >>= fun (new_c,last) ->
   let msg = 
     match last with
       | None -> "None"
