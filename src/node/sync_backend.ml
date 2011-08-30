@@ -101,12 +101,13 @@ object(self: #backend)
     store # exists key
 
   method get ~allow_dirty key = 
+    let start = Unix.gettimeofday () in
     log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
     self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     Lwt.catch
       (fun () -> 
 	store # get key >>= fun v -> 
-	Statistics.new_get _stats key v; 
+	Statistics.new_get _stats key v start; 
 	Lwt.return v)
       (fun exc ->
 	match exc with
@@ -188,10 +189,11 @@ object(self: #backend)
     Lwt.return key_list
 
   method set key value =
+    let start = Unix.gettimeofday () in
     log_o self "set %S" key >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in    
-    let update_sets () = Statistics.new_set _stats key value in
+    let update_sets () = Statistics.new_set _stats key value start in
     self # _update_rendezvous update update_sets push_update
 
 
@@ -254,6 +256,7 @@ object(self: #backend)
       
 
   method test_and_set key expected (wanted:string option) =
+    let start = Unix.gettimeofday() in
     log_o self "test_and_set %s %s %s" key 
       (string_option_to_string expected) 
       (string_option_to_string wanted)
@@ -266,7 +269,8 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let went_well = make_went_well (fun () -> ()) awake sleep in
+    let update_stats () = Statistics.new_testandset _stats start in 
+    let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
@@ -274,9 +278,10 @@ object(self: #backend)
       | Store.Ok x -> Lwt.return x
 
   method delete key = log_o self "delete %S" key >>= fun () ->
+    let start = Unix.gettimeofday () in
     self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
-    let update_stats () = Statistics.new_delete _stats in
+    let update_stats () = Statistics.new_delete _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method hello (client_id:string) (cluster_id:string) =
@@ -322,16 +327,18 @@ object(self: #backend)
 
 
   method sequence (updates:Update.t list) =
+    let start = Unix.gettimeofday() in
     log_o self "sequence" >>= fun () ->
     let update = Update.Sequence updates in
-    let update_stats () = Statistics.new_sequence _stats in
+    let update_stats () = Statistics.new_sequence _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method multi_get ~allow_dirty (keys:string list) =
+    let start = Unix.gettimeofday() in
     log_o self "multi_get" >>= fun () ->
     self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
-    Statistics.new_multiget _stats;
+    Statistics.new_multiget _stats start;
     Lwt.return values
 
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"

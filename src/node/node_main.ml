@@ -455,7 +455,6 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	(fun () ->
           let _ = Lwt_unix.on_signal 15
             (fun i -> 
-	      Printf.printf "XXX\n%!";
 	      unlock_killswitch ()
 	    )
           in

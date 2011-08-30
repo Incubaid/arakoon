@@ -405,5 +405,97 @@ def test_download_db():
     stop_all()
     compare_stores(n0,n1)
     
+@with_custom_setup( setup_3_nodes, basic_teardown )
+def test_statistics():
+    cli = get_client()
+    stat_dict = cli.statistics()
+    return
+    required_keys = [
+       "start",
+       "last", 
+       "avg_get_size", 
+       "avg_set_size", 
+       "set_timing",
+       "get_timing",
+       "del_timing",
+       "seq_timing",
+       "mget_timing",
+       "tas_timing",
+       "op_timing",
+       "n_sets",
+       "n_gets",
+       "n_deletes",
+       "n_multigets",
+       "n_sequences",
+       "n_testandsets",
+       "n_ops", 
+       "node_is",
+    ]
+    required_timing_keys = [
+        "min",
+        "max",
+        "avg",
+        "var"
+    ]
+    
+    for k in required_keys:
+        assert_true( stat_dict.has_key(k), "Required key missing: %s" % k)
+        if k.startswith("n_"):
+            assert_equals( stat_dict[k], 0, "Operation counter should be 0, but is %d" % stat_dict[k] )
+        if k.endswith( "_timing"):
+            timing = stat_dict[k]
+            for tk in required_timing_keys:
+                assert_true( timing.has_key(tk), "Required key (%s) missing in time info (%s)" % (tk, k) )
+                assert_equals( timing["max"], 0.0, 
+                    "Wrong value for max timing of %s: %f != 0.0" %(k, timing["max"]))
+                assert_equals( timing["avg"], 0.0, 
+                    "Wrong value for avg timing of %s: %f != 0.0" %(k, timing["avg"]))
+                assert_equals( timing["var"], 0.0, 
+                    "Wrong value for var timing of %s: %f != 0.0" %(k, timing["var"]))
+                assert_equals( timing["min"], 0.0, 
+                    "Wrong value for min timing of %s: %f != 0.0" %(k, timing["min"]))
+ 
+    key_list = list()
+    seq = arakoon.ArakoonProtocol.Sequence()
+    
+    for i in range(10) :
+        key = "key_%d" % i
+        key2 = "key2_%d" % i
+        val = "val_%d" % i
+        key_list.append( key )
+        cli.set(key, val)
+        cli.get(key )
+        cli.multiget(key_list)
+        seq.addSet(key2,val)
+        seq.delete(key2)
+        cli.sequence( seq )
+        cli.testAndSet(key,None,val)
+    for i in range(10):
+        key = "key_%d" % i
+        cli.delete(key)
+    
+    stat_dict = cli.statistics()
+    
+    for k in required_keys:
+        assert_true( stat_dict.has_key(k), "Required key missing: %s" % k)
+        if k.startswith("n_"):
+            assert_not_equals( stat_dict[k], 0, 
+                "Operation counter %s should be not be 0, but is." % k )
+        if k.endswith( "_timing"):
+            timing = stat_dict[k]
+            for tk in required_timing_keys:
+                assert_true( timing.has_key(tk), "Required key (%s) missing in time info (%s)" % (tk, k) )
+                assert_not_equals( timing["max"], 0.0, 
+                    "Wrong value for max timing of %s == 0.0" %k)
+                assert_not_equals( timing["avg"], 0.0, 
+                    "Wrong value for avg timing of %s == 0.0" % k)
+                assert_not_equals( timing["var"], 0.0, 
+                    "Wrong value for var timing of %s == 0.0" % k)
+                assert_not_equals( timing["min"], 0.0, 
+                    "Wrong value for min timing of %s == 0.0" % k)
+    
+    
+    
+    
     
     
