@@ -1475,7 +1475,7 @@ class WhoMasterTestCase extends ArakoonDefaultTestCase
 }
 
 /**
- * WhoMasterTestCase
+ * StatisticsTestCase
  */
 class StatisticsTestCase extends ArakoonDefaultTestCase
 {

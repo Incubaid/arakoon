@@ -85,6 +85,11 @@ class Arakoon_Client_Protocol
     const TYPE_SIZE_INT_32 = 4;
     const TYPE_SIZE_INT_64 = 8;    
 
+    const NAMED_FIELD_TYPE_INT    = 1;
+    const NAMED_FIELD_TYPE_INT64  = 2;
+    const NAMED_FIELD_TYPE_FLOAT  = 3;
+    const NAMED_FIELD_TYPE_STRING = 4;
+    const NAMED_FIELD_TYPE_LIST   = 5;
 	/**
      * Constructor of an Arakoon_Client_Protocol object.
      * The constructor is private, because the class only contains static functions.
@@ -259,6 +264,55 @@ class Arakoon_Client_Protocol
 	    return array($string, $offset2 + $size);    
 	}
 	
+	/**
+	 * Unpacks a named field and turns it into an array
+	 * 
+	 * @param $buffer
+	 * @param $offset
+	 * @return array
+	 */
+	public static function unpackNamedField($buffer, $offset)
+	{
+	   $result = array();
+	   list($type, $offset) = self::unpackInt($buffer, $offset);
+	   list($name, $offset) = self::unpackString($buffer, $offset);
+	   switch($type) {
+	       case self::NAMED_FIELD_TYPE_INT :
+	           list($value, $offset) = self::unpackInt($buffer, $offset);
+	           $result[ $name ] = $value;
+	           return array( $result, $offset ); 
+	           break;
+	       case self::NAMED_FIELD_TYPE_INT64:
+	           list($value, $offset) = self::unpackInt64($buffer, $offset);
+               $result[ $name ] = $value;
+               return array( $result, $offset ); 
+	           break;
+	       case self::NAMED_FIELD_TYPE_FLOAT:
+	           list($value, $offset) = self::unpackFloat($buffer, $offset);
+               $result[ $name ] = $value;
+               return array( $result, $offset ); 
+	           break;
+	       case self::NAMED_FIELD_TYPE_STRING:
+	           list($value, $offset) = self::unpackString($buffer, $offset);
+               $result[ $name ] = $value;
+               return array( $result, $offset ); 
+               break;
+	       case self::NAMED_FIELD_TYPE_LIST:
+	           list($length, $offset) = self::unpackInt($buffer, $offset);
+	           $localDict = array();
+	           for( $i=0; $i<$length ; $i++ ) {
+	               list($newValue, $offset) = self::unpackNamedField($buffer, $offset);
+	               $localDict = array_merge($localDict, $newValue);
+	           }
+               $result[ $name ] = $localDict;
+               return array( $result, $offset ); 
+               break;
+	       default:
+	           $msg = sprintf("Cannot decode named field. Unknown value type (%d).", $type);
+	           throw new Arakoon_Client_Exception($msg);
+	       
+	   }
+	}
 	
 	/**
 	 * ====================================================================================================
@@ -559,44 +613,9 @@ class Arakoon_Client_Protocol
 	public static function decodeStatisticsResult($connection)
 	{
         self::evaluateResultCode($connection);
-        $statistics = array();
         $buffer = self::readString($connection);
-        
-        $offset0 = 0;
-        list($start, $offset1)   		= self::unpackFloat($buffer, $offset0);
-        list($last, $offset2)        	= self::unpackFloat($buffer, $offset1);
-        list($avg_set_size, $offset3) 	= self::unpackFloat($buffer, $offset2);
-        list($avg_get_size, $offset4) 	= self::unpackFloat($buffer, $offset3);
-        list($n_sets, $offset5)       	= self::unpackInt($buffer, $offset4);
-        list($n_gets, $offset6)      	= self::unpackInt($buffer, $offset5);
-        list($n_deletes, $offset7)    	= self::unpackInt($buffer, $offset6);
-        list($n_multigets, $offset8)  	= self::unpackInt($buffer, $offset7);
-        list($n_sequences, $offset9) 	= self::unpackInt($buffer, $offset8);
-        list($n_entries, $offset10)  	= self::unpackInt($buffer, $offset9);
-        
-        $node_is = array();
-        $cycleOffset = $offset10;
-        for ($i = 0; $i < $n_entries; $i++)
-        {
-            list($name, $tempOffset1) = self::unpackString($buffer, $cycleOffset);
-            list($integer, $tempOffset2) = self::unpackInt64($buffer, $tempOffset1);
-            $node_is[$name] = $integer;
-            
-            $cycleOffset = $tempOffset2;
-        }
-        
-        $statistics["start"] = $start;
-        $statistics["last"] = $last;
-        $statistics["avg_set_size"] = $avg_set_size;
-        $statistics["avg_get_size"] = $avg_get_size;
-        $statistics["n_sets"] = $n_sets;
-        $statistics["n_gets"] = $n_gets;
-        $statistics["n_deletes"] = $n_deletes;
-        $statistics["n_multigets"] = $n_multigets;
-        $statistics["n_sequences"] = $n_sequences;
-        $statistics["node_is"] = $node_is;
-
-        return $statistics;
+        list($retVal, $offset)   		= self::unpackNamedField($buffer, 0);
+        return $retVal["arakoon_stats"];
     }
     
     /**
