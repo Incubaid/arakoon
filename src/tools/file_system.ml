@@ -72,6 +72,7 @@ let rename source target =
 
 let mkdir name = Lwt_unix.mkdir name
 
+let unlink name = Lwt_unix.unlink name
 let rmdir name = Lwt_unix.rmdir name
 
 let stat filename = 
