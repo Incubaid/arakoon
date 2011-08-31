@@ -409,7 +409,7 @@ def test_download_db():
 def test_statistics():
     cli = get_client()
     stat_dict = cli.statistics()
-    return
+    
     required_keys = [
        "start",
        "last", 
@@ -452,8 +452,9 @@ def test_statistics():
                     "Wrong value for avg timing of %s: %f != 0.0" %(k, timing["avg"]))
                 assert_equals( timing["var"], 0.0, 
                     "Wrong value for var timing of %s: %f != 0.0" %(k, timing["var"]))
-                assert_equals( timing["min"], 0.0, 
-                    "Wrong value for min timing of %s: %f != 0.0" %(k, timing["min"]))
+                assert_not_equals( timing["min"], 0.0, 
+                    "Wrong value for min timing of %s: 0.0" %(k))
+
  
     key_list = list()
     seq = arakoon.ArakoonProtocol.Sequence()
@@ -465,9 +466,9 @@ def test_statistics():
         key_list.append( key )
         cli.set(key, val)
         cli.get(key )
-        cli.multiget(key_list)
+        cli.multiGet(key_list)
         seq.addSet(key2,val)
-        seq.delete(key2)
+        seq.addDelete(key2)
         cli.sequence( seq )
         cli.testAndSet(key,None,val)
     for i in range(10):
@@ -493,9 +494,4 @@ def test_statistics():
                     "Wrong value for var timing of %s == 0.0" % k)
                 assert_not_equals( timing["min"], 0.0, 
                     "Wrong value for min timing of %s == 0.0" % k)
-    
-    
-    
-    
-    
     
