@@ -423,3 +423,29 @@ def test_disable_tlog_compression():
     expected = num_tlogs + 1 
     assert_equals(len(tlogs), expected, "Wrong number of uncompressed tlogs (%d != %d)" % (expected, len(tlogs))) 
  
+@with_custom_setup(setup_1_node, basic_teardown)
+def test_sabotage():
+    clu = _getCluster()
+    tlog_size = get_entries_per_tlog()
+    num_tlogs = 2
+    test_size = num_tlogs * tlog_size + 20
+    iterate_n_times(test_size, simple_set)
+    time.sleep(10)
+    clu.stop()
+    node_id = node_names[0]
+    node_home_dir = clu.getNodeConfig(node_id) ['home']
+    files = map(lambda x : "%s/%s" % (node_home_dir, x),
+                [ "002.tlog",
+                  "%s.db" % (node_id,),
+                  "%s.db.wal" % (node_id,),
+                  ])
+    for f in files:
+        print f
+        q.system.fs.remove(f)
+    clu.start()
+    time.sleep(20)
+    iterate_n_times(2000, simple_set)
+    time.sleep(10)
+    size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
+    logging.info("file_size = %i", size)
+    assert_true(size > 1024 * 20)
