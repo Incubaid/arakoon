@@ -31,7 +31,7 @@ open Otc
 open OUnit
 open Extra
 
-let fileName = "/tmp/log"
+let fileName = "/tmp/arakoon_log"
 
 let setupTlogWriter () =
   let outputChannel = Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC ]
