@@ -99,9 +99,7 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> outgoing buf) >>= fun () ->
     response ic nothing
 
-  method who_master () =
-    request  oc (fun buf -> who_master_to buf) >>= fun () ->
-    response ic Llio.input_string_option
+  method who_master () = Common.who_master conn
 
   method expect_progress_possible () = 
     request  oc (fun buf -> expect_progress_possible_to buf) >>= fun () ->
