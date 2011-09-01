@@ -53,60 +53,57 @@ module NCFG = struct
     in
     let c,p2 = Llio.hashtbl_from buf ef p1 in
     (r,c),p2
+
   
   let make r = (r, Hashtbl.create 17)
   let find_cluster (r,_) key = Routing.find r key
+  let next_cluster (r,_) key = Routing.next r key
   let get_cluster (_,c) name = Hashtbl.find c name
   let add_cluster (_,c) name  cfg = Hashtbl.add c name cfg
 end
 
 module NC = struct
+  type connection = Lwt_io.input_channel * Lwt_io.output_channel 
   type lc = 
     | Address of (string * int)
-    | Client of Arakoon_client.client
+    | Connection of connection
 
   type nn = string * string (* cluster_name,node_name *)
 
   type t = {
     rc : NCFG.t; 
-    clients : (nn ,lc) Hashtbl.t;
+    connections : (nn ,lc) Hashtbl.t;
     masters: (string, string option) Hashtbl.t;
   }
 
   let make rc = 
     let (_,c) = rc in
-    let masters = Hashtbl.create 4 in
+    let masters = Hashtbl.create 5 in
     let () = Hashtbl.iter (fun k _ -> Hashtbl.add masters k None) c in
-    let clients = Hashtbl.create 12 in
+    let connections = Hashtbl.create 13 in
     let () = Hashtbl.iter 
       (fun cluster v -> 
 	Hashtbl.iter (fun node (ip,port) ->
 	  let nn = (cluster,node) in
 	  let a = Address (ip,port) in
-	  Hashtbl.add clients nn a) v)
+	  Hashtbl.add connections nn a) v)
       c
     in
-    {
-    rc = rc; 
-    clients = clients;
-    masters = masters;
-    }
+    {rc; connections;masters;}
 
-  let _get_client t nn = 
+  let _get_connection t nn = 
     let (cn,node) = nn in
-    Lwt_log.debug_f "_get_client(%s,%s)" cn node >>= fun () ->
-    match Hashtbl.find t.clients nn with
+    Lwt_log.debug_f "_get_connection(%s,%s)" cn node >>= fun () ->
+    match Hashtbl.find t.connections nn with
       | Address (ip,port) -> 
 	begin
 	  try_connect (ip,port) >>= function
-	    | Some (ic,oc) -> 
-	      Arakoon_remote_client.make_remote_client cn (ic,oc) >>= fun client ->
-	      let r = Client client in
-	      let () = Hashtbl.add t.clients nn r in
-	      Lwt.return client
+	    | Some conn -> 
+	      let () = Hashtbl.add t.connections nn (Connection conn) in
+	      Lwt.return conn
 	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
 	end
-      | Client c -> Lwt.return c
+      | Connection conn -> Lwt.return conn
   
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
@@ -116,11 +113,11 @@ module NC = struct
     Lwt_list.map_p 
       (fun n -> 
 	let nn = (cn,n) in 
-	_get_client t nn
+	_get_connection t nn
       ) 
       node_names 
-    >>= fun clients ->
-    Lwt.choose (List.map (fun c -> c # who_master()) clients) 
+    >>= fun connections ->
+    Lwt.choose (List.map (fun conn -> Common.who_master conn) connections) 
     >>= function
       | None -> Llio.lwt_failfmt "no master for %s" cn
       | Some master -> Lwt.return master
@@ -132,42 +129,55 @@ module NC = struct
       | None -> _find_master_remote t cn 
       | Some master -> Lwt.return master 	  
 
+  let _with_master_connection t cn (todo: connection -> 'c Lwt.t) =
+    _find_master t cn >>= fun master ->
+    let nn = cn, master in
+    _get_connection t nn >>= fun connection ->
+    todo connection
+    
   let set t key value = 
     let cn = NCFG.find_cluster t.rc key in
-    _find_master t cn >>= fun master ->
-    let nn = cn,master in
-    _get_client t nn >>= fun client ->
-    client # set key value
-
+    let todo conn = Common.set conn key value in
+    _with_master_connection t cn todo
 
   let get t key = 
     let cn = NCFG.find_cluster t.rc key in
-    _find_master t cn >>= fun master ->
-    let nn = cn, master in
-    _get_client t nn >>= fun client ->
-    client # get key 
+    let todo conn = Common.get conn false key in
+    _with_master_connection t cn todo
 
   let close t = Llio.lwt_failfmt "close not implemented"
 
 
-  let migrate t start_key = 
+  let migrate t start_key = (* direction is always 'up' *)
     let from_cn = NCFG.find_cluster t.rc start_key in
-    let to_cn = NCFG.next t.rc from_cn in
-    Llio.lwt_failfmt "not implemented"
+    let to_cn = NCFG.next_cluster t.rc from_cn in
+    let todo conn = Common.get_tail conn start_key in
+    let rec loop () =
+      _with_master_connection t from_cn todo >>= function
+	| [] -> 
+	  Lwt_io.printlf "done" >>= fun () ->
+	  Lwt.return ()
+	| tail -> 
+	  let size = List.length tail in
+	  Lwt_io.printlf "Length = %i" size >>= fun () ->
+	  loop ()
+    in loop ()
+
 end
 
 let main () =
   All_test.configure_logging ();
-  let repr = [("left", "k")], "right" in
+  let repr = [("left", "")], "right" in (* all in left *)
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
   let right_cfg = ClientCfg.make () in
   let () = ClientCfg.add left_cfg "1" ("127.0.0.1", 4000) in
-  let () = ClientCfg.add right_cfg "one" ("127.0.0.1", 4010) in
+  let () = ClientCfg.add right_cfg "one" ("127.0.0.1", 5000) in
   let nursery_cfg = NCFG.make routing in
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
-  let client = NC.make nursery_cfg in
+  let nc = NC.make nursery_cfg in
+  (*
   let test k v = 
     NC.set client k v >>= fun () ->
     NC.get client k >>= fun v' ->
@@ -177,6 +187,19 @@ let main () =
   let t () = 
     test "a" "A" >>= fun () ->
     test "z" "Z" 
+  *)
+  let t () = 
+    let rec fill i = 
+      if i = 64 
+      then Lwt.return () 
+      else 
+	let k = Printf.sprintf "%c" (Char.chr i) 
+	and v = Printf.sprintf "%c_value" (Char.chr i) in
+	NC.set nc k v >>= fun () ->
+	fill (i-1)
+    in
+    fill 90 >>= fun () ->
+    NC.migrate nc "t"
   in
   Lwt_main.run (t ())
 

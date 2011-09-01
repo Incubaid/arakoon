@@ -136,7 +136,11 @@ let kv_array ic =
     in loop 0
 
 
-
+let request oc f =
+  let buf = Buffer.create 32 in
+  let () = f buf in
+  Lwt_io.write oc (Buffer.contents buf) >>= fun () ->
+  Lwt_io.flush oc
 
 let response ic f =
   Llio.input_int32 ic >>= function
@@ -230,5 +234,31 @@ let ping_to b client_id cluster_id =
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
   
+
+let prologue cluster (_,oc) =
+  Llio.output_int32  oc _MAGIC >>= fun () ->
+  Llio.output_int    oc _VERSION >>= fun () ->
+  Llio.output_string oc cluster 
+
+
+let who_master (ic,oc) = 
+  request  oc (fun buf -> who_master_to buf) >>= fun () ->
+  response ic Llio.input_string_option
+
+let set (ic,oc) key value = 
+  request  oc (fun buf -> set_to buf key value) >>= fun () ->
+  response ic nothing
+
+let get (ic,oc) ~allow_dirty key = 
+  request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
+  response ic Llio.input_string
+
+let get_tail (ic,oc) lower = 
+  let outgoing buf = 
+    command_to buf GET_TAIL;
+    Llio.string_to buf lower
+  in
+  request  oc outgoing >>= fun () ->
+  response ic Llio.input_kv_list
 
 exception XException of Arakoon_exc.rc * string

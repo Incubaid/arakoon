@@ -101,4 +101,18 @@ module Routing = struct
 	then go left 
 	else go right
     in go cfg
+
+  let next cfg key = 
+    let rec go ok = function
+      | Cluster x -> x
+      | Branch (left, sep, right) ->
+	if ok then
+	  if key < sep 
+	  then go ok left 
+	  else go ok right
+	else
+	  if key > sep 
+	  then go true right
+	  else go ok left
+    in go false cfg 
 end

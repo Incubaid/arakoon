@@ -43,18 +43,7 @@ class type nodestream = object
 
 end
 
-class remote_nodestream (ic,oc) = 
-  let request f =
-    let buf = Buffer.create 32 in
-    let () = f buf in
-    Lwt_io.write oc (Buffer.contents buf) >>= fun () ->
-    Lwt_io.flush oc
-  in
-object(self :# nodestream)
-
-
-
-
+class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
   method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
     (tlog_coll: Tlogcollection.tlog_collection) 
     ~head_saved_cb
@@ -94,7 +83,7 @@ object(self :# nodestream)
 	  end
 	| x -> Llio.lwt_failfmt "don't know what %i means" x
     in
-    request outgoing >>= fun () ->
+    request  oc outgoing >>= fun () ->
     response ic incoming  
 
 
@@ -122,7 +111,7 @@ object(self :# nodestream)
       in
       loop collapse_count
     in
-    request outgoing >>= fun () ->
+    request  oc outgoing >>= fun () ->
     response ic incoming
 
 
@@ -131,13 +120,13 @@ object(self :# nodestream)
       command_to buf SET_INTERVAL;
       Interval.interval_to buf iv
     in
-    request outgoing >>= fun () ->
+    request  oc outgoing >>= fun () ->
     response ic nothing
 
   method get_routing () =
     let outgoing buf = command_to buf GET_ROUTING
     in
-    request outgoing >>= fun () ->
+    request  oc outgoing >>= fun () ->
     response ic Routing.input_routing
 
   method set_routing r = 
@@ -149,7 +138,7 @@ object(self :# nodestream)
       Llio.int_to buf size;
       Buffer.add_buffer buf b'
     in
-    request outgoing >>= fun  () ->
+    request  oc outgoing >>= fun  () ->
     response ic nothing
     
   method get_db db_location =
@@ -161,24 +150,11 @@ object(self :# nodestream)
       Llio.input_int64 ic >>= fun length -> 
       Lwt_io.with_file ~mode:Lwt_io.output db_location (fun oc -> Llio.copy_stream ~length ~ic ~oc)
     in
-    request outgoing >>= fun () ->
+    request  oc outgoing >>= fun () ->
     response ic incoming
 
-  method get_tail (lower:string) = 
-    let outgoing buf = 
-      command_to buf GET_TAIL;
-      Llio.string_to buf lower
-    in
-    
-    request outgoing >>= fun () ->
-    response ic Llio.input_kv_list
+  method get_tail (lower:string) = Common.get_tail conn lower
 end
-
-let prologue cluster connection =
-  let (_,oc) = connection in 
-  Llio.output_int32  oc _MAGIC >>= fun () ->
-  Llio.output_int    oc _VERSION >>= fun () ->
-  Llio.output_string oc cluster 
 
 let make_remote_nodestream cluster connection = 
   prologue cluster connection >>= fun () ->
