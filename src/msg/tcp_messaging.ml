@@ -25,12 +25,11 @@ open Messaging
 open Lwt
 open Log_extra
 open Lwt_buffer
-open Lwtq
 open Network
 
 
 type connection = Lwt_io.input_channel * Lwt_io.output_channel
-type mq = (Message.t * id) LWTQ.t
+
 
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()
