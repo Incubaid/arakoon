@@ -54,11 +54,6 @@ let validateString str expectedMd5Hex =
   let calculatedMd5Hex = Digest.to_hex calculatedMd5 in
   compareDigests calculatedMd5Hex expectedMd5Hex
 
-let validateFile fileName expectedMd5Hex =
-  let calculatedMd5 = Digest.file fileName in
-  let calculatedMd5Hex = Digest.to_hex calculatedMd5 in
-  compareDigests calculatedMd5Hex expectedMd5Hex
-
 let validateTlogDump entryCount expectedMd5Hex =
   let readableBuf = String.make (128*1024) '\x00' in
   let oc = Lwt_io.of_string ~mode:Lwt_io.output readableBuf in

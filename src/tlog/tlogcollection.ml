@@ -28,10 +28,6 @@ open Tlogreader
 open Lwt
 
 
-let getTlogFilenameFromI i =
-  let fileAsSn = Sn.div i (Sn.of_int !tlogEntriesPerFile ) in
-  Printf.sprintf "%s%s" (Sn.string_of fileAsSn) tlogExtension
-
 
 let head_name = "head.db"
 
