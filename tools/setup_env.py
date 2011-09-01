@@ -54,10 +54,15 @@ class Lib:
         self._archive = name + extension
         self._url = url_t % self._archive
 
-    def download(self):
+    def download(self, extra = None):
         fn = '%s/%s' % (ROOT, self._archive)
+        start = ['wget']
+        if extra:
+            start.extend(extra)
+        start.extend(['-O',fn,self._url])
+
         if not os.path.exists(fn):
-            sh(['wget', '-O', fn, self._url])
+            sh(start)
 
     def extract(self):
         flags = extract_flags[self._extension]
@@ -128,7 +133,7 @@ def install_lwt():
 def install_camlbz2():
     lib = Lib('camlbz2-0.6.0','.tar.gz',
               'https://forge.ocamlcore.org/frs/download.php/72/%s')
-    lib.download()
+    lib.download(extra = ['--no-check-certificate'])
     lib.extract()
     lib.sh(['./configure'])
     lib.sh(['make', 'all'])
