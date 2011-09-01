@@ -251,9 +251,9 @@ def install_bisect():
     url = 'http://bisect.x9c.fr'
     sh (['darcs','get',url], cwd = ROOT)
     cwd = ROOT + '/bisect.x9c.fr'
-    sh (['sh','configure'], cwd = cwd)
-    sh (['make', 'all'], cwd = cwd)
-    sh (['make','install'], cwd = cwd)
+    sh (['sh','configure'], cwd = cwd, env = env)
+    sh (['make', 'all'], cwd = cwd, env = env)
+    sh (['make','install'], cwd = cwd, env = env)
     t_dir = '_build/src/threads'
     # This should not be necessary, but there's a bug in the Makefile
     sh (['cp', 
