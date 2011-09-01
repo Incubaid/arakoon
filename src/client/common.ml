@@ -100,11 +100,6 @@ let command_to buffer command =
   let masked = Int32.logor c _MAGIC in
   Llio.int32_to buffer masked
 
-let send_command oc command =
-  let c = List.assoc command code2int in
-  let masked = Int32.logor c _MAGIC in
-  Llio.output_int32 oc masked
-
 let nothing = fun ic -> Lwt.return ()
 
 let value_array ic =
