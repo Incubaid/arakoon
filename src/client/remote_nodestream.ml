@@ -54,20 +54,24 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     in
     let incoming ic =
       let save_head () = tlog_coll # save_head ic in
+      let last_seen = ref None in
       let rec loop_entries () =
-	Lwt_log.debug "loop_entries" >>= fun () ->
 	Sn.input_sn ic >>= fun i2 ->
-	Lwt_log.debug_f "i2=%s" (Sn.string_of i2) >>= fun () ->
 	begin
-	  if i2 = (-1L) then
-	    Lwt.return ()
+	  if i2 = (-1L) 
+	  then
+	    begin
+	    Lwt_log.info_f "remote_nodestream :: iterate (i = %s) last_seen = %s" 
+	      (Sn.string_of i)
+	      (Log_extra.option_to_string Sn.string_of !last_seen)
+	    end
 	  else
 	    begin
+	      last_seen := Some i2;
 	      Llio.input_int32 ic >>= fun chksum ->
 	      Llio.input_string ic >>= fun entry ->	      
 	      let update,_ = Update.from_buffer entry 0 in
-	      let i = i2 in
-	      f (i,update) >>= fun () ->
+	      f (i2, update) >>= fun () ->
               loop_entries ()
 	    end
 	end
