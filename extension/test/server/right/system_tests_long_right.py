@@ -449,4 +449,4 @@ def test_sabotage():
     time.sleep(10)
     size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
     logging.info("file_size = %i", size)
-    assert_true(size > 1024 * 20)
+    assert_true(size > 1024 * 5)
