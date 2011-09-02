@@ -36,6 +36,7 @@ from ..system_tests_common import node_names
 from ..system_tests_common import iterate_n_times
 from ..system_tests_common import regenerateClientConfig
 from ..system_tests_common import restart_nodes_wf_sim
+from ..system_tests_common import setup_1_node
 from ..system_tests_common import setup_2_nodes
 from ..system_tests_common import setup_3_nodes
 from ..system_tests_common import setup_1_node_forced_master
