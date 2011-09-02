@@ -891,22 +891,6 @@ class ArakoonCluster:
                                 stdout=subprocess.PIPE)
         pids = proc.communicate()[0]
         pid_list = pids.split()
-        rc = proc.returncode
-        t = (str(cmd), rc, pid_list)
-        q.logger.log( '%s=>rc=%i (%s)' % t)
-        logging.debug('%s=>rc=%i (%s)' % t)
-
-
-        logging.debug('pid_list=%s',pid_list)
-        for pid in pid_list:
-            try:
-                f = open('/proc/%s/cmdline' % pid,'r')
-                startup = f.read()
-                f.close()
-                logging.debug("pid=%s; cmdline=%s", pid, startup)
-            except:
-                pass
-        
         lenp = len(pid_list)
         result = None
         if lenp == 1:
@@ -914,6 +898,14 @@ class ArakoonCluster:
         elif lenp == 0:
             result = q.enumerators.AppStatusType.HALTED
         else:
+            for pid in pid_list:
+                try:
+                    f = open('/proc/%s/cmdline' % pid,'r')
+                    startup = f.read()
+                    f.close()
+                    logging.debug("pid=%s; cmdline=%s", pid, startup)
+                except:
+                    pass
             raise Exception("multiple matches", pid_list)
         return result
 
