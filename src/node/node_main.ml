@@ -200,6 +200,8 @@ module X = struct
 	Store.on_consensus store vni
     end
   
+  let last_master_log_stmt = ref 0L  
+  
   let on_accept tlog_coll store (v,n,i) =
     Lwt_log.debug_f "on_accept: n:%s i:%s" 
       (Sn.string_of n) (Sn.string_of i)
@@ -211,10 +213,28 @@ module X = struct
       match u with
 	| Update.MasterSet (m,l) ->
 	  begin
-	    let now = Int64.of_float (Unix.gettimeofday ()) in
-	    store # set_master_no_inc m now >>= fun _ -> 
-            Lwt_log.info_f "%s now is master"  m >>= fun () ->
-            Lwt.return () 
+      let logit () =
+        let now = Int64.of_float (Unix.gettimeofday ()) in
+        store # who_master () >>= fun m_old_master ->
+	      store # set_master_no_inc m now >>= fun _ ->
+        begin
+          let new_master =
+            begin
+              match m_old_master with
+                | Some(m_old,_) -> m <> m_old
+                | None -> true
+            end 
+          in
+          if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
+            begin
+              last_master_log_stmt := now;
+              Lwt_log.info_f "%s is master"  m
+            end 
+          else 
+            Lwt.return ()
+        end
+      in 
+      logit ()
 	  end
 	| _ -> Lwt.return()
     end 
