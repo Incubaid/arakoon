@@ -235,9 +235,7 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
     tlog_dir (Sn.string_of start_i) tfs 
   >>= fun () ->
   get_tlog_names tlog_dir >>= fun tlog_names ->
-  let acc_entry (i0:Sn.t) (i,u) = 
-    Lwt_log.debug_f "doing: %s" (Sn.string_of i) >>= fun () ->
-    f (i,u) >>= fun () -> Lwt.return i
+  let acc_entry (i0:Sn.t) (i,u) = f (i,u) >>= fun () -> Lwt.return i
   in
   let maybe_fold low fn =
     let factor = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
