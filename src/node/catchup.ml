@@ -131,12 +131,13 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		    | x -> x
 		  in
 		  Store.safe_insert_update store pi pu' >>= fun _ ->
-      begin
-      store # consensus_i () >>= function
-        | None -> Lwt_log.debug "Store still empty" 
-        | Some cons_i -> Lwt_log.debug_f "Store counter is at %s" (Sn.string_of cons_i)
-      end >>= fun () ->
-      let () = acc := Some(i,update) in
+		  begin
+		    store # consensus_i () >>= function
+		      | None -> Lwt_log.debug "Store still empty" 
+		      | Some cons_i -> Lwt_log.debug_f "Store counter is at %s" 
+			(Sn.string_of cons_i)
+		  end >>= fun () ->
+		  let () = acc := Some(i,update) in
 		  Lwt.return ()
 		end
 	      else
