@@ -55,6 +55,14 @@ let collapse_until tlog_dir head_name too_far_i =
   else
     begin
       let acc = ref None in
+      let maybe_log =
+	let lo = Sn.add start_i   (Sn.of_int 10) in
+	let hi = Sn.sub too_far_i (Sn.of_int 10) in
+	function 
+	  | b when b < lo || b > hi ->  Lwt_log.debug_f "%s => store" (Sn.string_of b)
+	  | b when b = lo -> Lwt_log.debug " ... => store"
+	  | _ -> Lwt.return ()
+      in
       let add_to_store (i,update) = 
 	match !acc with
 	  | None ->
@@ -67,7 +75,7 @@ let collapse_until tlog_dir head_name too_far_i =
 	  | Some (pi,pu) ->
 	    if pi < i then
 	      begin
-		Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
+		maybe_log pi >>= fun () -> 
 		Store.safe_insert_update store pi pu >>= fun _ ->
 		let () = acc := Some(i,update) in
 		Lwt.return ()
