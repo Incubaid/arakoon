@@ -163,6 +163,15 @@ def play_iteration( iteration ):
     for thr in thr_list:
         thr.join()
 
+_start_time = time.time()
+_sentence = float (environ.get('SENTENCE',60 * 60 * 1))
+
+def done_time():
+    t1 = time.time()
+    return  (t1 - _start_time) > _sentence
+
+
+
 def wait_for_it () :
     global monkey_dies
     def last_i(nn):
@@ -251,6 +260,9 @@ def health_check() :
     
     if not check_disk_space():
         logging.critical("SUCCES! Monkey filled the disk to its threshold")
+        sys.exit(0)
+    if done_time () :
+        logging.critical("SUCCES! Monkey did his time ...")
         sys.exit(0)
     
     logging.info("Cluster is healthy!")
