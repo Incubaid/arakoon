@@ -971,32 +971,36 @@ def range_entries_scenario( start_suffix ):
     end_suffix = key_format_str % ( start_suffix + 100 )
     test_key = key_format_str % (start_suffix + 25)
     test_key_2 = key_format_str % (start_suffix + 50)
+    try:
+        key_value_list = client.range_entries ( test_key , True, end_suffix , False )
+        assert_key_value_list ( start_suffix + 25, 75, key_value_list )
     
-    key_value_list = client.range_entries ( test_key , True, end_suffix , False )
-    assert_key_value_list ( start_suffix + 25, 75, key_value_list )
+        key_value_list = client.range_entries( test_key , False, end_suffix , False )
+        assert_key_value_list ( start_suffix + 26, 74, key_value_list )
     
-    key_value_list = client.range_entries( test_key , False, end_suffix , False )
-    assert_key_value_list ( start_suffix + 26, 74, key_value_list )
+        key_value_list = client.range_entries( test_key, True, end_suffix , False, 10 )
+        assert_key_value_list ( start_suffix + 25, 10, key_value_list )
     
-    key_value_list = client.range_entries( test_key, True, end_suffix , False, 10 )
-    assert_key_value_list ( start_suffix + 25, 10, key_value_list )
+        key_value_list = client.range_entries( start_key, True, test_key , False )
+        assert_key_value_list ( start_suffix, 25, key_value_list)
     
-    key_value_list = client.range_entries( start_key, True, test_key , False )
-    assert_key_value_list ( start_suffix, 25, key_value_list)
-    
-    key_value_list = client.range_entries( start_key, True, test_key , True )
-    assert_key_value_list ( start_suffix, 26, key_value_list)
+        key_value_list = client.range_entries( start_key, True, test_key , True )
+        assert_key_value_list ( start_suffix, 26, key_value_list)
 
-    key_value_list = client.range_entries( start_key, True, test_key , False, 10 )
-    assert_key_value_list ( start_suffix, 10, key_value_list )
+        key_value_list = client.range_entries( start_key, True, test_key , False, 10 )
+        assert_key_value_list ( start_suffix, 10, key_value_list )
     
-    key_value_list = client.range_entries( test_key, True, test_key_2 , False )
-    assert_key_value_list ( start_suffix + 25, 25, key_value_list )
+        key_value_list = client.range_entries( test_key, True, test_key_2 , False )
+        assert_key_value_list ( start_suffix + 25, 25, key_value_list )
     
-    key_value_list = client.range_entries( test_key, False, test_key_2 , True )
-    assert_key_value_list ( start_suffix + 26, 25, key_value_list )
+        key_value_list = client.range_entries( test_key, False, test_key_2 , True )
+        assert_key_value_list ( start_suffix + 26, 25, key_value_list )
     
-    key_value_list = client.range_entries( test_key, True, test_key_2 , False, 10 )
-    assert_key_value_list ( start_suffix + 25, 10, key_value_list )
+        key_value_list = client.range_entries( test_key, True, test_key_2 , False, 10 )
+        assert_key_value_list ( start_suffix + 25, 10, key_value_list )
+    except Exception, ex:
+        logging.info("on failure moment, master was: %s", client._masterId)
+        raise ex
+        
     
 
