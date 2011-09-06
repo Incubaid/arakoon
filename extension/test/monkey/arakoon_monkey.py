@@ -32,6 +32,7 @@ import smtplib
 import traceback
 import threading
 import time
+import os
 import nose.tools as NT
 from pymonkey import q
 import arakoon_monkey_config as MConfig
