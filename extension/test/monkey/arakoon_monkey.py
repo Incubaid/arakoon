@@ -165,7 +165,7 @@ def play_iteration( iteration ):
         thr.join()
 
 _start_time = time.time()
-_sentence = float (os.environ.get('SENTENCE',60 * 60 * 1))
+_sentence = float (os.environ.get('SENTENCE',60 * 60 * 2))
 
 def done_time():
     t1 = time.time()
