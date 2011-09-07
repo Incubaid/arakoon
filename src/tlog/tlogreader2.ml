@@ -26,8 +26,10 @@ open Update
 type entry = Sn.t * Update.t
 
 let uncompress_block compressed = 
-  let lc = String.length compressed in
-  Bz2.uncompress compressed 0 lc
+  Lwt_preemptive.detach 
+    (fun () ->
+      let lc = String.length compressed in
+      Bz2.uncompress compressed 0 lc) () 
 
 module type TR = sig
   val fold: Lwt_io.input_channel -> 
@@ -159,15 +161,18 @@ module C = struct
 	| None -> Lwt.return a
 	| Some compressed ->
 	  begin
-	    Lwt_log.debug_f "compressed: %i" (String.length compressed) >>= fun () ->
-	    let buffer = uncompress_block compressed in
+	    Lwt_log.debug_f "uncompressing: %i bytes" 
+	      (String.length compressed) >>= fun () ->
+	    uncompress_block compressed >>= fun buffer ->
+	    Lwt_log.debug_f "uncompressed size: %i bytes" 
+	      (String.length buffer) >>= fun () ->
 	    _fold_block a buffer 0 >>= fun a' ->
 	    _fold_blocks a'
 	  end
     in
     _skip_blocks () >>= fun compressed -> 
     Lwt_log.debug_f "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    let buffer = uncompress_block compressed in
+    uncompress_block compressed >>= fun buffer ->
     Lwt_log.debug_f "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
@@ -244,14 +249,14 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
 	| Some compressed ->
 	  begin
 	    Lwt_log.debug_f "compressed: %i" (String.length compressed) >>= fun () ->
-	    let buffer = uncompress_block compressed in
+	    uncompress_block compressed >>= fun buffer ->
 	    _fold_block a buffer 0 >>= fun a' ->
 	    _fold_blocks a'
 	  end
     in
     _read_block () >>= fun compressed -> 
     Lwt_log.debug_f "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    let buffer = uncompress_block compressed in
+    uncompress_block compressed >>= fun buffer ->
     Lwt_log.debug_f "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
