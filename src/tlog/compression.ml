@@ -71,7 +71,7 @@ let compress_tlog tlog_name archive_name =
 	    Llio.output_string oc output >>= fun () ->
 	    let t1 = Unix.gettimeofday() in
 	    let d = t1 -. t0 in
-	    Lwt_unix.sleep (2.0 * d) (* consume ~ 1/3  of the time *)
+	    Lwt_unix.sleep (2.0 *. d) (* consume ~ 1/3  of the time *)
 	  in
 	  let buffer = Buffer.create buffer_size in
 	  let rec loop () = 
