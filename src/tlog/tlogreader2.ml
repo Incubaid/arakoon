@@ -26,17 +26,18 @@ open Update
 type entry = Sn.t * Update.t
 
 let uncompress_block compressed = 
-  Lwt_preemptive.detach 
-    (fun () ->
-      let lc = String.length compressed in
-      Bz2.uncompress compressed 0 lc) () 
+  (* it exploded on the monkey when I did a Lwt_preemptive detach here *)
+  let lc = String.length compressed in 
+  let r = Bz2.uncompress compressed 0 lc in
+  Lwt.return r
+
 
 module type TR = sig
   val fold: Lwt_io.input_channel -> 
     Sn.t -> Sn.t option -> first:Sn.t ->
     'a ->
     ('a -> Sn.t* Update.t -> 'a Lwt.t) -> 'a Lwt.t
-    (** here this fold does not attempt to eliminate doubbles:
+    (** here this fold does not attempt to eliminate doubles:
 	it makes the code simpler and any state-updates that you need
 	to do this can be done in the acc anyway.
     **)
