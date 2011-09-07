@@ -32,7 +32,20 @@ let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
 let archive_extension = ".tlf"
 let archive_name c = Printf.sprintf "%03i.tlf" c
+let head_fname = "head.db"
 
+let head_name () = head_fname 
+
+let get_file_number i =
+  let j = 
+      if i = Sn.start
+        then
+          Sn.start
+        else
+          Sn.pred i
+  in
+  Sn.div j (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
+  
 let to_archive_name fn = 
   let length = String.length fn in
   let extension = String.sub fn (length -5) 5 in
@@ -369,8 +382,12 @@ object(self: # tlog_collection)
     Lwt_log.debug_f "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
 
+  method get_head_name () = 
+    Filename.concat tlog_dir (head_name())
+    
   method dump_head oc =
-    let head_name = Filename.concat tlog_dir Tlogcollection.head_name in
+    
+    let head_name = self # get_head_name () in
     let stat = Unix.LargeFile.stat head_name in
     let length = stat.st_size in
     Lwt_log.debug_f "tlcs:: dump_head (filesize is %Li bytes)" length >>= fun ()->
@@ -392,12 +409,10 @@ object(self: # tlog_collection)
     in
     Lwt.return next_i
 
-  method get_head_filename () = Filename.concat tlog_dir Tlogcollection.head_name 
-    
   method save_head ic =
     Lwt_log.debug "save_head()" >>= fun () ->
     Llio.input_int64 ic >>= fun length ->
-    let hf_name = self # get_head_filename () in
+    let hf_name = self # get_head_name () in
     Lwt_io.with_file 
       ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
       ~mode:Lwt_io.output
@@ -434,6 +449,25 @@ object(self: # tlog_collection)
     match _oc with
       | None -> Lwt.return ()
       | Some oc -> Lwt_io.close oc
+
+  method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
+  
+  method get_tlog_from_i = get_file_number
+  
+  method get_tlog_count () = 
+    get_tlog_names tlog_dir >>= fun tlogs ->
+    Lwt.return (List.length tlogs)
+  
+  method remove_oldest_tlogs count =
+    get_tlog_names tlog_dir >>= fun existing ->
+    let rec remove_one l = function
+      | 0 -> Lwt.return ()
+      | n -> 
+        let oldest = Filename.concat tlog_dir (List.hd l) in
+        Lwt_log.debug_f "Unlinking %s" oldest >>= fun () ->
+        File_system.unlink (oldest) >>= fun () ->
+        remove_one (List.tl l) (n-1)
+    in remove_one existing count 
 end
 
 let get_last_tlog tlog_dir =
@@ -516,13 +550,4 @@ let truncate_tlog filename =
     end
   in Lwt_main.run t
 
-let get_file_number i =
-  let j = 
-	  if i = Sn.start
-	    then
-	      Sn.start
-	    else
-	      Sn.pred i
-  in
-  Sn.div j (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
   

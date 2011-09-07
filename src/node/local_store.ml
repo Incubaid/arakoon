@@ -32,6 +32,7 @@ open Store
 open Unix.LargeFile
 
 
+  
 let _save_i i db =
   let is =
     let buf = Buffer.create 10 in
@@ -269,11 +270,19 @@ let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t)
       Hotc.transaction db (_save_i new_i) >>= fun () ->
       Lwt.fail ex)
 
+let get_construct_params db_name =
+  Hotc.create db_name >>= fun db ->
+  Hotc.transaction db _get_interval >>= fun interval ->
+  Hotc.transaction db _get_routing >>= fun routing_o ->
+  Hotc.transaction db _who_master >>= fun mlo ->
+  Hotc.transaction db _consensus_i >>= fun store_i ->
+  Lwt.return (db, interval, routing_o, mlo, store_i)
+  
 class local_store (db_location:string) (db:Hotc.t) 
   (interval:Interval.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
-  val my_location = db_location 
+  val mutable my_location = db_location 
   val mutable _interval = interval
   val mutable _routing = routing
   val mutable _mlo = mlo
@@ -442,8 +451,38 @@ object(self: #store)
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
       
-  method get_filename () = Hotc.filename db
+  method get_location () = Hotc.filename db
+  
+  method clone () =
+    let new_location = my_location ^ ".clone" in 
+    let when_closed () = 
+      File_system.copy_file my_location new_location 
+    in
+    self # reopen when_closed >>= fun () ->
+    get_construct_params new_location >>= fun (db, interval, routing_o, mlo, store_i) -> 
+    let store = new local_store new_location db interval routing_o mlo store_i in
+    let store2 = (store :> store) in
+    Lwt.return store2
     
+  method relocate new_location overwrite = 
+    File_system.exists new_location >>= fun dest_exists ->
+    begin
+      if dest_exists 
+      then
+        begin
+          if overwrite 
+          then
+            Lwt_unix.unlink new_location
+          else
+            Lwt.return ()
+        end
+      else
+         Lwt.return ()
+    end >>= fun () ->
+    File_system.rename my_location new_location >>= fun () ->
+    Lwt.return ( my_location <- new_location )
+         
+   
   method reopen f =
     let mode = 
     begin
@@ -531,12 +570,11 @@ object(self: #store)
 
 end
 
+
+  
 let make_local_store db_name =
-  Hotc.create db_name >>= fun db ->
-  Hotc.transaction db _get_interval >>= fun interval ->
-  Hotc.transaction db _get_routing >>= fun routing_o ->
-  Hotc.transaction db _who_master >>= fun mlo ->
-  Hotc.transaction db _consensus_i >>= fun store_i ->
+  get_construct_params db_name >>= fun (db, interval, routing_o, mlo, store_i) -> 
   let store = new local_store db_name db interval routing_o mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2
+

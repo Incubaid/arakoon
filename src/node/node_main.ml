@@ -263,7 +263,7 @@ module X = struct
     _inner ()
 end
 
-let _main_2 make_store make_tlog_coll make_config ~name 
+let _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name 
     ~daemonize ~catchup_only=
   Lwt_io.set_default_buffer_size 32768;
     let control  = {
@@ -319,11 +319,15 @@ let _main_2 make_store make_tlog_coll make_config ~name
       let build_startup_state () = 
 	begin
 	  Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
-	  let db_name = full_db_name me in
-	  Collapser.maybe_copy_head me.tlog_dir db_name >>= fun () ->
-	  make_store db_name >>= fun (store:Store.store) ->
-          Lwt.catch
-	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression) 
+    let db_name = full_db_name me in
+    let snapshot_name = get_snapshot_name() in
+    let full_snapshot_path = Filename.concat me.tlog_dir snapshot_name in
+    make_store full_snapshot_path >>= fun (snapshot_store:Store.store) ->
+    snapshot_store # relocate db_name false >>= fun () ->
+    snapshot_store # close () >>= fun () ->
+    make_store db_name >>= fun (store:Store.store) ->
+	  Lwt.catch
+	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
 	    ( function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
                 store # consensus_i () >>= fun store_i ->
@@ -353,7 +357,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
                       Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
 			last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.use_compression
+                      make_tlog_coll me.tlog_dir me.use_compression 
 		    end
                   else 
 		    begin
@@ -384,10 +388,11 @@ let _main_2 make_store make_tlog_coll make_config ~name
     let expect_reachable = messaging # expect_reachable in
     let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
     let inject_push v = Lwt_buffer.add v inject_buffer in
+    make_store full_snapshot_path >>= fun (snap_store:Store.store) ->
 	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
-	    new Sync_backend.sync_backend me client_push inject_push
-	      store tlog_coll lease_period
+      new Sync_backend.sync_backend me client_push inject_push
+	      store snap_store tlog_coll lease_period
 	      ~quorum_function n_nodes
 	      ~expect_reachable
 	      ~test
@@ -507,13 +512,14 @@ let _main_2 make_store make_tlog_coll make_config ~name
 
 let main_t make_config name daemonize catchup_only=
   let make_store = Local_store.make_local_store in
-  let make_tlog_coll = Tlc2.make_tlc2
-  in
-  _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
+  let make_tlog_coll = Tlc2.make_tlc2 in
+  let get_snapshot_name = Tlc2.head_name in
+  _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
 
 let test_t make_config name =
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
+  let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false 
   and catchup_only = false in
-  _main_2 make_store make_tlog_coll make_config ~name ~daemonize ~catchup_only
+  _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only

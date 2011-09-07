@@ -197,7 +197,7 @@ object (self: #store)
 
   method reopen when_closed = Lwt.return ()
 
-  method get_filename () = failwith "not supported"
+  method get_location () = failwith "not supported"
 
   method user_function name po = 
     Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
@@ -223,7 +223,11 @@ object (self: #store)
     in
     Lwt.return (StringMap.fold inc kv 0L)
     
-  method copy_store c = Lwt.return ()
+  method clone () = Lwt.return (self:>store)
+  
+  method copy_store oc = failwith "copy_store not supported"
+  
+  method relocate location overwrite = Lwt.return ()
 
   method get_tail lower = 
     Lwt_log.debug_f "mem_store :: get_tail %s" lower >>= fun () ->

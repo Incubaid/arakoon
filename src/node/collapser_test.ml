@@ -60,14 +60,16 @@ let test_collapse_until dn =
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
   let storename = "head.db" in
+  Local_store.make_local_store storename >>= fun store ->
   let future_i = Sn.of_int 1001 in
-  Collapser.collapse_until dn storename future_i >>= fun () ->
+  let cb = fun s -> Lwt.return () in
+  Collapser.collapse_until tlc store future_i cb >>= fun () ->
   (* some verification ? *)
   
   (* try to do it a second time, it should *)
   let future_i2 = Sn.of_int 1000 in
   _should_fail 
-    (fun () -> Collapser.collapse_until dn storename future_i2) 
+    (fun () -> Collapser.collapse_until tlc store future_i2 cb) 
     "this should fail" 
     "great, it indeed refuses to do this" 
   >>= fun ()->
@@ -82,14 +84,14 @@ let test_collapse_many dn =
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = "head.db" in
-  let make_file_names list = List.map (fun n -> n ^ Tlc2.archive_extension) list in
-  let cb fn = Lwt_log.debug_f "collapsed %s" fn
-  in
-  Collapser.collapse_many dn (make_file_names ["000"]) storename cb >>= fun () ->
+  let cb fn = Lwt_log.debug_f "collapsed %s" (Sn.string_of fn) in
+  let cb' = fun n -> Lwt.return () in
+  Local_store.make_local_store storename >>= fun store ->
+  Collapser.collapse_many tlc store 5 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->
-  Collapser.collapse_many dn (make_file_names ["001";"002"]) storename cb >>= fun () ->
+  Collapser.collapse_many tlc store 3 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many dn (make_file_names ["003";"004"]) storename cb >>= fun () ->
+  Collapser.collapse_many tlc store 1 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 

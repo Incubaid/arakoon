@@ -74,6 +74,7 @@ let make_went_well stats_cb awake sleeper =
 
 class sync_backend cfg push_update push_node_msg
   (store:Store.store) 
+  (snap_store:Store.store)
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
   ~quorum_function n_nodes
@@ -94,7 +95,7 @@ object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10 
   val _stats = Statistics.create ()
-
+  
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
     self # _only_if_master_or_dirty allow_dirty >>= fun () ->
@@ -133,11 +134,11 @@ object(self: #backend)
       | Store.Ok _ -> Lwt.return ()
       
   method private block_collapser (i: Sn.t) =
-    let tlog_file_n = Tlc2.get_file_number i  in
+    let tlog_file_n = tlog_collection # get_tlog_from_i i  in
     Hashtbl.add locked_tlogs tlog_file_n "locked"
     
   method private unblock_collapser i =
-    let tlog_file_n = Tlc2.get_file_number i in
+    let tlog_file_n = tlog_collection # get_tlog_from_i i in
     Hashtbl.remove locked_tlogs tlog_file_n;
     Lwt_condition.signal blockers_cond () 
     
@@ -437,10 +438,10 @@ object(self: #backend)
   method collapse n cb' cb = 
     begin
       if n < 1 then 
-	let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	and msg = Printf.sprintf "%i is not acceptable" n
-	in
-	Lwt.fail (XException(rc,msg))
+        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+        and msg = Printf.sprintf "%i is not acceptable" n
+        in
+        Lwt.fail (XException(rc,msg))
       else 
         Lwt_log.debug_f "collapsing_lock locked: %s"
           (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
@@ -453,14 +454,12 @@ object(self: #backend)
           Lwt.return ()
     end >>= fun () ->
     Lwt_mutex.with_lock collapsing_lock (fun () ->
-      let tlog_dir = Node_cfg.tlog_dir cfg in
-      let new_cb tlog_name =
-      let file_num = Tlc2.get_number tlog_name in
-      cb() >>= fun () ->
-      self # wait_for_tlog_release (Sn.of_int file_num)
+      let new_cb tlog_num =
+        cb() >>= fun () ->
+        self # wait_for_tlog_release tlog_num
       in
-      Collapser_main.collapse_lwt tlog_dir n cb' new_cb >>= fun () ->
-      Lwt.return ()
+      snap_store # reopen ( fun () -> Lwt.return () ) >>= fun () ->
+      Collapser.collapse_many tlog_collection snap_store n cb' new_cb 
     )
     
   method get_routing () = 

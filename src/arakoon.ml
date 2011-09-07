@@ -47,7 +47,6 @@ type local_action =
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
-  | Collapse
   | Collapse_remote
   | Backup_db
   | NumberOfValues
@@ -210,7 +209,6 @@ and counter = ref 0
 and n_tlogs = ref 1
 and n_clients = ref 1
 and catchup_only = ref false
-and tlog_dir = ref "/tmp"
 and location = ref ""
 in
 let set_action a = Arg.Unit (fun () -> action := a) in
@@ -288,10 +286,6 @@ let actions = [
   ("-n_clients", Arg.Set_int n_clients,
    "<n_clients> (for --benchmark)");
   ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
-  ("--collapse", Arg.Tuple[set_laction Collapse;
-			   Arg.Set_string tlog_dir;
-			   Arg.Set_int n_tlogs;],   
-   "<tlog_dir> <n> collapses all but <n> tlogs from <tlog_dir> into head database");
   ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
 				  Arg.Set_string cluster_id;
 				  Arg.Set_string ip;
@@ -336,7 +330,6 @@ let do_local = function
   | WHO_MASTER -> Client_main.who_master !config_file ()
   | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
   | STATISTICS -> Client_main.statistics !config_file
-  | Collapse -> Collapser_main.collapse !tlog_dir !n_tlogs
   | Collapse_remote -> Collapser_main.collapse_remote 
     !ip !port !cluster_id !n_tlogs
   | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location

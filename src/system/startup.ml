@@ -71,6 +71,7 @@ let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () =
     (_make_store stores now name)
     (_make_tlog_coll tlcs updates)
     get_cfgs
+    (fun () -> "DUMMY")
     ~name
     ~daemonize:false
     ~catchup_only:false

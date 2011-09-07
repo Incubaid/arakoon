@@ -61,7 +61,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
     Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
     let when_closed () = 
       Lwt_log.debug "when_closed" >>= fun () ->
-      let target_name = store # get_filename () in
+      let target_name = store # get_location () in
       File_system.copy_file hfn target_name 
     in
     store # reopen when_closed >>= fun () ->

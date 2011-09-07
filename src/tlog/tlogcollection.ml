@@ -28,9 +28,6 @@ open Tlogreader
 open Lwt
 
 
-
-let head_name = "head.db"
-
 class type tlog_collection = object
   method validate: unit -> (tlogValidity * Sn.t option) Lwt.t
   method validate_last_tlog: unit -> (tlogValidity * Sn.t option) Lwt.t 
@@ -42,6 +39,10 @@ class type tlog_collection = object
   method get_infimum_i : unit -> Sn.t Lwt.t
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
   method save_head : Lwt_io.input_channel -> unit Lwt.t
-  method get_head_filename : unit -> string
+  method get_head_name : unit -> string
+  method get_tlog_from_name : string -> Sn.t
+  method get_tlog_from_i : Sn.t -> Sn.t
+  method get_tlog_count: unit -> int Lwt.t
+  method remove_oldest_tlogs : int -> unit Lwt.t
 end
 

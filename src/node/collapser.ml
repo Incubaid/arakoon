@@ -22,81 +22,92 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let head_name = Tlogcollection.head_name
 
-let maybe_copy_head tlog_dir db_name = 
-  Lwt_log.debug_f "maybe_copy_head %s %s" tlog_dir db_name >>= fun () ->
-  let full_head = Filename.concat tlog_dir head_name in
-  File_system.exists full_head >>= fun head_exists ->
-  File_system.exists db_name   >>= fun db_exists ->
-  Lwt_log.debug_f "exists? %s %b" full_head head_exists >>= fun () ->
-  Lwt_log.debug_f "exists? %s %b" db_name db_exists >>= fun () ->
-  if head_exists && not db_exists 
-  then File_system.copy_file full_head db_name 
-  else Lwt.return ()
-
-let collapse_until tlog_dir head_name too_far_i =
-  let tfs = Sn.string_of too_far_i in
-  Lwt_log.debug_f "collapse_until %s" tfs >>= fun () ->
-  let cn_store = Filename.concat tlog_dir head_name in
-  Local_store.make_local_store cn_store >>= fun store ->
-  store # consensus_i () >>= fun store_i ->
+let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (store:Store.store) (too_far_i:Sn.t) (cb: Sn.t -> unit Lwt.t) =
+  let location = store # get_location() in
+  store # clone () >>= fun new_store ->
+  tlog_coll # get_infimum_i () >>= fun min_i ->
+  let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
+  new_store # consensus_i () >>= fun store_i ->
+	let tfs = Sn.string_of too_far_i in
+  let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
+  let processed = ref 0 in
   let start_i = 
+  begin
     match store_i with
-      | None -> Sn.start
-      | Some i -> Sn.succ i
+    | None -> Sn.start
+    | Some i -> Sn.succ i
+  end
   in
-  if start_i >= too_far_i 
-  then
-    let msg = Printf.sprintf 
-      "Store counter (%s) is ahead of end point (%s). Aborting"
-      (Sn.string_of start_i) tfs in
-    Lwt.fail (Failure msg) 
-  else
-    begin
+  
+  begin  
+	  if start_i >= too_far_i 
+	  then
+	    let msg = Printf.sprintf 
+	      "Store counter (%s) is ahead of end point (%s). Aborting"
+	      (Sn.string_of start_i) tfs in
+	    Lwt.fail (Failure msg) 
+	  else
       let acc = ref None in
       let maybe_log =
-	let lo = Sn.add start_i   (Sn.of_int 10) in
-	let hi = Sn.sub too_far_i (Sn.of_int 10) in
-	function 
-	  | b when b < lo || b > hi ->  Lwt_log.debug_f "%s => store" (Sn.string_of b)
-	  | b when b = lo -> Lwt_log.debug " ... => store"
-	  | _ -> Lwt.return ()
+      begin
+        let lo = Sn.add start_i   (Sn.of_int 10) in
+        let hi = Sn.sub too_far_i (Sn.of_int 10) in
+        function 
+        | b when b < lo || b > hi ->  Lwt_log.debug_f "%s => store" (Sn.string_of b)
+        | b when b = lo -> Lwt_log.debug " ... => store"
+        | _ -> Lwt.return ()
+      end 
       in
       let add_to_store (i,update) = 
-	match !acc with
-	  | None ->
-	    begin
-	      let () = acc := Some(i,update) in
-	      Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) 
-	      >>= fun () ->
-	      Lwt.return ()
-	    end
-	  | Some (pi,pu) ->
-	    if pi < i then
-	      begin
-		maybe_log pi >>= fun () -> 
-		Store.safe_insert_update store pi pu >>= fun _ ->
-		let () = acc := Some(i,update) in
-		Lwt.return ()
-	      end
-	    else
-	      begin
-		Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-		let () = acc := Some(i,update) in
-		Lwt.return ()
-	      end
+      begin 
+        match !acc with
+        | None ->
+          begin
+            let () = acc := Some(i,update) in
+            Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) 
+            >>= fun () ->
+            Lwt.return ()
+          end
+        | Some (pi,pu) ->
+          if pi < i then
+              begin
+                maybe_log pi >>= fun () ->
+                begin  
+                  if Sn.rem pi tlog_entries_per_file = 0L 
+                  then
+                     
+                    cb (Sn.of_int (first_tlog + !processed)) >>= fun () ->
+                    Lwt.return( processed := !processed + 1 )
+                  else
+                    Lwt.return ()
+                end 
+                >>= fun () ->
+                Store.safe_insert_update new_store pi pu >>= fun _ ->
+                let () = acc := Some(i,update) in
+                Lwt.return ()
+              end
+          else
+            begin
+              Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+              let () = acc := Some(i,update) in
+              Lwt.return ()
+            end
+      end
       in
       Lwt_log.debug_f "collapse_until: start_i=%s" (Sn.string_of start_i) 
       >>= fun () ->
-      Tlc2.iterate_tlog_dir tlog_dir start_i too_far_i add_to_store 
+      tlog_coll # iterate start_i too_far_i add_to_store 
       >>= fun () ->
-      store # consensus_i () >>= fun m_si ->
-      let si = match m_si with
-        | None -> Sn.start
-        | Some i -> i
+      new_store # consensus_i () >>= fun m_si ->
+      let si = 
+        begin
+          match m_si with
+          | None -> Sn.start
+          | Some i -> i
+        end
       in
-      
+          
       Lwt_log.debug_f "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
       begin
       if si = Sn.pred (Sn.pred too_far_i) then
@@ -104,55 +115,24 @@ let collapse_until tlog_dir head_name too_far_i =
       else
         let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
         Lwt_log.debug msg >>= fun () ->
-        store # close () >>= fun () ->
+        new_store # close () >>= fun () ->
         Lwt.fail (Failure msg)
       end
-      >>= fun () ->
-      store # close ()
-    end
       
-
-
-let mv_file source target = 
-  Unix.rename source target; 
-  Lwt.return ()
-
-let unlink_file target = 
-  Unix.unlink target; 
-  Lwt.return ()
-
-let collapse_many tlog_dir tlog_names head_name cb = 
-  Lwt_log.debug_f "collapse_many" >>= fun () ->
-  let new_name = head_name ^ ".next" in
-  let cn1 = Filename.concat tlog_dir head_name 
-  and cn2 = Filename.concat tlog_dir new_name 
-  in
-  Lwt.catch
-    (fun () -> File_system.copy_file cn1 cn2)
-    (function
-      | Unix.Unix_error (Unix.ENOENT,x,y) -> 
-	begin
-	  Lwt_log.debug_f "%s,%s" x y >>= fun () ->
-	  Lwt.return ()
-	end
-      | exn -> Lwt.fail exn)
-  >>= fun () -> 
-  let numbers = List.map Tlc2.get_number tlog_names in
-  let sorted = List.sort (fun a b -> b - a ) numbers in
-  let new_c = List.hd sorted in
-  let border_i = 
-    Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int (new_c+1)) in
-  let future_i = Sn.add border_i (Sn.of_int 1) in
-  Lwt_log.debug_f "collapse_many: entriesPerFile=%i;new_c=%i; future_i = %s" 
-    !Tlogcommon.tlogEntriesPerFile
-    new_c (Sn.string_of future_i) 
+    end
   >>= fun () ->
-  collapse_until tlog_dir new_name future_i >>= fun () ->
-  mv_file cn2 cn1 >>= fun () -> (* new head becomes effective head *)
-  Lwt_list.iter_s
-    (fun tlog_name ->
-      let cn = Filename.concat tlog_dir tlog_name in
-      cb tlog_name >>= fun () ->
-      unlink_file cn
-    )
-    tlog_names
+  Lwt_log.debug_f "Relocating store to %s" location >>= fun () ->
+  new_store # relocate location true >>= fun () ->
+  new_store # close ()
+
+let collapse_many tlog_coll store tlogs_to_keep cb' cb =
+  Lwt_log.debug_f "collapse_many" >>= fun () ->
+  tlog_coll # get_tlog_count () >>= fun total_tlogs ->
+  let tlogs_to_collapse = total_tlogs - tlogs_to_keep in
+  Lwt_log.info_f "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
+  cb' tlogs_to_collapse >>= fun () ->
+  tlog_coll # get_infimum_i() >>= fun tlc_min ->
+  let g_too_far_i = Sn.succ (Sn.add tlc_min (Sn.of_int (tlogs_to_collapse * !Tlogcommon.tlogEntriesPerFile))) in
+  collapse_until tlog_coll store g_too_far_i cb >>= fun () ->
+  tlog_coll # remove_oldest_tlogs tlogs_to_collapse 
+  

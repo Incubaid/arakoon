@@ -52,6 +52,8 @@ object (self: #tlog_collection)
     let data' = List.filter (fun (ei,eu) -> ei >= i && ei <= last_i) data in
     Lwt_list.iter_s f (List.rev data')
 
+  method get_tlog_count() = failwith "not supported"
+  
   method  log_update i u =
     let () = data <- (i,u)::data in
     let () = last_update <- (Some (i,u)) in
@@ -76,9 +78,15 @@ object (self: #tlog_collection)
   method dump_head oc = Llio.lwt_failfmt "not implemented"
   method save_head ic = Llio.lwt_failfmt "not implemented"
 
-  method get_head_filename () = failwith "not implemented"
+  method get_head_name () = failwith "not implemented"
 
+  method get_tlog_from_name n = failwith "not implemented"
+  
+  method get_tlog_from_i = failwith "not implemented"   
+  
   method close () = Lwt.return ()
+  
+  method remove_oldest_tlogs count = Lwt.return ()
 end
 
 let make_mem_tlog_collection tlog_dir use_compression =

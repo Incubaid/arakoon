@@ -58,7 +58,9 @@ class type store = object
   method incr_i: unit -> unit Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
-  method get_filename: unit -> string 
+  method clone : unit -> store Lwt.t
+  method relocate: string -> bool -> unit Lwt.t
+  method get_location: unit -> string 
 
   method aSSert: string -> string option -> bool Lwt.t
 
@@ -74,6 +76,7 @@ class type store = object
   method quiesced : unit -> bool 
   method copy_store : Lwt_io.output_channel -> unit Lwt.t
   method get_tail : string -> (string * string) list Lwt.t
+  
 end
 
 exception Key_not_found of string ;;
