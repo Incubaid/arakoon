@@ -384,8 +384,7 @@ object(self: #backend)
       
   method private _only_if_master() =
     self # who_master () >>= function
-      | None ->
-	Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
+      | None -> Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
       | Some m ->
 	if m <> my_name
 	then

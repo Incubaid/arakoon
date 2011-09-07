@@ -341,9 +341,9 @@ object(self: # tlog_collection)
       Lwt_log.debug ("end of compress : " ^ msg) 
     in 
     begin
-      if use_compression 
-      then compress ()
-      else Lwt.return ()
+      if use_compression then Lwt.ignore_result (compress ()); 
+      (* so compression does not delay progress *)
+      Lwt.return ()
     end
     >>= fun () ->
     _outer <- _outer + 1;

@@ -57,9 +57,21 @@ let compress_tlog tlog_name archive_name =
 	  in
 	  let compress_and_write last_i buffer = 
 	    let contents = Buffer.contents buffer in
-	    let output = Bz2.compress ~block:9 contents 0 (String.length contents) in
+	    let t0 = Unix.gettimeofday () in
+	    Lwt_preemptive.detach 
+	      (fun () ->
+		let output = Bz2.compress ~block:9 contents 0 (String.length contents) 
+		in
+		output) () 
+	    >>= fun output ->
+	    Lwt_log.debug_f "compressed %i bytes into %i" 
+	      (String.length contents) (String.length output) 
+	    >>= fun () ->
 	    Llio.output_int64 oc last_i >>= fun () ->
-	    Llio.output_string oc output 
+	    Llio.output_string oc output >>= fun () ->
+	    let t1 = Unix.gettimeofday() in
+	    let d = t1 -. t0 in
+	    Lwt_unix.sleep (2.0 * d) (* consume ~ 1/3  of the time *)
 	  in
 	  let buffer = Buffer.create buffer_size in
 	  let rec loop () = 
