@@ -60,20 +60,37 @@ let test_collapse_until dn =
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
   let storename = "head.db" in
+  begin
+    File_system.exists storename >>= fun head_exists ->
+      if head_exists
+      then
+        File_system.unlink storename
+      else
+        Lwt.return ()
+  end
+  >>= fun () ->
   Local_store.make_local_store storename >>= fun store ->
-  let future_i = Sn.of_int 1001 in
-  let cb = fun s -> Lwt.return () in
-  Collapser.collapse_until tlc store future_i cb >>= fun () ->
-  (* some verification ? *)
-  
-  (* try to do it a second time, it should *)
-  let future_i2 = Sn.of_int 1000 in
-  _should_fail 
-    (fun () -> Collapser.collapse_until tlc store future_i2 cb) 
-    "this should fail" 
-    "great, it indeed refuses to do this" 
-  >>= fun ()->
-  Lwt.return ()
+  Lwt.finalize(
+    fun () ->
+		  let future_i = Sn.of_int 1001 in
+		  let cb = fun s -> Lwt.return () in
+		  Collapser.collapse_until tlc store future_i cb >>= fun () ->
+		  (* some verification ? *)
+		  
+		  (* try to do it a second time, it should *)
+		  let future_i2 = Sn.of_int 1000 in
+		  _should_fail 
+		    (fun () ->
+        store # reopen ( fun () -> Lwt.return () ) >>= fun () -> 
+        Collapser.collapse_until tlc store future_i2 cb) 
+		    "this should fail" 
+		    "great, it indeed refuses to do this" 
+		  >>= fun ()->
+		  Lwt.return ()
+  ) ( 
+    fun () ->
+      store # close ()
+  )
 
 
 let test_collapse_many dn =
@@ -96,13 +113,24 @@ let test_collapse_many dn =
   end
   >>= fun () ->
   Local_store.make_local_store storename >>= fun store ->
-  Collapser.collapse_many tlc store 5 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 000" >>= fun () ->
-  Collapser.collapse_many tlc store 3 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many tlc store 1 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
-  Lwt.return ()
+  let reopen () = 
+    store # reopen ( fun () -> Lwt.return () )
+  in
+  Lwt.finalize (
+    fun () ->
+      Collapser.collapse_many tlc store 5 cb' cb >>= fun () ->
+      Lwt_log.debug "collapsed 000" >>= fun () ->
+      reopen () >>= fun () ->
+      Collapser.collapse_many tlc store 3 cb' cb >>= fun () ->
+      Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
+      reopen () >>= fun () ->
+      Collapser.collapse_many tlc store 1 cb' cb >>= fun () ->
+      Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
+      Lwt.return ()
+  ) ( 
+    fun () ->
+      store # close ()
+  )
 
 
 

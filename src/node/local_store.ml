@@ -467,21 +467,20 @@ object(self: #store)
   method relocate new_location overwrite = 
     File_system.exists new_location >>= fun dest_exists ->
     begin
-      if dest_exists 
+      if dest_exists && overwrite 
       then
-        begin
-          if overwrite 
-          then
-            Lwt_unix.unlink new_location
-          else
-            Lwt.return ()
-        end
+        Lwt_unix.unlink new_location
       else
-         Lwt.return ()
+        Lwt.return ()
     end >>= fun () ->
-    File_system.rename my_location new_location >>= fun () ->
-    Lwt.return ( my_location <- new_location )
-         
+    begin
+      if dest_exists && not overwrite
+      then
+        Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" my_location new_location
+      else            
+        File_system.rename my_location new_location >>= fun () ->
+        Lwt.return ( my_location <- new_location )
+    end 
    
   method reopen f =
     let mode = 
