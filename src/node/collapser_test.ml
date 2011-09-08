@@ -86,6 +86,15 @@ let test_collapse_many dn =
   let storename = "head.db" in
   let cb fn = Lwt_log.debug_f "collapsed %s" (Sn.string_of fn) in
   let cb' = fun n -> Lwt.return () in
+  begin
+    File_system.exists storename >>= fun head_exists ->
+	  if head_exists
+	  then
+	    File_system.unlink storename
+	  else
+	    Lwt.return ()
+  end
+  >>= fun () ->
   Local_store.make_local_store storename >>= fun store ->
   Collapser.collapse_many tlc store 5 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->
