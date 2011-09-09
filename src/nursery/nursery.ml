@@ -124,15 +124,20 @@ module NC = struct
   let migrate t start_key = (* direction is always 'up' *)
     let from_cn = NCFG.find_cluster t.rc start_key in
     let to_cn = NCFG.next_cluster t.rc from_cn in
-    let todo conn = Common.get_tail conn start_key in
+    let pull conn = Common.get_tail conn start_key in
+    let push seq conn = Common.sequence conn seq in
     let rec loop () =
-      _with_master_connection t from_cn todo >>= function
+      _with_master_connection t from_cn pull >>= fun tail ->
+      match tail with
 	| [] -> 
 	  Lwt_io.printlf "done" >>= fun () ->
 	  Lwt.return ()
 	| tail -> 
 	  let size = List.length tail in
 	  Lwt_io.printlf "Length = %i" size >>= fun () ->
+	  let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
+	  _with_master_connection t to_cn   (push seq) >>= fun () ->
+	  (* _with_master_connection t from_cn (Common.set_interval *)
 	  loop ()
     in loop ()
 

@@ -21,6 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
+open Interval
+open Update
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -255,5 +257,33 @@ let get_tail (ic,oc) lower =
   in
   request  oc outgoing >>= fun () ->
   response ic Llio.input_kv_list
+
+let set_interval(ic,oc) iv = 
+  let outgoing buf = 
+    command_to buf SET_INTERVAL;
+    Interval.interval_to buf iv
+  in
+  request  oc outgoing >>= fun () ->
+  response ic nothing
+let sequence (ic,oc) changes = 
+  let outgoing buf = 
+    command_to buf SEQUENCE;
+    let update_buf = Buffer.create (32 * List.length changes) in
+    let rec c2u = function
+      | Arakoon_client.Set (k,v) -> Update.Set(k,v)
+      | Arakoon_client.Delete k -> Update.Delete k
+      | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
+      | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
+      | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
+    in
+    let updates = List.map c2u changes in
+    let seq = Update.Sequence updates in
+    let () = Update.to_buffer update_buf seq in
+    let () = Llio.string_to buf (Buffer.contents update_buf)
+    in () 
+  in
+  request  oc (fun buf -> outgoing buf) >>= fun () ->
+  response ic nothing
+    
 
 exception XException of Arakoon_exc.rc * string

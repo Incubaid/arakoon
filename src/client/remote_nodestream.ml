@@ -26,6 +26,7 @@ open Routing
 open Common
 open Lwt
 
+
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
@@ -119,13 +120,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     response ic incoming
 
 
-  method set_interval iv =
-    let outgoing buf = 
-      command_to buf SET_INTERVAL;
-      Interval.interval_to buf iv
-    in
-    request  oc outgoing >>= fun () ->
-    response ic nothing
+  method set_interval iv = Common.set_interval conn iv
 
   method get_routing () =
     let outgoing buf = command_to buf GET_ROUTING
