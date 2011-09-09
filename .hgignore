@@ -9,6 +9,8 @@ build/*
 arakoon.native
 arakoon.byte
 arakoon.d.byte
+nursery.native
+nusery.byte
 debian/tmp/*
 debian/libarakoon-ocaml-dev/*
 debian/arakoon/*
