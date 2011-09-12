@@ -269,13 +269,12 @@ let set_interval(ic,oc) iv =
   request  oc outgoing >>= fun () ->
   response ic nothing
 
-let get_interval (ic,oc) iv = 
+let get_interval (ic,oc) = 
   let outgoing buf = 
-    command_to buf GET_INTERVAL;
-    Interval.interval_to buf iv
+    command_to buf GET_INTERVAL
   in
   request oc outgoing >>= fun () ->
-  response ic Llio.input_string
+  response ic Interval.input_interval
 
 let sequence (ic,oc) changes = 
   let outgoing buf = 

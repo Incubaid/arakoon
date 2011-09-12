@@ -23,6 +23,7 @@ open Lwt
 open Routing
 open Client_cfg
 open Ncfg
+open Interval
 
 let try_connect (ips, port) =
   Lwt.catch
@@ -73,6 +74,7 @@ module NC = struct
 	begin
 	  try_connect (ip,port) >>= function
 	    | Some conn -> 
+	      Common.prologue cn conn >>= fun () ->
 	      let () = Hashtbl.add t.connections nn (Connection conn) in
 	      Lwt.return conn
 	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
@@ -111,6 +113,7 @@ module NC = struct
     
   let set t key value = 
     let cn = NCFG.find_cluster t.rc key in
+    Lwt_log.debug_f "set %S => %s" key cn >>= fun () ->
     let todo conn = Common.set conn key value in
     _with_master_connection t cn todo
 
@@ -126,7 +129,10 @@ module NC = struct
     let to_cn = NCFG.next_cluster t.rc from_cn in
     let pull conn = Common.get_tail conn start_key in
     let push seq conn = Common.sequence conn seq in
-    let rec loop () =
+    _with_master_connection t from_cn Common.get_interval 
+    >>= fun from_interval -> 
+    let (pu_b,pu_e),(pr_b,pr_e) = from_interval in
+    let rec loop from_interval =
       _with_master_connection t from_cn pull >>= fun tail ->
       match tail with
 	| [] -> 
@@ -137,9 +143,15 @@ module NC = struct
 	  Lwt_io.printlf "Length = %i" size >>= fun () ->
 	  let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
 	  _with_master_connection t to_cn   (push seq) >>= fun () ->
-	  (* _with_master_connection t from_cn (Common.set_interval *)
-	  loop ()
-    in loop ()
+	  let e,_ = List.hd (List.rev tail) in
+	  let from_interval' = Interval.make pu_b pu_e pr_b (Some e) in 
+	  Lwt_log.debug_f "new interval = %s" (Interval.to_string from_interval') 
+	  >>= fun () ->
+	  _with_master_connection t from_cn 
+	    (fun conn -> Common.set_interval conn from_interval') 
+	  >>= fun () ->
+	  loop from_interval'
+    in loop from_interval
 
 end
 
@@ -149,8 +161,8 @@ let main () =
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
   let right_cfg = ClientCfg.make () in
-  let () = ClientCfg.add left_cfg "1" ("127.0.0.1", 4000) in
-  let () = ClientCfg.add right_cfg "one" ("127.0.0.1", 5000) in
+  let () = ClientCfg.add left_cfg "left_0"   ("127.0.0.1", 4000) in
+  let () = ClientCfg.add right_cfg "right_0" ("127.0.0.1", 5000) in
   let nursery_cfg = NCFG.make routing in
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
@@ -166,7 +178,9 @@ let main () =
     test "a" "A" >>= fun () ->
     test "z" "Z" 
   *)
+
   let t () = 
+    Lwt_log.info "pre-fill" >>= fun () ->
     let rec fill i = 
       if i = 64 
       then Lwt.return () 
