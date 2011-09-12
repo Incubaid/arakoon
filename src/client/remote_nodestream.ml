@@ -41,7 +41,8 @@ class type nodestream = object
   method get_db: string -> unit Lwt.t
 
   method get_tail: string -> ((string * string) list) Lwt.t
-
+  method set_interval : Interval.t -> unit Lwt.t
+  method get_interval : unit -> Interval.t Lwt.t
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)

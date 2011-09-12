@@ -1,5 +1,6 @@
 open Update
 open Routing
+open Interval
 
 class type nodestream = object
   method iterate: 
@@ -15,6 +16,8 @@ class type nodestream = object
   method get_db: string -> unit Lwt.t
 
   method get_tail: string -> ((string * string) list) Lwt.t
+  method set_interval : Interval.t -> unit Lwt.t
+  method get_interval : unit -> Interval.t Lwt.t
 end
 
 val make_remote_nodestream : 

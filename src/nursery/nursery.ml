@@ -125,6 +125,7 @@ module NC = struct
   let close t = Llio.lwt_failfmt "close not implemented"
 
   let migrate t start_key = (* direction is always 'up' *)
+    Lwt_log.debug_f "migrate %s" start_key >>= fun () ->
     let from_cn = NCFG.find_cluster t.rc start_key in
     let to_cn = NCFG.next_cluster t.rc from_cn in
     let pull conn = Common.get_tail conn start_key in
@@ -157,7 +158,7 @@ end
 
 let main () =
   All_test.configure_logging ();
-  let repr = [("left", "")], "right" in (* all in left *)
+  let repr = [("left", "ZZ")], "right" in (* all in left *)
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
   let right_cfg = ClientCfg.make () in
@@ -178,16 +179,15 @@ let main () =
     test "a" "A" >>= fun () ->
     test "z" "Z" 
   *)
-
   let t () = 
     Lwt_log.info "pre-fill" >>= fun () ->
     let rec fill i = 
       if i = 64 
       then Lwt.return () 
       else 
-	let k = Printf.sprintf "%c" (Char.chr i) 
+	(*let k = Printf.sprintf "%c" (Char.chr i) 
 	and v = Printf.sprintf "%c_value" (Char.chr i) in
-	NC.set nc k v >>= fun () ->
+	NC.set nc k v >>= fun () -> *)
 	fill (i-1)
     in
     fill 90 >>= fun () ->

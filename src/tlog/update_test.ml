@@ -23,6 +23,9 @@ If not, see <http://www.gnu.org/licenses/>.
 open OUnit
 open Update
 open Interval
+
+open Lwt
+
 let _b2b u = 
   let b = Buffer.create 1024 in
   let () = Update.to_buffer b u in
@@ -31,6 +34,7 @@ let _b2b u =
   u'
 
 let _cmp = OUnit.assert_equal ~printer:Update.string_of 
+
 let test_sequence () =
   let s = Update.Sequence [
     Update.make_master_set "Zen" None;
@@ -51,7 +55,23 @@ let test_interval() =
   let u1' = _b2b u1 in
   _cmp u1 u1'
 
+
+let test_interval2() = 
+  let t () = 
+    let i0 = Interval.make (Some "a") (Some "b") None (Some "c") in
+    let fn = "/tmp/test_interval2.bin" in
+    Lwt_io.with_file ~mode:Lwt_io.output fn
+    (fun oc -> Interval.output_interval oc i0) 
+    >>= fun () ->
+    Lwt_io.with_file ~mode:Lwt_io.input fn (fun ic ->
+      Interval.input_interval ic >>= fun i1 ->
+      OUnit.assert_equal ~printer:Interval.to_string i0 i1;
+      Lwt.return ())
+  in
+  Lwt_main.run (t())
+    
 let suite = "update" >:::[
   "sequence" >:: test_sequence;
   "interval" >:: test_interval;
+  "interval2">:: test_interval2
 ]

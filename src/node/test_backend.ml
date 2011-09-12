@@ -190,7 +190,9 @@ class test_backend my_name = object(self:#backend)
     in
     loop n
       
-  method set_interval interval = _interval <- interval; Lwt.return ()
+  method set_interval interval = 
+    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) >>= fun () ->
+    _interval <- interval; Lwt.return ()
   method get_interval () = Lwt.return _interval
 
 

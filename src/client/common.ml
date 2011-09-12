@@ -262,6 +262,7 @@ let get_tail (ic,oc) lower =
 
 
 let set_interval(ic,oc) iv = 
+  Lwt_log.debug "set_interval" >>= fun () ->
   let outgoing buf = 
     command_to buf SET_INTERVAL;
     Interval.interval_to buf iv
@@ -270,6 +271,7 @@ let set_interval(ic,oc) iv =
   response ic nothing
 
 let get_interval (ic,oc) = 
+  Lwt_log.debug "get_interval" >>= fun () ->
   let outgoing buf = 
     command_to buf GET_INTERVAL
   in

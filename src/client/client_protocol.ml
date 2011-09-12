@@ -201,14 +201,14 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	backend # who_master () >>= fun m ->
 	Llio.output_int32 oc 0l >>= fun () ->
 	Llio.output_string_option oc m >>= fun () ->
-  Lwt.return false
+	Lwt.return false
       end
     | EXPECT_PROGRESS_POSSIBLE ->
       begin
 	backend # expect_progress_possible () >>= fun poss ->
 	Llio.output_int32 oc 0l >>= fun () ->
 	Llio.output_bool oc poss >>= fun () ->
-  Lwt.return false
+	Lwt.return false
       end
     | TEST_AND_SET ->
       begin

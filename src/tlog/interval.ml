@@ -47,11 +47,11 @@ module Interval = struct
     Lwt.return ()
 
   let input_interval ic =
-    let i_so = Llio.input_string_option ic in
-    i_so >>= fun pu_b ->
-    i_so >>= fun pu_e ->
-    i_so >>= fun pr_b ->
-    i_so >>= fun pr_e ->
+    let i_so () = Llio.input_string_option ic in
+    i_so () >>= fun pu_b -> 
+    i_so () >>= fun pu_e ->
+    i_so () >>= fun pr_b ->
+    i_so () >>= fun pr_e ->
     let r = (make pu_b pu_e pr_b pr_e) in
     Lwt.return r
 end

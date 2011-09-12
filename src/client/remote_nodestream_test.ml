@@ -5,6 +5,7 @@ open Master_type
 open Test_backend
 open Remote_nodestream
 open Arakoon_remote_client
+open Interval
 
 let setup port = Lwt.return port
 
@@ -38,9 +39,15 @@ let __wrap__ port conversation =
   Lwt.pick [client_t ();server ()] >>= fun () ->
   Lwt.return ()
 
-let set_range port () = 
-  let conversation (ic,oc) = 
-    Lwt_log.debug "starting set_range ..." >>= fun () ->
+let set_interval port () = 
+  let conversation conn =
+    Lwt_log.debug "starting set_interval ..." >>= fun () ->
+    Common.prologue _cluster conn >>= fun () ->
+    let i0 = Interval.make (Some "a") None None None in
+    Lwt_log.debug_f "i0=%S" (Interval.to_string i0) >>= fun () ->
+    Common.set_interval conn i0 >>= fun () -> 
+    Common.get_interval conn >>= fun i1 ->
+    OUnit.assert_equal ~printer:Interval.to_string i0 i1;
     Lwt_unix.sleep 4.0 
   in
   __wrap__ port conversation
@@ -80,7 +87,7 @@ let get_tail port ()=
 let suite = 
   let w f = Extra.lwt_bracket setup f teardown in
   "nursery" >:::
-    ["set_range" >:: w (set_range 6666);
+    ["set_interval" >:: w (set_interval 6666);
      "get_tail"  >:: w (get_tail  5555);
     ]
 
