@@ -530,6 +530,6 @@ object(self: #backend)
     )
     
   method get_tail lower = 
-    Lwt_log.debug "get_tail" >>= fun () ->
+    Lwt_log.debug_f "get_tail %S" lower >>= fun () ->
     store # get_tail lower
 end

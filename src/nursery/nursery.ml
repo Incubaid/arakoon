@@ -106,6 +106,7 @@ module NC = struct
       | Some master -> Lwt.return master 	  
 
   let _with_master_connection t cn (todo: connection -> 'c Lwt.t) =
+    Lwt_log.debug_f "_with_master_connection %s" cn >>= fun () ->
     _find_master t cn >>= fun master ->
     let nn = cn, master in
     _get_connection t nn >>= fun connection ->
@@ -128,22 +129,36 @@ module NC = struct
     Lwt_log.debug_f "migrate %s" start_key >>= fun () ->
     let from_cn = NCFG.find_cluster t.rc start_key in
     let to_cn = NCFG.next_cluster t.rc from_cn in
-    let pull conn = Common.get_tail conn start_key in
-    let push seq conn = Common.sequence conn seq in
+    Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
+    let pull conn = 
+      Lwt_log.debug "pull">>= fun () ->
+      Common.get_tail conn start_key 
+    in
+    let push tail conn = 
+      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
+      Lwt_log.debug "push" >>= fun () ->
+      Common.sequence conn seq 
+    in
+    let delete tail conn = 
+      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) tail in
+      Lwt_log.debug "delete" >>= fun () ->
+      Common.sequence conn seq
+    in
     _with_master_connection t from_cn Common.get_interval 
     >>= fun from_interval -> 
+    Lwt_log.debug_f "from_interval=%S" (Interval.to_string from_interval) >>= fun () ->
     let (pu_b,pu_e),(pr_b,pr_e) = from_interval in
     let rec loop from_interval =
       _with_master_connection t from_cn pull >>= fun tail ->
       match tail with
 	| [] -> 
-	  Lwt_io.printlf "done" >>= fun () ->
+	  Lwt_log.debug "done" >>= fun () ->
 	  Lwt.return ()
 	| tail -> 
 	  let size = List.length tail in
-	  Lwt_io.printlf "Length = %i" size >>= fun () ->
-	  let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
-	  _with_master_connection t to_cn   (push seq) >>= fun () ->
+	  Lwt_log.debug_f "Length = %i" size >>= fun () ->
+	  _with_master_connection t to_cn   (push tail  ) >>= fun () ->
+	  _with_master_connection t from_cn (delete tail) >>= fun () ->
 	  let e,_ = List.hd (List.rev tail) in
 	  let from_interval' = Interval.make pu_b pu_e pr_b (Some e) in 
 	  Lwt_log.debug_f "new interval = %s" (Interval.to_string from_interval') 
@@ -151,6 +166,7 @@ module NC = struct
 	  _with_master_connection t from_cn 
 	    (fun conn -> Common.set_interval conn from_interval') 
 	  >>= fun () ->
+	  
 	  loop from_interval'
     in loop from_interval
 
@@ -185,13 +201,13 @@ let main () =
       if i = 64 
       then Lwt.return () 
       else 
-	(*let k = Printf.sprintf "%c" (Char.chr i) 
+	let k = Printf.sprintf "%c" (Char.chr i) 
 	and v = Printf.sprintf "%c_value" (Char.chr i) in
-	NC.set nc k v >>= fun () -> *)
+	NC.set nc k v >>= fun () -> 
 	fill (i-1)
     in
     fill 90 >>= fun () ->
-    NC.migrate nc "t"
+    NC.migrate nc "T"
   in
   Lwt_main.run (t ())
 

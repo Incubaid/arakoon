@@ -262,7 +262,7 @@ let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t)
     (fun () ->
       Hotc.transaction db
 	(fun db ->
-    _save_i new_i db >>= fun () ->
+	  _save_i new_i db >>= fun () ->
 	  f db >>= fun (a:'a) ->
 	  Lwt.return a)
     )
@@ -294,13 +294,13 @@ object(self: #store)
 
   method quiesce () =
     begin
-	    if _quiesced then
-	      Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
-	    else
+      if _quiesced then
+	Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+      else
         begin
           _quiesced <- true;
-		      self # reopen (fun () -> Lwt.return ()) >>= fun () ->
-		      Lwt.return ()
+	  self # reopen (fun () -> Lwt.return ()) >>= fun () ->
+	  Lwt.return ()
         end
     end
     
@@ -415,7 +415,7 @@ object(self: #store)
     else 
         Hotc.transaction db 
         (fun db -> _set_master db master lease;
-	           Lwt.return ()
+	  Lwt.return ()
         )
 
   method who_master () = Lwt.return _mlo
@@ -502,8 +502,12 @@ object(self: #store)
   method set_interval interval = 
     Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) 
     >>= fun () ->
-    _interval <- interval;
-    Hotc.transaction db (fun db -> _set_interval db interval;Lwt.return ())
+    _tx_with_incr (self # _incr_i_cached) db
+      (fun db ->
+	_set_interval db interval;
+	_interval <- interval;
+	Lwt.return ()
+      )
       
   method get_interval () =
     Lwt_log.debug "get_interval" >>= fun ()->
@@ -549,27 +553,38 @@ object(self: #store)
     end
 
   method get_tail lower =
-    Hotc.transaction db 
-      (fun txdb -> Hotc.with_cursor txdb 
-	(fun lcdb cursor ->
-	  let limit = 2 * 1024 in
-	  let () = Bdb.last lcdb cursor in
-	  let r = 
-	    let rec loop acc ts =
-	      if ts < limit 
-	      then 
-		let k = Bdb.key   lcdb cursor in
-		let v = Bdb.value lcdb cursor in
-		let () = Bdb.prev lcdb cursor in
-		let acc' = (k,v) :: acc in
-		let ts' = ts + String.length k + String.length v in
-		loop acc' ts' 
-	      else acc
-	    in
-	    loop [] 0
-	  in
-	  Lwt.return r
-	))
+    Lwt_log.debug_f "local_store::get_tail %S" lower >>= fun () ->
+    let buf = Buffer.create 128 in
+    let plower = _p lower in
+    Lwt.finalize
+      (fun () ->
+	Hotc.transaction db 
+	  (fun txdb -> Hotc.with_cursor txdb 
+	    (fun lcdb cursor ->
+	      Buffer.add_string buf "1\n";
+	      let limit = 2 * 1024 in
+	      let () = Bdb.last lcdb cursor in
+	      Buffer.add_string buf "2\n";
+	      let r = 
+		let rec loop acc ts =
+		  let k = Bdb.key   lcdb cursor in
+		  let v = Bdb.value lcdb cursor in
+		  if ts >= limit or k.[0] = '*' or k < plower 
+		  then acc
+		  else
+		    let pk = String.sub k 1 (String.length k -1) in
+		    let acc' = (pk,v) :: acc in
+		    Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
+		    let ts' = ts + String.length k + String.length v in
+		    let () = Bdb.prev lcdb cursor in
+		    loop acc' ts' 
+		in
+		loop [] 0
+	      in
+	      Lwt.return r
+	    )))
+      (fun () -> 
+	Lwt_log.debug_f "buf:%s" (Buffer.contents buf))
 
 end
 
