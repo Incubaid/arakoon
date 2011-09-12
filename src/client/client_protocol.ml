@@ -338,6 +338,13 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
       end
+    | GET_INTERVAL ->
+      begin
+	backend # get_interval () >>= fun interval ->
+	Llio.output_int oc 0 >>= fun () ->
+	Interval.output_interval oc interval >>= fun () ->
+	Lwt.return false
+      end
     | GET_ROUTING ->
       Lwt.catch 
 	(fun () -> backend # get_routing () >>= fun routing ->

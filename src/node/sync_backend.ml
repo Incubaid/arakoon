@@ -121,6 +121,10 @@ object(self: #backend)
 	    end
 	  | ext -> Lwt.fail ext)
 
+  method get_interval () =
+    log_o self "get_interval" >>= fun () ->
+    self # _only_if_master () >>= fun () ->
+    store # get_interval ()
 
   method private _update_rendezvous update update_stats push = 
     self # _only_if_master () >>= fun () ->

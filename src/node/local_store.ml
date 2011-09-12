@@ -504,6 +504,10 @@ object(self: #store)
     >>= fun () ->
     _interval <- interval;
     Hotc.transaction db (fun db -> _set_interval db interval;Lwt.return ())
+      
+  method get_interval () =
+    Lwt_log.debug "get_interval" >>= fun ()->
+    Lwt.return _interval
 
   method get_routing () = 
     Lwt_log.debug "get_routing " >>= fun () ->

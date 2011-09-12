@@ -121,6 +121,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 
 
   method set_interval iv = Common.set_interval conn iv
+  method get_interval () = Common.get_interval conn 
 
   method get_routing () =
     let outgoing buf = command_to buf GET_ROUTING

@@ -54,6 +54,7 @@ type client_command =
   | STATISTICS
   | COLLAPSE_TLOGS
   | USER_FUNCTION
+  | GET_INTERVAL
   | SET_INTERVAL
   | GET_ROUTING
   | SET_ROUTING
@@ -88,6 +89,7 @@ let code2int = [
   GET_DB                  , 0x1bl;
   CONFIRM                 , 0x1cl;
   GET_TAIL                , 0x1dl;
+  GET_INTERVAL            , 0x1el;
 ]
 
 let int2code = 
@@ -258,6 +260,7 @@ let get_tail (ic,oc) lower =
   request  oc outgoing >>= fun () ->
   response ic Llio.input_kv_list
 
+
 let set_interval(ic,oc) iv = 
   let outgoing buf = 
     command_to buf SET_INTERVAL;
@@ -265,6 +268,15 @@ let set_interval(ic,oc) iv =
   in
   request  oc outgoing >>= fun () ->
   response ic nothing
+
+let get_interval (ic,oc) iv = 
+  let outgoing buf = 
+    command_to buf GET_INTERVAL;
+    Interval.interval_to buf iv
+  in
+  request oc outgoing >>= fun () ->
+  response ic Llio.input_string
+
 let sequence (ic,oc) changes = 
   let outgoing buf = 
     command_to buf SEQUENCE;

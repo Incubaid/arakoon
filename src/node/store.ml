@@ -65,6 +65,7 @@ class type store = object
   method aSSert: string -> string option -> bool Lwt.t
 
   method user_function : string -> string option -> (string option) Lwt.t
+  method get_interval: unit -> Interval.t Lwt.t
   method set_interval: Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t

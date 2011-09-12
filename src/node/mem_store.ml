@@ -208,6 +208,10 @@ object (self: #store)
     _interval <- iv;
     Lwt.return ()
 
+  method get_interval () =
+    Lwt_log.debug "get_interval" >>= fun () ->
+    Lwt.return _interval
+
   method get_routing () = 
     match _routing with
       | None -> Llio.lwt_failfmt "no routing"

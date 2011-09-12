@@ -27,6 +27,7 @@ open Statistics
 open Update
 open Routing
 open Common
+open Interval
 
 module StringMap = Map.Make(String);;
 
@@ -62,6 +63,7 @@ let range_ kv first finc last linc max =
 class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
   val mutable _routing = (None: Routing.t option)
+  val mutable _interval = ((None, None),(None, None) : Interval.t)
 
   method hello (client_id:string) (cluster_id:string) = 
     let r = 
@@ -188,7 +190,9 @@ class test_backend my_name = object(self:#backend)
     in
     loop n
       
-  method set_interval interval = failwith "not implemented"
+  method set_interval interval = _interval <- interval; Lwt.return ()
+  method get_interval () = Lwt.return _interval
+
 
   method get_routing () = 
     match _routing with
