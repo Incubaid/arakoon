@@ -44,5 +44,24 @@ module ClientCfg = struct
   let node_names (t:t) = Hashtbl.fold (fun k v acc -> k::acc) t []
   let make () = Hashtbl.create 7
   let add (t:t) name sa = Hashtbl.add t name sa
+  let get (t:t) name = Hashtbl.find t name
+
+
+  let from_file fn =  
+    let inifile = new Inifiles.inifile fn in
+    let cfg = make () in
+    let _get s n p = Ini.get inifile s n p Ini.required in
+    let cluster_id = _get "global" "cluster_id" Ini.p_string in
+    let nodes      = _get "global" "cluster" Ini.p_string_list in
+    let () = List.iter
+      (fun n ->
+	let ip = _get n "ip" Ini.p_string in
+	let port = _get n "client_port" Ini.p_int in
+	let sa = ip,port in
+	add cfg n sa
+      ) nodes
+    in
+    cfg
+
 end
 
