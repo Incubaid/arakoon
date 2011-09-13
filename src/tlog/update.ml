@@ -110,7 +110,9 @@ module Update = struct
       | SetInterval interval ->
 	Llio.int_to b 9;
 	Interval.interval_to b interval
-
+      | SetRouting r ->
+	Llio.int_to b 10;
+	Routing.routing_to b r
 
 
   let rec from_buffer b pos =
@@ -155,6 +157,9 @@ module Update = struct
       | 9 -> 
 	let interval,pos2 = Interval.interval_from b pos1 in
 	SetInterval interval, pos2
+      | 10 ->
+	let r,pos2 = Routing.routing_from b pos1 in
+	SetRouting r, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 
