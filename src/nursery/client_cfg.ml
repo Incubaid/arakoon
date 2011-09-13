@@ -47,7 +47,7 @@ module ClientCfg = struct
   let get (t:t) name = Hashtbl.find t name
 
 
-  let from_file fn =  
+  let from_file fn =  (* This is the format as defined in the extension *)
     let inifile = new Inifiles.inifile fn in
     let cfg = make () in
     let _get s n p = Ini.get inifile s n p Ini.required in
