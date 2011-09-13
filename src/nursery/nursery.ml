@@ -68,7 +68,6 @@ module NC = struct
 
   let _get_connection t nn = 
     let (cn,node) = nn in
-    Lwt_log.debug_f "_get_connection(%s,%s)" cn node >>= fun () ->
     match Hashtbl.find t.connections nn with
       | Address (ip,port) -> 
 	begin
@@ -123,6 +122,12 @@ module NC = struct
     let todo conn = Common.get conn false key in
     _with_master_connection t cn todo
 
+  let force_interval t cn i = 
+    Lwt_log.debug_f "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
+    _with_master_connection t cn 
+    (fun conn -> Common.set_interval conn i)
+
+
   let close t = Llio.lwt_failfmt "close not implemented"
 
   let migrate t start_key = (* direction is always 'up' *)
@@ -130,26 +135,30 @@ module NC = struct
     let from_cn = NCFG.find_cluster t.rc start_key in
     let to_cn = NCFG.next_cluster t.rc from_cn in
     Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
-    let pull conn = 
+    let pull () = 
       Lwt_log.debug "pull">>= fun () ->
-      Common.get_tail conn start_key 
+      _with_master_connection t from_cn 
+	(fun conn -> Common.get_tail conn start_key)
     in
-    let push tail conn = 
+    let push tail = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
       Lwt_log.debug "push" >>= fun () ->
-      Common.sequence conn seq 
+      _with_master_connection t to_cn 
+	(fun conn -> Common.sequence conn seq )
     in
-    let delete tail conn = 
+    let delete tail = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) tail in
       Lwt_log.debug "delete" >>= fun () ->
-      Common.sequence conn seq
+      _with_master_connection t from_cn 
+	(fun conn -> Common.sequence conn seq)
     in
-    _with_master_connection t from_cn Common.get_interval 
-    >>= fun from_interval -> 
-    Lwt_log.debug_f "from_interval=%S" (Interval.to_string from_interval) >>= fun () ->
-    let (pu_b,pu_e),(pr_b,pr_e) = from_interval in
-    let rec loop from_interval =
-      _with_master_connection t from_cn pull >>= fun tail ->
+    let get_interval cn = _with_master_connection t cn Common.get_interval in
+    let set_interval cn i = force_interval t cn i in
+    let i2s i = Interval.to_string i in
+    get_interval from_cn >>= fun from_i -> 
+    get_interval to_cn >>= fun to_i ->
+    let rec loop from_i to_i =
+      pull () >>= fun tail ->
       match tail with
 	| [] -> 
 	  Lwt_log.debug "done" >>= fun () ->
@@ -157,18 +166,35 @@ module NC = struct
 	| tail -> 
 	  let size = List.length tail in
 	  Lwt_log.debug_f "Length = %i" size >>= fun () ->
-	  _with_master_connection t to_cn   (push tail  ) >>= fun () ->
-	  _with_master_connection t from_cn (delete tail) >>= fun () ->
-	  let e,_ = List.hd (List.rev tail) in
-	  let from_interval' = Interval.make pu_b pu_e pr_b (Some e) in 
-	  Lwt_log.debug_f "new interval = %s" (Interval.to_string from_interval') 
-	  >>= fun () ->
-	  _with_master_connection t from_cn 
-	    (fun conn -> Common.set_interval conn from_interval') 
-	  >>= fun () ->
-	  
-	  loop from_interval'
-    in loop from_interval
+	  (* 
+	     - change public interval on 'from'
+	     - push tail & change private interval on 'to'
+	     - delete tail & change private interval on 'from'
+	     - change public interval 'to'
+	  *)
+	  let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
+	  let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
+	  let b, _ = List.hd (List.rev tail) in
+	  let e, _ = List.hd tail in
+	  Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+	  let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
+	  set_interval from_cn from_i' >>= fun () ->
+	  push tail >>= fun () ->
+	  let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
+	  set_interval to_cn to_i1 >>= fun () ->
+	  delete tail >>= fun () ->
+	  let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
+	  set_interval to_cn to_i2 >>= fun () ->
+	  let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
+	  set_interval from_cn from_i2 >>= fun () ->
+	  Lwt_log.debug_f "from {%s:%s;%s:%s}" 
+	    from_cn (i2s from_i) 
+	    to_cn (i2s to_i) >>= fun () ->
+	  Lwt_log.debug_f "to   {%s:%s;%s:%s}" 
+	    from_cn (i2s from_i2) 
+	    to_cn (i2s to_i2) >>= fun () ->
+	  loop from_i2 to_i2
+    in loop from_i to_i
 
 end
 
@@ -206,7 +232,12 @@ let main () =
 	NC.set nc k v >>= fun () -> 
 	fill (i-1)
     in
+    let left_i  = Interval.make None None None None    (* all *)
+    and right_i = Interval.make None None None None in (* all *)
+    NC.force_interval nc "left" left_i >>= fun () ->
+    NC.force_interval nc "right" right_i >>= fun () ->
     fill 90 >>= fun () ->
+    
     NC.migrate nc "T"
   in
   Lwt_main.run (t ())

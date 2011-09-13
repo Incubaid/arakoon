@@ -15,7 +15,10 @@ module Interval = struct
    
   let to_string t = 
     let (pu_b,pu_e),(pr_b,pr_e) = t in
-    let so2s = Log_extra.string_option_to_string in
+    let so2s = function
+      | None -> "_"
+      | Some s -> s 
+    in
     Printf.sprintf "(%s,%s),(%s,%s)" 
       (so2s pu_b) (so2s pu_e) (so2s pr_b) (so2s pr_e)
 
