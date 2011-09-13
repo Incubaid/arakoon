@@ -124,23 +124,11 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
   method set_interval iv = Common.set_interval conn iv
   method get_interval () = Common.get_interval conn 
 
-  method get_routing () =
-    let outgoing buf = command_to buf GET_ROUTING
-    in
-    request  oc outgoing >>= fun () ->
-    response ic Routing.input_routing
+  method get_routing () = Common.get_routing conn
 
-  method set_routing r = 
-    let outgoing buf = 
-      command_to buf SET_ROUTING;
-      let b' = Buffer.create 100 in
-      Routing.routing_to b' r;
-      let size = Buffer.length b' in
-      Llio.int_to buf size;
-      Buffer.add_buffer buf b'
-    in
-    request  oc outgoing >>= fun  () ->
-    response ic nothing
+  method set_routing r = Common.set_routing conn r
+   
+
     
   method get_db db_location =
     

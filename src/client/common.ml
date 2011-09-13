@@ -23,6 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Interval
 open Update
+open Routing
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -277,6 +278,25 @@ let get_interval (ic,oc) =
   in
   request oc outgoing >>= fun () ->
   response ic Interval.input_interval
+
+let get_routing (ic,oc) = 
+  let outgoing buf = command_to buf GET_ROUTING
+  in
+    request  oc outgoing >>= fun () ->
+    response ic Routing.input_routing
+
+
+let set_routing (ic,oc) r = 
+  let outgoing buf = 
+    command_to buf SET_ROUTING;
+    let b' = Buffer.create 100 in
+    Routing.routing_to b' r;
+      let size = Buffer.length b' in
+      Llio.int_to buf size;
+      Buffer.add_buffer buf b'
+    in
+    request  oc outgoing >>= fun  () ->
+    response ic nothing
 
 let sequence (ic,oc) changes = 
   let outgoing buf = 

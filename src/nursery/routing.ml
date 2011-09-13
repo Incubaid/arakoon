@@ -54,6 +54,24 @@ module Routing = struct
 	     let rt = build rr in
 	     Branch (lt, sep, rt)
 
+  let change t from_cn sep to_cn =
+    let rec _walk = function
+      | Cluster n -> if n = from_cn || n = to_cn 
+	then Branch(Cluster from_cn,sep, Cluster to_cn)
+	else failwith "??"
+      | Branch(Cluster l,s, Cluster r) when l = from_cn && r = to_cn ->
+	Branch(Cluster l, sep, Cluster r)
+      | Branch(l,s,r) ->
+	if s < sep
+	then Branch(l,s, _walk r)
+	else Branch(_walk l,s,r)
+    in
+    _walk t
+	  
+	  
+	  
+	
+
   let routing_to buf cfg = 
     let rec walk = function
       | Cluster x -> 

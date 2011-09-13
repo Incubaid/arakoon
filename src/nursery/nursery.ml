@@ -47,24 +47,23 @@ module NC = struct
 
   type t = {
     rc : NCFG.t; 
+    keeper_cn: string;
     connections : (nn ,lc) Hashtbl.t;
     masters: (string, string option) Hashtbl.t;
   }
 
-  let make rc = 
-    let (_,c) = rc in
+  let make rc keeper_cn = 
     let masters = Hashtbl.create 5 in
-    let () = Hashtbl.iter (fun k _ -> Hashtbl.add masters k None) c in
+    let () = NCFG.iter_cfgs rc (fun k _ -> Hashtbl.add masters k None) in
     let connections = Hashtbl.create 13 in
-    let () = Hashtbl.iter 
+    let () = NCFG.iter_cfgs rc
       (fun cluster v -> 
 	Hashtbl.iter (fun node (ip,port) ->
 	  let nn = (cluster,node) in
 	  let a = Address (ip,port) in
 	  Hashtbl.add connections nn a) v)
-      c
     in
-    {rc; connections;masters;}
+    {rc; connections;masters;keeper_cn}
 
   let _get_connection t nn = 
     let (cn,node) = nn in
@@ -152,6 +151,16 @@ module NC = struct
       _with_master_connection t from_cn 
 	(fun conn -> Common.sequence conn seq)
     in
+    let publish sep = 
+      let route = NCFG.get_routing t.rc in      
+      let new_route = Routing.change route from_cn sep to_cn in
+      let () = NCFG.set_routing t.rc new_route in
+      Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+      _with_master_connection t t.keeper_cn
+	(fun conn -> Common.set_routing conn new_route) 
+      >>= fun () ->
+      Lwt.return ()
+    in
     let get_interval cn = _with_master_connection t cn Common.get_interval in
     let set_interval cn i = force_interval t cn i in
     let i2s i = Interval.to_string i in
@@ -171,6 +180,7 @@ module NC = struct
 	     - push tail & change private interval on 'to'
 	     - delete tail & change private interval on 'from'
 	     - change public interval 'to'
+	     - publish new route.
 	  *)
 	  let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
 	  let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
@@ -187,12 +197,15 @@ module NC = struct
 	  set_interval to_cn to_i2 >>= fun () ->
 	  let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
 	  set_interval from_cn from_i2 >>= fun () ->
+
 	  Lwt_log.debug_f "from {%s:%s;%s:%s}" 
 	    from_cn (i2s from_i) 
 	    to_cn (i2s to_i) >>= fun () ->
 	  Lwt_log.debug_f "to   {%s:%s;%s:%s}" 
 	    from_cn (i2s from_i2) 
 	    to_cn (i2s to_i2) >>= fun () ->
+
+	  publish b >>= fun () ->
 	  loop from_i2 to_i2
     in loop from_i to_i
 
@@ -209,7 +222,8 @@ let main () =
   let nursery_cfg = NCFG.make routing in
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
-  let nc = NC.make nursery_cfg in
+  let keeper = "left" in
+  let nc = NC.make nursery_cfg keeper in
   (*
   let test k v = 
     NC.set client k v >>= fun () ->
