@@ -322,7 +322,15 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
     let db_name = full_db_name me in
     let snapshot_name = get_snapshot_name() in
     let full_snapshot_path = Filename.concat me.tlog_dir snapshot_name in
-    copy_store full_snapshot_path db_name false >>= fun () ->
+    Lwt.catch (
+      fun () ->
+        copy_store full_snapshot_path db_name false 
+      ) ( 
+      function
+        | Not_found -> Lwt.return ()
+        | e -> raise e
+      )
+    >>= fun () ->
     make_store db_name >>= fun (store:Store.store) ->
 	  Lwt.catch
 	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
