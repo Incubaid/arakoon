@@ -263,7 +263,7 @@ module X = struct
     _inner ()
 end
 
-let _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name 
+let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name 
     ~daemonize ~catchup_only=
   Lwt_io.set_default_buffer_size 32768;
     let control  = {
@@ -322,9 +322,7 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name
     let db_name = full_db_name me in
     let snapshot_name = get_snapshot_name() in
     let full_snapshot_path = Filename.concat me.tlog_dir snapshot_name in
-    make_store full_snapshot_path >>= fun (snapshot_store:Store.store) ->
-    snapshot_store # relocate db_name false >>= fun () ->
-    snapshot_store # close () >>= fun () ->
+    copy_store full_snapshot_path db_name false >>= fun () ->
     make_store db_name >>= fun (store:Store.store) ->
 	  Lwt.catch
 	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
@@ -514,12 +512,14 @@ let main_t make_config name daemonize catchup_only=
   let make_store = Local_store.make_local_store in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  let copy_store = Local_store.copy_store in
+  _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name ~daemonize ~catchup_only
 
 let test_t make_config name =
   let make_store = Mem_store.make_mem_store in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
   let get_snapshot_name = fun () -> "DUMMY" in
+  let copy_store = Mem_store.copy_store in
   let daemonize = false 
   and catchup_only = false in
-  _main_2 make_store make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name ~daemonize ~catchup_only

@@ -51,7 +51,6 @@ module ClientCfg = struct
     let inifile = new Inifiles.inifile fn in
     let cfg = make () in
     let _get s n p = Ini.get inifile s n p Ini.required in
-    let cluster_id = _get "global" "cluster_id" Ini.p_string in
     let nodes      = _get "global" "cluster" Ini.p_string_list in
     let () = List.iter
       (fun n ->

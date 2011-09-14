@@ -72,6 +72,7 @@ let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () =
     (_make_tlog_coll tlcs updates)
     get_cfgs
     (fun () -> "DUMMY")
+    (fun s d o -> Lwt.return () )
     ~name
     ~daemonize:false
     ~catchup_only:false

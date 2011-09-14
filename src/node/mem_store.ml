@@ -231,8 +231,8 @@ object (self: #store)
   
   method copy_store oc = failwith "copy_store not supported"
   
-  method relocate location overwrite = Lwt.return ()
-
+  method relocate new_location = failwith "Memstore.relocation not implemented"
+  
   method get_tail lower = 
     Lwt_log.debug_f "mem_store :: get_tail %s" lower >>= fun () ->
     let all = StringMap.fold 
@@ -249,3 +249,6 @@ let make_mem_store db_name =
   let store = new mem_store db_name in
   let store2 = (store :> store) in
   Lwt.return store2
+
+let copy_store old_location new_location overwrite = 
+  Lwt.return ()

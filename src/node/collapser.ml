@@ -124,7 +124,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (store:Store.store
 		    end
 		  >>= fun () ->
 		  Lwt_log.debug_f "Relocating store to %s" location >>= fun () ->
-		  new_store # relocate location true 
+		  new_store # relocate location
   ) ( 
     fun () ->
       new_store # close ()

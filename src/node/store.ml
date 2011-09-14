@@ -59,8 +59,8 @@ class type store = object
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
   method clone : unit -> store Lwt.t
-  method relocate: string -> bool -> unit Lwt.t
   method get_location: unit -> string 
+  method relocate: string -> unit Lwt.t 
 
   method aSSert: string -> string option -> bool Lwt.t
 

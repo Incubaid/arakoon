@@ -178,6 +178,23 @@ let _assert bdb key vo =
 
 
 
+let copy_store old_location new_location overwrite = 
+    File_system.exists new_location >>= fun dest_exists ->
+    begin
+      if dest_exists && overwrite 
+      then
+        Lwt_unix.unlink new_location
+      else
+        Lwt.return ()
+    end >>= fun () ->
+    begin
+      if dest_exists && not overwrite
+      then
+        Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" old_location new_location
+      else            
+        File_system.copy_file old_location new_location 
+    end 
+    
 open Registry
 
 class bdb_user_db bdb = 
@@ -464,24 +481,6 @@ object(self: #store)
     let store2 = (store :> store) in
     Lwt.return store2
     
-  method relocate new_location overwrite = 
-    File_system.exists new_location >>= fun dest_exists ->
-    begin
-      if dest_exists && overwrite 
-      then
-        Lwt_unix.unlink new_location
-      else
-        Lwt.return ()
-    end >>= fun () ->
-    begin
-      if dest_exists && not overwrite
-      then
-        Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" my_location new_location
-      else            
-        File_system.rename my_location new_location >>= fun () ->
-        Lwt.return ( my_location <- new_location )
-    end 
-   
   method reopen f =
     let mode = 
     begin
@@ -552,6 +551,14 @@ object(self: #store)
       raise ex
     end
 
+  method relocate new_location =
+    copy_store my_location new_location true >>= fun () -> 
+    let old_location = my_location in
+    let () = my_location <- new_location in
+    Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
+    File_system.unlink old_location >>= fun () ->
+    Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location 
+     
   method get_tail lower =
     Lwt_log.debug_f "local_store::get_tail %S" lower >>= fun () ->
     let buf = Buffer.create 128 in
