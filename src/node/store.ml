@@ -58,7 +58,7 @@ class type store = object
   method incr_i: unit -> unit Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
-  method clone : unit -> store Lwt.t
+  
   method get_location: unit -> string 
   method relocate: string -> unit Lwt.t 
 

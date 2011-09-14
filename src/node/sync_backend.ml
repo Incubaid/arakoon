@@ -74,7 +74,7 @@ let make_went_well stats_cb awake sleeper =
 
 class sync_backend cfg push_update push_node_msg
   (store:Store.store) 
-  (snap_store:Store.store)
+  (store_methods:(string -> Store.store Lwt.t) * (string -> string -> bool -> unit Lwt.t) * string )
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
   ~quorum_function n_nodes
@@ -462,8 +462,7 @@ object(self: #backend)
         cb() >>= fun () ->
         self # wait_for_tlog_release tlog_num
       in
-      snap_store # reopen ( fun () -> Lwt.return () ) >>= fun () ->
-      Collapser.collapse_many tlog_collection snap_store n cb' new_cb 
+      Collapser.collapse_many tlog_collection store_methods n cb' new_cb 
     )
     
   method get_routing () = 

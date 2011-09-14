@@ -69,29 +69,24 @@ let test_collapse_until dn =
         Lwt.return ()
   end
   >>= fun () ->
-  Local_store.make_local_store storename >>= fun store ->
-  Lwt.finalize(
-    fun () ->
-		  let future_i = Sn.of_int 1001 in
-		  let cb = fun s -> Lwt.return () in
-		  Collapser.collapse_until tlc store future_i cb >>= fun () ->
-		  (* some verification ? *)
-		  
-		  (* try to do it a second time, it should *)
-		  let future_i2 = Sn.of_int 1000 in
-		  _should_fail 
-		    (fun () ->
-        store # reopen ( fun () -> Lwt.return () ) >>= fun () -> 
-        Collapser.collapse_until tlc store future_i2 cb) 
-		    "this should fail" 
-		    "great, it indeed refuses to do this" 
-		  >>= fun ()->
-		  Lwt.return ()
-  ) ( 
-    fun () ->
-      store # close ()
-  )
+  let store_methods = (Local_store.make_local_store, Local_store.copy_store, storename) in
+  let future_i = Sn.of_int 1001 in
+  let cb = fun s -> Lwt.return () in
+  Collapser.collapse_until tlc store_methods future_i cb >>= fun () ->
+  (* some verification ? *)
+  
+  (* try to do it a second time, it should *)
+  let future_i2 = Sn.of_int 1000 in
+    _should_fail 
+    (fun () ->
+      Collapser.collapse_until tlc store_methods future_i2 cb) 
+    "this should fail" 
+    "great, it indeed refuses to do this" 
+  >>= fun ()->
+  Lwt.return ()
 
+
+let test_dn = "/tmp/collapser" 
 
 let test_collapse_many dn =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
@@ -100,7 +95,7 @@ let test_collapse_many dn =
   _make_updates tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
-  let storename = "head.db" in
+  let storename = Filename.concat test_dn "head.db" in
   let cb fn = Lwt_log.debug_f "collapsed %s" (Sn.string_of fn) in
   let cb' = fun n -> Lwt.return () in
   begin
@@ -112,34 +107,22 @@ let test_collapse_many dn =
 	    Lwt.return ()
   end
   >>= fun () ->
-  Local_store.make_local_store storename >>= fun store ->
-  let reopen () = 
-    store # reopen ( fun () -> Lwt.return () )
-  in
-  Lwt.finalize (
-    fun () ->
-      Collapser.collapse_many tlc store 5 cb' cb >>= fun () ->
-      Lwt_log.debug "collapsed 000" >>= fun () ->
-      reopen () >>= fun () ->
-      Collapser.collapse_many tlc store 3 cb' cb >>= fun () ->
-      Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
-      reopen () >>= fun () ->
-      Collapser.collapse_many tlc store 1 cb' cb >>= fun () ->
-      Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
-      Lwt.return ()
-  ) ( 
-    fun () ->
-      store # close ()
-  )
-
+  let store_methods = (Local_store.make_local_store, Local_store.copy_store, storename) in
+  Collapser.collapse_many tlc store_methods 5 cb' cb >>= fun () ->
+  Lwt_log.debug "collapsed 000" >>= fun () ->
+  Collapser.collapse_many tlc store_methods 3 cb' cb >>= fun () ->
+  Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
+  Collapser.collapse_many tlc store_methods 1 cb' cb >>= fun () ->
+  Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
+  Lwt.return ()
 
 
 let setup () = 
   Lwt_log.info "Collapser_test.setup" >>= fun () ->
-  let dn = "/tmp/collapser" in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in
-  File_system.mkdir dn 0o755 >>= fun () -> 
-  Lwt.return dn
+  
+  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
+  File_system.mkdir test_dn 0o755 >>= fun () -> 
+  Lwt.return test_dn
 
 
 let teardown dn =

@@ -159,9 +159,6 @@ let _range_entries bdb first finc last linc max =
     keys_list
   in x
 
-
-
-
 let _assert bdb key vo =
   let pk = _p key in
   match vo with
@@ -176,9 +173,14 @@ let _assert bdb key vo =
 	with Not_found -> false
       end
 
-
-
 let copy_store old_location new_location overwrite = 
+  File_system.exists old_location >>= fun src_exists ->
+  if not src_exists 
+  then 
+    Lwt_log.debug_f "File at %s does not exist" old_location >>= fun () ->
+    raise Not_found
+  else 
+  begin  
     File_system.exists new_location >>= fun dest_exists ->
     begin
       if dest_exists && overwrite 
@@ -194,7 +196,7 @@ let copy_store old_location new_location overwrite =
       else            
         File_system.copy_file old_location new_location 
     end 
-    
+  end
 open Registry
 
 class bdb_user_db bdb = 
@@ -470,17 +472,6 @@ object(self: #store)
       
   method get_location () = Hotc.filename db
   
-  method clone () =
-    let new_location = my_location ^ ".clone" in 
-    let when_closed () = 
-      File_system.copy_file my_location new_location 
-    in
-    self # reopen when_closed >>= fun () ->
-    get_construct_params new_location >>= fun (db, interval, routing_o, mlo, store_i) -> 
-    let store = new local_store new_location db interval routing_o mlo store_i in
-    let store2 = (store :> store) in
-    Lwt.return store2
-    
   method reopen f =
     let mode = 
     begin

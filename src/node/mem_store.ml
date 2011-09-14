@@ -227,8 +227,6 @@ object (self: #store)
     in
     Lwt.return (StringMap.fold inc kv 0L)
     
-  method clone () = Lwt.return (self:>store)
-  
   method copy_store oc = failwith "copy_store not supported"
   
   method relocate new_location = failwith "Memstore.relocation not implemented"

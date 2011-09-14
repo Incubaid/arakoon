@@ -390,7 +390,8 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
 	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
       new Sync_backend.sync_backend me client_push inject_push
-	      store snap_store tlog_coll lease_period
+	      store (make_store, copy_store, full_snapshot_path) 
+        tlog_coll lease_period
 	      ~quorum_function n_nodes
 	      ~expect_reachable
 	      ~test

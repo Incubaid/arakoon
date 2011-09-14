@@ -23,13 +23,24 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 
-let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (store:Store.store) (too_far_i:Sn.t) (cb: Sn.t -> unit Lwt.t) =
-  let location = store # get_location() in
-  store # clone () >>= fun new_store ->
+let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (create_store,copy_store,head_location) (too_far_i:Sn.t) (cb: Sn.t -> unit Lwt.t) =
+  let new_location = head_location ^ ".clone" in
+  Lwt_log.debug_f "Creating db clone at %s" new_location >>= fun () ->
+  Lwt.catch (
+    fun () ->
+      copy_store head_location new_location true 
+    ) (
+     function 
+      | Not_found -> Lwt_log.debug_f "head db at '%s' does not exist" head_location
+      | e -> fail e
+    )
+  >>= fun () ->
+  Lwt_log.debug_f "Creating store at %s" new_location >>= fun () ->
+  create_store new_location >>= fun new_store ->
   Lwt.finalize (
     fun () ->
 		  tlog_coll # get_infimum_i () >>= fun min_i ->
-		  let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
+      let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
 		  new_store # consensus_i () >>= fun store_i ->
 			let tfs = Sn.string_of too_far_i in
 		  let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
@@ -123,14 +134,14 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (store:Store.store
 		      
 		    end
 		  >>= fun () ->
-		  Lwt_log.debug_f "Relocating store to %s" location >>= fun () ->
-		  new_store # relocate location
+		  Lwt_log.debug_f "Relocating store to %s" head_location >>= fun () ->
+		  new_store # relocate head_location
   ) ( 
     fun () ->
       new_store # close ()
   )
 
-let collapse_many tlog_coll store tlogs_to_keep cb' cb =
+let collapse_many tlog_coll store_fs tlogs_to_keep cb' cb =
   Lwt_log.debug_f "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   let tlogs_to_collapse = total_tlogs - tlogs_to_keep in
@@ -138,6 +149,6 @@ let collapse_many tlog_coll store tlogs_to_keep cb' cb =
   cb' tlogs_to_collapse >>= fun () ->
   tlog_coll # get_infimum_i() >>= fun tlc_min ->
   let g_too_far_i = Sn.succ (Sn.add tlc_min (Sn.of_int (tlogs_to_collapse * !Tlogcommon.tlogEntriesPerFile))) in
-  collapse_until tlog_coll store g_too_far_i cb >>= fun () ->
+  collapse_until tlog_coll store_fs g_too_far_i cb >>= fun () ->
   tlog_coll # remove_oldest_tlogs tlogs_to_collapse 
   
