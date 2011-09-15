@@ -8,6 +8,8 @@ let p_bool s = Scanf.sscanf s "%b" (fun b -> b)
 
 let required section name = failwith  (Printf.sprintf "missing: %s %s" section name)
 
+let default x = fun _ _ -> x
+
 let get inifile section name s2a not_found =
     try
       let v_s = inifile # getval section name in
