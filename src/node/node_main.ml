@@ -394,8 +394,7 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
     let expect_reachable = messaging # expect_reachable in
     let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
     let inject_push v = Lwt_buffer.add v inject_buffer in
-    make_store full_snapshot_path >>= fun (snap_store:Store.store) ->
-	  let sb =
+    let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
       new Sync_backend.sync_backend me client_push inject_push
 	      store (make_store, copy_store, full_snapshot_path) 
