@@ -589,6 +589,7 @@ end
 
   
 let make_local_store db_name =
+  Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name >>= fun (db, interval, routing_o, mlo, store_i) -> 
   let store = new local_store db_name db interval routing_o mlo store_i in
   let store2 = (store :> store) in

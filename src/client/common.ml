@@ -24,6 +24,7 @@ open Lwt
 open Interval
 open Update
 open Routing
+open Client_cfg
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -63,6 +64,8 @@ type client_command =
   | GET_DB
   | CONFIRM
   | GET_TAIL
+  | SET_NURSERY_CFG
+  | GET_NURSERY_CFG
 
 let code2int = [
   PING,                     0x1l ;
@@ -91,6 +94,8 @@ let code2int = [
   CONFIRM                 , 0x1cl;
   GET_TAIL                , 0x1dl;
   GET_INTERVAL            , 0x1el;
+  SET_NURSERY_CFG         , 0x1fl;
+  SET_NURSERY_CFG         , 0x20l;
 ]
 
 let int2code = 
@@ -233,7 +238,14 @@ let ping_to b client_id cluster_id =
 
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
-  
+
+let get_nursery_cfg_to b = 
+  command_to b GET_NURSERY_CFG
+
+let set_nursery_cfg_to b cluster_id client_cfg =
+  command_to b SET_NURSERY_CFG;
+  Llio.string_to b cluster_id;
+  ClientCfg.cfg_to b client_cfg
 
 let prologue cluster (_,oc) =
   Llio.output_int32  oc _MAGIC >>= fun () ->

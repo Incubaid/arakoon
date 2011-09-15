@@ -390,6 +390,14 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    (handle_exception oc)
 	end
 
+    | GET_NURSERY_CFG ->
+      begin
+        Lwt.return true
+      end
+    | SET_NURSERY_CFG ->
+      begin
+        Lwt.return true
+      end
     | GET_TAIL ->
       begin
 	Llio.input_string ic >>= fun lower ->
