@@ -114,11 +114,6 @@ module Node_cfg = struct
   let tlog_file_name t =
     t.home ^ "/" ^ t.node_name ^ ".tlog"
 
-  let _get_string_list inifile section name =
-    let nodes_s = inifile # getval section name in
-    let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
-    nodes
-
   let _node_names inifile = 
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
@@ -185,7 +180,7 @@ module Node_cfg = struct
     let use_compression = not (get_bool "disable_tlog_compression") in
     let targets = 
       if is_learner 
-      then _get_string_list inifile node_name "targets"
+      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required 
       else []
     in
     let lease_period = _get_lease_period inifile in
