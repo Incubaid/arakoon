@@ -22,22 +22,46 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Update
- let _ =
-   let do_it () = 
-     let fn = "/tmp/arakoon_0/000.tlc" in
-     let print_entry a (i,u) = 
-       let is = Sn.string_of i in 
-       let us = Update.string_of u in
-       Lwt_io.printlf "%s:%s" is us >>= fun () ->
-       Lwt.return a 
-     in
-     let f ic = 
-       let a0 = () in
-       Tlogreader2.C.fold ic 
-	 (Sn.from_int 15) (Sn.from_int 175) a0 print_entry >>= fun () ->
-       Lwt.return () 
-     in
-     Lwt_io.with_file ~mode:Lwt_io.input fn f
-   in
-   Lwt_main.run (do_it ());;
- 
+open OUnit
+
+let test_old_format () =
+  let do_it () = 
+    let fn = "./data/005.tlc" in
+    let print_entry a (i,u) = 
+      let is = Sn.string_of i in 
+      let us = Update.string_of u in
+      Lwt_io.printlf "%s:%s" is us >>= fun () ->
+      Lwt.return a 
+    in
+    let f ic = 
+      let a0 = () in
+      let first = Sn.of_int 500015 in
+      let start = Sn.of_int 500015 in
+      let stop  = Some (Sn.of_int 500175) in
+      Tlogreader2.O.fold ic 
+        start ~first stop a0 print_entry >>= fun () ->
+      Lwt.return () 
+    in
+    Lwt_io.with_file ~mode:Lwt_io.input fn f
+  in
+  Lwt_main.run (do_it ())
+
+
+let suite = "tlogreader2" >::: ["old_format" >:: test_old_format]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
