@@ -386,7 +386,6 @@ object(self: # tlog_collection)
     Filename.concat tlog_dir (head_name())
     
   method dump_head oc =
-    
     let head_name = self # get_head_name () in
     let stat = Unix.LargeFile.stat head_name in
     let length = stat.st_size in

@@ -36,6 +36,7 @@ module Update = struct
     | Nop
     | Assert of string * string option
     | UserFunction of string * string option
+    | AdminSet of string * string option
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -73,6 +74,7 @@ module Update = struct
     | UserFunction (name,param) ->
       let ps = _size_of param in
       Printf.sprintf "UserFunction;%s;%i" name ps
+    | AdminSet (key,vo) -> Printf.sprintf "AdminSet  ;%S;%i" key (_size_of vo)
 
   let rec to_buffer b t =
     match t with
@@ -107,11 +109,15 @@ module Update = struct
 	Llio.int_to b 8;
 	Llio.string_to b k;
 	Llio.string_option_to b vo
+      | AdminSet(k,vo) ->
+  Llio.int_to b 9;
+  Llio.string_to b k;
+  Llio.string_option_to b vo;
       | SetInterval interval ->
-	Llio.int_to b 9;
+	Llio.int_to b 10;
 	Interval.interval_to b interval
       | SetRouting r ->
-	Llio.int_to b 10;
+	Llio.int_to b 11;
 	Routing.routing_to b r
 
 
@@ -154,10 +160,14 @@ module Update = struct
 	let k, pos2 = Llio.string_from b pos1 in
 	let vo,pos3 = Llio.string_option_from b pos2 in
 	Assert (k,vo) , pos3
-      | 9 -> 
+      | 9 ->
+        let k,pos2 = Llio.string_from b pos1 in
+        let vo, pos3 = Llio.string_option_from b pos2 in
+        AdminSet(k,vo), pos3
+      | 10 -> 
 	let interval,pos2 = Interval.interval_from b pos1 in
 	SetInterval interval, pos2
-      | 10 ->
+      | 11 ->
 	let r,pos2 = Routing.routing_from b pos1 in
 	SetRouting r, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)

@@ -25,6 +25,7 @@ open Interval
 open Update
 open Routing
 open Client_cfg
+open Ncfg
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -330,5 +331,20 @@ let sequence (ic,oc) changes =
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
     
+let get_nursery_cfg (ic,oc) =
+  let decode ic = 
+    Llio.input_string ic >>= fun buf ->
+    let cfg, pos = NCFG.ncfg_from buf 0 in
+    Lwt.return cfg
+  in  
+  request oc get_nursery_cfg_to >>= fun () ->
+  response ic decode
 
+let set_nusery_cfg (ic,oc) clusterid cfg =
+  let outgoing buf =
+     set_nursery_cfg_to buf clusterid cfg
+  in
+  request oc outgoing >>= fun () ->
+  response ic nothing
+  
 exception XException of Arakoon_exc.rc * string

@@ -24,6 +24,7 @@ open Update
 open Interval
 open Routing
 open Statistics
+open Client_cfg
 
 class type backend = object
   method exists: allow_dirty:bool -> string -> bool Lwt.t
@@ -78,4 +79,6 @@ class type backend = object
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
 
   method get_tail: string -> ((string * string) list) Lwt.t
+  
+  method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
 end

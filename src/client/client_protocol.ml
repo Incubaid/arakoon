@@ -29,6 +29,7 @@ open Update
 open Interval
 open Routing
 open Statistics
+open Ncfg
 
 let read_command (ic,oc) =
   Llio.input_int32 ic >>= fun masked ->
@@ -392,7 +393,17 @@ let one_command (ic,oc) (backend:Backend.backend) =
 
     | GET_NURSERY_CFG ->
       begin
-        Lwt.return true
+        Lwt.catch (
+          fun () ->
+            backend # get_routing () >>= fun routing ->
+            backend # get_cluster_cfgs () >>= fun cfgs ->
+            let buf = Buffer.create 32 in
+            NCFG.ncfg_to buf (routing,cfgs);
+            Llio.output_int oc 0 >>= fun () ->
+            Llio.output_string oc (Buffer.contents buf) >>= fun () ->
+            Lwt.return false
+        ) 
+        ( handle_exception oc )
       end
     | SET_NURSERY_CFG ->
       begin

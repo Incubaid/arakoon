@@ -103,28 +103,15 @@ let _who_master db =
   with Not_found -> 
     Lwt.return None
 
-let _p key = __prefix ^ key
-let _f = function
-  | Some x -> (Some (_p x))
-  | None -> (Some __prefix)
-let _l = function
-  | Some x -> (Some (_p x))
-  | None -> None
 
-let _filter =
-  Array.fold_left (fun acc key ->
-    let l = String.length key in
-    let key' = String.sub key 1 (l-1) in
-    key'::acc) []
+let _get _pf bdb key = Bdb.get bdb (_pf ^ key)
 
-let _get bdb key = Bdb.get bdb (_p key)
+let _set _pf bdb key value = Bdb.put bdb (_pf ^ key) value
 
-let _set bdb key value = Bdb.put bdb (_p key) value
+let _delete _pf bdb key    = Bdb.out bdb (_pf ^ key)
 
-let _delete bdb key    = Bdb.out bdb (_p key)
-
-let _test_and_set bdb key expected wanted =
-  let key' = _p key in
+let _test_and_set _pf bdb key expected wanted =
+  let key' = _pf ^ key in
   try
     let g = Bdb.get bdb key' in
     match expected with
@@ -148,19 +135,20 @@ let _test_and_set bdb key expected wanted =
 	end
       | Some v' -> None
 
-let _range_entries bdb first finc last linc max =
-  let keys_array = Bdb.range bdb (_f first) finc (_l last) linc max in
+let _range_entries _pf bdb first finc last linc max =
+  let keys_array = Bdb.range bdb (_f _pf first) finc (_l _pf last) linc max in
   let keys_list = Array.to_list keys_array in
+  let pl = String.length _pf in
   let x = List.fold_left
     (fun ret_list k ->
       let l = String.length k in
-      ((String.sub k 1 (l-1)), Bdb.get bdb k) :: ret_list )
+      ((String.sub k pl (l-pl)), Bdb.get bdb k) :: ret_list )
     [] 
     keys_list
   in x
 
-let _assert bdb key vo =
-  let pk = _p key in
+let _assert _pf bdb key vo =
+  let pk = _pf ^ key in
   match vo with
     | None ->
       begin
@@ -202,16 +190,16 @@ open Registry
 class bdb_user_db bdb = 
 object (self : # user_db)
 
-  method set k v = _set bdb k v
+  method set k v = _set __prefix bdb k v 
     
-  method get k = _get bdb k
+  method get k = _get __prefix bdb k 
 
-  method delete k = _delete bdb k
+  method delete k = _delete __prefix bdb k 
   
-  method test_and_set k e w = _test_and_set bdb k e w
+  method test_and_set k e w = _test_and_set __prefix bdb k e w 
 
   method range_entries first finc last linc max =
-    _range_entries bdb first finc last linc max
+    _range_entries __prefix bdb first finc last linc max 
 end
 
 
@@ -230,15 +218,15 @@ let _set_master bdb master (lease_start:int64) =
   let lease = Buffer.contents buffer in
   Bdb.put bdb __lease_key lease
 
-let rec _sequence bdb updates =
+let rec _sequence _pf bdb updates =
   let do_one = function
-    | Update.Set (key,value) -> _set bdb key value
-    | Update.Delete key -> _delete bdb key
+    | Update.Set (key,value) -> _set _pf bdb key value
+    | Update.Delete key -> _delete _pf bdb key
     | Update.TestAndSet(key,expected, wanted) ->
-      let _ = _test_and_set bdb key expected wanted in () (* TODO: do we want this? *)
+      let _ = _test_and_set _pf bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.Assert(k,vo) ->
       begin
-	match _assert bdb k vo with
+	match _assert _pf bdb k vo with
 	  | true -> ()
 	  | false -> 
 	    raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
@@ -246,9 +234,20 @@ let rec _sequence bdb updates =
     | Update.UserFunction(name,po) ->
       let _ = _user_function bdb name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us -> _sequence bdb us
+    | Update.Sequence us -> _sequence _pf bdb us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
+    | Update.AdminSet(k,vo) ->
+    begin 
+      match _pf with
+        | pf when pf = __adminprefix ->
+          begin
+          match vo with
+            | None -> _delete _pf bdb k 
+            | Some v -> _set _pf bdb k v
+          end
+        | _ -> raise  (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot modify admin keys in user sequence"))
+    end
     | Update.Nop -> ()
   in let get_key = function
     | Update.Set (key,value) -> Some key
@@ -341,30 +340,30 @@ object(self: #store)
 				 Printf.sprintf "%s not in interval" key)
       in raise ex
       
-  method exists key =
+  method exists ?(_pf = __prefix) key =
     Lwt.catch
       ( fun () ->
         let bdb = Hotc.get_bdb db in
-        Lwt.return (Bdb.get bdb (_p key)) >>= fun _ ->
+        Lwt.return (Bdb.get bdb (_pf ^ key)) >>= fun _ ->
 	      Lwt.return true
       )
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
 
-  method get key =
+  method get ?(_pf = __prefix) key =
     Lwt.catch
       (fun () -> 
         let bdb = Hotc.get_bdb db in
-        Lwt.return (Bdb.get bdb (_p key)))
+        Lwt.return (Bdb.get bdb (_pf ^ key)))
       (function 
 	| Failure _ -> Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
-  method multi_get keys =
+  method multi_get ?(_pf = __prefix) keys =
     let bdb = Hotc.get_bdb db in 
     let vs = List.fold_left 
 	  (fun acc key -> 
 	    try
-	      let v = Bdb.get bdb (_p key) in 
+	      let v = Bdb.get bdb (_pf ^ key) in 
 	      v::acc
 	    with Not_found -> 
 	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
@@ -396,25 +395,25 @@ object(self: #store)
     end
 
       
-  method range first finc last linc max =
+  method range ?(_pf=__prefix) first finc last linc max =
     let bdb = Hotc.get_bdb db in 
-    Lwt.return (Bdb.range bdb (_f first) finc (_l last) linc max) >>= fun r ->
-    Lwt.return (_filter r)
+    Lwt.return (Bdb.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
+    Lwt.return (_filter _pf r)
 
-  method range_entries first finc last linc max =
+  method range_entries ?(_pf=__prefix) first finc last linc max =
     let bdb = Hotc.get_bdb db in 
-    let r = _range_entries bdb first finc last linc max in
+    let r = _range_entries _pf bdb first finc last linc max in
 		Lwt.return r
      
-  method prefix_keys prefix max =
+  method prefix_keys ?(_pf=__prefix) prefix max =
     let bdb = Hotc.get_bdb db in 
-    let keys_array = Bdb.prefix_keys bdb (_p prefix) max in
-	  let keys_list = _filter keys_array in
+    let keys_array = Bdb.prefix_keys bdb (_pf ^ prefix) max in
+	  let keys_list = _filter _pf keys_array in
 	  Lwt.return keys_list
     
-  method set key value =
+  method set ?(_pf=__prefix) key value =
     Lwt.catch
-      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set db key value; Lwt.return ()))
+      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set _pf db key value; Lwt.return ()))
       (function 
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
@@ -439,21 +438,21 @@ object(self: #store)
 
   method who_master () = Lwt.return _mlo
 
-  method delete key =
-    _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete db key; Lwt.return ())
+  method delete ?(_pf=__prefix) key =
+    _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete _pf db key; Lwt.return ())
 
-  method test_and_set key expected wanted =
+  method test_and_set ?(_pf=__prefix) key expected wanted =
     _tx_with_incr (self # _incr_i_cached) db 
       (fun db ->
-	let r = _test_and_set db key expected wanted in
+	let r = _test_and_set _pf db key expected wanted in
 	Lwt.return r)
 
-  method sequence updates =
+  method sequence ?(_pf=__prefix) updates =
     _tx_with_incr (self # _incr_i_cached) db  
-      (fun db -> _sequence db updates; Lwt.return ())
+      (fun db -> _sequence _pf db updates; Lwt.return ())
 
-  method aSSert key (vo:string option) =
-    _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert db key vo in Lwt.return r)
+  method aSSert ?(_pf=__prefix) key (vo:string option) =
+    _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert _pf db key vo in Lwt.return r)
 
   method user_function name (po:string option) = 
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
@@ -514,11 +513,13 @@ object(self: #store)
     _routing <- Some r;
     Hotc.transaction db (fun db -> _set_routing db r; Lwt.return ())
 
-  method get_key_count () =
+  method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
     Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
     (* Leave out administrative keys *)
-    Lwt.return ( Int64.sub raw_count 3L ) 
+    self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys -> 
+    let admin_key_count = List.length admin_keys in
+    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ) 
     
   method copy_store (oc: Lwt_io.output_channel) =
     if _quiesced then
@@ -553,7 +554,7 @@ object(self: #store)
   method get_tail lower =
     Lwt_log.debug_f "local_store::get_tail %S" lower >>= fun () ->
     let buf = Buffer.create 128 in
-    let plower = _p lower in
+    let plower = __prefix ^ lower in
     Lwt.finalize
       (fun () ->
 	Hotc.transaction db 

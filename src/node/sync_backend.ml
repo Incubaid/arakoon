@@ -527,6 +527,9 @@ object(self: #backend)
         Lwt_log.debug "get_db: All done"
       end
     )
+  
+  method get_cluster_cfgs () =
+    failwith "not_implemented"
     
   method get_tail lower = 
     Lwt_log.debug_f "get_tail %S" lower >>= fun () ->

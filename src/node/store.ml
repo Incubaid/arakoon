@@ -33,20 +33,35 @@ let __routing_key = "*routing"
 let __master_key  = "*master"
 let __lease_key = "*lease"
 let __prefix = "@"
+let __adminprefix="*"
+
+let _f _pf = function
+  | Some x -> (Some (_pf ^ x))
+  | None -> (Some _pf)
+let _l _pf = function
+  | Some x -> (Some (_pf ^ x))
+  | None -> None
+
+let _filter pf =
+  let pl = String.length pf in
+  Array.fold_left (fun acc key ->
+    let kl = String.length key in
+    let key' = String.sub key pl (kl-pl) in
+    key'::acc) []
 
 
 (** common interface for stores *)
 class type store = object
-  method exists: string -> bool Lwt.t
-  method get: string -> string Lwt.t
-  method multi_get:string list -> string list Lwt.t
-  method range: string option -> bool -> string option -> bool -> int -> string list Lwt.t
-  method range_entries: string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
-  method prefix_keys: string -> int -> string list Lwt.t
-  method set: string -> string -> unit Lwt.t
-  method test_and_set: string -> string option -> string option -> string option Lwt.t
-  method delete: string -> unit Lwt.t
-  method sequence : Update.t list -> unit Lwt.t
+  method exists: ?_pf: string -> string -> bool Lwt.t
+  method get: ?_pf: string -> string -> string Lwt.t
+  method multi_get: ?_pf: string -> string list -> string list Lwt.t
+  method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
+  method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+  method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
+  method set: ?_pf: string -> string -> string -> unit Lwt.t
+  method test_and_set: ?_pf: string -> string -> string option -> string option -> string option Lwt.t
+  method delete: ?_pf: string -> string -> unit Lwt.t
+  method sequence : ?_pf: string -> Update.t list -> unit Lwt.t
   method set_master: string -> int64 -> unit Lwt.t
   method set_master_no_inc: string -> int64 -> unit Lwt.t
   method who_master: unit -> (string*int64) option Lwt.t
@@ -62,7 +77,7 @@ class type store = object
   method get_location: unit -> string 
   method relocate: string -> unit Lwt.t 
 
-  method aSSert: string -> string option -> bool Lwt.t
+  method aSSert: ?_pf: string -> string -> string option -> bool Lwt.t
 
   method user_function : string -> string option -> (string option) Lwt.t
   method get_interval: unit -> Interval.t Lwt.t
@@ -70,7 +85,7 @@ class type store = object
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t
 
-  method get_key_count : unit -> int64 Lwt.t
+  method get_key_count : ?_pf: string -> unit -> int64 Lwt.t
   
   method quiesce : unit -> unit Lwt.t
   method unquiesce : unit -> unit Lwt.t
@@ -199,6 +214,22 @@ let _insert_update (store:store) update =
 	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	  and msg = Printexc.to_string e
 	  in Lwt.return (Update_fail(rc, msg)))
+    | Update.AdminSet(k,vo) ->
+      Lwt.catch( 
+        fun () ->
+          begin
+            match vo with 
+            | None -> failwith "None"
+            | Some v -> 
+              store # set k v  >>= fun () ->
+              Lwt.return (Ok None)
+          end
+      ) ( 
+        fun e ->
+          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+          and msg = Printexc.to_string e
+          in Lwt.return (Update_fail(rc,msg))
+      )
 
 
 let safe_insert_update (store:store) (i:Sn.t) update =

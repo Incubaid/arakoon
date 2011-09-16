@@ -224,4 +224,7 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt.return all
 
+  method get_cluster_cfgs () =
+    failwith "not_implemented"
+    
 end

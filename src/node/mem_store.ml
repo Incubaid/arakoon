@@ -57,28 +57,28 @@ object (self: #store)
   method _set_i x = 
     i <- Some x
 
-  method exists key =
+  method exists ?(_pf=__prefix) key =
     try_lwt_ (fun () -> StringMap.mem key kv)
 
-  method get key =
+  method get ?(_pf=__prefix) key =
     try_lwt_ (fun () -> StringMap.find key kv)
 
-  method multi_get keys =
+  method multi_get ?(_pf=__prefix) keys =
     let values = List.fold_left 
       (fun acc key -> let value = StringMap.find key kv in value :: acc)
       [] keys
     in 
     Lwt.return (List.rev values)
 
-  method range first finc last linc max =
+  method range ?(_pf=__prefix) first finc last linc max =
     let keys = Test_backend.range_ kv first finc last linc max in
     Lwt.return keys
 
-  method range_entries first finc last linc max =
+  method range_entries ?(_pf=__prefix) first finc last linc max =
     let entries = Test_backend.range_entries_ kv first finc last linc max in
     Lwt.return entries
 
-  method prefix_keys prefix max =
+  method prefix_keys ?(_pf=__prefix) prefix max =
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
       (fun k v a ->
@@ -88,11 +88,11 @@ object (self: #store)
       ) kv []
     in Lwt.return keys
 
-  method set key value =
+  method set ?(_pf=__prefix) key value =
     let () = self # _incr_i () in
     self # set_no_incr key value
 
-  method private set_no_incr key value =
+  method private set_no_incr ?(_pf=__prefix) key value =
     let () = kv <- StringMap.add key value kv in
     Lwt.return ()
 
@@ -112,7 +112,7 @@ object (self: #store)
   
   method quiesced () = false
   
-  method aSSert key vo =
+  method aSSert ?(_pf=__prefix) key vo =
     let r = 
       match vo with
 	| None -> not (StringMap.mem key kv)
@@ -126,7 +126,7 @@ object (self: #store)
   method who_master () =
     Lwt.return master
 
-  method private delete_no_incr key =
+  method private delete_no_incr ?(_pf=__prefix) key =
     if StringMap.mem key kv then
       begin
 	Lwt_log.debug_f "%S exists" key >>= fun () ->
@@ -139,12 +139,12 @@ object (self: #store)
 	Lwt.fail (Key_not_found key)
       end
 
-  method delete key =
+  method delete ?(_pf=__prefix) key =
     Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
     let () = self # _incr_i () in
     self # delete_no_incr key
 
-  method test_and_set key expected wanted =
+  method test_and_set ?(_pf=__prefix) key expected wanted =
     Lwt.catch 
       (fun () ->
 	self # get key >>= fun res -> Lwt.return (Some res))
@@ -163,7 +163,7 @@ object (self: #store)
       end
 
 
-  method sequence updates = 
+  method sequence ?(_pf=__prefix) updates = 
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let () = self # _incr_i () in 
     let do_one u =	
@@ -221,7 +221,7 @@ object (self: #store)
     _routing <- Some r;
     Lwt.return () 
 
-  method get_key_count () =
+  method get_key_count ?(_pf=__prefix) () =
     let inc key value size =
       Int64.succ size
     in
