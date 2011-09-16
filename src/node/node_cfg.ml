@@ -114,28 +114,19 @@ module Node_cfg = struct
   let tlog_file_name t =
     t.home ^ "/" ^ t.node_name ^ ".tlog"
 
-  let _get_string_list inifile section name =
-    let nodes_s = inifile # getval section name in
-    let nodes = Str.split (Str.regexp "[, \t]+") nodes_s in
-    nodes
-
-  let _node_names inifile = _get_string_list inifile "global" "cluster"
+  let _node_names inifile = 
+    Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
   let _plugins inifile = 
-    try
-      _get_string_list inifile "global" "plugins"
-    with Inifiles.Invalid_element _ -> []
+    Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
 
-
-  let _get_lease_period inifile =
-    try
-      let les = (inifile # getval "global" "lease_period") in
-      Scanf.sscanf les "%i" (fun i -> i)
-    with (Inifiles.Invalid_element _) -> default_lease_period
+  let _get_lease_period inifile = 
+    Ini.get inifile "global" "lease_period" 
+      Ini.p_int (Ini.default default_lease_period)
 
   let _get_bool inifile node_section x = 
-      try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
-      with (Inifiles.Invalid_element _) -> false
+    Ini.get inifile node_section x Ini.p_bool (Ini.default false)
+
 
   let _forced_master inifile =
     let master =
@@ -174,20 +165,10 @@ module Node_cfg = struct
 	failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
-
-
-
   let _node_config inifile node_name master =
-    let get_string x =
-      try
-	let strip s = Scanf.sscanf s "%s" (fun i -> i) in
-	let with_spaces= inifile # getval node_name x in
-	strip with_spaces
-      with (Inifiles.Invalid_element e) ->
-	failwith (Printf.sprintf "'%s' was missing from node: %s" e node_name)
-    in
+    let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
-    let get_int x = Scanf.sscanf (get_string x) "%i" (fun i -> i) in
+    let get_int x = Ini.get inifile node_name x Ini.p_int Ini.required in
     let ip = get_string "ip" in
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
@@ -199,7 +180,7 @@ module Node_cfg = struct
     let use_compression = not (get_bool "disable_tlog_compression") in
     let targets = 
       if is_learner 
-      then _get_string_list inifile node_name "targets"
+      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required 
       else []
     in
     let lease_period = _get_lease_period inifile in
