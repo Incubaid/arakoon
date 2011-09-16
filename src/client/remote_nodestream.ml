@@ -25,7 +25,8 @@ open Interval
 open Routing
 open Common
 open Lwt
-
+open Client_cfg
+open Ncfg
 
 class type nodestream = object
   method iterate: 
@@ -43,6 +44,9 @@ class type nodestream = object
   method get_tail: string -> ((string * string) list) Lwt.t
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
+  
+  method store_cluster_cfg : string -> ClientCfg.t -> unit Lwt.t 
+  
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
@@ -143,6 +147,10 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     response ic incoming
 
   method get_tail (lower:string) = Common.get_tail conn lower
+  
+  method store_cluster_cfg cluster_id cfg =
+    Common.set_nursery_cfg (ic,oc) cluster_id cfg
+  
 end
 
 let make_remote_nodestream cluster connection = 

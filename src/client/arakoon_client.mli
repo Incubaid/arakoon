@@ -1,5 +1,6 @@
 (** main interface to arakoon *)
 open Statistics
+open Ncfg
 
 type key = string
 type value = string
@@ -76,4 +77,6 @@ method range_entries:
   method user_function: string -> string option -> string option Lwt.t
   
   method get_key_count: unit -> int64 Lwt.t
+  
+  method get_cluster_cfgs: unit -> NCFG.t Lwt.t
 end

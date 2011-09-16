@@ -70,11 +70,11 @@ module ClientCfg = struct
   let get (t:t) name = Hashtbl.find t name
 
 
-  let from_file fn =  (* This is the format as defined in the extension *)
+  let from_file section fn =  (* This is the format as defined in the extension *)
     let inifile = new Inifiles.inifile fn in
     let cfg = make () in
     let _get s n p = Ini.get inifile s n p Ini.required in
-    let nodes      = _get "global" "cluster" Ini.p_string_list in
+    let nodes      = _get section "cluster" Ini.p_string_list in
     let () = List.iter
       (fun n ->
 	let ip = _get n "ip" Ini.p_string in

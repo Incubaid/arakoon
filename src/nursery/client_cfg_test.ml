@@ -27,7 +27,7 @@ let test_parsing () =
   let oc = open_out "/tmp/client_cfg_test.ml" in
   let () = output_string oc contents in
   let () = close_out oc in
-  let cfg = ClientCfg.from_file fn in
+  let cfg = ClientCfg.from_file fn "global" in
   let sa0 = ClientCfg.get cfg "sturdy_0" in
   OUnit.assert_equal sa0 ("127.0.0.1",7080)
 

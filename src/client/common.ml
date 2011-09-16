@@ -340,7 +340,7 @@ let get_nursery_cfg (ic,oc) =
   request oc get_nursery_cfg_to >>= fun () ->
   response ic decode
 
-let set_nusery_cfg (ic,oc) clusterid cfg =
+let set_nursery_cfg (ic,oc) clusterid cfg =
   let outgoing buf =
      set_nursery_cfg_to buf clusterid cfg
   in

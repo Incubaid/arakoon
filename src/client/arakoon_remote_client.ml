@@ -103,6 +103,9 @@ object(self: #Arakoon_client.client)
   method get_key_count () =
     request  oc (fun buf -> get_key_count_to buf ) >>= fun () ->
     response ic Llio.input_int64
+    
+  method get_cluster_cfgs () =
+    Common.get_nursery_cfg (ic,oc)
 end
 
 let make_remote_client cluster connection = 
