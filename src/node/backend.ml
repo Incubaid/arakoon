@@ -58,6 +58,7 @@ class type backend = object
   method expect_progress_possible : unit -> bool Lwt.t
     
   method get_statistics: unit -> Statistics.t
+  method clear_statistics: unit -> unit 
 
   method check: cluster_id:string -> bool Lwt.t
 

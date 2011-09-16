@@ -92,7 +92,7 @@ class sync_backend cfg push_update push_node_msg
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10 
-  val _stats = Statistics.create ()
+  val _stats = ref (Statistics.create ())
 
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
@@ -106,7 +106,7 @@ object(self: #backend)
     Lwt.catch
       (fun () -> 
 	store # get key >>= fun v -> 
-	Statistics.new_get _stats key v start; 
+	Statistics.new_get !_stats key v start; 
 	Lwt.return v)
       (fun exc ->
 	match exc with
@@ -192,7 +192,7 @@ object(self: #backend)
     log_o self "set %S" key >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in    
-    let update_sets () = Statistics.new_set _stats key value start in
+    let update_sets () = Statistics.new_set !_stats key value start in
     self # _update_rendezvous update update_sets
 
   method aSSert ~allow_dirty (key:string) (vo:string option) = 
@@ -230,7 +230,7 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let update_stats () = Statistics.new_testandset _stats start in
+    let update_stats () = Statistics.new_testandset !_stats start in
     let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
@@ -243,7 +243,7 @@ object(self: #backend)
     log_o self "delete %S" key >>= fun () ->
     self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
-    let update_stats () = Statistics.new_delete _stats start in
+    let update_stats () = Statistics.new_delete !_stats start in
     self # _update_rendezvous update update_stats 
 
   method hello (client_id:string) (cluster_id:string) =
@@ -292,7 +292,7 @@ object(self: #backend)
     let start = Unix.gettimeofday () in
     log_o self "sequence" >>= fun () ->
     let update = Update.Sequence updates in
-    let update_stats () = Statistics.new_sequence _stats start in
+    let update_stats () = Statistics.new_sequence !_stats start in
     self # _update_rendezvous update update_stats
 
   method multi_get ~allow_dirty (keys:string list) =
@@ -300,7 +300,7 @@ object(self: #backend)
     log_o self "multi_get" >>= fun () ->
     self # _only_if_master_or_dirty allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
-    Statistics.new_multiget _stats start;
+    Statistics.new_multiget !_stats start;
     Lwt.return values
 
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
@@ -361,17 +361,17 @@ object(self: #backend)
     else self # _only_if_master ()
 
   method witness name i = 
-    Statistics.witness _stats name i;
+    Statistics.witness !_stats name i;
     Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
     store # consensus_i () >>= fun cio ->
     begin
       match cio with
 	| None -> ()
-	| Some ci -> Statistics.witness _stats my_name  ci
+	| Some ci -> Statistics.witness !_stats my_name  ci
     end;
     Lwt.return ()
 
-  method last_witnessed name = Statistics.last_witnessed _stats name
+  method last_witnessed name = Statistics.last_witnessed !_stats name
     
   method expect_progress_possible () = 
     store # consensus_i () >>= function 
@@ -385,14 +385,14 @@ object(self: #backend)
 	      (ci = i || (Sn.pred ci) = i )
 	    then  count+1,s' 
 	    else  count,s') 
-	  ( Statistics.get_witnessed _stats ) (1,"") in
+	  ( Statistics.get_witnessed !_stats ) (1,"") in
 	let v = count >= q in
 	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
 	>>= fun () ->
 	Lwt.return v
 
-  method get_statistics () = _stats
-
+  method get_statistics () = !_stats
+  method clear_statistics () = _stats := Statistics.create()
   method check ~cluster_id = 
     let r = test ~cluster_id in
     Lwt.return r

@@ -155,6 +155,8 @@ class test_backend my_name = object(self:#backend)
 
   method get_statistics () = Statistics.create() 
 
+  method clear_statistics () = ()
+
   method check ~cluster_id = 
     let r = my_name = cluster_id in
     Lwt.return r
