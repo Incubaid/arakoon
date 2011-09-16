@@ -472,7 +472,8 @@ object(self: #backend)
       Collapser.collapse_many tlog_collection store_methods n cb' new_cb 
     )
     
-  method get_routing () = 
+  method get_routing () =
+    self # _only_if_master () >>= fun () -> 
     Lwt.catch
       (fun () ->
         store # get_routing ()  
@@ -554,7 +555,8 @@ object(self: #backend)
     let buf = Buffer.create 100 in
     ClientCfg.cfg_to buf cfg;
     let value = Buffer.contents buf in
-    store # set ~_pf:__adminprefix key value
+    let update = Update.AdminSet (key,Some value) in
+    self # _update_rendezvous update (fun () -> ()) push_update
     
   method get_tail lower = 
     Lwt_log.debug_f "get_tail %S" lower >>= fun () ->
