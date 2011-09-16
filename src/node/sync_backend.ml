@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Backend
 open Statistics
+open Client_cfg
 open Node_cfg
 open Lwt
 open Log_extra
@@ -37,6 +38,11 @@ open Master_type
 let _s_ = function
   | Some x -> "Some " ^ x
   | None -> "None"
+
+let ncfg_prefix_b4 = "nursery.cfg."
+let ncfg_prefix_2far = "nursery.cfg/"
+let ncfg_prefix_b4_o = Some ncfg_prefix_b4
+let ncfg_prefix_2far_o = Some ncfg_prefix_2far
 
 exception Forced_stop
 let make_went_well stats_cb awake sleeper =
@@ -307,6 +313,7 @@ object(self: #backend)
 	    log_o self 
 	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
 	      (Sn.string_of too_far_i)
+        
 	    
 	    >>= fun () ->
 	    begin
@@ -466,19 +473,18 @@ object(self: #backend)
     )
     
   method get_routing () = 
-    self # _only_if_master () >>= fun () ->
     Lwt.catch
-      (fun () -> 
-	store # get_routing ()  >>= fun r -> 
-	Lwt.return r)
+      (fun () ->
+        store # get_routing ()  
+      )
       (fun exc ->
-	match exc with
-	  | Store.CorruptStore ->
-	    begin
-	      Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
-	      Lwt.fail Server.FOOBAR
-	    end
-	  | ext -> Lwt.fail ext)   
+        match exc with
+          | Store.CorruptStore ->
+            begin
+              Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
+              Lwt.fail Server.FOOBAR
+            end
+          | ext -> Lwt.fail ext)   
 
 
   method get_key_count () =
@@ -529,9 +535,29 @@ object(self: #backend)
     )
   
   method get_cluster_cfgs () =
-    failwith "not_implemented"
+    store # range_entries ~_pf:__adminprefix 
+      ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1) >>= fun cfgs ->
+    let result = Hashtbl.create 5 in
+    let add_item (item: string*string) = 
+      let (k,v) = item in
+      let cfg, _ = ClientCfg.cfg_from v 0 in
+      let start = String.length ncfg_prefix_b4 in
+      let length = (String.length k) - start in
+      let k' = String.sub k start length in 
+      Hashtbl.replace result k' cfg
+    in
+    List.iter add_item cfgs;
+    Lwt.return result
+    
+  method set_cluster_cfg cluster_id cfg =
+    let key = ncfg_prefix_b4 ^ cluster_id in
+    let buf = Buffer.create 100 in
+    ClientCfg.cfg_to buf cfg;
+    let value = Buffer.contents buf in
+    store # set ~_pf:__adminprefix key value
     
   method get_tail lower = 
     Lwt_log.debug_f "get_tail %S" lower >>= fun () ->
-    store # get_tail lower
+    store # get_tail lower 
+    
 end

@@ -19,6 +19,7 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
+open Lwt
 
 module ClientCfg = struct
   type sa = string * int
@@ -41,6 +42,28 @@ module ClientCfg = struct
     in
     Llio.hashtbl_from buf entry_from pos
 
+  let input_cfg ic =
+    let key_from ic =
+      Llio.input_string ic 
+    in
+    let value_from ic =
+      Llio.input_string ic >>= fun ip ->
+      Llio.input_int ic >>= fun port ->
+      Lwt.return (ip,port)
+      
+    in
+    Llio.input_hashtbl key_from value_from ic 
+    
+  let output_cfg oc cfg =
+    let helper oc key value =
+      Llio.output_string oc key >>= fun () ->
+      let (ip,port) = value in
+      Llio.output_string oc ip >>= fun () ->
+      Llio.output_int oc port 
+    in
+    Llio.output_hashtbl helper oc cfg
+    
+    
   let node_names (t:t) = Hashtbl.fold (fun k v acc -> k::acc) t []
   let make () = Hashtbl.create 7
   let add (t:t) name sa = Hashtbl.add t name sa

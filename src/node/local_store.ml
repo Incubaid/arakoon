@@ -57,13 +57,6 @@ let _get_interval db =
     Lwt.return interval
   with Not_found -> Lwt.return Interval.max
 
-let _get_routing db = 
-  try 
-    let routing_s = Bdb.get db __routing_key in
-    let routing,_ = Routing.routing_from routing_s 0 in
-    Lwt.return (Some routing)
-  with Not_found -> Lwt.return None
-
 let _set_interval db range = 
   let buf = Buffer.create 80 in
   let () = Interval.interval_to buf range in
@@ -76,6 +69,13 @@ let _set_routing db routing =
   let routing_s = Buffer.contents buf in
   Bdb.put db __routing_key routing_s
 
+let _get_routing db = 
+  try 
+    let routing_s = Bdb.get db __routing_key in
+    let routing,_ = Routing.routing_from routing_s 0 in
+    Lwt.return (Some routing)
+  with Not_found -> Lwt.return None
+  
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
   let new_i =

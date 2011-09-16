@@ -30,6 +30,7 @@ open Interval
 open Routing
 open Statistics
 open Ncfg
+open Client_cfg
 
 let read_command (ic,oc) =
   Llio.input_int32 ic >>= fun masked ->
@@ -407,7 +408,14 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | SET_NURSERY_CFG ->
       begin
-        Lwt.return true
+        Lwt.catch (
+          fun () ->
+            Llio.input_string ic >>= fun cluster_id ->
+            ClientCfg.input_cfg ic >>= fun cfg ->
+            backend # set_cluster_cfg cluster_id cfg >>= fun () ->
+            response_ok_unit oc
+        )
+        ( handle_exception oc )
       end
     | GET_TAIL ->
       begin

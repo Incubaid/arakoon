@@ -359,4 +359,27 @@ let rec named_field_from buffer offset: (namedValue*int) =
         end
       | _ -> failwith "Unknown value type. Cannot decode."
   end  
-  
+
+let input_hashtbl fk fv ic =
+  input_int ic >>= fun elem_cnt ->
+  let result = Hashtbl.create elem_cnt in
+  let rec helper = function
+    | 0 -> Lwt.return result
+    | i -> 
+    begin 
+      fk ic >>= fun key ->
+      fv ic >>= fun value ->
+      Hashtbl.replace result key value;
+      helper (i-1)
+    end  
+  in 
+  helper elem_cnt
+
+let output_hashtbl out_f oc ht =
+  let l =  Hashtbl.length ht in
+  output_int oc l >>= fun () ->
+  let helper a b x =
+    x >>= fun () ->
+    out_f oc a b
+  in
+  Hashtbl.fold helper ht (Lwt.return ())  

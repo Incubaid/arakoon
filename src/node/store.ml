@@ -219,11 +219,13 @@ let _insert_update (store:store) update =
         fun () ->
           begin
             match vo with 
-            | None -> failwith "None"
+            | None -> 
+              store # delete ~_pf:__adminprefix k 
             | Some v -> 
-              store # set k v  >>= fun () ->
-              Lwt.return (Ok None)
+              store # set ~_pf:__adminprefix k v  
           end
+          >>= fun () ->
+          Lwt.return (Ok None)
       ) ( 
         fun e ->
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE

@@ -59,7 +59,6 @@ val named_field_from: string -> int -> namedValue * int
 val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int -> 
   ('a, 'b) Hashtbl.t * int
 
-
 val output_bool:          lwtoc -> bool          -> unit Lwt.t
 val output_int:           lwtoc -> int           -> unit Lwt.t
 val output_int32:         lwtoc -> int32         -> unit Lwt.t
@@ -69,9 +68,11 @@ val output_string:        lwtoc -> string        -> unit Lwt.t
 val output_list:        
   (lwtoc -> 'a -> unit Lwt.t) ->
    lwtoc -> 'a list -> unit Lwt.t
+val output_hashtbl: 
+  (lwtoc -> 'a -> 'b -> unit Lwt.t) -> 
+  lwtoc -> ('a, 'b) Hashtbl.t -> unit Lwt.t
 
 val output_kv_list: lwtoc -> ((string*string) list) -> unit Lwt.t
-
 val output_string_pair : lwtoc -> (string * string) -> unit Lwt.t
 
 val input_bool: lwtic   -> bool Lwt.t
@@ -84,6 +85,7 @@ val input_string_pair: lwtic -> (string * string) Lwt.t
 val input_list:(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
 val input_string_list: lwtic -> string list Lwt.t
 val input_kv_list: lwtic -> ((string * string) list) Lwt.t
-
+val input_hashtbl: (lwtic-> 'a Lwt.t) -> (lwtic -> 'b Lwt.t) -> 
+   lwtic -> ('a,'b) Hashtbl.t Lwt.t
 
 val copy_stream:  length:int64 -> ic:lwtic -> oc:lwtoc -> unit Lwt.t
