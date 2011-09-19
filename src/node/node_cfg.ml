@@ -24,6 +24,7 @@ let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_period = 10
 open Master_type
+open Client_cfg
 
 module Node_cfg = struct
 
@@ -40,18 +41,19 @@ module Node_cfg = struct
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
-            use_compression : bool;
+      use_compression : bool;
 	    is_test : bool;
 	   }
 
   type cluster_cfg = 
-      { cfgs: t list;
-	_master: master;
-	quorum_function: int -> int;
-	_lease_period: int;
-	cluster_id : string;
-	plugins: string list;
-      }
+    { cfgs: t list;
+      _master: master;
+      quorum_function: int -> int;
+      _lease_period: int;
+      cluster_id : string;
+      plugins: string list;
+      nursery_cfg : (string*ClientCfg.t) option
+    }
 
   let make_test_config ?(base=4000) n_nodes master lease_period = 
     let make_one n =
@@ -85,6 +87,7 @@ module Node_cfg = struct
     let lease_period = default_lease_period in
     let cluster_id = "ricky" in
     let cluster_cfg = { cfgs= cfgs; 
+      nursery_cfg = None;
 			_master = master;
 			quorum_function = quorum_function;
 			_lease_period = lease_period;
@@ -144,6 +147,16 @@ module Node_cfg = struct
       with (Inifiles.Invalid_element _) -> Elected
     in
     master
+
+  let _get_nursery_cfg inifile filename =
+    try 
+      begin
+        let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
+        let cfg =  ClientCfg.from_file "nursery" filename in
+        Some (n_cluster_id, cfg) 
+      end
+    with ex -> 
+      None 
 
   let _get_cluster_id inifile =
     try
@@ -224,8 +237,10 @@ module Node_cfg = struct
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
     let cluster_id = _get_cluster_id inifile in
+    let m_n_cfg = _get_nursery_cfg inifile config_file in
     let cluster_cfg = 
       { cfgs = cfgs;
+        nursery_cfg = m_n_cfg;
 	_master = fm;
 	quorum_function = quorum_function;
 	_lease_period = lease_period;

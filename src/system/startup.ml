@@ -101,6 +101,7 @@ let post_failure () =
     _lease_period = 2;
     cluster_id = "ricky";
     plugins = [];
+    nursery_cfg = None;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -151,6 +152,7 @@ let restart_slaves () =
      _lease_period = 2;
      cluster_id = "ricky";
      plugins = [];
+     nursery_cfg = None;
     }
   in
   let get_cfgs () = cluster_cfg in 

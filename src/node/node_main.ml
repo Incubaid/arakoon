@@ -29,6 +29,7 @@ open Lwt_buffer
 open Tlogcommon
 open Gc
 open Master_type
+open Client_cfg
 
 let rec _split node_name cfgs =
   let rec loop me_o others = function
@@ -297,6 +298,17 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
+      let my_clicfg = 
+        begin
+          let ccfg = ClientCfg.make () in
+          let add_one cfg =
+            let node_address = cfg.ip, cfg.client_port in
+            ClientCfg.add ccfg cfg.node_name node_address
+          in
+          List.iter add_one in_cluster_cfgs;
+          ccfg
+        end
+      in 
       let other_names = 
 	if me.is_learner 
 	then me.targets 
@@ -308,6 +320,48 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
       Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
       let my_name = me.node_name in
       let cookie = cluster_id in
+      let rec upload_cfg_to_keeper () =
+        begin
+          match cluster_cfg.nursery_cfg with
+            | None -> Lwt_log.info "Cluster not part of nursery."
+            | Some (n_cluster_id, cfg) ->
+              begin 
+                let attempt_send success node_id = 
+                  match success with
+                  | true -> Lwt.return true
+                  | false ->
+                    begin
+                      let (ip,port) = ClientCfg.get cfg node_id in
+                      Lwt.catch(
+                        fun () ->
+                          let address = Network.make_address ip port in
+                          let upload connection = 
+                            Remote_nodestream.make_remote_nodestream n_cluster_id connection >>= fun (client) ->
+                            client # store_cluster_cfg cluster_id my_clicfg
+                          in 
+                          Lwt_io.with_connection address upload >>= fun () ->
+                          Lwt_log.info_f "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
+                          Lwt.return true
+                      ) ( 
+                        fun e ->
+                          let exc_msg = Printexc.to_string e in
+                          Lwt_log.warning_f "Attempt to upload config to %s failed (%s)" node_id exc_msg >>= fun () -> 
+                          Lwt.return false
+                      )
+                    end
+                in 
+                let node_names = ClientCfg.node_names cfg in
+                Lwt_list.fold_left_s attempt_send false node_names >>= fun succeeded ->
+                begin
+                  match succeeded with
+                    | true -> Lwt.return ()
+                    | false -> Lwt_unix.sleep 5.0 >>= fun () -> upload_cfg_to_keeper ()
+                end
+                
+              end
+        end
+      in
+      Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
       let messaging  = _config_messaging me cfgs cookie me.is_laggy in
       Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (Lwt_log.info_f "other: %s")
