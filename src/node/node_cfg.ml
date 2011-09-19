@@ -127,11 +127,13 @@ module Node_cfg = struct
       Scanf.sscanf les "%i" (fun i -> i)
     with (Inifiles.Invalid_element _) -> default_lease_period
 
-  let _get_bool inifile node_section x = 
-      try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
-      with (Inifiles.Invalid_element _) -> false
 
-  let _forced_master inifile =
+  let _get_bool inifile node_section x =
+    try Scanf.sscanf (inifile # getval node_section x) "%b" (fun b -> b) 
+    with (Inifiles.Invalid_element _) -> false
+
+
+  let _startup_mode inifile =
     let master =
       try
 	let m_s = (inifile # getval "global" "master") in
@@ -144,7 +146,11 @@ module Node_cfg = struct
 	  if _get_bool inifile "global" "preferred_master" 
 	  then (Preferred m)
 	  else (Forced m)
-      with (Inifiles.Invalid_element _) -> Elected
+      with (Inifiles.Invalid_element _) -> 
+	let read_only = _get_bool inifile "global" "readonly" in
+	if read_only 
+	then ReadOnly
+	else Elected
     in
     master
 
@@ -218,7 +224,7 @@ module Node_cfg = struct
 
   let read_config config_file =
     let inifile = new Inifiles.inifile config_file in
-    let fm = _forced_master inifile in
+    let fm = _startup_mode inifile in
     let nodes = _node_names inifile in
     let cfgs, remaining = List.fold_left
       (fun (a,remaining) section ->
@@ -241,7 +247,8 @@ module Node_cfg = struct
 	_master = fm;
 	quorum_function = quorum_function;
 	_lease_period = lease_period;
-	cluster_id = cluster_id}
+	cluster_id = cluster_id;
+      }
     in
     cluster_cfg
 

@@ -362,6 +362,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
     let node_buffer = messaging # get_buffer my_name in
     let expect_reachable = messaging # expect_reachable in
     let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+    let read_only = master = ReadOnly in
     let inject_push v = Lwt_buffer.add v inject_buffer in
 	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
@@ -370,6 +371,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
 	      ~quorum_function n_nodes
 	      ~expect_reachable
 	      ~test
+	      ~read_only
 	  in
 	  let backend = (sb :> Backend.backend) in
 
@@ -445,6 +447,7 @@ let _main_2 make_store make_tlog_coll make_config ~name
 		  then Multi_paxos_fsm.enter_simple_paxos
 		  else Multi_paxos_fsm.enter_forced_slave 
 		end
+	    | ReadOnly -> Multi_paxos_fsm.enter_read_only
 	    | _ -> Multi_paxos_fsm.enter_simple_paxos
 	in to_run constants buffers new_i vo
       in

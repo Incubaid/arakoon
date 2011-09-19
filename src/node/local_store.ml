@@ -414,10 +414,16 @@ object(self: #store)
 
 end
 
-let make_local_store db_name =
-  Hotc.create db_name >>= fun db ->
-  Hotc.transaction db _who_master >>= fun mlo ->
-  Hotc.transaction db _consensus_i >>= fun store_i ->
+let make_local_store ?(read_only=true) db_name =
+  let mode = 
+    if read_only 
+    then Bdb.readonly_mode 
+    else Bdb.default_mode
+  in
+  Hotc.create db_name ~mode >>= fun db ->
+  Hotc.read db _who_master >>= fun mlo ->
+  Hotc.read db _consensus_i >>= fun store_i ->
+  Lwt_log.debug "after first tx" >>= fun () ->
   let store = new local_store db_name db mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

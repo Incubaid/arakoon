@@ -81,6 +81,11 @@ let election_suggest constants (n,i,vo) () =
   Lwt.return (Promises_check_done state)
 
 
+let read_only constants state () = 
+  Lwt_unix.sleep 60.0 >>= fun () ->
+  Lwt_log.debug "read_only ..." >>= fun () ->
+  Lwt.return (Read_only state)
+
 
 (* a pending slave that is waiting for a prepare or a nak
    in order to discover a master *)
@@ -691,6 +696,7 @@ let machine constants =
 
   | Election_suggest state ->
     (Unit_arg (election_suggest constants state), nop)
+  | Read_only state -> (Unit_arg (read_only constants state), nop)
   | Start_transition -> failwith "Start_transition?"
 
 let __trace = ref false
@@ -830,6 +836,23 @@ let enter_forced_master constants buffers current_i vo =
     (fun e ->
       log ~me "FSM BAILED due to uncaught exception %s" (Printexc.to_string e)
       >>= fun () -> Lwt.fail e
+    )
+
+let enter_read_only constants buffers current_i vo = 
+  let me = constants.me in
+  log ~me "+starting FSM for read_only." >>= fun () ->
+  let current_n = 0L in
+  let trace = trace_transition me in
+  let produce = paxos_produce buffers constants in
+  Lwt.catch
+    (fun () ->
+      Fsm.loop ~trace produce
+	(machine constants)
+	(read_only constants (current_n, current_i, vo))
+    )
+    (fun exn ->
+      Lwt_log.info ~exn "READ ONLY BAILS OUT" >>= fun () ->
+      Lwt.fail exn
     )
 
 let enter_simple_paxos constants buffers current_i vo =

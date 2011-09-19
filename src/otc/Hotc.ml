@@ -49,13 +49,13 @@ module Hotc = struct
 
   let _close_lwt t = Lwt.return (_close t)
 
-  let create filename =
+  let create ?(mode=Bdb.default_mode) filename =
     let res = {
       filename = filename;
       bdb = Bdb._make ();
       mutex = Lwt_mutex.create ();
     } in
-    _do_locked res (fun () ->_open_lwt res Bdb.default_mode) >>= fun () ->
+    _do_locked res (fun () ->_open_lwt res mode) >>= fun () ->
     Lwt.return res
 
   let close t = 
@@ -99,6 +99,7 @@ module Hotc = struct
   let transaction t (f:Bdb.bdb -> 'a) =
     _do_locked t (fun () -> _transaction t f)
 
+  let read t (f:Bdb.bdb -> 'a) = _do_locked t (fun () -> f t.bdb)
 
   let with_cursor bdb (f:Bdb.bdb -> 'a) =
     let cursor = Bdb._cur_make bdb in

@@ -137,14 +137,13 @@ type constants =
 
 let am_forced_master constants me =
   match constants.master with
-    | Elected -> false
-    | Preferred _ -> false
     | Forced x -> x = me
+    | _ -> false
 
 let is_election constants =
   match constants.master with
     | Elected | Preferred _ -> true
-    | Forced _ -> false
+    | _ -> false
 
 let make me is_learner others send receive get_value 
     on_accept on_consensus on_witness last_witnessed

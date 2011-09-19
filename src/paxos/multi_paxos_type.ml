@@ -65,6 +65,9 @@ type transitions =
   | Master_consensus of (master_option * Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
   | Stable_master of (Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
   | Master_dictate of (master_option * Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n)
+  (* read only *)
+  | Read_only of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t option)
+
 
 (* utility functions *)
 let show_transition = function
@@ -83,3 +86,4 @@ let show_transition = function
   | Master_consensus _ -> "Master_consensus"
   | Stable_master _ -> "Stable_master"
   | Master_dictate _ -> "Master_dictate"
+  | Read_only _ -> "Read_only"
