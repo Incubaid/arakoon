@@ -110,6 +110,7 @@ let collapse_until tlog_dir head_name too_far_i =
       else
           let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
           Lwt_log.debug msg >>= fun () ->
+	  store # optimize () >>= fun () ->
           store # close () >>= fun () ->
           Lwt.fail (Failure msg)
       end

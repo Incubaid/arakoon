@@ -349,6 +349,17 @@ object(self: #store)
   method consensus_i () =
     Lwt.return _store_i
 
+  method optimize () =
+    Lwt_log.debug_f "optimizing store %s" (Hotc.filename db) >>= fun () ->
+    Lwt_preemptive.detach
+      (fun () -> let db = Hotc.get_bdb db in
+		 Bdb.bdb_optimize db;
+		 ()
+      ) ()
+    >>= fun () ->
+    Lwt_log.debug "done optimizing store"
+
+
   method close () =
     Hotc.close db >>= fun () ->
     Lwt_log.debug "local_store :: close () " >>= fun () ->

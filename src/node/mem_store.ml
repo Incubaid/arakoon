@@ -184,6 +184,8 @@ object (self: #store)
 
   method close () = Lwt.return ()
 
+  method optimize () = Lwt.return ()
+
   method reopen when_closed = Lwt.return ()
 
   method get_filename () = failwith "not supported"
