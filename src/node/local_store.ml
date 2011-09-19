@@ -414,7 +414,7 @@ object(self: #store)
 
 end
 
-let make_local_store ?(read_only=true) db_name =
+let make_local_store ?(read_only=false) db_name =
   let mode = 
     if read_only 
     then Bdb.readonly_mode 

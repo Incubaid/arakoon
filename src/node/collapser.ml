@@ -121,10 +121,12 @@ let collapse_until tlog_dir head_name too_far_i =
 
 
 let mv_file source target = 
+  Lwt_log.debug_f "mv %s %s" source target >>= fun () ->
   Unix.rename source target; 
   Lwt.return ()
 
 let unlink_file target = 
+  Lwt_log.debug_f "unlink %s" target >>= fun () ->
   Unix.unlink target; 
   Lwt.return ()
 
@@ -139,7 +141,7 @@ let collapse_many tlog_dir tlog_names head_name cb =
     (function
       | Unix.Unix_error (Unix.ENOENT,x,y) -> 
 	begin
-	  Lwt_log.debug_f "%s,%s" x y >>= fun () ->
+	  Lwt_log.debug_f "%s: %s" x y >>= fun () ->
 	  Lwt.return ()
 	end
       | exn -> Lwt.fail exn)
