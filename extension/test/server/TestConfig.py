@@ -205,6 +205,17 @@ class TestConfig:
         config = cluster._getConfigFile()
         assert_equals(config.getValue("global", 'quorum'), '2')
 
+    def testReadOnly(self):
+        cluster = self._getCluster()
+        cluster.addNode("x1")
+        cluster.setReadOnly(true)
+        config = cluster._getConfigFile()
+        assert_equals(config.getValue("global","readonly"), 'true')
+        cluster.setReadOnly(false)
+        config = cluster._getConfigFile()
+        ok = config.checkParam("global","readonly")
+        assert_false(ok)
+        
     def testSetIllegalQuorum(self):
         cid = self._clusterId
         cluster = self._getCluster()

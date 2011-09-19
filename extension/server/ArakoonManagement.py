@@ -390,7 +390,20 @@ class ArakoonCluster:
         @param nodes List of node names
         """
         self._changeTlogCompression(nodes, 'true')
-                
+
+    def setReadOnly(self, flag = True):
+        config = self._getConfigFile()
+        if tlag and len(self.listNodes()) <> 1:
+            raise Exception("only for clusters of size 1")
+
+        g = "global"
+        p = "readonly"
+        if config.checkParam(g,p):
+            config.removeParam(g, p)
+        if flag :
+            config.addParam(g, p, "true")
+        config.write()
+            
     def setQuorum(self, quorum=None):
         """
         Set the quorum for the supplied cluster
