@@ -104,3 +104,8 @@ class ArakoonInvalidArguments( ArakoonException, TypeError ):
         self._msg = ArakoonInvalidArguments._msgF % ( fun_name, error_string)
         ArakoonException.__init__(self, self._msg ) 
         
+class NurseryException( ArakoonException ):
+    pass
+
+class NurseryRangeError( NurseryException ):
+    pass

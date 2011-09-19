@@ -25,6 +25,7 @@ Module implementing the Arakoon protocol
 """
 from ArakoonExceptions import *
 from ArakoonValidators import SignatureValidator
+from NurseryRouting import RoutingInfo
 
 import struct
 import logging
@@ -63,7 +64,7 @@ class ArakoonClientConfig :
         self._clusterId = clusterId
         self._nodes = nodes
     
-    def __repr__(self):
+    def __str__(self):
         r = "ArakoonClientConfig(%s,%s)" % (self._clusterId,
                                             str(self._nodes))
         return r
@@ -221,7 +222,9 @@ ARA_CMD_USER_FUNCTION            = 0x00000015 | ARA_CMD_MAG
 
 ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 
-ARA_CMD_CONFIRM = 0x0000001c | ARA_CMD_MAG
+ARA_CMD_CONFIRM                  = 0x0000001c | ARA_CMD_MAG
+
+ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -381,9 +384,14 @@ def _recvInt64 ( con ):
     i,o2 = _unpackInt64(buf,0)
     return i
 
+def _unpackBool(buf, offset):
+    r = struct.unpack_from( "?", buf, offset) [0]
+    return r, offset+1
+
 def _recvBool ( con ):
     buf = _readExactNBytes( con, 1 )
-    return struct.unpack( "?", buf ) [0]
+    b, o2 = _unpackBool(buf,0)
+    return b
 
 def _unpackFloat(buf, offset):
     r = struct.unpack_from("d", buf, offset)
@@ -626,6 +634,30 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
+    def decodeNurseryCfgResult( con ):
+        ArakoonProtocol._evaluateErrorCode(con)
+        
+        offset = 0
+        encoded = _recvString( con )
+        routing, offset = RoutingInfo.unpack(encoded, offset, _unpackBool, _unpackString)
+        
+        cfgCount, offset = _unpackInt(encoded, offset)
+        resultCfgs = dict()
+        for i in range(cfgCount) :
+            clusterId, offset = _unpackString(encoded, offset)
+            clusterSize, offset = _unpackInt(encoded, offset)
+            cfg = dict()
+            for j in range(clusterSize):
+                nodeId, offset = _unpackString(encoded, offset)
+                ip, offset = _unpackString(encoded, offset)
+                port, offset = _unpackInt(encoded, offset)
+                cfg[nodeId] = (ip,port)
+            cliCfg = ArakoonClientConfig(clusterId, cfg)
+            resultCfgs[clusterId] = cliCfg
+        return (routing, resultCfgs)      
+        
+
+    @staticmethod
     def decodeStringPairListResult(con):
         ArakoonProtocol._evaluateErrorCode(con)
         result = []
@@ -649,4 +681,8 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeGetKeyCount () :
-        return _packInt(ARA_CMD_KEY_COUNT) 
+        return _packInt(ARA_CMD_KEY_COUNT)
+    
+    @staticmethod 
+    def encodeGetNurseryCfg ():
+        return _packInt(ARA_CMD_GET_NURSERY_CFG) 

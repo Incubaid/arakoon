@@ -96,7 +96,7 @@ let code2int = [
   GET_TAIL                , 0x1dl;
   GET_INTERVAL            , 0x1el;
   SET_NURSERY_CFG         , 0x1fl;
-  SET_NURSERY_CFG         , 0x20l;
+  GET_NURSERY_CFG         , 0x20l;
 ]
 
 let int2code = 

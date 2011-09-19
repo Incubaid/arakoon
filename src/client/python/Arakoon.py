@@ -480,6 +480,12 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         return conn.decodeStringOptionResult()
 
+    @retryDuringMasterReelection
+    def getNurseryConfig(self):
+        msg = ArakoonProtocol.encodeGetNurseryCfg()
+        con = self._sendToMaster(msg)
+        return con.decodeNurseryCfgResult()
+        
     def _determineMaster(self):
         nodeIds = []
 
