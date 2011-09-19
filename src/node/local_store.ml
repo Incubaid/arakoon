@@ -288,12 +288,12 @@ let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t)
       Hotc.transaction db (_save_i new_i) >>= fun () ->
       Lwt.fail ex)
 
-let get_construct_params db_name =
-  Hotc.create db_name >>= fun db ->
-  Hotc.transaction db _get_interval >>= fun interval ->
-  Hotc.transaction db _get_routing >>= fun routing_o ->
-  Hotc.transaction db _who_master >>= fun mlo ->
-  Hotc.transaction db _consensus_i >>= fun store_i ->
+let get_construct_params db_name ~mode=
+  Hotc.create db_name ~mode >>= fun db ->
+  Hotc.read db _get_interval >>= fun interval ->
+  Hotc.read db _get_routing >>= fun routing_o ->
+  Hotc.read db _who_master >>= fun mlo ->
+  Hotc.read db _consensus_i >>= fun store_i ->
   Lwt.return (db, interval, routing_o, mlo, store_i)
   
 class local_store (db_location:string) (db:Hotc.t) 
@@ -589,9 +589,15 @@ end
 
 
   
-let make_local_store db_name =
+let make_local_store ?(read_only=false) db_name =
+  let mode = 
+    if read_only 
+    then Bdb.readonly_mode
+    else Bdb.default_mode
+  in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
-  get_construct_params db_name >>= fun (db, interval, routing_o, mlo, store_i) -> 
+  get_construct_params db_name ~mode 
+  >>= fun (db, interval, routing_o, mlo, store_i) -> 
   let store = new local_store db_name db interval routing_o mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

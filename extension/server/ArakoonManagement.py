@@ -390,6 +390,18 @@ class ArakoonCluster:
         """
         self._changeTlogCompression(nodes, 'true')
 
+    def setReadOnly(self, flag = True):
+        config = self._getConfigFile()
+        if tlag and len(self.listNodes()) <> 1:
+            raise Exception("only for clusters of size 1")
+
+        g = "global"
+        p = "readonly"
+        if config.checkParam(g,p):
+            config.removeParam(g, p)
+        if flag :
+            config.addParam(g, p, "true")
+        config.write()
         
     def setQuorum(self, quorum=None):
         """
@@ -398,7 +410,7 @@ class ArakoonCluster:
         The quorum dictates on how many nodes need to acknowledge the new value before it becomes accepted.
         The default is (nodes/2)+1
 
-        @param quorum the forced quorom. If None, the default is used 
+        @param quorum the forced quorum. If None, the default is used 
         """
         config = self._getConfigFile()
         if quorum:
