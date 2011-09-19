@@ -96,7 +96,8 @@ module Node_cfg = struct
     let template =
       "{node_name=\"%s\"; ip=\"%s\"; client_port=%d; " ^^
 	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; " ^^ 
-	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b; is_learner=%b}"
+	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b; " ^^ 
+	"is_learner=%b; targets = %s; use_compression=%b}"
     in
       Printf.sprintf template
 	t.node_name t.ip t.client_port t.messaging_port 
@@ -106,6 +107,8 @@ module Node_cfg = struct
 	t.log_level
 	t.is_laggy
 	t.is_learner
+	(Log_extra.string_of_list (fun s -> s) t.targets)
+	t.use_compression
 
   let tlog_dir t = t.tlog_dir 
   let tlog_file_name t =
