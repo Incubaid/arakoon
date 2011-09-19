@@ -69,7 +69,9 @@ let test_collapse_until dn =
         Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Local_store.make_local_store, Local_store.copy_store, storename) in
+  let store_methods = 
+    (Local_store.make_local_store, Local_store.copy_store, storename) 
+  in
   let future_i = Sn.of_int 1001 in
   let cb = fun s -> Lwt.return () in
   Collapser.collapse_until tlc store_methods future_i cb >>= fun () ->

@@ -60,15 +60,16 @@ let _make_tlog_coll tlcs updates tlc_name use_compression =
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let _make_store stores now node_name db_name = 
+let _make_store ?(read_only=false) stores now node_name (db_name:string) =
   Mem_store.make_mem_store db_name >>= fun store ->
   store # set_master node_name now >>= fun () -> 
   Hashtbl.add stores db_name store;
   Lwt.return store
 
 let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () = 
+  let sm ?(read_only=false) db_name = _make_store stores now name db_name in
   Node_main._main_2 
-    (_make_store stores now name)
+    sm
     (_make_tlog_coll tlcs updates)
     get_cfgs
     (fun () -> "DUMMY")

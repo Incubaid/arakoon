@@ -264,18 +264,21 @@ module X = struct
     _inner ()
 end
 
-let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name 
+let _main_2 
+    (make_store: ?read_only:bool -> string -> Store.store Lwt.t) 
+    make_tlog_coll make_config get_snapshot_name copy_store ~name 
     ~daemonize ~catchup_only=
   Lwt_io.set_default_buffer_size 32768;
-    let control  = {
-     minor_heap_size = 32 * 1024;
-     major_heap_increment = 124 * 1024;
-     space_overhead = 80;
-     verbose = 0;
-     max_overhead = 0;
-     stack_limit = 256 * 1024;
-     allocation_policy = 1; 
-  } in
+  let control  = {
+    minor_heap_size = 32 * 1024;
+    major_heap_increment = 124 * 1024;
+    space_overhead = 80;
+    verbose = 0;
+    max_overhead = 0;
+    stack_limit = 256 * 1024;
+    allocation_policy = 1; 
+  } 
+  in
   Gc.set control;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
@@ -444,28 +447,30 @@ let _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~
 	    Lwt_buffer.create ~capacity () in
 	  let client_push v = Lwt_buffer.add v client_buffer 
 	  in
-    let node_buffer = messaging # get_buffer my_name in
-    let expect_reachable = messaging # expect_reachable in
-    let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
-    let inject_push v = Lwt_buffer.add v inject_buffer in
-    let sb =
+	  let node_buffer = messaging # get_buffer my_name in
+	  let expect_reachable = messaging # expect_reachable in
+	  let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+	  let inject_push v = Lwt_buffer.add v inject_buffer in
+	  let read_only = master = ReadOnly in
+	  let sb =
 	    let test = Node_cfg.Node_cfg.test cluster_cfg in
-      new Sync_backend.sync_backend me client_push inject_push
+	    new Sync_backend.sync_backend me client_push inject_push
 	      store (make_store, copy_store, full_snapshot_path) 
-        tlog_coll lease_period
+              tlog_coll lease_period
 	      ~quorum_function n_nodes
 	      ~expect_reachable
 	      ~test
+	      ~read_only
 	  in
 	  let backend = (sb :> Backend.backend) in
-
-    let service = _config_service me backend in
+	  
+	  let service = _config_service me backend in
 	  
 	  let send, receive, run, register =
 	    Multi_paxos.network_of_messaging messaging in
 	  
 	  let on_consensus = X.on_consensus store in
-    let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+	  let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	  let last_witnessed (name:string) = backend # last_witnessed name in
 	  let on_accept = X.on_accept tlog_coll store in
 	  

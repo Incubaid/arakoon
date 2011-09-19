@@ -21,9 +21,14 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
+type store_maker= ?read_only:bool -> string -> Store.store Lwt.t
 
 
-let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (create_store,copy_store,head_location) (too_far_i:Sn.t) (cb: Sn.t -> unit Lwt.t) =
+let collapse_until (tlog_coll:Tlogcollection.tlog_collection) 
+    ((create_store:store_maker), copy_store, head_location) 
+    (too_far_i:Sn.t) 
+    (cb: Sn.t -> unit Lwt.t) =
+  
   let new_location = head_location ^ ".clone" in
   Lwt_log.debug_f "Creating db clone at %s" new_location >>= fun () ->
   Lwt.catch (
@@ -141,7 +146,10 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection) (create_store,copy
       new_store # close ()
   )
 
-let collapse_many tlog_coll store_fs tlogs_to_keep cb' cb =
+let collapse_many tlog_coll 
+    store_fs 
+    tlogs_to_keep cb' cb =
+  
   Lwt_log.debug_f "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   let tlogs_to_collapse = total_tlogs - tlogs_to_keep in

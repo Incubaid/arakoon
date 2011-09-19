@@ -80,12 +80,15 @@ let make_went_well stats_cb awake sleeper =
 
 class sync_backend cfg push_update push_node_msg
   (store:Store.store) 
-  (store_methods:(string -> Store.store Lwt.t) * (string -> string -> bool -> unit Lwt.t) * string )
+  (store_methods: 
+     (?read_only:bool -> string -> Store.store Lwt.t) * 
+     (string -> string -> bool -> unit Lwt.t) * string )
   (tlog_collection:Tlogcollection.tlog_collection) 
   (lease_expiration:int)
   ~quorum_function n_nodes
   ~expect_reachable
   ~test 
+  ~(read_only:bool)
   =
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
@@ -105,13 +108,13 @@ object(self: #backend)
   
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     store # exists key
 
   method get ~allow_dirty key = 
     let start = Unix.gettimeofday () in
     log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     Lwt.catch
       (fun () -> 
 	store # get key >>= fun v -> 
@@ -171,7 +174,7 @@ object(self: #backend)
   
   method range ~allow_dirty (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     store # range first finc last linc max
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
@@ -190,12 +193,12 @@ object(self: #backend)
   method range_entries ~allow_dirty 
     (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     store # range_entries first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     store # prefix_keys prefix max >>= fun key_list ->
     Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
     Lwt.return key_list
@@ -349,7 +352,7 @@ object(self: #backend)
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
     log_o self "multi_get" >>= fun () ->
-    self # _only_if_master_or_dirty allow_dirty >>= fun () ->
+    self # _read_allowed allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
     Statistics.new_multiget _stats start;
     Lwt.return values
@@ -378,6 +381,7 @@ object(self: #backend)
 		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
 	      end
 	    | Forced x -> Some x,"forced master"
+	    | ReadOnly -> Some my_name, "readonly"
 
     in
     log_o self "master:%s (%s)" (string_option_to_string result) argumentation 
@@ -405,10 +409,27 @@ object(self: #backend)
 	else
 	  Lwt.return ()
 
-  method private _only_if_master_or_dirty (allow_dirty:bool) = 
-    if allow_dirty 
+  method private _write_allowed () =
+    if read_only 
+    then Lwt.fail (XException(Arakoon_exc.E_READ_ONLY, my_name))
+    else
+      begin
+	self # who_master () >>= function
+	  | None ->
+	    Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
+	  | Some m ->
+	    if m <> my_name
+	    then
+	      Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
+	    else
+	      Lwt.return ()
+      end
+	
+  method private _read_allowed (allow_dirty:bool) =
+    if allow_dirty or read_only
     then Lwt.return ()
-    else self # _only_if_master ()
+    else self # _write_allowed ()
+      
 
   method witness name i = 
     Statistics.witness _stats name i;
@@ -420,7 +441,7 @@ object(self: #backend)
 	| Some ci -> Statistics.witness _stats my_name  ci
     end;
     Lwt.return ()
-
+      
   method last_witnessed name = Statistics.last_witnessed _stats name
     
   method expect_progress_possible () = 

@@ -243,7 +243,7 @@ object (self: #store)
     Lwt.return all
 end
 
-let make_mem_store db_name =
+let make_mem_store ?(read_only=false) db_name =
   let store = new mem_store db_name in
   let store2 = (store :> store) in
   Lwt.return store2
