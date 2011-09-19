@@ -101,6 +101,7 @@ object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10 
   val _stats = Statistics.create ()
+  val mutable client_cfgs = None
   
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
@@ -536,28 +537,46 @@ object(self: #backend)
     )
   
   method get_cluster_cfgs () =
-    store # range_entries ~_pf:__adminprefix 
-      ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1) >>= fun cfgs ->
-    let result = Hashtbl.create 5 in
-    let add_item (item: string*string) = 
-      let (k,v) = item in
-      let cfg, _ = ClientCfg.cfg_from v 0 in
-      let start = String.length ncfg_prefix_b4 in
-      let length = (String.length k) - start in
-      let k' = String.sub k start length in 
-      Hashtbl.replace result k' cfg
-    in
-    List.iter add_item cfgs;
-    Lwt.return result
-    
+    begin
+      match client_cfgs with 
+        | None ->
+          store # range_entries ~_pf:__adminprefix 
+            ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1) 
+          >>= fun cfgs ->
+          let result = Hashtbl.create 5 in
+          let add_item (item: string*string) = 
+            let (k,v) = item in
+            let cfg, _ = ClientCfg.cfg_from v 0 in
+            let start = String.length ncfg_prefix_b4 in
+            let length = (String.length k) - start in
+            let k' = String.sub k start length in 
+            Hashtbl.replace result k' cfg
+          in
+          List.iter add_item cfgs;
+          let () = client_cfgs <- (Some result) in 
+          Lwt.return result
+        | Some res ->
+          Lwt.return res
+    end
+        
   method set_cluster_cfg cluster_id cfg =
     let key = ncfg_prefix_b4 ^ cluster_id in
     let buf = Buffer.create 100 in
     ClientCfg.cfg_to buf cfg;
     let value = Buffer.contents buf in
     let update = Update.AdminSet (key,Some value) in
-    self # _update_rendezvous update (fun () -> ()) push_update
-    
+    self # _update_rendezvous update (fun () -> ()) push_update >>= fun () ->
+    begin
+      match client_cfgs with
+        | None ->
+          let res = Hashtbl.create 5 in
+          Hashtbl.replace res cluster_id cfg;
+          Lwt_log.debug "set_cluster_cfg creating new cached hashtbl" >>= fun () ->
+          Lwt.return ( client_cfgs <- (Some res) )
+        | Some res -> 
+          Lwt_log.debug "set_cluster_cfg updating cached hashtbl" >>= fun () ->
+          Lwt.return ( Hashtbl.replace res cluster_id cfg ) 
+    end
   method get_tail lower = 
     Lwt_log.debug_f "get_tail %S" lower >>= fun () ->
     store # get_tail lower 
