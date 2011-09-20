@@ -67,8 +67,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	  if i2 = (-1L) 
 	  then
 	    begin
-	    Lwt_log.info_f "remote_nodestream :: iterate (i = %s) last_seen = %s" 
-	      (Sn.string_of i)
+	    Lwt_log.info_f "remote_nodestream :: last_seen = %s" 
 	      (Log_extra.option_to_string Sn.string_of !last_seen)
 	    end
 	  else
@@ -82,16 +81,29 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	    end
 	end
       in 
-      Llio.input_int ic >>= function
-	| 1 -> loop_entries ()
-	| 2 -> 
-	  begin 
-	    save_head () >>= fun () -> 
-	    let hf_name = tlog_coll # get_head_name () in
-	    head_saved_cb hf_name >>= fun () ->
-	    loop_entries ()
-	  end
-	| x -> Llio.lwt_failfmt "don't know what %i means" x
+      let rec loop_parts () = 
+	Llio.input_int ic >>= function
+	  | 1 -> Lwt_log.debug "loop_entries" >>= fun () -> loop_entries ()
+	  | 2 -> 
+	    begin 
+	      Lwt_log.debug "save_head" >>= fun ()->
+	      save_head () >>= fun () -> 
+	      let hf_name = tlog_coll # get_head_name () in
+	      head_saved_cb hf_name >>= fun () ->
+	      loop_parts ()
+	    end
+	  | 3 ->
+	    begin
+	      Lwt_log.debug "save_file" >>= fun () ->
+	      Llio.input_string ic >>= fun name ->
+	      Llio.input_int64 ic >>= fun length ->
+	      Lwt_log.debug_f "got %s (%Li bytes)" name length >>= fun () ->
+	      tlog_coll # save_tlog_file name length ic >>= fun () ->
+	      loop_parts ()
+	    end
+	  | x -> Llio.lwt_failfmt "don't know what %i means" x
+      in
+      loop_parts()
     in
     request  oc outgoing >>= fun () ->
     response ic incoming  

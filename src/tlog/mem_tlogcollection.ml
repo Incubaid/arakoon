@@ -53,7 +53,11 @@ object (self: #tlog_collection)
     Lwt_list.iter_s f (List.rev data')
 
   method get_tlog_count() = failwith "not supported"
-  
+
+  method dump_tlog_file start_i oc = failwith "not supported"
+
+  method save_tlog_file name length ic = failwith "not supported"
+
   method  log_update i u =
     let () = data <- (i,u)::data in
     let () = last_update <- (Some (i,u)) in
