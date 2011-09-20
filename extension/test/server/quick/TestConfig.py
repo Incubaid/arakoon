@@ -211,7 +211,7 @@ class TestConfig:
         cluster.setReadOnly(True)
         config = cluster._getConfigFile()
         assert_equals(config.getValue("global","readonly"), 'true')
-        cluster.setReadOnly(false)
+        cluster.setReadOnly(False)
         config = cluster._getConfigFile()
         ok = config.checkParam("global","readonly")
         assert_false(ok)
