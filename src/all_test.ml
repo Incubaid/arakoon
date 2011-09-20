@@ -83,11 +83,11 @@ let suite = "universe" >::: [
   tcp_messaging_tests; 
   paxos_tests; 
   update_tests; 
-  tlog_tests;
+  (* tlog_tests;
   small_catchup;
   compression;
   collapser;
   system;
-  nursery;
+  nursery; *)
 ]
 
