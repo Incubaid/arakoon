@@ -740,7 +740,7 @@ class ArakoonCluster:
 
     def getStatus(self):
         """
-        Get the status of all nodes in the supplied cluster
+        Get the status of the cluster's nodes running on this machine
 
         @return dict node name -> status (q.enumerators.AppStatusType)
         """
