@@ -726,7 +726,7 @@ class ArakoonCluster:
 
     def getStatus(self):
         """
-        Get the status of all nodes in the supplied cluster
+        Get the status the cluster's nodes running on this machine
 
         @return dict node name -> status (q.enumerators.AppStatusType)
         """
@@ -776,7 +776,7 @@ class ArakoonCluster:
 
     def remoteCollapse(self, nodeName, n):
         """
-        Tell the targetted node to collapse n tlog files
+        Tell the targetted node to collapse all but n tlog files
         @type nodeName: string
         @type n: int
         """
