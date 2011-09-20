@@ -392,7 +392,7 @@ class ArakoonCluster:
 
     def setReadOnly(self, flag = True):
         config = self._getConfigFile()
-        if tlag and len(self.listNodes()) <> 1:
+        if flag and len(self.listNodes()) <> 1:
             raise Exception("only for clusters of size 1")
 
         g = "global"
