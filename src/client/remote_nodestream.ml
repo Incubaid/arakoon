@@ -58,7 +58,6 @@ object(self :# nodestream)
     let incoming ic =
       let save_head () = tlog_coll # save_head ic in
       let rec loop_entries () =
-	Lwt_log.debug "loop_entries" >>= fun () ->
 	Sn.input_sn ic >>= fun i2 ->
 	Lwt_log.debug_f "i2=%s" (Sn.string_of i2) >>= fun () ->
 	begin
@@ -76,7 +75,11 @@ object(self :# nodestream)
 	end
       in 
       Llio.input_int ic >>= function
-	| 1 -> loop_entries ()
+	| 1 -> 
+	  begin 
+	    Lwt_log.debug "loop_entries" >>= fun () -> 
+	    loop_entries ()
+	  end
 	| 2 -> 
 	  begin 
 	    save_head () >>= fun () -> 
