@@ -790,7 +790,7 @@ class ArakoonCluster:
 
     def remoteCollapse(self, nodeName, n):
         """
-        Tell the targetted node to collapse n tlog files
+        Tell the targetted node to collapse all but n tlog files
         @type nodeName: string
         @type n: int
         """
