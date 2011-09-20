@@ -595,9 +595,18 @@ let wait_for_accepteds constants state (event:paxos_event) =
         let new_state = (source,cu_pred,n,i') in 
         Lwt.return (Slave_discovered_other_master new_state)
       end
-	  | Accept (n',i',v') -> (* n' = n *)
-	    paxos_fatal me "wait_for_accepteds: received %S with same n: FATAL" 
-	      (string_of msg)
+	  | Accept (n',i',v') when i' <= i -> (* n' = n *)
+      begin
+        log ~me "wait_for_accepteds: dropping accept with n = %s and i = %s" (Sn.string_of n) (Sn.string_of i') >>= fun () ->
+        Lwt.return (Wait_for_accepteds state)
+      end
+    | Accept (n',i',v') -> (* n' = n *)
+      begin
+        log ~me "wait_for_accepteds: got accept with n = %s and higher i = %s" (Sn.string_of n) (Sn.string_of i') >>= fun () ->
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+        let new_state = (source,cu_pred,n,i') in
+        Lwt.return(Slave_discovered_other_master new_state)
+      end
       end
     | FromClient (vo, cb) -> paxos_fatal me "no FromClient should get here"
     | LeaseExpired n' -> paxos_fatal me "no LeaseExpired should get here"
