@@ -208,7 +208,7 @@ class TestConfig:
     def testReadOnly(self):
         cluster = self._getCluster()
         cluster.addNode("x1")
-        cluster.setReadOnly(true)
+        cluster.setReadOnly(True)
         config = cluster._getConfigFile()
         assert_equals(config.getValue("global","readonly"), 'true')
         cluster.setReadOnly(false)
