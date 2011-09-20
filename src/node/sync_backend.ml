@@ -328,13 +328,30 @@ object(self: #backend)
 		  tlog_collection # dump_head oc
 		end
 	      else 
-		begin
-		  Llio.output_int oc 1 >>= fun () -> Lwt.return start_i
-		end
+		Lwt.return start_i
 	    end
-	    >>= fun start_i'->
+	    >>= fun start_i2->
+	    let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
+	    let rec loop_parts (start_i2:Sn.t) =
+	      if Sn.rem start_i2 step = Sn.start &&
+		 Sn.add start_i2 step < too_far_i 
+	      then
+		begin
+		  Lwt_log.debug_f "start_i2=%Li < %Li" start_i2 too_far_i 
+		  >>= fun () ->
+		  Llio.output_int oc 3 >>= fun () ->
+		  tlog_collection # dump_tlog_file start_i2 oc 
+		  >>= fun start_i2' ->
+		  loop_parts start_i2'
+		end
+	      else 
+		Lwt.return start_i2
+	    in
+	    loop_parts start_i2
+	    >>= fun start_i3 ->
+	    Llio.output_int oc 1 >>= fun () ->
 	    let f(i,u) = Tlogcommon.write_entry oc i u in
-	    tlog_collection # iterate start_i' too_far_i f >>= fun () ->
+	    tlog_collection # iterate start_i3 too_far_i f >>= fun () ->
 	    Sn.output_sn oc (-1L) 
 	  end
     end

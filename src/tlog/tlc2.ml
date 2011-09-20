@@ -36,15 +36,7 @@ let head_fname = "head.db"
 
 let head_name () = head_fname 
 
-let get_file_number i =
-  let j = 
-      if i = Sn.start
-        then
-          Sn.start
-        else
-          Sn.pred i
-  in
-  Sn.div j (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
+let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
   
 let to_archive_name fn = 
   let length = String.length fn in
@@ -455,7 +447,40 @@ object(self: # tlog_collection)
   method get_tlog_count () = 
     get_tlog_names tlog_dir >>= fun tlogs ->
     Lwt.return (List.length tlogs)
-  
+
+  method dump_tlog_file start_i oc = 
+    let n = Sn.to_int (get_file_number start_i) in
+    let an = archive_name n in
+    let fn = file_name n  in
+    begin
+      File_system.exists (Filename.concat tlog_dir an) >>= function
+	| true -> Lwt.return an
+	| false -> Lwt.return fn
+    end
+    >>= fun name ->
+    let canonical = Filename.concat tlog_dir name in
+    Lwt_log.debug_f "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
+    Llio.output_string oc name >>= fun () ->
+    File_system.stat canonical >>= fun stats ->
+    let length = Int64.of_int(stats.Unix.st_size) in (* why don't they use largefile ? *)
+    Lwt_io.with_file ~mode:Lwt_io.input canonical
+      (fun ic -> 
+	Llio.output_int64 oc length >>= fun () ->
+	Llio.copy_stream ~length ~ic ~oc
+      )
+    >>= fun () ->
+    Lwt_log.debug_f "dumped:%s (%Li) bytes" canonical length 
+    >>= fun () ->
+    let next_i = Sn.add start_i (Sn.of_int !tlogEntriesPerFile) in
+    Lwt.return next_i
+	
+  method save_tlog_file name length ic =
+    (* what with rotation, open streams, ...*)
+    let canon = Filename.concat tlog_dir name in
+    Lwt_log.debug_f "save_tlog_file: %s" canon >>= fun () ->
+    Lwt_io.with_file ~mode:Lwt_io.output canon (fun oc -> Llio.copy_stream ~length ~ic ~oc)
+    
+
   method remove_oldest_tlogs count =
     get_tlog_names tlog_dir >>= fun existing ->
     let rec remove_one l = function
