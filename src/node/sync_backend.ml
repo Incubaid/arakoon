@@ -133,11 +133,11 @@ object(self: #backend)
 
   method get_interval () =
     log_o self "get_interval" >>= fun () ->
-    self # _only_if_master () >>= fun () ->
+    self # _read_allowed false >>= fun () ->
     store # get_interval ()
 
   method private _update_rendezvous update update_stats push = 
-    self # _only_if_master () >>= fun () ->
+    self # _write_allowed () >>= fun () ->
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
     let went_well = make_went_well update_stats awake sleep in
@@ -280,7 +280,7 @@ object(self: #backend)
       | None -> ()
       | Some w -> assert_value_size w
     in
-    self # _only_if_master () >>= fun () ->
+    self # _write_allowed () >>= fun () ->
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
@@ -294,7 +294,6 @@ object(self: #backend)
 
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in
-    self # _only_if_master ()>>= fun () ->
     let update = Update.Delete key in
     let update_stats () = Statistics.new_delete _stats start in
     self # _update_rendezvous update update_stats push_update
@@ -416,16 +415,6 @@ object(self: #backend)
         else
           Lwt.return ()
       
-  method private _only_if_master() =
-    self # who_master () >>= function
-      | None -> Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
-      | Some m ->
-	if m <> my_name
-	then
-	  Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
-	else
-	  Lwt.return ()
-
   method private _write_allowed () =
     if read_only 
     then Lwt.fail (XException(Arakoon_exc.E_READ_ONLY, my_name))
@@ -512,7 +501,7 @@ object(self: #backend)
     )
     
   method get_routing () =
-    self # _only_if_master () >>= fun () -> 
+    self # _read_allowed false >>= fun () -> 
     Lwt.catch
       (fun () ->
         store # get_routing ()  
