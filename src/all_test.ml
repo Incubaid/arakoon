@@ -84,10 +84,10 @@ let suite = "universe" >::: [
   paxos_tests; 
   update_tests; 
   tlog_tests;
-  (*
   small_catchup;
   compression;
   collapser;
+  (*
   system;
   nursery; *)
 ]
