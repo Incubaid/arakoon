@@ -1158,3 +1158,39 @@ class ArakoonCluster:
         cfs.copyFile('file://' + archive_file , destination)
         q.system.fs.removeDirTree( archive_folder )
         q.system.fs.unlink( archive_file )
+    
+    
+    def setNurseryKeeper(self, clusterId): 
+        """
+        Updates the cluster configuration file to the correct nursery keeper cluster. 
+        If the keeper needs to be removed from the cluster config, specify None as clusterId
+        
+        This requires a valid client configuration on the system that can be used to access the keeper cluster.
+        
+        @param clusterId:  The id of the cluster that will function as nursery keeper
+        @type clusterId:   string / None
+        
+        @return void
+        """
+        
+        config = self._getConfigFile()
+        
+        if clusterId is None:
+            config.removeSection("nursery")
+            return
+            
+        cliCfg = q.clients.arakoon.getClientConfig(clusterId)
+        nurseryNodes = cliCfg.getNodes()
+        
+        if len(nurseryNodes) == 0:
+            raise RuntimeError("A valid client configuration is required for cluster '%s'" % (clusterId) )
+        
+        config.addSection("nursery")
+        config.addParam("nursery", "cluster_id", clusterId)
+        config.addParam("nursery", "cluster", ",".join( nurseryNodes.keys() ))
+        
+        for (id,(ip,port)) in nurseryNodes.iteritems() :
+            config.addSection(id)
+            config.addParam(id,"ip",ip)
+            config.addParam(id,"client_port",port)
+
