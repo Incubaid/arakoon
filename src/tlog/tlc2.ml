@@ -348,7 +348,8 @@ object(self: # tlog_collection)
 	  Lwt_log.debug ("end of compress : " ^ msg) 
 	)
 	(fun () -> 
-	  Lwt_condition.signal Compression.jobs_condition ();
+	  Lwt_log.debug "_inner_compress :: broadcasting" >>= fun () ->
+	  Lwt_condition.broadcast Compression.jobs_condition ();
 	  Lwt.return ()
 	)
     in 

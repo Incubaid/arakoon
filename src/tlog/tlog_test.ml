@@ -31,7 +31,7 @@ open Otc
 open OUnit
 open Extra
 
-let fileName = "/tmp/log"
+let fileName = "/tmp/tlog_test.tlog"
 
 let setupTlogWriter () =
   Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC ]

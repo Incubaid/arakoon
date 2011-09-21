@@ -42,7 +42,16 @@ let setup factory () =
 
 let teardown (dn, factory) = 
   Lwt_log.info_f "teardown %s" dn >>= fun () ->
-  Lwt.return ()
+  let rec loop () = 
+    if !Compression.jobs > 0 
+    then 
+      begin
+	Lwt_condition.wait Compression.jobs_condition >>= fun () ->
+	loop () 
+      end
+    else Lwt.return () 
+  in 
+  loop ()
 
 
 let test_empty_collection (dn, factory) =
@@ -86,10 +95,6 @@ let test_rollover_1002 (dn, factory) =
   let uos = Log_extra.option_to_string Update.string_of uo in
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
-  (* wait so all the compression can finish on terribly slow virtual machines *)
-  let s = 10.0 in
-  Lwt_log.info_f "going to sleep %fs" s >>= fun () ->
-  Lwt_unix.sleep s >>= fun () -> 
   Lwt.return ()
 
 
