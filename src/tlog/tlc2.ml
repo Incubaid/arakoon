@@ -331,23 +331,46 @@ object(self: # tlog_collection)
     let tlu = Filename.concat tlog_dir (file_name _outer) in
     let tlc = Filename.concat tlog_dir (archive_name _outer) in
     let tlc_temp = tlc ^ ".part" in
-    let compress () =
-      Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-      Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-      File_system.rename tlc_temp tlc >>= fun () ->
-      Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
-      Lwt.catch
-	(fun () -> 
-	  Lwt_unix.unlink tlu >>= fun () ->
-	  Lwt.return ("ok: unlinked " ^ tlu)
+    let _inner_compress () =
+      Lwt.finalize
+	(fun () ->
+	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+	  File_system.rename tlc_temp tlc >>= fun () ->
+	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
+	  Lwt.catch
+	    (fun () -> 
+	      Lwt_unix.unlink tlu >>= fun () ->
+	      Lwt.return ("ok: unlinked " ^ tlu)
+	    )
+	    (fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
+	  >>= fun msg ->
+	  Lwt_log.debug ("end of compress : " ^ msg) 
 	)
-	(fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
-      >>= fun msg ->
-      Lwt_log.debug ("end of compress : " ^ msg) 
+	(fun () -> 
+	  Lwt_condition.signal Compression.jobs_condition ();
+	  Lwt.return ()
+	)
     in 
+    let compress () = 
+      begin
+	begin
+	  if !Compression.jobs > 0 then
+	    begin
+	      Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
+	      Lwt_condition.wait Compression.jobs_condition
+	    end
+	  else
+	    Lwt.return ()
+	end >>= fun () ->
+	Lwt.ignore_result (_inner_compress ());
+	Lwt.return ()
+      end
+    in
     begin
-      if use_compression then Lwt.ignore_result(compress ());
-      Lwt.return ()
+      if use_compression 
+      then compress () 
+      else Lwt.return ()
     end
     >>= fun () ->
     _outer <- _outer + 1;

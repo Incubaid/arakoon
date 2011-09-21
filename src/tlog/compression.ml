@@ -30,6 +30,7 @@ let tlog_name archive_name =
   String.sub archive_name 0 (len-4)
     
 let jobs = ref 0
+let jobs_condition = (Lwt_condition.create () : unit Lwt_condition.t)
 
 let compress_tlog tlog_name archive_name =
   incr jobs;
