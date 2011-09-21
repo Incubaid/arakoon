@@ -356,13 +356,17 @@ object(self: # tlog_collection)
     let compress () = 
       begin
 	begin
-	  if !Compression.jobs > 0 then
-	    begin
-	      Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
-	      Lwt_condition.wait Compression.jobs_condition
-	    end
-	  else
-	    Lwt.return ()
+	  let rec loop () = 
+	    if !Compression.jobs > 0 then
+	      begin
+		Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
+		Lwt_condition.wait Compression.jobs_condition >>= fun () ->
+		loop ()
+	      end
+	    else
+	      Lwt.return ()
+	  in
+	  loop ()
 	end >>= fun () ->
 	Lwt.ignore_result (_inner_compress ());
 	Lwt.return ()
