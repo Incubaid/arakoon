@@ -196,7 +196,12 @@ let test_compression_bug (dn, factory) =
   tlc # log_update 0L (Update.Set("xxx","XXX")) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
-  Lwt_unix.sleep 5.0 >>= fun () -> (* values of > 1 MB compressed in test *)
+  begin
+    if !Compression.jobs > 0 
+    then Lwt_condition.wait Compression.jobs_condition 
+    else Lwt.return () 
+  end
+  >>= fun () ->
   File_system.stat (dn ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
