@@ -114,6 +114,7 @@ let test_restart (dn, factory) =
   tlc_one # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
   tlc_two # get_last_update (Sn.of_int 99) >>= fun uo ->
+  tlc_two # close () >>= fun () ->
   Lwt.return ()
 
 
@@ -147,6 +148,7 @@ let test_iterate2 (dn, factory) =
      Lwt.return ())
   >>= fun () -> 
   OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
+  tlc # close () >>= fun () ->
   Lwt.return ()
 
 
@@ -164,6 +166,7 @@ let test_iterate3 (dn,factory) =
     )
   >>= fun () ->
   OUnit.assert_equal (List.mem (Sn.of_int 99) !result) true;
+  tlc # close () >>= fun () ->
   Lwt.return ()
 
 
