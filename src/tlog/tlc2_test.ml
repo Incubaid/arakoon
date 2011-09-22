@@ -100,6 +100,7 @@ let test_iterate4 (dn, factory) =
   tlc # get_infimum_i () >>= fun inf ->
   Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
+  tlc # close () >>= fun () ->
   Lwt_log.debug_f "end of test_iterate4" >>= fun () -> 
   Lwt.return ()
 
@@ -196,12 +197,6 @@ let test_compression_bug (dn, factory) =
   tlc # log_update 0L (Update.Set("xxx","XXX")) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
-  begin
-    if !Compression.jobs > 0 
-    then Lwt_condition.wait Compression.jobs_condition 
-    else Lwt.return () 
-  end
-  >>= fun () ->
   File_system.stat (dn ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in

@@ -289,8 +289,9 @@ object(self: # tlog_collection)
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_update = last
-
-
+  val mutable _jobs = 0
+  val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
+      
   method validate_last_tlog () = validate_last tlog_dir 
 
   method validate () = validate tlog_dir
@@ -335,6 +336,7 @@ object(self: # tlog_collection)
       Lwt.finalize
 	(fun () ->
 	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+	  _jobs <- _jobs + 1;
 	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
 	  File_system.rename tlc_temp tlc >>= fun () ->
 	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
@@ -348,8 +350,9 @@ object(self: # tlog_collection)
 	  Lwt_log.debug ("end of compress : " ^ msg) 
 	)
 	(fun () -> 
+	  _jobs <- _jobs -1;
 	  Lwt_log.debug "_inner_compress :: broadcasting" >>= fun () ->
-	  Lwt_condition.broadcast Compression.jobs_condition ();
+	  Lwt_condition.broadcast _jc ();
 	  Lwt.return ()
 	)
     in 
@@ -357,10 +360,10 @@ object(self: # tlog_collection)
       begin
 	begin
 	  let rec loop () = 
-	    if !Compression.jobs > 0 then
+	    if _jobs > 0 then
 	      begin
 		Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
-		Lwt_condition.wait Compression.jobs_condition >>= fun () ->
+		Lwt_condition.wait _jc >>= fun () ->
 		loop ()
 	      end
 	    else
@@ -464,6 +467,16 @@ object(self: # tlog_collection)
     Lwt.return vo
 	    
   method close () =
+    begin
+      Lwt_log.debug "tlc2::close()" >>= fun () ->
+      if _jobs > 0 then 
+	begin
+	  Lwt_log.debug "waiting ..." >>= fun () ->
+	  Lwt_condition.wait _jc 
+	end
+      else Lwt.return () 
+    end >>= fun () ->
+    Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
     match _oc with
       | None -> Lwt.return ()
       | Some oc -> Lwt_io.close oc

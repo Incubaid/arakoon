@@ -40,19 +40,7 @@ let setup factory () =
   Lwt.return (dn, factory)
 
 
-let teardown (dn, factory) = 
-  Lwt_log.info_f "teardown %s" dn >>= fun () ->
-  let rec loop () = 
-    if !Compression.jobs > 0 
-    then 
-      begin
-	Lwt_condition.wait Compression.jobs_condition >>= fun () ->
-	loop () 
-      end
-    else Lwt.return () 
-  in 
-  loop ()
-
+let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn 
 
 let test_empty_collection (dn, factory) =
   Lwt_log.info "test_empty_collection" >>= fun () ->

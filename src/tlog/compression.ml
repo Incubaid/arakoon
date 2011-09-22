@@ -29,13 +29,7 @@ let tlog_name archive_name =
   assert (ext=".aar");
   String.sub archive_name 0 (len-4)
     
-let jobs = ref 0
-let jobs_mutex = Lwt_mutex.create () 
-let jobs_condition = (Lwt_condition.create () : unit Lwt_condition.t)
-
 let compress_tlog tlog_name archive_name =
-  Lwt_mutex.with_lock jobs_mutex(fun () ->incr jobs; Lwt.return ()) 
-  >>= fun () ->
   let limit = 896 * 1024 in
   let buffer_size = limit + (64 * 1024) in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
@@ -80,13 +74,7 @@ let compress_tlog tlog_name archive_name =
 	  let rec loop () = 
 	    fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
 	    if counter = 0 
-	    then 
-	      begin 
-		Lwt_mutex.with_lock jobs_mutex (fun () -> decr jobs;Lwt.return ())
-		>>= fun  () ->
-		Lwt_log.debug_f "#jobs %i" !jobs >>= fun()->
-		Lwt.return ()
-	      end
+	    then Lwt.return ()
 	    else
 	      begin
 		compress_and_write last_i buffer >>= fun () ->
