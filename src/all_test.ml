@@ -87,8 +87,8 @@ let suite = "universe" >::: [
   small_catchup;
   compression;
   collapser;
-  (*
   system;
-  nursery; *)
+  nursery; 
+
 ]
 
