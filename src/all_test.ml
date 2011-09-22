@@ -52,8 +52,8 @@ let update_tests = "updates" >::: [Update_test.suite]
 
 let tlog_tests = "tlogs" >::: [Tlog_test.suite;
 			       Tlogcollection_test.suite_mem;
-			       Tlc2_test.suite;(*
-			       Tlogreader2_test.suite;*)
+			       Tlc2_test.suite;
+			       Tlogreader2_test.suite;
 			      ]
 let small_catchup = "small_catchup" >:::[Catchup_test.suite;]
 let compression = "compression" >::: [Compression_test.suite;]
