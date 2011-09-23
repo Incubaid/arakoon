@@ -61,6 +61,7 @@ type client_command =
   | SET_INTERVAL
   | GET_ROUTING
   | SET_ROUTING
+  | SET_ROUTING_DELTA
   | GET_KEY_COUNT
   | GET_DB
   | CONFIRM
@@ -97,6 +98,7 @@ let code2int = [
   GET_INTERVAL            , 0x1el;
   SET_NURSERY_CFG         , 0x1fl;
   GET_NURSERY_CFG         , 0x20l;
+  SET_ROUTING_DELTA       , 0x21l;
 ]
 
 let int2code = 
@@ -311,6 +313,17 @@ let set_routing (ic,oc) r =
     request  oc outgoing >>= fun  () ->
     response ic nothing
 
+let set_routing_delta (ic,oc) left sep right =
+  let outgoing buf =
+    command_to buf SET_ROUTING_DELTA;
+    Llio.string_to buf left;
+    Llio.string_to buf sep;
+    Llio.string_to buf right;
+  in
+  request oc outgoing >>= fun () ->
+  response ic nothing
+    
+    
 let sequence (ic,oc) changes = 
   let outgoing buf = 
     command_to buf SEQUENCE;

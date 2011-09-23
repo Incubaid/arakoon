@@ -204,6 +204,15 @@ class test_backend my_name = object(self:#backend)
   method set_routing r =
     _routing <- Some r;
     Lwt.return ()
+    
+  method set_routing_delta left sep right =
+    begin
+      match _routing with 
+        | Some r -> 
+          let new_r = Routing.change r left sep right in
+          Lwt.return (_routing <- Some new_r )
+        | None -> failwith "Cannot modify non-existing routing"
+    end 
 
   method get_key_count () =
     let inc key value size =

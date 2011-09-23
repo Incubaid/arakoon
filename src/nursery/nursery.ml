@@ -157,7 +157,7 @@ module NC = struct
       let () = NCFG.set_routing t.rc new_route in
       Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
       _with_master_connection t t.keeper_cn
-	(fun conn -> Common.set_routing conn new_route) 
+	(fun conn -> Common.set_routing_delta conn from_cn sep to_cn) 
       >>= fun () ->
       Lwt.return ()
     in

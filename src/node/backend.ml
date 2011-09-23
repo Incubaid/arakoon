@@ -73,6 +73,7 @@ class type backend = object
   method get_interval : unit -> Interval.t Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
   method set_routing: Routing.t -> unit Lwt.t
+  method set_routing_delta: string -> string -> string -> unit Lwt.t
 
   method get_key_count: unit -> int64 Lwt.t
   

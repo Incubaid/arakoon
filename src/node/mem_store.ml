@@ -221,6 +221,15 @@ object (self: #store)
     _routing <- Some r;
     Lwt.return () 
 
+  method set_routing_delta left sep right =
+    match _routing with
+      | None -> failwith "Cannot update non-existing routing"
+      | Some r ->
+        begin
+          let new_r = Routing.change r left sep right in 
+          Lwt.return ( _routing <- Some new_r )
+        end
+
   method get_key_count ?(_pf=__prefix) () =
     let inc key value size =
       Int64.succ size

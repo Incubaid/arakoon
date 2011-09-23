@@ -84,6 +84,7 @@ class type store = object
   method set_interval: Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : Routing.t -> unit Lwt.t
+  method set_routing_delta: string -> string -> string -> unit Lwt.t
 
   method get_key_count : ?_pf: string -> unit -> int64 Lwt.t
   
@@ -203,6 +204,19 @@ let _insert_update (store:store) update =
 	    in
 	    Lwt.return (Update_fail (rc,msg))
 	)
+    | Update.SetRoutingDelta (left, sep, right) ->
+      Lwt.catch
+    (fun () ->
+      store # set_routing_delta left sep right >>= fun () ->
+      Lwt.return (Ok None))
+    (function
+      | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+      | e ->
+        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+        and msg = Printexc.to_string e
+        in
+        Lwt.return (Update_fail (rc,msg))
+    )
     | Update.Nop -> Lwt.return (Ok None)
     | Update.Assert(k,vo) ->
       Lwt.catch

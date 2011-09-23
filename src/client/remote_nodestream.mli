@@ -13,6 +13,7 @@ class type nodestream = object
   method collapse: int -> unit Lwt.t
 
   method set_routing: Routing.t -> unit Lwt.t
+  method set_routing_delta: string -> string -> string -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
   
   method get_db: string -> unit Lwt.t

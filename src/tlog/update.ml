@@ -33,6 +33,7 @@ module Update = struct
     | Sequence of t list
     | SetInterval of Interval.t
     | SetRouting of Routing.t
+    | SetRoutingDelta of (string * string * string)
     | Nop
     | Assert of string * string option
     | UserFunction of string * string option
@@ -69,6 +70,7 @@ module Update = struct
       Buffer.contents buf
     | SetInterval range ->     Printf.sprintf "SetInterval  ;%s" (Interval.to_string range)
     | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
+    | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
     | Nop -> "NOP"
     | Assert (key,vo)       -> Printf.sprintf "Assert    ;%S;%i" key (_size_of vo)
     | UserFunction (name,param) ->
@@ -119,6 +121,11 @@ module Update = struct
       | SetRouting r ->
 	Llio.int_to b 11;
 	Routing.routing_to b r
+      | SetRoutingDelta (l,s,r) ->
+        Llio.int_to b 12;
+        Llio.string_to b l;
+        Llio.string_to b s;
+        Llio.string_to b r
 
 
   let rec from_buffer b pos =
@@ -170,6 +177,12 @@ module Update = struct
       | 11 ->
 	let r,pos2 = Routing.routing_from b pos1 in
 	SetRouting r, pos2
+      | 12 ->
+        let l, pos2 = Llio.string_from b pos1 in
+        let s, pos3 = Llio.string_from b pos2 in
+        let r, pos4 = Llio.string_from b pos3 in
+        SetRoutingDelta (l, s, r), pos4
+        
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

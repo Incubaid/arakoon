@@ -231,6 +231,12 @@ object(self: #backend)
     let cb () = () in
     self # _update_rendezvous update cb push_update
 
+  method set_routing_delta left sep right =
+    log_o self "set_routing_delta" >>= fun () ->
+    let update = Update.SetRoutingDelta (left, sep, right) in
+    let cb () = () in
+    self # _update_rendezvous update cb push_update
+    
   method set_interval iv =
     log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
     let update = Update.SetInterval iv in

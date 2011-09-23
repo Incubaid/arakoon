@@ -69,13 +69,26 @@ let _set_routing db routing =
   let routing_s = Buffer.contents buf in
   Bdb.put db __routing_key routing_s
 
-let _get_routing db = 
+let _get_routing_non_lwt db =
   try 
     let routing_s = Bdb.get db __routing_key in
     let routing,_ = Routing.routing_from routing_s 0 in
-    Lwt.return (Some routing)
-  with Not_found -> Lwt.return None
-  
+    Some routing
+  with Not_found -> None
+
+let _get_routing db = 
+    Lwt.return (_get_routing_non_lwt db)  
+
+let _set_routing_delta db left sep right = 
+  let m_r = _get_routing_non_lwt db in
+  match m_r with
+    | None -> raise Not_found
+    | Some r ->
+      begin
+        let new_r = Routing.change r left sep right in
+        _set_routing db new_r 
+      end
+
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
   let new_i =
@@ -237,6 +250,7 @@ let rec _sequence _pf bdb updates =
     | Update.Sequence us -> _sequence _pf bdb us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
+    | Update.SetRoutingDelta (l, s, r) -> _set_routing_delta bdb l s r
     | Update.AdminSet(k,vo) ->
     begin 
       match _pf with
@@ -512,7 +526,11 @@ object(self: #store)
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
     Hotc.transaction db (fun db -> _set_routing db r; Lwt.return ())
-
+  
+  method set_routing_delta left sep right =
+    Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
+    Hotc.transaction db (fun db -> _set_routing_delta db left sep right; Lwt.return ())
+    
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
     Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->

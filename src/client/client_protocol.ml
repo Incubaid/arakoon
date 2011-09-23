@@ -364,6 +364,17 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    response_ok_unit oc)
 	  (handle_exception oc)
       end
+    | SET_ROUTING_DELTA ->
+      begin
+        Lwt.catch(
+          fun () ->
+            Llio.input_string ic >>= fun left ->
+            Llio.input_string ic >>= fun sep ->
+            Llio.input_string ic >>= fun right ->
+            backend # set_routing_delta left sep right >>= fun () ->
+            response_ok_unit oc ) 
+        (handle_exception oc)
+      end
     | GET_KEY_COUNT ->
       begin
         Lwt.catch 
