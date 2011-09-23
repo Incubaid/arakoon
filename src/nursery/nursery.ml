@@ -139,11 +139,12 @@ module NC = struct
       _with_master_connection t from_cn 
 	(fun conn -> Common.get_tail conn start_key)
     in
-    let push tail = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
+    let push tail i = 
+      let seq' = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
+      let seq = (Arakoon_client.Interval i ) :: seq'
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
-	(fun conn -> Common.sequence conn seq )
+	(fun conn -> Common.migrate_sequence conn seq )
     in
     let delete tail = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) tail in
@@ -189,9 +190,9 @@ module NC = struct
 	  Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
 	  let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
 	  set_interval from_cn from_i' >>= fun () ->
-	  push tail >>= fun () ->
 	  let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
-	  set_interval to_cn to_i1 >>= fun () ->
+    push tail to_i1 >>= fun () ->
+	  (* set_interval to_cn to_i1 >>= fun () -> *)
 	  delete tail >>= fun () ->
 	  let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
 	  set_interval to_cn to_i2 >>= fun () ->

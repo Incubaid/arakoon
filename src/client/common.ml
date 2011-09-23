@@ -51,6 +51,7 @@ type client_command =
   | TEST_AND_SET
   | LAST_ENTRIES
   | RANGE_ENTRIES
+  | MIGRATE_SEQUENCE
   | SEQUENCE
   | MULTI_GET
   | EXPECT_PROGRESS_POSSIBLE
@@ -99,6 +100,7 @@ let code2int = [
   SET_NURSERY_CFG         , 0x1fl;
   GET_NURSERY_CFG         , 0x20l;
   SET_ROUTING_DELTA       , 0x21l;
+  MIGRATE_SEQUENCE        , 0x22l;
 ]
 
 let int2code = 
@@ -322,24 +324,35 @@ let set_routing_delta (ic,oc) left sep right =
   in
   request oc outgoing >>= fun () ->
   response ic nothing
+
+let _build_sequence_request buf changes = 
+  let update_buf = Buffer.create (32 * List.length changes) in
+  let rec c2u = function
+    | Arakoon_client.Set (k,v) -> Update.Set(k,v)
+    | Arakoon_client.Delete k -> Update.Delete k
+    | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
+    | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
+    | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
+    | Arakoon_client.Interval (i,i2) -> Update.SetInterval (i,i2)
+  in
+  let updates = List.map c2u changes in
+  let seq = Update.Sequence updates in
+  let () = Update.to_buffer update_buf seq in
+  let () = Llio.string_to buf (Buffer.contents update_buf)
+  in ()
     
-    
+let migrate_sequence (ic,oc) changes = 
+  let outgoing buf =
+    command_to buf MIGRATE_SEQUENCE;
+    _build_sequence_request buf changes 
+  in
+  request  oc (fun buf -> outgoing buf) >>= fun () ->
+  response ic nothing
+  
 let sequence (ic,oc) changes = 
   let outgoing buf = 
     command_to buf SEQUENCE;
-    let update_buf = Buffer.create (32 * List.length changes) in
-    let rec c2u = function
-      | Arakoon_client.Set (k,v) -> Update.Set(k,v)
-      | Arakoon_client.Delete k -> Update.Delete k
-      | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
-      | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
-      | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
-    in
-    let updates = List.map c2u changes in
-    let seq = Update.Sequence updates in
-    let () = Update.to_buffer update_buf seq in
-    let () = Llio.string_to buf (Buffer.contents update_buf)
-    in () 
+    _build_sequence_request buf changes 
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing

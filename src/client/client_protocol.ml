@@ -97,6 +97,25 @@ let handle_exception oc exn=
   then Lwt.fail exn
   else Lwt.return close_socket
 
+let handle_sequence ic oc backend =
+  begin
+    Llio.input_string ic >>= fun data ->
+        Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
+    let update,_ = Update.from_buffer data 0 in
+    match update with
+      | Update.Sequence updates ->
+        Lwt.catch
+          (fun () ->
+        begin
+          backend # sequence updates >>= fun () ->
+          response_ok_unit oc
+        end)
+          (handle_exception oc)
+      | _ -> handle_exception oc 
+        (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
+             "should have been a sequence"))
+  end
+  
 let one_command (ic,oc) (backend:Backend.backend) =
   read_command (ic,oc) >>= function
     | PING ->
@@ -276,21 +295,11 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | SEQUENCE ->
       begin
-	Llio.input_string ic >>= fun data ->
-        Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
-	let update,_ = Update.from_buffer data 0 in
-	match update with
-	  | Update.Sequence updates ->
-	    Lwt.catch
-	      (fun () ->
-		begin
-		  backend # sequence updates >>= fun () ->
-		  response_ok_unit oc
-		end)
-	      (handle_exception oc)
-	  | _ -> handle_exception oc 
-	    (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
-			 "should have been a sequence"))
+        handle_sequence ic oc backend 
+      end
+    | MIGRATE_SEQUENCE ->
+      begin
+        handle_sequence ic oc backend 
       end
     | STATISTICS ->
       begin
