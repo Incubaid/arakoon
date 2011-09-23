@@ -21,70 +21,9 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 import socket
 import logging
-import struct
 
+import RemoteControlProtocol as RCP
 
-_COLLAPSE_TLOGS = 0x14
-_DOWNLOAD_DB = 0x1b
-_MAGIC   = 0xb1ff0000
-_VERSION = 0x00000001
-
-def _int_to(i):
-    r = struct.pack("I", i)
-    return r
-
-def _int_from(buff,pos):
-    r = struct.unpack_from("I",buff, pos)
-    return r[0], pos + 4
-
-def _int64_from(buff,pos):
-    r = struct.unpack_from("Q",buff,pos)
-    return r[0], pos + 8
-
-def _string_to(s):
-    size = len(s)
-    r = struct.pack("I%ds" % size, size, s)
-    return r
-
-def _prologue(clusterId, sock):
-    m  = _int_to(_MAGIC)
-    m += _int_to(_VERSION)
-    m += _string_to(clusterId)
-    sock.sendall(m)
-
-def _receive_all(sock,n):
-    todo = n
-    r = ""
-    while todo:
-        chunk = sock.recv(todo)
-        if chunk == "" :
-            raise RuntimeError("Not enough data on socket. Aborting...")
-        todo -= len(chunk)
-        r += chunk
-    return r
-
-def _receive_int(sock):
-    sizes = _receive_all(sock,4)
-    i,_  = _int_from(sizes,0)
-    return i
-
-def _receive_int64(sock):
-    buf = _receive_all(sock, 8)
-    i64,_ = _int64_from(buf,0)
-    return i64
-    
-def _receive_string(sock):
-    size = _receive_int(sock)
-    s = _receive_all(sock,size)
-    return s
-
-def check_error_code(sock):
-    rc = _receive_int(sock)
-    if rc:
-        msg = _receive_string(sock)
-        raise Exception (msg)
-
-    
 def collapse(ip, port, clusterId, n):
     """
     tell the node listening on (ip, port) to collapse, and keep n tlog files 
@@ -96,50 +35,54 @@ def collapse(ip, port, clusterId, n):
     """
     if n < 1: 
         raise ValueError("%i is not acceptable" % n)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sa = (ip, port)
-    s.connect(sa)
+    s = RCP.create_socket(ip, port)
     
     try:
-        _prologue(clusterId, s)
-        cmd  = _int_to(_COLLAPSE_TLOGS | _MAGIC)
-        cmd += _int_to(n)
+        RCP._prologue(clusterId, s)
+        cmd  = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)
+        cmd += RCP._int_to(n)
         s.send(cmd)
-        check_error_code(s)
-        collapse_count = _receive_int(s)
+        RCP.check_error_code(s)
+        collapse_count = RCP._receive_int(s)
         for i in range(collapse_count):
-            check_error_code(s)
-            took = _receive_int64(s)
+            RCP.check_error_code(s)
+            took = RCP._receive_int64(s)
             logging.info("took %l", took)
     finally:
         s.close()
         
 def downloadDb(ip, port, clusterId, location):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sa = (ip, port)
-    s.connect(sa)
+    s = RCP.create_socket(ip, port)
     
-    def log ( msg ):
-        f = open('/tmp/log', 'a')
-        f.write(msg + "\n")
-        f.close()
     try:
         with open(location,'w+b') as db_file:
-            _prologue(clusterId, s)
-            cmd  = _int_to(_DOWNLOAD_DB | _MAGIC)
+            RCP._prologue(clusterId, s)
+            cmd  = RCP._int_to(RCP._DOWNLOAD_DB | RCP._MAGIC)
             s.send(cmd)
-            check_error_code(s)
-            db_size = _receive_int64(s)
-            log ("DB size is %dL bytes" % db_size )
+            RCP.check_error_code(s)
+            db_size = RCP._receive_int64(s)
             while (db_size > 0 ) :
                 chunkSize = min(4*1024, db_size)
-                chunk = _receive_all(s, chunkSize)
-                log ("Writing %s bytes to file\n" % str(len(chunk)))
+                chunk = RCP._receive_all(s, chunkSize)
                 db_size -= len(chunk)
                 db_file.write(chunk)
     finally:
         s.close()
     
     
+def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
+    s = RCP.make_socket(ip,port)
+    
+    try:
+        RCP._prologue(cluster_id, s)
+        cmd = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)
+        cmd += RCP._string_option_to (pub_start)
+        cmd += RCP._string_option_to (pub_end)
+        cmd += RCP._string_option_to (priv_start)
+        cmd += RCP._string_option_to (priv_end)
+        s.send(cmd)
+        RCP.check_error_code(s)
+    finally:
+        s.close()    
     
 

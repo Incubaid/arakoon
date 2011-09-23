@@ -91,6 +91,13 @@ binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoon"
 lease_duration = 2.0
 tlog_entries_per_tlog = 1000
 
+nursery_nodes = {
+   'nurse_0' : [ 'nurse_0_0', 'nurse_0_1', 'nurse_0_2'],
+   'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
+   'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
+}
+nursery_cluster_ids = nursery_nodes.keys()
+
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
 
@@ -100,9 +107,10 @@ proc = q.system.process
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
 
-def _getCluster():
-    global cluster_id 
-    return q.manage.arakoon.getCluster(cluster_id)
+def _getCluster( c_id = None):
+    if c_id is None:
+        c_id = cluster_id 
+    return q.manage.arakoon.getCluster(c_id)
 
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
@@ -380,8 +388,8 @@ def getConfig(name):
     return cluster.getNodeConfig(name)
 
 
-def regenerateClientConfig():
-    global cluster_id
+def regenerateClientConfig( cluster_id ):
+    
     clientsCfg = q.config.getConfig("arakoonclients")
     if cluster_id in clientsCfg.keys():
         clusterDir = clientsCfg[cluster_id]["path"]
@@ -440,19 +448,19 @@ def add_node ( i ):
     cluster.addLocalNode (ni )
     cluster.createDirs(ni)
 
-def start_all() :
-    cluster = _getCluster()
+def start_all(clusterId = None) :
+    cluster = _getCluster(clusterId )
     cluster.start()
     time.sleep(3.0)  
 
-def stop_all():
+def stop_all(clusterId = None ):
     logging.info("stop_all")
-    cluster = _getCluster()
+    cluster = _getCluster( clusterId )
     cluster.stop()
 
-def restart_all():
-    stop_all()
-    start_all()
+def restart_all(clusterId = None):
+    stop_all(clusterId)
+    start_all(clusterId)
 
 def restart_random_node():
     node_index = random.randint(0, len(node_names) - 1)
@@ -499,31 +507,34 @@ def getRandomString( length = 16 ) :
         retVal += getRC()        
     return retVal
 
-def build_node_dir_names ( nodeName ):
-    global data_base_dir
-    data_dir = q.system.fs.joinPaths( data_base_dir, nodeName)
+def build_node_dir_names ( nodeName, base_dir = None ):
+    if base_dir is None:
+        global data_base_dir
+        base_dir = data_base_dir
+    data_dir = q.system.fs.joinPaths( base_dir, nodeName)
     db_dir = q.system.fs.joinPaths( data_dir, "db")
     log_dir = q.system.fs.joinPaths( data_dir, "log")
     return (db_dir,log_dir)
 
-def setup_n_nodes ( n, force_master, home_dir ):
-    global cluster_id
-    q.system.process.run( "/sbin/iptables -F" )
-    cfg_list = q.config.list()
+def setup_n_nodes_base(c_id, node_names, force_master, base_dir, base_msg_port, base_client_port):
     
-    cluster = q.manage.arakoon.getCluster( cluster_id )
+    q.system.process.run( "/sbin/iptables -F" )
+    
+    cluster = q.manage.arakoon.getCluster( c_id )
     cluster.tearDown()
-        
-    logging.info( "Creating data base dir %s" % data_base_dir )
-    q.system.fs.createDir ( data_base_dir )
+    cluster = q.manage.arakoon.getCluster( c_id )
+    
+    logging.info( "Creating data base dir %s" % base_dir )
+    q.system.fs.createDir ( base_dir )
+    
+    n = len(node_names)
     
     for i in range (n) :
         nodeName = node_names[ i ]
         (db_dir,log_dir) = build_node_dir_names( nodeName )
-        cluster = _getCluster()
         cluster.addNode(name=nodeName,
-                        clientPort = 7080+i,
-                        messagingPort = 10000+i,
+                        clientPort = base_client_port+i,
+                        messagingPort = base_msg_port+i,
                         logDir = log_dir,
                         home = db_dir )
         
@@ -538,7 +549,7 @@ def setup_n_nodes ( n, force_master, home_dir ):
         cluster.forceMaster(None )
     
     logging.info( "Creating client config" )
-    regenerateClientConfig()
+    regenerateClientConfig( c_id )
     
     logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
@@ -547,8 +558,13 @@ def setup_n_nodes ( n, force_master, home_dir ):
     logging.info( "Setting lease expiration to %d" % lease)
     cluster.setMasterLease( lease )
     
+    
+def setup_n_nodes ( n, force_master, home_dir ):
+    setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir, 
+                       node_msg_base_port, node_client_base_port)
+    
     logging.info( "Starting cluster" )
-    start_all() 
+    start_all( cluster_id ) 
    
     logging.info( "Setup complete" )
     
@@ -573,29 +589,53 @@ def setup_1_node (home_dir):
 
 default_setup = setup_3_nodes
 
+def setup_nursery_n (n, home_dir):
+    keeper_id = nursery_cluster_ids[0]
+    for i in range(n):
+        c_id = nursery_cluster_ids[i]
+        base_dir = data_base_dir + c_id
+        setup_n_nodes_base( c_id, nursery_nodes[c_id], False, base_dir,
+                            node_msg_base_port + 3*i, node_client_base_port+3*i)
+        clu = _getCluster(c_id)
+        clu.setNurseryKeeper(keeper_id)
+        
+        logging.info("Starting cluster %s", c_id)
+        clu.start()
+        
+    logging.info("Setup complete")
+        
+def setup_nursery_2 (home_dir):
+    setup_nursery_n(2, home_dir)
+    
+def setup_nursery_3 (home_dir):
+    setup_nursery_n(3, home_dir)
+        
 def dummy_teardown():
     pass
 
-def basic_teardown( removeDirs ):
-    logging.info("basic_teardown(%s)" % removeDirs)
-    global cluster_id
-    clusters = q.config.getConfig("arakoonclusters")
-    if cluster_id in clusters.keys() :
-        logging.info( "Stopping arakoon daemons" )
-        stop_all()
-    
-    for i in range( len(node_names) ):
-        destroy_ram_fs( i )
 
-    cluster = _getCluster()
-    cluster.tearDown(removeDirs ) 
+def common_teardown( removeDirs, cluster_ids):
+    for cluster_id in cluster_ids:
+        logging.info( "Stopping arakoon daemons for cluster %s" % cluster_id )
+        stop_all (cluster_id )
+    
+        cluster = _getCluster( cluster_id)
+        cluster.tearDown(removeDirs )
+        cluster.remove() 
+
     if removeDirs:
         q.system.fs.removeDirTree( data_base_dir )
-    
-    cluster.remove()
-    
+
+        
+def basic_teardown( removeDirs ):
+    logging.info("basic_teardown(%s)" % removeDirs)
+    for i in range( len(node_names) ):
+        destroy_ram_fs( i )
+    common_teardown( removeDirs, [cluster_id])
     logging.info( "Teardown complete" )
 
+def nursery_teardown( removeDirs ):
+    common_teardown(nursery_clusterids)
 
 def get_client ():
     global cluster_id
@@ -652,8 +692,6 @@ def create_and_start_thread (f ):
             self._f = f
             self._args = args
             self._kwargs = kwargs
-            
-    
         
         def run (self):
             try:
@@ -669,7 +707,6 @@ def create_and_start_thread (f ):
     t = MyThread( f )
     t.start ()
     return t
-    
     
 def create_and_start_thread_list ( f_list ):
     return map ( create_and_start_thread, f_list )
@@ -801,20 +838,11 @@ def retrying_set_get_and_delete( client, key, value ):
     
 def add_node_scenario ( node_to_add_index ):
     iterate_n_times( 100, simple_set )
-    
     stop_all()
-    
     add_node( node_to_add_index )
-    global cluster_id
-    sn = '%s_nodes' % cluster_id
-    if cluster_id in q.config.list():
-        q.config.remove(sn)
-    
-    regenerateClientConfig()
+    regenerateClientConfig(cluster_id)
     start_all()
-
     iterate_n_times( 100, assert_get )
-    
     iterate_n_times( 100, set_get_and_delete, 100)
 
 def assert_key_value_list( start_suffix, list_size, list ):
