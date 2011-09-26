@@ -137,30 +137,27 @@ module NC = struct
     let pull () = 
       Lwt_log.debug "pull">>= fun () ->
       _with_master_connection t from_cn 
-	(fun conn -> Common.get_tail conn start_key)
+        (fun conn -> Common.get_tail conn start_key)
     in
     let push tail i = 
-      let seq' = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
-      let seq = (Arakoon_client.Interval i ) :: seq'
+      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
-	(fun conn -> Common.migrate_sequence conn seq )
+        (fun conn -> Common.migrate_range conn i seq)
     in
     let delete tail = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) tail in
       Lwt_log.debug "delete" >>= fun () ->
       _with_master_connection t from_cn 
-	(fun conn -> Common.sequence conn seq)
+        (fun conn -> Common.sequence conn seq)
     in
     let publish sep = 
-      let route = NCFG.get_routing t.rc in      
+      let route = NCFG.get_routing t.rc in 
       let new_route = Routing.change route from_cn sep to_cn in
       let () = NCFG.set_routing t.rc new_route in
       Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
       _with_master_connection t t.keeper_cn
-	(fun conn -> Common.set_routing_delta conn from_cn sep to_cn) 
-      >>= fun () ->
-      Lwt.return ()
+        (fun conn -> Common.set_routing_delta conn from_cn sep to_cn) 
     in
     let get_interval cn = _with_master_connection t cn Common.get_interval in
     let set_interval cn i = force_interval t cn i in
@@ -170,45 +167,39 @@ module NC = struct
     let rec loop from_i to_i =
       pull () >>= fun tail ->
       match tail with
-	| [] -> 
-	  Lwt_log.debug "done" >>= fun () ->
-	  Lwt.return ()
-	| tail -> 
-	  let size = List.length tail in
-	  Lwt_log.debug_f "Length = %i" size >>= fun () ->
-	  (* 
-	     - change public interval on 'from'
-	     - push tail & change private interval on 'to'
-	     - delete tail & change private interval on 'from'
-	     - change public interval 'to'
-	     - publish new route.
-	  *)
-	  let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
-	  let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
-	  let b, _ = List.hd (List.rev tail) in
-	  let e, _ = List.hd tail in
-	  Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
-	  let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
-	  set_interval from_cn from_i' >>= fun () ->
-	  let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
-    push tail to_i1 >>= fun () ->
-	  (* set_interval to_cn to_i1 >>= fun () -> *)
-	  delete tail >>= fun () ->
-	  let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
-	  set_interval to_cn to_i2 >>= fun () ->
-	  let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
-	  set_interval from_cn from_i2 >>= fun () ->
-
-	  Lwt_log.debug_f "from {%s:%s;%s:%s}" 
-	    from_cn (i2s from_i) 
-	    to_cn (i2s to_i) >>= fun () ->
-	  Lwt_log.debug_f "to   {%s:%s;%s:%s}" 
-	    from_cn (i2s from_i2) 
-	    to_cn (i2s to_i2) >>= fun () ->
-
-	  publish b >>= fun () ->
-	  loop from_i2 to_i2
-    in loop from_i to_i
+        | [] -> 
+          Lwt_log.debug "done" 
+        | tail -> 
+          let size = List.length tail in
+          Lwt_log.debug_f "Length = %i" size >>= fun () ->
+	        (* 
+	         - change public interval on 'from'
+	         - push tail & change private interval on 'to'
+	         - delete tail & change private interval on 'from'
+	         - change public interval 'to'
+	         - publish new route.
+          *)
+          let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
+          let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
+          let b, _ = List.hd (List.rev tail) in
+          let e, _ = List.hd tail in
+          Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+          let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
+          set_interval from_cn from_i' >>= fun () ->
+          let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
+          push tail to_i1 >>= fun () ->
+          (* set_interval to_cn to_i1 >>= fun () -> *)
+          delete tail >>= fun () ->
+          let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
+          set_interval to_cn to_i2 >>= fun () ->
+          let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
+          set_interval from_cn from_i2 >>= fun () ->
+          Lwt_log.debug_f "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
+          Lwt_log.debug_f "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
+          publish b >>= fun () ->
+          loop from_i2 to_i2
+    in 
+    loop from_i to_i
 
 end
 

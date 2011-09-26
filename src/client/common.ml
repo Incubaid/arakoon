@@ -51,7 +51,7 @@ type client_command =
   | TEST_AND_SET
   | LAST_ENTRIES
   | RANGE_ENTRIES
-  | MIGRATE_SEQUENCE
+  | MIGRATE_RANGE
   | SEQUENCE
   | MULTI_GET
   | EXPECT_PROGRESS_POSSIBLE
@@ -100,7 +100,7 @@ let code2int = [
   SET_NURSERY_CFG         , 0x1fl;
   GET_NURSERY_CFG         , 0x20l;
   SET_ROUTING_DELTA       , 0x21l;
-  MIGRATE_SEQUENCE        , 0x22l;
+  MIGRATE_RANGE           , 0x22l;
 ]
 
 let int2code = 
@@ -333,7 +333,6 @@ let _build_sequence_request buf changes =
     | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
     | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
     | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
-    | Arakoon_client.Interval (i,i2) -> Update.SetInterval (i,i2)
   in
   let updates = List.map c2u changes in
   let seq = Update.Sequence updates in
@@ -341,9 +340,10 @@ let _build_sequence_request buf changes =
   let () = Llio.string_to buf (Buffer.contents update_buf)
   in ()
     
-let migrate_sequence (ic,oc) changes = 
+let migrate_range (ic,oc) interval changes = 
   let outgoing buf =
-    command_to buf MIGRATE_SEQUENCE;
+    command_to buf MIGRATE_RANGE;
+    Interval.interval_to buf interval;
     _build_sequence_request buf changes 
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->

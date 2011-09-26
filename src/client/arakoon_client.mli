@@ -11,7 +11,6 @@ type change =
   | Assert of (key * value option)
   | TestAndSet of key * value option * value option
   | Sequence of change list
-  | Interval of (string option * string option) * (string option * string option)
 
 class type client = object
 

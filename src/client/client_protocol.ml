@@ -97,23 +97,30 @@ let handle_exception oc exn=
   then Lwt.fail exn
   else Lwt.return close_socket
 
-let handle_sequence ic oc backend =
+
+let decode_sequence ic = 
   begin
     Llio.input_string ic >>= fun data ->
-        Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
+    Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
     let update,_ = Update.from_buffer data 0 in
     match update with
       | Update.Sequence updates ->
-        Lwt.catch
-          (fun () ->
+        Lwt.return updates
+      | _ ->  raise (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
+             "should have been a sequence"))
+  end
+
+let handle_sequence ic oc backend =
+  begin
+    Lwt.catch
+      (fun () ->
         begin
+          decode_sequence ic >>= fun updates ->
           backend # sequence updates >>= fun () ->
           response_ok_unit oc
-        end)
-          (handle_exception oc)
-      | _ -> handle_exception oc 
-        (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
-             "should have been a sequence"))
+        end ) 
+      ( handle_exception oc )
+    
   end
   
 let one_command (ic,oc) (backend:Backend.backend) =
@@ -297,9 +304,17 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
         handle_sequence ic oc backend 
       end
-    | MIGRATE_SEQUENCE ->
+    | MIGRATE_RANGE ->
       begin
-        handle_sequence ic oc backend 
+        Lwt.catch(
+          fun () ->
+            Interval.input_interval ic >>= fun interval ->
+            decode_sequence ic >>= fun updates ->
+            let interval_update = Update.SetInterval interval in
+            let updates' =  interval_update :: updates in
+            backend # sequence updates' >>= fun () ->
+            response_ok_unit oc
+        ) (handle_exception oc) 
       end
     | STATISTICS ->
       begin
