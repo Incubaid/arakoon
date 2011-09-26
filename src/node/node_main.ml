@@ -242,9 +242,10 @@ module X = struct
     >>= fun () ->
     Lwt.return v
 
-  let rapporting backend () = 
+  let reporting period backend () = 
+    let fp = float period in
     let rec _inner () =
-      Lwt_unix.sleep 60.0 >>= fun () ->
+      Lwt_unix.sleep fp >>= fun () ->
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
       >>= fun () ->
@@ -257,7 +258,7 @@ module X = struct
 			 stat.major_words -. stat.promoted_words) *. 
 	(factor /. 1024.0) 
       in
-      Lwt_log.info_f "nallocated=%fKB" allocated 
+      Lwt_log.info_f "nallocated=%f" allocated
       >>= fun () ->
       _inner ()
     in
@@ -506,17 +507,18 @@ let _main_2
 	      other_names send receive 
 	      get_last_value 
 	      on_accept 
-        on_consensus
-        on_witness
+              on_consensus
+              on_witness
 	      last_witnessed
 	      (quorum_function: int -> int)
 	      (master : master)
 	      store tlog_coll others lease_period inject_event 
 	      ~cluster_id
-        false
-
-	  in Lwt.return ((master,constants, buffers, new_i, vo), 
-			 service, X.rapporting backend)
+              false
+	  in 
+	  let reporting_period = me.reporting in
+	  Lwt.return ((master,constants, buffers, new_i, vo), 
+		      service, X.reporting reporting_period backend)
 	end
 	  
       in

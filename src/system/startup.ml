@@ -44,6 +44,7 @@ let _make_cfg name n lease_period =
     targets = [];
     use_compression = true;
     is_test = true;
+    reporting = 300;
   }
 
 let _make_tlog_coll tlcs updates tlc_name use_compression = 

@@ -41,8 +41,9 @@ module Node_cfg = struct
 	    is_laggy : bool;
 	    is_learner : bool;
 	    targets : string list;
-      use_compression : bool;
+	    use_compression : bool;
 	    is_test : bool;
+	    reporting: int;
 	   }
 
   type cluster_cfg = 
@@ -75,6 +76,7 @@ module Node_cfg = struct
 	targets = [];
         use_compression = true;
 	is_test = true;
+	reporting = 300;
       }
     in
     let rec loop acc = function
@@ -202,21 +204,23 @@ module Node_cfg = struct
     in
     let lease_period = _get_lease_period inifile in
     let log_dir = get_string "log_dir" in
-    {node_name=node_name;
-     ip=ip;
-     client_port=client_port;
-     messaging_port= messaging_port;
-     home=home;
-     tlog_dir = tlog_dir;
-     log_dir = log_dir;
-     log_level = log_level;
-     lease_period = lease_period;
-     master = master;
-     is_laggy = is_laggy;
-     is_learner = is_learner;
-     targets = targets;
-     use_compression = use_compression;
+    let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
+    {node_name;
+     ip;
+     client_port;
+     messaging_port;
+     home;
+     tlog_dir;
+     log_dir;
+     log_level;
+     lease_period;
+     master;
+     is_laggy;
+     is_learner;
+     targets;
+     use_compression;
      is_test = false;
+     reporting;
     }
 
 
