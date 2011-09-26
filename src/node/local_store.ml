@@ -32,7 +32,11 @@ open Store
 open Unix.LargeFile
 
 
-  
+type migrate_direction =
+| UPPER_BOUND
+| LOWER_BOUND
+
+
 let _save_i i db =
   let is =
     let buf = Buffer.create 10 in
@@ -568,45 +572,59 @@ object(self: #store)
     Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
     File_system.unlink old_location >>= fun () ->
     Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location 
-     
-  method get_tail lower =
-    Lwt_log.debug_f "local_store::get_tail %S" lower >>= fun () ->
+  
+  
+  method private get_border_range border direction = 
+    let cursor_init, get_next, key_cmp =
+      begin
+        match direction with
+        | UPPER_BOUND ->
+          Bdb.first, Bdb.next, (fun k -> k >= (__prefix ^ border) ) 
+        | LOWER_BOUND ->
+          Bdb.last, Bdb.prev, ( fun k -> k < (__prefix ^ border) ) 
+      end
+    in
+    Lwt_log.debug_f "local_store::get_border %S" border >>= fun () ->
     let buf = Buffer.create 128 in
-    let plower = __prefix ^ lower in
     Lwt.finalize
       (fun () ->
-	Hotc.transaction db 
-	  (fun txdb -> Hotc.with_cursor txdb 
-	    (fun lcdb cursor ->
-	      Buffer.add_string buf "1\n";
-	      let limit = 2 * 1024 in
-	      let () = Bdb.last lcdb cursor in
-	      Buffer.add_string buf "2\n";
-	      let r = 
-		let rec loop acc ts =
-		  let k = Bdb.key   lcdb cursor in
-		  let v = Bdb.value lcdb cursor in
-		  if ts >= limit or k.[0] = '*' or k < plower 
-		  then acc
-		  else
-		    let pk = String.sub k 1 (String.length k -1) in
-		    let acc' = (pk,v) :: acc in
-		    Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
-		    let ts' = ts + String.length k + String.length v in
-		    let () = Bdb.prev lcdb cursor in
-		    loop acc' ts' 
-		in
-		loop [] 0
-	      in
-	      Lwt.return r
-	    )))
+        Hotc.transaction db 
+          (fun txdb -> 
+            Hotc.with_cursor txdb 
+            (fun lcdb cursor ->
+              Buffer.add_string buf "1\n";
+              let limit = 2 * 1024 in
+              let () = cursor_init lcdb cursor in
+              Buffer.add_string buf "2\n";
+                let r = 
+                let rec loop acc ts =
+                  let k = Bdb.key   lcdb cursor in
+                  let v = Bdb.value lcdb cursor in
+                  if ts >= limit or k.[0] <> __prefix.[0] or (key_cmp k)
+                  then acc
+                  else
+                    let pk = String.sub k 1 (String.length k -1) in
+                    let acc' = (pk,v) :: acc in
+                    Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
+                    let ts' = ts + String.length k + String.length v in
+                    let () = get_next lcdb cursor in
+                    loop acc' ts' 
+              in
+              loop [] 0
+              in
+              Lwt.return r
+            )
+          )
+      )
       (fun () -> 
-	Lwt_log.debug_f "buf:%s" (Buffer.contents buf))
-
+        Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
+    )
+  
+  method get_tail lower =
+    Lwt_log.debug_f "local_store::get_tail %S" lower >>= fun () ->
+    self # get_border_range lower LOWER_BOUND
 end
 
-
-  
 let make_local_store ?(read_only=false) db_name =
   let mode = 
     if read_only 
