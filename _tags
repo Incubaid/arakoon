@@ -26,6 +26,7 @@ true: package(dynlink)
 "src/main" : include
 <**/arakoon.*{byte,native}>: is_main
 <**/nursery.*{byte,native}>: is_main,use_thread
+<**/profile.*{byte,native}>: is_main, package(ocamlviz)
 <examples/ocaml/plugin_demo.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
 <src/plugins/plugin_update_max.{cm??}>: use_thread
