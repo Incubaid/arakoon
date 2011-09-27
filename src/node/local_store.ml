@@ -581,33 +581,39 @@ object(self: #store)
     in
     Lwt_log.debug_f "local_store::get_border %S" border >>= fun () ->
     let buf = Buffer.create 128 in
-    Hotc.transaction db 
-      (fun txdb -> 
-        Hotc.with_cursor txdb 
-        (fun lcdb cursor ->
-          Buffer.add_string buf "1\n";
-          let limit = 2 * 1024 in
-          let () = cursor_init lcdb cursor in
-          Buffer.add_string buf "2\n";
-            let r = 
-            let rec loop acc ts =
-              let k = Bdb.key   lcdb cursor in
-              let v = Bdb.value lcdb cursor in
-              if ts >= limit or k.[0] <> __prefix.[0] or (key_cmp k)
-              then acc
-              else
-                let pk = String.sub k 1 (String.length k -1) in
-                let acc' = (pk,v) :: acc in
-                Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
-                let ts' = ts + String.length k + String.length v in
-                let () = get_next lcdb cursor in
-                loop acc' ts' 
-          in
-          loop [] 0
-          in
-          Lwt.return r
-        )
+    Lwt.finalize
+      (fun () ->
+        Hotc.transaction db 
+          (fun txdb -> 
+            Hotc.with_cursor txdb 
+            (fun lcdb cursor ->
+              Buffer.add_string buf "1\n";
+              let limit = 1024 * 1024 in
+              let () = cursor_init lcdb cursor in
+              Buffer.add_string buf "2\n";
+                let r = 
+                let rec loop acc ts =
+                  let k = Bdb.key   lcdb cursor in
+                  let v = Bdb.value lcdb cursor in
+                  if ts >= limit or k.[0] <> __prefix.[0] or (key_cmp k)
+                  then acc
+                  else
+                    let pk = String.sub k 1 (String.length k -1) in
+                    let acc' = (pk,v) :: acc in
+                    Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
+                    let ts' = ts + String.length k + String.length v in
+                    let () = get_next lcdb cursor in
+                    loop acc' ts' 
+              in
+              loop [] 0
+              in
+              Lwt.return r
+            )
+          )
       )
+      (fun () -> 
+        Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
+    )
 end
 
 let make_local_store ?(read_only=false) db_name =
