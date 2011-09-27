@@ -66,9 +66,13 @@ type client_command =
   | GET_KEY_COUNT
   | GET_DB
   | CONFIRM
-  | GET_TAIL
+  | GET_BORDER_RANGE
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
+
+type range_direction =
+  | UPPER_BOUND
+  | LOWER_BOUND
 
 let code2int = [
   PING,                     0x1l ;
@@ -95,7 +99,7 @@ let code2int = [
   GET_KEY_COUNT           , 0x1al;
   GET_DB                  , 0x1bl;
   CONFIRM                 , 0x1cl;
-  GET_TAIL                , 0x1dl;
+  GET_BORDER_RANGE        , 0x1dl;
   GET_INTERVAL            , 0x1el;
   SET_NURSERY_CFG         , 0x1fl;
   GET_NURSERY_CFG         , 0x20l;
@@ -270,10 +274,13 @@ let get (ic,oc) ~allow_dirty key =
   request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
   response ic Llio.input_string
 
-let get_tail (ic,oc) lower = 
+let get_border_range (ic,oc) boundary direction = 
   let outgoing buf = 
-    command_to buf GET_TAIL;
-    Llio.string_to buf lower
+    command_to buf GET_BORDER_RANGE;
+    Llio.string_to buf boundary;
+    match direction with
+      | UPPER_BOUND -> Llio.int_to buf 0
+      | LOWER_BOUND -> Llio.int_to buf 1
   in
   request  oc outgoing >>= fun () ->
   response ic Llio.input_kv_list

@@ -223,10 +223,17 @@ class test_backend my_name = object(self:#backend)
   method get_db s =
     Lwt.return ()
 
-  method get_tail lower = 
+  method get_border_range boundary direction =
+    let cmp = 
+      begin
+        match direction with
+          | UPPER_BOUND -> (fun k -> k < boundary)
+          | LOWER_BOUND -> (fun k -> k >= boundary)
+      end
+    in
     let all = StringMap.fold 
       (fun k v acc -> 
-	if lower < k
+	if cmp k
 	then (k,v)::acc 
 	else acc) 
       _kv [] 

@@ -26,7 +26,6 @@ open Routing
 open Lwt
 open Log_extra
 
-
 let __i_key = "*i"
 let __interval_key = "*interval"
 let __routing_key = "*routing"
@@ -92,7 +91,7 @@ class type store = object
   method unquiesce : unit -> unit Lwt.t
   method quiesced : unit -> bool 
   method copy_store : Lwt_io.output_channel -> unit Lwt.t
-  method get_tail : string -> (string * string) list Lwt.t
+  method get_border_range : string -> Common.range_direction -> (string * string) list Lwt.t
   
 end
 

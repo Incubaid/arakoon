@@ -240,11 +240,18 @@ object (self: #store)
   
   method relocate new_location = failwith "Memstore.relocation not implemented"
   
-  method get_tail lower = 
-    Lwt_log.debug_f "mem_store :: get_tail %s" lower >>= fun () ->
+  method get_border_range boundary direction = 
+    Lwt_log.debug_f "mem_store :: get_border_range %s" boundary >>= fun () ->
+    let cmp = 
+      begin
+        match direction with
+          | Common.UPPER_BOUND -> (fun k -> boundary < k )
+          | Common.LOWER_BOUND -> (fun k -> boundary >= k)
+      end
+    in
     let all = StringMap.fold 
       (fun k v acc -> 
-	if lower < k
+	if cmp k
 	then (k,v)::acc 
 	else acc) 
       kv [] 

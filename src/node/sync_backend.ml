@@ -610,8 +610,8 @@ object(self: #backend)
           Lwt_log.debug "set_cluster_cfg updating cached hashtbl" >>= fun () ->
           Lwt.return ( Hashtbl.replace res cluster_id cfg ) 
     end
-  method get_tail lower = 
-    Lwt_log.debug_f "get_tail %S" lower >>= fun () ->
-    store # get_tail lower 
+  method get_border_range boundary direction = 
+    Lwt_log.debug_f "get_border_range %S" boundary >>= fun () ->
+    store # get_border_range boundary direction 
     
 end

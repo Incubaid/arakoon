@@ -452,12 +452,20 @@ let one_command (ic,oc) (backend:Backend.backend) =
         )
         ( handle_exception oc )
       end
-    | GET_TAIL ->
+    | GET_BORDER_RANGE ->
       begin
-	Llio.input_string ic >>= fun lower ->
+	Llio.input_string ic >>= fun boundary ->
+  Llio.input_int ic >>= fun dir_as_int ->
+  let direction = 
+    if dir_as_int = 0
+    then
+      UPPER_BOUND
+    else
+      LOWER_BOUND
+  in
 	Lwt.catch
 	  (fun () -> 
-	    backend # get_tail lower >>= fun kvs ->
+	    backend # get_border_range boundary direction >>= fun kvs ->
 	    Llio.output_int oc 0 >>= fun () ->
 	    Llio.output_kv_list oc kvs >>= fun () ->
 	    Lwt.return false
