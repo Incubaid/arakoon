@@ -39,7 +39,7 @@ import arakoon_monkey_config as MConfig
 from arakoon_system_tests.server import system_tests_common as C
 from arakoon.ArakoonProtocol import ArakoonProtocol
 from arakoon.ArakoonExceptions import *
-MEM_MAX_KB = 1024 * 128
+MEM_MAX_KB = 1024 * 256
 monkey_dies = False
 
 random.seed(42)
