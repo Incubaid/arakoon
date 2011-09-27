@@ -199,25 +199,36 @@ let copy_store old_location new_location overwrite =
   end
 open Registry
 
-class bdb_user_db bdb = 
+class bdb_user_db interval bdb = 
+  let test k = 
+    if not (Interval.is_ok interval k) then 
+      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+  in
+  let test_option = function
+    | None -> () 
+    | Some k -> test k
+  in
+  let test_range first last = test_option first; test_option last
+  in
+
 object (self : # user_db)
 
-  method set k v = _set __prefix bdb k v 
-    
-  method get k = _get __prefix bdb k 
+  method set k v = test k ; _set __prefix bdb k v 
+  method get k   = test k ; _get __prefix bdb k 
 
-  method delete k = _delete __prefix bdb k 
+  method delete k = test k ; _delete __prefix bdb k 
   
-  method test_and_set k e w = _test_and_set __prefix bdb k e w 
+  method test_and_set k e w = test k; _test_and_set __prefix bdb k e w 
 
   method range_entries first finc last linc max =
+    test_range first last;
     _range_entries __prefix bdb first finc last linc max 
 end
 
 
-let _user_function bdb (name:string) (po:string option) = 
+let _user_function bdb (interval:Interval.t) (name:string) (po:string option) = 
   let f = Registry.lookup name in
-  let bdb_inner = new bdb_user_db bdb in
+  let bdb_inner = new bdb_user_db interval bdb in
   let inner = (bdb_inner :> user_db) in
   let ro = f inner po in
   ro
@@ -230,7 +241,7 @@ let _set_master bdb master (lease_start:int64) =
   let lease = Buffer.contents buffer in
   Bdb.put bdb __lease_key lease
 
-let rec _sequence _pf bdb updates =
+let rec _sequence _pf bdb interval updates =
   let do_one = function
     | Update.Set (key,value) -> _set _pf bdb key value
     | Update.Delete key -> _delete _pf bdb key
@@ -244,9 +255,9 @@ let rec _sequence _pf bdb updates =
 	    raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
       end
     | Update.UserFunction(name,po) ->
-      let _ = _user_function bdb name po in ()
+      let _ = _user_function bdb interval name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us -> _sequence _pf bdb us
+    | Update.Sequence us -> _sequence _pf bdb interval us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
     | Update.SetRoutingDelta (l, s, r) -> _set_routing_delta bdb l s r
@@ -462,7 +473,7 @@ object(self: #store)
 
   method sequence ?(_pf=__prefix) updates =
     _tx_with_incr (self # _incr_i_cached) db  
-      (fun db -> _sequence _pf db updates; Lwt.return ())
+      (fun db -> _sequence _pf db _interval updates; Lwt.return ())
 
   method aSSert ?(_pf=__prefix) key (vo:string option) =
     _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert _pf db key vo in Lwt.return r)
@@ -471,7 +482,8 @@ object(self: #store)
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
     _tx_with_incr (self # _incr_i_cached) db 
       (fun db -> 
-	let (ro:string option) = _user_function db name po in
+	
+	let (ro:string option) = _user_function db _interval name po in
 	Lwt.return ro)
       
   method consensus_i () =

@@ -115,6 +115,7 @@ object(self: #backend)
     let start = Unix.gettimeofday () in
     log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
+    self # _check_interval [key] >>= fun () ->
     Lwt.catch
       (fun () -> 
 	store # get key >>= fun v -> 
@@ -175,6 +176,7 @@ object(self: #backend)
   method range ~allow_dirty (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
+    self # _check_interval_range first last >>= fun () ->
     store # range first finc last linc max
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
@@ -194,18 +196,21 @@ object(self: #backend)
     (first:string option) finc (last:string option) linc max =
     log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
+    self # _check_interval_range first last >>= fun () ->
     store # range_entries first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
-    store # prefix_keys prefix max >>= fun key_list ->
+    self # _check_interval [prefix]  >>= fun () ->
+    store # prefix_keys prefix max   >>= fun key_list ->
     Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
     Lwt.return key_list
 
   method set key value =
     let start = Unix.gettimeofday () in
     log_o self "set %S" key >>= fun () ->
+    self # _check_interval [key] >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in    
     let update_sets () = Statistics.new_set _stats key value start in
@@ -441,7 +446,32 @@ object(self: #backend)
     if allow_dirty or read_only
     then Lwt.return ()
     else self # _write_allowed ()
-      
+
+  method private _check_interval keys = 
+    store # get_interval () >>= fun iv ->
+    let rec loop = function
+      | [] -> Lwt.return ()
+     (* | [k] -> 
+	if Interval.is_ok iv k then Lwt.return ()
+	else Lwt.fail (XException(Arakoon_ex.E_OUTSIDE_INTERVAL, k)) *)
+      | k :: keys -> 
+	if Interval.is_ok iv k 
+	then loop keys
+	else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+    in
+    loop keys
+
+  method private _check_interval_range first last =
+    store # get_interval () >>= fun iv ->
+    let check_option = function
+      | None -> Lwt.return () 
+      | Some k -> 
+	if Interval.is_ok iv k
+	then Lwt.return ()
+	else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+    in
+    check_option first >>= fun () ->
+    check_option last  
 
   method witness name i = 
     Statistics.witness _stats name i;
