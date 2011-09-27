@@ -42,7 +42,7 @@ class type nodestream = object
   
   method get_db: string -> unit Lwt.t
 
-  method get_border_range: string -> Common.range_direction -> ((string * string) list) Lwt.t
+  method get_fringe: string -> Common.range_direction -> ((string * string) list) Lwt.t
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
   
@@ -159,7 +159,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     request  oc outgoing >>= fun () ->
     response ic incoming
 
-  method get_border_range (boundary:string) direction= Common.get_border_range conn boundary direction
+  method get_fringe (boundary:string) direction= Common.get_fringe conn boundary direction
   
   method store_cluster_cfg cluster_id cfg =
     Common.set_nursery_cfg (ic,oc) cluster_id cfg

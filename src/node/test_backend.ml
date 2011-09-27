@@ -223,7 +223,7 @@ class test_backend my_name = object(self:#backend)
   method get_db s =
     Lwt.return ()
 
-  method get_border_range boundary direction =
+  method get_fringe boundary direction =
     let cmp = 
       begin
         match direction with

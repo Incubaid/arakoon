@@ -137,7 +137,7 @@ module NC = struct
     let pull () = 
       Lwt_log.debug "pull">>= fun () ->
       _with_master_connection t from_cn 
-        (fun conn -> Common.get_tail conn start_key)
+        (fun conn -> Common.get_fringe conn start_key Common.LOWER_BOUND )
     in
     let push tail i = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in

@@ -240,7 +240,7 @@ object (self: #store)
   
   method relocate new_location = failwith "Memstore.relocation not implemented"
   
-  method get_border_range boundary direction = 
+  method get_fringe boundary direction = 
     Lwt_log.debug_f "mem_store :: get_border_range %s" boundary >>= fun () ->
     let cmp = 
       begin

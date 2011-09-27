@@ -569,7 +569,7 @@ object(self: #store)
     Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location 
   
   
-  method get_border_range border direction = 
+  method get_fringe border direction = 
     let cursor_init, get_next, key_cmp =
       begin
         match direction with
