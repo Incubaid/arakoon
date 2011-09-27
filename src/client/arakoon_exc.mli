@@ -9,6 +9,7 @@ type rc =
   | E_WRONG_CLUSTER
   | E_ASSERTION_FAILED
   | E_READ_ONLY
+  | E_OUTSIDE_INTERVAL
   | E_UNKNOWN_FAILURE
 
 val int32_of_rc : rc -> int32
