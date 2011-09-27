@@ -305,7 +305,27 @@ def get_last_i_tlog2(node_id):
         index = index + 4 + elen 
     return sn
         
-    
+def last_entry_code(node_id):
+    number = get_last_tlog_id(node_id)
+    cluster = _getCluster()
+    home = cluster.getNodeConfig(node_id )['home']
+    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    f = open(tlog_full_path,'rb')
+    data = f.read()
+    f.close()
+    index = 0
+    dlen = len(data)
+    sn = None
+    while index < dlen:
+        sn = struct.unpack_from("q", data, index)[0]
+        index = index + 8
+        index = index + 4 # skip crc32
+        elen = struct.unpack_from("I", data,index)[0]
+        index = index + 4
+        typ = struct.unpack_from("I", data, index)[0]
+        index = index + elen
+    return typ
+
 def get_last_i_tlog ( node_id ):
     tlog_dump = dump_tlog ( node_id, get_last_tlog_id(node_id) ) 
     tlog_dump_list = tlog_dump.split("\n")
@@ -854,11 +874,28 @@ def assert_key_value_list( start_suffix, list_size, list ):
         assert_equals ( (key,value) , list [i] )
 
 def assert_last_i_in_sync ( node_1, node_2 ):
-    last_i_0 = get_last_i_tlog2(node_1)
-    last_i_1 = get_last_i_tlog2(node_2)    
-    abs_diff = abs(int(last_i_0) - int(last_i_1) )
-    assert_equals( max(abs_diff,1) , 1, 
-                   "Values for i are invalid %s %s" % (last_i_0, last_i_1) )  
+    last_i_1 = get_last_i_tlog2(node_1)
+    last_i_2 = get_last_i_tlog2(node_2)    
+    i1 = int(last_i_1)
+    i2 = int(last_i_2)
+    if i1 > i2:
+        hi = i1
+        hi_node = node_1
+        lo = i2
+    else:
+        hi = i2
+        hi_node = node_2
+        lo = i1
+    
+    if hi - lo > 1:
+        code = last_entry_code(hi_node) # masterset = 4
+        masterSet = 4
+        assert_equals(code, 
+                      masterSet,
+                      "Values for i are invalid %i %i code:%i" % (i1, i2,code) )  
+    else:
+        pass
+
 
 def assert_running_nodes ( n ):
     assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1, "Number of expected running nodes missmatch" )
