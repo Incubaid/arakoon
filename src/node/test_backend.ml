@@ -227,8 +227,8 @@ class test_backend my_name = object(self:#backend)
     let cmp = 
       begin
         match direction with
-          | UPPER_BOUND -> (fun k -> k < boundary)
-          | LOWER_BOUND -> (fun k -> k >= boundary)
+          | Routing.UPPER_BOUND -> (fun k -> k < boundary)
+          | Routing.LOWER_BOUND -> (fun k -> k >= boundary)
       end
     in
     let all = StringMap.fold 

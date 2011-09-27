@@ -245,8 +245,8 @@ object (self: #store)
     let cmp = 
       begin
         match direction with
-          | Common.UPPER_BOUND -> (fun k -> boundary < k )
-          | Common.LOWER_BOUND -> (fun k -> boundary >= k)
+          | Routing.UPPER_BOUND -> (fun k -> boundary < k )
+          | Routing.LOWER_BOUND -> (fun k -> boundary >= k)
       end
     in
     let all = StringMap.fold 

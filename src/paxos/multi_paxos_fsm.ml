@@ -185,7 +185,12 @@ let promises_check_done constants state () =
   begin 
     match v_s with 
       | [] ->  (Update.make_update_value (Update.make_master_set me None), 0)
-      | hd::tl -> hd
+      | hd::tl -> 
+        let bv, bf = hd in
+        if Update.is_master_set bv 
+        then (Update.make_update_value (Update.make_master_set me None), bf)
+        else bv, bf
+         
   end in 
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in

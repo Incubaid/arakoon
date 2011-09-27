@@ -459,9 +459,9 @@ let one_command (ic,oc) (backend:Backend.backend) =
   let direction = 
     if dir_as_int = 0
     then
-      UPPER_BOUND
+      Routing.UPPER_BOUND
     else
-      LOWER_BOUND
+      Routing.LOWER_BOUND
   in
 	Lwt.catch
 	  (fun () -> 

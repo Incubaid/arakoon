@@ -5,6 +5,7 @@ open Master_type
 open Test_backend
 open Remote_nodestream
 open Arakoon_remote_client
+open Routing
 open Interval
 
 let setup port = Lwt.return port
@@ -53,7 +54,7 @@ let set_interval port () =
   __wrap__ port conversation
 
 
-let get_tail port ()= 
+let get_fringe port ()= 
   let fill_it_a_bit () =
     let address = Network.make_address "127.0.0.1" port in
     Lwt_io.with_connection address (fun conn ->
@@ -73,13 +74,13 @@ let get_tail port ()=
     fill_it_a_bit ()  >>= fun () ->
     let (ic,oc) = conn in 
     make_remote_nodestream _cluster conn >>= fun ns ->
-    Lwt_log.debug "starting get_tail" >>= fun () ->
-    ns # get_fringe "k" Common.LOWER_BOUND >>= fun kvs -> 
+    Lwt_log.debug "starting get_fringe" >>= fun () ->
+    ns # get_fringe "k" Routing.LOWER_BOUND >>= fun kvs -> 
     let got = List.length kvs in
     Lwt_log.debug_f "got: %i" got >>= fun () ->
     Lwt_io.close ic >>= fun () ->
     Lwt_io.close oc >>= fun () ->
-    OUnit.assert_equal 3 got ~msg:"tail size does not match";
+    OUnit.assert_equal 3 got ~msg:"fringe size does not match";
     Lwt.return ()
   in
   __wrap__ port conversation
@@ -88,6 +89,6 @@ let suite =
   let w f = Extra.lwt_bracket setup f teardown in
   "nursery" >:::
     ["set_interval" >:: w (set_interval 6666);
-     "get_tail"  >:: w (get_tail  5555);
+     "get_fringe"  >:: w (get_fringe  5555);
     ]
 

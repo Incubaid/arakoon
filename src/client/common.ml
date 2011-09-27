@@ -70,9 +70,6 @@ type client_command =
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
 
-type range_direction =
-  | UPPER_BOUND
-  | LOWER_BOUND
 
 let code2int = [
   PING,                     0x1l ;
@@ -279,8 +276,8 @@ let get_fringe (ic,oc) boundary direction =
     command_to buf GET_FRINGE;
     Llio.string_to buf boundary;
     match direction with
-      | UPPER_BOUND -> Llio.int_to buf 0
-      | LOWER_BOUND -> Llio.int_to buf 1
+      | Routing.UPPER_BOUND -> Llio.int_to buf 0
+      | Routing.LOWER_BOUND -> Llio.int_to buf 1
   in
   request  oc outgoing >>= fun () ->
   response ic Llio.input_kv_list

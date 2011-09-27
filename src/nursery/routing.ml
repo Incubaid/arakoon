@@ -21,6 +21,11 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 module Routing = struct
+
+  type range_direction =
+    | UPPER_BOUND
+    | LOWER_BOUND
+
   type sep = string
   type t = 
     | Cluster of string
@@ -132,5 +137,66 @@ module Routing = struct
 	  if key > sep 
 	  then go true right
 	  else go ok left
-    in go false cfg 
+    in go false cfg
+  
+  let contains t cid =
+    let rec _walk = function 
+      | Branch(l, s, r) ->
+        begin
+          let b = _walk l in
+          if b 
+          then b
+          else _walk r
+        end  
+      | Cluster x when x = cid -> true
+      | Cluster x -> false
+    in _walk t
+    
+  let get_diff t left sep right =
+    let cl = Cluster left in
+    let cr = Cluster right in
+    let rec _get_upper_sep parent_sep = function 
+      | Branch(l, s, r) when l = cl ->
+        Some s
+      | Branch(l, s, r) when r = cl ->
+        parent_sep
+      | Branch(l, s, r) ->
+        let m_l = _get_upper_sep None l in
+        begin
+          match m_l with
+            | None -> _get_upper_sep None r 
+            | _ -> m_l
+        end
+      | Cluster x -> None
+    in 
+    let rec _get_lower_sep parent_sep = function
+      | Branch(l, s, r) when r = cr ->
+        Some s
+      | Branch(l, s, r) when l = cr ->
+        parent_sep
+      | Branch (l, s, r) ->
+        let m_l = _get_lower_sep None l in
+        begin
+          match m_l with 
+            | None -> _get_lower_sep None r
+            | _ -> m_l 
+        end
+      | Cluster x -> None
+    in
+    let up_sep = _get_upper_sep None t in
+    let low_sep = _get_lower_sep None t in 
+    begin
+      match (low_sep, up_sep) with
+        | (Some x, Some y) when x = y ->
+          if sep > x then
+            right, left, UPPER_BOUND
+          else 
+            left, right, LOWER_BOUND
+        | (Some x, None) when not (contains t right) -> 
+          left, right, LOWER_BOUND
+        | (None, Some y) when not (contains t left) ->
+          right, left, UPPER_BOUND
+        | _ ->
+          failwith "Impossible routing change requested"
+    end
 end

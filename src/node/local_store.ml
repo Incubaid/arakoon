@@ -585,9 +585,9 @@ object(self: #store)
     let cursor_init, get_next, key_cmp =
       begin
         match direction with
-        | Common.UPPER_BOUND ->
+        | Routing.UPPER_BOUND ->
           Bdb.first, Bdb.next, (fun k -> k >= (__prefix ^ border) ) 
-        | Common.LOWER_BOUND ->
+        | Routing.LOWER_BOUND ->
           Bdb.last, Bdb.prev, ( fun k -> k < (__prefix ^ border) ) 
       end
     in

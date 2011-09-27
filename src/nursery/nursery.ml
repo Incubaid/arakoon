@@ -129,15 +129,15 @@ module NC = struct
 
   let close t = Llio.lwt_failfmt "close not implemented"
 
-  let migrate t start_key = (* direction is always 'up' *)
-    Lwt_log.debug_f "migrate %s" start_key >>= fun () ->
-    let from_cn = NCFG.find_cluster t.rc start_key in
-    let to_cn = NCFG.next_cluster t.rc from_cn in
+  let migrate t clu_left sep clu_right = 
+    Lwt_log.debug_f "migrate %s" sep >>= fun () ->
+    let r = NCFG.get_routing t.rc in
+    let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
     Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
     let pull () = 
       Lwt_log.debug "pull">>= fun () ->
       _with_master_connection t from_cn 
-        (fun conn -> Common.get_fringe conn start_key Common.LOWER_BOUND )
+        (fun conn -> Common.get_fringe conn sep direction )
     in
     let push tail i = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
@@ -244,7 +244,7 @@ let main () =
     NC.force_interval nc "right" right_i >>= fun () ->
     fill 90 >>= fun () ->
     
-    NC.migrate nc "T"
+    NC.migrate nc "left" "T" "right"
   in
   Lwt_main.run (t ())
 

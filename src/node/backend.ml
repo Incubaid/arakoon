@@ -79,7 +79,7 @@ class type backend = object
   
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
 
-  method get_fringe: string -> Common.range_direction -> ((string * string) list) Lwt.t
+  method get_fringe: string -> Routing.range_direction -> ((string * string) list) Lwt.t
   
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t

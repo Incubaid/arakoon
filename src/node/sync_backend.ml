@@ -642,6 +642,6 @@ object(self: #backend)
     end
     
   method get_fringe boundary direction = 
-    Lwt_log.debug_f "get_border_range %S" boundary >>= fun () ->
+    Lwt_log.debug_f "get_fringe %S" boundary >>= fun () ->
     store # get_fringe boundary direction 
 end

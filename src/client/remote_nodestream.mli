@@ -18,7 +18,7 @@ class type nodestream = object
   
   method get_db: string -> unit Lwt.t
 
-  method get_fringe: string -> Common.range_direction -> ((string * string) list) Lwt.t
+  method get_fringe: string -> Routing.range_direction -> ((string * string) list) Lwt.t
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
   
