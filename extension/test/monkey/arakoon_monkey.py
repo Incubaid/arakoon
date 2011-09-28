@@ -190,7 +190,7 @@ def wait_for_it () :
         all_i = node_is.values()
         return all_i
     
-    def wait_for(method, ms):
+    def wait_for(method, ms, sleep):
         logging.info( "Work is done. Waiting for %s to get in sync",ms )
         all_i = method()
 
@@ -201,7 +201,7 @@ def wait_for_it () :
         
         while go_on:
             previous = to_do
-            time.sleep(10.0)
+            time.sleep(sleep)
             all_i = method()
             i_max = max(all_i)
             i_min = min(all_i)
@@ -211,17 +211,18 @@ def wait_for_it () :
             if to_do < 3:
                 go_on = False
             elif done > 0 and done < 500:
-                logging.info("still not in sync and too slow %s", all_i)
+                logging.info("still not in sync and too slow %s (done=%i)", all_i, done)
+                global monkey_dies
                 monkey_dies = True
                 go_on = False
             else:
                 C.assert_running_nodes(3)
 
     if not monkey_dies:
-        wait_for(all_i_tlogs, "tlogs")
+        wait_for(all_i_tlogs, "tlogs", 10.0)
     
     if not monkey_dies:
-        wait_for(all_i_stats, "stats")
+        wait_for(all_i_stats, "stats", 20.0)
 
 def health_check() :
 
