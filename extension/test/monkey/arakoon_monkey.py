@@ -172,8 +172,6 @@ def done_time():
     t1 = time.time()
     return  (t1 - _start_time) > _sentence
 
-
-
 def wait_for_it () :
     global monkey_dies
     def last_i(nn):
@@ -182,9 +180,20 @@ def wait_for_it () :
         i = int(i_s)
         return i
 
-    if not monkey_dies:
-        logging.info( "Work is done. Waiting for nodes to get in sync." )
-        all_i = [last_i(nn) for nn in xrange(3)]
+    def all_i_tlogs():
+        return [last_i(nn) for nn in xrange(3)]
+
+    def all_i_stats():
+        client = C.get_client()
+        stats = client.statistics()
+        node_is = stats['node_is']
+        all_i = node_is.values()
+        return all_i
+    
+    def wait_for(method, ms):
+        logging.info( "Work is done. Waiting for %s to get in sync",ms )
+        all_i = method()
+
         i_max = max(all_i)
         i_min = min(all_i)
         to_do = i_max - i_min
@@ -193,7 +202,7 @@ def wait_for_it () :
         while go_on:
             previous = to_do
             time.sleep(10.0)
-            all_i = [last_i(nn) for nn in xrange(3)]
+            all_i = method()
             i_max = max(all_i)
             i_min = min(all_i)
             to_do = i_max - i_min
@@ -207,6 +216,12 @@ def wait_for_it () :
                 go_on = False
             else:
                 C.assert_running_nodes(3)
+
+    if not monkey_dies:
+        wait_for(all_i_tlogs, "tlogs")
+    
+    if not monkey_dies:
+        wait_for(all_i_stats, "stats")
 
 def health_check() :
 
