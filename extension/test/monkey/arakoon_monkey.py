@@ -40,6 +40,7 @@ from arakoon_system_tests.server import system_tests_common as C
 from arakoon.ArakoonProtocol import ArakoonProtocol
 from arakoon.ArakoonExceptions import *
 MEM_MAX_KB = 1024 * 256
+MAX_USED = 0
 monkey_dies = False
 
 random.seed(42)
@@ -283,10 +284,13 @@ def check_disk_space():
 
 def memory_monitor():
     global monkey_dies
-    
+    global MAX_USED
     while monkey_dies == False :
         for name in C.node_names:
             used = C.get_memory_usage( name )
+            if used > MAX_USED:
+                MAX_USED = used
+                logging.info("MAX_USED:%i", MAX_USED)
             
             if used > MEM_MAX_KB:
                 logging.critical( "!!!! %s uses more than %d kB of memory (%d) " % (name, MEM_MAX_KB, used))
