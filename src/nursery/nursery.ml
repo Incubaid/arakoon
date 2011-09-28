@@ -139,14 +139,14 @@ module NC = struct
       _with_master_connection t from_cn 
         (fun conn -> Common.get_fringe conn sep direction )
     in
-    let push tail i = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) tail in
+    let push fringe i = 
+      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
         (fun conn -> Common.migrate_range conn i seq)
     in
-    let delete tail = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) tail in
+    let delete fringe = 
+      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
       Lwt_log.debug "delete" >>= fun () ->
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
@@ -165,31 +165,31 @@ module NC = struct
     get_interval from_cn >>= fun from_i -> 
     get_interval to_cn >>= fun to_i ->
     let rec loop from_i to_i =
-      pull () >>= fun tail ->
-      match tail with
+      pull () >>= fun fringe ->
+      match fringe with
         | [] -> 
           Lwt_log.debug "done" 
-        | tail -> 
-          let size = List.length tail in
+        | fringe -> 
+          let size = List.length fringe in
           Lwt_log.debug_f "Length = %i" size >>= fun () ->
 	        (* 
 	         - change public interval on 'from'
-	         - push tail & change private interval on 'to'
-	         - delete tail & change private interval on 'from'
+	         - push fringe & change private interval on 'to'
+	         - delete fringe & change private interval on 'from'
 	         - change public interval 'to'
 	         - publish new route.
           *)
           let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
           let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
-          let b, _ = List.hd (List.rev tail) in
-          let e, _ = List.hd tail in
+          let b, _ = List.hd (List.rev fringe) in
+          let e, _ = List.hd fringe in
           Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
           let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
           set_interval from_cn from_i' >>= fun () ->
           let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
-          push tail to_i1 >>= fun () ->
+          push fringe to_i1 >>= fun () ->
           (* set_interval to_cn to_i1 >>= fun () -> *)
-          delete tail >>= fun () ->
+          delete fringe >>= fun () ->
           let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
           set_interval to_cn to_i2 >>= fun () ->
           let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
@@ -200,10 +200,10 @@ module NC = struct
           loop from_i2 to_i2
     in 
     loop from_i to_i
-
+    
 end
 
-let main () =
+let nursery_test_main () =
   All_test.configure_logging ();
   let repr = [("left", "ZZ")], "right" in (* all in left *)
   let routing = Routing.build repr in
@@ -248,4 +248,3 @@ let main () =
   in
   Lwt_main.run (t ())
 
-let _ = main ();;

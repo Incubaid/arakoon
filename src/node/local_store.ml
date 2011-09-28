@@ -80,13 +80,20 @@ let _get_routing db =
 
 let _set_routing_delta db left sep right = 
   let m_r = _get_routing_non_lwt db in
-  match m_r with
-    | None -> raise Not_found
-    | Some r ->
-      begin
-        let new_r = Routing.change r left sep right in
-        _set_routing db new_r 
+  let new_r = 
+    begin
+      match m_r with
+        | None ->
+          begin 
+            Routing.build ([(left, sep)], right)
+          end
+        | Some r ->
+          begin
+            Routing.change r left sep right 
+          end
       end
+  in 
+  _set_routing db new_r
 
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
@@ -530,17 +537,17 @@ object(self: #store)
   method get_routing () = 
     Lwt_log.debug "get_routing " >>= fun () ->
     match _routing with
-      | None -> Llio.lwt_failfmt "no routing"
+      | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
   method set_routing r =
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
-    Hotc.transaction db (fun db -> _set_routing db r; Lwt.return ())
+    _tx_with_incr (self # _incr_i_cached) db (fun db -> _set_routing db r; Lwt.return ())
   
   method set_routing_delta left sep right =
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    Hotc.transaction db (fun db -> _set_routing_delta db left sep right; Lwt.return ())
+    _tx_with_incr (self # _incr_i_cached) db (fun db -> _set_routing_delta db left sep right; Lwt.return ())
     
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->

@@ -154,7 +154,7 @@ module Node_cfg = struct
     in
     master
 
-  let _get_nursery_cfg inifile filename =
+  let get_nursery_cfg inifile filename =
     try 
       begin
         let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
@@ -245,7 +245,7 @@ module Node_cfg = struct
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
     let cluster_id = _get_cluster_id inifile in
-    let m_n_cfg = _get_nursery_cfg inifile config_file in
+    let m_n_cfg = get_nursery_cfg inifile config_file in
     let cluster_cfg = 
       { cfgs = cfgs;
         nursery_cfg = m_n_cfg;

@@ -214,7 +214,7 @@ object (self: #store)
 
   method get_routing () = 
     match _routing with
-      | None -> Llio.lwt_failfmt "no routing"
+      | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
   method set_routing r =

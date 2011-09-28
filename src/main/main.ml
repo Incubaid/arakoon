@@ -50,6 +50,7 @@ type local_action =
   | Collapse_remote
   | Backup_db
   | NumberOfValues
+  | InitNursery
 
 type server_action =
   | Node
@@ -295,6 +296,11 @@ let main () =
 				    Arg.Set_int n_tlogs;
 				   ], 
      "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
+    ("--init-nursery", Arg.Tuple[set_laction InitNursery;
+                  Arg.Set_string cluster_id;
+                  
+                 ],
+     "<cluster_id> Initialize the routing to contain a single cluster");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
 			      Arg.Set_string cluster_id;
 			      Arg.Set_string ip;
@@ -336,6 +342,7 @@ let main () =
       !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
     | NumberOfValues -> Client_main.get_key_count !config_file ()
+    | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id 
       
   in
   let do_server node =
