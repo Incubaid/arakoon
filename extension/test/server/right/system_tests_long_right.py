@@ -353,7 +353,7 @@ def test_sso_deployment():
     cl = _getCluster()
     cl.setLogLevel("debug")
     
-    regenerateClientConfig()
+    regenerateClientConfig(cluster_id)
             
     restart_nodes_wf_sim( 1 )
     n1 = node_names[1]
@@ -368,7 +368,7 @@ def test_sso_deployment():
     cl.forceMaster(None )
     logging.info("2 node config without forced master")
 
-    regenerateClientConfig()
+    regenerateClientConfig(cluster_id)
     
     restart_nodes_wf_sim( 2 )
     startOne( node_names[2] )
