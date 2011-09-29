@@ -35,7 +35,7 @@ def collapse(ip, port, clusterId, n):
     """
     if n < 1: 
         raise ValueError("%i is not acceptable" % n)
-    s = RCP.create_socket(ip, port)
+    s = RCP.make_socket(ip, port)
     
     try:
         RCP._prologue(clusterId, s)
@@ -52,7 +52,7 @@ def collapse(ip, port, clusterId, n):
         s.close()
         
 def downloadDb(ip, port, clusterId, location):
-    s = RCP.create_socket(ip, port)
+    s = RCP.make_socket(ip, port)
     
     try:
         with open(location,'w+b') as db_file:
