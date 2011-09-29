@@ -43,7 +43,7 @@ def mount_ram_fs ( node_index ) :
     fs = q.system.fs
     if fs.exists( mount_target ) :
         try:
-            Common.stopOne( node_names[node_index] )
+            Common.stopOne( Common.node_names[node_index] )
         except:
             pass
         try :
@@ -66,7 +66,7 @@ def mount_ram_fs ( node_index ) :
         
     except Exception, ex :
         logging.error( "Caught exception: %s" , ex )
-        Common.stopOne( node_names[node_index] )
+        Common.stopOne( Common.node_names[node_index] )
         destroy_ram_fs ( node_index )
     
     
@@ -314,7 +314,7 @@ def iterate_block_unblock_both_slaves ( ):
         return
     
     slave_list = list()
-    for node in node_names :
+    for node in Common.node_names :
         if node == master_id :
             continue
         slave_list.append( node )
@@ -371,9 +371,9 @@ def test_block_single_slave_ports () :
     raise SkipTest
 
     system_tests_common.test_failed = False
-    master_id = node_names [0]
+    master_id = Common.node_names [0]
     # Node 0 is fixed master 
-    slave_id = node_names[1]
+    slave_id = Common.node_names[1]
     
     block_node_ports( slave_id )
     
@@ -400,7 +400,7 @@ def test_block_two_slaves_ports () :
     cli = get_client()
     master_id = cli.whoMaster() 
     
-    node_name_cpy = list( node_names )
+    node_name_cpy = list( Common.node_names )
     node_name_cpy.remove( master_id )
     
     slave_1_id = node_name_cpy [0]
@@ -429,7 +429,7 @@ def test_block_two_slaves_ports_loop () :
     cli = get_client()
     master_id = cli.whoMaster() 
     
-    node_name_cpy = list( node_names )
+    node_name_cpy = list( Common.node_names )
     node_name_cpy.remove( master_id )
     
     slave_1_id = node_name_cpy [0]
