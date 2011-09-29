@@ -20,16 +20,32 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-class NurseryManager:
+ARAKOON_BINARY = "/opt/qbase3/apps/arakoon/bin/arakoon "
+
+class NurseryManagement:
     
     def __init__(self,clusterId):
         self._clusterId = clusterId
                 
     def migrate(self, leftCluster, separator, rightCluster):
-        pass
+        cmd = _getBaseCmd()
+        cmd += "--migrate %s %s %s " % (leftCluster, separator, rightCluster)
+        cmd += self.__getConfigCmdline()
+        q.system.process.run( cmd )
     
     def initialize(self, firstClusterId):
-        pass
+        cmd = _getBaseCmd()
+        cmd += "--init %s " % firstClusterId
+        cmd += self.__getConfigCmdline()
+        q.system.process.run( cmd )
+        
+    def __getBaseCmd(self):
+        return ARAKOON_BINARY
     
-    def __buildCmd(self):
-        pass
+    def __getConfigCmdline(self):
+        cfg = q.config.getConfig( "arakoonclustsers" )
+        if cfg.has_key( self._clusterId ):
+            return "-config %s " % ( cfg[ self._clusterId ] )
+        else:
+            raise RuntimeError("Unknown nursery cluster %s" % self._clusterId)
+    

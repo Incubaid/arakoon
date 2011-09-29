@@ -149,6 +149,11 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
               Lwt.return (Slave_steady_state (n2, i2, v))
 	    end
 	    end
+    | Accept(n', i', v) when current_n = n' && i' > current_i ->
+      begin
+        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+        Lwt.return (Slave_discovered_other_master (source, cu_pred, n', i'))
+      end
 	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
 	    Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
       end
