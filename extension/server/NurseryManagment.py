@@ -23,8 +23,13 @@ If not, see <http://www.gnu.org/licenses/>.
 class NurseryManager:
     
     def __init__(self,clusterId):
-        cfg = q.clients.arakoon.getClientConfig(clusterId)
-        if len(cfg.getNodes()) == 0 :
-            raise RuntimeError("Cannot find client configuration for cluster %s" % clusterId )
-        
+        self._clusterId = clusterId
+                
+    def migrate(self, leftCluster, separator, rightCluster):
+        pass
     
+    def initialize(self, firstClusterId):
+        pass
+    
+    def __buildCmd(self):
+        pass

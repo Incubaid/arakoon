@@ -98,14 +98,15 @@ def setup_3_nodes_ram_fs ( home_dir ):
 
     except Exception as ex:
         teardown_ram_fs( True )
-        raise ex
+        (a,b,c) = sys.exc_info()
+        raise a, b, c
     
     logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
     cluster.setMasterLease(int(Common.lease_duration))
 
     logging.info( "Creating client config" )
-    Common.regenerateClientConfig()
+    Common.regenerateClientConfig(Common.cluster_id)
             
     Common.start_all()
 
