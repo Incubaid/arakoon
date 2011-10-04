@@ -139,9 +139,10 @@ let log_prelude cluster_cfg =
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
   >>= fun () ->
-  Lwt_log.info_f "master=%s" (master2s cluster_cfg._master) >>= fun () ->
-  Lwt_log.info_f "lease_period=%i" cluster_cfg._lease_period >>= fun () ->
-  Lwt.return ()
+  let ncfgo = cluster_cfg.nursery_cfg in
+  let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
+  let ccfg_s = Log_extra.option_to_string p2s ncfgo in
+  Lwt_log.info_f "client_cfg=%s" ccfg_s
 
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 

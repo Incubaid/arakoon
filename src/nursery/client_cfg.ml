@@ -41,6 +41,12 @@ module ClientCfg = struct
       (k,sa),p3
     in
     Llio.hashtbl_from buf entry_from pos
+ 
+  let to_string t = 
+    let buffer = Buffer.create 127 in
+    Hashtbl.iter (fun s (ip,p) -> 
+      Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ip p)) t;
+    Buffer.contents buffer 
 
   let input_cfg ic =
     let key_from ic =

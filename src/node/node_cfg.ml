@@ -20,11 +20,13 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+
 let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_period = 10
 open Master_type
 open Client_cfg
+open Log_extra
 
 module Node_cfg = struct
 
@@ -45,7 +47,27 @@ module Node_cfg = struct
 	    is_test : bool;
 	    reporting: int;
 	   }
-
+      
+  let string_of (t:t) =
+    begin
+      let template =
+	"{node_name=%S; ip=%S; client_port=%d; " ^^
+	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^ 
+	  "log_dir=%S; log_level=%S; lease_period=%i; " ^^
+	  "master=%S; is_laggy=%b; is_learner=%b; " ^^
+	  "targets=%s; use_compression=%b; is_test=%b; " ^^
+	  "reporting=%i; " ^^
+	  "}"
+      in
+      Printf.sprintf template
+	t.node_name t.ip t.client_port 
+	t.messaging_port t.home t.tlog_dir
+	t.log_dir t.log_level t.lease_period
+	(master2s t.master) t.is_laggy t.is_learner
+	(string_of_list (fun s -> s) t.targets) t.use_compression t.is_test
+	t.reporting
+    end
+      
   type cluster_cfg = 
     { cfgs: t list;
       _master: master;
@@ -100,20 +122,7 @@ module Node_cfg = struct
     cluster_cfg
     
 
-  let string_of (t:t) =
-    let template =
-      "{node_name=\"%s\"; ip=\"%s\"; client_port=%d; " ^^
-	"messaging_port=%d; home=\"%s\"; tlog_dir=\"%s\"; " ^^ 
-	"log_dir=\"%s\"; log_level=\"%s\"; laggy=%b; is_learner=%b}"
-    in
-      Printf.sprintf template
-	t.node_name t.ip t.client_port t.messaging_port 
-	t.home
-	t.tlog_dir
-	t.log_dir
-	t.log_level
-	t.is_laggy
-	t.is_learner
+
 
   let tlog_dir t = t.tlog_dir 
   let tlog_file_name t =
