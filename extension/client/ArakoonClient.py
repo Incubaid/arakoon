@@ -27,6 +27,7 @@ except ImportError:
 
 from arakoon import Arakoon 
 from arakoon.ArakoonProtocol import ArakoonClientConfig
+from arakoon import Nursery
 
 class ArakoonClientExtConfig:
     """
@@ -176,8 +177,8 @@ class ArakoonClient:
     """
     Arakoon client management
     """
-        
-    def getClient(self, clusterId, configName = None):
+    @staticmethod
+    def _getClientConfig(clusterId, configName = None):
         """
         Gets an Arakoon client object for an existing cluster
         @type clusterId: string
@@ -189,7 +190,7 @@ class ArakoonClient:
             q.errorconditionhandler.raiseError("No such client configured for cluster [%s]." %clusterId)
         else:
             node_dict = {}
-            clientCfg = self._getConfig(clusterId, configName)
+            clientCfg = ArakoonClient._getConfig(clusterId, configName)
             cfgFile = q.config.getInifile( clientCfg )
             if not cfgFile.checkSection("global") :
                 if configName is not None:
@@ -205,7 +206,11 @@ class ArakoonClient:
                 ip_port = (ip, port)
                 node_dict.update({node: ip_port})
             config = ArakoonClientConfig(clusterId, node_dict)
-            return Arakoon.ArakoonClient(config)
+            return config
+            
+    def getClient(self, clusterId, configName=None):
+        config = self._getClientConfig(clusterId, configName)
+        return Arakoon.ArakoonClient(config)
 
     def listClients(self):
         """
@@ -237,10 +242,19 @@ class ArakoonClient:
         cfgFile = self._getConfig(clusterId, configName)
         return ArakoonClientExtConfig(clusterId, cfgFile)
         
-    def _getConfig(self, clusterId, configName):
+    @staticmethod
+    def _getConfig(clusterId, configName):
         clientsCfg = q.config.getConfig( "arakoonclients")
         clusterDir = clientsCfg[clusterId]["path"]
         if configName is None:
             return q.system.fs.joinPaths( clusterDir, "%s_client" % clusterId)
         else:
             return q.system.fs.joinPaths( clusterDir, "%s_client_%s" % (clusterId, configName))
+
+
+class NurseryClient:
+    def getClient(self, cluster_id):
+        cfg = ArakoonClient._getClientConfig( cluster_id, None )
+        return Nursery.NurseryClient(cfg)
+    
+    

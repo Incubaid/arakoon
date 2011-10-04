@@ -97,6 +97,7 @@ nursery_nodes = {
    'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
 }
 nursery_cluster_ids = nursery_nodes.keys()
+nursery_keeper_id = nursery_cluster_ids[0]
 
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
@@ -473,11 +474,26 @@ def start_all(clusterId = None) :
     cluster.start()
     time.sleep(3.0)  
 
+def start_nursery( nursery_size ):
+    for i in range(nursery_size):
+        clu = _getCluster( nursery_cluster_ids[i])
+        clu.start()
+    time.sleep(0.2)
+    
 def stop_all(clusterId = None ):
     logging.info("stop_all")
     cluster = _getCluster( clusterId )
     cluster.stop()
 
+def stop_nursery( nursery_size ):
+    for i in range(nursery_size):
+        clu = _getCluster( nursery_cluster_ids[i])
+        clu.stop()
+    
+def restart_nursery( nursery_size ):
+    stop_nursery(nursery_size)
+    start_nursery(nursery_size)
+    
 def restart_all(clusterId = None):
     stop_all(clusterId)
     start_all(clusterId)
@@ -610,18 +626,24 @@ def setup_1_node (home_dir):
 default_setup = setup_3_nodes
 
 def setup_nursery_n (n, home_dir):
-    keeper_id = nursery_cluster_ids[0]
+    
     for i in range(n):
         c_id = nursery_cluster_ids[i]
-        base_dir = data_base_dir + c_id
+        base_dir = q.system.fs.joinPaths(data_base_dir, c_id)
         setup_n_nodes_base( c_id, nursery_nodes[c_id], False, base_dir,
                             node_msg_base_port + 3*i, node_client_base_port+3*i)
         clu = _getCluster(c_id)
-        clu.setNurseryKeeper(keeper_id)
+        clu.setNurseryKeeper(nursery_keeper_id)
         
         logging.info("Starting cluster %s", c_id)
         clu.start()
-        
+    
+    logging.info("Initializing nursery to contain %s" % nursery_keeper_id )
+    
+    time.sleep(3.0)
+    n = q.manage.nursery.getNursery( nursery_keeper_id )
+    n.initialize( nursery_keeper_id )
+    
     logging.info("Setup complete")
         
 def setup_nursery_2 (home_dir):
@@ -655,13 +677,20 @@ def basic_teardown( removeDirs ):
     logging.info( "Teardown complete" )
 
 def nursery_teardown( removeDirs ):
-    common_teardown(nursery_clusterids)
+    common_teardown(removeDirs, nursery_cluster_ids)
 
-def get_client ():
-    global cluster_id
-    client = q.clients.arakoon.getClient(cluster_id)
+def get_client ( c_id = None):
+    if c_id is None:
+        c_id = cluster_id
+    client = q.clients.arakoon.getClient(c_id)
     return client
 
+def get_nursery_client():
+    client = q.clients.nursery.getClient(nursery_keeper_id)
+    return client
+
+def get_nursery():
+    return q.manage.nursery.getNursery(nursery_keeper_id)
 
 def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None ):
     client = get_client ()

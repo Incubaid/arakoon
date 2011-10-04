@@ -69,8 +69,32 @@ let with_master_remote_stream cluster_id cfg f =
   let master_cfg = Hashtbl.find cfg master_name in
   with_remote_stream cluster_id master_cfg f
 
+let setup_logger file_name =
+  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  Lwt_log.file
+    ~template:"$(date): $(level): $(message)"
+    ~mode:`Append ~file_name () >>= fun file_logger ->
+  Lwt_log.default := file_logger;
+  Lwt.return ()
+  
+let __migrate_nursery_range config left sep right =
+  setup_logger "/tmp/nursery_migrate.log" >>= fun () ->
+  Lwt_log.debug "=== STARTING MIGRATE ===" >>= fun () ->
+  let inifile = new Inifiles.inifile config in
+  let m_cfg = Node_cfg.get_nursery_cfg inifile config in
+  match m_cfg with
+    | None -> failwith "No nursery keeper specified in config file"
+    | Some (keeper_id, cli_cfg) -> 
+      let get_nc client =
+        client # get_nursery_cfg () >>= fun ncfg ->
+        Lwt.return ( NC.make ncfg keeper_id )
+      in
+      with_master_remote_stream keeper_id cli_cfg get_nc >>= fun nc ->
+      NC.migrate nc left sep right
 
 let __init_nursery config cluster_id = 
+  setup_logger "/tmp/nursery_init.log" >>= fun () ->
+  Lwt_log.info "=== STARTING INIT ===" >>= fun () ->
   let inifile = new Inifiles.inifile config in
   let m_cfg = Node_cfg.get_nursery_cfg inifile config in
   match m_cfg with
@@ -82,7 +106,6 @@ let __init_nursery config cluster_id =
           failwith "Cannot initialize nursery. It's already initialized."
         ) ( function
           | Arakoon_exc.Exception( Arakoon_exc.E_NOT_FOUND, _ ) ->
-            print_string "Got routing\n"; 
             let r = Routing.build ( [], cluster_id ) in
             client # set_routing r 
           | e -> Lwt.fail e 
@@ -91,5 +114,22 @@ let __init_nursery config cluster_id =
       with_master_remote_stream keeper_id cli_cfg set_routing
       
 let init_nursery config cluster_id =
-  Lwt_main.run( __init_nursery config cluster_id); 0
+  Lwt_main.run( 
+    Lwt.catch
+      ( fun () -> __init_nursery config cluster_id)
+      ( fun e -> let msg = Printexc.to_string e in Lwt_log.fatal msg
+        >>= fun () -> Lwt.fail e  
+      )
+    ) ; 0
   
+let migrate_nursery_range config left sep right =
+  Lwt_main.run( 
+    Lwt.catch
+      ( fun () -> __migrate_nursery_range config left sep right )
+      ( fun e -> 
+        let msg = Printexc.to_string e in 
+        Lwt_log.fatal msg >>= fun () ->
+        let bt = Printexc.get_backtrace () in
+        Lwt_log.fatal_f "BT: %s" bt >>= fun () ->
+        Lwt.fail e)
+    ) ; 0

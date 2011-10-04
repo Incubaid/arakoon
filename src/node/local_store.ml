@@ -593,12 +593,30 @@ object(self: #store)
       begin
         match direction with
         | Routing.UPPER_BOUND ->
-          Bdb.first, Bdb.next, (fun k -> k >= (__prefix ^ border) ) 
+          let skip_keys lcdb cursor =
+            let () = Bdb.first lcdb cursor in
+            let rec skip_admin_key () =
+              begin
+                let k = Bdb.key lcdb cursor in
+                if k.[0] <> __adminprefix.[0]
+                then
+                  Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
+                else
+                  begin 
+                    Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
+                    Bdb.next lcdb cursor;
+                    skip_admin_key ()
+                  end
+              end
+            in 
+            skip_admin_key ()
+          in  
+          skip_keys, Bdb.next, (fun k -> k >= (__prefix ^ border) ) 
         | Routing.LOWER_BOUND ->
-          Bdb.last, Bdb.prev, ( fun k -> k < (__prefix ^ border) ) 
+          Bdb.last, Bdb.prev, ( fun k -> k < (__prefix ^ border) or k.[0] <> __prefix.[0] ) 
       end
     in
-    Lwt_log.debug_f "local_store::get_border %S" border >>= fun () ->
+    Lwt_log.debug_f "local_store::get_fringe %S" border >>= fun () ->
     let buf = Buffer.create 128 in
     Lwt.finalize
       (fun () ->
@@ -613,8 +631,9 @@ object(self: #store)
                 let r = 
                 let rec loop acc ts =
                   let k = Bdb.key   lcdb cursor in
+                  Lwt.ignore_result( Lwt_log.debug_f "QQQQQQQQQQQQQ %s" k);
                   let v = Bdb.value lcdb cursor in
-                  if ts >= limit or k.[0] <> __prefix.[0] or (key_cmp k)
+                  if ts >= limit  or (key_cmp k)
                   then acc
                   else
                     let pk = String.sub k 1 (String.length k -1) in

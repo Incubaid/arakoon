@@ -23,7 +23,9 @@ class type nodestream = object
   method get_interval : unit -> Interval.t Lwt.t
   
   method store_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
-   
+  
+  method get_nursery_cfg: unit -> NCFG.t Lwt.t
+  
 end
 
 val make_remote_nodestream : 

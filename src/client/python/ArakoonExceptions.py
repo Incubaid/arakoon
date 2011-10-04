@@ -109,3 +109,6 @@ class NurseryException( ArakoonException ):
 
 class NurseryRangeError( NurseryException ):
     pass
+
+class NurseryInvalidConfig(NurseryException):
+    pass

@@ -155,8 +155,10 @@ let request oc f =
 
 let response ic f =
   Llio.input_int32 ic >>= function
-    | 0l -> f ic
-    | rc32 -> Llio.input_string ic >>= fun msg ->
+    | 0l -> Lwt_log.debug_f "Client operation succeeded" >>= fun () -> f ic
+    | rc32 ->
+      Lwt_log.debug_f "Client operation failed: %d " (Int32.to_int rc32) >>= fun () -> 
+      Llio.input_string ic >>= fun msg ->
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
@@ -280,6 +282,7 @@ let get_fringe (ic,oc) boundary direction =
       | Routing.LOWER_BOUND -> Llio.int_to buf 1
   in
   request  oc outgoing >>= fun () ->
+  Lwt_log.debug "get_fringe request sent" >>= fun () ->
   response ic Llio.input_kv_list
 
 
@@ -290,6 +293,7 @@ let set_interval(ic,oc) iv =
     Interval.interval_to buf iv
   in
   request  oc outgoing >>= fun () ->
+  Lwt_log.debug "set_interval request sent" >>= fun () ->
   response ic nothing
 
 let get_interval (ic,oc) = 
@@ -298,6 +302,7 @@ let get_interval (ic,oc) =
     command_to buf GET_INTERVAL
   in
   request oc outgoing >>= fun () ->
+  Lwt_log.debug "get_interval request sent" >>= fun () ->
   response ic Interval.input_interval
 
 let get_routing (ic,oc) = 
@@ -326,8 +331,11 @@ let set_routing_delta (ic,oc) left sep right =
     Llio.string_to buf sep;
     Llio.string_to buf right;
   in
+  Lwt_log.debug "Changing routing" >>= fun () ->
   request oc outgoing >>= fun () ->
+  Lwt_log.debug "set_routing_delta sent" >>= fun () ->
   response ic nothing
+  
 
 let _build_sequence_request buf changes = 
   let update_buf = Buffer.create (32 * List.length changes) in

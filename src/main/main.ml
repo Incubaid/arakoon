@@ -51,6 +51,7 @@ type local_action =
   | Backup_db
   | NumberOfValues
   | InitNursery
+  | MigrateNurseryRange
 
 type server_action =
   | Node
@@ -213,6 +214,9 @@ let main () =
   and n_clients = ref 1
   and catchup_only = ref false
   and location = ref ""
+  and left_cluster = ref ""
+  and separator = ref ""
+  and right_cluster = ref ""
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -296,11 +300,15 @@ let main () =
 				    Arg.Set_int n_tlogs;
 				   ], 
      "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
-    ("--init-nursery", Arg.Tuple[set_laction InitNursery;
+    ("--nursery-init", Arg.Tuple[set_laction InitNursery;
                   Arg.Set_string cluster_id;
-                  
                  ],
      "<cluster_id> Initialize the routing to contain a single cluster");
+    ("--nursery-migrate", Arg.Tuple[set_laction MigrateNurseryRange;
+        Arg.Set_string left_cluster;
+        Arg.Set_string separator;
+        Arg.Set_string right_cluster; ],
+        "<left_cluster> <separator> <right_cluster> migrate a range by either adding a new cluster or modifying an existing separator between two cluster ranges");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
 			      Arg.Set_string cluster_id;
 			      Arg.Set_string ip;
@@ -343,6 +351,7 @@ let main () =
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id 
+    | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster
       
   in
   let do_server node =

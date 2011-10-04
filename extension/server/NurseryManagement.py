@@ -20,32 +20,50 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+try:
+    from pymonkey import q
+except ImportError:
+    from pylabs import q
+
 ARAKOON_BINARY = "/opt/qbase3/apps/arakoon/bin/arakoon "
 
 class NurseryManagement:
-    
+    def getNursery(self, clusterId ):
+        return NurseryManager( clusterId )
+
+    @staticmethod
+    def getConfigLocation(clusterId):
+        cfg = q.config.getConfig( "arakoonclusters" )
+        if cfg.has_key( clusterId ):
+            return "%s/%s.cfg" % (cfg[ clusterId ]["path"], clusterId)
+        else:
+            raise RuntimeError("Unknown nursery cluster %s" % clusterId)
+           
+class NurseryManager:
     def __init__(self,clusterId):
-        self._clusterId = clusterId
+        self._keeperCfg = NurseryManagement.getConfigLocation(clusterId)
                 
     def migrate(self, leftCluster, separator, rightCluster):
-        cmd = _getBaseCmd()
-        cmd += "--migrate %s %s %s " % (leftCluster, separator, rightCluster)
+        cmd = self.__getBaseCmd()
+        cmd += "--nursery-migrate %s %s %s " % (leftCluster, separator, rightCluster)
         cmd += self.__getConfigCmdline()
-        q.system.process.run( cmd )
+        self.__runCmd ( cmd )
     
     def initialize(self, firstClusterId):
-        cmd = _getBaseCmd()
-        cmd += "--init %s " % firstClusterId
+        cmd = self.__getBaseCmd()
+        cmd += "--nursery-init %s " % firstClusterId
         cmd += self.__getConfigCmdline()
-        q.system.process.run( cmd )
+        self.__runCmd ( cmd )
+        
+    def __runCmd(self, cmd):
+        (exit, stdout, stderr) = q.system.process.run( commandline = cmd, stopOnError=False)
+        if exit :
+            raise RuntimeError( stderr )
+        
+    def __getConfigCmdline(self):
+        return "-config %s " % self._keeperCfg
         
     def __getBaseCmd(self):
         return ARAKOON_BINARY
-    
-    def __getConfigCmdline(self):
-        cfg = q.config.getConfig( "arakoonclustsers" )
-        if cfg.has_key( self._clusterId ):
-            return "-config %s " % ( cfg[ self._clusterId ] )
-        else:
-            raise RuntimeError("Unknown nursery cluster %s" % self._clusterId)
+
     

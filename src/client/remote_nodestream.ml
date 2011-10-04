@@ -48,6 +48,7 @@ class type nodestream = object
   
   method store_cluster_cfg : string -> ClientCfg.t -> unit Lwt.t 
   
+  method get_nursery_cfg: unit -> NCFG.t Lwt.t
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
@@ -164,6 +165,8 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
   method store_cluster_cfg cluster_id cfg =
     Common.set_nursery_cfg (ic,oc) cluster_id cfg
   
+  method get_nursery_cfg () = 
+    Common.get_nursery_cfg (ic,oc)
 end
 
 let make_remote_nodestream cluster connection = 

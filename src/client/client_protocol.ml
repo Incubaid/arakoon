@@ -356,20 +356,25 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | SET_INTERVAL ->
       begin
-	Interval.input_interval ic >>= fun interval ->
-	Lwt.catch
-	  (fun () -> 
-	    backend # set_interval interval >>= fun () ->
-	    response_ok_unit oc
-	  )
-	  (handle_exception oc)
-      end
+        Lwt.catch
+	      (fun () ->
+          Interval.input_interval ic >>= fun interval -> 
+          backend # set_interval interval >>= fun () ->
+          response_ok_unit oc 
+        )
+        (handle_exception oc)
+        
+	    end
     | GET_INTERVAL ->
       begin
-	backend # get_interval () >>= fun interval ->
-	Llio.output_int oc 0 >>= fun () ->
-	Interval.output_interval oc interval >>= fun () ->
-	Lwt.return false
+        Lwt.catch(
+          fun() ->
+            backend # get_interval () >>= fun interval ->
+            Llio.output_int oc 0 >>= fun () ->
+            Interval.output_interval oc interval >>= fun () ->
+            Lwt.return false 
+          )
+          (handle_exception oc)  
       end
     | GET_ROUTING ->
       Lwt.catch 
@@ -454,23 +459,23 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | GET_FRINGE ->
       begin
-	Llio.input_string ic >>= fun boundary ->
-  Llio.input_int ic >>= fun dir_as_int ->
-  let direction = 
-    if dir_as_int = 0
-    then
-      Routing.UPPER_BOUND
-    else
-      Routing.LOWER_BOUND
-  in
-	Lwt.catch
-	  (fun () -> 
-	    backend # get_fringe boundary direction >>= fun kvs ->
-	    Llio.output_int oc 0 >>= fun () ->
-	    Llio.output_kv_list oc kvs >>= fun () ->
-	    Lwt.return false
-	  )
-	  (handle_exception oc)
+	      Lwt.catch
+	      (fun () ->
+          Llio.input_string ic >>= fun boundary ->
+          Llio.input_int ic >>= fun dir_as_int ->
+          let direction = 
+            if dir_as_int = 0
+            then
+              Routing.UPPER_BOUND
+            else
+              Routing.LOWER_BOUND
+          in 
+	        backend # get_fringe boundary direction >>= fun kvs ->
+          Llio.output_int oc 0 >>= fun () ->
+	        Llio.output_kv_list oc kvs >>= fun () ->
+	        Lwt.return false
+	      )
+	      (handle_exception oc)
       end
 
 let protocol backend connection =

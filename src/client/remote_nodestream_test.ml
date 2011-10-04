@@ -85,10 +85,39 @@ let get_fringe port ()=
   in
   __wrap__ port conversation
 
+
+let set_route_delta port () =
+
+  let repr = ["left","k";], "right" in
+  let target_repr = ["left","l";], "right" in
+  let r = Routing.build repr in
+  let r_target = Routing.build target_repr in
+  let old_ser = Buffer.create 15 in
+  Routing.routing_to old_ser r_target ;
+  let conversation conn =
+    make_remote_nodestream _cluster conn >>= fun ns ->
+    Lwt_log.debug "starting set_routing" >>= fun () ->
+    ns # set_routing r >>= fun () ->
+    Lwt_log.debug "starting set_routing_delta" >>= fun () -> 
+    ns # set_routing_delta "left" "k" "right" >>= fun () ->
+    Lwt_log.debug "starting get_routing" >>= fun () -> 
+    ns # get_routing () >>= fun new_r ->
+    let new_ser = Buffer.create 15 in
+    Routing.routing_to new_ser new_r;
+    let old_str = Buffer.contents old_ser in
+    let new_str = Buffer.contents new_ser in
+    Lwt_log.debug_f "old_str: %s " old_str >>= fun () ->
+    Lwt_log.debug_f "new_str: %s" new_str  >>= fun () ->
+    OUnit.assert_equal old_str new_str;
+    Lwt.return ()  
+  in
+  __wrap__ port conversation
+
 let suite = 
   let w f = Extra.lwt_bracket setup f teardown in
   "nursery" >:::
     ["set_interval" >:: w (set_interval 6666);
      "get_fringe"  >:: w (get_fringe  5555);
+     "set_routing"  >:: w (set_route_delta  4444);
     ]
 

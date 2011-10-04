@@ -84,17 +84,29 @@ module NC = struct
     let node_names = ClientCfg.node_names ccfg in
     Lwt_log.debug_f "names:%s" (Log_extra.string_of_list (fun s->s) node_names) 
     >>= fun () ->
-    Lwt_list.map_p 
+    Lwt_list.map_s 
       (fun n -> 
 	let nn = (cn,n) in 
 	_get_connection t nn
       ) 
       node_names 
     >>= fun connections ->
-    Lwt.choose (List.map (fun conn -> Common.who_master conn) connections) 
-    >>= function
-      | None -> Llio.lwt_failfmt "no master for %s" cn
-      | Some master -> Lwt.return master
+    let get_master acc conn =
+      begin
+        match acc with
+          | None ->
+            Common.who_master conn
+          | x -> Lwt.return x
+      end
+    in
+    Lwt_list.fold_left_s get_master None connections >>= function 
+      | None -> 
+        Lwt_log.error_f "Could not find master for cluster %s" cn >>= fun () ->
+        Lwt.fail (Failure "Could not find master.")
+      | Some m ->
+        Lwt_log.debug_f "Found master %s" m >>= fun () ->
+        Lwt.return m
+   
     
 	
   let _find_master t cn = 
@@ -159,6 +171,9 @@ module NC = struct
       _with_master_connection t t.keeper_cn
         (fun conn -> Common.set_routing_delta conn from_cn sep to_cn) 
     in
+    let get_next_key k =
+      k ^ (String.make 1 (Char.chr 1))
+    in
     let get_interval cn = _with_master_connection t cn Common.get_interval in
     let set_interval cn i = force_interval t cn i in
     let i2s i = Interval.to_string i in
@@ -168,7 +183,28 @@ module NC = struct
       pull () >>= fun fringe ->
       match fringe with
         | [] -> 
-          Lwt_log.debug "done" 
+          begin
+            Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
+            let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
+            let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
+            let (from_i', to_i') = 
+              begin
+                match direction with
+                  | Routing.UPPER_BOUND ->
+                    let from_i' = (Some sep, fpu_e), (Some sep, fpr_e) in
+                    let to_i' = (tpu_b, Some sep), (tpr_b, Some sep) in
+                    from_i', to_i'
+                
+                  | Routing.LOWER_BOUND ->
+                    let from_i' = (fpu_b, Some sep), (fpr_b, Some sep) in
+                    let to_i' = (Some sep, tpu_e), (Some sep, tpr_e) in
+                    from_i', to_i'
+              end 
+            in
+            set_interval from_cn from_i' >>= fun () ->
+            set_interval to_cn to_i' >>= fun () ->
+            publish sep
+          end 
         | fringe -> 
           let size = List.length fringe in
           Lwt_log.debug_f "Length = %i" size >>= fun () ->
@@ -181,22 +217,46 @@ module NC = struct
           *)
           let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
           let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
-          let b, _ = List.hd (List.rev fringe) in
-          let e, _ = List.hd fringe in
-          Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
-          let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
-          set_interval from_cn from_i' >>= fun () ->
-          let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
-          push fringe to_i1 >>= fun () ->
+          begin 
+            match direction with
+              | Routing.UPPER_BOUND -> 
+                let b, _ = List.hd fringe in
+                let e, _ = List.hd( List.rev fringe ) in
+                let e = get_next_key  e in
+                Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+                let from_i' = Interval.make (Some e) fpu_e fpr_b fpr_e in
+                set_interval from_cn from_i' >>= fun () ->
+                let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in
+                push fringe to_i1 >>= fun () ->
+                delete fringe >>= fun () ->
+                Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
+                let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in
+                set_interval to_cn to_i2 >>= fun () ->
+                let from_i2 = Interval.make (Some e) fpu_e (Some e) fpr_e in
+                set_interval from_cn from_i2 >>= fun () ->
+                Lwt.return (e, from_i2, to_i2)
+                
+              | Routing.LOWER_BOUND ->
+                let b, _ = List.hd( List.rev fringe ) in
+                let e, _ = List.hd fringe in
+                Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+                let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
+                set_interval from_cn from_i' >>= fun () ->
+                let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
+                push fringe to_i1 >>= fun () ->
+                delete fringe >>= fun () ->
+                Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
+                let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
+                set_interval to_cn to_i2 >>= fun () ->
+                let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
+                set_interval from_cn from_i2 >>= fun () ->
+                Lwt.return (b, from_i2, to_i2)
+          end
+          >>= fun (pub, from_i2, to_i2) ->
           (* set_interval to_cn to_i1 >>= fun () -> *)
-          delete fringe >>= fun () ->
-          let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
-          set_interval to_cn to_i2 >>= fun () ->
-          let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
-          set_interval from_cn from_i2 >>= fun () ->
           Lwt_log.debug_f "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
           Lwt_log.debug_f "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
-          publish b >>= fun () ->
+          publish pub >>= fun () ->
           loop from_i2 to_i2
     in 
     loop from_i to_i

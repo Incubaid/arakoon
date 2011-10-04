@@ -153,50 +153,65 @@ module Routing = struct
     in _walk t
     
   let get_diff t left sep right =
-    let cl = Cluster left in
-    let cr = Cluster right in
-    let rec _get_upper_sep parent_sep = function 
-      | Branch(l, s, r) when l = cl ->
-        Some s
-      | Branch(l, s, r) when r = cl ->
-        parent_sep
-      | Branch(l, s, r) ->
-        let m_l = _get_upper_sep None l in
-        begin
-          match m_l with
-            | None -> _get_upper_sep None r 
-            | _ -> m_l
-        end
-      | Cluster x -> None
-    in 
-    let rec _get_lower_sep parent_sep = function
-      | Branch(l, s, r) when r = cr ->
-        Some s
-      | Branch(l, s, r) when l = cr ->
-        parent_sep
-      | Branch (l, s, r) ->
-        let m_l = _get_lower_sep None l in
-        begin
-          match m_l with 
-            | None -> _get_lower_sep None r
-            | _ -> m_l 
-        end
-      | Cluster x -> None
-    in
-    let up_sep = _get_upper_sep None t in
-    let low_sep = _get_lower_sep None t in 
-    begin
-      match (low_sep, up_sep) with
-        | (Some x, Some y) when x = y ->
-          if sep > x then
-            right, left, UPPER_BOUND
-          else 
-            left, right, LOWER_BOUND
-        | (Some x, None) when not (contains t right) -> 
-          left, right, LOWER_BOUND
-        | (None, Some y) when not (contains t left) ->
-          right, left, UPPER_BOUND
-        | _ ->
-          failwith "Impossible routing change requested"
-    end
+    if not ( (contains t left) or (contains t right) )
+    then
+      failwith "Can only add one cluster at the time"
+    else
+      begin  
+		    let cl = Cluster left in
+		    let cr = Cluster right in
+		    let rec _get_upper_sep parent_sep = function 
+		      | Branch(l, s, r) when l = cl ->
+		        Some s
+		      | Branch(l, s, r) when r = cl ->
+		        parent_sep
+		      | Branch(l, s, r) ->
+		        let m_l = _get_upper_sep None l in
+		        begin
+		          match m_l with
+		            | None -> _get_upper_sep None r 
+		            | _ -> m_l
+		        end
+		      | Cluster x -> None
+		    in 
+		    let rec _get_lower_sep parent_sep = function
+		      | Branch(l, s, r) when r = cr ->
+		        Some s
+		      | Branch(l, s, r) when l = cr ->
+		        parent_sep
+		      | Branch (l, s, r) ->
+		        let m_l = _get_lower_sep None l in
+		        begin
+		          match m_l with 
+		            | None -> _get_lower_sep None r
+		            | _ -> m_l 
+		        end
+		      | Cluster x -> None
+		    in
+		    let up_sep = _get_upper_sep None t in
+		    let low_sep = _get_lower_sep None t in 
+		    Lwt.ignore_result (
+		    Lwt_log.debug_f "upper,lower = %s,%s" 
+		      (Log_extra.string_option_to_string up_sep) 
+		      (Log_extra.string_option_to_string low_sep)
+		    );
+		    begin
+		      match (low_sep, up_sep) with
+		        | (Some x, Some y) when x = y ->
+		          if sep > x then
+		            right, left, UPPER_BOUND
+		          else 
+		            left, right, LOWER_BOUND
+		        | (Some x, None) when not (contains t right) -> 
+		          left, right, LOWER_BOUND
+		        | (None, Some y) when not (contains t left) ->
+		          right, left, UPPER_BOUND
+            | (None, None) when not (contains t right) ->
+              left, right, LOWER_BOUND
+            | (None, None) when not (contains t left) ->
+              right, left, UPPER_BOUND
+		        | _ ->
+		          failwith "Impossible routing change requested"
+		    end
+      end
 end

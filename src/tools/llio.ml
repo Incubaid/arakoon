@@ -209,7 +209,9 @@ let input_string_pair ic =
 
 let input_list input_element ic =
   input_int ic >>= fun size ->
+  Lwt_log.debug_f "Received a list of %d elemements" size >>= fun () ->
   let rec loop i acc = 
+    Lwt_log.debug_f "Receiving element %d" i >>= fun () ->
     if i = 0
     then Lwt.return acc
     else input_element ic >>= fun s -> loop (i-1) (s:: acc)
@@ -222,6 +224,7 @@ let input_kv_list ic = input_list input_string_pair ic
 
 let output_list output_element oc list = 
   output_int oc (List.length list)  >>= fun () ->
+  Lwt_log.debug_f "Outputting list with %d elements" (List.length list) >>= fun () ->
   Lwt_list.iter_s (output_element oc) list 
 
 let output_kv_list oc = output_list output_string_pair oc
@@ -279,11 +282,11 @@ let hashtbl_from buf ef pos =
   let r = Hashtbl.create len in 
   let rec loop pos = function
     | 0 -> r, pos
-    | i -> let (k,v), p1 = ef buf pos in
+    | i -> let (k,v), p2 = ef buf pos in
 	   let () = Hashtbl.add r k v in
-	   loop p1 (i-1)
+	   loop p2 (i-1)
   in
-  loop pos len 
+  loop p1 len 
 
 
 let copy_stream ~length ~ic ~oc =

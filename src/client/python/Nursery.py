@@ -22,9 +22,10 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from Arakoon import ArakoonClient 
 from NurseryRouting import RoutingInfo 
-from ArakoonExceptions import NurseryRangeError
+from ArakoonExceptions import NurseryRangeError, NurseryInvalidConfig
 from functools import wraps
 import time
+import logging
 
 maxDuration = 60
 
@@ -40,8 +41,8 @@ def retryDuringMigration (f):
             try:
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (NurseryRangeError):
-                logging.warning("Nursery range error. Sleep %f before next attempt" % naptime)
+            except (NurseryRangeError, NurseryInvalidConfig):
+                logging.warning("Nursery range or config error. Sleep %f before next attempt" % naptime)
                 time.sleep(naptime)       
                 duration = time.time() - start
                 naptime *= 1.5    
@@ -54,23 +55,28 @@ class NurseryClient:
     
     def __init__(self,clientConfig):
         self.nurseryClusterId = clientConfig.getClusterId()
-        self._nurseryClient = ArakoonClient(clientConfig)
+        self._keeperClient = ArakoonClient(clientConfig)
+        self._clusterClients = dict ()
         self._fetchNurseryConfig()
     
     def _fetchNurseryConfig(self):
-        (routing,cfgs) = self._nurseryClient.getNurseryConfig()
+        (routing,cfgs) = self._keeperClient.getNurseryConfig()
         self._routing = routing
         
         for (clusterId,client) in self._clusterClients :
             client._dropConnections()
         
         self._clusterClients = dict()
+        logging.debug("Nursery contains %d clusters", len(cfgs))
         for (clusterId,cfg) in cfgs.iteritems():
             client = ArakoonClient(cfg)
+            logging.debug("Adding client for cluster %s" % clusterId )
             self._clusterClients[clusterId] = client
     
     def _getArakoonClient(self, key):
         clusterId = self._routing.getClusterId(key)
+        if not self._clusterClients.has_key( clusterId ):
+            raise NurseryInvalidConfig()
         return self._clusterClients[clusterId]
     
     @retryDuringMigration
