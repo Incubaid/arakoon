@@ -612,7 +612,7 @@ class Arakoon_Client
 			while ($currentTime < $deadLine)
 			{
 				$sendToMaster = !($isRead && $this->_allowDirtyReads);
-				$doBackOff = !($sendToMaster && !isset($this->_masterId)) && $backOffCounter > 0;
+				$doBackOff = $backOffCounter > 0; // !($sendToMaster && !isset($this->_masterId)) && $backOffCounter > 0;
 				$nodeId = NULL;
 				
 				if ($doBackOff)
