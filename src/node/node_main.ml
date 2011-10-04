@@ -48,18 +48,10 @@ let rec _split node_name cfgs =
 
 let _config_logging me get_cfgs =
   let cluster_cfg = get_cfgs () in 
-  let acc = ref None in
-  let f () c =
-    if c.node_name = me 
-    then acc := Some c
-  in
-  let () = List.fold_left f () cluster_cfg.cfgs in
   let cfg = 
-  begin
-    match !acc with 
-    | Some c -> c
-    | None -> failwith( "Could not find config for node " ^ me ) 
-  end in
+    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
+    with Not_found -> failwith ("Could not find config for node " ^ me ) 
+  in
   let level =
     match cfg.log_level with
       | "info"    -> Lwt_log.Info
@@ -73,7 +65,8 @@ let _config_logging me get_cfgs =
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in
   let log_file_name = common_prefix ^ ".log" in
-  let get_crash_file_name () = Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
+  let get_crash_file_name () = 
+    Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
   if not cfg.is_test 
   then
     begin 
