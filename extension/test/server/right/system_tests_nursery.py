@@ -133,3 +133,18 @@ def test_nursery_triple_migration_2():
         (clus[1], 'p', clus[2])
     ]
     migration_scenario_1(migrations)
+    
+
+@C.with_custom_setup( C.setup_nursery_2, C.nursery_teardown )
+def test_nursery_multi_phaze_migration_1():
+    clus = C.nursery_cluster_ids
+    keys = []
+    for i in range(2048):
+        keys.append( "l_%0512d" % (i) )
+    migrations = [
+        (clus[0], 'k', clus[1])
+    ]    
+    routing = RoutingInfo( LeafRoutingNode(clus[0]) )
+    routing.split("d", clus[1])
+    multi_migration_scenario(migrations, keys, routing)
+    
