@@ -27,14 +27,6 @@ module Interval = struct
 
   let max = ((None,None),(None,None))
 
-  let is_ok t key =
-    let ((pu_b,pu_e),(pr_b,pr_e)) = t in
-    match pu_b,pu_e with
-	| None  , None   -> true
-	| Some b, None   -> b <= key
-	| None  , Some e -> key < e
-	| Some b, Some e  -> b <= key && key < e
-   
   let to_string t = 
     let (pu_b,pu_e),(pr_b,pr_e) = t in
     let so2s = function
@@ -44,6 +36,16 @@ module Interval = struct
     Printf.sprintf "(%s,%s),(%s,%s)" 
       (so2s pu_b) (so2s pu_e) (so2s pr_b) (so2s pr_e)
 
+  let is_ok t key =
+    let ((pu_b,pu_e),(pr_b,pr_e)) = t in
+    let msg = to_string t in
+    Lwt.ignore_result( Lwt_log.debug_f "INTERVAL::IS_OK -> %s" msg );
+    match pu_b,pu_e with
+    | None  , None   -> true
+    | Some b, None   -> b <= key
+    | None  , Some e -> key < e
+    | Some b, Some e  -> b <= key && key < e
+    
   let interval_to buf t=
     let (pu_b,pu_e),(pr_b,pr_e) = t in
     let so2 buf x= Llio.string_option_to buf x in

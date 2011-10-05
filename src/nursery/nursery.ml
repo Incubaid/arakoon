@@ -163,13 +163,15 @@ module NC = struct
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
     in
-    let publish sep = 
+    let publish sep left right = 
       let route = NCFG.get_routing t.rc in 
-      let new_route = Routing.change route from_cn sep to_cn in
+      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
+      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left sep right >>= fun () ->
+      let new_route = Routing.change route left sep right in
       let () = NCFG.set_routing t.rc new_route in
       Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
       _with_master_connection t t.keeper_cn
-        (fun conn -> Common.set_routing_delta conn from_cn sep to_cn) 
+        (fun conn -> Common.set_routing_delta conn left sep right) 
     in
     let get_next_key k =
       k ^ (String.make 1 (Char.chr 1))
@@ -187,23 +189,25 @@ module NC = struct
             Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
             let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
             let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
-            let (from_i', to_i') = 
+            let (from_i', to_i', left, right) = 
               begin
                 match direction with
                   | Routing.UPPER_BOUND ->
                     let from_i' = (Some sep, fpu_e), (Some sep, fpr_e) in
                     let to_i' = (tpu_b, Some sep), (tpr_b, Some sep) in
-                    from_i', to_i'
+                    from_i', to_i', to_cn, from_cn
                 
                   | Routing.LOWER_BOUND ->
                     let from_i' = (fpu_b, Some sep), (fpr_b, Some sep) in
                     let to_i' = (Some sep, tpu_e), (Some sep, tpr_e) in
-                    from_i', to_i'
+                    from_i', to_i', from_cn, to_cn
               end 
             in
+            Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
+            Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
             set_interval from_cn from_i' >>= fun () ->
             set_interval to_cn to_i' >>= fun () ->
-            publish sep
+            publish sep left right
           end 
         | fringe -> 
           let size = List.length fringe in
@@ -234,7 +238,7 @@ module NC = struct
                 set_interval to_cn to_i2 >>= fun () ->
                 let from_i2 = Interval.make (Some e) fpu_e (Some e) fpr_e in
                 set_interval from_cn from_i2 >>= fun () ->
-                Lwt.return (e, from_i2, to_i2)
+                Lwt.return (e, from_i2, to_i2, to_cn, from_cn)
                 
               | Routing.LOWER_BOUND ->
                 let b, _ = List.hd( List.rev fringe ) in
@@ -250,13 +254,13 @@ module NC = struct
                 set_interval to_cn to_i2 >>= fun () ->
                 let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
                 set_interval from_cn from_i2 >>= fun () ->
-                Lwt.return (b, from_i2, to_i2)
+                Lwt.return (b, from_i2, to_i2, from_cn, to_cn)
           end
-          >>= fun (pub, from_i2, to_i2) ->
+          >>= fun (pub, from_i2, to_i2, left, right) ->
           (* set_interval to_cn to_i1 >>= fun () -> *)
           Lwt_log.debug_f "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
           Lwt_log.debug_f "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
-          publish pub >>= fun () ->
+          publish pub left right >>= fun () ->
           loop from_i2 to_i2
     in 
     loop from_i to_i

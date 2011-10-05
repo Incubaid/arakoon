@@ -19,6 +19,7 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 
 class RoutingInfo:
     
@@ -27,11 +28,13 @@ class RoutingInfo:
         isLeaf, offset = decodeBool (buffer, offset)
         if isLeaf:
             clusterId, offset = decodeString(buffer, offset)
+            logging.debug( "Found clusterId %s", clusterId )
             return LeafRoutingNode(clusterId), offset
         else:
             boundary, offset = decodeString(buffer, offset)
+            logging.debug("Found boundary %s", boundary)
             left, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
-            right, offset = decodeString(buffer, offset)
+            right, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
             return InternalRoutingNode(left,boundary,right), offset
         
     def __init__(self, rootNode):

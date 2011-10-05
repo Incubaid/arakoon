@@ -238,6 +238,7 @@ ARA_ERR_NOT_FOUND = 5
 # wrong cluster
 ARA_ERR_WRONG_CLUSTER = 6
 ARA_ERR_ASSERTION_FAILED = 7
+ARA_ERR_RANGE_ERROR = 9
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -593,7 +594,10 @@ class ArakoonProtocol :
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
         if errorCode == ARA_ERR_ASSERTION_FAILED:
-            raise ArakoonAssertionFailed(errorMsg)        
+            raise ArakoonAssertionFailed(errorMsg)    
+        if errorCode == ARA_ERR_RANGE_ERROR:
+            raise NurseryRangeError(errorMsg) 
+           
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 

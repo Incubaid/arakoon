@@ -59,19 +59,41 @@ module Routing = struct
 	     let rt = build rr in
 	     Branch (lt, sep, rt)
 
-  let change t from_cn sep to_cn =
-    let rec _walk = function
-      | Cluster n -> if n = from_cn || n = to_cn 
-	then Branch(Cluster from_cn,sep, Cluster to_cn)
-	else failwith "??"
-      | Branch(Cluster l,s, Cluster r) when l = from_cn && r = to_cn ->
-	Branch(Cluster l, sep, Cluster r)
-      | Branch(l,s,r) ->
-	if s < sep
-	then Branch(l,s, _walk r)
-	else Branch(_walk l,s,r)
-    in
-    _walk t
+  let contains t cid =
+    let rec _walk = function 
+      | Branch(l, s, r) ->
+        begin
+          let b = _walk l in
+          if b 
+          then b
+          else _walk r
+        end  
+      | Cluster x when x = cid -> true
+      | Cluster x -> false
+    in _walk t
+    
+  let change t left sep right =
+    if not( contains t left || contains t right ) 
+    then 
+      failwith "Cannot add two clusters at the same time"
+    else
+      let rec _walk = function
+        | Cluster n ->
+          begin 
+            if n = left || n = right 
+            then 
+              Branch(Cluster left,sep, Cluster right)
+            else 
+              Branch(Cluster n, sep, Cluster left)
+          end
+        | Branch(Cluster l,s, Cluster r) when l = left && r = right ->
+          Branch(Cluster l, sep, Cluster r)
+        | Branch(l,s,r) ->
+          if s < sep
+          then Branch(l,s, _walk r)
+          else Branch(_walk l,s,r)
+      in
+      _walk t
 	  
 	  
 	  
@@ -139,19 +161,6 @@ module Routing = struct
 	  else go ok left
     in go false cfg
   
-  let contains t cid =
-    let rec _walk = function 
-      | Branch(l, s, r) ->
-        begin
-          let b = _walk l in
-          if b 
-          then b
-          else _walk r
-        end  
-      | Cluster x when x = cid -> true
-      | Cluster x -> false
-    in _walk t
-    
   let get_diff t left sep right =
     if not ( (contains t left) or (contains t right) )
     then
@@ -191,9 +200,9 @@ module Routing = struct
 		    let up_sep = _get_upper_sep None t in
 		    let low_sep = _get_lower_sep None t in 
 		    Lwt.ignore_result (
-		    Lwt_log.debug_f "upper,lower = %s,%s" 
-		      (Log_extra.string_option_to_string up_sep) 
-		      (Log_extra.string_option_to_string low_sep)
+		    Lwt_log.debug_f "lower,upper = %s,%s" 
+		      (Log_extra.string_option_to_string low_sep) 
+		      (Log_extra.string_option_to_string up_sep)
 		    );
 		    begin
 		      match (low_sep, up_sep) with
@@ -202,16 +211,26 @@ module Routing = struct
 		            right, left, UPPER_BOUND
 		          else 
 		            left, right, LOWER_BOUND
-		        | (Some x, None) when not (contains t right) -> 
-		          left, right, LOWER_BOUND
-		        | (None, Some y) when not (contains t left) ->
-		          right, left, UPPER_BOUND
+                
+            | (Some x, None) when not (contains t left) ->
+              if sep > x 
+              then right, left, UPPER_BOUND
+              else 
+                failwith "Invalid routing diff request"
+                (*let cl = find t sep in
+                cl, left, LOWER_BOUND *)
+              
+            | (None, Some y) when not (contains t right) ->
+              if sep <= y
+              then left, right, LOWER_BOUND
+              else failwith "Invalid routing_diff requested"
+              
             | (None, None) when not (contains t right) ->
               left, right, LOWER_BOUND
             | (None, None) when not (contains t left) ->
               right, left, UPPER_BOUND
 		        | _ ->
-		          failwith "Impossible routing change requested"
+		          failwith "Impossible routing diff requested"
 		    end
       end
 end

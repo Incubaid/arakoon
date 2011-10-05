@@ -22,12 +22,12 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from Arakoon import ArakoonClient 
 from NurseryRouting import RoutingInfo 
-from ArakoonExceptions import NurseryRangeError, NurseryInvalidConfig
+from ArakoonExceptions import NurseryRangeError, NurseryInvalidConfig,ArakoonException
 from functools import wraps
 import time
 import logging
 
-maxDuration = 60
+maxDuration = 3
 
 def retryDuringMigration (f):
     @wraps(f)    
@@ -41,12 +41,16 @@ def retryDuringMigration (f):
             try:
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (NurseryRangeError, NurseryInvalidConfig):
-                logging.warning("Nursery range or config error. Sleep %f before next attempt" % naptime)
+            except (NurseryRangeError, NurseryInvalidConfig) as ex:
+                logging.warning("Nursery range or config error (%s). Sleep %f before next attempt" % (ex, naptime) )
                 time.sleep(naptime)       
                 duration = time.time() - start
                 naptime *= 1.5    
                 self._fetchNurseryConfig()
+        
+        if( duration >= maxDuration) :
+            raise ArakoonException("Failed to process nursery request in a timely fashion")
+        
         return retVal
     
     return retrying_f
@@ -62,8 +66,8 @@ class NurseryClient:
     def _fetchNurseryConfig(self):
         (routing,cfgs) = self._keeperClient.getNurseryConfig()
         self._routing = routing
-        
-        for (clusterId,client) in self._clusterClients :
+        logging.debug( "Nursery client has routing: %s" % str(routing))
+        for (clusterId,client) in self._clusterClients.iteritems() :
             client._dropConnections()
         
         self._clusterClients = dict()
@@ -75,6 +79,7 @@ class NurseryClient:
     
     def _getArakoonClient(self, key):
         clusterId = self._routing.getClusterId(key)
+        logging.debug("Key %s goes to cluster %s" % (key, clusterId))
         if not self._clusterClients.has_key( clusterId ):
             raise NurseryInvalidConfig()
         return self._clusterClients[clusterId]

@@ -97,6 +97,7 @@ nursery_nodes = {
    'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
 }
 nursery_cluster_ids = nursery_nodes.keys()
+nursery_cluster_ids.sort()
 nursery_keeper_id = nursery_cluster_ids[0]
 
 key_format_str = "key_%012d"

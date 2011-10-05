@@ -93,7 +93,8 @@ let _set_routing_delta db left sep right =
           end
       end
   in 
-  _set_routing db new_r
+  _set_routing db new_r;
+  new_r
 
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
@@ -267,7 +268,7 @@ let rec _sequence _pf bdb interval updates =
     | Update.Sequence us -> _sequence _pf bdb interval us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
-    | Update.SetRoutingDelta (l, s, r) -> _set_routing_delta bdb l s r
+    | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta bdb l s r in ()
     | Update.AdminSet(k,vo) ->
     begin 
       match _pf with
@@ -547,7 +548,13 @@ object(self: #store)
   
   method set_routing_delta left sep right =
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db (fun db -> _set_routing_delta db left sep right; Lwt.return ())
+    _tx_with_incr (self # _incr_i_cached) db 
+      (fun db -> 
+        let r = _set_routing_delta db left sep right in 
+        _routing <- Some r ;
+        Lwt_log.debug_f "set_routing to %s" (Routing.to_s r) >>= fun () -> 
+        Lwt.return ()
+      )
     
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
