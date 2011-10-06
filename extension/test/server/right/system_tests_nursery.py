@@ -82,8 +82,7 @@ def test_nursery_single_migration_2():
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_invalid_migration():
-    # Give clusters some time to register themselves with the keeper
-    time.sleep(5.0)
+
     cli = C.get_nursery_client()
     n = C.get_nursery()
     assert_raises( RuntimeError, n.migrate, C.nursery_cluster_ids[1], "k", C.nursery_cluster_ids[2] )

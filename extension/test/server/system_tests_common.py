@@ -641,7 +641,7 @@ def setup_nursery_n (n, home_dir):
     
     logging.info("Initializing nursery to contain %s" % nursery_keeper_id )
     
-    time.sleep(3.0)
+    time.sleep(5.0)
     n = q.manage.nursery.getNursery( nursery_keeper_id )
     n.initialize( nursery_keeper_id )
     

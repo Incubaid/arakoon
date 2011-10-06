@@ -93,8 +93,9 @@ let _set_routing_delta db left sep right =
           end
       end
   in 
-  _set_routing db new_r;
-  new_r
+  let new_r' = Routing.compact new_r in
+  _set_routing db new_r';
+  new_r'
 
 let _incr_i db =
   _consensus_i db >>= fun old_i ->
@@ -550,7 +551,7 @@ object(self: #store)
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
     _tx_with_incr (self # _incr_i_cached) db 
       (fun db -> 
-        let r = _set_routing_delta db left sep right in 
+        let r = _set_routing_delta db left sep right in
         _routing <- Some r ;
         Lwt_log.debug_f "set_routing to %s" (Routing.to_s r) >>= fun () -> 
         Lwt.return ()

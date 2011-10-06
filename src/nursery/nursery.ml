@@ -141,6 +141,7 @@ module NC = struct
 
   let close t = Llio.lwt_failfmt "close not implemented"
 
+ 
   let migrate t clu_left sep clu_right = 
     Lwt_log.debug_f "migrate %s" sep >>= fun () ->
     let r = NCFG.get_routing t.rc in
@@ -168,8 +169,9 @@ module NC = struct
       Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
       Lwt_log.debug_f "left: %s - sep: %s - right: %s" left sep right >>= fun () ->
       let new_route = Routing.change route left sep right in
-      let () = NCFG.set_routing t.rc new_route in
-      Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+      let new_route' = Routing.compact new_route in
+      let () = NCFG.set_routing t.rc new_route' in
+      Lwt_log.debug_f "new route:%S" (Routing.to_s new_route') >>= fun () -> 
       _with_master_connection t t.keeper_cn
         (fun conn -> Common.set_routing_delta conn left sep right) 
     in
