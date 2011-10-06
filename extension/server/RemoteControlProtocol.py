@@ -83,4 +83,4 @@ def check_error_code(s):
     rc = _receive_int(s)
     if rc:
         msg   = _receive_string(s)
-        raise Exception(rc, msg
+        raise Exception(rc, msg)
