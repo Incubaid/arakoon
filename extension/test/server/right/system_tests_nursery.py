@@ -82,10 +82,14 @@ def test_nursery_single_migration_2():
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_invalid_migration():
+    # Give clusters some time to register themselves with the keeper
+    time.sleep(5.0)
     cli = C.get_nursery_client()
     n = C.get_nursery()
     assert_raises( RuntimeError, n.migrate, C.nursery_cluster_ids[1], "k", C.nursery_cluster_ids[2] )
     assert_raises( RuntimeError, n.migrate, "none_0", "k", "none_1" )
+    n.migrate( C.nursery_cluster_ids[0], "k", C.nursery_cluster_ids[1])
+    assert_raises( RuntimeError, n.migrate, C.nursery_cluster_ids[0], "l", C.nursery_cluster_ids[2] )
 
 
 def migration_scenario_1( migrations ):
@@ -147,4 +151,4 @@ def test_nursery_multi_phaze_migration_1():
     routing = RoutingInfo( LeafRoutingNode(clus[0]) )
     routing.split("d", clus[1])
     multi_migration_scenario(migrations, keys, routing)
-    
+
