@@ -29,6 +29,14 @@ ARAKOON_BINARY = "/opt/qbase3/apps/arakoon/bin/arakoon "
 
 class NurseryManagement:
     def getNursery(self, clusterId ):
+        """
+        Retrieve the nursery manager for the nursery with the provided keeper
+        
+        @param clusterId:  The keeper of the nursery
+        @type clusterId:   string
+        
+        @rtype:            NurseryManager
+        """
         return NurseryManager( clusterId )
 
     @staticmethod
@@ -43,13 +51,41 @@ class NurseryManager:
     def __init__(self,clusterId):
         self._keeperCfg = NurseryManagement.getConfigLocation(clusterId)
                 
-    def migrate(self, leftCluster, separator, rightCluster):
+    def migrate(self, leftClusterId, separator, rightClusterId):
+        """
+        Trigger a migration of key range in the nursery.
+        
+        Either leftClusterId or rightClusterId must already be part of the nursery. 
+        So it is not possible to add two clusters at the same time.
+        
+        The separator will serve as the boundary of the key range that is migrated.
+        
+        For more documentation see the docs on our portal (www.arakoon.org)
+        
+        @param leftClusterId:   The cluster that will be responsible for the key range up to the separator
+        @type leftClusterId:    string
+        @param separator:       The separator separating the key ranges between the two clusters
+        @type separator:        string
+        @param rightClusterId:  The cluster that will be responsible for the key range starting with the separator
+        @type rightClusterId:   string
+        @rtype:                 void
+        """
         cmd = self.__getBaseCmd()
-        cmd += "--nursery-migrate %s %s %s " % (leftCluster, separator, rightCluster)
+        cmd += "--nursery-migrate %s %s %s " % (leftClusterId, separator, rightClusterId)
         cmd += self.__getConfigCmdline()
         self.__runCmd ( cmd )
     
     def initialize(self, firstClusterId):
+        """
+        Initialize the routing of the nursery so it only contains the provided cluster
+        
+        A nursery can only be initialized once
+        
+        @param firstClusterId:  The first cluster of the nursery
+        @type firstClusterId:   string
+        
+        @rtype void
+        """
         cmd = self.__getBaseCmd()
         cmd += "--nursery-init %s " % firstClusterId
         cmd += self.__getConfigCmdline()

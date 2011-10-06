@@ -86,16 +86,47 @@ class NurseryClient:
     
     @retryDuringMigration
     def set(self, key, value):
+        """
+        Update the value associated with the given key.
+
+        If the key does not yet have a value associated with it, a new key value pair will be created.
+        If the key does have a value associated with it, it is overwritten.
+        For conditional value updates see L{testAndSet}
+
+        @type key: string
+        @type value: string
+        @param key: The key whose associated value you want to update
+        @param value: The value you want to store with the associated key
+
+        @rtype: void
+        """
         client = self._getArakoonClient(key)
         client.set(key,value)
         
     @retryDuringMigration
     def get(self, key):
+        """
+        Retrieve a single value from the nursery.
+
+        @type key: string
+        @param key: The key you are interested in
+        @rtype: string
+        @return: The value associated with the given key
+        """
+
         client = self._getArakoonClient(key)
         return client.get(key)
     
     @retryDuringMigration
     def delete(self, key):
+        """
+        Remove a key-value pair from the nursery.
+
+        @type key: string
+        @param key: Remove this key and its associated value from the nursery
+
+        @rtype: void
+        """
         client = self._getArakoonClient(key)
         client.delete(key)
 
