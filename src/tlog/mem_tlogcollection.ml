@@ -91,6 +91,8 @@ object (self: #tlog_collection)
   method close () = Lwt.return ()
   
   method remove_oldest_tlogs count = Lwt.return ()
+
+  method remove_below i = Lwt.return ()
 end
 
 let make_mem_tlog_collection tlog_dir use_compression =

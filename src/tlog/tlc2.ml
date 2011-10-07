@@ -532,6 +532,21 @@ object(self: # tlog_collection)
         File_system.unlink (oldest) >>= fun () ->
         remove_one (List.tl l) (n-1)
     in remove_one existing count 
+
+  method remove_below i =
+    get_tlog_names tlog_dir >>= fun existing ->
+    let maybe_remove fn = 
+      let n = get_number fn in
+      let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
+      if fn_stop < i then
+	begin
+	  Lwt_log.debug_f "Unlinking %s" fn >>= fun () ->
+	  File_system.unlink fn 
+	end
+      else
+	Lwt.return ()
+    in
+    Lwt_list.iter_s maybe_remove existing
 end
 
 let get_last_tlog tlog_dir =

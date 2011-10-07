@@ -450,3 +450,42 @@ def test_sabotage():
     size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
+
+
+@with_custom_setup(setup_3_nodes, basic_teardown)
+def test_243():
+    "Bug in combination of collapse and catchup"
+    zero = node_names[0]
+    one = node_names[1]
+    two = node_names[2]
+    n = 505000
+    logging.info("doing %i sets, takes a while ...", n)
+    iterate_n_times(n, simple_set)
+    logging.info("did %i sets, now collapse all ", n)
+    collapse(zero,1)
+    collapse(one,1)
+    collapse(two,1)
+    logging.info("set %i more", n)
+    iterate_n_times(n, simple_set)
+    stopOne(zero)
+    logging.info("stopped a node, set some more ...",n)
+    iterate_n_times(n, simple_set)
+    logging.info("collapse 2 live nodes")
+    collapse(one,1)
+    collapse(two,1)
+    startOne(zero)
+    client = get_client ()
+    stats = client.statistics ()
+    node_is = stats['node_is']
+    mark = max(node_is.values())
+    catchup = True
+    while catchup:
+        stats = client.statistics()
+        node_is = stats['node_is']
+        lowest = min(node_is.values())
+        if lowest > mark:
+            catchup = False
+        time.sleep(10)
+    #wait until catchup is done ...."
+    
+    

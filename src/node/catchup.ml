@@ -49,6 +49,25 @@ let compare_store_tlc store tlc =
     then Lwt.return Store_1_behind
     else Lwt.return Store_n_behind
 
+let head_saved_epilogue hfn tlog_coll = 
+  (* maybe some tlogs must be thrown away because 
+     they were already collapsed into 
+     the received head 
+  *)
+  let create_store hfn = Local_store.make_local_store ~read_only:true hfn 
+  in
+  create_store hfn >>= fun head ->
+  head # consensus_i () >>= fun hio ->
+  begin
+    match hio with 
+      | None -> Lwt.return () 
+      | Some head_i -> 
+	tlog_coll # remove_below head_i 
+  end
+  >>= fun () ->
+  head # close () 
+
+
 let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,tlog_coll)
     =
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -59,6 +78,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn = 
     Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
+    (* head_saved_epilogue hfn tlog_coll >>= fun () -> *)
     let when_closed () = 
       Lwt_log.debug "when_closed" >>= fun () ->
       let target_name = store # get_location () in

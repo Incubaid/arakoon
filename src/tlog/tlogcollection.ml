@@ -46,5 +46,6 @@ class type tlog_collection = object
   method get_tlog_from_i : Sn.t -> Sn.t
   method get_tlog_count: unit -> int Lwt.t
   method remove_oldest_tlogs : int -> unit Lwt.t
+  method remove_below : Sn.t -> unit Lwt.t
 end
 
