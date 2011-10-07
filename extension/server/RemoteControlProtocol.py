@@ -84,3 +84,9 @@ def check_error_code(s):
     if rc:
         msg   = _receive_string(s)
         raise Exception(rc, msg)
+
+def make_socket(ip, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sa = (ip, port)
+    s.connect(sa)
+    return s
