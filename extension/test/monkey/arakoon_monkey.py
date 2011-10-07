@@ -195,7 +195,7 @@ def wait_for_it () :
         all_i = method()
         mark = max (all_i)
         min_i = min(all_i)
-        period = ((mark - min_i) / 500.0) + sleep
+        period = ((mark - min_i) / 500.0) + sleep + 1
         catchup = True
         timeout = False
         logging.info("mark=%i", mark)
@@ -207,11 +207,11 @@ def wait_for_it () :
             logging.info("min=%i", min_i)
             if min_i > mark:
                 catchup = False
-        
-            t1 = time.time()
-            if t1 - t0 > period:
-                catchup = False
-                timeout = True
+            else:
+                t1 = time.time()
+                if t1 - t0 > period:
+                    catchup = False
+                    timeout = True
         
         if timeout:
             logging.info("took more than %fs failing", period)
