@@ -204,7 +204,7 @@ def wait_for_it () :
             time.sleep(sleep)
             all_i = method()
             min_i = min(all_i)
-            logging.info("mark=%i; min=%i", min_i)
+            logging.info("mark=%i; min=%i", mark, min_i)
             if min_i >= mark:
                 catchup = False
             else:
