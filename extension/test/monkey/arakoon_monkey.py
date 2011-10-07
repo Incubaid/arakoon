@@ -193,30 +193,33 @@ def wait_for_it () :
     def wait_for(method, ms, sleep):
         logging.info( "Work is done. Waiting for %s to get in sync",ms )
         all_i = method()
-
-        i_max = max(all_i)
-        i_min = min(all_i)
-        to_do = i_max - i_min
-        go_on = to_do >= 3
-        
-        while go_on:
-            previous = to_do
+        mark = max (all_i)
+        min_i = min(all_i)
+        period = ((mark - min_i) / 500.0) + sleep
+        catchup = True
+        timeout = False
+        logging.info("mark=%i", mark)
+        t0 = time.time()
+        while catchup:
             time.sleep(sleep)
             all_i = method()
-            i_max = max(all_i)
-            i_min = min(all_i)
-            to_do = i_max - i_min
-            done = previous - to_do
-            logging.info ("done=%i; todo=%i", done, to_do)
-            if to_do < 3:
-                go_on = False
-            elif done > 0 and done < 500:
-                logging.info("still not in sync and too slow %s (done=%i)", all_i, done)
-                global monkey_dies
-                monkey_dies = True
-                go_on = False
-            else:
-                C.assert_running_nodes(3)
+            min_i = min(all_i)
+            logging.info("min=%i", min_i)
+            if min_i > mark:
+                catchup = False
+        
+            t1 = time.time()
+            if t1 - t0 > period:
+                catchup = False
+                timeout = True
+        
+        if timeout:
+            logging.info("took more than %fs failing", period)
+            monkey_dies = True
+            raise Exception("timeout")
+        else:
+            C.assert_running_nodes(3)
+
 
     if not monkey_dies:
         wait_for(all_i_tlogs, "tlogs", 10.0)
