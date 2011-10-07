@@ -479,6 +479,9 @@ def test_243():
     node_is = stats['node_is']
     mark = max(node_is.values())
     catchup = True
+    t0 = time.time()
+    timeout = False
+    #wait until catchup is done ...."
     while catchup:
         stats = client.statistics()
         node_is = stats['node_is']
@@ -486,7 +489,15 @@ def test_243():
         if lowest > mark:
             catchup = False
         time.sleep(10)
+        t1 = time.time()
+        if t1 - t0 > 100:
+            catchup = False
+            timeout = True
+    if timeout:
+        logging.info("timeout failing")
+        raise Exception("timeout")
     logging.info("node_is=%s", node_is)
-    #wait until catchup is done ...."
+    collapse(zero,1)
+    # if it does not throw, we should be ok.
     
     
