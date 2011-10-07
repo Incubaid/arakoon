@@ -498,9 +498,9 @@ def test_243():
         raise Exception("timeout")
     logging.info("node_is=%s", node_is)
     rc = collapse(zero,1)
+
     # if it does not throw, we should be ok.
     if rc :
-        raise Exception("rc=%i; should be 0" % rc)
+        msg = "rc = %s; should be 0" % rc
+        raise Exception(msg)
 
-    
-    
