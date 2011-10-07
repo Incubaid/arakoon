@@ -195,7 +195,8 @@ def wait_for_it () :
         all_i = method()
         mark = max (all_i)
         min_i = min(all_i)
-        period = ((mark - min_i) / 500.0) + sleep + 1
+        d = abs(mark - min_i)
+        period = (float(d) / 500.0) + sleep * 2
         catchup = True
         timeout = False
         logging.info("mark=%i", mark)
