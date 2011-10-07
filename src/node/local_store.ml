@@ -612,19 +612,37 @@ object(self: #store)
                 else
                   begin 
                     Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
-                    Bdb.next lcdb cursor;
-                    skip_admin_key ()
+                    begin
+                      try
+                        Bdb.next lcdb cursor;
+                        skip_admin_key ()
+                      with Not_found -> ()
+                    end
                   end
               end
             in 
             skip_admin_key ()
           in  
-          skip_keys, Bdb.next, (fun k -> k >= (__prefix ^ border) ) 
+          let cmp =
+            begin
+              match border with
+                | Some b ->  (fun k -> k >= (__prefix ^ b))
+                | None -> (fun k -> false)
+            end
+          in
+          skip_keys, Bdb.next, cmp 
         | Routing.LOWER_BOUND ->
-          Bdb.last, Bdb.prev, ( fun k -> k < (__prefix ^ border) or k.[0] <> __prefix.[0] ) 
+          let cmp =
+            begin
+              match border with
+                | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
+                | None -> (fun k -> k.[0] <> __prefix.[0])
+            end
+          in
+          Bdb.last, Bdb.prev, cmp 
       end
     in
-    Lwt_log.debug_f "local_store::get_fringe %S" border >>= fun () ->
+    Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option_to_string border) >>= fun () ->
     let buf = Buffer.create 128 in
     Lwt.finalize
       (fun () ->
@@ -636,20 +654,30 @@ object(self: #store)
               let limit = 1024 * 1024 in
               let () = cursor_init lcdb cursor in
               Buffer.add_string buf "2\n";
-                let r = 
+              let r = 
                 let rec loop acc ts =
-                  let k = Bdb.key   lcdb cursor in
-                  Lwt.ignore_result( Lwt_log.debug_f "QQQQQQQQQQQQQ %s" k);
-                  let v = Bdb.value lcdb cursor in
-                  if ts >= limit  or (key_cmp k)
-                  then acc
-                  else
-                    let pk = String.sub k 1 (String.length k -1) in
-                    let acc' = (pk,v) :: acc in
-                    Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
-                    let ts' = ts + String.length k + String.length v in
-                    let () = get_next lcdb cursor in
-                    loop acc' ts' 
+                  begin
+                    try 
+                      let k = Bdb.key   lcdb cursor in
+                      let v = Bdb.value lcdb cursor in
+                      if ts >= limit  or (key_cmp k)
+                      then acc
+                      else
+                        let pk = String.sub k 1 (String.length k -1) in
+                        let acc' = (pk,v) :: acc in
+                        Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
+                        let ts' = ts + String.length k + String.length v in
+                        begin
+                          try
+                            get_next lcdb cursor ;
+                            loop acc' ts'
+                          with Not_found ->
+                            acc'
+                        end
+                    with Not_found ->
+                      acc
+                  end
+                     
               in
               loop [] 0
               in

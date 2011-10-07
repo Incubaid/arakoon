@@ -95,16 +95,13 @@ let get_nursery_client keeper_id cli_cfg =
   with_master_remote_stream keeper_id cli_cfg get_nc 
 
 
-let __migrate_nursery_range config left sep right log_file =
-  setup_logger log_file >>= fun () ->
+let __migrate_nursery_range config left sep right =
   Lwt_log.debug "=== STARTING MIGRATE ===" >>= fun () ->
   let keeper_id, cli_cfg = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
-  NC.migrate nc left sep right >>= fun () ->
-  File_system.unlink log_file
+  NC.migrate nc left sep right 
     
-let __init_nursery config cluster_id log_file = 
-  setup_logger log_file >>= fun () ->
+let __init_nursery config cluster_id = 
   Lwt_log.info "=== STARTING INIT ===" >>= fun () ->
   let (keeper_id, cli_cfg) = get_keeper_config config in
   let set_routing client =
@@ -118,22 +115,30 @@ let __init_nursery config cluster_id log_file =
       | e -> Lwt.fail e 
     ) 
   in
-  with_master_remote_stream keeper_id cli_cfg set_routing >>= fun () ->
-  File_system.unlink log_file
+  with_master_remote_stream keeper_id cli_cfg set_routing 
   
   
-let __delete_from_nursery config cluster_id m_sep log_file = 
-  setup_logger log_file >>= fun () ->
+let __delete_from_nursery config cluster_id sep = 
   Lwt_log.info "=== STARTING DELETE ===" >>= fun () ->
+  let m_sep =
+  begin
+    if sep = ""
+    then None
+    else Some sep
+  end
+  in
   let (keeper_id, cli_cfg) = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
-  (* NC.delete nc cluster_id m_sep *)
-  File_system.unlink log_file
-
-let __main_run f =
+  NC.delete nc cluster_id m_sep 
+  
+let __main_run log_file f =
   Lwt_main.run( 
     Lwt.catch
-      ( f )
+      ( fun () ->
+        setup_logger log_file >>= fun () ->
+        f () (* >>= fun () ->
+        File_system.unlink log_file *)
+      )
       ( fun e -> 
         let msg = Printexc.to_string e in 
         Lwt_log.fatal msg >>= fun () ->
@@ -141,20 +146,11 @@ let __main_run f =
     ) ; 0
     
 let migrate_nursery_range config left sep right =
-  __main_run ( fun() -> __migrate_nursery_range config left sep right "/tmp/nursery_migrate.log" )
+  __main_run "/tmp/nursery_migrate.log" ( fun() -> __migrate_nursery_range config left sep right )
 
 let init_nursery config cluster_id =
-  __main_run ( fun () -> __init_nursery config cluster_id "/tmp/nursery_init.log" )
+  __main_run "/tmp/nursery_init.log" ( fun () -> __init_nursery config cluster_id )
 
-      
-(*
-  Lwt_main.run( 
-    Lwt.catch
-      ( fun () -> __migrate_nursery_range config left sep right )
-      ( fun e -> 
-        let msg = Printexc.to_string e in 
-        Lwt_log.fatal msg >>= fun () ->
-        Lwt.fail e)
-    ) ; 0
+let delete_nursery_cluster config cluster_id sep =
+  __main_run "/tmp/nursery_delete.log" ( fun () -> __delete_from_nursery config cluster_id sep )
     
- *)

@@ -90,6 +90,27 @@ class NurseryManager:
         cmd += "--nursery-init %s " % firstClusterId
         cmd += self.__getConfigCmdline()
         self.__runCmd ( cmd )
+    
+    def delete(self, clusterId, separator = None):
+        """
+        Remove a cluster from the nursery. If the cluster is a boundary cluster, no separator can be provided.
+        
+        @param clusterId:  The cluster to be removed
+        @type clusterId:   string
+        
+        @param separator:  Separator separating the clusters neighbouring the cluster that will be removed (not valid when deleting boundary clusters
+        @type separator:   string
+        
+        @rtype void
+        """
+        cmd = self.__getBaseCmd()
+        cmd += self.__getConfigCmdline()
+        cmd += "--nursery-delete %s " % clusterId
+        if separator is None:
+            cmd +=  '""'
+        else :
+            cmd += separator
+        self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
         (exit, stdout, stderr) = q.system.process.run( commandline = cmd, stopOnError=False)

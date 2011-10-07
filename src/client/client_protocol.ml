@@ -461,7 +461,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	      Lwt.catch
 	      (fun () ->
-          Llio.input_string ic >>= fun boundary ->
+          Llio.input_string_option ic >>= fun boundary ->
           Llio.input_int ic >>= fun dir_as_int ->
           let direction = 
             if dir_as_int = 0
@@ -471,8 +471,10 @@ let one_command (ic,oc) (backend:Backend.backend) =
               Routing.LOWER_BOUND
           in 
 	        backend # get_fringe boundary direction >>= fun kvs ->
+          Lwt_log.debug "get_fringe backend op complete" >>= fun () ->
           Llio.output_int oc 0 >>= fun () ->
 	        Llio.output_kv_list oc kvs >>= fun () ->
+          Lwt_log.debug "get_fringe all done" >>= fun () ->
 	        Lwt.return false
 	      )
 	      (handle_exception oc)

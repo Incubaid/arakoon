@@ -25,6 +25,8 @@ open Client_cfg
 open Ncfg
 open Interval
 
+let so2s = Log_extra.string_option_to_string
+
 let try_connect (ips, port) =
   Lwt.catch
     (fun () -> 
@@ -142,10 +144,9 @@ module NC = struct
   let close t = Llio.lwt_failfmt "close not implemented"
 
  
-  let migrate t clu_left sep clu_right = 
-    Lwt_log.debug_f "migrate %s" sep >>= fun () ->
-    let r = NCFG.get_routing t.rc in
-    let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
+  let __migrate t clu_left sep clu_right finalize publish migration = 
+    Lwt_log.debug_f "migrate %s" (Log_extra.string_option_to_string sep) >>= fun () ->
+    let from_cn, to_cn, direction = migration in
     Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
     let pull () = 
       Lwt_log.debug "pull">>= fun () ->
@@ -164,17 +165,6 @@ module NC = struct
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
     in
-    let publish sep left right = 
-      let route = NCFG.get_routing t.rc in 
-      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
-      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left sep right >>= fun () ->
-      let new_route = Routing.change route left sep right in
-      let new_route' = Routing.compact new_route in
-      let () = NCFG.set_routing t.rc new_route' in
-      Lwt_log.debug_f "new route:%S" (Routing.to_s new_route') >>= fun () -> 
-      _with_master_connection t t.keeper_cn
-        (fun conn -> Common.set_routing_delta conn left sep right) 
-    in
     let get_next_key k =
       k ^ (String.make 1 (Char.chr 1))
     in
@@ -190,28 +180,7 @@ module NC = struct
       match fringe with
         | [] -> 
           begin
-            Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
-            let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
-            let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
-            let (from_i', to_i', left, right) = 
-              begin
-                match direction with
-                  | Routing.UPPER_BOUND ->
-                    let from_i' = (Some sep, fpu_e), (Some sep, fpr_e) in
-                    let to_i' = (tpu_b, Some sep), (tpr_b, Some sep) in
-                    from_i', to_i', to_cn, from_cn
-                
-                  | Routing.LOWER_BOUND ->
-                    let from_i' = (fpu_b, Some sep), (fpr_b, Some sep) in
-                    let to_i' = (Some sep, tpu_e), (Some sep, tpr_e) in
-                    from_i', to_i', from_cn, to_cn
-              end 
-            in
-            Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
-            Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
-            set_interval from_cn from_i' >>= fun () ->
-            set_interval to_cn to_i' >>= fun () ->
-            publish sep left right
+            finalize from_i to_i
           end 
         | fringe -> 
           let size = List.length fringe in
@@ -264,10 +233,165 @@ module NC = struct
           (* set_interval to_cn to_i1 >>= fun () -> *)
           Lwt_log.debug_f "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
           Lwt_log.debug_f "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
-          publish pub left right >>= fun () ->
+          publish (Some pub) left right >>= fun () ->
           loop from_i2 to_i2
     in 
     loop from_i to_i
+    
+    
+  let migrate t clu_left (sep: string) clu_right  =
+    let r = NCFG.get_routing t.rc in
+    let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
+    let publish sep left right = 
+      let route = NCFG.get_routing t.rc in 
+      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
+      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option_to_string sep) right >>= fun () ->
+      begin
+        match sep with
+          | Some sep ->
+            let new_route = Routing.change route left sep right in
+            let () = NCFG.set_routing t.rc new_route in
+            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            _with_master_connection t t.keeper_cn
+              (fun conn -> Common.set_routing_delta conn left sep right)
+          | None -> failwith "Cannot end up with an empty separator during regular migration"
+      end 
+    in
+    let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
+    let finalize (from_i: Interval.t) (to_i: Interval.t) = 
+      Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
+      let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
+      let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
+      let (from_i', to_i', left, right) = 
+        begin
+          match direction with
+            | Routing.UPPER_BOUND ->
+              let from_i' = (Some sep, fpu_e), (Some sep, fpr_e) in
+              let to_i' = (tpu_b, Some sep), (tpr_b, Some sep) in
+              from_i', to_i', to_cn, from_cn
+             
+            | Routing.LOWER_BOUND ->
+              let from_i' = (fpu_b, Some sep), (fpr_b, Some sep) in
+              let to_i' = (Some sep, tpu_e), (Some sep, tpr_e) in
+              from_i', to_i', from_cn, to_cn
+        end 
+      in
+      Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
+      Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
+      set_interval from_cn from_i' >>= fun () ->
+      set_interval to_cn to_i' >>= fun () ->
+      publish (Some sep) left right
+    in
+    __migrate t clu_left (Some sep) clu_right finalize publish (from_cn, to_cn, direction)
+  
+  let delete t (cluster_id: string) (sep: string option) =
+    Lwt_log.debug_f "Nursery.delete %s %s" cluster_id (so2s sep) >>= fun () -> 
+    let r = NCFG.get_routing t.rc in
+    let lower = Routing.get_lower_sep None cluster_id r in
+    let upper = Routing.get_upper_sep None cluster_id r in
+    let publish sep left right = 
+      let route = NCFG.get_routing t.rc in 
+      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
+      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option_to_string sep) right >>= fun () ->
+      begin
+        match sep with
+          | Some sep ->
+            let new_route = Routing.change route left sep right in
+            let () = NCFG.set_routing t.rc new_route in
+            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            _with_master_connection t t.keeper_cn
+              (fun conn -> Common.set_routing_delta conn left sep right)
+          | None -> 
+            let new_route = Routing.remove route cluster_id in
+            let () = NCFG.set_routing t.rc new_route in
+            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            _with_master_connection t t.keeper_cn
+              (fun conn -> Common.set_routing conn new_route)
+      end 
+    in
+    let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
+    let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) = 
+      Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
+      let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
+      let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
+      let (from_i', to_i', left, right) = 
+        begin
+          match direction with
+            | Routing.UPPER_BOUND ->
+              let from_i' = (sep, fpu_e), (sep, fpr_e) in
+              let to_i' = (tpu_b, sep), (tpr_b, sep) in
+              from_i', to_i', to_cn, from_cn
+             
+            | Routing.LOWER_BOUND ->
+              let from_i' = (fpu_b, sep), (fpr_b, sep) in
+              let to_i' = (sep, tpu_e), (sep, tpr_e) in
+              from_i', to_i', from_cn, to_cn
+        end 
+      in
+      Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
+      Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
+      set_interval from_cn from_i' >>= fun () ->
+      set_interval to_cn to_i' >>= fun () ->
+      publish sep left right
+    in
+    begin
+      Lwt_log.debug_f "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
+	    match lower, upper with
+	      | None, None -> failwith "Cannot remove last cluster from nursery"
+	      | Some x, None ->
+	        begin
+	          match sep with
+	            | None ->
+	              let m_prev = Routing.prev_cluster r cluster_id in
+                begin
+                  match m_prev with 
+                    | None -> failwith "Invalid routing request. No previous??"
+                    | Some prev ->
+	                    __migrate t cluster_id sep prev 
+                        (finalize cluster_id prev Routing.UPPER_BOUND) 
+                        publish (cluster_id, prev, Routing.UPPER_BOUND)
+                end
+	            | Some y ->
+	              failwith "Cannot set separator when removing a boundary cluster from the nursery"
+	        end
+	      | None, Some x ->
+	        begin
+	          match sep with
+	            | None ->
+	              let m_next = Routing.next_cluster r cluster_id in
+                begin
+                  match m_next with
+                    | None -> failwith "Invalid routing request. No next??"
+                    | Some next ->
+    	                __migrate t cluster_id sep next 
+                        (finalize cluster_id next Routing.LOWER_BOUND)
+                        publish (cluster_id, next, Routing.LOWER_BOUND)
+                end
+	            | Some y ->
+	              failwith "Cannot set separator when removing a boundary cluster from a nursery"
+	        end
+	      | Some x, Some y ->
+          begin
+            match sep with
+              | None -> 
+                failwith "Need to set replacement boundary when removing an inner cluster from the nursery"
+              | Some y -> 
+                let m_next = Routing.next_cluster r cluster_id in
+                let m_prev = Routing.prev_cluster r cluster_id in
+                begin
+                  match m_next, m_prev with
+                    | Some next, Some prev -> 
+                      __migrate t cluster_id sep prev 
+                        (finalize cluster_id prev Routing.UPPER_BOUND)
+                        publish (cluster_id, prev, Routing.UPPER_BOUND) 
+                      >>= fun () ->
+                      __migrate t cluster_id sep next 
+                        (finalize cluster_id next Routing.LOWER_BOUND)
+                        publish (cluster_id, next, Routing.LOWER_BOUND)
+                    | _ -> failwith "Invalid routing request. No next or previous??"
+                end
+          end
+    end
     
 end
 

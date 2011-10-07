@@ -276,7 +276,7 @@ let get (ic,oc) ~allow_dirty key =
 let get_fringe (ic,oc) boundary direction = 
   let outgoing buf = 
     command_to buf GET_FRINGE;
-    Llio.string_to buf boundary;
+    Llio.string_option_to buf boundary;
     match direction with
       | Routing.UPPER_BOUND -> Llio.int_to buf 0
       | Routing.LOWER_BOUND -> Llio.int_to buf 1

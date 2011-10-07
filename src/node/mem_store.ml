@@ -241,12 +241,13 @@ object (self: #store)
   method relocate new_location = failwith "Memstore.relocation not implemented"
   
   method get_fringe boundary direction = 
-    Lwt_log.debug_f "mem_store :: get_border_range %s" boundary >>= fun () ->
+    Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option_to_string boundary) >>= fun () ->
     let cmp = 
       begin
-        match direction with
-          | Routing.UPPER_BOUND -> (fun k -> boundary < k )
-          | Routing.LOWER_BOUND -> (fun k -> boundary >= k)
+        match direction, boundary with
+          | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
+          | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
+          | _ , None -> (fun k -> true)
       end
     in
     let all = StringMap.fold 

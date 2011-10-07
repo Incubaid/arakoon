@@ -52,6 +52,7 @@ type local_action =
   | NumberOfValues
   | InitNursery
   | MigrateNurseryRange
+  | DeleteNurseryCluster
 
 type server_action =
   | Node
@@ -309,6 +310,11 @@ let main () =
         Arg.Set_string separator;
         Arg.Set_string right_cluster; ],
         "<left_cluster> <separator> <right_cluster> migrate a range by either adding a new cluster or modifying an existing separator between two cluster ranges");
+    ("--nursery-delete", Arg.Tuple[set_laction DeleteNurseryCluster;
+        Arg.Set_string cluster_id;
+        Arg.Set_string separator;
+        ],
+        "<cluster_id> <separator> removes <cluster_id> from the nursery, if the cluster is a boundary cluster no separator is required");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
 			      Arg.Set_string cluster_id;
 			      Arg.Set_string ip;
@@ -352,6 +358,7 @@ let main () =
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id 
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster
+    | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
       
   in
   let do_server node =

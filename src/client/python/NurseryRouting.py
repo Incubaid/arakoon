@@ -28,11 +28,9 @@ class RoutingInfo:
         isLeaf, offset = decodeBool (buffer, offset)
         if isLeaf:
             clusterId, offset = decodeString(buffer, offset)
-            logging.debug( "Found clusterId %s", clusterId )
             return LeafRoutingNode(clusterId), offset
         else:
             boundary, offset = decodeString(buffer, offset)
-            logging.debug("Found boundary %s", boundary)
             left, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
             right, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
             return InternalRoutingNode(left,boundary,right), offset
@@ -54,6 +52,9 @@ class RoutingInfo:
     
     def getClusterId(self, key):
         return self.__root.getClusterId(key)
+    
+    def contains(self, clusterId):
+        return self.__root.contains(clusterId)
     
 class InternalRoutingNode(RoutingInfo):
     
@@ -79,6 +80,12 @@ class InternalRoutingNode(RoutingInfo):
         
         return self 
     
+    def contains(self,clusterId):
+        if self._left.contains(clusterId):
+            return True
+        return self._right.contains(clusterId)
+        
+            
     def serialize(self, serBool, serString):
         return serBool(False) \
             + serString( self._boundary) \
@@ -98,6 +105,9 @@ class LeafRoutingNode(RoutingInfo):
     
     def toString(self, indent):
         return "%s%s" % ("  " * indent, self._clusterId)
+    
+    def contains(self, clusterId):
+        return self._clusterId == clusterId
     
     def split(self, newBoundary, clusterId):
         left = self

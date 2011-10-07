@@ -226,9 +226,10 @@ class test_backend my_name = object(self:#backend)
   method get_fringe boundary direction =
     let cmp = 
       begin
-        match direction with
-          | Routing.UPPER_BOUND -> (fun k -> k < boundary)
-          | Routing.LOWER_BOUND -> (fun k -> k >= boundary)
+        match direction, boundary with
+          | Routing.UPPER_BOUND, Some b -> (fun k -> k < b)
+          | Routing.LOWER_BOUND, Some b -> (fun k -> k >= b)
+          | _ , None -> (fun k -> true)
       end
     in
     let all = StringMap.fold 
