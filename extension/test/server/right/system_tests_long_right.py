@@ -486,6 +486,7 @@ def test_243():
         if lowest > mark:
             catchup = False
         time.sleep(10)
+    logging.info("node_is=%s", node_is)
     #wait until catchup is done ...."
     
     
