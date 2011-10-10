@@ -136,8 +136,8 @@ let __main_run log_file f =
     Lwt.catch
       ( fun () ->
         setup_logger log_file >>= fun () ->
-        f () (* >>= fun () ->
-        File_system.unlink log_file *)
+        f () >>= fun () ->
+        File_system.unlink log_file 
       )
       ( fun e -> 
         let msg = Printexc.to_string e in 
