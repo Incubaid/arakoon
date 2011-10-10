@@ -226,7 +226,7 @@ module X = struct
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
       >>= fun () ->
-      let () = backend # clear_statistics () in
+      let () = backend # clear_most_statistics () in
       let sqs = Lwt_unix.sleep_queue_size () in
       let ns = Lwt_unix.get_new_sleeps () in
       let wcl = Lwt_unix.wait_children_length () in

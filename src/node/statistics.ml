@@ -87,7 +87,7 @@ let update_time_stats (t:time_stats) sample pop_size =
 
 module Statistics = struct
   type t ={ 
-    start: float (* start of operations (timestamp) *);
+    mutable start: float (* start of operations (timestamp) *);
     mutable last:  float (* last operation (timestamp)      *);
     
     mutable avg_set_size:float (* size of values *);
@@ -136,6 +136,25 @@ module Statistics = struct
      n_ops = 0;
      node_is = Hashtbl.create 5;
     }
+
+ let clear_most t = 
+    t.start <- Unix.gettimeofday();
+    t.last  <- Unix.gettimeofday();
+    t.avg_set_size <- 0.0;
+    t.avg_get_size <- 0.0;
+    t.set_time_stats  <- create_time_stats();
+    t.get_time_stats  <- create_time_stats();
+    t.del_time_stats  <- create_time_stats();
+    t.seq_time_stats  <- create_time_stats();
+    t.mget_time_stats <- create_time_stats();
+    t.tas_time_stats  <- create_time_stats();
+    t.op_time_stats   <- create_time_stats();
+    t.n_sets  <- 0;
+    t.n_gets  <- 0;
+    t.n_deletes <- 0;
+    t.n_sequences <- 0;
+    t.n_testandsets <- 0;
+    t.n_ops <- 0
 
   let _clock t = t.last <- Unix.gettimeofday()
 
