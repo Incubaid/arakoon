@@ -254,6 +254,7 @@ module X = struct
       in
       Lwt_log.info_f "nallocated=%f" allocated
       >>= fun () ->
+      backend # clear_most_statistics();
       _inner ()
     in
     _inner ()

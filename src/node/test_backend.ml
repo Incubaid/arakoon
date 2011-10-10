@@ -175,6 +175,7 @@ class test_backend my_name = object(self:#backend)
   method expect_progress_possible () = Lwt.return false
 
   method get_statistics () = Statistics.create() 
+  method clear_most_statistics() = ()
 
   method check ~cluster_id = 
     let r = my_name = cluster_id in
