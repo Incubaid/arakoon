@@ -454,7 +454,7 @@ def test_sabotage():
 
 @with_custom_setup(setup_3_nodes, basic_teardown)
 def test_243():
-    "Bug in combination of collapse and catchup"
+
     zero = node_names[0]
     one = node_names[1]
     two = node_names[2]
