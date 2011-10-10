@@ -190,11 +190,12 @@ def wait_for_it () :
         all_i = node_is.values()
         return all_i
     
-    def wait_for(method, ms, sleep):
+    def wait_for(method, ms, sleep, start_i):
         logging.info( "Work is done. Waiting for %s to get in sync",ms )
         all_i = method()
         mark = max (all_i)
         min_i = min(all_i)
+        min_i = min(min_i, start_i)
         d = abs(mark - min_i)
         period = (float(d) / 500.0) + sleep * 2
         catchup = True
@@ -204,9 +205,9 @@ def wait_for_it () :
         while catchup:
             time.sleep(sleep)
             all_i = method()
-            min_i = min(all_i)
-            logging.info("mark=%i; min=%i", mark, min_i)
-            if min_i >= mark:
+            lowest = min(all_i)
+            logging.info("mark=%i; lowest=%i", mark, lowest)
+            if lowest >= mark:
                 catchup = False
             else:
                 t1 = time.time()
@@ -220,13 +221,14 @@ def wait_for_it () :
             raise Exception("timeout")
         else:
             C.assert_running_nodes(3)
+        return min_i 
 
-
+    min_i = 1000000000 # larger than anything we will encounter
     if not monkey_dies:
-        wait_for(all_i_tlogs, "tlogs", 10.0)
+        min_i = wait_for(all_i_tlogs, "tlogs", 10.0, min_i)
     
     if not monkey_dies:
-        wait_for(all_i_stats, "stats", 20.0)
+        wait_for(all_i_stats, "stats", 20.0, min_i)
 
 def health_check() :
 
