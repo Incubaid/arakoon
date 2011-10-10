@@ -458,7 +458,7 @@ def test_243():
     zero = node_names[0]
     one = node_names[1]
     two = node_names[2]
-    n = 505000
+    n = 305000
     logging.info("doing %i sets, takes a while ...", n)
     iterate_n_times(n, simple_set)
     logging.info("did %i sets, now collapse all ", n)
