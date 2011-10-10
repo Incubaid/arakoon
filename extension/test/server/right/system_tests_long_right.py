@@ -465,6 +465,7 @@ def test_243():
     collapse(zero,1)
     collapse(one,1)
     collapse(two,1)
+    """
     logging.info("set %i more", n)
     iterate_n_times(n, simple_set)
     stopOne(zero)
@@ -503,4 +504,4 @@ def test_243():
     if rc :
         msg = "rc = %s; should be 0" % rc
         raise Exception(msg)
-
+    """
