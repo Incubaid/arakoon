@@ -540,8 +540,9 @@ object(self: # tlog_collection)
       let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
       if fn_stop < i then
 	begin
-	  Lwt_log.debug_f "Unlinking %s" fn >>= fun () ->
-	  File_system.unlink fn 
+	  let canonical = Filename.concat tlog_dir fn in
+	  Lwt_log.debug_f "Unlinking %s" canonical >>= fun () ->
+	  File_system.unlink canonical 
 	end
       else
 	Lwt.return ()

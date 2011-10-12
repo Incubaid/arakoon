@@ -54,18 +54,23 @@ let head_saved_epilogue hfn tlog_coll =
      they were already collapsed into 
      the received head 
   *)
+  Lwt_log.debug_f "head_saved_epilogue %s" hfn >>= fun () ->
   let create_store hfn = Local_store.make_local_store ~read_only:true hfn 
   in
   create_store hfn >>= fun head ->
   head # consensus_i () >>= fun hio ->
+  head # close () >>= fun () ->
+  Lwt_log.info "closed head" >>= fun () ->
   begin
     match hio with 
       | None -> Lwt.return () 
       | Some head_i -> 
-	tlog_coll # remove_below head_i 
+	begin
+	  Lwt_log.debug_f "head_i = %s" (Sn.string_of head_i) >>= fun () ->	    
+	  tlog_coll # remove_below head_i 
+	end
   end
-  >>= fun () ->
-  head # close () 
+
 
 
 let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,tlog_coll)
@@ -78,7 +83,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn = 
     Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
-    (* head_saved_epilogue hfn tlog_coll >>= fun () -> *)
+    head_saved_epilogue hfn tlog_coll >>= fun () -> 
     let when_closed () = 
       Lwt_log.debug "when_closed" >>= fun () ->
       let target_name = store # get_location () in
