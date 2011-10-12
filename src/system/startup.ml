@@ -104,6 +104,7 @@ let post_failure () =
     cluster_id = "ricky";
     plugins = [];
     nursery_cfg = None;
+    overwrite_tlog_entries = None;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -155,6 +156,7 @@ let restart_slaves () =
      cluster_id = "ricky";
      plugins = [];
      nursery_cfg = None;
+     overwrite_tlog_entries = None;
     }
   in
   let get_cfgs () = cluster_cfg in 

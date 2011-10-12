@@ -75,7 +75,8 @@ module Node_cfg = struct
       _lease_period: int;
       cluster_id : string;
       plugins: string list;
-      nursery_cfg : (string*ClientCfg.t) option
+      nursery_cfg : (string*ClientCfg.t) option;
+      overwrite_tlog_entries: int option;
     }
 
   let make_test_config ?(base=4000) n_nodes master lease_period = 
@@ -110,14 +111,17 @@ module Node_cfg = struct
     let quorum_function = Quorum.quorum_function in
     let lease_period = default_lease_period in
     let cluster_id = "ricky" in
-    let cluster_cfg = { cfgs= cfgs; 
+    let overwrite_tlog_entries = None in
+    let cluster_cfg = { 
+      cfgs= cfgs; 
       nursery_cfg = None;
-			_master = master;
-			quorum_function = quorum_function;
-			_lease_period = lease_period;
-			cluster_id = cluster_id;
-			plugins = [];
-		      }
+      _master = master;
+      quorum_function = quorum_function;
+      _lease_period = lease_period;
+      cluster_id = cluster_id;
+      plugins = [];
+      overwrite_tlog_entries;
+    }
     in
     cluster_cfg
     
@@ -130,6 +134,11 @@ module Node_cfg = struct
 
   let _node_names inifile = 
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
+
+  let _tlog_entries_overwrite inifile =
+    Ini.get inifile "global" "__tainted_tlog_entries_per_file" 
+      (Ini.p_option Ini.p_int )
+      (Ini.default None)
 
   let _plugins inifile = 
     Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
@@ -255,6 +264,7 @@ module Node_cfg = struct
     let lease_period = _get_lease_period inifile in
     let cluster_id = _get_cluster_id inifile in
     let m_n_cfg = get_nursery_cfg inifile config_file in
+    let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
         nursery_cfg = m_n_cfg;
@@ -263,6 +273,7 @@ module Node_cfg = struct
 	_lease_period = lease_period;
 	cluster_id = cluster_id;
 	plugins = plugin_names;
+	overwrite_tlog_entries;
       }
     in
     cluster_cfg

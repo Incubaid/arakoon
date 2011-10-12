@@ -297,6 +297,12 @@ let _main_2
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
+
+      let () = match cluster_cfg.overwrite_tlog_entries with
+	| None -> () 
+	| Some i ->  Tlogcommon.tlogEntriesPerFile := i
+      in
+
       let my_clicfg = 
         begin
           let ccfg = ClientCfg.make () in

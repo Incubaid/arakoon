@@ -553,7 +553,9 @@ def build_node_dir_names ( nodeName, base_dir = None ):
     log_dir = q.system.fs.joinPaths( data_dir, "log")
     return (db_dir,log_dir)
 
-def setup_n_nodes_base(c_id, node_names, force_master, base_dir, base_msg_port, base_client_port):
+def setup_n_nodes_base(c_id, node_names, force_master, 
+                       base_dir, base_msg_port, base_client_port, 
+                       extra = None):
     
     q.system.process.run( "/sbin/iptables -F" )
     
@@ -584,6 +586,20 @@ def setup_n_nodes_base(c_id, node_names, force_master, base_dir, base_msg_port, 
     else :
         logging.info( "Using master election" )
         cluster.forceMaster(None )
+    #
+    #
+    #
+    if extra : 
+        logging.info("EXTRA!")
+        config = cluster._getConfigFile()
+        for k,v in extra.items():
+            logging.info("%s -> %s", k, v)
+            config.addParam("global", k, v)
+        
+        logging.info("config=\n%s", config.getContent())
+        f = open
+        config.write ()
+        
     
     logging.info( "Creating client config" )
     regenerateClientConfig( c_id )
@@ -596,9 +612,10 @@ def setup_n_nodes_base(c_id, node_names, force_master, base_dir, base_msg_port, 
     cluster.setMasterLease( lease )
     
     
-def setup_n_nodes ( n, force_master, home_dir ):
+def setup_n_nodes ( n, force_master, home_dir , extra = None):
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir, 
-                       node_msg_base_port, node_client_base_port)
+                       node_msg_base_port, node_client_base_port, 
+                       extra = extra)
     
     logging.info( "Starting cluster" )
     start_all( cluster_id ) 
@@ -615,6 +632,10 @@ def setup_2_nodes_forced_master (home_dir):
 def setup_1_node_forced_master (home_dir):
     setup_n_nodes( 1, True, home_dir)
 
+def setup_3_nodes_mini(home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes( 3, False, home_dir, extra)
+    
 def setup_3_nodes (home_dir) :
     setup_n_nodes( 3, False, home_dir)
 

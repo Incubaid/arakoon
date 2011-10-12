@@ -28,6 +28,8 @@ let p_string_list s = Str.split (Str.regexp "[, \t]+") s
 
 let p_bool s = Scanf.sscanf s "%b" (fun b -> b)
 
+let p_option p s = Some (p s)
+
 let required section name = failwith  (Printf.sprintf "missing: %s %s" section name)
 
 let default x = fun _ _ -> x

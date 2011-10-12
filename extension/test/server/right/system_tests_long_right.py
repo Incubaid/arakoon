@@ -20,48 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from ..system_tests_common import assert_running_nodes
-from ..system_tests_common import add_node
-from ..system_tests_common import assert_last_i_in_sync
-from ..system_tests_common import basic_teardown
-from ..system_tests_common import cluster_id
-from ..system_tests_common import collapse
-from ..system_tests_common import compare_stores
-from ..system_tests_common import create_and_start_thread
-from ..system_tests_common import create_and_wait_for_threads
-from ..system_tests_common import create_and_wait_for_thread_list
-from ..system_tests_common import default_setup
-from ..system_tests_common import default_setup
-from ..system_tests_common import node_names
-from ..system_tests_common import iterate_n_times
-from ..system_tests_common import regenerateClientConfig
-from ..system_tests_common import restart_nodes_wf_sim
-from ..system_tests_common import setup_1_node
-from ..system_tests_common import setup_2_nodes
-from ..system_tests_common import setup_3_nodes
-from ..system_tests_common import setup_1_node_forced_master
-from ..system_tests_common import setup_2_nodes_forced_master
-from ..system_tests_common import setup_3_nodes_forced_master
-from ..system_tests_common import simple_set
-from ..system_tests_common import set_get_and_delete
-from ..system_tests_common import startOne
-from ..system_tests_common import stopOne
-from ..system_tests_common import with_custom_setup
-from ..system_tests_common import get_client
-from ..system_tests_common import start_all
-from ..system_tests_common import restart_all
-from ..system_tests_common import stop_all
-from ..system_tests_common import whipe
-
-from ..system_tests_common import restart_single_slave_scenario
-from ..system_tests_common import assert_not_equals
-from ..system_tests_common import lease_duration
-from ..system_tests_common import q
-from ..system_tests_common import tlog_entries_per_tlog
-from ..system_tests_common import retrying_set_get_and_delete
-from ..system_tests_common import delayed_master_restart_loop
-from ..system_tests_common import get_entries_per_tlog
-
+from .. import system_tests_common as Common
 from arakoon.ArakoonExceptions import *
 import arakoon
 import logging
@@ -70,19 +29,19 @@ import subprocess
 from nose.tools import *
 
 def _getCluster():
-    global cluster_id
-    return q.manage.arakoon.getCluster(cluster_id)
+    q = Common.q # resistance is futile
+    return q.manage.arakoon.getCluster(Common.cluster_id)
 
-@with_custom_setup( default_setup, basic_teardown )
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_single_client_100000_sets():
-    iterate_n_times( 100000, simple_set )
+    Common.iterate_n_times( 100000, Common.simple_set )
 
-@with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_delete_non_existing_with_catchup ():
-    stopOne( node_names[1] )
+    Common.stopOne( Common.node_names[1] )
     key='key'
     value='value'
-    cli = get_client()
+    cli = Common.get_client()
     try:
         cli.delete( key )
     except:
@@ -91,85 +50,95 @@ def test_delete_non_existing_with_catchup ():
     cli.set(key,value)
     cli.set(key,value)
     
-    slave = node_names[1]
-    startOne( slave )
+    slave = Common.node_names[1]
+    Common.startOne( slave )
     time.sleep(2.0)
-    cluster = q.manage.arakoon.getCluster(cluster_id)
+    cluster = _getCluster()
     log_dir = cluster.getNodeConfig(slave ) ['log_dir']
-    log_file = q.system.fs.joinPaths( log_dir, '%s.log' % slave )
+    log_file = "%s/%s.log" % (log_dir, slave)
+    q = Common.q 
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
     
-@with_custom_setup( setup_2_nodes_forced_master, basic_teardown )
+@Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown )
 def test_expect_progress_fixed_master ():
-    stopOne( node_names[1] )
+    Common.stopOne( Common.node_names[1] )
     key='key'
     value='value'
-    cli = get_client()
+    cli = Common.get_client()
     try:
         cli.set(key,value)
     except:
         pass
-    restart_all()
+    Common.restart_all()
     time.sleep(1.0)
     assert_true( cli.expectProgressPossible(),
                  "Master store counter is ahead of slave" )
     
-@with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_restart_single_slave_long ():
-    restart_single_slave_scenario( 100, 10000 )
+    Common.restart_single_slave_scenario( 100, 10000 )
 
-@with_custom_setup( default_setup, basic_teardown )
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_20_clients_1000_sets() :
     arakoon.ArakoonProtocol.ARA_CFG_TIMEOUT = 60.0
-    create_and_wait_for_threads ( 20, 1000, simple_set, 200.0 )
+    Common.create_and_wait_for_threads ( 20, 1000, Common.simple_set, 200.0 )
 
-@with_custom_setup( setup_3_nodes, basic_teardown)
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_tlog_rollover():
-    iterate_n_times( 150000, simple_set )
-    stop_all()
-    start_all()
-    iterate_n_times( 150000, simple_set )
+    Common.iterate_n_times( 150000, Common.simple_set )
+    Common.stop_all()
+    Common.start_all()
+    Common.iterate_n_times( 150000, Common.simple_set )
 
-@with_custom_setup( setup_2_nodes, basic_teardown)
+@Common.with_custom_setup( Common.setup_2_nodes, Common.basic_teardown)
 def test_catchup_while_collapsing():
-    iterate_n_times( 2*tlog_entries_per_tlog, simple_set )
+    node_names = Common.node_names
+    tpet = Common.tlog_entries_per_tlog
+    Common.iterate_n_times(2* tpet, Common.simple_set )
     
-    stop_all()
-    whipe( node_names[0] )
-    startOne(node_names[1])
+    Common.stop_all()
+    Common.whipe( node_names[0] )
+    Common.startOne(node_names[1])
     
-    delayed_start = lambda: startOne(node_names[0])
-    collapser = lambda: collapse(node_names[1] )
+    delayed_start = lambda: Common.startOne(node_names[0])
+    collapser = lambda: Common.collapse(node_names[1] )
     
-    create_and_wait_for_thread_list( [delayed_start, collapser] )
-    cli = get_client()
+    Common.create_and_wait_for_thread_list( [delayed_start, collapser] )
+    cli = Common.get_client()
     
     time_out = 120
     iter_cnt = 0
     
     while iter_cnt < time_out :
-        assert_running_nodes ( 2 )
+        Common.assert_running_nodes ( 2 )
         if cli.expectProgressPossible() :
             break
         iter_cnt += 1
         time.sleep(1.0)
         
-    stop_all()
-    assert_last_i_in_sync( node_names[0], node_names[1])
-    compare_stores( node_names[0], node_names[1] )
+    Common.stop_all()
+    Common.assert_last_i_in_sync( node_names[0], node_names[1])
+    Common.compare_stores( node_names[0], node_names[1] )
     pass   
 
-@with_custom_setup( default_setup, basic_teardown )
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_restart_master_long ():
     restart_iter_cnt = 10
-    write_loop = lambda: iterate_n_times( 100000, retrying_set_get_and_delete, failure_max=2*restart_iter_cnt, valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
-    restart_loop = lambda: delayed_master_restart_loop( restart_iter_cnt , 1.5*lease_duration )
+    def write_loop ():
+        Common.iterate_n_times( 100000, 
+                                Common.retrying_set_get_and_delete, 
+                                failure_max=2*restart_iter_cnt, 
+                                valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
+        
+    def restart_loop (): 
+        Common.delayed_master_restart_loop( restart_iter_cnt , 
+                                            1.5 * Common.lease_duration )
     global test_failed
     test_failed = False 
-    create_and_wait_for_thread_list( [restart_loop, write_loop] )
+    Common.create_and_wait_for_thread_list( [restart_loop, write_loop] )
 
-    cli = get_client()
+    cli = Common.get_client()
     time.sleep(2.0)
     key = "key"
     value = "value"
@@ -178,20 +147,21 @@ def test_restart_master_long ():
     assert_equals(  value, set_value , 
         "Key '%s' does not have expected value ('%s' iso '%s')" % (key, set_value, value) )
     
-    stop_all()
-    start_all()
-    stop_all()
-    
-    assert_last_i_in_sync( node_names[0], node_names[1] )
-    assert_last_i_in_sync( node_names[2], node_names[1] )
-    compare_stores( node_names[0], node_names[1] )
-    compare_stores( node_names[2], node_names[1] )
+    Common.stop_all()
+    Common.start_all()
+    Common.stop_all()
+    node_names = Common.node_names
+
+    Common.assert_last_i_in_sync( node_names[0], node_names[1] )
+    Common.assert_last_i_in_sync( node_names[2], node_names[1] )
+    Common.compare_stores( node_names[0], node_names[1] )
+    Common.compare_stores( node_names[2], node_names[1] )
     cli._dropConnections()
     logging.info("end of `test_restart_master_long`")
     
-@with_custom_setup( default_setup, basic_teardown ) 
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown ) 
 def test_master_reelect():
-    cli = get_client() 
+    cli = Common.get_client() 
     master_id = cli.whoMaster()
     assert_not_equals ( master_id, None, "No master to begin with. Aborting.")
     
@@ -200,9 +170,10 @@ def test_master_reelect():
     cli.set(key ,value )
 
     logging.info("stopping master:%s", master_id)
-    stopOne( master_id )
+    Common.stopOne( master_id )
+    ld = Common.lease_duration
 
-    delay = 1.5 * lease_duration
+    delay = 1.5 * ld
     time.sleep(delay)
     logging.info("waited %s, for reelection to happen" % delay)
     logging.info("config=%s" % (cli._config))
@@ -218,16 +189,16 @@ def test_master_reelect():
                         "No new master elected, same master. Aborting.")
     
     assert_equals( cli.get(key), value)
-    startOne( master_id )
+    Common.startOne( master_id )
     
     # Give old master some time to catch up
     time.sleep( 5.0 )
     
-    stopOne ( new_master_id )
+    Common.stopOne ( new_master_id )
     
-    time.sleep( 2.0 * lease_duration )
+    time.sleep( 2.0 * ld )
     
-    cli = get_client()
+    cli = Common.get_client()
     newest_master_id = cli.whoMaster()
     assert_not_equals ( newest_master_id,
                         None,
@@ -237,26 +208,27 @@ def test_master_reelect():
                         "No new master elected, same master. Aborting.")
 
 
-@with_custom_setup( setup_3_nodes, basic_teardown)
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_large_tlog_collection_restart():
     
-    iterate_n_times( 100002, simple_set )
-    stop_all()
-    start_all()
-    iterate_n_times( 100, set_get_and_delete )
+    Common.iterate_n_times( 100002, Common.simple_set )
+    Common.stop_all()
+    Common.start_all()
+    Common.iterate_n_times( 100, Common.set_get_and_delete )
     
 
-@with_custom_setup( setup_3_nodes, basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_node_stop_master_slaves_restart():
     
     logging.info( "starting test case")
-    iterate_n_times( 1000, simple_set )
-    cli = get_client()
+    Common.iterate_n_times( 1000, Common.simple_set )
+    cli = Common.get_client()
     master = cli.whoMaster()
-    slaves = filter( lambda node: node != master, node_names )
-    stopOne( master )
-    logging.info ( lease_duration )
-    nap_time = 2 * lease_duration
+    slaves = filter( lambda node: node != master, Common.node_names )
+    Common.stopOne( master )
+    ld = Common.lease_duration
+    logging.info (ld )
+    nap_time = 2 * ld
     logging.info( "Stopped master. Sleeping for %0.2f secs" % nap_time )
     
     print nap_time
@@ -265,62 +237,68 @@ def test_3_node_stop_master_slaves_restart():
     logging.info( "Stopping old slaves")
     for node in slaves:
         print "Stopping %s" % node
-        stopOne( node )
+        Common.stopOne( node )
     
     logging.info( "Starting old master")
-    startOne( master )
+    Common.startOne( master )
     time.sleep(0.2)
     
     logging.info( "Starting old slaves")
     for node in slaves:
-        startOne( node )
+        Common.startOne( node )
     
     cli._dropConnections()
-    cli = get_client()
+    cli = Common.get_client()
     
     logging.info( "Sleeping a while" )
-    time.sleep( lease_duration / 2 )
+    time.sleep( ld / 2 )
     
-    iterate_n_times( 1000, set_get_and_delete )
+    Common.iterate_n_times( 1000, Common.set_get_and_delete )
     cli._dropConnections()
 
-@with_custom_setup( setup_2_nodes_forced_master , basic_teardown )
+@Common.with_custom_setup( Common.setup_2_nodes_forced_master , Common.basic_teardown )
 def test_missed_accept ():
     
     
     # Give the new node some time to recognize the master 
     time.sleep(0.5)
-    stopOne( node_names[1] )
+    node_names = Common.node_names
+    zero = node_names[0]
+    one = node_names[1]
+    Common.stopOne(one)
     
-    cli = get_client()
+    cli = Common.get_client()
     try:
         cli.set("k","v")
     except Exception, ex:
         logging.info( "Caught exception (%s: '%s'" , ex.__class__.__name__, ex )
 
-    startOne ( node_names[1] )
+    Common.startOne (one)
     # Give the node some time to catch up
     time.sleep( 1.0 )
     
-    iterate_n_times( 1000, set_get_and_delete )
+    Common.iterate_n_times( 1000, Common.set_get_and_delete )
     time.sleep(1.0)
-    stop_all()
-    assert_last_i_in_sync( node_names[0], node_names[1] )
-    compare_stores( node_names[0], node_names[1] )
+    Common.stop_all()
+    Common.assert_last_i_in_sync(zero, one )
+    Common.compare_stores( zero, one )
 
-@with_custom_setup( setup_2_nodes_forced_master, basic_teardown)
+@Common.with_custom_setup( Common.setup_2_nodes_forced_master, Common.basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
-    write_loop = lambda: iterate_n_times( 50000, retrying_set_get_and_delete  )
-    create_and_wait_for_thread_list( [write_loop] )
+    def write_loop (): 
+        Common.iterate_n_times( 50000, 
+                                Common.retrying_set_get_and_delete  )
+
+    Common.create_and_wait_for_thread_list( [write_loop] )
    
     logging.info( "Stored all keys" ) 
-    stop_all()
+    Common.stop_all()
 
-    whipe(node_names[1])
+    Common.whipe(Common.node_names[1])
 
-    cli = get_client()
-    start_all()
+    cli = Common.get_client()
+    Common.start_all()
     logging.info( "nodes started" )
     assert_false( cli.expectProgressPossible() )
     
@@ -339,61 +317,71 @@ def test_is_progress_possible():
     cli.set('k','v')
 
 
-@with_custom_setup( setup_1_node_forced_master, basic_teardown )
+@Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
     global test_failed
     test_failed = False 
     
-    write_loop = lambda: iterate_n_times( 10000, retrying_set_get_and_delete )
-    large_write_loop = lambda: iterate_n_times( 280000, retrying_set_get_and_delete, startSuffix = 1000000 ) 
-    write_thr1 = create_and_start_thread ( write_loop )
-    non_retrying_write_loop = lambda: iterate_n_times( 10000, set_get_and_delete, startSuffix = 2000000  )
+    def write_loop (): 
+        Common.iterate_n_times( 10000, 
+                                Common.retrying_set_get_and_delete )
+
+    def large_write_loop (): 
+        Common.iterate_n_times( 280000, 
+                                Common.retrying_set_get_and_delete, 
+                                startSuffix = 1000000 ) 
+
+    write_thr1 = Common.create_and_start_thread ( write_loop )
+    def non_retrying_write_loop (): 
+        Common.iterate_n_times( 10000, 
+                                Common.set_get_and_delete, 
+                                startSuffix = 2000000  )
     
-    add_node( 1 )
+    Common.add_node( 1 )
     cl = _getCluster()
     cl.setLogLevel("debug")
     
-    regenerateClientConfig(cluster_id)
+    Common.regenerateClientConfig(Common.cluster_id)
             
-    restart_nodes_wf_sim( 1 )
-    n1 = node_names[1]
+    Common.restart_nodes_wf_sim( 1 )
+    n1 = Common.node_names[1]
     logging.info("going to start %s", n1)
-    startOne(n1 )
+    Common.startOne(n1 )
     
-    create_and_wait_for_thread_list ( [ large_write_loop ] )
+    Common.create_and_wait_for_thread_list ( [ large_write_loop ] )
     
-    add_node( 2 )
+    Common.add_node( 2 )
     cl = _getCluster()
     cl.setLogLevel("debug")
     cl.forceMaster(None )
     logging.info("2 node config without forced master")
 
-    regenerateClientConfig(cluster_id)
+    Common.regenerateClientConfig(Common.cluster_id)
     
-    restart_nodes_wf_sim( 2 )
-    startOne( node_names[2] )
+    Common.restart_nodes_wf_sim( 2 )
+    Common.startOne( Common.node_names[2] )
     time.sleep( 0.3 )
-    assert_running_nodes ( 3 )
+    Common.assert_running_nodes ( 3 )
     
-    write_thr3 = create_and_start_thread ( non_retrying_write_loop )
+    write_thr3 = Common.create_and_start_thread ( non_retrying_write_loop )
 
     write_thr1.join()
     write_thr3.join()
     
     assert_false ( test_failed )
     
-    assert_running_nodes( 3 )
+    Common.assert_running_nodes( 3 )
     
     
-@with_custom_setup( setup_3_nodes, basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_nodes_2_slaves_down ():
     
-    cli = get_client()
+    cli = Common.get_client()
     master_id = cli.whoMaster()
     
-    slaves = filter( lambda n: n != master_id, node_names )
+    slaves = filter( lambda n: n != master_id, Common.node_names )
     for slave in slaves:
-        stopOne( slave )
+        Common.stopOne( slave )
     
     assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
             
@@ -401,7 +389,7 @@ def test_3_nodes_2_slaves_down ():
 
 
 
-@with_custom_setup( default_setup, basic_teardown )
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_disable_tlog_compression():
     
     clu = _getCluster()
@@ -409,32 +397,37 @@ def test_disable_tlog_compression():
     clu.restart()
     time.sleep(1.0)
     
-    tlog_size = get_entries_per_tlog() 
+    tlog_size = Common.get_entries_per_tlog() 
     
     num_tlogs = 2
     test_size = num_tlogs*tlog_size
-    iterate_n_times(test_size, simple_set )
+    Common.iterate_n_times(test_size, Common.simple_set )
     
     logging.info("Tlog_size: %d", tlog_size)
-    node_id = node_names[0]
+    node_id = Common.node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
+    q = Common.q
     ls = q.system.fs.listFilesInDir
     time.sleep(2.0)
-    tlogs = ls( node_home_dir, filter="*.tlog" )
+    tlogs = ls(node_home_dir, filter="*.tlog" )
     expected = num_tlogs + 1 
-    assert_equals(len(tlogs), expected, "Wrong number of uncompressed tlogs (%d != %d)" % (expected, len(tlogs))) 
+    tlog_len = len(tlogs)
+    assert_equals(tlog_len, expected, 
+                  "Wrong number of uncompressed tlogs (%d != %d)" % (expected, tlog_len)) 
  
-@with_custom_setup(setup_1_node, basic_teardown)
+
+@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
     clu = _getCluster()
-    tlog_size = get_entries_per_tlog()
+    tlog_size = Common.get_entries_per_tlog()
     num_tlogs = 2
     test_size = num_tlogs * tlog_size + 20
-    iterate_n_times(test_size, simple_set)
+    Common.iterate_n_times(test_size, Common.simple_set)
     time.sleep(10)
     clu.stop()
-    node_id = node_names[0]
+    node_id = Common.node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
+    q = Common.q
     files = map(lambda x : "%s/%s" % (node_home_dir, x),
                 [ "002.tlog",
                   "%s.db" % (node_id,),
@@ -445,63 +438,76 @@ def test_sabotage():
         q.system.fs.remove(f)
     clu.start()
     time.sleep(20)
-    iterate_n_times(2000, simple_set)
+    Common.iterate_n_times(2000, Common.simple_set)
     time.sleep(10)
     size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
 
 
-@with_custom_setup(setup_3_nodes, basic_teardown)
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_243():
-
+    node_names = Common.node_names
     zero = node_names[0]
     one = node_names[1]
     two = node_names[2]
-    n = 305000
-    logging.info("doing %i sets, takes a while ...", n)
-    iterate_n_times(n, simple_set)
+    npt = 1000
+    n = 5 * npt + 200
+
+    logging.info("%i entries per tlog", npt)
+    logging.info("doing %i sets", n)
+    Common.iterate_n_times(n, Common.simple_set)
+
+
     logging.info("did %i sets, now collapse all ", n)
-    collapse(zero,1)
-    collapse(one,1)
-    collapse(two,1)
-    """
+    Common.collapse(zero,1)
+    Common.collapse(one,1)
+    Common.collapse(two,1)
+
     logging.info("set %i more", n)
-    iterate_n_times(n, simple_set)
-    stopOne(zero)
-    logging.info("stopped a node, set some more ...",n)
-    iterate_n_times(n, simple_set)
+    Common.iterate_n_times(n, Common.simple_set)
+
+    logging.info("stopping %s", zero)
+    Common.stopOne(zero)
+    logging.info("... and set %s more ",n)
+    Common.iterate_n_times(n, Common.simple_set)
+
+    client = Common.get_client()
+    stats = client.statistics()
+    node_is = stats['node_is']
+    logging.info("node_is=%s",node_is)
     logging.info("collapse 2 live nodes")
-    collapse(one,1)
-    collapse(two,1)
-    startOne(zero)
-    client = get_client ()
+    Common.collapse(one,1)
+    Common.collapse(two,1)
+    Common.startOne(zero)
+
     stats = client.statistics ()
     node_is = stats['node_is']
     mark = max(node_is.values())
     catchup = True
     t0 = time.time()
     timeout = False
-    #wait until catchup is done ...."
+    logging.info("wait until catchup is done ....")
+    count = 0
+
     while catchup:
+        time.sleep(10)
         stats = client.statistics()
         node_is = stats['node_is']
+        logging.info("node_is=%s", node_is)
         lowest = min(node_is.values())
-        if lowest > mark:
+        if lowest >= mark or count == 10:
             catchup = False
-        time.sleep(10)
-        t1 = time.time()
-        if t1 - t0 > 100:
-            catchup = False
-            timeout = True
-    if timeout:
-        logging.info("timeout failing")
-        raise Exception("timeout")
-    logging.info("node_is=%s", node_is)
-    rc = collapse(zero,1)
+        count = count + 1
 
+    stats = client.statistics()
+    node_is = stats['node_is']
+    logging.info("done waiting")
+    logging.info("OK,node_is=%s", node_is)
+    logging.info("now collapse %s", zero)
+    rc = Common.collapse(zero,1)
     # if it does not throw, we should be ok.
     if rc :
         msg = "rc = %s; should be 0" % rc
         raise Exception(msg)
-    """
+    logging.info("done")
