@@ -8,6 +8,8 @@ react   0.9.2
 camlbz2 0.6.0    
 
 
+we provide a script that sets up the development the prerequisites:
+  python tools/setup_env.py
 
 COMPILING:
 

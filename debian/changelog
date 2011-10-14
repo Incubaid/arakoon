@@ -1,3 +1,59 @@
+arakoon (1.0.0-1) unstable; urgency=low
+  new upstream version, most notable changes are
+  * nursery support: build a shard of Arakoon clusters
+  * toolchain: ocaml 3.12.1 & Lwt 2.3.1+
+  * [ARAKOON-40] acceptable debian packages
+  * [ARAKOON-145] server side extensions
+  * [ARAKOON-185] PHP client
+  * [ARAKOON-188] Please provide internal check to avoid collapsing all tlogs
+  * [ARAKOON-201] Make it easier to build user functions outside of the arakoon repo
+  * [ARAKOON-202] Allow absolute user function module names
+  * [ARAKOON-217] Number of entries in arakoon
+  * [ARAKOON-218] Advanced statistics
+  * [ARAKOON-219] Slave in tc backup mode
+  * [ARAKOON-220] make all individual unit tests succeed again
+  * [ARAKOON-227] figure out absolute path of config file before daemonization
+  * [ARAKOON-231] Read-only mode for single node
+  * [ARAKOON-234] Arakoon install tasklet should provide ability to update the binary when it's running
+  * [ARAKOON-237] Reset statistics every x mintues
+  * [ARAKOON-238] Log configuration file at startup
+  * [ARAKOON-240] tlog rotation blocks
+  * [ARAKOON-242] Implement shard functionality in C client
+  * [ARAKOON-246] Confirm
+  * [ARAKOON-247] Optimize catchup strategy
+  * [ARAKOON-204] Arakoon can't handle whitespace after master config line: "master = my_master_node "
+  * [ARAKOON-208] Arakoon not starting with error "get_last_update 108900636 > 0 can't look back so far"
+  * [ARAKOON-209] Tlog folder ignores .tlc files
+  * [ARAKOON-213] Arakoon 0.10.1-4 consuming 1.5GB resident memory
+  * [ARAKOON-216] pydoc of remoteCollapse function is erroneouse
+  * [ARAKOON-221] NameError when doing getStatusOne using a non existing node name.
+  * [ARAKOON-222] Arakoon single node starts with missing tc and incomplete tlog history
+  * [ARAKOON-235] Node goes done with: Multi_paxos.PaxosFatal("wait_for_accepteds: received \"Accept(...,..., ...)\" with same n: FATAL")
+  * [ARAKOON-243] arakoon collapse: 'unknown failure'
+  * [ARAKOON-244] Expectprogress seems to give false negatives
+  -- Romain Slootmaekers <romain.slootmaekers@incubaid.com> Fri, 14 Oct 2011 09:00:00 +0200
+
+arakoon (0.11.1-1) unstable; urgency=low
+  new upstream version, most notable changes are
+  * [ARAKOON-231] Read-only mode for single node
+  * [ARAKOON-236] Optimize after every collapse
+  * [ARAKOON-237] Reset statistics every x minutes
+  * [ARAKOON-238] Log configuration file at startup
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Fri, 23 Sep 2011 14:00:00 +0200
+
+arakoon (0.11.0-1) unstable; urgency=low
+  new feature: Asserts (also in sequence)
+  * [ARAKOON-198] assert to sequences
+  * [ARAKOON-192] ocaml client sometimes does not get a connection
+  * [ARAKOON-183] support for rolling upgrades
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Wed, 15 Jun 2011 12:00:00 +0200
+  
+arakoon (0.10.1-1) unstable; urgency=low
+  The most notable here is optionality of tlog compression,
+  throttling of collapse, and better SIGTERM handling
+  details can be found in the ARAKOON jira.
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Thu, 9 Jun 2011 12:00:00 +0200
+
 arakoon (0.10.0-1) unstable; urgency=low
   The most notable here is the addition of 'learner nodes', 
   and 'Preferred master' functionality. 
