@@ -31,7 +31,7 @@ arakoon (1.0.0-1) unstable; urgency=low
   * [ARAKOON-235] Node goes done with: Multi_paxos.PaxosFatal("wait_for_accepteds: received \"Accept(...,..., ...)\" with same n: FATAL")
   * [ARAKOON-243] arakoon collapse: 'unknown failure'
   * [ARAKOON-244] Expectprogress seems to give false negatives
-  -- Romain Slootmaekers <romain.slootmaekers@incubaid.com> Fri, 14 Oct 2011 09:00:00 +0200
+ -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Thu, 20 Oct 2011 16:25:37 +0200
 
 arakoon (0.11.1-1) unstable; urgency=low
   new upstream version, most notable changes are
