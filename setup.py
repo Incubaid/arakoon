@@ -3,15 +3,22 @@ from setuptools import setup
 
 from subprocess import Popen, PIPE
 
+def shell(cmd):
+    v = Popen(cmd, stdout = PIPE).communicate()[0]
+    v2 = v.strip()
+    return v2
+
 def get_info(option):
-    v = Popen(["hg","id",option], stdout=PIPE).communicate()[0]
-    return v
+    return shell(["hg","id",option])
 
 def get_tag():
     return get_info('-t')
 
 def get_version():
     return get_info('-i')
+
+def get_branch():
+    return shell(["hg","branch"])
 
 def get_license():
     data = None
@@ -27,7 +34,7 @@ Mercurial version: %s
 """ % (get_version(),)
 
 setup(name='arakoon',
-      version=get_tag(),
+      version=get_branch(),
       package_dir={'arakoon':'src/client/python'},
       packages=['arakoon'],
       data_files = [('license',['COPYING'])],
