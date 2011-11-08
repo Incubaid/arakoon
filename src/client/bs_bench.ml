@@ -10,13 +10,14 @@ let clock f =
 
 let make_key i = Printf.sprintf "key_%08i" i 
 
+let sync = Bdb._dbsync
+
 let set_loop db vs n = 
   let v = String.make vs 'x' in
   let set k v = Bdb.put db k v in
-  let sync () = () in
   let rec loop i = 
     if i = n 
-    then sync ()
+    then sync db
     else
       let key = make_key i in
       let () = set key v in
@@ -38,10 +39,9 @@ let get_loop db n =
 
 let delete_loop db n = 
   let delete k = Bdb.out db k in
-  let sync () = () in
   let rec loop i = 
     if i = n 
-    then sync ()
+    then sync db
     else
       let key = make_key i in
       let () = delete key in
