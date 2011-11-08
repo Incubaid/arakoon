@@ -49,6 +49,11 @@ module Hotc = struct
 
   let _close_lwt t = Lwt.return (_close t)
 
+  let _sync t =
+    Bdb._dbsync t.bdb
+
+  let _sync_lwt t = Lwt.return (_sync t)
+
   let create ?(mode=Bdb.default_mode) filename =
     let res = {
       filename = filename;
@@ -60,6 +65,9 @@ module Hotc = struct
 
   let close t = 
     _do_locked t (fun () -> _close_lwt t)
+
+  let sync t =
+    _do_locked t (fun () -> _sync_lwt t)
 
   let read t (f:Bdb.bdb -> 'a) = _do_locked t (fun ()-> f t.bdb)
 

@@ -128,6 +128,16 @@ void bdb_dbclose(value bdb)
   CAMLreturn0;
 }
 
+void bdb_dbsync(value bdb)
+{
+  CAMLparam1(bdb);
+  if (!tcbdbsync(Bdb_val(bdb)))
+    {
+      bdb_handle_error(Bdb_val(bdb));
+    }
+  CAMLreturn0;
+}
+
 value bdb_cur_make(value bdb)
 {
   CAMLparam1(bdb);
