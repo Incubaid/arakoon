@@ -20,6 +20,7 @@ let hg_revision = run_cmd "hg id -i"
 
 let branch_version = run_cmd "hg branch"
 
+let machine = run_cmd "uname -mnrpio"
 
 let split s ch =
   let x = ref [] in
@@ -44,9 +45,10 @@ let make_version _ _ =
   let cmd =
     let template = "let hg_revision = %S\n" ^^
       "let compile_time = %S\n" ^^
+      "let machine = %S" ^^
       "let version = %S"
     in
-    Printf.sprintf template hg_revision time branch_version
+    Printf.sprintf template hg_revision time machine branch_version
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 
