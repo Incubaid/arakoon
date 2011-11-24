@@ -113,18 +113,11 @@ def install_lwt():
     # Tell lwt where libev can be found
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
     env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
-    name = 'lwt-2.3.1'
+    name = 'lwt-2.3.2'
     lib = Lib(name, '.tar.gz',
               'http://ocsigen.org/download/%s')
     lib.download()
     lib.extract()
-    # apply patch:
-    mydir = os.path.dirname(os.path.abspath(__file__))
-    patch_file = os.path.join(mydir,'patch.lwt_io')
-    lib.sh(['patch','--verbose','--directory=%s/%s' % (ROOT, name),
-            '-p0', # '--dry-run' ,
-            '-i', patch_file])
-    lib.sh(['rm','-f',  'setup.data','setup.log'])
     lib.sh(['make','clean'])
     lib.sh(['ocaml', 'setup.ml', '-configure', '--prefix', PREFIX])
     lib.sh(['ocaml', 'setup.ml', '-build'])
@@ -265,15 +258,15 @@ def install_bisect():
         cwd = cwd)
  
 def do_it():
-    #clean()
-    #sh(['mkdir', '-p', ROOT])
-    #install_ocaml()
-    #install_ocamlfind()
-    #install_ounit()
-    #install_react()
-    #install_libev()
-    #install_lwt()
-    #install_camlbz2()
+    clean()
+    sh(['mkdir', '-p', ROOT])
+    install_ocaml()
+    install_ocamlfind()
+    install_ounit()
+    install_react()
+    install_libev()
+    install_lwt()
+    install_camlbz2()
     if not options.no_x:
         install_lablgtk()
         install_cairo_ocaml()
