@@ -19,7 +19,7 @@ parser.add_option("-c", "--client", dest="client", default=False,
 parser.add_option("-b", "--bisect", dest = "bisect", default = False,
                   action = "store_true",
                   help = "Install bisect")
-                  
+
 (options, args) = parser.parse_args()
 
 OCAML='3.12.1'
@@ -34,6 +34,13 @@ def sh(x, **kwargs):
 def clean():
     sh (['rm','-rf', PREFIX])
 
+def sh_with_output(x):
+    print x
+    p = subprocess.Popen(x, stdout=subprocess.PIPE, env=env)
+    if p.returncode:
+        raise RuntimeError("Failed to run %s" % x)
+    output = p.stdout.readlines()
+    return '\n'.join(output).strip()
 
 print PREFIX
 env = {'PATH': string.join([PREFIX + '/bin',
@@ -249,12 +256,13 @@ def install_bisect():
     sh (['make','install'], cwd = cwd, env = env)
     t_dir = '_build/src/threads'
     # This should not be necessary, but there's a bug in the Makefile
+    site_lib_dir = sh_with_output(['ocamlfind', 'printconf', 'destdir'])
     sh (['cp', 
          t_dir + '/bisectThread.cmi',
          t_dir + '/bisectThread.cmo',
          t_dir + '/bisectThread.cmx',
          t_dir + '/bisectThread.mli',
-         PREFIX + '/lib/ocaml/site-lib/bisect/'],
+         site_lib_dir + '/bisect/'],
         cwd = cwd)
  
 def do_it():
