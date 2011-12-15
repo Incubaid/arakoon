@@ -37,6 +37,33 @@ def test_single_client_100000_sets():
     iterate_n_times( 100000, simple_set )
 
 @with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
+def test_large_catchup_while_running():
+    cli = get_client()
+    cluster = _getCluster()
+
+    cli.set('k','v')
+    m = cli.whoMaster()
+
+    nod1 = node_names[0]
+    nod2 = node_names[1]
+    nod3 = node_names[2]
+
+    n_name,others = (nod1, [nod2,nod3]) if nod1 != m else (nod2, [nod1, nod3])
+    node_pid = cluster._getPid(n_name)
+
+    time.sleep(0.1)
+    q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    iterate_n_times( 200000, simple_set )
+    for n in others:
+        collapse(n)
+
+    time.sleep(1.0)
+    q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    cli.delete('k')
+    time.sleep(10.0)
+    assert_running_nodes(3)
+
+@with_custom_setup( setup_3_nodes_forced_master, basic_teardown )
 def test_delete_non_existing_with_catchup ():
     stopOne( node_names[1] )
     key='key'

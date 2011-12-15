@@ -316,15 +316,15 @@ object(self: # tlog_collection)
 	  Lwt.return oc
 	end
       | Some oc -> 
-	if i = Sn.mul (Sn.of_int (_outer + 1)) (Sn.of_int !Tlogcommon.tlogEntriesPerFile) 
+	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start
 	then
 	  Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
-	  self # _rotate oc 
+	  self # _rotate oc (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
 	else
 	  Lwt.return oc
 
       
-  method private _rotate (oc:Lwt_io.output_channel) =
+  method private _rotate (oc:Lwt_io.output_channel) new_outer =
     Lwt_io.close oc >>= fun () ->
     _inner <- 0;
     let tlu = Filename.concat tlog_dir (file_name _outer) in
@@ -352,7 +352,7 @@ object(self: # tlog_collection)
         Lwt.return ()
     end 
     >>= fun () ->
-    _outer <- _outer + 1;
+    _outer <- Sn.to_int new_outer;
     let new_oc = _init_oc tlog_dir _outer in
     _oc <- Some new_oc;
     Lwt.return new_oc
