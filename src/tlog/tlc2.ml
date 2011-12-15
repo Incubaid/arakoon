@@ -316,10 +316,18 @@ object(self: # tlog_collection)
 	  Lwt.return oc
 	end
       | Some oc -> 
-	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start
+	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
 	then
-	  Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
-	  self # _rotate oc (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
+          let do_rotate() =
+	    Lwt_log.debug_f "i= %s & outer = %i & tlepf = %d => rotate" (Sn.string_of i) _outer !Tlogcommon.tlogEntriesPerFile >>= fun () ->
+	    self # _rotate oc (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
+          in
+          begin
+            match _previous_update with
+            | Some (pi,_) when pi = i -> 
+                Lwt.return oc
+            | _ -> do_rotate()
+          end    
 	else
 	  Lwt.return oc
 
@@ -352,7 +360,7 @@ object(self: # tlog_collection)
         Lwt.return ()
     end 
     >>= fun () ->
-    _outer <- Sn.to_int new_outer;
+    _outer <- new_outer;
     let new_oc = _init_oc tlog_dir _outer in
     _oc <- Some new_oc;
     Lwt.return new_oc
