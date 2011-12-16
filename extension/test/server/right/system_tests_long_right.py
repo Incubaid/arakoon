@@ -514,7 +514,7 @@ def test_243():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
-	    cli = Common.get_client()
+    cli = Common.get_client()
     cluster = Common._getCluster()
 
     cli.set('k','v')
@@ -531,10 +531,11 @@ def test_large_catchup_while_running():
     Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
     Common.iterate_n_times( 200000, Common.simple_set )
     for n in others:
-	            Common.collapse(n)
+        Common.collapse(n)
 
     time.sleep(1.0)
     Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
+
