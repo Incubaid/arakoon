@@ -546,3 +546,30 @@ def test_243():
         msg = "rc = %s; should be 0" % rc
         raise Exception(msg)
     logging.info("done")
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
+def test_large_catchup_while_running():
+	    cli = Common.get_client()
+    cluster = Common._getCluster()
+
+    cli.set('k','v')
+    m = cli.whoMaster()
+
+    nod1 = Common.node_names[0]
+    nod2 = Common.node_names[1]
+    nod3 = Common.node_names[2]
+
+    n_name,others = (nod1, [nod2,nod3]) if nod1 != m else (nod2, [nod1, nod3])
+    node_pid = cluster._getPid(n_name)
+
+    time.sleep(0.1)
+    Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    Common.iterate_n_times( 200000, Common.simple_set )
+    for n in others:
+	            Common.collapse(n)
+
+    time.sleep(1.0)
+    Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    cli.delete('k')
+    time.sleep(10.0)
+    Common.assert_running_nodes(3)
