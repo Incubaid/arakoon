@@ -20,15 +20,15 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Otc
+open Hotc
 
 module Prefix_otc = struct
 
-  type t = Bdb.bdb
+  type t = Hotc.db
 
   let get bdb prefix key =
     Lwt.catch (fun () ->
-    let value = Bdb.get bdb (prefix ^ key) in
+    let value = Hotc.get bdb (prefix ^ key) in
     (*let _ = log "GET %d" (String.length value) in*)
       Lwt.return value)
       (fun e -> Lwt.fail e)
@@ -37,20 +37,20 @@ module Prefix_otc = struct
   let put bdb prefix key value =
     (*let _ = log "PUT %d" (String.length value) in*)
     Lwt.catch (fun () ->
-      let () = Bdb.put bdb (prefix ^ key) value in
+      let () = Hotc.set bdb (prefix ^ key) value in
       Lwt.return ()
     ) (fun e -> Lwt.fail e)
 
   let out bdb prefix key =
     Lwt.catch (fun () ->
-      let () = Bdb.out bdb (prefix ^ key) in
+      let () = Hotc.delete_val bdb (prefix ^ key) in
       Lwt.return ()
     ) (fun e -> Lwt.fail e)
 
   let fold (f:string -> string -> 'c -> 'c) (bdb:t) (prefix:string) (init:'c) =
     Lwt.catch (fun () ->
-      let f' a key = f key (Bdb.get bdb key) a in
-      let (keys:string array) = Bdb.prefix_keys bdb prefix (-1) in
+      let f' a key = f key (Hotc.get bdb key) a in
+      let (keys:string array) = Hotc.prefix_keys bdb prefix (-1) in
       let x = Array.fold_left f' init keys in
       Lwt.return x
     ) (fun e -> Lwt.fail e)

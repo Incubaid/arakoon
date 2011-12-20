@@ -32,18 +32,18 @@ open Store
 open Unix.LargeFile
 
 
-let _save_i i db =
+let _save_i i (db:Hotc.db) =
   let is =
     let buf = Buffer.create 10 in
     let () = Sn.sn_to buf i in
     Buffer.contents buf
   in
-  let () = Bdb.put db __i_key is in
+  let () = Hotc.set db __i_key is in
   Lwt.return ()
 
 let _consensus_i db =
   try
-    let i_string = Bdb.get db __i_key in
+    let i_string = Hotc.get db __i_key in
     let i,_ = Sn.sn_from i_string 0 in
     Lwt.return (Some i)
   with Not_found ->
@@ -51,7 +51,7 @@ let _consensus_i db =
 
 let _get_interval db = 
   try
-    let interval_s = Bdb.get db __interval_key in
+    let interval_s = Hotc.get db __interval_key in
     let interval,_ = Interval.interval_from interval_s 0 in
     Lwt.return interval
   with Not_found -> Lwt.return Interval.max
@@ -60,23 +60,22 @@ let _set_interval db range =
   let buf = Buffer.create 80 in
   let () = Interval.interval_to buf range in
   let range_s = Buffer.contents buf in
-  Bdb.put db __interval_key range_s
+  Hotc.set db __interval_key range_s
 
-let _set_routing db routing =
+let _set_routing (db:Hotc.db) routing =
   let buf = Buffer.create 80 in
   let () = Routing.routing_to buf routing in
   let routing_s = Buffer.contents buf in
-  Bdb.put db __routing_key routing_s
+  Hotc.set db __routing_key routing_s
 
 let _get_routing_non_lwt db =
   try 
-    let routing_s = Bdb.get db __routing_key in
+    let routing_s = Hotc.get db __routing_key in
     let routing,_ = Routing.routing_from routing_s 0 in
     Some routing
   with Not_found -> None
 
-let _get_routing db = 
-    Lwt.return (_get_routing_non_lwt db)  
+let _get_routing db = Lwt.return (_get_routing_non_lwt db)  
 
 let _set_routing_delta db left sep right = 
   let m_r = _get_routing_non_lwt db in
@@ -109,7 +108,7 @@ let _incr_i db =
     let () = Sn.sn_to buf new_i in
     Buffer.contents buf
   in
-  let () = Bdb.put db __i_key new_is in
+  let () = Hotc.set db __i_key new_is in
   (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s" 
     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
   >>= fun () -> *)
@@ -117,32 +116,32 @@ let _incr_i db =
 
 let _who_master db = 
   try
-    let m = Bdb.get db __master_key in
-    let ls_buff = Bdb.get db __lease_key in
+    let m = Hotc.get db __master_key in
+    let ls_buff = Hotc.get db __lease_key in
     let ls,_ = Llio.int64_from ls_buff 0 in
     Lwt.return (Some (m,ls))
   with Not_found -> 
     Lwt.return None
 
 
-let _get _pf bdb key = Bdb.get bdb (_pf ^ key)
+let _get _pf bdb key = Hotc.get bdb (_pf ^ key)
 
-let _set _pf bdb key value = Bdb.put bdb (_pf ^ key) value
+let _set _pf bdb key value = Hotc.set bdb (_pf ^ key) value
 
-let _delete _pf bdb key    = Bdb.out bdb (_pf ^ key)
+let _delete _pf bdb key    = Hotc.delete_val bdb (_pf ^ key)
 
 let _test_and_set _pf bdb key expected wanted =
   let key' = _pf ^ key in
   try
-    let g = Bdb.get bdb key' in
+    let g = Hotc.get bdb key' in
     match expected with
       | Some e when e = g ->
 	begin
 	  match wanted with 
 	    | Some wanted_s ->
-	      let () = Bdb.put bdb key' wanted_s in Some g
+	      let () = Hotc.set bdb key' wanted_s in Some g
 	    | None ->
-	      let () = Bdb.out bdb key' in Some g
+	      let () = Hotc.delete_val bdb key' in Some g
 	end
       | _ -> Some g
   with Not_found ->
@@ -151,19 +150,19 @@ let _test_and_set _pf bdb key expected wanted =
 	begin
 	  match wanted with
 	    | Some wanted_s ->
-	      let () = Bdb.put bdb key' wanted_s in None
+	      let () = Hotc.set bdb key' wanted_s in None
 	    | None -> None		   
 	end
       | Some v' -> None
 
 let _range_entries _pf bdb first finc last linc max =
-  let keys_array = Bdb.range bdb (_f _pf first) finc (_l _pf last) linc max in
+  let keys_array = Hotc.range bdb (_f _pf first) finc (_l _pf last) linc max in
   let keys_list = Array.to_list keys_array in
   let pl = String.length _pf in
   let x = List.fold_left
     (fun ret_list k ->
       let l = String.length k in
-      ((String.sub k pl (l-pl)), Bdb.get bdb k) :: ret_list )
+      ((String.sub k pl (l-pl)), Hotc.get bdb k) :: ret_list )
     [] 
     keys_list
   in x
@@ -173,12 +172,12 @@ let _assert _pf bdb key vo =
   match vo with
     | None ->
       begin
-	try let _ = Bdb.get bdb pk in false
+	try let _ = Hotc.get bdb pk in false
 	with Not_found -> true
       end
     | Some v ->
       begin
-	try let v' = Bdb.get bdb pk in v = v'
+	try let v' = Hotc.get bdb pk in v = v'
 	with Not_found -> false
       end
 
@@ -243,41 +242,41 @@ let _user_function bdb (interval:Interval.t) (name:string) (po:string option) =
   ro
 
 
-let _set_master bdb master (lease_start:int64) =  
-  Bdb.put bdb __master_key master;
+let _set_master db master (lease_start:int64) =  
+  Hotc.set db __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
   let lease = Buffer.contents buffer in
-  Bdb.put bdb __lease_key lease
+  Hotc.set db __lease_key lease
 
-let rec _sequence _pf bdb interval updates =
+let rec _sequence _pf (db:Hotc.db) interval updates =
   let do_one = function
-    | Update.Set (key,value) -> _set _pf bdb key value
-    | Update.Delete key -> _delete _pf bdb key
+    | Update.Set (key,value) -> _set _pf db key value
+    | Update.Delete key -> _delete _pf db key
     | Update.TestAndSet(key,expected, wanted) ->
-      let _ = _test_and_set _pf bdb key expected wanted in () (* TODO: do we want this? *)
+      let _ = _test_and_set _pf db key expected wanted in () (* TODO: do we want this? *)
     | Update.Assert(k,vo) ->
       begin
-	match _assert _pf bdb k vo with
+	match _assert _pf db k vo with
 	  | true -> ()
 	  | false -> 
 	    raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
       end
     | Update.UserFunction(name,po) ->
-      let _ = _user_function bdb interval name po in ()
-    | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us -> _sequence _pf bdb interval us
-    | Update.SetInterval interval -> _set_interval bdb interval
-    | Update.SetRouting r   -> _set_routing bdb r
-    | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta bdb l s r in ()
+      let _ = _user_function db interval name po in ()
+    | Update.MasterSet (m,ls) -> _set_master db m ls
+    | Update.Sequence us -> _sequence _pf db interval us
+    | Update.SetInterval interval -> _set_interval db interval
+    | Update.SetRouting r   -> _set_routing db r
+    | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta db l s r in ()
     | Update.AdminSet(k,vo) ->
     begin 
       match _pf with
         | pf when pf = __adminprefix ->
           begin
           match vo with
-            | None -> _delete _pf bdb k 
-            | Some v -> _set _pf bdb k v
+            | None -> _delete _pf db k 
+            | Some v -> _set _pf db k v
           end
         | _ -> raise  (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot modify admin keys in user sequence"))
     end
@@ -300,14 +299,14 @@ let rec _sequence _pf bdb interval updates =
 
 
 let _set_master bdb master (lease_start:int64) =  
-  Bdb.put bdb __master_key master;
+  Hotc.set bdb __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
   let lease = Buffer.contents buffer in
-  Bdb.put bdb __lease_key lease
+  Hotc.set bdb __lease_key lease
 
 
-let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t) =
+let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Hotc.db -> 'a Lwt.t) =
   let new_i = incr () in 
   Lwt.catch
     (fun () ->
@@ -361,8 +360,8 @@ object(self: #store)
   
   method quiesced () = _quiesced
      
-  method private open_db () =
-    Hotc._open_lwt db 
+  method private open_db () mode = 
+    let () = Hotc.open_t db mode in Lwt.return ()
   
   method _interval_ok key =
     let ok = Interval.is_ok _interval key in
@@ -377,7 +376,7 @@ object(self: #store)
     Lwt.catch
       ( fun () ->
         let bdb = Hotc.get_bdb db in
-        Lwt.return (Bdb.get bdb (_pf ^ key)) >>= fun _ ->
+        Lwt.return (Hotc.get bdb (_pf ^ key)) >>= fun _ ->
 	      Lwt.return true
       )
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
@@ -386,7 +385,7 @@ object(self: #store)
     Lwt.catch
       (fun () -> 
         let bdb = Hotc.get_bdb db in
-        Lwt.return (Bdb.get bdb (_pf ^ key)))
+        Lwt.return (Hotc.get bdb (_pf ^ key)))
       (function 
 	| Failure _ -> Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
@@ -396,7 +395,7 @@ object(self: #store)
     let vs = List.fold_left 
 	  (fun acc key -> 
 	    try
-	      let v = Bdb.get bdb (_pf ^ key) in 
+	      let v = Hotc.get bdb (_pf ^ key) in 
 	      v::acc
 	    with Not_found -> 
 	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
@@ -430,7 +429,7 @@ object(self: #store)
       
   method range ?(_pf=__prefix) first finc last linc max =
     let bdb = Hotc.get_bdb db in 
-    Lwt.return (Bdb.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
+    Lwt.return (Hotc.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
     Lwt.return (_filter _pf r)
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
@@ -440,9 +439,9 @@ object(self: #store)
      
   method prefix_keys ?(_pf=__prefix) prefix max =
     let bdb = Hotc.get_bdb db in 
-    let keys_array = Bdb.prefix_keys bdb (_pf ^ prefix) max in
-	  let keys_list = _filter _pf keys_array in
-	  Lwt.return keys_list
+    let keys_array = Hotc.prefix_keys bdb (_pf ^ prefix) max in
+    let keys_list = _filter _pf keys_array in
+    Lwt.return keys_list
     
   method set ?(_pf=__prefix) key value =
     Lwt.catch
@@ -559,7 +558,7 @@ object(self: #store)
     
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
-    Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
+    Hotc.transaction db (fun db -> Lwt.return ( Hotc.get_key_count db ) ) >>= fun raw_count ->
     (* Leave out administrative keys *)
     self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys -> 
     let admin_key_count = List.length admin_keys in
@@ -602,10 +601,10 @@ object(self: #store)
         match direction with
         | Routing.UPPER_BOUND ->
           let skip_keys lcdb cursor =
-            let () = Bdb.first lcdb cursor in
+            let () = Hotc.first lcdb cursor in
             let rec skip_admin_key () =
               begin
-                let k = Bdb.key lcdb cursor in
+                let k = Hotc.key lcdb cursor in
                 if k.[0] <> __adminprefix.[0]
                 then
                   Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
@@ -614,7 +613,7 @@ object(self: #store)
                     Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
                     begin
                       try
-                        Bdb.next lcdb cursor;
+                        Hotc.next lcdb cursor;
                         skip_admin_key ()
                       with Not_found -> ()
                     end
@@ -630,7 +629,7 @@ object(self: #store)
                 | None -> (fun k -> false)
             end
           in
-          skip_keys, Bdb.next, cmp 
+          skip_keys, Hotc.next, cmp 
         | Routing.LOWER_BOUND ->
           let cmp =
             begin
@@ -639,7 +638,7 @@ object(self: #store)
                 | None -> (fun k -> k.[0] <> __prefix.[0])
             end
           in
-          Bdb.last, Bdb.prev, cmp 
+          Hotc.last, Hotc.prev, cmp 
       end
     in
     Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option_to_string border) >>= fun () ->
@@ -658,8 +657,8 @@ object(self: #store)
                 let rec loop acc ts =
                   begin
                     try 
-                      let k = Bdb.key   lcdb cursor in
-                      let v = Bdb.value lcdb cursor in
+                      let k = Hotc.key   lcdb cursor in
+                      let v = Hotc.value lcdb cursor in
                       if ts >= limit  or (key_cmp k)
                       then acc
                       else

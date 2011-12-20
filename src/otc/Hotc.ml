@@ -21,17 +21,27 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Otc
-
+open Tc_ish
 open Lwt
 
-module Hotc = struct
-
+module Hotc = (struct
+  type db = Bdb.bdb
+  type cursor = Bdb.bdbcur
   type t = {
     filename:string;
-    bdb:Bdb.bdb;
+    bdb:db;
     mutex:Lwt_mutex.t;
   }
 
+
+  let set db k v = Bdb.put db k v
+  let get db k = Bdb.get db k
+  let delete_val db k = Bdb.out db k
+  let range db fo fi lo li max = Bdb.range db fo fi lo li max
+  let prefix_keys db prefix max = Bdb.prefix_keys db prefix max
+  let get_key_count db = Bdb.get_key_count db
+
+    
   let get_bdb (wrapper: t) =
     wrapper.bdb
 
@@ -39,15 +49,14 @@ module Hotc = struct
     Lwt.catch (fun () -> Lwt_mutex.with_lock t.mutex f)
       (fun e -> Lwt.fail e)
 
-  let _open t mode = 
+  let open_t t mode = 
     Bdb._dbopen t.bdb t.filename mode
 
-  let _open_lwt t mode = Lwt.return (_open t mode )
+  let _open_lwt t mode = Lwt.return (open_t t mode )
     
-  let _close t =
-    Bdb._dbclose t.bdb
+  let close t = Bdb._dbclose t.bdb
 
-  let _close_lwt t = Lwt.return (_close t)
+  let _close_lwt t = Lwt.return (close t)
 
   let create ?(mode=Bdb.default_mode) filename =
     let res = {
@@ -99,6 +108,13 @@ module Hotc = struct
   let transaction t (f:Bdb.bdb -> 'a) =
     _do_locked t (fun () -> _transaction t f)
 
+
+  let first bdb cursor = Bdb.first bdb cursor
+  let next  bdb cursor = Bdb.next bdb cursor
+  let prev  bdb cursor = Bdb.prev bdb cursor
+  let last  bdb cursor = Bdb.last bdb cursor
+  let key   bdb cursor = Bdb.key bdb cursor
+  let value bdb cursor = Bdb.value bdb cursor
 
   let with_cursor bdb (f:Bdb.bdb -> 'a) =
     let cursor = Bdb._cur_make bdb in
@@ -161,4 +177,4 @@ module Hotc = struct
 		one [] batch_size
 	  )
       )
-end
+end : TC_ISH)

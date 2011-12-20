@@ -33,8 +33,8 @@ let eq_string s1 s2 = eq_string "TEST" s1 s2
 let test_overal db =
   Hotc.transaction db
     (fun db ->
-      let () = Bdb.put db "hello" "world" in
-      let x = Bdb.get db "hello" in
+      let () = Hotc.set db "hello" "world" in
+      let x = Hotc.get db "hello" in
       Lwt.return x
     ) >>= fun res ->
   let () = eq_string "world" res in
@@ -43,11 +43,11 @@ let test_overal db =
 let test_with_cursor db =
   Hotc.transaction db
     (fun db' ->
-      let () = Bdb.put db' "hello" "world" in
+      let () = Hotc.set db' "hello" "world" in
       Hotc.with_cursor db'
 	(fun _ cursor ->
-	  let () = Bdb.first db' cursor in
-	  let x = Bdb.value db' cursor in
+	  let () = Hotc.first db' cursor in
+	  let x = Hotc.value db' cursor in
 	  Lwt.return x
 	)
     ) >>= fun res ->
@@ -58,7 +58,7 @@ let test_prefix db =
   Hotc.transaction db
     (fun db' ->
       Prefix_otc.put db' "VOL" "hello" "world" >>= fun () ->
-      let x = Bdb.get db' "VOLhello" in
+      let x = Hotc.get db' "VOLhello" in
       Prefix_otc.get db' "VOL" "hello" >>= fun y ->
       Lwt.return (x,y)
     ) >>= fun (res1, res2) ->
@@ -84,8 +84,8 @@ let test_transaction db =
     (fun () ->
       Hotc.transaction db
 	(fun db -> 
-	  Bdb.put db key "one";
-	  Bdb.out db bad_key;
+	  Hotc.set db key "one";
+	  Hotc.delete_val db bad_key;
 	  Lwt.return ()
 	) 
     )
@@ -96,19 +96,19 @@ let test_transaction db =
       | x -> Lwt.fail x
     )
   >>= fun () ->
-Lwt.catch
-  (fun () ->
-    Hotc.transaction db 
-      (fun db -> 
-	let v = Bdb.get db key in 
-	Lwt_io.printf "value=%s\n" v >>= fun () ->
-	OUnit.assert_failure "this is not a transaction"
-      )
-  )
-  (function 
-    | Not_found -> Lwt.return ()
-    | x -> Lwt.fail x
-  )
+  Lwt.catch
+    (fun () ->
+      Hotc.transaction db 
+        (fun db -> 
+	  let v = Hotc.get db key in 
+	  Lwt_io.printf "value=%s\n" v >>= fun () ->
+	  OUnit.assert_failure "this is not a transaction"
+        )
+    )
+    (function 
+      | Not_found -> Lwt.return ()
+      | x -> Lwt.fail x
+    )
  
 
 
