@@ -32,11 +32,21 @@
       <div class="fill">
         <div class="container">
           <ul class="nav">
-            <li{% if name == 'home' %} class="active"{% endif %}><a href="index.html">Home</a></li>
-            <li><a href="about.html">About</a></li>
-            <li><a href="download.html">Download</a></li>
-            <li><a href="documentation.html">Documentation</a></li>
-            <li><a href="contact.html">Contact</a></li>
+            <li{% if name == 'index' %} class="active"{% endif %}>
+              <a href="index.html">Home</a>
+            </li>
+            <li{% if name == 'about' %} class="active"{% endif %}>
+              <a href="about.html">About</a>
+            </li>
+            <li{% if name == 'download' %} class="active"{% endif %}>
+              <a href="download.html">Download</a>
+            </li>
+            <li{% if name == 'documentation' %} class="active"{% endif %}>
+              <a href="documentation.html">Documentation</a>
+            </li>
+            <li{% if name == 'contact' %} class="active"{% endif %}>
+              <a href="contact.html">Contact</a>
+            </li>
           </ul>
         </div>
       </div>
