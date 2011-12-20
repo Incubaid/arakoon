@@ -29,7 +29,10 @@ def run(src, target):
 
         template = environment.get_template(name)
 
-        output = template.render(context)
+        local_context = context.copy()
+        local_context['name'] = os.path.splitext(name)[0]
+
+        output = template.render(local_context)
         output_str = output.encode(ENCODING)
 
         out = os.path.join(target, name)
