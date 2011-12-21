@@ -72,12 +72,12 @@ The simplest is to download the archive. Other options (from source, debian pack
 <h2>First steps</h2>
 The arakoon binary is also an ad-hoc client, administrative too, ... We'll show some examples below
 <h3>Who's the master</h3>
-<pre class="code">
+<pre class="prettyprint">
   {{prompt}} ./arakoon --who-master
   arakoon_1
 </pre>
 <h3>Basic Set/Get/Delete</h3>
-<pre class="code">
+<pre class="prettyprint">
   {{prompt}} ./arakoon --set some_key some_value
   {{prompt}} ./arakoon --get some_key
   "some_value"
@@ -90,7 +90,31 @@ The arakoon binary is also an ad-hoc client, administrative too, ... We'll show 
   Called from file "src/main/main.ml", line 395, characters 26-37
   Called from file "src/main/arakoon.ml", line 1, characters 0-12
 </pre>
-<h3>Simulate a disaster scenario</h3>
+<h3>One node goes down</h3>
+Go to the terminal tab for arakoon_0 and kill the node (<i>ctrl-c</i>)
+<pre class="prettyprint">
+./arakoon --node arakoon_0
+^C
+{{prompt}}./arakoon --expect-progress-possible
+true
+{{prompt}}./arakoon --set still_alive yes
+{{prompt}}./arakoon --get still_alive 
+"yes"
+</pre>
+You can verify the cluster still behaves properly. 
+This is because the <it>majority</it> of the nodes is just fine.
+<h3>Inspect transaction logs</h3>
+Arakoon keeps record of the everything you do so it can replay it to nodes that could not follow the cluster 
+(because they were down, disconnected, ...)
+This is what it looks like
+<pre class="prettyprint"
+{{prompt}}./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog 
+0:MasterSet ;"arakoon_1";0
 ...
-
+5:Set       ;"some_key";10
+...
+12:Delete    ;"some_key"
+13:MasterSet ;"arakoon_1";0
+...
+</pre>
 {% endblock %}
