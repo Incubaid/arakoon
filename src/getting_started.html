@@ -1,98 +1,130 @@
-{% extends '_base.html' %}
-{% block title %}Getting Started{% endblock %}
-{% block main %}
 {% set current = '1.0.0' %}
-<div>
-<h2>Introduction</h2>
-This page will guide you through the setup of
-a 3 node Arakoon cluster. For simplicity, all of the nodes run on 1 machine
-<h2>Getting it</h2>
-The simplest is to download the archive. Other options (from source, debian package, ...) exist too, but this is the easiest.
-<pre class="prettyprint">
-  $> wget www.arakoon.org/downloads/arakoon-{{ current }}.tgz
+{% set prompt = 'arakoon-1.0.0$&gt;' %}
 
-  $> tar -zxvf arakoon-{{ current }}.tgz
-  arakoon-{{ current }}/arakoon
-  arakoon-{{ current }}/cfg/arakoon.ini
+{% extends '_base.html' %}
 
-  $> cd arakoon-{{ current }}
-  arakoon-{{ current }}$>
+{% block title %}Getting Started{% endblock %}
+
+{% block main %}
+<h1>Getting Started</h1>
+
+  <h2>Introduction</h2>
+    <p>
+      This page will guide you through the setup of a 3 node Arakoon cluster.
+      For simplicity, all of the nodes run on 1 machine.
+    </p>
+
+  <h2>Getting it</h2>
+    <p>
+      The simplest is to download the archive. Other options (from source,
+      using Debian packages,...) exist too, but this is the easiest.
+    </p>
+
+    <pre class="prettyprint">
+$&gt; wget <a href='http://www.arakoon.org/downloads/arakoon-{{ current }}.tgz'>http://www.arakoon.org/downloads/arakoon-{{ current }}.tgz</a>
+
+$&gt; tar -zxvf arakoon-{{ current }}.tgz
+arakoon-{{ current }}/arakoon
+arakoon-{{ current }}/cfg/arakoon.ini
+
+$&gt; cd arakoon-{{ current }}
+arakoon-{{ current }}$&gt;
 </pre>
 
-{% set prompt = 'arakoon-1.0.0$>' %}
-<h2>Configuring</h2>
-  An Arakoon cluster needs a config file for every node. 
-  This config file needs to be exactly the same for every node, and for a cluster on a single machine, all nodes can use the same file location. 
-  Here is the one we'll be using today
+
+  <h2>Configuration</h2>
+    <p>
+      An Arakoon cluster needs a config file for every node. This config file
+      needs to be exactly the same for every node, and for a cluster on a
+      single machine, all nodes can use the same file location. Here is the one
+      we'll be using today:
+    </p>
   
-<pre class="prettyprint">
-  {{ prompt }} cat cfg/arakoon.ini
+    <pre class="prettyprint">
+{{ prompt }} cat cfg/arakoon.ini
 
-  [global]
-  cluster_id = ricky
-  cluster = arakoon_0,arakoon_1,arakoon_2
-  
-  [arakoon_0]
-  ip = 127.0.0.1
-  client_port = 4000
-  messaging_port = 4010
-  home = /tmp/arakoon/arakoon_0
-  
-  [arakoon_1]
-  ip = 127.0.0.1
-  client_port = 4001
-  messaging_port = 4011
-  
-  [arakoon_2]
-  ip = 127.0.0.1
-  client_port = 4002
-  messaging_port = 4012
+[global]
+cluster_id = ricky
+cluster = arakoon_0,arakoon_1,arakoon_2
+
+[arakoon_0]
+ip = 127.0.0.1
+client_port = 4000
+messaging_port = 4010
+home = /tmp/arakoon/arakoon_0
+
+[arakoon_1]
+ip = 127.0.0.1
+client_port = 4001
+messaging_port = 4011
+
+[arakoon_2]
+ip = 127.0.0.1
+client_port = 4002
+messaging_port = 4012
 </pre>
 
-<h2>Starting the nodes</h2>
-  An arakoon node will not start unless the configured directories exist. 
-  Other things you need to provide are the name of the node, and the location of it's configuration file
-<pre class="prettyprint">
-  {{ prompt }} mkdir -p /tmp/arakoon/arakoon_0
-  {{ prompt }} ./arakoon -config cfg/arakoon.ini --node arakoon_0
+  <h2>Starting the nodes</h2>
+    <p>
+      An arakoon node will not start unless the configured directories exist.
+      Other things you need to provide are the name of the node, and the
+      location of it's configuration file.
+    </p>
+    <pre class="prettyprint">
+{{ prompt }} mkdir -p /tmp/arakoon/arakoon_0
+{{ prompt }} ./arakoon -config cfg/arakoon.ini --node arakoon_0
 </pre>
-  <p>
-  In another terminal, start the second node. 
-  Fortunately, arakoon consider's its default configuration location to be <b>./cfg/arakoon.ini</b>
-  </p>
-<pre class="prettyprint">
-  {{ prompt }} mkdir -p /tmp/arakoon/arakoon_1
-  {{ prompt }} ./arakoon --node arakoon_1
+
+    <p>
+      In another terminal, start the second node. Fortunately, Arakoon
+      considers its default configuration location to be
+      <b>./cfg/arakoon.ini</b>.
+    </p>
+    <pre class="prettyprint">
+{{ prompt }} mkdir -p /tmp/arakoon/arakoon_1
+{{ prompt }} ./arakoon --node arakoon_1
 </pre>
-  <p>In yet another terminal, start the third node</p>
-<pre class="prettyprint">
-  {{ prompt }} mkdir -p /tmp/arakoon/arakoon_2
-  {{ prompt }} ./arakoon --node arakoon_2
+
+    <p>
+      In yet another terminal, start the third node:
+    </p>
+    <pre class="prettyprint">
+{{ prompt }} mkdir -p /tmp/arakoon/arakoon_2
+{{ prompt }} ./arakoon --node arakoon_2
 </pre>
-<h2>First steps</h2>
-The arakoon binary is also an ad-hoc client, administrative too, ... We'll show some examples below
-<h3>Who's the master</h3>
-<pre class="prettyprint">
-  {{prompt}} ./arakoon --who-master
-  arakoon_1
+
+  <h2>First steps</h2>
+    <p>
+      The arakoon binary is also an ad-hoc client, administrative too,...
+      We'll show some examples below.
+    <p>
+
+    <h3>Who's the master</h3>
+      <pre class="prettyprint">
+{{prompt}} ./arakoon --who-master
+arakoon_1
 </pre>
-<h3>Basic Set/Get/Delete</h3>
-<pre class="prettyprint">
-  {{prompt}} ./arakoon --set some_key some_value
-  {{prompt}} ./arakoon --get some_key
-  "some_value"
-  {{prompt}} ./arakoon --delete some_key
-  {{prompt}} ./arakoon --get some_key
-  Fatal error: exception Arakoon_exc.Exception(5, "some_key")
-  Raised at file "src/core/lwt.ml", line 557, characters 22-23
-  Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
-  Called from file "src/client/client_main.ml", line 68, characters 12-31
-  Called from file "src/main/main.ml", line 395, characters 26-37
-  Called from file "src/main/arakoon.ml", line 1, characters 0-12
+
+    <h3>Basic Set/Get/Delete</h3>
+      <pre class="prettyprint">
+{{prompt}} ./arakoon --set some_key some_value
+{{prompt}} ./arakoon --get some_key
+"some_value"
+{{prompt}} ./arakoon --delete some_key
+{{prompt}} ./arakoon --get some_key
+Fatal error: exception Arakoon_exc.Exception(5, "some_key")
+Raised at file "src/core/lwt.ml", line 557, characters 22-23
+Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
+Called from file "src/client/client_main.ml", line 68, characters 12-31
+Called from file "src/main/main.ml", line 395, characters 26-37
+Called from file "src/main/arakoon.ml", line 1, characters 0-12
 </pre>
-<h3>One node goes down</h3>
-Go to the terminal tab for arakoon_0 and kill the node (<i>ctrl-c</i>)
-<pre class="prettyprint">
+
+    <h3>One node goes down</h3>
+      <p>
+        Go to the terminal tab for arakoon_0 and kill the node (<i>ctrl-c</i>).
+      </p>
+      <pre class="prettyprint">
 ./arakoon --node arakoon_0
 ^C
 {{prompt}}./arakoon --expect-progress-possible
@@ -101,13 +133,19 @@ true
 {{prompt}}./arakoon --get still_alive 
 "yes"
 </pre>
-You can verify the cluster still behaves properly. 
-This is because the <it>majority</it> of the nodes is just fine.
-<h3>Inspect transaction logs</h3>
-Arakoon keeps record of the everything you do so it can replay it to nodes that could not follow the cluster 
-(because they were down, disconnected, ...)
-This is what it looks like
-<pre class="prettyprint"
+
+      <p>
+        You can verify the cluster still behaves properly. This is because the
+        <em>majority</em> of the nodes is just fine.
+      </p>
+
+      <h3>Inspect transaction logs</h3>
+      <p>
+        Arakoon keeps record of the everything you do so it can replay it to
+        nodes that could not follow the cluster (because they were down,
+        disconnected,...). This is what it looks like:
+      </p>
+      <pre class="prettyprint">
 {{prompt}}./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog 
 0:MasterSet ;"arakoon_1";0
 ...
@@ -117,4 +155,5 @@ This is what it looks like
 13:MasterSet ;"arakoon_1";0
 ...
 </pre>
+
 {% endblock %}
