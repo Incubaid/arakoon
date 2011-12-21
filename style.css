@@ -1,5 +1,12 @@
 body {
+    padding-top: 165px;
+}
+body.page-index {
     padding-top: 110px;
+}
+
+div.topbar>div {
+    background-color: white;
 }
 #logo {
     padding-top: 15px;
