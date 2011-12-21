@@ -12,12 +12,10 @@ Now, initialize and update the git submodules::
 Finally, install the required dependencies:
 
 - Jinja2_, a Python template engine
-- FeedParser_, a Python library for RSS/Atom/... feed parsing
 - Docutils_, a Python library for ReStructuredText handling
 - PyXML_, a Python library for XML processing
 
 .. _Jinja2: http://jinja.pocoo.org/
-.. _FeedParser: http://code.google.com/p/feedparser/
 .. _Docutils: http://docutils.sourceforge.net/
 .. _PyXML: http://pyxml.sourceforge.net/
 

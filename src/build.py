@@ -10,9 +10,6 @@ import jinja2
 import docutils
 import docutils.core
 
-import feedparser
-
-URI = 'http://blog.incubaid.com/category/arakoon/feed/'
 ENCODING = 'utf-8'
 FILTER = lambda f: \
     (f.endswith('.html') or f.endswith('.rst')) \
@@ -67,9 +64,6 @@ def run(src, target):
     LOGGER.info('Rendering %s to %s', src, target)
 
     context = {}
-
-    feed = feedparser.parse(URI)
-    context['feed'] = feed
 
     loader = jinja2.FileSystemLoader((src, ))
     environment = jinja2.Environment(
