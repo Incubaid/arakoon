@@ -20,6 +20,50 @@
     <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
     -->
+
+
+<script src='http://code.jquery.com/jquery-1.7.1.min.js'
+  type='text/javascript'></script>
+<script type='text/javascript'>
+  var FEED = "http://blog.incubaid.com/category/arakoon/feed/",
+      MAX_NEWS = 5;
+
+  jQuery(function($) {
+    var q = encodeURIComponent('SELECT * FROM rss WHERE url="' + FEED +'"'),
+        uri = 'http://query.yahooapis.com/v1/public/yql?format=json&q=' + q;
+
+
+    $.getJSON(uri, function(data) {
+      var container = $('div#news');
+
+      if(data['query'] && data['query']['results']) {
+        var items = data['query']['results']['item'],
+            count = Math.min(MAX_NEWS, items.length),
+            i = 0,
+            list = $('<ul>');
+
+        for(i = 0; i < count; i++) {
+          var entry = items[i];
+
+          list.append(
+            $('<li>').append(
+              $('<a>').attr('href', entry.link)
+                      .text(entry.title)))
+        }
+
+        container.append(list);
+
+      }
+      else {
+        container.html(
+          '<p>No items available, you can visit our ' +
+          '<a href="http://blog.incubaid.com">blog</a> for more updates.</p>'
+        );
+      }
+    });
+  });
+</script>
+
   </head>
 
   <body class='page-index'>
@@ -77,11 +121,8 @@
 <div class="row">
   <div class="span-one-third">
     <h2>News</h2>
-    <p>
-    
-    No news available
-    
-    </p>
+    <div id='news'>
+    </div>
   </div>
   <div class="span-one-third">
     <h2>Getting Started</h2>
