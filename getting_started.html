@@ -125,13 +125,13 @@ location of its configuration file.</p>
 arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_0
 arakoon-1.0.0$&gt; ./arakoon -config cfg/arakoon.ini --node arakoon_0
 </pre>
-<p>In another terminal, start the second node. Fortunately, Arakoon
+<p>In another terminal tab, start the second node. Fortunately, Arakoon
 considers its default configuration location to be <strong>./cfg/arakoon.ini</strong>.</p>
 <pre class="literal-block">
 arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_1
 arakoon-1.0.0$&gt; ./arakoon --node arakoon_1
 </pre>
-<p>In yet another terminal, start the third node:</p>
+<p>In yet another terminal tab, start the third node:</p>
 <pre class="literal-block">
 arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_2
 arakoon-1.0.0$&gt; ./arakoon --node arakoon_2
@@ -168,7 +168,7 @@ Called from file &quot;src/main/arakoon.ml&quot;, line 1, characters 0-12
 <h3>One node goes down</h3>
 <p>Go to the terminal tab for arakoon_0 and kill the node (<em>ctrl-c</em>).</p>
 <pre class="literal-block">
-./arakoon --node arakoon_0
+arakoon-1.0.0$&gt; ./arakoon -config cfg/arakoon.ini --node arakoon_0
 ^C
 arakoon-1.0.0$&gt;./arakoon --expect-progress-possible
 true
@@ -194,6 +194,31 @@ arakoon-1.0.0$&gt;./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog
 13:MasterSet ;&quot;arakoon_1&quot;;0
 ...
 </pre>
+</div>
+<div class="section" id="kill-another-node-and-whipe-it">
+<h3>Kill another Node and Whipe it</h3>
+<p>An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
+So go to the terminal tab for arakoon_1 and kill it.:</p>
+<pre class="literal-block">
+arakoon-1.0.0$&gt;./arakoon --node arakoon_1
+^C
+arakoon-1.0.0$&gt;./arakoon --get some_key
+Fatal error: exception Failure(&quot;No Master&quot;)
+Raised at file &quot;src/core/lwt.ml&quot;, line 557, characters 22-23
+Called from file &quot;src/unix/lwt_main.ml&quot;, line 38, characters 8-18
+Called from file &quot;src/client/client_main.ml&quot;, line 68, characters 12-31
+Called from file &quot;src/main/main.ml&quot;, line 395, characters 26-37
+Called from file &quot;src/main/arakoon.ml&quot;, line 1, characters 0-12
+arakoon-1.0.0$&gt;rm -rf /tmp/arakoon/arakoon_1/*
+arakoon-1.0.0$&gt;./arakoon --node arakoon_1
+</pre>
+<p>Now go to a free tab, and try to get the value:</p>
+<pre class="literal-block">
+arakoon-1.0.0$&gt;./arakoon --get some_key
+&quot;some_value&quot;
+</pre>
+<p>Arakoon nodes repair themselves using their siblings. Most of the time it's automatic,
+but sometimes they need assistence (if a database is corrupt fe)</p>
 </div>
 </div>
 </div>
