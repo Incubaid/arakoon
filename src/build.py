@@ -2,9 +2,6 @@ import os
 import os.path
 import logging
 
-import xml.xpath
-import xml.dom.minidom
-
 import jinja2
 
 import docutils
@@ -43,10 +40,12 @@ def render_rst(in_, out):
 
     title = doc.document['title']
 
-    body = xml.xpath.Evaluate(
-        '/html/body/div[@class=\'document\']',
-        xml.dom.minidom.parseString(text).documentElement)[0]
-    body_html = body.toxml()
+    utext = text.decode('utf-8')
+
+    body_open_start = utext.index(u'<body')
+    body_open_end = utext[body_open_start:].index(u'>') + body_open_start + 1
+    body_close_start = utext.index(u'</body>')
+    body_html = utext[body_open_end:body_close_start]
 
     template = RST_TEMPLATE % {
         'title': title,

@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: How To Create a Good Bug Report</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-bug_reporting_guidelines'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <img alt='Arakoon' title='Arakoon Logo' src='img/logo.png' id='logo' />
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+              <a href="index.html">Home</a>
+            </li>
+            <li>
+              <a href="about.html">About</a>
+            </li>
+            <li>
+              <a href="download.html">Download</a>
+            </li>
+            <li>
+              <a href="documentation.html">Documentation</a>
+            </li>
+            <li>
+              <a href="contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="how-to-create-a-good-bug-report">
+<h1 class="title">How To Create a Good Bug Report</h1>
+
+<p>Please insure to take into consideration at least six of the points mentioned
+below in your bug report. Incomplete bug reports are very hard to understand,
+reproduce and fix.</p>
+<ul class="simple">
+<li>Use <a class="reference external" href="http://jira.incubaid.com">http://jira.incubaid.com</a> to report the bug.</li>
+<li>Submit a test case, the smaller, the better. You can do this by clicking on
+the &quot;Create a new attachment&quot; link. When attaching a file, please set the
+correct MIME type from the list. For source code, &quot;Plain text&quot; is okay.</li>
+<li>Attach your Arakoon configuration files used on every Arakoon instance.</li>
+<li>Fill in the revision field of your Arakoon setup. This can be found by
+executing the command 'arakoon --version'.</li>
+<li>If the test involves libraries or assemblies that are not part of Arakoon,
+add infomation on where to download all dependencies, and how to
+compile/install them.</li>
+<li>Provide information about the version of the software you're using. This
+applies to both Arakoon and the operating system or relevant libraries.</li>
+<li>Provide the output you expect the test case to produce.</li>
+<li>Provide the actual output you get from the test case.</li>
+<li>If you are new to bug reporting, understand how you should set &quot;priority&quot;
+for your report. People tend to set CRITICAL or BLOCKER where they should
+not. Please keep in mind that no matter how important the bug is for you,
+it has nothing to do with the importance of the bug itself.</li>
+<li>Do not expect us to debug your software. We can not debug every application
+that is submitted to us, to improve the response time, you should create a
+self-contained test case that isolates the problem.</li>
+</ul>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='disclaimer.html'>Disclaimer</a>
+            |
+            <a href='privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>
