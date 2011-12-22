@@ -1,0 +1,197 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Introduction</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-intro'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <img alt='Arakoon' title='Arakoon Logo' src='img/logo.png' id='logo' />
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+              <a href="index.html">Home</a>
+            </li>
+            <li>
+              <a href="download.html">Download</a>
+            </li>
+            <li>
+              <a href="documentation.html">Documentation</a>
+            </li>
+            <li>
+              <a href="contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="introduction">
+<h1 class="title">Introduction</h1>
+
+<p>Arakoon is a key-value store that guarantees consistency above anything else.
+It was created by the Incubaid team due to a lack of existing solutions
+fitting our requirements, and is available as Open Source software.</p>
+<div class="section" id="goals">
+<h2>Goals</h2>
+<p>Arakoon aims to be easy to understand and use, whilst at the same time taking
+the following features into consideration.</p>
+<div class="section" id="consistency">
+<h3>Consistency</h3>
+<p>The system as a whole needs to provide a consistent view on the distributed
+state. This stems from the experience that eventual consistency is too heavy a
+burden for a user application to manage.</p>
+<p>A simple example is the retrieval of the value for a key where you might
+receive none, one or multiple values depending on the weather conditions. The
+next question is always: Why don’t a get a result? Is it because there is no
+value, or merely because I currently cannot retrieve it?</p>
+</div>
+<div class="section" id="conditional-and-atomic-updates">
+<h3>Conditional and Atomic Updates</h3>
+<p>We don't need full blown transactions (would be nice to have though), but we
+do need updates that abort if the state is not what we expect it to be. So at
+least an atomic conditional update and an atomic multi-update are needed.</p>
+</div>
+<div class="section" id="robustness">
+<h3>Robustness</h3>
+<p>The system must be able to cope with failure of individual components, without
+concessions to consistency.</p>
+<p>However, whenever consistency can no longer be guaranteed, updates must simply
+fail.</p>
+</div>
+<div class="section" id="locality-control">
+<h3>Locality Control</h3>
+<p>When we deploy a system over 2 datacenters, we want guarantees that the entire
+state is indeed present in both datacenters. This is something we could not get
+from distributed hash tables using consistent hashing.</p>
+</div>
+<div class="section" id="healing-recovery">
+<h3>Healing &amp; Recovery</h3>
+<p>Whenever a component dies and is subsequently revived or replaced, the system
+must be able to guide that component towards a situation where that node again
+fully participates. If this cannot be done fully automatically, then human
+intervention should be trivial.</p>
+</div>
+<div class="section" id="explicit-failure">
+<h3>Explicit Failure</h3>
+<p>Whenever there is something wrong, failure should propagate quite quickly.</p>
+<p>This in contrast to systems that keep on trying to remedy the situation
+themselves all the time.</p>
+</div>
+</div>
+<div class="section" id="when-to-use-arakoon">
+<h2>When to use Arakoon</h2>
+<p>Arakoon may not be for everyone. To get a clearer picture of what Arakoon is
+capable of, and to know whether or not it suits you, take a look at the table
+below.</p>
+<table border="1" class="when-to-use docutils">
+<colgroup>
+<col width="94%" />
+<col width="6%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Use Case</th>
+<th class="head">&nbsp;</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>You need to manage a limited set of key-value pairs, fitting on a single disk</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>You need the ability to replicate on multiple locations</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>You need immediate consistency over replicas</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>You need atomic (multi-)updates</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>You need range queries</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>Your applications do not handle eventual consistency</td>
+<td><img alt="y" src="img/check.gif" /></td>
+</tr>
+<tr><td>You need infinite scalability</td>
+<td><img alt="n" src="img/error.gif" /></td>
+</tr>
+<tr><td>You need built in security</td>
+<td><img alt="n" src="img/error.gif" /></td>
+</tr>
+<tr><td>You need windows on the server side</td>
+<td><img alt="n" src="img/error.gif" /></td>
+</tr>
+<tr><td>You need to store key/values sizes &gt;=16MB</td>
+<td><img alt="n" src="img/error.gif" /></td>
+</tr>
+</tbody>
+</table>
+<p>If the Arakoon features match your requirements, then continue reading about
+the deployment of an Arakoon cluster.</p>
+</div>
+<div class="section" id="arakoon-deployment">
+<h2>Arakoon Deployment</h2>
+<p>An Arakoon cluster consists of a small set of nodes that contain the full range
+of key-value pairs. Each node carries all the data, yet one node is assigned to
+be the master node.</p>
+<p>The master node manages all the updates for all the clients. Clients only talk
+to the master node, but may contact other nodes to discover who the master node
+is; they do so because nodes can assume different roles.</p>
+<p>The diagram below shows 3 clients connected to an Arakoon cluster that consists
+of 3 Arakoon nodes.</p>
+<img alt="Arakoon cluster deployment scheme" src="img/ArakoonDeployment.png" />
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='disclaimer.html'>Disclaimer</a>
+            |
+            <a href='privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>
