@@ -27,4 +27,8 @@ body.page-index h1 {
     padding-right: 0.3em;
 }
 
+table.when-to-use {
+    width: 60%;
+}
+
 /* vim: set sw=4 ts=4 et: */
