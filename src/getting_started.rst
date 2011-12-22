@@ -66,7 +66,7 @@ location of its configuration file.
     {{ prompt }} mkdir -p /tmp/arakoon/arakoon_0
     {{ prompt }} ./arakoon -config cfg/arakoon.ini --node arakoon_0
 
-In another terminal, start the second node. Fortunately, Arakoon
+In another terminal tab, start the second node. Fortunately, Arakoon
 considers its default configuration location to be **./cfg/arakoon.ini**.
 
 ::
@@ -74,7 +74,7 @@ considers its default configuration location to be **./cfg/arakoon.ini**.
     {{ prompt }} mkdir -p /tmp/arakoon/arakoon_1
     {{ prompt }} ./arakoon --node arakoon_1
 
-In yet another terminal, start the third node::
+In yet another terminal tab, start the third node::
 
     {{ prompt }} mkdir -p /tmp/arakoon/arakoon_2
     {{ prompt }} ./arakoon --node arakoon_2
@@ -113,7 +113,7 @@ Go to the terminal tab for arakoon_0 and kill the node (*ctrl-c*).
 
 ::
 
-    ./arakoon --node arakoon_0
+    {{prompt}} ./arakoon -config cfg/arakoon.ini --node arakoon_0
     ^C
     {{prompt}}./arakoon --expect-progress-possible
     true
@@ -138,3 +138,30 @@ disconnected,...). This is what it looks like::
     12:Delete    ;"some_key"
     13:MasterSet ;"arakoon_1";0
     ...
+
+
+Kill another Node and Whipe it
+------------------------------
+An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
+So go to the terminal tab for arakoon_1 and kill it.::
+
+   {{prompt}}./arakoon --node arakoon_1
+   ^C
+   {{prompt}}./arakoon --get some_key
+   Fatal error: exception Failure("No Master")
+   Raised at file "src/core/lwt.ml", line 557, characters 22-23
+   Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
+   Called from file "src/client/client_main.ml", line 68, characters 12-31
+   Called from file "src/main/main.ml", line 395, characters 26-37
+   Called from file "src/main/arakoon.ml", line 1, characters 0-12
+   {{prompt}}rm -rf /tmp/arakoon/arakoon_1/*
+   {{prompt}}./arakoon --node arakoon_1
+
+The node has been restarted.
+Now go to a free tab, and try to get the value::
+    
+    {{prompt}}./arakoon --get some_key
+    "some_value"
+
+Arakoon nodes repair themselves using their siblings. Most of the time it's automatic, 
+but sometimes they need assistence (if a database is corrupt fe)
