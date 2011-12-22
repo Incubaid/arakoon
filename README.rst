@@ -13,11 +13,9 @@ Finally, install the required dependencies:
 
 - Jinja2_, a Python template engine
 - Docutils_, a Python library for ReStructuredText handling
-- PyXML_, a Python library for XML processing
 
 .. _Jinja2: http://jinja.pocoo.org/
 .. _Docutils: http://docutils.sourceforge.net/
-.. _PyXML: http://pyxml.sourceforge.net/
 
 Editing
 =======
