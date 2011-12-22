@@ -26,9 +26,17 @@ body.page-index h1 {
     line-height: 27px;
     padding-right: 0.3em;
 }
+body.page-index div.hero-unit {
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+}
 
 table.when-to-use {
     width: 60%;
+}
+
+div.document div.section {
+    margin-top: 20px;
 }
 
 /* vim: set sw=4 ts=4 et: */
