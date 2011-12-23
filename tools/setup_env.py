@@ -265,6 +265,13 @@ def install_bisect():
          site_lib_dir + '/bisect/'],
         cwd = cwd)
  
+def install_baardskeerder():
+    url = 'git://github.com/Incubaid/baardskeerder.git'
+    sh (['git','clone',url], cwd = ROOT)
+    cwd = ROOT + '/baardskeerder/src'
+    sh (['make'], cwd = cwd, env = env)
+    sh (['make', 'install'], cwd = cwd, env = env)
+
 def do_it():
     clean()
     sh(['mkdir', '-p', ROOT])
@@ -275,6 +282,7 @@ def do_it():
     install_libev()
     install_lwt()
     install_camlbz2()
+    install_baardskeerder()
     if not options.no_x:
         install_lablgtk()
         install_cairo_ocaml()
@@ -283,8 +291,10 @@ def do_it():
         install_client()
     if options.bisect:
         install_bisect()
+    
     #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
     print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+    
 
 
 if __name__ == '__main__':
