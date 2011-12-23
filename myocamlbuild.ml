@@ -185,5 +185,7 @@ let _ = dispatch & function
     
     flag ["pp";"use_macro";"small_tlogs";
 	  "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
+    flag ["pp";"use_macro";"baardskeerder";"file:src/node/localstore.ml"] (S[A"-DBAARDSKEERDER"]);
+    
     flag ["library";"use_thread"](S[A"-thread"]);
   | _ -> ()

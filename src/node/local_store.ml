@@ -31,19 +31,27 @@ open Log_extra
 open Store
 open Unix.LargeFile
 
+IFDEF BAARDSKEERDER 
+THEN
+   module BT = Bs_btree.BS_btree
+   let _BT_NAME = "baardskeerder"
+ELSE
+   module BT = Hotc
+   let _BT_NAME = "tokyo cabinet"
+END
 
-let _save_i i (db:Hotc.db) =
+let _save_i i (db:BT.db) =
   let is =
     let buf = Buffer.create 10 in
     let () = Sn.sn_to buf i in
     Buffer.contents buf
   in
-  let () = Hotc.set db __i_key is in
+  let () = BT.set db __i_key is in
   Lwt.return ()
 
 let _consensus_i db =
   try
-    let i_string = Hotc.get db __i_key in
+    let i_string = BT.get db __i_key in
     let i,_ = Sn.sn_from i_string 0 in
     Lwt.return (Some i)
   with Not_found ->
@@ -51,7 +59,7 @@ let _consensus_i db =
 
 let _get_interval db = 
   try
-    let interval_s = Hotc.get db __interval_key in
+    let interval_s = BT.get db __interval_key in
     let interval,_ = Interval.interval_from interval_s 0 in
     Lwt.return interval
   with Not_found -> Lwt.return Interval.max
@@ -60,17 +68,17 @@ let _set_interval db range =
   let buf = Buffer.create 80 in
   let () = Interval.interval_to buf range in
   let range_s = Buffer.contents buf in
-  Hotc.set db __interval_key range_s
+  BT.set db __interval_key range_s
 
-let _set_routing (db:Hotc.db) routing =
+let _set_routing (db:BT.db) routing =
   let buf = Buffer.create 80 in
   let () = Routing.routing_to buf routing in
   let routing_s = Buffer.contents buf in
-  Hotc.set db __routing_key routing_s
+  BT.set db __routing_key routing_s
 
 let _get_routing_non_lwt db =
   try 
-    let routing_s = Hotc.get db __routing_key in
+    let routing_s = BT.get db __routing_key in
     let routing,_ = Routing.routing_from routing_s 0 in
     Some routing
   with Not_found -> None
@@ -108,7 +116,7 @@ let _incr_i db =
     let () = Sn.sn_to buf new_i in
     Buffer.contents buf
   in
-  let () = Hotc.set db __i_key new_is in
+  let () = BT.set db __i_key new_is in
   (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s" 
     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
   >>= fun () -> *)
@@ -116,32 +124,32 @@ let _incr_i db =
 
 let _who_master db = 
   try
-    let m = Hotc.get db __master_key in
-    let ls_buff = Hotc.get db __lease_key in
+    let m = BT.get db __master_key in
+    let ls_buff = BT.get db __lease_key in
     let ls,_ = Llio.int64_from ls_buff 0 in
     Lwt.return (Some (m,ls))
   with Not_found -> 
     Lwt.return None
 
 
-let _get _pf bdb key = Hotc.get bdb (_pf ^ key)
+let _get _pf bdb key = BT.get bdb (_pf ^ key)
 
-let _set _pf bdb key value = Hotc.set bdb (_pf ^ key) value
+let _set _pf bdb key value = BT.set bdb (_pf ^ key) value
 
-let _delete _pf bdb key    = Hotc.delete_val bdb (_pf ^ key)
+let _delete _pf bdb key    = BT.delete_val bdb (_pf ^ key)
 
 let _test_and_set _pf bdb key expected wanted =
   let key' = _pf ^ key in
   try
-    let g = Hotc.get bdb key' in
+    let g = BT.get bdb key' in
     match expected with
       | Some e when e = g ->
 	begin
 	  match wanted with 
 	    | Some wanted_s ->
-	      let () = Hotc.set bdb key' wanted_s in Some g
+	      let () = BT.set bdb key' wanted_s in Some g
 	    | None ->
-	      let () = Hotc.delete_val bdb key' in Some g
+	      let () = BT.delete_val bdb key' in Some g
 	end
       | _ -> Some g
   with Not_found ->
@@ -150,19 +158,19 @@ let _test_and_set _pf bdb key expected wanted =
 	begin
 	  match wanted with
 	    | Some wanted_s ->
-	      let () = Hotc.set bdb key' wanted_s in None
+	      let () = BT.set bdb key' wanted_s in None
 	    | None -> None		   
 	end
       | Some v' -> None
 
 let _range_entries _pf bdb first finc last linc max =
-  let keys_array = Hotc.range bdb (_f _pf first) finc (_l _pf last) linc max in
+  let keys_array = BT.range bdb (_f _pf first) finc (_l _pf last) linc max in
   let keys_list = Array.to_list keys_array in
   let pl = String.length _pf in
   let x = List.fold_left
     (fun ret_list k ->
       let l = String.length k in
-      ((String.sub k pl (l-pl)), Hotc.get bdb k) :: ret_list )
+      ((String.sub k pl (l-pl)), BT.get bdb k) :: ret_list )
     [] 
     keys_list
   in x
@@ -172,12 +180,12 @@ let _assert _pf bdb key vo =
   match vo with
     | None ->
       begin
-	try let _ = Hotc.get bdb pk in false
+	try let _ = BT.get bdb pk in false
 	with Not_found -> true
       end
     | Some v ->
       begin
-	try let v' = Hotc.get bdb pk in v = v'
+	try let v' = BT.get bdb pk in v = v'
 	with Not_found -> false
       end
 
@@ -243,13 +251,13 @@ let _user_function bdb (interval:Interval.t) (name:string) (po:string option) =
 
 
 let _set_master db master (lease_start:int64) =  
-  Hotc.set db __master_key master;
+  BT.set db __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
   let lease = Buffer.contents buffer in
-  Hotc.set db __lease_key lease
+  BT.set db __lease_key lease
 
-let rec _sequence _pf (db:Hotc.db) interval updates =
+let rec _sequence _pf (db:BT.db) interval updates =
   let do_one = function
     | Update.Set (key,value) -> _set _pf db key value
     | Update.Delete key -> _delete _pf db key
@@ -299,36 +307,36 @@ let rec _sequence _pf (db:Hotc.db) interval updates =
 
 
 let _set_master bdb master (lease_start:int64) =  
-  Hotc.set bdb __master_key master;
+  BT.set bdb __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
   let lease = Buffer.contents buffer in
-  Hotc.set bdb __lease_key lease
+  BT.set bdb __lease_key lease
 
 
-let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Hotc.db -> 'a Lwt.t) =
+let _tx_with_incr (incr: unit -> Sn.t ) (db: BT.t) (f:BT.db -> 'a Lwt.t) =
   let new_i = incr () in 
   Lwt.catch
     (fun () ->
-      Hotc.transaction db
+      BT.transaction db
 	(fun db ->
 	  _save_i new_i db >>= fun () ->
 	  f db >>= fun (a:'a) ->
 	  Lwt.return a)
     )
     (fun ex ->
-      Hotc.transaction db (_save_i new_i) >>= fun () ->
+      BT.transaction db (_save_i new_i) >>= fun () ->
       Lwt.fail ex)
 
 let get_construct_params db_name ~mode=
-  Hotc.create db_name ~mode >>= fun db ->
-  Hotc.read db _get_interval >>= fun interval ->
-  Hotc.read db _get_routing >>= fun routing_o ->
-  Hotc.read db _who_master >>= fun mlo ->
-  Hotc.read db _consensus_i >>= fun store_i ->
+  BT.create db_name ~mode >>= fun db ->
+  BT.read db _get_interval >>= fun interval ->
+  BT.read db _get_routing >>= fun routing_o ->
+  BT.read db _who_master >>= fun mlo ->
+  BT.read db _consensus_i >>= fun store_i ->
   Lwt.return (db, interval, routing_o, mlo, store_i)
   
-class local_store (db_location:string) (db:Hotc.t) 
+class local_store (db_location:string) (db:BT.t) 
   (interval:Interval.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
@@ -361,7 +369,7 @@ object(self: #store)
   method quiesced () = _quiesced
      
   method private open_db () mode = 
-    let () = Hotc.open_t db mode in Lwt.return ()
+    let () = BT.open_t db mode in Lwt.return ()
   
   method _interval_ok key =
     let ok = Interval.is_ok _interval key in
@@ -375,8 +383,8 @@ object(self: #store)
   method exists ?(_pf = __prefix) key =
     Lwt.catch
       ( fun () ->
-        let bdb = Hotc.get_bdb db in
-        Lwt.return (Hotc.get bdb (_pf ^ key)) >>= fun _ ->
+        let bdb = BT.get_bdb db in
+        Lwt.return (BT.get bdb (_pf ^ key)) >>= fun _ ->
 	      Lwt.return true
       )
       (function | Not_found -> Lwt.return false | exn -> Lwt.fail exn)
@@ -384,18 +392,22 @@ object(self: #store)
   method get ?(_pf = __prefix) key =
     Lwt.catch
       (fun () -> 
-        let bdb = Hotc.get_bdb db in
-        Lwt.return (Hotc.get bdb (_pf ^ key)))
+        let bdb = BT.get_bdb db in
+        let rk = _pf ^ key in
+        let v = BT.get bdb rk in
+        Lwt.return v)
       (function 
-	| Failure _ -> Lwt.fail CorruptStore
+	| Failure s -> 
+          Lwt_log.info_f "Failure %S" s >>= fun () -> 
+          Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
   method multi_get ?(_pf = __prefix) keys =
-    let bdb = Hotc.get_bdb db in 
+    let bdb = BT.get_bdb db in 
     let vs = List.fold_left 
 	  (fun acc key -> 
 	    try
-	      let v = Hotc.get bdb (_pf ^ key) in 
+	      let v = BT.get bdb (_pf ^ key) in 
 	      v::acc
 	    with Not_found -> 
 	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
@@ -423,23 +435,23 @@ object(self: #store)
     then
       Lwt.return ()
     else
-      Hotc.transaction db (_save_i new_i)
+      BT.transaction db (_save_i new_i)
     end
 
       
   method range ?(_pf=__prefix) first finc last linc max =
-    let bdb = Hotc.get_bdb db in 
-    Lwt.return (Hotc.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
+    let bdb = BT.get_bdb db in 
+    Lwt.return (BT.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
     Lwt.return (_filter _pf r)
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
-    let bdb = Hotc.get_bdb db in 
+    let bdb = BT.get_bdb db in 
     let r = _range_entries _pf bdb first finc last linc max in
 		Lwt.return r
      
   method prefix_keys ?(_pf=__prefix) prefix max =
-    let bdb = Hotc.get_bdb db in 
-    let keys_array = Hotc.prefix_keys bdb (_pf ^ prefix) max in
+    let bdb = BT.get_bdb db in 
+    let keys_array = BT.prefix_keys bdb (_pf ^ prefix) max in
     let keys_list = _filter _pf keys_array in
     Lwt.return keys_list
     
@@ -463,7 +475,7 @@ object(self: #store)
     if _quiesced then
       Lwt.return ()
     else 
-        Hotc.transaction db 
+        BT.transaction db 
         (fun db -> _set_master db master lease;
 	  Lwt.return ()
         )
@@ -498,11 +510,11 @@ object(self: #store)
     Lwt.return _store_i
       
   method close () =
-    Hotc.close db >>= fun () ->
+    BT.close db >>= fun () ->
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
       
-  method get_location () = Hotc.filename db
+  method get_location () = BT.filename db
   
   method reopen f =
     let mode = 
@@ -513,10 +525,10 @@ object(self: #store)
         Bdb.default_mode
     end in 
     Lwt_log.debug "local_store::reopen calling Hotc::reopen" >>= fun () ->
-    Hotc.reopen db f mode >>= fun () ->
+    BT.reopen db f mode >>= fun () ->
     Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
-    (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
-    let bdb = Hotc.get_bdb db in
+    (* BT.transaction db _consensus_i >>= fun store_i -> *)
+    let bdb = BT.get_bdb db in
     _consensus_i bdb >>= fun store_i -> 
     _store_i <- store_i ;
     Lwt.return ()
@@ -558,7 +570,7 @@ object(self: #store)
     
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
-    Hotc.transaction db (fun db -> Lwt.return ( Hotc.get_key_count db ) ) >>= fun raw_count ->
+    BT.transaction db (fun db -> Lwt.return ( BT.get_key_count db ) ) >>= fun raw_count ->
     (* Leave out administrative keys *)
     self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys -> 
     let admin_key_count = List.length admin_keys in
@@ -601,10 +613,10 @@ object(self: #store)
         match direction with
         | Routing.UPPER_BOUND ->
           let skip_keys lcdb cursor =
-            let () = Hotc.first lcdb cursor in
+            let () = BT.first lcdb cursor in
             let rec skip_admin_key () =
               begin
-                let k = Hotc.key lcdb cursor in
+                let k = BT.key lcdb cursor in
                 if k.[0] <> __adminprefix.[0]
                 then
                   Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
@@ -613,7 +625,7 @@ object(self: #store)
                     Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
                     begin
                       try
-                        Hotc.next lcdb cursor;
+                        BT.next lcdb cursor;
                         skip_admin_key ()
                       with Not_found -> ()
                     end
@@ -629,7 +641,7 @@ object(self: #store)
                 | None -> (fun k -> false)
             end
           in
-          skip_keys, Hotc.next, cmp 
+          skip_keys, BT.next, cmp 
         | Routing.LOWER_BOUND ->
           let cmp =
             begin
@@ -638,16 +650,16 @@ object(self: #store)
                 | None -> (fun k -> k.[0] <> __prefix.[0])
             end
           in
-          Hotc.last, Hotc.prev, cmp 
+          BT.last, BT.prev, cmp 
       end
     in
     Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option_to_string border) >>= fun () ->
     let buf = Buffer.create 128 in
     Lwt.finalize
       (fun () ->
-        Hotc.transaction db 
+        BT.transaction db 
           (fun txdb -> 
-            Hotc.with_cursor txdb 
+            BT.with_cursor txdb 
             (fun lcdb cursor ->
               Buffer.add_string buf "1\n";
               let limit = 1024 * 1024 in
@@ -657,8 +669,8 @@ object(self: #store)
                 let rec loop acc ts =
                   begin
                     try 
-                      let k = Hotc.key   lcdb cursor in
-                      let v = Hotc.value lcdb cursor in
+                      let k = BT.key   lcdb cursor in
+                      let v = BT.value lcdb cursor in
                       if ts >= limit  or (key_cmp k)
                       then acc
                       else
@@ -695,7 +707,7 @@ let make_local_store ?(read_only=false) db_name =
     then Bdb.readonly_mode
     else Bdb.default_mode
   in
-  Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
+  Lwt_log.info_f "Creating local store %S at %s" _BT_NAME db_name >>= fun () ->
   get_construct_params db_name ~mode 
   >>= fun (db, interval, routing_o, mlo, store_i) -> 
   let store = new local_store db_name db interval routing_o mlo store_i in

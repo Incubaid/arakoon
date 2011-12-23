@@ -1,5 +1,5 @@
 
-module type TC_ISH = sig
+module type BTREE_ISH = sig
   type t
   type db
   type cursor

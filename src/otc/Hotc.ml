@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Otc
-open Tc_ish
+open Btree_ish
 open Lwt
 
 module Hotc = (struct
@@ -177,4 +177,4 @@ module Hotc = (struct
 		one [] batch_size
 	  )
       )
-end : TC_ISH)
+end : BTREE_ISH)

@@ -10,6 +10,7 @@ true: package(dynlink)
 "doc": include
 "src":include
 "src/otc":include
+"src/bs": include
 "src/tools":include
 "src/client":include
 "src/toy":include
@@ -18,6 +19,7 @@ true: package(dynlink)
 "src/tlog": include
 "src/tlog/tlogcommon.ml": use_macro
 "src/node": include
+"src/node/local_store.ml": use_macro
 "src/system": include
 "src/inifiles": include
 "src/nursery": include
