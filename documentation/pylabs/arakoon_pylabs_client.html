@@ -61,7 +61,6 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="arakoon-pylabs-client">
 <h1 class="title">Arakoon PyLabs Client</h1>
 
@@ -95,8 +94,8 @@ myClient.getDirtyReadNode(        myClient.statistics(
 myClient.hello(                   myClient.testAndSet(
 myClient.multiGet(                myClient.whoMaster(
 </pre>
-<div class="tip">
-<p class="first admonition-title">Tip</p>
+<div class="alert-message block-message info tip">
+<p class="first admonition-title"><strong>Tip</strong></p>
 <p>If the client is running on one of the Arakoon machines there is a shortcut
 method for generating the client configuration as follows:</p>
 <pre class="last literal-block">
@@ -139,29 +138,15 @@ dirtyReader.allowDirtyReads()
 <div class="section" id="normal-set-operations">
 <h3>Normal set operations</h3>
 <p>If we would like to add the following keys and their values:</p>
-<table border="1" class="docutils">
-<colgroup>
-<col width="36%" />
-<col width="64%" />
-</colgroup>
-<thead valign="bottom">
-<tr><th class="head">Key</th>
+<table border="1" class="docutils"><colgroup><col width="36%"><col width="64%"></colgroup><thead valign="bottom"><tr><th class="head">Key</th>
 <th class="head">Value</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr><td>1</td>
+</tr></thead><tbody valign="top"><tr><td>1</td>
 <td>Value A</td>
-</tr>
-<tr><td>2</td>
+</tr><tr><td>2</td>
 <td>Value B</td>
-</tr>
-<tr><td>3</td>
+</tr><tr><td>3</td>
 <td>Value C</td>
-</tr>
-</tbody>
-</table>
-<p>We use the set() method as follows:</p>
+</tr></tbody></table><p>We use the set() method as follows:</p>
 <pre class="literal-block">
 myClient.set('1', 'Value A')
 myClient.set('2', 'Value B')
@@ -189,7 +174,7 @@ keys.</p>
 <h3>Getting the Value of a Key</h3>
 <p>To continue with the previous example, let's assume we want to retrieve that
 value of key '2', in this case we would use:</p>
-<div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;2&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'2'</span><span class="p">)</span>
 </pre></div>
 <p>This returns the value for key '2'.</p>
 </div>
@@ -197,13 +182,11 @@ value of key '2', in this case we would use:</p>
 <h3>Getting a Range of Keys</h3>
 <p>To get a range of the available keys present between two keys, we need to
 specify 4 things:</p>
-<ol class="arabic simple">
-<li>Starting key.</li>
+<ol class="arabic simple"><li>Starting key.</li>
 <li>If we shall include the starting key in the result.</li>
 <li>Ending key.</li>
 <li>If we shall include the ending key in the result.</li>
-</ol>
-<p>So in our case, if we want know the keys that lie in the range between key '1'
+</ol><p>So in our case, if we want know the keys that lie in the range between key '1'
 and key '3', including both the starting and ending keys. In this case, we
 use:</p>
 <pre class="literal-block">

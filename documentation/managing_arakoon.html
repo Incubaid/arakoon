@@ -61,7 +61,6 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="managing-arakoon">
 <h1 class="title">Managing Arakoon</h1>
 
@@ -96,8 +95,8 @@ my_cluster.cfg to arakoon.ini.</p>
 other machines, which also have Arakoon installed. Then start another node of
 the cluster. Once there are two nodes up, you can start using the Arakoon
 cluster.</p>
-<div class="important">
-<p class="first admonition-title">Important</p>
+<div class="alert-message block-message warning important">
+<p class="first admonition-title"><strong>Important</strong></p>
 <p class="last">When you run Arakoon as daemon, you must use an absolute path to the
 configuration file.</p>
 </div>
@@ -110,8 +109,8 @@ list of nodes in the cluster, just define the learner.</p>
 <p>In the definition of the Learner node you must indicate that the node is a
 learner and from which targets it must learn. The other parameters are similar
 to a normal node.</p>
-<div class="important">
-<p class="first admonition-title">Important</p>
+<div class="alert-message block-message warning important">
+<p class="first admonition-title"><strong>Important</strong></p>
 <p class="last">Do not forget to update all the configuration files of your cluster.</p>
 </div>
 <pre class="literal-block">
@@ -159,8 +158,8 @@ way:</p>
 <pre class="literal-block">
 arakoon -config /root/cfg/my_cluster.cfg --node Node_4 -catchup-only
 </pre>
-<div class="important">
-<p class="first admonition-title">Important</p>
+<div class="alert-message block-message warning important">
+<p class="first admonition-title"><strong>Important</strong></p>
 <p class="last">Make sure that the node is added to the cluster parameter in the
 configuration file.</p>
 </div>
@@ -193,31 +192,31 @@ arakoon --dump-tlog &lt;path_to_tlog_file&gt;</blockquote>
 <p>For example:</p>
 <pre class="literal-block">
 arakoon --dump-tlog /opt/qbase5/var/db/mycluster/mycluster_0/000.tlog
-0:MasterSet ;&quot;mycluster_0&quot;;0
-1:MasterSet ;&quot;mycluster_0&quot;;0
-2:MasterSet ;&quot;mycluster_0&quot;;0
-3:MasterSet ;&quot;mycluster_0&quot;;0
-4:MasterSet ;&quot;mycluster_0&quot;;0
-5:MasterSet ;&quot;mycluster_0&quot;;0
-6:MasterSet ;&quot;mycluster_0&quot;;0
-7:MasterSet ;&quot;mycluster_0&quot;;0
-8:MasterSet ;&quot;mycluster_0&quot;;0
-9:MasterSet ;&quot;mycluster_0&quot;;0
-10:MasterSet ;&quot;mycluster_0&quot;;0
-11:MasterSet ;&quot;mycluster_0&quot;;0
-12:MasterSet ;&quot;mycluster_0&quot;;0
-13:MasterSet ;&quot;mycluster_0&quot;;0
-14:MasterSet ;&quot;mycluster_0&quot;;0
-15:MasterSet ;&quot;mycluster_0&quot;;0
-16:MasterSet ;&quot;mycluster_0&quot;;0
-17:MasterSet ;&quot;mycluster_0&quot;;0
-18:MasterSet ;&quot;mycluster_0&quot;;0
-19:MasterSet ;&quot;mycluster_0&quot;;0
-20:MasterSet ;&quot;mycluster_0&quot;;0
-21:MasterSet ;&quot;mycluster_0&quot;;0
-22:MasterSet ;&quot;mycluster_0&quot;;0
-23:Set       ;&quot;key1&quot;;6
-24:MasterSet ;&quot;mycluster_0&quot;;0
+0:MasterSet ;"mycluster_0";0
+1:MasterSet ;"mycluster_0";0
+2:MasterSet ;"mycluster_0";0
+3:MasterSet ;"mycluster_0";0
+4:MasterSet ;"mycluster_0";0
+5:MasterSet ;"mycluster_0";0
+6:MasterSet ;"mycluster_0";0
+7:MasterSet ;"mycluster_0";0
+8:MasterSet ;"mycluster_0";0
+9:MasterSet ;"mycluster_0";0
+10:MasterSet ;"mycluster_0";0
+11:MasterSet ;"mycluster_0";0
+12:MasterSet ;"mycluster_0";0
+13:MasterSet ;"mycluster_0";0
+14:MasterSet ;"mycluster_0";0
+15:MasterSet ;"mycluster_0";0
+16:MasterSet ;"mycluster_0";0
+17:MasterSet ;"mycluster_0";0
+18:MasterSet ;"mycluster_0";0
+19:MasterSet ;"mycluster_0";0
+20:MasterSet ;"mycluster_0";0
+21:MasterSet ;"mycluster_0";0
+22:MasterSet ;"mycluster_0";0
+23:Set       ;"key1";6
+24:MasterSet ;"mycluster_0";0
 ...
 </pre>
 </div>

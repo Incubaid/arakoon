@@ -61,114 +61,65 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="arakoon-0-11-1-build-1">
 <h1 class="title">Arakoon 0.11.1 Build 1</h1>
 
 <p>Published on: September 21st 2011</p>
 <div class="section" id="release">
 <h2>Release</h2>
-<table border="1" class="docutils">
-<colgroup>
-<col width="25%" />
-<col width="28%" />
-<col width="25%" />
-<col width="22%" />
-</colgroup>
-<thead valign="bottom">
-<tr><th class="head">QPackage name</th>
+<table border="1" class="docutils"><colgroup><col width="25%"><col width="28%"><col width="25%"><col width="22%"></colgroup><thead valign="bottom"><tr><th class="head">QPackage name</th>
 <th class="head">QPackage version</th>
 <th class="head">QPackage build</th>
 <th class="head">HG revision</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr><td>arakoon</td>
+</tr></thead><tbody valign="top"><tr><td>arakoon</td>
 <td>0.11.1</td>
 <td>1</td>
 <td>4317a18c0e65</td>
-</tr>
-<tr><td>arakoon_client</td>
+</tr><tr><td>arakoon_client</td>
 <td>0.11.1</td>
 <td>1</td>
 <td>4317a18c0e65</td>
-</tr>
-</tbody>
-</table>
-</div>
+</tr></tbody></table></div>
 <div class="section" id="what-is-fixed">
 <h2>What is fixed</h2>
-<table border="1" class="docutils">
-<colgroup>
-<col width="18%" />
-<col width="83%" />
-</colgroup>
-<thead valign="bottom">
-<tr><th class="head">Jira key</th>
+<table border="1" class="docutils"><colgroup><col width="18%"><col width="83%"></colgroup><thead valign="bottom"><tr><th class="head">Jira key</th>
 <th class="head">Comment</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-187">ARAKOON-187</a></td>
+</tr></thead><tbody valign="top"><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-187">ARAKOON-187</a></td>
 <td>docstring incorrect for remoteCollapse method</td>
-</tr>
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-232">ARAKOON-232</a></td>
+</tr><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-232">ARAKOON-232</a></td>
 <td>Wrong docstring on cluster.getStatus()</td>
-</tr>
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-235">ARAKOON-235</a></td>
-<td>Node goes done with: Multi_paxos.PaxosFatal(&quot;wait_for_accepteds:
-received &quot;Accept(...,..., ...)&quot; with same n: FATAL&quot;)</td>
-</tr>
-</tbody>
-</table>
-</div>
+</tr><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-235">ARAKOON-235</a></td>
+<td>Node goes done with: Multi_paxos.PaxosFatal("wait_for_accepteds:
+received "Accept(...,..., ...)" with same n: FATAL")</td>
+</tr></tbody></table></div>
 <div class="section" id="what-is-new">
 <h2>What is new</h2>
-<table border="1" class="docutils">
-<colgroup>
-<col width="29%" />
-<col width="71%" />
-</colgroup>
-<thead valign="bottom">
-<tr><th class="head">Jira key</th>
+<table border="1" class="docutils"><colgroup><col width="29%"><col width="71%"></colgroup><thead valign="bottom"><tr><th class="head">Jira key</th>
 <th class="head">Comment</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-231">ARAKOON-231</a></td>
+</tr></thead><tbody valign="top"><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-231">ARAKOON-231</a></td>
 <td>Read-only mode for single node</td>
-</tr>
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-236">ARAKOON-236</a></td>
+</tr><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-236">ARAKOON-236</a></td>
 <td>Optimize after every collapse</td>
-</tr>
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-237">ARAKOON-237</a></td>
+</tr><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-237">ARAKOON-237</a></td>
 <td>Reset statistics every x mintues</td>
-</tr>
-<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-238">ARAKOON-238</a></td>
+</tr><tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-238">ARAKOON-238</a></td>
 <td>Log configuration file at startup</td>
-</tr>
-</tbody>
-</table>
-</div>
+</tr></tbody></table></div>
 <div class="section" id="remarks">
 <h2>Remarks</h2>
 <p>Upgrading from Arakoon versions older than 0.10.0 requires the following steps:</p>
-<ul class="simple">
-<li>Stop all nodes of your Arakoon cluster</li>
+<ul class="simple"><li>Stop all nodes of your Arakoon cluster</li>
 <li>Update the binaries / QPackages depending on your installation setup</li>
 <li>Execute the <tt class="docutils literal">q.manage.arakoon.upgrade()</tt> method on every node of your Arakoon cluster</li>
 <li>Start all nodes of your Arakoon cluster</li>
 <li><strong>Make sure you RESTART the q-shell AFTER executing the upgrade method in order the unload the old command tools extensions from the q-shell!</strong></li>
-</ul>
-<p>Upgrading from Arakoon version 0.10.0 and above supports rolling upgrades:</p>
-<ul class="simple">
-<li>Stop one node of your Arakoon cluster</li>
+</ul><p>Upgrading from Arakoon version 0.10.0 and above supports rolling upgrades:</p>
+<ul class="simple"><li>Stop one node of your Arakoon cluster</li>
 <li>Update the binaries / QPackages depending on your installation setup</li>
 <li>Execute the q.manage.arakoon.upgrade() method on every node of your Arakoon cluster</li>
 <li>Start the node again</li>
 <li>Perform the steps above on every node of your Arakoon cluster</li>
-</ul>
-<p>More information regarding the <a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-231">Read-only mode feature</a> can be found <a class="reference external" href="../documentation/arakoon_configuration.html">here</a> and <a class="reference external" href="../documentation/pylabs/configuring_arakoon.html">here</a>.</p>
+</ul><p>More information regarding the <a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-231">Read-only mode feature</a> can be found <a class="reference external" href="../documentation/arakoon_configuration.html">here</a> and <a class="reference external" href="../documentation/pylabs/configuring_arakoon.html">here</a>.</p>
 </div>
 </div>
 

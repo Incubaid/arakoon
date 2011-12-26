@@ -61,7 +61,6 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="arakoon-configuration">
 <h1 class="title">Arakoon Configuration</h1>
 
@@ -122,16 +121,13 @@ log_level = debug
 <div class="section" id="content-of-a-configuration-file">
 <h2>Content of a Configuration File</h2>
 <p>An Arakoon configuration file consists of at least two sections:</p>
-<ul class="simple">
-<li>global</li>
+<ul class="simple"><li>global</li>
 <li>node</li>
-</ul>
-<div class="section" id="global-section">
+</ul><div class="section" id="global-section">
 <h3>Global Section</h3>
 <p>The global section of the configuration file defines the Arakoon setup.
 These are the possible parameters:</p>
-<dl class="docutils">
-<dt>cluster</dt>
+<dl class="docutils"><dt>cluster</dt>
 <dd>A comma-separated list with the names of the nodes in the setup</dd>
 <dt>cluster_id</dt>
 <dd>The name of the cluster</dd>
@@ -153,10 +149,9 @@ that you restart your Arakoon cluster after changing the read-only flag!</dd>
 nodes (see also <a class="reference external" href="arakoon_deployment.html">Arakoon Deployment</a>) before
 writing data in the database. By using this parameter you can set the number
 of acknowledgments.</dd>
-</dl>
-<div class="warning">
+</dl><div class="warning">
 <p class="first admonition-title">Warning</p>
-<p>Only set this if you know what you’re doing and understand the risk.</p>
+<p>Only set this if you know what you&#8217;re doing and understand the risk.</p>
 <p>In a two node setup, you might want to be able to continue when 1 node is
 down, so you lower the quorum to 1 ISO, the default.</p>
 <p class="last">The downside is that if you do this on both sides of a split network you
@@ -167,8 +162,7 @@ will end up having 2 realities.</p>
 <h3>Node Section</h3>
 <p>The node section of the configuration file defines each node in the Arakoon
 setup. These are the possible parameters:</p>
-<dl class="docutils">
-<dt>ip</dt>
+<dl class="docutils"><dt>ip</dt>
 <dd>IP address of the node</dd>
 <dt>client_port</dt>
 <dd>Port via which a client connects to the node</dd>
@@ -190,8 +184,7 @@ the node database and not the transaction log file.</dd>
 same directory as the home location but you may choose another location.</dd>
 <dt>log_level</dt>
 <dd><p class="first">The level of logging on the node, possible options are:</p>
-<ul class="last simple">
-<li>fatal: contains only errors with a fatal result for the setup</li>
+<ul class="last simple"><li>fatal: contains only errors with a fatal result for the setup</li>
 <li>error: contains only errors and errors with a fatal result for the setup</li>
 <li>warning: contains only warnings, errors, and errors with a fatal result
 for the setup</li>
@@ -199,14 +192,12 @@ for the setup</li>
 <li>info: the recommended level, informational messages, for example
 connect/disconnect of a client</li>
 <li>debug: includes all logging, only used for debugging purposes</li>
-</ul>
-</dd>
+</ul></dd>
 <dt>disable_tlog_compression <em>(optional)</em></dt>
 <dd>A transaction log is by default compressed when it has reached its maximum
 of entries (100.000). If you don't want to compress these log, set the
 parameter to true.</dd>
-</dl>
-</div>
+</dl></div>
 </div>
 <div class="section" id="forced-vs-preferred-master">
 <h2>Forced vs Preferred Master</h2>

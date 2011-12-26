@@ -61,7 +61,6 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="introduction">
 <h1 class="title">Introduction</h1>
 
@@ -79,7 +78,7 @@ state. This stems from the experience that eventual consistency is too heavy a
 burden for a user application to manage.</p>
 <p>A simple example is the retrieval of the value for a key where you might
 receive none, one or multiple values depending on the weather conditions. The
-next question is always: Why don’t a get a result? Is it because there is no
+next question is always: Why don&#8217;t a get a result? Is it because there is no
 value, or merely because I currently cannot retrieve it?</p>
 </div>
 <div class="section" id="conditional-and-atomic-updates">
@@ -120,50 +119,29 @@ themselves all the time.</p>
 <p>Arakoon may not be for everyone. To get a clearer picture of what Arakoon is
 capable of, and to know whether or not it suits you, take a look at the table
 below.</p>
-<table border="1" class="when-to-use docutils">
-<colgroup>
-<col width="94%" />
-<col width="6%" />
-</colgroup>
-<thead valign="bottom">
-<tr><th class="head">Use Case</th>
-<th class="head">&nbsp;</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr><td>You need to manage a limited set of key-value pairs, fitting on a single disk</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>You need the ability to replicate on multiple locations</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>You need immediate consistency over replicas</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>You need atomic (multi-)updates</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>You need range queries</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>Your applications do not handle eventual consistency</td>
-<td><img alt="y" src="../img/check.gif" /></td>
-</tr>
-<tr><td>You need infinite scalability</td>
-<td><img alt="n" src="../img/error.gif" /></td>
-</tr>
-<tr><td>You need built in security</td>
-<td><img alt="n" src="../img/error.gif" /></td>
-</tr>
-<tr><td>You need windows on the server side</td>
-<td><img alt="n" src="../img/error.gif" /></td>
-</tr>
-<tr><td>You need to store key/values sizes &gt;=16MB</td>
-<td><img alt="n" src="../img/error.gif" /></td>
-</tr>
-</tbody>
-</table>
-<p>If the Arakoon features match your requirements, then continue reading about
+<table border="1" class="when-to-use docutils"><colgroup><col width="94%"><col width="6%"></colgroup><thead valign="bottom"><tr><th class="head">Use Case</th>
+<th class="head">&#160;</th>
+</tr></thead><tbody valign="top"><tr><td>You need to manage a limited set of key-value pairs, fitting on a single disk</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>You need the ability to replicate on multiple locations</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>You need immediate consistency over replicas</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>You need atomic (multi-)updates</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>You need range queries</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>Your applications do not handle eventual consistency</td>
+<td><img alt="y" src="../img/check.gif"></td>
+</tr><tr><td>You need infinite scalability</td>
+<td><img alt="n" src="../img/error.gif"></td>
+</tr><tr><td>You need built in security</td>
+<td><img alt="n" src="../img/error.gif"></td>
+</tr><tr><td>You need windows on the server side</td>
+<td><img alt="n" src="../img/error.gif"></td>
+</tr><tr><td>You need to store key/values sizes &gt;=16MB</td>
+<td><img alt="n" src="../img/error.gif"></td>
+</tr></tbody></table><p>If the Arakoon features match your requirements, then continue reading about
 the deployment of an Arakoon cluster.</p>
 </div>
 <div class="section" id="arakoon-deployment">
@@ -176,8 +154,7 @@ to the master node, but may contact other nodes to discover who the master node
 is; they do so because nodes can assume different roles.</p>
 <p>The diagram below shows 3 clients connected to an Arakoon cluster that consists
 of 3 Arakoon nodes.</p>
-<img alt="Arakoon cluster deployment scheme" src="../img/ArakoonDeployment.png" />
-</div>
+<img alt="Arakoon cluster deployment scheme" src="../img/ArakoonDeployment.png"></div>
 </div>
 
 

@@ -61,7 +61,6 @@
 
     <div class="container" id='main'>
       
-
 <div class="document" id="getting-started">
 <h1 class="title">Getting Started</h1>
 
@@ -154,15 +153,15 @@ arakoon_1
 <pre class="literal-block">
 arakoon-1.0.0$&gt; ./arakoon --set some_key some_value
 arakoon-1.0.0$&gt; ./arakoon --get some_key
-&quot;some_value&quot;
+"some_value"
 arakoon-1.0.0$&gt; ./arakoon --delete some_key
 arakoon-1.0.0$&gt; ./arakoon --get some_key
-Fatal error: exception Arakoon_exc.Exception(5, &quot;some_key&quot;)
-Raised at file &quot;src/core/lwt.ml&quot;, line 557, characters 22-23
-Called from file &quot;src/unix/lwt_main.ml&quot;, line 38, characters 8-18
-Called from file &quot;src/client/client_main.ml&quot;, line 68, characters 12-31
-Called from file &quot;src/main/main.ml&quot;, line 395, characters 26-37
-Called from file &quot;src/main/arakoon.ml&quot;, line 1, characters 0-12
+Fatal error: exception Arakoon_exc.Exception(5, "some_key")
+Raised at file "src/core/lwt.ml", line 557, characters 22-23
+Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
+Called from file "src/client/client_main.ml", line 68, characters 12-31
+Called from file "src/main/main.ml", line 395, characters 26-37
+Called from file "src/main/arakoon.ml", line 1, characters 0-12
 </pre>
 </div>
 <div class="section" id="one-node-goes-down">
@@ -175,7 +174,7 @@ arakoon-1.0.0$&gt;./arakoon --expect-progress-possible
 true
 arakoon-1.0.0$&gt;./arakoon --set still_alive yes
 arakoon-1.0.0$&gt;./arakoon --get still_alive
-&quot;yes&quot;
+"yes"
 </pre>
 <p>You can verify the cluster still behaves properly. This is because the
 <strong>majority</strong> of the nodes is just fine.</p>
@@ -187,12 +186,12 @@ nodes that could not follow the cluster (because they were down,
 disconnected,...). This is what it looks like:</p>
 <pre class="literal-block">
 arakoon-1.0.0$&gt;./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog
-0:MasterSet ;&quot;arakoon_1&quot;;0
+0:MasterSet ;"arakoon_1";0
 ...
-5:Set       ;&quot;some_key&quot;;10
+5:Set       ;"some_key";10
 ...
-12:Delete    ;&quot;some_key&quot;
-13:MasterSet ;&quot;arakoon_1&quot;;0
+12:Delete    ;"some_key"
+13:MasterSet ;"arakoon_1";0
 ...
 </pre>
 </div>
@@ -204,12 +203,12 @@ So go to the terminal tab for arakoon_1 and kill it.:</p>
 arakoon-1.0.0$&gt;./arakoon --node arakoon_1
 ^C
 arakoon-1.0.0$&gt;./arakoon --get some_key
-Fatal error: exception Failure(&quot;No Master&quot;)
-Raised at file &quot;src/core/lwt.ml&quot;, line 557, characters 22-23
-Called from file &quot;src/unix/lwt_main.ml&quot;, line 38, characters 8-18
-Called from file &quot;src/client/client_main.ml&quot;, line 68, characters 12-31
-Called from file &quot;src/main/main.ml&quot;, line 395, characters 26-37
-Called from file &quot;src/main/arakoon.ml&quot;, line 1, characters 0-12
+Fatal error: exception Failure("No Master")
+Raised at file "src/core/lwt.ml", line 557, characters 22-23
+Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
+Called from file "src/client/client_main.ml", line 68, characters 12-31
+Called from file "src/main/main.ml", line 395, characters 26-37
+Called from file "src/main/arakoon.ml", line 1, characters 0-12
 arakoon-1.0.0$&gt;rm -rf /tmp/arakoon/arakoon_1/*
 arakoon-1.0.0$&gt;./arakoon --node arakoon_1
 </pre>
@@ -217,7 +216,7 @@ arakoon-1.0.0$&gt;./arakoon --node arakoon_1
 Now go to a free tab, and try to get the value:</p>
 <pre class="literal-block">
 arakoon-1.0.0$&gt;./arakoon --get some_key
-&quot;some_value&quot;
+"some_value"
 </pre>
 <p>Arakoon nodes repair themselves using their siblings. Most of the time it's automatic,
 but sometimes they need assistence (if a database is corrupt fe)</p>
