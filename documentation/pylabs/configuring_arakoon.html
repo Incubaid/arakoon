@@ -14,6 +14,7 @@
 
     <link href="../../bootstrap/bootstrap.css" rel="stylesheet" />
     <link href="../../style.css" rel="stylesheet" />
+    <link href="../../code.css" rel="stylesheet" />
 
     <!-- TODO
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -81,24 +82,21 @@ configure Arakoon with the Q-Shell.</p>
 cluster on any of the machines that you will use. In this example we start with
 Machine 1.</p>
 <p>Start the Q-Shell on this machine and create the cluster <strong>Demo_Cluster</strong>:</p>
-<pre class="literal-block">
-newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+</pre></div>
 </div>
 <div class="section" id="configuring-the-first-node">
 <h2>Configuring the First Node</h2>
 <p>When you have your cluster, you can start adding the Arakoon nodes by using the
 addNode method on your cluster object.</p>
-<pre class="literal-block">
-newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+</pre></div>
 <p>This method only adds the node to the configuration of Machine 1. You still
 have to add the indicate that the node must start locally, i.e. on Machine 1,
 and create the <a class="reference external" href="../arakoon_deployment.html#directory-structure">directories</a> of the node.</p>
-<pre class="literal-block">
-newcluster.addLocalNode('Node_0')
-newcluster.createDirs('Node_0')
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">)</span>
+</pre></div>
 <p>You have now one machine running one cluster with one node.</p>
 <p>The following step is to add the other nodes.</p>
 </div>
@@ -116,22 +114,20 @@ previous step, you have to follow the same steps but with the according values.<
 <div class="section" id="node-1-on-machine-2">
 <h3>Node_1 on Machine 2</h3>
 <p>Configure Node_1:</p>
-<pre class="literal-block">
-newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
-newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
-newcluster.addLocalNode('Node_1')
-newcluster.createDirs('Node_1')
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_1&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_1&#39;</span><span class="p">)</span>
+</pre></div>
 </div>
 <div class="section" id="node-2-on-machine-3">
 <h3>Node_2 on Machine 3:</h3>
 <p>Configure Node_2:</p>
-<pre class="literal-block">
-newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
-newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
-newcluster.addLocalNode('Node_2')
-newcluster.createDirs('Node_2')
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+</pre></div>
 </div>
 </div>
 <div class="section" id="linking-the-nodes">
@@ -144,26 +140,23 @@ Machine 2 add Node_0 and Node_2, and on Machine 3 add Node_0 and Node_1.</p>
 <div class="section" id="machine-1">
 <h3>Machine 1</h3>
 <p>Link Node_1 and Node_2 to Node_0:</p>
-<pre class="literal-block">
-newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
-newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+</pre></div>
 </div>
 <div class="section" id="machine-2">
 <h3>Machine 2</h3>
 <p>Link Node_0 and Node_2 to Node_1:</p>
-<pre class="literal-block">
-newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
-newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+</pre></div>
 </div>
 <div class="section" id="machine-3">
 <h3>Machine 3</h3>
 <p>Link Node_0 and Node_1 to Node_2:</p>
-<pre class="literal-block">
-newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
-newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+</pre></div>
 </div>
 </div>
 <div class="section" id="starting-your-setup">
@@ -171,9 +164,8 @@ newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPo
 <p>A last phase to make your Arakoon setup active is to start the cluster on each
 node. This will only start the local Arakoon node, which means that you have to
 start the cluster on each node.</p>
-<pre class="literal-block">
-newcluster.start()
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
 <p>Congratulations, you have now a three node Arakoon setup! See also the
 <a class="reference external" href="../managing_arakoon.html">Managing Arakoon</a> page to see how you can start nodes with the command line.</p>
 </div>
@@ -184,12 +176,11 @@ impacts neither progress nor majority. You sometimes want to have a node like
 this for fast but sloppy read access. Adding a learner is similar to adding a
 regular node, but with two extra arguments. Suppose that we add a fourth
 machine, hosting Node_3 of the cluster.</p>
-<pre class="literal-block">
-newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
-newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
-newcluster.addLocalNode('Node_3')
-newcluster.createDirs('Node_3')
-</pre>
+<div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_3&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7083</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10003</span><span class="p">,</span> <span class="n">isLearner</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_3&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_3&#39;</span><span class="p">)</span>
+</pre></div>
 </div>
 <div class="section" id="demo-setup">
 <h2>Demo Setup</h2>
@@ -198,22 +189,20 @@ method on a cluster object. This method expects a number of nodes that you want
 to add in the cluster.</p>
 <p>With this function you create a cluster on your server, including the defined
 number of nodes.</p>
-<pre class="literal-block">
-testcluster = q.manage.arakoon.getCluster('TestCluster')
-testcluster.setUp(3)
-testcluster.start()
-</pre>
+<div class="highlight"><pre><span class="n">testcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;TestCluster&#39;</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">setUp</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
 <p>The result is a cluster ('TestCluster') with three nodes (TestCluster_0,
 TestCluster_1, and TestCluster_2), all running on your local server.</p>
 </div>
 <div class="section" id="read-only-mode">
 <h2>Read-only mode</h2>
 <p>Single node Arakoon clusters can be put in read-only mode.</p>
-<pre class="literal-block">
-testcluster = q.manage.arakoon.getCluster('TestCluster')
-testcluster.setReadOnly()
-testcluster.restart()
-</pre>
+<div class="highlight"><pre><span class="n">testcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;TestCluster&#39;</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">setReadOnly</span><span class="p">()</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">restart</span><span class="p">()</span>
+</pre></div>
 <div class="important">
 <p class="first admonition-title">Important</p>
 <p class="last">Make sure that you restart your Arakoon cluster after changing the
@@ -225,10 +214,9 @@ read-only flag!</p>
 <p>After having set up your Arakoon environment (physical setup as well as demo
 setup), you have to generate the client configuration of your Arakoon
 installation via the Q-Shell.</p>
-<pre class="literal-block">
-clientconfig = q.clients.arakoon.getClientConfig('&lt;arakoon cluster name&gt;')
-clientconfig.generateFromServerConfig()
-</pre>
+<div class="highlight"><pre><span class="n">clientconfig</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;&lt;arakoon cluster name&gt;&#39;</span><span class="p">)</span>
+<span class="n">clientconfig</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+</pre></div>
 </div>
 </div>
 
