@@ -10,7 +10,7 @@ Simple Example
 The python API is best explained through a simple example. The code below
 creates a client, and sets a few values.
 
-::
+.. sourcecode:: python
 
     from arakoon import Arakoon
 

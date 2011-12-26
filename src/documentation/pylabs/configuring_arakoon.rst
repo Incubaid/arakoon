@@ -24,7 +24,9 @@ A first step in configuring Arakoon, is creating a cluster. You can create the
 cluster on any of the machines that you will use. In this example we start with
 Machine 1.
 
-Start the Q-Shell on this machine and create the cluster **Demo_Cluster**::
+Start the Q-Shell on this machine and create the cluster **Demo_Cluster**:
+
+.. sourcecode:: python
 
     newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
 
@@ -33,7 +35,7 @@ Configuring the First Node
 When you have your cluster, you can start adding the Arakoon nodes by using the
 addNode method on your cluster object.
 
-::
+.. sourcecode:: python
 
     newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
 
@@ -41,7 +43,7 @@ This method only adds the node to the configuration of Machine 1. You still
 have to add the indicate that the node must start locally, i.e. on Machine 1,
 and create the `directories`_ of the node.
 
-::
+.. sourcecode:: python
 
     newcluster.addLocalNode('Node_0')
     newcluster.createDirs('Node_0')
@@ -66,7 +68,9 @@ Execute these steps on the proper machines, i.e. configure **Node_1** on
 
 Node_1 on Machine 2
 -------------------
-Configure Node_1::
+Configure Node_1:
+
+.. sourcecode:: python
 
     newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
     newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
@@ -75,7 +79,9 @@ Configure Node_1::
 
 Node_2 on Machine 3:
 --------------------
-Configure Node_2::
+Configure Node_2:
+
+.. sourcecode:: python
 
     newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
     newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
@@ -93,21 +99,27 @@ Machine 2 add Node_0 and Node_2, and on Machine 3 add Node_0 and Node_1.
 
 Machine 1
 ---------
-Link Node_1 and Node_2 to Node_0::
+Link Node_1 and Node_2 to Node_0:
+
+.. sourcecode:: python
 
     newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
     newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
 
 Machine 2
 ---------
-Link Node_0 and Node_2 to Node_1::
+Link Node_0 and Node_2 to Node_1:
+
+.. sourcecode:: python
 
     newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
     newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
 
 Machine 3
 ---------
-Link Node_0 and Node_1 to Node_2::
+Link Node_0 and Node_1 to Node_2:
+
+.. sourcecode:: python
 
     newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
     newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
@@ -118,7 +130,7 @@ A last phase to make your Arakoon setup active is to start the cluster on each
 node. This will only start the local Arakoon node, which means that you have to
 start the cluster on each node.
 
-::
+.. sourcecode:: python
 
     newcluster.start()
 
@@ -135,7 +147,7 @@ this for fast but sloppy read access. Adding a learner is similar to adding a
 regular node, but with two extra arguments. Suppose that we add a fourth
 machine, hosting Node_3 of the cluster.
 
-::
+.. sourcecode:: python
 
     newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
     newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
@@ -153,7 +165,7 @@ to add in the cluster.
 With this function you create a cluster on your server, including the defined
 number of nodes.
 
-::
+.. sourcecode:: python
 
     testcluster = q.manage.arakoon.getCluster('TestCluster')
     testcluster.setUp(3)
@@ -166,7 +178,7 @@ Read-only mode
 ==============
 Single node Arakoon clusters can be put in read-only mode.
 
-::
+.. sourcecode:: python
 
     testcluster = q.manage.arakoon.getCluster('TestCluster')
     testcluster.setReadOnly()
@@ -182,7 +194,7 @@ After having set up your Arakoon environment (physical setup as well as demo
 setup), you have to generate the client configuration of your Arakoon
 installation via the Q-Shell.
 
-::
+.. sourcecode:: python
 
     clientconfig = q.clients.arakoon.getClientConfig('<arakoon cluster name>')
     clientconfig.generateFromServerConfig()

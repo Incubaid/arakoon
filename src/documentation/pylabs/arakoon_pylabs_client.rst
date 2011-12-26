@@ -114,7 +114,9 @@ keys.
 Getting the Value of a Key
 --------------------------
 To continue with the previous example, let's assume we want to retrieve that
-value of key '2', in this case we would use::
+value of key '2', in this case we would use:
+
+.. sourcecode:: python
 
     myClient.get('2')
 

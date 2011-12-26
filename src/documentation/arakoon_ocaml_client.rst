@@ -11,7 +11,7 @@ The OCaml client is a very thin wrapper around a connection. The code sample
 below shows you how to connect to a master node, and peform set, get and
 delete actions.
 
-::
+.. sourcecode:: ocaml
 
     open Lwt
     open Arakoon_remote_client
