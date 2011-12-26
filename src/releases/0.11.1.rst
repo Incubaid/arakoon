@@ -1,0 +1,86 @@
+==============
+Arakoon 0.11.1
+==============
+Published on: October 11th 2011
+
+Arakoon 0.11.1 fixes all known issues reported with the last 0.11.0 build and
+introduces some small features and enhancements.
+
+Release
+=======
++----------------+------------------+----------------+--------------+
+| QPackage name  | QPackage version | QPackage build | HG revision  |
++================+==================+================+==============+
+| arakoon        | 0.11.1           | 2              | 7133a6edf480 |
++----------------+------------------+----------------+--------------+
+| arakoon_client | 0.11.1           | 2              | 7133a6edf480 |
++----------------+------------------+----------------+--------------+
+
+What is fixed
+=============
++--------------+------------------------------------------------------------------+
+| Jira key     | Comment                                                          |
++==============+==================================================================+
+| ARAKOON-187_ | docstring incorrect for remoteCollapse method                    |
++--------------+------------------------------------------------------------------+
+| ARAKOON-232_ | Wrong docstring on cluster.getStatus()                           |
++--------------+------------------------------------------------------------------+
+| ARAKOON-235_ | Node goes done with: Multi_paxos.PaxosFatal("wait_for_accepteds: |
+|              | received \"Accept(...,..., ...)\" with same n: FATAL")           |
++--------------+------------------------------------------------------------------+
+| ARAKOON-244_ | Expectprogress seems to give false negatives                     |
++--------------+------------------------------------------------------------------+
+
+.. _ARAKOON-187: http://jira.incubaid.com/browse/ARAKOON-187
+.. _ARAKOON-232: http://jira.incubaid.com/browse/ARAKOON-232
+.. _ARAKOON-235: http://jira.incubaid.com/browse/ARAKOON-235
+.. _ARAKOON-244: http://jira.incubaid.com/browse/ARAKOON-244
+
+What is new
+===========
++--------------+-----------------------------------+
+| Jira key     | Comment                           |
++==============+===================================+
+| ARAKOON-231_ | Read-only mode for single node    |
++--------------+-----------------------------------+
+| ARAKOON-236_ | Optimize after every collapse     |
++--------------+-----------------------------------+
+| ARAKOON-237_ | Reset statistics every x mintues  |
++--------------+-----------------------------------+
+| ARAKOON-238_ | Log configuration file at startup |
++--------------+-----------------------------------+
+
+.. _ARAKOON-231: http://jira.incubaid.com/browse/ARAKOON-231
+.. _ARAKOON-236: http://jira.incubaid.com/browse/ARAKOON-236
+.. _ARAKOON-237: http://jira.incubaid.com/browse/ARAKOON-237
+.. _ARAKOON-238: http://jira.incubaid.com/browse/ARAKOON-238
+
+Remarks
+=======
+Upgrading from Arakoon versions older than 0.10.0 requires the following steps:
+
+- Stop all nodes of your Arakoon cluster
+- Update the binaries / QPackages depending on your installation setup
+- Execute the ``q.manage.arakoon.upgrade()`` method on every node of your Arakoon cluster
+- Start all nodes of your Arakoon cluster
+- **Make sure you RESTART the q-shell AFTER executing the upgrade method in order the unload the old command tools extensions from the q-shell!**
+
+Upgrading from Arakoon version 0.10.0 and above supports rolling upgrades:
+
+- Stop one node of your Arakoon cluster
+- Update the binaries / QPackages depending on your installation setup
+- Execute the q.manage.arakoon.upgrade() method on every node of your Arakoon cluster
+- Start the node again
+- Perform the steps above on every node of your Arakoon cluster
+
+More information regarding the `Read-only mode feature`_ can be found here__ and here__.
+
+.. _Read-only mode feature: http://jira.incubaid.com/browse/ARAKOON-231
+.. __: ../documentation/arakoon_configuration.html
+.. __: ../documentation/configuring_arakoon.html
+
+0.11.1 builds
+=============
+- `0.11.1 build 1 <0.11.1-build1.html>`_
+- `0.11.1 build 2 <0.11.1-build2.html>`_
+- `0.11.1 build 3 <0.11.1-build3.html>`_
