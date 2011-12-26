@@ -11,8 +11,8 @@
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
 
-    <link href="bootstrap/bootstrap.css" rel="stylesheet" />
-    <link href="style.css" rel="stylesheet" />
+    <link href="{{ base }}bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="{{ base }}style.css" rel="stylesheet" />
 
     <!-- TODO
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -30,7 +30,7 @@
     <div class="topbar">
       <div class='container'>
         <a href='index.html'>
-          <img alt='Arakoon' title='Arakoon Logo' src='img/logo.png' id='logo' />
+            <img alt='Arakoon' title='Arakoon Logo' src='{{ base }}img/logo.png' id='logo' />
         </a>
       </div>
 
@@ -39,16 +39,16 @@
         <nav>
           <ul class="nav">
             <li{% if name == 'index' %} class="active"{% endif %}>
-              <a href="index.html">Home</a>
+            <a href="{{ base }}index.html">Home</a>
             </li>
             <li{% if name == 'download' %} class="active"{% endif %}>
-              <a href="download.html">Download</a>
+            <a href="{{ base }}download.html">Download</a>
             </li>
             <li{% if name == 'documentation' %} class="active"{% endif %}>
-              <a href="documentation.html">Documentation</a>
+            <a href="{{ base }}documentation.html">Documentation</a>
             </li>
             <li{% if name == 'contact' %} class="active"{% endif %}>
-              <a href="contact.html">Contact</a>
+            <a href="{{ base }}contact.html">Contact</a>
             </li>
           </ul>
         </nav>
@@ -67,9 +67,9 @@
         </div>
         <div class='span-two-thirds'>
           <p class='pull-right'>
-            <a href='disclaimer.html'>Disclaimer</a>
+            <a href='{{ base }}disclaimer.html'>Disclaimer</a>
             |
-            <a href='privacy_policy.html'>Privacy Policy</a>
+            <a href='{{ base }}privacy_policy.html'>Privacy Policy</a>
           </p>
         </div>
       </div>
