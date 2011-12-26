@@ -12,8 +12,8 @@
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
 
-    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
-    <link href="../style.css" rel="stylesheet" />
+    <link href="../../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../../style.css" rel="stylesheet" />
 
     <!-- TODO
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,13 +25,13 @@
 
   </head>
 
-  <body class='page-documentation_configuring_arakoon'>
+  <body class='page-documentation_pylabs_configuring_arakoon'>
 
     <header>
     <div class="topbar">
       <div class='container'>
         <a href='index.html'>
-            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+            <img alt='Arakoon' title='Arakoon Logo' src='../../img/logo.png' id='logo' />
         </a>
       </div>
 
@@ -40,16 +40,16 @@
         <nav>
           <ul class="nav">
             <li>
-            <a href="../index.html">Home</a>
+            <a href="../../index.html">Home</a>
             </li>
             <li>
-            <a href="../download.html">Download</a>
+            <a href="../../download.html">Download</a>
             </li>
             <li>
-            <a href="../documentation/index.html">Documentation</a>
+            <a href="../../documentation/index.html">Documentation</a>
             </li>
             <li>
-            <a href="../contact.html">Contact</a>
+            <a href="../../contact.html">Contact</a>
             </li>
           </ul>
         </nav>
@@ -69,7 +69,7 @@ cluster.</p>
 <p>The setup below shows a three server setup, each running one Arakoon node.
 Since Arakoon is completely integrated in PyLabs, it's the easiest way to
 configure Arakoon with the Q-Shell.</p>
-<img alt="../img/ArakoonSetup.png" src="../img/ArakoonSetup.png" />
+<img alt="../../img/ArakoonSetup.png" src="../../img/ArakoonSetup.png" />
 <p>To start working with an Arakoon setup you have to follow phases:</p>
 <ol class="arabic simple">
 <li><a class="reference internal" href="#creating-the-cluster">Creating a physical node setup</a> or <a class="reference internal" href="#demo-setup">Create a demo setup</a></li>
@@ -94,7 +94,7 @@ newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPo
 </pre>
 <p>This method only adds the node to the configuration of Machine 1. You still
 have to add the indicate that the node must start locally, i.e. on Machine 1,
-and create the <a class="reference external" href="arakoon_deployment.html#directory-structure">directories</a> of the node.</p>
+and create the <a class="reference external" href="../arakoon_deployment.html#directory-structure">directories</a> of the node.</p>
 <pre class="literal-block">
 newcluster.addLocalNode('Node_0')
 newcluster.createDirs('Node_0')
@@ -175,11 +175,11 @@ start the cluster on each node.</p>
 newcluster.start()
 </pre>
 <p>Congratulations, you have now a three node Arakoon setup! See also the
-<a class="reference external" href="managing_arakoon.html">Managing Arakoon</a> page to see how you can start nodes with the command line.</p>
+<a class="reference external" href="../managing_arakoon.html">Managing Arakoon</a> page to see how you can start nodes with the command line.</p>
 </div>
 <div class="section" id="adding-a-learner-node">
 <h2>Adding a Learner Node</h2>
-<p>A <a class="reference external" href="cluster_nodes.html#learner-node">learner node</a> is a passive node that follows the cluster's updates but
+<p>A <a class="reference external" href="../cluster_nodes.html#learner-node">learner node</a> is a passive node that follows the cluster's updates but
 impacts neither progress nor majority. You sometimes want to have a node like
 this for fast but sloppy read access. Adding a learner is similar to adding a
 regular node, but with two extra arguments. Suppose that we add a fourth
@@ -240,9 +240,9 @@ clientconfig.generateFromServerConfig()
         </div>
         <div class='span-two-thirds'>
           <p class='pull-right'>
-            <a href='../disclaimer.html'>Disclaimer</a>
+            <a href='../../disclaimer.html'>Disclaimer</a>
             |
-            <a href='../privacy_policy.html'>Privacy Policy</a>
+            <a href='../../privacy_policy.html'>Privacy Policy</a>
           </p>
         </div>
       </div>
