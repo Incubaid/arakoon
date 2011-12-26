@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Installing Arakoon</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_installing_arakoon'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="installing-arakoon">
+<h1 class="title">Installing Arakoon</h1>
+
+<p>This section explains you how you can install Arakoon, Incubaid's distributed
+key-value store. You can also install a Python or OCaml client to interact with
+Arakoon.</p>
+<div class="section" id="prerequisites">
+<h2>Prerequisites</h2>
+<ul class="simple">
+<li>Ubuntu 64-bit</li>
+<li>Root privileges on Ubuntu</li>
+<li><a class="reference external" href="../download.html">Arakoon Debian Package</a></li>
+</ul>
+<p>Optional</p>
+<ul class="simple">
+<li>Arakoon Python Client, requires python-setuptools package</li>
+<li>Arakoon OCaml Client</li>
+</ul>
+</div>
+<div class="section" id="id1">
+<h2>Installing Arakoon</h2>
+<p>To install Arakoon:</p>
+<ol class="arabic">
+<li><p class="first">Download <a class="reference external" href="../download.html">Arakoon 0.11.0</a>.</p>
+</li>
+<li><p class="first">Install the Debian:</p>
+<pre class="literal-block">
+~# dpkg -i arakoon_x.x.x-y_amd64.deb
+Selecting previously deselected package arakoon.
+(Reading database ... 144088 files and directories currently installed.)
+Unpacking arakoon (from arakoon_x.x.x-y_amd64.deb) ...
+Setting up arakoon (x.x.x-y) ...
+Processing triggers for man-db ...
+~#
+</pre>
+</li>
+</ol>
+</div>
+<div class="section" id="installing-the-arakoon-python-client">
+<h2>Installing the Arakoon Python Client</h2>
+<p>To install the Arakoon Python Client, you only have to install the
+<a class="reference external" href="../download.html">.egg</a> file.</p>
+<pre class="literal-block">
+~# easy_install arakoon-x.x.x-py2.6.egg
+install_dir /usr/local/lib/python2.6/dist-packages/
+Processing arakoon-x.x.x-py2.6.egg
+creating /usr/local/lib/python2.6/dist-packages/arakoon-x.x.x-py2.6.egg
+Extracting arakoon-x.x.x-py2.6.egg to /usr/local/lib/python2.6/dist-packages
+Adding arakoon x.x.x to easy-install.pth file
+
+Installed /usr/local/lib/python2.6/dist-packages/arakoon-x.x.x-py2.6.egg
+Processing dependencies for arakoon==x.x.x
+Finished processing dependencies for arakoon==x.x.x
+~#
+</pre>
+</div>
+<div class="section" id="installing-the-arakoon-ocaml-client">
+<h2>Installing the Arakoon OCaml Client</h2>
+<p>To install the Arakoon OCaml Client, you only have to install the
+<a class="reference external" href="../download.html">.deb</a> file.</p>
+<pre class="literal-block">
+~# dpkg -i libarakoon-ocaml-dev_x.x.x-y_amd64.deb
+Selecting previously deselected package libarakoon-ocaml-dev.
+(Reading database ... 144273 files and directories currently installed.)
+Unpacking libarakoon-ocaml-dev (from libarakoon-ocaml-dev_x.x.x-y_amd64.deb) ...
+Setting up libarakoon-ocaml-dev (x.x.x-y) ...
+~#
+</pre>
+</div>
+<div class="section" id="other-clients">
+<h2>Other Clients</h2>
+<p>Arakoon has also a C and PHP client, available on <a class="reference external" href="https://bitbucket.org/despiegk/arakoon/src/ada5840d1b78/src/client/">bitbucket.org</a>.</p>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>

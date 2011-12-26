@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Arakoon OCaml Client</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_arakoon_ocaml_client'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="arakoon-ocaml-client">
+<h1 class="title">Arakoon OCaml Client</h1>
+
+<div class="section" id="installing-the-ocaml-client-library-debian-ubuntu">
+<h2>Installing the OCaml Client library (Debian/Ubuntu)</h2>
+<p>See <a class="reference external" href="installing_arakoon.html">Installing Arakoon</a>.</p>
+</div>
+<div class="section" id="simple-example">
+<h2>Simple Example</h2>
+<p>The OCaml client is a very thin wrapper around a connection. The code sample
+below shows you how to connect to a master node, and peform set, get and
+delete actions.</p>
+<pre class="literal-block">
+open Lwt
+open Arakoon_remote_client
+open Arakoon_client
+
+let make_address ip port =
+  let ha = Unix.inet_addr_of_string ip in
+  Unix.ADDR_INET (ha,port)
+
+let with_client cluster_id (ip,port) f =
+  let sa = make_address ip port in
+  let do_it connection =
+    make_remote_client cluster_id connection &gt;&gt;= fun client -&gt;
+    f client
+  in
+  Lwt_io.with_connection sa do_it
+
+let find_master cluster_id cfgs =
+  let rec loop = function
+    | [] -&gt; Lwt.fail (Failure &quot;too many nodes down&quot;)
+    | cfg :: rest -&gt;
+      begin
+    let _,(ip, port) = cfg in
+    let sa = make_address ip port in
+    Lwt.catch
+      (fun () -&gt;
+        Lwt_io.with_connection sa
+          (fun connection -&gt;
+        make_remote_client cluster_id connection
+        &gt;&gt;= fun client -&gt;
+        client # who_master ()) &gt;&gt;= function
+        | None -&gt; Lwt.fail (Failure &quot;No Master&quot;)
+        | Some m -&gt; Lwt.return m)
+      (function
+        | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -&gt; loop rest
+        | exn -&gt; Lwt.fail exn
+      )
+      end
+  in loop cfgs
+
+
+let with_master_client cluster_id cfgs f =
+  find_master cluster_id cfgs &gt;&gt;= fun master_name -&gt;
+  let master_cfg = List.assoc master_name cfgs in
+  with_client cluster_id master_cfg f
+
+
+let demo (client:Arakoon_client.client) =
+  client # set &quot;foo&quot; &quot;bar&quot; &gt;&gt;= fun () -&gt;
+  client # get &quot;foo&quot; &gt;&gt;= fun v -&gt;
+  Lwt_io.printlf &quot;foo=%s&quot; v &gt;&gt;= fun () -&gt;
+  client # delete &quot;foo&quot; &gt;&gt;= fun () -&gt;
+  client # exists &quot;foo&quot; &gt;&gt;= fun e -&gt;
+  Lwt_io.printlf &quot;have foo? %b&quot; e
+
+let _ =
+  let cluster_id = &quot;ricky&quot; in
+  let cfgs = [
+    (&quot;arakoon_0&quot;,(&quot;127.0.0.1&quot;,4000));
+    (&quot;arakoon_1&quot;,(&quot;127.0.0.1&quot;,4001));
+    (&quot;arakoon_2&quot;,(&quot;127.0.0.1&quot;,4002))
+  ]
+  in
+  Lwt_main.run (with_master_client cluster_id cfgs demo)
+</pre>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>

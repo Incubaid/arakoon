@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Arakoon :: Arakoon 0.11.1 Documentation</title>
+    <title>Arakoon :: Arakoon Python Client</title>
     <meta name="description"
       content="Arakoon is a distributed, consistent key-value store">
     <meta name="author" content="Incubaid BVBA">
@@ -25,7 +25,7 @@
 
   </head>
 
-  <body class='page-documentation_index'>
+  <body class='page-documentation_arakoon_python_client'>
 
     <header>
     <div class="topbar">
@@ -45,7 +45,7 @@
             <li>
             <a href="../download.html">Download</a>
             </li>
-            <li class="active">
+            <li>
             <a href="../documentation/index.html">Documentation</a>
             </li>
             <li>
@@ -61,24 +61,49 @@
     <div class="container" id='main'>
       
 
-<div class="document" id="arakoon-0-11-1-documentation">
-<h1 class="title">Arakoon 0.11.1 Documentation</h1>
+<div class="document" id="arakoon-python-client">
+<h1 class="title">Arakoon Python Client</h1>
 
-<ul class="simple">
-<li><a class="reference external" href="introduction.html">Introduction</a></li>
-<li><a class="reference external" href="getting_started.html">Getting Started</a></li>
-<li><a class="reference external" href="installing_arakoon.html">Installing Arakoon</a></li>
-<li><a class="reference external" href="arakoon_deployment.html">Arakoon Deployment</a></li>
-<li><a class="reference external" href="arakoon_configuration.html">Arakoon Configuration</a></li>
-<li><a class="reference external" href="cluster_nodes.html">Cluster Nodes</a></li>
-<li>Managing Arakoon</li>
-<li><a class="reference external" href="arakoon_ocaml_client.html">Arakoon OCaml Client</a></li>
-<li><a class="reference external" href="arakoon_python_client.html">Arakoon Python Client</a></li>
-<li>Arakoon Man Page</li>
-<li>Working with TLogs</li>
-<li>Troubleshooting</li>
-<li>Managing Arakoon with PyLabs</li>
-</ul>
+<div class="section" id="installing-the-python-client-library-debian-ubuntu">
+<h2>Installing the Python Client library (Debian/Ubuntu)</h2>
+<p>See <a class="reference external" href="installing_arakoon.html">Installing Arakoon</a>.</p>
+</div>
+<div class="section" id="simple-example">
+<h2>Simple Example</h2>
+<p>The python API is best explained through a simple example. The code below
+creates a client, and sets a few values.</p>
+<pre class="literal-block">
+from arakoon import Arakoon
+
+def make_client ():
+    clusterId = 'ricky'
+    config = Arakoon.ArakoonClientConfig(
+        clusterId,
+        {
+        &quot;arakoon_0&quot;:(&quot;127.0.0.1&quot;,4000),
+        &quot;arakoon_1&quot;:(&quot;127.0.0.1&quot;,4001),
+        &quot;arakoon_2&quot;:(&quot;127.0.0.1&quot;,4002)})
+    client = Arakoon.ArakoonClient(config)
+    return client
+
+if __name__ == '__main__':
+    c = make_client()
+    c.set('foo','bar')
+    print &quot;foo='%s'&quot; % c.get('foo')
+    c['bla_bla'] = 'whatever'
+    print &quot;bla_bla='%s'&quot; % (c['bla_bla'])
+    c.delete('foo')
+    try:
+        v = c['foo']
+    except KeyError:
+        print &quot;foo is no longer there, since we deleted it&quot;
+
+    del c['bla_bla']
+    print &quot;have bla_bla?&quot;, 'bla_bla' in c
+
+    print &quot;\nHave fun,\n&quot;
+</pre>
+</div>
 </div>
 
 
