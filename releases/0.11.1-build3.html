@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Arakoon 0.11.1 Build 3</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-releases_0_11_1-build3'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="arakoon-0-11-1-build-3">
+<h1 class="title">Arakoon 0.11.1 Build 3</h1>
+
+<p>Published on: December 16th 2011</p>
+<div class="section" id="release">
+<h2>Release</h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="25%" />
+<col width="28%" />
+<col width="25%" />
+<col width="22%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">QPackage name</th>
+<th class="head">QPackage version</th>
+<th class="head">QPackage build</th>
+<th class="head">HG revision</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>arakoon</td>
+<td>0.11.1</td>
+<td>3</td>
+<td>18f922ec30e8</td>
+</tr>
+<tr><td>arakoon_client</td>
+<td>0.11.1</td>
+<td>3</td>
+<td>18f922ec30e8</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="what-is-fixed">
+<h2>What is fixed</h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="33%" />
+<col width="67%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Jira key</th>
+<th class="head">Comment</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td><a class="reference external" href="http://jira.incubaid.com/browse/ARAKOON-256">ARAKOON-256</a></td>
+<td>Node with inconsistent log</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="remarks">
+<h2>Remarks</h2>
+<p>Upgrading from Arakoon versions older than 0.10.0 requires the following steps:</p>
+<ul class="simple">
+<li>Stop all nodes of your Arakoon cluster</li>
+<li>Update the binaries / QPackages depending on your installation setup</li>
+<li>Execute the <tt class="docutils literal">q.manage.arakoon.upgrade()</tt> method on every node of your Arakoon cluster</li>
+<li>Start all nodes of your Arakoon cluster</li>
+<li><strong>Make sure you RESTART the q-shell AFTER executing the upgrade method in order the unload the old command tools extensions from the q-shell!</strong></li>
+</ul>
+<p>Upgrading from Arakoon version 0.10.0 and above supports rolling upgrades:</p>
+<ul class="simple">
+<li>Stop one node of your Arakoon cluster</li>
+<li>Update the binaries / QPackages depending on your installation setup</li>
+<li>Execute the q.manage.arakoon.upgrade() method on every node of your Arakoon cluster</li>
+<li>Start the node again</li>
+<li>Perform the steps above on every node of your Arakoon cluster</li>
+</ul>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>
