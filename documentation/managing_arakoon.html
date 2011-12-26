@@ -187,8 +187,9 @@ arakoon --collapse /tmp/Node_0 5
 <h2>Investigating TLogs</h2>
 <p>It is not possible to read TLogs as stored on the file system. If you want
 human-readable output, you need a dump of the TLog.</p>
-<blockquote>
-arakoon --dump-tlog &lt;path_to_tlog_file&gt;</blockquote>
+<pre class="literal-block">
+arakoon --dump-tlog &lt;path_to_tlog_file&gt;
+</pre>
 <p>For example:</p>
 <pre class="literal-block">
 arakoon --dump-tlog /opt/qbase5/var/db/mycluster/mycluster_0/000.tlog
