@@ -1,0 +1,36 @@
+{% extends '_base.html' %}
+
+{% block title %}Style Check Results{% endblock %}
+
+{% block main %}
+<h1>Spell &amp; Grammar Check Results</h1>
+
+{% for file, result in results|dictsort %}
+<h2>{{ file }}</h2>
+{% if result == None %}
+<div class='alert-message block-message error'>
+    <p><strong>Error</strong></p>
+    <p>An error occurred while processing the ATD request for this document. Try
+    again later!</p>
+</div>
+{% else %}
+{% for group in result|groupby('type') %}
+<h3>{{ group.grouper|capitalize }}</h3>
+{% for entry in group.list %}
+<div>
+    <p><strong>{{ entry.string }}</strong>: {{ entry.description }}</p>
+    {% if entry.precontext %}<p>Context: {{ entry.precontext }}</p>{% endif %}
+    {% if entry.suggestions %}
+    <p>Suggestions: {{ entry.suggestions|join(', ') }}</p>
+    {% endif %}
+    {% if entry.url %}
+    <p><a href='{{ entry.url }}'>More info...</a></p>
+    {% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+{% endblock %}

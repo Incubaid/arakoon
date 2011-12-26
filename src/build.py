@@ -1,6 +1,13 @@
 import os
 import os.path
+import socket
+import hashlib
 import logging
+
+try:
+    import cStringIO as StringIO
+except ImportError:
+    import StringIO
 
 import lxml.html
 
@@ -13,6 +20,14 @@ import rst_directive # Imported for side-effects, keep in place
 
 import docutils
 import docutils.core
+
+import ATD
+# Don't ask... Jinja2 playing not-so-nice
+if not hasattr(ATD.Error, '__getitem__'):
+    def fix(*_):
+        raise TypeError
+
+    ATD.Error.__getitem__ = fix
 
 CODE_CSS_STYLE = 'trac'
 CODE_CSS_PREFIX = 'div.highlight'
@@ -31,6 +46,15 @@ RST_TEMPLATE = u'''
 {%% block main %%}
 %(main)s
 {%% endblock %%}
+'''
+
+ATD_API_KEY = 'arakoon-%s' % hashlib.md5(socket.gethostname()).hexdigest()[3:]
+ATD_ERROR = '''
+<div class='alert-message block-message error'>
+<p><strong>Error</strong></p>
+<p>An error occurred while processing the request to check this document. Better
+luck next time!</p>
+</div>
 '''
 
 LOGGER = logging.getLogger(__name__)
@@ -103,10 +127,11 @@ def create_dirs(base, name):
 
         os.makedirs(target, 0755)
 
-def run(src, target):
+def run(src, target, atd=False):
     LOGGER.info('Rendering %s to %s', src, target)
 
     context = {}
+    atd_results = {}
 
     loader = jinja2.FileSystemLoader((src, ))
     environment = jinja2.Environment(
@@ -165,6 +190,17 @@ def run(src, target):
             if cleanup_html:
                 os.unlink(html_file)
 
+        if atd:
+            atd_res = None
+
+            try:
+                atd_res = ATD.checkDocument(output_str, ATD_API_KEY)
+            except:
+                LOGGER.exception('Failed to process ATD request')
+
+            atd_results[template_name] = atd_res
+
+
     style = pygments.styles.get_style_by_name(CODE_CSS_STYLE)
     formatter = pygments.formatters.get_formatter_by_name('html', style=style)
 
@@ -176,11 +212,38 @@ def run(src, target):
     finally:
         code_style_fd.close()
 
+    if atd:
+        LOGGER.info('Writing ATD report')
+
+        template_name = '_stylecheck.html'
+        template = environment.get_template(template_name)
+
+        local_context = context.copy()
+        local_context['name'] = os.path.splitext(template_name)[0] \
+                .replace('/', '_') \
+                .replace('.', '_')
+
+        local_context['base'] = ''
+        local_context['results'] = atd_results
+
+        output = template.render(local_context)
+        output_str = output.encode(ENCODING)
+
+        out = os.path.join(target, template_name)
+        fd = open(out, 'w')
+        try:
+            LOGGER.debug('Writing to %s', out)
+
+            fd.write(output_str)
+        finally:
+            fd.close()
+
+
 def main():
     src = os.path.abspath(os.path.dirname(__file__))
     target = os.path.abspath(os.path.join(src, os.path.pardir))
 
-    run(src, target)
+    run(src, target, 'RUN_ATD' in os.environ)
 
 if __name__ == '__main__':
     if 'DEBUG' in os.environ:
