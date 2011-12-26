@@ -4,8 +4,16 @@ import logging
 
 import jinja2
 
+import pygments.formatters
+import pygments.styles
+
+import rst_directive # Imported for side-effects, keep in place
+
 import docutils
 import docutils.core
+
+CODE_CSS_STYLE = 'trac'
+CODE_CSS_PREFIX = 'div.highlight'
 
 ENCODING = 'utf-8'
 FILTER = lambda f: \
@@ -130,6 +138,17 @@ def run(src, target):
         finally:
             if cleanup_html:
                 os.unlink(html_file)
+
+    style = pygments.styles.get_style_by_name(CODE_CSS_STYLE)
+    formatter = pygments.formatters.get_formatter_by_name('html', style=style)
+
+    code_style_css = os.path.join(target, 'code.css')
+    code_style_fd = open(code_style_css, 'w')
+    try:
+        code_style_fd.write('/* Pygments style "%s" */\n' % CODE_CSS_STYLE)
+        code_style_fd.write(formatter.get_style_defs(CODE_CSS_PREFIX))
+    finally:
+        code_style_fd.close()
 
 def main():
     src = os.path.abspath(os.path.dirname(__file__))

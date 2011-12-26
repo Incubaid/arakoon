@@ -13,14 +13,17 @@ Finally, install the required dependencies:
 
 - Jinja2_, a Python template engine
 - Docutils_, a Python library for ReStructuredText handling
+- Pygments_, a Python source code highlighting library
 
 .. _Jinja2: http://jinja.pocoo.org/
 .. _Docutils: http://docutils.sourceforge.net/
+.. _Pygments: http://pygments.org/
 
 Editing
 =======
 .. caution:: Never edit HTML files in the root of the repository manually.
-    These will be overwritten by the build process. You can edit CSS files etc.
+    These will be overwritten by the build process. You can edit ``style.css``,
+    ``code.css`` will be overwritten on build!
 
 The site is built using Jinja2 templates from files in the ``src`` folder. Any
 file with the ``html`` or ``rst`` extension, except for the ones starting with
