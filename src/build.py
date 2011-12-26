@@ -138,4 +138,7 @@ def main():
     run(src, target)
 
 if __name__ == '__main__':
+    if 'DEBUG' in os.environ:
+        logging.basicConfig(level=logging.DEBUG)
+
     main()
