@@ -77,7 +77,7 @@ More information regarding the `Read-only mode feature`_ can be found here__ and
 
 .. _Read-only mode feature: http://jira.incubaid.com/browse/ARAKOON-231
 .. __: ../documentation/arakoon_configuration.html
-.. __: ../documentation/configuring_arakoon.html
+.. __: ../documentation/pylabs/configuring_arakoon.html
 
 0.11.1 builds
 =============

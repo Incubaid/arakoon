@@ -77,7 +77,7 @@ Start a learner node the same way as a `normal node`_.
 
     arakoon -daemonize -config /root/cfg/my_cluster.cfg --node Learner_0
 
-.. _Configuring Arakoon: configuring_arakoon.html
+.. _Configuring Arakoon: pylabs/configuring_arakoon.html
 .. _normal node: `Starting a Node`_
 
 Master Node
@@ -120,7 +120,7 @@ way::
 When the cloning is finished, you can start the new node as a normal node. To
 clone a node via the Arakoon PyLabs client see `Cloning a Node`_.
 
-.. _Cloning a Node: cloning_a_node.html
+.. _Cloning a Node: pylabs/cloning_a_node.html
 
 Collapsing TLogs
 ================

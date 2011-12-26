@@ -29,4 +29,4 @@ cluster object to clone a node::
 To clone a node via the Arakoon CLI, see `Arakoon CLI`_.
 
 .. _Configuring Arakoon section: configuring_arakoon.html
-.. _Arakoon CLI: managing_arakoon.html#cloning-a-node
+.. _Arakoon CLI: ../managing_arakoon.html#cloning-a-node

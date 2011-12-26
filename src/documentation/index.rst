@@ -13,4 +13,4 @@ Arakoon 0.11.1 Documentation
 - `Arakoon Man Page <arakoon_man_page.html>`_
 - `Working with TLogs <working_with_tlogs.html>`_
 - `Troubleshooting <troubleshooting.html>`_
-- Managing Arakoon with PyLabs
+- `Managing Arakoon with PyLabs <pylabs/index.html>`_

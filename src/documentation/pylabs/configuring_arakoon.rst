@@ -50,7 +50,7 @@ You have now one machine running one cluster with one node.
 
 The following step is to add the other nodes.
 
-.. _directories: arakoon_deployment.html#directory-structure
+.. _directories: ../arakoon_deployment.html#directory-structure
 
 Adding Nodes to a Cluster
 =========================
@@ -125,7 +125,7 @@ start the cluster on each node.
 Congratulations, you have now a three node Arakoon setup! See also the
 `Managing Arakoon`_ page to see how you can start nodes with the command line.
 
-.. _Managing Arakoon: managing_arakoon.html
+.. _Managing Arakoon: ../managing_arakoon.html
 
 Adding a Learner Node
 =====================
@@ -142,7 +142,7 @@ machine, hosting Node_3 of the cluster.
     newcluster.addLocalNode('Node_3')
     newcluster.createDirs('Node_3')
 
-.. _learner node: cluster_nodes.html#learner-node
+.. _learner node: ../cluster_nodes.html#learner-node
 
 Demo Setup
 ==========
