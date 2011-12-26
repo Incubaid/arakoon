@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Cluster Nodes</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_cluster_nodes'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="cluster-nodes">
+<h1 class="title">Cluster Nodes</h1>
+
+<p>A cluster consists of two or three types of nodes. There is one master node.
+The other nodes in the cluster can be slave nodes or learner nodes.</p>
+<div class="section" id="master-node">
+<h2>Master Node</h2>
+<p>An Arakoon cluster always has <em>one</em> master node. Arakoon uses <a class="reference external" href="http://en.wikipedia.org/wiki/Paxos_(computer_science)#Multi-Paxos">Multi-Paxos</a> to
+decide which node becomes the master node. However, you have the possibility to
+set a fixed master node.</p>
+<p>When the nodes are started, they immediately negotiate who becomes the master.
+Once the roles are assigned, they get a lease time. The master node has a lease
+time of five seconds, the slave nodes have a lease time of ten seconds.</p>
+<p>When the lease time is expired, the master node requests again to become the
+master and in normal circumstances the slaves accept this request.</p>
+<p>However, in some situations it is possible that the master is not able to
+negotiate to be reelected as master, for example when the node is down or when
+there is too heavy load on the master node. In that case there is a
+re-negotiation between the remaining nodes to elect the new master node.</p>
+</div>
+<div class="section" id="slave-node">
+<h2>Slave Node</h2>
+<p>A slave node of an Arakoon cluster only follows the master and is also eligible
+to select a master. He waits for requests coming from the master and sends an
+acknowledgement when the request has been written to his own transaction log.
+When a following request arrives, the slave is certain that the master has
+successfully written the data of the previous transaction into his own
+database. This is the moment for the slave to write the data of the previous
+request in his database.</p>
+</div>
+<div class="section" id="learner-node">
+<h2>Learner Node</h2>
+<p>A learner node is a passive node that follows the cluster's updates but impacts
+neither progress nor majority. You sometimes want to have a node like this for
+fast but sloppy read access. Adding a learner is similar to adding a regular
+node.</p>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>
