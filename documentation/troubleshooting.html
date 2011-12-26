@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Troubleshooting</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_troubleshooting'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="troubleshooting">
+<h1 class="title">Troubleshooting</h1>
+
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#restarting-a-node" id="id1">Restarting a Node</a></li>
+<li><a class="reference internal" href="#corrupt-database" id="id2">Corrupt Database</a></li>
+<li><a class="reference internal" href="#store-ahead-of-tlogs" id="id3">Store ahead of TLogs</a></li>
+<li><a class="reference internal" href="#corrupt-transaction-log-tlog" id="id4">Corrupt Transaction Log (TLOG)</a></li>
+<li><a class="reference internal" href="#log-rotation" id="id5">Log Rotation</a></li>
+</ul>
+</div>
+<div class="section" id="restarting-a-node">
+<h2><a class="toc-backref" href="#id1">Restarting a Node</a></h2>
+<p>If for whatever reason a node dies, it can just be restarted. In normal
+situations, it will just catch up from the other nodes and resume its
+responsibilities.</p>
+</div>
+<div class="section" id="corrupt-database">
+<h2><a class="toc-backref" href="#id2">Corrupt Database</a></h2>
+<p>If a database is corrupt, one can delete the .db and .db.wal files from the
+nodes home directory. Afterwards, the node must be restarted. It will fill the
+database from the TLogs, and resume its normal tasks.</p>
+<p>If the database is corrupt, the arakoon node refuses to start. In the log file
+you see the following log message:</p>
+<pre class="literal-block">
+Dec 29 08:09:04: fatal: going down: Failure(&quot;invalid meta data&quot;)
+</pre>
+<p>A second log message that also indicates that the database has been corrupted,
+is the following.</p>
+<pre class="literal-block">
+Dec 29 08:09:04:  Failure(&quot;miscellaneous error&quot;)
+</pre>
+<p>A third log message that also indicates that the database has been corrupted,
+is the following.</p>
+<pre class="literal-block">
+Jan 24 08:59:53: fatal: going down: Failure(&quot;invalid record header&quot;)
+</pre>
+<p>If you encounter any of these messages, proceed with the deleting the database
+files (.db and .db.wal) and restarting the node.</p>
+</div>
+<div class="section" id="store-ahead-of-tlogs">
+<h2><a class="toc-backref" href="#id3">Store ahead of TLogs</a></h2>
+<p>If the store is ahead of the TLogs, the Arakoon daemon refuses to start and you
+see the following error message in the Arakoon log file.</p>
+<pre class="literal-block">
+Feb 16 09:17:35: error: Store counter (53107) ahead of tlogs (53105). Aborting
+Feb 16 09:17:35: fatal: after pick
+Feb 16 09:17:35: fatal: going down: Tlc2.TLCCorrupt(_)
+</pre>
+<p>You can resolve the issue by deleting the database files of the Arakoon node.
+The database files are located in the node home directory and have extensions
+.db and .db.wal. After deleting the database files you must restart the Arakoon
+process. After startup the Arakoon process will rebuild the database from its
+TLogs.</p>
+</div>
+<div class="section" id="corrupt-transaction-log-tlog">
+<h2><a class="toc-backref" href="#id4">Corrupt Transaction Log (TLOG)</a></h2>
+<p>Arakoon has a built-in mechanism that truncates the last incomplete (or
+corrupt) TLog entries. However this mechanism will not work in all corruption
+cases. Manual intervention is required when, after truncation the tlog counter
+is behind on the store counter. If this is the case you will need to truncate
+the tlog file from the command line. To do this you first need to figure which
+tlog is the last one. This can be done by listing the files in the node home
+directory. Each tlog file has an incrementing sequence number, so we are
+looking for the highest sequence number. The tlog in question should also be
+the only file with a '.tlog' extension. After you locate the file, issue the
+following command</p>
+<pre class="literal-block">
+arakoon --truncate-tlog &lt;FULL_PATH_TO_THE_TLOG&gt;
+</pre>
+<p>After this you need to delete the database files as there will be entries in
+the db that don't have a corresponding tlog entry. Follow the same steps as
+described in the section &quot;Store ahead of tlogs&quot; to delete the database files.</p>
+</div>
+<div class="section" id="log-rotation">
+<h2><a class="toc-backref" href="#id5">Log Rotation</a></h2>
+<p>Sending SIGUSR1 to an Arakoon process causes it to close and reopen its node
+log file. This can be used in combination with log rotate to do whatever you
+want with the logs.</p>
+<p>For example:</p>
+<pre class="literal-block">
+# ps -ef | grep arakoon
+root      5422     1  0 Jul05 ?        00:00:35 arakoon --node mycluster_0 -config /opt/qbase5/cfg/qconfig/arakoon/mycluster/mycluster.cfg -daemonize
+</pre>
+<p>On this machine, there is a pid 5422 of the Arakoon process that runs the node
+'mycluster_0' of the cluster. Now you can do a log rotation by moving this
+node's log file (in this example:
+/opt/qbase5/var/log/mycluster/mycluster_0/mycluster_0.log) and then send a
+SIGUSR1 to the Arakoon process. By doing so, a new mycluster_0.log file is
+created, while the original one is stored in the other location.</p>
+<pre class="literal-block">
+/opt/qbase5/var/log/mycluster/mycluster_0# mv mycluster_0.log /tmp
+/opt/qbase5/var/log/mycluster/mycluster_0# kill -USR1 5422
+/opt/qbase5/var/log/mycluster/mycluster_0# cat mycluster_0.log
+Jul  6 10:40:27: info: XXX injecting event into inject
+/opt/qbase5/var/log/mycluster/mycluster_0#
+</pre>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>

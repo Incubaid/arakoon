@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Arakoon Man Page</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_arakoon_man_page'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="arakoon-man-page">
+<h1 class="title">Arakoon Man Page</h1>
+
+<p>To know all the commands and options of Arakoon, you can either consult the
+man pages or the help function.</p>
+<pre class="literal-block">
+# arakoon --help
+usage: arakoon --&lt;command&gt;
+
+If you're clueless, try arakoon --help
+
+  --node runs a node
+  --test-node runs a node
+  --list-tests lists all possible tests
+  --run-all-tests runs all tests
+  --run-all-tests-xml &lt;filename&gt; : runs all tests with XML output to file
+  --run-some-tests run tests matching filter
+  --truncate-tlog &lt;filename&gt; : truncate a tlog after the last valid entry
+  --dump-tlog &lt;filename&gt; : dump a tlog file in readable format
+  --make-tlog &lt;filename&gt; &lt;counter&gt; : make a tlog file with 1 NOP entry &#64; &lt;counter&gt;
+  --dump-store &lt;filename&gt; : dump a store
+  --compress-tlog compress a tlog file
+  --uncompress-tlog uncompress a tlog file
+  --set &lt;key&gt; &lt;value&gt; : arakoon[&lt;key&gt;] = &lt;value&gt;
+  --get &lt;key&gt; : arakoon[&lt;key&gt;]
+  --delete &lt;key&gt; : delete arakoon[&lt;key&gt;]
+  --benchmark run a benchmark on an existing Arakoon cluster
+  --who-master tells you who's the master
+  --expect-progress-possible tells you if the master thinks progress is possible
+  --statistics returns some master statistics
+  --run-system-tests run system tests (you need a running installation
+  --version shows version
+  -config specifies config file (default = cfg/arakoon.ini )
+  -catchup-only will only do a catchup of the node, without actually starting it (option to --node)
+  -daemonize add if you want the process to daemonize (only for --node)
+  -value_size size of the values (only for --benchmark)
+  -tx_size size of transactions (only for --benchmark)
+  --test-repeat &lt;repeat_count&gt;
+  --collapse &lt;tlog_dir&gt; &lt;n&gt; collapses n tlogs from &lt;tlog_dir&gt; into head database
+  --collapse-remote &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt; &lt;n&gt; tells node to collapse &lt;n&gt; tlogs into its head database
+  -help  Display this list of options
+  --help  Display this list of options
+</pre>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>

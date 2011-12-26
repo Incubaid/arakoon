@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Arakoon :: Configuring Arakoon</title>
+    <meta name="description"
+      content="Arakoon is a distributed, consistent key-value store">
+    <meta name="author" content="Incubaid BVBA">
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link href="../bootstrap/bootstrap.css" rel="stylesheet" />
+    <link href="../style.css" rel="stylesheet" />
+
+    <!-- TODO
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    -->
+
+
+  </head>
+
+  <body class='page-documentation_configuring_arakoon'>
+
+    <header>
+    <div class="topbar">
+      <div class='container'>
+        <a href='index.html'>
+            <img alt='Arakoon' title='Arakoon Logo' src='../img/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li>
+            <a href="../index.html">Home</a>
+            </li>
+            <li>
+            <a href="../download.html">Download</a>
+            </li>
+            <li>
+            <a href="../documentation/index.html">Documentation</a>
+            </li>
+            <li>
+            <a href="../contact.html">Contact</a>
+            </li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div class="container" id='main'>
+      
+
+<div class="document" id="configuring-arakoon">
+<h1 class="title">Configuring Arakoon</h1>
+
+<p>Arakoon is a key-value store, consisting of a couple of nodes, that form a
+cluster.</p>
+<p>The setup below shows a three server setup, each running one Arakoon node.
+Since Arakoon is completely integrated in PyLabs, it's the easiest way to
+configure Arakoon with the Q-Shell.</p>
+<img alt="../img/ArakoonSetup.png" src="../img/ArakoonSetup.png" />
+<p>To start working with an Arakoon setup you have to follow phases:</p>
+<ol class="arabic simple">
+<li><a class="reference internal" href="#creating-the-cluster">Creating a physical node setup</a> or <a class="reference internal" href="#demo-setup">Create a demo setup</a></li>
+<li><a class="reference internal" href="#generating-the-client-configuration">Generating the Client Configuration</a></li>
+</ol>
+<div class="section" id="creating-the-cluster">
+<h2>Creating the Cluster</h2>
+<p>A first step in configuring Arakoon, is creating a cluster. You can create the
+cluster on any of the machines that you will use. In this example we start with
+Machine 1.</p>
+<p>Start the Q-Shell on this machine and create the cluster <strong>Demo_Cluster</strong>:</p>
+<pre class="literal-block">
+newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
+</pre>
+</div>
+<div class="section" id="configuring-the-first-node">
+<h2>Configuring the First Node</h2>
+<p>When you have your cluster, you can start adding the Arakoon nodes by using the
+addNode method on your cluster object.</p>
+<pre class="literal-block">
+newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
+</pre>
+<p>This method only adds the node to the configuration of Machine 1. You still
+have to add the indicate that the node must start locally, i.e. on Machine 1,
+and create the <a class="reference external" href="arakoon_deployment.html#directory-structure">directories</a> of the node.</p>
+<pre class="literal-block">
+newcluster.addLocalNode('Node_0')
+newcluster.createDirs('Node_0')
+</pre>
+<p>You have now one machine running one cluster with one node.</p>
+<p>The following step is to add the other nodes.</p>
+</div>
+<div class="section" id="adding-nodes-to-a-cluster">
+<h2>Adding Nodes to a Cluster</h2>
+<p>If you want to add a node to the same cluster as the one created in the
+previous step, you have to follow the same steps but with the according values.</p>
+<p>Execute these steps on the proper machines, i.e. configure <strong>Node_1</strong> on
+<strong>Machine 2</strong> and <strong>Node_2</strong> on <strong>Machine 3</strong>.</p>
+<div class="important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that you use the same cluster name! In our example this is
+<strong>Demo_Cluster</strong>.</p>
+</div>
+<div class="section" id="node-1-on-machine-2">
+<h3>Node_1 on Machine 2</h3>
+<p>Configure Node_1:</p>
+<pre class="literal-block">
+newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
+newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
+newcluster.addLocalNode('Node_1')
+newcluster.createDirs('Node_1')
+</pre>
+</div>
+<div class="section" id="node-2-on-machine-3">
+<h3>Node_2 on Machine 3:</h3>
+<p>Configure Node_2:</p>
+<pre class="literal-block">
+newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
+newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
+newcluster.addLocalNode('Node_2')
+newcluster.createDirs('Node_2')
+</pre>
+</div>
+</div>
+<div class="section" id="linking-the-nodes">
+<h2>Linking the Nodes</h2>
+<p>When you have created and configured the different nodes, you have to make the
+each node aware that there are other nodes in the cluster. On each machine you
+have to add the other nodes in the cluster.</p>
+<p>For example on Machine 1 you have to add Node_1 and Node_2 to the cluster, on
+Machine 2 add Node_0 and Node_2, and on Machine 3 add Node_0 and Node_1.</p>
+<div class="section" id="machine-1">
+<h3>Machine 1</h3>
+<p>Link Node_1 and Node_2 to Node_0:</p>
+<pre class="literal-block">
+newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
+newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
+</pre>
+</div>
+<div class="section" id="machine-2">
+<h3>Machine 2</h3>
+<p>Link Node_0 and Node_2 to Node_1:</p>
+<pre class="literal-block">
+newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
+newcluster.addNode(name='Node_2', ip='192.168.1.3', clientPort=7082, messagingPort=10002)
+</pre>
+</div>
+<div class="section" id="machine-3">
+<h3>Machine 3</h3>
+<p>Link Node_0 and Node_1 to Node_2:</p>
+<pre class="literal-block">
+newcluster.addNode(name='Node_0', ip='192.168.1.1', clientPort=7080, messagingPort=10000)
+newcluster.addNode(name='Node_1', ip='192.168.1.2', clientPort=7081, messagingPort=10001)
+</pre>
+</div>
+</div>
+<div class="section" id="starting-your-setup">
+<h2>Starting Your Setup</h2>
+<p>A last phase to make your Arakoon setup active is to start the cluster on each
+node. This will only start the local Arakoon node, which means that you have to
+start the cluster on each node.</p>
+<pre class="literal-block">
+newcluster.start()
+</pre>
+<p>Congratulations, you have now a three node Arakoon setup! See also the
+<a class="reference external" href="managing_arakoon.html">Managing Arakoon</a> page to see how you can start nodes with the command line.</p>
+</div>
+<div class="section" id="adding-a-learner-node">
+<h2>Adding a Learner Node</h2>
+<p>A <a class="reference external" href="cluster_nodes.html#learner-node">learner node</a> is a passive node that follows the cluster's updates but
+impacts neither progress nor majority. You sometimes want to have a node like
+this for fast but sloppy read access. Adding a learner is similar to adding a
+regular node, but with two extra arguments. Suppose that we add a fourth
+machine, hosting Node_3 of the cluster.</p>
+<pre class="literal-block">
+newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
+newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
+newcluster.addLocalNode('Node_3')
+newcluster.createDirs('Node_3')
+</pre>
+</div>
+<div class="section" id="demo-setup">
+<h2>Demo Setup</h2>
+<p>If you want to quickly set up a demo Arakoon environment, you can use the setUp
+method on a cluster object. This method expects a number of nodes that you want
+to add in the cluster.</p>
+<p>With this function you create a cluster on your server, including the defined
+number of nodes.</p>
+<pre class="literal-block">
+testcluster = q.manage.arakoon.getCluster('TestCluster')
+testcluster.setUp(3)
+testcluster.start()
+</pre>
+<p>The result is a cluster ('TestCluster') with three nodes (TestCluster_0,
+TestCluster_1, and TestCluster_2), all running on your local server.</p>
+</div>
+<div class="section" id="read-only-mode">
+<h2>Read-only mode</h2>
+<p>Single node Arakoon clusters can be put in read-only mode.</p>
+<pre class="literal-block">
+testcluster = q.manage.arakoon.getCluster('TestCluster')
+testcluster.setReadOnly()
+testcluster.restart()
+</pre>
+<div class="important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that you restart your Arakoon cluster after changing the
+read-only flag!</p>
+</div>
+</div>
+<div class="section" id="generating-the-client-configuration">
+<h2>Generating the Client Configuration</h2>
+<p>After having set up your Arakoon environment (physical setup as well as demo
+setup), you have to generate the client configuration of your Arakoon
+installation via the Q-Shell.</p>
+<pre class="literal-block">
+clientconfig = q.clients.arakoon.getClientConfig('&lt;arakoon cluster name&gt;')
+clientconfig.generateFromServerConfig()
+</pre>
+</div>
+</div>
+
+
+      <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2011, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='../disclaimer.html'>Disclaimer</a>
+            |
+            <a href='../privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </footer>
+    </div>
+  </body>
+</html>
