@@ -10,7 +10,7 @@ import docutils.core
 ENCODING = 'utf-8'
 FILTER = lambda f: \
     (f.endswith('.html') or f.endswith('.rst')) \
-    and not (f.startswith('_'))
+    and not (os.path.basename(f).startswith('_'))
 
 RST_SETTINGS = {
     'initial_header_level': 2,
@@ -59,6 +59,16 @@ def render_rst(in_, out):
     finally:
         fd_out.close()
 
+def create_dirs(base, name):
+    path = os.path.dirname(name)
+    target = os.path.join(base, path)
+
+    if not os.path.isdir(target):
+        if os.path.exists(target):
+            raise RuntimeError('File "%s" exists' % target)
+
+        os.makedirs(target, 0755)
+
 def run(src, target):
     LOGGER.info('Rendering %s to %s', src, target)
 
@@ -68,8 +78,14 @@ def run(src, target):
     environment = jinja2.Environment(
         loader=loader, undefined=jinja2.StrictUndefined)
 
-    for name in filter(FILTER, os.listdir(src)):
+    for name in filter(FILTER,
+        (os.path.relpath(os.path.join(d, f), start=src)
+            for (d, _, fs) in os.walk(src)
+            for f in fs)):
+
         LOGGER.debug('Rendering %s', name)
+
+        create_dirs(target, name)
 
         cleanup_html = False
         html_file = None
@@ -90,7 +106,15 @@ def run(src, target):
             template = environment.get_template(template_name)
 
             local_context = context.copy()
-            local_context['name'] = os.path.splitext(template_name)[0]
+            local_context['name'] = os.path.splitext(template_name)[0] \
+                    .replace('/', '_') \
+                    .replace('.', '_')
+
+            base_rel = os.path.relpath(src, os.path.dirname(name))
+            if base_rel == os.path.curdir:
+                local_context['base'] = ''
+            else:
+                local_context['base'] = '%s/' % base_rel
 
             output = template.render(local_context)
             output_str = output.encode(ENCODING)
