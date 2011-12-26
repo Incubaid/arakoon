@@ -15,7 +15,7 @@ contributed content.
 Please complete and submit the Arakoon `Contributor License Agreement`_.
 We will grant you access to the source code once we have received your form.
 
-.. _Contributor License Agreement: http://arakoon.org/download/attachments/4587581/Contributor%20license%20agreement.pdf
+.. _Contributor License Agreement: arakoon_cla.pdf
 
 Sources
 =======
