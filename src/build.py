@@ -2,6 +2,8 @@ import os
 import os.path
 import logging
 
+import lxml.html
+
 import jinja2
 
 import pygments.formatters
@@ -48,12 +50,36 @@ def render_rst(in_, out):
 
     title = doc.document['title']
 
-    utext = text.decode('utf-8')
+    document = lxml.html.fromstring(text)
 
-    body_open_start = utext.index(u'<body')
-    body_open_end = utext[body_open_start:].index(u'>') + body_open_start + 1
-    body_close_start = utext.index(u'</body>')
-    body_html = utext[body_open_end:body_close_start]
+    # Convert ReST 'warning' and 'info' structures into corresponding Bootstrap
+    # markup
+    for (orig, new_) in (('important', 'warning'), ('tip', 'info'), ):
+        blocks = document.cssselect('div.%s' % orig)
+
+        for block in blocks:
+            classes = block.attrib['class']
+            new_classes = 'alert-message block-message %s %s' % (new_, classes)
+            block.attrib['class'] = new_classes
+
+            titles = block.cssselect('p.admonition-title')
+
+            assert len(titles) <= 1
+
+            if titles:
+                title_elem = titles[0]
+
+                assert title_elem.getchildren() == []
+
+                elem = lxml.html.fragment_fromstring('<strong>')
+                elem.text = title_elem.text
+                title_elem.text = ''
+                title_elem.append(elem)
+
+    body_html = lxml.html.tostring(document.cssselect('div.document')[0])
+
+    # Bleh...
+    body_html = body_html.replace('src="%7B%7Bbase%7D%7D', 'src="{{ base }}')
 
     template = RST_TEMPLATE % {
         'title': title,

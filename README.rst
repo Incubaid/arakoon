@@ -14,10 +14,12 @@ Finally, install the required dependencies:
 - Jinja2_, a Python template engine
 - Docutils_, a Python library for ReStructuredText handling
 - Pygments_, a Python source code highlighting library
+- lxml_, a Python XML and HTML parsing library
 
 .. _Jinja2: http://jinja.pocoo.org/
 .. _Docutils: http://docutils.sourceforge.net/
 .. _Pygments: http://pygments.org/
+.. _lxml: http://lxml.de/
 
 Editing
 =======
