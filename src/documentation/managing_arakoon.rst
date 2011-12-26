@@ -144,6 +144,8 @@ Investigating TLogs
 It is not possible to read TLogs as stored on the file system. If you want
 human-readable output, you need a dump of the TLog.
 
+::
+
     arakoon --dump-tlog <path_to_tlog_file>
 
 For example::
