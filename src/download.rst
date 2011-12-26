@@ -27,7 +27,7 @@ Server
 | Ubuntu x86_64 Q-Package | 0.11.1   | name: arakoon | domain: pylabs.org                    |
 +-------------------------+----------+---------------+---------------------------------------+
 
-.. __: http://arakoon.org/download/attachments/2326551/arakoon_0.11.1-1_amd64.deb?version=1&modificationDate=1317209802587
+.. __: http://confluence.incubaid.com/download/attachments/2326551/arakoon_0.11.1-1_amd64.deb?version=1&modificationDate=1317209802587
 
 Python Client
 -------------
@@ -37,7 +37,7 @@ Python Client
 | Ubuntu x86_64 Q-Package | 0.11.1   | name: arakoon_client | domain: pylabs.org                    |
 +-------------------------+----------+----------------------+---------------------------------------+
 
-.. __: http://arakoon.org/download/attachments/2326551/arakoon-0.11.1-py2.6.egg?version=2&modificationDate=1317209808816
+.. __: http://confluence.incubaid.com/download/attachments/2326551/arakoon-0.11.1-py2.6.egg?version=2&modificationDate=1317209808816
 
 OCaml client
 ------------
@@ -45,7 +45,7 @@ OCaml client
 | Debian Package x86_64   | 0.11.1__ | 69 KB | MD5: d3f9c0487e6917faa21c3a43077a9615 |
 +-------------------------+----------+-------+---------------------------------------+
 
-.. __: http://arakoon.org/download/attachments/2326551/libarakoon-ocaml-dev_0.11.1-1_amd64.deb?version=1&modificationDate=1317209929208
+.. __: http://confluence.incubaid.com/download/attachments/2326551/libarakoon-ocaml-dev_0.11.1-1_amd64.deb?version=1&modificationDate=1317209929208
 
 Sources
 -------
@@ -59,4 +59,4 @@ Download Archives
 =================
 Older releases of Arakoon can be found on the `Archives page`_.
 
-.. _Archives page: http://arakoon.org/Download+Archive
+.. _Archives page: http://confluence.incubaid.com/display/ARAKOON/Download+Archive
