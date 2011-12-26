@@ -88,8 +88,8 @@ below.
    | You need to store key/values sizes >=16MB                                     | |n| |
    +-------------------------------------------------------------------------------+-----+
 
-.. |y| image:: img/check.gif
-.. |n| image:: img/error.gif
+.. |y| image:: {{ base }}img/check.gif
+.. |n| image:: {{ base }}img/error.gif
 
 If the Arakoon features match your requirements, then continue reading about
 the deployment of an Arakoon cluster.
@@ -107,5 +107,5 @@ is; they do so because nodes can assume different roles.
 The diagram below shows 3 clients connected to an Arakoon cluster that consists
 of 3 Arakoon nodes.
 
-.. image:: img/ArakoonDeployment.png
+.. image:: {{ base }}img/ArakoonDeployment.png
    :alt: Arakoon cluster deployment scheme
