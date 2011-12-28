@@ -1,8 +1,10 @@
 import os
 import os.path
+import re
 import socket
 import hashlib
 import logging
+import subprocess
 
 try:
     import cStringIO as StringIO
@@ -28,6 +30,8 @@ if not hasattr(ATD.Error, '__getitem__'):
         raise TypeError
 
     ATD.Error.__getitem__ = fix
+
+BASE_URL = 'http://arakoon.org'
 
 CODE_CSS_STYLE = 'trac'
 CODE_CSS_PREFIX = 'div.highlight'
@@ -58,6 +62,9 @@ luck next time!</p>
 '''
 
 LOGGER = logging.getLogger(__name__)
+
+DATE_RE = re.compile('^Date:\s+(.+)$', re.MULTILINE)
+SITEMAP_NS = 'http://www.sitemaps.org/schemas/sitemap/0.9'
 
 def render_rst(in_, out):
     fd = open(in_, 'r') # Will be closed by docutils
@@ -127,11 +134,40 @@ def create_dirs(base, name):
 
         os.makedirs(target, 0755)
 
+def git_modification_date(path):
+    out = subprocess.check_output(['git', 'log', '-n1', '--date=iso', path])
+
+    date = DATE_RE.findall(out)[0] \
+            .replace(' +', '+') \
+            .replace(' ', 'T')
+
+    return date
+
+def generate_sitemap(pages):
+    ns = '{%s}' % SITEMAP_NS
+
+    root = lxml.etree.Element('%surlset' % ns, nsmap={None: SITEMAP_NS})
+
+    for file_, page in sorted(pages):
+        date = git_modification_date(file_)
+
+        url = lxml.etree.SubElement(root, '%surl' % ns)
+
+        loc = lxml.etree.SubElement(url, '%sloc' % ns)
+        loc.text = '%s/%s' % (BASE_URL, page)
+
+        lastmod = lxml.etree.SubElement(url, '%slastmod' % ns)
+        lastmod.text = date
+
+    return root
+
+
 def run(src, target, atd=False):
     LOGGER.info('Rendering %s to %s', src, target)
 
     context = {}
     atd_results = {}
+    generated_pages = []
 
     loader = jinja2.FileSystemLoader((src, ))
     environment = jinja2.Environment(
@@ -186,6 +222,9 @@ def run(src, target, atd=False):
                 fd.write(output_str)
             finally:
                 fd.close()
+
+            generated_pages.append((name, template_name))
+
         finally:
             if cleanup_html:
                 os.unlink(html_file)
@@ -237,6 +276,18 @@ def run(src, target, atd=False):
             fd.write(output_str)
         finally:
             fd.close()
+
+    LOGGER.debug('Generating sitemap')
+    sitemap = generate_sitemap(generated_pages)
+    sitemap_data = lxml.etree.tostring(sitemap, encoding='utf-8',
+        xml_declaration=True, pretty_print=True)
+
+    LOGGER.debug('Writing sitemap')
+    sitemap_fd = open(os.path.join(target, 'sitemap.xml'), 'w')
+    try:
+        sitemap_fd.write(sitemap_data)
+    finally:
+        sitemap_fd.close()
 
 
 def main():
