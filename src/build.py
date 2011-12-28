@@ -141,6 +141,10 @@ def git_modification_date(path):
             .replace(' +', '+') \
             .replace(' ', 'T')
 
+    tz = date[-4:]
+    if tz.isdigit():
+        date = '%s%s:%s' % (date[:-4], tz[:2], tz[2:])
+
     return date
 
 def generate_sitemap(pages):
