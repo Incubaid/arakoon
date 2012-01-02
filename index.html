@@ -32,7 +32,8 @@
 
   jQuery(function($) {
     var q = encodeURIComponent('SELECT * FROM rss WHERE url="' + FEED +'"'),
-        uri = 'http://query.yahooapis.com/v1/public/yql?format=json&q=' + q;
+        uri = 'http://query.yahooapis.com/v1/public/yql?format=json&q=' + q +
+                '&callback=?';
 
 
     $.getJSON(uri, function(data) {
