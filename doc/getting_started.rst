@@ -2,9 +2,6 @@
 Getting Started
 ===============
 
-{% set current = '1.0.0' %}
-{% set prompt = 'arakoon-1.0.0$>' %}
-
 Introduction
 ============
 This page will guide you through the setup of a 3 node Arakoon cluster.
@@ -17,14 +14,14 @@ using Debian packages,...) exist too, but this is the easiest.
 
 ::
 
-    $> wget http://www.arakoon.org/downloads/arakoon-{{ current }}.tgz
+    $> wget http://www.arakoon.org/downloads/arakoon-1.0.0.tgz
 
-    $> tar -zxvf arakoon-{{ current }}.tgz
-    arakoon-{{ current }}/arakoon
-    arakoon-{{ current }}/cfg/arakoon.ini
+    $> tar -zxvf arakoon-1.0.0.tgz
+    arakoon-1.0.0/arakoon
+    arakoon-1.0.0/cfg/arakoon.ini
 
-    $> cd arakoon-{{ current }}
-    arakoon-{{ current }}$>
+    $> cd arakoon-1.0.0
+    arakoon-1.0.0$>
 
 Configuration
 =============
@@ -33,7 +30,7 @@ needs to be exactly the same for every node, and for a cluster on a
 single machine, all nodes can use the same file location. Here is the one
 we'll be using today::
 
-    {{ prompt }} cat cfg/arakoon.ini
+    arakoon-1.0.0$> cat cfg/arakoon.ini
 
     [global]
     cluster_id = ricky
@@ -63,21 +60,21 @@ location of its configuration file.
 
 ::
 
-    {{ prompt }} mkdir -p /tmp/arakoon/arakoon_0
-    {{ prompt }} ./arakoon -config cfg/arakoon.ini --node arakoon_0
+    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_0
+    arakoon-1.0.0$> ./arakoon -config cfg/arakoon.ini --node arakoon_0
 
 In another terminal tab, start the second node. Fortunately, Arakoon
 considers its default configuration location to be **./cfg/arakoon.ini**.
 
 ::
 
-    {{ prompt }} mkdir -p /tmp/arakoon/arakoon_1
-    {{ prompt }} ./arakoon --node arakoon_1
+    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_1
+    arakoon-1.0.0$> ./arakoon --node arakoon_1
 
 In yet another terminal tab, start the third node::
 
-    {{ prompt }} mkdir -p /tmp/arakoon/arakoon_2
-    {{ prompt }} ./arakoon --node arakoon_2
+    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_2
+    arakoon-1.0.0$> ./arakoon --node arakoon_2
 
 First steps
 ===========
@@ -88,18 +85,18 @@ Who's the master
 ----------------
 ::
 
-    {{prompt}} ./arakoon --who-master
+    arakoon-1.0.0$> ./arakoon --who-master
     arakoon_1
 
 Basic Set/Get/Delete
 --------------------
 ::
 
-    {{prompt}} ./arakoon --set some_key some_value
-    {{prompt}} ./arakoon --get some_key
+    arakoon-1.0.0$> ./arakoon --set some_key some_value
+    arakoon-1.0.0$> ./arakoon --get some_key
     "some_value"
-    {{prompt}} ./arakoon --delete some_key
-    {{prompt}} ./arakoon --get some_key
+    arakoon-1.0.0$> ./arakoon --delete some_key
+    arakoon-1.0.0$> ./arakoon --get some_key
     Fatal error: exception Arakoon_exc.Exception(5, "some_key")
     Raised at file "src/core/lwt.ml", line 557, characters 22-23
     Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
@@ -113,12 +110,12 @@ Go to the terminal tab for arakoon_0 and kill the node (*ctrl-c*).
 
 ::
 
-    {{prompt}} ./arakoon -config cfg/arakoon.ini --node arakoon_0
+    arakoon-1.0.0$> ./arakoon -config cfg/arakoon.ini --node arakoon_0
     ^C
-    {{prompt}}./arakoon --expect-progress-possible
+    arakoon-1.0.0$>./arakoon --expect-progress-possible
     true
-    {{prompt}}./arakoon --set still_alive yes
-    {{prompt}}./arakoon --get still_alive 
+    arakoon-1.0.0$>./arakoon --set still_alive yes
+    arakoon-1.0.0$>./arakoon --get still_alive 
     "yes"
 
 You can verify the cluster still behaves properly. This is because the
@@ -130,7 +127,7 @@ Arakoon keeps record of the everything you do so it can replay it to
 nodes that could not follow the cluster (because they were down,
 disconnected,...). This is what it looks like::
 
-    {{prompt}}./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog 
+    arakoon-1.0.0$>./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog 
     0:MasterSet ;"arakoon_1";0
     ...
     5:Set       ;"some_key";10
@@ -145,22 +142,22 @@ Kill another Node and Whipe it
 An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
 So go to the terminal tab for arakoon_1 and kill it.::
 
-   {{prompt}}./arakoon --node arakoon_1
+   arakoon-1.0.0$>./arakoon --node arakoon_1
    ^C
-   {{prompt}}./arakoon --get some_key
+   arakoon-1.0.0$>./arakoon --get some_key
    Fatal error: exception Failure("No Master")
    Raised at file "src/core/lwt.ml", line 557, characters 22-23
    Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
    Called from file "src/client/client_main.ml", line 68, characters 12-31
    Called from file "src/main/main.ml", line 395, characters 26-37
    Called from file "src/main/arakoon.ml", line 1, characters 0-12
-   {{prompt}}rm -rf /tmp/arakoon/arakoon_1/*
-   {{prompt}}./arakoon --node arakoon_1
+   arakoon-1.0.0$>rm -rf /tmp/arakoon/arakoon_1/*
+   arakoon-1.0.0$>./arakoon --node arakoon_1
 
 The node has been restarted.
 Now go to a free tab, and try to get the value::
     
-    {{prompt}}./arakoon --get some_key
+    arakoon-1.0.0$>./arakoon --get some_key
     "some_value"
 
 Arakoon nodes repair themselves using their siblings. Most of the time it's automatic, 
