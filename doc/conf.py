@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Arakoon'
-copyright = u'2012, Incubaid'
+copyright = u'2012, Incubaid BVBA'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -147,7 +147,7 @@ html_static_path = ['_static']
 #html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-#html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #html_show_sphinx = True
@@ -184,12 +184,12 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'Arakoon.tex', u'Arakoon Documentation',
-   u'Incubaid', 'manual'),
+   u'Incubaid BVBA', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-#latex_logo = None
+latex_logo = 'img/logo.png'
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.
@@ -228,7 +228,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'Arakoon', u'Arakoon Documentation',
-   u'Incubaid', 'Arakoon', 'One line description of project.',
+   u'Incubaid BVBA', 'Arakoon', 'One line description of project.',
    'Miscellaneous'),
 ]
 
@@ -248,7 +248,7 @@ texinfo_documents = [
 epub_title = u'Arakoon'
 epub_author = u'Incubaid'
 epub_publisher = u'Incubaid'
-epub_copyright = u'2012, Incubaid'
+epub_copyright = u'2012, Incubaid BVBA'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.
