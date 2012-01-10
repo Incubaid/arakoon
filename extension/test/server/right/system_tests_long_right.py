@@ -539,3 +539,10 @@ def test_large_catchup_while_running():
     time.sleep(10.0)
     Common.assert_running_nodes(3)
 
+@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
+def test_log_rotation():
+    node = Common.node_names[0]
+    for i in range(100):
+        Common.rotate_log(node, 1, False)
+        time.sleep(0.2)
+        Common.assert_running_nodes(1)
