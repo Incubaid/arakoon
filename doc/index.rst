@@ -9,7 +9,21 @@ Welcome to Arakoon's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+
+   introduction
+   getting_started
+   installing_arakoon
+   arakoon_deployment
+   arakoon_configuration
+   cluster_nodes
+   managing_arakoon
+   arakoon_ocaml_client
+   arakoon_python_client
+   arakoon_man_page
+   working_with_tlogs
+   troubleshooting
+   pylabs/index
 
 
 
