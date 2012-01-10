@@ -153,10 +153,17 @@ let collapse_many tlog_coll
   Lwt_log.debug_f "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   let tlogs_to_collapse = total_tlogs - tlogs_to_keep in
-  Lwt_log.info_f "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
-  cb' tlogs_to_collapse >>= fun () ->
-  tlog_coll # get_infimum_i() >>= fun tlc_min ->
-  let g_too_far_i = Sn.succ (Sn.add tlc_min (Sn.of_int (tlogs_to_collapse * !Tlogcommon.tlogEntriesPerFile))) in
-  collapse_until tlog_coll store_fs g_too_far_i cb >>= fun () ->
-  tlog_coll # remove_oldest_tlogs tlogs_to_collapse 
-  
+  if tlogs_to_collapse <= 0
+  then
+    Lwt_log.info_f "Nothing to collapse..." >>= fun () -> 
+    cb' 0
+  else
+    begin
+      Lwt_log.info_f "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
+      cb' (tlogs_to_collapse+1) >>= fun () ->
+      tlog_coll # get_infimum_i() >>= fun tlc_min ->
+      let g_too_far_i = Sn.succ (Sn.add tlc_min (Sn.of_int (tlogs_to_collapse * !Tlogcommon.tlogEntriesPerFile))) in
+      collapse_until tlog_coll store_fs g_too_far_i cb >>= fun () ->
+      tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
+      cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) 
+    end

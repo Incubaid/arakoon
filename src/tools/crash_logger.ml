@@ -120,8 +120,14 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
       ~logger:file_logger 
       ~level msg 
     in 
-    Lwt_list.iter_s log_file_msg msgs >>= fun () -> 
-    log_crash_msg section level msgs 
+    Lwt.catch
+      (fun () ->
+        Lwt_list.iter_s log_file_msg msgs >>= fun () -> 
+        log_crash_msg section level msgs )
+      (function 
+        | Lwt_log.Logger_closed -> Lwt.return ()
+        | e -> Lwt.fail e
+      )
   in
     
   let close_default_logger () =
