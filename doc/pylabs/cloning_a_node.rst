@@ -14,7 +14,7 @@ configuration is changed. This way the catchup procedure is limited to the
 updates that were added since the moment of cloning.
 
 To add a clone, you first need to add a node to the cluster as shown in the
-`Configuring Arakoon section`_::
+:doc:`Configuring Arakoon section <configuring_arakoon>`::
 
     newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
     newcluster.addNode(name='Node_4', ip='192.168.1.4', clientPort=7083, messagingPort=10003)
@@ -26,7 +26,5 @@ cluster object to clone a node::
 
     newcluster.catchupOnly('Node_4')
 
-To clone a node via the Arakoon CLI, see `Arakoon CLI`_.
-
-.. _Configuring Arakoon section: configuring_arakoon.html
-.. _Arakoon CLI: ../managing_arakoon.html#cloning-a-node
+To clone a node via the Arakoon CLI, see
+:doc:`Arakoon CLI </managing_arakoon>`.

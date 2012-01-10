@@ -41,7 +41,7 @@ addNode method on your cluster object.
 
 This method only adds the node to the configuration of Machine 1. You still
 have to add the indicate that the node must start locally, i.e. on Machine 1,
-and create the `directories`_ of the node.
+and create the :doc:`directories </arakoon_deployment>` of the node.
 
 .. sourcecode:: python
 
@@ -51,8 +51,6 @@ and create the `directories`_ of the node.
 You have now one machine running one cluster with one node.
 
 The following step is to add the other nodes.
-
-.. _directories: ../arakoon_deployment.html#directory-structure
 
 Adding Nodes to a Cluster
 =========================
@@ -135,17 +133,16 @@ start the cluster on each node.
     newcluster.start()
 
 Congratulations, you have now a three node Arakoon setup! See also the
-`Managing Arakoon`_ page to see how you can start nodes with the command line.
-
-.. _Managing Arakoon: ../managing_arakoon.html
+:doc:`Managing Arakoon </managing_arakoon>` page to see how you can start nodes
+with the command line.
 
 Adding a Learner Node
 =====================
-A `learner node`_ is a passive node that follows the cluster's updates but
-impacts neither progress nor majority. You sometimes want to have a node like
-this for fast but sloppy read access. Adding a learner is similar to adding a
-regular node, but with two extra arguments. Suppose that we add a fourth
-machine, hosting Node_3 of the cluster.
+A :doc:`learner node </cluster_nodes>` is a passive node that follows the
+cluster's updates but impacts neither progress nor majority. You sometimes want
+to have a node like this for fast but sloppy read access. Adding a learner is
+similar to adding a regular node, but with two extra arguments. Suppose that we
+add a fourth machine, hosting Node_3 of the cluster.
 
 .. sourcecode:: python
 
@@ -153,8 +150,6 @@ machine, hosting Node_3 of the cluster.
     newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
     newcluster.addLocalNode('Node_3')
     newcluster.createDirs('Node_3')
-
-.. _learner node: ../cluster_nodes.html#learner-node
 
 Demo Setup
 ==========

@@ -5,7 +5,7 @@ To configure an Arakoon setup you only have to create a plain-text
 configuration file.
 
 Below you can find an example of a configuration file, based on the three node
-setup shown on the `Arakoon Deployment page <arakoon_deployment.html>`_. This
+setup shown on the :doc:`Arakoon Deployment page <arakoon_deployment>`. This
 configuration file must be stored somewhere on your file system. The file name
 can be freely chosen.
 
@@ -87,7 +87,7 @@ preferred_master *(optional)*
 
 lease_period *(optional)*
   Set another lease period than the default value of five seconds. See also
-  `Cluster Nodes <cluster_nodes.html>`_.
+  :doc:`Cluster Nodes <cluster_nodes>`.
 
 readonly *(optional)*
   Allows you to set a single node Arakoon cluster in read only mode. Make sure
@@ -95,7 +95,7 @@ readonly *(optional)*
 
 quorum *(optional)*
   In normal situations, the master needs half plus one acknowledgments of the
-  nodes (see also `Arakoon Deployment <arakoon_deployment.html>`_) before
+  nodes (see also :doc:`Arakoon Deployment <arakoon_deployment>`) before
   writing data in the database. By using this parameter you can set the number
   of acknowledgments.
 

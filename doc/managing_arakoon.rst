@@ -5,22 +5,20 @@ In this section you can find the basic commands to manage Arakoon.
 
 Creating a Cluster
 ==================
-After the installation of Arakoon via its `debian package`_, you can create an
-Arakoon configuration file anywhere on your harddisk. By default Arakoon looks
-for the configuration file cfg/arakoon.ini, relative to the current working
-directory. If you want to use another location and name for the configuration
-file, you must use the -config argument with the arakoon command.
+After the installation of Arakoon via its
+:doc:`debian package <installing_arakoon>`, you can create an Arakoon
+configuration file anywhere on your harddisk. By default Arakoon looks for the
+configuration file cfg/arakoon.ini, relative to the current working directory.
+If you want to use another location and name for the configuration file, you
+must use the -config argument with the arakoon command.
 
 To create a cluster, you have to define the whole cluster and its nodes in a
-`configuration file`_. For an example, see the `Arakoon Deployment page`_.
+:doc:`configuration file <arakoon_configuration>`. For an example, see the
+:doc:`Arakoon Deployment page <arakoon_deployment>`.
 
 The defined directories in the configuration file must be created before you
 can continue with Arakoon. If directories are missing, you get errors when
 starting an Arakoon node.
-
-.. _debian package: installing_arakoon.html
-.. _configuration file: arakoon_configuration.html
-.. _Arakoon Deployment page: arakoon_deployment.html
 
 Starting a Node
 ===============
@@ -48,9 +46,10 @@ cluster.
 
 Adding a Learner Node
 =====================
-If you want to add a Learner Node (see also `Configuring Arakoon`_), you have
-to modify the Arakoon configuration file. Do not add the learner node to the
-list of nodes in the cluster, just define the learner.
+If you want to add a Learner Node (see also
+:doc:`Configuring Arakoon <pylabs/configuring_arakoon>`), you have to modify
+the Arakoon configuration file. Do not add the learner node to the list of
+nodes in the cluster, just define the learner.
 
 In the definition of the Learner node you must indicate that the node is a
 learner and from which targets it must learn. The other parameters are similar
@@ -77,16 +76,15 @@ Start a learner node the same way as a `normal node`_.
 
     arakoon -daemonize -config /root/cfg/my_cluster.cfg --node Learner_0
 
-.. _Configuring Arakoon: pylabs/configuring_arakoon.html
 .. _normal node: `Starting a Node`_
 
 Master Node
 ===========
 In some cases it is useful to select an Arakoon node to be the master node,
-see also `Cluster Nodes`. To do so, add a master argument in the [global]
-section of the configuration file. To have a backup in case the defined master
-node is down, add an extra parameter preferred_master. The other nodes start
-negotiating to become master in case the defined master is down.
+see also :doc:`Cluster Nodes <cluster_nodes>`. To do so, add a master argument
+in the [global] section of the configuration file. To have a backup in case the
+defined master node is down, add an extra parameter preferred_master. The other
+nodes start negotiating to become master in case the defined master is down.
 
 ::
 
@@ -94,8 +92,6 @@ negotiating to become master in case the defined master is down.
     cluster=Node_0, Node_1, Node_2
     master=Node_0
     preferred_master=true
-
-.. _Cluster Nodes: cluster_nodes.html
 
 Cloning a Node
 ==============
@@ -118,9 +114,8 @@ way::
    configuration file.
 
 When the cloning is finished, you can start the new node as a normal node. To
-clone a node via the Arakoon PyLabs client see `Cloning a Node`_.
-
-.. _Cloning a Node: pylabs/cloning_a_node.html
+clone a node via the Arakoon PyLabs client see
+:doc:`Cloning a Node <pylabs/cloning_a_node>`.
 
 Collapsing TLogs
 ================

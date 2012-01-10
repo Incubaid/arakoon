@@ -1,10 +1,8 @@
 =====================
 Arakoon PyLabs Client
 =====================
-When you have set up your `Arakoon setup`_, you can use a PyLabs client to
-interact with Arakoon.
-
-.. _Arakoon setup: configuring_arakoon.html
+When you have set up your :doc:`Arakoon setup <configuring_arakoon>`, you can
+use a PyLabs client to interact with Arakoon.
 
 Connecting to an Arakoon Cluster
 ================================
@@ -216,7 +214,7 @@ With these statistics, we can for example calculate the average sets per second
 
 Collapsing TLogs
 ================
-See also `Working with TLogs`_ for more information.
+See also :doc:`Working with TLogs </working_with_tlogs>` for more information.
 
 ::
 
@@ -227,8 +225,6 @@ See also `Working with TLogs`_ for more information.
 To keep four TLog files on Node_2::
 
     cluster.remoteCollapse(Node_2, 4)
-
-.. _Working with TLogs: ../working_with_tlogs.html
 
 Disabling/Enabling TLOG Compression
 ===================================
