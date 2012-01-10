@@ -1,0 +1,42 @@
+body {
+    padding-top: 165px;
+}
+body.page-index {
+    padding-top: 110px;
+}
+
+div.topbar>div {
+    background-color: white;
+}
+#logo {
+    padding-top: 15px;
+    margin-bottom: -22px;
+    margin-left: -101px;
+}
+
+footer a {
+    color: inherit;
+}
+
+body.page-index h1 {
+    display: inline;
+    float: left;
+    font-size: 18px;
+    font-weight: 200;
+    line-height: 27px;
+    padding-right: 0.3em;
+}
+body.page-index div.hero-unit {
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+}
+
+table.when-to-use {
+    width: 60%;
+}
+
+div.document div.section {
+    margin-top: 20px;
+}
+
+/* vim: set sw=4 ts=4 et: */
