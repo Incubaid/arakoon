@@ -57,9 +57,7 @@ These are the components:
   for example in case of a failure
 
 You define yourself where you store the directory structure in the
-`Arakoon configuration file`_.
-
-.. _Arakoon configuration file: arakoon_configuration.html
+:doc:`Arakoon configuration file <arakoon_configuration>`.
 
 How Arakoon Works
 =================

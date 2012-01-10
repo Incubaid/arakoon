@@ -9,7 +9,7 @@ Prerequisites
 =============
 - Ubuntu 64-bit
 - Root privileges on Ubuntu
-- `Arakoon Debian Package <../download.html>`_
+- `Arakoon Debian Package <http://arakoon.org/download.html>`_
 
 Optional
 
@@ -20,7 +20,7 @@ Installing Arakoon
 ==================
 To install Arakoon:
 
-1. Download `Arakoon 0.11.0 <../download.html>`_.
+1. Download `Arakoon 0.11.0 <http://arakoon.org/download.html>`_.
 2. Install the Debian::
 
     ~# dpkg -i arakoon_x.x.x-y_amd64.deb
@@ -34,7 +34,7 @@ To install Arakoon:
 Installing the Arakoon Python Client
 ====================================
 To install the Arakoon Python Client, you only have to install the
-`.egg <../download.html>`_ file.
+`.egg <http://arakoon.org/download.html>`_ file.
 
 ::
 
@@ -53,7 +53,7 @@ To install the Arakoon Python Client, you only have to install the
 Installing the Arakoon OCaml Client
 ===================================
 To install the Arakoon OCaml Client, you only have to install the
-`.deb <../download.html>`_ file.
+`.deb <http://arakoon.org/download.html>`_ file.
 
 ::
 

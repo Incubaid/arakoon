@@ -3,7 +3,7 @@ Arakoon OCaml Client
 ====================
 Installing the OCaml Client library (Debian/Ubuntu)
 ===================================================
-See `Installing Arakoon <installing_arakoon.html>`_.
+See :doc:`Installing Arakoon <installing_arakoon>`.
 
 Simple Example
 ==============
