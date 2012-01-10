@@ -126,7 +126,7 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
         log_crash_msg section level msgs 
       )
       (function 
-        | Lwt_log.logger_closed -> Lwt.return ()
+        | Lwt_log.Logger_closed -> Lwt.return ()
         | e -> Lwt.fail e)
   in
     
