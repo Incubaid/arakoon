@@ -38,7 +38,8 @@ let time_stats_to_string (stats:time_stats) :string =
       | 0.0 -> "n/a"
       | x -> string_of_float x 
     in
-    Printf.sprintf "(min: %s, max: %s, avg: %s, dev: %s)"
+    Printf.sprintf "(n:%i min: %s, max: %s, avg: %s, dev: %s)"
+      stats.n
       (to_str_init_max stats.min)
       (to_str_init_zero stats.max) 
       (to_str_init_zero stats.avg)
@@ -207,13 +208,13 @@ module Statistics = struct
       Llio.NAMED_FLOAT ("last", t.last);
       Llio.NAMED_FLOAT ("avg_get_size", t.avg_set_size);
       Llio.NAMED_FLOAT ("avg_set_size", t.avg_get_size);
-      time_stats_to_value_list t.set_time_stats "set_timing";
-      time_stats_to_value_list t.get_time_stats "get_timing";
-      time_stats_to_value_list t.del_time_stats "del_timing";
-      time_stats_to_value_list t.seq_time_stats "seq_timing";
-      time_stats_to_value_list t.mget_time_stats "mget_timing";
-      time_stats_to_value_list t.tas_time_stats "tas_timing";
-      time_stats_to_value_list t.op_time_stats "op_timing";
+      time_stats_to_value_list t.set_time_stats "set_info";
+      time_stats_to_value_list t.get_time_stats "get_info";
+      time_stats_to_value_list t.del_time_stats "del_info";
+      time_stats_to_value_list t.seq_time_stats "seq_info";
+      time_stats_to_value_list t.mget_time_stats "mget_info";
+      time_stats_to_value_list t.tas_time_stats "tas_info";
+      time_stats_to_value_list t.op_time_stats "op_info";
       Llio.NAMED_VALUELIST ("node_is", node_is);
     ] in
     
@@ -322,13 +323,13 @@ module Statistics = struct
 	"last: %f, " ^^
         "avg_set_size: %f, " ^^
         "avg_get_size: %f, " ^^
-        "set_stats: %s, " ^^	
-        "get_stats: %s, " ^^
-        "del_stats: %s, " ^^
-	"mget_stats: %s, " ^^
-	"seq_stats: %s, " ^^
-        "tas_stats: %s, " ^^
-        "ops_stats: %s, " ^^
+        "set_info: %s, " ^^	
+        "get_info: %s, " ^^
+        "del_info: %s, " ^^
+	"mget_info: %s, " ^^
+	"seq_info: %s, " ^^
+        "tas_info: %s, " ^^
+        "ops_info: %s, " ^^
         "node_is: %s" ^^
 	"}"
     in
