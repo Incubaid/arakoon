@@ -42,6 +42,7 @@ let tools_tests = "tools" >::: [Server_test.suite;
 
 let client_tests = "client" >::: [Arakoon_remote_client_test.suite;
 				  Remote_nodestream_test.suite;
+                                  Statistics_test.suite;
 ]
 
 let tcp_messaging_tests = "messaging" >::: [Tcp_messaging_test.suite]
