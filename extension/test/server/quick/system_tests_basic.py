@@ -391,13 +391,13 @@ def test_statistics():
     required_keys = [
        "start",
        "last", 
-       "set_stats",
-       "get_stats",
-       "del_stats",
-       "seq_stats",
-       "mget_stats",
-       "tas_stats",
-       "op_stats",
+       "set_info",
+       "get_info",
+       "del_info",
+       "seq_info",
+       "mget_info",
+       "tas_info",
+       "op_info",
        "node_is",
     ]
     required_timing_keys = [
