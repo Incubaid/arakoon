@@ -21,8 +21,10 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 type time_stats ={
+    mutable n : int;
     mutable min:float;
     mutable max:float;
+    mutable m2: float;
     mutable avg:float;
     mutable var:float;
   }
@@ -43,47 +45,53 @@ let time_stats_to_string (stats:time_stats) :string =
       (to_str_init_zero (sqrt stats.var))
       
 let time_stats_from (buffer:string) (offset:int) : (time_stats * int) =
-    let min,offset = Llio.float_from buffer offset in
-    let max,offset = Llio.float_from buffer offset in
-    let avg,offset = Llio.float_from buffer offset in
-    let var,offset = Llio.float_from buffer offset in
-    ( {
-        min=min;
-        max=max;
-        avg=avg;
-        var=var;
-    }, offset)  
+  let n,  o1 = Llio.int_from buffer offset in
+  let min,o2 = Llio.float_from buffer o1 in
+  let max,o3 = Llio.float_from buffer o2 in
+  let m2 ,o4 = Llio.float_from buffer o3 in
+  let avg,o5 = Llio.float_from buffer o4 in
+  let var,o6 = Llio.float_from buffer o5 in
+  ( {n;min;max;m2;avg;var;}, o6)  
 
 let time_stats_to_value_list (stats:time_stats) (list_name:string) : Llio.namedValue =
     let l = [ 
-        Llio.NAMED_FLOAT ("min", stats.min);
-        Llio.NAMED_FLOAT ("max", stats.max);
-        Llio.NAMED_FLOAT ("avg", stats.avg);
-        Llio.NAMED_FLOAT ("var", stats.var)
+      Llio.NAMED_INT ("n", stats.n);
+      Llio.NAMED_FLOAT ("min", stats.min);
+      Llio.NAMED_FLOAT ("max", stats.max);
+      Llio.NAMED_FLOAT ("m2", stats.m2);
+      Llio.NAMED_FLOAT ("avg", stats.avg);
+      Llio.NAMED_FLOAT ("var", stats.var)
     ] in
     Llio.NAMED_VALUELIST (list_name, l) 
     
 let create_time_stats () = {
+    n = 0;
     min = max_float;
     max = 0.0;
+    m2 = 0.0;
     avg = 0.0;
     var = 0.0;
 }
 
-let update_time_stats (t:time_stats) sample pop_size =
+let update_time_stats (t:time_stats) x =
+  let n = t.n in
+  let n' = n + 1 in
+  t.n <- n';
+  let nf' = float n' in
+  if x < t.min then t.min <- x;
+  if x > t.max then t.max <- x;
+  let delta = x -. t.avg in
+  let mean = t.avg in
+  let mean' = mean +. (delta/. nf') in
+  t.avg <- mean';
+  if n' > 1 then
+    begin
+      let m2' = t.m2 +. delta *. (x -. mean') in
+      t.m2 <- m2'
+    end;
+  let nf = float n in (* old size ! *)
+  t.var <- t.m2 /. nf;
   
-  begin
-    if sample < t.min then
-      t.min <- sample 
-  end ;
-  begin
-    if sample > t.max then
-      t.max <- sample  
-  end ;
-  let old_avg = t.avg in
-  t.avg <- t.avg +. (sample -. t.avg) /. (float pop_size);
-  t.var <- t.var +. (sample -. t.avg) *. (sample -. old_avg)
-    
 module Statistics = struct
 
   type t ={ 
@@ -100,15 +108,6 @@ module Statistics = struct
     mutable mget_time_stats:time_stats;
     mutable tas_time_stats:time_stats;
     mutable op_time_stats:time_stats;
-    
-    mutable n_sets:int;
-    mutable n_gets:int;
-    mutable n_deletes:int;
-    mutable n_multigets:int;
-    mutable n_sequences:int;
-    mutable n_testandsets:int;
-    mutable n_ops: int;
-    
     mutable node_is:(string , Sn.t) Hashtbl.t;
   }
  
@@ -127,87 +126,65 @@ module Statistics = struct
      mget_time_stats=create_time_stats();
      tas_time_stats=create_time_stats();
      op_time_stats=create_time_stats();
-     n_sets = 0;
-     n_gets = 0;
-     n_deletes = 0;
-     n_multigets = 0;
-     n_sequences = 0;
-     n_testandsets = 0;
-     n_ops = 0;
      node_is = Hashtbl.create 5;
     }
 
   let clear_most t = 
-    t.start <- Unix.gettimeofday();
-    t.last  <- Unix.gettimeofday();
-    t.avg_set_size <- 0.0;
-    t.avg_get_size <- 0.0;
-    t.set_time_stats  <- create_time_stats();
-    t.get_time_stats  <- create_time_stats();
-    t.del_time_stats  <- create_time_stats();
-    t.seq_time_stats  <- create_time_stats();
-    t.mget_time_stats <- create_time_stats();
-    t.tas_time_stats  <- create_time_stats();
-    t.op_time_stats   <- create_time_stats();
-    t.n_sets  <- 0;
-    t.n_gets  <- 0;
-    t.n_deletes <- 0;
-    t.n_sequences <- 0;
-    t.n_testandsets <- 0;
-    t.n_ops <- 0
+    begin
+      t.start <- Unix.gettimeofday();
+      t.last  <- Unix.gettimeofday();
+      t.avg_set_size <- 0.0;
+      t.avg_get_size <- 0.0;
+      t.set_time_stats  <- create_time_stats();
+      t.get_time_stats  <- create_time_stats();
+      t.del_time_stats  <- create_time_stats();
+      t.seq_time_stats  <- create_time_stats();
+      t.mget_time_stats <- create_time_stats();
+      t.tas_time_stats  <- create_time_stats();
+      t.op_time_stats   <- create_time_stats()
+    end
 
-  let _clock t = t.last <- Unix.gettimeofday()
+  let _clock t start = 
+    t.last <- Unix.gettimeofday();
+    t.last -. start
 
   let new_op t start =
-    _clock t;
-    t.n_ops <- t.n_ops + 1;
-    let new_sample = t.last -. start in
-    update_time_stats t.op_time_stats new_sample t.n_ops
+    let x = _clock t start in
+    update_time_stats t.op_time_stats x ;
+    x
     
   
   let new_set t (key:string) (value:string) (start:float)= 
-    new_op t start;
-    let n' = t.n_sets + 1 in
-    let nf' = float n' in
-    t.n_sets <- n';
+    let x = new_op t start in
+    update_time_stats t.set_time_stats x;
     let size = float(String.length value) in
-    t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf');
-    let new_sample = t.last -. start in
-    update_time_stats t.set_time_stats new_sample t.n_sets 
+    let n' = t.set_time_stats.n in
+    let nf' = float n' in
+    t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf')
 
   let new_get t (key:string) (value:string) (start:float) = 
-    new_op t start;
-    let n' = t.n_gets + 1 in
-    let nf' = float n' in
-    t.n_gets <- n';
+    let x = new_op t start in
+    update_time_stats t.get_time_stats x;
     let size = float(String.length value) in
-    t.avg_get_size <- t.avg_get_size +. ((size -. t.avg_get_size) /. nf');
-    let new_sample = t.last -. start in
-    update_time_stats t.get_time_stats new_sample t.n_gets 
+    let n' = t.get_time_stats.n in
+    let nf' = float n' in
+    t.avg_get_size <- t.avg_get_size +. ((size -. t.avg_get_size) /. nf')
 
   let new_delete t (start:float)=
-    new_op t start;
-    t.n_deletes <- t.n_deletes + 1;
-    let new_sample = t.last -. start in
-    update_time_stats t.del_time_stats new_sample t.n_deletes 
+    let x = new_op t start in
+    update_time_stats t.del_time_stats x
 
   let new_sequence t (start:float)= 
-    new_op t start;
-    t.n_sequences <- t.n_sequences + 1;
-    let new_sample = t.last -. start in
-    update_time_stats t.seq_time_stats new_sample t.n_sequences
+    let x = new_op t start in
+    update_time_stats t.seq_time_stats x
     
   let new_multiget t (start:float)= 
-    new_op t start;
-    t.n_multigets <- t.n_multigets + 1;
-    let new_sample = t.last -. start in
-    update_time_stats t.mget_time_stats new_sample t.n_multigets
+    let x = new_op t start in
+    update_time_stats t.mget_time_stats x 
 
   let new_testandset t (start:float)=
-    new_op t start;
-    t.n_testandsets <- t.n_testandsets + 1;
-    let new_sample = t.last -. start in
-    update_time_stats t.tas_time_stats new_sample t.n_testandsets 
+    let x = new_op t start in
+    update_time_stats t.tas_time_stats x
 
   let witness t name i =
     Hashtbl.replace t.node_is name i
@@ -237,13 +214,6 @@ module Statistics = struct
       time_stats_to_value_list t.mget_time_stats "mget_timing";
       time_stats_to_value_list t.tas_time_stats "tas_timing";
       time_stats_to_value_list t.op_time_stats "op_timing";
-      Llio.NAMED_INT ("n_sets", t.n_sets);
-      Llio.NAMED_INT ("n_gets", t.n_gets);
-      Llio.NAMED_INT ("n_deletes", t.n_deletes);
-      Llio.NAMED_INT ("n_multigets", t.n_multigets);
-      Llio.NAMED_INT ("n_sequences", t.n_sequences);
-      Llio.NAMED_INT ("n_testandsets", t.n_testandsets);
-      Llio.NAMED_INT ("n_ops", t.n_ops);
       Llio.NAMED_VALUELIST ("node_is", node_is);
     ] in
     
@@ -278,22 +248,21 @@ module Statistics = struct
     let extract_time_stats (value:Llio.namedValue) : time_stats = 
       begin 
       match value with
-	      | Llio.NAMED_VALUELIST (_,l) -> 
-           let v, l = extract_next l in
-	         let min = extract_float v in
-           let v, l = extract_next l in
-           let max = extract_float v in
-           let v, l = extract_next l in
-           let avg = extract_float v in
-           let v, l = extract_next l in
-           let var = extract_float v in
-	         {
-	           min = min;
-	           max = max;
-	           avg = avg;
-	           var = var;
-	         } 
-	      | _ -> failwith "Wrong value type (expected list)"
+	| Llio.NAMED_VALUELIST (_,l) -> 
+          let v, l = extract_next l in
+          let n    = extract_int v in
+          let v, l = extract_next l in
+	  let min = extract_float v in
+          let v, l = extract_next l in
+          let max = extract_float v in
+          let v,l = extract_next  l in
+          let m2  = extract_float v in
+          let v, l = extract_next l in
+          let avg = extract_float v in
+          let v, l = extract_next l in
+          let var = extract_float v in
+	  {n; min; max; m2; avg; var;} 
+	| _ -> failwith "Wrong value type (expected list)"
       end
     in
       
@@ -321,30 +290,13 @@ module Statistics = struct
     let tas_stats   = extract_time_stats value in
     let value, v_list = extract_next v_list in
     let op_stats    = extract_time_stats value in
-    
-    let value, v_list = extract_next v_list in
-    let n_sets  = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_gets  = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_deletes = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_multigets  = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_sequences = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_testandsets = extract_int value in
-    let value, v_list = extract_next v_list in
-    let n_ops = extract_int value in
-    
     let value, v_list = extract_next v_list in
     let node_list = extract_list value in
 
     let node_is = Hashtbl.create 5 in
     let insert_node value =
       match value with
-        | Llio.NAMED_INT64(n,i) ->
-          Hashtbl.replace node_is n i
+        | Llio.NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
         | _ -> failwith "Wrong value type (expected int64)."
     in
     List.iter insert_node node_list; 
@@ -360,13 +312,6 @@ module Statistics = struct
       mget_time_stats = mget_stats;
       tas_time_stats = tas_stats;
       op_time_stats = op_stats;
-      n_sets = n_sets;
-      n_gets = n_gets;
-      n_deletes = n_deletes;
-      n_multigets = n_multigets;
-      n_sequences = n_sequences;
-      n_testandsets = n_testandsets;
-      n_ops = n_ops;
       node_is = node_is;
     } in
     t, pos 
@@ -375,31 +320,16 @@ module Statistics = struct
     let template = 
       "{start: %f, " ^^
 	"last: %f, " ^^
-	
-  "avg_set_size: %f, " ^^
-  "n_sets: %i, " ^^
-  "set_timing_info: %s, " ^^
-	
-  "avg_get_size: %f, " ^^
-  "n_gets: %i, " ^^
-  "get_timing_info: %s, " ^^
-	
-	"n_deletes: %i, " ^^
-  "delete_timing_info: %s, " ^^
-  
-	"n_multigets: %i, " ^^
-	"multiget_timing_info: %s, " ^^
-  
-  "n_sequences: %i, "  ^^
-	"sequence_timing_info: %s, " ^^
-  
-  "n_testandsets: %i, " ^^
-  "testandset_timing_info: %s, " ^^
-  
-  "n_ops_generic: %i, " ^^
-  "ops_generic_timing_info: %s, " ^^
-  
-  "node_is: %s" ^^
+        "avg_set_size: %f, " ^^
+        "avg_get_size: %f, " ^^
+        "set_stats: %s, " ^^	
+        "get_stats: %s, " ^^
+        "del_stats: %s, " ^^
+	"mget_stats: %s, " ^^
+	"seq_stats: %s, " ^^
+        "tas_stats: %s, " ^^
+        "ops_stats: %s, " ^^
+        "node_is: %s" ^^
 	"}"
     in
     let node_iss = Buffer.create 100 in
@@ -411,20 +341,13 @@ module Statistics = struct
       t.start 
       t.last 
       t.avg_set_size 
-      t.n_sets
-      (time_stats_to_string t.set_time_stats)
       t.avg_get_size
-      t.n_gets
+      (time_stats_to_string t.set_time_stats)
       (time_stats_to_string t.get_time_stats)
-      t.n_deletes
       (time_stats_to_string t.del_time_stats)
-      t.n_multigets
       (time_stats_to_string t.mget_time_stats)
-      t.n_sequences
       (time_stats_to_string t.seq_time_stats)
-      t.n_testandsets
       (time_stats_to_string t.tas_time_stats)
-      t.n_ops
       (time_stats_to_string t.op_time_stats)
       (Buffer.contents node_iss)
 end
