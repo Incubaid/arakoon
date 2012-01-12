@@ -15,8 +15,8 @@ COMPILING:
 
 we use ocamlbuild combined with ocamlfind as main driver for our builds.
 
-manifesto
-	ocamlbuild manifest.pdf     ==> _build/manifest.pdf
+documentation
+	make -C doc html latexpdf  ==> doc/_build/html/index.html, doc/_build/latex/Arakoon.pdf
 
 executable
 	ocamlbuild -use-ocamlfind arakoon.native      ==> arakoon.native
