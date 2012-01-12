@@ -39,7 +39,6 @@ let deny (ic,oc) =
    
 
 let session_thread protocol fd = 
-  info "starting session " >>= fun () ->
   Lwt.catch
     (fun () ->
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
@@ -69,22 +68,20 @@ let make_server_thread
     let n_connections = ref 0 in
     
     let rec server_loop () =
-      info "await connection" >>= fun () ->
       Lwt.catch
 	(fun () ->
 	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
 	  if !n_connections >= max_connections 
-	  then
-	    begin
-	      Lwt.ignore_result (session_thread deny fd);
-	    end
+	  then Lwt.ignore_result (session_thread deny fd)
 	  else
 	    begin
 	      Lwt.ignore_result 
-		(session_thread protocol fd >>= fun () ->
-		 decr n_connections;
-		 Lwt.return ()
-		   
+		(
+                  Lwt_log.info_f "session (%i)" !n_connections >>= fun () ->
+                  session_thread protocol fd >>= fun () ->
+		  decr n_connections;
+		  Lwt.return ()
+		    
 		);
 	      incr n_connections;
 	    end;
