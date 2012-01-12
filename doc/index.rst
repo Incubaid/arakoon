@@ -11,6 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 1
 
+   manifest
    introduction
    getting_started
    installing_arakoon
