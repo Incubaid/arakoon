@@ -1,0 +1,1234 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Arakoon manifesto</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Introduction" href="introduction.html" />
+    <link rel="prev" title="Welcome to Arakoon’s documentation!" href="index.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="arakoon-manifesto">
+<h1><a class="toc-backref" href="#id7">Arakoon manifesto</a><a class="headerlink" href="#arakoon-manifesto" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Romain Slootmaekers</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Date:</th><td class="field-body">July 2010</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Abstract:</th><td class="field-body">Arakoon tries to be a simple distributed key value store that
+prefers consistency above everything else.</td>
+</tr>
+</tbody>
+</table>
+<div class="contents topic" id="table-of-contents">
+<p class="topic-title first">Table of Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#arakoon-manifesto" id="id7">Arakoon manifesto</a><ul>
+<li><a class="reference internal" href="#introduction" id="id8">introduction</a><ul>
+<li><a class="reference internal" href="#what-kind-of-document-is-this" id="id9">What kind of document is this?</a></li>
+<li><a class="reference internal" href="#why-arakoon" id="id10">why Arakoon?</a></li>
+<li><a class="reference internal" href="#what-we-aim-for" id="id11">what we aim for</a></li>
+<li><a class="reference internal" href="#isn-t-this-what-keyspace-does" id="id12">Isn&#8217;t this what Keyspace does?</a></li>
+<li><a class="reference internal" href="#high-level-overview" id="id13">high level overview</a></li>
+<li><a class="reference internal" href="#limitations" id="id14">limitations</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#basic-client-interface" id="id15">basic client interface</a><ul>
+<li><a class="reference internal" href="#some-notation" id="id16">some notation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#consistent-updates" id="id17">Consistent updates</a><ul>
+<li><a class="reference internal" href="#individual-slave-failure" id="id18">Individual Slave failure</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#electing-a-master" id="id19">Electing a master</a></li>
+<li><a class="reference internal" href="#restart-and-failure-scenarios" id="id20">Restart and Failure Scenarios</a><ul>
+<li><a class="reference internal" href="#general-power-failure-after-which-the-master-is-dead-meat" id="id21">General power failure, after which the master is dead meat</a></li>
+<li><a class="reference internal" href="#unfortunate-sequence-of-events" id="id22">Unfortunate sequence of events</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementation-choices" id="id23">Implementation choices</a><ul>
+<li><a class="reference internal" href="#inter-node-communication" id="id24">Inter-node communication</a></li>
+<li><a class="reference internal" href="#client-node-communication" id="id25">Client-Node communication</a></li>
+<li><a class="reference internal" href="#protocol-definition" id="id26">protocol definition</a></li>
+<li><a class="reference internal" href="#nodes-in-ocaml" id="id27">nodes in OCaml</a></li>
+<li><a class="reference internal" href="#other-clients" id="id28">Other clients</a></li>
+<li><a class="reference internal" href="#local-key-value-store" id="id29">local key/value store</a></li>
+<li><a class="reference internal" href="#forced-master-and-quorum" id="id30">forced master and quorum</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#other-strategical-decisions" id="id31">Other strategical decisions</a><ul>
+<li><a class="reference internal" href="#rest-interface" id="id32">REST interface</a></li>
+<li><a class="reference internal" href="#dynamically-adding-nodes" id="id33">dynamically adding nodes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#state-machine" id="id34">State machine</a></li>
+<li><a class="reference internal" href="#user-functions" id="id35">User functions</a><ul>
+<li><a class="reference internal" href="#implementing-a-user-function" id="id36">Implementing a user function</a></li>
+<li><a class="reference internal" href="#registration" id="id37">registration</a></li>
+<li><a class="reference internal" href="#extra-node-configuration" id="id38">extra Node configuration</a></li>
+<li><a class="reference internal" href="#important-remarks" id="id39">Important remarks</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#scaling-arakoon" id="id40">Scaling Arakoon</a><ul>
+<li><a class="reference internal" href="#id5" id="id41">Limitations</a></li>
+<li><a class="reference internal" href="#migrations" id="id42">Migrations</a></li>
+<li><a class="reference internal" href="#client-side-support" id="id43">Client side support</a></li>
+<li><a class="reference internal" href="#problems" id="id44">Problems</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id8">introduction</a><a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="what-kind-of-document-is-this">
+<h3><a class="toc-backref" href="#id9">What kind of document is this?</a><a class="headerlink" href="#what-kind-of-document-is-this" title="Permalink to this headline">¶</a></h3>
+<p>This document was written mainly before we started building Arakoon.
+It served the purpose as a basis of discussion,
+trying to get consensus on what we were going to build, before we build it.
+We regularly come back to this document to record decisions, and to keep it anchored to reality.
+Currently, it&#8217;s not very well structured, the focus being on <em>getting the information in there first</em>.
+Hopefully there will eventually be time to clean it up.</p>
+</div>
+<div class="section" id="why-arakoon">
+<h3><a class="toc-backref" href="#id10">why Arakoon?</a><a class="headerlink" href="#why-arakoon" title="Permalink to this headline">¶</a></h3>
+<p>We have been using several distributed non relational data stores for a long time now, and it has not been a satisfying experience.</p>
+</div>
+<div class="section" id="what-we-aim-for">
+<h3><a class="toc-backref" href="#id11">what we aim for</a><a class="headerlink" href="#what-we-aim-for" title="Permalink to this headline">¶</a></h3>
+<p>We want a simple distributed key/value store that is easy to understand and use.
+We don&#8217;t need infinite scalability (and in fact we have several limitations), but we do have some requests regarding</p>
+<div class="section" id="consistency">
+<h4>consistency<a class="headerlink" href="#consistency" title="Permalink to this headline">¶</a></h4>
+<p>The system as a whole needs to provide a consistent view on the distributed state.
+This stems from the experience that eventual consistency is too heavy a burden for a user application to manage.
+A simple example is a retrieval of the value for a key where you might receive none, one or multiple values depending on the weather conditions. The next question is always: Why don&#8217;t a get a result? Is it because there is no value, or merely because I currently cannot retreive it?</p>
+</div>
+<div class="section" id="conditional-atomic-updates">
+<h4>conditional atomic updates<a class="headerlink" href="#conditional-atomic-updates" title="Permalink to this headline">¶</a></h4>
+<p>We don&#8217;t need full blown transactions (would be nice to have though),
+but we do need updates that abort if the state is not what we expect it to be.
+So at least an atomic conditional update and an atomic multi-update are needed.</p>
+</div>
+<div class="section" id="robustness">
+<h4>robustness<a class="headerlink" href="#robustness" title="Permalink to this headline">¶</a></h4>
+<p>The system must be able to cope with failure of individual components, without concessions to consistency.
+However, whenever consistency can no longer be guaranteed, updates must simply fail.</p>
+</div>
+<div class="section" id="locality-control">
+<h4>locality control<a class="headerlink" href="#locality-control" title="Permalink to this headline">¶</a></h4>
+<p>When we deploy a system over 2 datacenters, we want guarantees that the entire state is indeed present in both datacenters. (This is something we could not get from distributed hash tables using consistent hashing)</p>
+</div>
+<div class="section" id="healing-recovery">
+<h4>healing/recovery<a class="headerlink" href="#healing-recovery" title="Permalink to this headline">¶</a></h4>
+<p>Whenever a component dies and is subsequently revived, or replaced the system must be able to guide that component towards a situation where that node again fully participates.
+If this cannot be done fully automatically, then human intervention should be trivial.</p>
+</div>
+<div class="section" id="explicit-failure">
+<h4>explicit failure<a class="headerlink" href="#explicit-failure" title="Permalink to this headline">¶</a></h4>
+<p>Whenever there is something wrong, failure should propagate quite quickly.
+This in contrast to systems that keep on trying to remedy the situation themselves al the time.</p>
+</div>
+</div>
+<div class="section" id="isn-t-this-what-keyspace-does">
+<h3><a class="toc-backref" href="#id12">Isn&#8217;t this what Keyspace does?</a><a class="headerlink" href="#isn-t-this-what-keyspace-does" title="Permalink to this headline">¶</a></h3>
+<p>Almost. We used keyspace for a while but were struggling with some issues.</p>
+<div class="section" id="atomic-multi-updates">
+<h4>atomic multi updates<a class="headerlink" href="#atomic-multi-updates" title="Permalink to this headline">¶</a></h4>
+<p>With Keyspace, you can do multiple updates in one request,
+but it&#8217;s nowhere near atomic, so when one of them fails, you&#8217;re in limbo. Arakoon supports a sequence update which is an all or nothing thing.</p>
+</div>
+<div class="section" id="test-and-set">
+<h4>test_and_set<a class="headerlink" href="#test-and-set" title="Permalink to this headline">¶</a></h4>
+<p>This is a conditional update, that only changes a value for a key when the store has the expected state.
+Keyspace supports this, but not when there is no expected value.
+This makes it impossible to atomically set a value only if it was not present.
+An Arakoon <em>test_and_set</em> can be used to set a new value,
+update an existing value, or remove an existing value.
+It&#8217;s also important to notice Arakoon returns the <em>old</em> value after a
+<em>test_and_set</em>, allowing one to determine whether an update took place</p>
+</div>
+<div class="section" id="keyspace-defects">
+<h4>Keyspace defects<a class="headerlink" href="#keyspace-defects" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li>Segmentation violations under heavy load.</li>
+<li>Accidental semantic changes of the interfaces</li>
+<li>Keyspace nodes happily accept data even when the disk is full.</li>
+<li>Several cluster in limbo (no updates possible) scenarios.</li>
+<li>abandoned python client. There used to be a pure python client,
+but now it&#8217;s abandoned in favour of a <em>SWIGed around C</em> library,
+which enforces it&#8217;s own reconnection strategy.</li>
+<li>Berkeley DB <a class="footnote-reference" href="#f1" id="id1">[1]</a>.</li>
+</ul>
+<p>It&#8217;s not that these issues are impossible to address. It&#8217;s just that when you&#8217;re fighting these, you don&#8217;t want to be owner of the problem, not a spectator.</p>
+</div>
+</div>
+<div class="section" id="high-level-overview">
+<h3><a class="toc-backref" href="#id13">high level overview</a><a class="headerlink" href="#high-level-overview" title="Permalink to this headline">¶</a></h3>
+<p>Arakoon deployments consist of a small collection of <em>nodes</em> (typically 1,2,3 or 5 nodes) that keep replicas of key/values, and <em>clients</em> that manipulate the key/value space.
+In principle, all nodes have the entire key/value space.
+There is one distinguished node called the master with which all clients communicate to perform updates.
+A client contacts any node to find out the master, and then just conversates with the master.
+If a master dies, a new one is elected automatically, and clients fail over to that master.
+A slave node is a node that is not master.
+A node that is not up-to-date cannot become master.</p>
+</div>
+<div class="section" id="limitations">
+<h3><a class="toc-backref" href="#id14">limitations</a><a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="capacity">
+<h4>capacity<a class="headerlink" href="#capacity" title="Permalink to this headline">¶</a></h4>
+<p>Since all nodes store the entire space, the capacity of the smallest node limits the system.</p>
+</div>
+<div class="section" id="number-of-clients">
+<h4>number of clients<a class="headerlink" href="#number-of-clients" title="Permalink to this headline">¶</a></h4>
+<p>Since all updates go through the master, the system is not suited for large amounts of concurrent clients.</p>
+</div>
+<div class="section" id="opaque-values">
+<h4>opaque values<a class="headerlink" href="#opaque-values" title="Permalink to this headline">¶</a></h4>
+<p>The system does not really understand the values, and hence cannot do validation, or transformations...</p>
+</div>
+<div class="section" id="hidden-master-failure">
+<h4>hidden master failure<a class="headerlink" href="#hidden-master-failure" title="Permalink to this headline">¶</a></h4>
+<p>If the key value store on the master silently corrupts, gets will be affected.</p>
+</div>
+</div>
+</div>
+<div class="section" id="basic-client-interface">
+<h2><a class="toc-backref" href="#id15">basic client interface</a><a class="headerlink" href="#basic-client-interface" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="some-notation">
+<h3><a class="toc-backref" href="#id16">some notation</a><a class="headerlink" href="#some-notation" title="Permalink to this headline">¶</a></h3>
+<p>Before we can descibe the client&#8217;s interface,
+we need to introduce some notational tools to make it easier to convey things in a concise manner.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">notation</th>
+<th class="head">how to read it</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">:</span></tt></td>
+<td>has type</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">unit</span></tt></td>
+<td>aka void</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">x</span> <span class="pre">list</span></tt></td>
+<td>a list of items of type x</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">x</span> <span class="pre">array</span></tt></td>
+<td>a fixed size sequence of items of type x</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">x</span> <span class="pre">option</span></tt></td>
+<td>either (Some x) or None</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">string</span></tt></td>
+<td>char array</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">x</span> <span class="pre">-&gt;</span> <span class="pre">y</span></tt></td>
+<td>a function from x to y</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">x</span> <span class="pre">C.t</span></tt></td>
+<td>something that <em>eventually yields</em> something of type x</td>
+</tr>
+</tbody>
+</table>
+<p>For example <tt class="docutils literal"><span class="pre">a</span> <span class="pre">:</span> <span class="pre">string</span></tt> just means that <tt class="docutils literal"><span class="pre">a</span></tt> is a <tt class="docutils literal"><span class="pre">string</span></tt>;
+<tt class="docutils literal"><span class="pre">fibonacci</span> <span class="pre">:</span> <span class="pre">int</span> <span class="pre">-&gt;</span> <span class="pre">int</span></tt> just means that fibonnacci is a function that takes an integer, and returns an integer as result;
+<tt class="docutils literal"><span class="pre">cat</span> <span class="pre">:</span> <span class="pre">string</span> <span class="pre">-&gt;</span> <span class="pre">string</span> <span class="pre">-&gt;</span> <span class="pre">string</span></tt> reads as &#8216;cat is a function that takes 2 strings and returns a string as result&#8217;</p>
+<p><tt class="docutils literal"><span class="pre">write:</span> <span class="pre">channel</span> <span class="pre">-&gt;</span> <span class="pre">string</span> <span class="pre">-&gt;</span> <span class="pre">unit</span> <span class="pre">C.t</span></tt> reads as &#8216;write takes a channel and a string and eventually yields unit.</p>
+<p>A client has a dictionary interface with some adjustments for latency: the functions have a return value of type <tt class="docutils literal"><span class="pre">a</span> <span class="pre">C.t</span></tt>.</p>
+<div class="section" id="type-key-string">
+<h4>type key = string<a class="headerlink" href="#type-key-string" title="Permalink to this headline">¶</a></h4>
+<p>Keys are strings.
+There are no strict size limitations, which means that they such be small enough to be handled in their entirety</p>
+</div>
+<div class="section" id="type-value-string">
+<h4>type value = string<a class="headerlink" href="#type-value-string" title="Permalink to this headline">¶</a></h4>
+<p>Values are strings too.</p>
+</div>
+<div class="section" id="type-update">
+<h4>type update<a class="headerlink" href="#type-update" title="Permalink to this headline">¶</a></h4>
+<p>An update is either <tt class="docutils literal"><span class="pre">Set(key,value)</span></tt> or <tt class="docutils literal"><span class="pre">Delete(key)</span></tt>.</p>
+</div>
+<div class="section" id="exists-key-bool-c-t">
+<h4>exists : key -&gt; bool C.t<a class="headerlink" href="#exists-key-bool-c-t" title="Permalink to this headline">¶</a></h4>
+<p>See if a value exists for a specific key, without retrieving it.</p>
+</div>
+<div class="section" id="get-key-value-c-t">
+<h4>get : key -&gt; value C.t<a class="headerlink" href="#get-key-value-c-t" title="Permalink to this headline">¶</a></h4>
+<p>You can look up a value if you have the key. It will eventually yield either a value, or raise an exception.</p>
+</div>
+<div class="section" id="set-key-value-unit-c-t">
+<h4>set : key -&gt; value -&gt; unit C.t<a class="headerlink" href="#set-key-value-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p>You can update a value for a key, regardless of current value (if any).</p>
+</div>
+<div class="section" id="confirm-key-value-unit-c-t">
+<h4>confirm : key -&gt; value -&gt; unit C.t<a class="headerlink" href="#confirm-key-value-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p>If <em>get key</em> would yield this <em>value</em> then this does nothing,
+else, it behaves as a set.</p>
+</div>
+<div class="section" id="delete-key-unit-c-t">
+<h4>delete : key -&gt; unit C.t<a class="headerlink" href="#delete-key-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p>You can remove a key/value pair.
+There was a suggestion to open this op to allow a regular expression.</p>
+</div>
+<div class="section" id="test-and-set-key-value-option-value-option-value-option-c-t">
+<h4>test_and_set : key -&gt; value option -&gt; value option -&gt; (value option) C.t<a class="headerlink" href="#test-and-set-key-value-option-value-option-value-option-c-t" title="Permalink to this headline">¶</a></h4>
+<p>This is a careful update.</p>
+<p><em>test_and_set k expected new</em> only modifies the value to <em>new</em> if the old value is <em>expected</em>.
+The originaly stored value will be returned.
+Using a <em>value option</em> instead of a value allows you to only set a value only if there was none for that key.
+Using <em>None</em> as new allows you to do a careful delete as well.</p>
+</div>
+<div class="section" id="range-key-option-bool-key-option-bool-int-key-list-c-t">
+<h4>range : key option -&gt; bool -&gt; key option -&gt; bool -&gt; int -&gt; key list C.t<a class="headerlink" href="#range-key-option-bool-key-option-bool-int-key-list-c-t" title="Permalink to this headline">¶</a></h4>
+<p><em>range bkey binc ekey einc max</em> will yield a list of keys where
+<tt class="docutils literal"><span class="pre">max</span></tt> is the maximum number of keys (if <tt class="docutils literal"><span class="pre">max</span> <span class="pre">&lt;</span> <span class="pre">0</span></tt> then you want them all).
+The keys fall in the range <em>kbey..ekey</em>.
+<em>binc</em> and <em>einc</em> specify if the borders are included (<em>true</em>) or not.</p>
+</div>
+<div class="section" id="range-entries-key-option-bool-key-option-bool-int-bool-key-value-list-c-t">
+<h4>range_entries: key option -&gt; bool -&gt; key option -&gt; bool -&gt; int -&gt; bool -&gt; (key * value) list C.t<a class="headerlink" href="#range-entries-key-option-bool-key-option-bool-int-bool-key-value-list-c-t" title="Permalink to this headline">¶</a></h4>
+<p>will yield a list of key value pairs.
+The parameters have the same semantics as for the range method.</p>
+</div>
+<div class="section" id="sequence-update-list-unit-c-t">
+<h4>sequence: update list -&gt; unit C.t<a class="headerlink" href="#sequence-update-list-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Provides an atomic multi-update. Either all updates are performed or none.
+While this is not a full transaction, it provides enough functionality to safeguard consistency.</p>
+</div>
+<div class="section" id="assert-key-value-option-unit-c-t">
+<h4>assert : key -&gt; value option -&gt; unit C.t<a class="headerlink" href="#assert-key-value-option-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p><em>assert key vo</em> throws an exception if the value associated with the key is not what was expected.
+This can be used to interrupt sequences.</p>
+</div>
+<div class="section" id="who-master-unit-string-option-c-t">
+<h4>who_master: unit -&gt; string option C.t<a class="headerlink" href="#who-master-unit-string-option-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Allows the client to know which node currently acts as master.
+If there is no master, or it is not known to this node, the result is None.</p>
+</div>
+<div class="section" id="multi-get-key-list-value-list-c-t">
+<h4>multi_get: key list -&gt; (value list) C.t<a class="headerlink" href="#multi-get-key-list-value-list-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Allows you to fetch multiple values in one roundtrip to the server.</p>
+</div>
+<div class="section" id="expect-progress-possible-unit-bool-c-t">
+<h4>expect_progress_possible: unit -&gt; bool C.t<a class="headerlink" href="#expect-progress-possible-unit-bool-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Asks the master node if it thinks progress is possible.
+This means that the master has seen enough that indicates enough slaves are still following its lead.
+False positives are possible.</p>
+</div>
+<div class="section" id="user-function-string-string-option-string-option-c-t">
+<h4>user_function: string -&gt; string option -&gt; string option C.t<a class="headerlink" href="#user-function-string-string-option-string-option-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Allows user registered manipulation of the store.
+More about this in <a class="reference internal" href="#user-functions"><em>User Functions</em></a></p>
+</div>
+<div class="section" id="get-key-count-unit-int64-c-t">
+<h4>get_key_count: unit -&gt; int64 C.t<a class="headerlink" href="#get-key-count-unit-int64-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Yields the number of items stored in arakoon.</p>
+</div>
+</div>
+</div>
+<div class="section" id="consistent-updates">
+<h2><a class="toc-backref" href="#id17">Consistent updates</a><a class="headerlink" href="#consistent-updates" title="Permalink to this headline">¶</a></h2>
+<p>An update is sent to the master.
+The master adds it to its log, and tries to get consensus about the update with the slaves.
+Once consensus has been reached about the first log entry,
+the master adds the entry to the persistent local key-value store.
+Slaves can move the updates from their log
+into their local key-value store asynchronously.</p>
+<div class="highlight-python"><pre>(nicked from wikipedia)
+
+C      M            S0  S1
+|      |            |    |  --- first request ---
+X-----&gt;|            |    |  Request
+|      X-----------&gt;|---&gt;|  Prepare(N)
+|      |&lt;-----------X----X  Promise(N,  I, {Va,Vb,Vc})
+|      X-----------&gt;|---&gt;|  Accept!(N,  I, Vn)
+|      |&lt;-----------X----X  Accepted(N, I)
+|&lt;-----X                    Response
+                            --- other requests ---
+X-----&gt;|            |    |  Request
+|      X-----------&gt;|---&gt;|  Accept(N,   I+1, W)
+|      |&lt;-----------X----X  Accepted(N, I+1)
+|&lt;-----X            |    |  Response
+
+X-----&gt;|            |    |
+|      X-----------&gt;|---&gt;|  Accept(N, I+2,  X)
+|      |&lt;-----------X----X  Accepted(N,I+2)
+...</pre>
+</div>
+<p>The first request with M as Master (= leader) needs a full paxos round,
+while subsequent updates with the same leader skip the first phase.
+This boils down to a single roundtrip from master to slaves per update.
+If the different nodes have failure modes independent of each other (independent power supplies, different disks, ...),
+one needs not await the push-through to disk and the message can be pushed asynchronously to the local key-value store.
+This optimistic behaviour needs to be a configuration option, since the application cannot assess this by itself.
+One can also go below 1 roundtrip per update by stuffing multiple updates together.
+This increases throughput.</p>
+<div class="section" id="individual-slave-failure">
+<h3><a class="toc-backref" href="#id18">Individual Slave failure</a><a class="headerlink" href="#individual-slave-failure" title="Permalink to this headline">¶</a></h3>
+<p>If a slave dies, the master is not affected.
+When a slave comes up, there are three possibilities.
+The first is not very interesting. If the slave&#8217;s log matches that of the master, nothing happened meanwhile and the slave is <em>in sync</em>.
+The other cases are <em>small lapse</em> and <em>big lapse</em>.</p>
+<div class="section" id="small-lapse">
+<h4>small lapse<a class="headerlink" href="#small-lapse" title="Permalink to this headline">¶</a></h4>
+<p>Its replication counter I is still within the log of the master
+(or other any other slave that has a more recent state) .
+So the slave first downloads the missing part of the log.
+Then it iterates over the tlog while adding the missing updates to the store.
+When finished the client again compares its log state with that of the other nodes.
+It&#8217;s either in back in sync or again within in a small lapse.
+When the master is under load, it can be that a slave loops here until the master slows down.</p>
+</div>
+<div class="section" id="big-lapse">
+<h4>big lapse<a class="headerlink" href="#big-lapse" title="Permalink to this headline">¶</a></h4>
+<p>Small lapse would be enough if one keeps the log files.
+The only problem with this is that it wastes more than half of the available diskspace.
+The good news is that these log files compress quite well,
+so the only thing we want to be able to do is compress log files when rotate,
+and make sure we can still read the compressed logs.
+We also plan to implement the <em>collapsing</em> of logs:
+Several updates for the same key can be replaced with the last update under certain conditions.
+Applications that only manage a limited set of keys, but update the values frequently will benefit from this a lot.</p>
+</div>
+</div>
+</div>
+<div class="section" id="electing-a-master">
+<h2><a class="toc-backref" href="#id19">Electing a master</a><a class="headerlink" href="#electing-a-master" title="Permalink to this headline">¶</a></h2>
+<p>Master election should happen using paxos.
+A master choice has a timeout, and a master tries to relect itself before the lease expires.
+Details are described in the PaxosLease paper.</p>
+</div>
+<div class="section" id="restart-and-failure-scenarios">
+<h2><a class="toc-backref" href="#id20">Restart and Failure Scenarios</a><a class="headerlink" href="#restart-and-failure-scenarios" title="Permalink to this headline">¶</a></h2>
+<p>Comprehension greatly benefits from writing out explicitly what should happen after a failure <a class="footnote-reference" href="#f2" id="id2">[2]</a>.</p>
+<div class="section" id="general-power-failure-after-which-the-master-is-dead-meat">
+<h3><a class="toc-backref" href="#id21">General power failure, after which the master is dead meat</a><a class="headerlink" href="#general-power-failure-after-which-the-master-is-dead-meat" title="Permalink to this headline">¶</a></h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="4%" />
+<col width="30%" />
+<col width="4%" />
+<col width="30%" />
+<col width="4%" />
+<col width="27%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head" colspan="2">A</th>
+<th class="head" colspan="2">B</th>
+<th class="head" colspan="2">C</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>000</td>
+<td><sup>s</sup>MasterSet(&#8216;C&#8217;,...)</td>
+<td>000</td>
+<td><sup>s</sup>MasterSet(&#8216;C&#8217;,...)</td>
+<td>000</td>
+<td>MasterSet(&#8216;C&#8217;,...)</td>
+</tr>
+<tr class="row-odd"><td>001</td>
+<td><sup>t</sup>Set(&#8216;x&#8217;,&#8217;X&#8217;)</td>
+<td>001</td>
+<td><sup>t</sup>Set(&#8216;x&#8217;,&#8217;X&#8217;)</td>
+<td>001</td>
+<td><sup>s,t</sup>Set(&#8216;x&#8217;,&#8217;X&#8217;)</td>
+</tr>
+</tbody>
+</table>
+<p>The table shows the situation when the power goes off.
+Node C became master and dictated 1 update (<em>Set(&#8216;x&#8217;,&#8217;X&#8217;)</em>), received <em>Accepted</em> messages from all slaves,
+after which it pushed that update to its store.
+The question is, what happens when node C is lost and A and B are started again?</p>
+<p>It&#8217;s obvious that globally, there should be consensus on the <em>Set</em> update, but since there was no follow up,
+both nodes don&#8217;t realise this yet, and are trying to find out what should happen.
+A sends out a <em>Prepare(n,i=1)</em> to which B answers with a <em>Promise(n,i=1,Set(&#8216;x&#8217;,&#8217;X&#8217;))</em>.
+All goes well, and A receives the promise, and thus decides that this is indeed the value for <em>i=1</em>.
+It pushes the value, to the store.
+Node A goes into a state identical to C, before it became defunct.</p>
+<p>If node A gets this far, it&#8217;s a de-facto leader, and can start acting like it.
+The next thing A does is broadcast <em>Accept(n,2,MasterSet(&#8216;A&#8217;,...)</em> and things will soon be normal again.</p>
+</div>
+<div class="section" id="unfortunate-sequence-of-events">
+<h3><a class="toc-backref" href="#id22">Unfortunate sequence of events</a><a class="headerlink" href="#unfortunate-sequence-of-events" title="Permalink to this headline">¶</a></h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="25%" />
+<col width="8%" />
+<col width="25%" />
+<col width="8%" />
+<col width="25%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head" colspan="2">N1</th>
+<th class="head" colspan="2">N2</th>
+<th class="head" colspan="2">N3</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>i - 1</td>
+<td><sup>s</sup>v0</td>
+<td>i - 1</td>
+<td><sup>t</sup>v0</td>
+<td>i - 1</td>
+<td><sup>t</sup>v0</td>
+</tr>
+<tr class="row-odd"><td>i</td>
+<td><sup>t</sup>v1</td>
+<td>i</td>
+<td>&nbsp;</td>
+<td>i</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<p>A the starting situation is reached by a cluster where N1, being master accepted <em>v1</em> at <em>i</em> after which aferything goes down.
+After this, there are some problems with the master node (N1) and only N2 and N3 are restarted.
+They come up, resume service, and accept and reach consensus on a new value <em>v2</em>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="25%" />
+<col width="8%" />
+<col width="25%" />
+<col width="8%" />
+<col width="25%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head" colspan="2">N1</th>
+<th class="head" colspan="2">N2</th>
+<th class="head" colspan="2">N3</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>i - 1</td>
+<td><sup>s</sup>v0</td>
+<td>i - 1</td>
+<td><sup>t</sup>v0</td>
+<td>i - 1</td>
+<td><sup>s</sup>v0</td>
+</tr>
+<tr class="row-odd"><td>i</td>
+<td><sup>t</sup>v1</td>
+<td>i</td>
+<td><sup>t</sup>v2</td>
+<td>i</td>
+<td><sup>t</sup>v2</td>
+</tr>
+</tbody>
+</table>
+<p>Then, disaster strikes again, and both N2 and N3 are stopped.
+There seems to be a problem with N3, but the sysads did a great job and restored N1.
+Both N1 and N2 are started.
+Now N1 promises v1 to N2 and N2 promises v2 to N1.
+Neither can reach consensus and progress is blocked.</p>
+</div>
+</div>
+<div class="section" id="implementation-choices">
+<h2><a class="toc-backref" href="#id23">Implementation choices</a><a class="headerlink" href="#implementation-choices" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="inter-node-communication">
+<h3><a class="toc-backref" href="#id24">Inter-node communication</a><a class="headerlink" href="#inter-node-communication" title="Permalink to this headline">¶</a></h3>
+<p>The nodes are fully connected with each other over tcp sockets.
+The low level (de-)serialization is handled by our llio library (C,Python and ocaml implementations available).
+This library is actually pretty efficient.
+For example, on inteloids, fetching a 64 bit integer from a buffer boils down to a reinterpretation of 8 bytes in the buffer (in C, it merely is a cast, while in Python it&#8217;s a <em>struct.unpack(&#8216;q&#8217;,i)</em> ).
+Nodes all know one another from their configuration.
+Just above the socket layer, there&#8217;s an abstract messaging layer, where you can just send and receive messages.</p>
+</div>
+<div class="section" id="client-node-communication">
+<h3><a class="toc-backref" href="#id25">Client-Node communication</a><a class="headerlink" href="#client-node-communication" title="Permalink to this headline">¶</a></h3>
+<p>The client node communication has different needs, and hence a rpc like approach will be used. Following table describes what we do with primitives.
+Just note that a list should be written out head first, so that naieve de-serialization will return the original.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="10%" />
+<col width="76%" />
+<col width="14%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">type</th>
+<th class="head">marshalled form</th>
+<th class="head">size (bytes)</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>bool</td>
+<td>false -&gt; 0 | true -&gt; 1</td>
+<td>1</td>
+</tr>
+<tr class="row-odd"><td>int32</td>
+<td>little endian</td>
+<td>4</td>
+</tr>
+<tr class="row-even"><td>int64</td>
+<td>little endian</td>
+<td>8</td>
+</tr>
+<tr class="row-odd"><td>string</td>
+<td>[size:int<sub>32</sub>][bytes]</td>
+<td>4 + n</td>
+</tr>
+<tr class="row-even"><td>float</td>
+<td>IEE754 double</td>
+<td>8</td>
+</tr>
+<tr class="row-odd"><td>x option</td>
+<td>0x00 (None) or 0x01 [x]</td>
+<td><em>|x| + 1</em></td>
+</tr>
+<tr class="row-even"><td>x list</td>
+<td>[size:int<sub>32</sub>][x<sub>n-1</sub>]...[x<sub>0</sub>]</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>x array</td>
+<td>[size:int<sub>32</sub>][x<sub>0</sub>]...[x<sub>n-1</sub>]</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="38%" />
+<col width="62%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>1:int32</td>
+<td>0x01 0x00 0x00 0x00</td>
+</tr>
+<tr class="row-even"><td>70000:int32</td>
+<td>0x70 0x11 0x01 0x00</td>
+</tr>
+<tr class="row-odd"><td>3.14:float</td>
+<td>0x1f85eb51b81e0940</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="21%" />
+<col width="79%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Set(key,value)</td>
+<td>[1:int<sub>32</sub>][key:string][value:string]</td>
+</tr>
+<tr class="row-even"><td>Delete(key)</td>
+<td>[2:int<sub>32</sub>][key:string]</td>
+</tr>
+<tr class="row-odd"><td>Assert(k,vo)</td>
+<td>[8:int<sub>32</sub>][key:string][vo: string option]</td>
+</tr>
+<tr class="row-even"><td>sequence</td>
+<td>[size(data):int<sub>32</sub>][bytes(data)]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="protocol-definition">
+<h3><a class="toc-backref" href="#id26">protocol definition</a><a class="headerlink" href="#protocol-definition" title="Permalink to this headline">¶</a></h3>
+<p>The protocol is a very simple request/response based binary protocol.
+The client is the active party, and sends a command</p>
+<div class="section" id="successful-rpc-call">
+<h4>successful rpc call<a class="headerlink" href="#successful-rpc-call" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-python"><pre>client: [command : int32][parameter_0][parameter_1]... (&amp;flush)
+server: [0x0:int32][result_0][result_1]... (&amp;flush)</pre>
+</div>
+<div class="highlight-python"><pre>client: [command : int32][parameter_0][parameter_1].. (&amp;flush)
+server: [rc:int32][size:int32}][bytes] (&amp;flush)</pre>
+</div>
+<p>Each command is masked with the magic sequence <tt class="docutils literal"><span class="pre">0xb1ff0000</span></tt>.
+The node checks the magic, proceeds with reading the parameters, and processes the request.
+Then the response code and response are written.
+If a failure happens, the server writes out a return code different from zero, and a string with a message after which he closes the connection.</p>
+<p>The command codes and return codes are listed below.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="69%" />
+<col width="31%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">command</th>
+<th class="head">code</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>ping</td>
+<td>0x0000 0001</td>
+</tr>
+<tr class="row-odd"><td>who_master</td>
+<td>0x0000 0002</td>
+</tr>
+<tr class="row-even"><td>exists</td>
+<td>0x0000 0007</td>
+</tr>
+<tr class="row-odd"><td>get</td>
+<td>0x0000 0008</td>
+</tr>
+<tr class="row-even"><td>set</td>
+<td>0x0000 0009</td>
+</tr>
+<tr class="row-odd"><td>delete</td>
+<td>0x0000 000a</td>
+</tr>
+<tr class="row-even"><td>range</td>
+<td>0x0000 000b</td>
+</tr>
+<tr class="row-odd"><td>prefix_keys</td>
+<td>0x0000 000c</td>
+</tr>
+<tr class="row-even"><td>test_and_set</td>
+<td>0x0000 000d</td>
+</tr>
+<tr class="row-odd"><td>last_entries</td>
+<td>0x0000 000e</td>
+</tr>
+<tr class="row-even"><td>range_enties</td>
+<td>0x0000 000f</td>
+</tr>
+<tr class="row-odd"><td>sequence</td>
+<td>0x0000 0010</td>
+</tr>
+<tr class="row-even"><td>multi_get</td>
+<td>0x0000 0011</td>
+</tr>
+<tr class="row-odd"><td>expect_progress_possible</td>
+<td>0x0000 0012</td>
+</tr>
+<tr class="row-even"><td>user_function</td>
+<td>0x0000 0015</td>
+</tr>
+<tr class="row-odd"><td>assert</td>
+<td>0x0000 0016</td>
+</tr>
+<tr class="row-even"><td>get_key_count</td>
+<td>0x0000 001a</td>
+</tr>
+<tr class="row-odd"><td>confirm</td>
+<td>0x0000 001b</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="35%" />
+<col width="65%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">return code</th>
+<th class="head">condition</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0x0000 0000</td>
+<td>success!</td>
+</tr>
+<tr class="row-odd"><td>0x0000 0001</td>
+<td>command has no magic</td>
+</tr>
+<tr class="row-even"><td>0x0000 0002</td>
+<td>too many dead nodes</td>
+</tr>
+<tr class="row-odd"><td>0x0000 0003</td>
+<td>no hello</td>
+</tr>
+<tr class="row-even"><td>0x0000 0004</td>
+<td>not master</td>
+</tr>
+<tr class="row-odd"><td>0x0000 0005</td>
+<td>not found</td>
+</tr>
+<tr class="row-even"><td>0x0000 0006</td>
+<td>wrong cluster</td>
+</tr>
+<tr class="row-odd"><td>0x0000 0007</td>
+<td>assertion failed</td>
+</tr>
+<tr class="row-even"><td>...</td>
+<td>...</td>
+</tr>
+<tr class="row-odd"><td>0x0000 00ff</td>
+<td>unknown failure</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="nodes-in-ocaml">
+<h3><a class="toc-backref" href="#id27">nodes in OCaml</a><a class="headerlink" href="#nodes-in-ocaml" title="Permalink to this headline">¶</a></h3>
+<p>Implementing the nodes in OCaml using Ocsigen&#8217;s LWT library gives ample control over the fine grained concurrency we need through monadic coroutines.</p>
+</div>
+<div class="section" id="other-clients">
+<h3><a class="toc-backref" href="#id28">Other clients</a><a class="headerlink" href="#other-clients" title="Permalink to this headline">¶</a></h3>
+<p>Besides the obvious OCaml client, Arakoon provides some clients written in other languages:</p>
+<ul class="simple">
+<li>python</li>
+<li>php</li>
+<li>C</li>
+</ul>
+<p>These are pure clients, in the sense that for example the Python client is 100% Python and not a wrapped C client.
+We might have to reconsider this strategy as the number of different clients grows. ... meanwhile, there are unconfirmed rumours about an Erlang client in the wilde.</p>
+</div>
+<div class="section" id="local-key-value-store">
+<h3><a class="toc-backref" href="#id29">local key/value store</a><a class="headerlink" href="#local-key-value-store" title="Permalink to this headline">¶</a></h3>
+<p>We&#8217;ve picked tokyo cabinet.
+Our client interface matches its api quite well.
+It might be an idea to make this pluggable, but we don&#8217;t need this at the moment.
+Tokyo Cabinet is great for small values, but it will not cope with values of 1MB;
+even 10KB gives problems if you don&#8217;t tweak the parameters.
+In essence, allowing both 1B and 1MB in the same BTree will eventually explode.</p>
+</div>
+<div class="section" id="forced-master-and-quorum">
+<h3><a class="toc-backref" href="#id30">forced master and quorum</a><a class="headerlink" href="#forced-master-and-quorum" title="Permalink to this headline">¶</a></h3>
+<p>We needed to solve the case where you have only 2 nodes.
+The simplest solution is to allow the master to be chosen by configuration and the quorum to be fixed.
+This way, you can chose for the 2 node case where you want the master,
+and if you&#8217;re willing to take the risk to keep on writing in a case of a slave node not responding, you just set the quorum to 1.</p>
+</div>
+</div>
+<div class="section" id="other-strategical-decisions">
+<h2><a class="toc-backref" href="#id31">Other strategical decisions</a><a class="headerlink" href="#other-strategical-decisions" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="rest-interface">
+<h3><a class="toc-backref" href="#id32">REST interface</a><a class="headerlink" href="#rest-interface" title="Permalink to this headline">¶</a></h3>
+<p>We decided not to offer a REST interface.</p>
+</div>
+<div class="section" id="dynamically-adding-nodes">
+<h3><a class="toc-backref" href="#id33">dynamically adding nodes</a><a class="headerlink" href="#dynamically-adding-nodes" title="Permalink to this headline">¶</a></h3>
+<p>All the nodes know one another from their configuration files,
+but adding a node is not trivial.
+For example, one wants to add a third node in a two node setup and starts a node with a config referring to the two existing nodes.
+But these older nodes are clueless
+and have another opinion on how many nodes need to concur.
+A cluster protects itself by not answering to nodes it does not know;
+but this means adding a node means you need to restart the existing nodes.</p>
+<p>It might be better to make the <em>known_nodes</em> a paxos value
+over which consensus must be reached, but this has additional risks.
+The population can only change with reasonable increments.</p>
+</div>
+</div>
+<div class="section" id="state-machine">
+<h2><a class="toc-backref" href="#id34">State machine</a><a class="headerlink" href="#state-machine" title="Permalink to this headline">¶</a></h2>
+<p class="graphviz">
+<img src="_images/graphviz-985667158354e14d684ed1c3ef017e104429199b.png" alt="digraph MultiPaxos {
+  compound=true;
+  node [shape=box];
+  subgraph cluster0 {
+    label = &quot;master&quot;;
+    node [] master_consensus;
+    node [] stable_master;
+    node [] master_dictate;
+    node [] accepteds_check_done;
+    node [] wait_for_accepteds;
+    stable_master -&gt; stable_master;
+    stable_master -&gt; master_dictate [color=green, fontcolor=green, label = &quot;(9)&quot;];
+    master_dictate -&gt; accepteds_check_done [color=green, fontcolor=green, label=&quot;(10)&quot;];
+    accepteds_check_done -&gt; wait_for_accepteds [color=green, fontcolor=green, label=&quot;(5)&quot;];
+    accepteds_check_done -&gt; master_consensus [color=green, fontcolor=green, label=&quot;(7)&quot;];
+    wait_for_accepteds -&gt; wait_for_accepteds;
+    wait_for_accepteds -&gt; accepteds_check_done [color=green, fontcolor=green, label=&quot;(6)&quot;];
+    master_consensus -&gt; stable_master [color=green, fontcolor=green, label=&quot;(8)&quot;];
+  }
+  subgraph cluster1 {
+    label = &quot;slave&quot;;
+    
+    node [color=black] slave_wait_for_accept;
+    node [color=green] slave_steady_state;	
+    node [color=black] slave_fake_prepare;
+    node [color=black] slave_waiting_for_prepare;
+    node [color=black] slave_discovered_other_master;
+
+    slave_steady_state -&gt; slave_steady_state 
+                          [color = green, fontcolor=green,label = &quot;(13)&quot;];
+    slave_steady_state -&gt; slave_wait_for_accept;
+    slave_steady_state -&gt; slave_fake_prepare [label=&quot;(14)&quot;];
+    slave_wait_for_accept -&gt; slave_steady_state 
+                             [color = green, fontcolor = green, label = &quot;(12)&quot;];
+    slave_wait_for_accept -&gt; slave_wait_for_accept;
+    slave_wait_for_accept -&gt; slave_fake_prepare;
+    slave_fake_prepare -&gt; slave_waiting_for_prepare;
+    slave_waiting_for_prepare -&gt; slave_wait_for_accept 
+    			      [color = green, label = &quot;(16)&quot;];
+    slave_waiting_for_prepare -&gt; slave_waiting_for_prepare;
+    slave_waiting_for_prepare -&gt; slave_discovered_other_master;
+    slave_waiting_for_prepare -&gt; slave_steady_state;
+    
+    slave_discovered_other_master -&gt; slave_steady_state;
+    slave_discovered_other_master -&gt; slave_wait_for_accept;
+    
+  }
+  subgraph cluster2 {
+    label = &quot;elections&quot;;
+    node [] election_suggest;
+    node [] promises_check_done;
+    node [] wait_for_promises;
+
+    election_suggest -&gt; promises_check_done [color=green,fontcolor=green, label=&quot;(1)&quot;];
+    promises_check_done -&gt; election_suggest;
+    promises_check_done -&gt; wait_for_promises[color=green, label=&quot;(2)&quot;];
+    wait_for_promises -&gt; promises_check_done[color=green, label=&quot;(3)&quot;];
+
+  }
+
+  slave_steady_state -&gt; election_suggest;	
+  slave_discovered_other_master -&gt; election_suggest;
+  promises_check_done -&gt; accepteds_check_done [color=green, label=&quot;(4)&quot;];
+  stable_master -&gt; election_suggest;
+  election_suggest -&gt; slave_wait_for_accept [color=green, label=&quot;(11)&quot;];
+}" />
+</p>
+<p>This figure shows the state machine diagram for the arakoon nodes.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="4%" />
+<col width="96%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>1</td>
+<td>/multicast Prepare n&#8217;</td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td>to_receive $&gt;$ 0/</td>
+</tr>
+<tr class="row-odd"><td>3</td>
+<td>Promise(n,$new_i$,limit)/</td>
+</tr>
+<tr class="row-even"><td>4</td>
+<td>to_receive $=$ 0/ multicast Accept(n,$new_i$,v)</td>
+</tr>
+<tr class="row-odd"><td>5</td>
+<td>needed $&gt;$ 0/</td>
+</tr>
+<tr class="row-even"><td>6</td>
+<td>Accept(n,i)/</td>
+</tr>
+<tr class="row-odd"><td>7</td>
+<td>needed $=$ 0/</td>
+</tr>
+<tr class="row-even"><td>8</td>
+<td>/start lease</td>
+</tr>
+<tr class="row-odd"><td>9</td>
+<td>FromClient /</td>
+</tr>
+<tr class="row-even"><td>10</td>
+<td>multicast Accept(n,i,v)</td>
+</tr>
+<tr class="row-odd"><td>11</td>
+<td>Prepare(n&#8217;&gt;n)</td>
+</tr>
+<tr class="row-even"><td>12</td>
+<td>Accept(n,i,v)</td>
+</tr>
+<tr class="row-odd"><td>13</td>
+<td>Accept(n,i,v)</td>
+</tr>
+<tr class="row-even"><td>14</td>
+<td>Accept(n&#8217;,i&#8217;,v&#8217;)</td>
+</tr>
+<tr class="row-odd"><td>15</td>
+<td>/multicast Prepare(-1)</td>
+</tr>
+<tr class="row-even"><td>16</td>
+<td>Prepare(n)/</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="user-functions">
+<span id="id3"></span><h2><a class="toc-backref" href="#id35">User functions</a><a class="headerlink" href="#user-functions" title="Permalink to this headline">¶</a></h2>
+<p>User functions are a flexible way to add functionality at server side.
+For example, if one would like to atomically increment a counter,
+without user functions one first has to do a <em>get</em>
+and then a <em>test_and_set</em>, and if there was a race, retry.
+With user functions this is quite simple.
+User functions are compiled separately, and dynamically loaded at node startup time.</p>
+<p>There are three steps in installing a user function.</p>
+<ul class="simple">
+<li>implement the function</li>
+<li>register the function in the registry</li>
+<li>configure the node to load the module at startup time</li>
+</ul>
+<div class="section" id="implementing-a-user-function">
+<h3><a class="toc-backref" href="#id36">Implementing a user function</a><a class="headerlink" href="#implementing-a-user-function" title="Permalink to this headline">¶</a></h3>
+<p>When called, a user function gets passed a parameter of class type <em>user_db</em>.
+The <em>user_db</em> class type provides the interface for manipulating the store.
+Each call to a user function is executed <em>inside a transaction</em></p>
+<div class="highlight-ocaml"><div class="highlight"><pre><span class="k">class</span> <span class="k">type</span> <span class="n">user_db</span> <span class="o">=</span>
+<span class="k">object</span>
+  <span class="k">method</span> <span class="n">set</span> <span class="o">:</span> <span class="kt">string</span> <span class="o">-&gt;</span> <span class="kt">string</span> <span class="o">-&gt;</span> <span class="kt">unit</span>
+  <span class="k">method</span> <span class="n">get</span> <span class="o">:</span> <span class="kt">string</span> <span class="o">-&gt;</span> <span class="kt">string</span>
+  <span class="k">method</span> <span class="n">delete</span><span class="o">:</span> <span class="kt">string</span> <span class="o">-&gt;</span> <span class="kt">unit</span>
+  <span class="k">method</span> <span class="n">test_and_set</span><span class="o">:</span> <span class="kt">string</span> <span class="o">-&gt;</span> <span class="kt">string</span> <span class="n">option</span> <span class="o">-&gt;</span> <span class="kt">string</span> <span class="n">option</span> <span class="o">-&gt;</span>
+          <span class="kt">string</span> <span class="n">option</span>
+  <span class="k">method</span> <span class="n">range_entries</span><span class="o">:</span>
+      <span class="kt">string</span> <span class="n">option</span> <span class="o">-&gt;</span> <span class="kt">bool</span> <span class="o">-&gt;</span>
+      <span class="kt">string</span> <span class="n">option</span> <span class="o">-&gt;</span> <span class="kt">bool</span> <span class="o">-&gt;</span> <span class="kt">int</span> <span class="o">-&gt;</span> <span class="o">(</span><span class="kt">string</span> <span class="o">*</span> <span class="kt">string</span><span class="o">)</span> <span class="kt">list</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+<p>User functions have the following type:</p>
+<div class="highlight-python"><pre>user_db -&gt; string option -&gt; string option</pre>
+</div>
+<p>Within the body of the user function,
+one can make calls upon the <em>user_db</em> object that is passed in.
+A sample implementation, for incrementing a counter is provided below.</p>
+<div class="highlight-ocaml"><div class="highlight"><pre><span class="c">(* file : plugin_incr_counter.ml *)</span>
+<span class="k">let</span> <span class="n">incr_counter</span> <span class="n">db</span> <span class="n">ko</span> <span class="o">=</span>
+    <span class="k">match</span> <span class="n">ko</span> <span class="k">with</span>
+    <span class="o">|</span> <span class="nc">None</span> <span class="o">-&gt;</span>
+        <span class="k">raise</span> <span class="o">(</span><span class="nn">Arakoon_exc</span><span class="p">.</span><span class="nc">Exception</span><span class="o">(</span><span class="nc">E_UNKNOWN_FAILURE</span><span class="o">,</span> <span class="o">``</span><span class="n">invalid</span> <span class="n">arg&#39;&#39;</span><span class="o">))</span>
+    <span class="o">|</span> <span class="nc">Some</span> <span class="n">key</span> <span class="o">-&gt;</span>
+        <span class="k">let</span> <span class="n">counter</span> <span class="o">=</span>
+            <span class="k">try</span> <span class="n">int_of_string</span><span class="o">(</span><span class="n">db</span> <span class="o">#</span> <span class="n">get</span> <span class="n">key</span><span class="o">)</span>
+            <span class="k">with</span> <span class="nc">Not_found</span> <span class="o">-&gt;</span> <span class="mi">0</span>
+        <span class="k">in</span>
+        <span class="k">let</span> <span class="n">nv</span> <span class="o">=</span> <span class="n">string_of_int</span> <span class="o">(</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="k">in</span>
+        <span class="k">let</span> <span class="bp">()</span> <span class="o">=</span> <span class="n">db</span> <span class="o">#</span> <span class="n">set</span> <span class="n">key</span> <span class="n">nv</span> <span class="k">in</span>
+        <span class="nc">None</span>
+
+<span class="k">let</span> <span class="bp">()</span> <span class="o">=</span> <span class="nn">Registry</span><span class="p">.</span><span class="n">register</span> <span class="o">``</span><span class="n">incr_counter&#39;&#39;</span> <span class="n">incr_counter</span>
+</pre></div>
+</div>
+<p>The last line of the module takes care of the registration of the function.</p>
+</div>
+<div class="section" id="registration">
+<h3><a class="toc-backref" href="#id37">registration</a><a class="headerlink" href="#registration" title="Permalink to this headline">¶</a></h3>
+<p>Registration is very simple: It&#8217;s done by calling <em>Registry.register</em>, from inside the module that implements the function.</p>
+</div>
+<div class="section" id="extra-node-configuration">
+<h3><a class="toc-backref" href="#id38">extra Node configuration</a><a class="headerlink" href="#extra-node-configuration" title="Permalink to this headline">¶</a></h3>
+<p>The arakoon configuration file needs to have an extra line</p>
+<div class="highlight-python"><pre># file arakoon.ini
+
+...
+
+#plugin module needs to be in home
+#plugins = plugin_incr_counter
+
+[arakoon_0]
+home = /tmp/arakoon_0
+
+...</pre>
+</div>
+<p>This will cause the node to load <em>plugin_incr_counter.cmxs</em> when it starts.
+This file needs to be available in the home directory of <em>all</em> the nodes of the cluster. After the nodes are started, clients can make use of this.</p>
+</div>
+<div class="section" id="important-remarks">
+<h3><a class="toc-backref" href="#id39">Important remarks</a><a class="headerlink" href="#important-remarks" title="Permalink to this headline">¶</a></h3>
+<p>Once a user function is installed, it needs to remain available, with the same functionality for as long as user function calles are stored inside the transaction logs, as they need to be re-evaluated when one replays a transaction log to a store (for example when a node crashed, leaving a corrupt database behind).</p>
+<p>The input and output are of type <em>String option</em>, which means that if you want to pass in a string list, you need to device some kind of (de)marshalling.
+Furtunately, the <em>Llio</em> module is available both on client and server side, and has most things you need.</p>
+</div>
+</div>
+<div class="section" id="scaling-arakoon">
+<h2><a class="toc-backref" href="#id40">Scaling Arakoon</a><a class="headerlink" href="#scaling-arakoon" title="Permalink to this headline">¶</a></h2>
+<p>We want to be able to use arakoon for increasingly large key-value spaces.
+For a single arakoon cluster the capacity is limited by the size of a single disk.
+So it is only natural to allow different arakoon clusters to team up.
+A <em>nursery</em><a class="footnote-reference" href="#f3" id="id4">[3]</a> provides a semi-unified view on a set of arakoon clusters.
+Each cluster is uniquely responsible for a key prefix interval.</p>
+<div class="section" id="id5">
+<h3><a class="toc-backref" href="#id41">Limitations</a><a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<p>The simple strategy of mapping a cluster to an interval of keys already implies some limitations compared to the single cluster setup.
+As a result, applications willing to scale from a single cluster to a nursery need to do some planning.</p>
+<div class="section" id="impact-on-sequences">
+<h4>impact on sequences<a class="headerlink" href="#impact-on-sequences" title="Permalink to this headline">¶</a></h4>
+<p>Sequences are multiple updates that are done atomically.
+Since atomicity can only be achieved inside 1 cluster <a class="footnote-reference" href="#f4" id="id6">[4]</a>, this means that all keys for a sequence need to share the same prefix.</p>
+</div>
+<div class="section" id="impact-on-ranges">
+<h4>impact on ranges<a class="headerlink" href="#impact-on-ranges" title="Permalink to this headline">¶</a></h4>
+<p>Every cluster is responsible for a specific interval.
+As client range query will only be served by a single cluster, it means that only ranges that fit within a cluster interval can be served.</p>
+</div>
+</div>
+<div class="section" id="migrations">
+<h3><a class="toc-backref" href="#id42">Migrations</a><a class="headerlink" href="#migrations" title="Permalink to this headline">¶</a></h3>
+<p>Once a cluster is filled, one needs to be able to split it, or move part of its interval elsewhere.
+This process is called migration.
+Each cluster has a <em>public</em> interval [k<sub>b</sub>,k<sub>e</sub>) it serves to clients,
+as well as a <em>private</em> interval it contains.
+As such, migrating a part of a cluster&#8217;s interval to another cluster becomes feasible.
+If we&#8217;re moving keys away from a <em>source</em> cluster [k<sub>b</sub>, k<sub>e</sub>)</p>
+<ul class="simple">
+<li>shrink the public interval of the source cluster from
+[k<sub>b</sub>, k<sub>e</sub>) to [k<sub>b</sub>, k<sub>e</sub> - a).
+The private interval of the source remains [k<sub>b</sub>, k<sub>e</sub>)</li>
+<li>add the key/value pairs in [k<sub>e</sub> - a,k<sub>e</sub>) to the target cluster</li>
+<li>extend the public range of the target cluster from
+[k<sub>e</sub>,k<sub>z</sub>) to [k<sub>e</sub> - a, k<sub>z</sub>)</li>
+<li>delete the key/value pairs on the source in [k<sub>e</sub> -a,k<sub>e</sub>).
+update the private range on the source to [k<sub>b</sub>, k<sub>e</sub>-a).</li>
+</ul>
+<p>This work can be done by a privileged client responsible for the migration.
+That client can die at any point, and figure out, at resumption, what it needs to do to complete the task.
+The problem with the migration strategy is that there is a point in time where none of the clusters is serving [k<sub>e</sub> -a, k<sub>e</sub>), so any request for anything in that interval is refused.</p>
+<p>Large migrations (and most of them will be), need to be done in multiple smaller steps.
+This means we repeatedly have to execute the above procedure,
+each time choosing an <em>a</em> that chips off a set of key value pairs that can be migrated using a multiget and a sequence.</p>
+</div>
+<div class="section" id="client-side-support">
+<h3><a class="toc-backref" href="#id43">Client side support</a><a class="headerlink" href="#client-side-support" title="Permalink to this headline">¶</a></h3>
+<p>Each client needs to know which cluster is responsible for a certain key(-range).
+This information is kept in a routing table. At construction time, a client fetches this from a designated Arakoon that knows all the clusters in a nursery.
+The privileged clients performing migrations also must update this designated arakoon.
+As far as clients are concerned, it&#8217;s not really important that the nursery clients have correct routing tables:
+If a client asks something from a cluster that&#8217;s not able to comply, it will simply refuse.
+This means that either, there is some migration, or that the client has outdated routing information.
+In that case, it can simply refetch the ranges from the clusters it knows, or refetch it from the designated arakoon that keeps this information.</p>
+</div>
+<div class="section" id="problems">
+<h3><a class="toc-backref" href="#id44">Problems</a><a class="headerlink" href="#problems" title="Permalink to this headline">¶</a></h3>
+<p>We depend on having a designated arakoon that knows all the clusters in a nursery, and their routing tables.
+So conceptually, we introduced a single point of failure.
+Since this point is in reality an arakoon cluster which is synchronuously replicated, that should not pose big practical problems.</p>
+<p>Having to maintain configuration of (multiple/many?) arakoon clusters on lots of machines will become a significant problem.
+As this information is both crucial, and maintained by humans, which is a recipe for disaster. In time, we should move to service discovery.
+Possible options are:</p>
+<ul class="simple">
+<li>XMPP disco</li>
+<li>DNS-Based Service Discovery</li>
+<li>openSLP</li>
+<li>Salutation</li>
+<li>UPnP</li>
+<li>svrloc</li>
+<li>...</li>
+</ul>
+<p class="rubric">Footnotes</p>
+<table class="docutils footnote" frame="void" id="f1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>May, 2011, Scalien dropped Keyspace due to <em>&#8216;BerkeleyDB issues&#8217;</em></td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="f2" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>Something we learned the hard way</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="f3" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[3]</a></td><td>after a <em>a nursery of raccoons</em></td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="f4" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id6">[4]</a></td><td>you could build transactionality across clusters, but it&#8217;s a can of worms</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

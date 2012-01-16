@@ -1,0 +1,366 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Arakoon PyLabs Client</title>
+
+    
+    <link rel="stylesheet" href="../_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Managing Arakoon with PyLabs" href="index.html" />
+    <link rel="prev" title="Cloning a Node" href="cloning_a_node.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="../_static/bootstrap.css" rel="stylesheet" />
+  <link href="../_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='../_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="../index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="arakoon-pylabs-client">
+<h1>Arakoon PyLabs Client<a class="headerlink" href="#arakoon-pylabs-client" title="Permalink to this headline">¶</a></h1>
+<p>When you have set up your <a class="reference internal" href="configuring_arakoon.html"><em>Arakoon setup</em></a>, you can
+use a PyLabs client to interact with Arakoon.</p>
+<div class="section" id="connecting-to-an-arakoon-cluster">
+<h2>Connecting to an Arakoon Cluster<a class="headerlink" href="#connecting-to-an-arakoon-cluster" title="Permalink to this headline">¶</a></h2>
+<p>To get connect to an Arakoon cluster, you have to create the cluster
+configuration and add the nodes on each machine that will run an Arakoon
+client.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">cli_cfg</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">cli_cfg</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span> <span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">)</span>
+<span class="n">cli_cfg</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span> <span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">)</span>
+<span class="n">cli_cfg</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span> <span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When you have created this configuration on the client machine, you can create
+a connection as follows:</p>
+<div class="highlight-python"><pre>myClient = q.clients.arakoon.getClient('Demo_Cluster')
+
+myClient.&lt;TAB&gt;
+myClient.
+myClient.allowDirtyReads(         myClient.prefix(
+myClient.delete(                  myClient.range(
+myClient.disallowDirtyReads(      myClient.range_entries(
+myClient.exists(                  myClient.sequence(
+myClient.expectProgressPossible(  myClient.set(
+myClient.get(                     myClient.setDirtyReadNode(
+myClient.getDirtyReadNode(        myClient.statistics(
+myClient.hello(                   myClient.testAndSet(
+myClient.multiGet(                myClient.whoMaster(</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>If the client is running on one of the Arakoon machines there is a shortcut
+method for generating the client configuration as follows:</p>
+<div class="last highlight-python"><div class="highlight"><pre><span class="n">cli_cfg</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">cli_cfg</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+<span class="n">myClient</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClient</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="doing-dirty-reads">
+<h2>Doing dirty reads<a class="headerlink" href="#doing-dirty-reads" title="Permalink to this headline">¶</a></h2>
+<p>Starting from the 0.10.0 release of arakoon it is possible to do dirty reads
+from the server node. This means that you will be reading out values which
+might not be 100% up to date, i.e. the value might actually be updated on
+another node (and the update will eventually be pushed to the node you are
+querying). Allowing dirty reads allows clients to read data from slaves and
+learner nodes.</p>
+<p>To enable dirty reads issue the following command:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">allowDirtyReads</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>By default the extension will pick a random node from the nodes in the client
+configuration taht will be used for dirty reads. If you want to read from a
+specific node, you can override by issuing the following command:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">setDirtyReader</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>An alternative way of doing things is to create a named client configuration
+which only holds the node you want to perform dirty reads against. This can be
+done like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">cli_cfg</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getConfig</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">,</span> <span class="s">&#39;dirty_read_cfg&#39;</span><span class="p">)</span>
+<span class="n">cli_cfg</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span> <span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span> <span class="p">)</span>
+<span class="n">dirtyReader</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClient</span><span class="p">(</span> <span class="s">&#39;mindy&#39;</span><span class="p">,</span> <span class="s">&#39;dirty_read_cfg&#39;</span> <span class="p">)</span>
+<span class="n">dirtyReader</span><span class="o">.</span><span class="n">allowDirtyReads</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="setting-key-value-pairs">
+<h2>Setting Key-Value Pairs<a class="headerlink" href="#setting-key-value-pairs" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="normal-set-operations">
+<h3>Normal set operations<a class="headerlink" href="#normal-set-operations" title="Permalink to this headline">¶</a></h3>
+<p>If we would like to add the following keys and their values:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="36%" />
+<col width="64%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Key</th>
+<th class="head">Value</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>1</td>
+<td>Value A</td>
+</tr>
+<tr class="row-odd"><td>2</td>
+<td>Value B</td>
+</tr>
+<tr class="row-even"><td>3</td>
+<td>Value C</td>
+</tr>
+</tbody>
+</table>
+<p>We use the set() method as follows:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="s">&#39;Value A&#39;</span><span class="p">)</span>
+<span class="n">myClient</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">&#39;2&#39;</span><span class="p">,</span> <span class="s">&#39;Value B&#39;</span><span class="p">)</span>
+<span class="n">myClient</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">&#39;3&#39;</span><span class="p">,</span> <span class="s">&#39;Value C&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="confirm">
+<h3>Confirm<a class="headerlink" href="#confirm" title="Permalink to this headline">¶</a></h3>
+<p>Confirm allows you to only update key-value pairs when the new value differs
+from the current value.</p>
+<p>We use the confirm method as follows:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="s">&#39;Value A&#39;</span><span class="p">)</span>
+<span class="n">myClient</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="s">&#39;2&#39;</span><span class="p">,</span> <span class="s">&#39;Value B&#39;</span><span class="p">)</span>
+<span class="n">myClient</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="s">&#39;Value A&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="getting-keys-and-key-value-pairs">
+<h2>Getting Keys and Key-Value Pairs<a class="headerlink" href="#getting-keys-and-key-value-pairs" title="Permalink to this headline">¶</a></h2>
+<p>This section explains how to get the value of a key, how to get the keys
+between two known keys, and how to get the key-value pairs between two known
+keys.</p>
+<div class="section" id="getting-the-value-of-a-key">
+<h3>Getting the Value of a Key<a class="headerlink" href="#getting-the-value-of-a-key" title="Permalink to this headline">¶</a></h3>
+<p>To continue with the previous example, let&#8217;s assume we want to retrieve that
+value of key &#8216;2&#8217;, in this case we would use:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;2&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This returns the value for key &#8216;2&#8217;.</p>
+</div>
+<div class="section" id="getting-a-range-of-keys">
+<h3>Getting a Range of Keys<a class="headerlink" href="#getting-a-range-of-keys" title="Permalink to this headline">¶</a></h3>
+<p>To get a range of the available keys present between two keys, we need to
+specify 4 things:</p>
+<ol class="arabic simple">
+<li>Starting key.</li>
+<li>If we shall include the starting key in the result.</li>
+<li>Ending key.</li>
+<li>If we shall include the ending key in the result.</li>
+</ol>
+<p>So in our case, if we want know the keys that lie in the range between key &#8216;1&#8217;
+and key &#8216;3&#8217;, including both the starting and ending keys. In this case, we
+use:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="bp">True</span><span class="p">,</span> <span class="s">&#39;3&#39;</span><span class="p">,</span> <span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This returns:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">[</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="s">&#39;2&#39;</span><span class="p">,</span> <span class="s">&#39;3&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="getting-a-range-of-key-value-pairs">
+<h3>Getting a Range of Key-Value Pairs<a class="headerlink" href="#getting-a-range-of-key-value-pairs" title="Permalink to this headline">¶</a></h3>
+<p>Similar to getting a range of keys alone, we need to specify the same four
+parameters mentioned above.</p>
+<p>For example, if we want to display the key-value pairs between key &#8216;1&#8217; and key
+&#8216;3&#8217;, excluding key &#8216;3&#8217;, we use:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">range_entries</span><span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="bp">True</span><span class="p">,</span> <span class="s">&#39;3&#39;</span><span class="p">,</span> <span class="bp">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This returns:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">[(</span><span class="s">&#39;2&#39;</span><span class="p">,</span> <span class="s">&#39;Value B&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s">&#39;1&#39;</span><span class="p">,</span> <span class="s">&#39;Value A&#39;</span><span class="p">)]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="statistics">
+<h2>Statistics<a class="headerlink" href="#statistics" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon allows you to request a set of basic statistics from the master node.
+To display these statistics we use:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">myClient</span><span class="o">.</span><span class="n">statistics</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This returns:</p>
+<div class="highlight-python"><pre>{'avg_get_size': 0.0,
+ 'avg_set_size': 0.0,
+ 'del_timing': {'avg': 0.0,
+                'max': 0.0,
+                'min': 1.7976931348623157e+308,
+                'var': 0.0},
+ 'get_timing': {'avg': 0.0,
+                'max': 0.0,
+                'min': 1.7976931348623157e+308,
+                'var': 0.0},
+ 'last': 1307801398.8910699,
+ 'mget_timing': {'avg': 0.0,
+                 'max': 0.0,
+                 'min': 1.7976931348623157e+308,
+                 'var': 0.0},
+ 'n_deletes': 0,
+ 'n_gets': 0,
+ 'n_multigets': 0,
+ 'n_ops': 0,
+ 'n_sequences': 0,
+ 'n_sets': 0,
+ 'n_testandsets': 0,
+ 'node_is': {'Node_0': 302439, 'Node_1': 302432, Node_2': 302438},
+ 'op_timing': {'avg': 0.0,
+               'max': 0.0,
+               'min': 1.7976931348623157e+308,
+               'var': 0.0},
+ 'seq_timing': {'avg': 0.0,
+                'max': 0.0,
+                'min': 1.7976931348623157e+308,
+                'var': 0.0},
+ 'set_timing': {'avg': 0.0,
+                'max': 0.0,
+                'min': 1.7976931348623157e+308,
+                'var': 0.0},
+ 'start': 1307801398.8910699,
+ 'tas_timing': {'avg': 0.0,
+                'max': 0.0,
+                'min': 1.7976931348623157e+308,
+                'var': 0.0}}</pre>
+</div>
+<p>With these statistics, we can for example calculate the average sets per second
+(since the starting of the node) using a simple formula:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">n_sets</span> <span class="o">/</span> <span class="p">(</span><span class="n">last</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Keep in mind that the statistics are managed by the master node; this
+means that with every master switch, the statistics will be reset.</p>
+</div>
+</div>
+<div class="section" id="collapsing-tlogs">
+<h2>Collapsing TLogs<a class="headerlink" href="#collapsing-tlogs" title="Permalink to this headline">¶</a></h2>
+<p>See also <a class="reference internal" href="../working_with_tlogs.html"><em>Working with TLogs</em></a> for more information.</p>
+<div class="highlight-python"><pre>Definition: cluster.remoteCollapse(self, nodeName, n)
+Documentation:
+    Tell the targetted node to collapse n tlog files</pre>
+</div>
+<p>To keep four TLog files on Node_2:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">cluster</span><span class="o">.</span><span class="n">remoteCollapse</span><span class="p">(</span><span class="n">Node_2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="disabling-enabling-tlog-compression">
+<h2>Disabling/Enabling TLOG Compression<a class="headerlink" href="#disabling-enabling-tlog-compression" title="Permalink to this headline">¶</a></h2>
+<p>If you want to disable TLOG compression in your Arakoon cluster, you have to
+execute the following steps on <em>each</em> node of your cluster:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">cluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;ricky&#39;</span><span class="p">)</span>
+
+<span class="n">cluster</span><span class="o">.</span><span class="n">disableTlogCompression</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>By default the compression is enabled. If you have turned off the compression
+and want to enable it again, use enableTlogCompression on the cluster object.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Instead of using the Q-Shell, you can directly manipulate the
+[Arakoon configuration file].</p>
+</div>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

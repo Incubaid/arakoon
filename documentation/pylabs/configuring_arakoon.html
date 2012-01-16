@@ -1,0 +1,280 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Configuring Arakoon</title>
+
+    
+    <link rel="stylesheet" href="../_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Managing Arakoon with PyLabs" href="index.html" />
+    <link rel="next" title="Cloning a Node" href="cloning_a_node.html" />
+    <link rel="prev" title="Installing Arakoon with PyLabs" href="installing_arakoon_with_pylabs.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="../_static/bootstrap.css" rel="stylesheet" />
+  <link href="../_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='../_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="../index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="configuring-arakoon">
+<h1>Configuring Arakoon<a class="headerlink" href="#configuring-arakoon" title="Permalink to this headline">¶</a></h1>
+<p>Arakoon is a key-value store, consisting of a couple of nodes, that form a
+cluster.</p>
+<p>The setup below shows a three server setup, each running one Arakoon node.
+Since Arakoon is completely integrated in PyLabs, it&#8217;s the easiest way to
+configure Arakoon with the Q-Shell.</p>
+<img alt="../_images/ArakoonSetup.png" src="../_images/ArakoonSetup.png" />
+<p>To start working with an Arakoon setup you have to follow phases:</p>
+<ol class="arabic simple">
+<li><a class="reference internal" href="#creating-the-cluster">Creating a physical node setup</a> or <a class="reference internal" href="#demo-setup">Create a demo setup</a></li>
+<li><a class="reference internal" href="#generating-the-client-configuration">Generating the Client Configuration</a></li>
+</ol>
+<div class="section" id="creating-the-cluster">
+<h2>Creating the Cluster<a class="headerlink" href="#creating-the-cluster" title="Permalink to this headline">¶</a></h2>
+<p>A first step in configuring Arakoon, is creating a cluster. You can create the
+cluster on any of the machines that you will use. In this example we start with
+Machine 1.</p>
+<p>Start the Q-Shell on this machine and create the cluster <strong>Demo_Cluster</strong>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="configuring-the-first-node">
+<h2>Configuring the First Node<a class="headerlink" href="#configuring-the-first-node" title="Permalink to this headline">¶</a></h2>
+<p>When you have your cluster, you can start adding the Arakoon nodes by using the
+addNode method on your cluster object.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This method only adds the node to the configuration of Machine 1. You still
+have to add the indicate that the node must start locally, i.e. on Machine 1,
+and create the <a class="reference internal" href="../arakoon_deployment.html"><em>directories</em></a> of the node.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You have now one machine running one cluster with one node.</p>
+<p>The following step is to add the other nodes.</p>
+</div>
+<div class="section" id="adding-nodes-to-a-cluster">
+<h2>Adding Nodes to a Cluster<a class="headerlink" href="#adding-nodes-to-a-cluster" title="Permalink to this headline">¶</a></h2>
+<p>If you want to add a node to the same cluster as the one created in the
+previous step, you have to follow the same steps but with the according values.</p>
+<p>Execute these steps on the proper machines, i.e. configure <strong>Node_1</strong> on
+<strong>Machine 2</strong> and <strong>Node_2</strong> on <strong>Machine 3</strong>.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that you use the same cluster name! In our example this is
+<strong>Demo_Cluster</strong>.</p>
+</div>
+<div class="section" id="node-1-on-machine-2">
+<h3>Node_1 on Machine 2<a class="headerlink" href="#node-1-on-machine-2" title="Permalink to this headline">¶</a></h3>
+<p>Configure Node_1:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_1&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_1&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="node-2-on-machine-3">
+<h3>Node_2 on Machine 3:<a class="headerlink" href="#node-2-on-machine-3" title="Permalink to this headline">¶</a></h3>
+<p>Configure Node_2:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="linking-the-nodes">
+<h2>Linking the Nodes<a class="headerlink" href="#linking-the-nodes" title="Permalink to this headline">¶</a></h2>
+<p>When you have created and configured the different nodes, you have to make the
+each node aware that there are other nodes in the cluster. On each machine you
+have to add the other nodes in the cluster.</p>
+<p>For example on Machine 1 you have to add Node_1 and Node_2 to the cluster, on
+Machine 2 add Node_0 and Node_2, and on Machine 3 add Node_0 and Node_1.</p>
+<div class="section" id="machine-1">
+<h3>Machine 1<a class="headerlink" href="#machine-1" title="Permalink to this headline">¶</a></h3>
+<p>Link Node_1 and Node_2 to Node_0:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="machine-2">
+<h3>Machine 2<a class="headerlink" href="#machine-2" title="Permalink to this headline">¶</a></h3>
+<p>Link Node_0 and Node_2 to Node_1:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_2&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7082</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10002</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="machine-3">
+<h3>Machine 3<a class="headerlink" href="#machine-3" title="Permalink to this headline">¶</a></h3>
+<p>Link Node_0 and Node_1 to Node_2:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.1&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7080</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.2&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7081</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10001</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="starting-your-setup">
+<h2>Starting Your Setup<a class="headerlink" href="#starting-your-setup" title="Permalink to this headline">¶</a></h2>
+<p>A last phase to make your Arakoon setup active is to start the cluster on each
+node. This will only start the local Arakoon node, which means that you have to
+start the cluster on each node.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Congratulations, you have now a three node Arakoon setup! See also the
+<a class="reference internal" href="../managing_arakoon.html"><em>Managing Arakoon</em></a> page to see how you can start nodes
+with the command line.</p>
+</div>
+<div class="section" id="adding-a-learner-node">
+<h2>Adding a Learner Node<a class="headerlink" href="#adding-a-learner-node" title="Permalink to this headline">¶</a></h2>
+<p>A <a class="reference internal" href="../cluster_nodes.html"><em>learner node</em></a> is a passive node that follows the
+cluster&#8217;s updates but impacts neither progress nor majority. You sometimes want
+to have a node like this for fast but sloppy read access. Adding a learner is
+similar to adding a regular node, but with two extra arguments. Suppose that we
+add a fourth machine, hosting Node_3 of the cluster.</p>
+<div class="highlight-python"><pre>newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
+newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
+newcluster.addLocalNode('Node_3')
+newcluster.createDirs('Node_3')</pre>
+</div>
+</div>
+<div class="section" id="demo-setup">
+<h2>Demo Setup<a class="headerlink" href="#demo-setup" title="Permalink to this headline">¶</a></h2>
+<p>If you want to quickly set up a demo Arakoon environment, you can use the setUp
+method on a cluster object. This method expects a number of nodes that you want
+to add in the cluster.</p>
+<p>With this function you create a cluster on your server, including the defined
+number of nodes.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">testcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;TestCluster&#39;</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">setUp</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The result is a cluster (&#8216;TestCluster&#8217;) with three nodes (TestCluster_0,
+TestCluster_1, and TestCluster_2), all running on your local server.</p>
+</div>
+<div class="section" id="read-only-mode">
+<h2>Read-only mode<a class="headerlink" href="#read-only-mode" title="Permalink to this headline">¶</a></h2>
+<p>Single node Arakoon clusters can be put in read-only mode.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">testcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;TestCluster&#39;</span><span class="p">)</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">setReadOnly</span><span class="p">()</span>
+<span class="n">testcluster</span><span class="o">.</span><span class="n">restart</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that you restart your Arakoon cluster after changing the
+read-only flag!</p>
+</div>
+</div>
+<div class="section" id="generating-the-client-configuration">
+<h2>Generating the Client Configuration<a class="headerlink" href="#generating-the-client-configuration" title="Permalink to this headline">¶</a></h2>
+<p>After having set up your Arakoon environment (physical setup as well as demo
+setup), you have to generate the client configuration of your Arakoon
+installation via the Q-Shell.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">clientconfig</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;&lt;arakoon cluster name&gt;&#39;</span><span class="p">)</span>
+<span class="n">clientconfig</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

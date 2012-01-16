@@ -1,0 +1,192 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Arakoon Deployment</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Arakoon Configuration" href="arakoon_configuration.html" />
+    <link rel="prev" title="Installing Arakoon" href="installing_arakoon.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="arakoon-deployment">
+<h1>Arakoon Deployment<a class="headerlink" href="#arakoon-deployment" title="Permalink to this headline">¶</a></h1>
+<p>Below you find an example of an Arakoon configuration. The example is a
+three-node setup with one master node and two slave nodes. The shown clients
+can be PHP, OCaml, or Python clients.</p>
+<img alt="_images/ArakoonDeployment.png" src="_images/ArakoonDeployment.png" />
+<p>An arakoon cluster consists of a small set of nodes that contain the full range
+of key-value pairs. Each node carries all the data, yet one node is assigned to
+be the master node.The master node manages all the updates for all the clients.
+Clients only talk to the master node, but may contact other nodes to discover
+who the master node is; they do so because nodes can assume different roles.</p>
+<p>A node is a service that stores key-value pairs in its own local directory. In
+a typical setup you install one node per physical server, resulting in a
+<em>distributed deployment</em>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">For testing purposes it is possible to install multiple nodes on one server.
+Obviously this is not the recommended setup.</p>
+</div>
+<div class="section" id="directory-structure">
+<h2>Directory Structure<a class="headerlink" href="#directory-structure" title="Permalink to this headline">¶</a></h2>
+<p>The directory structure of a node typically looks like this:</p>
+<div class="highlight-python"><pre>machine1
+\-- mycluster
+    \-- mycluster_0
+        \-- 000.tlog
+        \-- mycluster_0.db
+        \-- mycluster_0.db.wal
+
+machine2
+\-- mycluster
+    \-- mycluster_1
+        \-- 000.tlog
+        \-- mycluster_1.db
+        \-- mycluster_1.db.wal
+
+machine3
+\-- mycluster
+    \-- mycluster_2
+        \-- 000.tlog
+        \-- mycluster_2.db
+        \-- mycluster_2.db.wal</pre>
+</div>
+<p>These are the components:</p>
+<ul class="simple">
+<li>mycluster: the name of the cluster, its subdirectories form the cluster nodes</li>
+<li>mycluster_X: the name of a node in a cluster</li>
+<li>XXX.tlog: Incubaid&#8217;s transaction log files, contains the logs for all
+transactions executed on the node</li>
+<li>mycluster_X.db: the actual key/value store</li>
+<li>mycluster_X.db.wal: security database to keep the key/value store consistent,
+for example in case of a failure</li>
+</ul>
+<p>You define yourself where you store the directory structure in the
+<a class="reference internal" href="arakoon_configuration.html"><em>Arakoon configuration file</em></a>.</p>
+</div>
+<div class="section" id="how-arakoon-works">
+<h2>How Arakoon Works<a class="headerlink" href="#how-arakoon-works" title="Permalink to this headline">¶</a></h2>
+<p>An Arakoon client always looks up the master of a cluster and then sends a
+request to the master. The master node of a cluster has a queue of all client
+requests. The moment that a request is queued, the master node sends the
+request to all his slaves and writes the request in the
+<em>Transaction Log (TLog)</em>. When the slaves receive a request, they store this
+also in their proper TLog and send an acknowledgement to the master.</p>
+<p>A master awaits for the acknowledgements of the slaves. When he receives an
+acknowledgement of half the nodes plus one, the master pushes the key/value
+pair in its database. In a five node setup (one master and four slaves), the
+master must receive an acknowledgement of two slaves before he writes his data
+to the database, since he is also taken into account as node.</p>
+<p>After having written his data in his database, the master starts the following
+request in his queue. When a slave receives this new request, the slaves first
+write the previous request in their proper database before handling the new
+request. This way a slave is always certain that the master has successfully
+written the data in his proper database.</p>
+</div>
+<div class="section" id="example-three-node-setup">
+<h2>Example Three Node Setup<a class="headerlink" href="#example-three-node-setup" title="Permalink to this headline">¶</a></h2>
+<p>Below you can find an example of a three node setup, consisting of three
+machines, each running one Arakoon node.</p>
+<img alt="_images/ArakoonSetup.png" src="_images/ArakoonSetup.png" />
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

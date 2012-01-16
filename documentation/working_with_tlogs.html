@@ -1,0 +1,188 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Working with TLogs</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="prev" title="Arakoon Man Page" href="arakoon_man_page.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="working-with-tlogs">
+<h1>Working with TLogs<a class="headerlink" href="#working-with-tlogs" title="Permalink to this headline">¶</a></h1>
+<p>TLogs are transactions logs which keep track of all client requests to Arakoon.</p>
+<div class="section" id="collapsing-tlogs">
+<h2>Collapsing TLogs<a class="headerlink" href="#collapsing-tlogs" title="Permalink to this headline">¶</a></h2>
+<p>When the number of updates is higher than the number of additions, the
+collection of TLogs keeps on growing. You can however reduce the space needed
+on disk if you collapse old TLogs into a head database or token cabinet (TC).</p>
+<p>Collapse the TLogs with the &#8211;collapse or &#8211;collapse-remote commands of
+Arakoon.</p>
+<div class="highlight-python"><pre>arakoon --help
+
+...
+  --collapse &lt;tlog_dir&gt; &lt;n&gt; collapses n tlogs from &lt;tlog_dir&gt; into head database
+  --collapse-remote &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt; &lt;n&gt; tells node to collapse &lt;n&gt; tlogs into its head database
+...</pre>
+</div>
+<p>For example collapse all but the four most recent TLogs of Node_2:</p>
+<div class="highlight-python"><pre>arakoon --collapse /tmp/Node_2 4
+
+arakoon --collapse-remote Demo_Cluster 192.168.1.3 7082 4</pre>
+</div>
+<p>This adds all but the four most recent TLogs into the head database. When the
+TLogs are added to the main database, they are removed.</p>
+<div class="section" id="difference-between-collapse-and-remote-collapse">
+<h3>Difference between Collapse and Remote Collapse<a class="headerlink" href="#difference-between-collapse-and-remote-collapse" title="Permalink to this headline">¶</a></h3>
+<p>In a live cluster it is possible that a slave is catching up from the master.
+Suppose that the master is collapsing the TLogs and removes a TLog while the
+slave is at that moment catching up from that TLog. The slave then thinks that
+the catchup is complete. When the slave tries to go back into normal slave
+mode, he notices that he is still not in sync with the master so he goes back
+into catchup mode.</p>
+<p>To avoid this procedure, run the collapse as an in-process action. This way the
+master detects that a catchup is running and won&#8217;t delete the TLog until the
+catchup has finished.</p>
+<p>Use the remote collapsing to run the collapse as an in-process action. If you
+run the normal collapse function, the master does not detect possible catchup
+actions.</p>
+</div>
+</div>
+<div class="section" id="disabling-tlog-compression">
+<h2>Disabling TLog Compression<a class="headerlink" href="#disabling-tlog-compression" title="Permalink to this headline">¶</a></h2>
+<p>When you have very large transaction logs, the compression of the tlog file
+with 100.000 updates can consume too much CPU power so that it slows down your
+whole arakoon cluster. To avoid the compression to be executed, you must add a
+parameter to the Arakoon configuration file, disable_tlog_compression.</p>
+<p>Add the parameter to the node section of the Arakoon configuration file on each
+machine of the cluster.</p>
+<div class="highlight-python"><pre>...
+
+[Node_0]
+ip = 192.168.1.1
+client_port = 7080
+messaging_port = 10000
+home = /tmp/Node_0
+log_dir = /tmp/Node_0
+log_level = debug
+disable_tlog_compression = false
+
+[Node_1]
+ip = 192.168.1.2
+client_port = 7081
+messaging_port = 10001
+home = /tmp/arakoon_1
+#optional different directory for .tlog, .tlc and friends
+#tlog_dir = /tmp/Node_1_tlog
+log_dir = /tmp/Node_1
+log_level = debug
+disable_tlog_compression = true
+
+...</pre>
+</div>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that you apply this change on all nodes of your cluster.</p>
+</div>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

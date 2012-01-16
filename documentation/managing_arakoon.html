@@ -1,0 +1,277 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Managing Arakoon</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Arakoon OCaml Client" href="arakoon_ocaml_client.html" />
+    <link rel="prev" title="Cluster Nodes" href="cluster_nodes.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="managing-arakoon">
+<h1>Managing Arakoon<a class="headerlink" href="#managing-arakoon" title="Permalink to this headline">¶</a></h1>
+<p>In this section you can find the basic commands to manage Arakoon.</p>
+<div class="section" id="creating-a-cluster">
+<h2>Creating a Cluster<a class="headerlink" href="#creating-a-cluster" title="Permalink to this headline">¶</a></h2>
+<p>After the installation of Arakoon via its
+<a class="reference internal" href="installing_arakoon.html"><em>debian package</em></a>, you can create an Arakoon
+configuration file anywhere on your harddisk. By default Arakoon looks for the
+configuration file cfg/arakoon.ini, relative to the current working directory.
+If you want to use another location and name for the configuration file, you
+must use the -config argument with the arakoon command.</p>
+<p>To create a cluster, you have to define the whole cluster and its nodes in a
+<a class="reference internal" href="arakoon_configuration.html"><em>configuration file</em></a>. For an example, see the
+<a class="reference internal" href="arakoon_deployment.html"><em>Arakoon Deployment page</em></a>.</p>
+<p>The defined directories in the configuration file must be created before you
+can continue with Arakoon. If directories are missing, you get errors when
+starting an Arakoon node.</p>
+</div>
+<div class="section" id="starting-a-node">
+<h2>Starting a Node<a class="headerlink" href="#starting-a-node" title="Permalink to this headline">¶</a></h2>
+<p>Once you have created the configuration file, you can start one or more nodes.
+In the further documentation on this page, the Arakoon configuration file is
+stored in /root/cfg/my_cluster.cfg and the working directory is /root.</p>
+<p>To start a node &#8216;Node_0&#8217; on Machine 1:</p>
+<div class="highlight-python"><pre>arakoon -daemonize -config /root/cfg/my_cluster.cfg --node Node_0</pre>
+</div>
+<p>If you don&#8217;t want to use the -config parameter, the Arakoon configuration file
+must be arakoon.ini and must be located in the cfg directory in your current
+working directory. In this example this would mean that you only need to rename
+my_cluster.cfg to arakoon.ini.</p>
+<p>To make your cluster work, you have to copy the configuration file to your
+other machines, which also have Arakoon installed. Then start another node of
+the cluster. Once there are two nodes up, you can start using the Arakoon
+cluster.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">When you run Arakoon as daemon, you must use an absolute path to the
+configuration file.</p>
+</div>
+</div>
+<div class="section" id="adding-a-learner-node">
+<h2>Adding a Learner Node<a class="headerlink" href="#adding-a-learner-node" title="Permalink to this headline">¶</a></h2>
+<p>If you want to add a Learner Node (see also
+<a class="reference internal" href="pylabs/configuring_arakoon.html"><em>Configuring Arakoon</em></a>), you have to modify
+the Arakoon configuration file. Do not add the learner node to the list of
+nodes in the cluster, just define the learner.</p>
+<p>In the definition of the Learner node you must indicate that the node is a
+learner and from which targets it must learn. The other parameters are similar
+to a normal node.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Do not forget to update all the configuration files of your cluster.</p>
+</div>
+<div class="highlight-python"><pre>[Learner_0]
+ip = 192.168.1.100
+client_port = 7180
+messaging_port = 10100
+home = /tmp/learner_0
+log_dir = /tmp/learner_0
+learner = true
+targets = Node_0, Node_1, Node_2
+log_level = debug</pre>
+</div>
+<p>Start a learner node the same way as a <a class="reference internal" href="#starting-a-node">normal node</a>.</p>
+<div class="highlight-python"><pre>arakoon -daemonize -config /root/cfg/my_cluster.cfg --node Learner_0</pre>
+</div>
+</div>
+<div class="section" id="master-node">
+<h2>Master Node<a class="headerlink" href="#master-node" title="Permalink to this headline">¶</a></h2>
+<p>In some cases it is useful to select an Arakoon node to be the master node,
+see also <a class="reference internal" href="cluster_nodes.html"><em>Cluster Nodes</em></a>. To do so, add a master argument
+in the [global] section of the configuration file. To have a backup in case the
+defined master node is down, add an extra parameter preferred_master. The other
+nodes start negotiating to become master in case the defined master is down.</p>
+<div class="highlight-python"><pre>[global]
+cluster=Node_0, Node_1, Node_2
+master=Node_0
+preferred_master=true</pre>
+</div>
+</div>
+<div class="section" id="cloning-a-node">
+<h2>Cloning a Node<a class="headerlink" href="#cloning-a-node" title="Permalink to this headline">¶</a></h2>
+<p>When you intend to grow your cluster, it might be interesting to clone the
+existing node prior to changing the cluster configuration. Once the cluster
+configuration is changed to two nodes, both nodes need to accept an update
+before it will be accepted. If the first node contains a lot of data, the
+second node must perform a large catchup operation (to make it in sync with the
+original node). To minimize the catchup window, you can clone the first node in
+the cluster before the configuration is changed. This way the catchup procedure
+is limited to the updates that were added since the moment of cloning.</p>
+<p>To add a clone, add a new node to the configuration file and start it this
+way:</p>
+<div class="highlight-python"><pre>arakoon -config /root/cfg/my_cluster.cfg --node Node_4 -catchup-only</pre>
+</div>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Make sure that the node is added to the cluster parameter in the
+configuration file.</p>
+</div>
+<p>When the cloning is finished, you can start the new node as a normal node. To
+clone a node via the Arakoon PyLabs client see
+<a class="reference internal" href="pylabs/cloning_a_node.html"><em>Cloning a Node</em></a>.</p>
+</div>
+<div class="section" id="collapsing-tlogs">
+<h2>Collapsing TLogs<a class="headerlink" href="#collapsing-tlogs" title="Permalink to this headline">¶</a></h2>
+<p>When the number of updates is higher than the number of additions, the
+collection of TLogs keeps on growing. You can however reduce the space needed
+on disk if you collapse old TLogs into a head database.</p>
+<p>To collapse the TLogs:</p>
+<div class="highlight-python"><pre>arakoon --collapse &lt;tlog_dir&gt; &lt;n&gt;</pre>
+</div>
+<p>Where the &lt;tlog_dir&gt; is defined in the Arakoon configuration file and &lt;n&gt; is
+the number of TLogs that must remain. For example when you have 40 TLog files
+in /tmp/Node_0 and you want to keep the five most recent TLogs, run this
+command:</p>
+<div class="highlight-python"><pre>arakoon --collapse /tmp/Node_0 5</pre>
+</div>
+</div>
+<div class="section" id="investigating-tlogs">
+<h2>Investigating TLogs<a class="headerlink" href="#investigating-tlogs" title="Permalink to this headline">¶</a></h2>
+<p>It is not possible to read TLogs as stored on the file system. If you want
+human-readable output, you need a dump of the TLog.</p>
+<div class="highlight-python"><pre>arakoon --dump-tlog &lt;path_to_tlog_file&gt;</pre>
+</div>
+<p>For example:</p>
+<div class="highlight-python"><pre>arakoon --dump-tlog /opt/qbase5/var/db/mycluster/mycluster_0/000.tlog
+0:MasterSet ;"mycluster_0";0
+1:MasterSet ;"mycluster_0";0
+2:MasterSet ;"mycluster_0";0
+3:MasterSet ;"mycluster_0";0
+4:MasterSet ;"mycluster_0";0
+5:MasterSet ;"mycluster_0";0
+6:MasterSet ;"mycluster_0";0
+7:MasterSet ;"mycluster_0";0
+8:MasterSet ;"mycluster_0";0
+9:MasterSet ;"mycluster_0";0
+10:MasterSet ;"mycluster_0";0
+11:MasterSet ;"mycluster_0";0
+12:MasterSet ;"mycluster_0";0
+13:MasterSet ;"mycluster_0";0
+14:MasterSet ;"mycluster_0";0
+15:MasterSet ;"mycluster_0";0
+16:MasterSet ;"mycluster_0";0
+17:MasterSet ;"mycluster_0";0
+18:MasterSet ;"mycluster_0";0
+19:MasterSet ;"mycluster_0";0
+20:MasterSet ;"mycluster_0";0
+21:MasterSet ;"mycluster_0";0
+22:MasterSet ;"mycluster_0";0
+23:Set       ;"key1";6
+24:MasterSet ;"mycluster_0";0
+...</pre>
+</div>
+</div>
+<div class="section" id="backing-up-the-database">
+<h2>Backing up the database<a class="headerlink" href="#backing-up-the-database" title="Permalink to this headline">¶</a></h2>
+<p>You can perform a hot backup from a live slave node from the command line. If
+you also backup the tlogs and conifguration file of the node, you have all the
+required data to be able to rebuild a node. This type of backup allows you to
+be able to recover from multi-node failure.</p>
+<p>The backup of the database can be done by running the following command:</p>
+<div class="highlight-python"><pre># arakoon --backup-db &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt; &lt;location&gt;
+# e.g.
+arakoon --backup-db ricky 127.0.0.1 7080 /mnt/drv/2011-19-07/mybackup.db</pre>
+</div>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>

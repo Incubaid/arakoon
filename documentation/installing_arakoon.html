@@ -1,0 +1,180 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Installing Arakoon</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Arakoon Deployment" href="arakoon_deployment.html" />
+    <link rel="prev" title="Getting Started" href="getting_started.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="installing-arakoon">
+<h1>Installing Arakoon<a class="headerlink" href="#installing-arakoon" title="Permalink to this headline">¶</a></h1>
+<p>This section explains you how you can install Arakoon, Incubaid&#8217;s distributed
+key-value store. You can also install a Python or OCaml client to interact with
+Arakoon.</p>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Ubuntu 64-bit</li>
+<li>Root privileges on Ubuntu</li>
+<li><a class="reference external" href="http://arakoon.org/download.html">Arakoon Debian Package</a></li>
+</ul>
+<p>Optional</p>
+<ul class="simple">
+<li>Arakoon Python Client, requires python-setuptools package</li>
+<li>Arakoon OCaml Client</li>
+</ul>
+</div>
+<div class="section" id="id1">
+<h2>Installing Arakoon<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>To install Arakoon:</p>
+<ol class="arabic">
+<li><p class="first">Download <a class="reference external" href="http://arakoon.org/download.html">Arakoon 0.11.0</a>.</p>
+</li>
+<li><p class="first">Install the Debian:</p>
+<div class="highlight-python"><pre>~# dpkg -i arakoon_x.x.x-y_amd64.deb
+Selecting previously deselected package arakoon.
+(Reading database ... 144088 files and directories currently installed.)
+Unpacking arakoon (from arakoon_x.x.x-y_amd64.deb) ...
+Setting up arakoon (x.x.x-y) ...
+Processing triggers for man-db ...
+~#</pre>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="installing-the-arakoon-python-client">
+<h2>Installing the Arakoon Python Client<a class="headerlink" href="#installing-the-arakoon-python-client" title="Permalink to this headline">¶</a></h2>
+<p>To install the Arakoon Python Client, you only have to install the
+<a class="reference external" href="http://arakoon.org/download.html">.egg</a> file.</p>
+<div class="highlight-python"><pre>~# easy_install arakoon-x.x.x-py2.6.egg
+install_dir /usr/local/lib/python2.6/dist-packages/
+Processing arakoon-x.x.x-py2.6.egg
+creating /usr/local/lib/python2.6/dist-packages/arakoon-x.x.x-py2.6.egg
+Extracting arakoon-x.x.x-py2.6.egg to /usr/local/lib/python2.6/dist-packages
+Adding arakoon x.x.x to easy-install.pth file
+
+Installed /usr/local/lib/python2.6/dist-packages/arakoon-x.x.x-py2.6.egg
+Processing dependencies for arakoon==x.x.x
+Finished processing dependencies for arakoon==x.x.x
+~#</pre>
+</div>
+</div>
+<div class="section" id="installing-the-arakoon-ocaml-client">
+<h2>Installing the Arakoon OCaml Client<a class="headerlink" href="#installing-the-arakoon-ocaml-client" title="Permalink to this headline">¶</a></h2>
+<p>To install the Arakoon OCaml Client, you only have to install the
+<a class="reference external" href="http://arakoon.org/download.html">.deb</a> file.</p>
+<div class="highlight-python"><pre>~# dpkg -i libarakoon-ocaml-dev_x.x.x-y_amd64.deb
+Selecting previously deselected package libarakoon-ocaml-dev.
+(Reading database ... 144273 files and directories currently installed.)
+Unpacking libarakoon-ocaml-dev (from libarakoon-ocaml-dev_x.x.x-y_amd64.deb) ...
+Setting up libarakoon-ocaml-dev (x.x.x-y) ...
+~#</pre>
+</div>
+</div>
+<div class="section" id="other-clients">
+<h2>Other Clients<a class="headerlink" href="#other-clients" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon has also a C and PHP client, available on <a class="reference external" href="https://bitbucket.org/despiegk/arakoon/src/ada5840d1b78/src/client/">bitbucket.org</a>.</p>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>
