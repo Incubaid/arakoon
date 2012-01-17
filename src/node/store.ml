@@ -56,6 +56,7 @@ class type store = object
   method multi_get: ?_pf: string -> string list -> string list Lwt.t
   method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+  method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
   method set: ?_pf: string -> string -> string -> unit Lwt.t
   method test_and_set: ?_pf: string -> string -> string option -> string option -> string option Lwt.t
@@ -64,17 +65,17 @@ class type store = object
   method set_master: string -> int64 -> unit Lwt.t
   method set_master_no_inc: string -> int64 -> unit Lwt.t
   method who_master: unit -> (string*int64) option Lwt.t
-    
+
   (** last value on which there is consensus.
-      For an empty store, This is None 
+      For an empty store, This is None
   *)
   method consensus_i: unit -> Sn.t option Lwt.t
   method incr_i: unit -> unit Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
-  
-  method get_location: unit -> string 
-  method relocate: string -> unit Lwt.t 
+
+  method get_location: unit -> string
+  method relocate: string -> unit Lwt.t
 
   method aSSert: ?_pf: string -> string -> string option -> bool Lwt.t
 
@@ -86,13 +87,13 @@ class type store = object
   method set_routing_delta: string -> string -> string -> unit Lwt.t
 
   method get_key_count : ?_pf: string -> unit -> int64 Lwt.t
-  
+
   method quiesce : unit -> unit Lwt.t
   method unquiesce : unit -> unit Lwt.t
-  method quiesced : unit -> bool 
+  method quiesced : unit -> bool
   method copy_store : Lwt_io.output_channel -> unit Lwt.t
   method get_fringe : string option -> Routing.range_direction -> (string * string) list Lwt.t
-  
+
 end
 
 exception Key_not_found of string ;;
@@ -108,13 +109,13 @@ let _insert_update (store:store) update =
     Lwt.catch
       (fun () ->
 	f () >>= fun () -> Lwt.return (Ok None))
-      (function 
-	| Not_found -> 
+      (function
+	| Not_found ->
 	  let rc = Arakoon_exc.E_NOT_FOUND
 	  and msg = notfound_msg in
 	  Lwt.return (Update_fail(rc, msg))
 	| e ->
-	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE 
+	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	  and msg = Printexc.to_string e in
 	  Lwt.return (Update_fail(rc, msg))
       )
@@ -131,15 +132,15 @@ let _insert_update (store:store) update =
 	(fun () ->
 	  store # test_and_set key expected wanted >>= fun res ->
 	  Lwt.return (Ok res))
-	(function 
-	  | Not_found -> 
+	(function
+	  | Not_found ->
 	    let rc = Arakoon_exc.E_NOT_FOUND
 	    and msg = key in
 	    Lwt.return (Update_fail (rc,msg))
 	  | e ->
-	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE 
+	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	    and msg = Printexc.to_string e
-	    in 
+	    in
 	    Lwt.return (Update_fail (rc,msg))
 	)
     | Update.UserFunction(name,po) ->
@@ -183,11 +184,11 @@ let _insert_update (store:store) update =
 	(fun () ->
 	  store # set_interval interval >>= fun () ->
 	  Lwt.return (Ok None))
-	(function 
+	(function
 	  | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
-	  | e -> 
+	  | e ->
 	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	    and msg = Printexc.to_string e 
+	    and msg = Printexc.to_string e
 	    in
 	    Lwt.return (Update_fail (rc,msg)))
     | Update.SetRouting routing ->
@@ -228,18 +229,18 @@ let _insert_update (store:store) update =
 	  and msg = Printexc.to_string e
 	  in Lwt.return (Update_fail(rc, msg)))
     | Update.AdminSet(k,vo) ->
-      Lwt.catch( 
+      Lwt.catch(
         fun () ->
           begin
-            match vo with 
-            | None -> 
-              store # delete ~_pf:__adminprefix k 
-            | Some v -> 
-              store # set ~_pf:__adminprefix k v  
+            match vo with
+            | None ->
+              store # delete ~_pf:__adminprefix k
+            | Some v ->
+              store # set ~_pf:__adminprefix k v
           end
           >>= fun () ->
           Lwt.return (Ok None)
-      ) ( 
+      ) (
         fun e ->
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
           and msg = Printexc.to_string e
@@ -263,7 +264,7 @@ let safe_insert_update (store:store) (i:Sn.t) update =
 	else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
   end
   >>= fun () ->
-  if store # quiesced () 
+  if store # quiesced ()
   then
     begin
       store # incr_i () >>= fun () ->
@@ -280,33 +281,33 @@ let _insert (store:store) v i =
   _insert_update store u
 
 let on_consensus (store:store) (v,n,i) =
-  Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s" 
+  Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
-  store # consensus_i () >>= fun m_store_i -> 
+  store # consensus_i () >>= fun m_store_i ->
   begin
   match m_store_i with
-  | None -> 
-    if Sn.compare i Sn.start == 0 
+  | None ->
+    if Sn.compare i Sn.start == 0
     then
       Lwt.return()
     else
-      Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i) 
+      Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
   | Some store_i ->
     if (Sn.compare (Sn.pred i) store_i) == 0
     then
       Lwt.return()
     else
-      Llio.lwt_failfmt "Invalid store update requested (%s : %s)" 
+      Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
 	(Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
   if store # quiesced () then
     begin
       store # incr_i () >>= fun () ->
       Lwt.return (Ok None)
-    end 
+    end
   else
-    begin 
+    begin
       _insert store v i >>= fun maybe_result ->
       Lwt.return maybe_result
     end

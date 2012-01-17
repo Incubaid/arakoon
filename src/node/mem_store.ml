@@ -32,9 +32,9 @@ module StringMap = Map.Make(String);;
 let try_lwt_ f = Lwt.catch (fun () -> Lwt.return (f ())) (fun exn -> Lwt.fail exn)
 
 class mem_store db_name =
-  let now64 () = Int64.of_float (Unix.gettimeofday ()) 
+  let now64 () = Int64.of_float (Unix.gettimeofday ())
   in
-  
+
 object (self: #store)
 
   val mutable i = None
@@ -54,7 +54,7 @@ object (self: #store)
     let () = i <- i2 in
     ()
 
-  method _set_i x = 
+  method _set_i x =
     i <- Some x
 
   method exists ?(_pf=__prefix) key =
@@ -64,10 +64,10 @@ object (self: #store)
     try_lwt_ (fun () -> StringMap.find key kv)
 
   method multi_get ?(_pf=__prefix) keys =
-    let values = List.fold_left 
+    let values = List.fold_left
       (fun acc key -> let value = StringMap.find key kv in value :: acc)
       [] keys
-    in 
+    in
     Lwt.return (List.rev values)
 
   method range ?(_pf=__prefix) first finc last linc max =
@@ -76,6 +76,10 @@ object (self: #store)
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
     let entries = Test_backend.range_entries_ kv first finc last linc max in
+    Lwt.return entries
+
+  method rev_range_entries ?(_pf=__prefix) first finc last linc max =
+    let entries = Test_backend.rev_range_entries_ kv first finc last linc max in
     Lwt.return entries
 
   method prefix_keys ?(_pf=__prefix) prefix max =
@@ -106,20 +110,20 @@ object (self: #store)
     Lwt.return ()
 
 
-  method quiesce () = Lwt.return () 
-  
-  method unquiesce () = Lwt.return () 
-  
+  method quiesce () = Lwt.return ()
+
+  method unquiesce () = Lwt.return ()
+
   method quiesced () = false
-  
+
   method aSSert ?(_pf=__prefix) key vo =
-    let r = 
+    let r =
       match vo with
 	| None -> not (StringMap.mem key kv)
-	| Some v -> 
-	  begin 
-	    try StringMap.find key kv = v 
-	    with Not_found -> false 
+	| Some v ->
+	  begin
+	    try StringMap.find key kv = v
+	    with Not_found -> false
 	  end
     in Lwt.return r
 
@@ -145,11 +149,11 @@ object (self: #store)
     self # delete_no_incr key
 
   method test_and_set ?(_pf=__prefix) key expected wanted =
-    Lwt.catch 
+    Lwt.catch
       (fun () ->
 	self # get key >>= fun res -> Lwt.return (Some res))
-      (function 
-	| Not_found -> Lwt.return None 
+      (function
+	| Not_found -> Lwt.return None
 	| exn -> Lwt.fail exn)
     >>= fun existing ->
     if existing <> expected
@@ -157,27 +161,27 @@ object (self: #store)
     else
       begin
 	(match wanted with
-	  | None -> self # delete key 
+	  | None -> self # delete key
 	  | Some wanted_s -> self # set key wanted_s)
 	>>= fun () -> Lwt.return wanted
       end
 
 
-  method sequence ?(_pf=__prefix) updates = 
+  method sequence ?(_pf=__prefix) updates =
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
-    let () = self # _incr_i () in 
-    let do_one u =	
+    let () = self # _incr_i () in
+    let do_one u =
       let u_s = Update.string_of u in
-      Lwt_log.debug_f "u=%s" u_s >>= fun () -> 
+      Lwt_log.debug_f "u=%s" u_s >>= fun () ->
       match u with
 	| Update.Set (k,v) -> self # set_no_incr k v
-	| Update.Delete k  -> self # delete_no_incr k 
+	| Update.Delete k  -> self # delete_no_incr k
 	| Update.Assert(k,vo) ->
 	  begin
 	    self # aSSert k vo >>= function
 	      | true -> Lwt.return ()
-	      | false -> 
-		let ex = 
+	      | false ->
+		let ex =
 		  Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, k) in
 		Lwt.fail ex
 	  end
@@ -185,9 +189,9 @@ object (self: #store)
     in
     let old_kv = kv in
     Lwt.catch
-      (fun () -> 
+      (fun () ->
 	Lwt_list.iter_s do_one updates)
-      (fun exn -> kv <- old_kv; 
+      (fun exn -> kv <- old_kv;
 	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
 	Lwt.fail exn)
 
@@ -199,11 +203,11 @@ object (self: #store)
 
   method get_location () = failwith "not supported"
 
-  method user_function name po = 
+  method user_function name po =
     Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
     Lwt.return None
 
-  method set_interval iv = 
+  method set_interval iv =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
     _interval <- iv;
     Lwt.return ()
@@ -212,21 +216,21 @@ object (self: #store)
     Lwt_log.debug "get_interval" >>= fun () ->
     Lwt.return _interval
 
-  method get_routing () = 
+  method get_routing () =
     match _routing with
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
   method set_routing r =
     _routing <- Some r;
-    Lwt.return () 
+    Lwt.return ()
 
   method set_routing_delta left sep right =
     match _routing with
       | None -> failwith "Cannot update non-existing routing"
       | Some r ->
         begin
-          let new_r = Routing.change r left sep right in 
+          let new_r = Routing.change r left sep right in
           Lwt.return ( _routing <- Some new_r )
         end
 
@@ -235,14 +239,14 @@ object (self: #store)
       Int64.succ size
     in
     Lwt.return (StringMap.fold inc kv 0L)
-    
+
   method copy_store oc = failwith "copy_store not supported"
-  
+
   method relocate new_location = failwith "Memstore.relocation not implemented"
-  
-  method get_fringe boundary direction = 
+
+  method get_fringe boundary direction =
     Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option_to_string boundary) >>= fun () ->
-    let cmp = 
+    let cmp =
       begin
         match direction, boundary with
           | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
@@ -250,12 +254,12 @@ object (self: #store)
           | _ , None -> (fun k -> true)
       end
     in
-    let all = StringMap.fold 
-      (fun k v acc -> 
+    let all = StringMap.fold
+      (fun k v acc ->
 	if cmp k
-	then (k,v)::acc 
-	else acc) 
-      kv [] 
+	then (k,v)::acc
+	else acc)
+      kv []
     in
     Lwt.return all
 end
@@ -265,5 +269,5 @@ let make_mem_store ?(read_only=false) db_name =
   let store2 = (store :> store) in
   Lwt.return store2
 
-let copy_store old_location new_location overwrite = 
+let copy_store old_location new_location overwrite =
   Lwt.return ()

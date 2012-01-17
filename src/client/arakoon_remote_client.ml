@@ -22,12 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Common
-open Lwt_log
 open Update
 open Statistics
-
-
-
 
 class remote_client ((ic,oc) as conn) =
 
@@ -37,15 +33,15 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> exists_to ~allow_dirty buf key) >>= fun () ->
     response ic Llio.input_bool
 
-  method get ?(allow_dirty=false) key = Common.get conn ~allow_dirty key 
+  method get ?(allow_dirty=false) key = Common.get conn ~allow_dirty key
 
   method set key value = Common.set conn key value
 
-  method confirm key value = 
+  method confirm key value =
     request  oc (fun buf -> confirm_to buf key value) >>= fun () ->
     response ic nothing
 
-  method aSSert ?(allow_dirty=false) key vo = 
+  method aSSert ?(allow_dirty=false) key vo =
     request oc (fun buf -> assert_to ~allow_dirty buf key vo) >>= fun () ->
     response ic nothing
 
@@ -63,6 +59,11 @@ object(self: #Arakoon_client.client)
     >>= fun () ->
     response ic Llio.input_kv_list
 
+  method rev_range_entries ?(allow_dirty=false) ~first ~finc ~last ~linc ~max =
+    request oc (fun buf -> rev_range_entries_to buf ~allow_dirty first finc last linc max)
+    >>= fun () ->
+    response ic Llio.input_kv_list
+
   method prefix_keys ?(allow_dirty=false) pref max =
     request  oc (fun buf -> prefix_keys_to buf ~allow_dirty pref max) >>= fun () ->
     response ic Llio.input_string_list
@@ -71,26 +72,26 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
     response ic Llio.input_string_option
 
-  method user_function name po = 
+  method user_function name po =
     request  oc (fun buf -> user_function_to buf name po) >>= fun () ->
     response ic Llio.input_string_option
 
-  method multi_get ?(allow_dirty=false) keys = 
+  method multi_get ?(allow_dirty=false) keys =
     request  oc (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
     response ic Llio.input_string_list
 
   method sequence changes = Common.sequence conn changes
-   
+
 
   method who_master () = Common.who_master conn
 
-  method expect_progress_possible () = 
+  method expect_progress_possible () =
     request  oc (fun buf -> expect_progress_possible_to buf) >>= fun () ->
     response ic Llio.input_bool
 
-  method statistics () = 
+  method statistics () =
     request oc (fun buf -> command_to buf STATISTICS) >>= fun () ->
-    response ic 
+    response ic
       (fun ic -> Llio.input_string ic >>= fun ss ->
 	let s,_  = Statistics.from_buffer ss 0 in
 	Lwt.return s
@@ -103,12 +104,12 @@ object(self: #Arakoon_client.client)
   method get_key_count () =
     request  oc (fun buf -> get_key_count_to buf ) >>= fun () ->
     response ic Llio.input_int64
-    
+
   method get_cluster_cfgs () =
     Common.get_nursery_cfg (ic,oc)
 end
 
-let make_remote_client cluster connection = 
+let make_remote_client cluster connection =
   Common.prologue cluster connection >>= fun () ->
   let client = new remote_client connection in
   let ac = (client :> Arakoon_client.client) in

@@ -39,11 +39,11 @@ module Hotc = struct
     Lwt.catch (fun () -> Lwt_mutex.with_lock t.mutex f)
       (fun e -> Lwt.fail e)
 
-  let _open t mode = 
+  let _open t mode =
     Bdb._dbopen t.bdb t.filename mode
 
   let _open_lwt t mode = Lwt.return (_open t mode )
-    
+
   let _close t =
     Bdb._dbclose t.bdb
 
@@ -63,7 +63,7 @@ module Hotc = struct
     _do_locked res (fun () ->_open_lwt res mode) >>= fun () ->
     Lwt.return res
 
-  let close t = 
+  let close t =
     _do_locked t (fun () -> _close_lwt t)
 
   let sync t =
@@ -76,17 +76,17 @@ module Hotc = struct
   let reopen t when_closed mode=
     _do_locked t
       (fun () ->
-	_close_lwt t >>= fun () -> 
+	_close_lwt t >>= fun () ->
 	when_closed () >>= fun () ->
 	_open_lwt  t mode
       )
 
-  let _delete t = 
-    Bdb._dbclose t.bdb; 
+  let _delete t =
+    Bdb._dbclose t.bdb;
     Bdb._delete t.bdb
 
 
-  let _delete_lwt t = Lwt.return(_delete t) 
+  let _delete_lwt t = Lwt.return(_delete t)
 
   let delete t = _do_locked t (fun () -> _delete_lwt t)
 
@@ -94,12 +94,12 @@ module Hotc = struct
     let bdb = t.bdb in
     Bdb._tranbegin bdb;
     Lwt.catch
-      (fun () -> 
+      (fun () ->
 	f bdb >>= fun res ->
 	Bdb._trancommit bdb;
 	Lwt.return res
       )
-      (fun x -> 
+      (fun x ->
 	Bdb._tranabort bdb ;
 	Lwt.fail x)
 
@@ -113,6 +113,55 @@ module Hotc = struct
     Lwt.finalize
       (fun () -> f bdb cursor)
       (fun () -> let () = Bdb._cur_delete cursor in Lwt.return ())
+
+  let with_cursor2 bdb (f:Bdb.bdb -> 'a) =
+    let cursor = Bdb._cur_make bdb in
+    try
+      let x = f bdb cursor in
+      let () = Bdb._cur_delete cursor in
+      x
+    with
+      | exn ->
+        let () = Bdb._cur_delete cursor in
+        raise exn
+
+  (* some remarks: normally you'll want yo use this function with a
+     first parameter. Without a first parameter the FIRST entry in
+     the prefix will be first, this is probably not very usefull
+     when reverse paging *)
+  let rev_range_entries prefix bdb first finc last linc max =
+    let first = match first with | None -> prefix | Some x -> prefix ^ x in
+    let last = match last with | None -> "" | Some x -> prefix ^ x in
+    let pl = String.length prefix in
+    try with_cursor2 bdb (fun bdb cur ->
+      let () = Bdb.jump bdb cur first in
+      let () = if not finc then Bdb.prev bdb cur in
+      let rec rev_e_loop acc count =
+        if count = max then acc
+        else
+          let key, value = Bdb.record bdb cur in
+          let l = String.length key in
+          let key2 = String.sub key pl (l-pl) in
+          if last = key then
+            if linc then
+              (key2,value)::acc
+            else acc
+          else
+            let acc = (key2,value)::acc in
+            let maybe_next =
+              try
+                let () = Bdb.prev bdb cur in None
+              with
+                | Not_found -> Some acc
+            in
+            match maybe_next with
+              | Some acc -> acc
+              | None -> rev_e_loop acc (count+1)
+      in
+      rev_e_loop [] 0
+    )
+    with
+      | Not_found -> []
 
   let batch bdb (batch_size:int) (prefix:string) (start:string option) =
     transaction bdb

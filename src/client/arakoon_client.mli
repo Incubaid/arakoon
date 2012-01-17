@@ -23,21 +23,34 @@ class type client = object
 
   method range: ?allow_dirty:bool -> key option -> bool -> key option -> bool -> int -> key list Lwt.t
   (** will yield a list of key value pairs in range. *)
-  
+
 method range_entries:
   ?allow_dirty:bool ->
     first:key option -> finc:bool ->
       last:key option ->  linc:bool -> max:int ->
 	(key * value) list Lwt.t
-  (** [range_entries ~first ~finc ~last ~linc ~max] 
+  (** [range_entries ~first ~finc ~last ~linc ~max]
       [max] is the maximum number of keys (if max < 0 then you want them all).
-      The keys fall in the range first..last. 
+      The keys fall in the range first..last.
       The booleans [finc] [linc] determine iff the boundaries are considered
       in the result
   *)
+
+method rev_range_entries:
+  ?allow_dirty:bool ->
+    first:key option -> finc:bool ->
+      last:key option ->  linc:bool -> max:int ->
+	(key * value) list Lwt.t
+  (** [range_entries ~first ~finc ~last ~linc ~max]
+      [max] is the maximum number of keys (if max < 0 then you want them all).
+      The keys fall in the range first..last.
+      The booleans [finc] [linc] determine iff the boundaries are considered
+      in the result
+  *)
+
   (** yields the list of keys starting with that prefix *)
   method prefix_keys: ?allow_dirty:bool -> key -> int -> key list Lwt.t
-    
+
   method multi_get: ?allow_dirty:bool -> key list -> (value list) Lwt.t
 
   method set: key -> value -> unit Lwt.t
@@ -57,10 +70,10 @@ method range_entries:
 
   (** updates a value conditionally *)
   method test_and_set: key -> value option -> value option -> (value option) Lwt.t
-  (** 
-      [test_and_set key expected wanted] updates the value 
+  (**
+      [test_and_set key expected wanted] updates the value
       for that key only of it matches the expected value.
-      It always yields the value for that key after the operation. 
+      It always yields the value for that key after the operation.
       Note that wanted can be None and can be used to delete a value
   *)
 
@@ -75,8 +88,8 @@ method range_entries:
   method statistics: unit -> Statistics.t Lwt.t
 
   method user_function: string -> string option -> string option Lwt.t
-  
+
   method get_key_count: unit -> int64 Lwt.t
-  
+
   method get_cluster_cfgs: unit -> NCFG.t Lwt.t
 end
