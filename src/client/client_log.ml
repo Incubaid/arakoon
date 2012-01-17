@@ -2,7 +2,6 @@ let debug_void _x = Lwt.return ()
 
 let debug_f_void fmt =
   Printf.CamlinternalPr.Tformat.kapr (fun _ -> Obj.magic (fun _ -> Lwt.return ())) fmt
-  Lwt.return ()
 
 let lwt_log_enabled = ref false
 
