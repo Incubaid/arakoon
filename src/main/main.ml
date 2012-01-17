@@ -102,7 +102,7 @@ let run_system_tests () =
   0
 
 let dump_tlog filename =
-  let printer () (i,u) = 
+  let printer () (i,u) =
     Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u) in
   let folder,_ = Tlc2.folder_for filename in
 
@@ -110,8 +110,8 @@ let dump_tlog filename =
       begin
 	let do_it ic =
 	  let lowerI = Sn.start
-	  and higherI = None 
-	  and first = Sn.of_int 0 
+	  and higherI = None
+	  and first = Sn.of_int 0
 	  and a0 = () in
 	  folder ic lowerI higherI ~first a0 printer >>= fun () ->
 	  Lwt.return 0
@@ -123,7 +123,7 @@ let dump_tlog filename =
 
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
-  let t = 
+  let t =
     let f oc = Tlogcommon.write_entry oc sni Update.Update.Nop
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
@@ -132,15 +132,15 @@ let make_tlog tlog_name (i:int) =
 
 let dump_store filename = Dump_store.dump_store filename
 
-   
+
 let compress_tlog tlu =
   let tlf = Tlc2.to_archive_name tlu in
   let t = Compression.compress_tlog tlu tlf in
   Unix.unlink tlu;
   Lwt_main.run t;0
-    
+
 let uncompress_tlog tlx =
-  let t = 
+  let t =
     let extension = Tlc2.extension_of tlx in
     if extension = Tlc2.archive_extension then
       begin
@@ -159,7 +159,7 @@ let uncompress_tlog tlx =
     else Lwt.fail (Failure "unknown file format")
   in
   Lwt_main.run t;0
-  
+
 let run_some_tests repeat_count filter =
   All_test.configure_logging();
   Printf.printf "running tests matching '%s'\n" filter;
@@ -185,9 +185,10 @@ let run_some_tests repeat_count filter =
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
 
 
-let main () = 
+let main () =
   let () = Sys.set_signal Sys.sigpipe Sys.Signal_ignore in
   let () = Random.self_init () in
+  let () = Client_log.enable_lwt_logging_for_client_lib_code () in
   let usage_buffer = Buffer.create 1024 in
   let app = Buffer.add_string usage_buffer in
   let usage =
@@ -206,7 +207,7 @@ let main () =
   and ip = ref "127.0.0.1"
   and port = ref 4000
   and cluster_id = ref "<none>"
-  and size = ref 10 
+  and size = ref 10
   and tx_size = ref 100
   and max_n = ref (1000 * 1000)
   and daemonize = ref false
@@ -234,11 +235,11 @@ let main () =
      "runs a node");
     ("--list-tests", set_laction ListTests, "lists all possible tests");
     ("--run-all-tests", set_laction RunAllTests, "runs all tests");
-    
+
     ("--run-all-tests-xml", Arg.Tuple [set_laction RunAllTestsXML;
 				       Arg.Set_string xml_filename],
      "<filename> : runs all tests with XML output to file");
-    
+
     ("--run-some-tests", Arg.Tuple [set_laction RunSomeTests;
 				  Arg.Set_string filter],
      "run tests matching filter");
@@ -252,7 +253,7 @@ let main () =
 			       Arg.Set_string filename;
 			       Arg.Set_int counter;],
      "<filename> <counter> : make a tlog file with 1 NOP entry @ <counter>");
-    ("--dump-store", Arg.Tuple [ set_laction DumpStore; 
+    ("--dump-store", Arg.Tuple [ set_laction DumpStore;
 				 Arg.Set_string filename],
      "<filename> : dump a store");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
@@ -300,7 +301,7 @@ let main () =
 				    Arg.Set_string ip;
 				    Arg.Set_int port;
 				    Arg.Set_int n_tlogs;
-				   ], 
+				   ],
      "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
     ("--nursery-init", Arg.Tuple[set_laction InitNursery;
                   Arg.Set_string cluster_id;
@@ -323,14 +324,14 @@ let main () =
 			      Arg.Set_string location;
 			     ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
-    ("--n-values", set_laction NumberOfValues, 
+    ("--n-values", set_laction NumberOfValues,
      "returns the number of values in the store")
-      
+
   ] in
-  
+
   let options = [] in
   let interface = actions @ options in
-  
+
   let do_local = function
     | ShowUsage -> print_endline usage;0
     | RunAllTests -> run_all_tests ()
@@ -347,45 +348,45 @@ let main () =
     | UncompressTlog -> uncompress_tlog !filename
     | SET -> Client_main.set !config_file !key !value
     | GET -> Client_main.get !config_file !key
-    | BENCHMARK -> 
+    | BENCHMARK ->
       Client_main.benchmark !config_file !size !tx_size !max_n !n_clients
     | DELETE -> Client_main.delete !config_file !key
     | WHO_MASTER -> Client_main.who_master !config_file ()
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
     | STATISTICS -> Client_main.statistics !config_file
-    | Collapse_remote -> Collapser_main.collapse_remote 
+    | Collapse_remote -> Collapser_main.collapse_remote
       !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
     | NumberOfValues -> Client_main.get_key_count !config_file ()
-    | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id 
+    | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
-      
+
   in
   let do_server node =
     match node with
       | Node ->
-	let canonical = 
-	  if !config_file.[0] = '/' 
+	let canonical =
+	  if !config_file.[0] = '/'
 	  then !config_file
-	  else Filename.concat (Unix.getcwd()) !config_file 
+	  else Filename.concat (Unix.getcwd()) !config_file
 	in
 	let make_config () = Node_cfg.read_config canonical in
 	Daemons.maybe_daemonize !daemonize make_config;
-	let main_t = (Node_main.main_t make_config 
-			!node_id !daemonize !catchup_only) 
-      in 
+	let main_t = (Node_main.main_t make_config
+			!node_id !daemonize !catchup_only)
+      in
 	Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t);
 	Lwt_main.run main_t;
 	0
       | TestNode ->
-	let lease_period = 60 in 
+	let lease_period = 60 in
 	let node = Master_type.Forced "t_arakoon_0" in
 	let make_config () = Node_cfg.make_test_config 3 node lease_period in
 	let main_t = (Node_main.test_t make_config !node_id) in
 	Lwt_main.run main_t;
 	0
-	  
+
   in
   Arg.parse
     interface

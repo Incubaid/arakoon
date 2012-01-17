@@ -22,12 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Common
-open Lwt_log
 open Update
 open Statistics
-
-
-
 
 class remote_client ((ic,oc) as conn) =
 

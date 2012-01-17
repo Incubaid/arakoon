@@ -30,12 +30,12 @@ let int_option_to_string = option_to_string string_of_int
 let p_option = string_option_to_string
 
 let string_of_list e_to_s list =
-  let inner = 
-    List.fold_left (fun acc a -> acc ^ (e_to_s a) ^ ";") "" list 
+  let inner =
+    List.fold_left (fun acc a -> acc ^ (e_to_s a) ^ ";") "" list
   in "[" ^ inner ^ "]"
 
 let log_o o x =
   let k s = let os = o # to_string () in
-    Lwt_log.debug  (os ^": " ^  s)
+    Client_log.debug  (os ^": " ^  s)
   in
   Printf.ksprintf k x
