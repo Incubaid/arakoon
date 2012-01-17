@@ -55,6 +55,31 @@ let range_entries_ kv first finc last linc max =
   let _,entries = StringMap.fold one' kv (0,[]) in
   entries
 
+let rev_one_ first finc last linc max acc (kv: string * string) =
+  let (k,v) = kv in
+  let (count,a) = acc in
+  if count = max then (count,a)
+  else
+    let fop = if finc then (<=) else (<) (* reversed *)
+    and lop = if linc then (>=) else (>) (* reversed *)
+    in
+    let fok = match first with
+      | None -> true
+      | Some xf -> fop k xf
+    and lok = match last with
+      | None -> true
+      | Some xl -> lop k xl
+    in
+    if fok && lok then
+      (count+1, kv::a)
+    else (count, a)
+
+let rev_range_entries_ kv first finc last linc max =
+  let rev_l = StringMap.fold (fun k v a -> (k,v)::a) kv [] in
+  let one' = rev_one_ first finc last linc max in
+  let _, entries = List.fold_left one' (0,[]) rev_l in
+  entries
+
 let range_ kv first finc last linc max =
   let one' = one_ (fun k _v -> k) first finc last linc max in
   let _,entries = StringMap.fold one' kv (0,[]) in
@@ -65,8 +90,8 @@ class test_backend my_name = object(self:#backend)
   val mutable _routing = (None: Routing.t option)
   val mutable _interval = ((None, None),(None, None) : Interval.t)
 
-  method hello (client_id:string) (cluster_id:string) = 
-    let r = 
+  method hello (client_id:string) (cluster_id:string) =
+    let r =
       match cluster_id with
 	| "sweety" -> (0l,    "test_backend.0.0.0")
 	| _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
@@ -80,20 +105,20 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.add key value _kv;
     Lwt.return ()
 
-  method confirm (key:string) (value:string) = 
+  method confirm (key:string) (value:string) =
     if StringMap.mem key _kv && StringMap.find key _kv = value then Lwt.return ()
     else self # set key value
-      
+
   method aSSert ~allow_dirty (key:string) (vo: string option) =
     Lwt_log.debug_f "test_backend :: aSSert %s" key >>= fun () ->
     let ok = match vo with
       | None -> StringMap.mem key _kv = false
       | Some v -> StringMap.find key _kv = v
     in
-    if not ok 
-    then 
+    if not ok
+    then
       let rc = Arakoon_exc.E_ASSERTION_FAILED
-      and msg = Printf.sprintf "assert %s %S" key ("XXX") 
+      and msg = Printf.sprintf "assert %s %S" key ("XXX")
       in Lwt.fail (Arakoon_exc.Exception (rc, msg))
     else Lwt.return ()
 
@@ -113,7 +138,7 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
-  method user_function name po = 
+  method user_function name po =
     match name with
       | "reverse" ->
 	begin
@@ -126,19 +151,25 @@ class test_backend my_name = object(self:#backend)
 	end
       | _ -> Lwt.return None
 
-  method multi_get ~allow_dirty (keys: string list) = 
-    let values = List.fold_left 
-      (fun acc k -> 
+  method multi_get ~allow_dirty (keys: string list) =
+    let values = List.fold_left
+      (fun acc k ->
 	let v = StringMap.find k _kv in
 	(v ::acc))
       [] keys
-    in 
+    in
     Lwt.return values
-		    
+
   method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
     info_f "range_entries: found %d entries" (List.length x) >>= fun () ->
+    Lwt.return x
+
+  method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
+    (last:string option) (linc:bool) (max:int) =
+    let x = rev_range_entries_ _kv first finc last linc max in
+    info_f "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method range ~allow_dirty (first:string option) (finc:bool)
@@ -167,37 +198,37 @@ class test_backend my_name = object(self:#backend)
       | _ -> Llio.lwt_failfmt "Sequence only supports SET & DELETE"
     in
     Lwt_list.iter_s do_one updates
-    
+
   method witness name i = Lwt.return ()
 
   method last_witnessed name = Sn.start
 
   method expect_progress_possible () = Lwt.return false
 
-  method get_statistics () = Statistics.create() 
+  method get_statistics () = Statistics.create()
   method clear_most_statistics() = ()
 
-  method check ~cluster_id = 
+  method check ~cluster_id =
     let r = my_name = cluster_id in
     Lwt.return r
 
-  method collapse n cb' cb = 
-    let rec loop i = 
-      if i = 0 
+  method collapse n cb' cb =
+    let rec loop i =
+      if i = 0
       then Lwt.return ()
-      else 
+      else
 	cb () >>= fun () ->
         loop (i-1)
     in
     loop n
-      
-  method set_interval interval = 
+
+  method set_interval interval =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) >>= fun () ->
     _interval <- interval; Lwt.return ()
   method get_interval () = Lwt.return _interval
 
 
-  method get_routing () = 
+  method get_routing () =
     match _routing with
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
@@ -205,27 +236,27 @@ class test_backend my_name = object(self:#backend)
   method set_routing r =
     _routing <- Some r;
     Lwt.return ()
-    
+
   method set_routing_delta left sep right =
     begin
-      match _routing with 
-        | Some r -> 
+      match _routing with
+        | Some r ->
           let new_r = Routing.change r left sep right in
           Lwt.return (_routing <- Some new_r )
         | None -> failwith "Cannot modify non-existing routing"
-    end 
+    end
 
   method get_key_count () =
     let inc key value size =
       Int64.succ size
     in
     Lwt.return (StringMap.fold inc _kv 0L)
-  
+
   method get_db s =
     Lwt.return ()
 
   method get_fringe boundary direction =
-    let cmp = 
+    let cmp =
       begin
         match direction, boundary with
           | Routing.UPPER_BOUND, Some b -> (fun k -> k < b)
@@ -233,19 +264,19 @@ class test_backend my_name = object(self:#backend)
           | _ , None -> (fun k -> true)
       end
     in
-    let all = StringMap.fold 
-      (fun k v acc -> 
+    let all = StringMap.fold
+      (fun k v acc ->
 	if cmp k
-	then (k,v)::acc 
-	else acc) 
-      _kv [] 
+	then (k,v)::acc
+	else acc)
+      _kv []
     in
     Lwt.return all
 
   method get_cluster_cfgs () =
     failwith "get_cluster_cfgs not implemented in testbackend"
-    
-  method set_cluster_cfg cluster_id cfg = 
+
+  method set_cluster_cfg cluster_id cfg =
     failwith "set_cluster not implemented in testbackend"
-    
+
 end

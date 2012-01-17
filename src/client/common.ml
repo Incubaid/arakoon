@@ -34,7 +34,7 @@ let _VERSION = 1
 let _STRLEN_SIZE = 4
 let _CMD_SIZE   = 4
 let _BOOL_SIZE   = 1
-let _INT_SIZE  = 4 
+let _INT_SIZE  = 4
 *)
 
 
@@ -69,6 +69,7 @@ type client_command =
   | GET_FRINGE
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
+  | REV_RANGE_ENTRIES
 
 
 let code2int = [
@@ -102,9 +103,10 @@ let code2int = [
   GET_NURSERY_CFG         , 0x20l;
   SET_ROUTING_DELTA       , 0x21l;
   MIGRATE_RANGE           , 0x22l;
+  REV_RANGE_ENTRIES       , 0x23l;
 ]
 
-let int2code = 
+let int2code =
   let r = Hashtbl.create 41 in
   let () = List.iter (fun (a,b) -> Hashtbl.add r b a) code2int in
   r
@@ -157,7 +159,7 @@ let response ic f =
   Llio.input_int32 ic >>= function
     | 0l -> Lwt_log.debug_f "Client operation succeeded" >>= fun () -> f ic
     | rc32 ->
-      Lwt_log.debug_f "Client operation failed: %d " (Int32.to_int rc32) >>= fun () -> 
+      Lwt_log.debug_f "Client operation failed: %d " (Int32.to_int rc32) >>= fun () ->
       Llio.input_string ic >>= fun msg ->
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
@@ -172,7 +174,7 @@ let get_to ~allow_dirty buffer key =
   Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key
 
-let assert_to ~allow_dirty buffer key vo = 
+let assert_to ~allow_dirty buffer key vo =
   command_to buffer ASSERT;
   Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key;
@@ -183,7 +185,7 @@ let set_to buffer key value =
   Llio.string_to buffer key;
   Llio.string_to buffer value
 
-let confirm_to buffer key value = 
+let confirm_to buffer key value =
   command_to buffer CONFIRM;
   Llio.string_to buffer key;
   Llio.string_to buffer value
@@ -210,6 +212,15 @@ let range_entries_to b ~allow_dirty first finc last linc max =
   Llio.bool_to b linc;
   Llio.int_to b max
 
+let rev_range_entries_to b ~allow_dirty first finc last linc max =
+  command_to b REV_RANGE_ENTRIES;
+  Llio.bool_to b allow_dirty;
+  Llio.string_option_to b first;
+  Llio.bool_to b finc;
+  Llio.string_option_to b last;
+  Llio.bool_to b linc;
+  Llio.int_to b max
+
 let prefix_keys_to b ~allow_dirty prefix max =
   command_to b PREFIX_KEYS;
   Llio.bool_to b allow_dirty;
@@ -222,7 +233,7 @@ let test_and_set_to b key expected wanted =
   Llio.string_option_to b expected;
   Llio.string_option_to b wanted
 
-let user_function_to b name po = 
+let user_function_to b name po =
   command_to b USER_FUNCTION;
   Llio.string_to b name;
   Llio.string_option_to b po
@@ -247,7 +258,7 @@ let ping_to b client_id cluster_id =
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
 
-let get_nursery_cfg_to b = 
+let get_nursery_cfg_to b =
   command_to b GET_NURSERY_CFG
 
 let set_nursery_cfg_to b cluster_id client_cfg =
@@ -258,23 +269,23 @@ let set_nursery_cfg_to b cluster_id client_cfg =
 let prologue cluster (_,oc) =
   Llio.output_int32  oc _MAGIC >>= fun () ->
   Llio.output_int    oc _VERSION >>= fun () ->
-  Llio.output_string oc cluster 
+  Llio.output_string oc cluster
 
 
-let who_master (ic,oc) = 
+let who_master (ic,oc) =
   request  oc (fun buf -> who_master_to buf) >>= fun () ->
   response ic Llio.input_string_option
 
-let set (ic,oc) key value = 
+let set (ic,oc) key value =
   request  oc (fun buf -> set_to buf key value) >>= fun () ->
   response ic nothing
 
-let get (ic,oc) ~allow_dirty key = 
+let get (ic,oc) ~allow_dirty key =
   request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
   response ic Llio.input_string
 
-let get_fringe (ic,oc) boundary direction = 
-  let outgoing buf = 
+let get_fringe (ic,oc) boundary direction =
+  let outgoing buf =
     command_to buf GET_FRINGE;
     Llio.string_option_to buf boundary;
     match direction with
@@ -286,9 +297,9 @@ let get_fringe (ic,oc) boundary direction =
   response ic Llio.input_kv_list
 
 
-let set_interval(ic,oc) iv = 
+let set_interval(ic,oc) iv =
   Lwt_log.debug "set_interval" >>= fun () ->
-  let outgoing buf = 
+  let outgoing buf =
     command_to buf SET_INTERVAL;
     Interval.interval_to buf iv
   in
@@ -296,24 +307,24 @@ let set_interval(ic,oc) iv =
   Lwt_log.debug "set_interval request sent" >>= fun () ->
   response ic nothing
 
-let get_interval (ic,oc) = 
+let get_interval (ic,oc) =
   Lwt_log.debug "get_interval" >>= fun () ->
-  let outgoing buf = 
+  let outgoing buf =
     command_to buf GET_INTERVAL
   in
   request oc outgoing >>= fun () ->
   Lwt_log.debug "get_interval request sent" >>= fun () ->
   response ic Interval.input_interval
 
-let get_routing (ic,oc) = 
+let get_routing (ic,oc) =
   let outgoing buf = command_to buf GET_ROUTING
   in
     request  oc outgoing >>= fun () ->
     response ic Routing.input_routing
 
 
-let set_routing (ic,oc) r = 
-  let outgoing buf = 
+let set_routing (ic,oc) r =
+  let outgoing buf =
     command_to buf SET_ROUTING;
     let b' = Buffer.create 100 in
     Routing.routing_to b' r;
@@ -335,9 +346,9 @@ let set_routing_delta (ic,oc) left sep right =
   request oc outgoing >>= fun () ->
   Lwt_log.debug "set_routing_delta sent" >>= fun () ->
   response ic nothing
-  
 
-let _build_sequence_request buf changes = 
+
+let _build_sequence_request buf changes =
   let update_buf = Buffer.create (32 * List.length changes) in
   let rec c2u = function
     | Arakoon_client.Set (k,v) -> Update.Set(k,v)
@@ -351,30 +362,30 @@ let _build_sequence_request buf changes =
   let () = Update.to_buffer update_buf seq in
   let () = Llio.string_to buf (Buffer.contents update_buf)
   in ()
-    
-let migrate_range (ic,oc) interval changes = 
+
+let migrate_range (ic,oc) interval changes =
   let outgoing buf =
     command_to buf MIGRATE_RANGE;
     Interval.interval_to buf interval;
-    _build_sequence_request buf changes 
+    _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
-  
-let sequence (ic,oc) changes = 
-  let outgoing buf = 
+
+let sequence (ic,oc) changes =
+  let outgoing buf =
     command_to buf SEQUENCE;
-    _build_sequence_request buf changes 
+    _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
-    
+
 let get_nursery_cfg (ic,oc) =
-  let decode ic = 
+  let decode ic =
     Llio.input_string ic >>= fun buf ->
     let cfg, pos = NCFG.ncfg_from buf 0 in
     Lwt.return cfg
-  in  
+  in
   request oc get_nursery_cfg_to >>= fun () ->
   response ic decode
 
@@ -384,5 +395,5 @@ let set_nursery_cfg (ic,oc) clusterid cfg =
   in
   request oc outgoing >>= fun () ->
   response ic nothing
-  
+
 exception XException of Arakoon_exc.rc * string

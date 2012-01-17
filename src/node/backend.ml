@@ -42,12 +42,16 @@ class type backend = object
     allow_dirty:bool ->
       string option -> bool ->
 	string option -> bool -> int -> ((string * string) list) Lwt.t
-  method prefix_keys: 
+  method rev_range_entries:
+    allow_dirty:bool ->
+      string option -> bool ->
+	string option -> bool -> int -> ((string * string) list) Lwt.t
+  method prefix_keys:
     allow_dirty:bool ->
     string -> int -> (string list) Lwt.t
   method last_entries: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
-  method multi_get: 
+  method multi_get:
     allow_dirty:bool ->
       string list -> string list Lwt.t
   method hello: string -> string -> (int32 * string) Lwt.t
@@ -60,7 +64,7 @@ class type backend = object
   method last_witnessed : string -> Sn.t
 
   method expect_progress_possible : unit -> bool Lwt.t
-    
+
   method get_statistics: unit -> Statistics.t
   method clear_most_statistics: unit -> unit
   method check: cluster_id:string -> bool Lwt.t
@@ -76,12 +80,12 @@ class type backend = object
   method set_routing_delta: string -> string -> string -> unit Lwt.t
 
   method get_key_count: unit -> int64 Lwt.t
-  
+
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
-  
+
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
-  
+
 end

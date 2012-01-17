@@ -76,21 +76,21 @@ let test_prefix_fold db =
     (fun db' -> Prefix_otc.iter (log "%s %s") db' "VOL")
 
 
-let test_transaction db = 
-  let key = "test_transaction:1" 
-  and bad_key = "test_transaction:does_not_exist" 
+let test_transaction db =
+  let key = "test_transaction:1"
+  and bad_key = "test_transaction:does_not_exist"
   in
-  Lwt.catch 
+  Lwt.catch
     (fun () ->
       Hotc.transaction db
-	(fun db -> 
+	(fun db ->
 	  Bdb.put db key "one";
 	  Bdb.out db bad_key;
 	  Lwt.return ()
-	) 
+	)
     )
-    (function 
-      | Not_found -> 
+    (function
+      | Not_found ->
 	Lwt_log.debug "yes, this key was not found" >>= fun () ->
 	Lwt.return ()
       | x -> Lwt.fail x
@@ -98,21 +98,21 @@ let test_transaction db =
   >>= fun () ->
 Lwt.catch
   (fun () ->
-    Hotc.transaction db 
-      (fun db -> 
-	let v = Bdb.get db key in 
+    Hotc.transaction db
+      (fun db ->
+	let v = Bdb.get db key in
 	Lwt_io.printf "value=%s\n" v >>= fun () ->
 	OUnit.assert_failure "this is not a transaction"
       )
   )
-  (function 
+  (function
     | Not_found -> Lwt.return ()
     | x -> Lwt.fail x
   )
- 
 
 
-  
+
+
 let test_batch db =
   Hotc.transaction db
     (fun db' ->
@@ -143,6 +143,64 @@ let test_batch db =
       end
     | _ -> Lwt.fail (Failure "1:got something else")
 
+let test_rev_range_entries db =
+  let eq_string str i1 i2 =
+    let msg = Printf.sprintf "%s expected:\"%s\" actual:\"%s\"" str (String.escaped i1) (String.escaped i2) in
+    OUnit.assert_equal ~msg i1 i2
+  in
+  let eq_list eq_ind str l1 l2 =
+    let len1 = List.length l1 in
+    let len2 = List.length l2 in
+    if len1 <> len2 then
+      OUnit.assert_failure (Printf.sprintf "%s: lists not equal in length l1:%d l2:%d" str len1 len2)
+    else
+      let cl = List.combine l1 l2 in
+      let (_:int) = List.fold_left
+        (fun i (x1,x2) ->
+          let () = eq_ind (Printf.sprintf "ele:%d %s" i str) x1 x2 in
+          i+1) 0 cl in
+      ()
+  in
+  let eq_tuple eq1 eq2 str v1 v2 =
+    let (v11, v12) = v1 in
+    let (v21, v22) = v2 in
+    let () = eq1 ("t1:"^str) v11 v21 in
+    let () = eq2 ("t2:"^str) v12 v22 in
+    ()
+  in
+  let eq = eq_list (eq_tuple eq_string eq_string) in
+  let show_l l =
+    let l2 = List.map (fun (k,v) -> Printf.sprintf "('%s','%s')" k v) l in
+    "[" ^ (String.concat ";" l2) ^ "]"
+  in
+  Hotc.transaction db
+    (fun db ->
+      Prefix_otc.put db "VOL" "ha" "lo" >>= fun () ->
+      Prefix_otc.put db "VOL" "he" "pluto" >>= fun () ->
+      Prefix_otc.put db "VOL" "hello" "world" >>= fun () ->
+      Prefix_otc.put db "VOL" "hi" "mars"
+    ) >>= fun () ->
+  let bdb = Hotc.get_bdb db in
+  (* as we give NO start entry this will start at the FIRST entry in the prefix, not the last one... *)
+  let l1 = Hotc.rev_range_entries "VOL" bdb None true None true 3 in
+  let () = Printf.printf "l1: %s\n" (show_l l1) in
+  let () = eq "l1" [("ha","lo")] l1 in
+  let l2 = Hotc.rev_range_entries "VOL" bdb (Some "hi") true None true 3 in
+  let () = Printf.printf "l2: %s\n" (show_l l2) in
+  (* note that they are returned IN order *)
+  let () = eq "l2" [("he","pluto");("hello","world");("hi", "mars")] l2 in
+  (* don't include first *)
+  let l3 = Hotc.rev_range_entries "VOL" bdb (Some "hi") false None true 3 in
+  let () = Printf.printf "l3: %s\n" (show_l l3) in
+  let () = eq "l3" [("ha","lo");("he","pluto");("hello","world")] l3 in
+  let l4 = Hotc.rev_range_entries "VOL" bdb (Some "hi") false (Some "he") true 3 in
+  let () = Printf.printf "l4: %s\n" (show_l l4) in
+  let () = eq "l4" [("he","pluto");("hello","world")] l4 in
+  let l5 = Hotc.rev_range_entries "VOL" bdb (Some "hi") false (Some "he") false 3 in
+  let () = Printf.printf "l5: %s\n" (show_l l5) in
+  let () = eq "l5" [("hello","world")] l5 in
+  Lwt.return ()
+
 let setup () = Hotc.create "/tmp/foo.tc"
 
 let teardown db =
@@ -160,4 +218,5 @@ let suite =
       "prefix_fold" >:: wrap test_prefix_fold;
       "batch" >:: wrap test_batch;
       "transaction" >:: wrap test_transaction;
+      "rev_range_entries" >:: wrap test_rev_range_entries;
     ]
