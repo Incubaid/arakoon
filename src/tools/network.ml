@@ -34,6 +34,7 @@ let a2s = function
 let __open_connection socket_address =
   (* Lwt_io.open_connection socket_address *)
   let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0  in
+  let () = Lwt_unix.setsockopt socket Lwt_unix.TCP_NODELAY true in
   Lwt.catch
     (fun () ->
       Lwt_unix.connect socket socket_address >>= fun () ->
