@@ -127,7 +127,7 @@ module Hotc = struct
 
   (* some remarks: normally you'll want yo use this function with a
      first parameter. Without a first parameter the FIRST entry in
-     the prefix will be first, this is probably not very usefull
+     the prefix will be first, this is probably not very useful
      when reverse paging *)
   let rev_range_entries prefix bdb first finc last linc max =
     let first = match first with | None -> prefix | Some x -> prefix ^ x in
@@ -150,9 +150,11 @@ module Hotc = struct
             let acc = (key2,value)::acc in
             let maybe_next =
               try
-                let () = Bdb.prev bdb cur in None
+                let () = Bdb.prev bdb cur in
+                None
               with
-                | Not_found -> Some acc
+                | Not_found ->
+                  Some acc
             in
             match maybe_next with
               | Some acc -> acc

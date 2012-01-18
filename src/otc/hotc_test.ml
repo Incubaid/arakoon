@@ -199,6 +199,12 @@ let test_rev_range_entries db =
   let l5 = Hotc.rev_range_entries "VOL" bdb (Some "hi") false (Some "he") false 3 in
   let () = Printf.printf "l5: %s\n" (show_l l5) in
   let () = eq "l5" [("hello","world")] l5 in
+  let l6 = Hotc.rev_range_entries "VOL" bdb (Some "he") false None false 4 in
+  let () = Printf.printf "l6: %s\n" (show_l l6) in
+  let () = eq "l6" [("ha","lo")] l6 in
+  let l7 = Hotc.rev_range_entries "VOL" bdb (Some "ha") false None false 4 in
+  let () = Printf.printf "l7: %s\n" (show_l l7) in
+  let () = eq "l7" [] l7 in
   Lwt.return ()
 
 let setup () = Hotc.create "/tmp/foo.tc"
