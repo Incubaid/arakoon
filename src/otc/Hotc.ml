@@ -141,24 +141,30 @@ module Hotc = struct
         else
           let key, value = Bdb.record bdb cur in
           let l = String.length key in
-          let key2 = String.sub key pl (l-pl) in
-          if last = key then
-            if linc then
-              (key2,value)::acc
-            else acc
+          (* make sure we have a key length long enough to contain the prefix *)
+          if l < pl then acc
           else
-            let acc = (key2,value)::acc in
-            let maybe_next =
-              try
-                let () = Bdb.prev bdb cur in
-                None
-              with
-                | Not_found ->
-                  Some acc
-            in
-            match maybe_next with
-              | Some acc -> acc
-              | None -> rev_e_loop acc (count+1)
+            (* make sure the prefix is still the wanted prefix *)
+            let prefix2 = String.sub key 0 pl in
+            if prefix2 <> prefix then acc
+            else
+              let key2 = String.sub key pl (l-pl) in
+              if last = key then
+                if linc then (key2,value)::acc else acc
+              else if last > key then acc
+              else
+                let acc = (key2,value)::acc in
+                let maybe_next =
+                  try
+                    let () = Bdb.prev bdb cur in
+                    None
+                  with
+                    | Not_found ->
+                      Some acc
+                in
+                match maybe_next with
+                  | Some acc -> acc
+                  | None -> rev_e_loop acc (count+1)
       in
       rev_e_loop [] 0
     )
