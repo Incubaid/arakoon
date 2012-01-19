@@ -1,3 +1,4 @@
+#!/bin/bash
 export BRANCH=$(hg branch)
 export ARAKOON_BUILD_ENV="/opt/arakoon_build_env/default"
 export OCAML_HOME=${ARAKOON_BUILD_ENV}/OCAML
