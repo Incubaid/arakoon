@@ -10,8 +10,8 @@ export DEB_BUILD_OPTIONS=nocheck
 set -e
 which ocaml
 fakeroot debian/rules clean
-fakeroot debian/rules build
-DEB_BUILD_OPTIONS=nocheck && fakeroot debian/rules binary
+#fakeroot debian/rules build
+fakeroot debian/rules binary
 
 export ARTIFACTS=artifacts
 mkdir -p ${ARTIFACTS}
