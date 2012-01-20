@@ -1,7 +1,7 @@
 #!/bin/bash
 export BRANCH=$(hg branch)
-export ARAKOON_BUILD_ENV="/var/hudson/workspace/ROOT/OCAML"
-export OCAML_HOME=${ARAKOON_BUILD_ENV}/OCAML
+export PREFIX="/var/hudson/workspace/ROOT"
+export OCAML_HOME=${PREFIX}/OCAML
 export LIBRARY_PATH=${OCAML_HOME}/lib:${LIBRARY_PATH}
 export LD_LIBRARY_PATH=${OCAML_HOME}/lib:${LD_LIBRARY_PATH}
 export PATH=${OCAML_HOME}/bin:${PATH}
