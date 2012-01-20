@@ -1,6 +1,7 @@
 
 
-BUILD_ENV=../ROOT
+BUILD_ENV=/var/hudson/workspace/ROOT
+echo BUILD_ENV=${BUILD_ENV}
 
 export PATH=$BUILD_ENV/bin:$PATH
 export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib:$BUILD_ENV/lib
