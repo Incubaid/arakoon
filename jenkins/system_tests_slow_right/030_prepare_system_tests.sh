@@ -1,3 +1,3 @@
-sudo /opt/qbase3/bin/python /home/incubaid/prepareSystemTests2.py
+sudo /opt/qbase3/qshell ./jenkins/prepareSystemTests.py
 
 sudo mkdir -p ${WORKSPACE}/testresults
