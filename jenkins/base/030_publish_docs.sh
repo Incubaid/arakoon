@@ -1,4 +1,4 @@
-#!/bin/bash -e -u
+#!/bin/bash -eux
 
 cd doc/_build
 rm -rf publish
