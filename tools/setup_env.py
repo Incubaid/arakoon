@@ -2,6 +2,7 @@ import functools
 import subprocess
 import os
 import string
+import os.path
 
 from optparse import OptionParser
 
@@ -31,8 +32,18 @@ def sh(x, **kwargs):
     if subprocess.call(x,**kwargs):
         raise RuntimeError("Failed to run %s %s" % (x, kwargs))
 
-def clean():
-    sh (['rm','-rf', PREFIX])
+def maybe_clean():
+    fine = True
+    fs = ['%s/bin/ocaml', 
+          '%s/lib/ocaml/site-lib/lwt/META',
+          '%s/lib/ocaml/site-lib/bz2/META',
+          ]
+    for f in fs:
+        fine = fine and os.path.exists(f % PREFIX)
+    
+    if not fine:
+        sh (['rm','-rf', PREFIX])
+    return fine
 
 def sh_with_output(x):
     print x
@@ -266,25 +277,28 @@ def install_bisect():
         cwd = cwd)
  
 def do_it():
-    clean()
-    sh(['mkdir', '-p', ROOT])
-    install_ocaml()
-    install_ocamlfind()
-    install_ounit()
-    install_react()
-    install_libev()
-    install_lwt()
-    install_camlbz2()
-    if not options.no_x:
-        install_lablgtk()
-        install_cairo_ocaml()
-        install_ocamlviz()
-    if options.client:
-        install_client()
-    if options.bisect:
-        install_bisect()
-    #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
-    print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+    fine = maybe_clean()
+    if not fine:
+        sh(['mkdir', '-p', ROOT])
+        install_ocaml()
+        install_ocamlfind()
+        install_ounit()
+        install_react()
+        install_libev()
+        install_lwt()
+        install_camlbz2()
+        if not options.no_x:
+            install_lablgtk()
+            install_cairo_ocaml()
+            install_ocamlviz()
+        if options.client:
+            install_client()
+        if options.bisect:
+            install_bisect()
+        #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
+        print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+    else:
+        print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
 
 
 if __name__ == '__main__':

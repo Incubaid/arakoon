@@ -1,7 +1,6 @@
 
-./hudson/pre.sh
 
-BUILD_ENV=/opt/arakoon_build_env/1.0/OCAML
+BUILD_ENV=../ROOT
 
 export PATH=$BUILD_ENV/bin:$PATH
 export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib:$BUILD_ENV/lib
