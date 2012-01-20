@@ -10,8 +10,9 @@ export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib:$BUILD_ENV/lib
 ocamlfind list
 ocamlbuild -clean
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
-make coverage 
-./arakoon.d.byte --run-all-tests-xml foobar.xml
+#make coverage 
+#./arakoon.d.byte --run-all-tests-xml foobar.xml
+./arakoon.native --run-all-tests-xml foobar.xml
 ./report.sh
 # redo this for artifacts...
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
