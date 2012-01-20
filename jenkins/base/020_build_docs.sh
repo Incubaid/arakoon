@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-$VENV=_virtualenv
+VENV=_virtualenv
 
 if [ ! -d $VENV ]; then
         virtualenv --no-site-packages $VENV
