@@ -1,6 +1,6 @@
 
 
-BUILD_ENV=/var/hudson/workspace/ROOT
+BUILD_ENV=/var/hudson/workspace/ROOT/OCAML
 echo BUILD_ENV=${BUILD_ENV}
 
 export PATH=$BUILD_ENV/bin:$PATH
