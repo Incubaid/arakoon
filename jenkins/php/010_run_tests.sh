@@ -12,7 +12,7 @@ sudo php all_nodes_up_test.php
 sudo php invalid_client_configuration_test.php
 sudo php master_failover_test.php
 sudo php one_node_down_test.php
-sudo php stats_test.php
+#sudo php stats_test.php
 
 sudo chown $USER *.xml
 
