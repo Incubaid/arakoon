@@ -94,7 +94,7 @@ def createNewPackage( package_name, package_description, old_version, new_versio
     p = i.qp.find( package_name, version=new_version )
     return p
 
-p = i.qp.find( 'arakoon_dev', version='0.8.0' )
+p = i.qp.find( 'arakoon_dev', version='0.10.0' )
 p.install()
 
 def replace_deps( p, deps_to_replace):
