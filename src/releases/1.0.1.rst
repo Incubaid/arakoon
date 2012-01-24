@@ -1,0 +1,42 @@
+==============
+Arakoon 0.11.1
+==============
+Published on: January 24th 2012
+
+Arakoon 1.0.1 is a maintenance release.
+
+Release
+=======
++----------------+------------------+----------------+--------------+
+| QPackage name  | QPackage version | QPackage build | HG revision  |
++================+==================+================+==============+
+| arakoon        | 1.0.1            | 1              | 77db3bc403b8 |
++----------------+------------------+----------------+--------------+
+| arakoon_client | 1.0.1            | 1              | 77db3bc403b8 |
++----------------+------------------+----------------+--------------+
+
+What is fixed
+=============
++--------------+------------------------------------------------------------------+
+| Jira key     | Comment                                                          |
++==============+==================================================================+
+| ARAKOON-259_ | Arakoon can die while rotating logs (kill -USR1)                 |
++--------------+------------------------------------------------------------------+
+| ARAKOON-260_ | statistics have wrong calculation of deviation
++--------------+------------------------------------------------------------------+
+| ARAKOON-263_ | arakoon performance takes a diev when value sizes go above 437   |
++--------------+------------------------------------------------------------------+
+
+.. _ARAKOON-259: http://jira.incubaid.com/browse/ARAKOON-259
+.. _ARAKOON-260: http://jira.incubaid.com/browse/ARAKOON-260
+.. _ARAKOON-263: http://jira.incubaid.com/browse/ARAKOON-263
+
+Remarks
+=======
+* As of 1.0 we're using version semantics as described in Semver_
+* Be ware of ARAKOON-264_. 
+
+
+
+.. _ARAKOON-264: http://jira.incubaid.com/browse/ARAKOON-264
+.. _Semver: http://semver.org/
