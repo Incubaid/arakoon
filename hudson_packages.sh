@@ -13,13 +13,14 @@ fakeroot debian/rules clean
 #fakeroot debian/rules build
 fakeroot debian/rules binary
 
-export ARTIFACTS=artifacts
-mkdir -p ${ARTIFACTS}
-mv ../arakoon_1.0.0-1_amd64.deb ${ARTIFACTS}
+export ARTEFACTS=artefacts
+mkdir -p ${ARTEFACTS}
+mv ../arakoon_*_amd64.deb ${ARTEFACTS}
+mv ../libarakoon-ocaml-dev_1.0-dev_amd64.deb ${ARTEFACTS}
 
 # now the python egg part
 python setup.py bdist_egg
 
-mv dist/arakoon-${BRANCH}-py2.?.egg ${ARTIFACTS}
+mv dist/arakoon-${BRANCH}-py2.?.egg ${ARTEFACTS}
 
 

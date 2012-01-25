@@ -1,10 +1,6 @@
 The Debian Package arakoon
 ----------------------------
 
-This is the debian package for Arakoon. Arakoon tries to be a simple,
-consistent key value store. 
+Comments regarding the Package
 
-Technically, it's an ocaml multipaxos implementation on top of tokyo cabinet.
-
-
- -- Romain Slootmaekers <romain.slootmaekers@incubaid.com>  Mon, 25 Oct 2010 21:40:27 +0200
+ -- Romain Slootmaekers <romain@incubaid.com>  Wed, 25 Jan 2012 15:35:54 +0100

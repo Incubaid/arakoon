@@ -6,6 +6,7 @@ doc/_build/html
 doc/_build/doctrees
 doc/_build/latex
 dist/*
+artefacts/*
 arakoon.egg-info/*
 arakoon.docdir*
 build/*
