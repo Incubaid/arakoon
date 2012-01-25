@@ -1,5 +1,5 @@
 ==============
-Arakoon 0.11.1
+Arakoon 1.0.1
 ==============
 Published on: January 24th 2012
 
