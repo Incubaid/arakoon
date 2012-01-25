@@ -896,7 +896,7 @@ The population can only change with reasonable increments.</p>
 <div class="section" id="state-machine">
 <h2><a class="toc-backref" href="#id34">State machine</a><a class="headerlink" href="#state-machine" title="Permalink to this headline">¶</a></h2>
 <p class="graphviz">
-<img src="_images/graphviz-985667158354e14d684ed1c3ef017e104429199b.png" alt="digraph MultiPaxos {
+digraph MultiPaxos {
   compound=true;
   node [shape=box];
   subgraph cluster0 {
@@ -961,7 +961,7 @@ The population can only change with reasonable increments.</p>
   promises_check_done -&gt; accepteds_check_done [color=green, label=&quot;(4)&quot;];
   stable_master -&gt; election_suggest;
   election_suggest -&gt; slave_wait_for_accept [color=green, label=&quot;(11)&quot;];
-}" />
+}
 </p>
 <p>This figure shows the state machine diagram for the arakoon nodes.</p>
 <table border="1" class="docutils">
