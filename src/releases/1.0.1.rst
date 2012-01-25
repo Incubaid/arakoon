@@ -22,7 +22,7 @@ What is fixed
 +==============+==================================================================+
 | ARAKOON-259_ | Arakoon can die while rotating logs (kill -USR1)                 |
 +--------------+------------------------------------------------------------------+
-| ARAKOON-260_ | statistics have wrong calculation of deviation
+| ARAKOON-260_ | statistics have wrong calculation of deviation                   |
 +--------------+------------------------------------------------------------------+
 | ARAKOON-263_ | arakoon performance takes a diev when value sizes go above 437   |
 +--------------+------------------------------------------------------------------+
