@@ -62,6 +62,11 @@ def test_deploy_2_to_3():
 def test_range ():
     C.range_scenario ( 1000 )
 
+@C.with_custom_setup( C.default_setup, C.basic_teardown)
+def test_reverse_range_entries():
+    C.reverse_range_entries_scenario(1000)
+
+
 @C.with_custom_setup ( C.setup_1_node_forced_master, C.basic_teardown )
 def test_large_value ():
     value = 'x' * (10 * 1024 * 1024)

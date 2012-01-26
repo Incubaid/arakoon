@@ -225,6 +225,7 @@ ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 ARA_CMD_CONFIRM                  = 0x0000001c | ARA_CMD_MAG
 
 ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
+ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -534,6 +535,14 @@ class ArakoonProtocol :
         r = _packInt(ARA_CMD_RAN_E) + _packBool(allowDirty)
         r += _packStringOption(first) + _packBool(finc)
         r += _packStringOption(last)  + _packBool(linc)
+        r += _packSignedInt(maxEntries)
+        return r
+
+    @staticmethod
+    def encodeReverseRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
+        r = _packInt(ARA_CMD_REV_RAN_E) + _packBool(allowDirty)
+        r += _packStringOption(first) + _packBool(finc)
+        r += _packStringOption(last) + _packBool(linc)
         r += _packSignedInt(maxEntries)
         return r
 

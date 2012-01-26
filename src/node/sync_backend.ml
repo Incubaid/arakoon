@@ -201,7 +201,7 @@ object(self: #backend)
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
-    log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
+    log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range last first >>= fun () ->
     store # rev_range_entries first finc last linc max

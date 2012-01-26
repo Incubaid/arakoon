@@ -1119,4 +1119,20 @@ def range_entries_scenario( start_suffix ):
         raise ex
         
     
+def reverse_range_entries_scenario(start_suffix):
+    iterate_n_times(100, simple_set, startSuffix = start_suffix)
+    client = get_client ()
+    start_key = key_format_str % (start_suffix)
+    end_key = key_format_str % (start_suffix + 100)
+    try:
+        kv_list0 = client.range_entries("a", True,"z", True, 10)
+        for t in kv_list0:
+            logging.info("t=%s",t)
+        logging.info("now reverse")
+        kv_list = client.rev_range_entries("a", True, "z", True, 10)
+        for t in kv_list:
+            logging.info("t=%s", t)
+        assert_equals( len(kv_list), 3)        
+    except Exception, ex:
+        raise ex
 
