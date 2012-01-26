@@ -2,6 +2,7 @@ import functools
 import subprocess
 import os
 import string
+import os.path
 
 from optparse import OptionParser
 
@@ -19,7 +20,7 @@ parser.add_option("-c", "--client", dest="client", default=False,
 parser.add_option("-b", "--bisect", dest = "bisect", default = False,
                   action = "store_true",
                   help = "Install bisect")
-                  
+
 (options, args) = parser.parse_args()
 
 OCAML='3.12.1'
@@ -31,9 +32,26 @@ def sh(x, **kwargs):
     if subprocess.call(x,**kwargs):
         raise RuntimeError("Failed to run %s %s" % (x, kwargs))
 
-def clean():
-    sh (['rm','-rf', PREFIX])
+def maybe_clean():
+    fine = True
+    fs = ['%s/bin/ocaml', 
+          '%s/lib/ocaml/site-lib/lwt/META',
+          '%s/lib/ocaml/site-lib/bz2/META',
+          ]
+    for f in fs:
+        fine = fine and os.path.exists(f % PREFIX)
+    
+    if not fine:
+        sh (['rm','-rf', PREFIX])
+    return fine
 
+def sh_with_output(x):
+    print x
+    p = subprocess.Popen(x, stdout=subprocess.PIPE, env=env)
+    if p.returncode:
+        raise RuntimeError("Failed to run %s" % x)
+    output = p.stdout.readlines()
+    return '\n'.join(output).strip()
 
 print PREFIX
 env = {'PATH': string.join([PREFIX + '/bin',
@@ -249,34 +267,38 @@ def install_bisect():
     sh (['make','install'], cwd = cwd, env = env)
     t_dir = '_build/src/threads'
     # This should not be necessary, but there's a bug in the Makefile
+    site_lib_dir = sh_with_output(['ocamlfind', 'printconf', 'destdir'])
     sh (['cp', 
          t_dir + '/bisectThread.cmi',
          t_dir + '/bisectThread.cmo',
          t_dir + '/bisectThread.cmx',
          t_dir + '/bisectThread.mli',
-         PREFIX + '/lib/ocaml/site-lib/bisect/'],
+         site_lib_dir + '/bisect/'],
         cwd = cwd)
  
 def do_it():
-    clean()
-    sh(['mkdir', '-p', ROOT])
-    install_ocaml()
-    install_ocamlfind()
-    install_ounit()
-    install_react()
-    install_libev()
-    install_lwt()
-    install_camlbz2()
-    if not options.no_x:
-        install_lablgtk()
-        install_cairo_ocaml()
-        install_ocamlviz()
-    if options.client:
-        install_client()
-    if options.bisect:
-        install_bisect()
-    #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
-    print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+    fine = maybe_clean()
+    if not fine:
+        sh(['mkdir', '-p', ROOT])
+        install_ocaml()
+        install_ocamlfind()
+        install_ounit()
+        install_react()
+        install_libev()
+        install_lwt()
+        install_camlbz2()
+        if not options.no_x:
+            install_lablgtk()
+            install_cairo_ocaml()
+            install_ocamlviz()
+        if options.client:
+            install_client()
+        if options.bisect:
+            install_bisect()
+        #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
+        print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+    else:
+        print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
 
 
 if __name__ == '__main__':

@@ -2,7 +2,11 @@ syntax: glob
 doc/*.aux
 doc/*.log
 doc/*.pdf
+doc/_build/html
+doc/_build/doctrees
+doc/_build/latex
 dist/*
+artefacts/*
 arakoon.egg-info/*
 arakoon.docdir*
 build/*

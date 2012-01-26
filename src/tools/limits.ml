@@ -43,3 +43,5 @@ type soft_or_hard =
   | Hard
 
 external get_rlimit: resource -> soft_or_hard -> int = "arakoon_get_rlimit"
+
+external get_maxrss: unit -> int  = "arakoon_get_maxrss"

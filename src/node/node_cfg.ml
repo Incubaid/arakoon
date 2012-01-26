@@ -210,7 +210,10 @@ module Node_cfg = struct
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
-    let tlog_dir = try get_string "tlog_dir" with _ -> home in
+    let tlog_dir = 
+      try get_string "tlog_dir" 
+      with _ -> home 
+    in
     let log_level = String.lowercase (get_string "log_level")  in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
@@ -221,7 +224,10 @@ module Node_cfg = struct
       else []
     in
     let lease_period = _get_lease_period inifile in
-    let log_dir = get_string "log_dir" in
+    let log_dir = 
+      try get_string "log_dir" 
+      with _ -> home
+    in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
     {node_name;
      ip;

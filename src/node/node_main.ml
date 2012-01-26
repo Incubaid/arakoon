@@ -243,16 +243,14 @@ module X = struct
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
       >>= fun () ->
-      (* let sqs = Lwt_unix.sleep_queue_size () in *)
-      (* let ns = Lwt_unix.get_new_sleeps () in *)
-      (* let wcl = Lwt_unix.wait_children_length () in *)
+      let maxrss = Limits.get_maxrss() in
       let stat = Gc.stat () in
       let factor = float (Sys.word_size / 8) in
       let allocated = (stat.minor_words +.
 			 stat.major_words -. stat.promoted_words) *. 
 	(factor /. 1024.0) 
       in
-      Lwt_log.info_f "nallocated=%f" allocated
+      Lwt_log.info_f "nallocated=%f KB; maxrss=%i KB" allocated maxrss
       >>= fun () ->
       backend # clear_most_statistics();
       _inner ()

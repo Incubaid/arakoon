@@ -1,8 +1,8 @@
 PREREQUISITES:
 
-ocaml   3.12       
+ocaml   3.12.1      
 findlib 1.2.7     
-lwt	2.3.0
+lwt	2.3.2
 ounit	1.1.0    
 react   0.9.2     
 camlbz2 0.6.0    
@@ -15,8 +15,8 @@ COMPILING:
 
 we use ocamlbuild combined with ocamlfind as main driver for our builds.
 
-manifesto
-	ocamlbuild manifest.pdf     ==> _build/manifest.pdf
+documentation
+	make -C doc html latexpdf  ==> doc/_build/html/index.html, doc/_build/latex/Arakoon.pdf
 
 executable
 	ocamlbuild -use-ocamlfind arakoon.native      ==> arakoon.native

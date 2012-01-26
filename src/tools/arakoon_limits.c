@@ -50,3 +50,15 @@ CAMLprim value arakoon_get_rlimit(value v_resource, value soft){
   }
   CAMLreturn(Val_int(res2));
 }
+
+CAMLprim value arakoon_get_maxrss(value unit){
+  CAMLparam1 (unit);
+  int who = RUSAGE_SELF;
+  struct rusage usage;
+  int res = getrusage(who, &usage);
+  if (res != 0){
+    caml_failwith ("get_rusage");
+  }
+  int res2 = usage.ru_maxrss;
+  CAMLreturn(Val_int(res2));
+}

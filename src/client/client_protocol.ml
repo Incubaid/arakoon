@@ -501,7 +501,6 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
 
 let protocol backend connection =
-  info "client_protocol" >>= fun () ->
   let ic,oc = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()

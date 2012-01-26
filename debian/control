@@ -1,24 +1,22 @@
 Source: arakoon
-Section: database
+Section: unknown
 Priority: extra
-Maintainer: Romain Slootmaekers <romain.slootmaekers@incubaid.com>
-Build-Depends: debhelper (>= 7), ocaml-nox (>= 3.11.1-3~), dh-ocaml (>= 0.9), ocaml-findlib (>= 1.2.5),
- liblwt-ocaml-dev (>= 2.1.1), libounit-ocaml-dev (>= 1.0.3), libbz2-ocaml-dev (>= 0.6.0),
- libbz2-dev (>= 1.0.5), texlive (>= 2009), texlive-font-utils (>= 2009), texlive-latex-base (>= 2009)
-Standards-Version: 3.8.3
-Homepage: http://www.arakoon.org
+Maintainer: Romain Slootmaekers <romain@incubaid.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Git: git://git.debian.org/collab-maint/arakoon.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/arakoon.git;a=summary
 
 Package: arakoon
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description:A simple consistent distributed key/value store
+Description: A simple consistent distributed key/value store
  Arakoon tries to be a consistent distributed key value store.
- Technically, it's a ocaml implementation of multipaxos on top of 
-  Tokyo Cabinet 
+ Technically, it's an ocaml implementation of multipaxos, on top of
+ Tokyo Cabinet
 
 Package: libarakoon-ocaml-dev
-Architecture : any
-Section: ocaml
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: ocaml client library for Arakoon
- Implementation of the Arakoon protocol
+Architecture: any
+Description: ocaml client library for arakoon
+ for those interested in using arakoon in their ocaml programs
