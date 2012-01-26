@@ -134,8 +134,15 @@ module Hotc = struct
     let last = match last with | None -> "" | Some x -> prefix ^ x in
     let pl = String.length prefix in
     try with_cursor2 bdb (fun bdb cur ->
-      let () = Bdb.jump bdb cur first in
-      let () = if not finc then Bdb.prev bdb cur in
+      let () =
+        try
+          Bdb.jump bdb cur first
+        with
+          | Not_found -> Bdb.last bdb cur
+      in
+      let jumped_key = Bdb.key bdb cur in
+      let jumped_key_prefix = String.sub jumped_key 0 pl in
+      let () = if not finc || jumped_key_prefix <> prefix then Bdb.prev bdb cur in
       let rec rev_e_loop acc count =
         if count = max then acc
         else

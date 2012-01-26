@@ -215,16 +215,16 @@ let test_rev_range_entries2 db =
   let eq = eq_list (eq_tuple eq_string eq_string) in
   Hotc.transaction db
     (fun db ->
-      Prefix_otc.put db "@" "@nsA_foo" "foox" >>= fun () ->
-      Prefix_otc.put db "@" "@nsI_foo" "foo0" >>= fun () ->
-      Prefix_otc.put db "@" "@nsN_VOL" "foo1" >>= fun () ->
-      Prefix_otc.put db "@" "@nsN_VOL2" "foo2"
+      Prefix_otc.put db "@" "nsA_foo" "foox" >>= fun () ->
+      Prefix_otc.put db "@" "nsI_foo" "foo0" >>= fun () ->
+      Prefix_otc.put db "@" "nsN_VOL" "foo1" >>= fun () ->
+      Prefix_otc.put db "@" "nsN_VOL2" "foo2"
     ) >>= fun () ->
   let bdb = Hotc.get_bdb db in
   (* rev_range_entries @ @nsN_VOL2 true @nsN_ false *)
-  let l1 = Hotc.rev_range_entries "@" bdb (Some "@nsN_VOL2") true (Some "@nsN_") false 3 in
+  let l1 = Hotc.rev_range_entries "@" bdb (Some "nsN_VOL2") true (Some "nsN_") false 3 in
   let () = Printf.printf "l1: %s\n" (show_l l1) in
-  let () = eq "l1" [("@nsN_VOL","foo1");("@nsN_VOL2", "foo2")] l1 in
+  let () = eq "l1" [("nsN_VOL","foo1");("nsN_VOL2", "foo2")] l1 in
   Lwt.return ()
 
 let test_rev_range_entries3 db = 
@@ -233,6 +233,7 @@ let test_rev_range_entries3 db =
   Hotc.transaction db
     (fun bdb -> 
       let put k v = Bdb.put bdb (_pf ^ k) v in
+      put "faa" "boo";
       put "foo" "bar";
       Lwt.return () 
     ) >>= fun () ->
@@ -241,11 +242,11 @@ let test_rev_range_entries3 db =
   and finc = false
   and last = None
   and linc = false
-  and max = -1 
-  in  
+  and max = -1 in
   let bdb = Hotc.get_bdb db in
   let l1 = Hotc.rev_range_entries _pf bdb first finc last linc max in
-  let () = eq "l1" [("xxx", "yyy")] l1 in
+  let () = Printf.printf "l1: %s\n" (show_l l1) in
+  let () = eq "l1" [("faa", "boo")] l1 in
   Lwt.return ()
 
 let setup () = Hotc.create "/tmp/foo.tc"
