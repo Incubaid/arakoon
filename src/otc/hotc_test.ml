@@ -227,6 +227,27 @@ let test_rev_range_entries2 db =
   let () = eq "l1" [("@nsN_VOL","foo1");("@nsN_VOL2", "foo2")] l1 in
   Lwt.return ()
 
+let test_rev_range_entries3 db = 
+  let eq = eq_list (eq_tuple eq_string eq_string) in
+  let _pf = "@" in
+  Hotc.transaction db
+    (fun bdb -> 
+      let put k v = Bdb.put bdb (_pf ^ k) v in
+      put "foo" "bar";
+      Lwt.return () 
+    ) >>= fun () ->
+
+  let first = Some "z" 
+  and finc = false
+  and last = None
+  and linc = false
+  and max = -1 
+  in  
+  let bdb = Hotc.get_bdb db in
+  let l1 = Hotc.rev_range_entries _pf bdb first finc last linc max in
+  let () = eq "l1" [("xxx", "yyy")] l1 in
+  Lwt.return ()
+
 let setup () = Hotc.create "/tmp/foo.tc"
 
 let teardown db =
@@ -246,4 +267,5 @@ let suite =
       "transaction" >:: wrap test_transaction;
       "rev_range_entries" >:: wrap test_rev_range_entries;
       "rev_range_entries2" >:: wrap test_rev_range_entries2;
+      "rev_range_entries3" >:: wrap test_rev_range_entries3;
     ]
