@@ -397,13 +397,14 @@ class ArakoonClient :
                           endKey,  endKeyIncluded,
                           maxElements= -1):
         """ 
+        Performs a reverse range query on the store, returning a sorted (in reverse order) list of key value pairs.
         @type beginKey: string option
         @type endKey :string option
         @type beginKeyIncluded: boolean
         @type endKeyIncluded: boolean
         @type maxElements: integer
-        @param beginKey: right boundary of the requested range
-        @param endKey: left boundary of the requested range
+        @param beginKey: higher boundary of the requested range
+        @param endKey: lower boundary of the requested range
         @param maxElements: maximum number of key-value pairs to return. Negative means 'all'. Defaults to -1
         @rtype : list of (string,string)
         """
