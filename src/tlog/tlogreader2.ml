@@ -72,7 +72,7 @@ module U = struct
       let rec _fold (a:'a) (i,u) =
         match too_far_i with
           | None -> 
-	          begin 
+	    begin 
               f a (i,u) >>= fun a' -> 
               next () >>= function
                 | None -> Lwt.return a'
@@ -82,16 +82,16 @@ module U = struct
             if (i >= hi) 
             then Lwt.return a
             else 
-            begin
-              f a (i,u) >>= fun a' ->
-              next () >>= function
-                | None -> Lwt.return a'
-                | Some (i',u') -> _fold a' (i',u')
-            end
-            in skip_until () >>= function
-              | None ->  Lwt.return a0
-              | Some (i0,u0) ->
-            _fold a0 (i0,u0)
+              begin
+                f a (i,u) >>= fun a' ->
+                next () >>= function
+                  | None -> Lwt.return a'
+                  | Some (i',u') -> _fold a' (i',u')
+              end
+      in skip_until () >>= function
+        | None ->  Lwt.return a0
+        | Some (i0,u0) ->
+          _fold a0 (i0,u0)
 
 end
 

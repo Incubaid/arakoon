@@ -25,6 +25,7 @@ open Tlogcommon
 open Update
 open Lwt
 open Unix.LargeFile
+open Lwt_buffer
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
@@ -289,12 +290,44 @@ object(self: # tlog_collection)
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_update = last
-  val mutable _jobs = 0
+  val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
+  val mutable _compressing = false
   val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
+  initializer self # start_compression_loop ()
+
       
   method validate_last_tlog () = validate_last tlog_dir 
 
   method validate () = validate tlog_dir
+
+
+  method private start_compression_loop () = 
+    let rec loop () = 
+      Lwt_buffer.take _compression_q >>= fun job ->
+      let () = _compressing <- true in
+      let (tlu, tlc_temp, tlc) = job in
+      Lwt.catch
+	(fun () ->
+	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+	  File_system.rename tlc_temp tlc >>= fun () ->
+	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
+	  Lwt.catch
+	    (fun () -> 
+	      Lwt_unix.unlink tlu >>= fun () ->
+	      Lwt.return ("ok: unlinked " ^ tlu)
+	    )
+	    (fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
+	  >>= fun msg ->
+	  Lwt_log.debug ("end of compress : " ^ msg) 
+	)
+	(function exn -> Lwt_log.warning ~exn "exception inside compression, continuing anyway")
+      >>= fun () ->
+      let () = _compressing <- false in
+      let () = Lwt_condition.signal _jc () in
+      loop ()
+    in 
+    Lwt.ignore_result (loop ())
 
   method log_update i update =
     self # _prelude i >>= fun oc ->
@@ -339,53 +372,13 @@ object(self: # tlog_collection)
     let tlu = Filename.concat tlog_dir (file_name _outer) in
     let tlc = Filename.concat tlog_dir (archive_name _outer) in
     let tlc_temp = tlc ^ ".part" in
-    let _inner_compress () =
-      Lwt.finalize
-	(fun () ->
-	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-	  _jobs <- _jobs + 1;
-	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-	  File_system.rename tlc_temp tlc >>= fun () ->
-	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
-	  Lwt.catch
-	    (fun () -> 
-	      Lwt_unix.unlink tlu >>= fun () ->
-	      Lwt.return ("ok: unlinked " ^ tlu)
-	    )
-	    (fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
-	  >>= fun msg ->
-	  Lwt_log.debug ("end of compress : " ^ msg) 
-	)
-	(fun () -> 
-	  _jobs <- _jobs -1;
-	  Lwt_log.debug "_inner_compress :: broadcasting" >>= fun () ->
-	  Lwt_condition.broadcast _jc ();
-	  Lwt.return ()
-	)
-    in 
-    let compress () = 
-      begin
-	begin
-	  let rec loop () = 
-	    if _jobs > 0 then
-	      begin
-		Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
-		Lwt_condition.wait _jc >>= fun () ->
-		loop ()
-	      end
-	    else
-	      Lwt.return ()
-	  in
-	  loop ()
-	end >>= fun () ->
-	Lwt.ignore_result (_inner_compress ());
-	Lwt.return ()
-      end
-    in
     begin
       if use_compression 
-      then compress () 
-      else Lwt.return ()
+      then 
+        let job = (tlu,tlc_temp,tlc) in
+        Lwt_buffer.add job _compression_q
+      else
+        Lwt.return ()
     end
     >>= fun () ->
     _outer <- new_outer;
@@ -476,17 +469,18 @@ object(self: # tlog_collection)
   method close () =
     begin
       Lwt_log.debug "tlc2::close()" >>= fun () ->
-      if _jobs > 0 then 
-	begin
-	  Lwt_log.debug "waiting ..." >>= fun () ->
-	  Lwt_condition.wait _jc 
-	end
-      else Lwt.return () 
-    end >>= fun () ->
-    Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
-    match _oc with
-      | None -> Lwt.return ()
-      | Some oc -> Lwt_io.close oc
+      Lwt_buffer.wait_until_empty _compression_q >>= fun () ->
+      begin
+        if _compressing 
+        then Lwt_condition.wait _jc 
+        else Lwt.return ()
+      end
+      >>= fun () ->
+      Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
+      match _oc with
+        | None -> Lwt.return ()
+        | Some oc -> Lwt_io.close oc
+    end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
   

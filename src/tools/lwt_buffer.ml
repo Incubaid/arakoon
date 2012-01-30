@@ -87,4 +87,9 @@ module Lwt_buffer = struct
 	Lwt_condition.wait t.empty
       else Lwt.return ()
     )
+
+  let wait_until_empty t = 
+    if Queue.is_empty t.q 
+    then Lwt.return ()
+    else Lwt_condition.wait ~mutex:t.full_m t.full 
 end
