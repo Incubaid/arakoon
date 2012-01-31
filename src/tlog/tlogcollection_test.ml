@@ -32,9 +32,11 @@ let setup factory () =
   let dn = "/tmp/tlogcollection" in
   Lwt_preemptive.detach
     (fun () ->
-      let _ = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
-      let () = Unix.mkdir dn 0o755 in
-      ())
+      if Sys.file_exists dn then
+        let rc = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
+        assert (rc = 0);
+        let () = Unix.mkdir dn 0o755 in
+        ())
     ()
   >>= fun ()->
   Lwt.return (dn, factory)
