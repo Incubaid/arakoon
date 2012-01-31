@@ -34,9 +34,12 @@ let setup factory () =
     (fun () ->
       if Sys.file_exists dn then
         let rc = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
-        assert (rc = 0);
-        let () = Unix.mkdir dn 0o755 in
-        ())
+        if rc <> 0 then 
+          let msg = Printf.sprintf "removing %s gave rc %i" dn rc in
+          failwith msg
+        else
+          Unix.mkdir dn 0o755
+    )
     ()
   >>= fun ()->
   Lwt.return (dn, factory)
