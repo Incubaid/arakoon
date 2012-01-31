@@ -49,11 +49,12 @@ let test_empty_collection (dn, factory) =
   Lwt.return ( OUnit.assert_equal i None )
 
 let _log_repeat tlc update n = 
+  let sync = false in
   let rec loop i = 
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-	tlc # log_update i update >>= fun wr_result ->
+	tlc # log_update i update ~sync >>= fun wr_result ->
 	loop (Sn.succ i)
       end
   in loop Sn.start 
@@ -90,7 +91,7 @@ let test_get_value_bug (dn, factory) =
   Lwt_log.info "test_get_value_bug" >>= fun () ->
   factory dn >>= fun c0 ->
   let u0 = Update.make_master_set "XXXX" None in
-  c0 # log_update 0L u0 >>= fun wr_result ->
+  c0 # log_update 0L u0 ~sync:false >>= fun wr_result ->
   factory dn >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
   c1 # get_last_update 0L >>= function

@@ -376,10 +376,13 @@ object(self: #backend)
     log_o self "done with_last_entries"
 
 
-  method sequence (updates:Update.t list) =
+  method sequence ~sync (updates:Update.t list) =
     let start = Unix.gettimeofday() in
-    log_o self "sequence" >>= fun () ->
-    let update = Update.Sequence updates in
+    log_o self "sequence ~sync:%b" sync >>= fun () ->
+    let update = if sync 
+      then Update.SyncedSequence updates 
+      else Update.Sequence updates
+    in
     let update_stats () = Statistics.new_sequence _stats start in
     self # _update_rendezvous update update_stats push_update
 

@@ -81,6 +81,8 @@ method rev_range_entries:
 
   method sequence: change list -> unit Lwt.t (* ... hm ... *)
 
+  method synced_sequence : change list -> unit Lwt.t
+
   method who_master: unit -> string option Lwt.t
 
   method expect_progress_possible: unit -> bool Lwt.t

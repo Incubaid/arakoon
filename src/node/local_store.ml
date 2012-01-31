@@ -266,7 +266,8 @@ let rec _sequence _pf bdb interval updates =
     | Update.UserFunction(name,po) ->
       let _ = _user_function bdb interval name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us -> _sequence _pf bdb interval us
+    | Update.Sequence us 
+    | Update.SyncedSequence us -> _sequence _pf bdb interval us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
     | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta bdb l s r in ()

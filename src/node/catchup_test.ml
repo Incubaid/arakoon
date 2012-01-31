@@ -28,21 +28,23 @@ open Update
 let _dir_name = "/tmp/catchup_test"
   
 let _fill tlog_coll n = 
-    let rec _loop i = 
-      if i = n
-      then Lwt.return ()
-      else
-	begin
-	  let k = Printf.sprintf "key%i" i
-	  and v = Printf.sprintf "value%i" i in
-	  let u = Update.Set (k,v) in
-	  tlog_coll # log_update (Sn.of_int i) u >>= fun _ ->
-	  _loop (i+1)
-	end
-    in
-    _loop 0
+  let sync = false in
+  let rec _loop i = 
+    if i = n
+    then Lwt.return ()
+    else
+      begin
+	let k = Printf.sprintf "key%i" i
+	and v = Printf.sprintf "value%i" i in
+	let u = Update.Set (k,v) in
+	tlog_coll # log_update (Sn.of_int i) u ~sync >>= fun _ ->
+	_loop (i+1)
+      end
+  in
+  _loop 0
 
 let _fill2 tlog_coll n = 
+  let sync = false in
   let rec _loop i =
     if i = n then Lwt.return ()
     else
@@ -54,8 +56,8 @@ let _fill2 tlog_coll n =
 	in
 	let u = Update.Set(k,v) in
 	let u2 = Update.Set(k2,v2) in
-	tlog_coll # log_update (Sn.of_int i) u >>= fun _ ->
-	tlog_coll # log_update (Sn.of_int i) u2 >>= fun _ ->
+	tlog_coll # log_update (Sn.of_int i) u ~sync  >>= fun _ ->
+	tlog_coll # log_update (Sn.of_int i) u2 ~sync >>= fun _ ->
 	_loop (i+1)
       end
   in

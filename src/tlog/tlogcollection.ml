@@ -32,7 +32,7 @@ class type tlog_collection = object
   method validate: unit -> (tlogValidity * Sn.t option) Lwt.t
   method validate_last_tlog: unit -> (tlogValidity * Sn.t option) Lwt.t 
   method iterate: Sn.t -> Sn.t -> (Sn.t * Update.t -> unit Lwt.t) -> unit Lwt.t
-  method log_update: Sn.t -> Update.t -> unit Lwt.t
+  method log_update: Sn.t -> Update.t -> sync:bool -> unit Lwt.t
   method get_last_update: Sn.t -> Update.t option Lwt.t
   method close : unit -> unit Lwt.t
   method get_last_i: unit -> Sn.t Lwt.t

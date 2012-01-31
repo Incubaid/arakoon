@@ -98,7 +98,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
     let f (i,update) =
       (*Lwt_log.debug_f "%s:%s => tlog" 
 	(Sn.string_of i) (Update.string_of update) >>= fun () -> *)
-      tlog_coll # log_update i update >>=
+      tlog_coll # log_update i update ~sync:false >>=
 	fun _ -> 
       Lwt.return ()
     in

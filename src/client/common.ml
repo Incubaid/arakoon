@@ -70,6 +70,7 @@ type client_command =
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
   | REV_RANGE_ENTRIES
+  | SYNCED_SEQUENCE
 
 
 let code2int = [
@@ -104,6 +105,7 @@ let code2int = [
   SET_ROUTING_DELTA       , 0x21l;
   MIGRATE_RANGE           , 0x22l;
   REV_RANGE_ENTRIES       , 0x23l;
+  SYNCED_SEQUENCE         , 0x24l;
 ]
 
 let int2code =
@@ -372,13 +374,19 @@ let migrate_range (ic,oc) interval changes =
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
 
-let sequence (ic,oc) changes =
+
+let _sequence (ic,oc) changes cmd = 
   let outgoing buf =
-    command_to buf SEQUENCE;
+    command_to buf cmd;
     _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
+
+let sequence conn changes = _sequence conn changes SEQUENCE
+
+let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
+
 
 let get_nursery_cfg (ic,oc) =
   let decode ic =

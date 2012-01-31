@@ -190,7 +190,7 @@ class test_backend my_name = object(self:#backend)
 
   method who_master () = Lwt.return (Some my_name)
 
-  method sequence (updates:Update.t list) =
+  method sequence ~sync:bool (updates:Update.t list) =
     info_f "test_backend::sequence" >>= fun () ->
     let do_one = function
       | Update.Set (k,v) -> self # set k v

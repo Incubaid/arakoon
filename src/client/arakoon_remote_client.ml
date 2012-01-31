@@ -82,6 +82,7 @@ object(self: #Arakoon_client.client)
 
   method sequence changes = Common.sequence conn changes
 
+  method synced_sequence changes = Common.synced_sequence conn changes
 
   method who_master () = Common.who_master conn
 

@@ -38,6 +38,7 @@ module Update = struct
     | Assert of string * string option
     | UserFunction of string * string option
     | AdminSet of string * string option
+    | SyncedSequence of t list 
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -77,8 +78,15 @@ module Update = struct
       let ps = _size_of param in
       Printf.sprintf "UserFunction;%s;%i" name ps
     | AdminSet (key,vo) -> Printf.sprintf "AdminSet  ;%S;%i" key (_size_of vo)
+    | SyncedSequence updates -> Printf.sprintf "SyncedSequence ..."
 
+  
   let rec to_buffer b t =
+    let _us_to b us = 
+      Llio.int_to b (List.length us);
+      let f = to_buffer b in
+      List.iter f us
+    in
     match t with
       | Set(k,v) ->
 	Llio.int_to    b 1;
@@ -98,9 +106,7 @@ module Update = struct
 	Llio.int64_to b i
       | Sequence us ->
 	Llio.int_to b 5;
-	Llio.int_to b (List.length us);
-	let f = to_buffer b in
-	List.iter f us
+        _us_to b us
       | Nop -> 
 	Llio.int_to b 6
       | UserFunction (name, param) ->
@@ -112,9 +118,9 @@ module Update = struct
 	Llio.string_to b k;
 	Llio.string_option_to b vo
       | AdminSet(k,vo) ->
-  Llio.int_to b 9;
-  Llio.string_to b k;
-  Llio.string_option_to b vo;
+        Llio.int_to b 9;
+        Llio.string_to b k;
+        Llio.string_option_to b vo;
       | SetInterval interval ->
 	Llio.int_to b 10;
 	Interval.interval_to b interval
@@ -126,10 +132,25 @@ module Update = struct
         Llio.string_to b l;
         Llio.string_to b s;
         Llio.string_to b r
+      | SyncedSequence us ->
+        Llio.int_to b 13;
+        _us_to b us
+
 
 
   let rec from_buffer b pos =
     let kind, pos1 = Llio.int_from b pos in
+    let _us_from b pos = 
+      let n,pos2 = Llio.int_from b pos in
+      let rec loop i acc pos=
+        if i = n 
+        then 
+          (List.rev acc), pos
+        else
+          let u, next_pos = from_buffer b pos in
+          loop (i+1) (u::acc) next_pos in
+      loop 0 [] pos2
+    in
     match kind with
       | 1 -> 
         let k,pos2 = Llio.string_from b pos1 in
@@ -148,15 +169,8 @@ module Update = struct
         let i,pos3 = Llio.int64_from b pos2 in
         MasterSet (m,i), pos3
       | 5 ->
-        let n,pos2 = Llio.int_from b pos1 in
-        let rec loop i acc pos=
-        if i = n 
-        then 
-          Sequence (List.rev acc), pos
-        else
-          let u, next_pos = from_buffer b pos in
-          loop (i+1) (u::acc) next_pos in
-          loop 0 [] pos2
+        let us, pos2 = _us_from b pos1 in
+        Sequence us, pos2
       | 6 -> Nop, pos1
       | 7 ->
 	let n,  pos2 = Llio.string_from b pos1 in
@@ -182,7 +196,9 @@ module Update = struct
         let s, pos3 = Llio.string_from b pos2 in
         let r, pos4 = Llio.string_from b pos3 in
         SetRoutingDelta (l, s, r), pos4
-        
+      | 13 ->
+        let us, pos2 = _us_from b pos1 in
+        SyncedSequence us, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 
@@ -192,8 +208,12 @@ module Update = struct
     let s = Buffer.contents b in
     Value.create s
 
+  let is_synced = function
+    | SyncedSequence _ -> true
+    | _ -> false
+    
   let is_master_set (Value.V buf) = 
     let kind,_ = Llio.int_from buf 0 in
     kind = 4
-
+        
 end

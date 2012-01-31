@@ -53,7 +53,7 @@ let _make_tlog_coll tlcs updates tlc_name use_compression =
     | [] -> Lwt.return () 
     | u :: us -> 
       begin
-	tlc # log_update i u >>= fun _ ->
+	tlc # log_update i u ~sync:false >>= fun _ ->
 	loop (Sn.succ i) us
       end
   in

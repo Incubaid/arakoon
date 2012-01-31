@@ -285,14 +285,16 @@ class ArakoonClient :
 
     @retryDuringMasterReelection
     @SignatureValidator( 'sequence' )
-    def sequence(self, seq):
+    def sequence(self, seq, sync = False):
         """
-        Try to execute a sequence of updates.
+        Try to execute a sequence of updates. 
+        if sync is true then the filesystem on 
+        server side will get synchronised right after the update.
 
         It's all-or-nothing: either all updates succeed, or they all fail.
         @type seq: Sequence
         """
-        encoded = ArakoonProtocol.encodeSequence(seq)
+        encoded = ArakoonProtocol.encodeSequence(seq, sync)
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
     

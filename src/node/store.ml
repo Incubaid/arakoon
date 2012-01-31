@@ -157,7 +157,8 @@ let _insert_update (store:store) update =
 	    in
 	    Lwt.return (Update_fail(rc,msg))
 	)
-    | Update.Sequence updates ->
+    | Update.Sequence updates 
+    | Update.SyncedSequence updates ->
       Lwt.catch
         (fun () ->
           store # sequence updates >>= fun () ->

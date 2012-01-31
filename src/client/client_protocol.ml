@@ -110,13 +110,13 @@ let decode_sequence ic =
              "should have been a sequence"))
   end
 
-let handle_sequence ic oc backend =
+let handle_sequence ~sync ic oc backend =
   begin
     Lwt.catch
       (fun () ->
         begin
           decode_sequence ic >>= fun updates ->
-          backend # sequence updates >>= fun () ->
+          backend # sequence ~sync updates >>= fun () ->
           response_ok_unit oc
         end )
       ( handle_exception oc )
@@ -320,10 +320,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
       end
-    | SEQUENCE ->
-      begin
-        handle_sequence ic oc backend
-      end
+    | SEQUENCE -> handle_sequence ~sync:false ic oc backend
+    | SYNCED_SEQUENCE -> handle_sequence ~sync:true ic oc backend
     | MIGRATE_RANGE ->
       begin
         Lwt.catch(
@@ -332,7 +330,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
             decode_sequence ic >>= fun updates ->
             let interval_update = Update.SetInterval interval in
             let updates' =  interval_update :: updates in
-            backend # sequence updates' >>= fun () ->
+            backend # sequence ~sync:false updates' >>= fun () ->
             response_ok_unit oc
         ) (handle_exception oc)
       end

@@ -57,7 +57,7 @@ class type backend = object
   method hello: string -> string -> (int32 * string) Lwt.t
 
   method who_master: unit -> string option Lwt.t
-  method sequence: Update.t list -> unit Lwt.t
+  method sequence: sync:bool -> Update.t list -> unit Lwt.t
 
   method witness : string -> Sn.t -> unit Lwt.t
 

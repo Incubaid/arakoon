@@ -228,12 +228,13 @@ let get_count tlog_names =
 	   else  number + 1
 
 
-let _init_oc tlog_dir c =
+let _init_ocfd tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
-  Lwt_io.open_file ~flags:[Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY]
-    ~perm:0o644
-    ~mode: Lwt_io.output full_name
+  Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
+  let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
+  Lwt.return (oc,fd)
+
 
 let iterate_tlog_dir tlog_dir start_i too_far_i f =
   let tfs = Sn.string_of too_far_i in
@@ -286,7 +287,7 @@ class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option) (use_co
 	(Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _oc = None 
+  val mutable _ocfd = None 
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_update = last
@@ -329,10 +330,16 @@ object(self: # tlog_collection)
     in 
     Lwt.ignore_result (loop ())
 
-  method log_update i update =
-    self # _prelude i >>= fun oc ->
+  method log_update i update ~sync =
+    self # _prelude i >>= fun (oc,fd) ->
     Tlogcommon.write_entry oc i update >>= fun () -> 
     Lwt_io.flush oc >>= fun () ->
+    begin
+      if sync 
+      then Lwt_unix.fsync fd >>= fun () -> Lwt_log.info "FSYNC tlog"
+      else Lwt.return ()
+    end
+    >>= fun () ->
     let () = match _previous_update with
       | None -> _inner <- _inner +1
       | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
@@ -341,32 +348,33 @@ object(self: # tlog_collection)
     Lwt.return ()
     
   method private _prelude i =
-    match _oc with
+    match _ocfd with
       | None ->
 	begin
 	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	  _outer <- Sn.to_int outer;
-	  _init_oc tlog_dir _outer >>= fun oc ->
-	  _oc <- Some oc;
-	  Lwt.return oc
+	  _init_ocfd tlog_dir _outer >>= fun ocfd ->
+	  _ocfd <- Some ocfd;
+	  Lwt.return ocfd
 	end
-      | Some oc -> 
+      | Some ocfd -> 
 	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
 	then
           let do_rotate() =
             Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
-            self # _rotate oc (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
+            self # _rotate ocfd (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
           in
           begin
             match _previous_update with
-            | Some (pi, _) when pi = i -> Lwt.return oc
+            | Some (pi, _) when pi = i -> Lwt.return ocfd
             | _ -> do_rotate ()
           end
 	else
-	  Lwt.return oc
+	  Lwt.return ocfd
 
       
-  method private _rotate (oc:Lwt_io.output_channel) new_outer =
+  method private _rotate ocfd new_outer =
+    let oc,fd = ocfd in
     Lwt_io.close oc >>= fun () ->
     _inner <- 0;
     let tlu = Filename.concat tlog_dir (file_name _outer) in
@@ -382,9 +390,9 @@ object(self: # tlog_collection)
     end
     >>= fun () ->
     _outer <- new_outer;
-    _init_oc tlog_dir _outer >>= fun new_oc ->
-    _oc <- Some new_oc;
-    Lwt.return new_oc
+    _init_ocfd tlog_dir _outer >>= fun new_ocfd ->
+    _ocfd <- Some new_ocfd;
+    Lwt.return new_ocfd
 
 
 
@@ -465,7 +473,7 @@ object(self: # tlog_collection)
 	      failwith msg
     in 
     Lwt.return vo
-	    
+     
   method close () =
     begin
       Lwt_log.debug "tlc2::close()" >>= fun () ->
@@ -477,9 +485,9 @@ object(self: # tlog_collection)
       end
       >>= fun () ->
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
-      match _oc with
+      match _ocfd with
         | None -> Lwt.return ()
-        | Some oc -> Lwt_io.close oc
+        | Some (oc,_) -> Lwt_io.close oc
     end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))

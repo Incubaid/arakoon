@@ -58,7 +58,7 @@ object (self: #tlog_collection)
 
   method save_tlog_file name length ic = failwith "not supported"
 
-  method  log_update i u =
+  method  log_update i u ~sync=
     let () = data <- (i,u)::data in
     let () = last_update <- (Some (i,u)) in
     Lwt.return ()

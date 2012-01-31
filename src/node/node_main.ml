@@ -198,12 +198,12 @@ module X = struct
   let last_master_log_stmt = ref 0L  
   
   let on_accept tlog_coll store (v,n,i) =
-    Lwt_log.debug_f "on_accept: n:%s i:%s" 
-      (Sn.string_of n) (Sn.string_of i)
+    Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
     let Value.V(update_string) = v in
     let u, _ = Update.from_buffer update_string 0 in
-    tlog_coll # log_update i u >>= fun wr_result ->
+    let sync = Update.is_synced u in
+    tlog_coll # log_update i u ~sync >>= fun wr_result ->
     begin
       match u with
 	| Update.MasterSet (m,l) ->
