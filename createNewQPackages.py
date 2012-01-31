@@ -139,6 +139,13 @@ def createNewPackage( package_name, package_description, old_version, new_versio
     for f in fs.listFilesInDir ( prev_tasklet_dir, filter="*.py" ) :
         fs.copyFile( f, tasklet_dir )
 
+    print 'B', pkg.dependencies
+    for d in prev_pkg.dependencies:
+        pkg.addDependency(d.domain, d.name, d.supportedPlatforms, \
+            d.minversion, d.maxversion, d.dependencytype)
+
+    print 'A', pkg.dependencies
+
     p = i.qp.find( package_name, version=new_version )
     return p
 
@@ -171,7 +178,7 @@ q.system.fs.writeFile(tasklet_path, get_arakoon_codemanagement_tasklet(branch))
 p = createNewPackage('arakoon_system_tests', 'Version %s of the arakoon system tests' % new_version, prev_version, new_version )
 deps_to_replace = ['arakoon']
 replace_deps(p, deps_to_replace)
-p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
+#p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
 packages.append(p)
 
 for p in packages:
