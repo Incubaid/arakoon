@@ -24,7 +24,7 @@ What is fixed
 +--------------+------------------------------------------------------------------+
 | ARAKOON-260_ | statistics have wrong calculation of deviation                   |
 +--------------+------------------------------------------------------------------+
-| ARAKOON-263_ | arakoon performance takes a diev when value sizes go above 437   |
+| ARAKOON-263_ | arakoon performance takes a dive when value sizes go above 437   |
 +--------------+------------------------------------------------------------------+
 
 .. _ARAKOON-259: http://jira.incubaid.com/browse/ARAKOON-259
