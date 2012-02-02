@@ -32,7 +32,7 @@ Server
 | Debian Package x86_64   | {version:>13}__  | {deb_size:>17.0f} KB | MD5: {deb_md5:>32}    |
 +-------------------------+------------------+----------------------+------------------------------------------+
 | Ubuntu x86_64 Q-Package | {version:>13}    | name: arakoon        | domain: pylabs.org                       |
-+-------------------------+---------------+----------------+---------------------------------------------------+
++-------------------------+------------------+----------------------+------------------------------------------+
 
 .. __: {deb_url}
 
@@ -52,7 +52,7 @@ OCaml client
 | Debian Package x86_64   | {version:>13}__  | {lib_size:>17.1f} KB | MD5: {lib_md5:>32}    |
 +-------------------------+------------------+----------------------+------------------------------------------+
 
-.. __: http://...
+.. __: {lib_url}
 
 Sources
 -------
@@ -79,7 +79,7 @@ base_url = "https://bitbucket.org/despiegk/arakoon"
 deb_url = "%s/downloads/arakoon_%s-1_amd64.deb" % (base_url, version)
 egg_url = "%s/downloads/arakoon-%s-py2.7.egg" % (base_url, version)
 source_url = "%s/get/%s.tar.bz2" % (base_url,hg_id)
-lib_url = "???"
+lib_url = "%s/downloads/libarakoon-ocaml-dev_%s-1.amd64.deb" % (base_url, version)
 
 def check_download(url):
     f = urllib.urlopen(url)
@@ -95,7 +95,7 @@ def check_download(url):
 deb_size, deb_md5 = check_download(deb_url)
 egg_size, egg_md5 = check_download(egg_url)
 source_size, source_md5 = check_download(source_url)
-lib_size, lib_md5 = 42.0,"???"
+lib_size, lib_md5 = check_download(lib_url)
 
 f = string.Formatter()
 params = {
