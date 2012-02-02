@@ -24,7 +24,7 @@ Arakoon version {version}
 ======================
 `Release notes`_
 
-.. _Release notes: releases/${version}.html
+.. _Release notes: releases/{version}.html
 
 Server
 ------

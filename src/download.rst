@@ -18,7 +18,7 @@ Arakoon version 1.1.0
 ======================
 `Release notes`_
 
-.. _Release notes: releases/$1.1.0.html
+.. _Release notes: releases/1.1.0.html
 
 Server
 ------
