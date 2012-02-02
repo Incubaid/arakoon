@@ -183,3 +183,6 @@ packages.append(p)
 
 for p in packages:
     p.quickPackage()
+
+msg = 'Releasing Arakoon %s (branch %s)' % (new_version, branch)
+q.qp.publish(commitMessage=msg, domain='pylabs.org')
