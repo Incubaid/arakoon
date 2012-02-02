@@ -1,6 +1,8 @@
 import string
 import urllib
 import md5
+import argparse
+import sys
 
 template = """
 =========
@@ -26,37 +28,37 @@ Arakoon version {version}
 
 Server
 ------
-+-------------------------+---------------+----------------+---------------------------------------+
-| Debian Package x86_64   | {version}__  | {deb_size:.0f} KB   | MD5: {deb_md5}                    |
-+-------------------------+---------------+----------------+---------------------------------------+
-| Ubuntu x86_64 Q-Package | {version}    | name: arakoon  | domain: pylabs.org                     |
-+-------------------------+---------------+----------------+---------------------------------------+
++-------------------------+------------------+----------------------+------------------------------------------+
+| Debian Package x86_64   | {version:>13}__  | {deb_size:>17.0f} KB | MD5: {deb_md5:>32}    |
++-------------------------+------------------+----------------------+------------------------------------------+
+| Ubuntu x86_64 Q-Package | {version:>13}    | name: arakoon        | domain: pylabs.org                       |
++-------------------------+---------------+----------------+---------------------------------------------------+
 
 .. __: {deb_url}
 
 Python Client
 -------------
-+-------------------------+---------------+----------------------+---------------------------------------+
-| Python 2.6 egg          | {version}__  | {egg_size:.0f} KB     | MD5: {egg_md5}                        |
-+-------------------------+---------------+----------------------+---------------------------------------+
-| Ubuntu x86_64 Q-Package | {version}    | name: arakoon_client  | domain: pylabs.org                    |
-+-------------------------+---------------+----------------------+---------------------------------------+
++-------------------------+------------------+----------------------+------------------------------------------+
+| Python 2.7 egg          | {version:>13}__  | {egg_size:>17.1f} KB | MD5: {egg_md5:>32}    |
++-------------------------+------------------+----------------------+------------------------------------------+
+| Ubuntu x86_64 Q-Package | {version:>13}    | name: arakoon_client | domain: pylabs.org                       |
++-------------------------+------------------+----------------------+------------------------------------------+
 
 .. __: {egg_url}
 
 OCaml client
 ------------
-+-------------------------+----------+-------+---------------------------------------+
-| Debian Package x86_64   | {version}__ | {lib_size:.2f} KB | MD5: {lib_md5}         |
-+-------------------------+----------+-------+---------------------------------------+
++-------------------------+------------------+----------------------+------------------------------------------+
+| Debian Package x86_64   | {version:>13}__  | {lib_size:>17.1f} KB | MD5: {lib_md5:>32}    |
++-------------------------+------------------+----------------------+------------------------------------------+
 
 .. __: http://...
 
 Sources
 -------
-+---------+--------------+--------+---------------------------------------+
-| Archive | {version}__  | {source_size:.2f} KB | MD5: {source_md5}       |
-+---------+--------------+--------+---------------------------------------+
++---------+-----------------+-------------------------+---------------------------------------+
+| Archive | {version:>13}__ | {source_size:>20.2f} KB | MD5: {source_md5:>32} |
++---------+-----------------+-------------------------+---------------------------------------+
 
 .. __: {source_url}
 
@@ -68,10 +70,15 @@ Older releases of Arakoon can be found on the `Archives page`_.
 
 """
 
-version = "1.0.1"
-deb_url = "https://bitbucket.org/despiegk/arakoon/downloads/arakoon_1.0.1-1_amd64.deb"
-egg_url = "https://bitbucket.org/despiegk/arakoon/downloads/arakoon-1.0.1-py2.6.egg"
-source_url = "https://bitbucket.org/despiegk/arakoon/get/77db3bc403b8.tar.bz2"
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', required= True)
+options = parser.parse_args()
+version = options.version 
+hg_id = '80878f0d8b8b'
+base_url = "https://bitbucket.org/despiegk/arakoon" 
+deb_url = "%s/downloads/arakoon_%s-1_amd64.deb" % (base_url, version)
+egg_url = "%s/downloads/arakoon-%s-py2.7.egg" % (base_url, version)
+source_url = "%s/get/%s.tar.bz2" % (base_url,hg_id)
 lib_url = "???"
 
 def check_download(url):
