@@ -18,7 +18,7 @@
   </url>
   <url>
     <loc>http://arakoon.org/download.html</loc>
-    <lastmod>2012-01-25T10:24:21+01:00</lastmod>
+    <lastmod>2012-02-02T12:56:24+01:00</lastmod>
   </url>
   <url>
     <loc>http://arakoon.org/index.html</loc>
@@ -51,5 +51,9 @@
   <url>
     <loc>http://arakoon.org/releases/1.0.1.html</loc>
     <lastmod>2012-02-01T10:20:28+01:00</lastmod>
+  </url>
+  <url>
+    <loc>http://arakoon.org/releases/1.1.0.html</loc>
+    <lastmod>2012-02-02T12:54:54+01:00</lastmod>
   </url>
 </urlset>
