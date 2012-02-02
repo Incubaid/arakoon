@@ -4,7 +4,7 @@ Downloads
 =========
 On this page you can find all the required packages to install Arakoon Release 1.1.0
 
-Arakoon 1.1.0 can only be installed on Ubuntu 64-bit.
+Arakoon 1.1.0 can only be installed on Linux. We provide packages for Debian amd64.
 
 If you want support for other distros, please contact us and we'll see what we can do.
 
