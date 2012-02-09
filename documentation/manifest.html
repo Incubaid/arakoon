@@ -378,10 +378,21 @@ The keys fall in the range <em>kbey..ekey</em>.
 <p>will yield a list of key value pairs.
 The parameters have the same semantics as for the range method.</p>
 </div>
+<div class="section" id="rev-range-entries-key-option-bool-key-option-bool-int-key-value-list-c-t">
+<h4>rev_range_entries : key option -&gt; bool -&gt; key option -&gt; bool -&gt; int -&gt; (key * value ) list C.t<a class="headerlink" href="#rev-range-entries-key-option-bool-key-option-bool-int-key-value-list-c-t" title="Permalink to this headline">¶</a></h4>
+<p><em>rev_range_entries bkey binc ekey einc max</em> will yield a list of key value pairs,
+just like <em>range_entries</em>, but with reverse ordering: <em>bkey</em> is the higher boundary, <em>ekey</em> the lower.
+This can be used to support backwards paging.</p>
+</div>
 <div class="section" id="sequence-update-list-unit-c-t">
 <h4>sequence: update list -&gt; unit C.t<a class="headerlink" href="#sequence-update-list-unit-c-t" title="Permalink to this headline">¶</a></h4>
 <p>Provides an atomic multi-update. Either all updates are performed or none.
 While this is not a full transaction, it provides enough functionality to safeguard consistency.</p>
+</div>
+<div class="section" id="synced-sequence-update-list-unit-c-t">
+<h4>synced_sequence: update_list -&gt; unit C.t<a class="headerlink" href="#synced-sequence-update-list-unit-c-t" title="Permalink to this headline">¶</a></h4>
+<p>Provides an atomic multi-update, just like <em>sequence</em>, but with the added action of a file system synchronisation (fsync),
+before the call returns. Some people feel safer that way.</p>
 </div>
 <div class="section" id="assert-key-value-option-unit-c-t">
 <h4>assert : key -&gt; value option -&gt; unit C.t<a class="headerlink" href="#assert-key-value-option-unit-c-t" title="Permalink to this headline">¶</a></h4>
@@ -794,6 +805,12 @@ If a failure happens, the server writes out a return code different from zero, a
 <tr class="row-odd"><td>confirm</td>
 <td>0x0000 001b</td>
 </tr>
+<tr class="row-even"><td>rev_range_entries</td>
+<td>0x0000 0023</td>
+</tr>
+<tr class="row-odd"><td>synced_sequence</td>
+<td>0x0000 0024</td>
+</tr>
 </tbody>
 </table>
 <table border="1" class="docutils">
@@ -896,7 +913,7 @@ The population can only change with reasonable increments.</p>
 <div class="section" id="state-machine">
 <h2><a class="toc-backref" href="#id34">State machine</a><a class="headerlink" href="#state-machine" title="Permalink to this headline">¶</a></h2>
 <p class="graphviz">
-digraph MultiPaxos {
+<img src="_images/graphviz-985667158354e14d684ed1c3ef017e104429199b.png" alt="digraph MultiPaxos {
   compound=true;
   node [shape=box];
   subgraph cluster0 {
@@ -961,7 +978,7 @@ digraph MultiPaxos {
   promises_check_done -&gt; accepteds_check_done [color=green, label=&quot;(4)&quot;];
   stable_master -&gt; election_suggest;
   election_suggest -&gt; slave_wait_for_accept [color=green, label=&quot;(11)&quot;];
-}
+}" />
 </p>
 <p>This figure shows the state machine diagram for the arakoon nodes.</p>
 <table border="1" class="docutils">
