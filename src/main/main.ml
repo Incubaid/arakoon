@@ -186,6 +186,7 @@ let run_some_tests repeat_count filter =
 
 
 let main () = 
+  let _ = Bz2.version in
   let () = Sys.set_signal Sys.sigpipe Sys.Signal_ignore in
   let () = Random.self_init () in
   let usage_buffer = Buffer.create 1024 in

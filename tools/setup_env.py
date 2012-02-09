@@ -276,6 +276,14 @@ def install_bisect():
          site_lib_dir + '/bisect/'],
         cwd = cwd)
  
+def install_libbz2():
+    lib = Lib('bzip2-1.0.6','.tar.gz',
+              'http://bzip.org/1.0.6/%s')
+    lib.download()
+    lib.extract()
+    lib.sh(['make', '-f', 'Makefile-libbz2_so'])
+    lib.sh(['cp', 'libbz2.so.1.0.6', '%s/lib' % PREFIX])
+
 def do_it():
     fine = maybe_clean()
     if not fine:
@@ -286,6 +294,7 @@ def do_it():
         install_react()
         install_libev()
         install_lwt()
+        install_libbz2()
         install_camlbz2()
         if not options.no_x:
             install_lablgtk()
