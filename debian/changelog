@@ -1,3 +1,6 @@
+arakoon (1.1-dev) unstable; urgency=low
+  * new upstream version
+  * dependency fix (libev iso libevent)
 arakoon (1.0-dev) unstable; urgency=low
 
   * Initial Release.
