@@ -1,6 +1,7 @@
 arakoon (1.1-dev) unstable; urgency=low
   * new upstream version
   * dependency fix (libev iso libevent)
+ -- Romain Slootmaekers <romain@incubaid.com>  Fri, 10 Feb 2012 18:11:54 +0100
 arakoon (1.0-dev) unstable; urgency=low
 
   * Initial Release.
