@@ -27,21 +27,21 @@ module Routing = struct
     | LOWER_BOUND
 
   type sep = string
-  type t = 
+  type t =
     | Cluster of string
     | Branch of (t * sep * t)
 
   type repr = ((string * sep) list) * string
-	
+
   let rec to_s = function
     | Cluster a -> Printf.sprintf "{%s}" a
-    | Branch (left,b,right) -> 
-      Printf.sprintf "%s,%s,%s" 
+    | Branch (left,b,right) ->
+      Printf.sprintf "%s,%s,%s"
 	(to_s left) b (to_s right)
 
- 
-  let rec build (sss, last) = 
-    let  split sss = 
+
+  let rec build (sss, last) =
+    let  split sss =
       let rec loop head rest = function
       | 0 -> List.rev head, rest
       | i -> loop (List.hd rest :: head) (List.tl rest) (i-1)
@@ -60,23 +60,23 @@ module Routing = struct
 	     Branch (lt, sep, rt)
 
   let contains t cid =
-    let rec _walk = function 
+    let rec _walk = function
       | Branch(l, s, r) ->
         begin
           let b = _walk l in
-          if b 
+          if b
           then b
           else _walk r
-        end  
+        end
       | Cluster x when x = cid -> true
       | Cluster x -> false
     in _walk t
-  
-  let rec get_cluster_ids = function 
+
+  let rec get_cluster_ids = function
     | Cluster x -> [x]
     | Branch (l, s, r) ->
-      (get_cluster_ids l) @ (get_cluster_ids r) 
-    
+      (get_cluster_ids l) @ (get_cluster_ids r)
+
   let rec get_lower_sep parent_sep c_id = function
       | Branch(l, s, r) when r = (Cluster c_id) ->
         Some s
@@ -85,13 +85,13 @@ module Routing = struct
       | Branch (l, s, r) ->
         let m_l = get_lower_sep None c_id l in
         begin
-          match m_l with 
+          match m_l with
             | None -> get_lower_sep (Some s) c_id r
-            | _ -> m_l 
+            | _ -> m_l
         end
       | Cluster x -> None
-  
-  let rec get_upper_sep parent_sep c_id = function 
+
+  let rec get_upper_sep parent_sep c_id = function
       | Branch(l, s, r) when l = (Cluster c_id) ->
         Some s
       | Branch(l, s, r) when r = (Cluster c_id) ->
@@ -100,7 +100,7 @@ module Routing = struct
         let m_l = get_upper_sep (Some s) c_id l in
         begin
           match m_l with
-            | None -> get_upper_sep None c_id r 
+            | None -> get_upper_sep None c_id r
             | _ -> m_l
         end
       | Cluster x -> None
@@ -108,7 +108,7 @@ module Routing = struct
 (*
   let rec remove t c_id =
     match t with
-      | Branch (l, s, r) when l = (Cluster c_id) -> 
+      | Branch (l, s, r) when l = (Cluster c_id) ->
         r
       | Branch (l, s, r) when r = (Cluster c_id) ->
         l
@@ -120,13 +120,13 @@ module Routing = struct
         Cluster c
 *)
 
-  let remove t c_id = 
-    let rec inner_remove t c_id other_side = 
-      match t with 
+  let remove t c_id =
+    let rec inner_remove t c_id other_side =
+      match t with
         | Branch (l, s, r) ->
           let new_l = inner_remove l c_id (Some r) in
           let new_r = inner_remove r c_id (Some l) in
-          begin 
+          begin
             match new_l, new_r with
               | None, None -> failwith "cluster_id present in two leaves??"
               | Some nl, Some nr -> Some (Branch( nl, s, nr))
@@ -141,14 +141,14 @@ module Routing = struct
     match m_result with
       | None -> failwith "Cannot remove last entry from routing"
       | Some r -> r
-  
-  let compact t = 
+
+  let compact t =
     let clusters = get_cluster_ids t in
     let maybe_remove_cluster routing cluster_id=
       let upper = get_upper_sep None cluster_id routing in
       let lower = get_lower_sep None cluster_id routing in
       match upper,lower with
-        | Some x, Some y when x = y -> remove routing cluster_id 
+        | Some x, Some y when x = y -> remove routing cluster_id
         | _ -> routing
     in
     List.fold_left maybe_remove_cluster t clusters
@@ -157,25 +157,25 @@ module Routing = struct
     | Branch (l, s, r) ->
       get_left_most l
     | Cluster x -> x
-  
-  let rec get_right_most = function 
+
+  let rec get_right_most = function
     | Branch (l, s, r) ->
       get_right_most r
     | Cluster x -> x
 
 
   let change t left sep right =
-    if not( contains t left || contains t right ) 
-    then 
+    if not( contains t left || contains t right )
+    then
       failwith "Cannot add two clusters at the same time"
     else
       let rec _walk = function
         | Cluster n ->
-          begin 
-            if n = left || n = right 
-            then 
+          begin
+            if n = left || n = right
+            then
               Branch(Cluster left,sep, Cluster right)
-            else 
+            else
               Branch(Cluster n, sep, Cluster left)
           end
         | Branch(l,s, r) when (get_right_most l) = left && (get_left_most r) = right ->
@@ -187,28 +187,28 @@ module Routing = struct
       in
       let n_r = _walk t in
       compact n_r
-	  
-	  
-	  
-	
 
-  let routing_to buf cfg = 
+
+
+
+
+  let routing_to buf cfg =
     let rec walk = function
-      | Cluster x -> 
-	Llio.bool_to buf true; 
+      | Cluster x ->
+	Llio.bool_to buf true;
 	Llio.string_to buf x
       | Branch(left,sep,right) ->
-	Llio.bool_to buf false; 
+	Llio.bool_to buf false;
 	Llio.string_to buf sep;
 	walk left;
 	walk right
     in
     walk cfg
-      
-  let routing_from buf pos = 
-    let rec _build pos =     
+
+  let routing_from buf pos =
+    let rec _build pos =
       let typ,p1 = Llio.bool_from buf pos in
-      let r,p = if typ 
+      let r,p = if typ
 	then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
 	else let sep,p2 = Llio.string_from buf p1 in
 	     let left,p3 = _build p2 in
@@ -218,7 +218,7 @@ module Routing = struct
     in
     _build pos
 
-  let output_routing oc routing = 
+  let output_routing oc routing =
     let buf = Buffer.create 97 in
     let () = routing_to buf routing in
     let s = Buffer.contents buf in
@@ -226,21 +226,21 @@ module Routing = struct
 
   open Lwt
 
-  let input_routing ic = 
+  let input_routing ic =
     Llio.input_string ic >>= fun s ->
     let r,_ = routing_from s 0 in
     Lwt.return r
-    
-  let find cfg key = 
+
+  let find cfg key =
     let rec go = function
       | Cluster x -> x
-      | Branch (left, sep, right) -> 
-	if key < sep 
-	then go left 
+      | Branch (left, sep, right) ->
+	if key < sep
+	then go left
 	else go right
     in go cfg
 
-   
+
   let next_cluster t cluster_id =
     let rec inner_next acc = function
       | Cluster x -> None
@@ -259,9 +259,9 @@ module Routing = struct
             | Some x -> Some x
             | None -> inner_next None r
         end
-    in 
+    in
     inner_next None t
-  
+
   let prev_cluster t cluster_id =
     let rec inner_prev acc = function
       | Cluster x -> None
@@ -282,18 +282,18 @@ module Routing = struct
         end
     in
     inner_prev None t
-        
 
-  let next cfg key = 
+
+  let next cfg key =
     let rec go ok = function
       | Cluster x -> x
       | Branch (left, sep, right) ->
 	if ok then
-	  if key < sep 
-	  then go ok left 
+	  if key < sep
+	  then go ok left
 	  else go ok right
 	else
-	  if key > sep 
+	  if key > sep
 	  then go true right
 	  else go ok left
     in go false cfg
@@ -304,12 +304,12 @@ module Routing = struct
       then
         failwith "Can only add one cluster at the time"
       else
-        begin  
+        begin
             let up_sep = get_upper_sep None left t in
-            let low_sep = get_lower_sep None right t in 
+            let low_sep = get_lower_sep None right t in
             Lwt.ignore_result (
-            Lwt_log.debug_f "lower,upper = %s,%s" 
-              (Log_extra.string_option_to_string low_sep) 
+            Client_log.debug_f "lower,upper = %s,%s"
+              (Log_extra.string_option_to_string low_sep)
               (Log_extra.string_option_to_string up_sep)
             );
             begin
@@ -317,22 +317,22 @@ module Routing = struct
                 | (Some x, Some y) when x = y ->
                   if sep > x then
                     right, left, UPPER_BOUND
-                  else 
+                  else
                     left, right, LOWER_BOUND
-                
+
             | (Some x, None) when not (contains t left) ->
-              if sep > x 
+              if sep > x
               then right, left, UPPER_BOUND
-              else 
+              else
                 failwith "Invalid routing diff request"
                 (*let cl = find t sep in
                 cl, left, LOWER_BOUND *)
-              
+
             | (None, Some y) when not (contains t right) ->
               if sep <= y
               then left, right, LOWER_BOUND
               else failwith "Invalid routing_diff requested"
-              
+
             | (None, None) when not (contains t right) ->
               left, right, LOWER_BOUND
             | (None, None) when not (contains t left) ->

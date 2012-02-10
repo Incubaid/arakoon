@@ -5,13 +5,13 @@ from pymonkey import q, i
 fs = q.system.fs
 import sys
 
-required_arg_count = 1
+required_arg_count = 2
 def print_useage(error_msg=""):
     print 
     print error_msg
     print
     print "Sample usage: "
-    print "\t ./createNewQPackages 1.2.4"
+    print "\t ./createNewQPackages 1.2.4 1.2.4"
     print 
     print
     sys.exit(0)
@@ -33,10 +33,10 @@ def validate_new_version( new_version ):
         print_useage( msg_invalid_version )
 
 new_version = sys.argv[1]
+branch = sys.argv[2]
 validate_new_version( new_version )
 
-# i.qp.updateMetadataAll()
-
+i.qp.updateMetaDataAll()
 
 versions_dir = q.qp.getMetadataPath( 'pylabs.org', 'arakoon', '' )
 version_dirs = fs.listDirsInDir ( versions_dir )
@@ -75,7 +75,55 @@ if prev_version_dir_server is None:
     print '\n\nNo previous versions of arakoon found in metadata repo. Aborting...\n\n'
     sys.exit(255) 
 
+def get_arakoon_codemanagement_tasklet(branch):
+    return """import pymonkey.config.IConfigBase
+    
+__author__ = 'incubaid'
+__tags__   = 'codemanagement',
 
+def main(q, i, params, tags):
+
+    from pymonkey.clients.hg.HgRecipe import HgRecipe
+
+    srcRepoUrl = "http://bitbucket.org/despiegk/arakoon"
+    srcRepoBranch = "%(branch)s"
+    
+    qpackage = params["qpackage"]
+    
+    q.logger.log( "Checking out %%s %%s from bitbucket.org" %% (qpackage.name, qpackage.version) )
+    
+    packageDir = "%%s-%%s" %% (qpackage.name, qpackage.version)
+    targetDirectory = q.system.fs.joinPaths( q.dirs.tmpDir, packageDir )
+    
+    recipe = HgRecipe()
+    
+#    connection = i.hg.connections.findByUrl( "http://bitbucket.org/despiegk/arakoon")
+    
+    try :
+        connection = i.hg.connections.findByUrl( srcRepoUrl )
+    except pymonkey.config.IConfigBase.ConfigError , ex :
+        if not q.qshellconfig.interactive :
+            q.eventhandler.raiseCritical( "Please checkout the %%s package from within an interactive qshell. Cannot continue without your bitbucket credentials." %% (qpackage.name))
+    
+    
+    
+    if q.system.fs.exists( targetDirectory )  :
+        q.logger.log( "Removing directory %%s" %% targetDirectory )
+        q.system.fs.removeDirTree ( targetDirectory )
+    
+    connection.clone()
+    recipe.addRepository( connection )    
+    recipe.addSource( connection, ".", targetDirectory, srcRepoBranch )
+    recipe.executeTaskletAction( params['action'] )
+   
+     # Copy over the .hg directory so version info is maintained
+    hgSrcDir = q.system.fs.joinPaths( q.dirs.varDir, "hg", "arakoon", ".hg" )
+    q.system.fs.copyDirTree( hgSrcDir, q.system.fs.joinPaths( targetDirectory, ".hg" ) )
+    cmd = "hg up -C -r %%s" %% srcRepoBranch
+    q.system.process.run ( cmd, cwd=targetDirectory )
+        
+    q.logger.log( "Checkout complete" ) 
+""" % {'branch': branch}
 
 def createNewPackage( package_name, package_description, old_version, new_version) :
     pkg = q.qp.createNewQPackage( 'pylabs.org', package_name, new_version, package_description , ['linux64'] )
@@ -91,10 +139,17 @@ def createNewPackage( package_name, package_description, old_version, new_versio
     for f in fs.listFilesInDir ( prev_tasklet_dir, filter="*.py" ) :
         fs.copyFile( f, tasklet_dir )
 
+    print 'B', pkg.dependencies
+    for d in prev_pkg.dependencies:
+        pkg.addDependency(d.domain, d.name, d.supportedPlatforms, \
+            d.minversion, d.maxversion, d.dependencytype)
+
+    print 'A', pkg.dependencies
+
     p = i.qp.find( package_name, version=new_version )
     return p
 
-p = i.qp.find( 'arakoon_dev', version='0.8.0' )
+p = i.qp.find( 'arakoon_dev', version='0.10.0' )
 p.install()
 
 def replace_deps( p, deps_to_replace):
@@ -115,12 +170,19 @@ packages.append(p)
 p = createNewPackage('arakoon', 'Version %s of the arakoon key value store' % new_version, prev_version, new_version )
 replace_deps(p, ['arakoon_client'])
 packages.append(p)
+# Update codemanagement.py
+tasklet_path = fs.joinPaths(p.qpackage.getPathMetadata(), 'tasklets', 'codemanagement.py')
+q.system.fs.writeFile(tasklet_path, get_arakoon_codemanagement_tasklet(branch))
+
 
 p = createNewPackage('arakoon_system_tests', 'Version %s of the arakoon system tests' % new_version, prev_version, new_version )
 deps_to_replace = ['arakoon']
 replace_deps(p, deps_to_replace)
-p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
+#p.qpackage.addDependency( 'qpackages.org', 'testrunner', [q.enumerators.PlatformType.LINUX64], dependencytype=q.enumerators.DependencyType4.RUNTIME)
 packages.append(p)
 
 for p in packages:
     p.quickPackage()
+
+msg = 'Releasing Arakoon %s (branch %s)' % (new_version, branch)
+q.qp.publish(commitMessage=msg, domain='pylabs.org')

@@ -36,7 +36,7 @@ let read_command (ic,oc) =
   Llio.input_int32 ic >>= fun masked ->
   let magic = Int32.logand masked _MAGIC in
   begin
-    if magic <> _MAGIC 
+    if magic <> _MAGIC
     then
       begin
 	Llio.output_int32 oc 1l >>= fun () ->
@@ -76,29 +76,29 @@ let response_rc_bool oc rc b =
   Llio.output_bool oc b >>= fun () ->
   Lwt.return false
 
-let handle_exception oc exn= 
+let handle_exception oc exn=
   let rc, msg, is_fatal, close_socket = match exn with
   | XException(Arakoon_exc.E_NOT_FOUND, msg) -> Arakoon_exc.E_NOT_FOUND,msg, false, false
-  | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) -> 
+  | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
     Arakoon_exc.E_ASSERTION_FAILED, msg, false, false
   | XException(rc, msg) -> rc,msg, false, true
   | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false
   | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true
   | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true
-  in 
+  in
   Lwt_log.error_f "Exception during client request (%s)" (Printexc.to_string exn) >>= fun () ->
   Arakoon_exc.output_exception oc rc msg >>= fun () ->
   begin
-	  if close_socket 
-	  then Lwt_log.debug "Closing client socket" >>= fun () -> Lwt_io.close oc 
+	  if close_socket
+	  then Lwt_log.debug "Closing client socket" >>= fun () -> Lwt_io.close oc
 	  else Lwt.return ()
   end >>= fun () ->
-  if is_fatal 
+  if is_fatal
   then Lwt.fail exn
   else Lwt.return close_socket
 
 
-let decode_sequence ic = 
+let decode_sequence ic =
   begin
     Llio.input_string ic >>= fun data ->
     Lwt_log.debug_f "Read out %d bytes" (String.length data) >>= fun () ->
@@ -110,19 +110,19 @@ let decode_sequence ic =
              "should have been a sequence"))
   end
 
-let handle_sequence ic oc backend =
+let handle_sequence ~sync ic oc backend =
   begin
     Lwt.catch
       (fun () ->
         begin
           decode_sequence ic >>= fun updates ->
-          backend # sequence updates >>= fun () ->
+          backend # sequence ~sync updates >>= fun () ->
           response_ok_unit oc
-        end ) 
+        end )
       ( handle_exception oc )
-    
+
   end
-  
+
 let one_command (ic,oc) (backend:Backend.backend) =
   read_command (ic,oc) >>= function
     | PING ->
@@ -199,7 +199,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	end
     | RANGE_ENTRIES ->
       begin
-	Llio.input_bool          ic >>= fun allow_dirty ->  
+	Llio.input_bool          ic >>= fun allow_dirty ->
 	Llio.input_string_option ic >>= fun first ->
 	Llio.input_bool          ic >>= fun finc  ->
 	Llio.input_string_option ic >>= fun last  ->
@@ -216,7 +216,27 @@ let one_command (ic,oc) (backend:Backend.backend) =
       Lwt.return false
 	  )
 	  (handle_exception oc)
-	end
+      end
+    | REV_RANGE_ENTRIES ->
+      begin
+	Llio.input_bool          ic >>= fun allow_dirty ->
+	Llio.input_string_option ic >>= fun first ->
+	Llio.input_bool          ic >>= fun finc  ->
+	Llio.input_string_option ic >>= fun last  ->
+	Llio.input_bool          ic >>= fun linc  ->
+	Llio.input_int           ic >>= fun max   ->
+        Lwt.catch
+	  (fun () ->
+	    backend # rev_range_entries ~allow_dirty first finc last linc max
+	    >>= fun (list:(string*string) list) ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    let size = List.length list in
+	    Lwt_log.debug_f "size = %i" size >>= fun () ->
+	    Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+      Lwt.return false
+	  )
+	  (handle_exception oc)
+      end
     | LAST_ENTRIES ->
       begin
 	Sn.input_sn ic >>= fun i ->
@@ -280,15 +300,15 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	Llio.input_bool ic >>= fun allow_dirty ->
 	Llio.input_int  ic >>= fun length ->
-	let rec loop keys i = 
+	let rec loop keys i =
 	  if i = 0
 	  then Lwt.return keys
-	  else 
+	  else
 	    begin
-	      Llio.input_string ic >>= fun key -> 
+	      Llio.input_string ic >>= fun key ->
 	      loop (key :: keys) (i-1)
 	    end
-	in 
+	in
 	loop [] length >>= fun keys ->
 	Lwt.catch
 	  (fun () ->
@@ -300,10 +320,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
       end
-    | SEQUENCE ->
-      begin
-        handle_sequence ic oc backend 
-      end
+    | SEQUENCE -> handle_sequence ~sync:false ic oc backend
+    | SYNCED_SEQUENCE -> handle_sequence ~sync:true ic oc backend
     | MIGRATE_RANGE ->
       begin
         Lwt.catch(
@@ -312,9 +330,9 @@ let one_command (ic,oc) (backend:Backend.backend) =
             decode_sequence ic >>= fun updates ->
             let interval_update = Update.SetInterval interval in
             let updates' =  interval_update :: updates in
-            backend # sequence updates' >>= fun () ->
+            backend # sequence ~sync:false updates' >>= fun () ->
             response_ok_unit oc
-        ) (handle_exception oc) 
+        ) (handle_exception oc)
       end
     | STATISTICS ->
       begin
@@ -330,13 +348,13 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
 	let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
 	let t0 = sw() in
-	let cb' n = 
+	let cb' n =
 	  Lwt_log.debug "CB'" >>= fun () ->
 	  Llio.output_int oc 0 >>= fun () -> (* ok *)
 	  Lwt_io.flush oc >>= fun () ->
 	  Llio.output_int oc n
 	in
-	let cb () = 
+	let cb () =
 	  Lwt_log.debug "CB" >>= fun () ->
 	  let ts = sw() in
 	  let d = Int64.sub ts t0 in
@@ -358,12 +376,12 @@ let one_command (ic,oc) (backend:Backend.backend) =
       begin
         Lwt.catch
 	      (fun () ->
-          Interval.input_interval ic >>= fun interval -> 
+          Interval.input_interval ic >>= fun interval ->
           backend # set_interval interval >>= fun () ->
-          response_ok_unit oc 
+          response_ok_unit oc
         )
         (handle_exception oc)
-        
+
 	    end
     | GET_INTERVAL ->
       begin
@@ -372,12 +390,12 @@ let one_command (ic,oc) (backend:Backend.backend) =
             backend # get_interval () >>= fun interval ->
             Llio.output_int oc 0 >>= fun () ->
             Interval.output_interval oc interval >>= fun () ->
-            Lwt.return false 
+            Lwt.return false
           )
-          (handle_exception oc)  
+          (handle_exception oc)
       end
     | GET_ROUTING ->
-      Lwt.catch 
+      Lwt.catch
 	(fun () -> backend # get_routing () >>= fun routing ->
 	  Llio.output_int oc 0 >>= fun () ->
 	  Routing.output_routing oc routing >>= fun () ->
@@ -385,7 +403,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	)
 	(handle_exception oc)
     | SET_ROUTING ->
-      begin 
+      begin
 	Routing.input_routing ic >>= fun routing ->
 	Lwt.catch
 	  (fun () ->
@@ -401,12 +419,12 @@ let one_command (ic,oc) (backend:Backend.backend) =
             Llio.input_string ic >>= fun sep ->
             Llio.input_string ic >>= fun right ->
             backend # set_routing_delta left sep right >>= fun () ->
-            response_ok_unit oc ) 
+            response_ok_unit oc )
         (handle_exception oc)
       end
     | GET_KEY_COUNT ->
       begin
-        Lwt.catch 
+        Lwt.catch
           (fun() ->
             backend # get_key_count () >>= fun kc ->
             response_ok_int64 oc kc)
@@ -414,11 +432,11 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | GET_DB ->
       begin
-        Lwt.catch 
+        Lwt.catch
           (fun() ->
             backend # get_db (Some oc) >>= fun () ->
             Lwt.return false
-          ) 
+          )
           (handle_exception oc)
       end
     | CONFIRM ->
@@ -443,7 +461,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
             Llio.output_int oc 0 >>= fun () ->
             Llio.output_string oc (Buffer.contents buf) >>= fun () ->
             Lwt.return false
-        ) 
+        )
         ( handle_exception oc )
       end
     | SET_NURSERY_CFG ->
@@ -463,13 +481,13 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	      (fun () ->
           Llio.input_string_option ic >>= fun boundary ->
           Llio.input_int ic >>= fun dir_as_int ->
-          let direction = 
+          let direction =
             if dir_as_int = 0
             then
               Routing.UPPER_BOUND
             else
               Routing.LOWER_BOUND
-          in 
+          in
 	        backend # get_fringe boundary direction >>= fun kvs ->
           Lwt_log.debug "get_fringe backend op complete" >>= fun () ->
           Llio.output_int oc 0 >>= fun () ->
@@ -486,30 +504,30 @@ let protocol backend connection =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
   in
-  let check_cluster cluster_id = 
+  let check_cluster cluster_id =
     backend # check ~cluster_id >>= fun ok ->
     if ok then Lwt.return ()
     else Llio.lwt_failfmt "WRONG CLUSTER: %s" cluster_id
   in
-  let prologue () = 
+  let prologue () =
     Llio.input_int32  ic >>= fun magic ->
     Llio.input_int    ic >>= fun version ->
     check magic version  >>= fun () ->
     Llio.input_string ic >>= fun cluster_id ->
     check_cluster cluster_id >>= fun () ->
-    Lwt.return () 
+    Lwt.return ()
   in
   let rec loop () =
     begin
 	    one_command connection backend >>= fun closed ->
-	    if closed 
+	    if closed
 	    then Lwt_log.debug "leaving client loop" >>= fun () -> Lwt.return ()
 	    else
 	      begin
 	        Lwt_io.flush oc >>= fun() ->
 	        loop ()
 	      end
-    end 
+    end
   in
   prologue () >>= fun () ->
-  loop () 
+  loop ()

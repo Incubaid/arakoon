@@ -225,6 +225,8 @@ ARA_CMD_KEY_COUNT                = 0x0000001a | ARA_CMD_MAG
 ARA_CMD_CONFIRM                  = 0x0000001c | ARA_CMD_MAG
 
 ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
+ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
+ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -511,12 +513,15 @@ class ArakoonProtocol :
         return _packInt(ARA_CMD_CONFIRM) + _packString(key) + _packString(value)
 
     @staticmethod
-    def encodeSequence(seq):
+    def encodeSequence(seq, sync):
         r = cStringIO.StringIO()
         seq.write(r)
         flattened = r.getvalue()
         r.close()
-        return _packInt(ARA_CMD_SEQ) + _packString(flattened)     
+        cmd = ARA_CMD_SEQ
+        if sync:
+            cmd = ARA_CMD_SYNCED_SEQUENCE
+        return _packInt(cmd) + _packString(flattened)     
         
     @staticmethod
     def encodeDelete( key ):
@@ -534,6 +539,14 @@ class ArakoonProtocol :
         r = _packInt(ARA_CMD_RAN_E) + _packBool(allowDirty)
         r += _packStringOption(first) + _packBool(finc)
         r += _packStringOption(last)  + _packBool(linc)
+        r += _packSignedInt(maxEntries)
+        return r
+
+    @staticmethod
+    def encodeReverseRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
+        r = _packInt(ARA_CMD_REV_RAN_E) + _packBool(allowDirty)
+        r += _packStringOption(first) + _packBool(finc)
+        r += _packStringOption(last) + _packBool(linc)
         r += _packSignedInt(maxEntries)
         return r
 

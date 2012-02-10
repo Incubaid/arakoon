@@ -285,14 +285,16 @@ class ArakoonClient :
 
     @retryDuringMasterReelection
     @SignatureValidator( 'sequence' )
-    def sequence(self, seq):
+    def sequence(self, seq, sync = False):
         """
-        Try to execute a sequence of updates.
+        Try to execute a sequence of updates. 
+        if sync is true then the filesystem on 
+        server side will get synchronised right after the update.
 
         It's all-or-nothing: either all updates succeed, or they all fail.
         @type seq: Sequence
         """
-        encoded = ArakoonProtocol.encodeSequence(seq)
+        encoded = ArakoonProtocol.encodeSequence(seq, sync)
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
     
@@ -374,7 +376,7 @@ class ArakoonClient :
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
         @param maxElements: The maximum number of key-value pairs to return. Negative means no maximum, all matches will be returned. Defaults to -1.
 
-        @rtype: list of strings
+        @rtype: list of (string,string)
         @return: Returns a list containing all matching key-value pairs
         """
         msg = ArakoonProtocol.encodeRangeEntries(beginKey,
@@ -383,6 +385,37 @@ class ArakoonClient :
                                                  endKeyIncluded,
                                                  maxElements,
                                                  self._allowDirty)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
+        result = conn.decodeStringPairListResult()
+        return result
+
+    @retryDuringMasterReelection
+    @SignatureValidator('string_option', 'bool', 'string_option', 'bool','int')
+    def rev_range_entries(self,
+                          beginKey, beginKeyIncluded,
+                          endKey,  endKeyIncluded,
+                          maxElements= -1):
+        """ 
+        Performs a reverse range query on the store, returning a sorted (in reverse order) list of key value pairs.
+        @type beginKey: string option
+        @type endKey :string option
+        @type beginKeyIncluded: boolean
+        @type endKeyIncluded: boolean
+        @type maxElements: integer
+        @param beginKey: higher boundary of the requested range
+        @param endKey: lower boundary of the requested range
+        @param maxElements: maximum number of key-value pairs to return. Negative means 'all'. Defaults to -1
+        @rtype : list of (string,string)
+        """
+        msg = ArakoonProtocol.encodeReverseRangeEntries(beginKey,
+                                                        beginKeyIncluded,
+                                                        endKey,
+                                                        endKeyIncluded,
+                                                        maxElements,
+                                                        self._allowDirty)
         if self._allowDirty:
             conn = self._sendMessage(self._dirtyReadNode, msg)
         else:

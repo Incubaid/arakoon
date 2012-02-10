@@ -25,6 +25,7 @@ open Tlogcommon
 open Update
 open Lwt
 open Unix.LargeFile
+open Lwt_buffer
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
@@ -227,12 +228,13 @@ let get_count tlog_names =
 	   else  number + 1
 
 
-let _init_oc tlog_dir c =
+let _init_ocfd tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
-  Lwt_io.open_file ~flags:[Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY]
-    ~perm:0o644
-    ~mode: Lwt_io.output full_name
+  Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
+  let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
+  Lwt.return (oc,fd)
+
 
 let iterate_tlog_dir tlog_dir start_i too_far_i f =
   let tfs = Sn.string_of too_far_i in
@@ -285,65 +287,29 @@ class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option) (use_co
 	(Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _oc = None 
+  val mutable _ocfd = None 
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_update = last
-  val mutable _jobs = 0
+  val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
+  val mutable _compressing = false
   val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
+  initializer self # start_compression_loop ()
+
       
   method validate_last_tlog () = validate_last tlog_dir 
 
   method validate () = validate tlog_dir
 
-  method log_update i update =
-    self # _prelude i >>= fun oc ->
-    Tlogcommon.write_entry oc i update >>= fun () -> 
-    Lwt_io.flush oc >>= fun () ->
-    let () = match _previous_update with
-      | None -> _inner <- _inner +1
-      | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
-    in
-    _previous_update <- Some (i,update);
-    Lwt.return ()
-    
-  method private _prelude i =
-    match _oc with
-      | None ->
-	begin
-	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	  _outer <- Sn.to_int outer;
-	  _init_oc tlog_dir _outer >>= fun oc ->
-	  _oc <- Some oc;
-	  Lwt.return oc
-	end
-      | Some oc -> 
-	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
-	then
-          let do_rotate() =
-            Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
-            self # _rotate oc (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
-          in
-          begin
-            match _previous_update with
-            | Some (pi, _) when pi = i -> Lwt.return oc
-            | _ -> do_rotate ()
-          end
-	else
-	  Lwt.return oc
 
-      
-  method private _rotate (oc:Lwt_io.output_channel) new_outer =
-    Lwt_io.close oc >>= fun () ->
-    _inner <- 0;
-    let tlu = Filename.concat tlog_dir (file_name _outer) in
-    let tlc = Filename.concat tlog_dir (archive_name _outer) in
-    let tlc_temp = tlc ^ ".part" in
-    let _inner_compress () =
-      Lwt.finalize
+  method private start_compression_loop () = 
+    let rec loop () = 
+      Lwt_buffer.take _compression_q >>= fun job ->
+      let () = _compressing <- true in
+      let (tlu, tlc_temp, tlc) = job in
+      Lwt.catch
 	(fun () ->
 	  Lwt_log.debug_f "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-	  _jobs <- _jobs + 1;
 	  Compression.compress_tlog tlu tlc_temp  >>= fun () ->
 	  File_system.rename tlc_temp tlc >>= fun () ->
 	  Lwt_log.debug_f "unlink of %s" tlu >>= fun () ->
@@ -356,42 +322,77 @@ object(self: # tlog_collection)
 	  >>= fun msg ->
 	  Lwt_log.debug ("end of compress : " ^ msg) 
 	)
-	(fun () -> 
-	  _jobs <- _jobs -1;
-	  Lwt_log.debug "_inner_compress :: broadcasting" >>= fun () ->
-	  Lwt_condition.broadcast _jc ();
-	  Lwt.return ()
-	)
+	(function exn -> Lwt_log.warning ~exn "exception inside compression, continuing anyway")
+      >>= fun () ->
+      let () = _compressing <- false in
+      let () = Lwt_condition.signal _jc () in
+      loop ()
     in 
-    let compress () = 
-      begin
-	begin
-	  let rec loop () = 
-	    if _jobs > 0 then
-	      begin
-		Lwt_log.debug "another compression job is running. blocking" >>= fun () ->
-		Lwt_condition.wait _jc >>= fun () ->
-		loop ()
-	      end
-	    else
-	      Lwt.return ()
-	  in
-	  loop ()
-	end >>= fun () ->
-	Lwt.ignore_result (_inner_compress ());
-	Lwt.return ()
-      end
-    in
+    Lwt.ignore_result (loop ())
+
+  method log_update i update ~sync =
+    self # _prelude i >>= fun (oc,fd) ->
+    Tlogcommon.write_entry oc i update >>= fun () -> 
+    Lwt_io.flush oc >>= fun () ->
     begin
-      if use_compression 
-      then compress () 
+      if sync 
+      then Lwt_unix.fsync fd >>= fun () -> Lwt_log.info "FSYNC tlog"
       else Lwt.return ()
     end
     >>= fun () ->
+    let () = match _previous_update with
+      | None -> _inner <- _inner +1
+      | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
+    in
+    _previous_update <- Some (i,update);
+    Lwt.return ()
+    
+  method private _prelude i =
+    match _ocfd with
+      | None ->
+	begin
+	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+	  _outer <- Sn.to_int outer;
+	  _init_ocfd tlog_dir _outer >>= fun ocfd ->
+	  _ocfd <- Some ocfd;
+	  Lwt.return ocfd
+	end
+      | Some ocfd -> 
+	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
+	then
+          let do_rotate() =
+            Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
+            self # _rotate ocfd (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
+          in
+          begin
+            match _previous_update with
+            | Some (pi, _) when pi = i -> Lwt.return ocfd
+            | _ -> do_rotate ()
+          end
+	else
+	  Lwt.return ocfd
+
+      
+  method private _rotate ocfd new_outer =
+    let oc,fd = ocfd in
+    Lwt_io.close oc >>= fun () ->
+    _inner <- 0;
+    let tlu = Filename.concat tlog_dir (file_name _outer) in
+    let tlc = Filename.concat tlog_dir (archive_name _outer) in
+    let tlc_temp = tlc ^ ".part" in
+    begin
+      if use_compression 
+      then 
+        let job = (tlu,tlc_temp,tlc) in
+        Lwt_buffer.add job _compression_q
+      else
+        Lwt.return ()
+    end
+    >>= fun () ->
     _outer <- new_outer;
-    _init_oc tlog_dir _outer >>= fun new_oc ->
-    _oc <- Some new_oc;
-    Lwt.return new_oc
+    _init_ocfd tlog_dir _outer >>= fun new_ocfd ->
+    _ocfd <- Some new_ocfd;
+    Lwt.return new_ocfd
 
 
 
@@ -472,21 +473,22 @@ object(self: # tlog_collection)
 	      failwith msg
     in 
     Lwt.return vo
-	    
+     
   method close () =
     begin
       Lwt_log.debug "tlc2::close()" >>= fun () ->
-      if _jobs > 0 then 
-	begin
-	  Lwt_log.debug "waiting ..." >>= fun () ->
-	  Lwt_condition.wait _jc 
-	end
-      else Lwt.return () 
-    end >>= fun () ->
-    Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
-    match _oc with
-      | None -> Lwt.return ()
-      | Some oc -> Lwt_io.close oc
+      Lwt_buffer.wait_until_empty _compression_q >>= fun () ->
+      begin
+        if _compressing 
+        then Lwt_condition.wait _jc 
+        else Lwt.return ()
+      end
+      >>= fun () ->
+      Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
+      match _ocfd with
+        | None -> Lwt.return ()
+        | Some (oc,_) -> Lwt_io.close oc
+    end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
   

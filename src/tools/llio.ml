@@ -38,16 +38,16 @@ let named_value_info = function
   | NAMED_FLOAT     (n, f) -> n, 3
   | NAMED_STRING    (n, s) -> n, 4
   | NAMED_VALUELIST (n, l) -> n, 5
- 
-let lwt_failfmt fmt = 
+
+let lwt_failfmt fmt =
   let k x = Lwt.fail (Failure x) in
   Printf.ksprintf k fmt
 
-let (<: ) = Int32.shift_left 
+let (<: ) = Int32.shift_left
 let (<::) = Int64.shift_left
-let (>: ) = Int32.shift_right_logical 
+let (>: ) = Int32.shift_right_logical
 let (>::) = Int64.shift_right_logical
-let (|: ) = Int32.logor 
+let (|: ) = Int32.logor
 let (|::) = Int64.logor
 
 let int32_from buff pos =
@@ -80,7 +80,7 @@ let int_to buffer i = int32_to buffer (Int32.of_int i)
 
 let int64_from buf pos =
     let i64 i= Int64.of_int (Char.code buf.[pos + i]) in
-    let b0 = i64 0 
+    let b0 = i64 0
     and b1s = i64 1 <:: 8
     and b2s = i64 2 <:: 16
     and b3s = i64 3 <:: 24
@@ -89,10 +89,10 @@ let int64_from buf pos =
     and b6s = i64 6 <:: 48
     and b7s = i64 7 <:: 56 in
     let r =
-      b0 |:: b1s |:: b2s |:: b3s 
+      b0 |:: b1s |:: b2s |:: b3s
       |:: b4s |:: b5s |:: b6s |:: b7s
     in
-      r,pos + 8 
+      r,pos + 8
 
 let int64_to buf i64 =
   let char_at n =
@@ -105,19 +105,19 @@ let int64_to buf i64 =
   set 0; set 1; set 2; set 3;
   set 4; set 5; set 6; set 7;
   ()
-    
+
 
 let output_int64 oc i64 =
   let buf = Buffer.create 8 in
   let _ = int64_to buf i64 in
   Lwt_io.write oc (Buffer.contents buf)
-    
+
 let input_int64 ic =
   let buf = String.create 8 in
   Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
   let r,_ = int64_from buf 0 in
   Lwt.return r
- 
+
 
 let float_to buf f =
   let bf = Int64.bits_of_float f in
@@ -139,12 +139,12 @@ let string_to buffer s =
     int_to buffer size;
     Buffer.add_string buffer s
 
-let bool_to buffer b = 
+let bool_to buffer b =
   let c = if b then '\x01' else '\x00' in
   Buffer.add_char buffer c
 
 let bool_from buffer pos =
-  let c = buffer.[pos] in 
+  let c = buffer.[pos] in
   let r = match c with
     | '\x00' -> false
     | '\x01' -> true
@@ -159,15 +159,15 @@ let output_int32 oc (i:int32) =
 
 
 let output_bool oc (b:bool) =
-  let c = if b then '\x01' else '\x00' in 
-  Lwt_io.write_char oc c 
+  let c = if b then '\x01' else '\x00' in
+  Lwt_io.write_char oc c
 
 let input_bool ic =
   Lwt_io.read_char ic >>= function
     | '\x00' -> Lwt.return false
     | '\x01' -> Lwt.return true
     | x -> lwt_failfmt "can't be a bool '%c'" x
- 
+
 let input_int32 ic =
   let buf = String.create 4 in
     Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
@@ -175,11 +175,11 @@ let input_int32 ic =
       Lwt.return r
 
 
-let output_int oc i = 
+let output_int oc i =
   output_int32 oc (Int32.of_int i)
 
 let input_int ic =
-  input_int32 ic >>= fun i32 -> 
+  input_int32 ic >>= fun i32 ->
   Lwt.return (Int32.to_int i32)
 
 let output_string oc (s:string) =
@@ -198,9 +198,9 @@ let input_string ic =
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
 
-let output_string_pair oc (s0,s1) = 
+let output_string_pair oc (s0,s1) =
   output_string oc s0 >>= fun () ->
-  output_string oc s1 
+  output_string oc s1
 
 let input_string_pair ic =
   input_string ic >>= fun s0 ->
@@ -209,9 +209,9 @@ let input_string_pair ic =
 
 let input_list input_element ic =
   input_int ic >>= fun size ->
-  Lwt_log.debug_f "Received a list of %d elemements" size >>= fun () ->
-  let rec loop i acc = 
-    Lwt_log.debug_f "Receiving element %d" i >>= fun () ->
+  Client_log.debug_f "Received a list of %d elemements" size >>= fun () ->
+  let rec loop i acc =
+    Client_log.debug_f "Receiving element %d" i >>= fun () ->
     if i = 0
     then Lwt.return acc
     else input_element ic >>= fun s -> loop (i-1) (s:: acc)
@@ -222,10 +222,10 @@ let input_string_list ic = input_list input_string ic
 
 let input_kv_list ic = input_list input_string_pair ic
 
-let output_list output_element oc list = 
+let output_list output_element oc list =
   output_int oc (List.length list)  >>= fun () ->
-  Lwt_log.debug_f "Outputting list with %d elements" (List.length list) >>= fun () ->
-  Lwt_list.iter_s (output_element oc) list 
+  Client_log.debug_f "Outputting list with %d elements" (List.length list) >>= fun () ->
+  Lwt_list.iter_s (output_element oc) list
 
 let output_kv_list oc = output_list output_string_pair oc
 
@@ -233,7 +233,7 @@ let list_to buf e_to list =
   int_to buf (List.length list);
   List.iter (e_to buf) (List.rev list)
 
-let list_from s e_from pos = 
+let list_from s e_from pos =
   let size,p0 = int_from s pos in
   let rec loop acc p = function
     | 0 -> acc
@@ -244,17 +244,17 @@ let list_from s e_from pos =
 
 let output_string_option oc = function
   | None -> output_bool oc false
-  | Some s -> 
+  | Some s ->
       output_bool oc true >>= fun () ->
       output_string oc s
 
 let option_to (f:Buffer.t -> 'a -> unit) buff =  function
   | None -> bool_to buff false
-  | Some (v:'a) -> 
+  | Some (v:'a) ->
       bool_to buff true;
       f buff v
 
-let option_from (f:string -> int -> 'a * int) string pos = 
+let option_from (f:string -> int -> 'a * int) string pos =
   let b, pos1 = bool_from string pos in
     match b with
       | false -> None, pos1
@@ -271,7 +271,7 @@ let input_string_option ic =
   input_bool ic >>= function
     | false -> Lwt.return None
     | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
- 
+
 let hashtbl_to buf e2 h =
   let len = Hashtbl.length h in
   int_to buf len;
@@ -279,18 +279,18 @@ let hashtbl_to buf e2 h =
 
 let hashtbl_from buf ef pos =
   let len,p1 = int_from buf pos in
-  let r = Hashtbl.create len in 
+  let r = Hashtbl.create len in
   let rec loop pos = function
     | 0 -> r, pos
     | i -> let (k,v), p2 = ef buf pos in
 	   let () = Hashtbl.add r k v in
 	   loop p2 (i-1)
   in
-  loop p1 len 
+  loop p1 len
 
 
 let copy_stream ~length ~ic ~oc =
-  Lwt_log.debug_f "copy_stream ~length:%Li" length >>= fun () ->
+  Client_log.debug_f "copy_stream ~length:%Li" length >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let bs64 = Int64.of_int bs in
   let buffer = String.create bs in
@@ -301,7 +301,7 @@ let copy_stream ~length ~ic ~oc =
     then
       begin
 	Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
-	Lwt_io.write_from_exactly oc buffer 0 rest 
+	Lwt_io.write_from_exactly oc buffer 0 rest
       end
     else
       begin
@@ -311,7 +311,7 @@ let copy_stream ~length ~ic ~oc =
       end
   in
   loop n_bs >>= fun () ->
-  Lwt_log.debug "done: copy_stream"
+  Client_log.debug "done: copy_stream"
 
 let rec named_field_to (buffer: Buffer.t) (field: namedValue) : unit =
   let field_name, field_type = named_value_info field in
@@ -320,7 +320,7 @@ let rec named_field_to (buffer: Buffer.t) (field: namedValue) : unit =
   match field with
   | NAMED_INT (_, i) ->
     int_to buffer i
-  | NAMED_FLOAT (_, f) -> 
+  | NAMED_FLOAT (_, f) ->
     float_to buffer f
   | NAMED_INT64 (_, i) ->
     int64_to buffer i
@@ -352,8 +352,8 @@ let rec named_field_from buffer offset: (namedValue*int) =
         begin
           let rec decode_loop decoded offset= function
             | 0 -> (List.rev decoded), offset
-            | i -> 
-              let new_elem, offset = named_field_from buffer offset in 
+            | i ->
+              let new_elem, offset = named_field_from buffer offset in
               decode_loop (new_elem :: decoded) offset (i-1)
           in
           let length, offset = int_from buffer offset in
@@ -361,21 +361,21 @@ let rec named_field_from buffer offset: (namedValue*int) =
           NAMED_VALUELIST(field_name, decoded), offset
         end
       | _ -> failwith "Unknown value type. Cannot decode."
-  end  
+  end
 
 let input_hashtbl fk fv ic =
   input_int ic >>= fun elem_cnt ->
   let result = Hashtbl.create elem_cnt in
   let rec helper = function
     | 0 -> Lwt.return result
-    | i -> 
-    begin 
+    | i ->
+    begin
       fk ic >>= fun key ->
       fv ic >>= fun value ->
       Hashtbl.replace result key value;
       helper (i-1)
-    end  
-  in 
+    end
+  in
   helper elem_cnt
 
 let output_hashtbl out_f oc ht =
@@ -385,4 +385,4 @@ let output_hashtbl out_f oc ht =
     x >>= fun () ->
     out_f oc a b
   in
-  Hashtbl.fold helper ht (Lwt.return ())  
+  Hashtbl.fold helper ht (Lwt.return ())

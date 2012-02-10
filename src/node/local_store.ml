@@ -49,14 +49,14 @@ let _consensus_i db =
   with Not_found ->
     Lwt.return None
 
-let _get_interval db = 
+let _get_interval db =
   try
     let interval_s = Bdb.get db __interval_key in
     let interval,_ = Interval.interval_from interval_s 0 in
     Lwt.return interval
   with Not_found -> Lwt.return Interval.max
 
-let _set_interval db range = 
+let _set_interval db range =
   let buf = Buffer.create 80 in
   let () = Interval.interval_to buf range in
   let range_s = Buffer.contents buf in
@@ -69,30 +69,30 @@ let _set_routing db routing =
   Bdb.put db __routing_key routing_s
 
 let _get_routing_non_lwt db =
-  try 
+  try
     let routing_s = Bdb.get db __routing_key in
     let routing,_ = Routing.routing_from routing_s 0 in
     Some routing
   with Not_found -> None
 
-let _get_routing db = 
-    Lwt.return (_get_routing_non_lwt db)  
+let _get_routing db =
+    Lwt.return (_get_routing_non_lwt db)
 
-let _set_routing_delta db left sep right = 
+let _set_routing_delta db left sep right =
   let m_r = _get_routing_non_lwt db in
-  let new_r = 
+  let new_r =
     begin
       match m_r with
         | None ->
-          begin 
+          begin
             Routing.build ([(left, sep)], right)
           end
         | Some r ->
           begin
-            Routing.change r left sep right 
+            Routing.change r left sep right
           end
       end
-  in 
+  in
   let new_r' = Routing.compact new_r in
   _set_routing db new_r';
   new_r'
@@ -110,18 +110,18 @@ let _incr_i db =
     Buffer.contents buf
   in
   let () = Bdb.put db __i_key new_is in
-  (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s" 
+  (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s"
     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
   >>= fun () -> *)
   Lwt.return ()
 
-let _who_master db = 
+let _who_master db =
   try
     let m = Bdb.get db __master_key in
     let ls_buff = Bdb.get db __lease_key in
     let ls,_ = Llio.int64_from ls_buff 0 in
     Lwt.return (Some (m,ls))
-  with Not_found -> 
+  with Not_found ->
     Lwt.return None
 
 
@@ -138,7 +138,7 @@ let _test_and_set _pf bdb key expected wanted =
     match expected with
       | Some e when e = g ->
 	begin
-	  match wanted with 
+	  match wanted with
 	    | Some wanted_s ->
 	      let () = Bdb.put bdb key' wanted_s in Some g
 	    | None ->
@@ -147,12 +147,12 @@ let _test_and_set _pf bdb key expected wanted =
       | _ -> Some g
   with Not_found ->
     match expected with
-      | None -> 
+      | None ->
 	begin
 	  match wanted with
 	    | Some wanted_s ->
 	      let () = Bdb.put bdb key' wanted_s in None
-	    | None -> None		   
+	    | None -> None
 	end
       | Some v' -> None
 
@@ -164,7 +164,7 @@ let _range_entries _pf bdb first finc last linc max =
     (fun ret_list k ->
       let l = String.length k in
       ((String.sub k pl (l-pl)), Bdb.get bdb k) :: ret_list )
-    [] 
+    []
     keys_list
   in x
 
@@ -182,17 +182,17 @@ let _assert _pf bdb key vo =
 	with Not_found -> false
       end
 
-let copy_store old_location new_location overwrite = 
+let copy_store old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
-  if not src_exists 
-  then 
+  if not src_exists
+  then
     Lwt_log.debug_f "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
-  else 
-  begin  
+  else
+  begin
     File_system.exists new_location >>= fun dest_exists ->
     begin
-      if dest_exists && overwrite 
+      if dest_exists && overwrite
       then
         Lwt_unix.unlink new_location
       else
@@ -202,19 +202,19 @@ let copy_store old_location new_location overwrite =
       if dest_exists && not overwrite
       then
         Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" old_location new_location
-      else            
-        File_system.copy_file old_location new_location 
-    end 
+      else
+        File_system.copy_file old_location new_location
+    end
   end
 open Registry
 
-class bdb_user_db interval bdb = 
-  let test k = 
-    if not (Interval.is_ok interval k) then 
+class bdb_user_db interval bdb =
+  let test k =
+    if not (Interval.is_ok interval k) then
       raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
   in
   let test_option = function
-    | None -> () 
+    | None -> ()
     | Some k -> test k
   in
   let test_range first last = test_option first; test_option last
@@ -222,20 +222,20 @@ class bdb_user_db interval bdb =
 
 object (self : # user_db)
 
-  method set k v = test k ; _set __prefix bdb k v 
-  method get k   = test k ; _get __prefix bdb k 
+  method set k v = test k ; _set __prefix bdb k v
+  method get k   = test k ; _get __prefix bdb k
 
-  method delete k = test k ; _delete __prefix bdb k 
-  
-  method test_and_set k e w = test k; _test_and_set __prefix bdb k e w 
+  method delete k = test k ; _delete __prefix bdb k
+
+  method test_and_set k e w = test k; _test_and_set __prefix bdb k e w
 
   method range_entries first finc last linc max =
     test_range first last;
-    _range_entries __prefix bdb first finc last linc max 
+    _range_entries __prefix bdb first finc last linc max
 end
 
 
-let _user_function bdb (interval:Interval.t) (name:string) (po:string option) = 
+let _user_function bdb (interval:Interval.t) (name:string) (po:string option) =
   let f = Registry.lookup name in
   let bdb_inner = new bdb_user_db interval bdb in
   let inner = (bdb_inner :> user_db) in
@@ -243,7 +243,7 @@ let _user_function bdb (interval:Interval.t) (name:string) (po:string option) =
   ro
 
 
-let _set_master bdb master (lease_start:int64) =  
+let _set_master bdb master (lease_start:int64) =
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
@@ -260,23 +260,24 @@ let rec _sequence _pf bdb interval updates =
       begin
 	match _assert _pf bdb k vo with
 	  | true -> ()
-	  | false -> 
+	  | false ->
 	    raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
       end
     | Update.UserFunction(name,po) ->
       let _ = _user_function bdb interval name po in ()
     | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us -> _sequence _pf bdb interval us
+    | Update.Sequence us 
+    | Update.SyncedSequence us -> _sequence _pf bdb interval us
     | Update.SetInterval interval -> _set_interval bdb interval
     | Update.SetRouting r   -> _set_routing bdb r
     | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta bdb l s r in ()
     | Update.AdminSet(k,vo) ->
-    begin 
+    begin
       match _pf with
         | pf when pf = __adminprefix ->
           begin
           match vo with
-            | None -> _delete _pf bdb k 
+            | None -> _delete _pf bdb k
             | Some v -> _set _pf bdb k v
           end
         | _ -> raise  (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot modify admin keys in user sequence"))
@@ -299,7 +300,7 @@ let rec _sequence _pf bdb interval updates =
   in List.iter helper updates
 
 
-let _set_master bdb master (lease_start:int64) =  
+let _set_master bdb master (lease_start:int64) =
   Bdb.put bdb __master_key master;
   let buffer =  Buffer.create 8 in
   let () = Llio.int64_to buffer lease_start in
@@ -308,7 +309,7 @@ let _set_master bdb master (lease_start:int64) =
 
 
 let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t) =
-  let new_i = incr () in 
+  let new_i = incr () in
   Lwt.catch
     (fun () ->
       Hotc.transaction db
@@ -328,17 +329,17 @@ let get_construct_params db_name ~mode=
   Hotc.read db _who_master >>= fun mlo ->
   Hotc.read db _consensus_i >>= fun store_i ->
   Lwt.return (db, interval, routing_o, mlo, store_i)
-  
-class local_store (db_location:string) (db:Hotc.t) 
+
+class local_store (db_location:string) (db:Hotc.t)
   (interval:Interval.t) (routing:Routing.t option) mlo store_i =
 
 object(self: #store)
-  val mutable my_location = db_location 
+  val mutable my_location = db_location
   val mutable _interval = interval
   val mutable _routing = routing
   val mutable _mlo = mlo
   val mutable _quiesced = false
-  val mutable _store_i = store_i 
+  val mutable _store_i = store_i
 
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
@@ -354,25 +355,25 @@ object(self: #store)
 	  Lwt.return ()
         end
     end
-    
+
   method unquiesce () =
-    _quiesced <- false; 
-    self # reopen (fun () -> Lwt.return ()) 
-  
+    _quiesced <- false;
+    self # reopen (fun () -> Lwt.return ())
+
   method quiesced () = _quiesced
-     
+
   method private open_db () =
-    Hotc._open_lwt db 
-  
+    Hotc._open_lwt db
+
   method _interval_ok key =
     let ok = Interval.is_ok _interval key in
-    if ok 
+    if ok
     then ()
-    else 
+    else
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
 				 Printf.sprintf "%s not in interval" key)
       in raise ex
-      
+
   method exists ?(_pf = __prefix) key =
     Lwt.catch
       ( fun () ->
@@ -384,70 +385,75 @@ object(self: #store)
 
   method get ?(_pf = __prefix) key =
     Lwt.catch
-      (fun () -> 
+      (fun () ->
         let bdb = Hotc.get_bdb db in
         Lwt.return (Bdb.get bdb (_pf ^ key)))
-      (function 
+      (function
 	| Failure _ -> Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
   method multi_get ?(_pf = __prefix) keys =
-    let bdb = Hotc.get_bdb db in 
-    let vs = List.fold_left 
-	  (fun acc key -> 
+    let bdb = Hotc.get_bdb db in
+    let vs = List.fold_left
+	  (fun acc key ->
 	    try
-	      let v = Bdb.get bdb (_pf ^ key) in 
+	      let v = Bdb.get bdb (_pf ^ key) in
 	      v::acc
-	    with Not_found -> 
-	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in 
+	    with Not_found ->
+	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in
 	      raise exn
 	  )
 	  [] keys
-	in 
+	in
 	Lwt.return (List.rev vs)
 
   method private _incr_i_cached () =
-    let incr = 
+    let incr =
     begin
       match _store_i with
         | None -> Sn.start
         | Some i -> (Sn.succ i)
-    end; 
+    end;
     in
-    _store_i <- Some incr ; 
+    _store_i <- Some incr ;
     incr
-    
+
   method incr_i () =
     let new_i = self # _incr_i_cached () in
     begin
-    if _quiesced 
+    if _quiesced
     then
       Lwt.return ()
     else
       Hotc.transaction db (_save_i new_i)
     end
 
-      
+
   method range ?(_pf=__prefix) first finc last linc max =
-    let bdb = Hotc.get_bdb db in 
+    let bdb = Hotc.get_bdb db in
     Lwt.return (Bdb.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
     Lwt.return (_filter _pf r)
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
-    let bdb = Hotc.get_bdb db in 
+    let bdb = Hotc.get_bdb db in
     let r = _range_entries _pf bdb first finc last linc max in
-		Lwt.return r
-     
+    Lwt.return r
+
+  method rev_range_entries ?(_pf=__prefix) first finc last linc max =
+    let bdb = Hotc.get_bdb db in
+    let r = Hotc.rev_range_entries _pf bdb first finc last linc max in
+    Lwt.return r
+
   method prefix_keys ?(_pf=__prefix) prefix max =
-    let bdb = Hotc.get_bdb db in 
+    let bdb = Hotc.get_bdb db in
     let keys_array = Bdb.prefix_keys bdb (_pf ^ prefix) max in
 	  let keys_list = _filter _pf keys_array in
 	  Lwt.return keys_list
-    
+
   method set ?(_pf=__prefix) key value =
     Lwt.catch
       (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set _pf db key value; Lwt.return ()))
-      (function 
+      (function
 	| Failure _ -> Lwt.fail Server.FOOBAR
 	| exn -> Lwt.fail exn)
 
@@ -463,8 +469,8 @@ object(self: #store)
     _mlo <- Some (master,lease);
     if _quiesced then
       Lwt.return ()
-    else 
-        Hotc.transaction db 
+    else
+        Hotc.transaction db
         (fun db -> _set_master db master lease;
 	  Lwt.return ()
         )
@@ -475,55 +481,55 @@ object(self: #store)
     _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete _pf db key; Lwt.return ())
 
   method test_and_set ?(_pf=__prefix) key expected wanted =
-    _tx_with_incr (self # _incr_i_cached) db 
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db ->
 	let r = _test_and_set _pf db key expected wanted in
 	Lwt.return r)
 
   method sequence ?(_pf=__prefix) updates =
-    _tx_with_incr (self # _incr_i_cached) db  
+    _tx_with_incr (self # _incr_i_cached) db
       (fun db -> _sequence _pf db _interval updates; Lwt.return ())
 
   method aSSert ?(_pf=__prefix) key (vo:string option) =
     _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert _pf db key vo in Lwt.return r)
 
-  method user_function name (po:string option) = 
+  method user_function name (po:string option) =
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db 
-      (fun db -> 
-	
+    _tx_with_incr (self # _incr_i_cached) db
+      (fun db ->
+
 	let (ro:string option) = _user_function db _interval name po in
 	Lwt.return ro)
-      
+
   method consensus_i () =
     Lwt.return _store_i
-      
+
   method close () =
     Hotc.close db >>= fun () ->
     Lwt_log.debug "local_store :: close () " >>= fun () ->
     Lwt.return ()
-      
+
   method get_location () = Hotc.filename db
-  
+
   method reopen f =
-    let mode = 
+    let mode =
     begin
       if _quiesced then
         Bdb.readonly_mode
       else
         Bdb.default_mode
-    end in 
+    end in
     Lwt_log.debug "local_store::reopen calling Hotc::reopen" >>= fun () ->
     Hotc.reopen db f mode >>= fun () ->
     Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
     (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
     let bdb = Hotc.get_bdb db in
-    _consensus_i bdb >>= fun store_i -> 
+    _consensus_i bdb >>= fun store_i ->
     _store_i <- store_i ;
     Lwt.return ()
 
-  method set_interval interval = 
-    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) 
+  method set_interval interval =
+    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval)
     >>= fun () ->
     _tx_with_incr (self # _incr_i_cached) db
       (fun db ->
@@ -531,12 +537,12 @@ object(self: #store)
 	_interval <- interval;
 	Lwt.return ()
       )
-      
+
   method get_interval () =
     Lwt_log.debug "get_interval" >>= fun ()->
     Lwt.return _interval
 
-  method get_routing () = 
+  method get_routing () =
     Lwt_log.debug "get_routing " >>= fun () ->
     match _routing with
       | None -> Lwt.fail Not_found
@@ -546,25 +552,25 @@ object(self: #store)
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
     _tx_with_incr (self # _incr_i_cached) db (fun db -> _set_routing db r; Lwt.return ())
-  
+
   method set_routing_delta left sep right =
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db 
-      (fun db -> 
+    _tx_with_incr (self # _incr_i_cached) db
+      (fun db ->
         let r = _set_routing_delta db left sep right in
         _routing <- Some r ;
-        Lwt_log.debug_f "set_routing to %s" (Routing.to_s r) >>= fun () -> 
+        Lwt_log.debug_f "set_routing to %s" (Routing.to_s r) >>= fun () ->
         Lwt.return ()
       )
-    
+
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
     Hotc.transaction db (fun db -> Lwt.return ( Bdb.get_key_count db ) ) >>= fun raw_count ->
     (* Leave out administrative keys *)
-    self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys -> 
+    self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys ->
     let admin_key_count = List.length admin_keys in
-    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ) 
-    
+    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+
   method copy_store (oc: Lwt_io.output_channel) =
     if _quiesced then
     begin
@@ -580,7 +586,7 @@ object(self: #store)
         db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
       Lwt_io.flush oc
-    end 
+    end
     else
     begin
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
@@ -588,15 +594,15 @@ object(self: #store)
     end
 
   method relocate new_location =
-    copy_store my_location new_location true >>= fun () -> 
+    copy_store my_location new_location true >>= fun () ->
     let old_location = my_location in
     let () = my_location <- new_location in
     Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
     File_system.unlink old_location >>= fun () ->
-    Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location 
-  
-  
-  method get_fringe border direction = 
+    Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location
+
+
+  method get_fringe border direction =
     let cursor_init, get_next, key_cmp =
       begin
         match direction with
@@ -610,7 +616,7 @@ object(self: #store)
                 then
                   Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
                 else
-                  begin 
+                  begin
                     Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
                     begin
                       try
@@ -620,9 +626,9 @@ object(self: #store)
                     end
                   end
               end
-            in 
+            in
             skip_admin_key ()
-          in  
+          in
           let cmp =
             begin
               match border with
@@ -630,7 +636,7 @@ object(self: #store)
                 | None -> (fun k -> false)
             end
           in
-          skip_keys, Bdb.next, cmp 
+          skip_keys, Bdb.next, cmp
         | Routing.LOWER_BOUND ->
           let cmp =
             begin
@@ -639,25 +645,25 @@ object(self: #store)
                 | None -> (fun k -> k.[0] <> __prefix.[0])
             end
           in
-          Bdb.last, Bdb.prev, cmp 
+          Bdb.last, Bdb.prev, cmp
       end
     in
     Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option_to_string border) >>= fun () ->
     let buf = Buffer.create 128 in
     Lwt.finalize
       (fun () ->
-        Hotc.transaction db 
-          (fun txdb -> 
-            Hotc.with_cursor txdb 
+        Hotc.transaction db
+          (fun txdb ->
+            Hotc.with_cursor txdb
             (fun lcdb cursor ->
               Buffer.add_string buf "1\n";
               let limit = 1024 * 1024 in
               let () = cursor_init lcdb cursor in
               Buffer.add_string buf "2\n";
-              let r = 
+              let r =
                 let rec loop acc ts =
                   begin
-                    try 
+                    try
                       let k = Bdb.key   lcdb cursor in
                       let v = Bdb.value lcdb cursor in
                       if ts >= limit  or (key_cmp k)
@@ -677,7 +683,7 @@ object(self: #store)
                     with Not_found ->
                       acc
                   end
-                     
+
               in
               loop [] 0
               in
@@ -685,20 +691,20 @@ object(self: #store)
             )
           )
       )
-      (fun () -> 
+      (fun () ->
         Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
     )
 end
 
 let make_local_store ?(read_only=false) db_name =
-  let mode = 
-    if read_only 
+  let mode =
+    if read_only
     then Bdb.readonly_mode
     else Bdb.default_mode
   in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
-  get_construct_params db_name ~mode 
-  >>= fun (db, interval, routing_o, mlo, store_i) -> 
+  get_construct_params db_name ~mode
+  >>= fun (db, interval, routing_o, mlo, store_i) ->
   let store = new local_store db_name db interval routing_o mlo store_i in
   let store2 = (store :> store) in
   Lwt.return store2

@@ -186,23 +186,23 @@ let _test_user_function (client:Arakoon_client.client) =
 let test_user_function () = 
   __client_server_wrapper__ _CLUSTER _test_user_function
 
+let _clear (client:Arakoon_client.client)  () = 
+  client # range None true None true 1000 >>= fun xn ->
+  Lwt_list.iter_s (fun x -> client # delete x) xn
 
-let _test_range (client:Arakoon_client.client) =
-  let clear () =
-    client # range None true None true 1000 >>= fun xn ->
-    Lwt_list.iter_s
-      (fun x -> client # delete x)
-      xn
-  in
-  let rec fill n =
+let _fill (client:Arakoon_client.client) max = 
+  let rec loop n =
     let cat s i = Printf.sprintf "%s%03d" s i in
-    if n = 100 then Lwt.return ()
+    if n = max then Lwt.return ()
     else
       client # set (cat "xey" n) (cat "value" n) >>= fun () ->
-    fill (n+1)
+      loop (n+1)
   in
-  clear () >>= fun () ->
-  fill 0 >>= fun () ->
+  loop 0
+
+let _test_range (client:Arakoon_client.client) =
+  _clear client () >>= fun () ->
+  _fill client 100 >>= fun () ->
   client # range (Some "xey") true (Some "xey009") true 3 >>= fun xn ->
   let length = List.length xn in
   Lwt_log.debug_f "received a list of size %i" length >>= fun () ->
@@ -237,9 +237,18 @@ let _test_range (client:Arakoon_client.client) =
   let () = OUnit.assert_bool "x0" (List.mem "xey000" xn) in
   Lwt.return ()
 
-let test_range () =
-  __client_server_wrapper__ _CLUSTER _test_range
+let _test_reverse_range (client:Arakoon_client.client) = 
+  _clear client () >>= fun () ->
+  _fill client 100 >>= fun () ->
+  client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
+  Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key %s" k) xn >>= fun () ->
+  let k,_ = List.hd xn in 
+  let () = OUnit.assert_bool "hd" (k  = "xey099") in
+  Lwt.return ()
 
+let test_range () = __client_server_wrapper__ _CLUSTER _test_range
+
+let test_reverse_range () = __client_server_wrapper__ _CLUSTER _test_reverse_range
 
 let _prefix_keys_test (client:Arakoon_client.client) =
   let cat s i = s ^ (string_of_int i) in
@@ -311,4 +320,5 @@ let suite = "remote_client" >::: [
   "user_function" >:: test_user_function;
   "get_key_count" >:: test_get_key_count;
   "confirm"    >:: test_confirm;
+  "reverse_range" >:: test_reverse_range;
 ]

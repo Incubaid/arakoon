@@ -36,6 +36,7 @@ let _should_fail x error_msg success_msg =
   else Lwt.return ()
 
 let _make_updates tlc n =
+  let sync = false in
   let rec loop i =
     if i = n
     then Lwt.return ()
@@ -46,7 +47,7 @@ let _make_updates tlc n =
       let update = Update.Set(key, value) 
       in
       let sni = Sn.of_int i in
-      tlc # log_update sni update >>= fun wr_result ->
+      tlc # log_update sni update ~sync >>= fun wr_result ->
       loop (i+1)
   in
   loop 0
