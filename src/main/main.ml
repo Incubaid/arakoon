@@ -49,6 +49,7 @@ type local_action =
   | STATISTICS
   | Collapse_remote
   | Backup_db
+  | Optimize_db
   | NumberOfValues
   | InitNursery
   | MigrateNurseryRange
@@ -325,6 +326,12 @@ let main () =
 			      Arg.Set_string location;
 			     ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
+    ("--optimize-db", Arg.Tuple[set_laction Optimize_db;
+			      Arg.Set_string cluster_id;
+			      Arg.Set_string ip;
+			      Arg.Set_int port;
+			     ],
+     "<cluster_id> <ip> <port> requests the node to optimize its database (only works on slaves)");
     ("--n-values", set_laction NumberOfValues,
      "returns the number of values in the store")
 
@@ -358,6 +365,7 @@ let main () =
     | Collapse_remote -> Collapser_main.collapse_remote
       !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
+    | Optimize_db -> Nodestream_main.optimize_db !ip !port !cluster_id 
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster

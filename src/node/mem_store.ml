@@ -116,6 +116,8 @@ object (self: #store)
 
   method quiesced () = false
 
+  method optimize () = Lwt.return ()
+
   method aSSert ?(_pf=__prefix) key vo =
     let r =
       match vo with
@@ -240,7 +242,7 @@ object (self: #store)
     in
     Lwt.return (StringMap.fold inc kv 0L)
 
-  method copy_store oc = failwith "copy_store not supported"
+  method copy_store ?(_networkClient=true) oc = failwith "copy_store not supported"
 
   method relocate new_location = failwith "Memstore.relocation not implemented"
 
