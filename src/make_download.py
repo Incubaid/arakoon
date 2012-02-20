@@ -2,7 +2,6 @@ import string
 import urllib
 import md5
 import argparse
-import sys
 
 template = """
 =========
@@ -87,7 +86,7 @@ def check_download(url):
     f = urllib.urlopen(url)
     code = f.getcode()
     if 200 != code:
-        raise ValueError('Failed to download URL "%s"' % url)
+        raise RuntimeError('Failed to download URL "%s"' % url)
     data = f.read()
     size = len(data)
     size_kb = size / 1024.0
