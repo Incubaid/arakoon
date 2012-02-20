@@ -72,18 +72,23 @@ Older releases of Arakoon can be found on the `Archives page`_.
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--version', required= True)
+parser.add_argument('--rev', required= True)
 options = parser.parse_args()
-version = options.version 
-hg_id = '80878f0d8b8b'
-base_url = "https://bitbucket.org/despiegk/arakoon" 
+version = options.version
+revision = options.rev
+
+base_url = "https://bitbucket.org/despiegk/arakoon"
 deb_url = "%s/downloads/arakoon_%s-1_amd64.deb" % (base_url, version)
 egg_url = "%s/downloads/arakoon-%s-py2.7.egg" % (base_url, version)
-source_url = "%s/get/%s.tar.bz2" % (base_url,hg_id)
-lib_url = "%s/downloads/libarakoon-ocaml-dev_%s-1.amd64.deb" % (base_url, version)
+source_url = "%s/get/%s.tar.bz2" % (base_url,revision)
+lib_url = "%s/downloads/libarakoon-ocaml-dev_%s-1_amd64.deb" % (base_url, version)
 
 def check_download(url):
     f = urllib.urlopen(url)
-    data =  f.read()
+    code = f.getcode()
+    if 200 != code:
+        raise ValueError('Failed to download URL "%s"' % url)
+    data = f.read()
     size = len(data)
     size_kb = size / 1024.0
     m = md5.new()
@@ -115,5 +120,5 @@ params = {
     }
 result =  f.format(template, **params)
 
-with open('download-%s-test.rst' % version,'w') as file:
+with open('download-%s.rst' % version,'w') as file:
     file.write(result)
