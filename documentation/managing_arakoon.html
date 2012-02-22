@@ -251,6 +251,20 @@ be able to recover from multi-node failure.</p>
 arakoon --backup-db ricky 127.0.0.1 7080 /mnt/drv/2011-19-07/mybackup.db</pre>
 </div>
 </div>
+<div class="section" id="optimizing-the-database">
+<h2>Optimizing the database<a class="headerlink" href="#optimizing-the-database" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon uses Tokyo Cabinet as the underlying data store. If you have a lot of keys that are
+added and deleted over time, this database might continue to grow. There is an operation
+you can perform that will reclaim some of the disk space, this operation is called
+&#8216;optimizing&#8217; the database.</p>
+<p>To optimize the database on a live node, simply run the following command:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># arakoon --optimize-db &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt;</span>
+<span class="c"># e.g.</span>
+<span class="c"># arakoon --optimize-db ricky 127.0.0.1 7080</span>
+</pre></div>
+</div>
+<p>Please note that this command can only be executed on a slave.</p>
+</div>
 </div>
 
 
