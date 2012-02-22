@@ -90,6 +90,9 @@ class test_backend my_name = object(self:#backend)
   val mutable _routing = (None: Routing.t option)
   val mutable _interval = ((None, None),(None, None) : Interval.t)
 
+  method optimize_db () =
+    Lwt.return () 
+
   method hello (client_id:string) (cluster_id:string) =
     let r =
       match cluster_id with

@@ -82,6 +82,7 @@ class type backend = object
   method get_key_count: unit -> int64 Lwt.t
 
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
+  method optimize_db: unit -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
 

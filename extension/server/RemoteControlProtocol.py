@@ -27,6 +27,7 @@ import struct
 
 _COLLAPSE_TLOGS = 0x14
 _DOWNLOAD_DB = 0x1b
+_OPTIMIZE_DB = 0x25
 _MAGIC   = 0xb1ff0000
 _VERSION = 0x00000001
 

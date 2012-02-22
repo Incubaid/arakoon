@@ -27,6 +27,7 @@ import logging
 import time
 import subprocess
 from nose.tools import *
+import os
 
 def _getCluster():
     q = Common.q # resistance is futile
@@ -556,7 +557,7 @@ def test_243():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
-	    cli = Common.get_client()
+    cli = Common.get_client()
     cluster = Common._getCluster()
 
     cli.set('k','v')
@@ -573,10 +574,20 @@ def test_large_catchup_while_running():
     Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
     Common.iterate_n_times( 200000, Common.simple_set )
     for n in others:
-	            Common.collapse(n)
+        Common.collapse(n)
 
     time.sleep(1.0)
     Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown)
+def test_db_optimize(): 
+   assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
+   Common.iterate_n_times(10000, Common.set_get_and_delete)
+   db_file = Common.get_node_db_file( Common.node_names[1] )
+   start_size = os.path.getsize( db_file )
+   Common.optimizeDb(Common.node_names[1]) 
+   opt_size = os.path.getsize(db_file)
+   assert_true( opt_size < 0.1*start_size, "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." % (start_size, opt_size) ) 

@@ -784,7 +784,19 @@ class ArakoonCluster:
         ip = config['ip']
         port = int(config['client_port'])
         ArakoonRemoteControl.collapse(ip,port,self._clusterId, n)
-        
+    
+    def optimizeDb(self, nodeName):
+        """
+        Tell a node to optimize its database (only works on slaves)
+
+        @param nodeName The name of the node you want to optimize
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip = config['ip']
+        port = int(config['client_port'])
+        ArakoonRemoteControl.optimizeDb(ip,port,self._clusterId)
+ 
     def restartOne(self, nodeName):
         """
         Restart the node with a given name in the supplied cluster

@@ -71,6 +71,7 @@ type client_command =
   | GET_NURSERY_CFG
   | REV_RANGE_ENTRIES
   | SYNCED_SEQUENCE
+  | OPT_DB
 
 
 let code2int = [
@@ -106,6 +107,7 @@ let code2int = [
   MIGRATE_RANGE           , 0x22l;
   REV_RANGE_ENTRIES       , 0x23l;
   SYNCED_SEQUENCE         , 0x24l;
+  OPT_DB                  , 0x25l;
 ]
 
 let int2code =
@@ -403,5 +405,12 @@ let set_nursery_cfg (ic,oc) clusterid cfg =
   in
   request oc outgoing >>= fun () ->
   response ic nothing
+
+let optimize_db (ic,oc) =
+   let outgoing buf =
+      command_to buf OPT_DB
+   in
+   request oc (fun buf -> outgoing buf) >>= fun () ->
+   response ic nothing
 
 exception XException of Arakoon_exc.rc * string

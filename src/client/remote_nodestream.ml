@@ -39,7 +39,8 @@ class type nodestream = object
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
-  
+ 
+  method optimize_db: unit -> unit Lwt.t 
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
@@ -147,7 +148,9 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
   method set_routing r = Common.set_routing conn r
    
   method set_routing_delta left sep right = Common.set_routing_delta conn left sep right
-    
+   
+  method optimize_db () = Common.optimize_db conn 
+ 
   method get_db db_location =
     
     let outgoing buf =

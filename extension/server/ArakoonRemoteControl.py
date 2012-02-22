@@ -68,7 +68,13 @@ def downloadDb(ip, port, clusterId, location):
                 db_file.write(chunk)
     finally:
         s.close()
-    
+
+def optimizeDb(ip, port, clusterId):
+   s = RCP.make_socket(ip, port) 
+   RCP._prologue(clusterId, s)
+   cmd = RCP._int_to(RCP._OPTIMIZE_DB | RCP._MAGIC)
+   s.send(cmd)
+   RCP.check_error_code(s)
     
 def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
     s = RCP.make_socket(ip,port)
