@@ -23,3 +23,7 @@ debian/arakoon/*
 .project
 .settings/*
 _build/
+
+
+#emacs:
+*.ml~
