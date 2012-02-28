@@ -10,6 +10,7 @@ true: package(dynlink)
 "doc": include
 "src":include
 "src/otc":include
+"src/hope":include
 "src/tools":include
 "src/client":include
 "src/toy":include
@@ -28,6 +29,8 @@ true: package(dynlink)
 <**/nursery.*{byte,native}>: is_main,use_thread
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
 <**/bs_bench.*{byte,native}>: is_main, use_thread
+<**/barakoon*.*{byte,native}>: is_main, use_thread
+<**/hope_demo.*{byte,native}>: is_main, use_thread
 <examples/ocaml/*.{bytes,native}>: use_thread
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
