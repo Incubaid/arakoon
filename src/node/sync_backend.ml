@@ -318,7 +318,7 @@ object(self: #backend)
 
   method hello (client_id:string) (cluster_id:string) =
     log_o self "hello %S %S" client_id cluster_id >>= fun () ->
-    let msg = Printf.sprintf "Arakoon %S" Version.version in
+    let msg = Printf.sprintf "Arakoon %S" Version.git_info in
     Lwt.return (0l, msg)
 
   method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =

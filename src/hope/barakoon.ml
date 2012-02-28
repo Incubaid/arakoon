@@ -111,9 +111,17 @@ let server_t hub =
   let inner = Server.make_server_thread host port (C.protocol hub) in
   inner ()
 
+let log_prelude () = 
+  _log "--- NODE STARTED ---" >>= fun () ->
+  _log "git info: %s " Version.git_info >>= fun () ->
+  _log "compile_time: %s " Version.compile_time >>= fun () ->
+  _log "machine: %s " Version.machine 
+
+
 let main_t () =
   let hub = MHub.create () in
   let service hub = server_t hub in
+  log_prelude () >>= fun () ->
   Lwt.join [ MHub.serve hub;
              service hub
            ];;

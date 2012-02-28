@@ -16,9 +16,7 @@ let run_cmd cmd =
     hg_version
   with | End_of_file -> "Not available"
     
-let hg_revision = run_cmd "hg id -i"
-
-let branch_version = run_cmd "hg branch"
+let git_info = run_cmd "git describe --all --long --always --dirty"
 
 let machine = run_cmd "uname -mnrpio"
 
@@ -43,12 +41,11 @@ let time =
 
 let make_version _ _ =
   let cmd =
-    let template = "let hg_revision = %S\n" ^^
+    let template = "let git_info = %S\n" ^^
       "let compile_time = %S\n" ^^
-      "let machine = %S" ^^
-      "let version = %S"
+      "let machine = %S"
     in
-    Printf.sprintf template hg_revision time machine branch_version
+    Printf.sprintf template git_info time machine 
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 

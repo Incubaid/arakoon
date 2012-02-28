@@ -68,8 +68,7 @@ let list_tests() =
   List.iter do_path (OUnit.test_case_paths All_test.suite)
 
 let show_version ()=
-  Printf.printf "version: %S\n" Version.version;
-  Printf.printf "hg_revision: %S\n" Version.hg_revision;
+  Printf.printf "git_info: %S\n" Version.git_info;
   Printf.printf "compiled: %S\n" Version.compile_time;
   Printf.printf "machine: %S\n" Version.machine;
   Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile

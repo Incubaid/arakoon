@@ -132,9 +132,8 @@ let _log_rotate cfg i get_cfgs =
 
 let log_prelude cluster_cfg =
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
-  Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
+  Lwt_log.info_f "git_info: %s " Version.git_info >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
-  Lwt_log.info_f "version: %s" Version.version >>= fun () ->
   Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Hard) 
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
