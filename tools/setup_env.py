@@ -229,7 +229,7 @@ package "syntax" (
     f.close()
 
 def install_libev():
-    lib = Lib('libev-4.04','.tar.gz',
+    lib = Lib('libev-4.11','.tar.gz',
               'http://dist.schmorp.de/libev/%s')
     lib.download()
     lib.extract()
@@ -284,6 +284,17 @@ def install_libbz2():
     lib.sh(['make', '-f', 'Makefile-libbz2_so'])
     lib.sh(['cp', 'libbz2.so.1.0.6', '%s/lib' % PREFIX])
 
+
+def install_quickcheck():
+    url = 'https://github.com/Incubaid/ocaml-quickcheck.git'
+    sh (['git', 'clone', url], cwd = ROOT)
+    d = '%s/%s' % (ROOT, 'ocaml-quickcheck')
+    steps = ['-configure', 
+             '-build',
+             '-install']
+    for step in steps:
+        sh(['ocaml', 'setup.ml', step], cwd = d, env = env)
+
 def do_it():
     fine = maybe_clean()
     if not fine:
@@ -304,10 +315,11 @@ def do_it():
             install_client()
         if options.bisect:
             install_bisect()
+        install_quickcheck()
         #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
         print '\n\nnow prepend %s/bin to your PATH' % PREFIX
     else:
-        print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
+        print "setup_env.py:  my heuristic tells me we're fine (%s)" % PREFIX
 
 
 if __name__ == '__main__':
