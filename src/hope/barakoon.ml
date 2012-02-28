@@ -1,8 +1,9 @@
-open Mem_store
+open Mem_store 
+open Bstore
 open Hub
 open Lwt
 
-module MHub = HUB(MemStore)
+module MyHub = HUB(BStore)
 
 let gen_request_id =
   let c = ref 0 in
@@ -35,7 +36,7 @@ module C = struct
     
   let __do_unit_update hub q =
     let id = gen_request_id () in
-    MHub.update hub id q >>= fun a ->
+    MyHub.update hub id q >>= fun a ->
     match a with 
       | Core.UNIT -> Lwt.return ()
 
@@ -44,13 +45,10 @@ module C = struct
     __do_unit_update hub q
 
   let _delete hub k =
-    let id = gen_request_id () in
     let q = Core.DELETE k in
-    MHub.update hub id q >>= fun a ->
-    match a with 
-      | Core.UNIT -> Lwt.return ()
+    __do_unit_update hub q
 
-  let _get hub k = MHub.get hub k
+  let _get hub k = MyHub.get hub k
 
 
   let one_command hub ((ic,oc) as conn) = 
@@ -86,7 +84,6 @@ module C = struct
         end 
 
   let protocol hub (ic,oc) =   
-    _log "session started" >>= fun () ->
     let rec loop () = 
       begin
         one_command hub (ic,oc) >>= fun stop ->
@@ -99,6 +96,7 @@ module C = struct
           end
       end
     in
+    _log "session started" >>= fun () ->
     prologue(ic,oc) >>= fun () -> 
     _log "prologue ok" >>= fun () ->
     loop ()
@@ -119,10 +117,10 @@ let log_prelude () =
 
 
 let main_t () =
-  let hub = MHub.create () in
+  let hub = MyHub.create () in
   let service hub = server_t hub in
   log_prelude () >>= fun () ->
-  Lwt.join [ MHub.serve hub;
+  Lwt.join [ MyHub.serve hub;
              service hub
            ];;
 

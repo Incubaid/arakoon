@@ -1,4 +1,5 @@
 open Core
+open Lwt
 
 module MemStore = (struct
   type t = (k, v) Hashtbl.t

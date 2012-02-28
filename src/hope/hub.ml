@@ -3,8 +3,7 @@ open Pq
 
 open Core
 
-let _log f = Printf.kprintf Lwt_io.printl f
-
+let _log f = Printf.kprintf Lwt_io.printl f 
 
 open One
 module X = ONE;;
@@ -17,18 +16,23 @@ module HUB(S:STORE) = struct
             store : S.t;
            }
   let create () = 
-    let r = 
       {msgs = PQ.create (); reqs = PQ.create (); 
        mapping= Hashtbl.create 7;
        store = S. create ();
       } 
-    in 
-    let () = PQ.push r.msgs (X.M_TIMEOUT X.start) in 
-    r
+
 
   let wait_for_msg t s d = 
-    let maybe_timeout () = Lwt_unix.sleep d >>= fun () -> Lwt.return (X.M_TIMEOUT s) in
-    let maybe_client  () = PQ.wait_for t.reqs >>= fun () -> Lwt.return (X.M_CLIENT )   in
+    let maybe_timeout () = 
+      Lwt_unix.sleep d >>= fun () -> 
+      _log "...timeout..." >>= fun () ->
+      Lwt.return (X.M_TIMEOUT s) 
+    in
+    let maybe_client  () =
+      (if not (PQ.is_empty t.reqs) then Lwt.return () else PQ.wait_for t.reqs )
+      >>= fun () -> 
+      Lwt.return (X.M_CLIENT )   
+    in
     if PQ.is_empty t.msgs
     then 
       begin
@@ -57,7 +61,7 @@ module HUB(S:STORE) = struct
           Lwt.return ()
         end
       | X.A_STORE_RETURN v -> 
-
+        _log "store_and_return %s" (X.value2s v) >>= fun () ->
         begin
           match v with
             | X.V_D -> (* do something special here *) Lwt.return ()
@@ -74,7 +78,13 @@ module HUB(S:STORE) = struct
       let c0 = X.tick_of s in
       let sn = X.sn_of s in
       let sn' = X.sn_of s' in
-      _log "%s|%-10s|%-50s|%-10s|%-30s" (X.tick2s c0) (X.state_name2s sn) (X.msg2s m) 
+      let nr = PQ.length hub.reqs in
+      let nm = PQ.length hub.msgs in
+      _log "%s|%-4i|%-4i|%-10s|%-50s|%-10s|%-30s" 
+        (X.tick2s c0) 
+        nr 
+        nm
+        (X.state_name2s sn) (X.msg2s m) 
         (X.state_name2s sn')
         (X.action2s a)
     in

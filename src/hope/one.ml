@@ -1,12 +1,13 @@
 open Core
 module ONE = struct
   type state_name = 
-    | S_START 
     | S_MASTER
     | S_PUSHING
     | S_FINISH
 
   type tick = TICK of int
+  let (<:) (TICK i0) (TICK i1) = i0 < i1
+
   let start_tick = TICK 0
   let next_tick (TICK i) = TICK (i+1)
 
@@ -21,7 +22,6 @@ module ONE = struct
   let id2s id = string_of_int id
 
   let state_name2s = function
-    | S_START  -> "S_START"
     | S_MASTER  -> "S_MASTER"
     | S_PUSHING -> "S_PUSHING"
     | S_FINISH  -> "S_FINISH"
@@ -52,25 +52,27 @@ module ONE = struct
 
   let msg2s = function
     | M_FINISH -> "M_FINISH"
-    | M_TIMEOUT s -> "M_TIMEOUT"
+    | M_TIMEOUT (c0,sn0) -> Printf.sprintf "M_TIMEOUT(%s,%s)" (tick2s c0) (state_name2s sn0)
     | M_CLIENT -> "M_CLIENT"
     | M_CHOICE v -> Printf.sprintf "M_CHOICE (%s)" (value2s v)
     | M_PUSHED v -> Printf.sprintf "M_PUSHED (%s)" (value2s v)
 
   type action = 
+    | A_NOP
     | A_CHOOSE 
     | A_PUSH of value
     | A_STORE_RETURN of value
     | A_DIE
 
   let action2s = function
+    | A_NOP -> "A_NOP"
     | A_DIE -> "A_DIE"
     | A_CHOOSE -> Printf.sprintf "A_CHOOSE"
     | A_PUSH  v  -> Printf.sprintf "A_PUSH (%s)" (value2s v)
     | A_STORE_RETURN v  -> Printf.sprintf "A_STORE_RETURN (%s)" (value2s v)
 
   
-  let start = (TICK 0, S_START)
+  let start = (TICK 0, S_MASTER)
 
   let step m s = 
     let c,sn = s in
@@ -78,9 +80,13 @@ module ONE = struct
     let push v =    (A_PUSH  v), (c', S_PUSHING) in
     let store idv =   (A_STORE_RETURN idv), (c', S_MASTER) in
     let choose () =   A_CHOOSE, (c', S_MASTER) in
+    let timeout_master (c0,sn0) = 
+      if c0 <: c 
+      then A_NOP, (c, S_MASTER) 
+      else push V_D
+    in
     match m,sn with
-    | M_TIMEOUT (c0,sn0) , S_START   -> push V_D
-    | M_TIMEOUT (c0,sn0) , S_MASTER  -> push V_D
+    | M_TIMEOUT t , S_MASTER  -> timeout_master t
     | M_CLIENT           , S_MASTER  -> choose ()
     | M_CHOICE v         , S_MASTER  -> push v
     | M_PUSHED v         , S_PUSHING -> store v
