@@ -185,9 +185,11 @@ let test_iterate6 (dn,factory) =
 
 
 let test_compression_bug (dn, factory) =
+  Lwt_log.info "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
   factory dn >>= fun tlc ->
+  Lwt_log.info "have tlc" >>= fun () ->
   let n = 12 in
   let rec loop i = 
     if i = n then Lwt.return () 

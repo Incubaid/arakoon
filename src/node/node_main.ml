@@ -91,12 +91,15 @@ let _config_messaging me others cookie laggy =
 	      f
     | false -> (fun _ _ _ -> false)
   in
-  let mapping = List.map
-    (fun cfg -> (cfg.node_name, (cfg.ip, cfg.messaging_port)))
-    others
+  let mapping = 
+    List.fold_left
+      (fun acc cfg -> 
+        let a = List.map (fun ip -> (cfg.node_name, (ip, cfg.messaging_port))) cfg.ips in
+        a @ acc)
+      [] others
   in
   let messaging = new tcp_messaging 
-    (me.ip, me.messaging_port) cookie drop_it in
+    (me.ips, me.messaging_port) cookie drop_it in
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
@@ -115,11 +118,12 @@ let _check_tlogs collection tlog_dir =
 
 let _config_service cfg backend=
   let port = cfg.client_port in
-  let host = cfg.ip in
+  let hosts = cfg.ips in
   let max_connections = 
     let hard = Limits.get_rlimit Limits.NOFILE Limits.Hard in
     max (hard -200) 200
   in
+  let host = List.hd hosts in
   Server.make_server_thread host port (Client_protocol.protocol backend) ~max_connections
 
 let _log_rotate cfg i get_cfgs =
@@ -305,7 +309,7 @@ let _main_2
         begin
           let ccfg = ClientCfg.make () in
           let add_one cfg =
-            let node_address = cfg.ip, cfg.client_port in
+            let node_address = List.hd cfg.ips, cfg.client_port in
             ClientCfg.add ccfg cfg.node_name node_address
           in
           List.iter add_one in_cluster_cfgs;

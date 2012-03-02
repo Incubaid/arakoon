@@ -35,16 +35,30 @@ let never () = Lwt.return false
 let no_callback () = Lwt.return ()
 
 type drop_function = Message.t -> string -> string -> bool
+module RR = struct
 
-class tcp_messaging my_address my_cookie (drop_it: drop_function) =
+  type t = { mutable addresses: address list }
+  let create () = {addresses = [] } 
+  let current t = List.hd t.addresses
+  let rotate t = match t.addresses with
+    | [] -> failwith "empty address list"
+    | x :: xs -> t.addresses <- xs @ [x]
+  let add t a = t.addresses <- a :: t.addresses
+
+  let fold f a0 t = List.fold_left f a0 t.addresses
+end
+
+
+class tcp_messaging my_addresses my_cookie (drop_it: drop_function) =
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
-  let my_host, my_port = my_address in
-  let me = Printf.sprintf "(%s,%i)" my_host my_port 
+  let my_ips, my_port = my_addresses in
+  let my_ip = List.hd my_ips in
+  let me = Printf.sprintf "(%s,%i)" my_ip my_port 
   in
 object(self : # messaging )
   val _id2address = Hashtbl.create 10
-  val _connections = Hashtbl.create 10
+  val _connections = (Hashtbl.create 10 : (address, connection) Hashtbl.t)
   val _connections_lock = Lwt_mutex.create ()
   val _qs = Hashtbl.create 10
   val _outgoing = Hashtbl.create 10 
@@ -52,19 +66,30 @@ object(self : # messaging )
   val _running_c = Lwt_condition.create ()
   val mutable _my_threads = []
 
-  method register_receivers mapping =
-    List.iter
-      (fun (id,address) -> Hashtbl.add _id2address id address) mapping
+  method private _register_receiver id address =
+    let r = 
+      try Hashtbl.find _id2address id 
+      with Not_found ->
+        let r = RR.create () in
+        let () = Hashtbl.add _id2address id r in
+        r
+    in
+    RR.add r address
 
-  method private _get_target_address ~target =
+  method register_receivers mapping = List.iter (fun (id,address) -> self # _register_receiver id address) mapping
+
+
+  method private _get_target_addresses ~target =
     try Some (Hashtbl.find _id2address target)
     with Not_found -> None
 
 
   method expect_reachable ~target = 
-    match self # _get_target_address ~target with
+    let addresses_o = self # _get_target_addresses ~target in
+    match addresses_o with
       | None -> false
-      | Some address -> Hashtbl.mem _connections address
+      | Some rr -> RR.fold (fun acc a -> acc || Hashtbl.mem _connections a) false rr
+
 	
 	
   method private __die__ () = 
@@ -114,7 +139,7 @@ object(self : # messaging )
     Lwt.pick[ Lwt_unix.timeout 5.0;
 	      __open_connection socket_address] 
     >>= fun (ic,oc) ->
-    let my_ip, my_port = my_address in
+
     Llio.output_int64 oc _MAGIC >>= fun () ->
     Llio.output_int oc _VERSION >>= fun () ->
     Llio.output_string oc my_cookie >>= fun () ->
@@ -124,7 +149,8 @@ object(self : # messaging )
   (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
      on local host *)
 
-  method private _get_connection address =
+  method private _get_connection (addresses:RR.t) =
+    let (address:address) = RR.current addresses in
     try
       let conn =  Hashtbl.find _connections address in
       Lwt.return conn
@@ -136,16 +162,17 @@ object(self : # messaging )
   method private _make_sender_loop target target_q =
     let rec _loop_for_q () = 
       Lwt_buffer.take target_q >>= fun (source, target, msg) ->
-      let ao = self # _get_target_address ~target in
+      let rr_o = self # _get_target_addresses ~target in
       begin
-	match ao with
-	  | Some address ->
+	match rr_o with
+	  | Some (addresses:RR.t) ->
+            let address = RR.current addresses in
 	    let drop exn reason =
 	      Lwt_log.debug ~exn reason >>= fun () ->
 	      self # _drop_connection address
 	    in
 	    let try_send () =
-	      self # _get_connection address >>= fun connection ->
+	      self # _get_connection addresses >>= fun connection ->
 	      let ic,oc = connection in
 	      let pickled = self # _pickle source target msg in
 	      Llio.output_string oc pickled >>= fun () ->
@@ -302,8 +329,9 @@ object(self : # messaging )
 	      begin
 		begin
 		  if not (Hashtbl.mem _id2address source)
-		  then let () = Hashtbl.add _id2address source (ip,port) in
-		       Lwt_log.debug_f "registered %s => (%s,%i)" source ip port 
+		  then 
+                    let () = self # _register_receiver source (ip,port) in
+		    Lwt_log.debug_f "registered %s => (%s,%i)" source ip port 
 		  else Lwt.return () 
 		end >>= fun () ->
 		let q = self # get_buffer target in
@@ -325,7 +353,7 @@ object(self : # messaging )
     let server_t = Server.make_server_thread 
       ~setup_callback
       ~teardown_callback
-      my_host my_port protocol
+      my_ip my_port protocol
     in
     _running <- true;
     Lwt_condition.broadcast _running_c ();

@@ -30,7 +30,7 @@ open Master_type
 let _make_cfg name n lease_period =
   {
     node_name = name;
-    ip = "127.0.0.1";
+    ips = ["127.0.0.1"];
     client_port =  4000 + n;
     messaging_port = 4010 + n;
     home = name;
