@@ -5,7 +5,7 @@ USER=`whoami`
 cd src/client/php/test
 
 export PATH=/opt/qbase3/bin/:/opt/qbase3/apps/arakoon/bin:$PATH
-export LD_LIBRARY_PATH=/opt/qbase3/lib
+export LD_LIBRARY_PATH=/opt/qbase3/lib:/opt/qbase3/lib64
 
 sudo php all_nodes_down_test.php
 sudo php all_nodes_up_test.php
