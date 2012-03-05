@@ -12,7 +12,7 @@ $configFilePath = $currentDir . '/config.ini';
 $arakoonExeCmd;
 
 /**
- * check existance of config file when provided
+ * check existence of config file when provided
  */
 if (array_key_exists(1, $arguments) && file_exists($arguments[1]))
 {
