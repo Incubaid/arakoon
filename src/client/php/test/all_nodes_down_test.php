@@ -41,7 +41,7 @@ else
 $config = Arakoon_Client_Config::CreateFromFile($configFilePath);
 $testEnvironment = ArakoonTestEnvironment::getInstance();
 $testEnvironment->setup($config, $arakoonExeCmd, $configFilePath, FALSE);
-Arakoon_Client_Logger::setup('log.txt', Arakoon_Client_LoggerLevel::TRACE, TRUE);
+Arakoon_Client_Logger::setup('/tmp/log.txt', Arakoon_Client_LoggerLevel::TRACE, TRUE);
 
 /**
  * setup test
