@@ -180,51 +180,53 @@ object(self : # messaging )
 	    in
 	    Lwt.catch
 	      (fun () -> try_send ())
-	      (function
-		| Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
-		  begin
-		    Lwt_log.debug_f "stale connection" >>= fun () ->
-		    self # _drop_connection address >>= fun () ->
-		    Lwt.catch
-		      (fun () -> try_send ())
-		      (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
-		  end
-                | Lwt.Canceled -> Lwt.fail Lwt.Canceled
-		| Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
-		  begin 
-		    let reason = 
-		      Printf.sprintf "machine with %s up, server down => dropping %s"
-			target (Message.string_of msg ) 
-		    in 
-		    drop exn reason >>= fun () ->
-		    Lwt_unix.sleep 1.0 (* not to hammer machine *)
-		  end
-		| Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
-		  begin
-		    let reason = 
-		      Printf.sprintf "machine with %s unreachable => dropping %s"
-			target (Message.string_of msg) 
-		    in
-		    drop exn reason >>= fun () ->
-		    Lwt_unix.sleep 2.0
-		  end
-		| Lwt_unix.Timeout as exn ->
-		  begin
-		    let reason =
-		      Printf.sprintf "machine with %s (probably) down => dropping %s"
-			target (Message.string_of msg) 
-		    in
-		    drop exn reason >>= fun () ->
-		    Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
-		  end
-		| exn -> 
-		  begin
-		    let reason = 
-		      Printf.sprintf "dropping message %s with destination '%s' because of"
-			(Message.string_of msg) target 
-		    in
-		    drop exn reason
-		  end
+	      (fun exn ->
+                let () = RR.rotate addresses in
+                match exn with
+		  | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
+		    begin
+		      Lwt_log.debug_f "stale connection" >>= fun () ->
+		      self # _drop_connection address >>= fun () ->
+		      Lwt.catch
+		        (fun () -> try_send ())
+		        (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
+		    end
+                  | Lwt.Canceled -> Lwt.fail Lwt.Canceled
+		  | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
+		    begin 
+		      let reason = 
+		        Printf.sprintf "machine with %s up, server down => dropping %s"
+			  target (Message.string_of msg ) 
+		      in 
+		      drop exn reason >>= fun () ->
+		      Lwt_unix.sleep 1.0 (* not to hammer machine *)
+		    end
+		  | Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
+		    begin
+		      let reason = 
+		        Printf.sprintf "machine with %s unreachable => dropping %s"
+			  target (Message.string_of msg) 
+		      in
+		      drop exn reason >>= fun () ->
+		      Lwt_unix.sleep 2.0
+		    end
+		  | Lwt_unix.Timeout as exn ->
+		    begin
+		      let reason =
+		        Printf.sprintf "machine with %s (probably) down => dropping %s"
+			  target (Message.string_of msg) 
+		      in
+		      drop exn reason >>= fun () ->
+		      Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
+		    end
+		  | exn -> 
+		    begin
+		      let reason = 
+		        Printf.sprintf "dropping message %s with destination '%s' because of"
+			  (Message.string_of msg) target 
+		      in
+		      drop exn reason
+		    end
 	      )
 	  | None -> (* we don't talk to strangers *)
 	    Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
