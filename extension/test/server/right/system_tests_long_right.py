@@ -589,14 +589,24 @@ def test_272():
     """
     node = Common.node_names[0]
     cluster = Common._getCluster()
-    path = cluster._getConfigFilePath()
+    path = '%s.cfg' % cluster._getConfigFilePath()
+    logging.info('path=%s', path)
     bench = subprocess.Popen([Common.binary_full_path, '-config', path ,'--benchmark'])
     time.sleep(10.0) # give it time to get up to speed
+    rc = bench.returncode
+    if rc <> None:
+        raise Exception ("benchmark should not finish")
+
     for i in range(100):
         Common.rotate_log(node, 1, False)
         time.sleep(0.2)
         Common.assert_running_nodes(1)
+        rc = bench.returncode
+        if rc <> None:
+            raise Exception ("benchmark should not have stopped")
+
     Common.assert_running_nodes(1)
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
-    logging.info("done")
+    if rc <> 0:
+        raise Exception("kaboom:tc = %s" % rc)
