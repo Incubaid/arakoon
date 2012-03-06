@@ -27,18 +27,20 @@ open Update
 open Tlogcollection
 open Tlogcommon
 
+
 let setup factory () =
-  Lwt_log.info "setup" >>= fun () ->
   let dn = "/tmp/tlogcollection" in
+  Lwt_log.info_f "setup %s" dn >>= fun () ->
   Lwt_preemptive.detach
     (fun () ->
-      if Sys.file_exists dn then
-        let rc = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
-        if rc <> 0 then 
-          let msg = Printf.sprintf "removing %s gave rc %i" dn rc in
-          failwith msg
-        else
-          Unix.mkdir dn 0o755
+      let () = 
+        if Sys.file_exists dn then
+          let rc = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
+          if rc <> 0 then 
+            let msg = Printf.sprintf "removing %s gave rc %i" dn rc in
+            failwith msg
+      in
+      Unix.mkdir dn 0o755
     )
     ()
   >>= fun ()->
