@@ -194,11 +194,15 @@ class ArakoonCluster:
     def __repr__(self):
         return "<ArakoonCluster:%s>" % self._clusterId
 
-    def _getConfigFile(self):
+    def _getConfigFilePath(self):
         clusterConfig = q.config.getInifile("arakoonclusters")
         cfgDir = clusterConfig.getValue( self._clusterId, "path")
-        cfgFile = q.system.fs.joinPaths( cfgDir, self._clusterId )
-        return q.config.getInifile( cfgFile )
+        path = q.system.fs.joinPaths( cfgDir, self._clusterId )
+        return path
+
+    def _getConfigFile(self):
+        path = self._getConfigFilePath()
+        return q.config.getInifile(path)
     
     def addNode(self,
                 name,

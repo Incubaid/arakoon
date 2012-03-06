@@ -556,7 +556,7 @@ def test_243():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
-	    cli = Common.get_client()
+    cli = Common.get_client()
     cluster = Common._getCluster()
 
     cli.set('k','v')
@@ -580,3 +580,23 @@ def test_large_catchup_while_running():
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
+
+
+@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
+def test_272():
+    """ 
+    arakoon can go down during log rotation, but you need to have load to reproduce it
+    """
+    node = Common.node_names[0]
+    cluster = Common._getCluster()
+    path = cluster._getConfigFilePath()
+    bench = subprocess.Popen([Common.binary_full_path, '-config', path ,'--benchmark'])
+    time.sleep(10.0) # give it time to get up to speed
+    for i in range(100):
+        Common.rotate_log(node, 1, False)
+        time.sleep(0.2)
+        Common.assert_running_nodes(1)
+    Common.assert_running_nodes(1)
+    logging.info("now wait for benchmark to finish")
+    rc = bench.wait()
+    logging.info("done")
