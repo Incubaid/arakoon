@@ -1,1 +1,1 @@
-archive_version.sh
+../archive_version.sh
