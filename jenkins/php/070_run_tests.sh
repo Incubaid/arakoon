@@ -1,4 +1,4 @@
-cd /opt/qbase3/var/tmp/arakoon-1.0/src/client/php/test
+cd /opt/qbase3/var/tmp/arakoon-x/src/client/php/test
 cat > /tmp/run_php_tests.sh << EOF
 export PATH=/opt/qbase3/bin/:/opt/qbase3/apps/arakoon/bin:$PATH
 export LD_LIBRARY_PATH=/opt/qbase3/lib
