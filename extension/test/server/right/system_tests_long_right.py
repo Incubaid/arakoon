@@ -582,6 +582,23 @@ def test_large_catchup_while_running():
     time.sleep(10.0)
     Common.assert_running_nodes(3)
 
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, 
+                           Common.basic_teardown)
+def test_db_optimize(): 
+   assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
+   Common.iterate_n_times(10000, Common.set_get_and_delete)
+   db_file = Common.get_node_db_file( Common.node_names[1] )
+   start_size = os.path.getsize( db_file )
+   Common.optimizeDb(Common.node_names[1]) 
+   opt_size = os.path.getsize(db_file)
+   template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
+   msg = template % (start_size, opt_size) 
+   assert_true( opt_size < 0.1*start_size, msg)
+                
+
+
+
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_272():
     """ 
