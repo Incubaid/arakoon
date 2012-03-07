@@ -123,10 +123,10 @@ let _config_service cfg backend=
   Server.make_server_thread host port (Client_protocol.protocol backend) ~max_connections
 
 let _log_rotate cfg i get_cfgs =
-  Lwt_log.warning_f "received USR (%i) going to close/reopen log file" i
+  Lwt_log.warning_f "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->
   let logger = !Lwt_log.default in
-  let _ = _config_logging cfg get_cfgs in
+  _config_logging cfg get_cfgs >>= fun _ ->
   Lwt_log.close logger >>= fun () ->
   Lwt.return ()
 
