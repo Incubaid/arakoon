@@ -348,6 +348,10 @@ def startOne(name):
     cluster = _getCluster()
     cluster.startOne(name)
 
+def optimizeDb(name):
+    cluster = _getCluster()
+    cluster.optimizeDb(name)
+
 def catchupOnly(name):
     cluster = _getCluster()
     cluster.catchupOnly(name)

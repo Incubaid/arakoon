@@ -73,6 +73,13 @@ module Hotc = struct
 
   let filename t = t.filename
 
+  let optimize t = 
+    Lwt_preemptive.detach (
+      fun() -> 
+        Lwt.ignore_result( Lwt_log.debug "Optimizing database" ); 
+        Bdb.bdb_optimize t.bdb
+    ) ()
+
   let reopen t when_closed mode=
     _do_locked t
       (fun () ->

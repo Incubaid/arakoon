@@ -27,7 +27,6 @@ from .. import system_tests_common
 
 from arakoon.ArakoonExceptions import *
 import arakoon
-from nose.plugins.skip import Skip, SkipTest
 import nose.tools as NT
 
 import logging
@@ -242,14 +241,6 @@ def disk_full_scenario( node_id, cli ):
     Common.assert_key_list( 0, 500, key_list )
     
     
-@Common.with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
-def test_disk_full_on_master () :
-    raise SkipTest
-    cli = get_client()
-    master_id = cli.whoMaster()
-    
-    disk_full_scenario( master_id, cli )
-
 def unblock_node_ports ( node_id ):
     current_rules = set( get_current_iptables_rules()) 
     node_block_rules = set( get_node_block_rules( node_id ))
@@ -345,7 +336,6 @@ def iptables_teardown( removeDirs ) :
 @Common.with_custom_setup(Common.setup_3_nodes_forced_master, 
                           iptables_teardown )
 def test_block_single_slave_ports_loop () :
-    # raise SkipTest
     master_id = Common.node_names [0]
     # Node 0 is fixed master 
     slave_id = Common.node_names[1]
@@ -365,105 +355,6 @@ def test_block_single_slave_ports_loop () :
     Common.stop_all()
     Common.assert_last_i_in_sync ( master_id, slave_id )
     Common.compare_stores( master_id, slave_id )
-
-@Common.with_custom_setup(Common.setup_3_nodes_forced_master, 
-                          iptables_teardown )
-def test_block_single_slave_ports () :
-    raise SkipTest
-
-    system_tests_common.test_failed = False
-    master_id = Common.node_names [0]
-    # Node 0 is fixed master 
-    slave_id = Common.node_names[1]
-    
-    block_node_ports( slave_id )
-    
-    write_loop = lambda: Common.iterate_n_times( 10000, 
-                                                 Common.set_get_and_delete )
-    
-    Common.create_and_wait_for_thread_list( [write_loop] )
-    
-    unblock_node_ports( slave_id )
-    # Make sure the slave is notified of running behind
-    cli = get_client()
-    cli.set( 'key', 'value')
-    
-    # Give the slave some time to catchup
-    time.sleep(5.0)
-    Common.stop_all()
-    Common.assert_last_i_in_sync ( master_id, slave_id )
-    Common.compare_stores( master_id, slave_id )
-    
-@Common.with_custom_setup(Common.default_setup, 
-                          iptables_teardown )
-def test_block_two_slaves_ports () :
-    raise SkipTest
-    cli = get_client()
-    master_id = cli.whoMaster() 
-    
-    node_name_cpy = list( Common.node_names )
-    node_name_cpy.remove( master_id )
-    
-    slave_1_id = node_name_cpy [0]
-    slave_2_id = node_name_cpy [1]
-    
-    block_node_ports( slave_1_id )
-    block_node_ports( slave_2_id )
-    
-    NT.assert_raises( ArakoonException, cli.set, "k", "v" )
-    
-    time.sleep( Common.lease_duration  )
-    cli._masterId = None
-    NT.assert_raises( ArakoonNoMaster, cli.whoMaster )
-    
-    unblock_node_ports( slave_1_id )
-    unblock_node_ports( slave_2_id )
-    
-    iterate_n_times( 1000, Common.set_get_and_delete, 20000 )
-    
-
-@Common.with_custom_setup(Common.default_setup, 
-                          iptables_teardown )
-def test_block_two_slaves_ports_loop () :
-
-    raise SkipTest
-    cli = get_client()
-    master_id = cli.whoMaster() 
-    
-    node_name_cpy = list( Common.node_names )
-    node_name_cpy.remove( master_id )
-    
-    slave_1_id = node_name_cpy [0]
-    slave_2_id = node_name_cpy [1]
-    
-    valid_exceptions = [
-        ArakoonSockNotReadable,
-        ArakoonNoMaster ,
-        ArakoonNodeNotMaster                 
-    ]
-    
-    write_loop = lambda: iterate_n_times( 10000, mindless_retrying_set_get_and_delete, failure_max=10000, valid_exceptions=valid_exceptions )
-    block_loop_1 = lambda: iterate_block_unblock_nodes ( 10, [slave_1_id,slave_2_id] )
-    
-    write_thr = Common.create_and_start_thread( write_loop )
-    block_loop_1 ()
-    
-    write_thr.join()
-    # Make sure the slave is notified of running behind
-    cli = get_client()
-    cli.set( 'key', 'value')
-    
-    # Give the slave some time to catchup
-    time.sleep(5.0)
-    stop_all()
-    assert_last_i_in_sync ( master_id, slave_1_id )
-    compare_stores( master_id, slave_1_id )
-    assert_last_i_in_sync ( master_id, slave_2_id )
-    compare_stores( master_id, slave_2_id )
-    start_all()
-    
-    iterate_n_times( 1000, set_get_and_delete, 20000 )
-        
 
 @Common.with_custom_setup(Common.setup_3_nodes, 
                           iptables_teardown )

@@ -16,6 +16,7 @@ class type nodestream = object
   method set_routing_delta: string -> string -> string -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
   
+  method optimize_db: unit -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t

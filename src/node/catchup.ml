@@ -34,6 +34,10 @@ type store_tlc_cmp =
   | Store_tlc_equal
   | Store_ahead
 
+let _with_client_connection (ips,port) f = 
+  let address = Network.make_address (List.hd ips) port in
+  Lwt_io.with_connection address f
+
 let compare_store_tlc store tlc =
   store # consensus_i () >>= fun m_store_i ->
   tlc # get_last_i () >>= fun tlc_i ->
@@ -78,7 +82,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in
-  let mr_address = Node_cfg.client_address mr_cfg
+  let mr_addresses = Node_cfg.client_addresses mr_cfg 
   and mr_name = Node_cfg.node_name mr_cfg in
   Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn = 
@@ -108,7 +112,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
 
   Lwt.catch
     (fun () ->
-      Lwt_io.with_connection mr_address copy_tlog >>= fun () ->
+      _with_client_connection mr_addresses copy_tlog >>= fun () ->
       Lwt_log.debug_f "catchup_tlog completed" 
     )
     (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
@@ -261,8 +265,8 @@ let get_db db_name cluster_id cfgs =
           Lwt.catch 
           ( fun () ->
             Lwt_log.info_f "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
-            let address = Node_cfg.client_address cfg in
-            Lwt_io.with_connection address get_db_from_stream >>= fun () -> 
+            let mr_addresses = Node_cfg.client_addresses cfg in
+            _with_client_connection mr_addresses get_db_from_stream >>= fun () -> 
             Lwt_log.info "get_db: Download succeeded" >>= fun () ->
             Lwt.return (Some (Node_cfg.node_name cfg))
           ) 

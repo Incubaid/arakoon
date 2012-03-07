@@ -27,6 +27,7 @@ import logging
 import time
 import subprocess
 from nose.tools import *
+import os
 
 def _getCluster():
     q = Common.q # resistance is futile
@@ -573,14 +574,13 @@ def test_large_catchup_while_running():
     Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
     Common.iterate_n_times( 200000, Common.simple_set )
     for n in others:
-	            Common.collapse(n)
+        Common.collapse(n)
 
     time.sleep(1.0)
     Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
-
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_272():
@@ -610,3 +610,4 @@ def test_272():
     rc = bench.wait()
     if rc <> 0:
         raise Exception("kaboom:tc = %s" % rc)
+

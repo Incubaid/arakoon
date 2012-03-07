@@ -565,10 +565,44 @@ object(self: #backend)
   method get_key_count () =
     store # get_key_count ()
 
-  method get_db m_oc =
+  method private quiesce_db () =
     self # _not_if_master () >>= fun () ->
-    Lwt_log.debug "get_db: enter" >>= fun () ->
     let result = ref Multi_paxos.Quiesced_fail in
+    let sleep, awake = Lwt.wait() in
+    let update = Multi_paxos.Quiesce (sleep, awake) in
+    Lwt_log.debug "quiesce_db: Pushing quiesce request" >>= fun () ->
+    push_node_msg update >>= fun () ->
+    Lwt_log.debug "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
+    sleep >>= fun res ->
+    result := res;
+    Lwt_log.debug "quiesce_db: db is now completed" >>= fun () ->
+    match res with
+      | Multi_paxos.Quiesced_ok -> Lwt.return () 
+      | Multi_paxos.Quiesced_fail_master ->
+        Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+      | Multi_paxos.Quiesced_fail ->
+        Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
+  
+  method private unquiesce_db () =
+    Lwt_log.debug "unquiesce_db: Leaving quisced state" >>= fun () ->
+    let update = Multi_paxos.Unquiesce in
+    push_node_msg update 
+      
+  method try_quiesced f =
+    self # quiesce_db () >>= fun () ->
+    begin 
+      Lwt.finalize
+      ( f ) 
+      ( self # unquiesce_db )
+    end
+
+  method optimize_db () =
+    Lwt_log.debug "optimize_db: enter" >>= fun () ->
+    self # try_quiesced( store # optimize ) >>= fun () ->
+    Lwt_log.debug "optimize_db: All done"
+ 
+  method get_db m_oc =
+    Lwt_log.debug "get_db: enter" >>= fun () ->
     begin
       match m_oc with
         | None ->
@@ -576,38 +610,8 @@ object(self: #backend)
           Lwt.fail ex
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
-    let sleep, awake = Lwt.wait() in
-    let update = Multi_paxos.Quiesce (sleep, awake) in
-    Lwt_log.debug "get_db: Pushing quiesce request" >>= fun () ->
-    push_node_msg update >>= fun () ->
-    Lwt.finalize
-    ( fun () ->
-	    begin
-	      Lwt_log.debug "get_db: waiting for quiesce request to be completed" >>= fun () ->
-	      sleep >>= fun res ->
-	      result := res;
-	      match res with
-	        | Multi_paxos.Quiesced_ok -> store # copy_store oc
-	        | Multi_paxos.Quiesced_fail_master ->
-	          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
-	        | Multi_paxos.Quiesced_fail ->
-	          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
-	    end
-    )
-    ( fun () ->
-      begin
-        let res = !result in
-        begin
-	        match res with
-	          | Multi_paxos.Quiesced_ok ->
-	                Lwt_log.debug "get_db: Leaving quisced state" >>= fun () ->
-	                let update = Multi_paxos.Unquiesce in
-	                push_node_msg update
-	          | _ -> Lwt.return ()
-        end >>= fun () ->
-        Lwt_log.debug "get_db: All done"
-      end
-    )
+    self # try_quiesced ( fun () -> store # copy_store oc ) >>= fun () ->
+    Lwt_log.debug "get_db: All done"
 
   method get_cluster_cfgs () =
     begin

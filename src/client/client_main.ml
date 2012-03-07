@@ -25,10 +25,10 @@ open Network
 open Statistics
 open Lwt
 
+let _address_to_use ips port = make_address (List.hd ips) port 
+
 let with_client cfg (cluster:string) f =
-  let host = cfg.ip
-  and port = cfg.client_port in
-  let sa = make_address host port in
+  let sa = _address_to_use cfg.ips cfg.client_port in
   let do_it connection =
     Arakoon_remote_client.make_remote_client cluster connection 
     >>= fun (client: Arakoon_client.client) ->
@@ -43,7 +43,7 @@ let find_master cluster_cfg =
     | cfg :: rest ->
       begin
 	Lwt_log.info_f "cfg=%s" cfg.node_name >>= fun () ->
-	let sa = make_address cfg.ip cfg.client_port in
+	let sa = _address_to_use cfg.ips cfg.client_port in
 	Lwt.catch
 	  (fun () ->
 	    Lwt_io.with_connection sa
