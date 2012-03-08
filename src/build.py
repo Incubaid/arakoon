@@ -151,8 +151,9 @@ def generate_sitemap(pages):
     ns = '{%s}' % SITEMAP_NS
 
     root = lxml.etree.Element('%surlset' % ns, nsmap={None: SITEMAP_NS})
-
-    for file_, page in sorted(pages):
+    sp = sorted(pages)
+    for file_, page in sp:
+        print file_
         date = git_modification_date(file_)
 
         url = lxml.etree.SubElement(root, '%surl' % ns)
