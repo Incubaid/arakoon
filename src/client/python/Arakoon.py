@@ -175,7 +175,7 @@ class ArakoonClient :
         @rtype: string
         @return: The master identifier and its version in a single string
         """
-        encoded = ArakoonProtocol.encodeHello(clientId,clusterId)
+        encoded = ArakoonProtocol.encodePing(clientId,clusterId)
         conn = self._sendToMaster(encoded)
         return conn.decodeStringResult()
 
