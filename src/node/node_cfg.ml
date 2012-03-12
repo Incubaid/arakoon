@@ -31,7 +31,7 @@ open Log_extra
 module Node_cfg = struct
 
   type t = {node_name:string;
-	    ip:string;
+	    ips: string list;
 	    client_port:int;
 	    messaging_port:int;
 	    home:string;
@@ -51,7 +51,7 @@ module Node_cfg = struct
   let string_of (t:t) =
     begin
       let template =
-	"{node_name=%S; ip=%S; client_port=%d; " ^^
+	"{node_name=%S; ips=%s; client_port=%d; " ^^
 	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^ 
 	  "log_dir=%S; log_level=%S; lease_period=%i; " ^^
 	  "master=%S; is_laggy=%b; is_learner=%b; " ^^
@@ -60,7 +60,9 @@ module Node_cfg = struct
 	  "}"
       in
       Printf.sprintf template
-	t.node_name t.ip t.client_port 
+	t.node_name 
+        (string_of_list (fun s -> s) t.ips)
+        t.client_port 
 	t.messaging_port t.home t.tlog_dir
 	t.log_dir t.log_level t.lease_period
 	(master2s t.master) t.is_laggy t.is_learner
@@ -85,7 +87,7 @@ module Node_cfg = struct
       let home = ":MEM#t_arakoon_" ^ ns in
       {
 	node_name = "t_arakoon_" ^ ns;
-	ip = "127.0.0.1";
+	ips = ["127.0.0.1"];
 	client_port = (base + n);
 	messaging_port = (base + 10 + n);
 	home = home;
@@ -129,11 +131,12 @@ module Node_cfg = struct
 
 
   let tlog_dir t = t.tlog_dir 
-  let tlog_file_name t =
-    t.home ^ "/" ^ t.node_name ^ ".tlog"
-
+  
   let _node_names inifile = 
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
+
+  let _ips inifile node_name = 
+    Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
 
   let _tlog_entries_overwrite inifile =
     Ini.get inifile "global" "__tainted_tlog_entries_per_file" 
@@ -206,7 +209,7 @@ module Node_cfg = struct
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
     let get_int x = Ini.get inifile node_name x Ini.p_int Ini.required in
-    let ip = get_string "ip" in
+    let ips = _ips inifile node_name in
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
@@ -230,7 +233,7 @@ module Node_cfg = struct
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
     {node_name;
-     ip;
+     ips;
      client_port;
      messaging_port;
      home;
@@ -288,7 +291,7 @@ module Node_cfg = struct
   let node_name t = t.node_name
   let home t = t.home
 
-  let client_address t = Network.make_address t.ip t.client_port
+  let client_addresses t = (t.ips, t.client_port)
   
   let get_master t = t.master
 

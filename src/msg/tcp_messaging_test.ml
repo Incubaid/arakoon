@@ -101,8 +101,8 @@ object(self)
     in loop ()
 end 
   
-let make_transport address = 
-  let tcp_transport = new tcp_messaging address "yummy" (fun _ _ _-> false) in
+let make_transport addresses = 
+  let tcp_transport = new tcp_messaging addresses "yummy" (fun _ _ _-> false) in
   (tcp_transport :> messaging) 
     
 let eventually_die ?(t=10.0) () = 
@@ -112,9 +112,10 @@ let eventually_die ?(t=10.0) () =
   
 let test_pingpong_1x1 () = 
   let port = 40010 in
-  let address = ("127.0.0.1", port) in
-  let transport = make_transport address in
-  let mapping = [("a", address);] in
+  let ip = "127.0.0.1" in
+  let addresses = ["127.0.0.1"], port in
+  let transport = make_transport addresses in
+  let mapping = [("a", (ip,port));] in
   let () = transport # register_receivers mapping in
   let player_a = new player "a" transport in
   let cvar = Lwt_condition.create () in
@@ -136,18 +137,19 @@ let test_pingpong_1x1 () =
     
 let test_pingpong_2x2 () = 
   let port_a = 40010 
-  and port_b = 40020  in
-  let address_a = ("127.0.0.1", port_a)
-  and address_b = ("127.0.0.1", port_b) 
+  and port_b = 40020  
+  and local = "127.0.0.1" in
+  let addresses_a = ([local], port_a)
+  and addresses_b = ([local], port_b) 
   in
-  let transport_a = make_transport address_a in
-  let transport_b = make_transport address_b in
+  let transport_a = make_transport addresses_a in
+  let transport_b = make_transport addresses_b in
   let m_tda = Lwt_mvar.create_empty () in 
   let m_tdb = Lwt_mvar.create_empty () in
   let tda () = Lwt_mvar.put m_tda () in
   let tdb () = Lwt_mvar.put m_tdb () in
-  let mapping = [("a", address_a);
-		 ("b", address_b);] in
+  let mapping = [("a", (local,port_a));
+		 ("b", (local,port_b));] in
   let () = transport_a # register_receivers mapping in
   let () = transport_b # register_receivers mapping in
   let player_a = new player "a" transport_a in
@@ -168,17 +170,18 @@ let test_pingpong_2x2 () =
 let test_pingpong_multi_server () =
   let port_a = 40010
   and port_b = 40020  
-  and port_c = 40030 in
-  let address_a = ("127.0.0.1", port_a)
-  and address_b = ("127.0.0.1", port_b)
-  and address_c = ("127.0.0.1", port_c)
+  and port_c = 40030 
+  and local = "127.0.0.1" in
+  let addresses_a = ([local], port_a)
+  and addresses_b = ([local], port_b)
+  and addresses_c = ([local], port_c)
   in
-  let transport_a = make_transport address_a in
-  let transport_b = make_transport address_b in
-  let transport_c = make_transport address_c in
-  let mapping = [("a", address_a);
-                 ("b", address_b);
-                 ("c", address_c);] in
+  let transport_a = make_transport addresses_a in
+  let transport_b = make_transport addresses_b in
+  let transport_c = make_transport addresses_c in
+  let mapping = [("a", (local, port_a));
+                 ("b", (local, port_b));
+                 ("c", (local, port_c))] in
   let () = transport_a # register_receivers mapping in
   let () = transport_b # register_receivers mapping in
   let () = transport_c # register_receivers mapping in
@@ -212,14 +215,15 @@ let test_pingpong_multi_server () =
 
 let test_pingpong_restart () = 
   let port_a = 40010
-  and port_b = 40020 in
-  let address_a = ("127.0.0.1", port_a)
-  and address_b = ("127.0.0.1", port_b) 
+  and port_b = 40020
+  and local = "127.0.0.1" in
+  let address_a = ([local], port_a)
+  and address_b = ([local], port_b) 
   in
   let t_a = make_transport address_a in
   let t_b = make_transport address_b in
-  let mapping = [("a", address_a);
-		 ("b", address_b);] in
+  let mapping = [("a", (local, port_a));
+		 ("b", (local, port_b));] in
   let () = t_a # register_receivers mapping in
   let () = t_b # register_receivers mapping in
   let player_a = new player "a" t_a in

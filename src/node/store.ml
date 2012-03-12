@@ -91,7 +91,8 @@ class type store = object
   method quiesce : unit -> unit Lwt.t
   method unquiesce : unit -> unit Lwt.t
   method quiesced : unit -> bool
-  method copy_store : Lwt_io.output_channel -> unit Lwt.t
+  method optimize : unit -> unit Lwt.t
+  method copy_store : ?_networkClient: bool -> Lwt_io.output_channel -> unit Lwt.t
   method get_fringe : string option -> Routing.range_direction -> (string * string) list Lwt.t
 
 end

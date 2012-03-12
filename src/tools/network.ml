@@ -54,6 +54,12 @@ let __open_connection socket_address =
       let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
       Lwt.return (ic,oc))
-    (fun exn -> Lwt_log.info ~exn "__open_connection failed" >>= fun () ->
+    (fun exn -> 
+      let address_s = match socket_address with
+        | Unix.ADDR_INET(i,p) -> Printf.sprintf "INET(%s,%i)" (Unix.string_of_inet_addr i) p
+        | Unix.ADDR_UNIX s    -> Printf.sprintf "UNIX(%S)" s
+      in
+      Lwt_log.info_f ~exn "__open_connection to %s failed" address_s
+      >>= fun () ->
       Lwt_unix.close socket >>= fun () ->
       Lwt.fail exn)

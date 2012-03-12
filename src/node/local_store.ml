@@ -362,6 +362,30 @@ object(self: #store)
 
   method quiesced () = _quiesced
 
+  method optimize () = 
+    let db_optimal = my_location ^ ".opt" in
+    Lwt_log.debug "Copying over db file" >>= fun () ->
+    Lwt_io.with_file
+        ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
+        ~mode:Lwt_io.output
+        db_optimal (fun oc -> self # copy_store ~_networkClient:false oc )
+    >>= fun () ->
+    begin 
+      Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
+      Hotc.create db_optimal >>= fun db_opt ->
+      Lwt.finalize
+      ( fun () ->
+        Lwt_log.debug "Optimizing db copy" >>= fun () ->
+        Hotc.optimize db_opt >>= fun () ->
+        Lwt_log.debug "Optimize db copy complete" 
+      ) 
+      ( fun () ->
+        Hotc.close db_opt
+      )
+    end >>= fun () ->
+    File_system.rename db_optimal my_location >>= fun () ->
+    self # reopen (fun () -> Lwt.return ())
+
   method private open_db () =
     Hotc._open_lwt db
 
@@ -571,15 +595,21 @@ object(self: #store)
     let admin_key_count = List.length admin_keys in
     Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
 
-  method copy_store (oc: Lwt_io.output_channel) =
+  method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
     if _quiesced then
     begin
       let db_name = my_location in
       let stat = Unix.LargeFile.stat db_name in
       let length = stat.st_size in
       Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
-      Llio.output_int oc 0 >>= fun () ->
-      Llio.output_int64 oc length >>= fun () ->
+      begin
+        if _networkClient 
+        then
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_int64 oc length 
+        else Lwt.return ()
+      end
+      >>= fun () ->
       Lwt_io.with_file
         ~flags:[Unix.O_RDONLY]
         ~mode:Lwt_io.input

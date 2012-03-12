@@ -560,6 +560,7 @@ object(self: # tlog_collection)
 end
 
 let get_last_tlog tlog_dir =
+  Lwt_log.debug "get_last_tlog" >>= fun () ->
   get_tlog_names tlog_dir >>= fun tlog_names ->
   let new_c = get_count tlog_names in
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
@@ -593,8 +594,8 @@ let maybe_correct tlog_dir new_c last =
     Lwt.return (new_c, last)
 
 let make_tlc2 tlog_dir use_compression =
-  Lwt_log.debug "make_tlc" >>= fun () ->
-  get_last_tlog tlog_dir >>= fun (new_c,fn) ->
+  Lwt_log.debug_f "make_tlc %S" tlog_dir >>= fun () ->
+  get_last_tlog tlog_dir >>= fun (new_c, fn) ->
   _validate_one fn >>= fun last ->
   maybe_correct tlog_dir new_c last >>= fun (new_c,last) ->
   let msg = 
