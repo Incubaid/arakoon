@@ -36,6 +36,20 @@ let with_client cfg (cluster:string) f =
   in
     Lwt_io.with_connection sa do_it
 
+let ping ip port cluster_id = 
+  let do_it connection = 
+    let t0 = Unix.gettimeofday () in
+    Arakoon_remote_client.make_remote_client cluster_id connection 
+    >>= fun (client: Arakoon_client.client) ->
+    client # ping "cucu" cluster_id >>= fun s ->
+    let t1 = Unix.gettimeofday() in
+    let d = t1 -. t0 in
+    Lwt_io.printlf "%s\ntook\t%f" s d
+  in
+  let sa = make_address ip port in
+  let t = Lwt_io.with_connection sa do_it in
+  Lwt_main.run t; 0
+
 let find_master cluster_cfg =
   let cfgs = cluster_cfg.cfgs in
   let rec loop = function

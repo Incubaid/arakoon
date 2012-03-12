@@ -54,6 +54,7 @@ type local_action =
   | InitNursery
   | MigrateNurseryRange
   | DeleteNurseryCluster
+  | PING
 
 type server_action =
   | Node
@@ -330,10 +331,16 @@ let main () =
 			      Arg.Set_string cluster_id;
 			      Arg.Set_string ip;
 			      Arg.Set_int port;
-			     ],
+			       ],
      "<cluster_id> <ip> <port> requests the node to optimize its database (only works on slaves)");
     ("--n-values", set_laction NumberOfValues,
-     "returns the number of values in the store")
+     "returns the number of values in the store");
+    ("--ping", Arg.Tuple[set_laction PING;
+                         Arg.Set_string cluster_id;
+                         Arg.Set_string ip;
+                         Arg.Set_int port;
+                        ],
+     "<cluster_id> <ip> <port> sends a ping to the node")
 
   ] in
 
@@ -370,6 +377,7 @@ let main () =
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
+    | PING -> Client_main.ping !ip !port !cluster_id
 
   in
   let do_server node =
