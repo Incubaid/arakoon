@@ -130,7 +130,7 @@ class ArakoonClient :
     def _initialize(self, config ):
         self._config = config
 
-    @utils.update_argspec('node')
+    @utils.update_argspec('self', 'node')
     @SignatureValidator('string')
     def setDirtyReadNode(self, node):
         """
@@ -144,7 +144,7 @@ class ArakoonClient :
             raise ArakoonUnknownNode( node )
         self._dirtyReadNode = node
 
-    @utils.update_argspec()
+    @utils.update_argspec('self')
     @retryDuringMasterReelection 
     def getKeyCount (self) :
         """
@@ -165,7 +165,7 @@ class ArakoonClient :
         """
         return self._dirtyReadNode
 
-    @utils.update_argspec('clientId', ('clusterId', 'arakoon'))
+    @utils.update_argspec('self', 'clientId', ('clusterId', 'arakoon'))
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def hello (self, clientId, clusterId = 'arakoon'):
@@ -185,7 +185,7 @@ class ArakoonClient :
         conn = self._sendToMaster(encoded)
         return conn.decodeStringResult()
 
-    @utils.update_argspec('key')
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def exists(self, key):
@@ -201,7 +201,7 @@ class ArakoonClient :
             conn = self._sendToMaster (msg)
         return conn.decodeBoolResult()
 
-    @utils.update_argspec('key')
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def get(self, key):
@@ -223,7 +223,7 @@ class ArakoonClient :
         result = conn.decodeStringResult()
         return result
 
-    @utils.update_argspec('keys')
+    @utils.update_argspec('self', 'keys')
     @retryDuringMasterReelection
     def multiGet(self,keys):
         """
@@ -241,7 +241,7 @@ class ArakoonClient :
         result = conn.decodeStringListResult()
         return result
     
-    @utils.update_argspec('key', 'value')
+    @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string' )
     def set(self, key, value):
@@ -262,7 +262,7 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
         conn.decodeVoidResult()
 
-    @utils.update_argspec('key', 'value')
+    @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator('string','string')
     def confirm(self, key,value):
@@ -275,7 +275,7 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         conn.decodeVoidResult()
         
-    @utils.update_argspec('key', 'vo')
+    @utils.update_argspec('self', 'key', 'vo')
     @retryDuringMasterReelection
     @SignatureValidator('string','string_option')
     def aSSert(self, key, vo):
@@ -295,7 +295,7 @@ class ArakoonClient :
         result = conn.decodeVoidResult()
         return result
 
-    @utils.update_argspec('seq', ('sync', False))
+    @utils.update_argspec('self', 'seq', ('sync', False))
     @retryDuringMasterReelection
     @SignatureValidator( 'sequence' )
     def sequence(self, seq, sync = False):
@@ -311,7 +311,7 @@ class ArakoonClient :
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
     
-    @utils.update_argspec('key')
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def delete(self, key):
@@ -332,7 +332,7 @@ class ArakoonClient :
     __delitem__= delete
     __contains__ = exists
     
-    @utils.update_argspec('beginKey', 'beginKeyIncluded', 'endKey',
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
         'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
@@ -366,7 +366,7 @@ class ArakoonClient :
             conn = self._sendToMaster (msg)
         return conn.decodeStringListResult()
     
-    @utils.update_argspec('beginKey', 'beginKeyIncluded', 'endKey',
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
         'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
@@ -410,7 +410,7 @@ class ArakoonClient :
         result = conn.decodeStringPairListResult()
         return result
 
-    @utils.update_argspec('beginKey', 'beginKeyIncluded', 'endKey',
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
         'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator('string_option', 'bool', 'string_option', 'bool','int')
@@ -444,7 +444,7 @@ class ArakoonClient :
         return result
 
     
-    @utils.update_argspec('keyPrefix', ('maxElements', -1))
+    @utils.update_argspec('self', 'keyPrefix', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'int' )
     def prefix(self, keyPrefix , maxElements = -1 ):
@@ -493,7 +493,7 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         return conn.decodeStatistics()
 
-    @utils.update_argspec('key', 'oldValue', 'newValue')
+    @utils.update_argspec('self', 'key', 'oldValue', 'newValue')
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string_option', 'string_option' )
     def testAndSet(self, key, oldValue, newValue):
@@ -518,7 +518,7 @@ class ArakoonClient :
         conn = self._sendToMaster( msg )
         return conn.decodeStringOptionResult()
         
-    @utils.update_argspec('name', 'argument')
+    @utils.update_argspec('self', 'name', 'argument')
     @retryDuringMasterReelection
     @SignatureValidator('string', 'string_option')
     def userFunction(self, name, argument): #pylint: disable-msg=C0103
@@ -536,7 +536,7 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         return conn.decodeStringOptionResult()
 
-    @utils.update_argspec()
+    @utils.update_argspec('self')
     @retryDuringMasterReelection
     def getNurseryConfig(self):
         msg = ArakoonProtocol.encodeGetNurseryCfg()
