@@ -49,7 +49,7 @@ module RR = struct
 end
 
 
-class tcp_messaging my_addresses my_cookie (drop_it: drop_function) =
+class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function)  =
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
   let my_ips, my_port = my_addresses in
@@ -315,9 +315,20 @@ object(self : # messaging )
       begin
 	let rec loop b0 =
 	  begin
-	    Llio.input_int ic >>= fun msg_size ->
+            Lwt.pick [
+              (Lwt_unix.sleep timeout >>= fun () -> 
+               Llio.lwt_failfmt "connection from (%s,%i) was idle too long (> %f)" ip port timeout
+              );
+	      Llio.input_int ic] 
+            >>= fun msg_size ->                      
+            begin
+              if msg_size > 32 * 1024 * 1024 
+              then Llio.lwt_failfmt "msg_size (%i) > 32MB" msg_size
+              else Lwt.return ()
+            end
+            >>= fun () ->
 	    let b1 = 
-	      if msg_size > String.length b0
+	      if msg_size > String.length b0 
 	      then String.create msg_size
 	      else b0
 	    in

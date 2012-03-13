@@ -78,7 +78,7 @@ let _config_logging me get_cfgs =
       Lwt.return None
     end
 
-let _config_messaging me others cookie laggy =
+let _config_messaging me others cookie laggy lease_period=
   let drop_it = match laggy with
     | true -> let count = ref 0 in
 	      let f msg source target = 
@@ -99,7 +99,7 @@ let _config_messaging me others cookie laggy =
       [] others
   in
   let messaging = new tcp_messaging 
-    (me.ips, me.messaging_port) cookie drop_it in
+    (me.ips, me.messaging_port) cookie drop_it ~timeout:lease_period in
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
@@ -370,7 +370,7 @@ let _main_2
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging me cfgs cookie me.is_laggy in
+      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) in
       Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (Lwt_log.info_f "other: %s")
 	other_names >>= fun () ->
