@@ -124,7 +124,8 @@ let _config_service cfg backend=
     max (hard -200) 200
   in
   let host = List.hd hosts in
-  Server.make_server_thread host port (Client_protocol.protocol backend) ~max_connections
+  let name = "client_service" in
+  Server.make_server_thread ~name host port (Client_protocol.protocol backend) ~max_connections
 
 let _log_rotate cfg i get_cfgs =
   Lwt_log.warning_f "received USR1 (%i) going to close/reopen log file" i

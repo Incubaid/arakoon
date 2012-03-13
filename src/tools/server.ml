@@ -54,6 +54,7 @@ let session_thread protocol fd =
   ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
     
 let make_server_thread 
+    ?(name = "socket server")
     ?(setup_callback=no_callback) 
     ?(teardown_callback = no_callback)
     ?(max_connections = 200)
@@ -77,7 +78,7 @@ let make_server_thread
 	    begin
 	      Lwt.ignore_result 
 		(
-                  Lwt_log.info_f "session (%i)" !n_connections >>= fun () ->
+                  Lwt_log.info_f "%s:session (%i)" name !n_connections >>= fun () ->
                   session_thread protocol fd >>= fun () ->
 		  decr n_connections;
 		  Lwt.return ()

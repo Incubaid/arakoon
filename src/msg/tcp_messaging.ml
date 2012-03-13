@@ -352,14 +352,18 @@ object(self : # messaging )
 
       end
     in
-    let server_t = Server.make_server_thread 
-      ~setup_callback
-      ~teardown_callback
-      my_ip my_port protocol
+    let servers_t () = 
+      let start ip  = 
+        let name = Printf.sprintf "messaging_%s" ip in
+        let s = Server.make_server_thread ~name ~setup_callback ~teardown_callback ip my_port protocol in
+        s () 
+      in
+      let sts = List.map start my_ips in
+      Lwt.join sts
     in
     _running <- true;
     Lwt_condition.broadcast _running_c ();
-    server_t () >>= fun () ->
+    servers_t () >>= fun () ->
     Lwt_log.info_f "tcp_messaging %s: end of run" me >>= fun () ->
     Lwt.return ()
     	
