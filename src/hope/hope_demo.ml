@@ -1,6 +1,9 @@
-open Hope
 open Lwt
 open Core
+open Mem_store
+open Hub
+open Mp
+open Mp_driver
 module Hub = HUB(MemStore)
 
 let run_lwt () = 

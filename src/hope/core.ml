@@ -18,8 +18,13 @@ type update =
   | SET of k * v
   | DELETE of k
 
-type result = | UNIT
+let update2s = function
+  | SET (k,v) -> Printf.sprintf "U_SET (k: %s)" k
+  | DELETE k -> Printf.sprintf "U_DEL (k: %s)" k
 
+type result = 
+  | UNIT
+  | FAILURE of Arakoon_exc.rc * string
 
 module type STORE = sig
   type t

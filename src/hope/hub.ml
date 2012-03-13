@@ -15,6 +15,7 @@ module HUB(S:STORE) = struct
             mapping : (X.id, result Lwt.u) Hashtbl.t;
             store : S.t;
            }
+          
   let create () = 
       {msgs = PQ.create (); reqs = PQ.create (); 
        mapping= Hashtbl.create 7;
