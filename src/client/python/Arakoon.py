@@ -167,7 +167,7 @@ class ArakoonClient :
 
     @utils.update_argspec('self', 'clientId', ('clusterId', 'arakoon'))
     @retryDuringMasterReelection
-    @SignatureValidator( 'string' )
+    @SignatureValidator( 'string', 'string' )
     def hello (self, clientId, clusterId = 'arakoon'):
         """
         send a hello message to the node with your id and the cluster id.
@@ -297,7 +297,7 @@ class ArakoonClient :
 
     @utils.update_argspec('self', 'seq', ('sync', False))
     @retryDuringMasterReelection
-    @SignatureValidator( 'sequence' )
+    @SignatureValidator( 'sequence', 'bool' )
     def sequence(self, seq, sync = False):
         """
         Try to execute a sequence of updates. 
