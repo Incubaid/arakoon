@@ -107,12 +107,17 @@ module MULTI = struct
     | N_BEHIND
     | N_AHEAD
 
-  type i_diff =
-    | I_EQUAL
-    | I_BEHIND
-    | I_AHEAD
+  type proposed_diff =
+    | P_ACCEPTABLE
+    | P_BEHIND
+    | P_AHEAD
+  
+  type accepted_diff  =
+    | A_COMMITABLE
+    | A_BEHIND
+    | A_AHEAD
 
-  type state_diff = n_diff * i_diff 
+  type state_diff = n_diff * proposed_diff * accepted_diff 
   
   type client_reply =
     | CLIENT_REPLY_FAILURE of request_awakener * Arakoon_exc.rc * string 
@@ -162,15 +167,32 @@ module MULTI = struct
           | n'             -> N_EQUAL
       end
     in
-    let i_diff =
+    let p_diff =
       begin
-        match (next_tick state.accepted) with 
-          | i' when i > i' -> I_BEHIND
-          | i' when i < i' -> I_AHEAD
-          | i'             -> I_EQUAL
+        match (next_tick state.proposed) with 
+          | i' when i > i'             -> P_BEHIND
+          | i' when i < state.proposed -> P_AHEAD
+          | i' -> 
+            if state.proposed = state.accepted 
+            then
+              if i = next_tick state.proposed 
+              then
+                P_ACCEPTABLE
+              else
+                P_AHEAD
+            else
+              P_ACCEPTABLE
       end
     in
-    (c_diff, i_diff)
+    let a_diff = 
+      begin 
+        match next_tick state.accepted with
+          | i' when i > i' -> A_BEHIND
+          | i' when i < i' -> A_AHEAD
+          | i' -> A_COMMITABLE
+      end
+    in
+    (c_diff, p_diff, a_diff)
   
   let update_n n state =
     let TICK n' = n in
@@ -191,11 +213,11 @@ module MULTI = struct
   let build_promise n i state =
     let m_upd = 
       begin
-        if state.proposed = state.accepted 
+        if state.proposed = state.accepted || state.proposed < i
         then
           None
         else
-          state.prop      
+          state.prop
       end
     in
     M_PROMISE(state.constants.me, n, i, m_upd)
@@ -244,22 +266,22 @@ module MULTI = struct
   let handle_prepare n i src state =
     let diff = state_cmp n i state in
     match diff with
-      | (N_BEHIND, I_EQUAL) ->
+      | (N_BEHIND, P_ACCEPTABLE, _) ->
         begin
           send_promise state src n i
         end
-      | (N_EQUAL, I_EQUAL) ->
+      | (N_EQUAL, P_ACCEPTABLE, _) ->
         if src = state.constants.me 
         then
           send_promise state src n i
         else 
           send_nack state.constants.me state.round (next_tick state.accepted) src state
-      | (N_AHEAD, I_EQUAL) 
-      | ( _ , I_AHEAD ) ->
+      | (N_AHEAD, P_ACCEPTABLE, _) 
+      | ( _ , P_AHEAD, _ ) ->
         begin
           send_nack state.constants.me state.round (next_tick state.accepted) src state
         end
-      | ( _ , I_BEHIND ) ->
+      | ( _ , P_BEHIND, _) ->
         begin
           ([A_RESYNC(n, i, src)], state)
         end
@@ -275,10 +297,10 @@ module MULTI = struct
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
     match diff with
-      | (_, I_BEHIND) -> ([A_DIE "Got promise from more recent node."]), state
-      | (N_BEHIND, _) -> ([A_DIE "Got promise from future."]), state
-      | (N_AHEAD, _) ->  ([], state)
-      | (N_EQUAL, _) ->
+      | (_, P_BEHIND, _) -> ([A_DIE "Got promise from more recent node."]), state
+      | (N_BEHIND, _, _) -> ([A_DIE "Got promise from future."]), state
+      | (N_AHEAD, _, _) ->  ([], state)
+      | (N_EQUAL, _, _) ->
         begin
           match state.state_n with
             | S_RUNNING_FOR_MASTER ->
@@ -330,10 +352,10 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
         match diff with
-        | (_, I_BEHIND) -> 
+        | (_, P_BEHIND, _) -> 
           [A_RESYNC(n, i, src)], state
-        | (_, I_AHEAD) -> [], state
-        | (N_EQUAL, I_EQUAL) -> 
+        | (_, P_AHEAD, _) -> [], state
+        | (N_EQUAL, P_ACCEPTABLE, _) -> 
           let n' = update_n n state in
           let msg = M_PREPARE(state.constants.me, n',i) in
           let new_state = { 
@@ -344,9 +366,9 @@ module MULTI = struct
           }
           in
           [A_BROADCAST_MSG msg], new_state
-        | (N_AHEAD, I_EQUAL ) ->
+        | (N_AHEAD, P_ACCEPTABLE, _ ) ->
           [], state
-        | (N_BEHIND, I_EQUAL ) ->
+        | (N_BEHIND, P_ACCEPTABLE, _ ) ->
           [], state
     end
   
@@ -354,16 +376,15 @@ module MULTI = struct
     begin 
       if state.accepted = state.proposed || state.proposed = new_i
       then
-        [], state.accepted, state.proposed
+        [], state.accepted
       else
         begin
           match state.prop 
           with
-            | None -> [], state.accepted, state.proposed
+            | None -> [], state.accepted
             | Some u -> 
               let new_accepted = next_tick state.accepted in
-              let new_proposed = next_tick state.proposed in
-              [A_COMMIT_UPDATE (new_accepted, u, state.cur_cli_req)], new_accepted, new_proposed
+              [A_COMMIT_UPDATE (new_accepted, u, state.cur_cli_req)], new_accepted
         end 
     end
     
@@ -371,19 +392,20 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_, I_BEHIND) -> [A_RESYNC(n, i, src)], state
-        | (_, I_AHEAD)  -> 
+        | (_, P_BEHIND, _) -> [A_RESYNC(n, i, src)], state
+        | (_, P_AHEAD, _)  -> 
             let msg = Printf.sprintf "Got update for value of i that is already processed (accepted: %s > msg_i: %s)" 
               (tick2s state.accepted) (tick2s i) in 
             [A_DIE msg], state
-        | (N_AHEAD, _ ) -> [], state
-        | (N_BEHIND, _) -> [A_RESYNC(n, i, src)], state
-        | (N_EQUAL, I_EQUAL) -> 
+        | (N_AHEAD, _, _ ) -> [], state
+        | (N_BEHIND, _, _) -> [A_RESYNC(n, i, src)], state
+        | (N_EQUAL, P_ACCEPTABLE, _) -> 
           begin
             match state.state_n with
               | S_MASTER
               | S_SLAVE ->
-                let (delayed_commit, new_accepted, new_proposed) = extract_uncommited_action state i in
+                let (delayed_commit, new_accepted) = extract_uncommited_action state i in
+                let new_proposed = next_tick new_accepted in
                 let accept_update = A_LOG_UPDATE (i, update) in
                 let accepted_msg = M_ACCEPTED (state.constants.me, n, i) in
                 let send_accepted = A_SEND_MSG(accepted_msg, src) in
@@ -404,11 +426,11 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_, I_BEHIND) -> [A_DIE "Got an Accepted for future i"], state
-        | (_, I_AHEAD)  
-        | (N_AHEAD, I_EQUAL) ->
+        | (_, _, A_BEHIND) -> [A_DIE "Got an Accepted for future i"], state
+        | (_, _, A_AHEAD)  
+        | (N_AHEAD, _, A_COMMITABLE) ->
             [], state
-        | (N_EQUAL, I_EQUAL) -> 
+        | (N_EQUAL, _, A_COMMITABLE) -> 
           begin
             let new_votes = get_updated_votes state.votes src in
             let (new_input_ch, new_accepted, new_prop, actions, new_cli_req ) = 
@@ -419,12 +441,9 @@ module MULTI = struct
                   match state.prop with
                     | None -> new_input_ch, state.accepted, state.prop, [], state.cur_cli_req
                     | Some u ->
-                      match state.cur_cli_req with
-                        | None -> new_input_ch, state.accepted, None, [A_DIE "Lost client request id"], None
-                        | Some id ->
-                          let n_accepted = next_tick state.accepted in
-                          let ci = A_COMMIT_UPDATE (n_accepted, u, Some id) in
-                          ch_all, n_accepted, None, [ci], None
+                       let n_accepted = next_tick state.accepted in
+                       let ci = A_COMMIT_UPDATE (n_accepted, u, state.cur_cli_req) in
+                       ch_all, n_accepted, None, [ci], None
                 else
                   new_input_ch, state.accepted, state.prop, [], state.cur_cli_req
               end
@@ -440,7 +459,7 @@ module MULTI = struct
             in
             actions, new_state
           end
-        | (N_BEHIND, I_EQUAL) -> [A_DIE "Accepted with future n, same i"], state
+        | (N_BEHIND, _, A_COMMITABLE) -> [A_DIE "Accepted with future n, same i"], state
     end
   
   let should_elections_start state =
@@ -460,7 +479,6 @@ module MULTI = struct
       master_id = Some state.constants.me;
       state_n = S_RUNNING_FOR_MASTER;
       votes = [];
-      prop = None;
     } in
     let lease_expiry = build_lease_timer new_n (state.constants.lease_duration /. 2.0 ) in
     [A_BROADCAST_MSG msg; lease_expiry], new_state
@@ -469,9 +487,9 @@ module MULTI = struct
     let diff = state_cmp n start_tick state in
     begin
       match diff with
-        | (N_BEHIND, _) -> [A_DIE "Got timeout from future lease"], state
-        | (N_AHEAD, _) -> [], state
-        | (N_EQUAL, _) ->
+        | (N_BEHIND, _, _) -> [A_DIE "Got timeout from future lease"], state
+        | (N_AHEAD, _, _) -> [], state
+        | (N_EQUAL, _, _) ->
           begin
             if should_elections_start state
             then
