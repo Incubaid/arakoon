@@ -1,7 +1,6 @@
 open Core
 
 let _log m = Lwt.ignore_result(Lwt_io.printf m)
-let last_req = ref 0;
  
 module MULTI = struct
   type state_name = 
@@ -30,13 +29,14 @@ module MULTI = struct
     | Some s -> Printf.sprintf "'%s'" s
   
   type request_awakener = Core.result Lwt.u 
+  type node_id = string
     
   type message = 
-    | M_PREPARE of string * tick * tick
-    | M_PROMISE of string * tick * tick * update option
-    | M_NACK of string * tick * tick
-    | M_ACCEPT of string * tick * tick * update
-    | M_ACCEPTED of string * tick * tick
+    | M_PREPARE of node_id * tick * tick
+    | M_PROMISE of node_id * tick * tick * update option
+    | M_NACK of node_id * tick * tick
+    | M_ACCEPT of node_id * tick * tick * update
+    | M_ACCEPTED of node_id * tick * tick
     | M_LEASE_TIMEOUT of tick
     | M_CLIENT_REQUEST of request_awakener * update
 
@@ -60,7 +60,7 @@ module MULTI = struct
  
   type paxos_constants = 
   {
-    me             : string;
+    me             : node_id;
     quorum         : int;
     node_ix        : int;
     node_cnt       : int;
@@ -81,9 +81,9 @@ module MULTI = struct
     proposed          : tick;
     accepted          : tick;
     state_n           : state_name;
-    master_id         : string option;
+    master_id         : node_id option;
     prop              : update option;
-    votes             : string list;
+    votes             : node_id list;
     now               : float;
     lease_expiration  : float;
     constants         : paxos_constants;
@@ -102,7 +102,7 @@ module MULTI = struct
           s.constants.me (tick2s s.round) (tick2s s.accepted) (tick2s s.proposed) 
           (state_n2s s.state_n) (so2s s.master_id) s.lease_expiration s.now
   
-  type n_diff =
+  type round_diff =
     | N_EQUAL
     | N_BEHIND
     | N_AHEAD
@@ -117,7 +117,7 @@ module MULTI = struct
     | A_BEHIND
     | A_AHEAD
 
-  type state_diff = n_diff * proposed_diff * accepted_diff 
+  type state_diff = round_diff * proposed_diff * accepted_diff 
   
   type client_reply =
     | CLIENT_REPLY_FAILURE of request_awakener * Arakoon_exc.rc * string 
@@ -129,8 +129,8 @@ module MULTI = struct
   type action =
     (* Another node with more recent updates was discovered *)
     (* future_n , future_i , node_id                        *)
-    | A_RESYNC of tick * tick * string 
-    | A_SEND_MSG of message * string
+    | A_RESYNC of tick * tick * node_id 
+    | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
     | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
     | A_LOG_UPDATE of tick * update
@@ -277,17 +277,17 @@ module MULTI = struct
         else 
           send_nack state.constants.me state.round (next_tick state.accepted) src state
       | (N_AHEAD, P_ACCEPTABLE, _) 
-      | ( _ , P_AHEAD, _ ) ->
+      | ( _, P_AHEAD, _ ) ->
         begin
           send_nack state.constants.me state.round (next_tick state.accepted) src state
         end
-      | ( _ , P_BEHIND, _) ->
+      | ( _, P_BEHIND, _) ->
         begin
           ([A_RESYNC(n, i, src)], state)
         end
 
   let get_updated_votes votes vote =
-    let cleaned_votes = List.filter (fun v -> v != vote) votes in
+    let cleaned_votes = List.filter (fun v -> v <> vote) votes in
     vote :: cleaned_votes 
     
   let get_updated_prop state = function 
@@ -311,18 +311,13 @@ module MULTI = struct
                 then
                   begin
                     (* We reached consensus on master *)
-                    let input_chs, actions = 
+                    let input_chs, actions, new_votes = 
                       begin
-                        let input_chs, actions = 
-                          begin
-                            match new_prop with
-                              | None -> ch_all , []
-                              | Some u -> 
-                                let acc = M_ACCEPT(state.constants.me, n, i, u) in
-                                ch_node_and_timeout, [A_BROADCAST_MSG acc]
-                          end
-                        in
-                        input_chs, actions
+                        match new_prop with
+                          | None -> ch_all , [], []
+                          | Some u -> 
+                            let acc = M_ACCEPT(state.constants.me, n, i, u) in
+                            ch_node_and_timeout, [A_BROADCAST_MSG acc], []
                       end
                     in 
                     let new_state = { 
@@ -546,7 +541,7 @@ module MULTI = struct
       | M_ACCEPT (src, n, i, upd) -> handle_accept n i upd src state
       | M_ACCEPTED (src, n, i) -> handle_accepted n i src state
       | M_LEASE_TIMEOUT n -> handle_lease_timeout n state
-      | M_CLIENT_REQUEST (id, upd) -> handle_client_request id upd state
+      | M_CLIENT_REQUEST (w, upd) -> handle_client_request w upd state
 end 
 
 module type MP_ACTION_DISPATCHER = sig
