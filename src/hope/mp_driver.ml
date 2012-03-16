@@ -63,29 +63,37 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     end
 
   let serve t s m_step_count =
-    let rec loop s f = function
-      | 0 -> Lwt.return ()
-      | i -> 
-        get_next_msg t s >>= fun msg ->
-        let s = {
-          s with 
-          P.now = Unix.gettimeofday();
-        } in
-        let before_msg = Printf.sprintf "BEFORE: %s\nINPUT : %s" (P.state2s s) (P.msg2s msg) in
-        _log before_msg >>= fun () ->
-        let actions, s' = P.step msg s in
-        let after_msg = Printf.sprintf "AFTER : %s" (P.state2s s') in
-        _log after_msg >>= fun () ->
-        Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
-        _log "\n" >>= fun () ->
-        loop s'' f (f i) 
-    in
-    let (start_i, f) =
-      match m_step_count with
-        | None -> 1, (fun i -> i) 
-        | Some j -> j, (fun j -> j-1)
-    in 
-    loop s f start_i
+    Lwt.catch ( 
+      fun () ->
+        let rec loop s f = function
+          | 0 -> _log (Printf.sprintf "%s is all done!!!\n" s.P.constants.P.me)
+          | i -> 
+            get_next_msg t s >>= fun msg ->
+            let s = {
+              s with 
+              P.now = Unix.gettimeofday();
+            } in
+            let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s\n" (P.state2s s) (P.msg2s msg) in
+            let actions, s' = P.step msg s in
+            let after_msg = Printf.sprintf "AFTER STEP    : %s\n" (P.state2s s') in
+            Lwt_list.fold_left_s (dispatch t) (s', before_msg ^ after_msg) actions >>= fun (s'', action_log) ->
+            let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
+            _log (action_log ^ final_state ) >>= fun () -> 
+            A.update_state t.action_dispatcher s'';
+            loop s'' f (f i) 
+        in
+        let (start_i, f) =
+          match m_step_count with
+            | None -> 1, (fun i -> i) 
+            | Some j -> j, (fun j -> j-1)
+        in
+        A.update_state t.action_dispatcher s; 
+        loop s f start_i
+    ) ( 
+      fun e ->
+        _log (Printexc.to_string e) 
+    ) 
+      
   
   
   let push_cli_req t upd =

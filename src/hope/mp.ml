@@ -15,6 +15,13 @@ module MULTI = struct
 
   let start_tick = TICK 0
   let next_tick (TICK i) = TICK (i+1)
+  let prev_tick (TICK i) = 
+    begin 
+      match i with
+        | 0 -> TICK 0
+        | i -> TICK (i-1)
+    end
+    
   let add_tick (TICK l) (TICK r) = TICK (l+r)
   let tick2s (TICK t) = 
     Printf.sprintf "%d" t
@@ -61,6 +68,7 @@ module MULTI = struct
   type paxos_constants = 
   {
     me             : node_id;
+    others         : node_id list;
     quorum         : int;
     node_ix        : int;
     node_cnt       : int;
@@ -98,9 +106,9 @@ module MULTI = struct
     | S_SLAVE              -> "S_SLAVE"
   
   let state2s s =
-    Printf.sprintf "id: %s, n: %s, i: %s, i': %s, state: %s, master: %s, lease_expiry: %f, now: %f"
-          s.constants.me (tick2s s.round) (tick2s s.accepted) (tick2s s.proposed) 
-          (state_n2s s.state_n) (so2s s.master_id) s.lease_expiration s.now
+    Printf.sprintf "id: %s, n: %s, p: %s, a: %s, state: %s, master: %s, lease_expiry: %f, now: %f, votes: %d"
+          s.constants.me (tick2s s.round) (tick2s s.proposed) (tick2s s.accepted) 
+          (state_n2s s.state_n) (so2s s.master_id) s.lease_expiration s.now (List.length s.votes)
   
   type round_diff =
     | N_EQUAL
@@ -129,7 +137,7 @@ module MULTI = struct
   type action =
     (* Another node with more recent updates was discovered *)
     (* future_n , future_i , node_id                        *)
-    | A_RESYNC of tick * tick * node_id 
+    | A_RESYNC of node_id 
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
     | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
@@ -139,8 +147,8 @@ module MULTI = struct
     | A_DIE of string
 
   let action2s = function
-    | A_RESYNC (n, i, src) -> 
-      Printf.sprintf "A_RESYNC (n: %s) (i: %s) (from: %s)" (tick2s n) (tick2s i) src 
+    | A_RESYNC src -> 
+      Printf.sprintf "A_RESYNC (from: %s)" src 
     | A_SEND_MSG (msg, dest) ->
       Printf.sprintf "A_SEND_MSG (msg: %s) (dest: %s)" (msg2s msg) dest
     | A_BROADCAST_MSG msg ->
@@ -275,15 +283,15 @@ module MULTI = struct
         then
           send_promise state src n i
         else 
-          send_nack state.constants.me state.round (next_tick state.accepted) src state
+          send_nack state.constants.me state.round state.accepted src state
       | (N_AHEAD, P_ACCEPTABLE, _) 
       | ( _, P_AHEAD, _ ) ->
         begin
-          send_nack state.constants.me state.round (next_tick state.accepted) src state
+          send_nack state.constants.me state.round state.accepted src state
         end
       | ( _, P_BEHIND, _) ->
         begin
-          ([A_RESYNC(n, i, src)], state)
+          ([A_RESYNC src], state)
         end
 
   let get_updated_votes votes vote =
@@ -298,7 +306,7 @@ module MULTI = struct
     let diff = state_cmp n i state in
     match diff with
       | (_, P_BEHIND, _) -> ([A_DIE "Got promise from more recent node."]), state
-      | (N_BEHIND, _, _) -> ([A_DIE "Got promise from future."]), state
+      | (N_BEHIND, _, _) -> ([]), state
       | (N_AHEAD, _, _) ->  ([], state)
       | (N_EQUAL, _, _) ->
         begin
@@ -347,10 +355,10 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
         match diff with
-        | (_, P_BEHIND, _) -> 
-          [A_RESYNC(n, i, src)], state
-        | (_, P_AHEAD, _) -> [], state
-        | (N_EQUAL, P_ACCEPTABLE, _) -> 
+        | (_, _, A_BEHIND) -> 
+          [A_RESYNC src], state
+        | (_, _, A_AHEAD) -> [], state
+        | (N_EQUAL, _, A_COMMITABLE) -> 
           let n' = update_n n state in
           let msg = M_PREPARE(state.constants.me, n',i) in
           let new_state = { 
@@ -361,9 +369,9 @@ module MULTI = struct
           }
           in
           [A_BROADCAST_MSG msg], new_state
-        | (N_AHEAD, P_ACCEPTABLE, _ ) ->
+        | (N_AHEAD, _, A_COMMITABLE ) ->
           [], state
-        | (N_BEHIND, P_ACCEPTABLE, _ ) ->
+        | (N_BEHIND, _, A_COMMITABLE ) ->
           [], state
     end
   
@@ -387,13 +395,13 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_, P_BEHIND, _) -> [A_RESYNC(n, i, src)], state
+        | (_, P_BEHIND, _) -> [A_RESYNC src], state
         | (_, P_AHEAD, _)  -> 
             let msg = Printf.sprintf "Got update for value of i that is already processed (accepted: %s > msg_i: %s)" 
               (tick2s state.accepted) (tick2s i) in 
             [A_DIE msg], state
         | (N_AHEAD, _, _ ) -> [], state
-        | (N_BEHIND, _, _) -> [A_RESYNC(n, i, src)], state
+        | (N_BEHIND, _, _) -> [A_RESYNC src], state
         | (N_EQUAL, P_ACCEPTABLE, _) -> 
           begin
             match state.state_n with
@@ -482,7 +490,7 @@ module MULTI = struct
     let diff = state_cmp n start_tick state in
     begin
       match diff with
-        | (N_BEHIND, _, _) -> [A_DIE "Got timeout from future lease"], state
+        | (N_BEHIND, _, _) -> [], state
         | (N_AHEAD, _, _) -> [], state
         | (N_EQUAL, _, _) ->
           begin
@@ -546,5 +554,6 @@ end
 
 module type MP_ACTION_DISPATCHER = sig
   type t
-  val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
+  val dispatch : t -> MULTI.state * string -> MULTI.action -> (MULTI.state * string) Lwt.t
+  val update_state : t -> MULTI.state -> unit
 end
