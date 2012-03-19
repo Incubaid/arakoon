@@ -116,6 +116,8 @@ def update_argspec(*argnames): #pylint: disable-msg=R0912
         '__builtins__': None,
         'dict': __builtin__.dict,
         'zip': __builtin__.zip,
+        'True': True,
+        'False': False,
     }
 
     # Template for the function which will be compiled later on
@@ -126,6 +128,8 @@ def update_argspec(*argnames): #pylint: disable-msg=R0912
             return 'u\'%s\'' % value
         elif isinstance(value, str):
             return '\'%s\'' % value
+        elif isinstance(value, bool):
+            return 'True' if value else 'False'
         elif isinstance(value, (int, long)):
             return '%d' % value
         elif value is None:
