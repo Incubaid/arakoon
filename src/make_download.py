@@ -77,10 +77,10 @@ version = options.version
 revision = options.rev
 
 base_url = "https://bitbucket.org/despiegk/arakoon"
-deb_url = "%s/downloads/arakoon_%s-1_amd64.deb" % (base_url, version)
+deb_url = "%s/downloads/arakoon_%s_amd64.deb" % (base_url, version)
 egg_url = "%s/downloads/arakoon-%s-py2.7.egg" % (base_url, version)
 source_url = "%s/get/%s.tar.bz2" % (base_url,revision)
-lib_url = "%s/downloads/libarakoon-ocaml-dev_%s-1_amd64.deb" % (base_url, version)
+lib_url = "%s/downloads/libarakoon-ocaml-dev_%s_amd64.deb" % (base_url, version)
 
 def check_download(url):
     f = urllib.urlopen(url)

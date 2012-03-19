@@ -2,9 +2,9 @@
 =========
 Downloads
 =========
-On this page you can find all the required packages to install Arakoon Release 1.1.2
+On this page you can find all the required packages to install Arakoon Release 1.2.0
 
-Arakoon 1.1.2 can only be installed on Linux. We provide packages for Debian amd64.
+Arakoon 1.2.0 can only be installed on Linux. We provide packages for Debian amd64.
 
 If you want support for other distros, please contact us and we'll see what we can do.
 
@@ -14,47 +14,47 @@ Arakoon is released under a dual license model as specified on the `licensing pa
 
 .. _licensing page: licensing.html
 
-Arakoon version 1.1.2
+Arakoon version 1.2.0
 ======================
 `Release notes`_
 
-.. _Release notes: releases/1.1.2.html
+.. _Release notes: releases/1.2.0.html
 
 Server
 ------
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Debian Package x86_64   |         1.1.2__  |              1065 KB | MD5: 84b36679b36343b8ec6cb8ec1038288b    |
+| Debian Package x86_64   |         1.2.0__  |              1073 KB | MD5: 0d6d6ac381f1ae35989023961d2ceef5    |
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Ubuntu x86_64 Q-Package |         1.1.2    | name: arakoon        | domain: pylabs.org                       |
+| Ubuntu x86_64 Q-Package |         1.2.0    | name: arakoon        | domain: pylabs.org                       |
 +-------------------------+------------------+----------------------+------------------------------------------+
 
-.. __: https://bitbucket.org/despiegk/arakoon/downloads/arakoon_1.1.2-1_amd64.deb
+.. __: https://bitbucket.org/despiegk/arakoon/downloads/arakoon_1.2.0_amd64.deb
 
 Python Client
 -------------
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Python 2.7 egg          |         1.1.2__  |              71.2 KB | MD5: c2612660d0734a7499f66d923565f6e8    |
+| Python 2.7 egg          |         1.2.0__  |              75.9 KB | MD5: 2c611ec793d5dd5d37fb8f6242648086    |
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Ubuntu x86_64 Q-Package |         1.1.2    | name: arakoon_client | domain: pylabs.org                       |
+| Ubuntu x86_64 Q-Package |         1.2.0    | name: arakoon_client | domain: pylabs.org                       |
 +-------------------------+------------------+----------------------+------------------------------------------+
 
-.. __: https://bitbucket.org/despiegk/arakoon/downloads/arakoon-1.1.2-py2.7.egg
+.. __: https://bitbucket.org/despiegk/arakoon/downloads/arakoon-1.2.0-py2.7.egg
 
 OCaml client
 ------------
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Debian Package x86_64   |         1.1.2__  |             239.9 KB | MD5: 6aff13e8fa791aa9ece12e830e08fc91    |
+| Debian Package x86_64   |         1.2.0__  |             240.0 KB | MD5: 80619ed07db31546ba25bba5a4f75f62    |
 +-------------------------+------------------+----------------------+------------------------------------------+
 
-.. __: https://bitbucket.org/despiegk/arakoon/downloads/libarakoon-ocaml-dev_1.1.2-1_amd64.deb
+.. __: https://bitbucket.org/despiegk/arakoon/downloads/libarakoon-ocaml-dev_1.2.0_amd64.deb
 
 Sources
 -------
 +---------+-----------------+-------------------------+---------------------------------------+
-| Archive |         1.1.2__ |              4464.76 KB | MD5: 50b45b8b080aae50658c414453477b1e |
+| Archive |         1.2.0__ |              3108.60 KB | MD5: 651975b830e5eb99f4bd87033e61f1d2 |
 +---------+-----------------+-------------------------+---------------------------------------+
 
-.. __: https://bitbucket.org/despiegk/arakoon/get/eed2bb8f2a54.tar.bz2
+.. __: https://bitbucket.org/despiegk/arakoon/get/f96c5bf81486.tar.bz2
 
 Download Archives
 =================
