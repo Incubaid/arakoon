@@ -1,3 +1,8 @@
+arakoon (1.2.0) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain@incubaid.com>  Mon, 19 Mar 2012 15:35:54 +0100
+
 arakoon (1.2-dev) unstable; urgency=low
   * new upstream version
 arakoon (1.1-dev) unstable; urgency=low
