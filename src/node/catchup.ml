@@ -35,8 +35,22 @@ type store_tlc_cmp =
   | Store_ahead
 
 let _with_client_connection (ips,port) f = 
-  let address = Network.make_address (List.hd ips) port in
-  Lwt_io.with_connection address f
+  let sl2s ss = string_of_list (fun s -> s) ss in
+  let rec loop = function
+    | [] -> Llio.lwt_failfmt "None of the ips: %s can be reached" (sl2s ips)
+    | ip :: rest ->
+      Lwt.catch
+        (fun () ->
+          let address = Network.make_address ip port in
+          Lwt_io.with_connection address f
+        )
+        (fun exn -> 
+          Lwt_log.info_f ~exn "ip = %s " ip >>= fun () ->
+          loop rest
+        )
+  in
+  loop ips
+      
 
 let compare_store_tlc store tlc =
   store # consensus_i () >>= fun m_store_i ->
