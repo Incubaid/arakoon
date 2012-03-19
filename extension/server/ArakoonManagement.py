@@ -31,6 +31,7 @@ import os.path
 import itertools
 import subprocess
 import time
+import types
 import string
 import logging
 
@@ -223,7 +224,7 @@ class ArakoonCluster:
 
         The function also creates 
         @param name  the name of the node, should be unique across the environment
-        @param ip   the ip this node shoulc be contacted on
+        @param ip   the ip(s) this node should be contacted on (string or string list)
         @param clientPort   the port the clients should use to contact this node
         @param messagingPort  the port the other nodes should use to contact this node
         @param logLevel   the loglevel (debug info notice warning error fatal)
@@ -247,7 +248,15 @@ class ArakoonCluster:
         
         config.addSection(name)
         config.addParam(name, "name", name)
-        config.addParam(name, "ip", ip)
+        
+        if type(ip) == types.StringType:
+            config.addParam(name, "ip", ip)
+        elif type(ip) == types.ListType:
+            line = string.join(ip,',')
+            config.addParam(name, "ip", line)
+        else:
+            raise Exception("ip parameter needs string or string list type")
+
         self.__validateInt("clientPort", clientPort)
         config.addParam(name, "client_port", clientPort)
         self.__validateInt("messagingPort", messagingPort)

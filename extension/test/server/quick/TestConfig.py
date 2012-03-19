@@ -113,6 +113,15 @@ class TestConfig:
                       12345,
                       "depug")
 
+    def testAddNodeMultipleIps(self):
+        cluster = self._getCluster()
+        name = "whatever"
+        ips = ["127.0.0.1","192.168.0.1"]
+        cluster.addNode(name = name, ip=ips)
+        config = cluster._getConfigFile()
+        d = config.getSectionAsDict(name)
+        assert_equals(d['ip'],'127.0.0.1,192.168.0.1')
+        
     def testAddNodeDuplicateName(self):
         cid = self._clusterId
         n0 = '%s_%i' % (cid,0)
