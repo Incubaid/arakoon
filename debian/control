@@ -4,14 +4,13 @@ Priority: extra
 Maintainer: Romain Slootmaekers <romain@incubaid.com>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.2
-Homepage: <insert the upstream URL, if relevant>
-#Vcs-Git: git://git.debian.org/collab-maint/arakoon.git
-#Vcs-Browser: http://git.debian.org/?p=collab-maint/arakoon.git;a=summary
+Homepage: http://www.arakoon.org
+Vcs-Hg: https://bitbucket.org/despiegk/arakoon
 
 Package: arakoon
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: A simple consistent distributed key/value store
+Description: Simple consistent distributed key/value store
  Arakoon tries to be a consistent distributed key value store.
  Technically, it's an ocaml implementation of multipaxos, on top of
  Tokyo Cabinet
