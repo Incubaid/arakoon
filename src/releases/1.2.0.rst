@@ -32,7 +32,7 @@ What's fixed
 +--------------+------------------------------------------------------------------+
 | Jira key     | Comment                                                          |
 +==============+==================================================================+
-| ARAKOON-26 _ | Argument and docstring not present in ArakoonClient due to va... |
+| ARAKOON-26_  | Argument and docstring not present in ArakoonClient due to va... |
 +--------------+------------------------------------------------------------------+
 
 .. _ARAKOON-26:  http://jira.incubaid.com/browse/ARAKOON-26
