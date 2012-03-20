@@ -194,14 +194,14 @@ def get_issue_list(category, info):
 
     def issue_to_row(i):
 
-        key = i['KEY']
+        key = i['KEY'].strip() + '_'
         msg = i['MSG']
 
         if len(msg) > 64:
             msg =  msg[:61] + '...'
 
 
-        fmt = """| {key:<11}_ | {msg:<64} |
+        fmt = """| {key:<12} | {msg:<64} |
 +--------------+------------------------------------------------------------------+"""
         return f.format(fmt, key=key, msg=msg)
 
