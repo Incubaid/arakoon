@@ -3,6 +3,7 @@ open Mp
 open MULTI
 open Mem_store
 open Lwt
+open Mem_log
 
 let _log f =  Printf.kprintf Lwt_io.printl f 
 
@@ -11,8 +12,10 @@ module MPTestDispatch = struct
   let g_states = Hashtbl.create 3;
 
   type t = {
-    msging : (string, message PQ.q ) Hashtbl.t ;
-    store : MemStore.t;   
+    mutable timeouts : (tick * float) list;
+    msging   : (string, message PQ.q ) Hashtbl.t ;
+    store    : MemStore.t;   
+    log      : MemLog.t;
   }
 
   let send_msg t dest msg =
@@ -20,11 +23,7 @@ module MPTestDispatch = struct
      PQ.push q msg 
 
   let start_lease t s n d = 
-    Lwt.ignore_result (
-      Lwt_unix.sleep d >>= fun () ->
-      let msg = M_LEASE_TIMEOUT n in
-      Lwt.return ( send_msg t s.constants.me msg ) 
-    )
+    t.timeouts <- (n, s.now +. d)::t.timeouts
     
   let add_msg_target t id q =
     Hashtbl.replace t.msging id q
@@ -33,6 +32,8 @@ module MPTestDispatch = struct
   {
     msging = Hashtbl.create 3;
     store = MemStore.create();
+    log = MemLog.create();
+    timeouts = [];
   }
   
   let update_state t s = 
@@ -88,6 +89,7 @@ module MPTestDispatch = struct
     | A_LOG_UPDATE (i, u) ->
       let log_msg = Printf.sprintf "-> ACTION     : Log update (i: %s): %s\n" 
            (tick2s i) (Core.update2s u) in
+      let () = MemLog.log_update t.log i u in
       let s' = {
         s with
         proposed = i;

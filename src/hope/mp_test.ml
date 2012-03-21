@@ -3,12 +3,17 @@ open Mp
 open MULTI
 open Mp_driver
 open Mp_test_dispatch
+open MPTestDispatch
 open Lwt
+open Pq
 
 module SMDriver = MPDriver(MPTestDispatch)
+open SMDriver
 
 let test_max_n = 256
 let test_max_i = 256
+
+let _log m = Lwt_io.printf m
 
 let id x = x
 
@@ -43,7 +48,7 @@ let gen_accepted_from_proposed proposed =
     let ch = 
       begin
         match s, prop with
-          | S_MASTER, Some x -> ch_node_and_timeout
+          | S_MASTER, Some x -> ch_node
           | _ -> ch_all
       end
     in
@@ -84,9 +89,9 @@ let build_random_state c =
   in
   let gen_master_id = gen_master c gen_state_n in
   let gen_v = gen_votes gen_state_n gen_prop c in
-  let gen_now = Random.float (Unix.gettimeofday()) in
+  let gen_now = 0.0 in
   let gen_lease_expiration = 
-       gen_now -. c.lease_duration +. Random.float (2.0 *. c.lease_duration) 
+       gen_now +. Random.float (2.0 *. c.lease_duration) 
   in
   let gen_waiting_client = None in
   {
@@ -104,6 +109,68 @@ let build_random_state c =
     valid_inputs      = gen_inputs;
   }
 
+
+let multi_driver_serve drivers_with_states step_cnt =
+  let can_driver_step (d,s) =
+    let nr, cr = SMDriver.is_ready d in
+    match s.valid_inputs with
+      | l when l = ch_all  -> nr || cr
+      | _ -> nr
+  in
+  let split_timeouts now (left, right) (n, d) =
+    begin
+      if d <= now 
+      then
+        ( n::left, right )
+      else
+        ( left, (n,d)::right )
+    end
+  in
+  let rec add_timeouts now dr_w_state =
+    let rec add_timeouts_helper now acc = function
+      | [] -> acc
+      | (dr,s) :: tl ->
+        let l, r = List.fold_left (split_timeouts now) ([],[]) dr.action_dispatcher.timeouts in
+        List.iter (fun n -> SMDriver.push_msg dr (M_LEASE_TIMEOUT n)) l;
+        dr.action_dispatcher.timeouts <- r;
+        let new_acc =  acc || ( List.length l > 0 ) in
+        add_timeouts_helper now new_acc tl
+    in
+    begin
+      if add_timeouts_helper now false dr_w_state
+      then
+        now
+      else
+        let now' = now +. 3.0 in
+        add_timeouts now' dr_w_state
+    end
+  in
+  let rec pick_first now acc = function
+    | [] -> 
+      let now' = add_timeouts now acc in
+      pick_first now' [] acc
+    | hd :: tl -> 
+      begin
+        if can_driver_step hd
+        then
+          hd, tl @ acc, now
+        else
+          pick_first now (hd::acc) tl
+      end
+  in
+  let rec do_step drivers_with_states = function
+    | 0 -> _log "All done with multi_driver_serve\n"
+    | i -> 
+      let now = float_of_int (step_cnt - i) in 
+      let (rdy_dr, rdy_st), rest, now = pick_first now [] drivers_with_states in
+      SMDriver.step rdy_dr rdy_st now >>= fun new_s ->
+      let () = MPTestDispatch.update_state rdy_dr.action_dispatcher new_s in
+      let new_drivers_with_states = rest @ [(rdy_dr, new_s)] in
+      do_step new_drivers_with_states  (i - 1)
+  in
+  let () = List.iter (fun (d,s) -> MPTestDispatch.update_state d.action_dispatcher s ) drivers_with_states in
+  do_step drivers_with_states step_cnt  
+      
 let test_iteration nodes lease =
     let node_cnt = List.length nodes in
     let node_ixs = range(node_cnt) in
@@ -129,7 +196,7 @@ let test_iteration nodes lease =
       List.iter (fun(n, driver) -> MPTestDispatch.add_msg_target disp n driver.SMDriver.msgs) named_drivers
     in
     let () = List.iter (fun disp -> add_all_msg_targets disp) dispatches in
-    let ts = List.map (fun(d,s) -> SMDriver.serve d s (Some 15)) (List.combine drivers states) in
+    (* let ts = List.map (fun(d,s) -> SMDriver.serve d s (Some 15)) (List.combine drivers states) in *)
     let ts' = List.fold_left 
          (fun acc (driver, state) ->
            let timeout = M_LEASE_TIMEOUT state.round in 
@@ -139,12 +206,12 @@ let test_iteration nodes lease =
     let waiters = List.map (fun driver -> SMDriver.push_cli_req driver (Core.DELETE "key")) drivers in
     let ts'' = List.fold_left (fun acc w -> (w >>= fun r -> Lwt.return()) :: acc) ts' waiters in
     
-    Lwt.join (ts @ ts'')
+    Lwt.join ( (multi_driver_serve (List.combine drivers states) 200) :: ts'')
     
 let main() =
   let () = Random.self_init() in
   let n = ["n1"; "n2"; "n3"] in
-  let lease = 3.0 in
+  let lease = 20.0 in
   let timer () = 
     Lwt_unix.sleep(20.0)
   in

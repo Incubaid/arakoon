@@ -81,7 +81,8 @@ module MULTI = struct
     | CH_TIMEOUT
   
   let ch_all              = [CH_CLIENT; CH_NODE; CH_TIMEOUT]
-  let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT];
+  (* let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT] *)
+  let ch_node             = [CH_NODE]
   
   type state =
   {
@@ -135,8 +136,6 @@ module MULTI = struct
       Printf.sprintf "Reply (rc: %d) (msg: '%s')" 
           (Int32.to_int (Arakoon_exc.int32_of_rc rc)) msg 
   type action =
-    (* Another node with more recent updates was discovered *)
-    (* future_n , future_i , node_id                        *)
     | A_RESYNC of node_id 
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
@@ -302,6 +301,11 @@ module MULTI = struct
     | Some u -> Some u
     | None -> state.prop
 
+  let build_accept_actions state n i u =
+    let msg = M_ACCEPT(state.constants.me, n, i, u) in
+    let log = A_LOG_UPDATE (i, u) in
+    List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) [log] state.constants.others 
+    
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
     match diff with
@@ -324,8 +328,8 @@ module MULTI = struct
                         match new_prop with
                           | None -> ch_all , [], []
                           | Some u -> 
-                            let acc = M_ACCEPT(state.constants.me, n, i, u) in
-                            ch_node_and_timeout, [A_BROADCAST_MSG acc], []
+                            let actions = build_accept_actions state n i u in
+                            ch_node, actions, [state.constants.me]
                       end
                     in 
                     let new_state = { 
@@ -347,7 +351,7 @@ module MULTI = struct
                   ([], new_state) 
               end
             | S_SLAVE    -> [A_DIE "I'm a slave and did not send prepare for this n"], state
-            | S_MASTER   -> [], state (* alreayd reach quorum *) 
+            | S_MASTER   -> [], state (* already reached quorum *) 
             | S_CLUELESS -> [A_DIE "I'm clueless so I did not send prepare for this n"], state
         end 
   
@@ -358,17 +362,24 @@ module MULTI = struct
         | (_, _, A_BEHIND) -> 
           [A_RESYNC src], state
         | (_, _, A_AHEAD) -> [], state
-        | (N_EQUAL, _, A_COMMITABLE) -> 
-          let n' = update_n n state in
-          let msg = M_PREPARE(state.constants.me, n',i) in
-          let new_state = { 
-            state with
-            state_n = S_RUNNING_FOR_MASTER;
-            votes = [];
-            master_id = Some state.constants.me
-          }
-          in
-          [A_BROADCAST_MSG msg], new_state
+        | (N_EQUAL, _, A_COMMITABLE) ->
+          begin 
+            if state.state_n = S_RUNNING_FOR_MASTER
+            then
+              let n' = update_n n state in
+              let msg = M_PREPARE(state.constants.me, n',i) in
+              let new_state = { 
+                state with
+                round = n';
+                state_n = S_RUNNING_FOR_MASTER;
+                votes = [];
+                master_id = Some state.constants.me
+              }
+              in
+              [A_BROADCAST_MSG msg], new_state
+            else
+              [] ,state
+          end
         | (N_AHEAD, _, A_COMMITABLE ) ->
           [], state
         | (N_BEHIND, _, A_COMMITABLE ) ->
@@ -395,14 +406,11 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_, P_BEHIND, _) -> [A_RESYNC src], state
-        | (_, P_AHEAD, _)  -> 
-            let msg = Printf.sprintf "Got update for value of i that is already processed (accepted: %s > msg_i: %s)" 
-              (tick2s state.accepted) (tick2s i) in 
-            [A_DIE msg], state
-        | (N_AHEAD, _, _ ) -> [], state
-        | (N_BEHIND, _, _) -> [A_RESYNC src], state
-        | (N_EQUAL, P_ACCEPTABLE, _) -> 
+        | (N_BEHIND , _            , _)
+        | (_        , P_BEHIND     , _) -> [A_RESYNC src], state
+        | (_        , P_AHEAD      , _)  
+        | (N_AHEAD  , _            , _) -> [], state
+        | (N_EQUAL  , P_ACCEPTABLE , _) -> 
           begin
             match state.state_n with
               | S_MASTER
@@ -506,7 +514,7 @@ module MULTI = struct
           end
     end
 
-  let handle_client_request id upd state =
+  let handle_client_request w upd state =
     begin
       match state.state_n with
         | S_MASTER ->
@@ -515,18 +523,19 @@ module MULTI = struct
               | None -> 
                 begin
                   let c = state.constants in
-                  let msg = M_ACCEPT (c.me, state.round, (next_tick state.accepted), upd) in
+                  let actions = build_accept_actions state state.round (next_tick state.accepted) upd in 
                   let new_state = {
                     state with
-                    cur_cli_req = Some id;
-                    valid_inputs = ch_node_and_timeout;
-                    votes = [];
+                    cur_cli_req = Some w;
+                    valid_inputs = ch_node;
+                    votes = [c.me];
+                    prop = Some upd;
                   } in 
-                  [A_BROADCAST_MSG msg], new_state
+                  actions, new_state
                 end
               | Some _ ->
                 begin 
-                  let reply = CLIENT_REPLY_FAILURE (id, Arakoon_exc.E_UNKNOWN_FAILURE, 
+                  let reply = CLIENT_REPLY_FAILURE (w, Arakoon_exc.E_UNKNOWN_FAILURE, 
                                "Cannot process request, already handling a client request") 
                   in
                   [A_CLIENT_REPLY reply], state
@@ -534,7 +543,7 @@ module MULTI = struct
           end
         | _ ->
           begin
-            let reply = CLIENT_REPLY_FAILURE (id, Arakoon_exc.E_NOT_MASTER, 
+            let reply = CLIENT_REPLY_FAILURE (w, Arakoon_exc.E_NOT_MASTER, 
                                             "Cannot process request on none-master") 
             in
             [A_CLIENT_REPLY reply], state

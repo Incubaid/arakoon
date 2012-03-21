@@ -62,24 +62,29 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
           Lwt.return m
     end
 
+  let step t s n =
+    get_next_msg t s >>= fun msg ->
+    let s = {
+      s with 
+        P.now = n;
+      } in
+      let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s\n" (P.state2s s) (P.msg2s msg) in
+      let actions, s' = P.step msg s in
+      let after_msg = Printf.sprintf "AFTER STEP    : %s\n" (P.state2s s') in
+      Lwt_list.fold_left_s (dispatch t) (s', before_msg ^ after_msg) actions >>= fun (s'', action_log) ->
+      let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
+      _log (action_log ^ final_state ) >>= fun () ->
+      Lwt.return s''
+       
+            
   let serve t s m_step_count =
     Lwt.catch ( 
       fun () ->
         let rec loop s f = function
           | 0 -> _log (Printf.sprintf "%s is all done!!!\n" s.P.constants.P.me)
           | i -> 
-            get_next_msg t s >>= fun msg ->
-            let s = {
-              s with 
-              P.now = Unix.gettimeofday();
-            } in
-            let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s\n" (P.state2s s) (P.msg2s msg) in
-            let actions, s' = P.step msg s in
-            let after_msg = Printf.sprintf "AFTER STEP    : %s\n" (P.state2s s') in
-            Lwt_list.fold_left_s (dispatch t) (s', before_msg ^ after_msg) actions >>= fun (s'', action_log) ->
-            let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
-            _log (action_log ^ final_state ) >>= fun () -> 
-            A.update_state t.action_dispatcher s'';
+            let n = Unix.gettimeofday() in
+            step t s n >>= fun s'' -> 
             loop s'' f (f i) 
         in
         let (start_i, f) =
@@ -87,14 +92,14 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
             | None -> 1, (fun i -> i) 
             | Some j -> j, (fun j -> j-1)
         in
-        A.update_state t.action_dispatcher s; 
         loop s f start_i
     ) ( 
       fun e ->
-        _log (Printexc.to_string e) 
+        _log (Printexc.to_string e) >>= fun () ->
+        Lwt.fail e
     ) 
       
-  
+  let is_ready t =  not (PQ.is_empty t.msgs), not (PQ.is_empty t.reqs) 
   
   let push_cli_req t upd =
     let waiter, wakener = Lwt.wait() in
