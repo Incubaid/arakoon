@@ -7,6 +7,8 @@ How to make a release
 
  * commit branch => ${REV}
 
+(these first steps are covered by tools/make_release_branch.py) 
+
  * Jenkins: arakoon-release-qp4
 
  * Jenkins: arakoon-release-deb
