@@ -171,7 +171,7 @@ let multi_driver_serve drivers_with_states step_cnt =
   let () = List.iter (fun (d,s) -> MPTestDispatch.update_state d.action_dispatcher s ) drivers_with_states in
   do_step drivers_with_states step_cnt  
       
-let test_iteration nodes lease =
+let test_iteration nodes lease step_cnt =
     let node_cnt = List.length nodes in
     let node_ixs = range(node_cnt) in
     let q = (List.length nodes / 2) + 1 in
@@ -196,7 +196,6 @@ let test_iteration nodes lease =
       List.iter (fun(n, driver) -> MPTestDispatch.add_msg_target disp n driver.SMDriver.msgs) named_drivers
     in
     let () = List.iter (fun disp -> add_all_msg_targets disp) dispatches in
-    (* let ts = List.map (fun(d,s) -> SMDriver.serve d s (Some 15)) (List.combine drivers states) in *)
     let ts' = List.fold_left 
          (fun acc (driver, state) ->
            let timeout = M_LEASE_TIMEOUT state.round in 
@@ -206,18 +205,19 @@ let test_iteration nodes lease =
     let waiters = List.map (fun driver -> SMDriver.push_cli_req driver (Core.DELETE "key")) drivers in
     let ts'' = List.fold_left (fun acc w -> (w >>= fun r -> Lwt.return()) :: acc) ts' waiters in
     
-    Lwt.join ( (multi_driver_serve (List.combine drivers states) 200) :: ts'')
+    Lwt.join ( (multi_driver_serve (List.combine drivers states) step_cnt) :: ts'')
     
 let main() =
   let () = Random.self_init() in
   let n = ["n1"; "n2"; "n3"] in
   let lease = 20.0 in
+  let step_cnt = 500 in
   let timer () = 
     Lwt_unix.sleep(20.0)
   in
   Lwt.catch 
     (fun () ->
-        Lwt.pick( [ timer() ; test_iteration n lease ] )
+        Lwt.pick( [ timer() ; test_iteration n lease step_cnt ] )
     ) 
     (fun e -> 
         Lwt.return ( print_string (Printexc.to_string e) ) 
