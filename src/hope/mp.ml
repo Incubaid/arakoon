@@ -437,10 +437,9 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_, _, A_BEHIND) -> [A_DIE "Got an Accepted for future i"], state
-        | (_, _, A_AHEAD)  
-        | (N_AHEAD, _, A_COMMITABLE) ->
-            [], state
+        | (_      , _, A_BEHIND) -> [A_DIE "Got an Accepted for future i"], state
+        | (_      , _, A_AHEAD)  
+        | (N_AHEAD, _, A_COMMITABLE) -> [], state
         | (N_EQUAL, _, A_COMMITABLE) -> 
           begin
             let new_votes = get_updated_votes state.votes src in
@@ -499,8 +498,8 @@ module MULTI = struct
     begin
       match diff with
         | (N_BEHIND, _, _) -> [], state
-        | (N_AHEAD, _, _) -> [], state
-        | (N_EQUAL, _, _) ->
+        | (N_AHEAD , _, _) -> [], state
+        | (N_EQUAL , _, _) ->
           begin
             if should_elections_start state
             then
