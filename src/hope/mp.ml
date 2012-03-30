@@ -201,12 +201,22 @@ module MULTI = struct
     in
     (c_diff, p_diff, a_diff)
   
-  let update_n n state =
+  let next_n n node_cnt node_ix =
     let TICK n' = n in
-    let modulo = n' mod state.constants.node_cnt in
-    let n' = n' + state.constants.node_cnt - modulo in
-    TICK (n' + state.constants.node_ix) 
-    
+    let modulo = n' mod node_cnt in
+    let n' = n' + node_cnt - modulo in
+    TICK (n' + node_ix) 
+  
+  let prev_n n node_cnt node_ix =
+    let TICK n' = n in
+    let modulo = n' mod node_cnt in
+    let n'' = n' - modulo in
+    if n'' + node_ix < n'
+    then 
+      TICK (n'' + node_ix)
+    else 
+      TICK (n'' - node_cnt + node_ix) 
+  
   let is_lease_active state =
     state.now < state.lease_expiration 
   
@@ -351,7 +361,7 @@ module MULTI = struct
                   ([], new_state) 
               end
             | S_SLAVE    -> [A_DIE "I'm a slave and did not send prepare for this n"], state
-            | S_MASTER   -> [], state (* already reached quorum *) 
+            | S_MASTER   -> [], state (* already reached consensus *) 
             | S_CLUELESS -> [A_DIE "I'm clueless so I did not send prepare for this n"], state
         end 
   
@@ -366,7 +376,7 @@ module MULTI = struct
           begin 
             if state.state_n = S_RUNNING_FOR_MASTER
             then
-              let n' = update_n n state in
+              let n' = next_n n state.constants.node_cnt state.constants.node_ix  in
               let msg = M_PREPARE(state.constants.me, n',i) in
               let new_state = { 
                 state with
@@ -504,7 +514,7 @@ module MULTI = struct
             if should_elections_start state
             then
               begin
-                let new_n = update_n n state in
+                let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
                 start_elections new_n state
               end
             else
