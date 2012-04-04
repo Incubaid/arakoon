@@ -28,6 +28,7 @@ import itertools
 import time
 import string
 import subprocess
+import os.path
 
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 

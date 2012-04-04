@@ -4,6 +4,7 @@ import shutil
 import logging
 import subprocess
 import StringIO
+import fnmatch
 
 class Status:
     HALTED = 'HALTED'
@@ -17,8 +18,8 @@ class Status:
     cluster_id = 'sturdy'
     node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
     node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
-    node_client_base_port = 7080
-    node_msg_base_port = 10000
+
+
     daemon_name = "arakoon"
     binary_full_path = "arakoon"
     lease_duration = 2.0
@@ -59,7 +60,12 @@ class Compat:
             return shutil.rmtree(fn)
         except:
             pass
-
+    def listFilesInDir(self, d, filter):
+        files = os.listdir(d)
+        logging.debug("original=%s", files)
+        r = ["%s/%s" % (d,x) for x in files if fnmatch.fnmatch(x, filter)]
+        logging.debug("filtered = %s", r)
+        return r
 
     def raiseError(self,x):
         raise Exception(x)
