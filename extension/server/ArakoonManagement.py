@@ -84,7 +84,8 @@ class ArakoonCluster:
         self._clustersFNH = '%s/%s' % (X.cfgDir, 'arakoonclusters')
         p = X.getConfig(self._clustersFNH)
 
-        if not p.has_section(self._clusterId):            
+        if not p.has_section(self._clusterId):   
+            X.logging.debug("No section %s: adding", self._clusterId)
             clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", clusterId])
             p.add_section(self._clusterId)
             p.set(self._clusterId, "path", clusterPath)
@@ -93,9 +94,10 @@ class ArakoonCluster:
 
             if not X.fileExists(clusterPath):
                 X.createDir(clusterPath)
-        
+            X.writeConfig(p, self._clustersFNH)
+
         self._clusterPath = p.get( self._clusterId, "path", False)
-        X.writeConfig(p, self._clustersFNH)
+        
         
     def _servernodes(self):
         return '%s_local_nodes' % self._clusterId
@@ -104,7 +106,10 @@ class ArakoonCluster:
         return "<ArakoonCluster:%s (%s) >" % (self._clusterId, self._arakoonDir)
 
     def _getConfigFileName(self):
+        #clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", self._clusterId])
         p = X.getConfig(self._clustersFNH)
+        if not p.has_section(self._clusterId):
+            raise Exception()
         cfgDir = p.get( self._clusterId, "path",False)
         cfgFile = '/'.join ([cfgDir, self._clusterId])
         return cfgFile
@@ -540,8 +545,8 @@ class ArakoonCluster:
         if numberOfNodes > 0:
             self.forceMaster("%s_0" % cid)
         
-            config = self._getConfigFile()
-            config.set( 'global', 'cluster_id', cid)
+        config = self._getConfigFile()
+        config.set( 'global', 'cluster_id', cid)
         X.writeConfig(config, self._getConfigFileName())
         
 
@@ -783,13 +788,13 @@ class ArakoonCluster:
             X.logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
-            logging.debug("'%s' is still running... waiting" % name)
+            X.logging.debug("'%s' is still running... waiting" % name)
             if i == 10:
                 X.logging.debug("stopping '%s' with kill -9" % name)
                 X.subprocess.call(['pkill', '-9', '-fx', line], close_fds = True)
                 cnt = 0
                 while (self._getStatusOne(name) == X.AppStatusType.RUNNING ) :
-                    logging.debug("'%s' is STILL running... waiting" % name)
+                    X.logging.debug("'%s' is STILL running... waiting" % name)
                     time.sleep(1)
                     cnt += 1
                     if( cnt > 10):

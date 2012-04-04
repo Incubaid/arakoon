@@ -52,6 +52,7 @@ class Config:
         self.key_format_str = "key_%012d"
         self.value_format_str = "value_%012d"
         self.data_base_dir = None
+        self.binary_full_path = "arakoon"
 
 CONFIG = Config()
 
@@ -438,11 +439,13 @@ def get_memory_usage(node_name):
         return 0
     
 def collapse(name, n = 1):
-    global cluster_id
     config = getConfig(name)
     ip = config['ip']
     port = config['client_port']
-    rc = subprocess.call([binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
+    rc = subprocess.call([CONFIG.binary_full_path, 
+                          '--collapse-remote', 
+                          CONFIG.cluster_id,
+                          ip,port,str(n)])
     return rc
 
 def add_node ( i ):

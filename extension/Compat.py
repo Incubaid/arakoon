@@ -3,7 +3,7 @@ import ConfigParser
 import shutil
 import logging
 import subprocess
-
+import StringIO
 
 class Status:
     HALTED = 'HALTED'
@@ -12,10 +12,8 @@ class Status:
     def __init__(self):
         pass
 
-class Compat:
-    def __init__(self):
-        self.logging = logging
 
+"""
     cluster_id = 'sturdy'
     node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
     node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
@@ -34,8 +32,20 @@ class Compat:
     nursery_cluster_ids = nursery_nodes.keys()
     nursery_cluster_ids.sort()
     nursery_keeper_id = nursery_cluster_ids[0]
-    
-    
+"""    
+
+class Compat:
+    def __init__(self):
+        self.logging = logging
+        self._count = 0
+
+    def cfg2str(self, cfg):
+        io = StringIO.StringIO()
+        cfg.write(io)
+        v = io.getvalue()
+        io.close()
+        return v
+
     def fileExists(self,fn):
         return os.path.exists(fn)
 
@@ -63,7 +73,9 @@ class Compat:
         return p
 
     def writeConfig(self, p, h):
+        self._count = self._count + 1
         fn = h + '.cfg'
+        #logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
         with open(fn,'w') as cfg:
             p.write(cfg)
 

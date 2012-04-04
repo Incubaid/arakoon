@@ -22,63 +22,63 @@ If not, see <http://www.gnu.org/licenses/>.
 
 import Compat as X
 
-from .. import system_tests_common as Common
+from .. import system_tests_common as C
 
 def last_slave(master_id):
-    slaves = filter(lambda x: x!= master_id, Common.node_names)
+    slaves = filter(lambda x: x!= master_id, C.CONFIG.node_names)
     return slaves [-1]
 
     
-@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_shaky_slave():
-    cli = Common.get_client()
+    cli = C.get_client()
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
-    Common.stopOne(slave_id)
+    C.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 2000
-    Common.iterate_n_times( n, Common.simple_set)
+    C.iterate_n_times( n, C.simple_set)
     cycles = 100 
     for i in range(cycles):
         print ("starting cycle %i" % i)
-        Common.startOne(slave_id)
-        Common.iterate_n_times( n, Common.simple_set)
-        Common.stopOne(slave_id)
-        Common.iterate_n_times( n, Common.simple_set)
+        C.startOne(slave_id)
+        C.iterate_n_times( n, C.simple_set)
+        C.stopOne(slave_id)
+        C.iterate_n_times( n, C.simple_set)
     print "phewy!"
 
-@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_fat_shaky_slave():
-    cli = Common.get_client()
+    cli = C.get_client()
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
-    Common.stopOne(slave_id)
+    C.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 20000
-    Common.iterate_n_times( n, Common.simple_set)
+    C.iterate_n_times( n, C.simple_set)
     cycles = 10 
     for i in range(cycles):
         print ("starting cycle %i" % i)
-        Common.startOne(slave_id)
-        Common.iterate_n_times( n, Common.simple_set)
-        Common.stopOne(slave_id)
-        Common.iterate_n_times( n, Common.simple_set)
+        C.startOne(slave_id)
+        C.iterate_n_times( n, C.simple_set)
+        C.stopOne(slave_id)
+        C.iterate_n_times( n, C.simple_set)
     print "phewy!"
 
-@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_shaky_cluster():
     n = 500
-    names = Common.node_names
+    names = C.CONFIG.node_names
     def stop_all():
         for node_name in names:
-            Common.stopOne(node_name)
+            C.stopOne(node_name)
     
     def start_all():
         for node_name in names:
-            Common.startOne(node_name)
+            C.startOne(node_name)
     
     for i in range(n):
-        Common.restart_all()
-        Common.assert_running_nodes(3)
+        C.restart_all()
+        C.assert_running_nodes(3)
     
         

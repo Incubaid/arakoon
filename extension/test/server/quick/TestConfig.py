@@ -36,12 +36,7 @@ def getSectionAsDict(config, s):
     return r
 
 
-def cfg2str(cfg):
-    io = StringIO.StringIO()
-    cfg.write(io)
-    v = io.getvalue()
-    io.close()
-    return v
+
     
 
 class TestConfig:
@@ -149,7 +144,7 @@ class TestConfig:
 
         config = cluster._getConfigFile()
         d = getSectionAsDict(config, "global")
-        assert_true(d.has_key('cluster'), "\n%s\nshould have key 'cluster'" % (cfg2str(config)))
+        assert_true(d.has_key('cluster'), "\n%s\nshould have key 'cluster'" % (X.cfg2str(config)))
         assert_equals(d['cluster'],n1)
         assert_false(config.has_section(n0))
 
