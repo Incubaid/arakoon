@@ -27,25 +27,29 @@ import logging
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_prefered_master():
-    cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
+    CONFIG = Common.CONFIG
+    cid = CONFIG.cluster_id
+    ld = CONFIG.lease_duration
+    cluster = Common._getCluster(cid)
     cluster.stop()
-    pm = Common.node_names[0]
-    cluster.forceMaster(pm,preferred=True)
+    pm = CONFIG.node_names[0]
+    cluster.forceMaster(pm, preferred = True)
     cluster.start()
+
     Common.assert_running_nodes(3)
-    time.sleep(4.0 * Common.lease_duration)
+    time.sleep(4.0 * ld)
     logging.info("all should be well")
     client = Common.get_client()
     master = client.whoMaster()
     NT.assert_equals(pm, master)
     cluster.stopOne(pm)
-    time.sleep(8.0 * Common.lease_duration)
+    time.sleep(8.0 * ld)
     client = Common.get_client()
     master2 = client.whoMaster()
     logging.info("master2 = %s",master2)
     NT.assert_equals(True, master2 != pm)
     cluster.startOne(pm)
-    time.sleep(4.0* Common.lease_duration)
+    time.sleep(4.0* ld)
     client = Common.get_client()
     master3 = client.whoMaster()
     logging.info("master3 = %s", master3)

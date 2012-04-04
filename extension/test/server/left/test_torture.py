@@ -20,10 +20,9 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+import Compat as X
 
 from .. import system_tests_common as Common
-from pymonkey import q
-import logging
 
 def last_slave(master_id):
     slaves = filter(lambda x: x!= master_id, Common.node_names)

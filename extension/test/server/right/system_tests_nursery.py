@@ -28,7 +28,7 @@ from nose.tools import *
 import logging
 from arakoon.NurseryRouting import RoutingInfo, LeafRoutingNode
 
-clus = C.nursery_cluster_ids
+clus = C.CONFIG.nursery_cluster_ids
 
 def validate_keys_in_nursery (n_cli, keys ):
     for k in keys:

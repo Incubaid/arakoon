@@ -20,47 +20,33 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from ..system_tests_common import with_custom_setup
-from ..system_tests_common import get_client
-from ..system_tests_common import setup_1_node, setup_2_nodes
-from ..system_tests_common import setup_2_nodes_forced_master
-from ..system_tests_common import basic_teardown
-from ..system_tests_common import node_names
-from ..system_tests_common import iterate_n_times
-from ..system_tests_common import simple_set
-from ..system_tests_common import collapse
-from ..system_tests_common import startOne
-from ..system_tests_common import stopOne
-from ..system_tests_common import catchupOnly
-from ..system_tests_common import start_all
-from ..system_tests_common import stop_all
-from ..system_tests_common import whipe
-from ..system_tests_common import lease_duration
-from ..system_tests_common import compare_stores
+from .. import system_tests_common as C
 
 from nose.tools import *
 
 import time
-import logging
 import subprocess
 import threading
 
-def _getCluster():
-    global cluster_id
-    return q.manage.arakoon.getCluster(cluster_id)
+from Compat import X
 
-@with_custom_setup(setup_2_nodes, basic_teardown)
+CONFIG = C.CONFIG
+def _getCluster():
+    cluster_id = CONFIG.cluster_id
+    return C._getCluster(cluster_id)
+
+@C.with_custom_setup(C.setup_2_nodes, C.basic_teardown)
 def test_collapse():
-    zero = node_names[0]
-    one = node_names[1]
+    zero = CONFIG.node_names[0]
+    one = CONFIG.node_names[1]
     n = 298765
     iterate_n_times(n, simple_set)
-    logging.info("did %i sets, now going into collapse scenario" % n)
+    X.logging.info("did %i sets, now going into collapse scenario" % n)
     collapse(zero,1)
-    logging.info("collapsing done")
-    stopOne(one)
-    whipe(one)
-    startOne(one)
+    X.logging.info("collapsing done")
+    C.stopOne(one)
+    C.whipe(one)
+    C.startOne(one)
     cli = get_client()
     assert_false(cli.expectProgressPossible())
     up2date = False
@@ -69,14 +55,14 @@ def test_collapse():
         time.sleep(1.0)
         counter = counter + 1
         up2date = cli.expectProgressPossible()
-    logging.info("catchup from collapsed node finished")
+    X.logging.info("catchup from collapsed node finished")
 
-@with_custom_setup(setup_1_node, basic_teardown)
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_concurrent_collapse_fails():
     zero = node_names[0]
     n = 298765
     iterate_n_times(n, simple_set)
-    logging.info("Did %i sets, now going into collapse scenario", n)
+    X.logging.info("Did %i sets, now going into collapse scenario", n)
     
     class SecondCollapseThread(threading.Thread):
         def __init__(self, sleep_time):
@@ -86,13 +72,13 @@ def test_concurrent_collapse_fails():
             self.exception_received = False
     
         def run(self):
-            logging.info('Second collapser thread started, sleeping...')
+            X.logging.info('Second collapser thread started, sleeping...')
             time.sleep(self.sleep_time)
             
-            logging.info('Starting concurrent collapse')
+            X.logging.info('Starting concurrent collapse')
             rc = collapse(zero, 1)
    
-            logging.info('Concurrent collapse returned %d', rc)
+            X.logging.info('Concurrent collapse returned %d', rc)
 
             if rc == 255:
                 self.exception_received = True
@@ -100,29 +86,29 @@ def test_concurrent_collapse_fails():
     s = SecondCollapseThread(5)
     assert not s.exception_received
        
-    logging.info('Launching second collapser thread')
+    X.logging.info('Launching second collapser thread')
     s.start()
 
-    logging.info('Launching main collapse')
+    X.logging.info('Launching main collapse')
     collapse(zero, 1)
        
-    logging.info("collapsing finished")
+    X.logging.info("collapsing finished")
     assert_true(s.exception_received)
 
 
 
-@with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
+@C.with_custom_setup(C.setup_2_nodes_forced_master, C.basic_teardown)
 def test_catchup_exercises():
     time.sleep(1.0) # ??
     
     def do_one(n, max_wait):
-        iterate_n_times(n, simple_set)
-        stop_all()
-        logging.info("stopped all nodes")
-        whipe(node_names[1])
+        C.iterate_n_times(n, C.simple_set)
+        C.stop_all()
+        X.logging.info("stopped all nodes")
+        C.whipe(CONFIG.node_names[1])
 
-        start_all()
-        cli = get_client ()
+        C.start_all()
+        cli = C.get_client ()
         counter = 0
         up2date = False
 
@@ -130,7 +116,7 @@ def test_catchup_exercises():
             time.sleep( 1.0 )
             counter += 1
             up2date = cli.expectProgressPossible()
-            logging.info("up2date=%s", up2date)
+            X.logging.info("up2date=%s", up2date)
     
         if counter >= max_wait :
             raise Exception ("Node did not catchup in a timely fashion")
@@ -143,15 +129,15 @@ def test_catchup_exercises():
         w = w * 2
 
 
-@with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
+@C.with_custom_setup(C.setup_2_nodes_forced_master, C.basic_teardown)
 def test_catchup_only():
-    iterate_n_times(123000,simple_set)
-    n0 = node_names[0]
-    n1 = node_names[1]
-    stopOne(n1)
-    whipe(n1)
-    logging.info("catchup-only")
+    C.iterate_n_times(123000,simple_set)
+    n0 = CONFIG.node_names[0]
+    n1 = CONFIG.node_names[1]
+    C.stopOne(n1)
+    C.whipe(n1)
+    X.logging.info("catchup-only")
     catchupOnly(n1)
-    logging.info("done with catchup-only")
-    stopOne(n0)
+    X.logging.info("done with catchup-only")
+    C.stopOne(n0)
     compare_stores(n1,n0)
