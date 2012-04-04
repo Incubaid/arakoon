@@ -21,7 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from pymonkey import q, i
 from nose.tools import *
 from functools import wraps
 import traceback
@@ -29,9 +28,41 @@ import sys
 import struct
 import subprocess
 import signal
-import gzip
+
+import os
+import random
+import threading
+import time
+import arakoon.ArakoonProtocol  
+from arakoon.ArakoonExceptions import * 
+
+from server import ArakoonManagement
+from client import ArakoonClient
 
 test_failed = False 
+
+from Compat import X
+
+class Config:
+    def __init__(self):
+        self.lease_duration = 2.0
+        self.tlog_entries_per_tlog = 1000
+        self.node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
+        self.cluster_id = 'sturdy'
+        self.key_format_str = "key_%012d"
+        self.value_format_str = "value_%012d"
+        self.data_base_dir = None
+
+CONFIG = Config()
+
+
+def _getCluster( c_id = None):
+
+    if c_id is None:
+        c_id = X.cluster_id 
+    mgmt = ArakoonManagement.ArakoonManagement()
+    cluster = mgmt.getCluster(c_id)
+    return cluster
 
 class with_custom_setup ():
     
@@ -44,19 +75,19 @@ class with_custom_setup ():
         def decorate(*args,**kwargs):
             
             global data_base_dir
-            data_base_dir = q.system.fs.joinPaths( q.dirs.tmpDir, 'arakoon_system_tests' , func.func_name )
+            data_base_dir = '%s/%s/%s' % (X.tmpDir, 'arakoon_system_tests' , func.func_name )
             global test_failed
             test_failed = False
             fatal_ex = None
             home_dir = data_base_dir
-            if q.system.fs.exists( data_base_dir):
-                q.system.fs.removeDirTree( data_base_dir )
-            self.__setup( home_dir )
+            if X.fileExists( data_base_dir):
+                X.removeDirTree( data_base_dir )
+            self.__setup(home_dir )
             try:
                 func(*args,**kwargs)
             except Exception, outer :
                 tb = traceback.format_exc()
-                logging.fatal( tb )              
+                X.logging.fatal( tb )              
                 fatal_ex = outer
             finally:
                 self.__teardown( fatal_ex is None )
@@ -66,63 +97,18 @@ class with_custom_setup ():
         return decorate
 
 
-import os
-import random
-import threading
-import time
-import arakoon.ArakoonProtocol  
-import logging
-
-
-
-from arakoon.ArakoonExceptions import * 
- 
-if __name__ == "__main__" :
-    from pymonkey import InitBase
-
-data_base_dir = None
-cluster_id = 'sturdy'
-node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
-node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
-node_client_base_port = 7080
-node_msg_base_port = 10000
-daemon_name = "arakoon"
-binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoon"
-lease_duration = 2.0
-tlog_entries_per_tlog = 1000
-
-nursery_nodes = {
-   'nurse_0' : [ 'nurse_0_0', 'nurse_0_1', 'nurse_0_2'],
-   'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
-   'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
-}
-nursery_cluster_ids = nursery_nodes.keys()
-nursery_cluster_ids.sort()
-nursery_keeper_id = nursery_cluster_ids[0]
-
-key_format_str = "key_%012d"
-value_format_str = "value_%012d"
-
-fs = q.system.fs
-proc = q.system.process
-
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
-
-def _getCluster( c_id = None):
-    if c_id is None:
-        c_id = cluster_id 
-    return q.manage.arakoon.getCluster(c_id)
 
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    tlog_full_path =  q.system.fs.joinPaths ( node_home_dir, "%03d.tlog" % tlog_number  )
-    cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
-    logging.debug( "Dumping file %s" % tlog_full_path )
-    logging.debug("Command is : '%s'" % cmd )
-    (exit,stdout,stderr) = q.system.process.run(cmd)
-    assert_equals( exit, 0, "Could not dump tlog for node %s" % node_id )
+    tlog_full_path =  '/'.join ([node_home_dir, "%03d.tlog" % tlog_number])
+    cmd = [binary_full_path, "--dump-tlog", tlog_full_path]
+    X.logging.debug( "Dumping file %s" % tlog_full_path )
+    X.logging.debug("Command is : '%s'" % cmd )
+    rc = X.call(cmd)
+    assert_equals( rc, 0, "Could not dump tlog for node %s" % node_id )
     return stdout
 
 def get_arakoon_binary() :
@@ -154,11 +140,11 @@ def dump_store( node_id ):
     cmd = get_tcbmgr_path() + " list -pv " + db_file
     try:
         dump_fd = open( dump_file, 'w' )
-        logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
+        X.logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
         (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
         dump_fd.close()
     except:
-        logging.info("Unexpected error: %s" % sys.exc_info()[0])
+        X.logging.info("Unexpected error: %s" % sys.exc_info()[0])
 
     return dump_file
 
@@ -186,9 +172,9 @@ def compare_stores( node1_id, node2_id ):
     
 
     i1 = get_i (node1_id)
-    logging.debug("Counter value for store of %s: %d" % (node1_id,i1))
+    X.logging.debug("Counter value for store of %s: %d" % (node1_id,i1))
     i2 = get_i (node2_id)
-    logging.debug("Counter value for store of %s: %d" % (node2_id,i2))
+    X.logging.debug("Counter value for store of %s: %d" % (node2_id,i2))
     if( abs (i1 - i2) > 1 ):
         logging.error( "Store counters differ too much (%s: %d and %s: %d)" % (node1_id,i1,node2_id,i2) )
     
@@ -223,25 +209,25 @@ def compare_stores( node1_id, node2_id ):
                 if k1 not in keys_to_skip:
                     diffs[node1_id][k1] = v1
                     diffs[node2_id][k2] = v2 
-                    logging.debug( "Stores have different values for %s" % (k1) )
+                    X.logging.debug( "Stores have different values for %s" % (k1) )
                 (k1,v1) = get_next_kv( d1_fd )
                 (k2,v2) = get_next_kv( d2_fd ) 
             if k1 < k2 :
-                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, node2_id) )
+                X.logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, node2_id) )
                 diffs[node1_id][k1] = v1
                 (k1,v1) = get_next_kv( d1_fd )
             if k1 > k2 :
-                logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, node1_id) )
+                X.logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, node1_id) )
                 diffs[node2_id][k2] = v2
                 (k2,v2) = get_next_kv( d2_fd )
     
     if k1 != None :
-        logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node1_id, node2_id) )
+        X.logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node1_id, node2_id) )
         while k1 != None:
             diffs[node1_id][k1] = v1
             (k1,v1) = get_next_kv( d1_fd )
     if k2 != None:
-        logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node2_id, node1_id) )
+        X.logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node2_id, node1_id) )
         while k2 != None:
             diffs[node2_id][k2] = v2
             (k2,v2) = get_next_kv ( d2_fd ) 
@@ -255,7 +241,7 @@ def compare_stores( node1_id, node2_id ):
     if diff_cnt > max_diffs :
         raise Exception ( "Found too many differences between stores (%d > %d)\n%s" % (diff_cnt, max_diffs,diffs) )
 
-    logging.debug( "Stores of %s and %s are valid" % (node1_id,node2_id))
+    X.logging.debug( "Stores of %s and %s are valid" % (node1_id,node2_id))
     return True
 
 def get_tlog_count (node_id ):
@@ -281,7 +267,7 @@ def get_last_tlog_id ( node_id ):
         if tlog_id > tlog_max_id :
             tlog_max_id = tlog_id
     if tlog_id is not None:
-        logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
+        X.logging.debug("get_last_tlog_id('%s') => %s" % (node_id, tlog_id))
     else :
         raise Exception ("Not a single tlog found in %s" % node_home_dir )
         
@@ -411,23 +397,28 @@ def getConfig(name):
 
 
 def regenerateClientConfig( cluster_id ):
+    h = '%s/%s' % (X.cfgDir,'arakoonclients')
+    p = X.getConfig(h)
+    print p.sections()
+
+    if cluster_id in p.sections():
+        clusterDir = p.get_option(cluster_id, "path")
+        clientCfgFile = '/'.join([clusterDir, "%s_client.cfg" % cluster_id])
+        if X.fileExists(clientCfgFile):
+            X.removeFile(clientCfgFile)
+
+    client = ArakoonClient.ArakoonClient()
+    cliCfg = client.getClientConfig( cluster_id )
     
-    clientsCfg = q.config.getConfig("arakoonclients")
-    if cluster_id in clientsCfg.keys():
-        clusterDir = clientsCfg[cluster_id]["path"]
-        clientCfgFile = q.system.fs.joinPaths(clusterDir, "%s_client.cfg" % cluster_id)
-        if q.system.fs.exists( clientCfgFile):
-            q.system.fs.removeFile( clientCfgFile)
-    cliCfg = q.clients.arakoon.getClientConfig( cluster_id )
     cliCfg.generateFromServerConfig()
     
 
 def whipe(name):
     config = getConfig(name)
     data_dir = config['home']
-    q.system.fs.removeDirTree(data_dir)
-    q.system.fs.createDir(data_dir)
-    logging.info("whiped %s" % name)
+    X.removeDirTree(data_dir)
+    X.createDir(data_dir)
+    X.logging.info("whiped %s" % name)
 
 def get_memory_usage(node_name):
     cluster = _getCluster()
@@ -437,13 +428,13 @@ def get_memory_usage(node_name):
     cmd = "ps -p %s -o vsz" % (pid)
     (exit_code, stdout,stderr) = q.system.process.run( cmd, stopOnError=False)
     if (exit_code != 0 ):
-        logging.error( "Coud not determine memory usage: %s" % stderr )
+        X.logging.error( "Coud not determine memory usage: %s" % stderr )
         return 0
     try:
         size_str = stdout.split("\n") [1]
         return int( size_str )
     except Exception as ex:
-        logging.error( "Coud not determine memory usage: %s" % ex )
+        X.logging.error( "Coud not determine memory usage: %s" % ex )
         return 0
     
 def collapse(name, n = 1):
@@ -456,7 +447,7 @@ def collapse(name, n = 1):
 
 def add_node ( i ):
     ni = node_names[i]
-    logging.info( "Adding node %s to config", ni )
+    X.logging.info( "Adding node %s to config", ni )
     (db_dir,log_dir) = build_node_dir_names(ni)
     cluster = _getCluster()
     cluster.addNode (
@@ -482,7 +473,7 @@ def start_nursery( nursery_size ):
     time.sleep(0.2)
     
 def stop_all(clusterId = None ):
-    logging.info("stop_all")
+    X.logging.info("stop_all")
     cluster = _getCluster( clusterId )
     cluster.stop()
 
@@ -546,25 +537,27 @@ def getRandomString( length = 16 ) :
 
 def build_node_dir_names ( nodeName, base_dir = None ):
     if base_dir is None:
-        global data_base_dir
-        base_dir = data_base_dir
-    data_dir = q.system.fs.joinPaths( base_dir, nodeName)
-    db_dir = q.system.fs.joinPaths( data_dir, "db")
-    log_dir = q.system.fs.joinPaths( data_dir, "log")
-    return (db_dir,log_dir)
+        base_dir = X.tmpDir
+    data_dir = '%s/%s' % (base_dir, nodeName)
+    db_dir   = '%s/%s' % ( data_dir, "db")
+    log_dir  = '%s/%s' % ( data_dir, "log")
+    return (db_dir, log_dir)
 
-def setup_n_nodes_base(c_id, node_names, force_master, 
-                       base_dir, base_msg_port, base_client_port, 
+def setup_n_nodes_base(c_id, 
+                       node_names, 
+                       force_master, 
+                       base_dir, 
+                       base_msg_port, 
+                       base_client_port, 
                        extra = None):
     
-    q.system.process.run( "/sbin/iptables -F" )
-    
-    cluster = q.manage.arakoon.getCluster( c_id )
+    cluster = _getCluster( c_id )
+    print cluster
     cluster.tearDown()
-    cluster = q.manage.arakoon.getCluster( c_id )
-    
-    logging.info( "Creating data base dir %s" % base_dir )
-    q.system.fs.createDir ( base_dir )
+    cluster = _getCluster( c_id )
+    if base_dir:
+        X.logging.info( "Creating data base dir %s" % base_dir )
+        X.createDir(base_dir)
     
     n = len(node_names)
     
@@ -581,46 +574,50 @@ def setup_n_nodes_base(c_id, node_names, force_master,
         cluster.createDirs(nodeName)
 
     if force_master:
-        logging.info( "Forcing master to %s", node_names[0] )
+        X.logging.info( "Forcing master to %s", node_names[0] )
         cluster.forceMaster(node_names[0] )
     else :
-        logging.info( "Using master election" )
+        X.logging.info( "Using master election" )
         cluster.forceMaster(None )
     #
     #
     #
     if extra : 
-        logging.info("EXTRA!")
+        X.logging.info("EXTRA!")
         config = cluster._getConfigFile()
         for k,v in extra.items():
             logging.info("%s -> %s", k, v)
-            config.addParam("global", k, v)
+            config.add_param("global", k, v)
         
-        logging.info("config=\n%s", config.getContent())
+        X.logging.info("config=\n%s", config.getContent())
         f = open
         config.write ()
         
     
-    logging.info( "Creating client config" )
+    X.logging.info( "Creating client config" )
     regenerateClientConfig( c_id )
     
-    logging.info( "Changing log level to debug for all nodes" )
+    X.logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
     
-    lease = int(lease_duration)
-    logging.info( "Setting lease expiration to %d" % lease)
+    lease = int(CONFIG.lease_duration)
+    X.logging.info( "Setting lease expiration to %d" % lease)
     cluster.setMasterLease( lease )
     
     
 def setup_n_nodes ( n, force_master, home_dir , extra = None):
-    setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir, 
-                       node_msg_base_port, node_client_base_port, 
+    setup_n_nodes_base(X.cluster_id, 
+                       X.node_names[0:n], 
+                       force_master, 
+                       None,
+                       X.node_msg_base_port, 
+                       X.node_client_base_port, 
                        extra = extra)
     
-    logging.info( "Starting cluster" )
-    start_all( cluster_id ) 
+    X.logging.info( "Starting cluster" )
+    start_all( CONFIG.cluster_id ) 
    
-    logging.info( "Setup complete" )
+    X.logging.info( "Setup complete" )
     
 
 def setup_3_nodes_forced_master (home_dir):
@@ -680,7 +677,7 @@ def dummy_teardown():
 
 def common_teardown( removeDirs, cluster_ids):
     for cluster_id in cluster_ids:
-        logging.info( "Stopping arakoon daemons for cluster %s" % cluster_id )
+        X.logging.info( "Stopping arakoon daemons for cluster %s" % cluster_id )
         stop_all (cluster_id )
     
         cluster = _getCluster( cluster_id)
@@ -688,27 +685,28 @@ def common_teardown( removeDirs, cluster_ids):
         cluster.remove() 
 
     if removeDirs:
-        q.system.fs.removeDirTree( data_base_dir )
+        X.removeDirTree(CONFIG.data_base_dir )
 
         
 def basic_teardown( removeDirs ):
-    logging.info("basic_teardown(%s)" % removeDirs)
-    for i in range( len(node_names) ):
+    X.logging.info("basic_teardown(%s)" % removeDirs)
+    for i in range( len(CONFIG.node_names) ):
         destroy_ram_fs( i )
-    common_teardown( removeDirs, [cluster_id])
-    logging.info( "Teardown complete" )
+    common_teardown( removeDirs, [CONFIG.cluster_id])
+    X.logging.info( "Teardown complete" )
 
 def nursery_teardown( removeDirs ):
     common_teardown(removeDirs, nursery_cluster_ids)
 
 def get_client ( c_id = None):
     if c_id is None:
-        c_id = cluster_id
-    client = q.clients.arakoon.getClient(c_id)
-    return client
+        c_id = CONFIG.cluster_id
+    ext = ArakoonClient.ArakoonClient()
+    c = ext.getClient(c_id)
+    return c
 
 def get_nursery_client():
-    client = q.clients.nursery.getClient(nursery_keeper_id)
+    client = ArakoonClient.getClient(nursery_keeper_id)
     return client
 
 def get_nursery():
@@ -726,11 +724,11 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
     
     for i in range ( n ) :
         if test_failed :
-            logging.error( "Test marked as failed. Aborting.")
+            X.logging.error( "Test marked as failed. Aborting.")
             break
         suffix = ( i + startSuffix )
-        key = key_format_str % suffix
-        value = value_format_str % suffix
+        key = CONFIG.key_format_str % suffix
+        value = CONFIG.value_format_str % suffix
         
         try:
             f(client, key, value )
@@ -743,9 +741,9 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
             if failure_count > failure_max or fatal :
                 client._dropConnections()
                 test_failed = True
-                logging.critical( "!!! Failing test")
+                X.logging.critical( "!!! Failing test")
                 tb = traceback.format_exc()
-                logging.critical( tb )
+                X.logging.critical( tb )
                 raise
         if client.recreate :
             client._dropConnections()
@@ -769,9 +767,9 @@ def create_and_start_thread (f ):
                 self._f ( *(self._args), **(self._kwargs) )
             except Exception, ex:
                 global test_failed
-                logging.critical("!!! Failing test")
+                X.logging.critical("!!! Failing test")
                 tb = traceback.format_exc()
-                logging.critical( tb )
+                X.logging.critical( tb )
                 test_failed = True
                 raise
             
@@ -860,15 +858,15 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             try:
                 client.delete( key )
             except ArakoonNotFound:
-                logging.debug("Master switch while deleting key")
+                X.logging.debug("Master switch while deleting key")
             # assert_raises ( ArakoonNotFound, client.get, key )
             failed = False
             last_ex = None
         except (ArakoonNoMaster, ArakoonNodeNotMaster), ex:
             if isinstance(ex, ArakoonNoMaster) :
-                logging.debug("No master in cluster. Recreating client.")
+                X.logging.debug("No master in cluster. Recreating client.")
             else :
-                logging.debug("Old master is not yet ready to succumb. Recreating client")
+                X.logging.debug("Old master is not yet ready to succumb. Recreating client")
             
             # Make sure we propagate the need to recreate the client 
             # (or the next iteration we are back to using the old one)
@@ -877,12 +875,12 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             client = get_client() 
             
         except Exception, ex:
-            logging.debug( "Caught an exception => %s: %s", ex.__class__.__name__, ex )
+            X.logging.debug( "Caught an exception => %s: %s", ex.__class__.__name__, ex )
             time.sleep( 0.5 )
             last_ex = ex
             if not is_valid_ex( ex, tryCnt ) :
                 # test_failed = True
-                logging.debug( "Re-raising exception => %s: %s", ex.__class__.__name__, ex )
+                X.logging.debug( "Re-raising exception => %s: %s", ex.__class__.__name__, ex )
                 raise
     
     if last_ex is not None:
@@ -902,7 +900,7 @@ def retrying_set_get_and_delete( client, key, value ):
         validEx = validEx or isinstance( ex, ArakoonNotConnected ) 
         validEx = validEx or isinstance( ex, ArakoonNodeNotMaster )
         if validEx:
-            logging.debug( "Ignoring exception: %s", ex_msg )
+            X.logging.debug( "Ignoring exception: %s", ex_msg )
         return validEx
     
     generic_retrying_set_get_and_delete( client, key, value, validate_ex) 
@@ -949,7 +947,11 @@ def assert_last_i_in_sync ( node_1, node_2 ):
 
 
 def assert_running_nodes ( n ):
-    assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1, "Number of expected running nodes missmatch" )
+    cluster = _getCluster()
+    status = cluster.getStatus()
+    ok = [k for k in status.keys() if status[k] == X.AppStatusType.RUNNING]
+    nr = len(ok)
+    assert_equals (nr, n, "Number of expected running nodes missmatch: %s <> %s (STATUS=%s)" % (nr,n,status))
 
 def assert_value_list ( start_suffix, list_size, list ) :
     assert_list( value_format_str, start_suffix, list_size, list )
@@ -964,14 +966,12 @@ def assert_list ( format_str, start_suffix, list_size, list ) :
         elem = format_str % (start_suffix + i)
         assert_equals ( elem , list [i] )
 
-def run_cmd (cmd, display_output = True) :
-    q.system.process.execute( cmd, outputToStdout = display_output )
-    
 def dir_to_fs_file_name (dir_name):
     return dir_name.replace( "/", "_")
 
 def destroy_ram_fs( node_index ) :
-    (mount_target,log_dir) = build_node_dir_names( node_names[node_index] ) 
+    nn = CONFIG.node_names[node_index]
+    (mount_target,log_dir) = build_node_dir_names(nn)
     
     try :
         cmd = "umount %s" % mount_target
@@ -997,7 +997,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
                      
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
     for i in range (iter_cnt) :
-        node = node_names[node_index]
+        node = CONFIG.node_names[node_index]
         time.sleep( 1.0 * int_start_stop )
         stopOne(node)
         time.sleep( 1.0 * int_stop_start )

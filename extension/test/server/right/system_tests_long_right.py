@@ -22,15 +22,13 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as Common
 from arakoon.ArakoonExceptions import *
+
 import arakoon
-import logging
+
 import time
 import subprocess
 from nose.tools import *
 
-def _getCluster():
-    q = Common.q # resistance is futile
-    return q.manage.arakoon.getCluster(Common.cluster_id)
 
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_single_client_100000_sets():
@@ -133,7 +131,7 @@ def test_restart_master_long ():
         
     def restart_loop (): 
         Common.delayed_master_restart_loop( restart_iter_cnt , 
-                                            1.5 * Common.lease_duration )
+                                            1.5 * Common.CONFIG.lease_duration )
     global test_failed
     test_failed = False 
     Common.create_and_wait_for_thread_list( [restart_loop, write_loop] )
@@ -556,7 +554,7 @@ def test_243():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
-	    cli = Common.get_client()
+    cli = Common.get_client()
     cluster = Common._getCluster()
 
     cli.set('k','v')
