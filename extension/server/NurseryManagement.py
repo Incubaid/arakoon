@@ -20,12 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-try:
-    from pymonkey import q
-except ImportError:
-    from pylabs import q
+from Compat import X
 
-ARAKOON_BINARY = "/opt/qbase3/apps/arakoon/bin/arakoon "
 
 class NurseryManagement:
     def getNursery(self, clusterId ):
@@ -41,11 +37,11 @@ class NurseryManagement:
 
     @staticmethod
     def getConfigLocation(clusterId):
-        cfg = q.config.getConfig( "arakoonclusters" )
-        if cfg.has_key( clusterId ):
+        cfg = X.getConfig( "arakoonclusters" )
+        if cfg.has_section( clusterId ):
             return "%s/%s.cfg" % (cfg[ clusterId ]["path"], clusterId)
         else:
-            raise RuntimeError("Unknown nursery cluster %s" % clusterId)
+            raise RuntimeError("Unknown nursery cluster '%s'" % clusterId)
            
 class NurseryManager:
     def __init__(self,clusterId):

@@ -17,7 +17,7 @@ class Status:
 """
     cluster_id = 'sturdy'
     node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
-    node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
+    
 
 
     daemon_name = "arakoon"
@@ -32,7 +32,7 @@ class Status:
         }
     nursery_cluster_ids = nursery_nodes.keys()
     nursery_cluster_ids.sort()
-    nursery_keeper_id = nursery_cluster_ids[0]
+
 """    
 
 class Compat:
@@ -60,6 +60,10 @@ class Compat:
             return shutil.rmtree(fn)
         except:
             pass
+
+    def removeFile(self,fn):
+        return os.unlink(fn)
+
     def listFilesInDir(self, d, filter):
         files = os.listdir(d)
         logging.debug("original=%s", files)
@@ -88,7 +92,6 @@ class Compat:
 
     AppStatusType = Status()
 
-    Popen = subprocess.Popen
     subprocess = subprocess
 
 

@@ -24,6 +24,7 @@ If not, see <http://www.gnu.org/licenses/>.
 from Compat import X
 
 import ArakoonRemoteControl
+import ArakoonClient
 import itertools
 import time
 import string
@@ -823,9 +824,9 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fx', line]
-        proc = X.Popen(cmd,
-                       close_fds = True,
-                       stdout=subprocess.PIPE)
+        proc = X.subprocess.Popen(cmd,
+                                  close_fds = True,
+                                  stdout=subprocess.PIPE)
         pids = proc.communicate()[0]
         pid_list = pids.split()
         lenp = len(pid_list)
@@ -1104,7 +1105,8 @@ class ArakoonCluster:
             config.remove_section("nursery")
             return
             
-        cliCfg = q.clients.arakoon.getClientConfig(clusterId)
+        clientMgmt = ArakoonClient.ArakoonClient()
+        cliCfg = clientMgmt.getClientConfig(clusterId)
         nurseryNodes = cliCfg.getNodes()
         
         if len(nurseryNodes) == 0:
@@ -1115,7 +1117,8 @@ class ArakoonCluster:
         config.set("nursery", "cluster", ",".join( nurseryNodes.keys() ))
         
         for (id,(ip,port)) in nurseryNodes.iteritems() :
-            config.add_section(id)
+            if not config.has_section(id):
+                config.add_section(id)
             config.set(id,"ip",ip)
             config.set(id,"client_port",port)
-
+        X.writeConfig(config, self._getConfigFileName())

@@ -36,7 +36,7 @@ import time
 import arakoon.ArakoonProtocol  
 from arakoon.ArakoonExceptions import * 
 
-from server import ArakoonManagement
+from server import ArakoonManagement, NurseryManagement
 from client import ArakoonClient
 
 test_failed = False 
@@ -61,6 +61,8 @@ class Config:
         self.nursery_cluster_ids = self.nursery_nodes.keys()
         self.node_client_base_port = 7080
         self.node_msg_base_port = 10000
+        self.nursery_keeper_id = self.nursery_cluster_ids[0]
+        self.node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
 
 CONFIG = Config()
 
@@ -408,10 +410,9 @@ def getConfig(name):
 def regenerateClientConfig( cluster_id ):
     h = '%s/%s' % (X.cfgDir,'arakoonclients')
     p = X.getConfig(h)
-    print p.sections()
 
     if cluster_id in p.sections():
-        clusterDir = p.get_option(cluster_id, "path")
+        clusterDir = p.get(cluster_id, "path")
         clientCfgFile = '/'.join([clusterDir, "%s_client.cfg" % cluster_id])
         if X.fileExists(clientCfgFile):
             X.removeFile(clientCfgFile)
@@ -658,20 +659,22 @@ default_setup = setup_3_nodes
 def setup_nursery_n (n, home_dir):
     
     for i in range(n):
-        c_id = nursery_cluster_ids[i]
-        base_dir = q.system.fs.joinPaths(data_base_dir, c_id)
-        setup_n_nodes_base( c_id, nursery_nodes[c_id], False, base_dir,
-                            node_msg_base_port + 3*i, node_client_base_port+3*i)
+        c_id = CONFIG.nursery_cluster_ids[i]
+        base_dir = '/'.join([data_base_dir, c_id])
+        setup_n_nodes_base( c_id, CONFIG.nursery_nodes[c_id], False, base_dir,
+                            CONFIG.node_msg_base_port + 3*i, 
+                            CONFIG.node_client_base_port+3*i)
         clu = _getCluster(c_id)
-        clu.setNurseryKeeper(nursery_keeper_id)
+        clu.setNurseryKeeper(CONFIG.nursery_keeper_id)
         
-        logging.info("Starting cluster %s", c_id)
+        X.logging.info("Starting cluster %s", c_id)
         clu.start()
     
-    logging.info("Initializing nursery to contain %s" % nursery_keeper_id )
+    X.logging.info("Initializing nursery to contain %s" % CONFIG.nursery_keeper_id )
     
     time.sleep(5.0)
-    n = q.manage.nursery.getNursery( nursery_keeper_id )
+    nmgmt = NurseryManagement.NurseryManagement()
+    n = nmgmt.getNursery( CONFIG.nursery_keeper_id )
     n.initialize( nursery_keeper_id )
     
     logging.info("Setup complete")
@@ -921,7 +924,7 @@ def add_node_scenario ( node_to_add_index ):
     iterate_n_times( 100, simple_set )
     stop_all()
     add_node( node_to_add_index )
-    regenerateClientConfig(cluster_id)
+    regenerateClientConfig(CONFIG.cluster_id)
     start_all()
     iterate_n_times( 100, assert_get )
     iterate_n_times( 100, set_get_and_delete, 100)
