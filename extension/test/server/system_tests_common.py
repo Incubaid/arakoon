@@ -115,12 +115,11 @@ def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_full_path =  '/'.join ([node_home_dir, "%03d.tlog" % tlog_number])
-    cmd = [binary_full_path, "--dump-tlog", tlog_full_path]
+    cmd = [CONFIG.binary_full_path, "--dump-tlog", tlog_full_path]
     X.logging.debug( "Dumping file %s" % tlog_full_path )
     X.logging.debug("Command is : '%s'" % cmd )
-    rc = X.call(cmd)
-    assert_equals( rc, 0, "Could not dump tlog for node %s" % node_id )
-    return stdout
+    output = X.subprocess.check_output(cmd)
+    return output
 
 def get_arakoon_binary() :
     return '/'.join([get_arakoon_bin_dir(), 'arakoon'])
@@ -330,7 +329,7 @@ def get_last_i_tlog ( node_id ):
     tlog_dump_list = tlog_dump.split("\n")
     tlog_first_entry = tlog_dump_list[0]
     tlog_first_i = int(tlog_first_entry.split(":") [0].lstrip(" "))
-    if tlog_first_i % tlog_entries_per_tlog != 0 :
+    if tlog_first_i % CONFIG.tlog_entries_per_tlog != 0 :
         test_failed = True
         raise Exception( "Problem with tlog rollover, first entry (%d) incorrect" % tlog_first_i ) 
     tlog_last_entry = tlog_dump_list [-2]
