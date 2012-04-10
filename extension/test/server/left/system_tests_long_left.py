@@ -47,7 +47,7 @@ def test_collapse():
     C.stopOne(one)
     C.whipe(one)
     C.startOne(one)
-    cli = get_client()
+    cli = C.get_client()
     assert_false(cli.expectProgressPossible())
     up2date = False
     counter = 0
