@@ -1,6 +1,6 @@
 open Mem_store 
 open Bstore
-open Hub
+(* open Hub *)
 open Lwt
 open Mp_driver
 open Dispatcher
@@ -8,7 +8,7 @@ open Pq
 open Node_cfg.Node_cfg
 open Mp
 
-module MyHub = HUB(BStore)
+(*module MyHub = HUB(BStore)*)
 
 module BADispatcher = ADispatcher(BStore)
 module FSMDriver = MPDriver(BADispatcher)
@@ -115,7 +115,7 @@ module C = struct
     loop ()
 
 end
-
+(*
 module MC = struct
   (* TODO Copied *)
   let __do_unit_update hub q =
@@ -215,17 +215,18 @@ module MC = struct
     in
     loop ()
 end
-
+*)
 let server_t driver host port =
   let inner = Server.make_server_thread host port (C.protocol driver) in
   inner ()
 
+(*
 let mc_server_t hub =
   let host = "127.0.0.1"
   and port = 11211 in
   let inner = Server.make_server_thread host port (MC.protocol hub) in
   inner ()
-
+*)
 let log_prelude () = 
   _log "--- NODE STARTED ---" >>= fun () ->
   _log "git info: %s " Version.git_info >>= fun () ->

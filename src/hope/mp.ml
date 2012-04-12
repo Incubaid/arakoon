@@ -8,7 +8,7 @@ module MULTI = struct
     | S_RUNNING_FOR_MASTER
     | S_MASTER
     | S_SLAVE
-    
+  
   let option2s (x : 'a option)  = 
     match x with
       | Some _ -> "Some ..."
@@ -236,7 +236,6 @@ module MULTI = struct
     | A_LOG_UPDATE of tick * update
     | A_START_TIMER of tick * float
     | A_CLIENT_REPLY of client_reply
-    | A_DIE of string
 
   let action2s = function
     | A_RESYNC src -> 
@@ -255,10 +254,12 @@ module MULTI = struct
       Printf.sprintf "A_START_TIMER (n: %s) (d: %f)" (tick2s n) d
     | A_CLIENT_REPLY rep ->
       Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
-    | A_DIE msg ->
-      Printf.sprintf "A_DIE (msg: '%s')" msg
 
-  
+  type step_result =
+    | StepFailure of string
+    | StepSuccess of action list * state
+
+
   let state_cmp n i state =
     let c_diff =
       begin
@@ -350,13 +351,13 @@ module MULTI = struct
   
   let send_nack me n i dest state =
     let a = build_nack me n i dest in
-    [a], state
+    StepSuccess( [a], state )
     
   let send_promise state src n i =
     begin
     if is_lease_active state && not (is_node_master src state)
     then
-      [], state
+      StepSuccess( [], state )
     else
       begin
         let reply_msg = build_promise n i state in
@@ -378,7 +379,7 @@ module MULTI = struct
           lease_expiration  = state.now +. state.constants.lease_duration;
         }
         in
-        A_SEND_MSG (reply_msg, src) :: action_tail, new_state
+        StepSuccess( A_SEND_MSG (reply_msg, src) :: action_tail, new_state )
       end
     end
        
@@ -402,7 +403,7 @@ module MULTI = struct
         end
       | ( _, P_BEHIND, _) ->
         begin
-          ([A_RESYNC src], state)
+          StepSuccess ([A_RESYNC src], state)
         end
 
   let get_updated_votes votes vote =
@@ -421,9 +422,9 @@ module MULTI = struct
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
     match diff with
-      | (_, P_BEHIND, _) -> ([A_DIE "Got promise from more recent node."]), state
-      | (N_BEHIND, _, _) -> ([]), state
-      | (N_AHEAD, _, _) ->  ([], state)
+      | (_, P_BEHIND, _) -> StepFailure "Got promise from more recent node."
+      | (N_BEHIND, _, _) -> StepSuccess([], state)
+      | (N_AHEAD, _, _) ->  StepSuccess([], state)
       | (N_EQUAL, _, _) ->
         begin
           match state.state_n with
@@ -451,7 +452,7 @@ module MULTI = struct
                        prop = new_prop;
                        valid_inputs = input_chs;
                     } in
-                    (actions, new_state) 
+                    StepSuccess(actions, new_state) 
                   end
                 else
                   let new_state = 
@@ -460,11 +461,11 @@ module MULTI = struct
                     votes = new_votes;
                     prop  = new_prop;
                   } in
-                  ([], new_state) 
+                  StepSuccess([], new_state) 
               end
-            | S_SLAVE    -> [A_DIE "I'm a slave and did not send prepare for this n"], state
-            | S_MASTER   -> [], state (* already reached consensus *) 
-            | S_CLUELESS -> [A_DIE "I'm clueless so I did not send prepare for this n"], state
+            | S_SLAVE    -> StepFailure "I'm a slave and did not send prepare for this n"
+            | S_MASTER   -> StepSuccess ([], state) (* already reached consensus *) 
+            | S_CLUELESS -> StepFailure "I'm clueless so I did not send prepare for this n"
         end 
   
   let handle_nack n i src state =
@@ -472,8 +473,8 @@ module MULTI = struct
     begin
         match diff with
         | (_, _, A_BEHIND) -> 
-          [A_RESYNC src], state
-        | (_, _, A_AHEAD) -> [], state
+          StepSuccess([A_RESYNC src], state)
+        | (_, _, A_AHEAD) -> StepSuccess([], state)
         | (N_EQUAL, _, A_COMMITABLE) ->
           begin 
             if state.state_n = S_RUNNING_FOR_MASTER
@@ -488,14 +489,14 @@ module MULTI = struct
                 master_id = Some state.constants.me
               }
               in
-              [A_BROADCAST_MSG msg], new_state
+              StepSuccess([A_BROADCAST_MSG msg], new_state)
             else
-              [] ,state
+              StepSuccess([] ,state)
           end
         | (N_AHEAD, _, A_COMMITABLE ) ->
-          [], state
+          StepSuccess([], state)
         | (N_BEHIND, _, A_COMMITABLE ) ->
-          [], state
+          StepSuccess([], state)
     end
   
   let extract_uncommited_action state new_i =
@@ -519,9 +520,9 @@ module MULTI = struct
     begin
       match diff with
         | (N_BEHIND , _            , _)
-        | (_        , P_BEHIND     , _) -> [A_RESYNC src], state
+        | (_        , P_BEHIND     , _) -> StepSuccess([A_RESYNC src], state)
         | (_        , P_AHEAD      , _)  
-        | (N_AHEAD  , _            , _) -> [], state
+        | (N_AHEAD  , _            , _) -> StepSuccess([], state)
         | (N_EQUAL  , P_ACCEPTABLE , _) -> 
           begin
             match state.state_n with
@@ -540,8 +541,8 @@ module MULTI = struct
                   prop = new_prop;
                 } 
                 in
-                (send_accepted :: accept_update :: delayed_commit), new_state
-              | _ -> [A_DIE "Got accept with correct n and i dont know what to do with it"], state
+                StepSuccess( (send_accepted :: accept_update :: delayed_commit), new_state)
+              | _ -> StepFailure "Got accept with correct n and i dont know what to do with it"
           end
     end
   
@@ -549,9 +550,9 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
       match diff with
-        | (_      , _, A_BEHIND) -> [A_DIE "Got an Accepted for future i"], state
+        | (_      , _, A_BEHIND) -> StepFailure "Got an Accepted for future i"
         | (_      , _, A_AHEAD)  
-        | (N_AHEAD, _, A_COMMITABLE) -> [], state
+        | (N_AHEAD, _, A_COMMITABLE) -> StepSuccess([], state)
         | (N_EQUAL, _, A_COMMITABLE) -> 
           begin
             let new_votes = get_updated_votes state.votes src in
@@ -579,9 +580,9 @@ module MULTI = struct
               valid_inputs = new_input_ch;
             }
             in
-            actions, new_state
+            StepSuccess(actions, new_state)
           end
-        | (N_BEHIND, _, A_COMMITABLE) -> [A_DIE "Accepted with future n, same i"], state
+        | (N_BEHIND, _, A_COMMITABLE) -> StepFailure "Accepted with future n, same i"
     end
   
   let should_elections_start state =
@@ -603,14 +604,14 @@ module MULTI = struct
       votes = [];
     } in
     let lease_expiry = build_lease_timer new_n (state.constants.lease_duration /. 2.0 ) in
-    [A_BROADCAST_MSG msg; lease_expiry], new_state
+    StepSuccess([A_BROADCAST_MSG msg; lease_expiry], new_state)
 
   let handle_lease_timeout n state =
     let diff = state_cmp n start_tick state in
     begin
       match diff with
-        | (N_BEHIND, _, _) -> [], state
-        | (N_AHEAD , _, _) -> [], state
+        | (N_BEHIND, _, _) -> StepSuccess([], state)
+        | (N_AHEAD , _, _) -> StepSuccess([], state)
         | (N_EQUAL , _, _) ->
           begin
             if should_elections_start state
@@ -621,7 +622,7 @@ module MULTI = struct
               end
             else
               let lease_timer = build_lease_timer n state.constants.lease_duration in
-              [lease_timer], state
+              StepSuccess([lease_timer], state)
           end
     end
 
@@ -641,14 +642,14 @@ module MULTI = struct
                     votes = [];
                     prop = Some upd;
                   } in 
-                  actions, new_state
+                  StepSuccess (actions, new_state)
                 end
               | Some w ->
                 begin 
                   let reply = (w, FAILURE(Arakoon_exc.E_UNKNOWN_FAILURE, 
                                "Cannot process request, already handling a client request")) 
                   in
-                  [A_CLIENT_REPLY reply], state
+                  StepSuccess ([A_CLIENT_REPLY reply], state)
                 end
           end
         | _ ->
@@ -657,8 +658,8 @@ module MULTI = struct
                                             "Cannot process request on none-master")) 
             in
             match state.cur_cli_req with
-              | None -> [], state
-              | Some w -> [A_CLIENT_REPLY reply], state
+              | None -> StepSuccess([], state)
+              | Some w -> StepSuccess([A_CLIENT_REPLY reply], state)
           end
     end
 

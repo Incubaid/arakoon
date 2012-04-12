@@ -66,13 +66,19 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
       s with 
         P.now = n;
       } in
-      let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s" (P.state2s s) (P.msg2s msg) in
-      let actions, s' = P.step msg s in
-      let after_msg = Printf.sprintf "AFTER STEP    : %s" (P.state2s s') in
-      Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
-      let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
-      _log "%s\n%s\n%s" before_msg after_msg final_state >>= fun () ->
-      Lwt.return s''
+    let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s" (P.state2s s) (P.msg2s msg) in
+    let res = P.step msg s in
+    begin
+      match res with
+        | P.StepFailure msg ->
+          failwith msg
+        | P.StepSuccess (actions, s') ->
+          let after_msg = Printf.sprintf "AFTER STEP    : %s" (P.state2s s') in
+          Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
+          let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
+          _log "%s\n%s\n%s" before_msg after_msg final_state >>= fun () ->
+          Lwt.return s''
+    end
                  
   let serve t s m_step_count =
     Lwt.catch ( 

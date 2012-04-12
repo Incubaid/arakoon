@@ -43,7 +43,6 @@ module ADispatcher (S:STORE)  = struct
       ) 
   
   let dispatch t s = function
-    | A_DIE msg -> Lwt.fail(Failure msg)
     | A_BROADCAST_MSG msg ->
       let me = s.constants.me in
       let tgts = me :: s.constants.others in
