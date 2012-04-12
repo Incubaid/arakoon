@@ -36,8 +36,9 @@ import time
 import arakoon.ArakoonProtocol  
 from arakoon.ArakoonExceptions import * 
 
-from server import ArakoonManagement, NurseryManagement
-from client import ArakoonClient
+import ArakoonManagement
+import NurseryManagement
+import ArakoonClient
 
 test_failed = False 
 

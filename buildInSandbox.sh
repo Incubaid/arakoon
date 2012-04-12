@@ -10,6 +10,7 @@ mkdir -p /opt/qbase3/lib/pymonkey/extensions/arakoon/server/
 mkdir -p /opt/qbase3/lib/pymonkey/extensions/arakoon/client/
 cp -r extension/server/* /opt/qbase3/lib/pymonkey/extensions/arakoon/server/
 cp -r extension/client/* /opt/qbase3/lib/pymonkey/extensions/arakoon/client/
+cp extension/Compat.py /opt/qbase3/lib/pymonkey/extensions/Compat.py
 
 mkdir -p /opt/qbase3/var/tests/arakoon_system_tests/
 touch /opt/qbase3/var/tests/arakoon_system_tests/__init__.py

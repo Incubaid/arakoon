@@ -21,76 +21,68 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from .. import system_tests_common as Common
-from ..system_tests_common import q
-from .. import system_tests_common
-
+from .. import system_tests_common as C
+from Compat import X
 from arakoon.ArakoonExceptions import *
 import arakoon
 from nose.plugins.skip import Skip, SkipTest
 import nose.tools as NT
 
-import logging
+import sys
 import time
 
-if __name__ == '__main__' :
-    from pymonkey import InitBase
-    from pymonkey import i,q
-    
 def mount_ram_fs ( node_index ) :
+    nn = C.CONFIG.node_names
+    (mount_target,log_dir) = C.build_node_dir_names(nn[node_index] )
     
-    (mount_target,log_dir) = Common.build_node_dir_names( Common.node_names[node_index] )
-    fs = q.system.fs
-    if fs.exists( mount_target ) :
+    if X.fileExists( mount_target ) :
         try:
-            Common.stopOne( Common.node_names[node_index] )
+            C.stopOne( nn[node_index] )
         except:
             pass
         try :
-            cmd = "umount %s" % mount_target
-            Common.run_cmd ( cmd )
+            cmd = ['umount', mount_target]
+            C.call ( cmd )
         except :
             pass
-        fs.removeDirTree( mount_target )
+        X.removeDirTree( mount_target )
     
-    fs.createDir ( mount_target )
+    X.createDir ( mount_target )
     
-    if not fs.isDir( mount_target ) :
+    if not X.isDir( mount_target ) :
         raise Exception( "%s is not valid mount target as it is not a directory")
     try :
-        cmd = "mke2fs -q -m 0 /dev/ram%d" % (node_index)
-        Common.run_cmd ( cmd )
+        cmd = ["mke2fs","-q","-m","0","/dev/ram%d" % (node_index)]
+        X.call(cmd)
         
-        cmd = "mount /dev/ram%d %s" % (node_index, mount_target)
-        Common.run_cmd ( cmd )
+        cmd = ["mount" "/dev/ram%d" % node_index, mount_target]
+        X.call(cmd)
         
     except Exception, ex :
-        logging.error( "Caught exception: %s" , ex )
-        Common.stopOne( Common.node_names[node_index] )
+        X.logging.error( "Caught exception: %s" , ex )
+        C.stopOne( nn[node_index] )
         destroy_ram_fs ( node_index )
     
     
 def setup_3_nodes_ram_fs ( home_dir ):
-    cfg_list = q.config.list()
-
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = C._getCluster()
     cluster.remove()
     
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)    
+    cluster = C._getCluster()    
     
-    logging.info( "Creating data base dir %s" % home_dir )
+    X.logging.info( "Creating data base dir %s" % home_dir )
     
-    q.system.fs.createDir ( home_dir )
-    
+    X.createDir ( home_dir )
+    nn = C.CONFIG.node_names
     try :
-        for i in range( len(Common.node_names) ):
+        for i in range( len(nn) ):
             mount_ram_fs ( i )
-            nodeName = Common.node_names[i]
-            (db_dir,log_dir) = Common.build_node_dir_names( Common.node_names[ i ] )
+            nodeName = nn[i]
+            (db_dir,log_dir) = C.build_node_dir_names(nn[i] )
             cluster.addNode (
-                nodeName, Common.node_ips[i], 
-                clientPort = Common.node_client_base_port + i,
-                messagingPort = Common.node_msg_base_port + i, 
+                nodeName, C.CONFIG.node_ips[i], 
+                clientPort = C.CONFIG.node_client_base_port + i,
+                messagingPort = C.CONFIG.node_msg_base_port + i, 
                 logDir = log_dir,
                 home = db_dir)
             cluster.addLocalNode(nodeName)
@@ -101,41 +93,41 @@ def setup_3_nodes_ram_fs ( home_dir ):
         (a,b,c) = sys.exc_info()
         raise a, b, c
     
-    logging.info( "Changing log level to debug for all nodes" )
+    X.logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
     cluster.setMasterLease(int(Common.lease_duration))
 
-    logging.info( "Creating client config" )
-    Common.regenerateClientConfig(Common.cluster_id)
+    X.logging.info( "Creating client config" )
+    C.regenerateClientConfig(Common.cluster_id)
             
-    Common.start_all()
+    C.start_all()
 
 def teardown_ram_fs ( removeDirs ):
 
-    logging.info( "Tearing down" )
-    Common.stop_all()
+    X.logging.info( "Tearing down" )
+    C.stop_all()
     
     # Copy over log files
     if not removeDirs:
-        destination = q.dirs.tmpDir + Common.data_base_dir [1:]
-        if q.system.fs.exists( destination ):
-            q.system.fs.removeDirTree( destination )
-        q.system.fs.createDir(destination)
-        q.system.fs.copyDirTree( system_tests_common.data_base_dir, destination)
+        destination = X.tmpDir + C.CONFIG.data_base_dir [1:]
+        if X.exists( destination ):
+            X.removeDirTree( destination )
+        X.createDir(destination)
+        X.copyDirTree( system_tests_common.data_base_dir, destination)
         
-    for i in range ( len( Common.node_names ) ):
-        Common.destroy_ram_fs( i )
+    for i in range ( len( C.CONFIG.node_names ) ):
+        C.destroy_ram_fs( i )
 
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = C._getCluster()
     cluster.tearDown()
 
 
 def fill_disk ( file_to_write ) :
-    cmd = "dd if=/dev/zero of=%s bs=1M" % file_to_write
+    cmd = ["dd", 'if=/dev/zero', 'of=%s' %file_to_wriet, 'bs=1M']
     try :
-        Common.run_cmd ( cmd )
+        X.call ( cmd )
     except Exception, ex:
-        logging.error( "Caught exception => %s: %s", ex.__class__.__name__, ex )
+        X.logging.error( "Caught exception => %s: %s", ex.__class__.__name__, ex )
 
 
 def build_iptables_block_rules( tcp_port ) :
@@ -145,10 +137,10 @@ def build_iptables_block_rules( tcp_port ) :
     return rules
 
 def get_current_iptables_rules (): 
-    rules_file = q.system.fs.joinPaths( q.dirs.tmpDir, "iptables-rules-save")
-    cmd = "iptables-save > %s" % rules_file
-    Common.run_cmd( cmd )
-    rules_file_contents = q.system.fs.fileGetContents( rules_file )
+    rules_file = '/'.join([X.tmpDir, "iptables-rules-save"])
+    cmd = ['iptables-save', '>', rules_file]
+    X.subprocess.call( cmd )
+    rules_file_contents = X.fileGetContents( rules_file )
     return rules_file_contents.split( "\n") [5:-3]
 
 def apply_iptables_rules ( rules ) :
@@ -176,54 +168,55 @@ def block_tcp_port ( tcp_port ):
         
     apply_iptables_rules( current_rules ) 
     
-@Common.with_custom_setup(setup_3_nodes_ram_fs, 
-                          teardown_ram_fs )    
+@C.with_custom_setup(setup_3_nodes_ram_fs, 
+                     teardown_ram_fs )    
 def test_disk_full_on_slave ():
-    cli = Common.get_client()
+    cli = C.get_client()
     master_id = cli.whoMaster()
-    slave_id = Common.node_names[0]
+    nn = C.CONFIG.node_names
+    slave_id = nn[0]
     if slave_id == master_id:
-        slave_id = Common.node_names[1]
+        slave_id = nn[1]
 
-    logging.info( "Got master '%s' and slave '%s'", master_id, slave_id  )
+    X.logging.info( "Got master '%s' and slave '%s'", master_id, slave_id  )
     
     disk_full_scenario( slave_id, cli )
     
     
 def disk_full_scenario( node_id, cli ):
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = C._getCluster(Common.cluster_id)
     node_home = cluster.getNodeConfig(node_id ) ['home']
     
-    disk_filling = q.system.fs.joinPaths( node_home , "filling")
+    disk_filling = '/'.join( node_home , "filling")
     disk_filler = lambda: fill_disk ( disk_filling )
-    set_loop = lambda: Common.iterate_n_times( 500, Common.simple_set, 500 )
-    set_get_delete_loop = lambda: Common.iterate_n_times(10000, 
-                                                         Common.set_get_and_delete,
-                                                         1000 )
+    set_loop = lambda: C.iterate_n_times( 500, C.simple_set, 500 )
+    set_get_delete_loop = lambda: C.iterate_n_times(10000, 
+                                                    C.set_get_and_delete,
+                                                    1000 )
     
-    Common.iterate_n_times( 500, Common.simple_set )
+    C.iterate_n_times( 500, Common.simple_set )
     
     try :
-        Common.create_and_wait_for_thread_list ( [ disk_filler, 
-                                                   set_loop, 
-                                                   set_get_delete_loop ] )
+        C.create_and_wait_for_thread_list ( [ disk_filler, 
+                                              set_loop, 
+                                              set_get_delete_loop ] )
     except Exception, ex:
-        logging.error( "Caught exception when disk was full => %s: %s", ex.__class__.__name__, ex ) 
+        X.logging.error( "Caught exception when disk was full => %s: %s", ex.__class__.__name__, ex ) 
     
-    q.system.fs.unlink( disk_filling )
+    X.unlink( disk_filling )
     cli._dropConnections()
    
     # Make sure the node with a full disk is no longer running
     NT.assert_equals( cluster.getStatusOne(node_id),
                       q.enumerators.AppStatusType.HALTED,
                       'Node with full disk is still running') 
-    time.sleep( 2* Common.lease_duration )
+    time.sleep( 2* C.CONFIG.lease_duration )
     
-    cli2 = Common.get_client()
+    cli2 = C.get_client()
     cli2.whoMaster()
     cli2._dropConnections()
    
-    Common.start_all()
+    C.start_all()
  
     time.sleep( Common.lease_duration )
     
@@ -242,7 +235,7 @@ def disk_full_scenario( node_id, cli ):
     Common.assert_key_list( 0, 500, key_list )
     
     
-@Common.with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
+@C.with_custom_setup( setup_3_nodes_ram_fs, teardown_ram_fs )
 def test_disk_full_on_master () :
     raise SkipTest
     cli = get_client()
@@ -334,54 +327,56 @@ def iterate_block_unblock_master ( ):
     iterate_block_unblock_nodes ( 60, [ master_id ] )
 
 def flush_all_rules() :
-    cmd = "iptables -F"
-    Common.run_cmd( cmd, False )
+    cmd = ['iptables','-F']
+    X.subprocess.call(cmd)
     
 def iptables_teardown( removeDirs ) :
     flush_all_rules ()
-    Common.basic_teardown ( removeDirs )    
-    logging.info( "iptables teardown complete" )
+    C.basic_teardown ( removeDirs )    
+    X.logging.info( "iptables teardown complete" )
 
-@Common.with_custom_setup(Common.setup_3_nodes_forced_master, 
-                          iptables_teardown )
+@C.with_custom_setup(C.setup_3_nodes_forced_master, 
+                     iptables_teardown )
 def test_block_single_slave_ports_loop () :
     # raise SkipTest
-    master_id = Common.node_names [0]
+    nn = C.CONFIG.node_names
+    master_id = nn[0]
     # Node 0 is fixed master 
-    slave_id = Common.node_names[1]
+    slave_id = nn[1]
     
-    write_loop = lambda: Common.iterate_n_times( 10000, 
-                                                 Common.set_get_and_delete )
+    write_loop = lambda: C.iterate_n_times( 10000, 
+                                            C.set_get_and_delete )
     block_loop = lambda: iterate_block_unblock_nodes ( 10, [ slave_id ] )
     
-    Common.create_and_wait_for_thread_list( [write_loop, block_loop] )
+    C.create_and_wait_for_thread_list( [write_loop, block_loop] )
     
     # Make sure the slave is notified of running behind
-    cli = Common.get_client()
+    cli = C.get_client()
     cli.set( 'key', 'value')
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    Common.stop_all()
-    Common.assert_last_i_in_sync ( master_id, slave_id )
-    Common.compare_stores( master_id, slave_id )
+    C.stop_all()
+    C.assert_last_i_in_sync ( master_id, slave_id )
+    C.compare_stores( master_id, slave_id )
 
-@Common.with_custom_setup(Common.setup_3_nodes_forced_master, 
-                          iptables_teardown )
+@C.with_custom_setup(C.setup_3_nodes_forced_master, 
+                     iptables_teardown )
 def test_block_single_slave_ports () :
     raise SkipTest
 
     system_tests_common.test_failed = False
-    master_id = Common.node_names [0]
+    nn = C.CONFIG.node_names
+    master_id = nn [0]
     # Node 0 is fixed master 
-    slave_id = Common.node_names[1]
+    slave_id = nn[1]
     
     block_node_ports( slave_id )
     
-    write_loop = lambda: Common.iterate_n_times( 10000, 
-                                                 Common.set_get_and_delete )
+    write_loop = lambda: C.iterate_n_times( 10000, 
+                                            C.set_get_and_delete )
     
-    Common.create_and_wait_for_thread_list( [write_loop] )
+    C.create_and_wait_for_thread_list( [write_loop] )
     
     unblock_node_ports( slave_id )
     # Make sure the slave is notified of running behind
@@ -390,18 +385,18 @@ def test_block_single_slave_ports () :
     
     # Give the slave some time to catchup
     time.sleep(5.0)
-    Common.stop_all()
-    Common.assert_last_i_in_sync ( master_id, slave_id )
-    Common.compare_stores( master_id, slave_id )
+    C.stop_all()
+    C.assert_last_i_in_sync ( master_id, slave_id )
+    C.compare_stores( master_id, slave_id )
     
-@Common.with_custom_setup(Common.default_setup, 
-                          iptables_teardown )
+@C.with_custom_setup(C.default_setup, 
+                     iptables_teardown )
 def test_block_two_slaves_ports () :
     raise SkipTest
     cli = get_client()
     master_id = cli.whoMaster() 
-    
-    node_name_cpy = list( Common.node_names )
+    nn = C.CONFIG.node_names
+    node_name_cpy = list(nn)
     node_name_cpy.remove( master_id )
     
     slave_1_id = node_name_cpy [0]
@@ -422,8 +417,8 @@ def test_block_two_slaves_ports () :
     iterate_n_times( 1000, Common.set_get_and_delete, 20000 )
     
 
-@Common.with_custom_setup(Common.default_setup, 
-                          iptables_teardown )
+@C.with_custom_setup(C.default_setup, 
+                     iptables_teardown )
 def test_block_two_slaves_ports_loop () :
 
     raise SkipTest
@@ -442,10 +437,13 @@ def test_block_two_slaves_ports_loop () :
         ArakoonNodeNotMaster                 
     ]
     
-    write_loop = lambda: iterate_n_times( 10000, mindless_retrying_set_get_and_delete, failure_max=10000, valid_exceptions=valid_exceptions )
+    write_loop = lambda: iterate_n_times( 10000, 
+                                          mindless_retrying_set_get_and_delete, 
+                                          failure_max=10000, 
+                                          valid_exceptions=valid_exceptions )
     block_loop_1 = lambda: iterate_block_unblock_nodes ( 10, [slave_1_id,slave_2_id] )
     
-    write_thr = Common.create_and_start_thread( write_loop )
+    write_thr = C.create_and_start_thread( write_loop )
     block_loop_1 ()
     
     write_thr.join()
@@ -465,8 +463,8 @@ def test_block_two_slaves_ports_loop () :
     iterate_n_times( 1000, set_get_and_delete, 20000 )
         
 
-@Common.with_custom_setup(Common.setup_3_nodes, 
-                          iptables_teardown )
+@C.with_custom_setup(C.setup_3_nodes, 
+                     iptables_teardown )
 def test_block_master_ports () :
     global cluster_id
     

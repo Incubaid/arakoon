@@ -5,6 +5,7 @@ import logging
 import subprocess
 import StringIO
 import fnmatch
+import sys
 
 class Status:
     HALTED = 'HALTED'
@@ -55,6 +56,9 @@ class Compat:
             return os.makedirs(fn)
 
 
+    def isDir(self,fn):
+        return os.path.isdir(fn)
+
     def removeDirTree(self,fn):
         try:
             return shutil.rmtree(fn)
@@ -102,4 +106,27 @@ class Compat:
     logDir = _base + '/log'
     varDir = _base + '/var'
 
-X = Compat()
+
+class Q: # (Compat)
+    
+    def __init__(self):
+        self.tmpDir = q.dirs.tmpDir
+        self.appDir = q.dirs.appDir
+        self.cfgDir = q.dirs.cfgDir
+        self.logDir = q.dirs.logDir
+        self.varDir = q.dirs.varDir
+
+
+def which_compat():
+    g = globals()
+    if g.has_key('q') and g['q'].__class__.__name__ == 'PYMONKEY':
+        print "in q's hell"
+        r = Q()
+    else:
+        r = Compat()
+
+    return r
+
+
+
+X = which_compat()
