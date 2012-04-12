@@ -26,8 +26,9 @@ import arakoon
 import time
 from nose.tools import *
 #from pymonkey import q, i
-import logging
+import Compat as X
 
+CONFIG = C.CONFIG
 @C.with_custom_setup ( C.setup_1_node_forced_master, C.basic_teardown )
 def test_start_stop_single_node_forced () :
     C.assert_running_nodes ( 1 )
@@ -75,7 +76,7 @@ def test_large_value ():
         client.set ('some_key', value)
         raise Exception('this should have failed')
     except ArakoonException as inst:
-        logging.info('inst=%s', inst)
+        X.logging.info('inst=%s', inst)
     
 
 
@@ -97,7 +98,7 @@ def test_aSSert_scenario_1():
     try:
         client.aSSert('x','x') 
     except ArakoonException as ex:
-        logging.error ( "Bad stuff happened: %s" % ex)
+        X.logging.error ( "Bad stuff happened: %s" % ex)
         assert_equals(True,False)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
@@ -157,9 +158,9 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
     
     for i in range ( 1000 ) :
         
-        old_value = old_value_prefix + C.value_format_str % ( i+start_suffix )
-        new_value = new_value_prefix + C.value_format_str % ( i+start_suffix )
-        key = C.key_format_str % ( i+start_suffix )
+        old_value = old_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
+        new_value = new_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
+        key = CONFIG.key_format_str % ( i+start_suffix )
     
         client.set( key, old_value )
         set_value = client.testAndSet( key, old_value , new_value )
@@ -191,14 +192,14 @@ def test_test_and_set() :
 def test_who_master_fixed () :
     client = C.get_client()
     node = client.whoMaster()
-    assert_equals ( node, C.node_names[0] ) 
+    assert_equals ( node, CONFIG.node_names[0] ) 
     client._dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )
 def test_who_master () :
     client = C.get_client()
     node = client.whoMaster()
-    assert_true ( node in C.node_names ) 
+    assert_true ( node in CONFIG.node_names ) 
     client._dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
@@ -207,11 +208,10 @@ def test_restart_single_slave_short ():
 
 
 def test_daemon_version () :
-    cmd = "%s --version" % C.binary_full_path 
-    (exit,stdout,stderr) = C.q.system.process.run(cmd)
-    logging.debug( "STDOUT: \n%s" % stdout )
-    logging.debug( "STDERR: \n%s" % stderr )
-    assert_equals( exit, 0 )
+    cmd = [CONFIG.binary_full_path,'--version']
+    X.logging.debug("cmd = %s", cmd)
+    stdout = X.subprocess.check_output(cmd)
+    X.logging.debug( "STDOUT: \n%s" % stdout )
     version = stdout.split('"') [1]
     assert_not_equals( "000000000000", version, "Invalid version 000000000000" )
     local_mods = version.find ("+") 
@@ -245,12 +245,12 @@ def sequence_scenario( start_suffix ):
     iter_size = 1000
     cli = C.get_client()
     
-    start_key = C.key_format_str % start_suffix
-    end_key = C.key_format_str % ( start_suffix + iter_size - 1 )
+    start_key = CONFIG.key_format_str % start_suffix
+    end_key = CONFIG.key_format_str % ( start_suffix + iter_size - 1 )
     seq = arakoon.ArakoonProtocol.Sequence()
     for i in range( iter_size ) :
-        k = C.key_format_str % (i+start_suffix)
-        v = C.value_format_str % (i+start_suffix) 
+        k = CONFIG.key_format_str % (i+start_suffix)
+        v = CONFIG.value_format_str % (i+start_suffix) 
         seq.addSet(k, v)
         
     cli.sequence( seq )
@@ -260,7 +260,7 @@ def sequence_scenario( start_suffix ):
     
     seq = arakoon.ArakoonProtocol.Sequence()
     for i in range( iter_size ) :
-        k = C.key_format_str % (start_suffix + i) 
+        k = CONFIG.key_format_str % (start_suffix + i) 
         seq.addDelete(k)
     cli.sequence( seq )
     
@@ -269,8 +269,8 @@ def sequence_scenario( start_suffix ):
                   "Still keys in the store, should have been deleted" )
     
     for i in range( iter_size ) :
-        k= C.key_format_str % (start_suffix + i)
-        v = C.value_format_str % (start_suffix + i) 
+        k= CONFIG.key_format_str % (start_suffix + i)
+        v = CONFIG.value_format_str % (start_suffix + i) 
         seq.addSet(k, v)
                     
     seq.addDelete( "non-existing" )
@@ -294,7 +294,7 @@ def test_3_nodes_stop_all_start_slaves ():
     cli = C.get_client()
     cli.set(key,value)
     master = cli.whoMaster()
-    slaves = filter( lambda node: node != master, C.node_names )
+    slaves = filter( lambda node: node != master, CONFIG.node_names )
     
     C.stop_all()
     for slave in slaves:
@@ -321,17 +321,17 @@ def test_get_storage_utilization():
         assert_not_equals( d['tlog'], 0, "Tlog dir cannot be empty")
         return d['log'] + d['tlog'] + d['db'] 
     
-    logging.debug("Testing global utilization")
+    X.logging.debug("Testing global utilization")
     d = cl.getStorageUtilization()
     total = get_total_size(d)
-    logging.debug("Testing node 0 utilization")
-    d = cl.getStorageUtilization( C.node_names[0] )
+    X.logging.debug("Testing node 0 utilization")
+    d = cl.getStorageUtilization( CONFIG.node_names[0] )
     n1 = get_total_size(d)
-    logging.debug("Testing node 1 utilization")
-    d = cl.getStorageUtilization( C.node_names[1] )
+    X.logging.debug("Testing node 1 utilization")
+    d = cl.getStorageUtilization( CONFIG.node_names[1] )
     n2 = get_total_size(d)
-    logging.debug("Testing node 2 utilization")
-    d = cl.getStorageUtilization( C.node_names[2] )
+    X.logging.debug("Testing node 2 utilization")
+    d = cl.getStorageUtilization( CONFIG.node_names[2] )
     n3 = get_total_size(d)
     sum = n1+n2+n3
     assert_equals(sum, total, 
@@ -343,15 +343,14 @@ def test_get_storage_utilization():
 def test_gather_evidence():
     data_base_dir = C.data_base_dir
     q = C.q
-    fs = q.system.fs
     cluster = C._getCluster()
-    dest_file = fs.joinPaths( data_base_dir, "evidence.tgz" )
-    dest_dir =  fs.joinPaths( data_base_dir, "evidence" )
+    dest_file = '/'.join([data_base_dir, "evidence.tgz" ])
+    dest_dir =  '/'.join([data_base_dir, "evidence"])
     destination = 'file://%s' % dest_file 
     cluster.gatherEvidence(destination, test = True)
     
     fs.targzUncompress(dest_file, dest_dir)
-    nodes = fs.listDirsInDir(dest_dir)
+    nodes = X.listDirsInDir(dest_dir)
     files = []
     for node in nodes:
         files.extend(fs.listFilesInDir(node))
@@ -365,6 +364,8 @@ def test_get_key_count():
     assert_equals(c, 0, "getKeyCount should return 0 but got %d" % c)
     test_size = 100
     C.iterate_n_times( test_size, C.simple_set )
+
+    X.logging.debug ("cli's config = %s", cli._config)
     c = cli.getKeyCount()
     assert_equals(c, test_size, "getKeyCount should return %d but got %d" % 
                   (test_size, c) )
@@ -378,8 +379,8 @@ def test_download_db():
     assert_raises(Exception, clu.backupDb, m, "/tmp/backup")
     C.stop_all()
     
-    n0 = C.node_names[0]
-    n1 = C.node_names[1]
+    n0 = CONFIG.node_names[0]
+    n1 = CONFIG.node_names[1]
     C.startOne(n0)
     time.sleep(0.1)
     db_file = C.get_node_db_file (n1)

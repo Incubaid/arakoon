@@ -45,7 +45,8 @@ class TestCmdTools:
         cluster = self._getCluster()
         cl = C._getCluster(self._clusterId)
         cl.remove()
-        cl.setUp(3)
+        cl2 = C._getCluster(self._clusterId)
+        cl2.setUp(3)
 
     def teardown(self):
         X.logging.info('teardown')
@@ -60,7 +61,7 @@ class TestCmdTools:
         X.logging.debug('status=%s', status)
         c = 0
         for key in status.keys():
-            if status[key] == q.enumerators.AppStatusType.RUNNING:
+            if status[key] == X.AppStatusType.RUNNING:
                 c = c + 1
         assert_equals(c, n)
 
@@ -135,7 +136,7 @@ class TestCmdTools:
                       {self._n0: X.AppStatusType.RUNNING,
                        self._n1: X.AppStatusType.RUNNING,
                        self._n2: X.AppStatusType.RUNNING})
-        logging.info('4')
+        X.logging.info('4')
         cluster.stopOne(self._n0)
         assert_equals(cluster.getStatus(),
                       {self._n0: X.AppStatusType.HALTED, 

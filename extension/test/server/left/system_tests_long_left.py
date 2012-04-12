@@ -40,14 +40,14 @@ def test_collapse():
     zero = CONFIG.node_names[0]
     one = CONFIG.node_names[1]
     n = 298765
-    iterate_n_times(n, simple_set)
+    C.iterate_n_times(n, C.simple_set)
     X.logging.info("did %i sets, now going into collapse scenario" % n)
-    collapse(zero,1)
+    C.collapse(zero,1)
     X.logging.info("collapsing done")
     C.stopOne(one)
     C.whipe(one)
     C.startOne(one)
-    cli = get_client()
+    cli = C.get_client()
     assert_false(cli.expectProgressPossible())
     up2date = False
     counter = 0
@@ -59,9 +59,9 @@ def test_collapse():
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_concurrent_collapse_fails():
-    zero = node_names[0]
+    zero = CONFIG.node_names[0]
     n = 298765
-    iterate_n_times(n, simple_set)
+    C.iterate_n_times(n, C.simple_set)
     X.logging.info("Did %i sets, now going into collapse scenario", n)
     
     class SecondCollapseThread(threading.Thread):
@@ -76,7 +76,7 @@ def test_concurrent_collapse_fails():
             time.sleep(self.sleep_time)
             
             X.logging.info('Starting concurrent collapse')
-            rc = collapse(zero, 1)
+            rc = C.collapse(zero, 1)
    
             X.logging.info('Concurrent collapse returned %d', rc)
 
@@ -90,7 +90,7 @@ def test_concurrent_collapse_fails():
     s.start()
 
     X.logging.info('Launching main collapse')
-    collapse(zero, 1)
+    C.collapse(zero, 1)
        
     X.logging.info("collapsing finished")
     assert_true(s.exception_received)
@@ -131,13 +131,13 @@ def test_catchup_exercises():
 
 @C.with_custom_setup(C.setup_2_nodes_forced_master, C.basic_teardown)
 def test_catchup_only():
-    C.iterate_n_times(123000,simple_set)
+    C.iterate_n_times(123000,C.simple_set)
     n0 = CONFIG.node_names[0]
     n1 = CONFIG.node_names[1]
     C.stopOne(n1)
     C.whipe(n1)
     X.logging.info("catchup-only")
-    catchupOnly(n1)
+    C.catchupOnly(n1)
     X.logging.info("done with catchup-only")
     C.stopOne(n0)
-    compare_stores(n1,n0)
+    C.compare_stores(n1,n0)

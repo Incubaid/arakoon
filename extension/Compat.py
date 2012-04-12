@@ -3,7 +3,8 @@ import ConfigParser
 import shutil
 import logging
 import subprocess
-
+import StringIO
+import fnmatch
 
 class Status:
     HALTED = 'HALTED'
@@ -12,15 +13,13 @@ class Status:
     def __init__(self):
         pass
 
-class Compat:
-    def __init__(self):
-        self.logging = logging
 
+"""
     cluster_id = 'sturdy'
     node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
-    node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
-    node_client_base_port = 7080
-    node_msg_base_port = 10000
+    
+
+
     daemon_name = "arakoon"
     binary_full_path = "arakoon"
     lease_duration = 2.0
@@ -33,9 +32,21 @@ class Compat:
         }
     nursery_cluster_ids = nursery_nodes.keys()
     nursery_cluster_ids.sort()
-    nursery_keeper_id = nursery_cluster_ids[0]
-    
-    
+
+"""    
+
+class Compat:
+    def __init__(self):
+        self.logging = logging
+        self._count = 0
+
+    def cfg2str(self, cfg):
+        io = StringIO.StringIO()
+        cfg.write(io)
+        v = io.getvalue()
+        io.close()
+        return v
+
     def fileExists(self,fn):
         return os.path.exists(fn)
 
@@ -50,6 +61,15 @@ class Compat:
         except:
             pass
 
+    def removeFile(self,fn):
+        return os.unlink(fn)
+
+    def listFilesInDir(self, d, filter):
+        files = os.listdir(d)
+        logging.debug("original=%s", files)
+        r = ["%s/%s" % (d,x) for x in files if fnmatch.fnmatch(x, filter)]
+        logging.debug("filtered = %s", r)
+        return r
 
     def raiseError(self,x):
         raise Exception(x)
@@ -63,14 +83,15 @@ class Compat:
         return p
 
     def writeConfig(self, p, h):
+        self._count = self._count + 1
         fn = h + '.cfg'
+        #logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
         with open(fn,'w') as cfg:
             p.write(cfg)
 
 
     AppStatusType = Status()
 
-    Popen = subprocess.Popen
     subprocess = subprocess
 
 

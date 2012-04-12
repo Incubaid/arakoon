@@ -24,10 +24,12 @@ If not, see <http://www.gnu.org/licenses/>.
 from Compat import X
 
 import ArakoonRemoteControl
+import ArakoonClient
 import itertools
 import time
 import string
 import subprocess
+import os.path
 
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
@@ -84,7 +86,8 @@ class ArakoonCluster:
         self._clustersFNH = '%s/%s' % (X.cfgDir, 'arakoonclusters')
         p = X.getConfig(self._clustersFNH)
 
-        if not p.has_section(self._clusterId):            
+        if not p.has_section(self._clusterId):   
+            X.logging.debug("No section %s: adding", self._clusterId)
             clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", clusterId])
             p.add_section(self._clusterId)
             p.set(self._clusterId, "path", clusterPath)
@@ -93,9 +96,10 @@ class ArakoonCluster:
 
             if not X.fileExists(clusterPath):
                 X.createDir(clusterPath)
-        
+            X.writeConfig(p, self._clustersFNH)
+
         self._clusterPath = p.get( self._clusterId, "path", False)
-        X.writeConfig(p, self._clustersFNH)
+        
         
     def _servernodes(self):
         return '%s_local_nodes' % self._clusterId
@@ -104,7 +108,10 @@ class ArakoonCluster:
         return "<ArakoonCluster:%s (%s) >" % (self._clusterId, self._arakoonDir)
 
     def _getConfigFileName(self):
+        #clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", self._clusterId])
         p = X.getConfig(self._clustersFNH)
+        if not p.has_section(self._clusterId):
+            raise Exception()
         cfgDir = p.get( self._clusterId, "path",False)
         cfgFile = '/'.join ([cfgDir, self._clusterId])
         return cfgFile
@@ -540,8 +547,8 @@ class ArakoonCluster:
         if numberOfNodes > 0:
             self.forceMaster("%s_0" % cid)
         
-            config = self._getConfigFile()
-            config.set( 'global', 'cluster_id', cid)
+        config = self._getConfigFile()
+        config.set( 'global', 'cluster_id', cid)
         X.writeConfig(config, self._getConfigFileName())
         
 
@@ -783,13 +790,13 @@ class ArakoonCluster:
             X.logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
-            logging.debug("'%s' is still running... waiting" % name)
+            X.logging.debug("'%s' is still running... waiting" % name)
             if i == 10:
                 X.logging.debug("stopping '%s' with kill -9" % name)
                 X.subprocess.call(['pkill', '-9', '-fx', line], close_fds = True)
                 cnt = 0
                 while (self._getStatusOne(name) == X.AppStatusType.RUNNING ) :
-                    logging.debug("'%s' is STILL running... waiting" % name)
+                    X.logging.debug("'%s' is STILL running... waiting" % name)
                     time.sleep(1)
                     cnt += 1
                     if( cnt > 10):
@@ -817,9 +824,9 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fx', line]
-        proc = X.Popen(cmd,
-                       close_fds = True,
-                       stdout=subprocess.PIPE)
+        proc = X.subprocess.Popen(cmd,
+                                  close_fds = True,
+                                  stdout=subprocess.PIPE)
         pids = proc.communicate()[0]
         pid_list = pids.split()
         lenp = len(pid_list)
@@ -1098,7 +1105,8 @@ class ArakoonCluster:
             config.remove_section("nursery")
             return
             
-        cliCfg = q.clients.arakoon.getClientConfig(clusterId)
+        clientMgmt = ArakoonClient.ArakoonClient()
+        cliCfg = clientMgmt.getClientConfig(clusterId)
         nurseryNodes = cliCfg.getNodes()
         
         if len(nurseryNodes) == 0:
@@ -1109,7 +1117,8 @@ class ArakoonCluster:
         config.set("nursery", "cluster", ",".join( nurseryNodes.keys() ))
         
         for (id,(ip,port)) in nurseryNodes.iteritems() :
-            config.add_section(id)
+            if not config.has_section(id):
+                config.add_section(id)
             config.set(id,"ip",ip)
             config.set(id,"client_port",port)
-
+        X.writeConfig(config, self._getConfigFileName())

@@ -36,7 +36,7 @@ import time
 import arakoon.ArakoonProtocol  
 from arakoon.ArakoonExceptions import * 
 
-from server import ArakoonManagement
+from server import ArakoonManagement, NurseryManagement
 from client import ArakoonClient
 
 test_failed = False 
@@ -52,6 +52,17 @@ class Config:
         self.key_format_str = "key_%012d"
         self.value_format_str = "value_%012d"
         self.data_base_dir = None
+        self.binary_full_path = ArakoonManagement.which_arakoon()
+        self.nursery_nodes = {
+            'nurse_0' : [ 'nurse_0_0', 'nurse_0_1', 'nurse_0_2'],
+            'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
+            'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
+            }
+        self.nursery_cluster_ids = self.nursery_nodes.keys()
+        self.node_client_base_port = 7080
+        self.node_msg_base_port = 10000
+        self.nursery_keeper_id = self.nursery_cluster_ids[0]
+        self.node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
 
 CONFIG = Config()
 
@@ -59,7 +70,7 @@ CONFIG = Config()
 def _getCluster( c_id = None):
 
     if c_id is None:
-        c_id = X.cluster_id 
+        c_id = CONFIG.cluster_id 
     mgmt = ArakoonManagement.ArakoonManagement()
     cluster = mgmt.getCluster(c_id)
     return cluster
@@ -104,21 +115,20 @@ def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_full_path =  '/'.join ([node_home_dir, "%03d.tlog" % tlog_number])
-    cmd = [binary_full_path, "--dump-tlog", tlog_full_path]
+    cmd = [CONFIG.binary_full_path, "--dump-tlog", tlog_full_path]
     X.logging.debug( "Dumping file %s" % tlog_full_path )
     X.logging.debug("Command is : '%s'" % cmd )
-    rc = X.call(cmd)
-    assert_equals( rc, 0, "Could not dump tlog for node %s" % node_id )
-    return stdout
+    output = X.subprocess.check_output(cmd)
+    return output
 
 def get_arakoon_binary() :
-    return fs.joinPaths( get_arakoon_bin_dir(), 'arakoon')
+    return '/'.join([get_arakoon_bin_dir(), 'arakoon'])
 
 def get_arakoon_bin_dir():
-    return fs.joinPaths( q.dirs.appDir, "arakoon", "bin")
+    return '/'.join([X.appDir, "arakoon", "bin" ])
 
 def get_tcbmgr_path ():
-    return fs.joinPaths( get_arakoon_bin_dir(), "tcbmgr" )
+    return '/'.join([get_arakoon_bin_dir(), "tcbmgr" ])
 
 def get_diff_path():
     return "/usr/bin/diff"
@@ -126,14 +136,14 @@ def get_diff_path():
 def get_node_db_file( node_id ) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
+    db_file = '/'.join( [node_home_dir, node_id + ".db" ])
     return db_file
     
 def dump_store( node_id ):
     cluster = _getCluster()
     stat = cluster.getStatusOne(node_id )
     msg = "Can only dump the store of a node that is not running (status is %s)" % stat
-    assert_equals( stat, q.enumerators.AppStatusType.HALTED, msg)
+    assert_equals( stat, X.AppStatusType.HALTED, msg)
 
     db_file = get_node_db_file ( node_id )
     dump_file = db_file + ".dump" 
@@ -161,10 +171,10 @@ def compare_stores( node1_id, node2_id ):
     cluster = _getCluster()
     def get_i ( node_id ):
         stat = cluster.getStatusOne(node_id )
-        assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+        assert_equals( stat, X.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
         db_file = get_node_db_file(node_id)
-        cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
-        (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
+        cmd = [get_arakoon_binary(), "--dump-store", db_file]
+        stdout = X.subprocess.check_output(cmd)
         i_line = stdout.split("\n") [0]
         i_str = i_line.split("(")[1][:-1]
         return int(i_str)
@@ -247,7 +257,7 @@ def compare_stores( node1_id, node2_id ):
 def get_tlog_count (node_id ):
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    ls = q.system.fs.listFilesInDir
+    ls = X.listFilesInDir
     tlogs =      ls( node_home_dir, filter="*.tlog" )
     tlogs.extend(ls( node_home_dir, filter="*.tlc" ) )
     tlogs.extend(ls( node_home_dir, filter="*.tlf" ) )
@@ -258,7 +268,7 @@ def get_last_tlog_id ( node_id ):
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_max_id = 0
     tlog_id = None
-    tlogs_for_node = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
+    tlogs_for_node = X.listFilesInDir( node_home_dir, filter="*.tlog" )
     for tlog in tlogs_for_node:
         tlog = tlog [ len(node_home_dir):]
         tlog = tlog.strip('/')
@@ -278,7 +288,7 @@ def get_last_i_tlog2(node_id):
     number = get_last_tlog_id(node_id)
     cluster = _getCluster()
     home = cluster.getNodeConfig(node_id )['home']
-    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    tlog_full_path =  '/'.join([home, "%03d.tlog" % number])
     f = open(tlog_full_path,'rb')
     data = f.read()
     f.close()
@@ -297,7 +307,7 @@ def last_entry_code(node_id):
     number = get_last_tlog_id(node_id)
     cluster = _getCluster()
     home = cluster.getNodeConfig(node_id )['home']
-    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    tlog_full_path =  '/'.join([home, "%03d.tlog" % number])
     f = open(tlog_full_path,'rb')
     data = f.read()
     f.close()
@@ -319,7 +329,7 @@ def get_last_i_tlog ( node_id ):
     tlog_dump_list = tlog_dump.split("\n")
     tlog_first_entry = tlog_dump_list[0]
     tlog_first_i = int(tlog_first_entry.split(":") [0].lstrip(" "))
-    if tlog_first_i % tlog_entries_per_tlog != 0 :
+    if tlog_first_i % CONFIG.tlog_entries_per_tlog != 0 :
         test_failed = True
         raise Exception( "Problem with tlog rollover, first entry (%d) incorrect" % tlog_first_i ) 
     tlog_last_entry = tlog_dump_list [-2]
@@ -399,10 +409,9 @@ def getConfig(name):
 def regenerateClientConfig( cluster_id ):
     h = '%s/%s' % (X.cfgDir,'arakoonclients')
     p = X.getConfig(h)
-    print p.sections()
 
     if cluster_id in p.sections():
-        clusterDir = p.get_option(cluster_id, "path")
+        clusterDir = p.get(cluster_id, "path")
         clientCfgFile = '/'.join([clusterDir, "%s_client.cfg" % cluster_id])
         if X.fileExists(clientCfgFile):
             X.removeFile(clientCfgFile)
@@ -438,23 +447,25 @@ def get_memory_usage(node_name):
         return 0
     
 def collapse(name, n = 1):
-    global cluster_id
     config = getConfig(name)
     ip = config['ip']
     port = config['client_port']
-    rc = subprocess.call([binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
+    rc = subprocess.call([CONFIG.binary_full_path, 
+                          '--collapse-remote', 
+                          CONFIG.cluster_id,
+                          ip,port,str(n)])
     return rc
 
 def add_node ( i ):
-    ni = node_names[i]
+    ni = CONFIG.node_names[i]
     X.logging.info( "Adding node %s to config", ni )
     (db_dir,log_dir) = build_node_dir_names(ni)
     cluster = _getCluster()
     cluster.addNode (
         ni,
-        node_ips[i], 
-        clientPort = node_client_base_port + i,
-        messagingPort= node_msg_base_port + i, 
+        CONFIG.node_ips[i], 
+        clientPort = CONFIG.node_client_base_port + i,
+        messagingPort= CONFIG.node_msg_base_port + i, 
         logDir = log_dir,
         logLevel = 'debug',
         home = db_dir)
@@ -606,12 +617,12 @@ def setup_n_nodes_base(c_id,
     
     
 def setup_n_nodes ( n, force_master, home_dir , extra = None):
-    setup_n_nodes_base(X.cluster_id, 
-                       X.node_names[0:n], 
+    setup_n_nodes_base(CONFIG.cluster_id, 
+                       CONFIG.node_names[0:n], 
                        force_master, 
                        None,
-                       X.node_msg_base_port, 
-                       X.node_client_base_port, 
+                       CONFIG.node_msg_base_port, 
+                       CONFIG.node_client_base_port, 
                        extra = extra)
     
     X.logging.info( "Starting cluster" )
@@ -647,20 +658,22 @@ default_setup = setup_3_nodes
 def setup_nursery_n (n, home_dir):
     
     for i in range(n):
-        c_id = nursery_cluster_ids[i]
-        base_dir = q.system.fs.joinPaths(data_base_dir, c_id)
-        setup_n_nodes_base( c_id, nursery_nodes[c_id], False, base_dir,
-                            node_msg_base_port + 3*i, node_client_base_port+3*i)
+        c_id = CONFIG.nursery_cluster_ids[i]
+        base_dir = '/'.join([data_base_dir, c_id])
+        setup_n_nodes_base( c_id, CONFIG.nursery_nodes[c_id], False, base_dir,
+                            CONFIG.node_msg_base_port + 3*i, 
+                            CONFIG.node_client_base_port+3*i)
         clu = _getCluster(c_id)
-        clu.setNurseryKeeper(nursery_keeper_id)
+        clu.setNurseryKeeper(CONFIG.nursery_keeper_id)
         
-        logging.info("Starting cluster %s", c_id)
+        X.logging.info("Starting cluster %s", c_id)
         clu.start()
     
-    logging.info("Initializing nursery to contain %s" % nursery_keeper_id )
+    X.logging.info("Initializing nursery to contain %s" % CONFIG.nursery_keeper_id )
     
     time.sleep(5.0)
-    n = q.manage.nursery.getNursery( nursery_keeper_id )
+    nmgmt = NurseryManagement.NurseryManagement()
+    n = nmgmt.getNursery( CONFIG.nursery_keeper_id )
     n.initialize( nursery_keeper_id )
     
     logging.info("Setup complete")
@@ -703,6 +716,7 @@ def get_client ( c_id = None):
         c_id = CONFIG.cluster_id
     ext = ArakoonClient.ArakoonClient()
     c = ext.getClient(c_id)
+    X.logging.debug("client's config = %s", c._config)
     return c
 
 def get_nursery_client():
@@ -909,7 +923,7 @@ def add_node_scenario ( node_to_add_index ):
     iterate_n_times( 100, simple_set )
     stop_all()
     add_node( node_to_add_index )
-    regenerateClientConfig(cluster_id)
+    regenerateClientConfig(CONFIG.cluster_id)
     start_all()
     iterate_n_times( 100, assert_get )
     iterate_n_times( 100, set_get_and_delete, 100)
@@ -918,8 +932,8 @@ def assert_key_value_list( start_suffix, list_size, list ):
     assert_equals( len(list), list_size )
     for i in range( list_size ) :
         suffix = start_suffix + i
-        key = key_format_str % (suffix )
-        value = value_format_str % (suffix )
+        key = CONFIG.key_format_str % (suffix )
+        value = CONFIG.value_format_str % (suffix )
         assert_equals ( (key,value) , list [i] )
 
 def assert_last_i_in_sync ( node_1, node_2 ):
@@ -954,10 +968,10 @@ def assert_running_nodes ( n ):
     assert_equals (nr, n, "Number of expected running nodes missmatch: %s <> %s (STATUS=%s)" % (nr,n,status))
 
 def assert_value_list ( start_suffix, list_size, list ) :
-    assert_list( value_format_str, start_suffix, list_size, list )
+    assert_list( CONFIG.value_format_str, start_suffix, list_size, list )
 
 def assert_key_list ( start_suffix, list_size, list ) :
-    assert_list( key_format_str, start_suffix, list_size, list )
+    assert_list( CONFIG.key_format_str, start_suffix, list_size, list )
  
 def assert_list ( format_str, start_suffix, list_size, list ) :
     assert_equals( len(list), list_size )
@@ -991,7 +1005,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             stopOne( master_id )
             startOne( master_id )
         except:
-            logging.critical("!!!! Failing test. Exception in restart loop.")
+            X.logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
             raise
                      
@@ -1014,19 +1028,18 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     # Give the slave some time to catch up 
     time.sleep( 5.0 )
     stop_all()
-    assert_last_i_in_sync ( node_names[0], node_names[1] )
-    compare_stores( node_names[0], node_names[1] )
+    assert_last_i_in_sync ( CONFIG.node_names[0], CONFIG.node_names[1] )
+    compare_stores( CONFIG.node_names[0], CONFIG.node_names[1] )
 
 def get_entries_per_tlog():
-    cmd = "%s --version" % binary_full_path 
-    (exit,stdout,stderr) = q.system.process.run(cmd)
-    assert_equals( exit, 0 )
+    cmd = [CONFIG.binary_full_path, "--version"]
+    stdout = X.subprocess.check_process(cmd)
     return int(stdout.split('\n')[-2].split(':')[1])
 
 def prefix_scenario( start_suffix ):
     iterate_n_times( 100, simple_set, startSuffix = start_suffix )
     
-    test_key_pref = key_format_str  % ( start_suffix + 90 ) 
+    test_key_pref = CONFIG.key_format_str  % ( start_suffix + 90 ) 
     test_key_pref = test_key_pref [:-1]
     
     client = get_client()
@@ -1045,10 +1058,10 @@ def range_scenario ( start_suffix ):
     
     client = get_client()
     
-    start_key = key_format_str % (start_suffix )
-    end_key = key_format_str % (start_suffix + 100 )
-    test_key = key_format_str % (start_suffix + 25)
-    test_key_2 = key_format_str % (start_suffix + 50)
+    start_key = CONFIG.key_format_str % (start_suffix )
+    end_key = CONFIG.key_format_str % (start_suffix + 100 )
+    test_key = CONFIG.key_format_str % (start_suffix + 25)
+    test_key_2 = CONFIG.key_format_str % (start_suffix + 50)
     
     key_list = client.range( test_key , True, end_key , False )
     assert_key_list ( start_suffix+25, 75, key_list )
@@ -1083,10 +1096,10 @@ def range_entries_scenario( start_suffix ):
     
     client = get_client()
     
-    start_key = key_format_str % (start_suffix )
-    end_suffix = key_format_str % ( start_suffix + 100 )
-    test_key = key_format_str % (start_suffix + 25)
-    test_key_2 = key_format_str % (start_suffix + 50)
+    start_key = CONFIG.key_format_str % (start_suffix )
+    end_suffix = CONFIG.key_format_str % ( start_suffix + 100 )
+    test_key = CONFIG.key_format_str % (start_suffix + 25)
+    test_key_2 = CONFIG.key_format_str % (start_suffix + 50)
     try:
         key_value_list = client.range_entries ( test_key , True, end_suffix , False )
         assert_key_value_list ( start_suffix + 25, 75, key_value_list )
@@ -1115,23 +1128,23 @@ def range_entries_scenario( start_suffix ):
         key_value_list = client.range_entries( test_key, True, test_key_2 , False, 10 )
         assert_key_value_list ( start_suffix + 25, 10, key_value_list )
     except Exception, ex:
-        logging.info("on failure moment, master was: %s", client._masterId)
+        X.logging.info("on failure moment, master was: %s", client._masterId)
         raise ex
         
     
 def reverse_range_entries_scenario(start_suffix):
     iterate_n_times(100, simple_set, startSuffix = start_suffix)
     client = get_client ()
-    start_key = key_format_str % (start_suffix)
-    end_key = key_format_str % (start_suffix + 100)
+    start_key = CONFIG.key_format_str % (start_suffix)
+    end_key = CONFIG.key_format_str % (start_suffix + 100)
     try:
         kv_list0 = client.range_entries("a", True,"z", True, 10)
         for t in kv_list0:
-            logging.info("t=%s",t)
-        logging.info("now reverse")
+            X.logging.info("t=%s",t)
+        X.logging.info("now reverse")
         kv_list = client.rev_range_entries("z", True, "a", True, 10)
         for t in kv_list:
-            logging.info("t=%s", t)
+            X.logging.info("t=%s", t)
         assert_equals( len(kv_list), 10)
         assert_equals(kv_list[0][0], 'key_000000001099')
     except Exception, ex:
