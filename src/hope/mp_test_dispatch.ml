@@ -41,7 +41,6 @@ module MPTestDispatch = struct
     Hashtbl.replace g_states s.constants.me s  
 
   let dispatch t s = function
-    | A_DIE msg -> Lwt.fail(Failure msg)
     | A_BROADCAST_MSG msg ->  
       let send_msg id q = 
         PQ.push q msg

@@ -236,6 +236,7 @@ module MULTI = struct
     | A_LOG_UPDATE of tick * update
     | A_START_TIMER of tick * float
     | A_CLIENT_REPLY of client_reply
+    | A_STORE_LEASE of node_id * float
 
   let action2s = function
     | A_RESYNC src -> 
@@ -254,11 +255,12 @@ module MULTI = struct
       Printf.sprintf "A_START_TIMER (n: %s) (d: %f)" (tick2s n) d
     | A_CLIENT_REPLY rep ->
       Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
-
+    | A_STORE_LEASE (m, e) ->
+      Printf.sprintf "A_STORE_LEASE (m:%s) (e:%f)" m e
+      
   type step_result =
     | StepFailure of string
     | StepSuccess of action list * state
-
 
   let state_cmp n i state =
     let c_diff =
