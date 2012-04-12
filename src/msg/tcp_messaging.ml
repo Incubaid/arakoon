@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Message
+
 open Messaging
 open Lwt
 open Log_extra
@@ -34,7 +34,7 @@ type connection = Lwt_io.input_channel * Lwt_io.output_channel
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()
 
-type drop_function = Message.t -> string -> string -> bool
+type drop_function = string -> string -> string -> bool
 
 class tcp_messaging my_address my_cookie (drop_it: drop_function) =
   let _MAGIC = 0xB0BAFE7L in
@@ -167,7 +167,7 @@ object(self : # messaging )
 		  begin 
 		    let reason = 
 		      Printf.sprintf "machine with %s up, server down => dropping %s"
-			target (Message.string_of msg ) 
+			target msg  
 		    in 
 		    drop exn reason >>= fun () ->
 		    Lwt_unix.sleep 1.0 (* not to hammer machine *)
@@ -176,7 +176,7 @@ object(self : # messaging )
 		  begin
 		    let reason = 
 		      Printf.sprintf "machine with %s unreachable => dropping %s"
-			target (Message.string_of msg) 
+			target msg 
 		    in
 		    drop exn reason >>= fun () ->
 		    Lwt_unix.sleep 2.0
@@ -185,7 +185,7 @@ object(self : # messaging )
 		  begin
 		    let reason =
 		      Printf.sprintf "machine with %s (probably) down => dropping %s"
-			target (Message.string_of msg) 
+			target msg 
 		    in
 		    drop exn reason >>= fun () ->
 		    Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
@@ -193,8 +193,7 @@ object(self : # messaging )
 		| exn -> 
 		  begin
 		    let reason = 
-		      Printf.sprintf "dropping message %s with destination '%s' because of"
-			(Message.string_of msg) target 
+		      Printf.sprintf "dropping message %s with destination '%s' because of" msg target 
 		    in
 		    drop exn reason
 		  end
@@ -252,7 +251,7 @@ object(self : # messaging )
     let buffer = Buffer.create 40 in
     let () = Llio.string_to buffer source in
     let () = Llio.string_to buffer target in
-    let () = Message.to_buffer msg buffer in
+    let () = Llio.string_to buffer msg in
     Buffer.contents buffer
 
 
@@ -295,7 +294,7 @@ object(self : # messaging )
 	    Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
 	    let (source:id), pos1 = Llio.string_from b1 0 in
 	    let target, pos2 = Llio.string_from b1 pos1 in
-	    let msg, _   = Message.from_buffer b1 pos2 in
+	    let msg, _   = Llio.string_from b1 pos2 in
 	    (*Lwt_log.debug_f "message from %s for %s" source target >>= fun () ->*)
 	    if drop_it msg source target then loop b1
 	    else

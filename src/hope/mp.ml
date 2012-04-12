@@ -9,23 +9,6 @@ module MULTI = struct
     | S_MASTER
     | S_SLAVE
     
-  type tick = TICK of int
-  
-  let (<:) (TICK i0) (TICK i1) = i0 < i1
-
-  let start_tick = TICK 0
-  let next_tick (TICK i) = TICK (i+1)
-  let prev_tick (TICK i) = 
-    begin 
-      match i with
-        | 0 -> TICK 0
-        | i -> TICK (i-1)
-    end
-    
-  let add_tick (TICK l) (TICK r) = TICK (l+r)
-  let tick2s (TICK t) = 
-    Printf.sprintf "%d" t
-  
   let option2s (x : 'a option)  = 
     match x with
       | Some _ -> "Some ..."
@@ -65,6 +48,89 @@ module MULTI = struct
     | M_CLIENT_REQUEST (w, u) ->
       Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
  
+  let string_of_msg msg = 
+    let buf = Buffer.create 8 in
+    begin
+      match msg with
+      | M_PREPARE (src, (TICK n), (TICK i)) ->
+        Llio.int_to buf 1; 
+        Llio.string_to buf src;  
+        Llio.int64_to buf n;
+        Llio.int64_to buf i;
+      | M_PROMISE (src, (TICK n), (TICK i), m_upd) ->
+        begin
+          Llio.int_to buf 2; 
+          Llio.string_to buf src;
+          Llio.int64_to buf n;
+          Llio.int64_to buf i;
+          begin
+            match m_upd with 
+              | None -> Llio.bool_to buf false
+              | Some upd -> 
+                Llio.bool_to buf true;
+                update_to buf upd   
+          end;
+        end
+      | M_NACK (src, (TICK n), (TICK i)) -> 
+        Llio.int_to buf 3;
+        Llio.string_to buf src;
+        Llio.int64_to buf n;
+        Llio.int64_to buf i
+      | M_ACCEPT (src, (TICK n), (TICK i), upd) ->
+        Llio.int_to buf 4;
+        Llio.string_to buf src;
+        Llio.int64_to buf n;
+        Llio.int64_to buf i;
+        update_to buf upd  
+      | M_ACCEPTED (src, (TICK n), (TICK i)) ->
+        Llio.int_to buf 5;
+        Llio.string_to buf src;
+        Llio.int64_to buf n;
+        Llio.int64_to buf i 
+      | M_LEASE_TIMEOUT n -> failwith "lease timeout message cannot be serialized"
+      | M_CLIENT_REQUEST (w, u) -> failwith "client request cannot be serialized"
+    end;
+    Buffer.contents buf
+    
+  let msg_of_string str =
+    let (kind, off) = Llio.int_from str 0 in
+    let get_src_n_i off = 
+        let (src, off) = Llio.string_from str off in
+        let (n, off) = Llio.int64_from str off in
+        let (i, off) = Llio.int64_from str off in
+        (src, n, i, off)
+    in
+    match kind with
+      | 1 ->
+        let src, n, i, off = get_src_n_i off in
+        M_PREPARE (src, (TICK n), (TICK i))
+      | 2 ->
+        let src, n, i, off = get_src_n_i off in
+        let b, off = Llio.bool_from str off in
+        let m_up =
+          begin
+            if b 
+            then
+              let u, off = update_from str off in
+              Some u 
+            else
+              None
+          end
+        in 
+        M_PROMISE (src, (TICK n), (TICK i), m_up)
+      | 3 -> 
+        let src, n, i, off = get_src_n_i off in
+        M_NACK (src, (TICK n), (TICK i))
+      | 4 -> 
+        let src, n, i, off = get_src_n_i off in
+        let u, off = update_from str off in
+        M_ACCEPT (src, (TICK n), (TICK i), u)
+      | 5 -> 
+        let src, n, i, off = get_src_n_i off in
+        M_ACCEPTED (src, (TICK n), (TICK i))
+      | i -> failwith "Unknown message type. Aborting."
+
+
   type paxos_constants = 
   {
     me             : node_id;
@@ -74,6 +140,16 @@ module MULTI = struct
     node_cnt       : int;
     lease_duration : float; 
   }
+  
+  let build_mp_constants q n n_others lease ix node_cnt =
+    {
+      quorum = q;
+      me = n;
+      others = n_others;
+      lease_duration = lease;
+      node_ix = ix;
+      node_cnt = node_cnt;
+    } 
   
   type msg_channel =
     | CH_CLIENT
@@ -99,6 +175,22 @@ module MULTI = struct
     cur_cli_req       : request_awakener option;
     valid_inputs      : msg_channel list;
   }
+  
+  let build_state c n p a =
+    {
+      round = n;
+      proposed = p;
+      accepted = a;
+      state_n = S_CLUELESS;
+      master_id = None;
+      prop = None;
+      votes = [];
+      now = 0.0;
+      lease_expiration = 0.0;
+      constants = c;
+      cur_cli_req = None;
+      valid_inputs = ch_all;
+    }
 
   let state_n2s = function 
     | S_CLUELESS           -> "S_CLUELESS"
@@ -128,13 +220,14 @@ module MULTI = struct
 
   type state_diff = round_diff * proposed_diff * accepted_diff 
   
-  type client_reply =
-    | CLIENT_REPLY_FAILURE of request_awakener * Arakoon_exc.rc * string 
+  type client_reply = request_awakener * result
   
   let client_reply2s = function
-    | CLIENT_REPLY_FAILURE (w, rc, msg) ->
+    | w, FAILURE(rc,msg) -> 
       Printf.sprintf "Reply (rc: %d) (msg: '%s')" 
-          (Int32.to_int (Arakoon_exc.int32_of_rc rc)) msg 
+          (Int32.to_int (Arakoon_exc.int32_of_rc rc)) msg
+    | w, UNIT -> "Reply success (unit)"
+       
   type action =
     | A_RESYNC of node_id 
     | A_SEND_MSG of message * node_id
@@ -165,6 +258,7 @@ module MULTI = struct
     | A_DIE msg ->
       Printf.sprintf "A_DIE (msg: '%s')" msg
 
+  
   let state_cmp n i state =
     let c_diff =
       begin
@@ -202,14 +296,22 @@ module MULTI = struct
     (c_diff, p_diff, a_diff)
   
   let next_n n node_cnt node_ix =
+    let (+) = Int64.add in
+    let (-) = Int64.sub in
     let TICK n' = n in
-    let modulo = n' mod node_cnt in
+    let node_cnt = Int64.of_int node_cnt in
+    let node_ix = Int64.of_int node_ix in 
+    let modulo = Int64.rem n' node_cnt in
     let n' = n' + node_cnt - modulo in
     TICK (n' + node_ix) 
   
   let prev_n n node_cnt node_ix =
+    let (+) = Int64.add in
+    let (-) = Int64.sub in
     let TICK n' = n in
-    let modulo = n' mod node_cnt in
+    let node_cnt = Int64.of_int node_cnt in
+    let node_ix = Int64.of_int node_ix in 
+    let modulo = Int64.rem n' node_cnt in
     let n'' = n' - modulo in
     if n'' + node_ix < n'
     then 
@@ -313,8 +415,8 @@ module MULTI = struct
 
   let build_accept_actions state n i u =
     let msg = M_ACCEPT(state.constants.me, n, i, u) in
-    let log = A_LOG_UPDATE (i, u) in
-    List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) [log] state.constants.others 
+    List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) 
+       [] (state.constants.me :: state.constants.others) 
     
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
@@ -333,19 +435,19 @@ module MULTI = struct
                 then
                   begin
                     (* We reached consensus on master *)
-                    let input_chs, actions, new_votes = 
+                    let input_chs, actions = 
                       begin
                         match new_prop with
-                          | None -> ch_all , [], []
+                          | None -> ch_all , [] 
                           | Some u -> 
                             let actions = build_accept_actions state n i u in
-                            ch_node, actions, [state.constants.me]
+                            ch_node, actions
                       end
                     in 
                     let new_state = { 
                        state with 
                        state_n = S_MASTER;
-                       votes = new_votes;
+                       votes = [];
                        prop = new_prop;
                        valid_inputs = input_chs;
                     } in
@@ -531,31 +633,32 @@ module MULTI = struct
             match state.cur_cli_req with
               | None -> 
                 begin
-                  let c = state.constants in
                   let actions = build_accept_actions state state.round (next_tick state.accepted) upd in 
                   let new_state = {
                     state with
                     cur_cli_req = Some w;
                     valid_inputs = ch_node;
-                    votes = [c.me];
+                    votes = [];
                     prop = Some upd;
                   } in 
                   actions, new_state
                 end
-              | Some _ ->
+              | Some w ->
                 begin 
-                  let reply = CLIENT_REPLY_FAILURE (w, Arakoon_exc.E_UNKNOWN_FAILURE, 
-                               "Cannot process request, already handling a client request") 
+                  let reply = (w, FAILURE(Arakoon_exc.E_UNKNOWN_FAILURE, 
+                               "Cannot process request, already handling a client request")) 
                   in
                   [A_CLIENT_REPLY reply], state
                 end
           end
         | _ ->
           begin
-            let reply = CLIENT_REPLY_FAILURE (w, Arakoon_exc.E_NOT_MASTER, 
-                                            "Cannot process request on none-master") 
+            let reply = (w, FAILURE(Arakoon_exc.E_NOT_MASTER, 
+                                            "Cannot process request on none-master")) 
             in
-            [A_CLIENT_REPLY reply], state
+            match state.cur_cli_req with
+              | None -> [], state
+              | Some w -> [A_CLIENT_REPLY reply], state
           end
     end
 
@@ -572,6 +675,6 @@ end
 
 module type MP_ACTION_DISPATCHER = sig
   type t
-  val dispatch : t -> MULTI.state * string -> MULTI.action -> (MULTI.state * string) Lwt.t
-  val update_state : t -> MULTI.state -> unit
+  val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
+  val get : t -> Core.k -> Core.v Lwt.t
 end

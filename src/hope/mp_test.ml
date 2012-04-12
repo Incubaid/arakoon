@@ -98,8 +98,8 @@ let gen_votes s_n m_prop c =
   end
     
 let build_random_state c =
-  let gen_n = TICK( Random.int test_max_n ) in
-  let gen_i = TICK( Random.int test_max_i ) in
+  let gen_n = TICK( Int64.of_int (Random.int test_max_n )) in
+  let gen_i = TICK( Int64.of_int (Random.int test_max_i )) in
   let (gen_accepted, gen_state_n, gen_prop, gen_inputs) = 
        gen_accepted_from_proposed gen_i 
   in
@@ -232,8 +232,8 @@ let test_list_bind () =
 
 let run_test_cases node1 node2 node3 lease =
   let nodes = [node1; node2; node3] in
-  let n  = TICK 100 in
-  let i  = TICK 100 in
+  let n  = TICK 100L in
+  let i  = TICK 100L in
   let pi    = prev_tick i in
   let ppi   = prev_tick pi in
   let ni    = next_tick i in

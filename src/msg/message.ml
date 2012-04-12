@@ -22,8 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 module Message = struct
 
-  type t = {kind:string; payload:string} (* primitive, bug suffices *)
-
+  type t = string
+  (* {kind:string; payload:string} (* primitive, bug suffices *) 
 
   let create kind payload = 
     {kind = kind; payload = payload} 
@@ -34,7 +34,7 @@ module Message = struct
 
   let string_of t= 
     Printf.sprintf "{kind=%s;payload=%S}" t.kind t.payload
-      
+    
   let to_buffer t buffer = 
     Llio.string_to buffer t.kind;
     Llio.string_to buffer t.payload
@@ -43,5 +43,6 @@ module Message = struct
     let k, pos1  = Llio.string_from buffer pos in
     let p, pos2  = Llio.string_from buffer pos1 
     in {kind=k;payload=p}, pos2
+  *)
 end
 

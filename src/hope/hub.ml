@@ -19,7 +19,7 @@ module HUB(S:STORE) = struct
   let create () = 
       {msgs = PQ.create (); reqs = PQ.create (); 
        mapping= Hashtbl.create 7;
-       store = S. create ();
+       store = S.create "STORE";
       } 
 
 
@@ -67,7 +67,7 @@ module HUB(S:STORE) = struct
           match v with
             | X.V_D -> (* do something special here *) Lwt.return ()
             | X.V_C (id,r) -> 
-              S.write t.store r >>= fun () ->
+              S.log t.store start_tick r >>= fun r ->
               let u = Hashtbl.find t.mapping id in
               let () = Hashtbl.remove t.mapping id in
               Lwt.wakeup u UNIT;

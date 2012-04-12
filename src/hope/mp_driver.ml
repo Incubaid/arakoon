@@ -3,7 +3,7 @@ open Core
 open Pq
 open Mp
 
-let _log f = Lwt_io.printl f 
+let _log f = Printf.kprintf Lwt_io.printl f 
 
 module P=MULTI
 
@@ -22,13 +22,11 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
   let dispatch t a s =
     A.dispatch t.action_dispatcher a s
       
-    
-  let create dispatcher = { 
-    msgs = PQ.create (); 
-    reqs = PQ.create (); 
+  let create dispatcher msg_q reqs_q = { 
+    msgs = msg_q; 
+    reqs = reqs_q; 
     action_dispatcher = dispatcher;
   }
-  
   
   let get_next_msg t s =
     let maybe_msg () =
@@ -48,9 +46,9 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     begin
       if List.mem P.CH_CLIENT s.P.valid_inputs 
       then
-        Lwt.pick [maybe_msg () ;maybe_client ();]
+        Lwt.pick [maybe_msg (); maybe_client ();]
       else
-        Lwt.pick [maybe_msg () ;]
+        Lwt.pick [maybe_msg ();]
     end 
     >>= fun what ->
     begin
@@ -68,20 +66,19 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
       s with 
         P.now = n;
       } in
-      let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s\n" (P.state2s s) (P.msg2s msg) in
+      let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s" (P.state2s s) (P.msg2s msg) in
       let actions, s' = P.step msg s in
-      let after_msg = Printf.sprintf "AFTER STEP    : %s\n" (P.state2s s') in
-      Lwt_list.fold_left_s (dispatch t) (s', before_msg ^ after_msg) actions >>= fun (s'', action_log) ->
+      let after_msg = Printf.sprintf "AFTER STEP    : %s" (P.state2s s') in
+      Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
       let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
-      _log (action_log ^ final_state ) >>= fun () ->
+      _log "%s\n%s\n%s" before_msg after_msg final_state >>= fun () ->
       Lwt.return s''
-       
-            
+                 
   let serve t s m_step_count =
     Lwt.catch ( 
       fun () ->
         let rec loop s f = function
-          | 0 -> _log (Printf.sprintf "%s is all done!!!\n" s.P.constants.P.me)
+          | 0 -> _log "%s is all done!!!\n" s.P.constants.P.me
           | i -> 
             let n = Unix.gettimeofday() in
             step t s n >>= fun s'' -> 
@@ -95,7 +92,7 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
         loop s f start_i
     ) ( 
       fun e ->
-        _log (Printexc.to_string e) >>= fun () ->
+        _log "%s" (Printexc.to_string e) >>= fun () ->
         Lwt.fail e
     ) 
       
@@ -108,4 +105,8 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     
   let push_msg t msg =
     PQ.push t.msgs msg
+  
+  let get t k =
+    A.get t.action_dispatcher k
 end
+

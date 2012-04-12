@@ -3,6 +3,7 @@ open Mp
 open MULTI
 open Mem_store
 open Lwt
+open Core
 open Mem_log
 
 let _log f =  Printf.kprintf Lwt_io.printl f 
@@ -31,7 +32,7 @@ module MPTestDispatch = struct
   let create() = 
   {
     msging = Hashtbl.create 3;
-    store = MemStore.create();
+    store = MemStore.create "MEM_STORE";
     log = MemLog.create();
     timeouts = [];
   }
@@ -39,21 +40,18 @@ module MPTestDispatch = struct
   let update_state t s = 
     Hashtbl.replace g_states s.constants.me s  
 
-  let dispatch t (s, l) = function
-    | A_DIE msg -> Lwt.fail( Failure (l ^ msg) )
+  let dispatch t s = function
+    | A_DIE msg -> Lwt.fail(Failure msg)
     | A_BROADCAST_MSG msg ->  
-      let log_msg = Printf.sprintf "-> ACTION     : Broadcast %s\n" (msg2s msg) in
       let send_msg id q = 
         PQ.push q msg
       in 
       let () = Hashtbl.iter send_msg t.msging in
-      Lwt.return (s, l ^ log_msg)  
+      Lwt.return s  
     | A_SEND_MSG (msg, dest) ->
-      let log_msg = Printf.sprintf "-> ACTION     : Send %s\n" (msg2s msg) in
       let () = send_msg t dest msg in
-      Lwt.return (s, l ^ log_msg)
+      Lwt.return s
     | A_RESYNC tgt ->
-      let log_msg = Printf.sprintf  "-> ACTION     : Resync from %s\n" tgt in
       let s_other = Hashtbl.find g_states tgt in 
       let (n,i) = (s_other.round, s_other.accepted) in 
       let s' = {
@@ -67,15 +65,11 @@ module MPTestDispatch = struct
           master_id = Some tgt;
       } in
       start_lease t s n (s.constants.lease_duration);
-      Lwt.return (s', l ^ log_msg )
+      Lwt.return s'
     | A_START_TIMER (n, d) ->
-      let log_msg = Printf.sprintf "-> ACTION     : Start timer (n: %s) (d: %f)\n" 
-           (tick2s n) d in
       start_lease t s n d;
-      Lwt.return (s, l ^ log_msg)
+      Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) -> 
-      let log_msg = Printf.sprintf  "-> ACTION     : Commit update (i: %s): %s\n" 
-           (tick2s i) (Core.update2s u) in
       begin
         match m_w with
           | None -> Lwt.return ()
@@ -85,22 +79,20 @@ module MPTestDispatch = struct
         s with
         accepted = i;
       } in
-      Lwt.return (s', l ^ log_msg )
+      Lwt.return s'
     | A_LOG_UPDATE (i, u) ->
-      let log_msg = Printf.sprintf "-> ACTION     : Log update (i: %s): %s\n" 
-           (tick2s i) (Core.update2s u) in
       let () = MemLog.log_update t.log i u in
       let s' = {
         s with
         proposed = i;
       } in
-      Lwt.return (s', l ^ log_msg )
-    | A_CLIENT_REPLY r -> 
-      let log_msg = "-> ACTION     : Client reply\n" in
+      Lwt.return s'
+    | A_CLIENT_REPLY (w, r) -> 
       begin
         match r with
-          | CLIENT_REPLY_FAILURE (w, rc, msg) ->
-              Lwt.wakeup w (Core.FAILURE (rc, msg)) 
+          | Core.FAILURE (rc, msg) ->
+              Lwt.wakeup w (Core.FAILURE (rc, msg))
+          | Core.UNIT -> Lwt.wakeup w Core.UNIT 
       end ;
-      Lwt.return (s, l ^ log_msg)
+      Lwt.return s
 end

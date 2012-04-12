@@ -2,8 +2,21 @@ open Mem_store
 open Bstore
 open Hub
 open Lwt
+open Mp_driver
+open Dispatcher
+open Pq 
+open Node_cfg.Node_cfg
+open Mp
 
 module MyHub = HUB(BStore)
+
+module BADispatcher = ADispatcher(BStore)
+module FSMDriver = MPDriver(BADispatcher)
+
+module DISPATCHER = BADispatcher
+module DRIVER = FSMDriver
+
+let _log f =  Printf.kprintf Lwt_io.printl f
 
 let gen_request_id =
   let c = ref 0 in
@@ -34,29 +47,29 @@ module C = struct
     check_cluster cluster_id >>= fun () ->
     Lwt.return ()
     
-  let __do_unit_update hub q =
-    let id = gen_request_id () in
-    MyHub.update hub id q >>= fun a ->
+  let __do_unit_update driver q =
+    DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
       | Core.UNIT -> Lwt.return ()
+      | Core.FAILURE (rc, msg) -> failwith msg
 
-  let _set hub k v = 
+  let _set driver k v = 
     let q = Core.SET(k,v) in
-    __do_unit_update hub q
+    __do_unit_update driver q
 
-  let _delete hub k =
+  let _delete driver k =
     let q = Core.DELETE k in
-    __do_unit_update hub q
+    __do_unit_update driver q
 
-  let _get hub k = MyHub.get hub k
+  let _get driver k = DRIVER.get driver k
 
 
-  let one_command hub ((ic,oc) as conn) = 
+  let one_command driver ((ic,oc) as conn) = 
     Client_protocol.read_command conn >>= fun comm ->
     match comm with
       | WHO_MASTER ->
         _log "who master" >>= fun () ->
-        let mo = Some "arakoon_0" in
+        let mo = Some "arakoon_1" in
         Llio.output_int32 oc 0l >>= fun () ->
         Llio.output_string_option oc mo >>= fun () ->
         Lwt.return false
@@ -67,7 +80,7 @@ module C = struct
           _log "set %S %S" key value >>= fun () ->
           Lwt.catch
             (fun () -> 
-              _set hub key value >>= fun () ->
+              _set driver key value >>= fun () ->
               Client_protocol.response_ok_unit oc)
             (Client_protocol.handle_exception oc)
         end
@@ -78,15 +91,15 @@ module C = struct
           _log "get %S" key >>= fun () ->
           Lwt.catch 
             (fun () -> 
-              _get hub key >>= fun value ->
+              _get driver key >>= fun value ->
               Client_protocol.response_rc_string oc 0l value)
             (Client_protocol.handle_exception oc)
         end 
 
-  let protocol hub (ic,oc) =   
+  let protocol driver (ic,oc) =   
     let rec loop () = 
       begin
-        one_command hub (ic,oc) >>= fun stop ->
+        one_command driver (ic,oc) >>= fun stop ->
         if stop
         then _log "end of session"
         else 
@@ -110,6 +123,7 @@ module MC = struct
     MyHub.update hub id q >>= fun a ->
     match a with
       | Core.UNIT -> Lwt.return ()
+      | Core.FAILURE (rc, msg) -> failwith msg
 
   let _set hub k v =
     let q = Core.SET(k,v) in
@@ -202,10 +216,8 @@ module MC = struct
     loop ()
 end
 
-let server_t hub =
-  let host = "127.0.0.1" 
-  and port = 4000 in
-  let inner = Server.make_server_thread host port (C.protocol hub) in
+let server_t driver host port =
+  let inner = Server.make_server_thread host port (C.protocol driver) in
   inner ()
 
 let mc_server_t hub =
@@ -220,15 +232,114 @@ let log_prelude () =
   _log "compile_time: %s " Version.compile_time >>= fun () ->
   _log "machine: %s " Version.machine 
 
+let create_msging me others cluster_id =
+  let cookie = cluster_id in
+  let mapping = List.map
+    (fun cfg -> (cfg.node_name, (cfg.ip, cfg.messaging_port)))
+    (me::others)
+  in
+  let drop_it = (fun _ _ _ -> false) in
+  let messaging = new Tcp_messaging.tcp_messaging 
+    (me.ip, me.messaging_port) cookie drop_it in
+  messaging # register_receivers mapping;
+  (messaging :> Messaging.messaging)
+
+let get_db_name cfg myname = 
+  cfg.home ^ "/" ^ myname ^ ".bs"
+  
+let create_store cfg myname =
+  let fn = get_db_name cfg myname in
+  BStore.create fn  
+
+let create_timeout_q () =
+  PQ.create ()
+  
+let create_dispatcher cluster_id myname mycfg others store msging =
+  let timeout_q = create_timeout_q () in
+  let disp = DISPATCHER.create msging store timeout_q in
+  (disp, timeout_q)
+
+let range n = 
+  let rec range_inner = function
+    | 0 -> []
+    | i -> (n-i) :: range_inner (i-1)
+  in 
+  range_inner n
+  
+let build_mpc mycfg others =
+  let myname = mycfg.node_name in
+  let other_cnt = List.length others in
+  let name_others = List.fold_left 
+    (fun acc cfg -> cfg.node_name :: acc) [] others
+  in 
+  let node_cnt = other_cnt + 1 in
+  let q = (node_cnt + 1) /2 in
+  let lease = mycfg.lease_period in
+  let all_nodes = List.fold_left (fun acc cfg-> cfg.node_name :: acc) [myname] others in
+  let all_nodes_s = List.sort String.compare all_nodes in
+  let nodes_with_ixs = List.combine all_nodes_s (range node_cnt) in
+  let my_ix = List.assoc myname nodes_with_ixs in 
+  MULTI.build_mp_constants q myname name_others (float_of_int lease) my_ix node_cnt 
+  
+let create_driver disp q = 
+  DRIVER.create disp q (PQ.create())
+
+let build_start_state store mycfg others =
+  let n = Core.start_tick in
+  let i = Core.start_tick in
+  let c = build_mpc mycfg others in
+  MULTI.build_state c n i i 
+
+let rec pass_msg msging q target =
+  msging # recv_message ~target >>= fun (msg_s, id) ->
+  let msg = MULTI.msg_of_string msg_s in
+  PQ.push q msg ;
+  pass_msg msging q target
+
+type action_type =
+  | ShowUsage
+  | RunNode
+
+let get_usage() = "TO BE PROVIDED" 
 
 let main_t () =
-  let hub = MyHub.create () in
-  let service hub = server_t hub in
-  let mc_service hub = mc_server_t hub in
+  let node_id = ref "" 
+  and action = ref (ShowUsage) 
+  and config_file = ref "cfg/arakoon.ini"
+  in
+  let set_action a = Arg.Unit (fun () -> action := a) in
+  let actions = [
+    ("--node", Arg.Tuple [set_action (RunNode);
+              Arg.Set_string node_id;
+             ],
+     "runs a node");
+    ("-config", Arg.Set_string config_file,
+     "Specifies config file (default = cfg/arakoon.ini)");
+  ] in
+  
+  Arg.parse actions  
+    (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
+    (get_usage());
+  let cfg = read_config !config_file in
+  let myname  = !node_id in
+  let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
+  let mycfg = List.hd me_as_list in
+  let cluster_id = cfg.cluster_id in 
+  let msging = create_msging mycfg others cluster_id in
+  let store = create_store mycfg myname in
+  let disp, q = create_dispatcher cluster_id myname mycfg others store msging in
+  let driver = create_driver disp q in
+  let service driver = server_t driver mycfg.ip mycfg.client_port in
   log_prelude () >>= fun () ->
-  Lwt.join [ MyHub.serve hub;
-             service hub;
-             mc_service hub
+  let s = build_start_state store mycfg others in
+  let timeout = MULTI.M_LEASE_TIMEOUT Core.start_tick in
+  DRIVER.push_msg driver timeout ;
+  let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
+  let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
+  Lwt.join [ DRIVER.serve driver s None ;
+             service driver;
+             msging # run ();
+             Lwt.join pass_msgs
            ];;
 
 let () =  Lwt_main.run (main_t())
