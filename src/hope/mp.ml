@@ -375,13 +375,15 @@ module MULTI = struct
         let new_state = {
           state with
           round = n;
-          master_id = Some src;
           state_n = new_state_n;
           valid_inputs = ch_all;
-          lease_expiration  = state.now +. state.constants.lease_duration;
         }
         in
-        StepSuccess( A_SEND_MSG (reply_msg, src) :: action_tail, new_state )
+        StepSuccess( 
+          A_SEND_MSG (reply_msg, src) :: 
+          A_STORE_LEASE (src, state.now +. state.constants.lease_duration) ::
+          action_tail, 
+        new_state )
       end
     end
        
@@ -505,15 +507,15 @@ module MULTI = struct
     begin 
       if state.accepted = state.proposed || state.proposed = new_i
       then
-        [], state.accepted
+        []
       else
         begin
           match state.prop 
           with
-            | None -> [], state.accepted
+            | None -> []
             | Some u -> 
               let new_accepted = next_tick state.accepted in
-              [A_COMMIT_UPDATE (new_accepted, u, state.cur_cli_req)], new_accepted
+              [A_COMMIT_UPDATE (new_accepted, u, state.cur_cli_req)]
         end 
     end
     
@@ -530,16 +532,13 @@ module MULTI = struct
             match state.state_n with
               | S_MASTER
               | S_SLAVE ->
-                let (delayed_commit, new_accepted) = extract_uncommited_action state i in
-                let new_proposed = next_tick new_accepted in
+                let delayed_commit = extract_uncommited_action state i in
                 let accept_update = A_LOG_UPDATE (i, update) in
                 let accepted_msg = M_ACCEPTED (state.constants.me, n, i) in
                 let send_accepted = A_SEND_MSG(accepted_msg, src) in
                 let new_prop = Some update in
                 let new_state = {
                   state with
-                  proposed = new_proposed;
-                  accepted = new_accepted;
                   prop = new_prop;
                 } 
                 in

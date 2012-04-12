@@ -42,8 +42,8 @@ module ADispatcher (S:STORE)  = struct
         Lwt_log.error_f "Failed to awaken client (%s). Ignoring." msg
       ) 
   
-  let store_lease store m e s =
-    Lwt.return s
+  let store_lease store m e =
+    Lwt.return ()
     
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
@@ -90,7 +90,13 @@ module ADispatcher (S:STORE)  = struct
       safe_wakeup w r >>= fun () ->
       Lwt.return s
     | A_STORE_LEASE (m, e) ->
-      store_lease t.store m e s
+      store_lease t.store m e >>= fun () ->
+      Lwt.return 
+        { s with
+          lease_expiration = e;
+          master_id = Some m;
+        }
+    
     | _ -> 
       failwith "Unknown action type"
 
