@@ -41,6 +41,7 @@ let update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
+    | i -> failwith "Unknown update type"
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
