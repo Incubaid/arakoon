@@ -20,11 +20,14 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+import sys
+print >> sys.stderr, sys.path
+
 
 from nose.tools import *
 from functools import wraps
 import traceback
-import sys
+
 import struct
 import subprocess
 import signal
@@ -36,9 +39,9 @@ import time
 import arakoon.ArakoonProtocol  
 from arakoon.ArakoonExceptions import * 
 
-import ArakoonManagement
-import NurseryManagement
-import ArakoonClient
+from arakoon_ext.server import ArakoonManagement
+from arakoon_ext.server import NurseryManagement
+from arakoon_ext.client import ArakoonClient
 
 test_failed = False 
 

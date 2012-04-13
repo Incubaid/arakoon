@@ -2,10 +2,10 @@
 set -e
 
 
-ocamlbuild $@ -use-ocamlfind arakoon.native
+#ocamlbuild $@ -use-ocamlfind arakoon.native
 
-mkdir -p /opt/qbase3/apps/arakoon/bin/
-cp arakoon.native /opt/qbase3/apps/arakoon/bin/arakoon
+#mkdir -p /opt/qbase3/apps/arakoon/bin/
+#cp arakoon.native /opt/qbase3/apps/arakoon/bin/arakoon
 mkdir -p /opt/qbase3/lib/pymonkey/extensions/arakoon/server/
 mkdir -p /opt/qbase3/lib/pymonkey/extensions/arakoon/client/
 cp -r extension/server/* /opt/qbase3/lib/pymonkey/extensions/arakoon/server/

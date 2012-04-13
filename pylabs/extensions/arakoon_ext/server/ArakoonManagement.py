@@ -24,7 +24,8 @@ If not, see <http://www.gnu.org/licenses/>.
 from Compat import X
 
 import ArakoonRemoteControl
-import ArakoonClient
+from arakoon_ext.client import ArakoonClient
+
 import itertools
 import time
 import string
