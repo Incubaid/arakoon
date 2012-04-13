@@ -592,7 +592,7 @@ module MULTI = struct
     begin
       match state.master_id with
         | Some m -> m = state.constants.me
-        | None -> true (* No clue how this would be possible *)
+        | None -> true 
     end
   
   let start_elections new_n state = 

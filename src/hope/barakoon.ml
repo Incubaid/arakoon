@@ -300,34 +300,28 @@ let rec pass_msg msging q target =
 type action_type =
   | ShowUsage
   | RunNode
+  | InitDb
 
-let get_usage() = "TO BE PROVIDED" 
+let get_usage() =  ""
 
-let main_t () =
-  let node_id = ref "" 
-  and action = ref (ShowUsage) 
-  and config_file = ref "cfg/arakoon.ini"
-  in
-  let set_action a = Arg.Unit (fun () -> action := a) in
-  let actions = [
-    ("--node", Arg.Tuple [set_action (RunNode);
-              Arg.Set_string node_id;
-             ],
-     "runs a node");
-    ("-config", Arg.Set_string config_file,
-     "Specifies config file (default = cfg/arakoon.ini)");
-  ] in
-  
-  Arg.parse actions  
-    (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
-    (get_usage());
+let split_cfgs cfg myname =
+  let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
+  begin
+    match me_as_list with
+      | [] -> 
+        Llio.lwt_failfmt "Node '%s' does not exist in config" myname 
+      | cfg :: [] -> Lwt.return (others, cfg)
+      | _ -> 
+        Llio.lwt_failfmt "Node '%s' occurs multiple times in config" myname
+  end
+
+let run_node node_id config_file =          
   let cfg = read_config !config_file in
   let myname  = !node_id in
-  let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
-  let mycfg = List.hd me_as_list in
+  split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
-  let store = create_store mycfg myname in
+  create_store mycfg myname >>= fun store ->
   let disp, q = create_dispatcher cluster_id myname mycfg others store msging in
   let driver = create_driver disp q in
   let service driver = server_t driver mycfg.ip mycfg.client_port in
@@ -342,6 +336,40 @@ let main_t () =
              msging # run ();
              Lwt.join pass_msgs
            ];;
+
+let init_db node_id config_file =
+  let cfg = read_config !config_file in
+  let myname = !node_id in
+  split_cfgs cfg myname >>= fun (_, mycfg) ->
+  let fn = get_db_name mycfg myname in
+  BStore.init fn
+  
+let main_t () =
+  let node_id = ref "" 
+  and action = ref (ShowUsage) 
+  and config_file = ref "cfg/arakoon.ini"
+  in
+  let set_action a = Arg.Unit (fun () -> action := a) in
+  let actions = [
+    ("--node", 
+     Arg.Tuple [set_action (RunNode); Arg.Set_string node_id;],
+     "Runs a node");
+    ("-config", Arg.Set_string config_file,
+     "Specifies config file (default = cfg/arakoon.ini)");
+    ("--init-db", 
+     Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
+     "Initialize the database for the given node")
+  ] in
+  
+  Arg.parse actions  
+    (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
+    (get_usage());
+  begin 
+    match !action with
+      | RunNode -> run_node node_id config_file
+      | ShowUsage -> Lwt_io.printl (get_usage())
+      | InitDb -> init_db node_id config_file
+  end
 
 let () =  Lwt_main.run (main_t())
   

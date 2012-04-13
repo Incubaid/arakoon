@@ -1,12 +1,21 @@
 open Core
+open Lwt
+open Baardskeerder
+
+module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
 module BStore = (struct
-  type t = { m: Lwt_mutex.t; store: Baardskeerder.t}
+  type t = { m: Lwt_mutex.t; store: BS.t}
 
+  let init fn = 
+    BS.init fn 
+    
   let create fn = 
-    let () = Baardskeerder.init fn in
-    {m = Lwt_mutex.create();
-     store = Baardskeerder.make fn;
+    BS.make fn >>= fun s ->
+    Lwt.return 
+    {
+      m = Lwt_mutex.create();
+      store = s;
     }
     
   let commit t i = 
@@ -15,19 +24,15 @@ module BStore = (struct
   let log t i u = 
     let _inner tx = 
       match u with
-        | SET (k,v) -> Baardskeerder.set tx k v
-        | DELETE k  -> Baardskeerder.delete tx k
+        | SET (k,v) -> BS.set tx k v
+        | DELETE k  -> BS.delete tx k
     in
     Lwt_mutex.with_lock t.m 
       (fun () -> 
-        let () = Baardskeerder.with_tx t.store _inner in Lwt.return Core.UNIT)
-
+        BS.with_tx t.store _inner >>= fun () ->
+        Lwt.return Core.UNIT)
     
   let get t k = 
-    let _inner () = 
-      let v = Baardskeerder.get_latest t.store k in
-      Lwt.return v
-    in
-    Lwt_mutex.with_lock t.m _inner
+    BS.get_latest t.store k 
 
-end: STORE)
+end)
