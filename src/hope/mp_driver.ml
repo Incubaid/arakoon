@@ -114,5 +114,8 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
   
   let get t k =
     A.get t.action_dispatcher k
+    
+  let get_meta t =
+    A.get_meta t.action_dispatcher
 end
 

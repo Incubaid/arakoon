@@ -17,12 +17,14 @@ type v = string
 type update = 
   | SET of k * v
   | DELETE of k
+  | SEQUENCE of update list
 
 let update2s = function
   | SET (k,v) -> Printf.sprintf "U_SET (k: %s)" k
   | DELETE k -> Printf.sprintf "U_DEL (k: %s)" k
+  | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
 
-let update_to buf = function
+let rec update_to buf = function
   | SET (k,v) ->
     Llio.int_to buf 1;
     Llio.string_to buf k;
@@ -30,8 +32,12 @@ let update_to buf = function
   | DELETE k ->
     Llio.int_to buf 2;
     Llio.string_to buf k
+  | SEQUENCE s ->
+    Llio.int_to buf 3;
+    Llio.int_to buf (List.length s);
+    List.iter (fun u -> update_to buf u) s
 
-let update_from buf off =
+let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
   match kind with
     | 1 ->
@@ -41,6 +47,20 @@ let update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
+    | 3 ->
+      let slen, off = Llio.int_from buf off in
+      begin
+        let rec loop acc off = function
+          | 0 -> acc, off
+          | i -> 
+            let u, off = update_from buf off in
+            loop (u :: acc) off (i-1) 
+        in
+        let ups, off = loop [] off slen in
+        SEQUENCE (List.rev ups), off
+      end
+      
+          
     | i -> failwith "Unknown update type"
 type result = 
   | UNIT
@@ -67,7 +87,9 @@ module type STORE = sig
   type t
   
   val commit : t -> tick -> result Lwt.t
-  val log : t -> tick -> update -> result Lwt.t
+  val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
+  val set_meta: t -> string -> unit Lwt.t
+  val get_meta: t -> string option Lwt.t
 
 end

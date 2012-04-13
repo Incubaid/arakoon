@@ -63,13 +63,30 @@ module C = struct
 
   let _get driver k = DRIVER.get driver k
 
+  let _get_meta driver = DRIVER.get_meta driver 
 
   let one_command driver ((ic,oc) as conn) = 
     Client_protocol.read_command conn >>= fun comm ->
     match comm with
       | WHO_MASTER ->
         _log "who master" >>= fun () ->
-        let mo = Some "arakoon_1" in
+        _get_meta driver >>= fun ms ->
+        let mo =
+        begin 
+          match ms with
+            | None -> None
+            | Some s -> 
+              begin
+                let m, off = Llio.string_from s 0 in
+                let e, off = Llio.float_from s off in
+                if e > ( Unix.gettimeofday() ) 
+                then
+                  Some m
+                else 
+                  None 
+              end
+        end
+        in
         Llio.output_int32 oc 0l >>= fun () ->
         Llio.output_string_option oc mo >>= fun () ->
         Lwt.return false
@@ -274,7 +291,7 @@ let build_mpc mycfg others =
     (fun acc cfg -> cfg.node_name :: acc) [] others
   in 
   let node_cnt = other_cnt + 1 in
-  let q = (node_cnt + 1) /2 in
+  let q = 1 + (node_cnt / 2 ) in
   let lease = mycfg.lease_period in
   let all_nodes = List.fold_left (fun acc cfg-> cfg.node_name :: acc) [myname] others in
   let all_nodes_s = List.sort String.compare all_nodes in
@@ -287,9 +304,17 @@ let create_driver disp q =
 
 let build_start_state store mycfg others =
   let n = Core.start_tick in
-  let i = Core.start_tick in
+  BStore.last_update store >>= fun m_last ->
+  let i,u =
+    begin
+      match m_last with
+        | Some (i_time, u) -> Core.TICK i_time, Some u
+        | None -> Core.start_tick, None
+    end
+  in
   let c = build_mpc mycfg others in
-  MULTI.build_state c n i i 
+  let s = MULTI.build_state c n i i u in
+  Lwt.return s 
 
 let rec pass_msg msging q target =
   msging # recv_message ~target >>= fun (msg_s, id) ->
@@ -301,8 +326,6 @@ type action_type =
   | ShowUsage
   | RunNode
   | InitDb
-
-let get_usage() =  ""
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -326,7 +349,7 @@ let run_node node_id config_file =
   let driver = create_driver disp q in
   let service driver = server_t driver mycfg.ip mycfg.client_port in
   log_prelude () >>= fun () ->
-  let s = build_start_state store mycfg others in
+  build_start_state store mycfg others >>= fun s ->
   let timeout = MULTI.M_LEASE_TIMEOUT Core.start_tick in
   DRIVER.push_msg driver timeout ;
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
@@ -363,11 +386,11 @@ let main_t () =
   
   Arg.parse actions  
     (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
-    (get_usage());
+    "";
   begin 
     match !action with
       | RunNode -> run_node node_id config_file
-      | ShowUsage -> Lwt_io.printl (get_usage())
+      | ShowUsage -> Lwt.return (Arg.usage actions "")
       | InitDb -> init_db node_id config_file
   end
 

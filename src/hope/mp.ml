@@ -176,14 +176,14 @@ module MULTI = struct
     valid_inputs      : msg_channel list;
   }
   
-  let build_state c n p a =
+  let build_state c n p a u =
     {
       round = n;
       proposed = p;
       accepted = a;
       state_n = S_CLUELESS;
       master_id = None;
-      prop = None;
+      prop = u;
       votes = [];
       now = 0.0;
       lease_expiration = 0.0;
@@ -357,7 +357,7 @@ module MULTI = struct
     
   let send_promise state src n i =
     begin
-    if is_lease_active state && not (is_node_master src state)
+    if is_lease_active state && not (is_node_master src state) && false
     then
       StepSuccess( [], state )
     else
@@ -500,7 +500,14 @@ module MULTI = struct
         | (N_AHEAD, _, A_COMMITABLE ) ->
           StepSuccess([], state)
         | (N_BEHIND, _, A_COMMITABLE ) ->
-          StepSuccess([], state)
+          let m = build_promise n i state in
+          let new_state = {
+            state with 
+            state_n = S_SLAVE;
+            round = n;
+          } in
+          StepFailure "SAY WHAT????"
+          (* StepSuccess([A_SEND_MSG (m,src)], new_state) *)
     end
   
   let extract_uncommited_action state new_i =
@@ -557,24 +564,23 @@ module MULTI = struct
         | (N_EQUAL, _, A_COMMITABLE) -> 
           begin
             let new_votes = get_updated_votes state.votes src in
-            let (new_input_ch, new_accepted, new_prop, actions, new_cli_req ) = 
+            let (new_input_ch, new_prop, actions, new_cli_req ) = 
               begin 
                 let new_input_ch = state.valid_inputs in
                 if List.length new_votes = state.constants.quorum
                 then
                   match state.prop with
-                    | None -> new_input_ch, state.accepted, state.prop, [], state.cur_cli_req
+                    | None -> new_input_ch, state.prop, [], state.cur_cli_req
                     | Some u ->
                        let n_accepted = next_tick state.accepted in
                        let ci = A_COMMIT_UPDATE (n_accepted, u, state.cur_cli_req) in
-                       ch_all, n_accepted, None, [ci], None
+                       ch_all, None, [ci], None
                 else
-                  new_input_ch, state.accepted, state.prop, [], state.cur_cli_req
+                  new_input_ch, state.prop, [], state.cur_cli_req
               end
             in  
             let new_state = {
               state with
-              accepted     = new_accepted;
               votes        = new_votes;
               prop         = new_prop;
               cur_cli_req  = new_cli_req;
@@ -679,4 +685,5 @@ module type MP_ACTION_DISPATCHER = sig
   type t
   val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
   val get : t -> Core.k -> Core.v Lwt.t
+  val get_meta : t -> string option Lwt.t
 end

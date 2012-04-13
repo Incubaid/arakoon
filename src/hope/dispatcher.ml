@@ -5,6 +5,24 @@ open Lwt
 open Core
 open Pq
 
+
+let validate_log_update i p =
+  if i = p || i = (next_tick p) 
+  then ()
+  else 
+    let msg = Printf.sprintf 
+      "Invalid log update request. (i:%s) (p:%s)" (tick2s i) (tick2s p) in
+    failwith msg
+
+let validate_commit_update i a =
+  if i = (next_tick a) 
+  then ()
+  else 
+    let msg = Printf.sprintf
+      "Invalid commit update request. (i:%s) (a:%s)" (tick2s i) (tick2s a) in
+    failwith msg
+    
+    
 module ADispatcher (S:STORE)  = struct
 
   type t =
@@ -14,6 +32,9 @@ module ADispatcher (S:STORE)  = struct
     timeout_q : message PQ.q;
   }
   
+  let get_meta t =
+    S.get_meta t.store
+    
   let get t k =
     S.get t.store k 
     
@@ -43,7 +64,11 @@ module ADispatcher (S:STORE)  = struct
       ) 
   
   let store_lease store m e =
-    Lwt.return ()
+    let buf = Buffer.create 32 in
+    Llio.string_to buf m;
+    Llio.float_to buf e;
+    let s = Buffer.contents buf in
+    S.set_meta store s
     
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
@@ -55,9 +80,13 @@ module ADispatcher (S:STORE)  = struct
     | A_SEND_MSG (msg, tgt) ->
       let me = s.constants.me in
       let msg_str = string_of_msg msg in
+      let m = MULTI.msg2s msg in
+      let _log f = Printf.kprintf Lwt_io.printl f in
+      _log "SENDING %s to %s" m tgt >>= fun () ->
       send_msg t me tgt msg_str >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
+      let () = validate_commit_update i s.accepted in
       commit_update t i >>= fun res ->
       begin
         match m_w with
@@ -71,7 +100,9 @@ module ADispatcher (S:STORE)  = struct
       } in
       Lwt.return s'
     | A_LOG_UPDATE (i, u) ->
-      log_update t i u >>= fun res ->
+      let () = validate_log_update i s.proposed in
+      let d = (s.proposed <> i) in
+      log_update t d u >>= fun res ->
       let s' = {
         s with
         proposed = i
