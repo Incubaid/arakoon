@@ -506,8 +506,7 @@ module MULTI = struct
             state_n = S_SLAVE;
             round = n;
           } in
-          StepFailure "SAY WHAT????"
-          (* StepSuccess([A_SEND_MSG (m,src)], new_state) *)
+          StepSuccess([A_SEND_MSG (m,src)], new_state) 
     end
   
   let extract_uncommited_action state new_i =
