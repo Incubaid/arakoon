@@ -213,11 +213,21 @@ range_entries: key option -> bool -> key option -> bool -> int -> bool -> (key *
 will yield a list of key value pairs.
 The parameters have the same semantics as for the range method.
 
+rev_range_entries : key option -> bool -> key option -> bool -> int -> (key * value ) list C.t
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*rev_range_entries bkey binc ekey einc max* will yield a list of key value pairs, 
+just like *range_entries*, but with reverse ordering: *bkey* is the higher boundary, *ekey* the lower.
+This can be used to support backwards paging.
 
 sequence: update list -> unit C.t
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Provides an atomic multi-update. Either all updates are performed or none. 
 While this is not a full transaction, it provides enough functionality to safeguard consistency.
+
+synced_sequence: update_list -> unit C.t
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Provides an atomic multi-update, just like *sequence*, but with the added action of a file system synchronisation (fsync), 
+before the call returns. Some people feel safer that way.
 
 assert : key -> value option -> unit C.t
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -495,6 +505,8 @@ user_function            0x0000 0015
 assert                   0x0000 0016
 get_key_count            0x0000 001a
 confirm                  0x0000 001b
+rev_range_entries        0x0000 0023
+synced_sequence          0x0000 0024
 ======================== ===========
 
 =========== ====================
