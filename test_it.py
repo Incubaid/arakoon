@@ -11,7 +11,7 @@ def prologue():
     if not os.path.exists(bin):
         if not os.path.exists(bin_dir):
             os.makedirs(bin_dir)
-        subprocess.call(['cp','./arakoon.native',
+        subprocess.call(['cp','./barakoon.native',
                          bin])
 
 
