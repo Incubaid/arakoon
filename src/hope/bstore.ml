@@ -5,7 +5,7 @@ open Baardskeerder
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
 module BStore = (struct
-  type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option}
+  type t = { m: Lwt_mutex.t; store: BS.t;}
 
   let init fn = 
     BS.init fn 
@@ -16,7 +16,6 @@ module BStore = (struct
     {
       m = Lwt_mutex.create();
       store = s;
-      meta = None;
     }
   
   let pref_key k = "@" ^ k
@@ -70,13 +69,5 @@ module BStore = (struct
   let get t k = 
     BS.get_latest t.store (pref_key k) 
   
-  let get_meta t =
-    match t.meta with
-      | None -> BS.get_metadata t.store
-      | Some m -> Lwt.return (Some m)
-
-  let set_meta t s =
-    t.meta <- Some s;
-    BS.set_metadata t.store s
 end)
 

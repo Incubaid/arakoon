@@ -476,37 +476,10 @@ module MULTI = struct
     let diff = state_cmp n i state in
     begin
         match diff with
-        | (_, _, A_BEHIND) -> 
+        | (_, _, A_BEHIND) 
+        | (_, _, A_COMMITABLE) -> 
           StepSuccess([A_RESYNC src], state)
         | (_, _, A_AHEAD) -> StepSuccess([], state)
-        | (N_EQUAL, _, A_COMMITABLE) ->
-          begin 
-            if state.state_n = S_RUNNING_FOR_MASTER
-            then
-              let n' = next_n n state.constants.node_cnt state.constants.node_ix  in
-              let msg = M_PREPARE(state.constants.me, n',i) in
-              let new_state = { 
-                state with
-                round = n';
-                state_n = S_RUNNING_FOR_MASTER;
-                votes = [];
-                master_id = Some state.constants.me
-              }
-              in
-              StepSuccess([A_BROADCAST_MSG msg], new_state)
-            else
-              StepSuccess([] ,state)
-          end
-        | (N_AHEAD, _, A_COMMITABLE ) ->
-          StepSuccess([], state)
-        | (N_BEHIND, _, A_COMMITABLE ) ->
-          let m = build_promise n i state in
-          let new_state = {
-            state with 
-            state_n = S_SLAVE;
-            round = n;
-          } in
-          StepSuccess([A_SEND_MSG (m,src)], new_state) 
     end
   
   let extract_uncommited_action state new_i =

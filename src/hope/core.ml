@@ -89,7 +89,5 @@ module type STORE = sig
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
-  val set_meta: t -> string -> unit Lwt.t
-  val get_meta: t -> string option Lwt.t
 
 end

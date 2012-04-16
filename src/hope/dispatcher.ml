@@ -30,10 +30,10 @@ module ADispatcher (S:STORE)  = struct
     store : S.t; 
     msg : Messaging.messaging;
     timeout_q : message PQ.q;
+    mutable meta : string option;
   }
   
-  let get_meta t =
-    S.get_meta t.store
+  let get_meta t = Lwt.return t.meta
     
   let get t k =
     S.get t.store k 
@@ -43,6 +43,7 @@ module ADispatcher (S:STORE)  = struct
     store = s;
     msg = msging;  
     timeout_q = tq;
+    meta = None
   }
   
   let send_msg t src dst msg =
@@ -63,12 +64,12 @@ module ADispatcher (S:STORE)  = struct
         Lwt_log.error_f "Failed to awaken client (%s). Ignoring." msg
       ) 
   
-  let store_lease store m e =
+  let store_lease t m e =
     let buf = Buffer.create 32 in
     Llio.string_to buf m;
     Llio.float_to buf e;
     let s = Buffer.contents buf in
-    S.set_meta store s
+    Lwt.return (t.meta <- Some s)
     
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
@@ -121,13 +122,12 @@ module ADispatcher (S:STORE)  = struct
       safe_wakeup w r >>= fun () ->
       Lwt.return s
     | A_STORE_LEASE (m, e) ->
-      store_lease t.store m e >>= fun () ->
+      store_lease t m e >>= fun () ->
       Lwt.return 
         { s with
           lease_expiration = e;
           master_id = Some m;
         }
-    
     | _ -> 
       failwith "Unknown action type"
 

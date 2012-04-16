@@ -354,7 +354,7 @@ let run_node node_id config_file =
   DRIVER.push_msg driver timeout ;
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
   let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
-  Lwt.join [ DRIVER.serve driver s None ;
+  Lwt.pick [ DRIVER.serve driver s None ;
              service driver;
              msging # run ();
              Lwt.join pass_msgs
