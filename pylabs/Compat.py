@@ -84,6 +84,7 @@ class Compat:
         logging.debug("reading %s",fn)
         p = ConfigParser.ConfigParser()
         p.read(fn)
+        #logging.debug("config file=\n%s", self.cfg2str(p))
         return p
 
     def writeConfig(self, p, h):
