@@ -338,9 +338,9 @@ let split_cfgs cfg myname =
         Llio.lwt_failfmt "Node '%s' occurs multiple times in config" myname
   end
 
-let run_node node_id config_file =          
-  let cfg = read_config !config_file in
-  let myname  = !node_id in
+let run_node myname config_file daemonize =          
+  let cfg = read_config config_file in
+  let () = if daemonize then Lwt_daemon.daemonize () in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
@@ -371,6 +371,7 @@ let main_t () =
   let node_id = ref "" 
   and action = ref (ShowUsage) 
   and config_file = ref "cfg/arakoon.ini"
+  and daemonize = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -379,6 +380,8 @@ let main_t () =
      "Runs a node");
     ("-config", Arg.Set_string config_file,
      "Specifies config file (default = cfg/arakoon.ini)");
+    ("-daemonize", Arg.Set daemonize,
+     "add if you want the process to daemonize (only for --node)");
     ("--init-db", 
      Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
      "Initialize the database for the given node")
@@ -389,7 +392,7 @@ let main_t () =
     "";
   begin 
     match !action with
-      | RunNode -> run_node node_id config_file
+      | RunNode -> run_node !node_id !config_file !daemonize
       | ShowUsage -> Lwt.return (Arg.usage actions "")
       | InitDb -> init_db node_id config_file
   end
