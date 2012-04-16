@@ -360,9 +360,8 @@ let run_node myname config_file daemonize =
              Lwt.join pass_msgs
            ];;
 
-let init_db node_id config_file =
-  let cfg = read_config !config_file in
-  let myname = !node_id in
+let init_db myname config_file =
+  let cfg = read_config config_file in
   split_cfgs cfg myname >>= fun (_, mycfg) ->
   let fn = get_db_name mycfg myname in
   BStore.init fn
@@ -394,7 +393,7 @@ let main_t () =
     match !action with
       | RunNode -> run_node !node_id !config_file !daemonize
       | ShowUsage -> Lwt.return (Arg.usage actions "")
-      | InitDb -> init_db node_id config_file
+      | InitDb -> init_db !node_id !config_file
   end
 
 let () =  Lwt_main.run (main_t())
