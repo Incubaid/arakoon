@@ -417,11 +417,7 @@ class ArakoonCluster:
         if config.has_section(name):
             home = config.get(name, "home")
             X.createDir(home)
-
-            if config.has_option(name, "tlog_dir"):
-                tlogDir = config.get(name, "tlog_dir")
-                X.createDir(tlogDir)
-
+            self._initialize(name, home)
             logDir = config.get(name, "log_dir")
             X.createDir(logDir)
 
@@ -749,11 +745,20 @@ class ArakoonCluster:
         
 
     def _cmd(self, name):
-        r =  [self._binary,'--node',name,'-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+        r =  [self._binary,
+              '--node', name, 
+              '-config', '%s/%s.cfg' % (self._clusterPath, self._clusterId),
               '-daemonize']
         return r
-    
+
+    def _initialize(self,name, home):
+        r = [self._binary, 
+             '-config', '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+             '--init-db', name]
+        print ' '.join(r)
+        rc = X.subprocess.call(r)
+        return rc
+        
     def _cmdLine(self, name):
         cmd = self._cmd(name)
         cmdLine = string.join(cmd, ' ')
