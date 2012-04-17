@@ -29,6 +29,7 @@ module MULTI = struct
     | M_ACCEPTED of node_id * tick * tick
     | M_LEASE_TIMEOUT of tick
     | M_CLIENT_REQUEST of request_awakener * update
+    | M_MASTERSET of node_id * tick
 
   let msg2s = function 
     | M_PREPARE (src, n, i) -> 
@@ -47,6 +48,8 @@ module MULTI = struct
       Printf.sprintf "M_LEASE_TIMEOUT (n: %s)" (tick2s n)
     | M_CLIENT_REQUEST (w, u) ->
       Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
+    | M_MASTERSET (m, n) ->
+      Printf.sprintf "M_MASTERSET (n: %s) (m: %s)" (tick2s n) m
  
   let string_of_msg msg = 
     let buf = Buffer.create 8 in
@@ -87,6 +90,10 @@ module MULTI = struct
         Llio.string_to buf src;
         Llio.int64_to buf n;
         Llio.int64_to buf i 
+      | M_MASTERSET (src, TICK n) ->
+        Llio.int_to buf 6;
+        Llio.string_to buf src;
+        Llio.int64_to buf n
       | M_LEASE_TIMEOUT n -> failwith "lease timeout message cannot be serialized"
       | M_CLIENT_REQUEST (w, u) -> failwith "client request cannot be serialized"
     end;
@@ -128,6 +135,10 @@ module MULTI = struct
       | 5 -> 
         let src, n, i, off = get_src_n_i off in
         M_ACCEPTED (src, (TICK n), (TICK i))
+      | 6 ->
+        let (src, off) = Llio.string_from str off in
+        let (n, off) = Llio.int64_from str off in
+        M_MASTERSET (src, (TICK n))
       | i -> failwith "Unknown message type. Aborting."
 
 
@@ -381,7 +392,6 @@ module MULTI = struct
         in
         StepSuccess( 
           A_SEND_MSG (reply_msg, src) :: 
-          A_STORE_LEASE (src, state.now +. state.constants.lease_duration) ::
           action_tail, 
         new_state )
       end
@@ -422,6 +432,10 @@ module MULTI = struct
     let msg = M_ACCEPT(state.constants.me, n, i, u) in
     List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) 
        [] (state.constants.me :: state.constants.others) 
+  
+  let bcast_mset_actions state =
+    let msg = M_MASTERSET (state.constants.me, state.round) in
+    List.fold_left (fun a n -> A_SEND_MSG(msg, n) :: a) [] state.constants.others
     
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
@@ -440,7 +454,7 @@ module MULTI = struct
                 then
                   begin
                     (* We reached consensus on master *)
-                    let input_chs, actions = 
+                    let input_chs, postmortem_actions = 
                       begin
                         match new_prop with
                           | None -> ch_all , [] 
@@ -456,6 +470,12 @@ module MULTI = struct
                        prop = new_prop;
                        valid_inputs = input_chs;
                     } in
+                    let actions = 
+                      (bcast_mset_actions state)
+                      @
+                      (A_STORE_LEASE (state.constants.me, (state.now +. state.constants.lease_duration))
+                      :: postmortem_actions)
+                    in
                     StepSuccess(actions, new_state) 
                   end
                 else
@@ -536,24 +556,24 @@ module MULTI = struct
         | (N_EQUAL, _, A_COMMITABLE) -> 
           begin
             let new_votes = get_updated_votes state.votes src in
-            let (new_input_ch, new_prop, actions, new_cli_req ) = 
+            let (new_input_ch, new_prop, actions, new_cli_req, vs ) = 
               begin 
                 let new_input_ch = state.valid_inputs in
                 if List.length new_votes = state.constants.quorum
                 then
                   match state.prop with
-                    | None -> new_input_ch, state.prop, [], state.cur_cli_req
+                    | None -> new_input_ch, state.prop, [], state.cur_cli_req, new_votes
                     | Some u ->
                        let n_accepted = next_tick state.accepted in
                        let ci = A_COMMIT_UPDATE (n_accepted, u, state.cur_cli_req) in
-                       ch_all, None, [ci], None
+                       ch_all, None, [ci], None, []
                 else
-                  new_input_ch, state.prop, [], state.cur_cli_req
+                  new_input_ch, state.prop, [], state.cur_cli_req, new_votes
               end
             in  
             let new_state = {
               state with
-              votes        = new_votes;
+              votes        = vs;
               prop         = new_prop;
               cur_cli_req  = new_cli_req;
               valid_inputs = new_input_ch;
@@ -564,14 +584,23 @@ module MULTI = struct
         | (N_BEHIND, _, A_COMMITABLE) -> StepFailure "Accepted with future n, same i"
     end
   
+  type elections_needed =
+    | LEASE_NEW
+    | LEASE_EXTEND
+    | LEASE_NOP
+
+
   let should_elections_start state =
-    state.now > state.lease_expiration
-    ||
-    begin
-      match state.master_id with
-        | Some m -> m = state.constants.me
-        | None -> true 
-    end
+    if state.now > state.lease_expiration 
+    then LEASE_NEW
+    else
+      begin
+        match state.master_id with
+          | Some m when m = state.constants.me -> LEASE_EXTEND 
+          | _ -> LEASE_NOP   
+      end
+      
+    
   
   let start_elections new_n state = 
     let msg = M_PREPARE (state.constants.me, new_n, (next_tick state.accepted)) in
@@ -593,15 +622,22 @@ module MULTI = struct
         | (N_AHEAD , _, _) -> StepSuccess([], state)
         | (N_EQUAL , _, _) ->
           begin
-            if should_elections_start state
-            then
-              begin
-                let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
-                start_elections new_n state
-              end
-            else
-              let lease_timer = build_lease_timer n state.constants.lease_duration in
-              StepSuccess([lease_timer], state)
+            match should_elections_start state
+            with
+              | LEASE_NEW ->
+                begin
+                  let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
+                  start_elections new_n state
+                end
+              | LEASE_EXTEND ->
+                begin
+                  let d = state.constants.lease_duration  in
+                  let l = A_STORE_LEASE (state.constants.me, state.now +. d) in
+                  let t = A_START_TIMER (state.round, d /. 2.0) in
+                  let actions = l :: t :: (bcast_mset_actions state) in
+                  StepSuccess (actions,state)
+                end
+              | LEASE_NOP -> StepSuccess([], state)
           end
     end
 
@@ -642,6 +678,23 @@ module MULTI = struct
           end
     end
 
+  let handle_masterset n src state =
+    begin
+      match state.state_n with
+        | S_SLAVE ->
+          begin
+            if state.round = n 
+            then
+              let d = state.constants.lease_duration in
+              let l = A_STORE_LEASE (src, state.now +. d) in
+              let t = A_START_TIMER (n, d) in
+              StepSuccess ([l;t], state)
+            else
+              StepSuccess ([], state)
+          end
+        | _ -> StepSuccess([], state) 
+    end
+    
   let step msg state =
     match msg with
       | M_PREPARE (src, n, i) -> handle_prepare n i src state
@@ -651,6 +704,7 @@ module MULTI = struct
       | M_ACCEPTED (src, n, i) -> handle_accepted n i src state
       | M_LEASE_TIMEOUT n -> handle_lease_timeout n state
       | M_CLIENT_REQUEST (w, upd) -> handle_client_request w upd state
+      | M_MASTERSET (src, n) -> handle_masterset n src state
 end 
 
 module type MP_ACTION_DISPATCHER = sig
