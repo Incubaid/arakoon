@@ -177,7 +177,7 @@ let multi_driver_serve drivers_with_states step_cnt =
   let rec do_step drivers_with_states = function
     | 0 -> _log "All done with multi_driver_serve\n"
     | i -> 
-      let now = float_of_int (step_cnt - i) in 
+      let now = Some (float_of_int (step_cnt - i)) in 
       let (rdy_dr, rdy_st), rest, now = pick_first now [] drivers_with_states in
       SMDriver.step rdy_dr rdy_st now >>= fun new_s ->
       let () = MPTestDispatch.update_state rdy_dr.action_dispatcher new_s in
