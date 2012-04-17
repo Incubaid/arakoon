@@ -207,14 +207,14 @@ def test_restart_single_slave_short ():
     C.restart_single_slave_scenario( 2, 100 )
 
 
-def test_daemon_version () :
+def test_show_version () :
     cmd = [CONFIG.binary_full_path,'--version']
     X.logging.debug("cmd = %s", cmd)
     stdout = X.subprocess.check_output(cmd)
     X.logging.debug( "STDOUT: \n%s" % stdout )
     version = stdout.split('"') [1]
     assert_not_equals( "000000000000", version, "Invalid version 000000000000" )
-    local_mods = version.find ("+") 
+    local_mods = version.find ("dirty") 
     assert_equals( local_mods, -1, "Invalid daemon, built with local modifications")
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )

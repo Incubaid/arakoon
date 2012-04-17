@@ -324,6 +324,7 @@ let rec pass_msg msging q target =
 
 type action_type =
   | ShowUsage
+  | ShowVersion
   | RunNode
   | InitDb
 
@@ -365,6 +366,11 @@ let init_db myname config_file =
   split_cfgs cfg myname >>= fun (_, mycfg) ->
   let fn = get_db_name mycfg myname in
   BStore.init fn
+
+let show_version ()=
+  Lwt_io.printlf "git_info: %S" Version.git_info >>= fun () ->
+  Lwt_io.printlf "compiled: %S" Version.compile_time >>= fun () ->
+  Lwt_io.printlf "machine: %S" Version.machine 
   
 let main_t () =
   let node_id = ref "" 
@@ -375,7 +381,7 @@ let main_t () =
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
     ("--node", 
-     Arg.Tuple [set_action (RunNode); Arg.Set_string node_id;],
+     Arg.Tuple [set_action RunNode; Arg.Set_string node_id;],
      "Runs a node");
     ("-config", Arg.Set_string config_file,
      "Specifies config file (default = cfg/arakoon.ini)");
@@ -383,7 +389,10 @@ let main_t () =
      "add if you want the process to daemonize (only for --node)");
     ("--init-db", 
      Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
-     "Initialize the database for the given node")
+     "Initialize the database for the given node");
+    ("--version",
+     Arg.Tuple [set_action ShowVersion],
+     "returns version info")
   ] in
   
   Arg.parse actions  
@@ -394,6 +403,7 @@ let main_t () =
       | RunNode -> run_node !node_id !config_file !daemonize
       | ShowUsage -> Lwt.return (Arg.usage actions "")
       | InitDb -> init_db !node_id !config_file
+      | ShowVersion -> show_version()
   end
 
 let () =  Lwt_main.run (main_t())
