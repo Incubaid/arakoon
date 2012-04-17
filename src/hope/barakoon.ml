@@ -305,15 +305,20 @@ let create_driver disp q =
 let build_start_state store mycfg others =
   let n = Core.start_tick in
   BStore.last_update store >>= fun m_last ->
-  let i,u =
+  let p, a, u =
     begin
       match m_last with
-        | Some (i_time, u) -> Core.TICK i_time, Some u
-        | None -> Core.start_tick, None
+        | Some (i_time, u) -> 
+          begin
+            match u with
+              | None -> i_time, i_time, None
+              | _ -> i_time, (Core.prev_tick i_time), u
+          end
+        | None -> Core.start_tick, Core.start_tick, None
     end
   in
   let c = build_mpc mycfg others in
-  let s = MULTI.build_state c n i i u in
+  let s = MULTI.build_state c n p a u in
   Lwt.return s 
 
 let rec pass_msg msging q target =

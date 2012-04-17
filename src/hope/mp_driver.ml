@@ -74,9 +74,10 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
           failwith msg
         | P.StepSuccess (actions, s') ->
           let after_msg = Printf.sprintf "AFTER STEP    : %s" (P.state2s s') in
+          _log "%s\n%s" before_msg after_msg  >>= fun () ->
           Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
           let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
-          _log "%s\n%s\n%s" before_msg after_msg final_state >>= fun () ->
+          _log "%s" final_state >>= fun () ->
           Lwt.return s''
     end
                  

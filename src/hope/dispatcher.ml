@@ -130,8 +130,8 @@ module ADispatcher (S:STORE)  = struct
           lease_expiration = e;
           master_id = Some m;
         }
-    | _ -> 
-      failwith "Unknown action type"
+    | A_RESYNC tgt -> 
+      failwith "Resync not implemented"
 
 
 end

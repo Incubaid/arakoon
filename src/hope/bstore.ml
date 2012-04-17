@@ -52,16 +52,25 @@ module BStore = (struct
     begin
       match m_last with
         | None -> Lwt.return None
-        | Some (i_time, ups) ->
+        | Some (i_time, ups, committed) ->
           begin
+            let i_time = TICK i_time in
             match ups with
               | [] ->
                 failwith "No update logged???" 
               | u :: [] ->
-                Lwt.return (Some (i_time, convert_update u))
+                if committed
+                then
+                  Lwt.return (Some (i_time, None))
+                else 
+                  Lwt.return (Some (i_time, Some (convert_update u)))
               | _ ->
-                let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
-                Lwt.return (Some (i_time, Core.SEQUENCE convs))
+                if committed
+                then
+                  Lwt.return (Some (i_time, None))
+                else
+                  let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
+                  Lwt.return (Some (i_time, Some (Core.SEQUENCE convs)))
           end
           
     end
