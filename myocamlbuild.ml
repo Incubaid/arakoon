@@ -4,7 +4,7 @@ open Unix
 
 let pdflatex = A"pdflatex"
 let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
-let tc_home ="3rd-party/tokyocabinet-1.4.47"
+
 (* ocamlfind command *)
 let ocamlfind x = S[A"ocamlfind"; x]
 
@@ -132,15 +132,12 @@ let _ = dispatch & function
       (* how to compile C stuff that needs tc *)
     flag ["compile"; "c";]
       (S[
-	A"-ccopt";A( "-I" ^ tc_home);
 	A"-ccopt";A"-I../src/tools";
       ]);
     flag ["compile";"c";]
       (S[
 	A"-ccopt";A"-msse4.2";
       ]);
-
-    dep ["ocaml";"link";"is_main"]["src/otc/libotc.a"];
 
     dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
@@ -150,9 +147,6 @@ let _ = dispatch & function
 	(*A"-ccopt"; A("-L" ^ tc_home);*)
 	(*A"-ccopt"; A"-ltokyocabinet";*)
 	A"src/libcutil.a";
-	A"src/otc/libotc.a";
-	A (tc_home ^ "/libtokyocabinet.a");
-	
        ]);
     flag ["ocaml";"compile";] (S[A"-thread"]);
 
@@ -161,8 +155,6 @@ let _ = dispatch & function
     flag ["ocaml";"compile";"warn_error"]
        (S[A"-warn-error";A"A"]);
 
-    (* dependency of wrapper on tc *)
-    dep ["compile";"c";"file:src/otc/otc_wrapper.c"][tc_home ^ ".make"];
 
     flag ["pp"; "camlp4of"] & S[A"-loc"; A"loc"] ;
 
