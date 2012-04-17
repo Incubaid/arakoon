@@ -10,10 +10,10 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a
+	ocamlbuild -use-ocamlfind barakoon.native
 
 test:
-	./arakoon.native --run-all-tests
+	./barakoon.native --run-all-tests
 
 install: install_client install_server
 
@@ -46,7 +46,7 @@ coverage:
 	-tag 'package(bisect)' \
 	-tag 'syntax(camlp4o)' \
 	-tag 'syntax(bisect_pp)' \
-	arakoon.d.byte
+	barakoon.d.byte
 
 .PHONY: install test build install_client
          
