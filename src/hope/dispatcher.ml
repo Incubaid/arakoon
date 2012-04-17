@@ -37,7 +37,7 @@ module ADispatcher (S:STORE)  = struct
     
   let get t k = S.get t.store k 
 
-  let last_entries (t:t) (i:Core.tick) (oc:Lwt_io.output) = S.last_entries t.store i oc
+  let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
     
   let create msging s tq=  

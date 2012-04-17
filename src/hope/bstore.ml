@@ -4,6 +4,12 @@ open Baardskeerder
 
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
+
+let output_action (oc:Llio.lwtoc) (action:action) = 
+  match action with
+    | Set (k,v) -> Lwt.return () 
+    | Delete k  -> Lwt.return ()
+
 module BStore = (struct
   type t = { m: Lwt_mutex.t; store: BS.t;}
 
@@ -75,9 +81,18 @@ module BStore = (struct
           
     end
       
-  let get t k = 
-    BS.get_latest t.store (pref_key k) 
+  let get t k = BS.get_latest t.store (pref_key k) 
 
-  let last_entries t i oc = Llio.lwt_failfmt "todo"
+  let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
+    let TICK i0 = t0 in
+    let f acc i actions = 
+      Llio.output_int64 oc i >>= fun () ->
+      Llio.output_list output_action oc actions >>= fun () ->
+      Lwt.return acc 
+    in
+    let a0 = () in
+    Lwt_mutex.with_lock t.m (fun () -> BS.catchup t.store i0 f a0) >>= fun a ->
+    Lwt.return ()
+
 end)
 

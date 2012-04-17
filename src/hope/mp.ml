@@ -712,5 +712,5 @@ module type MP_ACTION_DISPATCHER = sig
   val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
   val get : t -> Core.k -> Core.v Lwt.t
   val get_meta : t -> string option Lwt.t
-  val last_entries : t -> Core.tick -> Lwt_io.output -> unit Lwt.t
+  val last_entries : t -> Core.tick -> Llio.lwtoc -> unit Lwt.t
 end
