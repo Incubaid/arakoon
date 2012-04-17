@@ -27,7 +27,8 @@ module BStore = (struct
       Lwt.return Core.UNIT 
     )
     
-    
+  let close t = BS.close t.store
+  
   let log t d u =
     let _exec tx =
       begin 

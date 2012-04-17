@@ -160,7 +160,7 @@ let create_store cfg myname =
 let create_timeout_q () =
   PQ.create ()
   
-let create_dispatcher cluster_id myname mycfg others store msging =
+let create_dispatcher store msging =
   let timeout_q = create_timeout_q () in
   let disp = DISPATCHER.create msging store timeout_q in
   (disp, timeout_q)
@@ -239,7 +239,7 @@ let run_node myname config_file daemonize =
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
   create_store mycfg myname >>= fun store ->
-  let disp, q = create_dispatcher cluster_id myname mycfg others store msging in
+  let disp, q = create_dispatcher store msging in
   let driver = create_driver disp q in
   let service driver = server_t driver mycfg.ip mycfg.client_port in
   log_prelude () >>= fun () ->
@@ -248,11 +248,17 @@ let run_node myname config_file daemonize =
   DRIVER.push_msg driver timeout ;
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
   let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
-  Lwt.pick [ DRIVER.serve driver s None ;
+  Lwt.finalize
+  ( fun () ->
+    Lwt.pick [ DRIVER.serve driver s None ;
              service driver;
              msging # run ();
              Lwt.join pass_msgs
-           ];;
+             ]
+  ) ( fun () ->
+    BStore.close store 
+  )
+  ;;
 
 let init_db myname config_file =
   let cfg = read_config config_file in
