@@ -1,8 +1,7 @@
 open Bstore
 open Mp_driver
-open Dispatcher
 
-module BADispatcher = ADispatcher(BStore)
+module BADispatcher = Dispatcher.ADispatcher(BStore)
 module FSMDriver = MPDriver(BADispatcher)
 
 module DISPATCHER = BADispatcher

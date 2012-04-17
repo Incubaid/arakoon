@@ -77,6 +77,7 @@ module BStore = (struct
       
   let get t k = 
     BS.get_latest t.store (pref_key k) 
-  
+
+  let last_entries t i oc = Llio.lwt_failfmt "todo"
 end)
 

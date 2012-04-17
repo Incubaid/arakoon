@@ -38,6 +38,9 @@ let _delete driver k =
 let _get driver k = DRIVER.get driver k
   
 let _get_meta driver = DRIVER.get_meta driver 
+
+let _last_entries driver i oc = Llio.lwt_failfmt "todo"
+
   
 let one_command driver ((ic,oc) as conn) = 
   Client_protocol.read_command conn >>= fun comm ->
@@ -86,6 +89,13 @@ let one_command driver ((ic,oc) as conn) =
             Client_protocol.response_rc_string oc 0l value)
           (Client_protocol.handle_exception oc)
       end 
+    | LAST_ENTRIES ->
+      begin
+        Sn.input_sn ic >>= fun i ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        _last_entries driver i oc >>= fun () ->
+        Lwt.return false
+      end
         
 let protocol driver (ic,oc) =   
   let rec loop () = 

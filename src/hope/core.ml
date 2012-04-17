@@ -90,4 +90,5 @@ module type STORE = sig
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
 
+  val last_entries: t -> tick -> Lwt_io.output -> unit Lwt.t
 end
