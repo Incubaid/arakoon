@@ -244,13 +244,13 @@ let run_node myname config_file daemonize =
   let service driver = server_t driver mycfg.ip mycfg.client_port in
   log_prelude () >>= fun () ->
   build_start_state store mycfg others >>= fun s ->
-  let timeout = MULTI.M_LEASE_TIMEOUT Core.start_tick in
-  DRIVER.push_msg driver timeout ;
+  let delayed_timeout = MULTI.A_START_TIMER (Core.start_tick, float_of_int mycfg.lease_period) in
+  DRIVER.dispatch driver s delayed_timeout >>= fun s' ->
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
   let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
   Lwt.finalize
   ( fun () ->
-    Lwt.pick [ DRIVER.serve driver s None ;
+    Lwt.pick [ DRIVER.serve driver s' None ;
              service driver;
              msging # run ();
              Lwt.join pass_msgs
