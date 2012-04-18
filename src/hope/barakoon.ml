@@ -133,10 +133,10 @@ let mc_server_t hub =
   inner ()
 *)
 let log_prelude () = 
-  _log "--- NODE STARTED ---" >>= fun () ->
-  _log "git info: %s " Version.git_info >>= fun () ->
-  _log "compile_time: %s " Version.compile_time >>= fun () ->
-  _log "machine: %s " Version.machine 
+  Lwtc.log "--- NODE STARTED ---" >>= fun () ->
+  Lwtc.log "git info: %s " Version.git_info >>= fun () ->
+  Lwtc.log "compile_time: %s " Version.compile_time >>= fun () ->
+  Lwtc.log "machine: %s " Version.machine 
 
 let create_msging me others cluster_id =
   let cookie = cluster_id in
@@ -298,10 +298,8 @@ let get cfg_name k =
 
 let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
 
-let benchmark cfg_name = 
-  let size = 1024
-  and tx_size = 100 
-  and max_n = 1000 * 1000
+let benchmark cfg_name max_n size = 
+  let tx_size = 100 
   and n_clients = 1 
   in
   let with_c = Client_main.with_master_client cfg_name in
@@ -315,6 +313,8 @@ let main_t () =
   and daemonize = ref false
   and key = ref ""
   and value = ref ""
+  and max_n = ref (1000 * 1000)
+  and value_size = ref 1024 
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -341,6 +341,10 @@ let main_t () =
      "<key>: delete arakoon[key]");
     ("--benchmark", Arg.Tuple [set_action Benchmark],
      "runs a benchmark against an existing cluster");
+    ("-max_n", Arg.Tuple[Arg.Set_int max_n], 
+     ": loop size (benchmark only) default=" ^ (string_of_int !max_n));
+    ("-value_size", Arg.Tuple[Arg.Set_int value_size], 
+     ": size of values (benchmark only) default=" ^ (string_of_int !value_size)) 
   ] in
   
   Arg.parse actions  
@@ -355,7 +359,7 @@ let main_t () =
       | Set -> set !config_file !key !value
       | Get -> get !config_file !key
       | Delete -> delete !config_file !key
-      | Benchmark -> benchmark !config_file
+      | Benchmark -> benchmark !config_file !max_n !value_size
   end
 
 let () =  Lwt_main.run (main_t())

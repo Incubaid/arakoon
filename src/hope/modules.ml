@@ -8,4 +8,4 @@ module DISPATCHER = BADispatcher
 module DRIVER = FSMDriver
 
 
-let _log f =  Printf.kprintf Lwt_io.printl f
+
