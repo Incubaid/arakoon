@@ -222,6 +222,8 @@ type action_type =
   | InitDb
   | Set
   | Get
+  | Delete
+  | Benchmark
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -275,11 +277,24 @@ let show_version ()=
   
 let set cfg_name k v =
   Client_main.with_master_client cfg_name (fun client -> client # set k v)
+
 let get cfg_name k = 
   Client_main.with_master_client cfg_name 
     (fun client -> client # get k >>= fun v -> 
       Lwt_io.printlf "%S" v
     )
+
+let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
+
+let benchmark cfg_name = 
+  let size = 1024
+  and tx_size = 100 
+  and max_n = 1000 * 1000
+  and n_clients = 1 
+  in
+  let with_c = Client_main.with_master_client cfg_name in
+  Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
+
 
 let main_t () =
   let node_id = ref "" 
@@ -309,7 +324,11 @@ let main_t () =
     );
     ("--get", Arg.Tuple[set_action Get; Arg.Set_string key;],
      "<key> : returns arakoon[key]"
-    )
+    );
+    ("--delete", Arg.Tuple[set_action Delete;Arg.Set_string key;],
+     "<key>: delete arakoon[key]");
+    ("--benchmark", Arg.Tuple [set_action Benchmark],
+     "runs a benchmark against an existing cluster");
   ] in
   
   Arg.parse actions  
@@ -323,6 +342,8 @@ let main_t () =
       | ShowVersion -> show_version()
       | Set -> set !config_file !key !value
       | Get -> get !config_file !key
+      | Delete -> delete !config_file !key
+      | Benchmark -> benchmark !config_file
   end
 
 let () =  Lwt_main.run (main_t())
