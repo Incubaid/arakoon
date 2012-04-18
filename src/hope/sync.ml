@@ -1,7 +1,11 @@
 open Lwt
 open Bstore
 
-let iterate (sa:Unix.sockaddr) (i0:int64) (f: 'a -> int64 -> Baardskeerder.action list -> 'a Lwt.t) a0 =
+let iterate (sa:Unix.sockaddr) cluster_id 
+    (i0:int64) 
+    (f: 'a -> int64 -> Baardskeerder.action list -> 'a Lwt.t) 
+    a0 
+    =
   let outgoing buf =
     Common.command_to buf Common.LAST_ENTRIES;
     Llio.int64_to buf i0
@@ -35,12 +39,13 @@ let iterate (sa:Unix.sockaddr) (i0:int64) (f: 'a -> int64 -> Baardskeerder.actio
   in    
   Lwt_io.with_connection sa
     (fun (ic,oc) ->
-      Common.prologue "ricky"  (ic,oc) >>= fun () ->
+      Common.prologue cluster_id  (ic,oc) >>= fun () ->
       Common.request oc outgoing >>= fun () ->
       Common.response ic incoming
     )
 
-let sync sa log =
+let sync ip port cluster_id log =
+  let sa = Network.make_address ip port in
   begin
     BS.last_update log >>= fun uo ->
     let i0 = match uo with 
@@ -54,7 +59,7 @@ let sync sa log =
         | Baardskeerder.Delete k  -> BS.delete tx k
       ) acs
     in 
-    iterate sa i0 
+    iterate sa cluster_id i0 
       (fun a i acs -> 
         BS.log_update log ~diff:true 
           (fun tx -> do_actions tx acs)) 
