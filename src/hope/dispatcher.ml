@@ -111,12 +111,12 @@ module ADispatcher (S:STORE)  = struct
         proposed = i
       } in
       Lwt.return s'
-    | A_START_TIMER (n, d) ->
+    | A_START_TIMER (n, m, d) ->
       let _log f = Printf.kprintf Lwt_io.printl f in
       _log "STARTING TIMER (n: %s) (d: %f)" (tick2s n) d >>= fun () ->
       let alarm () =
         Lwt_unix.sleep d >>= fun () ->
-        let msg = M_LEASE_TIMEOUT n in
+        let msg = M_LEASE_TIMEOUT (n, m) in
         PQ.push t.timeout_q msg;
         Lwt.return ()
       in
