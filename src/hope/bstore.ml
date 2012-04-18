@@ -7,8 +7,17 @@ module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt)
 
 let output_action (oc:Llio.lwtoc) (action:action) = 
   match action with
-    | Set (k,v) -> Lwt.return () 
-    | Delete k  -> Lwt.return ()
+    | Set (k,v) -> 
+      begin
+        Lwt_io.write_char oc 's' >>= fun () ->
+        Llio.output_string oc k >>= fun () ->
+        Llio.output_string oc v 
+      end
+    | Delete k  -> 
+      begin
+        Lwt_io.write_char oc 'd' >>= fun () ->
+        Llio.output_string oc k 
+      end
 
 module BStore = (struct
   type t = { m: Lwt_mutex.t; store: BS.t;}
