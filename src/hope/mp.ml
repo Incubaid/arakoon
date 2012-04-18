@@ -488,9 +488,9 @@ module MULTI = struct
     let diff = state_cmp n i state in
     match diff with
       | (_, P_BEHIND, _) -> StepFailure "Got promise from more recent node."
-      | (N_BEHIND, _, _) -> StepSuccess([], state)
+      | (N_BEHIND, _, _) 
       | (N_AHEAD, _, _) ->  StepSuccess([], state)
-      | (N_EQUAL, _, _) ->
+      | (N_EQUAL, _, A_COMMITABLE) ->
         begin
           match state.state_n with
             | S_RUNNING_FOR_MASTER ->
@@ -544,6 +544,7 @@ module MULTI = struct
             | S_MASTER   -> StepSuccess ([], state) (* already reached consensus *) 
             | S_CLUELESS -> StepFailure "I'm clueless so I did not send prepare for this n"
         end 
+      | (N_EQUAL, _, _) ->  StepSuccess([], state)
   
   let handle_nack n i src state =
     let diff = state_cmp n i state in
