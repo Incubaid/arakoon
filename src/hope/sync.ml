@@ -42,7 +42,12 @@ let iterate (sa:Unix.sockaddr) (i0:int64) (f: 'a -> int64 -> Baardskeerder.actio
 
 let sync sa log =
   begin
-    let i0 = 0L in
+    BS.last_update log >>= fun uo ->
+    let i0 = match uo with 
+      | None -> 0L 
+      | Some (i,_,is_explicit) ->
+        if is_explicit then i else (Int64.pred i) 
+    in
     let do_actions (tx:BS.tx) acs = Lwt_list.iter_s 
       (function
         | Baardskeerder.Set (k,v) -> BS.set tx k v
@@ -57,24 +62,3 @@ let sync sa log =
     >>= fun () ->
     Lwt.return ()
   end
-
-let main ip port i0 = 
-  let sa = Network.make_address ip port in
-  let action2s = function
-    | Baardskeerder.Set (k,v) -> Printf.sprintf "Set(%S,%S)" k v
-    | Baardskeerder.Delete k  -> Printf.sprintf "Delete %S" k
-  in
-  let alist2s acs = String.concat ";" (List.map action2s acs) in
-
-  let t () = 
-    let fn = "bla.bs" in
-    BS.init fn >>= fun () ->
-    BS.make fn >>= fun log ->
-    sync sa log >>= fun () ->
-    BS.close log
-  in
-  Lwt_main.run (t ())
-
-
-let _ = main "127.0.0.1" 4000 0L;;
-    
