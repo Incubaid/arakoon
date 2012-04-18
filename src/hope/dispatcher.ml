@@ -31,6 +31,7 @@ module ADispatcher (S:STORE)  = struct
     msg : Messaging.messaging;
     timeout_q : message PQ.q;
     mutable meta : string option;
+    resyncs : (node_id, (S.t -> unit Lwt.t)) Hashtbl.t ; 
   }
   
   let get_meta t = Lwt.return t.meta
@@ -39,18 +40,17 @@ module ADispatcher (S:STORE)  = struct
 
   let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
-    
-  let create msging s tq=  
+  let create msging s tq resyncs=  
   {
     store = s;
     msg = msging;  
     timeout_q = tq;
-    meta = None
+    meta = None;
+    resyncs = resyncs;
   }
   
   let send_msg t src dst msg =
     t.msg # send_message msg src dst 
-  
   
   let log_update t i u = 
     S.log t.store i u
@@ -133,7 +133,9 @@ module ADispatcher (S:STORE)  = struct
           master_id = Some m;
         }
     | A_RESYNC tgt -> 
-      failwith "Resync not implemented"
+      let resync = Hashtbl.find t.resyncs tgt in
+      resync t.store >>= fun () ->
+      Lwt.return s
 
 
 end

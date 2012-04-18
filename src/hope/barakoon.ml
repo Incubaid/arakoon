@@ -160,9 +160,9 @@ let create_store cfg myname =
 let create_timeout_q () =
   PQ.create ()
   
-let create_dispatcher store msging =
-  let timeout_q = create_timeout_q () in
-  let disp = DISPATCHER.create msging store timeout_q in
+let create_dispatcher store msging resyncs =
+  let timeout_q = create_timeout_q () in 
+  let disp = DISPATCHER.create msging store timeout_q resyncs in
   (disp, timeout_q)
 
 let range n = 
@@ -236,6 +236,17 @@ let split_cfgs cfg myname =
         Llio.lwt_failfmt "Node '%s' occurs multiple times in config" myname
   end
 
+let create_resyncs others cluster_id =
+  let resyncs = Hashtbl.create (List.length others) in
+  let extract_name_ip_port cfg = (cfg.node_name, cfg.ip, cfg.client_port) in
+  List.iter 
+    (fun cfg -> 
+      let (n, ip, port) = extract_name_ip_port cfg in
+      Hashtbl.replace resyncs n (Sync.sync ip port cluster_id)
+    )
+    others;
+  resyncs
+
 let run_node myname config_file daemonize =          
   let cfg = read_config config_file in
   let () = if daemonize then Lwt_daemon.daemonize () in
@@ -243,7 +254,8 @@ let run_node myname config_file daemonize =
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
   create_store mycfg myname >>= fun store ->
-  let disp, q = create_dispatcher store msging in
+  let resyncs = create_resyncs others cluster_id in
+  let disp, q = create_dispatcher store msging resyncs in
   let driver = create_driver disp q in
   let service driver = server_t driver mycfg.ip mycfg.client_port in
   log_prelude () >>= fun () ->
