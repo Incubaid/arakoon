@@ -735,7 +735,7 @@ module MULTI = struct
   let handle_masterset n src state =
     begin
       match state.state_n with
-        | S_SLAVE ->
+        | S_SLAVE when state.round = n ->
           begin
             if state.round = n 
             then
