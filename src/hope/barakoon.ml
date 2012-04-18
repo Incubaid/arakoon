@@ -221,6 +221,7 @@ type action_type =
   | RunNode
   | InitDb
   | Set
+  | Get
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -259,7 +260,7 @@ let run_node myname config_file daemonize =
   ) ( fun () ->
     BStore.close store 
   )
-  ;;
+
 
 let init_db myname config_file =
   let cfg = read_config config_file in
@@ -273,8 +274,12 @@ let show_version ()=
   Lwt_io.printlf "machine: %S" Version.machine 
   
 let set cfg_name k v =
-  Client_main.with_master_client cfg_name (fun  (client:Arakoon_client.client) -> client # set k v)
-
+  Client_main.with_master_client cfg_name (fun client -> client # set k v)
+let get cfg_name k = 
+  Client_main.with_master_client cfg_name 
+    (fun client -> client # get k >>= fun v -> 
+      Lwt_io.printlf "%S" v
+    )
 
 let main_t () =
   let node_id = ref "" 
@@ -301,6 +306,9 @@ let main_t () =
      "returns version info");
     ("--set", Arg.Tuple[set_action Set; Arg.Set_string key; Arg.Set_string value],
      "<key> <value> : arakoon[key]:= value"
+    );
+    ("--get", Arg.Tuple[set_action Get; Arg.Set_string key;],
+     "<key> : returns arakoon[key]"
     )
   ] in
   
@@ -314,6 +322,7 @@ let main_t () =
       | InitDb -> init_db !node_id !config_file
       | ShowVersion -> show_version()
       | Set -> set !config_file !key !value
+      | Get -> get !config_file !key
   end
 
 let () =  Lwt_main.run (main_t())
