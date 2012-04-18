@@ -22,9 +22,9 @@ pwd = os.getcwd()
 paths = ':'.join(map (lambda x: pwd + x, ['/pylabs','/pylabs/extensions']))
 print paths
 env ['PYTHONPATH'] = paths
-cmd = ['nosetests']
+cmd = ['nosetests', '-w', 'test']
 rest = sys.argv[1:]
-cmd.extend(sys.argv[1:])
+cmd.extend(rest)
 subprocess.call(cmd, 
                 cwd = './pylabs',
                 env = env
