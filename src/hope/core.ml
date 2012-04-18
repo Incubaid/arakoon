@@ -62,6 +62,7 @@ let rec update_from buf off =
       
           
     | i -> failwith "Unknown update type"
+
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
@@ -90,5 +91,33 @@ module type STORE = sig
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
 
-  val last_entries: t -> tick -> Llio.lwtoc -> unit Lwt.t
+  val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
 end
+
+let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 
+  let (>>=) = Lwt.(>>=) in
+  match action with
+    | Baardskeerder.Set (k,v) -> 
+      begin
+        Lwt_io.write_char oc 's' >>= fun () ->
+        Llio.output_string oc k >>= fun () ->
+        Llio.output_string oc v 
+      end
+    | Baardskeerder.Delete k  -> 
+      begin
+        Lwt_io.write_char oc 'd' >>= fun () ->
+        Llio.output_string oc k 
+      end
+
+let input_action (ic:Lwtc.ic) = 
+  let (>>=) = Lwt.(>>=) in
+  Lwt_io.read_char ic >>= function
+    | 's' -> 
+      Llio.input_string ic >>= fun k ->
+      Llio.input_string ic >>= fun v ->
+      Lwt.return (Baardskeerder.Set(k,v))
+    | 'd' ->
+      Llio.input_string ic >>= fun k ->
+      Lwt.return (Baardskeerder.Delete k)
+    | c -> Llio.lwt_failfmt "input_action '%C' does not yield an action" c
+
