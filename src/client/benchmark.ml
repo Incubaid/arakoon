@@ -98,7 +98,7 @@ let _fill client max_n size (t0:float) (oc:Lwt_io.output_channel) =
   loop 0
 
 let _fill_transactions client max_n tx_size size (t0:float) oc =
-  Lwt_io.fprintlf oc "(started @ %f)" (Unix.gettimeofday()) >>= fun () ->
+  Lwt_io.fprintlf oc "(started @ %f)%!" (Unix.gettimeofday()) >>= fun () ->
   let n_transactions = (max_n + tx_size -1) / tx_size in
   let v0 = String.make  (size -8) 'x' in
   let rec loop_t i = 
@@ -153,20 +153,20 @@ let benchmark
   let phase_0 client oc = 
     client # who_master () >>= fun master ->
     Lwt_io.fprintlf oc "Master %s; size=%i" 
-      (Log_extra.string_option_to_string master)
+      (Log_extra.string_option_to_string master) 
       sz
   in
   let phase_1 client oc = 
-    Lwt_io.fprintlf oc "going to do %i 'sets' of %i bytes" max_n sz >>= fun () ->
+    Lwt_io.fprintlf oc "going to do %i 'sets' of %i bytes%!" max_n sz >>= fun () ->
     _time (_fill client max_n sz) oc >>= fun d ->
-    Lwt_io.fprintlf oc "\nfill %i took: %f" max_n d  >>= fun () ->
+    Lwt_io.fprintlf oc "\nfill %i took: %f%!" max_n d  >>= fun () ->
     Lwt.return ()
   in
   let phase_2 client oc = 
-    Lwt_io.fprintlf oc "\n\ngoing to do %i 'sets' in transactions of size %i"  
+    Lwt_io.fprintlf oc "\n\ngoing to do %i 'sets' in transactions of size %i%!"  
       max_n tx_size >>= fun () ->
     _time (_fill_transactions client max_n tx_size sz) oc >>= fun d ->
-    Lwt_io.fprintlf oc "\nfill_transactions %i took : %f" max_n d 
+    Lwt_io.fprintlf oc "\nfill_transactions %i took : %f%!" max_n d 
   in
   let phase_3 client oc = 
     Lwt_io.fprintlf oc "\n\ngoing to %i gets of random keys" max_n >>= fun () ->
@@ -184,17 +184,21 @@ let benchmark
     Lwt_io.fprintlf oc "range" >>= fun () ->
     _range client ()
   in
-  let do_one phase fn =
-    Lwt_io.printlf "do_one %s" fn >>= fun () ->
-    Lwt_io.with_file 
-      ~flags:[Unix.O_WRONLY;Unix.O_APPEND;Unix.O_CREAT]
-      ~mode:Lwt_io.output
-      fn
-      (fun oc ->
-	with_c (fun (client:Arakoon_client.client) -> phase client oc) 
+  let do_one phase_name phase fn =
+    Lwt_io.printlf "%s:%s%!" phase_name fn >>= fun () ->
+    Lwt.catch
+      (fun () ->
+        Lwt_io.with_file 
+          ~flags:[Unix.O_WRONLY;Unix.O_APPEND;Unix.O_CREAT]
+          ~mode:Lwt_io.output
+          fn
+          (fun oc ->
+	    with_c (fun (client:Arakoon_client.client) -> phase client oc) 
+          )
+        >>= fun () ->
+        Lwt.return ()
       )
-    >>= fun () ->
-    Lwt.return ()
+      (fun e -> Lwt_io.printlf "exception:%s%!" (Printexc.to_string e))
     
 
   in
@@ -205,11 +209,11 @@ let benchmark
     in
     build [] n_clients
   in
-  let ts ph = List.map (fun name -> do_one ph name) names in
-  Lwt.join (ts phase_0) >>= fun () ->
-  Lwt.join (ts phase_1) >>= fun () ->
-  Lwt.join (ts phase_2) >>= fun () ->
-  Lwt.join (ts phase_3) >>= fun () ->
-  Lwt.join (ts phase_4) >>= fun () ->
-  Lwt.join (ts phase_5) >>= fun () ->
+  let ts (phase_name, ph) = List.map (fun name -> do_one phase_name ph name) names in
+  Lwt.join (ts ("phase_0", phase_0)) >>= fun () ->
+  Lwt.join (ts ("phase_1", phase_1)) >>= fun () ->
+  Lwt.join (ts ("phase_2", phase_2)) >>= fun () ->
+  Lwt.join (ts ("phase_3", phase_3)) >>= fun () ->
+  Lwt.join (ts ("phase_4", phase_4)) >>= fun () ->
+  Lwt.join (ts ("phase_5", phase_5)) >>= fun () ->
   Lwt.return ()
