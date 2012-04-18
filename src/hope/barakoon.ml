@@ -220,6 +220,7 @@ type action_type =
   | ShowVersion
   | RunNode
   | InitDb
+  | Set
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -271,11 +272,17 @@ let show_version ()=
   Lwt_io.printlf "compiled: %S" Version.compile_time >>= fun () ->
   Lwt_io.printlf "machine: %S" Version.machine 
   
+let set cfg_name k v =
+  Client_main.with_master_client cfg_name (fun  (client:Arakoon_client.client) -> client # set k v)
+
+
 let main_t () =
   let node_id = ref "" 
   and action = ref (ShowUsage) 
   and config_file = ref "cfg/arakoon.ini"
   and daemonize = ref false
+  and key = ref ""
+  and value = ref ""
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -291,7 +298,10 @@ let main_t () =
      "Initialize the database for the given node");
     ("--version",
      Arg.Tuple [set_action ShowVersion],
-     "returns version info")
+     "returns version info");
+    ("--set", Arg.Tuple[set_action Set; Arg.Set_string key; Arg.Set_string value],
+     "<key> <value> : arakoon[key]:= value"
+    )
   ] in
   
   Arg.parse actions  
@@ -303,6 +313,7 @@ let main_t () =
       | ShowUsage -> Lwt.return (Arg.usage actions "")
       | InitDb -> init_db !node_id !config_file
       | ShowVersion -> show_version()
+      | Set -> set !config_file !key !value
   end
 
 let () =  Lwt_main.run (main_t())
