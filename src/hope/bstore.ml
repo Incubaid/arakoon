@@ -59,23 +59,17 @@ module BStore = (struct
         | None -> Lwt.return None
         | Some (i_time, ups, committed) ->
           begin
-            let i_time = TICK i_time in
-            match ups with
-              | [] ->
-                failwith "No update logged???" 
-              | u :: [] ->
-                if committed
-                then
-                  Lwt.return (Some (i_time, None))
-                else 
-                  Lwt.return (Some (i_time, Some (convert_update u)))
-              | _ ->
-                if committed
-                then
-                  Lwt.return (Some (i_time, None))
-                else
-                  let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
-                  Lwt.return (Some (i_time, Some (Core.SEQUENCE convs)))
+            let tick_i = TICK i_time in
+            let cvo = 
+              if committed then None
+              else
+                match ups with
+                  | []      -> failwith "No update logged???" 
+                  | u :: [] -> Some (convert_update u)
+                  | _       -> let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
+                               Some (Core.SEQUENCE convs)
+            in 
+            Lwt.return (Some (tick_i, cvo)) 
           end
           
     end
@@ -85,7 +79,7 @@ module BStore = (struct
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
     let f acc i actions = 
-      Lwt_io.printlf "f ... %Li ..." i >>= fun () ->
+      Lwtc.log "f ... %Li ..." i >>= fun () ->
       Llio.output_int64 oc i >>= fun () ->
       Llio.output_list output_action oc actions >>= fun () ->
       Lwt.return acc 

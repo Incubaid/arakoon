@@ -226,11 +226,9 @@ let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
   begin
     match me_as_list with
-      | [] -> 
-        Llio.lwt_failfmt "Node '%s' does not exist in config" myname 
+      | [] -> Lwtc.failfmt "Node '%s' does not exist in config" myname 
       | cfg :: [] -> Lwt.return (others, cfg)
-      | _ -> 
-        Llio.lwt_failfmt "Node '%s' occurs multiple times in config" myname
+      | _ -> Lwtc.failfmt "Node '%s' occurs multiple times in config" myname
   end
 
 let run_node myname config_file daemonize =          
