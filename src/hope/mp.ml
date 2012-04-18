@@ -1,6 +1,6 @@
 open Core
 
-let _log m = Lwt.ignore_result(Lwt_io.printf m)
+let _log m = Lwt.ignore_result(Lwtc.log m)
  
 module MULTI = struct
   type state_name = 

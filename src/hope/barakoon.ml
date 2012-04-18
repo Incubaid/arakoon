@@ -1,6 +1,6 @@
 open Mem_store 
 open Bstore
-(* open Hub *)
+
 open Lwt
 open Mp_driver
 open Dispatcher
@@ -8,10 +8,7 @@ open Pq
 open Node_cfg.Node_cfg
 open Mp
 
-(*module MyHub = HUB(BStore)*)
-
 open Modules
-
 
 let gen_request_id =
   let c = ref 0 in
@@ -238,6 +235,7 @@ let split_cfgs cfg myname =
 
 let run_node myname config_file daemonize =          
   let cfg = read_config config_file in
+  let () = Lwtc.configure_logging () in
   let () = if daemonize then Lwt_daemon.daemonize () in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 

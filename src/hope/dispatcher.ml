@@ -84,8 +84,7 @@ module ADispatcher (S:STORE)  = struct
       let me = s.constants.me in
       let msg_str = string_of_msg msg in
       let m = MULTI.msg2s msg in
-      let _log f = Printf.kprintf Lwt_io.printl f in
-      _log "SENDING %s to %s" m tgt >>= fun () ->
+      Lwtc.log "SENDING %s to %s" m tgt >>= fun () ->
       send_msg t me tgt msg_str >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
@@ -112,8 +111,7 @@ module ADispatcher (S:STORE)  = struct
       } in
       Lwt.return s'
     | A_START_TIMER (n, d) ->
-      let _log f = Printf.kprintf Lwt_io.printl f in
-      _log "STARTING TIMER (n: %s) (d: %f)" (tick2s n) d >>= fun () ->
+      Lwtc.log "STARTING TIMER (n: %s) (d: %f)" (tick2s n) d >>= fun () ->
       let alarm () =
         Lwt_unix.sleep d >>= fun () ->
         let msg = M_LEASE_TIMEOUT n in
