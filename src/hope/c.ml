@@ -46,7 +46,7 @@ let one_command driver ((ic,oc) as conn) =
   Client_protocol.read_command conn >>= fun comm ->
   match comm with
     | WHO_MASTER ->
-      _log "who master" >>= fun () ->
+      Lwtc.log "who master" >>= fun () ->
       _get_meta driver >>= fun ms ->
       let mo =
         begin 
@@ -71,7 +71,7 @@ let one_command driver ((ic,oc) as conn) =
       begin
         Llio.input_string ic >>= fun key ->
         Llio.input_string ic >>= fun value ->
-        _log "set %S %S" key value >>= fun () ->
+        Lwtc.log "set %S %S" key value >>= fun () ->
         Lwt.catch
           (fun () -> 
             _set driver key value >>= fun () ->
@@ -82,7 +82,7 @@ let one_command driver ((ic,oc) as conn) =
       begin
         Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_string ic >>= fun key ->
-        _log "get %S" key >>= fun () ->
+        Lwtc.log "get %S" key >>= fun () ->
         Lwt.catch 
           (fun () -> 
             _get driver key >>= fun value ->
@@ -93,10 +93,10 @@ let one_command driver ((ic,oc) as conn) =
       begin
         Sn.input_sn ic >>= fun i ->
         Llio.output_int32 oc 0l >>= fun () ->
-        _log "last entries %Li" i >>= fun () ->
+        Lwtc.log "last entries %Li" i >>= fun () ->
         _last_entries driver i oc >>= fun () ->
         Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
-        _log "end of command" >>= fun () ->
+        Lwtc.log "end of command" >>= fun () ->
         Lwt.return false
       end
         
@@ -105,7 +105,7 @@ let protocol driver (ic,oc) =
     begin
       one_command driver (ic,oc) >>= fun stop ->
       if stop
-      then _log "end of session"
+      then Lwtc.log "end of session"
       else 
         begin
           Lwt_io.flush oc >>= fun () ->
@@ -113,8 +113,8 @@ let protocol driver (ic,oc) =
         end
     end
   in
-  _log "session started" >>= fun () ->
+  Lwtc.log "session started" >>= fun () ->
   prologue(ic,oc) >>= fun () -> 
-  _log "prologue ok" >>= fun () ->
+  Lwtc.log "prologue ok" >>= fun () ->
   loop ()
 

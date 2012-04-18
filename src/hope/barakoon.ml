@@ -133,10 +133,10 @@ let mc_server_t hub =
   inner ()
 *)
 let log_prelude () = 
-  _log "--- NODE STARTED ---" >>= fun () ->
-  _log "git info: %s " Version.git_info >>= fun () ->
-  _log "compile_time: %s " Version.compile_time >>= fun () ->
-  _log "machine: %s " Version.machine 
+  Lwtc.log "--- NODE STARTED ---" >>= fun () ->
+  Lwtc.log "git info: %s " Version.git_info >>= fun () ->
+  Lwtc.log "compile_time: %s " Version.compile_time >>= fun () ->
+  Lwtc.log "machine: %s " Version.machine 
 
 let create_msging me others cluster_id =
   let cookie = cluster_id in
