@@ -39,7 +39,7 @@ let _get driver k = DRIVER.get driver k
   
 let _get_meta driver = DRIVER.get_meta driver 
 
-let _last_entries driver i oc = Llio.lwt_failfmt "todo"
+let _last_entries driver i oc = DRIVER.last_entries driver (Core.TICK i) oc
 
   
 let one_command driver ((ic,oc) as conn) = 
@@ -93,7 +93,10 @@ let one_command driver ((ic,oc) as conn) =
       begin
         Sn.input_sn ic >>= fun i ->
         Llio.output_int32 oc 0l >>= fun () ->
+        _log "last entries %Li" i >>= fun () ->
         _last_entries driver i oc >>= fun () ->
+        Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
+        _log "end of command" >>= fun () ->
         Lwt.return false
       end
         

@@ -87,12 +87,15 @@ module BStore = (struct
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
     let f acc i actions = 
+      Lwt_io.printlf "f ... %Li ..." i >>= fun () ->
       Llio.output_int64 oc i >>= fun () ->
       Llio.output_list output_action oc actions >>= fun () ->
       Lwt.return acc 
     in
     let a0 = () in
+    Lwt_io.printlf "Bstore.last_entries %Li" i0 >>= fun () ->
     Lwt_mutex.with_lock t.m (fun () -> BS.catchup t.store i0 f a0) >>= fun a ->
+    Lwt_io.printlf "done">>= fun () ->
     Lwt.return ()
 
 end)
