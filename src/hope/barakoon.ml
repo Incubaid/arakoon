@@ -222,6 +222,7 @@ type action_type =
   | InitDb
   | Set
   | Get
+  | Delete
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -275,11 +276,14 @@ let show_version ()=
   
 let set cfg_name k v =
   Client_main.with_master_client cfg_name (fun client -> client # set k v)
+
 let get cfg_name k = 
   Client_main.with_master_client cfg_name 
     (fun client -> client # get k >>= fun v -> 
       Lwt_io.printlf "%S" v
     )
+
+let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
 
 let main_t () =
   let node_id = ref "" 
@@ -309,7 +313,9 @@ let main_t () =
     );
     ("--get", Arg.Tuple[set_action Get; Arg.Set_string key;],
      "<key> : returns arakoon[key]"
-    )
+    );
+    ("--delete", Arg.Tuple[set_action Delete;Arg.Set_string key;],
+     "<key>: delete arakoon[key]");
   ] in
   
   Arg.parse actions  
@@ -323,6 +329,7 @@ let main_t () =
       | ShowVersion -> show_version()
       | Set -> set !config_file !key !value
       | Get -> get !config_file !key
+      | Delete -> delete !config_file !key
   end
 
 let () =  Lwt_main.run (main_t())
