@@ -171,6 +171,12 @@ module MULTI = struct
   (* let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT] *)
   let ch_node             = [CH_NODE]
   
+  type election_votes = 
+  {
+    nnones : node_id list;
+    nsomes : (update * node_id list) list;
+  }
+  
   type state =
   {
     round             : tick;
@@ -180,6 +186,7 @@ module MULTI = struct
     master_id         : node_id option;
     prop              : update option;
     votes             : node_id list;
+    election_votes    : election_votes;
     now               : float;
     lease_expiration  : float;
     constants         : paxos_constants;
@@ -196,6 +203,7 @@ module MULTI = struct
       master_id = None;
       prop = u;
       votes = [];
+      election_votes = {nnones = []; nsomes = []};
       now = 0.0;
       lease_expiration = 0.0;
       constants = c;
@@ -436,7 +444,46 @@ module MULTI = struct
   let bcast_mset_actions state =
     let msg = M_MASTERSET (state.constants.me, state.round) in
     List.fold_left (fun a n -> A_SEND_MSG(msg, n) :: a) [] state.constants.others
+ 
+  let is_update_equiv left right = 
+    left = right
+  
+  let extract_best_update election_votes =
+    let is_better (best_u, best_cnt, total_cnt) (u, vs) =
+      begin
+        let l = List.length vs in
+        let tc' = total_cnt + l in
+        if l > best_cnt
+        then (Some u, l, tc')
+        else (best_u, best_cnt, tc')
+      end
+    in
+    let (max_u, max_cnt, total_cnt) = 
+        List.fold_left is_better (None, 0, 0) election_votes.nsomes 
+    in
+    (max_u, max_cnt + (List.length election_votes.nnones), total_cnt)
     
+  
+  let update_election_votes election_votes src = function
+    | None -> { election_votes with nnones = get_updated_votes election_votes.nnones src }
+    | Some u ->
+      let update_one acc (u', nlist) =
+        let nlist' =
+          begin
+            if is_update_equiv u u' 
+            then get_updated_votes nlist src 
+            else nlist
+          end
+        in
+        (u', nlist') :: acc
+      in 
+      let vs' = List.fold_left update_one []  election_votes.nsomes in
+      if List.exists (fun (u',_) -> is_update_equiv u u') vs' 
+      then 
+        { election_votes with nsomes = vs' }
+      else
+        { election_votes with nsomes = (u, [src]) :: vs' }
+       
   let handle_promise n i m_upd src state =
     let diff = state_cmp n i state in
     match diff with
@@ -448,44 +495,50 @@ module MULTI = struct
           match state.state_n with
             | S_RUNNING_FOR_MASTER ->
               begin
-                let new_votes = get_updated_votes state.votes src in
-                let new_prop = get_updated_prop state m_upd in
-                if List.length new_votes = state.constants.quorum
+                let new_votes = update_election_votes state.election_votes src m_upd in
+                let update, max_votes, total_votes = extract_best_update new_votes in
+                if total_votes = state.constants.node_cnt && max_votes < state.constants.quorum
                 then
-                  begin
-                    (* We reached consensus on master *)
-                    let input_chs, postmortem_actions = 
-                      begin
-                        match new_prop with
-                          | None -> ch_all , [] 
-                          | Some u -> 
-                            let actions = build_accept_actions state n i u in
-                            ch_node, actions
-                      end
-                    in 
-                    let new_state = { 
-                       state with 
-                       state_n = S_MASTER;
-                       votes = [];
-                       prop = new_prop;
-                       valid_inputs = input_chs;
-                    } in
-                    let actions = 
-                      (bcast_mset_actions state)
-                      @
-                      (A_STORE_LEASE (state.constants.me, (state.now +. state.constants.lease_duration))
-                      :: postmortem_actions)
-                    in
-                    StepSuccess(actions, new_state) 
-                  end
+                  StepFailure "Impossible to reach consensus. Multiple updates without chance of reaching quorum"
                 else
-                  let new_state = 
-                  {
-                    state with
-                    votes = new_votes;
-                    prop  = new_prop;
-                  } in
-                  StepSuccess([], new_state) 
+                  begin
+                    if max_votes = state.constants.quorum
+                    then
+                      begin
+                        (* We reached consensus on master *)
+                        let input_chs, postmortem_actions = 
+		                      begin
+		                        match update with
+		                          | None -> ch_all , [] 
+		                          | Some u -> 
+		                            let actions = build_accept_actions state n i u in
+		                            ch_node, actions
+		                      end
+		                    in 
+		                    let new_state = { 
+		                       state with 
+		                       state_n = S_MASTER;
+		                       election_votes = {nnones=[]; nsomes=[]};
+                           votes = [];
+		                       prop = update;
+		                       valid_inputs = input_chs;
+		                    } in
+		                    let actions = 
+		                      (bcast_mset_actions state)
+		                      @
+		                      (A_STORE_LEASE (state.constants.me, (state.now +. state.constants.lease_duration))
+		                      :: postmortem_actions)
+		                    in
+		                    StepSuccess(actions, new_state) 
+		                  end
+		                else
+		                  let new_state = 
+		                  {
+		                    state with
+		                    election_votes = new_votes;
+		                  } in
+		                  StepSuccess([], new_state)
+                  end 
               end
             | S_SLAVE    -> StepFailure "I'm a slave and did not send prepare for this n"
             | S_MASTER   -> StepSuccess ([], state) (* already reached consensus *) 
@@ -610,6 +663,7 @@ module MULTI = struct
       master_id = Some state.constants.me;
       state_n = S_RUNNING_FOR_MASTER;
       votes = [];
+      election_votes = {nnones=[]; nsomes=[]};
     } in
     let lease_expiry = build_lease_timer new_n (state.constants.lease_duration /. 2.0 ) in
     StepSuccess([A_BROADCAST_MSG msg; lease_expiry], new_state)
