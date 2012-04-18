@@ -1,5 +1,6 @@
 open Lwt
-open Bstore
+open Bstore 
+
 
 let iterate (sa:Unix.sockaddr) cluster_id 
     (i0:int64) 
@@ -10,7 +11,7 @@ let iterate (sa:Unix.sockaddr) cluster_id
     Common.command_to buf Common.LAST_ENTRIES;
     Llio.int64_to buf i0
   in
-  let input_action (ic:Llio.lwtic) = 
+  let input_action (ic:Lwtc.ic) = 
     Lwt_io.read_char ic >>= function
       | 's' -> 
         Llio.input_string ic >>= fun k ->

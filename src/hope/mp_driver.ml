@@ -3,8 +3,6 @@ open Core
 open Pq
 open Mp
 
-let _log f = Printf.kprintf Lwt_io.printl f 
-
 module P=MULTI
 
 module MPDriver (A:MP_ACTION_DISPATCHER) = struct
@@ -81,10 +79,10 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
           failwith msg
         | P.StepSuccess (actions, s') ->
           let after_msg = Printf.sprintf "AFTER STEP    : %s" (P.state2s s') in
-          _log "%s\n%s" before_msg after_msg  >>= fun () ->
+          Lwtc.log "%s\n%s" before_msg after_msg  >>= fun () ->
           Lwt_list.fold_left_s (dispatch t) s' actions >>= fun s'' ->
           let final_state = Printf.sprintf "AFTER ACTIONS : %s\n" (P.state2s s'') in
-          _log "%s" final_state >>= fun () ->
+          Lwtc.log "%s" final_state >>= fun () ->
           Lwt.return s''
     end
                  
@@ -92,7 +90,7 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     Lwt.catch ( 
       fun () ->
         let rec loop s f = function
-          | 0 -> _log "%s is all done!!!\n" s.P.constants.P.me
+          | 0 -> Lwtc.log "%s is all done!!!\n" s.P.constants.P.me
           | i -> 
             step t s None >>= fun s'' -> 
             loop s'' f (f i) 
@@ -105,7 +103,7 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
         loop s f start_i
     ) ( 
       fun e ->
-        _log "%s" (Printexc.to_string e) >>= fun () ->
+        Lwtc.log "%s" (Printexc.to_string e) >>= fun () ->
         Lwt.fail e
     ) 
       
