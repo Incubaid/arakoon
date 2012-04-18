@@ -25,6 +25,7 @@ module BStore = (struct
     }
   
   let pref_key k = "@" ^ k
+  let unpref_key k = String.sub k 1 ((String.length k) -1)
   
   let commit t i = 
     Lwt_mutex.with_lock t.m
@@ -52,8 +53,8 @@ module BStore = (struct
   
   let last_update t =
     let convert_update = function
-      | Set (k,v) -> Core.SET(k,v)
-      | Delete k -> Core.DELETE k
+      | Set (k,v) -> Core.SET(unpref_key k,v)
+      | Delete k -> Core.DELETE (unpref_key k)
     in
     BS.last_update t.store >>= fun m_last ->
     begin
