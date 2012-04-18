@@ -62,9 +62,16 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
 
   let step t s n =
     get_next_msg t s >>= fun msg ->
+    let n' =
+      begin
+        match n with
+          | None -> Unix.gettimeofday()
+          | Some t -> t
+      end
+    in
     let s = {
       s with 
-        P.now = n;
+        P.now = n';
       } in
     let before_msg = Printf.sprintf "BEFORE        : %s\nINPUT         : %s" (P.state2s s) (P.msg2s msg) in
     let res = P.step msg s in
@@ -87,8 +94,7 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
         let rec loop s f = function
           | 0 -> _log "%s is all done!!!\n" s.P.constants.P.me
           | i -> 
-            let n = Unix.gettimeofday() in
-            step t s n >>= fun s'' -> 
+            step t s None >>= fun s'' -> 
             loop s'' f (f i) 
         in
         let (start_i, f) =
