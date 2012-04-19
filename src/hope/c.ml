@@ -39,7 +39,13 @@ let _delete driver k =
   __do_unit_update driver q
     
 let _get driver k = DRIVER.get driver k
-  
+
+let _range driver ~(allow_dirty:bool) 
+    (first:string option) (finc:bool) 
+    (last:string option)  (linc:bool)
+    (max:int) = 
+  DRIVER.range driver ~allow_dirty first finc last linc max
+
 let _get_meta driver = DRIVER.get_meta driver 
 
 let _last_entries driver i oc = DRIVER.last_entries driver (Core.TICK i) oc
@@ -139,6 +145,23 @@ let one_command driver ((ic,oc) as conn) =
             Lwt.return false
           )
           (Client_protocol.handle_exception oc)
+      end
+    | RANGE ->
+      begin
+	Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_string_option ic >>= fun (first:string option) ->
+        Llio.input_bool          ic >>= fun finc  ->
+        Llio.input_string_option ic >>= fun (last:string option)  ->
+        Llio.input_bool          ic >>= fun linc  ->
+        Llio.input_int           ic >>= fun max   ->
+        Lwt.catch
+	  (fun () ->
+	    _range driver ~allow_dirty first finc last linc max >>= fun list ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    Llio.output_list Llio.output_string oc list >>= fun () ->
+            Lwt.return false
+	  )
+	  (Client_protocol.handle_exception oc )
       end
         
 let protocol driver (ic,oc) =   

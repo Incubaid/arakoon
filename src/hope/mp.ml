@@ -766,6 +766,11 @@ module type MP_ACTION_DISPATCHER = sig
   type t
   val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
   val get : t -> Core.k -> Core.v Lwt.t
+
+  val range : t -> 
+    string option -> bool -> 
+    string option -> bool -> int ->
+    string list Lwt.t
   val get_meta : t -> string option Lwt.t
   val last_entries : t -> Core.tick -> Llio.lwtoc -> unit Lwt.t
 end

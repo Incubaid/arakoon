@@ -123,6 +123,8 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     
   let last_entries t i oc = A.last_entries t.action_dispatcher i oc
 
+  let range t ~allow_dirty first finc last linc max = 
+    A.range t.action_dispatcher first finc last linc max
 
 end
 
