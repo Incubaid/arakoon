@@ -33,7 +33,7 @@ let rec update_to buf = function
     Llio.int_to buf 2;
     Llio.string_to buf k
   | SEQUENCE s ->
-    Llio.int_to buf 3;
+    Llio.int_to buf 5;
     Llio.int_to buf (List.length s);
     List.iter (fun u -> update_to buf u) s
 
@@ -47,7 +47,8 @@ let rec update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
-    | 3 ->
+
+    | 5 ->
       let slen, off = Llio.int_from buf off in
       begin
         let rec loop acc off = function

@@ -30,6 +30,9 @@ let __do_unit_update driver q =
 let _set driver k v = 
   let q = Core.SET(k,v) in
   __do_unit_update driver q
+
+
+let _sequence driver sequence = __do_unit_update driver sequence
     
 let _delete driver k =
   let q = Core.DELETE k in
@@ -40,6 +43,7 @@ let _get driver k = DRIVER.get driver k
 let _get_meta driver = DRIVER.get_meta driver 
 
 let _last_entries driver i oc = DRIVER.last_entries driver (Core.TICK i) oc
+
 
   
 let one_command driver ((ic,oc) as conn) = 
@@ -98,6 +102,23 @@ let one_command driver ((ic,oc) as conn) =
         Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
         Lwtc.log "end of command" >>= fun () ->
         Lwt.return false
+      end
+    | SEQUENCE ->
+      begin
+        Lwt.catch
+          (fun () ->
+            begin
+              Llio.input_string ic >>= fun data ->
+              let probably_sequence,_ = Core.update_from data 0 in
+              let sequence = match probably_sequence with
+                | Core.SEQUENCE _ -> probably_sequence
+                | _ -> raise (Failure "should be update")
+              in
+              _sequence driver sequence >>= fun () ->
+              Client_protocol.response_ok_unit oc
+            end
+          )
+          (Client_protocol.handle_exception oc)
       end
         
 let protocol driver (ic,oc) =   

@@ -39,7 +39,8 @@ module ADispatcher (S:STORE)  = struct
 
   let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
-    
+  let sequence (t:t) updates = Lwtc.failfmt "todo"
+
   let create msging s tq=  
   {
     store = s;
