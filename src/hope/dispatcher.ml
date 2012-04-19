@@ -23,7 +23,7 @@ let validate_commit_update i a =
     failwith msg
     
     
-module ADispatcher (S:STORE)  = struct
+module ADispatcher (S:STORE) = struct
 
   type t =
   {
@@ -33,22 +33,22 @@ module ADispatcher (S:STORE)  = struct
     mutable meta : string option;
     resyncs : (node_id, (S.t -> unit Lwt.t)) Hashtbl.t ; 
   }
-  
+
+  let create msging s tq resyncs=  
+	  {
+	    store = s;
+	    msg = msging;
+	    timeout_q = tq;
+	    meta = None;
+	    resyncs = resyncs;
+	  } 
+    
   let get_meta t = Lwt.return t.meta
     
   let get t k = S.get t.store k 
 
   let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
-  let create msging s tq resyncs=  
-  {
-    store = s;
-    msg = msging;  
-    timeout_q = tq;
-    meta = None;
-    resyncs = resyncs;
-  }
-  
   let send_msg t src dst msg =
     t.msg # send_message msg src dst 
   
@@ -139,3 +139,4 @@ module ADispatcher (S:STORE)  = struct
 
 
 end
+

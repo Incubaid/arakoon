@@ -162,7 +162,7 @@ let create_timeout_q () =
   
 let create_dispatcher store msging resyncs =
   let timeout_q = create_timeout_q () in 
-  let disp = DISPATCHER.create msging store timeout_q resyncs in
+  let disp = BADispatcher.create msging store timeout_q resyncs in
   (disp, timeout_q)
 
 let range n = 
