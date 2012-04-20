@@ -106,5 +106,5 @@ module BStore = (struct
     Lwt_io.printlf "done">>= fun () ->
     Lwt.return ()
 
-end)
+end: STORE)
 

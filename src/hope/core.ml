@@ -87,12 +87,16 @@ let tick2s (TICK t) =
 
 module type STORE = sig
   type t
-  
+  val create : string -> t Lwt.t
+  val init : string -> unit Lwt.t
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
   val range: t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
+  val last_update: t -> (tick * update option) option Lwt.t
+
+  val close : t -> unit Lwt.t
 end
 
 let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 

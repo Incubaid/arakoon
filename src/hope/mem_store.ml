@@ -4,6 +4,8 @@ open Lwt
 module MemStore = (struct
   type t = { store: (k, v) Hashtbl.t; mutable meta: string option}
 
+
+
   let rec log t i u = 
     begin
       match u with
@@ -16,7 +18,7 @@ module MemStore = (struct
   
   let commit t i = Lwt.return Core.UNIT
 
-  let create n = { store = Hashtbl.create 7 ; meta = None }
+  let create n = Lwt.return { store = Hashtbl.create 7 ; meta = None }
 
   let get t k = let v = Hashtbl.find t.store k in Lwt.return v
   
@@ -31,5 +33,9 @@ module MemStore = (struct
     
   let range t first finc last linc max = Lwtc.failfmt "todo"
 
+  let last_update t = Lwtc.failfmt "todo"
+  
+  let close t = Lwt.return ()
+  let init fn = Lwt.return ()
 end: STORE)
 
