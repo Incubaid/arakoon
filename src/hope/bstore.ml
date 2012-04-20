@@ -77,7 +77,20 @@ module BStore = (struct
   let get t k = BS.get_latest t.store (pref_key k) 
 
   let range t first finc last linc max = 
-    Lwtc.failfmt "todo: range"
+    let px = function
+      | None -> None
+      | Some k -> Some (pref_key k)
+    in
+    let mo = 
+      if max = -1 then None
+      else Some max 
+    in
+    BS.range_latest t.store 
+      (px first) finc
+      (px last) linc
+      mo
+    >>= fun ks ->
+    Lwt.return (List.map unpref_key ks)
 
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
