@@ -85,16 +85,12 @@ module BStore = (struct
       if max = -1 then None
       else Some max 
     in
-    
-    (*
     BS.range_latest t.store 
       (px first) finc
       (px last) linc
       mo
     >>= fun ks ->
     Lwt.return (List.map unpref_key ks)
-    *)
-    Lwt.return []
     
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
