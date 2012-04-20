@@ -20,7 +20,7 @@ let iterate (sa:Unix.sockaddr) cluster_id
         end
       else
         begin
-          Llio.input_list input_action ic >>= fun actions ->          
+          Llio.input_list Core.input_action ic >>= fun actions ->          
           f a i2 actions >>= fun a' ->
           loop a' (Some i2)
         end
