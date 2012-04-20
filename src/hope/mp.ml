@@ -22,21 +22,21 @@ module MULTI = struct
   type node_id = string
     
   type message = 
-    | M_PREPARE of node_id * tick * tick
-    | M_PROMISE of node_id * tick * tick * update option
+    | M_PREPARE of node_id * tick * tick * tick
+    | M_PROMISE of node_id * tick * tick * tick * update option
     | M_NACK of node_id * tick * tick
     | M_ACCEPT of node_id * tick * tick * update
     | M_ACCEPTED of node_id * tick * tick
-    | M_LEASE_TIMEOUT of tick
+    | M_LEASE_TIMEOUT of tick * tick
     | M_CLIENT_REQUEST of request_awakener * update
-    | M_MASTERSET of node_id * tick
+    | M_MASTERSET of node_id * tick * tick
 
   let msg2s = function 
-    | M_PREPARE (src, n, i) -> 
-      Printf.sprintf "M_PREPARE (src: %s) (n: %s) (i: %s)" src (tick2s n) (tick2s i)
-    | M_PROMISE (src, n, i, m_upd) ->
-      Printf.sprintf "M_PROMISE (src: %s) (n: %s) (i: %s) (m_u: %s)"
-          src (tick2s n) (tick2s i) (option2s m_upd)
+    | M_PREPARE (src, n, m, i) -> 
+      Printf.sprintf "M_PREPARE (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
+    | M_PROMISE (src, n, m, i, m_upd) ->
+      Printf.sprintf "M_PROMISE (src: %s) (n: %s) (m: %s) (i: %s) (m_u: %s)"
+          src (tick2s n) (tick2s m) (tick2s i) (option2s m_upd)
     | M_NACK (src, n, i) -> 
       Printf.sprintf "M_NACK (src: %s) (n: %s) (i: %s)" src (tick2s n) (tick2s i)
     | M_ACCEPT (src, n, i, upd) ->
@@ -44,27 +44,29 @@ module MULTI = struct
           src (tick2s n) (tick2s i) (update2s upd)
     | M_ACCEPTED (src, n, i) -> 
       Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (i: %s)" src (tick2s n) (tick2s i)
-    | M_LEASE_TIMEOUT n ->
-      Printf.sprintf "M_LEASE_TIMEOUT (n: %s)" (tick2s n)
+    | M_LEASE_TIMEOUT (n, m) ->
+      Printf.sprintf "M_LEASE_TIMEOUT (n: %s) (m: %s)" (tick2s n) (tick2s m)
     | M_CLIENT_REQUEST (w, u) ->
       Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
-    | M_MASTERSET (m, n) ->
-      Printf.sprintf "M_MASTERSET (n: %s) (m: %s)" (tick2s n) m
+    | M_MASTERSET (m_id, n, m) ->
+      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (tick2s n) (tick2s n) m_id
  
   let string_of_msg msg = 
     let buf = Buffer.create 8 in
     begin
       match msg with
-      | M_PREPARE (src, (TICK n), (TICK i)) ->
+      | M_PREPARE (src, (TICK n), (TICK m), (TICK i)) ->
         Llio.int_to buf 1; 
         Llio.string_to buf src;  
         Llio.int64_to buf n;
+        Llio.int64_to buf m;
         Llio.int64_to buf i;
-      | M_PROMISE (src, (TICK n), (TICK i), m_upd) ->
+      | M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_upd) ->
         begin
           Llio.int_to buf 2; 
           Llio.string_to buf src;
           Llio.int64_to buf n;
+          Llio.int64_to buf m;
           Llio.int64_to buf i;
           begin
             match m_upd with 
@@ -90,11 +92,12 @@ module MULTI = struct
         Llio.string_to buf src;
         Llio.int64_to buf n;
         Llio.int64_to buf i 
-      | M_MASTERSET (src, TICK n) ->
+      | M_MASTERSET (src, TICK n, TICK m) ->
         Llio.int_to buf 6;
         Llio.string_to buf src;
-        Llio.int64_to buf n
-      | M_LEASE_TIMEOUT n -> failwith "lease timeout message cannot be serialized"
+        Llio.int64_to buf n;
+        Llio.int64_to buf m
+      | M_LEASE_TIMEOUT (n, m) -> failwith "lease timeout message cannot be serialized"
       | M_CLIENT_REQUEST (w, u) -> failwith "client request cannot be serialized"
     end;
     Buffer.contents buf
@@ -109,10 +112,12 @@ module MULTI = struct
     in
     match kind with
       | 1 ->
-        let src, n, i, off = get_src_n_i off in
-        M_PREPARE (src, (TICK n), (TICK i))
+        let src, n, m, off = get_src_n_i off in
+        let i, off = Llio.int64_from str off in
+        M_PREPARE (src, (TICK n), (TICK m), (TICK i))
       | 2 ->
-        let src, n, i, off = get_src_n_i off in
+        let src, n, m, off = get_src_n_i off in
+        let i, off = Llio.int64_from str off in
         let b, off = Llio.bool_from str off in
         let m_up =
           begin
@@ -124,7 +129,7 @@ module MULTI = struct
               None
           end
         in 
-        M_PROMISE (src, (TICK n), (TICK i), m_up)
+        M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_up)
       | 3 -> 
         let src, n, i, off = get_src_n_i off in
         M_NACK (src, (TICK n), (TICK i))
@@ -138,7 +143,8 @@ module MULTI = struct
       | 6 ->
         let (src, off) = Llio.string_from str off in
         let (n, off) = Llio.int64_from str off in
-        M_MASTERSET (src, (TICK n))
+        let (m, off) = Llio.int64_from str off in
+        M_MASTERSET (src, (TICK n), (TICK m))
       | i -> failwith "Unknown message type. Aborting."
 
 
@@ -168,8 +174,7 @@ module MULTI = struct
     | CH_TIMEOUT
   
   let ch_all              = [CH_CLIENT; CH_NODE; CH_TIMEOUT]
-  (* let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT] *)
-  let ch_node             = [CH_NODE]
+  let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT] 
   
   type election_votes = 
   {
@@ -180,6 +185,7 @@ module MULTI = struct
   type state =
   {
     round             : tick;
+    extensions        : tick;
     proposed          : tick;
     accepted          : tick;
     state_n           : state_name;
@@ -197,6 +203,7 @@ module MULTI = struct
   let build_state c n p a u =
     {
       round = n;
+      extensions = start_tick;
       proposed = p;
       accepted = a;
       state_n = S_CLUELESS;
@@ -218,8 +225,8 @@ module MULTI = struct
     | S_SLAVE              -> "S_SLAVE"
   
   let state2s s =
-    Printf.sprintf "id: %s, n: %s, p: %s, a: %s, state: %s, master: %s, lease_expiry: %f, now: %f, votes: %d"
-          s.constants.me (tick2s s.round) (tick2s s.proposed) (tick2s s.accepted) 
+    Printf.sprintf "id: %s, n: %s, m: %s, p: %s, a: %s, state: %s, master: %s, lease_expiry: %f, now: %f, votes: %d"
+          s.constants.me (tick2s s.round) (tick2s s.extensions) (tick2s s.proposed) (tick2s s.accepted) 
           (state_n2s s.state_n) (so2s s.master_id) s.lease_expiration s.now (List.length s.votes)
   
   type round_diff =
@@ -253,7 +260,7 @@ module MULTI = struct
     | A_BROADCAST_MSG of message
     | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
     | A_LOG_UPDATE of tick * update
-    | A_START_TIMER of tick * float
+    | A_START_TIMER of tick * tick * float
     | A_CLIENT_REPLY of client_reply
     | A_STORE_LEASE of node_id * float
 
@@ -270,8 +277,8 @@ module MULTI = struct
     | A_LOG_UPDATE (i, upd) ->
       Printf.sprintf "A_LOG_UPDATE (i: %s) (u: %s)"
          (tick2s i) (update2s upd)
-    | A_START_TIMER (n, d) ->
-      Printf.sprintf "A_START_TIMER (n: %s) (d: %f)" (tick2s n) d
+    | A_START_TIMER (n, m, d) ->
+      Printf.sprintf "A_START_TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d
     | A_CLIENT_REPLY rep ->
       Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
     | A_STORE_LEASE (m, e) ->
@@ -351,7 +358,7 @@ module MULTI = struct
         | None -> false
       end
   
-  let build_promise n i state =
+  let build_promise n m i state =
     let m_upd = 
       begin
         if state.proposed = state.accepted || state.proposed < i
@@ -361,10 +368,10 @@ module MULTI = struct
           state.prop
       end
     in
-    M_PROMISE(state.constants.me, n, i, m_upd)
+    M_PROMISE(state.constants.me, n, m, i, m_upd)
   
-  let build_lease_timer n d =
-    A_START_TIMER (n, d) 
+  let build_lease_timer n m d =
+    A_START_TIMER (n, m, d) 
   
   let build_nack me n i dest =
     let reply = M_NACK(me, n, i) in
@@ -374,28 +381,29 @@ module MULTI = struct
     let a = build_nack me n i dest in
     StepSuccess( [a], state )
     
-  let send_promise state src n i =
+  let send_promise state src n m i =
     begin
-    if is_lease_active state && not (is_node_master src state) && false
+    if is_lease_active state && not (is_node_master src state) 
     then
       StepSuccess( [], state )
     else
       begin
-        let reply_msg = build_promise n i state in
-        let new_state_n, action_tail = 
+        let reply_msg = build_promise n m i state in
+        let new_state_n, action_tail, new_inputs = 
           begin
             if src = state.constants.me 
             then
-              state.state_n, []
+              state.state_n, [], state.valid_inputs
             else
-              S_SLAVE, [build_lease_timer n state.constants.lease_duration]
+              S_SLAVE, [build_lease_timer n m state.constants.lease_duration], ch_all
           end
         in
         let new_state = {
           state with
           round = n;
+          extensions = m;
           state_n = new_state_n;
-          valid_inputs = ch_all;
+          valid_inputs = new_inputs;
         }
         in
         StepSuccess( 
@@ -405,17 +413,17 @@ module MULTI = struct
       end
     end
        
-  let handle_prepare n i src state =
+  let handle_prepare n m i src state =
     let diff = state_cmp n i state in
     match diff with
       | (N_BEHIND, P_ACCEPTABLE, _) ->
         begin
-          send_promise state src n i
+          send_promise state src n m i
         end
       | (N_EQUAL, P_ACCEPTABLE, _) ->
-        if src = state.constants.me 
+        if Some src = state.master_id 
         then
-          send_promise state src n i
+          send_promise state src n m i
         else 
           send_nack state.constants.me state.round state.accepted src state
       | (N_AHEAD, P_ACCEPTABLE, _) 
@@ -442,7 +450,7 @@ module MULTI = struct
        [] (state.constants.me :: state.constants.others) 
   
   let bcast_mset_actions state =
-    let msg = M_MASTERSET (state.constants.me, state.round) in
+    let msg = M_MASTERSET (state.constants.me, state.round, state.extensions) in
     List.fold_left (fun a n -> A_SEND_MSG(msg, n) :: a) [] state.constants.others
  
   let is_update_equiv left right = 
@@ -484,16 +492,17 @@ module MULTI = struct
       else
         { election_votes with nsomes = (u, [src]) :: vs' }
        
-  let handle_promise n i m_upd src state =
+  let handle_promise n m i m_upd src state =
     let diff = state_cmp n i state in
     match diff with
       | (_, P_BEHIND, _) -> StepFailure "Got promise from more recent node."
       | (N_BEHIND, _, _) 
       | (N_AHEAD, _, _) ->  StepSuccess([], state)
-      | (N_EQUAL, _, A_COMMITABLE) ->
+      | (N_EQUAL, _, A_COMMITABLE) when m = state.extensions ->
         begin
           match state.state_n with
-            | S_RUNNING_FOR_MASTER ->
+            | S_RUNNING_FOR_MASTER 
+            | S_MASTER ->
               begin
                 let new_votes = update_election_votes state.election_votes src m_upd in
                 let update, max_votes, total_votes = extract_best_update new_votes in
@@ -509,10 +518,10 @@ module MULTI = struct
                         let input_chs, postmortem_actions = 
 		                      begin
 		                        match update with
-		                          | None -> ch_all , [] 
+		                          | None -> state.valid_inputs , [] 
 		                          | Some u -> 
 		                            let actions = build_accept_actions state n i u in
-		                            ch_node, actions
+		                            ch_node_and_timeout, actions
 		                      end
 		                    in 
 		                    let new_state = { 
@@ -541,7 +550,6 @@ module MULTI = struct
                   end 
               end
             | S_SLAVE    -> StepFailure "I'm a slave and did not send prepare for this n"
-            | S_MASTER   -> StepSuccess ([], state) (* already reached consensus *) 
             | S_CLUELESS -> StepFailure "I'm clueless so I did not send prepare for this n"
         end 
       | (N_EQUAL, _, _) ->  StepSuccess([], state)
@@ -654,46 +662,41 @@ module MULTI = struct
           | _ -> LEASE_NOP   
       end
       
-    
-  
-  let start_elections new_n state = 
-    let msg = M_PREPARE (state.constants.me, new_n, (next_tick state.accepted)) in
+  let start_elections new_n m state = 
+    let msg = M_PREPARE (state.constants.me, new_n, m, (next_tick state.accepted)) in
     let new_state = {
       state with
       round = new_n;
+      extensions = m;
       master_id = Some state.constants.me;
       state_n = S_RUNNING_FOR_MASTER;
       votes = [];
       election_votes = {nnones=[]; nsomes=[]};
     } in
-    let lease_expiry = build_lease_timer new_n (state.constants.lease_duration /. 2.0 ) in
+    let lease_expiry = build_lease_timer new_n m (state.constants.lease_duration /. 2.0 ) in
     StepSuccess([A_BROADCAST_MSG msg; lease_expiry], new_state)
 
-  let handle_lease_timeout n state =
+  let handle_lease_timeout n m state =
     let diff = state_cmp n start_tick state in
     begin
       match diff with
-        | (N_BEHIND, _, _) -> StepSuccess([], state)
-        | (N_AHEAD , _, _) -> StepSuccess([], state)
-        | (N_EQUAL , _, _) ->
+        | (N_EQUAL , _, _) when m = state.extensions ->
           begin
             match should_elections_start state
             with
               | LEASE_NEW ->
                 begin
                   let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
-                  start_elections new_n state
+                  start_elections new_n start_tick state
                 end
               | LEASE_EXTEND ->
                 begin
-                  let d = state.constants.lease_duration  in
-                  let l = A_STORE_LEASE (state.constants.me, state.now +. d) in
-                  let t = A_START_TIMER (state.round, d /. 2.0) in
-                  let actions = l :: t :: (bcast_mset_actions state) in
-                  StepSuccess (actions,state)
+                  let new_m = next_tick state.extensions in
+                  start_elections state.round new_m state
                 end
               | LEASE_NOP -> StepSuccess([], state)
           end
+        | (_, _, _) -> StepSuccess([], state)
     end
 
   let handle_client_request w upd state =
@@ -708,7 +711,7 @@ module MULTI = struct
                   let new_state = {
                     state with
                     cur_cli_req = Some w;
-                    valid_inputs = ch_node;
+                    valid_inputs = ch_node_and_timeout;
                     votes = [];
                     prop = Some upd;
                   } in 
@@ -733,7 +736,7 @@ module MULTI = struct
           end
     end
 
-  let handle_masterset n src state =
+  let handle_masterset n m src state =
     begin
       match state.state_n with
         | S_SLAVE when state.round = n ->
@@ -742,7 +745,7 @@ module MULTI = struct
             then
               let d = state.constants.lease_duration in
               let l = A_STORE_LEASE (src, state.now +. d) in
-              let t = A_START_TIMER (n, d) in
+              let t = A_START_TIMER (n, m, d) in
               StepSuccess ([l;t], state)
             else
               StepSuccess ([], state)
@@ -752,14 +755,14 @@ module MULTI = struct
     
   let step msg state =
     match msg with
-      | M_PREPARE (src, n, i) -> handle_prepare n i src state
-      | M_PROMISE (src, n, i, m_upd) -> handle_promise n i m_upd src state
+      | M_PREPARE (src, n, m, i) -> handle_prepare n m i src state
+      | M_PROMISE (src, n, m, i, m_upd) -> handle_promise n m i m_upd src state
       | M_NACK (src, n, i) -> handle_nack n i src state
       | M_ACCEPT (src, n, i, upd) -> handle_accept n i upd src state
       | M_ACCEPTED (src, n, i) -> handle_accepted n i src state
-      | M_LEASE_TIMEOUT n -> handle_lease_timeout n state
+      | M_LEASE_TIMEOUT (n, m) -> handle_lease_timeout n m state
       | M_CLIENT_REQUEST (w, upd) -> handle_client_request w upd state
-      | M_MASTERSET (src, n) -> handle_masterset n src state
+      | M_MASTERSET (src, n, m) -> handle_masterset n m src state
 end 
 
 module type MP_ACTION_DISPATCHER = sig
