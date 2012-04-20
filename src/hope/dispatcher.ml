@@ -47,8 +47,18 @@ module ADispatcher (S:STORE) = struct
     
   let get t k = S.get t.store k 
 
+  let range t first finc last linc max = Lwtc.failfmt "todo"
+
   let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
+  let create msging s tq=  
+  {
+    store = s;
+    msg = msging;  
+    timeout_q = tq;
+    meta = None
+  }
+  
   let send_msg t src dst msg =
     t.msg # send_message msg src dst 
   
@@ -84,8 +94,7 @@ module ADispatcher (S:STORE) = struct
       let me = s.constants.me in
       let msg_str = string_of_msg msg in
       let m = MULTI.msg2s msg in
-      let _log f = Printf.kprintf Lwt_io.printl f in
-      _log "SENDING %s to %s" m tgt >>= fun () ->
+      Lwtc.log "SENDING %s to %s" m tgt >>= fun () ->
       send_msg t me tgt msg_str >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
@@ -111,9 +120,8 @@ module ADispatcher (S:STORE) = struct
         proposed = i
       } in
       Lwt.return s'
-    | A_START_TIMER (n, m, d) ->
-      let _log f = Printf.kprintf Lwt_io.printl f in
-      _log "STARTING TIMER (n: %s) (d: %f)" (tick2s n) d >>= fun () ->
+    | A_START_TIMER (n, d) ->
+      Lwtc.log "STARTING TIMER (n: %s) (d: %f)" (tick2s n) d >>= fun () ->
       let alarm () =
         Lwt_unix.sleep d >>= fun () ->
         let msg = M_LEASE_TIMEOUT (n, m) in

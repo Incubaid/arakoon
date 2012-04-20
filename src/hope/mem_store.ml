@@ -27,8 +27,9 @@ module MemStore = (struct
   let get_meta t =
     Lwt.return t.meta 
   
-  let last_entries t i oc = Llio.lwt_failfmt "todo"
+  let last_entries t i oc = Lwtc.failfmt "todo"
     
+  let range t first finc last linc max = Lwtc.failfmt "todo"
 
 end: STORE)
 

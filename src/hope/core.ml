@@ -33,7 +33,7 @@ let rec update_to buf = function
     Llio.int_to buf 2;
     Llio.string_to buf k
   | SEQUENCE s ->
-    Llio.int_to buf 3;
+    Llio.int_to buf 5;
     Llio.int_to buf (List.length s);
     List.iter (fun u -> update_to buf u) s
 
@@ -47,7 +47,8 @@ let rec update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
-    | 3 ->
+
+    | 5 ->
       let slen, off = Llio.int_from buf off in
       begin
         let rec loop acc off = function
@@ -62,6 +63,7 @@ let rec update_from buf off =
       
           
     | i -> failwith "Unknown update type"
+
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
@@ -89,6 +91,34 @@ module type STORE = sig
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v Lwt.t
-
-  val last_entries: t -> tick -> Llio.lwtoc -> unit Lwt.t
+  val range: t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
+  val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
 end
+
+let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 
+  let (>>=) = Lwt.(>>=) in
+  match action with
+    | Baardskeerder.Set (k,v) -> 
+      begin
+        Lwt_io.write_char oc 's' >>= fun () ->
+        Llio.output_string oc k >>= fun () ->
+        Llio.output_string oc v 
+      end
+    | Baardskeerder.Delete k  -> 
+      begin
+        Lwt_io.write_char oc 'd' >>= fun () ->
+        Llio.output_string oc k 
+      end
+
+let input_action (ic:Lwtc.ic) = 
+  let (>>=) = Lwt.(>>=) in
+  Lwt_io.read_char ic >>= function
+    | 's' -> 
+      Llio.input_string ic >>= fun k ->
+      Llio.input_string ic >>= fun v ->
+      Lwt.return (Baardskeerder.Set(k,v))
+    | 'd' ->
+      Llio.input_string ic >>= fun k ->
+      Lwt.return (Baardskeerder.Delete k)
+    | c -> Llio.lwt_failfmt "input_action '%C' does not yield an action" c
+

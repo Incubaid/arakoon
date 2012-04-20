@@ -1,6 +1,6 @@
 open Mem_store 
 open Bstore
-(* open Hub *)
+
 open Lwt
 open Mp_driver
 open Dispatcher
@@ -8,10 +8,7 @@ open Pq
 open Node_cfg.Node_cfg
 open Mp
 
-(*module MyHub = HUB(BStore)*)
-
 open Modules
-
 
 let gen_request_id =
   let c = ref 0 in
@@ -229,11 +226,9 @@ let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
   begin
     match me_as_list with
-      | [] -> 
-        Llio.lwt_failfmt "Node '%s' does not exist in config" myname 
+      | [] -> Lwtc.failfmt "Node '%s' does not exist in config" myname 
       | cfg :: [] -> Lwt.return (others, cfg)
-      | _ -> 
-        Llio.lwt_failfmt "Node '%s' occurs multiple times in config" myname
+      | _ -> Lwtc.failfmt "Node '%s' occurs multiple times in config" myname
   end
 
 let create_resyncs others cluster_id =
@@ -249,6 +244,7 @@ let create_resyncs others cluster_id =
 
 let run_node myname config_file daemonize =          
   let cfg = read_config config_file in
+  let () = Lwtc.configure_logging () in
   let () = if daemonize then Lwt_daemon.daemonize () in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 

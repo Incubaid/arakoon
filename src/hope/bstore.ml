@@ -5,19 +5,7 @@ open Baardskeerder
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
 
-let output_action (oc:Llio.lwtoc) (action:action) = 
-  match action with
-    | Set (k,v) -> 
-      begin
-        Lwt_io.write_char oc 's' >>= fun () ->
-        Llio.output_string oc k >>= fun () ->
-        Llio.output_string oc v 
-      end
-    | Delete k  -> 
-      begin
-        Lwt_io.write_char oc 'd' >>= fun () ->
-        Llio.output_string oc k 
-      end
+
 
 module BStore = (struct
   type t = { m: Lwt_mutex.t; store: BS.t;}
@@ -71,33 +59,43 @@ module BStore = (struct
         | None -> Lwt.return None
         | Some (i_time, ups, committed) ->
           begin
-            let i_time = TICK i_time in
-            match ups with
-              | [] ->
-                failwith "No update logged???" 
-              | u :: [] ->
-                if committed
-                then
-                  Lwt.return (Some (i_time, None))
-                else 
-                  Lwt.return (Some (i_time, Some (convert_update u)))
-              | _ ->
-                if committed
-                then
-                  Lwt.return (Some (i_time, None))
-                else
-                  let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
-                  Lwt.return (Some (i_time, Some (Core.SEQUENCE convs)))
+            let tick_i = TICK i_time in
+            let cvo = 
+              if committed then None
+              else
+                match ups with
+                  | []      -> failwith "No update logged???" 
+                  | u :: [] -> Some (convert_update u)
+                  | _       -> let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
+                               Some (Core.SEQUENCE convs)
+            in 
+            Lwt.return (Some (tick_i, cvo)) 
           end
           
     end
       
   let get t k = BS.get_latest t.store (pref_key k) 
 
+  let range t first finc last linc max = 
+    let px = function
+      | None -> None
+      | Some k -> Some (pref_key k)
+    in
+    let mo = 
+      if max = -1 then None
+      else Some max 
+    in
+    BS.range_latest t.store 
+      (px first) finc
+      (px last) linc
+      mo
+    >>= fun ks ->
+    Lwt.return (List.map unpref_key ks)
+
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
     let f acc i actions = 
-      Lwt_io.printlf "f ... %Li ..." i >>= fun () ->
+      Lwtc.log "f ... %Li ..." i >>= fun () ->
       Llio.output_int64 oc i >>= fun () ->
       Llio.output_list output_action oc actions >>= fun () ->
       Lwt.return acc 

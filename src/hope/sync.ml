@@ -1,5 +1,6 @@
 open Lwt
-open Bstore
+open Bstore 
+
 
 let iterate (sa:Unix.sockaddr) cluster_id 
     (i0:int64) 
@@ -9,17 +10,6 @@ let iterate (sa:Unix.sockaddr) cluster_id
   let outgoing buf =
     Common.command_to buf Common.LAST_ENTRIES;
     Llio.int64_to buf i0
-  in
-  let input_action (ic:Llio.lwtic) = 
-    Lwt_io.read_char ic >>= function
-      | 's' -> 
-        Llio.input_string ic >>= fun k ->
-        Llio.input_string ic >>= fun v ->
-        Lwt.return (Baardskeerder.Set(k,v))
-      | 'd' ->
-        Llio.input_string ic >>= fun k ->
-        Lwt.return (Baardskeerder.Delete k)
-      | c -> Llio.lwt_failfmt "input_action '%C' does not yield an action" c
   in
   let incoming ic = 
     let rec loop a last = 
