@@ -237,7 +237,7 @@ let create_resyncs others cluster_id =
   List.iter 
     (fun cfg -> 
       let (n, ip, port) = extract_name_ip_port cfg in
-      Hashtbl.replace resyncs n (Sync.sync ip port cluster_id)
+      Hashtbl.replace resyncs n (fun l -> Lwt.return () ) (* Sync.sync ip port cluster_id) *)
     )
     others;
   resyncs
