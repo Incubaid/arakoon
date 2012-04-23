@@ -4,8 +4,13 @@ open Baardskeerder
 
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
-
-
+let pref_key k = "@" ^ k
+let unpref_key k = String.sub k 1 ((String.length k) -1)
+    
+let action2update = function
+  | Set (k,v) -> Core.SET(unpref_key k,v)
+  | Delete k -> Core.DELETE (unpref_key k)
+    
 
 module BStore = (struct
   type t = { m: Lwt_mutex.t; store: BS.t;}
@@ -19,8 +24,6 @@ module BStore = (struct
     let r = {m;store} in
     Lwt.return r
   
-  let pref_key k = "@" ^ k
-  let unpref_key k = String.sub k 1 ((String.length k) -1)
   
   let commit t i = 
     Lwt_mutex.with_lock t.m
@@ -46,11 +49,9 @@ module BStore = (struct
         BS.log_update t.store ~diff:d _exec >>= fun () ->
         Lwt.return Core.UNIT)
   
+
+
   let last_update t =
-    let convert_update = function
-      | Set (k,v) -> Core.SET(unpref_key k,v)
-      | Delete k -> Core.DELETE (unpref_key k)
-    in
     BS.last_update t.store >>= fun m_last ->
     begin
       match m_last with
@@ -64,8 +65,8 @@ module BStore = (struct
               else
                 match ups with
                   | []      -> failwith "No update logged???" 
-                  | u :: [] -> Some (convert_update u)
-                  | _       -> let convs = List.fold_left ( fun acc u -> (convert_update) u :: acc ) [] ups in
+                  | a :: [] -> Some (action2update a)
+                  | _       -> let convs = List.fold_left ( fun acc a -> action2update a :: acc ) [] ups in
                                Some (Core.SEQUENCE convs)
             in 
             Lwt.return (Some (tick_i, cvo)) 
@@ -100,9 +101,9 @@ module BStore = (struct
       Lwt.return acc 
     in
     let a0 = () in
-    Lwt_io.printlf "Bstore.last_entries %Li" i0 >>= fun () ->
+    Lwtc.log "Bstore.last_entries %Li" i0 >>= fun () ->
     Lwt_mutex.with_lock t.m (fun () -> BS.catchup t.store i0 f a0) >>= fun a ->
-    Lwt_io.printlf "done">>= fun () ->
+    Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
 end: STORE)
