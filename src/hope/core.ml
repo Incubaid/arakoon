@@ -97,6 +97,7 @@ module type STORE = sig
   val last_update: t -> (tick * update option) option Lwt.t
 
   val close : t -> unit Lwt.t
+  val dump : t -> unit Lwt.t
 end
 
 let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 

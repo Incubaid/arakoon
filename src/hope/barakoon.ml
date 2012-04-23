@@ -217,6 +217,7 @@ type action_type =
   | ShowVersion
   | RunNode
   | InitDb
+  | DumpDb
   | Set
   | Get
   | Delete
@@ -281,6 +282,15 @@ let init_db myname config_file =
   let fn = get_db_name mycfg myname in
   BStore.init fn
 
+let dump_db myname config_file = 
+  let cfg = read_config config_file in
+  split_cfgs cfg myname >>= fun (_, mycfg) ->
+  let fn = get_db_name mycfg myname in
+  BStore.create fn >>= fun store ->
+  BStore.dump store >>= fun () ->
+  BStore.close store
+
+
 let show_version ()=
   Lwt_io.printlf "git_info: %S" Version.git_info >>= fun () ->
   Lwt_io.printlf "compiled: %S" Version.compile_time >>= fun () ->
@@ -343,7 +353,9 @@ let main_t () =
     ("-max_n", Arg.Tuple[Arg.Set_int max_n], 
      ": loop size (benchmark only) default=" ^ (string_of_int !max_n));
     ("-value_size", Arg.Tuple[Arg.Set_int value_size], 
-     ": size of values (benchmark only) default=" ^ (string_of_int !value_size)) 
+     ": size of values (benchmark only) default=" ^ (string_of_int !value_size)) ;
+    ("--dump-db", Arg.Tuple [set_action DumpDb; Arg.Set_string node_id],
+     "dump contents of database")
   ] in
   
   Arg.parse actions  
@@ -354,6 +366,7 @@ let main_t () =
       | RunNode -> run_node !node_id !config_file !daemonize
       | ShowUsage -> Lwt.return (Arg.usage actions "")
       | InitDb -> init_db !node_id !config_file
+      | DumpDb -> dump_db !node_id !config_file
       | ShowVersion -> show_version()
       | Set -> set !config_file !key !value
       | Get -> get !config_file !key

@@ -106,5 +106,8 @@ module BStore = (struct
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
+
+  let dump t =
+    Lwtc.failfmt "todo"
 end: STORE)
 
