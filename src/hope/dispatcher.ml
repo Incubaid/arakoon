@@ -142,12 +142,9 @@ module ADispatcher (S:STORE) = struct
           master_id = Some m;
         }
     | A_RESYNC tgt -> 
-      (*
       let resync = Hashtbl.find t.resyncs tgt in
       resync t.store >>= fun () ->
       Lwt.return s 
-      *)
-      Lwtc.failfmt "Resync not implemented"
 
 end
 

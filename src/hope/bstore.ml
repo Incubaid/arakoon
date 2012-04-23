@@ -14,12 +14,10 @@ module BStore = (struct
     BS.init fn 
     
   let create fn = 
-    BS.make fn >>= fun s ->
-    Lwt.return 
-    {
-      m = Lwt_mutex.create();
-      store = s;
-    }
+    BS.make fn >>= fun store ->
+    let m = Lwt_mutex.create() in
+    let r = {m;store} in
+    Lwt.return r
   
   let pref_key k = "@" ^ k
   let unpref_key k = String.sub k 1 ((String.length k) -1)
@@ -36,10 +34,10 @@ module BStore = (struct
   let log t d u =
     let _exec tx =
       begin 
-        let rec _inner tx = function
-          | SET (k,v) -> BS.set tx (pref_key k) v
-          | DELETE k  -> BS.delete tx (pref_key k)
-          | SEQUENCE s -> Lwt_list.iter_s (fun u -> _inner tx u) s
+        let rec _inner (tx: BS.tx) = function
+          | Core.SET (k,v) -> BS.set tx (pref_key k) v
+          | Core.DELETE k  -> BS.delete tx (pref_key k)
+          | Core.SEQUENCE s -> Lwt_list.iter_s (fun u -> _inner tx u) s
         in _inner tx u
       end
     in  
@@ -61,7 +59,8 @@ module BStore = (struct
           begin
             let tick_i = TICK i_time in
             let cvo = 
-              if committed then None
+              if committed 
+              then None
               else
                 match ups with
                   | []      -> failwith "No update logged???" 

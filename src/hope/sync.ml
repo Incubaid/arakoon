@@ -1,10 +1,10 @@
 open Lwt
 open Bstore 
-
+open Baardskeerder
 
 let iterate (sa:Unix.sockaddr) cluster_id 
     (i0:int64) 
-    (f: 'a -> int64 -> Baardskeerder.action list -> 'a Lwt.t) 
+    (f: 'a -> int64 -> action list -> 'a Lwt.t) 
     a0 
     =
   let outgoing buf =
@@ -34,26 +34,30 @@ let iterate (sa:Unix.sockaddr) cluster_id
       Common.response ic incoming
     )
 
-let sync ip port cluster_id log =
+let sync ip port cluster_id (log : BStore.t) =
   let sa = Network.make_address ip port in
   begin
-    BS.last_update log >>= fun uo ->
-    let i0 = match uo with 
-      | None -> 0L 
-      | Some (i,_,is_explicit) ->
-        if is_explicit then i else (Int64.pred i) 
+    BStore.last_update log >>= fun luo ->
+    let i0 =  
+      match luo with
+      | None -> 0L
+      | Some (Core.TICK ct,cuo) -> 
+        if cuo = None 
+        then Int64.pred ct 
+        else ct
     in
-    let do_actions (tx:BS.tx) acs = Lwt_list.iter_s 
-      (function
-        | Baardskeerder.Set (k,v) -> BS.set tx k v
-        | Baardskeerder.Delete k  -> BS.delete tx k
-      ) acs
-    in 
+    let rec action2update = function
+      | Set(k,v) -> Core.SET(k,v)
+      | Delete k -> Core.DELETE k
+    in
+
     iterate sa cluster_id i0 
       (fun a i acs -> 
-        BS.log_update log ~diff:true 
-          (fun tx -> do_actions tx acs)) 
-      ()
+        let us = List.map action2update acs in
+        let u = Core.SEQUENCE us in
+        let d = true in
+        BStore.log  log d u)
+      Core.UNIT
     >>= fun () ->
     Lwt.return ()
   end
