@@ -49,7 +49,7 @@ module MULTI = struct
     | M_CLIENT_REQUEST (w, u) ->
       Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
     | M_MASTERSET (m_id, n, m) ->
-      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (tick2s n) (tick2s n) m_id
+      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (tick2s n) (tick2s m) m_id
  
   let string_of_msg msg = 
     let buf = Buffer.create 8 in
