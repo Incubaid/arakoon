@@ -47,7 +47,7 @@ module ADispatcher (S:STORE) = struct
     
   let get t k = S.get t.store k 
 
-  let range t first finc last linc max = Lwtc.failfmt "todo"
+  let range t first finc last linc max = S.range t.store first finc last linc max
 
   let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
 
