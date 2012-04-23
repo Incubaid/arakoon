@@ -255,7 +255,7 @@ module MULTI = struct
     | w, UNIT -> "Reply success (unit)"
        
   type action =
-    | A_RESYNC of node_id 
+    | A_RESYNC of node_id * tick 
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
     | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
@@ -265,8 +265,8 @@ module MULTI = struct
     | A_STORE_LEASE of node_id * float
 
   let action2s = function
-    | A_RESYNC src -> 
-      Printf.sprintf "A_RESYNC (from: %s)" src 
+    | A_RESYNC (src, n) -> 
+      Printf.sprintf "A_RESYNC (from: %s) (n: %s)" src (tick2s n) 
     | A_SEND_MSG (msg, dest) ->
       Printf.sprintf "A_SEND_MSG (msg: %s) (dest: %s)" (msg2s msg) dest
     | A_BROADCAST_MSG msg ->
@@ -433,7 +433,7 @@ module MULTI = struct
         end
       | ( _, P_BEHIND, _) ->
         begin
-          StepSuccess ([A_RESYNC src], state)
+          StepSuccess ([A_RESYNC (src, n)], state)
         end
 
   let get_updated_votes votes vote =
@@ -560,7 +560,7 @@ module MULTI = struct
         match diff with
         | (_, _, A_BEHIND) 
         | (_, _, A_COMMITABLE) -> 
-          StepSuccess([A_RESYNC src], state)
+          StepSuccess([A_RESYNC (src, n)], state)
         | (_, _, A_AHEAD) -> StepSuccess([], state)
     end
   
@@ -585,7 +585,7 @@ module MULTI = struct
     begin
       match diff with
         | (N_BEHIND , _            , _)
-        | (_        , P_BEHIND     , _) -> StepSuccess([A_RESYNC src], state)
+        | (_        , P_BEHIND     , _) -> StepSuccess([A_RESYNC (src, n)], state)
         | (_        , P_AHEAD      , _)  
         | (N_AHEAD  , _            , _) -> StepSuccess([], state)
         | (N_EQUAL  , P_ACCEPTABLE , _) -> 
@@ -664,12 +664,19 @@ module MULTI = struct
       
   let start_elections new_n m state = 
     let msg = M_PREPARE (state.constants.me, new_n, m, (next_tick state.accepted)) in
+    let sn = 
+      begin
+        match state.state_n with 
+        | S_MASTER -> if state.round = new_n then S_MASTER else S_RUNNING_FOR_MASTER
+        | _ -> S_RUNNING_FOR_MASTER
+      end
+    in
     let new_state = {
       state with
       round = new_n;
       extensions = m;
       master_id = Some state.constants.me;
-      state_n = S_RUNNING_FOR_MASTER;
+      state_n = sn;
       votes = [];
       election_votes = {nnones=[]; nsomes=[]};
     } in

@@ -83,7 +83,18 @@ module ADispatcher (S:STORE) = struct
     Llio.float_to buf e;
     let s = Buffer.contents buf in
     Lwt.return (t.meta <- Some s)
-    
+  
+  let start_timer t n m d =
+    Lwtc.log "STARTING TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d >>= fun () ->
+    let alarm () =
+      Lwt_unix.sleep d >>= fun () ->
+      let msg = M_LEASE_TIMEOUT (n, m) in
+      PQ.push t.timeout_q msg;
+      Lwt.return ()
+    in
+    Lwt.ignore_result( alarm() );
+    Lwt.return ()
+      
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
       let me = s.constants.me in
@@ -122,14 +133,7 @@ module ADispatcher (S:STORE) = struct
       } in
       Lwt.return s'
     | A_START_TIMER (n, m, d) ->
-      Lwtc.log "STARTING TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d >>= fun () ->
-      let alarm () =
-        Lwt_unix.sleep d >>= fun () ->
-        let msg = M_LEASE_TIMEOUT (n, m) in
-        PQ.push t.timeout_q msg;
-        Lwt.return ()
-      in
-      Lwt.ignore_result( alarm() ); 
+      start_timer t n m d >>= fun () -> 
       Lwt.return s
     | A_CLIENT_REPLY (w, r) ->
       safe_wakeup w r >>= fun () ->
@@ -141,10 +145,34 @@ module ADispatcher (S:STORE) = struct
           lease_expiration = e;
           master_id = Some m;
         }
-    | A_RESYNC tgt -> 
+    | A_RESYNC (tgt, n) -> 
       let resync = Hashtbl.find t.resyncs tgt in
       resync t.store >>= fun () ->
-      Lwt.return s 
+      S.last_update t.store >>= fun m_upd ->
+      let i =
+        begin 
+          match m_upd with
+            | None -> start_tick
+            | Some (i,_) -> i
+        end
+      in 
+      begin 
+        if s.round = n 
+        then Lwt.return (s.round, s.extensions) 
+        else 
+          let n, m = (n, start_tick) in
+          start_timer t n start_tick s.constants.lease_duration >>= fun () ->
+          Lwt.return (n, m) 
+      end >>= fun (n,m) -> 
+      let s' = { s with
+        round = n;
+        extensions = m;
+        state_n = S_SLAVE;
+        proposed = i;
+        prop = None;
+        accepted = i;
+      } in
+      Lwt.return s'
 
 end
 

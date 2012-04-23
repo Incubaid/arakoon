@@ -109,5 +109,6 @@ module BStore = (struct
 
   let dump t =
     Lwtc.failfmt "todo"
+    
 end: STORE)
 
