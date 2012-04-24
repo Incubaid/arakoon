@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 let config_file = ref "cfg/arakoon.ini"
 
-let default_lease_period = 10
+let default_lease_period = 2
 open Master_type
 open Client_cfg
 open Log_extra
