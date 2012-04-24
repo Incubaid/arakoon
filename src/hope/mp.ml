@@ -444,10 +444,38 @@ module MULTI = struct
     | Some u -> Some u
     | None -> state.prop
 
-  let build_accept_actions state n i u =
+  let build_accept_actions state n i u cli_req =
     let msg = M_ACCEPT(state.constants.me, n, i, u) in
-    List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) 
-       [] (state.constants.me :: state.constants.others) 
+    let send_msgs = List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) 
+       [] (state.constants.others)
+    in 
+    let log_update = A_LOG_UPDATE (i, u) in
+    let actions = log_update :: send_msgs in
+    let s', al =
+      begin
+        match state.constants.others with
+          | [] ->
+            let s' = {
+              state with
+              prop = None;
+              votes = [];
+              cur_cli_req = None;
+              valid_inputs = ch_all;
+            } in
+            let commit = A_COMMIT_UPDATE (i, u, cli_req) in
+            s', actions @ [commit]
+          | l -> 
+            let s' = {
+              state with
+              cur_cli_req = cli_req;
+              votes = [state.constants.me];
+              prop = Some u;
+              valid_inputs = ch_node_and_timeout;
+            } in
+            s', actions
+      end
+    in s', al
+   
   
   let bcast_mset_actions state =
     let msg = M_MASTERSET (state.constants.me, state.round, state.extensions) in
@@ -515,22 +543,19 @@ module MULTI = struct
                     then
                       begin
                         (* We reached consensus on master *)
-                        let input_chs, postmortem_actions = 
+                        let s', postmortem_actions = 
 		                      begin
 		                        match update with
-		                          | None -> state.valid_inputs , [] 
+		                          | None -> state, [] 
 		                          | Some u -> 
-		                            let actions = build_accept_actions state n i u in
-		                            ch_node_and_timeout, actions
+		                            let s', actions = build_accept_actions state n i u state.cur_cli_req in
+		                            s', actions
 		                      end
 		                    in 
 		                    let new_state = { 
-		                       state with 
+		                       s' with 
 		                       state_n = S_MASTER;
 		                       election_votes = {nnones=[]; nsomes=[]};
-                           votes = [];
-		                       prop = update;
-		                       valid_inputs = input_chs;
 		                    } in
 		                    let actions = 
 		                      (bcast_mset_actions state)
@@ -714,15 +739,8 @@ module MULTI = struct
             match state.cur_cli_req with
               | None -> 
                 begin
-                  let actions = build_accept_actions state state.round (next_tick state.accepted) upd in 
-                  let new_state = {
-                    state with
-                    cur_cli_req = Some w;
-                    valid_inputs = ch_node_and_timeout;
-                    votes = [];
-                    prop = Some upd;
-                  } in 
-                  StepSuccess (actions, new_state)
+                  let s', actions = build_accept_actions state state.round (next_tick state.accepted) upd (Some w) in 
+                  StepSuccess (actions, s')
                 end
               | Some w ->
                 begin 
@@ -737,9 +755,7 @@ module MULTI = struct
             let reply = (w, FAILURE(Arakoon_exc.E_NOT_MASTER, 
                                             "Cannot process request on none-master")) 
             in
-            match state.cur_cli_req with
-              | None -> StepSuccess([], state)
-              | Some w -> StepSuccess([A_CLIENT_REPLY reply], state)
+            StepSuccess([A_CLIENT_REPLY reply], state)
           end
     end
 
