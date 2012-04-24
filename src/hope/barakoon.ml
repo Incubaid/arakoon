@@ -248,10 +248,10 @@ let create_resyncs others cluster_id =
 
 let run_node myname config_file daemonize =          
   let cfg = read_config config_file in
-  let () = Lwtc.configure_logging () in
+  split_cfgs cfg myname >>= fun (others, mycfg) ->
+  Lwtc.configure_logging mycfg >>= fun () ->
   log_prelude () >>= fun () ->
   let () = if daemonize then Lwt_daemon.daemonize () in
-  split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
   create_store mycfg myname >>= fun store ->

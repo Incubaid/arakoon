@@ -129,6 +129,10 @@ module Node_cfg = struct
 
 
   let tlog_dir t = t.tlog_dir 
+
+  let log_dir t = t.log_dir
+  let log_level t = t.log_level
+
   let tlog_file_name t =
     t.home ^ "/" ^ t.node_name ^ ".tlog"
 
