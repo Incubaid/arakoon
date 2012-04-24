@@ -33,7 +33,7 @@ true: package(baardskeerder)
 <**/barakoon*.*{byte,native}>: is_main, use_thread
 <**/hope_demo.*{byte,native}>: is_main, use_thread
 <**/mp_demo.*{byte,native}>: is_main, use_thread
-<**/mp_test.*{byte,native}>: is_main, use_thread
+<**/*test.*{byte,native}>: is_main, use_thread
 <examples/ocaml/*.{bytes,native}>: use_thread
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
