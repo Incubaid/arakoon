@@ -259,6 +259,7 @@ let run_node myname config_file daemonize =
     quit_signals ;
   let cfg = read_config config_file in
   let () = Lwtc.configure_logging () in
+  log_prelude () >>= fun () ->
   let () = if daemonize then Lwt_daemon.daemonize () in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   let cluster_id = cfg.cluster_id in 
@@ -271,7 +272,6 @@ let run_node myname config_file daemonize =
   let disp, q = create_dispatcher store msging resyncs in
   let driver = create_driver disp q in
   let service driver = server_t driver mycfg.ip mycfg.client_port in
-  log_prelude () >>= fun () ->
   build_start_state store mycfg others >>= fun s ->
   let delayed_timeout = MULTI.A_START_TIMER (s.MULTI.round, Core.start_tick, float_of_int mycfg.lease_period) in
   DRIVER.dispatch driver s delayed_timeout >>= fun s' ->
