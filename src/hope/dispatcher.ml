@@ -89,6 +89,7 @@ module ADispatcher (S:STORE) = struct
     let alarm () =
       Lwt_unix.sleep d >>= fun () ->
       let msg = M_LEASE_TIMEOUT (n, m) in
+      Lwtc.log "Pushing timeout msg (n: %s) (m: %s)" (tick2s n) (tick2s m) >>= fun () ->
       PQ.push t.timeout_q msg;
       Lwt.return ()
     in

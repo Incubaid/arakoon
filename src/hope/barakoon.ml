@@ -246,7 +246,17 @@ let create_resyncs others cluster_id =
     others;
   resyncs
 
-let run_node myname config_file daemonize =          
+let run_node myname config_file daemonize =      
+  Lwt_io.set_default_buffer_size 32768;
+  let killswitch = Lwt_mutex.create () in
+  Lwt_mutex.lock killswitch >>= fun () ->
+  let unlock_killswitch () = Lwt_mutex.unlock killswitch in
+  let wait_for_sigterm () = Lwt_mutex.lock killswitch in
+  (* Clean shutdown on signals  SIGINT SIGQUIT SIGABRT SIGTERM *)
+  let quit_signals = [2;3;6;15] in
+  List.iter 
+    (fun sign -> let _ = Lwt_unix.on_signal sign (fun i -> unlock_killswitch ()) in () ) 
+    quit_signals ;
   let cfg = read_config config_file in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   Lwtc.configure_logging mycfg >>= fun () ->
@@ -254,7 +264,10 @@ let run_node myname config_file daemonize =
   let () = if daemonize then Lwt_daemon.daemonize () in
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
+  let start = Unix.gettimeofday() in
+  Lwtc.log "Creating store" >>= fun () ->
   create_store mycfg myname >>= fun store ->
+  Lwtc.log "Created store (took %f seconds)" (Unix.gettimeofday() -. start) >>= fun () ->
   let resyncs = create_resyncs others cluster_id in
   let disp, q = create_dispatcher store msging resyncs in
   let driver = create_driver disp q in
@@ -264,15 +277,20 @@ let run_node myname config_file daemonize =
   DRIVER.dispatch driver s delayed_timeout >>= fun s' ->
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
   let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
+  let close_store () =
+    BStore.close store >>= fun () ->
+    Lwtc.log "Closed store"
+  in
   Lwt.finalize
   ( fun () ->
     Lwt.pick [ DRIVER.serve driver s' None ;
              service driver;
              msging # run ();
-             Lwt.join pass_msgs
+             Lwt.join pass_msgs;
+             wait_for_sigterm (); 
              ]
   ) ( fun () ->
-    BStore.close store 
+    close_store()  
   )
 
 
@@ -374,5 +392,5 @@ let main_t () =
       | Benchmark -> benchmark !config_file !max_n !value_size
   end
 
-let () =  Lwt_main.run (main_t())
+let () = Lwt_main.run (main_t())
   
