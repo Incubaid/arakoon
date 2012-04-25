@@ -120,13 +120,22 @@ let _config_service cfg backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections = 
-    let hard = Limits.get_rlimit Limits.NOFILE Limits.Hard in
-    max (hard -200) 200
+    let soft = Limits.get_rlimit Limits.NOFILE Limits.Soft in
+    max (soft -200) 200
   in
-  let host = List.hd hosts in
-  let name = "client_service" in
-  Server.make_server_thread ~name host port (Client_protocol.protocol backend) ~max_connections
-
+  let scheme = Server.create_connection_allocation_scheme max_connections in
+  let services = List.map
+    (fun host -> 
+         let name = Printf.sprintf "%s:client_service" host in
+         Server.make_server_thread ~name host port 
+           (Client_protocol.protocol backend) 
+           ~scheme
+    )
+      hosts
+  in
+  let uber_service () = Lwt_list.iter_p (fun f -> f ()) services in
+  uber_service
+      
 let _log_rotate cfg i get_cfgs =
   Lwt_log.warning_f "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->

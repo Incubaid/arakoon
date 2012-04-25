@@ -84,7 +84,8 @@ let test_max_connections () =
   let teardown_callback () = Lwt_mvar.put td_var () in
   let port = 6666 in
   let host = "127.0.0.1" in
-  let server = Server.make_server_thread ~max_connections:2
+  let scheme = Server.create_connection_allocation_scheme 2 in
+  let server = Server.make_server_thread ~scheme
     ~setup_callback ~teardown_callback
     host port echo_protocol 
   in

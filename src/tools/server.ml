@@ -52,12 +52,24 @@ let session_thread protocol fd =
   Lwt.catch 
   ( fun () -> Lwt_unix.close fd )
   ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
+
+let create_connection_allocation_scheme max = 
+  let counter = ref 0 in
+  let maybe_take () = 
+    let c = !counter in
+    if c = max 
+    then None
+    else let () = incr counter in Some c
+  and release () = decr counter 
+  in maybe_take, release
     
+let default_scheme = create_connection_allocation_scheme 10
+
 let make_server_thread 
     ?(name = "socket server")
     ?(setup_callback=no_callback) 
     ?(teardown_callback = no_callback)
-    ?(max_connections = 200)
+    ?(scheme = default_scheme)
     host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   let socket_address = Network.make_address host port in
@@ -66,27 +78,22 @@ let make_server_thread
     Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
-    let n_connections = ref 0 in
-    
+    let maybe_take,release = scheme in
     let rec server_loop () =
       Lwt.catch
 	(fun () ->
 	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
-	  if !n_connections >= max_connections 
-	  then Lwt.ignore_result (session_thread deny fd)
-	  else
-	    begin
-	      Lwt.ignore_result 
-		(
-                  Lwt_log.info_f "%s:session (%i)" name !n_connections >>= fun () ->
-                  session_thread protocol fd >>= fun () ->
-		  decr n_connections;
-		  Lwt.return ()
-		    
-		);
-	      incr n_connections;
-	    end;
-	  Lwt.return ()
+          begin
+            match maybe_take () with
+              | None    -> Lwt.ignore_result (session_thread deny fd)
+              | Some id ->
+	        Lwt.ignore_result 
+		  (
+                    Lwt_log.info_f "%s:session (%i)" name id >>= fun () ->
+                    session_thread protocol fd 
+		  )
+          end;
+          Lwt.return ()
 	)
 	(function 
 	  | Unix.Unix_error (Unix.EMFILE,s0,s1) -> 
