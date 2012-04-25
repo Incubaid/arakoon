@@ -63,13 +63,13 @@ let create_connection_allocation_scheme max =
   and release () = decr counter 
   in maybe_take, release
     
-let default_scheme = create_connection_allocation_scheme 10
+let make_default_scheme () = create_connection_allocation_scheme 10
 
 let make_server_thread 
     ?(name = "socket server")
     ?(setup_callback=no_callback) 
     ?(teardown_callback = no_callback)
-    ?(scheme = default_scheme)
+    ~scheme
     host port protocol =
   let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   let socket_address = Network.make_address host port in

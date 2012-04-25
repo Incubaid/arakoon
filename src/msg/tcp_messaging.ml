@@ -366,7 +366,11 @@ object(self : # messaging )
     let servers_t () = 
       let start ip  = 
         let name = Printf.sprintf "messaging_%s" ip in
-        let s = Server.make_server_thread ~name ~setup_callback ~teardown_callback ip my_port protocol in
+        let scheme = Server.make_default_scheme () in
+        let s = Server.make_server_thread ~name ~setup_callback 
+          ~teardown_callback ip my_port protocol 
+          ~scheme
+        in
         s () 
       in
       let sts = List.map start my_ips in

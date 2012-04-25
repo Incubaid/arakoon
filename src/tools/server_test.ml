@@ -43,9 +43,11 @@ let test_echo () =
   let teardown_callback () = Lwt_mvar.put td_var () in
   let port = 6666 in
   let host = "127.0.0.1" in
+  let scheme = Server.make_default_scheme () in
   let server = Server.make_server_thread 
     ~setup_callback host port echo_protocol 
     ~teardown_callback
+    ~scheme
   in
   let client () = 
     debug "sleeping until server socket started" >>= fun () -> 

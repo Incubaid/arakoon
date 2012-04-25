@@ -54,9 +54,11 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   let teardown_callback () = Lwt_mvar.put td_var () in
   let tb = new test_backend _CLUSTER in
   let backend = (tb :> Backend.backend) in
+  let scheme = Server.make_default_scheme () in
   let server = Server.make_server_thread 
     ~setup_callback 
     ~teardown_callback
+    ~scheme
     "127.0.0.1" port
     (Client_protocol.protocol backend) in
 

@@ -24,8 +24,9 @@ let __wrap__ port conversation =
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
+  let scheme = Server.make_default_scheme () in
   let server = 
-    Server.make_server_thread ~setup_callback "127.0.0.1" port 
+    Server.make_server_thread ~setup_callback "127.0.0.1" port ~scheme
       (Client_protocol.protocol backend) in
   let client_t () =
     sleep >>= fun () ->
