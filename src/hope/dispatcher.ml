@@ -77,10 +77,9 @@ module ADispatcher (S:STORE) = struct
         Lwt_log.error_f "Failed to awaken client (%s). Ignoring." msg
       ) 
   
-  let store_lease t m e =
+  let store_lease t m =
     let buf = Buffer.create 32 in
     Llio.string_to buf m;
-    Llio.float_to buf e;
     let s = Buffer.contents buf in
     Lwt.return (t.meta <- Some s)
   
@@ -139,14 +138,14 @@ module ADispatcher (S:STORE) = struct
     | A_CLIENT_REPLY (w, r) ->
       safe_wakeup w r >>= fun () ->
       Lwt.return s
-    | A_STORE_LEASE (m, e) ->
-      store_lease t m e >>= fun () ->
+    | A_STORE_LEASE m ->
+      store_lease t m >>= fun () ->
       Lwt.return 
         { s with
-          lease_expiration = e;
           master_id = Some m;
+          is_lease_active = true;
         }
-    | A_RESYNC (tgt, n) -> 
+    | A_RESYNC (tgt, n, m) -> 
       let resync = Hashtbl.find t.resyncs tgt in
       resync t.store >>= fun () ->
       S.last_update t.store >>= fun m_upd ->
@@ -158,11 +157,10 @@ module ADispatcher (S:STORE) = struct
         end
       in 
       begin 
-        if s.round = n 
+        if s.round = n && s.extensions = m
         then Lwt.return (s.round, s.extensions) 
         else 
-          let n, m = (n, start_tick) in
-          start_timer t n start_tick s.constants.lease_duration >>= fun () ->
+          start_timer t n m s.constants.lease_duration >>= fun () ->
           Lwt.return (n, m) 
       end >>= fun (n,m) -> 
       let s' = { s with

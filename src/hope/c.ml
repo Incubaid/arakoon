@@ -50,8 +50,6 @@ let _get_meta driver = DRIVER.get_meta driver
 
 let _last_entries driver i oc = DRIVER.last_entries driver (Core.TICK i) oc
 
-
-  
 let one_command driver ((ic,oc) as conn) = 
   Client_protocol.read_command conn >>= fun comm ->
   match comm with
@@ -65,12 +63,7 @@ let one_command driver ((ic,oc) as conn) =
             | Some s -> 
               begin
                 let m, off = Llio.string_from s 0 in
-                let e, off = Llio.float_from s off in
-                if e > ( Unix.gettimeofday() ) 
-                then
-                  Some m
-                else 
-                  None 
+                Some m 
               end
         end
         in

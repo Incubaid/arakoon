@@ -259,9 +259,9 @@ let run_node myname config_file daemonize =
     quit_signals ;
   let cfg = read_config config_file in
   split_cfgs cfg myname >>= fun (others, mycfg) ->
+  let () = if daemonize then Lwt_daemon.daemonize () in
   Lwtc.configure_logging mycfg >>= fun () ->
   log_prelude () >>= fun () ->
-  let () = if daemonize then Lwt_daemon.daemonize () in
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
   let start = Unix.gettimeofday() in
