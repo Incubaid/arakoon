@@ -381,7 +381,7 @@ def test_block_master_ports () :
         cli_cfg_only_master = dict()
         for key in cli._config.getNodes().keys() :
             if key == old_master_id :
-                cli_cfg_only_master [ key ] = cli._config.getNodeLocation( key  )
+                cli_cfg_only_master [ key ] = cli._config.getNodeLocations( key  )
         new_cli = arakoon.Arakoon.ArakoonClient(
             arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id, 
                                                 cli_cfg_only_master ) )
