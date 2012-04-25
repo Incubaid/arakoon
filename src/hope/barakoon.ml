@@ -222,6 +222,8 @@ type action_type =
   | Get
   | Delete
   | Benchmark
+  | LastEntries
+
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -332,6 +334,18 @@ let benchmark cfg_name max_n size =
   let with_c = Client_main.with_master_client cfg_name in
   Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
 
+let last_entries config_file myname i =
+  let cfg = read_config config_file in
+  split_cfgs cfg myname >>= fun (others , mycfg) ->
+  let ip = mycfg.ip
+  and port = mycfg.client_port
+  in
+  let addr = Network.make_address ip port in
+  let dump_entry () i alist =
+    Lwt_list.iter_s (fun a -> Lwt_io.printlf "%Li : %s" i (Sync._action2s a)) alist ;
+    Lwt.return ()
+  in
+  Sync.remote_iterate addr cfg.cluster_id i dump_entry ()
 
 let main_t () =
   let node_id = ref "" 
@@ -342,6 +356,7 @@ let main_t () =
   and value = ref ""
   and max_n = ref (1000 * 1000)
   and value_size = ref 1024 
+  and is = ref ""
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -373,7 +388,9 @@ let main_t () =
     ("-value_size", Arg.Tuple[Arg.Set_int value_size], 
      ": size of values (benchmark only) default=" ^ (string_of_int !value_size)) ;
     ("--dump-db", Arg.Tuple [set_action DumpDb; Arg.Set_string node_id],
-     "dump contents of database")
+     "dump contents of database");
+    ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string node_id; Arg.Set_string is],
+     "<node_id> <i> Retrieve a nodes update stream starting with <i>");
   ] in
   
   Arg.parse actions  
@@ -390,6 +407,7 @@ let main_t () =
       | Get -> get !config_file !key
       | Delete -> delete !config_file !key
       | Benchmark -> benchmark !config_file !max_n !value_size
+      | LastEntries -> last_entries !config_file !node_id (Int64.of_string !is)
   end
 
 let () = Lwt_main.run (main_t())

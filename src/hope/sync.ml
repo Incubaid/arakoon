@@ -9,7 +9,7 @@ let _action2s = function
 let iterate f a0 ic = 
   let rec loop a last = 
     Sn.input_sn ic >>= fun i2 ->
-    Lwt_io.printlf "i2=%Li" i2 >>= fun () ->
+    Lwtc.log "i2=%Li" i2 >>= fun () ->
     if i2 = (-1L) then
       begin
         Lwt.return ()
@@ -17,7 +17,7 @@ let iterate f a0 ic =
     else
       begin
         Llio.input_list Core.input_action ic >>= fun actions ->          
-        Lwt_io.printlf "actions = [%s]" (String.concat ";" (List.map _action2s actions)) >>= fun () ->
+        Lwtc.log "actions = [%s]" (String.concat ";" (List.map _action2s actions)) >>= fun () ->
         f a i2 actions >>= fun a' ->
         loop a' (Some i2)
       end
