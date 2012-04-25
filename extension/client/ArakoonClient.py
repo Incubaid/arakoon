@@ -201,10 +201,10 @@ class ArakoonClient:
             clusterParam = cfgFile.getValue("global", "cluster")
             for node in clusterParam.split(",") :
                 node = node.strip()
-                ip  = cfgFile.getValue(node, "ip") 
+                ips  = cfgFile.getValue(node, "ip") 
+                ip_list = ips.split(",")
                 port = cfgFile.getValue(node, "client_port") 
-                ip_port = (ip, port)
-                node_dict.update({node: ip_port})
+                node_dict.update({node: (ip_list,port)})
             config = ArakoonClientConfig(clusterId, node_dict)
             return config
             

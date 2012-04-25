@@ -214,8 +214,7 @@ class ArakoonCluster:
                 logDir = None,
                 home = None,
                 tlogDir = None,
-                user = None,
-                group = None,
+                wrapper = None,
                 isLearner = False,
                 targets = None,
                 isLocal = True):
@@ -223,16 +222,17 @@ class ArakoonCluster:
         Add a node to the configuration of the supplied cluster
 
         The function also creates 
-        @param name  the name of the node, should be unique across the environment
-        @param ip   the ip(s) this node should be contacted on (string or string list)
-        @param clientPort   the port the clients should use to contact this node
-        @param messagingPort  the port the other nodes should use to contact this node
-        @param logLevel   the loglevel (debug info notice warning error fatal)
-        @param logDir   the directory used for logging
-        @param home   the directory used for the nodes data
-        @param tlogDir   the directory used for tlogs (if none, home will be used)
-        @param isLearner   whether this node is a learner node or not
-        @param targets   for a learner node the targets (string list) it learns from
+        @param name :the name of the node, should be unique across the environment
+        @param ip : the ip(s) this node should be contacted on (string or string list)
+        @param clientPort : the port the clients should use to contact this node
+        @param messagingPort : the port the other nodes should use to contact this node
+        @param logLevel : the loglevel (debug info notice warning error fatal)
+        @param logDir :  the directory used for logging
+        @param home : the directory used for the nodes data
+        @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
+        @param tlogDir :  the directory used for tlogs (if none, home will be used)
+        @param isLearner : whether this node is a learner node or not
+        @param targets : for a learner node the targets (string list) it learns from
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -263,12 +263,9 @@ class ArakoonCluster:
         config.addParam(name, "messaging_port", messagingPort)
         config.addParam(name, "log_level", logLevel)
         
-        if user is not None:
-            config.addParam(name, "user", user)
+        if wrapper is not None:
+            config.addParam(name, "wrapper", wrapper)
         
-        if group is not None:
-            config.addParam(name, "group", group)
-
         if logDir is None:
             logDir = q.system.fs.joinPaths(q.dirs.logDir, self._clusterId, name)
         config.addParam(name, "log_dir", logDir) 
@@ -454,8 +451,11 @@ class ArakoonCluster:
         nodes = self.__getNodes(config)
 
         for name in nodes:
-            clientconfig[name] = (config.getValue(name, "ip"),
-                                  int(config.getValue(name, "client_port")))
+            ips = config.getValue(name, "ip")
+            ip_list = ips.split(',')
+            port = int(config.getValue(name, "client_port"))
+            clientconfig[name] = (ip_list, port)
+                                  
 
         return clientconfig
 
@@ -858,14 +858,10 @@ class ArakoonCluster:
         
         config = self.getNodeConfig(name)
         cmd = []
-        if 'user' in config :
-            cmd = ['sudo']
-            cmd.append('-u')
-            cmd.append(config['user'])
-            
-        #if 'group' in config :
-        #    kwargs ['group'] = config ['group']
-        # ???
+        if 'wrapper' in config :
+            wrapperLine = config['wrapper']
+            cmd = wrapperLine.split(' ')
+
         command = self._cmd(name)
         cmd.extend(command)
         logging.debug('calling: %s', str(cmd))

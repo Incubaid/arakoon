@@ -245,9 +245,28 @@ class TestConfig:
         n1 = '%s_%i' % (cid,1)
         n2 = '%s_%i' % (cid,2)
         assert_equals(cluster.getClientConfig(),
-                      {n0: ("127.0.0.1", 7080),
-                       n1: ("127.0.0.1", 7090),
-                       n2: ("127.0.0.1", 7100)})
+                      {n0: (["127.0.0.1"], 7080),
+                       n1: (["127.0.0.1"], 7090),
+                       n2: (["127.0.0.1"], 7100)})
+
+    def testGetClientConfigMultipleIPs(self):
+        cluster = self._getCluster()
+        name = "whatever"
+        ips = ["127.0.0.1","192.168.0.1"]
+        cluster.addNode(name = name, ip=ips)
+        ccfg = cluster.getClientConfig()
+        ip_list,port = ccfg[name] 
+        assert_equals(ip_list,['127.0.0.1', '192.168.0.1'])
+
+    def testWrapper(self):
+        cluster = self._getCluster()
+        name = "wrappertest"
+        wrapper = 'sh'
+        cluster.addNode(name = name, 
+                        wrapper = wrapper)
+        cfg = cluster.getNodeConfig(name)
+        wl = cfg.get('wrapper')
+        assert_equals(wl, wrapper)
 
     def testListNodes(self):
         cid = self._clusterId

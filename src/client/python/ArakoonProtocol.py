@@ -31,6 +31,7 @@ import struct
 import logging
 import select
 import cStringIO
+import types
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -48,12 +49,12 @@ class ArakoonClientConfig :
         The constructor takes one optional parameter 'nodes'.
         This is a dictionary containing info on the arakoon server nodes. It contains:
           - nodeids as keys
-          - (hostname/ip, tcp port) tuples as value
+          - ([ip], port) as values
         e.g. ::
             cfg = ArakoonClientConfig ('ricky',
-                { "myFirstNode" : ( "127.0.0.1", 4000 ),
-                  "mySecondNode" : ( "127.0.0.1", 5000 ) ,
-                  "myThirdNode"  : ( "127.0.0.1", 6000 ) } )
+                { "myFirstNode" : (["127.0.0.1"], 4000 ),
+                  "mySecondNode" :(["127.0.0.1"], 5000 ),
+                  "myThirdNode"  :(["127.0.0.1","10.0.0.1"], 6000 )] })
 
         @type clusterId: string
         @param clusterId: name of the cluster
@@ -62,8 +63,20 @@ class ArakoonClientConfig :
 
         """
         self._clusterId = clusterId
-        self._nodes = nodes
+        self._nodes = self._cleanUp(nodes)
     
+
+    def _cleanUp(self, nodes):
+        print nodes
+        for k in nodes.keys():
+            t = nodes[k]
+            print t
+            maybe_string = t[0]
+            if type(maybe_string) == types.StringType:
+                ip_list = maybe_string.split(',')
+                nodes[k] = (ip_list, port)
+
+        return nodes
     def __str__(self):
         r = "ArakoonClientConfig(%s,%s)" % (self._clusterId,
                                             str(self._nodes))
@@ -81,7 +94,7 @@ class ArakoonClientConfig :
         """
         return ARA_CFG_NO_MASTER_RETRY
     
-    def getNodeLocation(self, nodeId):
+    def getNodeLocations(self, nodeId):
         """
         Retrieve location of the server node with give node identifier
 

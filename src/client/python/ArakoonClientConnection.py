@@ -26,9 +26,12 @@ from ArakoonExceptions import *
 
 class ArakoonClientConnection :
 
-    def __init__ (self, nodeLocation, clusterId):
+    def __init__ (self, nodeLocations, clusterId):
         self._clusterId = clusterId
-        self._nodeLocation = nodeLocation
+        self._nodeIPs = nodeLocations[0]
+        self._nodePort = nodeLocations[1]
+        self._nIPs = len(self._nodeIPs)
+        self._index = 0
         self._connected = False
         self._socket = None
         self._reconnect()
@@ -36,29 +39,32 @@ class ArakoonClientConnection :
     def _reconnect(self):
         self.close()
         try :
-            self._socket = socket.create_connection( self._nodeLocation ,
-                    ArakoonClientConfig.getConnectionTimeout() )
+            ip = self._nodeIPs[self._index]
+            self._socket = socket.create_connection((ip , self._nodePort),
+                                                    ArakoonClientConfig.getConnectionTimeout())
             sendPrologue(self._socket, self._clusterId)
             self._connected = True
         except Exception, ex :
             ArakoonClientLogger.logWarning( "Unable to connect to %s:%s (%s: '%s')" ,
-                                            self._nodeLocation[0],
-                                            self._nodeLocation[1],
+                                            self._nodeIPs[self._index],
+                                            self._nodePort,
                                             ex.__class__.__name__,
-                                            ex  )
+                                            ex  )            
+            self._index = (self._index + 1) % self._nIPs
+
 
     def send(self, msg):
         
         if not self._connected :
             self._reconnect()
             if not self._connected :
-                raise ArakoonNotConnected( self._nodeLocation )
+                raise ArakoonNotConnected( (self._nodeIPs, self._nodePort) )
         try:
             self._socket.sendall( msg )
         except Exception, ex:
             self.close()
             ArakoonClientLogger.logWarning( "Error while sending data to (%s,%s) => %s: '%s'" , 
-                self._nodeLocation[0], self._nodeLocation[1], ex.__class__.__name__, ex  ) 
+                self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  ) 
             raise ArakoonSockSendError ()
 
     def close(self):
@@ -67,7 +73,7 @@ class ArakoonClientConnection :
                 self._socket.close()
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket to %s:%s (%s: '%s')" , 
-                    self._nodeLocation[0], self._nodeLocation[1], ex.__class__.__name__, ex  )
+                    self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
 
             self._connected = False
 

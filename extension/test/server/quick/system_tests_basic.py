@@ -46,6 +46,21 @@ def test_start_stop_three_nodes_forced () :
     cluster.start() 
     C.assert_running_nodes ( 3 )
 
+def test_start_stop_wrapper():
+    cluster = C._getCluster()
+    nn = "wrapper"
+    cluster.addNode(nn, "127.0.0.1",8000, wrapper = 'sudo')
+    cluster.addLocalNode(nn)
+    cluster.createDirs(nn)
+    C.assert_running_nodes(0)
+    cluster.start()
+    C.assert_running_nodes(1)
+    Cluster.stop()
+    C.assert_running_nodes(0)
+    cluster.tearDown()
+
+
+
 @C.with_custom_setup( C.default_setup, C.basic_teardown )        
 def test_single_client_100_set_get_and_deletes() :
     C.iterate_n_times( 100, C.set_get_and_delete )
