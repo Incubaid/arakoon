@@ -70,10 +70,10 @@ class ArakoonClientConfig :
         print nodes
         for k in nodes.keys():
             t = nodes[k]
-            print t
             maybe_string = t[0]
             if type(maybe_string) == types.StringType:
                 ip_list = maybe_string.split(',')
+                port = t[1]
                 nodes[k] = (ip_list, port)
 
         return nodes
