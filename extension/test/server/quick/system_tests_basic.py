@@ -55,7 +55,7 @@ def test_start_stop_wrapper():
     C.assert_running_nodes(0)
     cluster.start()
     C.assert_running_nodes(1)
-    Cluster.stop()
+    cluster.stop()
     C.assert_running_nodes(0)
     cluster.tearDown()
 
