@@ -342,8 +342,7 @@ let last_entries config_file myname i =
   in
   let addr = Network.make_address ip port in
   let dump_entry () i alist =
-    Lwt_list.iter_s (fun a -> Lwt_io.printlf "%Li : %s" i (Sync._action2s a)) alist ;
-    Lwt.return ()
+    Lwt_list.iter_s (fun a -> Lwt_io.printlf "%Li : %s" i (Sync._action2s a)) alist 
   in
   Sync.remote_iterate addr cfg.cluster_id i dump_entry ()
 

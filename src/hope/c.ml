@@ -20,7 +20,16 @@ let prologue (ic,oc) =
   Llio.input_string ic >>= fun cluster_id ->
   check_cluster cluster_id >>= fun () ->
   Lwt.return ()
-    
+
+let get_test_and_set_args ic =
+  Llio.input_string ic >>= fun k ->
+  Llio.input_string_option ic >>= fun m_old ->
+  Llio.input_string_option ic >>= fun m_new ->
+  Lwt.return (k, m_old, m_new)
+let send_string_option oc so =
+  Llio.output_int oc 0 >>= fun () ->
+  Llio.output_string_option oc so 
+  
 let __do_unit_update driver q =
   DRIVER.push_cli_req driver q >>= fun a ->
   match a with 
@@ -37,8 +46,18 @@ let _sequence driver sequence = __do_unit_update driver sequence
 let _delete driver k =
   let q = Core.DELETE k in
   __do_unit_update driver q
-    
+
+let wrap_not_found f d k =
+  Lwt.catch 
+    (fun () -> f d k >>= fun k -> Lwt.return (Some k))
+    (function 
+      | Not_found -> Lwt.return None
+      | e -> Lwt.fail e
+    )
+
 let _get driver k = DRIVER.get driver k
+
+let _safe_get = wrap_not_found _get 
 
 let _range driver ~(allow_dirty:bool) 
     (first:string option) (finc:bool) 
@@ -143,10 +162,10 @@ let one_command driver ((ic,oc) as conn) =
       begin
         Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_string_option ic >>= fun (first:string option) ->
-        Llio.input_bool          ic >>= fun finc  ->
+        Llio.input_bool ic >>= fun finc  ->
         Llio.input_string_option ic >>= fun (last:string option)  ->
-        Llio.input_bool          ic >>= fun linc  ->
-        Llio.input_int           ic >>= fun max   ->
+        Llio.input_bool ic >>= fun linc  ->
+        Llio.input_int ic >>= fun max   ->
         Lwt.catch
         (fun () ->
           _range driver ~allow_dirty first finc last linc max >>= fun list ->
@@ -171,6 +190,25 @@ let one_command driver ((ic,oc) as conn) =
         else 
           Client_protocol.response_ok_unit oc
       end
+    | TEST_AND_SET ->
+      get_test_and_set_args ic >>= fun (key, m_new, m_old) ->
+      _safe_get driver key >>= fun m_val ->
+      begin
+        if m_val = m_old 
+        then
+          begin
+            match m_new with
+              | None -> _delete driver key
+              | Some v -> _set driver key v
+          end 
+        else
+          begin
+            Lwt.return ()
+          end
+      end >>= fun () ->
+      send_string_option oc m_old >>= fun () ->
+      Lwt.return false
+      
         
 let protocol driver (ic,oc) =   
   let rec loop () = 
@@ -186,7 +224,7 @@ let protocol driver (ic,oc) =
     end
   in
   Lwtc.log "session started" >>= fun () ->
-  prologue(ic,oc) >>= fun () -> 
+  prologue(ic,oc) >>= fun () ->
   Lwtc.log "prologue ok" >>= fun () ->
   loop ()
 
