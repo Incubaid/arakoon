@@ -24,6 +24,7 @@ from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
 import arakoon
 import time
+import subprocess
 from nose.tools import *
 #from pymonkey import q, i
 import logging
@@ -48,8 +49,14 @@ def test_start_stop_three_nodes_forced () :
 
 def test_start_stop_wrapper():
     cluster = C._getCluster()
+    fn = "/tmp/my_wrapper.sh"
+    with open(fn,'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write("logger wrapper called with '$@'\n")
+        f.write('$@\n')
+    subprocess.call(['chmod','+x',fn])
     nn = "wrapper"
-    cluster.addNode(nn, "127.0.0.1",8000, wrapper = 'sudo')
+    cluster.addNode(nn, "127.0.0.1", 8000, wrapper = fn)
     cluster.addLocalNode(nn)
     cluster.createDirs(nn)
     C.assert_running_nodes(0)
