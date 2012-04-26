@@ -55,10 +55,12 @@ class ArakoonNodeNotLocal( ArakoonException ):
         ArakoonException.__init__( self, self._msg )
         
 class ArakoonNotConnected( ArakoonException ):
-    _msgF = "No connection available to node at '%s:%s'"
+    _msgF = "No connection available to node at %s on port %s"
 
-    def __init__ (self, location):
-        self._msg = ArakoonNotConnected._msgF % ( location[0], location[1] )
+    def __init__ (self, t):
+        ips = t[0]
+        port = t[1]
+        self._msg = ArakoonNotConnected._msgF % ( ips, port )
         ArakoonException.__init__( self, self._msg )
 
 class ArakoonNoMaster( ArakoonException ):

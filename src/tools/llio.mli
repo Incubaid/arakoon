@@ -42,7 +42,8 @@ val string_to: Buffer.t -> string -> unit
 val option_to: (Buffer.t -> 'a -> unit) -> Buffer.t -> 'a option -> unit
 val string_option_to: Buffer.t -> string option -> unit
 val named_field_to: Buffer.t -> namedValue -> unit
-
+val list_to  : Buffer.t -> (Buffer.t -> 'a -> unit) -> 'a list -> unit
+val string_list_to : Buffer.t -> string list -> unit
 val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) -> 
   ('a, 'b) Hashtbl.t -> unit
 
@@ -54,6 +55,8 @@ val float_from: string -> int -> float * int
 val string_from: string -> int -> string * int
 val option_from: (string -> int -> 'a * int) -> string -> int -> 'a option * int
 val string_option_from: string -> int -> string option * int
+val list_from: string -> (string -> int -> 'a * int) -> int -> ('a list) * int
+val string_list_from: string -> int -> string list * int
 val named_field_from: string -> int -> namedValue * int
 
 val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int -> 

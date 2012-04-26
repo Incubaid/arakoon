@@ -319,7 +319,7 @@ let _main_2
         begin
           let ccfg = ClientCfg.make () in
           let add_one cfg =
-            let node_address = List.hd cfg.ips, cfg.client_port in
+            let node_address = cfg.ips, cfg.client_port in
             ClientCfg.add ccfg cfg.node_name node_address
           in
           List.iter add_one in_cluster_cfgs;
@@ -348,10 +348,13 @@ let _main_2
                   | true -> Lwt.return true
                   | false ->
                     begin
-                      let (ip,port) = ClientCfg.get cfg node_id in
+                      let (ips, port) = ClientCfg.get cfg node_id in
+                      let ipss = Log_extra.string_of_list (fun s -> s) ips in
+                      Lwt_log.debug_f "upload_cfg_to_keeper (%s,%i)" ipss port >>= fun () ->
                       Lwt.catch(
                         fun () ->
-                          let address = Network.make_address ip port in
+                          let ip0 = List.hd ips in
+                          let address = Network.make_address ip0 port in
                           let upload connection = 
                             Remote_nodestream.make_remote_nodestream n_cluster_id connection >>= fun (client) ->
                             client # store_cluster_cfg cluster_id my_clicfg

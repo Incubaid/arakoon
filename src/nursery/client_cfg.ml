@@ -22,12 +22,13 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 module ClientCfg = struct
-  type sa = string * int
-  type t = (string, sa) Hashtbl.t
+  type node_address = string list * int
+  type t = (string, node_address) Hashtbl.t
+
   let cfg_to buf (t:t) = 
-    let entry2 buf k (ip,p) = 
+    let entry2 buf k (ips,p) = 
       Llio.string_to buf k;
-      Llio.string_to buf ip;
+      Llio.string_list_to buf ips;
       Llio.int_to buf p
     in
     Llio.hashtbl_to buf entry2 t
@@ -35,17 +36,18 @@ module ClientCfg = struct
   let cfg_from buf pos = 
     let entry_from buf pos = 
       let k,p1 = Llio.string_from buf pos in
-      let ip,p2 = Llio.string_from buf p1 in
+      let ips,p2 = Llio.string_list_from buf p1 in
       let p,p3 = Llio.int_from buf p2 in
-      let (sa:sa) = ip,p in
-      (k,sa),p3
+      let (na:node_address) = ips,p in
+      (k,na),p3
     in
     Llio.hashtbl_from buf entry_from pos
  
   let to_string t = 
     let buffer = Buffer.create 127 in
-    Hashtbl.iter (fun s (ip,p) -> 
-      Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ip p)) t;
+    Hashtbl.iter (fun s (ips,p) -> 
+      let ipss = Printf.sprintf "[%s]" (String.concat ";" ips) in
+      Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ipss p)) t;
     Buffer.contents buffer 
 
   let input_cfg ic =
@@ -53,9 +55,9 @@ module ClientCfg = struct
       Llio.input_string ic 
     in
     let value_from ic =
-      Llio.input_string ic >>= fun ip ->
+      Llio.input_string_list ic >>= fun ips ->
       Llio.input_int ic >>= fun port ->
-      Lwt.return (ip,port)
+      Lwt.return (ips,port)
       
     in
     Llio.input_hashtbl key_from value_from ic 
@@ -79,14 +81,14 @@ module ClientCfg = struct
   let from_file section fn =  (* This is the format as defined in the extension *)
     let inifile = new Inifiles.inifile fn in
     let cfg = make () in
+    let _ips node_name = Ini.get inifile node_name "ip" Ini.p_string_list Ini.required in
     let _get s n p = Ini.get inifile s n p Ini.required in
     let nodes      = _get section "cluster" Ini.p_string_list in
     let () = List.iter
       (fun n ->
-	let ip = _get n "ip" Ini.p_string in
+	let ips = _ips n in
 	let port = _get n "client_port" Ini.p_int in
-	let sa = ip,port in
-	add cfg n sa
+	add cfg n (ips,port)
       ) nodes
     in
     cfg

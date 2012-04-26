@@ -38,7 +38,7 @@ let deny (ic,oc) =
   Llio.output_string oc "too many clients"
    
 
-let session_thread protocol fd = 
+let session_thread (sid:string) protocol fd = 
   Lwt.catch
     (fun () ->
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
@@ -47,7 +47,7 @@ let session_thread protocol fd =
     )
     (function
       | FOOBAR as foobar-> Lwt.fail foobar
-      | exn -> info ~exn "exiting session")
+      | exn -> info_f ~exn "exiting session (%s)" sid)
   >>= fun () -> 
   Lwt.catch 
   ( fun () -> Lwt_unix.close fd )
@@ -85,12 +85,15 @@ let make_server_thread
 	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
           begin
             match maybe_take () with
-              | None    -> Lwt.ignore_result (session_thread deny fd)
+              | None    -> Lwt.ignore_result (session_thread "--" deny fd)
               | Some id ->
 	        Lwt.ignore_result 
 		  (
                     Lwt_log.info_f "%s:session (%i)" name id >>= fun () ->
-                    session_thread protocol fd 
+                    let sid = string_of_int id in
+                    session_thread sid protocol fd >>= fun () ->
+                    release();
+                    Lwt.return()
 		  )
           end;
           Lwt.return ()

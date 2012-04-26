@@ -233,14 +233,17 @@ let list_to buf e_to list =
   int_to buf (List.length list);
   List.iter (e_to buf) (List.rev list)
 
+let string_list_to buf sl = list_to buf string_to sl
+
 let list_from s e_from pos =
   let size,p0 = int_from s pos in
   let rec loop acc p = function
-    | 0 -> acc
+    | 0 -> acc,p
     | i -> let e,p' = e_from s p in
 	   loop (e::acc) p' (i-1)
   in loop [] p0 size
 
+let string_list_from s pos = list_from s string_from pos
 
 let output_string_option oc = function
   | None -> output_bool oc false

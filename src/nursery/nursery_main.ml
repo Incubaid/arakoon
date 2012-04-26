@@ -24,10 +24,14 @@ open Lwt
 open Node_cfg
 open Nursery
 open Routing
+open Client_cfg
+
+type lookup = (string, ClientCfg.node_address) Hashtbl.t
 
 let with_remote_stream (cluster:string) cfg f =
-  let host,port = cfg in
-  let sa = Network.make_address host port in
+  let ips,port = cfg in
+  let ip0 = List.hd ips in
+  let sa = Network.make_address ip0 port in
   let do_it connection =
     Remote_nodestream.make_remote_nodestream cluster connection 
     >>= fun (client) ->
@@ -35,12 +39,13 @@ let with_remote_stream (cluster:string) cfg f =
   in
     Lwt_io.with_connection sa do_it
 
-let find_master cluster_id cli_cfg =
-  let check_node node_name node_cfg acc = 
+let find_master cluster_id (cli_cfg:lookup) =
+  let check_node node_name (node_cfg:ClientCfg.node_address) acc = 
     begin
       Lwt_log.info_f "node=%s" node_name >>= fun () ->
-      let (ip,port) = node_cfg in
-      let sa = Network.make_address ip port in
+      let (ips,port) = node_cfg in
+      let ip0 = List.hd ips in
+      let sa = Network.make_address ip0 port in
       Lwt.catch
         (fun () ->
           Lwt_io.with_connection sa
@@ -60,11 +65,11 @@ let find_master cluster_id cli_cfg =
         )
     end
   in 
-  Hashtbl.fold check_node cli_cfg (Lwt.return None) >>= function 
+  Hashtbl.fold check_node (cli_cfg:lookup) (Lwt.return None) >>= function 
     | None -> failwith "No master found"
     | Some m -> Lwt.return m  
 
-let with_master_remote_stream cluster_id cfg f =
+let with_master_remote_stream cluster_id (cfg:lookup) f =
   find_master cluster_id cfg >>= fun master_name ->
   let master_cfg = Hashtbl.find cfg master_name in
   with_remote_stream cluster_id master_cfg f

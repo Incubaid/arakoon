@@ -42,7 +42,7 @@ let try_connect (ips, port) =
 module NC = struct
   type connection = Lwt_io.input_channel * Lwt_io.output_channel 
   type lc = 
-    | Address of (string * int)
+    | Address of (string list * int)
     | Connection of connection
 
   type nn = string * string (* cluster_name,node_name *)
@@ -70,8 +70,9 @@ module NC = struct
   let _get_connection t nn = 
     let (cn,node) = nn in
     match Hashtbl.find t.connections nn with
-      | Address (ip,port) -> 
+      | Address (ips,port) -> 
 	begin
+          let ip = List.hd ips in
 	  try_connect (ip,port) >>= function
 	    | Some conn -> 
 	      Common.prologue cn conn >>= fun () ->
@@ -401,8 +402,8 @@ let nursery_test_main () =
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
   let right_cfg = ClientCfg.make () in
-  let () = ClientCfg.add left_cfg "left_0"   ("127.0.0.1", 4000) in
-  let () = ClientCfg.add right_cfg "right_0" ("127.0.0.1", 5000) in
+  let () = ClientCfg.add left_cfg "left_0"   (["127.0.0.1"], 4000) in
+  let () = ClientCfg.add right_cfg "right_0" (["127.0.0.1"], 5000) in
   let nursery_cfg = NCFG.make routing in
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in

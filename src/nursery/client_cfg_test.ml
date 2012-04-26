@@ -51,7 +51,7 @@ let test_parsing () =
   let () = close_out oc in
   let cfg = ClientCfg.from_file "global" fn in
   let sa0 = ClientCfg.get cfg "sturdy_0" in
-  OUnit.assert_equal sa0 ("127.0.0.1",7080)
+  OUnit.assert_equal sa0 (["127.0.0.1"],7080)
 
 let suite = "client_cfg" >:::[
   "parsing" >:: test_parsing;
