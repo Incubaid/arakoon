@@ -116,7 +116,7 @@ let one_command driver ((ic,oc) as conn) =
           )
           (Client_protocol.handle_exception oc)
       end
-    |MULTI_GET ->
+    | MULTI_GET ->
       begin
         Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_int ic >>= fun length ->
@@ -141,20 +141,35 @@ let one_command driver ((ic,oc) as conn) =
       end
     | RANGE ->
       begin
-	Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_string_option ic >>= fun (first:string option) ->
         Llio.input_bool          ic >>= fun finc  ->
         Llio.input_string_option ic >>= fun (last:string option)  ->
         Llio.input_bool          ic >>= fun linc  ->
         Llio.input_int           ic >>= fun max   ->
         Lwt.catch
-	  (fun () ->
-	    _range driver ~allow_dirty first finc last linc max >>= fun list ->
-	    Llio.output_int32 oc 0l >>= fun () ->
-	    Llio.output_list Llio.output_string oc list >>= fun () ->
-            Lwt.return false
-	  )
-	  (Client_protocol.handle_exception oc )
+        (fun () ->
+          _range driver ~allow_dirty first finc last linc max >>= fun list ->
+          Llio.output_int32 oc 0l >>= fun () ->
+          Llio.output_list Llio.output_string oc list >>= fun () ->
+          Lwt.return false
+	      )
+        (Client_protocol.handle_exception oc )
+      end
+    | CONFIRM ->
+      begin
+        Llio.input_string ic >>= fun key ->
+        Llio.input_string ic >>= fun value ->
+        _get driver key >>= fun v ->
+        if v <> value 
+        then
+          Lwt.catch
+          (fun () -> 
+            _set driver key value >>= fun () ->
+            Client_protocol.response_ok_unit oc)
+          (Client_protocol.handle_exception oc)
+        else 
+          Client_protocol.response_ok_unit oc
       end
         
 let protocol driver (ic,oc) =   
