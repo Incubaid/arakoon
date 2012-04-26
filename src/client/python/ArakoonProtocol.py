@@ -67,7 +67,6 @@ class ArakoonClientConfig :
     
 
     def _cleanUp(self, nodes):
-        print nodes
         for k in nodes.keys():
             t = nodes[k]
             maybe_string = t[0]
@@ -360,7 +359,7 @@ def _unpackStringList(buf, offset):
     for i in range( size ) :
         x, offset = _unpackString(buf, offset)
         retVal.append(x)
-    return retVal
+    return retVal, offset
 
 def _unpackNamedField(buf, offset):
     type, offset = _unpackInt(buf, offset)
@@ -670,18 +669,17 @@ class ArakoonProtocol :
         offset = 0
         encoded = _recvString( con )
         routing, offset = RoutingInfo.unpack(encoded, offset, _unpackBool, _unpackString)
-        
         cfgCount, offset = _unpackInt(encoded, offset)
-        resultCfgs = dict()
+        resultCfgs = {}
         for i in range(cfgCount) :
             clusterId, offset = _unpackString(encoded, offset)
             clusterSize, offset = _unpackInt(encoded, offset)
             cfg = dict()
             for j in range(clusterSize):
                 nodeId, offset = _unpackString(encoded, offset)
-                ip, offset = _unpackString(encoded, offset)
+                ips, offset = _unpackStringList(encoded, offset)
                 port, offset = _unpackInt(encoded, offset)
-                cfg[nodeId] = (ip,port)
+                cfg[nodeId] = (ips,port)
             cliCfg = ArakoonClientConfig(clusterId, cfg)
             resultCfgs[clusterId] = cliCfg
         return (routing, resultCfgs)      
