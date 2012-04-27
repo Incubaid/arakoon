@@ -30,7 +30,6 @@ module ADispatcher (S:STORE) = struct
     store : S.t; 
     msg : Messaging.messaging;
     timeout_q : message PQ.q;
-    mutable meta : string option;
     resyncs : (node_id, (S.t -> unit Lwt.t)) Hashtbl.t ; 
   }
 
@@ -39,26 +38,8 @@ module ADispatcher (S:STORE) = struct
 	    store = s;
 	    msg = msging;
 	    timeout_q = tq;
-	    meta = None;
 	    resyncs = resyncs;
 	  } 
-    
-  let get_meta t = Lwt.return t.meta
-    
-  let get t k = S.get t.store k 
-
-  let range t first finc last linc max = S.range t.store first finc last linc max
-
-  let last_entries (t:t) (i:Core.tick) (oc:Llio.lwtoc) = S.last_entries t.store i oc
-
-  let create msging s tq resyncs =  
-  {
-    store = s;
-    msg = msging;  
-    timeout_q = tq;
-    meta = None;
-    resyncs = resyncs;
-  }
   
   let send_msg t src dst msg =
     t.msg # send_message msg src dst 
@@ -81,7 +62,7 @@ module ADispatcher (S:STORE) = struct
     let buf = Buffer.create 32 in
     Llio.string_to buf m;
     let s = Buffer.contents buf in
-    Lwt.return (t.meta <- Some s)
+    S.set_meta t.store s
   
   let start_timer t n m d =
     Lwtc.log "STARTING TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d >>= fun () ->

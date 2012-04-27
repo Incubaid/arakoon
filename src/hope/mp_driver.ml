@@ -105,15 +105,6 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     
   let push_msg t msg =
     PQ.push t.msgs msg
-  
-  let get t k = A.get t.action_dispatcher k
-    
-  let get_meta t = A.get_meta t.action_dispatcher
-    
-  let last_entries t i oc = A.last_entries t.action_dispatcher i oc
-
-  let range t ~allow_dirty first finc last linc max = 
-    A.range t.action_dispatcher first finc last linc max
 
 end
 

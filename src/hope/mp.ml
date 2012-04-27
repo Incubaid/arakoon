@@ -260,6 +260,7 @@ module MULTI = struct
       Printf.sprintf "Reply (rc: %d) (msg: '%s')" 
           (Int32.to_int (Arakoon_exc.int32_of_rc rc)) msg
     | w, UNIT -> "Reply success (unit)"
+    | w, VALUE v -> Printf.sprintf "Reply success (value)" 
        
   type action =
     | A_RESYNC of node_id * tick * tick
@@ -779,12 +780,4 @@ end
 module type MP_ACTION_DISPATCHER = sig
   type t
   val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
-  val get : t -> Core.k -> Core.v Lwt.t
-
-  val range : t -> 
-    string option -> bool -> 
-    string option -> bool -> int ->
-    string list Lwt.t
-  val get_meta : t -> string option Lwt.t
-  val last_entries : t -> Core.tick -> Llio.lwtoc -> unit Lwt.t
 end

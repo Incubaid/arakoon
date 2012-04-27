@@ -13,7 +13,7 @@ let action2update = function
     
 
 module BStore = (struct
-  type t = { m: Lwt_mutex.t; store: BS.t;}
+  type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option}
 
   let init fn = 
     BS.init fn 
@@ -21,10 +21,15 @@ module BStore = (struct
   let create fn = 
     BS.make fn >>= fun store ->
     let m = Lwt_mutex.create() in
-    let r = {m;store} in
+    let r = {m=m; store=store; meta=None;} in
     Lwt.return r
   
+  let set_meta t s =
+    Lwt.return (t.meta <- Some s)
   
+  let get_meta t =
+    Lwt.return t.meta
+    
   let commit t i = 
     Lwt_mutex.with_lock t.m
     ( fun() ->
@@ -74,7 +79,10 @@ module BStore = (struct
           
     end
       
-  let get t k = BS.get_latest t.store (pref_key k) 
+  let get t k = 
+    Lwt.catch (
+      fun () -> BS.get_latest t.store (pref_key k) >>= fun v -> Lwt.return (Some v)
+    ) ( fun e -> Lwt.return None )
 
   let range t first finc last linc max = 
     let px = function

@@ -9,13 +9,7 @@ open Node_cfg.Node_cfg
 open Mp
 
 open Modules
-
-let gen_request_id =
-  let c = ref 0 in
-  fun () -> let r = !c in 
-            let () = incr c in 
-            r
-
+module BSC = C.ProtocolHandler(BStore)
 
 (*
 module MC = struct
@@ -118,8 +112,8 @@ module MC = struct
     loop ()
 end
 *)
-let server_t driver host port =
-  let inner = Server.make_server_thread host port (C.protocol driver) in
+let server_t driver store host port =
+  let inner = Server.make_server_thread host port (BSC.protocol driver store) in
   inner ()
 
 (*
@@ -273,7 +267,7 @@ let run_node myname config_file daemonize =
   let resyncs = create_resyncs others cluster_id in
   let disp, q = create_dispatcher store msging resyncs in
   let driver = create_driver disp q in
-  let service driver = server_t driver mycfg.ip mycfg.client_port in
+  let service driver = server_t driver store mycfg.ip mycfg.client_port in
   build_start_state store mycfg others >>= fun s ->
   let delayed_timeout = MULTI.A_START_TIMER (s.MULTI.round, Core.start_tick, float_of_int mycfg.lease_period) in
   DRIVER.dispatch driver s delayed_timeout >>= fun s' ->

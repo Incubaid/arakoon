@@ -67,6 +67,7 @@ let rec update_from buf off =
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
+  | VALUE of v
 
 type tick = TICK of int64
   
@@ -91,11 +92,12 @@ module type STORE = sig
   val init : string -> unit Lwt.t
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> result Lwt.t
-  val get : t -> k -> v Lwt.t
+  val get : t -> k -> v option Lwt.t
   val range: t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
   val last_update: t -> (tick * update option) option Lwt.t
-
+  val get_meta: t -> string option Lwt.t
+  val set_meta: t -> string -> unit Lwt.t
   val close : t -> unit Lwt.t
   val dump : t -> unit Lwt.t
 end

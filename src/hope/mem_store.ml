@@ -20,7 +20,7 @@ module MemStore = (struct
 
   let create n = Lwt.return { store = Hashtbl.create 7 ; meta = None }
 
-  let get t k = let v = Hashtbl.find t.store k in Lwt.return v
+  let get t k = let v = Hashtbl.find t.store k in Lwt.return (Some v)
   
   let set_meta t s = 
     t.meta <- Some s;
