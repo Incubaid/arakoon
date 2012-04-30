@@ -77,7 +77,18 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Some m when m = me -> Lwt.return true
       | _ -> Lwt.return false
   
-	let _range store ~(allow_dirty:bool) 
+  let only_if_master store me oc allow_dirty f =
+    am_i_master store me >>= fun me_master ->
+    Lwt.catch
+    (fun () -> 
+      if me_master || allow_dirty
+      then             
+        f ()
+      else
+      Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
+    ) (Client_protocol.handle_exception oc)
+
+	let _range store
 	    (first:string option) (finc:bool) 
 	    (last:string option)  (linc:bool)
 	    (max:int) = 
@@ -111,11 +122,11 @@ module ProtocolHandler (S:Core.STORE) = struct
 	      begin
 	        Llio.input_bool ic >>= fun allow_dirty ->
 	        Llio.input_string ic >>= fun key ->
-	        Lwt.catch 
-	          (fun () -> 
-	            _get store key >>= fun value ->
-	            Client_protocol.response_rc_string oc 0l value)
-	          (Client_protocol.handle_exception oc)
+          let do_get () =
+            _get store key >>= fun value ->
+            Client_protocol.response_rc_string oc 0l value
+          in
+          only_if_master store me oc allow_dirty do_get
 	      end 
 	    | LAST_ENTRIES ->
 	      begin
@@ -147,24 +158,23 @@ module ProtocolHandler (S:Core.STORE) = struct
 	      begin
 	        Llio.input_bool ic >>= fun allow_dirty ->
 	        Llio.input_int ic >>= fun length ->
-	        let rec loop keys i = 
-	          if i = 0 then Lwt.return keys
-	          else 
-	            begin
-	              Llio.input_string ic >>= fun key ->
-	              loop (key :: keys) (i-1)
-	            end
+          let do_multi_get () = 
+		        let rec loop keys i = 
+		          if i = 0 then Lwt.return keys
+		          else 
+		            begin
+		              Llio.input_string ic >>= fun key ->
+		              loop (key :: keys) (i-1)
+		            end
+		        in
+		        loop [] length >>= fun keys ->
+            Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
+	          Llio.output_int oc 0>>= fun () ->
+	          Llio.output_int oc length >>= fun () ->
+	          Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+	          Lwt.return false
 	        in
-	        loop [] length >>= fun keys ->
-	        Lwt.catch 
-	          (fun () ->
-	            Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
-	            Llio.output_int oc 0>>= fun () ->
-	            Llio.output_int oc length >>= fun () ->
-	            Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-	            Lwt.return false
-	          )
-	          (Client_protocol.handle_exception oc)
+          only_if_master store me oc allow_dirty do_multi_get
 	      end
 	    | RANGE ->
 	      begin
@@ -174,55 +184,55 @@ module ProtocolHandler (S:Core.STORE) = struct
 	        Llio.input_string_option ic >>= fun (last:string option)  ->
 	        Llio.input_bool ic >>= fun linc  ->
 	        Llio.input_int ic >>= fun max   ->
-	        Lwt.catch
-	        (fun () ->
-            am_i_master store me >>= fun me_master ->
-            if allow_dirty || me_master 
-            then
-              _range store ~allow_dirty first finc last linc max >>= fun list ->
-	            Llio.output_int32 oc 0l >>= fun () ->
-	            Llio.output_list Llio.output_string oc list >>= fun () ->
-	            Lwt.return false
-            else
-              Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
-		      )
-	        (Client_protocol.handle_exception oc )
+	        let do_range () =
+            _range store first finc last linc max >>= fun list ->
+	          Llio.output_int32 oc 0l >>= fun () ->
+	          Llio.output_list Llio.output_string oc list >>= fun () ->
+	          Lwt.return false
+          in
+          only_if_master store me oc allow_dirty do_range
 	      end
 	    | CONFIRM ->
 	      begin
-	        Llio.input_string ic >>= fun key ->
+          Llio.input_string ic >>= fun key ->
 	        Llio.input_string ic >>= fun value ->
-	        _safe_get store key >>= fun v ->
-	        if v <> Some value 
-	        then
-	          Lwt.catch
-	          (fun () -> 
-	            _set driver key value >>= fun () ->
-	            Client_protocol.response_ok_unit oc)
-	          (Client_protocol.handle_exception oc)
-	        else 
-	          Client_protocol.response_ok_unit oc
+          let do_confirm () =
+            begin 
+              _safe_get store key >>= fun v ->
+              if v <> Some value 
+              then
+                _set driver key value 
+              else 
+                Lwt.return () 
+            end
+            >>= fun () -> 
+            Client_protocol.response_ok_unit oc
+          in 
+          only_if_master store me oc false do_confirm
 	      end
 	    | TEST_AND_SET ->
 	      Llio.input_string ic >>= fun key ->
         Llio.input_string_option ic >>= fun m_old ->
         Llio.input_string_option ic >>= fun m_new ->
-	      _safe_get store key >>= fun m_val ->
-	      begin
-	        if m_val = m_old 
-	        then
-	          begin
-	            match m_new with
-	              | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
-	              | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
-	          end 
-	        else
-	          begin
-	            Lwtc.log "Test_and_set: nothing to be done"
-	          end
-	      end >>= fun () ->
-	      send_string_option oc m_val >>= fun () ->
-	      Lwt.return false
+        let do_test_and_set () = 
+          _safe_get store key >>= fun m_val ->
+	        begin
+		        if m_val = m_old 
+		        then
+		          begin
+		            match m_new with
+		              | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
+		              | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
+		          end 
+		        else
+		          begin
+		            Lwtc.log "Test_and_set: nothing to be done"
+		          end
+		      end >>= fun () ->
+		      send_string_option oc m_val >>= fun () ->
+		      Lwt.return false
+        in
+        only_if_master store me oc false do_test_and_set 
 	    | DELETE ->
 	      get_key ic >>= fun key ->
 	      _delete driver key >>= fun () ->
@@ -233,6 +243,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         Llio.input_bool ic >>= fun finc ->
         Llio.input_string_option ic >>= fun ekey ->
         Llio.input_bool ic >>= fun einc ->
+        
         Client_protocol.response_ok_unit oc
         
         
