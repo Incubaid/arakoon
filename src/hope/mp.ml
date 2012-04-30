@@ -197,7 +197,6 @@ module MULTI = struct
     prop              : update option;
     votes             : node_id list;
     election_votes    : election_votes;
-    is_lease_active   : bool;
     constants         : paxos_constants;
     cur_cli_req       : request_awakener option;
     valid_inputs      : msg_channel list;
@@ -214,7 +213,6 @@ module MULTI = struct
       prop = u;
       votes = [];
       election_votes = {nnones = []; nsomes = []};
-      is_lease_active = false;
       constants = c;
       cur_cli_req = None;
       valid_inputs = ch_all;
@@ -227,11 +225,7 @@ module MULTI = struct
     | S_SLAVE              -> "S_SLAVE"
   
   let state2s s =
-    let m = 
-      if s.is_lease_active 
-      then (so2s s.master_id)
-      else "None"
-    in
+    let m = so2s s.master_id in
     Printf.sprintf "id: %s, n: %s, m: %s, p: %s, a: %s, state: %s, master: %s, votes: %d"
           s.constants.me (tick2s s.round) (tick2s s.extensions) (tick2s s.proposed) (tick2s s.accepted) 
           (state_n2s s.state_n) m (List.length s.votes)
@@ -270,7 +264,7 @@ module MULTI = struct
     | A_LOG_UPDATE of tick * update
     | A_START_TIMER of tick * tick * float
     | A_CLIENT_REPLY of client_reply
-    | A_STORE_LEASE of node_id 
+    | A_STORE_LEASE of node_id option
 
   let action2s = function
     | A_RESYNC (src, n, m) -> 
@@ -290,7 +284,7 @@ module MULTI = struct
     | A_CLIENT_REPLY rep ->
       Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
     | A_STORE_LEASE m ->
-      Printf.sprintf "A_STORE_LEASE (m:%s)" m 
+      Printf.sprintf "A_STORE_LEASE (m:%s)" (so2s m) 
       
   type step_result =
     | StepFailure of string
@@ -388,7 +382,7 @@ module MULTI = struct
     
   let send_promise state src n m i =
     begin
-    if state.is_lease_active && not (is_node_master src state) 
+    if (state.master_id <> None) && not (is_node_master src state) 
     then
       StepSuccess( [], state )
     else
@@ -565,7 +559,7 @@ module MULTI = struct
 		                    let actions = 
 		                      (bcast_mset_actions state)
 		                      @
-		                      (A_STORE_LEASE (state.constants.me )
+		                      (A_STORE_LEASE (Some state.constants.me )
 		                      :: postmortem_actions)
 		                    in
 		                    StepSuccess(actions, new_state) 
@@ -677,14 +671,14 @@ module MULTI = struct
     end
 
   let start_elections new_n m state = 
-    let sn, la = 
+    let sn, mid = 
       begin
         match state.state_n with 
         | S_MASTER -> 
           if state.round = new_n 
-          then (S_MASTER, true)
-          else (S_RUNNING_FOR_MASTER, false)
-        | _ -> (S_RUNNING_FOR_MASTER, false)
+          then (S_MASTER, Some state.constants.me)
+          else (S_RUNNING_FOR_MASTER, None)
+        | _ -> (S_RUNNING_FOR_MASTER, None)
       end
     in
     let msg = M_PREPARE (state.constants.me, new_n, m, (next_tick state.accepted)) in
@@ -692,14 +686,13 @@ module MULTI = struct
       state with
       round = new_n;
       extensions = m;
-      master_id = Some state.constants.me;
+      master_id = mid;
       state_n = sn;
       votes = [];
-      is_lease_active = la;
       election_votes = {nnones=[]; nsomes=[]};
     } in
     let lease_expiry = build_lease_timer new_n m (state.constants.lease_duration /. 2.0 ) in
-    StepSuccess([A_BROADCAST_MSG msg; lease_expiry], new_state)
+    StepSuccess([A_STORE_LEASE mid; A_BROADCAST_MSG msg; lease_expiry], new_state)
 
   let handle_lease_timeout n m state =
     let diff = state_cmp n start_tick state in
@@ -758,7 +751,7 @@ module MULTI = struct
         | S_SLAVE when state.round = n ->
           begin
             let d = state.constants.lease_duration in
-            let l = A_STORE_LEASE src in
+            let l = A_STORE_LEASE (Some src) in
             let t = A_START_TIMER (n, m, d) in
             StepSuccess ([l;t], state)
           end

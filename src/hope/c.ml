@@ -22,12 +22,6 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  check_cluster cluster_id >>= fun () ->
 	  Lwt.return ()
 	
-	let get_test_and_set_args ic =
-	  Llio.input_string ic >>= fun k ->
-	  Llio.input_string_option ic >>= fun m_old ->
-	  Llio.input_string_option ic >>= fun m_new ->
-	  Lwt.return (k, m_old, m_new)
-	
 	let get_key ic =
 	  Llio.input_string ic
 	    
@@ -69,39 +63,37 @@ module ProtocolHandler (S:Core.STORE) = struct
 	
 	let _safe_get = wrap_not_found _get 
 	
-  let am_i_master store = true
+  let extract_master_info = function
+    | None -> None
+	  | Some s -> 
+	    begin
+        let m, off = Llio.string_option_from s 0 in
+	      m
+	    end
+          
+  let am_i_master store me = 
+    S.get_meta store >>= fun meta ->
+    match (extract_master_info meta) with
+      | Some m when m = me -> Lwt.return true
+      | _ -> Lwt.return false
   
 	let _range store ~(allow_dirty:bool) 
 	    (first:string option) (finc:bool) 
 	    (last:string option)  (linc:bool)
 	    (max:int) = 
-    if allow_dirty || am_i_master store 
-    then
-	    S.range store first finc last linc max
-    else
-      failwith "Cannot perform range on not-master"
-	
+    S.range store first finc last linc max
+    
 	let _get_meta store = S.get_meta store 
 	
 	let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
 	
-	let one_command driver store ((ic,oc) as conn) = 
+	let one_command me driver store ((ic,oc) as conn) = 
 	  Client_protocol.read_command conn >>= fun comm ->
 	  match comm with
 	    | WHO_MASTER ->
 	      Lwtc.log "who master" >>= fun () ->
 	      _get_meta store >>= fun ms ->
-	      let mo =
-	        begin 
-	          match ms with
-	            | None -> None
-	            | Some s -> 
-	              begin
-	                let m, off = Llio.string_from s 0 in
-	                Some m 
-	              end
-	        end
-	        in
+        let mo = extract_master_info ms in
 	      Llio.output_int32 oc 0l >>= fun () ->
 	      Llio.output_string_option oc mo >>= fun () ->
 	      Lwt.return false
@@ -184,10 +176,15 @@ module ProtocolHandler (S:Core.STORE) = struct
 	        Llio.input_int ic >>= fun max   ->
 	        Lwt.catch
 	        (fun () ->
-	          _range store ~allow_dirty first finc last linc max >>= fun list ->
-	          Llio.output_int32 oc 0l >>= fun () ->
-	          Llio.output_list Llio.output_string oc list >>= fun () ->
-	          Lwt.return false
+            am_i_master store me >>= fun me_master ->
+            if allow_dirty || me_master 
+            then
+              _range store ~allow_dirty first finc last linc max >>= fun list ->
+	            Llio.output_int32 oc 0l >>= fun () ->
+	            Llio.output_list Llio.output_string oc list >>= fun () ->
+	            Lwt.return false
+            else
+              Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
 		      )
 	        (Client_protocol.handle_exception oc )
 	      end
@@ -207,7 +204,9 @@ module ProtocolHandler (S:Core.STORE) = struct
 	          Client_protocol.response_ok_unit oc
 	      end
 	    | TEST_AND_SET ->
-	      get_test_and_set_args ic >>= fun (key, m_old, m_new) ->
+	      Llio.input_string ic >>= fun key ->
+        Llio.input_string_option ic >>= fun m_old ->
+        Llio.input_string_option ic >>= fun m_new ->
 	      _safe_get store key >>= fun m_val ->
 	      begin
 	        if m_val = m_old 
@@ -228,12 +227,21 @@ module ProtocolHandler (S:Core.STORE) = struct
 	      get_key ic >>= fun key ->
 	      _delete driver key >>= fun () ->
 	      Client_protocol.response_ok_unit oc
-	    | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)")
+      | RANGE_ENTRIES ->
+        Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_string_option ic >>= fun bkey ->
+        Llio.input_bool ic >>= fun finc ->
+        Llio.input_string_option ic >>= fun ekey ->
+        Llio.input_bool ic >>= fun einc ->
+        Client_protocol.response_ok_unit oc
+        
+        
+	    (* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
-	let protocol driver store (ic,oc) =   
+	let protocol me driver store (ic,oc) =   
 	  let rec loop () = 
 	    begin
-	      one_command driver store (ic,oc) >>= fun stop ->
+	      one_command me driver store (ic,oc) >>= fun stop ->
 	      if stop
 	      then Lwtc.log "end of session"
 	      else 

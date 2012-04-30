@@ -59,9 +59,9 @@ module ADispatcher (S:STORE) = struct
       ) 
       
   
-  let store_lease t m =
+  let store_lease t mo =
     let buf = Buffer.create 32 in
-    Llio.string_to buf m;
+    Llio.string_option_to buf mo;
     let s = Buffer.contents buf in
     S.set_meta t.store s
   
@@ -120,12 +120,11 @@ module ADispatcher (S:STORE) = struct
     | A_CLIENT_REPLY (w, r) ->
       safe_wakeup w r >>= fun () ->
       Lwt.return s
-    | A_STORE_LEASE m ->
-      store_lease t m >>= fun () ->
+    | A_STORE_LEASE mo ->
+      store_lease t mo >>= fun () ->
       Lwt.return 
         { s with
-          master_id = Some m;
-          is_lease_active = true;
+          master_id = mo;
         }
     | A_RESYNC (tgt, n, m) -> 
       let resync = Hashtbl.find t.resyncs tgt in
