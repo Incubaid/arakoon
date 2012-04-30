@@ -355,35 +355,35 @@ let main_t () =
   let actions = [
     ("--node", 
      Arg.Tuple [set_action RunNode; Arg.Set_string node_id;],
-     "Runs a node");
+     "<node_id> : Runs a node");
     ("-config", Arg.Set_string config_file,
-     "Specifies config file (default = cfg/arakoon.ini)");
+     "<file> : Specifies config file (default = cfg/arakoon.ini)");
     ("-daemonize", Arg.Set daemonize,
-     "add if you want the process to daemonize (only for --node)");
-    ("--init-db", 
-     Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
-     "Initialize the database for the given node");
+     ": Add if you want the process to daemonize (only for --node)");
     ("--version",
      Arg.Tuple [set_action ShowVersion],
-     "returns version info");
+     ": Returns version info");
     ("--set", Arg.Tuple[set_action Set; Arg.Set_string key; Arg.Set_string value],
      "<key> <value> : arakoon[key]:= value"
     );
     ("--get", Arg.Tuple[set_action Get; Arg.Set_string key;],
-     "<key> : returns arakoon[key]"
+     "<key> : Returns arakoon[key]"
     );
     ("--delete", Arg.Tuple[set_action Delete;Arg.Set_string key;],
-     "<key>: delete arakoon[key]");
+     "<key> : Delete arakoon[key]");
     ("--benchmark", Arg.Tuple [set_action Benchmark],
-     "runs a benchmark against an existing cluster");
+     " : Runs a benchmark against an existing cluster");
     ("-max_n", Arg.Tuple[Arg.Set_int max_n], 
-     ": loop size (benchmark only) default=" ^ (string_of_int !max_n));
+     "<n> : loop size (benchmark only) default=" ^ (string_of_int !max_n));
     ("-value_size", Arg.Tuple[Arg.Set_int value_size], 
-     ": size of values (benchmark only) default=" ^ (string_of_int !value_size)) ;
+     "<size> : Size of values (benchmark only) default=" ^ (string_of_int !value_size)) ;
+    ("--init-db", 
+     Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
+     "<node_id> : Initialize the database for the given node");
     ("--dump-db", Arg.Tuple [set_action DumpDb; Arg.Set_string node_id],
-     "dump contents of database");
+     "<node_id> : Dump contents of database");
     ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string node_id; Arg.Set_string is],
-     "<node_id> <i> Retrieve a nodes update stream starting with <i>");
+     "<node_id> <i> : Retrieve a nodes update stream starting with <i>");
   ] in
   
   Arg.parse actions  
