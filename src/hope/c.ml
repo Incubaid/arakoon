@@ -77,17 +77,6 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Some m when m = me -> Lwt.return true
       | _ -> Lwt.return false
   
-  let only_if_master store me oc allow_dirty f =
-    am_i_master store me >>= fun me_master ->
-    Lwt.catch
-    (fun () -> 
-      if me_master || allow_dirty
-      then             
-        f ()
-      else
-      Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
-    ) (Client_protocol.handle_exception oc)
-
 	let _range store
 	    (first:string option) (finc:bool) 
 	    (last:string option)  (linc:bool)
@@ -98,7 +87,19 @@ module ProtocolHandler (S:Core.STORE) = struct
 	
 	let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
 	
-	let one_command me driver store ((ic,oc) as conn) = 
+	let one_command me driver store ((ic,oc) as conn) =
+    let only_if_master allow_dirty f =
+      am_i_master store me >>= fun me_master ->
+      Lwt.catch
+      (fun () -> 
+        if me_master || allow_dirty
+        then             
+          f ()
+        else
+          Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
+      ) 
+      (Client_protocol.handle_exception oc)
+    in 
 	  Client_protocol.read_command conn >>= fun comm ->
 	  match comm with
 	    | WHO_MASTER ->
@@ -126,7 +127,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             _get store key >>= fun value ->
             Client_protocol.response_rc_string oc 0l value
           in
-          only_if_master store me oc allow_dirty do_get
+          only_if_master allow_dirty do_get
 	      end 
 	    | LAST_ENTRIES ->
 	      begin
@@ -174,7 +175,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	          Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
 	          Lwt.return false
 	        in
-          only_if_master store me oc allow_dirty do_multi_get
+          only_if_master allow_dirty do_multi_get
 	      end
 	    | RANGE ->
 	      begin
@@ -190,7 +191,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	          Llio.output_list Llio.output_string oc list >>= fun () ->
 	          Lwt.return false
           in
-          only_if_master store me oc allow_dirty do_range
+          only_if_master allow_dirty do_range
 	      end
 	    | CONFIRM ->
 	      begin
@@ -208,7 +209,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             >>= fun () -> 
             Client_protocol.response_ok_unit oc
           in 
-          only_if_master store me oc false do_confirm
+          only_if_master false do_confirm
 	      end
 	    | TEST_AND_SET ->
 	      Llio.input_string ic >>= fun key ->
@@ -232,7 +233,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 		      send_string_option oc m_val >>= fun () ->
 		      Lwt.return false
         in
-        only_if_master store me oc false do_test_and_set 
+        only_if_master false do_test_and_set 
 	    | DELETE ->
 	      get_key ic >>= fun key ->
 	      _delete driver key >>= fun () ->
