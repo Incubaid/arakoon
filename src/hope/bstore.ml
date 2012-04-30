@@ -79,10 +79,8 @@ module BStore = (struct
           
     end
       
-  let get t k = 
-    Lwt.catch (
-      fun () -> BS.get_latest t.store (pref_key k) >>= fun v -> Lwt.return (Some v)
-    ) ( fun e -> Lwt.return None )
+  let get t k = BS.get_latest t.store (pref_key k) 
+
 
   let range t first finc last linc max = 
     let px = function
