@@ -241,12 +241,17 @@ module ProtocolHandler (S:Core.STORE) = struct
       | RANGE_ENTRIES ->
         Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_string_option ic >>= fun bkey ->
-        Llio.input_bool ic >>= fun finc ->
+        Llio.input_bool ic >>= fun binc ->
         Llio.input_string_option ic >>= fun ekey ->
         Llio.input_bool ic >>= fun einc ->
-        
-        Client_protocol.response_ok_unit oc
-        
+        Llio.input_int ic >>= fun max ->
+        let do_range_entries () =
+          S.range_entries store bkey binc ekey einc max >>= fun kvs ->
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_kv_list oc kvs >>= fun () ->
+          Lwt.return false
+        in
+        only_if_master allow_dirty do_range_entries 
         
 	    (* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      

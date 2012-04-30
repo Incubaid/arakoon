@@ -94,6 +94,7 @@ module type STORE = sig
   val log : t -> bool -> update -> result Lwt.t
   val get : t -> k -> v option Lwt.t
   val range: t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
+  val range_entries: t -> string option -> bool -> string option -> bool -> int -> (string*string) list Lwt.t
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
   val last_update: t -> (tick * update option) option Lwt.t
   val get_meta: t -> string option Lwt.t

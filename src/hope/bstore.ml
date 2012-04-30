@@ -79,23 +79,23 @@ module BStore = (struct
           
     end
       
-  let get t k = 
-    Lwt.catch (
-      fun () -> BS.get_latest t.store (pref_key k) >>= fun v -> Lwt.return (Some v)
-    ) ( fun e -> Lwt.return None )
+  let get t k = BS.get_latest t.store (pref_key k) 
 
+  let opx = function
+    | None -> None
+    | Some k -> Some (pref_key k)
+
+
+  let maxo max = 
+    if max = -1 then None
+    else Some max 
+   
+   
   let range t first finc last linc max = 
-    let px = function
-      | None -> None
-      | Some k -> Some (pref_key k)
-    in
-    let mo = 
-      if max = -1 then None
-      else Some max 
-    in
+    let mo = maxo max in
     BS.range_latest t.store 
-      (px first) finc
-      (px last) linc
+      (opx first) finc
+      (opx last) linc
       mo
     >>= fun ks ->
     Lwt.return (List.map unpref_key ks)
@@ -114,6 +114,12 @@ module BStore = (struct
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
+  let range_entries t first finc last linc max =
+    let mo = maxo max in
+    BS.range_entries_latest t.store (opx first) finc (opx last) linc mo
+    >>= fun kvs ->
+    let unpref_kv (k,v) = (unpref_key k, v) in
+    Lwt.return (List.map unpref_kv kvs)
 
   let dump t =
     Lwtc.failfmt "todo"
