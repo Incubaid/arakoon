@@ -28,9 +28,9 @@ let remote_iterate (sa:Unix.sockaddr) cluster_id (i0:int64)
     (f: 'a -> int64 -> action list -> 'a Lwt.t)
     a0 
     =
-  let outgoing buf =
-    Common.command_to buf Common.LAST_ENTRIES;
-    Llio.int64_to buf i0
+  let outgoing out =
+    Common.command_to out Common.LAST_ENTRIES;
+    Pack.vint64_to out i0
   in
   let incoming ic = iterate f a0 ic 
   in
