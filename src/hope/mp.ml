@@ -420,7 +420,7 @@ module MULTI = struct
           send_promise state src n m i
         end
       | (N_EQUAL, P_ACCEPTABLE, _) ->
-        if Some src = state.master_id 
+        if Some src = state.master_id || state.master_id = None 
         then
           send_promise state src n m i
         else 
