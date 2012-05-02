@@ -173,7 +173,8 @@ module ProtocolHandler (S:Core.STORE) = struct
           
       | Common.LAST_ENTRIES ->
 	begin
-	  Sn.input_sn ic >>= fun i ->
+          let i = Pack.input_vint64 rest in
+          Lwtc.log "LAST_ENTRIES %Li" i >>= fun () ->
 	  Llio.output_int32 oc 0l >>= fun () ->
 	  _last_entries store i oc >>= fun () ->
 	  Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
