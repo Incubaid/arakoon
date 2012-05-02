@@ -9,7 +9,7 @@ let my_read_command (ic,oc) =
   let s = 8 in
   let h = String.create s in
   Lwt_io.read_into_exactly ic h 0 s >>= fun () ->
-  Lwtc.log "my_read_command: h=%S" h >>= fun () ->
+  Lwtc.log "my_read_command: h=%S" h >>= fun () -> 
   let masked,p0 = Llio.int32_from h 4 in
   let magic = Int32.logand masked _MAGIC in
   if magic <> _MAGIC 
@@ -58,14 +58,14 @@ module ProtocolHandler (S:Core.STORE) = struct
     Lwt.return ()
       
       
-  let get_range_params ic =
-    Llio.input_bool ic >>= fun allow_dirty ->
-    Llio.input_string_option ic >>= fun (first:string option) ->
-    Llio.input_bool ic >>= fun finc  ->
-    Llio.input_string_option ic >>= fun (last:string option)  ->
-    Llio.input_bool ic >>= fun linc  ->
-    Llio.input_int ic >>= fun max   ->
-    Lwt.return (allow_dirty, first, finc, last, linc, max)
+  let get_range_params input =
+    let allow_dirty = Pack.input_bool input in
+    let first = Pack.input_string_option input in 
+    let finc = Pack.input_bool input in
+    let last = Pack.input_string_option input in
+    let linc = Pack.input_bool input in
+    let max = Pack.input_option Pack.input_vint input in
+    (allow_dirty, first, finc, last, linc, max)
     
   let send_string_option oc so =
     Llio.output_int oc 0 >>= fun () ->
@@ -127,8 +127,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       ) 
       (Client_protocol.handle_exception oc)
     in
-    let _do_range inner output = 
-      get_range_params ic >>= fun (allow_dirty, first, finc, last, linc, max) ->
+    let _do_range rest inner output = 
+      let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
       only_if_master allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
@@ -137,10 +137,10 @@ module ProtocolHandler (S:Core.STORE) = struct
           Lwt.return false
         )
     in 
-    my_read_command conn >>= fun (comm, input) ->
+    my_read_command conn >>= fun (comm, rest) ->
     match comm with
       | Common.WHO_MASTER ->
-	Lwtc.log "who master" >>= fun () ->
+	Lwtc.log "who master" >>= fun () -> 
 	_get_meta store >>= fun ms ->
         let mo = extract_master_info ms in
 	Llio.output_int32 oc 0l >>= fun () ->
@@ -148,8 +148,8 @@ module ProtocolHandler (S:Core.STORE) = struct
 	Lwt.return false
       | Common.SET -> 
 	begin
-	  let key = Pack.input_string input in
-	  let value = Pack.input_string input in
+	  let key = Pack.input_string rest in
+	  let value = Pack.input_string rest in
 	  Lwt.catch
 	    (fun () -> 
 	      _set driver key value >>= fun () ->
@@ -158,8 +158,8 @@ module ProtocolHandler (S:Core.STORE) = struct
 	end
       | Common.GET ->
 	begin
-	  let allow_dirty =Pack.input_bool input in
-	  let key = Pack.input_string input in
+	  let allow_dirty =Pack.input_bool rest in
+	  let key = Pack.input_string rest in
           let do_get () =
             _get store key >>= fun value ->
             Client_protocol.response_rc_string oc 0l value
@@ -167,7 +167,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master allow_dirty do_get
 	end 
       | Common.DELETE ->
-	let key = Pack.input_string input in
+	let key = Pack.input_string rest in
 	_delete driver key >>= fun () ->
 	Client_protocol.response_ok_unit oc
           
@@ -185,7 +185,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  Lwt.catch
 	    (fun () ->
 	      begin
-	        Llio.input_string ic >>= fun data ->
+                let data = Pack.input_string rest in
 	        let probably_sequence,_ = Core.update_from data 0 in
 	        let sequence = match probably_sequence with
 	          | Core.SEQUENCE _ -> probably_sequence
@@ -199,52 +199,39 @@ module ProtocolHandler (S:Core.STORE) = struct
 	end
       | Common.MULTI_GET ->
 	begin
-	  Llio.input_bool ic >>= fun allow_dirty ->
-	  Llio.input_int ic >>= fun length ->
+	  let allow_dirty = Pack.input_bool rest in
+          let keys = Pack.input_list Pack.input_string rest in
           let do_multi_get () = 
-	    let rec loop keys i = 
-	      if i = 0 then Lwt.return keys
-	      else 
-		begin
-		  Llio.input_string ic >>= fun key ->
-		  loop (key :: keys) (i-1)
-		end
-	    in
-	    loop [] length >>= fun keys ->
             Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
 	    Llio.output_int oc 0>>= fun () ->
-	    Llio.output_int oc length >>= fun () ->
-	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+            Llio.output_list Llio.output_string oc values >>= fun () ->
 	    Lwt.return false
 	  in
           only_if_master allow_dirty do_multi_get
 	end
-      | Common.RANGE ->
-	_do_range S.range (Llio.output_list Llio.output_string)
-      | Common.REV_RANGE_ENTRIES ->
-        _do_range S.rev_range_entries Llio.output_kv_list
-      | Common.RANGE_ENTRIES ->
-        _do_range S.range_entries Llio.output_kv_list 
+      | Common.RANGE ->             _do_range rest S.range (Llio.output_list Llio.output_string)
+      | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries Llio.output_kv_list
+      | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries Llio.output_kv_list 
       | Common.EXISTS ->
-        Llio.input_bool ic >>= fun allow_dirty ->
-        Llio.input_string ic >>= fun key ->
+        let allow_dirty  = Pack.input_bool rest in
+        let key = Pack.input_string rest in
         let do_exists () =
           _safe_get store key >>= fun m_val ->
           Llio.output_int oc 0 >>= fun () ->
-          begin
+          let r = 
             match m_val with
-              | None -> 
-                Llio.output_bool oc false 
-              | Some v ->
-                Llio.output_bool oc true
-          end >>= fun () ->
+              | None -> false
+              | Some _ -> true 
+          in
+          Llio.output_bool oc r
+          >>= fun () ->
           Lwt.return false
         in
         only_if_master allow_dirty do_exists
       | Common.ASSERT ->
-        Llio.input_bool ic >>= fun allow_dirty ->
-        Llio.input_string ic >>= fun key ->
-        Llio.input_string_option ic >>= fun req_val ->
+        let allow_dirty = Pack.input_bool rest in
+        let key = Pack.input_string rest in
+        let req_val = Pack.input_string_option rest in
         let do_assert () =
           _safe_get store key >>= fun m_val ->
           if m_val <> req_val 
@@ -252,14 +239,14 @@ module ProtocolHandler (S:Core.STORE) = struct
             Lwt.fail (Common.XException(Arakoon_exc.E_ASSERTION_FAILED, key))
           else 
             Llio.output_int oc 0 >>= fun () ->
-            Lwt.return false
+          Lwt.return false
         in
         only_if_master allow_dirty do_assert
         
       | Common.CONFIRM ->
 	begin
-          Llio.input_string ic >>= fun key ->
-	  Llio.input_string ic >>= fun value ->
+          let key = Pack.input_string rest in
+          let value = Pack.input_string rest in
           let do_confirm () =
             begin 
               _safe_get store key >>= fun v ->
@@ -275,9 +262,9 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master false do_confirm
 	      end
       | Common.TEST_AND_SET ->
-	Llio.input_string ic >>= fun key ->
-        Llio.input_string_option ic >>= fun m_old ->
-        Llio.input_string_option ic >>= fun m_new ->
+        let key = Pack.input_string rest in 
+        let m_old = Pack.input_string_option rest in
+        let m_new = Pack.input_string_option rest in
         let do_test_and_set () = 
           _safe_get store key >>= fun m_val ->
 	  begin
@@ -299,24 +286,24 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master false do_test_and_set 
           
         
-	    (* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
+	(* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
-	let protocol me driver store (ic,oc) =   
-	  let rec loop () = 
-	    begin
-	      one_command me driver store (ic,oc) >>= fun stop ->
-	      if stop
-	      then Lwtc.log "end of session"
-	      else 
-	        begin
-	          Lwt_io.flush oc >>= fun () ->
-	          loop ()
-	        end
-	    end
-	  in
-	  Lwtc.log "session started" >>= fun () ->
-	  prologue(ic,oc) >>= fun () ->
-	  Lwtc.log "prologue ok" >>= fun () ->
-	  loop ()
-	
+  let protocol me driver store (ic,oc) =   
+    let rec loop () = 
+      begin
+	one_command me driver store (ic,oc) >>= fun stop ->
+	if stop
+	then Lwtc.log "end of session"
+	else 
+	  begin
+	    Lwt_io.flush oc >>= fun () ->
+	    loop ()
+	  end
+      end
+    in
+    Lwtc.log "session started" >>= fun () ->
+    prologue(ic,oc) >>= fun () ->
+    Lwtc.log "prologue ok" >>= fun () ->
+    loop ()
+      
 end

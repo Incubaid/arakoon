@@ -127,7 +127,7 @@ let _range (client:Arakoon_client.client) ()  =
   and last = _cat "key" 9999
   in
   Lwt_io.printlf "range %s true %s true -1" first last >>= fun () ->
-  client # range (Some first) true (Some last) true (-1) >>= fun keys ->
+  client # range (Some first) true (Some last) true None >>= fun keys ->
   Lwt_io.printlf "#keys %i" (List.length keys)
 
 let _time 

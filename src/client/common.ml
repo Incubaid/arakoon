@@ -199,36 +199,23 @@ let delete_to out key =
   command_to out DELETE;
   Pack.string_to out key
 
-let range_to b ~allow_dirty first finc last linc max =
-  (* command_to b RANGE;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max
-  *)
-  failwith "todo"
+let _range_params b cmd ~allow_dirty first finc last linc max = 
+  command_to b cmd;
+  Pack.bool_to b allow_dirty;
+  Pack.string_option_to b first;
+  Pack.bool_to b finc;
+  Pack.string_option_to b last;
+  Pack.bool_to b linc;
+  Pack.option_to b Pack.vint_to max
+
+let range_to b ~allow_dirty first finc last linc (max:int option) =
+  _range_params b RANGE ~allow_dirty first finc last linc max
 
 let range_entries_to b ~allow_dirty first finc last linc max =
-  failwith "todo"
-  (* command_to b RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max*)
-
+  _range_params b RANGE_ENTRIES ~allow_dirty first finc last linc max
+  
 let rev_range_entries_to b ~allow_dirty first finc last linc max =
-  failwith "todo"
-  (* command_to b REV_RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max *)
+  _range_params b REV_RANGE_ENTRIES ~allow_dirty first finc last linc max
 
 let prefix_keys_to b ~allow_dirty prefix max =
   command_to b PREFIX_KEYS;
@@ -237,19 +224,15 @@ let prefix_keys_to b ~allow_dirty prefix max =
   Pack.vint_to b max
 
 let test_and_set_to b key expected wanted =
-  failwith "todo"
-(*
   command_to b TEST_AND_SET;
-  Llio.string_to b key;
-  Llio.string_option_to b expected;
-  Llio.string_option_to b wanted *)
+  Pack.string_to b key;
+  Pack.string_option_to b expected;
+  Pack.string_option_to b wanted
 
 let user_function_to b name po =
-  failwith "todo"
-  (*
   command_to b USER_FUNCTION;
-  Llio.string_to b name;
-  Llio.string_option_to b po *)
+  Pack.string_to b name;
+  Pack.string_option_to b po
 
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
@@ -369,7 +352,7 @@ let set_routing_delta (ic,oc) left sep right =
   response ic nothing
 
 
-let _build_sequence_request buf changes =
+let _build_sequence_request output changes =
   let update_buf = Buffer.create (32 * List.length changes) in
   let rec c2u = function
     | Arakoon_client.Set (k,v) -> Update.Set(k,v)
@@ -381,7 +364,7 @@ let _build_sequence_request buf changes =
   let updates = List.map c2u changes in
   let seq = Update.Sequence updates in
   let () = Update.to_buffer update_buf seq in
-  let () = Llio.string_to buf (Buffer.contents update_buf)
+  let () = Pack.string_to output (Buffer.contents update_buf)
   in ()
 
 let migrate_range (ic,oc) interval changes =
@@ -397,15 +380,12 @@ let migrate_range (ic,oc) interval changes =
 
 
 let _sequence (ic,oc) changes cmd = 
-  failwith "todo"
-  (*
   let outgoing buf =
     command_to buf cmd;
     _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response ic nothing
-  *)
 
 let sequence conn changes = _sequence conn changes SEQUENCE
 
