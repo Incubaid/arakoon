@@ -182,8 +182,7 @@ let assert_to ~allow_dirty out key vo =
   command_to out ASSERT;
   Pack.bool_to out allow_dirty;
   Pack.string_to out key;
-  failwith "todo"
-  (* Pack.string_option_to out vo *)
+  Pack.string_option_to out vo
 
 let set_to out key value =
   command_to out SET;

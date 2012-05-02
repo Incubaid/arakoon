@@ -304,6 +304,11 @@ def _vpackBool ( toPack) :
     else :
         return '0'
 
+def _vpackStringOption(toPack = None):
+    if toPack is None:
+        return _vpackBool(False)
+    else:
+        return _vpackBool(True) + _packString(toPack)
 
 def sendPrologue(socket, clusterId):
     p  = _packInt(ARA_CMD_MAG)
@@ -521,16 +526,16 @@ class ArakoonProtocol :
     @staticmethod
     def encodeExists(key, allowDirty):
         msg = _packInt(ARA_CMD_EXISTS)
-        msg += _packBool(allowDirty)
-        msg += _packString(key)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
         return msg
 
     @staticmethod
     def encodeAssert(key, vo, allowDirty):
         msg = _packInt(ARA_CMD_ASSERT)
-        msg += _packBool(allowDirty)
-        msg += _packString(key)
-        msg += _packStringOption(vo)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
+        msg += _vpackStringOption(vo)
         return msg
 
 
