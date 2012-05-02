@@ -4,8 +4,6 @@ open Lwt
 module MemStore = (struct
   type t = { store: (k, v) Hashtbl.t; mutable meta: string option}
 
-
-
   let rec log t i u = 
     begin
       match u with
