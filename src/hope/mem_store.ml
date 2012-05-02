@@ -33,7 +33,8 @@ module MemStore = (struct
     
   let range t first finc last linc max = Lwtc.failfmt "todo"
   let range_entries t first finc last linc max = Lwtc.failfmt "todo"
-
+  let rev_range_entries t first finc last linc max = Lwtc.failfmt "todo"
+  
   let last_update t = Lwtc.failfmt "todo"
   
   let close t = Lwt.return ()

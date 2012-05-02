@@ -114,13 +114,19 @@ module BStore = (struct
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
-  let range_entries t first finc last linc max =
+  let _do_range_entries inner t first finc last linc max =
     let mo = maxo max in
-    BS.range_entries_latest t.store (opx first) finc (opx last) linc mo
+    inner t.store (opx first) finc (opx last) linc mo
     >>= fun kvs ->
     let unpref_kv (k,v) = (unpref_key k, v) in
     Lwt.return (List.map unpref_kv kvs)
+    
+  let range_entries t first finc last linc max =
+    _do_range_entries BS.range_entries_latest t first finc last linc max
 
+  let rev_range_entries t first finc last linc max =
+    _do_range_entries BS.rev_range_entries_latest t first finc last linc max
+    
   let dump t =
     Lwtc.failfmt "todo"
     

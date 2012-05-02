@@ -24,7 +24,16 @@ module ProtocolHandler (S:Core.STORE) = struct
 	
 	let get_key ic =
 	  Llio.input_string ic
-	    
+	
+  let get_range_params ic =
+    Llio.input_bool ic >>= fun allow_dirty ->
+    Llio.input_string_option ic >>= fun (first:string option) ->
+    Llio.input_bool ic >>= fun finc  ->
+    Llio.input_string_option ic >>= fun (last:string option)  ->
+    Llio.input_bool ic >>= fun linc  ->
+    Llio.input_int ic >>= fun max   ->
+    Lwt.return (allow_dirty, first, finc, last, linc, max)
+    
 	let send_string_option oc so =
 	  Llio.output_int oc 0 >>= fun () ->
 	  Llio.output_string_option oc so 
@@ -77,17 +86,12 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Some m when m = me -> Lwt.return true
       | _ -> Lwt.return false
   
-	let _range store
-	    (first:string option) (finc:bool) 
-	    (last:string option)  (linc:bool)
-	    (max:int) = 
-    S.range store first finc last linc max
-    
 	let _get_meta store = S.get_meta store 
 	
 	let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
 	
 	let one_command me driver store ((ic,oc) as conn) =
+    
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
       Lwt.catch
@@ -99,6 +103,16 @@ module ProtocolHandler (S:Core.STORE) = struct
           Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
       ) 
       (Client_protocol.handle_exception oc)
+    in
+    let _do_range inner output = 
+      get_range_params ic >>= fun (allow_dirty, first, finc, last, linc, max) ->
+      only_if_master allow_dirty 
+        (fun () -> 
+          inner store first finc last linc max >>= fun l ->
+          Llio.output_int oc 0 >>= fun () ->
+          output oc l >>= fun () ->
+          Lwt.return false
+        )
     in 
 	  Client_protocol.read_command conn >>= fun comm ->
 	  match comm with
@@ -178,22 +192,12 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master allow_dirty do_multi_get
 	      end
 	    | RANGE ->
-	      begin
-	        Llio.input_bool ic >>= fun allow_dirty ->
-	        Llio.input_string_option ic >>= fun (first:string option) ->
-	        Llio.input_bool ic >>= fun finc  ->
-	        Llio.input_string_option ic >>= fun (last:string option)  ->
-	        Llio.input_bool ic >>= fun linc  ->
-	        Llio.input_int ic >>= fun max   ->
-	        let do_range () =
-            _range store first finc last linc max >>= fun list ->
-	          Llio.output_int32 oc 0l >>= fun () ->
-	          Llio.output_list Llio.output_string oc list >>= fun () ->
-	          Lwt.return false
-          in
-          only_if_master allow_dirty do_range
-	      end
-	    | CONFIRM ->
+	      _do_range S.range (Llio.output_list Llio.output_string)
+      | REV_RANGE_ENTRIES ->
+        _do_range S.rev_range_entries Llio.output_kv_list
+      | RANGE_ENTRIES ->
+        _do_range S.range_entries Llio.output_kv_list 
+      | CONFIRM ->
 	      begin
           Llio.input_string ic >>= fun key ->
 	        Llio.input_string ic >>= fun value ->
@@ -238,20 +242,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	      get_key ic >>= fun key ->
 	      _delete driver key >>= fun () ->
 	      Client_protocol.response_ok_unit oc
-      | RANGE_ENTRIES ->
-        Llio.input_bool ic >>= fun allow_dirty ->
-        Llio.input_string_option ic >>= fun bkey ->
-        Llio.input_bool ic >>= fun binc ->
-        Llio.input_string_option ic >>= fun ekey ->
-        Llio.input_bool ic >>= fun einc ->
-        Llio.input_int ic >>= fun max ->
-        let do_range_entries () =
-          S.range_entries store bkey binc ekey einc max >>= fun kvs ->
-          Llio.output_int oc 0 >>= fun () ->
-          Llio.output_kv_list oc kvs >>= fun () ->
-          Lwt.return false
-        in
-        only_if_master allow_dirty do_range_entries 
+        
         
 	    (* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
