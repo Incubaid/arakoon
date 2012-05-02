@@ -55,22 +55,12 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  let q = Core.DELETE k in
 	  __do_unit_update driver q
 	
-	let wrap_not_found f d k =
-	  Lwt.catch 
-	    (fun () -> f d k >>= fun k -> Lwt.return (Some k))
-	    (function 
-	      | Not_found -> Lwt.return None
-	      | e -> Lwt.fail e
-	    )
-	
   let _safe_get = S.get 
   
 	let _get store k = 
     _safe_get store k >>= function
       | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
       | Some v -> Lwt.return v 
-	
-	let _safe_get = wrap_not_found _get 
 	
   let extract_master_info = function
     | None -> None
@@ -197,6 +187,37 @@ module ProtocolHandler (S:Core.STORE) = struct
         _do_range S.rev_range_entries Llio.output_kv_list
       | RANGE_ENTRIES ->
         _do_range S.range_entries Llio.output_kv_list 
+      | EXISTS ->
+        Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_string ic >>= fun key ->
+        let do_exists () =
+          _safe_get store key >>= fun m_val ->
+          Llio.output_int oc 0 >>= fun () ->
+          begin
+            match m_val with
+              | None -> 
+                Llio.output_bool oc false 
+              | Some v ->
+                Llio.output_bool oc true
+          end >>= fun () ->
+          Lwt.return false
+        in
+        only_if_master allow_dirty do_exists
+      | ASSERT ->
+        Llio.input_bool ic >>= fun allow_dirty ->
+        Llio.input_string ic >>= fun key ->
+        Llio.input_string_option ic >>= fun req_val ->
+        let do_assert () =
+          _safe_get store key >>= fun m_val ->
+          if m_val <> req_val 
+          then
+            Lwt.fail (Common.XException(Arakoon_exc.E_ASSERTION_FAILED, key))
+          else 
+            Llio.output_int oc 0 >>= fun () ->
+            Lwt.return false
+        in
+        only_if_master allow_dirty do_assert
+        
       | CONFIRM ->
 	      begin
           Llio.input_string ic >>= fun key ->
