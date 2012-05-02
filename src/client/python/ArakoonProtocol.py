@@ -552,7 +552,7 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeConfirm(key, value):
-        return _packInt(ARA_CMD_CONFIRM) + _packString(key) + _packString(value)
+        return _packInt(ARA_CMD_CONFIRM) + _vpackString(key) + _vpackString(value)
 
     @staticmethod
     def encodeSequence(seq, sync):
@@ -601,17 +601,17 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeTestAndSet( key, oldVal, newVal ):
-        retVal = _packInt( ARA_CMD_TAS ) + _packString( key )
-        retVal += _packStringOption( oldVal )
-        retVal += _packStringOption( newVal )
+        retVal = _packInt( ARA_CMD_TAS ) + _vpackString( key )
+        retVal += _vpackStringOption( oldVal )
+        retVal += _vpackStringOption( newVal )
         return retVal
 
     @staticmethod
     def encodeMultiGet(keys, allowDirty):
-        retVal = _packInt(ARA_CMD_MULTI_GET) + _packBool(allowDirty)
-        retVal += _packInt(len(keys))
+        retVal = _packInt(ARA_CMD_MULTI_GET) + _vpackBool(allowDirty)
+        retVal += _vpackInt(len(keys))
         for key in keys:
-            retVal += _packString(key)
+            retVal += _vpackString(key)
         return retVal
 
     @staticmethod
