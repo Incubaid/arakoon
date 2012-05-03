@@ -233,6 +233,9 @@ module ProtocolHandler (S:Core.STORE) = struct
         let allow_dirty = Pack.input_bool rest in
         let key = Pack.input_string rest in
         let req_val = Pack.input_string_option rest in
+        Lwtc.log "ASSERT: allow_dirty:%b key:%s req_val:%s" allow_dirty key 
+          (Log_extra.string_option_to_string req_val) 
+        >>= fun () ->
         let do_assert () =
           _safe_get store key >>= fun m_val ->
           if m_val <> req_val 

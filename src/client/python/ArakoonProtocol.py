@@ -308,7 +308,7 @@ def _vpackStringOption(toPack = None):
     if toPack is None:
         return _vpackBool(False)
     else:
-        return _vpackBool(True) + _packString(toPack)
+        return _vpackBool(True) + _vpackString(toPack)
 
 def sendPrologue(socket, clusterId):
     p  = _packInt(ARA_CMD_MAG)
@@ -446,7 +446,6 @@ def _recvFloat(buf):
     return f
 
 def _recvStringOption ( con ):
-    print "_recvStringOption"
     isSet = _recvBool( con )
     if( isSet ) :
         s = _recvString(con)
