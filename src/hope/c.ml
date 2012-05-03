@@ -315,6 +315,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  Lwt.return false
         in
         only_if_master false do_test_and_set 
+
       | Common.PREFIX_KEYS ->
         let allow_dirty = Pack.input_bool rest in
         let key = Pack.input_bool rest in
@@ -326,6 +327,13 @@ module ProtocolHandler (S:Core.STORE) = struct
           Lwt.return false
         in
         only_if_master allow_dirty do_prefix 
+      | Common.PING ->
+        let client_id = Pack.input_string rest in
+        let cluster_id = Pack.input_string rest in
+        Llio.output_int oc 0 >>= fun () ->
+        let msg = Printf.sprintf "Arakoon %S" Version.git_info in
+        Llio.output_string oc msg >>= fun () ->
+        Lwt.return false
         
 	(* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
