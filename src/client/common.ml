@@ -29,14 +29,14 @@ open Ncfg
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
-let _VERSION = 1
+let _VERSION = 2
 (*
 let _STRLEN_SIZE = 4
 let _CMD_SIZE   = 4
 let _BOOL_SIZE   = 1
 let _INT_SIZE  = 4
 *)
-
+open Baardskeerder
 
 type client_command =
   | PING
@@ -115,10 +115,11 @@ let int2code =
 
 let lookup_code i32 = Hashtbl.find int2code i32
 
-let command_to buffer command =
+let command_to output command =
   let c = List.assoc command code2int in
   let masked = Int32.logor c _MAGIC in
-  Llio.int32_to buffer masked
+  let masked_i = Int32.to_int masked in
+  Pack.size_to output masked_i
 
 let nothing = fun ic -> Lwt.return ()
 
@@ -152,9 +153,10 @@ let kv_array ic =
 
 
 let request oc f =
-  let buf = Buffer.create 32 in
-  let () = f buf in
-  Lwt_io.write oc (Buffer.contents buf) >>= fun () ->
+  let out = Pack.make_output 64 in
+  let () = f out in
+  let s = Pack.close_output out in
+  Lwt_io.write oc s >>= fun () ->
   Lwt_io.flush oc
 
 let response ic f =
@@ -166,85 +168,75 @@ let response ic f =
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
-let exists_to buffer ~allow_dirty key =
-  command_to buffer EXISTS;
-  Llio.bool_to buffer allow_dirty;
-  Llio.string_to buffer key
+let exists_to out ~allow_dirty key =
+  command_to out EXISTS;
+  Pack.bool_to out allow_dirty;
+  Pack.string_to out key
 
-let get_to ~allow_dirty buffer key =
-  command_to buffer GET;
-  Llio.bool_to buffer allow_dirty;
-  Llio.string_to buffer key
+let get_to ~allow_dirty out key =
+  command_to out GET;
+  Pack.bool_to out allow_dirty;
+  Pack.string_to out key
 
-let assert_to ~allow_dirty buffer key vo =
-  command_to buffer ASSERT;
-  Llio.bool_to buffer allow_dirty;
-  Llio.string_to buffer key;
-  Llio.string_option_to buffer vo
+let assert_to ~allow_dirty out key vo =
+  command_to out ASSERT;
+  Pack.bool_to out allow_dirty;
+  Pack.string_to out key;
+  Pack.string_option_to out vo
 
-let set_to buffer key value =
-  command_to buffer SET;
-  Llio.string_to buffer key;
-  Llio.string_to buffer value
+let set_to out key value =
+  command_to out SET;
+  Pack.string_to out key;
+  Pack.string_to out value
 
-let confirm_to buffer key value =
-  command_to buffer CONFIRM;
-  Llio.string_to buffer key;
-  Llio.string_to buffer value
+let confirm_to out key value =
+  command_to out CONFIRM;
+  Pack.string_to out key;
+  Pack.string_to out value
 
-let delete_to buffer key =
-  command_to buffer DELETE;
-  Llio.string_to buffer key
+let delete_to out key =
+  command_to out DELETE;
+  Pack.string_to out key
 
-let range_to b ~allow_dirty first finc last linc max =
-  command_to b RANGE;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max
+let _range_params b cmd ~allow_dirty first finc last linc max = 
+  command_to b cmd;
+  Pack.bool_to b allow_dirty;
+  Pack.string_option_to b first;
+  Pack.bool_to b finc;
+  Pack.string_option_to b last;
+  Pack.bool_to b linc;
+  Pack.option_to b Pack.vint_to max
+
+let range_to b ~allow_dirty first finc last linc (max:int option) =
+  _range_params b RANGE ~allow_dirty first finc last linc max
 
 let range_entries_to b ~allow_dirty first finc last linc max =
-  command_to b RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max
-
+  _range_params b RANGE_ENTRIES ~allow_dirty first finc last linc max
+  
 let rev_range_entries_to b ~allow_dirty first finc last linc max =
-  command_to b REV_RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
-  Llio.string_option_to b first;
-  Llio.bool_to b finc;
-  Llio.string_option_to b last;
-  Llio.bool_to b linc;
-  Llio.int_to b max
+  _range_params b REV_RANGE_ENTRIES ~allow_dirty first finc last linc max
 
 let prefix_keys_to b ~allow_dirty prefix max =
   command_to b PREFIX_KEYS;
-  Llio.bool_to b allow_dirty;
-  Llio.string_to b prefix;
-  Llio.int_to b max
+  Pack.bool_to b allow_dirty;
+  Pack.string_to b prefix;
+  Pack.vint_to b max
 
 let test_and_set_to b key expected wanted =
   command_to b TEST_AND_SET;
-  Llio.string_to b key;
-  Llio.string_option_to b expected;
-  Llio.string_option_to b wanted
+  Pack.string_to b key;
+  Pack.string_option_to b expected;
+  Pack.string_option_to b wanted
 
 let user_function_to b name po =
   command_to b USER_FUNCTION;
-  Llio.string_to b name;
-  Llio.string_option_to b po
+  Pack.string_to b name;
+  Pack.string_option_to b po
 
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
-  Llio.bool_to b allow_dirty;
-  Llio.int_to b (List.length keys);
-  List.iter (Llio.string_to b) keys
+  Pack.bool_to b allow_dirty;
+  Pack.list_to b Pack.string_to keys
 
 let who_master_to b =
   command_to b WHO_MASTER
@@ -254,8 +246,8 @@ let expect_progress_possible_to b =
 
 let ping_to b client_id cluster_id =
   command_to b PING;
-  Llio.string_to b client_id;
-  Llio.string_to b cluster_id
+  Pack.string_to b client_id;
+  Pack.string_to b cluster_id
 
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
@@ -264,9 +256,11 @@ let get_nursery_cfg_to b =
   command_to b GET_NURSERY_CFG
 
 let set_nursery_cfg_to b cluster_id client_cfg =
+  failwith "todo"
+  (*
   command_to b SET_NURSERY_CFG;
-  Llio.string_to b cluster_id;
-  ClientCfg.cfg_to b client_cfg
+  Pack.string_to b cluster_id;
+  ClientCfg.cfg_to b client_cfg *)
 
 let prologue cluster (_,oc) =
   Llio.output_int32  oc _MAGIC >>= fun () ->
@@ -287,6 +281,8 @@ let get (ic,oc) ~allow_dirty key =
   response ic Llio.input_string
 
 let get_fringe (ic,oc) boundary direction =
+  failwith "todo"
+  (*
   let outgoing buf =
     command_to buf GET_FRINGE;
     Llio.string_option_to buf boundary;
@@ -297,9 +293,11 @@ let get_fringe (ic,oc) boundary direction =
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
   response ic Llio.input_kv_list
-
+  *)
 
 let set_interval(ic,oc) iv =
+  failwith "todo"
+  (*
   Client_log.debug "set_interval" >>= fun () ->
   let outgoing buf =
     command_to buf SET_INTERVAL;
@@ -307,7 +305,7 @@ let set_interval(ic,oc) iv =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "set_interval request sent" >>= fun () ->
-  response ic nothing
+  response ic nothing*)
 
 let get_interval (ic,oc) =
   Client_log.debug "get_interval" >>= fun () ->
@@ -326,6 +324,8 @@ let get_routing (ic,oc) =
 
 
 let set_routing (ic,oc) r =
+  failwith "todo"
+  (*
   let outgoing buf =
     command_to buf SET_ROUTING;
     let b' = Buffer.create 100 in
@@ -336,13 +336,14 @@ let set_routing (ic,oc) r =
     in
     request  oc outgoing >>= fun  () ->
     response ic nothing
+  *)
 
 let set_routing_delta (ic,oc) left sep right =
-  let outgoing buf =
-    command_to buf SET_ROUTING_DELTA;
-    Llio.string_to buf left;
-    Llio.string_to buf sep;
-    Llio.string_to buf right;
+  let outgoing out =
+    command_to out SET_ROUTING_DELTA;
+    Pack.string_to out left;
+    Pack.string_to out sep;
+    Pack.string_to out right;
   in
   Client_log.debug "Changing routing" >>= fun () ->
   request oc outgoing >>= fun () ->
@@ -350,7 +351,7 @@ let set_routing_delta (ic,oc) left sep right =
   response ic nothing
 
 
-let _build_sequence_request buf changes =
+let _build_sequence_request output changes =
   let update_buf = Buffer.create (32 * List.length changes) in
   let rec c2u = function
     | Arakoon_client.Set (k,v) -> Update.Set(k,v)
@@ -362,17 +363,19 @@ let _build_sequence_request buf changes =
   let updates = List.map c2u changes in
   let seq = Update.Sequence updates in
   let () = Update.to_buffer update_buf seq in
-  let () = Llio.string_to buf (Buffer.contents update_buf)
+  let () = Pack.string_to output (Buffer.contents update_buf)
   in ()
 
 let migrate_range (ic,oc) interval changes =
-  let outgoing buf =
-    command_to buf MIGRATE_RANGE;
+  failwith "todo"
+  (*
+  let outgoing out =
+    command_to out MIGRATE_RANGE;
     Interval.interval_to buf interval;
     _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response ic nothing
+  response ic nothing *)
 
 
 let _sequence (ic,oc) changes cmd = 

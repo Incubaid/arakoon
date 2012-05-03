@@ -186,7 +186,7 @@ ARA_TYPE_BOOL_SIZE = 1
 
 # Magic used to mask each command
 ARA_CMD_MAG    = 0xb1ff0000
-ARA_CMD_VER    = 0x00000001
+ARA_CMD_VER    = 0x00000002
 # Hello command
 ARA_CMD_HEL    = 0x00000001 | ARA_CMD_MAG
 # Who is master?
@@ -248,19 +248,47 @@ NAMED_FIELD_TYPE_FLOAT  = 3
 NAMED_FIELD_TYPE_STRING = 4
 NAMED_FIELD_TYPE_LIST   = 5
 
-def _packString( toPack ):
-    toPackLength = len( toPack )
+
+
+
+
+def _packInt ( toPack ):
+    return struct.pack( "I", toPack )
+
+def _vpackInt(toPack):
+    c = toPack
+    r = cStringIO.StringIO()
+    go_on = True
+    while go_on:
+        if c == 0 :
+            r . write('\x00')
+            go_on = False
+        elif c < 128:
+            r . write(chr(c))
+            go_on = False
+        else:
+            last = c & 0x7f 
+            byte = last | 0x80
+            r . write(chr(byte))
+            c = c >> 7
+    v = r.getvalue()
+    return v
+
+def _packString( toPack):
+    toPackLength = len(toPack)
     return struct.pack("I%ds" % ( toPackLength), toPackLength, toPack )
+
+def _vpackString( toPack ):
+    toPackLength = len( toPack )
+    r = _vpackInt(toPackLength) + toPack
+    return r
 
 def _packStringOption ( toPack = None ):
     if toPack is None:
         return _packBool ( 0 )
     else :
         return _packBool ( 1 ) + _packString (toPack)
-
-def _packInt ( toPack ):
-    return struct.pack( "I", toPack )
-
+        
 def _packInt64 ( toPack ):
     return struct.pack( "q", toPack )
 
@@ -269,6 +297,18 @@ def _packSignedInt ( toPack ):
 
 def _packBool ( toPack) :
     return struct.pack( "?", toPack)
+
+def _vpackBool ( toPack) :
+    if toPack:
+        return '1'
+    else :
+        return '0'
+
+def _vpackStringOption(toPack = None):
+    if toPack is None:
+        return _vpackBool(False)
+    else:
+        return _vpackBool(True) + _vpackString(toPack)
 
 def sendPrologue(socket, clusterId):
     p  = _packInt(ARA_CMD_MAG)
@@ -408,7 +448,8 @@ def _recvFloat(buf):
 def _recvStringOption ( con ):
     isSet = _recvBool( con )
     if( isSet ) :
-        return _recvString( con )
+        s = _recvString(con)
+        return s
     else :
         return None
 
@@ -484,33 +525,33 @@ class ArakoonProtocol :
     @staticmethod
     def encodeExists(key, allowDirty):
         msg = _packInt(ARA_CMD_EXISTS)
-        msg += _packBool(allowDirty)
-        msg += _packString(key)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
         return msg
 
     @staticmethod
     def encodeAssert(key, vo, allowDirty):
         msg = _packInt(ARA_CMD_ASSERT)
-        msg += _packBool(allowDirty)
-        msg += _packString(key)
-        msg += _packStringOption(vo)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
+        msg += _vpackStringOption(vo)
         return msg
 
 
     @staticmethod
     def encodeGet(key , allowDirty):
         msg = _packInt(ARA_CMD_GET)
-        msg += _packBool(allowDirty)
-        msg += _packString(key)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
         return msg
 
     @staticmethod
     def encodeSet( key, value ):
-        return _packInt( ARA_CMD_SET ) + _packString( key ) + _packString ( value )
+        return _packInt( ARA_CMD_SET ) + _vpackString( key ) + _vpackString ( value )
 
     @staticmethod
     def encodeConfirm(key, value):
-        return _packInt(ARA_CMD_CONFIRM) + _packString(key) + _packString(value)
+        return _packInt(ARA_CMD_CONFIRM) + _vpackString(key) + _vpackString(value)
 
     @staticmethod
     def encodeSequence(seq, sync):
@@ -525,7 +566,7 @@ class ArakoonProtocol :
         
     @staticmethod
     def encodeDelete( key ):
-        return _packInt ( ARA_CMD_DEL ) + _packString ( key )
+        return _packInt ( ARA_CMD_DEL ) + _vpackString ( key )
 
     @staticmethod
     def encodeRange( bKey, bInc, eKey, eInc, maxCnt , allowDirty):
@@ -559,17 +600,17 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeTestAndSet( key, oldVal, newVal ):
-        retVal = _packInt( ARA_CMD_TAS ) + _packString( key )
-        retVal += _packStringOption( oldVal )
-        retVal += _packStringOption( newVal )
+        retVal = _packInt( ARA_CMD_TAS ) + _vpackString( key )
+        retVal += _vpackStringOption( oldVal )
+        retVal += _vpackStringOption( newVal )
         return retVal
 
     @staticmethod
     def encodeMultiGet(keys, allowDirty):
-        retVal = _packInt(ARA_CMD_MULTI_GET) + _packBool(allowDirty)
-        retVal += _packInt(len(keys))
+        retVal = _packInt(ARA_CMD_MULTI_GET) + _vpackBool(allowDirty)
+        retVal += _vpackInt(len(keys))
         for key in keys:
-            retVal += _packString(key)
+            retVal += _vpackString(key)
         return retVal
 
     @staticmethod
@@ -588,13 +629,16 @@ class ArakoonProtocol :
         retVal += _packString(name)
         retVal += _packStringOption(argument)
         return retVal
-    
+
+    @staticmethod
+    def close(msgBuffer):
+        total = _packInt(len(msgBuffer)) + msgBuffer
+        return total
     
     @staticmethod
     def _evaluateErrorCode( con ):
 
         errorCode = _recvInt ( con )
-        
         # """ ArakoonException( "Received invalid response from the server" )"""
         if errorCode == ARA_ERR_SUCCESS :
             return

@@ -90,18 +90,11 @@ module BStore = (struct
     | None -> None
     | Some k -> Some (pref_key k)
 
-
-  let maxo max = 
-    if max = -1 then None
-    else Some max 
-   
-   
   let range t first finc last linc max = 
-    let mo = maxo max in
     BS.range_latest t.store 
       (opx true first ) finc
       (opx false last) linc
-      mo
+      max
     >>= fun ks ->
     Lwt.return (List.map unpref_key ks)
     
@@ -120,8 +113,7 @@ module BStore = (struct
     Lwt.return ()
 
   let _do_range_entries inner t first finc last linc max =
-    let mo = maxo max in
-    inner t.store (opx true first) finc (opx false last) linc mo
+    inner t.store (opx true first) finc (opx false last) linc max
     >>= fun kvs ->
     let unpref_kv (k,v) = (unpref_key k, v) in
     Lwt.return (List.map unpref_kv kvs)

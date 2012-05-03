@@ -37,6 +37,7 @@ from ArakoonValidators import SignatureValidator
 
 from functools import wraps
 
+
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 def dump(src, length=8):
@@ -162,7 +163,7 @@ class ArakoonClient :
 
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
-    def hello (self, clientId, clusterId = 'arakoon'):
+    def ping (self, clientId, clusterId = 'arakoon'):
         """
         send a hello message to the node with your id and the cluster id.
         
@@ -175,7 +176,7 @@ class ArakoonClient :
         @rtype: string
         @return: The master identifier and its version in a single string
         """
-        encoded = ArakoonProtocol.encodeHello(clientId,clusterId)
+        encoded = ArakoonProtocol.encodePing(clientId,clusterId)
         conn = self._sendToMaster(encoded)
         return conn.decodeStringResult()
 
@@ -249,7 +250,8 @@ class ArakoonClient :
 
         @rtype: void
         """
-        conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
+        msg = ArakoonProtocol.encodeSet( key, value ) 
+        conn = self._sendToMaster (msg)
         conn.decodeVoidResult()
 
     @retryDuringMasterReelection
@@ -599,7 +601,9 @@ class ArakoonClient :
 
                 try :
                     connection = self._getConnection( nodeId )
-                    connection.send( msgBuffer )
+                    total = ArakoonProtocol.close(msgBuffer)
+                    #print dump(total)
+                    connection.send( total )
 
                     # Message sent correctly, return client connection so result can be read
                     result = connection

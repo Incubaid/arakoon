@@ -21,16 +21,16 @@ class type client = object
   method get: ?allow_dirty:bool -> key -> value Lwt.t
   (** or fails with Arakoon_exc.Exception (E_NOT_FOUND,_) if there is none *)
 
-  method range: ?allow_dirty:bool -> key option -> bool -> key option -> bool -> int -> key list Lwt.t
+  method range: ?allow_dirty:bool -> key option -> bool -> key option -> bool -> int option -> key list Lwt.t
   (** will yield a list of key value pairs in range. *)
 
 method range_entries:
   ?allow_dirty:bool ->
     first:key option -> finc:bool ->
-      last:key option ->  linc:bool -> max:int ->
+      last:key option ->  linc:bool -> max:int option ->
 	(key * value) list Lwt.t
   (** [range_entries ~first ~finc ~last ~linc ~max]
-      [max] is the maximum number of keys (if max < 0 then you want them all).
+      [max] is the maximum number of keys (None if you want them all).
       The keys fall in the range first..last.
       The booleans [finc] [linc] determine iff the boundaries are considered
       in the result
@@ -39,10 +39,10 @@ method range_entries:
 method rev_range_entries:
   ?allow_dirty:bool ->
     first:key option -> finc:bool ->
-      last:key option ->  linc:bool -> max:int ->
+      last:key option ->  linc:bool -> max:int option ->
 	(key * value) list Lwt.t
   (** [rev_range_entries ~first ~finc ~last ~linc ~max]
-      [max] is the maximum number of keys (if max < 0 then you want them all).
+      [max] is the maximum number of keys (None if you want them all).
       The keys fall in the range first..last.
       The booleans [finc] [linc] determine iff the boundaries are considered
       in the result
