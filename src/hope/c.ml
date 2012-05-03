@@ -138,6 +138,11 @@ module ProtocolHandler (S:Core.STORE) = struct
         )
     in 
     my_read_command conn >>= fun (comm, rest) ->
+    let input_value (input:Pack.input) = 
+      let vs = Pack.input_vint input in
+      assert (vs < 8 * 1024 * 1024);
+      Pack.input_raw input vs
+    in
     match comm with
       | Common.WHO_MASTER ->
 	Lwtc.log "who master" >>= fun () -> 
@@ -149,7 +154,7 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.SET -> 
 	begin
 	  let key = Pack.input_string rest in
-	  let value = Pack.input_string rest in
+	  let value = input_value rest in
 	  Lwt.catch
 	    (fun () -> 
 	      _set driver key value >>= fun () ->

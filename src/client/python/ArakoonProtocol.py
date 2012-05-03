@@ -267,10 +267,10 @@ def _vpackInt(toPack):
             r . write(chr(c))
             go_on = False
         else:
-            last = n & 0x7f 
+            last = c & 0x7f 
             byte = last | 0x80
             r . write(chr(byte))
-            c = n >> 7
+            c = c >> 7
     v = r.getvalue()
     return v
 
