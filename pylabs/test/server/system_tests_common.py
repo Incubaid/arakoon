@@ -924,12 +924,17 @@ def retrying_set_get_and_delete( client, key, value ):
     generic_retrying_set_get_and_delete( client, key, value, validate_ex) 
     
 def add_node_scenario ( node_to_add_index ):
+    X.logging.info("(1) some sets")
     iterate_n_times( 100, simple_set )
+    X.logging.info("(2) stopping & adding node")
     stop_all()
     add_node( node_to_add_index )
     regenerateClientConfig(CONFIG.cluster_id)
+    X.logging.info("(3) starting all nodes")
     start_all()
+    X.logging.info("(4) some asserts")
     iterate_n_times( 100, assert_get )
+    X.logging.info("(5) some crud")
     iterate_n_times( 100, set_get_and_delete, 100)
 
 def assert_key_value_list( start_suffix, list_size, list ):

@@ -6,10 +6,31 @@ let _MASK  = 0x0000ffffl
 let _VERSION = 2
     
 let my_read_command (ic,oc) = 
+  
   let s = 8 in
   let h = String.create s in
   Lwt_io.read_into_exactly ic h 0 s >>= fun () ->
-  Lwtc.log "my_read_command: h=%S" h >>= fun () -> 
+  let hex_string h =
+    let r = String.create 24 in
+    let char_of_nibble n = 
+      let off = if n < 10 then 48 else 55 in
+      Char.chr(off + n)
+    in
+    let rec loop i = 
+      if i = 8 
+      then r
+      else
+        let cc = Char.code h.[i] in
+        let b0 = (cc land 0xf0) lsr 4 in
+        let b1 = (cc land 0x0f) in
+        let () = r.[3*i  ] <- char_of_nibble b0 in
+        let () = r.[3*i+1] <- char_of_nibble b1 in
+        let () = r.[3*i+2] <- ' ' in
+        loop (i+1)
+    in
+    loop 0
+  in
+  Lwtc.log "my_read_command: %s" (hex_string h) >>= fun () -> 
   let masked,p0 = Llio.int32_from h 4 in
   let magic = Int32.logand masked _MAGIC in
   if magic <> _MAGIC 
@@ -94,7 +115,8 @@ module ProtocolHandler (S:Core.STORE) = struct
     _safe_get store k >>= function
       | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
       | Some v -> Lwt.return v 
-	
+
+  let _prefix store k max = Lwtc.failfmt "_prefix "
   let extract_master_info = function
     | None -> None
     | Some s -> 
@@ -118,12 +140,10 @@ module ProtocolHandler (S:Core.STORE) = struct
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
       Lwt.catch
-      (fun () -> 
-        if me_master || allow_dirty
-        then             
-          f ()
-        else
-          Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
+        (fun () -> 
+          if me_master || allow_dirty
+          then f ()
+          else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
       ) 
       (Client_protocol.handle_exception oc)
     in
@@ -165,6 +185,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	begin
 	  let allow_dirty =Pack.input_bool rest in
 	  let key = Pack.input_string rest in
+          Lwtc.log "GET %b %S" allow_dirty key >>= fun () ->
           let do_get () =
             _get store key >>= fun value ->
             Client_protocol.response_rc_string oc 0l value
@@ -173,6 +194,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	end 
       | Common.DELETE ->
 	let key = Pack.input_string rest in
+        Lwtc.log "DELETE %S" key >>= fun () ->
 	_delete driver key >>= fun () ->
 	Client_protocol.response_ok_unit oc
           
@@ -293,7 +315,17 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  Lwt.return false
         in
         only_if_master false do_test_and_set 
-          
+      | Common.PREFIX_KEYS ->
+        let allow_dirty = Pack.input_bool rest in
+        let key = Pack.input_bool rest in
+        let max = Pack.input_option Pack.input_vint rest in
+        let do_prefix () =
+          _prefix store key max >>= fun keys ->
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_list Llio.output_string oc keys >>= fun () ->
+          Lwt.return false
+        in
+        only_if_master allow_dirty do_prefix 
         
 	(* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
