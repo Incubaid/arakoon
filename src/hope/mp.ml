@@ -261,7 +261,7 @@ module MULTI = struct
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
     | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
-    | A_LOG_UPDATE of tick * update
+    | A_LOG_UPDATE of tick * update * Core.result Lwt.u option
     | A_START_TIMER of tick * tick * float
     | A_CLIENT_REPLY of client_reply
     | A_STORE_LEASE of node_id option
@@ -276,9 +276,9 @@ module MULTI = struct
     | A_COMMIT_UPDATE (i, upd, req_id) ->
       Printf.sprintf "A_COMMIT_UPDATE (i: %s) (u: %s) (req_id: %s)"
         (tick2s i) (update2s upd) (option2s req_id) 
-    | A_LOG_UPDATE (i, upd) ->
-      Printf.sprintf "A_LOG_UPDATE (i: %s) (u: %s)"
-         (tick2s i) (update2s upd)
+    | A_LOG_UPDATE (i, upd, cli_req) ->
+      Printf.sprintf "A_LOG_UPDATE (i: %s) (u: %s) (req_id: %s)"
+         (tick2s i) (update2s upd) (option2s cli_req)
     | A_START_TIMER (n, m, d) ->
       Printf.sprintf "A_START_TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d
     | A_CLIENT_REPLY rep ->
@@ -443,37 +443,9 @@ module MULTI = struct
     | Some u -> Some u
     | None -> state.prop
 
-  let build_accept_actions state n i u cli_req =
-    let msg = M_ACCEPT(state.constants.me, n, state.extensions, i, u) in
-    let send_msgs = List.fold_left (fun acc n -> (A_SEND_MSG(msg, n)) :: acc) 
-       [] (state.constants.others)
-    in 
-    let log_update = A_LOG_UPDATE (i, u) in
-    let actions = log_update :: send_msgs in
-    let s', al =
-      begin
-        match state.constants.others with
-          | [] ->
-            let s' = {
-              state with
-              prop = None;
-              votes = [];
-              cur_cli_req = None;
-              valid_inputs = ch_all;
-            } in
-            let commit = A_COMMIT_UPDATE (i, u, cli_req) in
-            s', actions @ [commit]
-          | l -> 
-            let s' = {
-              state with
-              cur_cli_req = cli_req;
-              votes = [state.constants.me];
-              prop = Some u;
-              valid_inputs = ch_node_and_timeout;
-            } in
-            s', actions
-      end
-    in s', al
+  let build_accept_action i u cli_req =
+    let log_update = A_LOG_UPDATE (i, u, cli_req) in
+    [log_update]
    
   
   let bcast_mset_actions state =
@@ -542,17 +514,16 @@ module MULTI = struct
                     then
                       begin
                         (* We reached consensus on master *)
-                        let s', postmortem_actions = 
+                        let postmortem_actions = 
 		                      begin
 		                        match update with
-		                          | None -> state, [] 
+		                          | None -> [] 
 		                          | Some u -> 
-		                            let s', actions = build_accept_actions state n i u state.cur_cli_req in
-		                            s', actions
+                                build_accept_action i u state.cur_cli_req 
 		                      end
 		                    in 
 		                    let new_state = { 
-		                       s' with 
+		                       state with 
 		                       state_n = S_MASTER;
 		                       election_votes = {nnones=[]; nsomes=[]};
 		                    } in
@@ -618,7 +589,7 @@ module MULTI = struct
               | S_MASTER
               | S_SLAVE ->
                 let delayed_commit = extract_uncommited_action state i in
-                let accept_update = A_LOG_UPDATE (i, update) in
+                let accept_update = A_LOG_UPDATE (i, update, None) in
                 let accepted_msg = M_ACCEPTED (state.constants.me, n, i) in
                 let send_accepted = A_SEND_MSG(accepted_msg, src) in
                 let new_prop = Some update in
@@ -725,8 +696,8 @@ module MULTI = struct
             match state.cur_cli_req with
               | None -> 
                 begin
-                  let s', actions = build_accept_actions state state.round (next_tick state.accepted) upd (Some w) in 
-                  StepSuccess (actions, s')
+                  let actions = build_accept_action (next_tick state.accepted) upd (Some w) in 
+                  StepSuccess (actions, state)
                 end
               | Some w ->
                 begin 

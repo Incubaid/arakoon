@@ -15,6 +15,12 @@ let action2update = function
 module BStore = (struct
   type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option}
 
+  type tx_result =
+  | TX_SUCCESS
+  | TX_ASSERT of k
+  | TX_NOTFOUND of k
+
+
   let init fn = 
     BS.init fn 
     
@@ -52,10 +58,8 @@ module BStore = (struct
     Lwt_mutex.with_lock t.m 
       (fun () -> 
         BS.log_update t.store ~diff:d _exec >>= fun () ->
-        Lwt.return Core.UNIT)
+        Lwt.return TX_SUCCESS)
   
-
-
   let last_update t =
     BS.last_update t.store >>= fun m_last ->
     begin

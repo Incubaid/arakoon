@@ -41,12 +41,10 @@ module ADispatcher (S:STORE) = struct
 	    resyncs = resyncs;
 	  } 
   
-  let send_msg t src dst msg =
-    t.msg # send_message msg src dst 
-  
   let log_update t i u = 
     S.log t.store i u
   
+
   let commit_update t i =
     S.commit t.store i
   
@@ -58,7 +56,6 @@ module ADispatcher (S:STORE) = struct
         Lwt_log.error_f "Failed to awaken client (%s). Ignoring." msg
       ) 
       
-  
   let store_lease t mo =
     let buf = Buffer.create 32 in
     Llio.string_option_to buf mo;
@@ -76,44 +73,82 @@ module ADispatcher (S:STORE) = struct
     in
     Lwt.ignore_result( alarm() );
     Lwt.return ()
-      
+    
+  let handle_commit t s i u m_w =
+    let () = validate_commit_update i s.accepted in
+    commit_update t i >>= fun res ->
+    begin
+      match m_w with
+        | None -> Lwt.return ()
+        | Some w -> safe_wakeup w res
+    end
+    >>= fun () -> 
+    let s' = {
+      s with
+      accepted = i
+    } in
+    Lwt.return s'
+
+  let do_send_msg t s msg tgts =
+    let me = s.constants.me in
+    let msg_str = string_of_msg msg in
+    Lwt_list.iter_p (fun tgt -> t.msg # send_message msg_str me tgt ) tgts 
+    
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
-      let me = s.constants.me in
-      let tgts = me :: s.constants.others in
-      let msg_str = string_of_msg msg in
-      Lwt_list.iter_p (fun tgt -> send_msg t me tgt msg_str) tgts >>= fun () ->
+      let tgts = s.constants.me :: s.constants.others in
+      do_send_msg t s msg tgts >>= fun () ->
       Lwt.return s  
     | A_SEND_MSG (msg, tgt) ->
-      let me = s.constants.me in
-      let msg_str = string_of_msg msg in
-      let m = MULTI.msg2s msg in
-      Lwtc.log "SENDING %s to %s" m tgt >>= fun () ->
-      send_msg t me tgt msg_str >>= fun () ->
+      do_send_msg t s msg [tgt] >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
-      let () = validate_commit_update i s.accepted in
-      commit_update t i >>= fun res ->
-      begin
-        match m_w with
-          | None -> Lwt.return ()
-          | Some w -> safe_wakeup w res
-      end
-      >>= fun () -> 
-      let s' = {
-        s with
-        accepted = i
-      } in
-      Lwt.return s'
-    | A_LOG_UPDATE (i, u) ->
+      handle_commit t s i u m_w
+    | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
       let d = (s.proposed <> i) in
-      log_update t d u >>= fun res ->
-      let s' = {
-        s with
-        proposed = i
-      } in
-      Lwt.return s'
+      begin
+	      log_update t d u >>= fun res ->
+        match res with 
+          
+	        | S.TX_SUCCESS ->
+	          begin
+			      (* Update logged succesfull *)
+			        match s.constants.others with
+	              (* If single node, we need to commit as well *)
+	 		          | [] ->  
+			            let s' = {
+			              s with
+			              prop = None;
+			              proposed = i;
+			              votes = [];
+			              cur_cli_req = None;
+			              valid_inputs = ch_all;
+			            } in
+                  Lwt.return s'
+                  
+			            (* handle_commit t s' i u cli_req *)
+	              (* Not single node, send out accepts *)
+			          | others ->
+			            let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
+                  do_send_msg t s msg others >>= fun () ->
+                  let s' =  {
+			              s with
+			              cur_cli_req = cli_req;
+			              votes = [s.constants.me];
+			              proposed = i;
+			              prop = Some u;
+			              valid_inputs = ch_node_and_timeout;
+			            } in 
+                  Lwt.return s 
+	          end
+            
+	        | S.TX_ASSERT k -> Lwt.return s
+	        | S.TX_NOTFOUND k -> Lwt.return s
+			      (* Update log failed *)
+			        (* Notify client *)
+			        (* Dont bump proposed *)
+		  end
     | A_START_TIMER (n, m, d) ->
       start_timer t n m d >>= fun () -> 
       Lwt.return s

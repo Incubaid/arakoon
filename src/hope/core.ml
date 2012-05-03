@@ -88,10 +88,17 @@ let tick2s (TICK t) =
 
 module type STORE = sig
   type t
+  
+  type tx_result =
+  | TX_SUCCESS
+  | TX_ASSERT of k
+  | TX_NOTFOUND of k
+
+
   val create : string -> t Lwt.t
   val init : string -> unit Lwt.t
   val commit : t -> tick -> result Lwt.t
-  val log : t -> bool -> update -> result Lwt.t
+  val log : t -> bool -> update -> tx_result Lwt.t
   val get : t -> k -> v option Lwt.t
   val range: t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   val range_entries: t -> string option -> bool -> string option -> bool -> int -> (string*string) list Lwt.t

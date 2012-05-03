@@ -3,7 +3,11 @@ open Lwt
 
 module MemStore = (struct
   type t = { store: (k, v) Hashtbl.t; mutable meta: string option}
-
+  type tx_result = 
+  | TX_SUCCESS
+  | TX_ASSERT of k
+  | TX_NOTFOUND of k
+  
   let rec log t i u = 
     begin
       match u with
@@ -12,7 +16,7 @@ module MemStore = (struct
         | SEQUENCE s -> Lwt_list.iter_s (fun u -> log t i u >>= fun _ -> Lwt.return ()) s
     end
     >>= fun () -> 
-    Lwt.return Core.UNIT
+    Lwt.return TX_SUCCESS
   
   let commit t i = Lwt.return Core.UNIT
 

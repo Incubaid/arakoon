@@ -59,7 +59,7 @@ let sync ip port cluster_id (log : BStore.t) =
         let u = Core.SEQUENCE us in
         let d = true in
         BStore.log  log d u)
-      Core.UNIT
+      BStore.TX_SUCCESS
     >>= fun () ->
     Lwt.return ()
   end

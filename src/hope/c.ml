@@ -24,7 +24,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	
 	let get_key ic =
 	  Llio.input_string ic
-	
+
   let get_range_params ic =
     Llio.input_bool ic >>= fun allow_dirty ->
     Llio.input_string_option ic >>= fun (first:string option) ->
@@ -217,7 +217,6 @@ module ProtocolHandler (S:Core.STORE) = struct
             Lwt.return false
         in
         only_if_master allow_dirty do_assert
-        
       | CONFIRM ->
 	      begin
           Llio.input_string ic >>= fun key ->
