@@ -143,11 +143,17 @@ module ADispatcher (S:STORE) = struct
                   Lwt.return s 
 	          end
             
-	        | S.TX_ASSERT k -> Lwt.return s
-	        | S.TX_NOTFOUND k -> Lwt.return s
-			      (* Update log failed *)
+	        | S.TX_ERROR k -> 
+            begin
+            (* Update log failed *)
+              begin
+                match cli_req with
+                  | None -> Lwt.return ()
+                  | Some cli -> safe_wakeup cli (FAILURE (Arakoon_exc.E_NOT_FOUND, k)) 
 			        (* Notify client *)
-			        (* Dont bump proposed *)
+			        end >>= fun () ->
+              Lwt.return s
+            end
 		  end
     | A_START_TIMER (n, m, d) ->
       start_timer t n m d >>= fun () -> 

@@ -91,8 +91,7 @@ module type STORE = sig
   
   type tx_result =
   | TX_SUCCESS
-  | TX_ASSERT of k
-  | TX_NOTFOUND of k
+  | TX_ERROR of k
 
 
   val create : string -> t Lwt.t

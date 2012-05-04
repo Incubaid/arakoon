@@ -17,8 +17,7 @@ module BStore = (struct
 
   type tx_result =
   | TX_SUCCESS
-  | TX_ASSERT of k
-  | TX_NOTFOUND of k
+  | TX_ERROR of k
 
 
   let init fn = 
@@ -49,16 +48,25 @@ module BStore = (struct
     let _exec tx =
       begin 
         let rec _inner (tx: BS.tx) = function
-          | Core.SET (k,v) -> BS.set tx (pref_key k) v
+          | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK ())
           | Core.DELETE k  -> BS.delete tx (pref_key k)
-          | Core.SEQUENCE s -> Lwt_list.iter_s (fun u -> _inner tx u) s
+          | Core.SEQUENCE s -> 
+            Lwt_list.fold_left_s 
+            (fun a u ->
+              match a with
+                | OK _ -> _inner tx u 
+                | NOK k -> Lwt.return (NOK k) )
+            (OK ())
+            s
         in _inner tx u
       end
     in  
     Lwt_mutex.with_lock t.m 
       (fun () -> 
-        BS.log_update t.store ~diff:d _exec >>= fun () ->
-        Lwt.return TX_SUCCESS)
+        BS.log_update t.store ~diff:d _exec >>= function 
+          | OK _ -> Lwt.return TX_SUCCESS
+          | NOK k -> Lwt.return (TX_ERROR k)
+      )
   
   let last_update t =
     BS.last_update t.store >>= fun m_last ->
@@ -83,7 +91,10 @@ module BStore = (struct
           
     end
       
-  let get t k = BS.get_latest t.store (pref_key k) 
+  let get t k = 
+    BS.get_latest t.store (pref_key k) >>= function
+      | OK v -> Lwt.return (Some v)
+      | NOK k -> Lwt.return None 
 
   let opx first= function
     | None when first -> Some (pref_key "")

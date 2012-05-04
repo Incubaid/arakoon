@@ -5,8 +5,7 @@ module MemStore = (struct
   type t = { store: (k, v) Hashtbl.t; mutable meta: string option}
   type tx_result = 
   | TX_SUCCESS
-  | TX_ASSERT of k
-  | TX_NOTFOUND of k
+  | TX_ERROR of k
   
   let rec log t i u = 
     begin
