@@ -125,9 +125,7 @@ module ADispatcher (S:STORE) = struct
 			              cur_cli_req = None;
 			              valid_inputs = ch_all;
 			            } in
-                  Lwt.return s'
-                  
-			            (* handle_commit t s' i u cli_req *)
+                  handle_commit t s' i u cli_req 
 	              (* Not single node, send out accepts *)
 			          | others ->
 			            let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
@@ -140,7 +138,7 @@ module ADispatcher (S:STORE) = struct
 			              prop = Some u;
 			              valid_inputs = ch_node_and_timeout;
 			            } in 
-                  Lwt.return s 
+                  Lwt.return s'
 	          end
             
 	        | S.TX_ERROR k -> 
