@@ -4,8 +4,13 @@ open Baardskeerder
 
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
-let pref_key k = "@" ^ k
-let unpref_key k = String.sub k 1 ((String.length k) -1)
+let __prefix = "@"
+let __admin_prefix = "*"
+
+let pref_key ?(_pf = __prefix) k = _pf ^ k
+let unpref_key ?(_pf = __prefix) k = 
+  let to_cut = String.length _pf in
+  String.sub k to_cut ((String.length k) - to_cut)
     
 let action2update = function
   | Set (k,v) -> Core.SET(unpref_key k,v)
@@ -50,6 +55,13 @@ module BStore = (struct
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK ())
           | Core.DELETE k  -> BS.delete tx (pref_key k)
+          | Core.ADMIN_SET (k, m_v) -> 
+            begin
+              let k' = pref_key ~_pf:__admin_prefix k in
+              match m_v with
+              | None -> BS.delete tx k'
+              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK ())
+            end
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 
             (fun a u ->

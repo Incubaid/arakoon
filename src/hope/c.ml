@@ -4,6 +4,10 @@ open Modules
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
 let _VERSION = 2
+
+    
+let __routing_key = "routing"
+let __interval_key = "interval"
     
 let my_read_command (ic,oc) = 
   
@@ -103,6 +107,10 @@ module ProtocolHandler (S:Core.STORE) = struct
     let q = Core.SET(k,v) in
     __do_unit_update driver q
       
+  let _admin_set driver k m_v = 
+    let u = Core.ADMIN_SET(k, m_v) in
+    __do_unit_update driver u
+    
   let _sequence driver sequence = __do_unit_update driver sequence
     
   let _delete driver k =
@@ -122,8 +130,7 @@ module ProtocolHandler (S:Core.STORE) = struct
     | None -> None
     | Some s -> 
       begin
-        let m, off = Llio.string_option_from s 0 in
-	m
+        let m, off = Llio.string_option_from s 0 in m
       end
         
   let am_i_master store me = 
@@ -147,6 +154,14 @@ module ProtocolHandler (S:Core.STORE) = struct
           else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
       ) 
       (Client_protocol.handle_exception oc)
+    in
+    let do_admin_set key rest =
+      let ser = Pack.input_string rest in
+      let do_inner () =
+        _admin_set driver key (Some ser) >>= fun () ->
+        Client_protocol.response_ok_unit oc
+      in
+      only_if_master false do_inner
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
@@ -276,7 +291,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master allow_dirty do_assert
         
       | Common.CONFIRM ->
-	begin
+        begin
           let key = Pack.input_string rest in
           let value = Pack.input_string rest in
           let do_confirm () =
@@ -299,24 +314,21 @@ module ProtocolHandler (S:Core.STORE) = struct
         let m_new = Pack.input_string_option rest in
         let do_test_and_set () = 
           _safe_get store key >>= fun m_val ->
-	  begin
-	    if m_val = m_old 
-	    then
-	      begin
-		match m_new with
-		  | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
-		  | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
-	      end 
-	    else
-	      begin
-		Lwtc.log "Test_and_set: nothing to be done"
-	      end
-	  end >>= fun () ->
-	  send_string_option oc m_val >>= fun () ->
-	  Lwt.return false
+          begin
+            if m_val = m_old 
+            then begin
+              match m_new with
+              | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
+              | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
+            end 
+          else begin
+            Lwtc.log "Test_and_set: nothing to be done"
+            end
+          end >>= fun () ->
+          send_string_option oc m_val >>= fun () ->
+          Lwt.return false
         in
         only_if_master false do_test_and_set 
-
       | Common.PREFIX_KEYS ->
         Lwtc.log "PREFIX_KEYS" >>= fun () ->
         let allow_dirty = Pack.input_bool rest in
@@ -341,8 +353,10 @@ module ProtocolHandler (S:Core.STORE) = struct
         let msg = Printf.sprintf "Arakoon %S" Version.git_info in
         Llio.output_string oc msg >>= fun () ->
         Lwt.return false
+      | Common.SET_ROUTING -> do_admin_set __routing_key rest
+      | Common.SET_INTERVAL -> do_admin_set __interval_key rest
         
-	(* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
+	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
   let protocol me driver store (ic,oc) =   
     let rec loop () = 
