@@ -310,6 +310,12 @@ def _vpackStringOption(toPack = None):
     else:
         return _vpackBool(True) + _vpackString(toPack)
 
+def _vpackIntOption(toPack):
+    if toPack is None:
+        return _vpackBool(False)
+    else:
+        return _vpackBool(True) + _vpackInt (toPack)
+
 def sendPrologue(socket, clusterId):
     p  = _packInt(ARA_CMD_MAG)
     p += _packInt(ARA_CMD_VER)
@@ -593,9 +599,9 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodePrefixKeys( key, maxCnt, allowDirty ):
-        retVal = _packInt( ARA_CMD_PRE) + _packBool(allowDirty)
-        retVal += _packString( key )
-        retVal += _packSignedInt( maxCnt )
+        retVal = _packInt( ARA_CMD_PRE) + _vpackBool(allowDirty)
+        retVal += _vpackString(key)
+        retVal += _vpackIntOption(maxCnt)
         return retVal
 
     @staticmethod

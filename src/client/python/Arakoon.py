@@ -428,7 +428,7 @@ class ArakoonClient :
     
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'int' )
-    def prefix(self, keyPrefix , maxElements = -1 ):
+    def prefix(self, keyPrefix , maxElements = None ):
         """
         Retrieve a set of keys that match with the provided prefix.
 
@@ -436,9 +436,9 @@ class ArakoonClient :
         Additionaly you can limit the size of the result set to maxElements
 
         @type keyPrefix: string
-        @type maxElements: integer
+        @type maxElements: integer option
         @param keyPrefix: The prefix that will be used when pattern matching the keys in the store
-        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
+        @param maxElements: The maximum number of keys to return. None means all matches will be returned. Defaults to None.
 
         @rtype: list of strings
         @return: Returns a list of keys matching the provided prefix
