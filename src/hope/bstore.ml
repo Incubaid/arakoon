@@ -120,6 +120,9 @@ module BStore = (struct
       max
     >>= fun ks ->
     Lwt.return (List.map unpref_key ks)
+
+      
+  let prefix_keys t prefix max = BS.prefix_keys_latest t.store prefix max
     
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in

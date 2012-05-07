@@ -10,7 +10,8 @@ export LIBRARY_PATH=$BUILD_ENV/lib
 make clean
 make
 
-python test_it.py -s test.server.quick.system_tests_basic
+python test_it.py -s --with-xunit --xunit-file=foobar.xml test.server.quick.system_tests_basic
+
 # redo this for artifacts...
 #ocamlbuild -use-ocamlfind barakoon.native barakoon.byte
 #mkdir -p doc/python/client

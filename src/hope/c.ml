@@ -116,8 +116,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
       | Some v -> Lwt.return v 
 
-  let _prefix store k max = Lwtc.failfmt "_prefix "
-  
+  let _prefix_keys store k max = S.prefix_keys store k max 
+
   let extract_master_info = function
     | None -> None
     | Some s -> 
@@ -315,15 +315,15 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master false do_test_and_set 
       | Common.PREFIX_KEYS ->
         let allow_dirty = Pack.input_bool rest in
-        let key = Pack.input_bool rest in
+        let key = Pack.input_string rest in
         let max = Pack.input_option Pack.input_vint rest in
-        let do_prefix () =
-          _prefix store key max >>= fun keys ->
+        let do_prefix_keys () =
+          _prefix_keys store key max >>= fun keys ->
           Llio.output_int oc 0 >>= fun () ->
           Llio.output_list Llio.output_string oc keys >>= fun () ->
           Lwt.return false
         in
-        only_if_master allow_dirty do_prefix 
+        only_if_master allow_dirty do_prefix_keys
       | Common.PING ->
         let client_id = Pack.input_string rest in
         let cluster_id = Pack.input_string rest in
