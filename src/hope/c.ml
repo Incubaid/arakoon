@@ -117,12 +117,12 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Some v -> Lwt.return v 
 
   let _prefix store k max = Lwtc.failfmt "_prefix "
+  
   let extract_master_info = function
     | None -> None
     | Some s -> 
       begin
-        let m, off = Llio.string_option_from s 0 in
-	m
+        let m, off = Llio.string_option_from s 0 in m
       end
         
   let am_i_master store me = 
@@ -275,7 +275,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master allow_dirty do_assert
         
       | Common.CONFIRM ->
-	begin
+        begin
           let key = Pack.input_string rest in
           let value = Pack.input_string rest in
           let do_confirm () =
@@ -298,24 +298,21 @@ module ProtocolHandler (S:Core.STORE) = struct
         let m_new = Pack.input_string_option rest in
         let do_test_and_set () = 
           _safe_get store key >>= fun m_val ->
-	  begin
-	    if m_val = m_old 
-	    then
-	      begin
-		match m_new with
-		  | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
-		  | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
-	      end 
-	    else
-	      begin
-		Lwtc.log "Test_and_set: nothing to be done"
-	      end
-	  end >>= fun () ->
-	  send_string_option oc m_val >>= fun () ->
-	  Lwt.return false
+          begin
+            if m_val = m_old 
+            then begin
+              match m_new with
+              | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
+              | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
+            end 
+          else begin
+            Lwtc.log "Test_and_set: nothing to be done"
+            end
+          end >>= fun () ->
+          send_string_option oc m_val >>= fun () ->
+          Lwt.return false
         in
         only_if_master false do_test_and_set 
-
       | Common.PREFIX_KEYS ->
         let allow_dirty = Pack.input_bool rest in
         let key = Pack.input_bool rest in
@@ -335,7 +332,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         Llio.output_string oc msg >>= fun () ->
         Lwt.return false
         
-	(* | _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
+	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
   let protocol me driver store (ic,oc) =   
     let rec loop () = 
