@@ -54,7 +54,12 @@ module BStore = (struct
       begin 
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK ())
-          | Core.DELETE k  -> BS.delete tx (pref_key k)
+          | Core.DELETE k  -> 
+            begin
+              BS.delete tx (pref_key k) >>= function
+                | NOK k -> Lwt.return (NOK (unpref_key k))
+                | a -> Lwt.return a
+            end
           | Core.ADMIN_SET (k, m_v) -> 
             begin
               let k' = pref_key ~_pf:__admin_prefix k in
@@ -73,7 +78,7 @@ module BStore = (struct
             (fun a u ->
               match a with
                 | OK _ -> _inner tx u 
-                | NOK k -> Lwt.return (NOK k) )
+                | NOK k -> Lwt.return (NOK (unpref_key k)) )
             (OK ())
             s
         in _inner tx u

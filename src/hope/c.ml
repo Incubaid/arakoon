@@ -100,7 +100,7 @@ module ProtocolHandler (S:Core.STORE) = struct
     DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
       | Core.UNIT -> Lwt.return ()
-      | Core.FAILURE (rc, msg) -> failwith msg
+      | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
       | Core.VALUE v -> failwith "Expected unit, not value"
 	
   let _set driver k v = 
@@ -214,10 +214,13 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master allow_dirty do_get
 	end 
       | Common.DELETE ->
-	let key = Pack.input_string rest in
+        let key = Pack.input_string rest in
         Lwtc.log "DELETE %S" key >>= fun () ->
-	_delete driver key >>= fun () ->
-	Client_protocol.response_ok_unit oc
+        let do_delete () =
+          _delete driver key >>= fun () ->
+          Client_protocol.response_ok_unit oc
+        in 
+        only_if_master false do_delete
           
       | Common.LAST_ENTRIES ->
 	begin
