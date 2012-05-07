@@ -62,6 +62,12 @@ module BStore = (struct
               | None -> BS.delete tx k'
               | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK ())
             end
+          | Core.ASSERT (k, m_v) -> 
+            begin
+              BS.get tx k >>= function
+              | OK v' -> if m_v <> (Some v') then (Lwt.return (NOK k)) else (Lwt.return (OK ())) 
+              | NOK k -> if m_v <> None then (Lwt.return (NOK k)) else (Lwt.return (OK ())) 
+            end
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 
             (fun a u ->

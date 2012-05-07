@@ -17,12 +17,14 @@ type v = string
 type update = 
   | SET of k * v
   | DELETE of k
+  | ASSERT of k * v option
   | ADMIN_SET of k * v option
   | SEQUENCE of update list
 
 let update2s = function
   | SET (k, _) -> Printf.sprintf "U_SET (k: %s)" k
   | DELETE k -> Printf.sprintf "U_DEL (k: %s)" k
+  | ASSERT (k, _) -> Printf.sprintf "U_ASSERT (k: %s)" k
   | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (k: %s)" k
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
 
@@ -34,13 +36,18 @@ let rec update_to buf = function
   | DELETE k ->
     Llio.int_to buf 2;
     Llio.string_to buf k
-  | ADMIN_SET (k, m_v) ->
-    Llio.int_to buf 3;
-    Llio.string_option_to buf m_v;
   | SEQUENCE s ->
     Llio.int_to buf 5;
     Llio.int_to buf (List.length s);
     List.iter (fun u -> update_to buf u) s
+  | ASSERT (k, m_v) ->
+    Llio.int_to buf 8;
+    Llio.string_to buf k ;
+    Llio.string_option_to buf m_v
+  | ADMIN_SET (k, m_v) ->
+    Llio.int_to buf 9;
+    Llio.string_to buf k;
+    Llio.string_option_to buf m_v
 
 let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
@@ -52,10 +59,6 @@ let rec update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
-    | 3 -> 
-      let k, off = Llio.string_from buf off in
-      let m_v, off = Llio.string_option_from buf off in
-      ADMIN_SET (k, m_v), off
     | 5 ->
       let slen, off = Llio.int_from buf off in
       begin
@@ -68,9 +71,16 @@ let rec update_from buf off =
         let ups, off = loop [] off slen in
         SEQUENCE (List.rev ups), off
       end
-      
+    | 8 -> 
+      let k, off = Llio.string_from buf off in
+      let m_v, off = Llio.string_option_from buf off in
+      ASSERT (k, m_v), off
+    | 9 -> 
+      let k, off = Llio.string_from buf off in
+      let m_v, off = Llio.string_option_from buf off in
+      ADMIN_SET (k, m_v), off
           
-    | i -> failwith "Unknown update type"
+    | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
 
 type result = 
   | UNIT

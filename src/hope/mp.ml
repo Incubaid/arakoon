@@ -721,10 +721,15 @@ module MULTI = struct
       match state.state_n with
         | S_SLAVE when state.round = n ->
           begin
-            let d = state.constants.lease_duration in
             let l = A_STORE_LEASE (Some src) in
-            let t = A_START_TIMER (n, m, d) in
-            StepSuccess ([l;t], state)
+            let t =
+              if state.round = n && state.extensions = m 
+              then []
+              else
+                let d = state.constants.lease_duration in
+                [A_START_TIMER (n, m, d)]
+            in 
+            StepSuccess (l :: t, state)
           end
         | _ -> StepSuccess([], state) 
     end
