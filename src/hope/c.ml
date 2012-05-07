@@ -4,6 +4,10 @@ open Modules
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
 let _VERSION = 2
+
+    
+let __routing_key = "routing"
+let __interval_key = "interval"
     
 let my_read_command (ic,oc) = 
   
@@ -103,6 +107,10 @@ module ProtocolHandler (S:Core.STORE) = struct
     let q = Core.SET(k,v) in
     __do_unit_update driver q
       
+  let _admin_set driver k m_v = 
+    let u = Core.ADMIN_SET(k, m_v) in
+    __do_unit_update driver u
+    
   let _sequence driver sequence = __do_unit_update driver sequence
     
   let _delete driver k =
@@ -146,6 +154,14 @@ module ProtocolHandler (S:Core.STORE) = struct
           else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
       ) 
       (Client_protocol.handle_exception oc)
+    in
+    let do_admin_set key rest =
+      let ser = Pack.input_string rest in
+      let do_inner () =
+        _admin_set driver key (Some ser) >>= fun () ->
+        Client_protocol.response_ok_unit oc
+      in
+      only_if_master false do_inner
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
@@ -331,6 +347,8 @@ module ProtocolHandler (S:Core.STORE) = struct
         let msg = Printf.sprintf "Arakoon %S" Version.git_info in
         Llio.output_string oc msg >>= fun () ->
         Lwt.return false
+      | Common.SET_ROUTING -> do_admin_set __routing_key rest
+      | Common.SET_INTERVAL -> do_admin_set __interval_key rest
         
 	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      

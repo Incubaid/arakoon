@@ -324,19 +324,16 @@ let get_routing (ic,oc) =
 
 
 let set_routing (ic,oc) r =
-  failwith "todo"
-  (*
-  let outgoing buf =
-    command_to buf SET_ROUTING;
+  let outgoing out =
+    command_to out SET_ROUTING;
     let b' = Buffer.create 100 in
     Routing.routing_to b' r;
-      let size = Buffer.length b' in
-      Llio.int_to buf size;
-      Buffer.add_buffer buf b'
-    in
-    request  oc outgoing >>= fun  () ->
-    response ic nothing
-  *)
+    let str = Buffer.contents b' in
+    Pack.string_to out str
+  in
+  request  oc outgoing >>= fun  () ->
+  response ic nothing
+ 
 
 let set_routing_delta (ic,oc) left sep right =
   let outgoing out =
