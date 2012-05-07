@@ -318,11 +318,17 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master false do_test_and_set 
 
       | Common.PREFIX_KEYS ->
+        Lwtc.log "PREFIX_KEYS" >>= fun () ->
         let allow_dirty = Pack.input_bool rest in
         let key = Pack.input_string rest in
         let max = Pack.input_option Pack.input_vint rest in
+        Lwtc.log "PREFIX_KEYS allow_dirty:%b key:%s max:%s" 
+          allow_dirty key (Log_extra.int_option_to_string max)
+
+        >>= fun () ->
         let do_prefix_keys () =
           _prefix_keys store key max >>= fun keys ->
+          Lwtc.log "PREFIX_KEYS: result: [%s]" (String.concat ";" keys) >>= fun () ->
           Llio.output_int oc 0 >>= fun () ->
           Llio.output_list Llio.output_string oc keys >>= fun () ->
           Lwt.return false
