@@ -1,6 +1,6 @@
 
 
-BUILD_ENV=/var/hudson/workspace/ROOT/OCAML
+BUILD_ENV=../ROOT/OCAML
 echo BUILD_ENV=${BUILD_ENV}
 
 export PATH=$BUILD_ENV/bin:$PATH
@@ -10,7 +10,7 @@ export LIBRARY_PATH=$BUILD_ENV/lib
 make clean
 make
 
-python test_it.py -s --with-xunit --xunit-file=foobar.xml test.server.quick.system_tests_basic
+python test_it.py -s --with-xunit --xunit-file=foobar.xml test.server.quick
 
 # redo this for artifacts...
 #ocamlbuild -use-ocamlfind barakoon.native barakoon.byte
