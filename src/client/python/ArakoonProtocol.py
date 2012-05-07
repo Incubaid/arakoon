@@ -576,9 +576,9 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeRange( bKey, bInc, eKey, eInc, maxCnt , allowDirty):
-        retVal = _packInt( ARA_CMD_RAN ) + _packBool(allowDirty)
-        retVal += _packStringOption( bKey ) + _packBool ( bInc )
-        retVal += _packStringOption( eKey ) + _packBool (eInc) + _packSignedInt (maxCnt)
+        retVal = _packInt( ARA_CMD_RAN ) + _vpackBool(allowDirty)
+        retVal += _vpackStringOption( bKey ) + _vpackBool ( bInc )
+        retVal += _vpackStringOption( eKey ) + _vpackBool (eInc) + _vpackIntOption (maxCnt)
         return  retVal
 
     @staticmethod

@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys
-print >> sys.stderr, sys.path
+
 
 
 from nose.tools import *
@@ -693,6 +693,7 @@ def dummy_teardown(home_dir):
 
 
 def common_teardown( removeDirs, cluster_ids):
+    X.logging.info("common_teardown(%s,%s)", removeDirs, cluster_ids)
     for cluster_id in cluster_ids:
         X.logging.info( "Stopping arakoon daemons for cluster %s" % cluster_id )
         stop_all (cluster_id )
@@ -1054,10 +1055,14 @@ def prefix_scenario( start_suffix ):
     client = get_client()
     
     key_list = client.prefix( test_key_pref )
+    X.logging.debug("key_list = %s", key_list)
     assert_key_list ( start_suffix + 90, 10, key_list)
     
+    
     key_list = client.prefix( test_key_pref, 7 )
+    X.logging.debug("key_list = %s", key_list)
     assert_key_list ( start_suffix + 90, 7, key_list)
+    
     
     client._dropConnections ()
 
@@ -1073,6 +1078,7 @@ def range_scenario ( start_suffix ):
     test_key_2 = CONFIG.key_format_str % (start_suffix + 50)
     
     key_list = client.range( test_key , True, end_key , False )
+    X.logging.debug("range %s %s %s %s => key_list = %s", test_key, True, end_key, False, key_list)
     assert_key_list ( start_suffix+25, 75, key_list )
     
     key_list = client.range( test_key , False, end_key , False )

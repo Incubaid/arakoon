@@ -165,11 +165,16 @@ module ProtocolHandler (S:Core.STORE) = struct
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
+      let so2s = Log_extra.string_option_to_string in
+      Lwtc.log "_do_range %s %b %s %b %s"
+        (so2s first) finc (so2s last) linc 
+        (Log_extra.int_option_to_string max) 
+      >>= fun () ->
       only_if_master allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
           Llio.output_int oc 0 >>= fun () ->
-          output oc l >>= fun () ->
+          output oc (List.rev l) >>= fun () ->
           Lwt.return false
         )
     in 
@@ -312,6 +317,10 @@ module ProtocolHandler (S:Core.STORE) = struct
         let key = Pack.input_string rest in 
         let m_old = Pack.input_string_option rest in
         let m_new = Pack.input_string_option rest in
+        Lwtc.log "TEST_AND_SET key:%S m_old:%s m_new:%s" key 
+          (Log_extra.string_option_to_string m_old)
+          (Log_extra.string_option_to_string m_new)
+        >>= fun () ->
         let do_test_and_set () = 
           _safe_get store key >>= fun m_val ->
           begin
@@ -342,7 +351,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           _prefix_keys store key max >>= fun keys ->
           Lwtc.log "PREFIX_KEYS: result: [%s]" (String.concat ";" keys) >>= fun () ->
           Llio.output_int oc 0 >>= fun () ->
-          Llio.output_list Llio.output_string oc keys >>= fun () ->
+          Llio.output_list Llio.output_string oc (List.rev keys) >>= fun () ->
           Lwt.return false
         in
         only_if_master allow_dirty do_prefix_keys
