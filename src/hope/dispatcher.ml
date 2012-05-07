@@ -112,34 +112,45 @@ module ADispatcher (S:STORE) = struct
         match res with 
           
 	        | S.TX_SUCCESS ->
-	          begin
-			      (* Update logged succesfull *)
-			        match s.constants.others with
-	              (* If single node, we need to commit as well *)
-	 		          | [] ->  
-			            let s' = {
-			              s with
-			              prop = None;
-			              proposed = i;
-			              votes = [];
-			              cur_cli_req = None;
-			              valid_inputs = ch_all;
-			            } in
-                  handle_commit t s' i u cli_req 
-	              (* Not single node, send out accepts *)
-			          | others ->
-			            let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
-                  do_send_msg t s msg others >>= fun () ->
-                  let s' =  {
-			              s with
-			              cur_cli_req = cli_req;
-			              votes = [s.constants.me];
-			              proposed = i;
-			              prop = Some u;
-			              valid_inputs = ch_node_and_timeout;
-			            } in 
-                  Lwt.return s'
-	          end
+            if s.master_id = Some s.constants.me 
+            then
+		          begin
+				      (* Update logged succesfull *)
+				        match s.constants.others with
+		              (* If single node, we need to commit as well *)
+		 		          | [] ->  
+				            let s' = {
+				              s with
+				              prop = None;
+				              proposed = i;
+				              votes = [];
+				              cur_cli_req = None;
+				              valid_inputs = ch_all;
+				            } in
+	                  handle_commit t s' i u cli_req 
+		              (* Not single node, send out accepts *)
+				          | others ->
+				            let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
+	                  do_send_msg t s msg others >>= fun () ->
+	                  let s' =  {
+				              s with
+				              cur_cli_req = cli_req;
+				              votes = [s.constants.me];
+				              proposed = i;
+				              prop = Some u;
+				              valid_inputs = ch_node_and_timeout;
+				            } in 
+	                  Lwt.return s'
+    	          end
+              else
+                begin
+                  let s' = { 
+                    s with
+                    proposed = i;
+                    prop = Some u;
+                  } in
+                  Lwt.return s' 
+                end
             
 	        | S.TX_ERROR k -> 
             begin

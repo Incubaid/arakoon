@@ -23,7 +23,9 @@ paths = ':'.join(map (lambda x: pwd + x, ['/pylabs','/pylabs/extensions']))
 print paths
 env ['PYTHONPATH'] = paths
 cmd = ['nosetests', '-w', 'test']
-print "LD_LIBRARY_PATH=%s" % env['LD_LIBRARY_PATH']
+ldlib = 'LD_LIBRARY_PATH'
+if env.has_key(ldlib):
+    print "LD_LIBRARY_PATH=%s" % env[ldlib] 
 rest = sys.argv[1:]
 cmd.extend(rest)
 subprocess.call(cmd, 
