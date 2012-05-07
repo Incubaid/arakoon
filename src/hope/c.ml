@@ -312,6 +312,10 @@ module ProtocolHandler (S:Core.STORE) = struct
         let key = Pack.input_string rest in 
         let m_old = Pack.input_string_option rest in
         let m_new = Pack.input_string_option rest in
+        Lwtc.log "TEST_AND_SET key:%S m_old:%s m_new:%s" key 
+          (Log_extra.string_option_to_string m_old)
+          (Log_extra.string_option_to_string m_new)
+        >>= fun () ->
         let do_test_and_set () = 
           _safe_get store key >>= fun m_val ->
           begin

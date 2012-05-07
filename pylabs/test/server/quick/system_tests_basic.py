@@ -25,7 +25,7 @@ from arakoon.ArakoonExceptions import *
 import arakoon
 import time
 from nose.tools import *
-#from pymonkey import q, i
+
 import Compat as X
 
 CONFIG = C.CONFIG
@@ -155,8 +155,8 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
     
     old_value_prefix = "old_"
     new_value_prefix = "new_"
-    
-    for i in range ( 1000 ) :
+    n = 1000
+    for i in range (n):
         
         old_value = old_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
         new_value = new_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
@@ -178,7 +178,7 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
         try:
             client.delete( key )
         except ArakoonNotFound:
-            logging.error ( "Caught not found for key %s" % key )
+            X.logging.error ( "Caught not found for key %s" % key )
         assert_raises( ArakoonNotFound, client.get, key )
     
     client._dropConnections()
