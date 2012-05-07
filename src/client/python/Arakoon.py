@@ -322,7 +322,7 @@ class ArakoonClient :
     
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
-    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = -1 ):
+    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = None ):
         """
         Perform a range query on the store, retrieving the set of matching keys
 
@@ -334,12 +334,12 @@ class ArakoonClient :
         @type beginKeyIncluded: boolean
         @type endKey :string option
         @type endKeyIncluded: boolean
-        @type maxElements: integer
+        @type maxElements: integer option
         @param beginKey: Lower boundary of the requested range
         @param beginKeyIncluded: Indicates if the lower boundary should be part of the result set
         @param endKey: Upper boundary of the requested range
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
-        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
+        @param maxElements: The maximum number of keys to return. None no maximum, all matches will be returned. Defaults to None.
 
         @rtype: list of strings
         @return: Returns a list containing all matching keys

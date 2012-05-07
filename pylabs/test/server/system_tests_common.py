@@ -1077,6 +1077,7 @@ def range_scenario ( start_suffix ):
     test_key_2 = CONFIG.key_format_str % (start_suffix + 50)
     
     key_list = client.range( test_key , True, end_key , False )
+    X.logging.debug("range %s %s %s %s => key_list = %s", test_key, True, end_key, False, key_list)
     assert_key_list ( start_suffix+25, 75, key_list )
     
     key_list = client.range( test_key , False, end_key , False )

@@ -165,11 +165,16 @@ module ProtocolHandler (S:Core.STORE) = struct
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
+      let so2s = Log_extra.string_option_to_string in
+      Lwtc.log "_do_range %s %b %s %b %s"
+        (so2s first) finc (so2s last) linc 
+        (Log_extra.int_option_to_string max) 
+      >>= fun () ->
       only_if_master allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
           Llio.output_int oc 0 >>= fun () ->
-          output oc l >>= fun () ->
+          output oc (List.rev l) >>= fun () ->
           Lwt.return false
         )
     in 
