@@ -312,7 +312,7 @@ def _vpackStringOption(toPack = None):
 
 def _vpackIntOption(toPack):
     if toPack is None:
-        return _vapckBool(False)
+        return _vpackBool(False)
     else:
         return _vpackBool(True) + _vpackInt (toPack)
 
