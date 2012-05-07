@@ -1054,10 +1054,14 @@ def prefix_scenario( start_suffix ):
     client = get_client()
     
     key_list = client.prefix( test_key_pref )
+    X.logging.debug("key_list = %s", key_list)
     assert_key_list ( start_suffix + 90, 10, key_list)
     
+    
     key_list = client.prefix( test_key_pref, 7 )
+    X.logging.debug("key_list = %s", key_list)
     assert_key_list ( start_suffix + 90, 7, key_list)
+    
     
     client._dropConnections ()
 

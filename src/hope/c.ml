@@ -346,7 +346,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           _prefix_keys store key max >>= fun keys ->
           Lwtc.log "PREFIX_KEYS: result: [%s]" (String.concat ";" keys) >>= fun () ->
           Llio.output_int oc 0 >>= fun () ->
-          Llio.output_list Llio.output_string oc keys >>= fun () ->
+          Llio.output_list Llio.output_string oc (List.rev keys) >>= fun () ->
           Lwt.return false
         in
         only_if_master allow_dirty do_prefix_keys
