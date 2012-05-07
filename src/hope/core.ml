@@ -105,6 +105,10 @@ module type STORE = sig
     -> (string*string) list Lwt.t
   val rev_range_entries: t -> string option -> bool -> string option -> bool -> int option
     -> (string*string) list Lwt.t
+
+  val prefix_keys: t -> string -> int option -> string list Lwt.t
+
+
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
   val last_update: t -> (tick * update option) option Lwt.t
   val get_meta: t -> string option Lwt.t
