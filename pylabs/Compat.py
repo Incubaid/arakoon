@@ -52,6 +52,7 @@ class Compat:
         return os.path.exists(fn)
 
     def createDir(self,fn):
+        self.logging.debug("createDir(%s)", fn)
         if not os.path.exists(fn):
             return os.makedirs(fn)
 
@@ -60,6 +61,7 @@ class Compat:
         return os.path.isdir(fn)
 
     def removeDirTree(self,fn):
+        self.logging.debug("removeDirTree(%s)", fn)
         try:
             return shutil.rmtree(fn)
         except:
@@ -81,7 +83,7 @@ class Compat:
 
     def getConfig(self, h):
         fn = h + '.cfg'
-        logging.debug("reading %s",fn)
+        self.logging.debug("reading %s",fn)
         p = ConfigParser.ConfigParser()
         p.read(fn)
         #logging.debug("config file=\n%s", self.cfg2str(p))

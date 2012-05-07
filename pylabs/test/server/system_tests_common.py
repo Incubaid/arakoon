@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys
-print >> sys.stderr, sys.path
+
 
 
 from nose.tools import *
@@ -693,6 +693,7 @@ def dummy_teardown(home_dir):
 
 
 def common_teardown( removeDirs, cluster_ids):
+    X.logging.info("common_teardown(%s,%s)", removeDirs, cluster_ids)
     for cluster_id in cluster_ids:
         X.logging.info( "Stopping arakoon daemons for cluster %s" % cluster_id )
         stop_all (cluster_id )
