@@ -275,8 +275,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master allow_dirty do_multi_get
 	end
       | Common.RANGE ->             _do_range rest S.range (Llio.output_list Llio.output_string)
-      | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries 
-        (fun oc kv -> Llio.output_kv_list oc (List.rev kv)) (* TODO: change rev range in baardskeerder? *)
+      | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries Llio.output_kv_list 
       | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries Llio.output_kv_list 
       | Common.EXISTS ->
         let allow_dirty  = Pack.input_bool rest in
