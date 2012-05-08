@@ -867,15 +867,13 @@ class ArakoonCluster:
                 (file_ for file_ in files
                     if any(file_.endswith(ext) for ext in exts))
 
-            tlog_files = matching_files('.tlc', '.tlog','.tlf')
-            db_files = matching_files('.db', '.db.wal')
+            db_files = matching_files('.bs')
             log_files = matching_files('') # Every string ends with ''
 
             sum_size = lambda files: sum(os.path.getsize(file_)
                 for file_ in files)
 
             return {
-                'tlog': sum_size(tlog_files(files_in_dir(home))),
                 'db': sum_size(db_files(files_in_dir(home))),
                 'log': sum_size(log_files(files_in_dir(log_dir)))
             }

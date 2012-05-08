@@ -318,8 +318,7 @@ def test_get_storage_utilization():
     def get_total_size( d ):
         assert_not_equals( d['log'], 0, "Log dir cannot be empty")
         assert_not_equals( d['db'], 0 , "Db dir cannot be empty")
-        assert_not_equals( d['tlog'], 0, "Tlog dir cannot be empty")
-        return d['log'] + d['tlog'] + d['db'] 
+        return d['log'] + d['db'] 
     
     X.logging.debug("Testing global utilization")
     d = cl.getStorageUtilization()
