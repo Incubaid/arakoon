@@ -1,5 +1,6 @@
 open Lwt
 open Modules
+open Statistics
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -367,6 +368,16 @@ module ProtocolHandler (S:Core.STORE) = struct
         Lwt.return false
       | Common.SET_ROUTING -> do_admin_set __routing_key rest
       | Common.SET_INTERVAL -> do_admin_set __interval_key rest
+
+      | Common.STATISTICS -> 
+        Lwtc.log "STATISTICS" >>= fun () ->
+        let stats = Statistics.create () in
+        let b = Buffer.create 100 in
+        Statistics.to_buffer b stats;
+        let bs = Buffer.contents b in
+        Llio.output_int oc 0 >>= fun () ->
+        Llio.output_string oc bs >>= fun () ->
+        Lwt.return false
         
 	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
