@@ -144,7 +144,7 @@ module ProtocolHandler (S:Core.STORE) = struct
     
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
     
-  let one_command me driver store ((ic,oc) as conn) =
+  let one_command me (stats:Statistics.t) driver store ((ic,oc) as conn) =
     
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
@@ -199,7 +199,9 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  let value = input_value rest in
 	  Lwt.catch
 	    (fun () -> 
+              let t0 = Unix.gettimeofday() in
 	      _set driver key value >>= fun () ->
+              Statistics.new_set stats key value t0;
 	      Client_protocol.response_ok_unit oc)
 	    (Client_protocol.handle_exception oc)
 	end
@@ -209,7 +211,9 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  let key = Pack.input_string rest in
           Lwtc.log "GET %b %S" allow_dirty key >>= fun () ->
           let do_get () =
+            let t0 = Unix.gettimeofday() in
             _get store key >>= fun value ->
+            Statistics.new_get stats key value t0;
             Client_protocol.response_rc_string oc 0l value
           in
           only_if_master allow_dirty do_get
@@ -218,7 +222,9 @@ module ProtocolHandler (S:Core.STORE) = struct
         let key = Pack.input_string rest in
         Lwtc.log "DELETE %S" key >>= fun () ->
         let do_delete () =
+          let t0 = Unix.gettimeofday() in
           _delete driver key >>= fun () ->
+          Statistics.new_delete stats t0;
           Client_protocol.response_ok_unit oc
         in 
         only_if_master false do_delete
@@ -234,6 +240,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  Lwt.return false
 	end
       | Common.SEQUENCE ->
+        Lwtc.log "SEQUENCE" >>= fun () ->
 	begin
 	  Lwt.catch
 	    (fun () ->
@@ -381,12 +388,12 @@ module ProtocolHandler (S:Core.STORE) = struct
         
 	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
 	      
-  let protocol me driver store (ic,oc) =   
+  let protocol me (stats:Statistics.t) driver store (ic,oc) =   
     let rec loop () = 
       begin
-	one_command me driver store (ic,oc) >>= fun stop ->
+	one_command me stats driver store (ic,oc) >>= fun stop ->
 	if stop
-	then Lwtc.log "end of session"
+	then Lwtc.log "end of session: %s" me
 	else 
 	  begin
 	    Lwt_io.flush oc >>= fun () ->
@@ -394,9 +401,9 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  end
       end
     in
-    Lwtc.log "session started" >>= fun () ->
+    Lwtc.log "session started: %s" me >>= fun () ->
     prologue(ic,oc) >>= fun () ->
-    Lwtc.log "prologue ok" >>= fun () ->
+    Lwtc.log "prologue ok: %s" me >>= fun () ->
     loop ()
       
 end

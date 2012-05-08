@@ -7,6 +7,7 @@ open Dispatcher
 open Pq 
 open Node_cfg.Node_cfg
 open Mp
+open Statistics
 
 open Modules
 module BSC = C.ProtocolHandler(BStore)
@@ -113,7 +114,8 @@ module MC = struct
 end
 *)
 let server_t me driver store host port =
-  let inner = Server.make_server_thread host port (BSC.protocol me driver store) in
+  let stats = Statistics.create () in
+  let inner = Server.make_server_thread host port (BSC.protocol me stats driver store) in
   inner ()
 
 (*
