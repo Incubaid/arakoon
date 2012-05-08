@@ -255,7 +255,7 @@ def sequence_scenario( start_suffix ):
         
     cli.sequence( seq )
     
-    key_value_list = cli.range_entries( start_key, True, end_key, True )
+    key_value_list = cli.range_entries( start_key, True, end_key, True , 2*iter_size)
     C.assert_key_value_list(start_suffix, iter_size , key_value_list )
     
     seq = arakoon.ArakoonProtocol.Sequence()
@@ -264,7 +264,7 @@ def sequence_scenario( start_suffix ):
         seq.addDelete(k)
     cli.sequence( seq )
     
-    key_value_list = cli.range_entries( start_key, True, end_key, True )
+    key_value_list = cli.range_entries( start_key, True, end_key, True, 2*iter_size )
     assert_equal( len(key_value_list), 0, 
                   "Still keys in the store, should have been deleted" )
     
@@ -275,7 +275,7 @@ def sequence_scenario( start_suffix ):
                     
     seq.addDelete( "non-existing" )
     assert_raises( ArakoonNotFound, cli.sequence, seq )
-    key_value_list = cli.range_entries( start_key, True, end_key, True )
+    key_value_list = cli.range_entries( start_key, True, end_key, True, 2*iter_size )
     assert_equal( len(key_value_list), 0, "There are keys in the store, should not be the case" )
     
     cli._dropConnections()

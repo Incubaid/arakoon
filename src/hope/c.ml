@@ -66,8 +66,7 @@ module ProtocolHandler (S:Core.STORE) = struct
   open Baardskeerder
   let prologue (ic,oc) = 
     let check magic version = 
-      if magic = _MAGIC && 
-	version = _VERSION 
+      if magic = _MAGIC && version = _VERSION 
       then Lwt.return ()
       else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
     in

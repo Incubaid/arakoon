@@ -89,7 +89,7 @@ module BStore = (struct
             (fun a u ->
               match a with
                 | OK SEQ_SUCCESS -> _inner tx u
-                | NOK k -> Lwt.return (NOK (unpref_key k)) 
+                | NOK k -> Lwt.return (NOK k) 
                 | a -> Lwt.return a
             )
             (OK SEQ_SUCCESS)
