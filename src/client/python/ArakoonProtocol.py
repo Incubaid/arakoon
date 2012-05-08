@@ -568,7 +568,7 @@ class ArakoonProtocol :
         cmd = ARA_CMD_SEQ
         if sync:
             cmd = ARA_CMD_SYNCED_SEQUENCE
-        return _packInt(cmd) + _packString(flattened)     
+        return _packInt(cmd) + _vpackString(flattened)     
         
     @staticmethod
     def encodeDelete( key ):
