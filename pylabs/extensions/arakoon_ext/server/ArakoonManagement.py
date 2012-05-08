@@ -837,9 +837,9 @@ class ArakoonCluster:
         When no node name is given, the aggregate consumption of all nodes
         configured in the supplied cluster on the system is returned.
 
-        Return format is a dictionary containing 3 keys: 'db', 'tlog' and
+        Return format is a dictionary containing 2 keys: 'db' and
         'log', whose values denote the size of database files
-        (*.db, *.db.wall), TLog files (*.tlc, *.tlog) and log files (*).
+        (*.bs ) and log files (*).
 
         :param node: Name of the node to check
         :type node: `str`
