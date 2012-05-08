@@ -22,7 +22,12 @@ module BStore = (struct
 
   type tx_result =
   | TX_SUCCESS
-  | TX_ERROR of k
+  | TX_NOT_FOUND of k
+  | TX_ASSERT_FAIL of k
+
+  type seq_result = 
+  | SEQ_SUCCESS
+  | SEQ_ASSERT_FAIL of k
 
 
   let init fn = 
@@ -53,33 +58,41 @@ module BStore = (struct
     let _exec tx =
       begin 
         let rec _inner (tx: BS.tx) = function
-          | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK ())
+          | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
           | Core.DELETE k  -> 
             begin
               BS.delete tx (pref_key k) >>= function
                 | NOK k -> Lwt.return (NOK (unpref_key k))
-                | a -> Lwt.return a
+                | a -> Lwt.return (OK SEQ_SUCCESS)
             end
           | Core.ADMIN_SET (k, m_v) -> 
             begin
               let k' = pref_key ~_pf:__admin_prefix k in
               match m_v with
-              | None -> BS.delete tx k'
-              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK ())
+              | None -> BS.delete tx k' >>= fun _ -> Lwt.return (OK SEQ_SUCCESS)
+              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
             end
           | Core.ASSERT (k, m_v) -> 
             begin
-              BS.get tx k >>= function
-              | OK v' -> if m_v <> (Some v') then (Lwt.return (NOK k)) else (Lwt.return (OK ())) 
-              | NOK k -> if m_v <> None then (Lwt.return (NOK k)) else (Lwt.return (OK ())) 
+              BS.get tx (pref_key k) >>= function
+              | OK v' -> 
+                if m_v <> (Some v') 
+                then (Lwt.return (OK (SEQ_ASSERT_FAIL k))) 
+                else (Lwt.return (OK SEQ_SUCCESS)) 
+              | NOK k -> 
+                if m_v <> None 
+                then (Lwt.return (OK (SEQ_ASSERT_FAIL k)))
+                else (Lwt.return (OK SEQ_SUCCESS)) 
             end
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 
             (fun a u ->
               match a with
-                | OK _ -> _inner tx u 
-                | NOK k -> Lwt.return (NOK (unpref_key k)) )
-            (OK ())
+                | OK SEQ_SUCCESS -> _inner tx u
+                | NOK k -> Lwt.return (NOK (unpref_key k)) 
+                | a -> Lwt.return a
+            )
+            (OK SEQ_SUCCESS)
             s
         in _inner tx u
       end
@@ -87,8 +100,9 @@ module BStore = (struct
     Lwt_mutex.with_lock t.m 
       (fun () -> 
         BS.log_update t.store ~diff:d _exec >>= function 
-          | OK _ -> Lwt.return TX_SUCCESS
-          | NOK k -> Lwt.return (TX_ERROR k)
+          | OK SEQ_SUCCESS -> Lwt.return TX_SUCCESS
+          | OK (SEQ_ASSERT_FAIL k) -> Lwt.return (TX_ASSERT_FAIL k)
+          | NOK k -> Lwt.return (TX_NOT_FOUND k)
       )
   
   let last_update t =

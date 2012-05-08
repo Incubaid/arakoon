@@ -109,6 +109,15 @@ module ADispatcher (S:STORE) = struct
       let d = (s.proposed <> i) in
       begin
 	      log_update t d u >>= fun res ->
+        let handle_client_failure rc msg = 
+          begin
+            (* Update log failed *)
+            match cli_req with
+              | None -> Lwt.return ()
+              | Some cli -> safe_wakeup cli (FAILURE (rc, msg)) 
+          end
+          >>= fun () -> Lwt.return s
+        in
         match res with 
           
 	        | S.TX_SUCCESS ->
@@ -151,18 +160,10 @@ module ADispatcher (S:STORE) = struct
                   } in
                   Lwt.return s' 
                 end
-            
-	        | S.TX_ERROR k -> 
-            begin
-            (* Update log failed *)
-              begin
-                match cli_req with
-                  | None -> Lwt.return ()
-                  | Some cli -> safe_wakeup cli (FAILURE (Arakoon_exc.E_NOT_FOUND, k)) 
-			        (* Notify client *)
-			        end >>= fun () ->
-              Lwt.return s
-            end
+          | S.TX_ASSERT_FAIL k ->
+            handle_client_failure Arakoon_exc.E_ASSERTION_FAILED k
+	        | S.TX_NOT_FOUND k -> 
+            handle_client_failure Arakoon_exc.E_NOT_FOUND k
 		  end
     | A_START_TIMER (n, m, d) ->
       start_timer t n m d >>= fun () -> 
