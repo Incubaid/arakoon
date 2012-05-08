@@ -11,8 +11,13 @@ def prologue():
     if not os.path.exists(bin):
         if not os.path.exists(bin_dir):
             os.makedirs(bin_dir)
-        subprocess.call(['cp','./barakoon.native',
-                         bin])
+    else:
+        version = subprocess.check_output(['./barakoon.native','--version'])
+        version2 = subprocess.check_output([bin,'--version'])
+        if version <> version2:
+            print version,version2
+            print "=> copying exec"
+            subprocess.call(['cp','./barakoon.native', bin])
 
 
 prologue()
