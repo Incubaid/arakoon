@@ -460,6 +460,13 @@ def _recvStringOption ( con ):
         return None
 
 
+def _encodeRange(bKey,bInc,eKey,eInc, maxEntries, allowDirty):
+    assert (maxEntries >= 0)
+    retVal = _vpackBool(allowDirty)
+    retVal += _vpackStringOption( bKey ) + _vpackBool ( bInc )
+    retVal += _vpackStringOption( eKey ) + _vpackBool (eInc) + _vpackIntOption (maxEntries)
+    return  retVal        
+
 class Update(object):
     pass
 class Set(Update):
@@ -575,26 +582,18 @@ class ArakoonProtocol :
         return _packInt ( ARA_CMD_DEL ) + _vpackString ( key )
 
     @staticmethod
-    def encodeRange( bKey, bInc, eKey, eInc, maxCnt , allowDirty):
-        retVal = _packInt( ARA_CMD_RAN ) + _vpackBool(allowDirty)
-        retVal += _vpackStringOption( bKey ) + _vpackBool ( bInc )
-        retVal += _vpackStringOption( eKey ) + _vpackBool (eInc) + _vpackIntOption (maxCnt)
-        return  retVal
+    def encodeRange( first, finc, last, linc, maxEntries , allowDirty):
+        return _packInt( ARA_CMD_RAN ) + _encodeRange(first,finc,last,linc,maxEntries,allowDirty)
+
 
     @staticmethod
     def encodeRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
-        r = _packInt(ARA_CMD_RAN_E) + _packBool(allowDirty)
-        r += _packStringOption(first) + _packBool(finc)
-        r += _packStringOption(last)  + _packBool(linc)
-        r += _packSignedInt(maxEntries)
+        r = _packInt(ARA_CMD_RAN_E) + _encodeRange(first,finc,last,linc,maxEntries,allowDirty)
         return r
 
     @staticmethod
     def encodeReverseRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
-        r = _packInt(ARA_CMD_REV_RAN_E) + _packBool(allowDirty)
-        r += _packStringOption(first) + _packBool(finc)
-        r += _packStringOption(last) + _packBool(linc)
-        r += _packSignedInt(maxEntries)
+        r = _packInt(ARA_CMD_REV_RAN_E) + _encodeRange(first,finc,last,linc,maxEntries, allowDirty)
         return r
 
     @staticmethod
