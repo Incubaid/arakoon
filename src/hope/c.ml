@@ -245,6 +245,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  Lwt.catch
 	    (fun () ->
 	      begin
+                let t0 = Unix.gettimeofday() in
                 let data = Pack.input_string rest in
 	        let probably_sequence,_ = Core.update_from data 0 in
 	        let sequence = match probably_sequence with
@@ -252,6 +253,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 	          | _ -> raise (Failure "should be update")
 	        in
 	        _sequence driver sequence >>= fun () ->
+                Statistics.new_sequence stats t0;
 	        Client_protocol.response_ok_unit oc
 	      end
 	    )
@@ -262,9 +264,12 @@ module ProtocolHandler (S:Core.STORE) = struct
 	  let allow_dirty = Pack.input_bool rest in
           let keys = Pack.input_list Pack.input_string rest in
           let do_multi_get () = 
+            let t0 = Unix.gettimeofday() in
             Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
+            Statistics.new_multiget stats t0;
 	    Llio.output_int oc 0>>= fun () ->
             Llio.output_list Llio.output_string oc values >>= fun () ->
+
 	    Lwt.return false
 	  in
           only_if_master allow_dirty do_multi_get
@@ -333,6 +338,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           (Log_extra.string_option_to_string m_new)
         >>= fun () ->
         let do_test_and_set () = 
+          let t0 = Unix.gettimeofday() in
           _safe_get store key >>= fun m_val ->
           begin
             if m_val = m_old 
@@ -345,6 +351,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             Lwtc.log "Test_and_set: nothing to be done"
             end
           end >>= fun () ->
+          Statistics.new_testandset stats t0;
           send_string_option oc m_val >>= fun () ->
           Lwt.return false
         in
