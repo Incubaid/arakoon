@@ -586,7 +586,6 @@ module MULTI = struct
         | (N_EQUAL  , P_ACCEPTABLE , _) -> 
           begin
             match state.state_n with
-              | S_MASTER
               | S_SLAVE ->
                 let delayed_commit = extract_uncommited_action state i in
                 let accept_update = A_LOG_UPDATE (i, update, None) in
@@ -598,7 +597,7 @@ module MULTI = struct
                   prop = new_prop;
                 } 
                 in
-                StepSuccess( (send_accepted :: accept_update :: delayed_commit), new_state)
+                StepSuccess( List.rev(send_accepted :: accept_update :: delayed_commit), new_state)
               | _ -> StepFailure "Got accept with correct n and i dont know what to do with it"
           end
     end

@@ -103,9 +103,11 @@ module ADispatcher (S:STORE) = struct
       do_send_msg t s msg [tgt] >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
+      Lwtc.log "Committing update (i:%s)" (tick2s i) >>= fun () ->
       handle_commit t s i u m_w
     | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
+      Lwtc.log "Logging update (i:%s)" (tick2s i) >>= fun () ->
       let d = (s.proposed <> i) in
       begin
 	      log_update t d u >>= fun res ->
