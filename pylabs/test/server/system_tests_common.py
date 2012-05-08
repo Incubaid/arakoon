@@ -88,16 +88,13 @@ class with_custom_setup ():
     def __call__ (self, func ):
         @wraps(func)
         def decorate(*args,**kwargs):
-            
-            global data_base_dir
-            data_base_dir = '%s/%s/%s' % (X.tmpDir, 'arakoon_system_tests' , func.func_name )
+            CONFIG.data_base_dir = '%s/%s/%s' % (X.tmpDir, 'arakoon_system_tests' , func.func_name )
             global test_failed
             test_failed = False
             fatal_ex = None
-            home_dir = data_base_dir
-            if X.fileExists( data_base_dir):
-                X.removeDirTree( data_base_dir )
-            self.__setup(home_dir )
+            if X.fileExists( CONFIG.data_base_dir):
+                X.removeDirTree( CONFIG.data_base_dir )
+            self.__setup( CONFIG.data_base_dir )
             try:
                 func(*args,**kwargs)
             except Exception, outer :
@@ -578,7 +575,7 @@ def setup_n_nodes_base(c_id,
     
     for i in range (n) :
         nodeName = node_names[ i ]
-        (db_dir,log_dir) = build_node_dir_names( nodeName )
+        (db_dir,log_dir) = build_node_dir_names( nodeName, base_dir )
         cluster.addNode(name=nodeName,
                         clientPort = base_client_port+i,
                         messagingPort = base_msg_port+i,
@@ -624,7 +621,7 @@ def setup_n_nodes ( n, force_master, home_dir , extra = None):
     setup_n_nodes_base(CONFIG.cluster_id, 
                        CONFIG.node_names[0:n], 
                        force_master, 
-                       None,
+                       home_dir,
                        CONFIG.node_msg_base_port, 
                        CONFIG.node_client_base_port, 
                        extra = extra)
@@ -663,7 +660,7 @@ def setup_nursery_n (n, home_dir):
     
     for i in range(n):
         c_id = CONFIG.nursery_cluster_ids[i]
-        base_dir = '/'.join([data_base_dir, c_id])
+        base_dir = '/'.join([CONFIG.data_base_dir, c_id])
         setup_n_nodes_base( c_id, CONFIG.nursery_nodes[c_id], False, base_dir,
                             CONFIG.node_msg_base_port + 3*i, 
                             CONFIG.node_client_base_port+3*i)
