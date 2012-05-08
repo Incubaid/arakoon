@@ -378,7 +378,6 @@ module ProtocolHandler (S:Core.STORE) = struct
 
       | Common.STATISTICS -> 
         Lwtc.log "STATISTICS" >>= fun () ->
-        let stats = Statistics.create () in
         let b = Buffer.create 100 in
         Statistics.to_buffer b stats;
         let bs = Buffer.contents b in
