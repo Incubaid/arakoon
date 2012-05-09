@@ -7,7 +7,9 @@ let lwt_wrap setup init f teardown =
   setup init >>= fun r ->
   Lwt.catch
     (fun () -> f r >>= fun () -> teardown true r)
-    (fun e -> teardown false r >>= fun () -> Lwt.fail e)
+    (fun e -> 
+      teardown false r >>= fun () -> 
+      Lwt.fail e)
   
 
 let setup () =
@@ -28,9 +30,10 @@ let t_log () =
   let test (fn,t) = 
     let u = SET("x","x") in
     BStore.log t true u >>= fun _ ->
+    Lwt_io.printlf "here" >>= fun () ->
     let u2 = SEQUENCE [ASSERT("x",Some "x")] in
     BStore.log t true u2 >>= fun _ ->
-    Lwtc.failfmt "xxx" >>= fun () ->
+    Lwt_io.printlf "done" >>= fun () ->
     Lwt.return ()
   in
   let main_t () = lwt_wrap setup () test teardown in

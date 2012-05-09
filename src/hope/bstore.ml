@@ -58,7 +58,8 @@ module BStore = (struct
     let _exec tx =
       begin 
         let rec _inner (tx: BS.tx) = function
-          | Core.SET (k,v) -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
+          | Core.SET (k,v) -> 
+	    BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
           | Core.DELETE k  -> 
             begin
               BS.delete tx (pref_key k) >>= function
@@ -74,15 +75,18 @@ module BStore = (struct
             end
           | Core.ASSERT (k, m_v) -> 
             begin
-              BS.get tx (pref_key k) >>= function
-              | OK v' -> 
-                if m_v <> (Some v') 
-                then (Lwt.return (OK (SEQ_ASSERT_FAIL k))) 
-                else (Lwt.return (OK SEQ_SUCCESS)) 
-              | NOK k -> 
-                if m_v <> None 
-                then (Lwt.return (OK (SEQ_ASSERT_FAIL k)))
-                else (Lwt.return (OK SEQ_SUCCESS)) 
+              BS.get tx (pref_key k) >>= fun r ->	      
+              let txr = match r with
+                | OK v' -> 
+                  if m_v <> (Some v') 
+                  then SEQ_ASSERT_FAIL k
+                  else SEQ_SUCCESS
+                | NOK k -> 
+                  if m_v <> None 
+                  then SEQ_ASSERT_FAIL k
+                  else SEQ_SUCCESS
+              in
+              Lwt.return (OK txr)
             end
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 
@@ -93,16 +97,19 @@ module BStore = (struct
                 | a -> Lwt.return a
             )
             (OK SEQ_SUCCESS)
-            s
+              s 
         in _inner tx u
       end
     in  
     Lwt_mutex.with_lock t.m 
       (fun () -> 
-        BS.log_update t.store ~diff:d _exec >>= function 
-          | OK SEQ_SUCCESS -> Lwt.return TX_SUCCESS
-          | OK (SEQ_ASSERT_FAIL k) -> Lwt.return (TX_ASSERT_FAIL k)
-          | NOK k -> Lwt.return (TX_NOT_FOUND k)
+        BS.log_update t.store ~diff:d _exec >>= fun r ->
+	let rr = match r with
+          | OK SEQ_SUCCESS -> TX_SUCCESS
+          | OK (SEQ_ASSERT_FAIL k) -> (TX_ASSERT_FAIL k)
+          | NOK k -> (TX_NOT_FOUND k)
+	in
+	Lwt.return rr
       )
   
   let last_update t =
