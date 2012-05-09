@@ -16,7 +16,7 @@ let setup () =
   let fn = Filename.temp_file "t_log_" ".bs" in
   Lwt_io.printlf "fn=%s\n" fn >>= fun () ->
   BStore.init fn >>= fun () ->
-  BStore.create fn >>= fun t ->
+  BStore.create fn false >>= fun t ->
   Lwt.return (fn,t)
 
 let teardown ok (fn,t) =
@@ -28,12 +28,13 @@ let teardown ok (fn,t) =
   
 let t_log () =  
   let test (fn,t) = 
+    let fn = "t_log.bs" in
+    BStore.init fn >>= fun () ->
+    BStore.create fn false >>= fun t ->
     let u = SET("x","x") in
     BStore.log t true u >>= fun _ ->
-    Lwt_io.printlf "here" >>= fun () ->
     let u2 = SEQUENCE [ASSERT("x",Some "x")] in
     BStore.log t true u2 >>= fun _ ->
-    Lwt_io.printlf "done" >>= fun () ->
     Lwt.return ()
   in
   let main_t () = lwt_wrap setup () test teardown in

@@ -18,7 +18,7 @@ let action2update = function
     
 
 module BStore = (struct
-  type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option}
+  type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option; read_only: bool}
 
   type tx_result =
   | TX_SUCCESS
@@ -29,14 +29,13 @@ module BStore = (struct
   | SEQ_SUCCESS
   | SEQ_ASSERT_FAIL of k
 
-
   let init fn = 
     BS.init fn 
     
-  let create fn = 
+  let create fn read_only = 
     BS.make fn >>= fun store ->
     let m = Lwt_mutex.create() in
-    let r = {m=m; store=store; meta=None;} in
+    let r = {m=m; store=store; meta=None; read_only=read_only} in
     Lwt.return r
   
   let set_meta t s =
@@ -111,6 +110,7 @@ module BStore = (struct
 	in
 	Lwt.return rr
       )
+  let is_read_only t = t.read_only
   
   let last_update t =
     BS.last_update t.store >>= fun m_last ->

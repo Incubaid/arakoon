@@ -148,7 +148,8 @@ let get_db_name cfg myname =
   
 let create_store cfg myname =
   let fn = get_db_name cfg myname in
-  BStore.create fn  
+  let ro = cfg.master = Master_type.ReadOnly in
+  BStore.create fn ro
 
 let create_timeout_q () =
   PQ.create ()
@@ -305,7 +306,7 @@ let dump_db myname config_file =
   let cfg = read_config config_file in
   split_cfgs cfg myname >>= fun (_, mycfg) ->
   let fn = get_db_name mycfg myname in
-  BStore.create fn >>= fun store ->
+  BStore.create fn true >>= fun store ->
   BStore.dump store >>= fun () ->
   BStore.close store
 
@@ -333,17 +334,12 @@ let benchmark cfg_name max_n size =
   let with_c = Client_main.with_master_client cfg_name in
   Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
 
-let last_entries config_file myname i =
-  let cfg = read_config config_file in
-  split_cfgs cfg myname >>= fun (others , mycfg) ->
-  let ip = mycfg.ip
-  and port = mycfg.client_port
-  in
+let last_entries cluster_id ip port i =
   let addr = Network.make_address ip port in
   let dump_entry () i alist =
     Lwt_list.iter_s (fun a -> Lwt_io.printlf "%Li : %s" i (Sync._action2s a)) alist 
   in
-  Sync.remote_iterate addr cfg.cluster_id i dump_entry ()
+  Sync.remote_iterate addr cluster_id i dump_entry ()
 
 let list_test () = 
   List.iter
@@ -374,6 +370,9 @@ let main () =
   and max_n = ref (1000 * 1000)
   and value_size = ref 1024 
   and is = ref ""
+  and ip = ref ""
+  and port = ref 0
+  and cluster_id = ref ""
   and test_refs = ref ([]:string list) 
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
@@ -407,8 +406,9 @@ let main () =
      "<node_id> : Initialize the database for the given node");
     ("--dump-db", Arg.Tuple [set_action DumpDb; Arg.Set_string node_id],
      "<node_id> : Dump contents of database");
-    ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string node_id; Arg.Set_string is],
-     "<node_id> <i> : Retrieve a nodes update stream starting with <i>");
+    ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string cluster_id; 
+        Arg.Set_string ip; Arg.Set_int port; Arg.Set_string is],
+     "<cluster_id> <ip> <port> <i> : Retrieve a nodes update stream starting with <i>");
     ("--test", set_action Test , 
      "runs test suite");
     ("--list-test", set_action ListTest, "lists tests");
@@ -429,8 +429,7 @@ let main () =
       | Get -> Lwt_main.run (get !config_file !key)
       | Delete -> Lwt_main.run (delete !config_file !key)
       | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
-      | LastEntries -> Lwt_main.run  (last_entries !config_file !node_id (Int64.of_string !is))
-
+      | LastEntries -> Lwt_main.run  (last_entries !cluster_id !ip !port (Int64.of_string !is))
       | ListTest -> list_test ()
       | OnlyTest -> only_test !test_refs
       | ShowUsage -> Arg.usage actions ""

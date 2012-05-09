@@ -160,101 +160,12 @@ def dump_store( node_id ):
     return dump_file
 
 def compare_stores( node1_id, node2_id ):
-
-    keys_to_skip = [ "*lease", "*i", "*master" ]
-    dump1 = dump_store( node1_id )
-    dump2 = dump_store( node2_id )
-    
-    # Line 2 contains the master lease, can be different as it contains a timestamp
-    d1_fd = open ( dump1, "r" )
-    d2_fd = open ( dump2, "r" )
-
-    cluster = _getCluster()
-    def get_i ( node_id ):
-        stat = cluster.getStatusOne(node_id )
-        assert_equals( stat, X.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
-        db_file = get_node_db_file(node_id)
-        cmd = [get_arakoon_binary(), "--dump-store", db_file]
-        stdout = X.subprocess.check_output(cmd)
-        i_line = stdout.split("\n") [0]
-        i_str = i_line.split("(")[1][:-1]
-        return int(i_str)
-     
-    
-
-    i1 = get_i (node1_id)
-    X.logging.debug("Counter value for store of %s: %d" % (node1_id,i1))
-    i2 = get_i (node2_id)
-    X.logging.debug("Counter value for store of %s: %d" % (node2_id,i2))
-    if( abs (i1 - i2) > 1 ):
-        logging.error( "Store counters differ too much (%s: %d and %s: %d)" % (node1_id,i1,node2_id,i2) )
-    
-    i1_line = d1_fd.readline()
-    i2_line = d2_fd.readline()
-    
-    diffs = { node1_id : {} , node2_id : {} }
-    
-    def get_next_kv ( fd ):
-        
-        line = fd.readline()
-        if line == "" :
-            return (None,None)
-        parts = line.split("\t")
-        if len( parts ) < 2 :
-            return get_next_kv( fd )
-        else :
-            return ( parts[0], "\t".join(parts[1:]))
-    
-    iter = 0 
-    (k1,v1) = get_next_kv( d1_fd )
-    (k2,v2) = get_next_kv( d2_fd )
-    
-    while k1 != None and k2 != None :
-        iter+=1
-        if( ( k1 == k2 and v1 == v2) ) :
-            (k1,v1) = get_next_kv( d1_fd )
-            (k2,v2) = get_next_kv( d2_fd )
-        else :
-            
-            if k1 == k2 :
-                if k1 not in keys_to_skip:
-                    diffs[node1_id][k1] = v1
-                    diffs[node2_id][k2] = v2 
-                    X.logging.debug( "Stores have different values for %s" % (k1) )
-                (k1,v1) = get_next_kv( d1_fd )
-                (k2,v2) = get_next_kv( d2_fd ) 
-            if k1 < k2 :
-                X.logging.debug( "Store of %s has a value for, store of %s doesn't" % (node1_id, node2_id) )
-                diffs[node1_id][k1] = v1
-                (k1,v1) = get_next_kv( d1_fd )
-            if k1 > k2 :
-                X.logging.debug( "Store of %s has a value for, store of %s doesn't" % (node2_id, node1_id) )
-                diffs[node2_id][k2] = v2
-                (k2,v2) = get_next_kv( d2_fd )
-    
-    if k1 != None :
-        X.logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node1_id, node2_id) )
-        while k1 != None:
-            diffs[node1_id][k1] = v1
-            (k1,v1) = get_next_kv( d1_fd )
-    if k2 != None:
-        X.logging.debug ( "Store of %s contains more keys, store of %s is EOF" %  (node2_id, node1_id) )
-        while k2 != None:
-            diffs[node2_id][k2] = v2
-            (k2,v2) = get_next_kv ( d2_fd ) 
-            
-    max_diffs = 0
-    
-    if ( i1 != i2 ):
-        max_diffs = 1
-        
-    diff_cnt = len( set( diffs[node1_id].keys() ).union( set(diffs[node2_id].keys() ) ) )
-    if diff_cnt > max_diffs :
-        raise Exception ( "Found too many differences between stores (%d > %d)\n%s" % (diff_cnt, max_diffs,diffs) )
-
-    X.logging.debug( "Stores of %s and %s are valid" % (node1_id,node2_id))
+    le1 = get_last_entries (node1_id)
+    le2 = get_last_entries (node2_id)
+    for (e1,e2) in zip(le1,le2):
+        assert_equals(e1,e2, "Different entries found (e1: %s) (e2: %s)" % (le1, le2))
     return True
-
+        
 def get_tlog_count (node_id ):
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
@@ -405,7 +316,6 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
 def getConfig(name):
     cluster = _getCluster()
     return cluster.getNodeConfig(name)
-
 
 def regenerateClientConfig( cluster_id ):
     h = '%s/%s' % (X.cfgDir,'arakoonclients')
@@ -943,29 +853,43 @@ def assert_key_value_list( start_suffix, list_size, list ):
         value = CONFIG.value_format_str % (suffix )
         assert_equals ( (key,value) , list [i] )
 
-def assert_last_i_in_sync ( node_1, node_2 ):
-    last_i_1 = get_last_i_tlog2(node_1)
-    last_i_2 = get_last_i_tlog2(node_2)    
-    i1 = int(last_i_1)
-    i2 = int(last_i_2)
-    if i1 > i2:
-        hi = i1
-        hi_node = node_1
-        lo = i2
-    else:
-        hi = i2
-        hi_node = node_2
-        lo = i1
+def get_last_entries (node_id, start_i=0):
+    config = getConfig(node_id)
+    ip = config["ip"]
+    port = config["client_port"]
+    cmd = [CONFIG.binary_full_path, "--last-entries", CONFIG.cluster_id, ip, port, str(start_i)]
+    X.logging.debug( "Getting last entries for %s" % node_id )
+    X.logging.debug("Command is : '%s'" % cmd )
+    output = X.subprocess.check_output(cmd)
+    result = []
+    cur_i = start_i - 1
+    cur_updates = []
+    for l in output.splitlines():
+        if l == '':
+            continue
+        parts = l.split(":")
+        li = parts[0]
+        lup = ":".join(parts[1:])
+        if li == cur_i :
+            cur_updates.append(lup)
+        else:
+            if cur_updates != []:
+                result.append( (cur_i, cur_updates) )
+            cur_i = li
+            cur_updates = [lup]
     
-    if hi - lo > 1:
-        code = last_entry_code(hi_node) # masterset = 4
-        masterSet = 4
-        assert_equals(code, 
-                      masterSet,
-                      "Values for i are invalid %i %i code:%i" % (i1, i2,code) )  
-    else:
-        pass
-
+    if cur_updates != [] :
+        result.append( (cur_i, cur_updates) )
+    X.logging.debug(str(result))
+    return result
+    
+def assert_last_i_in_sync ( node1, node2 ):
+    le1 = get_last_entries (node1)
+    li1, lus1 = le1[-1]
+    le2 = get_last_entries (node2, int(li1) - 10 )
+    li2, lus2 = le2[-1]
+    diff = abs( int(li1) - int(li2) )
+    assert_true (diff <= 1, "Store i's differ too much i1: %s, i2: %s" % (li1, li2))
 
 def assert_running_nodes ( n ):
     cluster = _getCluster()
@@ -1034,7 +958,7 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     
     # Give the slave some time to catch up 
     time.sleep( 5.0 )
-    stop_all()
+    
     assert_last_i_in_sync ( CONFIG.node_names[0], CONFIG.node_names[1] )
     compare_stores( CONFIG.node_names[0], CONFIG.node_names[1] )
 

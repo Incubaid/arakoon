@@ -2,7 +2,7 @@ open Core
 open Lwt
 
 module MemStore = (struct
-  type t = { store: (k, v) Hashtbl.t; mutable meta: string option}
+  type t = { store: (k, v) Hashtbl.t; mutable meta: string option; read_only:bool}
   type tx_result = 
   | TX_SUCCESS
   | TX_NOT_FOUND of k
@@ -18,9 +18,11 @@ module MemStore = (struct
     >>= fun () -> 
     Lwt.return TX_SUCCESS
   
+  let is_read_only t = t.read_only
+  
   let commit t i = Lwt.return Core.UNIT
 
-  let create n = Lwt.return { store = Hashtbl.create 7 ; meta = None }
+  let create n ro = Lwt.return { store = Hashtbl.create 7 ; meta = None ; read_only = ro}
 
   let get t k = let v = Hashtbl.find t.store k in Lwt.return (Some v)
   

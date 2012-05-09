@@ -144,7 +144,6 @@ module ProtocolHandler (S:Core.STORE) = struct
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
     
   let one_command me (stats:Statistics.t) driver store ((ic,oc) as conn) =
-    
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
       Lwt.catch
@@ -154,6 +153,14 @@ module ProtocolHandler (S:Core.STORE) = struct
           else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
       ) 
       (Client_protocol.handle_exception oc)
+    in    
+    let do_write_op f = 
+      Lwt.catch
+      ( fun () ->
+        if S.is_read_only store 
+        then Lwt.fail( Common.XException(Arakoon_exc.E_READ_ONLY, me ) )
+        else only_if_master false f 
+      ) (Client_protocol.handle_exception oc)
     in
     let do_admin_set key rest =
       let ser = Pack.input_string rest in
@@ -161,7 +168,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         _admin_set driver key (Some ser) >>= fun () ->
         Client_protocol.response_ok_unit oc
       in
-      only_if_master false do_inner
+      do_write_op do_inner
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
@@ -196,13 +203,13 @@ module ProtocolHandler (S:Core.STORE) = struct
         begin
           let key = Pack.input_string rest in
           let value = input_value rest in
-          Lwt.catch
-            (fun () -> 
-              let t0 = Unix.gettimeofday() in
-              _set driver key value >>= fun () ->
-              Statistics.new_set stats key value t0;
-              Client_protocol.response_ok_unit oc)
-            (Client_protocol.handle_exception oc)
+          let do_set () = 
+            let t0 = Unix.gettimeofday() in
+            _set driver key value >>= fun () ->
+            Statistics.new_set stats key value t0;
+            Client_protocol.response_ok_unit oc
+          in 
+          do_write_op do_set
         end
       | Common.GET ->
         begin
@@ -226,7 +233,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           Statistics.new_delete stats t0;
           Client_protocol.response_ok_unit oc
         in 
-        only_if_master false do_delete
+        do_write_op do_delete
           
       | Common.LAST_ENTRIES ->
         begin
@@ -241,22 +248,18 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.SEQUENCE ->
         Lwtc.log "SEQUENCE" >>= fun () ->
         begin
-          Lwt.catch
-            (fun () ->
-              begin
-                let t0 = Unix.gettimeofday() in
-                let data = Pack.input_string rest in
-                let probably_sequence,_ = Core.update_from data 0 in
-                let sequence = match probably_sequence with
-                  | Core.SEQUENCE _ -> probably_sequence
-                  | _ -> raise (Failure "should be update")
-                in
-                _sequence driver sequence >>= fun () ->
-                Statistics.new_sequence stats t0;
-                Client_protocol.response_ok_unit oc
-              end
-            )
-            (Client_protocol.handle_exception oc)
+          let do_sequence () =
+            let t0 = Unix.gettimeofday() in
+            let data = Pack.input_string rest in
+            let probably_sequence,_ = Core.update_from data 0 in
+            let sequence = match probably_sequence with
+              | Core.SEQUENCE _ -> probably_sequence
+              | _ -> raise (Failure "should be update")
+            in
+            _sequence driver sequence >>= fun () ->
+            Statistics.new_sequence stats t0;
+            Client_protocol.response_ok_unit oc
+          in do_write_op do_sequence 
         end
       | Common.MULTI_GET ->
         begin
@@ -326,8 +329,8 @@ module ProtocolHandler (S:Core.STORE) = struct
             >>= fun () -> 
             Client_protocol.response_ok_unit oc
           in 
-          only_if_master false do_confirm
-              end
+          do_write_op do_confirm
+        end
       | Common.TEST_AND_SET ->
         let key = Pack.input_string rest in 
         let m_old = Pack.input_string_option rest in
@@ -354,7 +357,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           send_string_option oc m_val >>= fun () ->
           Lwt.return false
         in
-        only_if_master false do_test_and_set 
+        do_write_op do_test_and_set 
       | Common.PREFIX_KEYS ->
         Lwtc.log "PREFIX_KEYS" >>= fun () ->
         let allow_dirty = Pack.input_bool rest in
@@ -381,15 +384,17 @@ module ProtocolHandler (S:Core.STORE) = struct
         Lwt.return false
       | Common.SET_ROUTING -> do_admin_set __routing_key rest
       | Common.SET_INTERVAL -> do_admin_set __interval_key rest
-
       | Common.STATISTICS -> 
-        Lwtc.log "STATISTICS" >>= fun () ->
-        let b = Buffer.create 100 in
-        Statistics.to_buffer b stats;
-        let bs = Buffer.contents b in
-        Llio.output_int oc 0 >>= fun () ->
-        Llio.output_string oc bs >>= fun () ->
-        Lwt.return false
+        Lwt.catch (
+          fun () ->
+            Lwtc.log "STATISTICS" >>= fun () ->
+            let b = Buffer.create 100 in
+            Statistics.to_buffer b stats;
+            let bs = Buffer.contents b in
+            Llio.output_int oc 0 >>= fun () ->
+            Llio.output_string oc bs >>= fun () ->
+            Lwt.return false
+        ) ( Client_protocol.handle_exception oc)
         
          (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
               
