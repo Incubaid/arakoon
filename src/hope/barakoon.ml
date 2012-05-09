@@ -148,7 +148,8 @@ let get_db_name cfg myname =
   
 let create_store cfg myname =
   let fn = get_db_name cfg myname in
-  BStore.create fn  
+  let ro = cfg.master = Master_type.ReadOnly in
+  BStore.create fn ro
 
 let create_timeout_q () =
   PQ.create ()
@@ -305,7 +306,7 @@ let dump_db myname config_file =
   let cfg = read_config config_file in
   split_cfgs cfg myname >>= fun (_, mycfg) ->
   let fn = get_db_name mycfg myname in
-  BStore.create fn >>= fun store ->
+  BStore.create fn true >>= fun store ->
   BStore.dump store >>= fun () ->
   BStore.close store
 
@@ -430,7 +431,6 @@ let main () =
       | Delete -> Lwt_main.run (delete !config_file !key)
       | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
       | LastEntries -> Lwt_main.run  (last_entries !config_file !node_id (Int64.of_string !is))
-
       | ListTest -> list_test ()
       | OnlyTest -> only_test !test_refs
       | ShowUsage -> Arg.usage actions ""

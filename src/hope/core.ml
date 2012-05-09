@@ -112,7 +112,7 @@ module type STORE = sig
   | TX_NOT_FOUND of k
   | TX_ASSERT_FAIL of k
 
-  val create : string -> t Lwt.t
+  val create : string -> bool -> t Lwt.t
   val init : string -> unit Lwt.t
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> tx_result Lwt.t
@@ -125,7 +125,7 @@ module type STORE = sig
     -> (string*string) list Lwt.t
 
   val prefix_keys: t -> string -> int option -> string list Lwt.t
-
+  val is_read_only: t -> bool
 
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
   val last_update: t -> (tick * update option) option Lwt.t
