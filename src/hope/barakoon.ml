@@ -219,6 +219,9 @@ type action_type =
   | Delete
   | Benchmark
   | LastEntries
+  | ListTest
+  | Test
+  | OnlyTest
 
 
 let split_cfgs cfg myname =
@@ -342,6 +345,28 @@ let last_entries config_file myname i =
   in
   Sync.remote_iterate addr cfg.cluster_id i dump_entry ()
 
+let list_test () = 
+  let b = Buffer.create 100 in
+  List.iter
+    (fun pth -> 
+      Buffer.add_string b (OUnit.string_of_path pth);
+      Buffer.add_char b '\n'
+    )
+    (OUnit.test_case_paths Test.suite);
+  Lwt_io.printl (Buffer.contents b)
+
+let only_test test_refs = 
+  let nsuite = 
+    match OUnit.test_filter ~skip:true test_refs Test.suite with 
+      | Some test -> test
+      | None ->
+        failwith ("Filtering test "^
+                     (String.concat ", " test_refs)^
+                     " lead to no test")
+  in
+  let _ = OUnit.run_test_tt nsuite in 
+  Lwt.return ()
+
 let main_t () =
   let node_id = ref "" 
   and action = ref (ShowUsage) 
@@ -352,6 +377,7 @@ let main_t () =
   and max_n = ref (1000 * 1000)
   and value_size = ref 1024 
   and is = ref ""
+  and test_refs = ref ([]:string list) 
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -386,6 +412,12 @@ let main_t () =
      "<node_id> : Dump contents of database");
     ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string node_id; Arg.Set_string is],
      "<node_id> <i> : Retrieve a nodes update stream starting with <i>");
+    ("--test", set_action Test , 
+     "runs test suite");
+    ("--list-test", set_action ListTest, "lists tests");
+    ("--only-test", Arg.Tuple[set_action OnlyTest; Arg.String (fun str -> test_refs := str :: ! test_refs)], 
+     "runs some tests");
+    
   ] in
   
   Arg.parse actions  
@@ -403,6 +435,12 @@ let main_t () =
       | Delete -> delete !config_file !key
       | Benchmark -> benchmark !config_file !max_n !value_size
       | LastEntries -> last_entries !config_file !node_id (Int64.of_string !is)
+      | ListTest -> list_test ()
+      | OnlyTest -> only_test !test_refs
+
+
+
+
   end
 
 let () = Lwt_main.run (main_t())
