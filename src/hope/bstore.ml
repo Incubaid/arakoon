@@ -29,7 +29,6 @@ module BStore = (struct
   | SEQ_SUCCESS
   | SEQ_ASSERT_FAIL of k
 
-
   let init fn = 
     BS.init fn 
     
