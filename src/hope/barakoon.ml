@@ -219,6 +219,9 @@ type action_type =
   | Delete
   | Benchmark
   | LastEntries
+  | ListTest
+  | Test
+  | OnlyTest
 
 
 let split_cfgs cfg myname =
@@ -308,9 +311,9 @@ let dump_db myname config_file =
 
 
 let show_version ()=
-  Lwt_io.printlf "git_info: %S" Version.git_info >>= fun () ->
-  Lwt_io.printlf "compiled: %S" Version.compile_time >>= fun () ->
-  Lwt_io.printlf "machine: %S" Version.machine 
+  Printf.printf "git_info: %S\n" Version.git_info;
+  Printf.printf "compiled: %S\n" Version.compile_time;
+  Printf.printf "machine: %S\n"  Version.machine
   
 let set cfg_name k v =
   Client_main.with_master_client cfg_name (fun client -> client # set k v)
@@ -342,7 +345,26 @@ let last_entries config_file myname i =
   in
   Sync.remote_iterate addr cfg.cluster_id i dump_entry ()
 
-let main_t () =
+let list_test () = 
+  List.iter
+    (fun pth -> print_endline (OUnit.string_of_path pth))
+    (OUnit.test_case_paths Test.suite)
+
+let only_test test_refs = 
+  let nsuite = 
+    match OUnit.test_filter ~skip:true test_refs Test.suite with 
+      | Some test -> test
+      | None ->
+        failwith ("Filtering test "^
+                     (String.concat ", " test_refs)^
+                     " lead to no test")
+  in
+  let _ = OUnit.run_test_tt nsuite in 
+  ()
+
+
+
+let main () =
   let node_id = ref "" 
   and action = ref (ShowUsage) 
   and config_file = ref "cfg/arakoon.ini"
@@ -352,6 +374,7 @@ let main_t () =
   and max_n = ref (1000 * 1000)
   and value_size = ref 1024 
   and is = ref ""
+  and test_refs = ref ([]:string list) 
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let actions = [
@@ -386,6 +409,12 @@ let main_t () =
      "<node_id> : Dump contents of database");
     ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string node_id; Arg.Set_string is],
      "<node_id> <i> : Retrieve a nodes update stream starting with <i>");
+    ("--test", set_action Test , 
+     "runs test suite");
+    ("--list-test", set_action ListTest, "lists tests");
+    ("--only-test", Arg.Tuple[set_action OnlyTest; Arg.String (fun str -> test_refs := str :: ! test_refs)], 
+     "runs some tests");
+    
   ] in
   
   Arg.parse actions  
@@ -393,16 +422,22 @@ let main_t () =
     "";
   begin 
     match !action with
-      | RunNode -> run_node !node_id !config_file !daemonize
-      | ShowUsage -> Lwt.return (Arg.usage actions "")
-      | InitDb -> init_db !node_id !config_file
-      | DumpDb -> dump_db !node_id !config_file
+      | RunNode -> Lwt_main.run (run_node !node_id !config_file !daemonize)
+      | InitDb -> Lwt_main.run (init_db !node_id !config_file)
+      | DumpDb -> Lwt_main.run (dump_db !node_id !config_file)
+      | Set -> Lwt_main.run (set !config_file !key !value)
+      | Get -> Lwt_main.run (get !config_file !key)
+      | Delete -> Lwt_main.run (delete !config_file !key)
+      | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
+      | LastEntries -> Lwt_main.run  (last_entries !config_file !node_id (Int64.of_string !is))
+
+      | ListTest -> list_test ()
+      | OnlyTest -> only_test !test_refs
+      | ShowUsage -> Arg.usage actions ""
       | ShowVersion -> show_version()
-      | Set -> set !config_file !key !value
-      | Get -> get !config_file !key
-      | Delete -> delete !config_file !key
-      | Benchmark -> benchmark !config_file !max_n !value_size
-      | LastEntries -> last_entries !config_file !node_id (Int64.of_string !is)
+
+
+
   end
 
-let () = Lwt_main.run (main_t())
+let () = main ()
