@@ -102,7 +102,7 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Core.UNIT -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
       | Core.VALUE v -> failwith "Expected unit, not value"
-	
+        
   let _set driver k v = 
     let q = Core.SET(k,v) in
     __do_unit_update driver q
@@ -186,28 +186,28 @@ module ProtocolHandler (S:Core.STORE) = struct
     in
     match comm with
       | Common.WHO_MASTER ->
-	Lwtc.log "who master" >>= fun () -> 
-	_get_meta store >>= fun ms ->
+        Lwtc.log "who master" >>= fun () -> 
+        _get_meta store >>= fun ms ->
         let mo = extract_master_info ms in
-	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_string_option oc mo >>= fun () ->
-	Lwt.return false
+        Llio.output_int32 oc 0l >>= fun () ->
+        Llio.output_string_option oc mo >>= fun () ->
+        Lwt.return false
       | Common.SET -> 
-	begin
-	  let key = Pack.input_string rest in
-	  let value = input_value rest in
-	  Lwt.catch
-	    (fun () -> 
+        begin
+          let key = Pack.input_string rest in
+          let value = input_value rest in
+          Lwt.catch
+            (fun () -> 
               let t0 = Unix.gettimeofday() in
-	      _set driver key value >>= fun () ->
+              _set driver key value >>= fun () ->
               Statistics.new_set stats key value t0;
-	      Client_protocol.response_ok_unit oc)
-	    (Client_protocol.handle_exception oc)
-	end
+              Client_protocol.response_ok_unit oc)
+            (Client_protocol.handle_exception oc)
+        end
       | Common.GET ->
-	begin
-	  let allow_dirty =Pack.input_bool rest in
-	  let key = Pack.input_string rest in
+        begin
+          let allow_dirty =Pack.input_bool rest in
+          let key = Pack.input_string rest in
           Lwtc.log "GET %b %S" allow_dirty key >>= fun () ->
           let do_get () =
             let t0 = Unix.gettimeofday() in
@@ -216,7 +216,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             Client_protocol.response_rc_string oc 0l value
           in
           only_if_master allow_dirty do_get
-	end 
+        end 
       | Common.DELETE ->
         let key = Pack.input_string rest in
         Lwtc.log "DELETE %S" key >>= fun () ->
@@ -229,50 +229,50 @@ module ProtocolHandler (S:Core.STORE) = struct
         only_if_master false do_delete
           
       | Common.LAST_ENTRIES ->
-	begin
+        begin
           let i = Pack.input_vint64 rest in
           Lwtc.log "LAST_ENTRIES %Li" i >>= fun () ->
-	  Llio.output_int32 oc 0l >>= fun () ->
-	  _last_entries store i oc >>= fun () ->
-	  Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
-	  Lwtc.log "end of command" >>= fun () ->
-	  Lwt.return false
-	end
+          Llio.output_int32 oc 0l >>= fun () ->
+          _last_entries store i oc >>= fun () ->
+          Sn.output_sn oc (Sn.of_int (-1)) >>= fun () ->
+          Lwtc.log "end of command" >>= fun () ->
+          Lwt.return false
+        end
       | Common.SEQUENCE ->
         Lwtc.log "SEQUENCE" >>= fun () ->
-	begin
-	  Lwt.catch
-	    (fun () ->
-	      begin
+        begin
+          Lwt.catch
+            (fun () ->
+              begin
                 let t0 = Unix.gettimeofday() in
                 let data = Pack.input_string rest in
-	        let probably_sequence,_ = Core.update_from data 0 in
-	        let sequence = match probably_sequence with
-	          | Core.SEQUENCE _ -> probably_sequence
-	          | _ -> raise (Failure "should be update")
-	        in
-	        _sequence driver sequence >>= fun () ->
+                let probably_sequence,_ = Core.update_from data 0 in
+                let sequence = match probably_sequence with
+                  | Core.SEQUENCE _ -> probably_sequence
+                  | _ -> raise (Failure "should be update")
+                in
+                _sequence driver sequence >>= fun () ->
                 Statistics.new_sequence stats t0;
-	        Client_protocol.response_ok_unit oc
-	      end
-	    )
-	    (Client_protocol.handle_exception oc)
-	end
+                Client_protocol.response_ok_unit oc
+              end
+            )
+            (Client_protocol.handle_exception oc)
+        end
       | Common.MULTI_GET ->
-	begin
-	  let allow_dirty = Pack.input_bool rest in
+        begin
+          let allow_dirty = Pack.input_bool rest in
           let keys = Pack.input_list Pack.input_string rest in
           let do_multi_get () = 
             let t0 = Unix.gettimeofday() in
             Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
             Statistics.new_multiget stats t0;
-	    Llio.output_int oc 0>>= fun () ->
+            Llio.output_int oc 0>>= fun () ->
             Llio.output_list Llio.output_string oc values >>= fun () ->
 
-	    Lwt.return false
-	  in
+            Lwt.return false
+          in
           only_if_master allow_dirty do_multi_get
-	end
+        end
       | Common.RANGE ->             _do_range rest S.range (Llio.output_list Llio.output_string)
       | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries Llio.output_kv_list 
       | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries Llio.output_kv_list 
@@ -327,7 +327,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             Client_protocol.response_ok_unit oc
           in 
           only_if_master false do_confirm
-	      end
+              end
       | Common.TEST_AND_SET ->
         let key = Pack.input_string rest in 
         let m_old = Pack.input_string_option rest in
@@ -391,19 +391,19 @@ module ProtocolHandler (S:Core.STORE) = struct
         Llio.output_string oc bs >>= fun () ->
         Lwt.return false
         
-	 (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
-	      
+         (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
+              
   let protocol me (stats:Statistics.t) driver store (ic,oc) =   
     let rec loop () = 
       begin
-	one_command me stats driver store (ic,oc) >>= fun stop ->
-	if stop
-	then Lwtc.log "end of session: %s" me
-	else 
-	  begin
-	    Lwt_io.flush oc >>= fun () ->
-	    loop ()
-	  end
+        one_command me stats driver store (ic,oc) >>= fun stop ->
+        if stop
+        then Lwtc.log "end of session: %s" me
+        else 
+          begin
+            Lwt_io.flush oc >>= fun () ->
+            loop ()
+          end
       end
     in
     Lwtc.log "session started: %s" me >>= fun () ->
