@@ -29,7 +29,7 @@ import arakoon
 import time
 import subprocess
 from nose.tools import *
-
+CONFIG = C.CONFIG
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_single_client_100000_sets():
@@ -378,7 +378,7 @@ def test_3_nodes_2_slaves_down ():
     cli = C.get_client()
     master_id = cli.whoMaster()
     
-    slaves = filter( lambda n: n != master_id, C.node_names )
+    slaves = filter( lambda n: n != master_id, CONFIG.node_names )
     for slave in slaves:
         C.stopOne( slave )
     
@@ -478,14 +478,6 @@ def test_log_rotation():
         time.sleep(0.2)
         C.assert_running_nodes(1)
 
-@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
-def test_log_rotation():
-    node = C.node_names[0]
-    for i in range(100):
-        C.rotate_log(node, 1, False)
-        time.sleep(0.2)
-        C.assert_running_nodes(1)
-    
 @C.with_custom_setup(C.setup_3_nodes_mini, C.basic_teardown)
 def test_243():
     node_names = C.node_names

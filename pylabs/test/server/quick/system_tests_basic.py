@@ -80,12 +80,6 @@ def test_large_value ():
     
 
 
-
-    
-
-
-    
-
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_range_entries ():
     C.range_entries_scenario( 1000 )
