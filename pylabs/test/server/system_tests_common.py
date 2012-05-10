@@ -441,11 +441,11 @@ def restart_nodes_wf_sim( n ):
     wf_step_duration = 0.2
     
     for i in range (n):
-        stopOne(node_names[i] )
+        stopOne(CONFIG.node_names[i] )
         time.sleep( wf_step_duration )
     
     for i in range (n):    
-        startOne(node_names[i] )
+        startOne(CONFIG.node_names[i] )
         time.sleep( wf_step_duration )
 
 def getRandomString( length = 16 ) :

@@ -37,7 +37,7 @@ def test_single_client_100000_sets():
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_delete_non_existing_with_catchup ():
-    C.stopOne( C.node_names[1] )
+    C.stopOne(CONFIG.node_names[1])
     key='key'
     value='value'
     cli = C.get_client()
@@ -49,10 +49,10 @@ def test_delete_non_existing_with_catchup ():
     cli.set(key,value)
     cli.set(key,value)
     
-    slave = C.node_names[1]
+    slave = CONFIG.node_names[1]
     C.startOne( slave )
     time.sleep(2.0)
-    cluster = _getCluster()
+    cluster = C._getCluster()
     log_dir = cluster.getNodeConfig(slave ) ['log_dir']
     log_file = "%s/%s.log" % (log_dir, slave)
     q = C.q 
@@ -323,42 +323,42 @@ def test_sso_deployment():
     
     def write_loop (): 
         C.iterate_n_times( 10000, 
-                                C.retrying_set_get_and_delete )
+                           C.retrying_set_get_and_delete )
 
     def large_write_loop (): 
         C.iterate_n_times( 280000, 
-                                C.retrying_set_get_and_delete, 
-                                startSuffix = 1000000 ) 
+                           C.retrying_set_get_and_delete, 
+                           startSuffix = 1000000 ) 
 
     write_thr1 = C.create_and_start_thread ( write_loop )
     def non_retrying_write_loop (): 
         C.iterate_n_times( 10000, 
-                                C.set_get_and_delete, 
-                                startSuffix = 2000000  )
+                           C.set_get_and_delete, 
+                           startSuffix = 2000000  )
     
     C.add_node( 1 )
-    cl = _getCluster()
+    cl = C._getCluster()
     cl.setLogLevel("debug")
     
-    C.regenerateClientConfig(C.cluster_id)
+    C.regenerateClientConfig(CONFIG.cluster_id)
             
     C.restart_nodes_wf_sim( 1 )
-    n1 = C.node_names[1]
-    logging.info("going to start %s", n1)
+    n1 = CONFIG.node_names[1]
+    X.logging.info("going to start %s", n1)
     C.startOne(n1 )
     
     C.create_and_wait_for_thread_list ( [ large_write_loop ] )
     
     C.add_node( 2 )
-    cl = _getCluster()
+    cl = C._getCluster()
     cl.setLogLevel("debug")
     cl.forceMaster(None )
     logging.info("2 node config without forced master")
 
-    C.regenerateClientConfig(C.cluster_id)
+    C.regenerateClientConfig(CONFIG.cluster_id)
     
     C.restart_nodes_wf_sim( 2 )
-    C.startOne( C.node_names[2] )
+    C.startOne( CONFIG.node_names[2] )
     time.sleep( 0.3 )
     C.assert_running_nodes ( 3 )
     
@@ -451,21 +451,22 @@ def test_large_catchup_while_running():
     cli.set('k','v')
     m = cli.whoMaster()
 
-    nod1 = C.node_names[0]
-    nod2 = C.node_names[1]
-    nod3 = C.node_names[2]
+    nod1 = CONFIG.node_names[0]
+    nod2 = CONFIG.node_names[1]
+    nod3 = CONFIG.node_names[2]
 
     n_name,others = (nod1, [nod2,nod3]) if nod1 != m else (nod2, [nod1, nod3])
     node_pid = cluster._getPid(n_name)
 
     time.sleep(0.1)
-    C.q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    X.subprocess.call(["kill", "-STOP", node_pid] )
+    
     C.iterate_n_times( 200000, C.simple_set )
     for n in others:
         C.collapse(n)
 
     time.sleep(1.0)
-    C.q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    X.subprocess.call(["kill","-CONT", node_pid] )
     cli.delete('k')
     time.sleep(10.0)
     C.assert_running_nodes(3)
