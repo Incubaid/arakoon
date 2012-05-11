@@ -46,5 +46,7 @@ module MemStore = (struct
   let init fn = Lwt.return ()
 
   let dump t = Lwtc.failfmt "todo"
+
+  let raw_dump t oc = Lwtc.failfmt "todo: MemStore.raw_dump"
 end: STORE)
 

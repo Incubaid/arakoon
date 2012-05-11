@@ -369,18 +369,10 @@ def test_download_db():
     cli = C.get_client()
     m = cli.whoMaster()
     clu = C._getCluster()
-    assert_raises(Exception, clu.backupDb, m, "/tmp/backup")
+    clu.backupDb(m, "/tmp/backup")
     C.stop_all()
+    X.logging.debug("need some assertion on file")
     
-    n0 = CONFIG.node_names[0]
-    n1 = CONFIG.node_names[1]
-    C.startOne(n0)
-    time.sleep(0.1)
-    db_file = C.get_node_db_file (n1)
-    clu.backupDb(n0, db_file)
-    C.assert_running_nodes(1)
-    C.stop_all()
-    C.compare_stores(n0,n1)
     
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():

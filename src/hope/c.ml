@@ -385,17 +385,25 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.SET_ROUTING -> do_admin_set __routing_key rest
       | Common.SET_INTERVAL -> do_admin_set __interval_key rest
       | Common.STATISTICS -> 
-        Lwt.catch (
-          fun () ->
+        Lwt.catch 
+          (fun () ->
             Lwtc.log "STATISTICS" >>= fun () ->
             let b = Buffer.create 100 in
             Statistics.to_buffer b stats;
             let bs = Buffer.contents b in
             Llio.output_int oc 0 >>= fun () ->
             Llio.output_string oc bs >>= fun () ->
-            Lwt.return false
-        ) ( Client_protocol.handle_exception oc)
-        
+            Lwt.return false) 
+          ( Client_protocol.handle_exception oc)
+
+      | Common.GET_DB ->
+        Lwtc.log "GET_DB" >>= fun () ->
+          Lwt.catch
+          (fun () -> 
+            Llio.output_int oc 0 >>= fun () ->
+            S.raw_dump store oc >>= fun () ->
+            Lwt.return true)
+          (Client_protocol.handle_exception oc)
          (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
               
   let protocol me (stats:Statistics.t) driver store (ic,oc) =   

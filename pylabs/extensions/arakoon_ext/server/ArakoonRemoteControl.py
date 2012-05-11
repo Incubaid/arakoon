@@ -53,11 +53,11 @@ def collapse(ip, port, clusterId, n):
         
 def downloadDb(ip, port, clusterId, location):
     s = RCP.make_socket(ip, port)
-    
+    logging.debug("downloadDB (%s,%i)", ip,port)
     try:
         with open(location,'w+b') as db_file:
             RCP._prologue(clusterId, s)
-            cmd  = RCP._int_to(RCP._DOWNLOAD_DB | RCP._MAGIC)
+            cmd  = RCP._int_to(4) + RCP._int_to(RCP._DOWNLOAD_DB | RCP._MAGIC)
             s.send(cmd)
             RCP.check_error_code(s)
             db_size = RCP._receive_int64(s)

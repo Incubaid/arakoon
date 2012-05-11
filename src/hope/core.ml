@@ -133,6 +133,7 @@ module type STORE = sig
   val set_meta: t -> string -> unit Lwt.t
   val close : t -> unit Lwt.t
   val dump : t -> unit Lwt.t
+  val raw_dump : t -> Lwtc.oc -> unit Lwt.t
 end
 
 let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 
