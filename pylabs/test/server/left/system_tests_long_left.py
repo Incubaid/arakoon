@@ -27,6 +27,9 @@ from nose.tools import *
 import time
 import subprocess
 import threading
+import arakoon
+import logging
+from arakoon.ArakoonExceptions import * 
 
 from Compat import X
 
@@ -141,3 +144,46 @@ def test_catchup_only():
     X.logging.info("done with catchup-only")
     C.stopOne(n0)
     C.compare_stores(n1,n0)
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_sequence_catchup():
+    cli = C.get_client()
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addSet("k","v")
+    seq.addDelete("k")
+    seq.addSet("k2", "v2")
+
+    n0 = C.CONFIG.node_names[0]
+    C.stopOne(n0)
+    
+    for i in range(10):
+        logging.info ("Executing sequence: %s", str(seq))
+        cli.sequence(seq)
+
+    m = cli.whoMaster()
+    
+    C.startOne(n0)
+    cli.set('final','v') 
+    time.sleep(1.0)
+    C.assert_last_i_in_sync(C.CONFIG.node_names[0], C.CONFIG.node_names[1])
+    assert_raises (ArakoonNotFound, cli.get, "k")
+    assert_equals( cli.get("k2"), "v2" )
+    
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addDelete("k3" )
+    seq.addSet("k3", "v3")
+    assert_raises( ArakoonNotFound, cli.get, "k3")
+    
+    
+    C.stop_all()
+    C.whipe(m)
+    C.start_all()
+    
+    time.sleep(1.0)
+    
+    assert_raises (ArakoonNotFound, cli.get, "k")
+    assert_equals( cli.get("k2"), "v2" )
+    assert_raises( ArakoonNotFound, cli.get, "k3")
+    
+    C.compare_stores(m, n0)
+    
