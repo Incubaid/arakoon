@@ -25,7 +25,7 @@ from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
 
 import arakoon
-
+import logging
 import time
 import subprocess
 from nose.tools import *
@@ -116,7 +116,6 @@ def test_catchup_while_collapsing():
         iter_cnt += 1
         time.sleep(1.0)
         
-    C.stop_all()
     C.assert_last_i_in_sync( node_names[0], node_names[1])
     C.compare_stores( node_names[0], node_names[1] )
     pass   
@@ -148,7 +147,7 @@ def test_restart_master_long ():
     
     C.stop_all()
     C.start_all()
-    C.stop_all()
+    
     node_names = C.node_names
 
     C.assert_last_i_in_sync( node_names[0], node_names[1] )
@@ -261,7 +260,7 @@ def test_missed_accept ():
     
     # Give the new node some time to recognize the master 
     time.sleep(0.5)
-    node_names = C.node_names
+    node_names = C.CONFIG.node_names
     zero = node_names[0]
     one = node_names[1]
     C.stopOne(one)
@@ -278,7 +277,7 @@ def test_missed_accept ():
     
     C.iterate_n_times( 1000, C.set_get_and_delete )
     time.sleep(1.0)
-    C.stop_all()
+    
     C.assert_last_i_in_sync(zero, one )
     C.compare_stores( zero, one )
 

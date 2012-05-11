@@ -163,7 +163,7 @@ def compare_stores( node1_id, node2_id ):
     le1 = get_last_entries (node1_id)
     le2 = get_last_entries (node2_id)
     for (e1,e2) in zip(le1,le2):
-        assert_equals(e1,e2, "Different entries found (e1: %s) (e2: %s)" % (le1, le2))
+        assert_equals(e1,e2, "Different entries found (e1: %s) (e2: %s)" % (e1, e2))
     return True
         
 def get_tlog_count (node_id ):
@@ -882,7 +882,6 @@ def get_last_entries (node_id, start_i=0):
     
     if cur_updates != [] :
         result.append( (cur_i, cur_updates) )
-    X.logging.debug(str(result))
     return result
     
 def assert_last_i_in_sync ( node1, node2 ):
