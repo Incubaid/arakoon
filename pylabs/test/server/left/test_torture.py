@@ -53,15 +53,25 @@ def test_fat_shaky_slave():
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
     C.stopOne(slave_id)
-    print ("slave %s stopped" % slave_id)
+    X.logging.debug("slave %s stopped",slave_id)
     n = 20000
+    X.logging.debug("doing %i sets", n)
     C.iterate_n_times( n, C.simple_set)
-    cycles = 10 
+    X.logging.debug("done with sets")
+    cycles = 10
+    cluster = C._getCluster()
     for i in range(cycles):
-        print ("starting cycle %i" % i)
+        X.logging.debug(cluster.getStatus())
+        X.logging.debug("starting cycle %i", i)
+        X.logging.debug("starting slave %s", slave_id)
         C.startOne(slave_id)
+        X.logging.debug("started slave %s", slave_id)
+        X.logging.debug("doing %i sets" , n)
         C.iterate_n_times( n, C.simple_set)
+        X.logging.debug("done with sets")
+        X.logging.debug("stopping %s",slave_id)
         C.stopOne(slave_id)
+        X.logging.debug("another %i sets",n)
         C.iterate_n_times( n, C.simple_set)
     print "phewy!"
 

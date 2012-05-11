@@ -7,6 +7,7 @@ let _action2s = function
   | Delete k  -> Printf.sprintf "Delete %S" k
 
 let iterate f a0 ic = 
+  Lwtc.log "iterate" >>= fun () ->
   let rec loop a last = 
     Sn.input_sn ic >>= fun i2 ->
     Lwtc.log "i2=%Li" i2 >>= fun () ->
@@ -42,6 +43,7 @@ let remote_iterate (sa:Unix.sockaddr) cluster_id (i0:int64)
     )
 
 let sync ip port cluster_id (log : BStore.t) =
+  Lwtc.log "syncing (= pulling from (%s,%i))" ip port >>= fun () ->
   let sa = Network.make_address ip port in
   begin
     BStore.last_update log >>= fun luo ->
