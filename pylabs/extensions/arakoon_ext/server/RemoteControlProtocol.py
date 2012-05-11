@@ -28,7 +28,7 @@ import struct
 _COLLAPSE_TLOGS = 0x14
 _DOWNLOAD_DB = 0x1b
 _MAGIC   = 0xb1ff0000
-_VERSION = 0x00000001
+_VERSION = 0x00000002
 
 def _int_to(i):
     r = struct.pack("I", i)

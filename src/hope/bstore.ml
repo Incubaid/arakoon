@@ -1,6 +1,7 @@
 open Core
 open Lwt
 open Baardskeerder 
+open Unix
 
 module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt) 
 
@@ -18,7 +19,12 @@ let action2update = function
     
 
 module BStore = (struct
-  type t = { m: Lwt_mutex.t; store: BS.t; mutable meta: string option; read_only: bool}
+  type t = { m: Lwt_mutex.t; 
+             store: BS.t; 
+             mutable meta: string option; 
+             read_only: bool;
+             fn : string;
+           }
 
   type tx_result =
   | TX_SUCCESS
@@ -35,7 +41,14 @@ module BStore = (struct
   let create fn read_only = 
     BS.make fn >>= fun store ->
     let m = Lwt_mutex.create() in
-    let r = {m=m; store=store; meta=None; read_only=read_only} in
+    let r = {
+      m; 
+      store; 
+      meta=None; 
+      read_only; 
+      fn
+    } 
+    in
     Lwt.return r
   
   let set_meta t s =
@@ -187,6 +200,15 @@ module BStore = (struct
     
   let dump t =
     Lwtc.failfmt "todo"
-    
+
+  let raw_dump t (oc:Lwtc.oc) = 
+    File_system.stat t.fn >>= fun stat ->
+    let length = Int64.of_int stat.st_size in
+    Lwtc.log "dumping file of size %Li" length >>= fun () ->
+    Llio.output_int64 oc length >>= fun () ->
+    Lwt_io.with_file ~mode:Lwt_io.input t.fn
+      (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+    >>= fun () ->
+    Lwtc.log "raw_dump: done"
 end: STORE)
 
