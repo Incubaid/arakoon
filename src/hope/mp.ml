@@ -26,7 +26,7 @@ module MULTI = struct
     | M_PROMISE of node_id * tick * tick * tick * update option
     | M_NACK of node_id * tick * tick * tick
     | M_ACCEPT of node_id * tick * tick * tick * update
-    | M_ACCEPTED of node_id * tick * tick
+    | M_ACCEPTED of node_id * tick * tick * tick
     | M_LEASE_TIMEOUT of tick * tick
     | M_CLIENT_REQUEST of request_awakener * update
     | M_MASTERSET of node_id * tick * tick
@@ -42,8 +42,8 @@ module MULTI = struct
     | M_ACCEPT (src, n, m, i, upd) ->
       Printf.sprintf "M_ACCEPT (src: %s) (n: %s) (m: %s) (i: %s) (u: %s)" 
           src (tick2s n) (tick2s m) (tick2s i) (update2s upd)
-    | M_ACCEPTED (src, n, i) -> 
-      Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (i: %s)" src (tick2s n) (tick2s i)
+    | M_ACCEPTED (src, n, m, i) -> 
+      Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
     | M_LEASE_TIMEOUT (n, m) ->
       Printf.sprintf "M_LEASE_TIMEOUT (n: %s) (m: %s)" (tick2s n) (tick2s m)
     | M_CLIENT_REQUEST (w, u) ->
@@ -89,10 +89,11 @@ module MULTI = struct
         Llio.int64_to buf m;
         Llio.int64_to buf i;
         update_to buf upd  
-      | M_ACCEPTED (src, (TICK n), (TICK i)) ->
+      | M_ACCEPTED (src, (TICK n), (TICK m), (TICK i)) ->
         Llio.int_to buf 5;
         Llio.string_to buf src;
         Llio.int64_to buf n;
+        Llio.int64_to buf m;
         Llio.int64_to buf i 
       | M_MASTERSET (src, TICK n, TICK m) ->
         Llio.int_to buf 6;
@@ -142,8 +143,9 @@ module MULTI = struct
         let u, off = update_from str off in
         M_ACCEPT (src, (TICK n), (TICK m), (TICK i), u)
       | 5 -> 
-        let src, n, i, off = get_src_n_i off in
-        M_ACCEPTED (src, (TICK n), (TICK i))
+        let src, n, m, off = get_src_n_i off in
+        let i, off = Llio.int64_from str off in
+        M_ACCEPTED (src, (TICK n), (TICK m), (TICK i))
       | 6 ->
         let (src, off) = Llio.string_from str off in
         let (n, off) = Llio.int64_from str off in
@@ -589,7 +591,7 @@ module MULTI = struct
               | S_SLAVE ->
                 let delayed_commit = extract_uncommited_action state i in
                 let accept_update = A_LOG_UPDATE (i, update, None) in
-                let accepted_msg = M_ACCEPTED (state.constants.me, n, i) in
+                let accepted_msg = M_ACCEPTED (state.constants.me, n, state.extensions, i) in
                 let send_accepted = A_SEND_MSG(accepted_msg, src) in
                 let new_prop = Some update in
                 let new_state = {
@@ -602,14 +604,14 @@ module MULTI = struct
           end
     end
   
-  let handle_accepted n i src state =
+  let handle_accepted n m i src state =
     let diff = state_cmp n i state in
     begin
       match diff with
         | (_      , _, A_BEHIND) -> StepFailure "Got an Accepted for future i"
         | (_      , _, A_AHEAD)  
         | (N_AHEAD, _, A_COMMITABLE) -> StepSuccess([], state)
-        | (N_EQUAL, _, A_COMMITABLE) -> 
+        | (N_EQUAL, _, A_COMMITABLE) when m = state.extensions -> 
           begin
             let new_votes = get_updated_votes state.votes src in
             let (new_input_ch, new_prop, actions, new_cli_req, vs ) = 
@@ -638,6 +640,7 @@ module MULTI = struct
             StepSuccess(actions, new_state)
           end
         | (N_BEHIND, _, A_COMMITABLE) -> StepFailure "Accepted with future n, same i"
+        | (N_EQUAL, _, A_COMMITABLE)  -> StepSuccess([], state)
     end
 
   let start_elections new_n m state = 
@@ -739,7 +742,7 @@ module MULTI = struct
       | M_PROMISE (src, n, m, i, m_upd) -> handle_promise n m i m_upd src state
       | M_NACK (src, n, m, i) -> handle_nack n m i src state
       | M_ACCEPT (src, n, m, i, upd) -> handle_accept n m i upd src state
-      | M_ACCEPTED (src, n, i) -> handle_accepted n i src state
+      | M_ACCEPTED (src, n, m, i) -> handle_accepted n m i src state
       | M_LEASE_TIMEOUT (n, m) -> handle_lease_timeout n m state
       | M_CLIENT_REQUEST (w, upd) -> handle_client_request w upd state
       | M_MASTERSET (src, n, m) -> handle_masterset n m src state
