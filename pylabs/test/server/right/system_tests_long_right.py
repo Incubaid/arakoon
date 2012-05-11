@@ -33,7 +33,7 @@ CONFIG = C.CONFIG
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_single_client_100000_sets():
-    Common.iterate_n_times( 100000, Common.simple_set )
+    C.iterate_n_times( 100000, C.simple_set )
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_delete_non_existing_with_catchup ():
