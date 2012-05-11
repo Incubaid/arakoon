@@ -395,7 +395,7 @@ class ArakoonCluster:
         if config.has_section(name):
             home = config.get(name, "home")
             X.createDir(home)
-            self._initialize(name, home)
+            self._initialize(name)
             logDir = config.get(name, "log_dir")
             X.createDir(logDir)
 
@@ -729,7 +729,7 @@ class ArakoonCluster:
               '-daemonize']
         return r
 
-    def _initialize(self,name, home):
+    def _initialize(self,name):
         r = [self._binary, 
              '-config', '%s/%s.cfg' % (self._clusterPath, self._clusterId),
              '--init-db', name]

@@ -338,6 +338,8 @@ def whipe(name):
     data_dir = config['home']
     X.removeDirTree(data_dir)
     X.createDir(data_dir)
+    clu = _getCluster()
+    clu._initialize(name)
     X.logging.info("whiped %s" % name)
 
 def get_memory_usage(node_name):
