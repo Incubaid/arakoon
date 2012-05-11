@@ -53,7 +53,7 @@ let sync ip port cluster_id (log : BStore.t) =
       | Some (Core.TICK ct,cuo) -> 
         if cuo = None 
         then Int64.succ ct
-        else Int64.pred ct
+        else ct
     in
     remote_iterate sa cluster_id i0 
       (fun a i acs -> 

@@ -58,7 +58,7 @@ module BStore = (struct
       begin 
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) -> 
-	    BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
+            BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
           | Core.DELETE k  -> 
             begin
               BS.delete tx (pref_key k) >>= function
@@ -74,7 +74,7 @@ module BStore = (struct
             end
           | Core.ASSERT (k, m_v) -> 
             begin
-              BS.get tx (pref_key k) >>= fun r ->	      
+              BS.get tx (pref_key k) >>= fun r ->              
               let txr = match r with
                 | OK v' -> 
                   if m_v <> (Some v') 
@@ -103,12 +103,12 @@ module BStore = (struct
     Lwt_mutex.with_lock t.m 
       (fun () -> 
         BS.log_update t.store ~diff:d _exec >>= fun r ->
-	let rr = match r with
+        let rr = match r with
           | OK SEQ_SUCCESS -> TX_SUCCESS
           | OK (SEQ_ASSERT_FAIL k) -> (TX_ASSERT_FAIL k)
           | NOK k -> (TX_NOT_FOUND k)
-	in
-	Lwt.return rr
+        in
+        Lwt.return rr
       )
   let is_read_only t = t.read_only
   
@@ -169,7 +169,7 @@ module BStore = (struct
     in
     let a0 = () in
     Lwtc.log "Bstore.last_entries %Li" i0 >>= fun () ->
-    Lwt_mutex.with_lock t.m (fun () -> BS.catchup t.store i0 f a0) >>= fun a ->
+    BS.catchup t.store i0 f a0 >>= fun a ->
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 

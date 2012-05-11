@@ -179,7 +179,14 @@ module ADispatcher (S:STORE) = struct
         { s with
           master_id = mo;
         }
-    | A_RESYNC (tgt, n, m) -> 
+    | A_RESYNC (tgt, n, m) ->
+      begin
+      match s.cur_cli_req with
+        | None -> Lwt.return ()
+        | Some c -> 
+          let res = Core.FAILURE(Arakoon_exc.E_NOT_MASTER, "Lost master role") in
+          safe_wakeup c res 
+      end >>= fun () -> 
       let resync = Hashtbl.find t.resyncs tgt in
       resync t.store >>= fun () ->
       S.last_update t.store >>= fun m_upd ->
@@ -201,9 +208,11 @@ module ADispatcher (S:STORE) = struct
         round = n;
         extensions = m;
         state_n = S_SLAVE;
+        master_id = Some tgt;
         proposed = i;
         prop = None;
         accepted = i;
+        cur_cli_req = None;
       } in
       Lwt.return s'
 
