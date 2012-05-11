@@ -210,5 +210,7 @@ module BStore = (struct
       (fun ic -> Llio.copy_stream ~length ~ic ~oc)
     >>= fun () ->
     Lwtc.log "raw_dump: done"
+
+  let get_key_count t = Lwt.return 0 (* TODO: baardskeerder part *)
 end: STORE)
 

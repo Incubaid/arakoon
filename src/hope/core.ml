@@ -129,6 +129,7 @@ module type STORE = sig
 
   val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
   val last_update: t -> (tick * update option) option Lwt.t
+  val get_key_count : t -> int Lwt.t
   val get_meta: t -> string option Lwt.t
   val set_meta: t -> string -> unit Lwt.t
   val close : t -> unit Lwt.t

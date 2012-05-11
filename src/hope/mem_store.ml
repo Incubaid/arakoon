@@ -48,5 +48,6 @@ module MemStore = (struct
   let dump t = Lwtc.failfmt "todo"
 
   let raw_dump t oc = Lwtc.failfmt "todo: MemStore.raw_dump"
+  let get_key_count t = Lwtc.failfmt "todo: MemStore.get_key_count"
 end: STORE)
 

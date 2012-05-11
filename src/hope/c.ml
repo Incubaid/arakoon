@@ -124,6 +124,9 @@ module ProtocolHandler (S:Core.STORE) = struct
       | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
       | Some v -> Lwt.return v 
 
+  let _get_key_count store = S.get_key_count store
+
+
   let _prefix_keys store k max = S.prefix_keys store k max 
 
   let extract_master_info = function
@@ -398,11 +401,20 @@ module ProtocolHandler (S:Core.STORE) = struct
 
       | Common.GET_DB ->
         Lwtc.log "GET_DB" >>= fun () ->
-          Lwt.catch
+        Lwt.catch
           (fun () -> 
             Llio.output_int oc 0 >>= fun () ->
             S.raw_dump store oc >>= fun () ->
             Lwt.return true)
+          (Client_protocol.handle_exception oc)
+          
+      | Common.GET_KEY_COUNT ->
+        Lwtc.log "GET_KEY_COUNT" >>= fun () ->
+        Lwt.catch
+          (fun () -> _get_key_count store >>= fun kc ->
+            let kc64 = Int64.of_int kc in
+            Client_protocol.response_ok_int64 oc kc64
+          )
           (Client_protocol.handle_exception oc)
          (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
               
