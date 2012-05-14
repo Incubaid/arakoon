@@ -70,10 +70,12 @@ module BStore = (struct
     let _exec tx =
       begin 
         let rec _inner (tx: BS.tx) = function
-          | Core.SET (k,v) -> 
+          | Core.SET (k,v) ->
+            Lwtc.log "set: %s" k >>= fun () -> 
             BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
           | Core.DELETE k  -> 
             begin
+              Lwtc.log "del: %s" k >>= fun () ->
               BS.delete tx (pref_key k) >>= function
                 | NOK k -> Lwt.return (NOK (unpref_key k))
                 | a -> Lwt.return (OK SEQ_SUCCESS)

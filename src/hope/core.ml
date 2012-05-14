@@ -143,12 +143,14 @@ let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) =
     | Baardskeerder.Set (k,v) -> 
       begin
         Lwt_io.write_char oc 's' >>= fun () ->
+        Lwtc.log "set : %s" k >>= fun () -> 
         Llio.output_string oc k >>= fun () ->
         Llio.output_string oc v 
       end
     | Baardskeerder.Delete k  -> 
       begin
         Lwt_io.write_char oc 'd' >>= fun () ->
+        Lwtc.log "del : %s" k >>= fun () ->
         Llio.output_string oc k 
       end
 

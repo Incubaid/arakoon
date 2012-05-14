@@ -17,7 +17,8 @@ let iterate f a0 ic =
       end
     else
       begin
-        Llio.input_list Core.input_action ic >>= fun actions ->          
+        Llio.input_list Core.input_action ic >>= fun acts_rev ->
+        let actions = List.rev acts_rev in          
         Lwtc.log "actions = [%s]" (String.concat ";" (List.map _action2s actions)) >>= fun () ->
         f a i2 actions >>= fun a' ->
         loop a' (Some i2)
@@ -60,7 +61,8 @@ let sync ip port cluster_id (log : BStore.t) =
         let us = List.map action2update acs in
         let u = Core.SEQUENCE us in
         let d = true in
-        BStore.log  log d u)
+        BStore.log  log d u 
+      )
       BStore.TX_SUCCESS
     >>= fun () ->
     Lwt.return ()

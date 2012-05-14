@@ -186,4 +186,6 @@ def test_sequence_catchup():
     assert_raises( ArakoonNotFound, cli.get, "k3")
     
     C.compare_stores(m, n0)
+    r = filter( lambda n: n != m and n != n0, C.CONFIG.node_names )
+    C.compare_stores(m, r[0])
     
