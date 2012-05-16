@@ -284,6 +284,16 @@ def install_libbz2():
     lib.sh(['make', '-f', 'Makefile-libbz2_so'])
     lib.sh(['cp', 'libbz2.so.1.0.6', '%s/lib' % PREFIX])
 
+def print_env_setup_help():
+        print
+        print
+        print 'Now execute these statements in your shell to enable your ' \
+                'build env:'
+        print 'export OCAML_HOME=%s' % PREFIX
+        print 'export LIBRARY_PATH=${LIBRARY_PATH}:${OCAML_HOME}/lib'
+        print 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${OCAML_HOME}/lib'
+        print 'export PATH=${PATH}:${OCAML_HOME}/bin'
+
 def do_it():
     fine = maybe_clean()
     if not fine:
@@ -305,9 +315,10 @@ def do_it():
         if options.bisect:
             install_bisect()
         #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
-        print '\n\nnow prepend %s/bin to your PATH' % PREFIX
+        print_env_setup_help()
     else:
         print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
+        print_env_setup_help()
 
 
 if __name__ == '__main__':
