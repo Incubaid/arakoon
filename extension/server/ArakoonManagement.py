@@ -794,7 +794,8 @@ class ArakoonCluster:
         @type n: int
         """
         config = self.getNodeConfig(nodeName)
-        ip = config['ip']
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.collapse(ip,port,self._clusterId, n)
     
@@ -806,7 +807,8 @@ class ArakoonCluster:
         @return void
         """
         config = self.getNodeConfig(nodeName)
-        ip = config['ip']
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.optimizeDb(ip,port,self._clusterId)
  
@@ -836,7 +838,8 @@ class ArakoonCluster:
         @return void
         """
         config = self.getNodeConfig(nodeName)
-        ip = config['ip']
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.downloadDb(ip,port,self._clusterId, location)
         
@@ -867,6 +870,14 @@ class ArakoonCluster:
         logging.debug('calling: %s', str(cmd))
         subprocess.call(cmd, close_fds = True)
 
+    def _getIp(self,ip_mess):
+        t_mess = type(ip_mess) 
+        if t_mess == types.StringType:
+            return ip_mess
+        elif t_mess == types.ListType:
+            return ip_mess[0]
+        else:
+            raise Exception("should '%s' be a string or string list")
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
@@ -1067,8 +1078,8 @@ class ArakoonCluster:
                 if nodename in diff_list:
                     
                     node_config = self.getNodeConfig(nodename)
-                    node_ip = node_config['ip']
-               
+                    node_ip_mess = node_config['ip']
+                    node_ip = self._getIp(node_ip_mess)
                     node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
                     if node_login == '':
                         node_login = 'root'
