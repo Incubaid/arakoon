@@ -8,8 +8,15 @@ react   0.9.2
 camlbz2 0.6.0    
 
 
-we provide a script that sets up the development the prerequisites:
+we provide a script that sets up the development prerequisites:
   python tools/setup_env.py
+
+You can tweak the features/dependencies of the development prerequisites with
+command line arguments to the tools/setup_env.py script. Check out:
+  python tools/setup_env.py --help
+
+Note that when the tools/setup_env.py script has finished, it outputs some
+commands for you to run in your shell!
 
 COMPILING:
 

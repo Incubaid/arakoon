@@ -871,9 +871,11 @@ class ArakoonCluster:
         subprocess.call(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
-        t_mess = type(ip_mess) 
+        t_mess = type(ip_mess)
         if t_mess == types.StringType:
-            return ip_mess
+            parts = ip_mess.split(',')
+            ip = string.strip(parts[0])
+            return ip
         elif t_mess == types.ListType:
             return ip_mess[0]
         else:
@@ -1137,8 +1139,8 @@ class ArakoonCluster:
             
             sfs.createDir(node_folder)
             configDict = self.getNodeConfig(nodename)
-            source_ip = configDict['ip']
-            
+            source_ip_mess = configDict['ip']
+            source_ip = self._getIp(source_ip_mess)
             userName = clusterCredentials[nodename][0]
             password = clusterCredentials[nodename][1]
             

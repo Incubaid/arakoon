@@ -166,6 +166,9 @@ packages = list()
 
 p = createNewPackage('arakoon_client', 'Version %s of the arakoon client' % new_version, prev_version, new_version )
 packages.append(p)
+# Update codemanagement.py
+tasklet_path = fs.joinPaths(p.qpackage.getPathMetadata(), 'tasklets', 'codemanagement.py')
+q.system.fs.writeFile(tasklet_path, get_arakoon_codemanagement_tasklet(branch))
 
 p = createNewPackage('arakoon', 'Version %s of the arakoon key value store' % new_version, prev_version, new_version )
 replace_deps(p, ['arakoon_client'])
