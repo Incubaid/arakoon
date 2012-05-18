@@ -400,23 +400,37 @@ module ProtocolHandler (S:Core.STORE) = struct
           ( Client_protocol.handle_exception oc)
 
       | Common.GET_DB ->
-        Lwtc.log "GET_DB" >>= fun () ->
-        Lwt.catch
-          (fun () -> 
-            Llio.output_int oc 0 >>= fun () ->
-            S.raw_dump store oc >>= fun () ->
-            Lwt.return true)
-          (Client_protocol.handle_exception oc)
-          
+        begin
+          Lwtc.log "GET_DB" >>= fun () ->
+          Lwt.catch
+            (fun () -> 
+              Llio.output_int oc 0 >>= fun () ->
+              S.raw_dump store oc >>= fun () ->
+              Lwt.return true)
+            (Client_protocol.handle_exception oc)
+        end
       | Common.GET_KEY_COUNT ->
-        Lwtc.log "GET_KEY_COUNT" >>= fun () ->
-        Lwt.catch
-          (fun () -> _get_key_count store >>= fun kc ->
-            let kc64 = Int64.of_int kc in
-            Client_protocol.response_ok_int64 oc kc64
-          )
-          (Client_protocol.handle_exception oc)
-         (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
+        begin
+          Lwtc.log "GET_KEY_COUNT" >>= fun () ->
+          Lwt.catch
+            (fun () -> _get_key_count store >>= fun kc ->
+              let kc64 = Int64.of_int kc in
+              Client_protocol.response_ok_int64 oc kc64
+            )
+            (Client_protocol.handle_exception oc)
+        end
+      | Common.EXPECT_PROGRESS_POSSIBLE ->
+        begin
+          Lwtc.log "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
+          _get_meta store >>= fun ms ->
+          let mo = extract_master_info ms in
+          let r = mo <> None in
+          Llio.output_int32 oc 0l >>= fun () ->
+          Llio.output_bool oc r >>= fun () ->
+          Lwt.return false
+        end
+            
+  (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
               
   let protocol me (stats:Statistics.t) driver store (ic,oc) =   
     let rec loop () = 
