@@ -103,14 +103,20 @@ def test_concurrent_collapse_fails():
 @C.with_custom_setup(C.setup_2_nodes_forced_master, C.basic_teardown)
 def test_catchup_exercises():
     time.sleep(1.0) # ??
-    
+    cluster = _getCluster()
+    nn = CONFIG.node_names[1]
     def do_one(n, max_wait):
+        stat = cluster.getStatus()
+        X.logging.info("status=%s", stat)
+        C.assert_running_nodes(2)
+        X.logging.info("going to do %i sets", n)
         C.iterate_n_times(n, C.simple_set)
         C.stop_all()
         X.logging.info("stopped all nodes")
-        C.whipe(CONFIG.node_names[1])
-
+        C.whipe(nn)
+        X.logging.info("whiped %s", nn)
         C.start_all()
+        X.logging.info("started all nodes")
         cli = C.get_client ()
         counter = 0
         up2date = False

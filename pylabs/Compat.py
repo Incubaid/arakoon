@@ -35,18 +35,33 @@ class Status:
     nursery_cluster_ids.sort()
 
 """    
+def _cfg2str(self, cfg):
+    io = StringIO.StringIO()
+    cfg.write(io)
+    v = io.getvalue()
+    io.close()
+    return v
 
+def _getConfig(self, h):
+    fn = h + '.cfg'
+    self.logging.debug("reading %s",fn)
+    p = ConfigParser.ConfigParser()
+    p.read(fn)
+    #logging.debug("config file=\n%s", self.cfg2str(p))
+    return p
+
+
+def _writeConfig(self, p, h):
+    self._count = self._count + 1
+    fn = h + '.cfg'
+    #logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
+    with open(fn,'w') as cfg:
+        p.write(cfg)
+        
 class Compat:
     def __init__(self):
         self.logging = logging
         self._count = 0
-
-    def cfg2str(self, cfg):
-        io = StringIO.StringIO()
-        cfg.write(io)
-        v = io.getvalue()
-        io.close()
-        return v
 
     def fileExists(self,fn):
         return os.path.exists(fn)
@@ -80,22 +95,9 @@ class Compat:
     def raiseError(self,x):
         raise Exception(x)
 
-
-    def getConfig(self, h):
-        fn = h + '.cfg'
-        self.logging.debug("reading %s",fn)
-        p = ConfigParser.ConfigParser()
-        p.read(fn)
-        #logging.debug("config file=\n%s", self.cfg2str(p))
-        return p
-
-    def writeConfig(self, p, h):
-        self._count = self._count + 1
-        fn = h + '.cfg'
-        #logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
-        with open(fn,'w') as cfg:
-            p.write(cfg)
-
+    cfg2str = _cfg2str
+    writeConfig = _writeConfig
+    getConfig = _getConfig
 
     AppStatusType = Status()
 
@@ -110,26 +112,59 @@ class Compat:
     varDir = _base + '/var'
 
 
-class Q: # (Compat)
-    
+class _LOGGING:
+    def __init__(self,q):
+        self._q = q
+        
+    def info(self,template,*rest):
+        message = template % rest
+        self._q.logger.log(message,level = 10)
+
+    def debug(self,template,*rest):
+        message = template % rest
+        self._q.logger.log(message,level = 5)
+            
+
+class Q: # (Compat)    
     def __init__(self):
+        from pymonkey import q
         self.tmpDir = q.dirs.tmpDir
         self.appDir = q.dirs.appDir
         self.cfgDir = q.dirs.cfgDir
         self.logDir = q.dirs.logDir
         self.varDir = q.dirs.varDir
+        self._q = q
+        self._count = 0
+        self.logging = _LOGGING(q)
 
+
+    def fileExists(self,fn):
+        return self._q.system.fs.exists(fn)
+
+    getConfig = _getConfig
+    writeConfig = _writeConfig
+            
+    def removeDirTree(self,path):
+        return self._q.system.fs.removeDirTree(path)
+
+    def createDir(self,path):
+        return self._q.system.fs.createDir(path)
+
+    subprocess = subprocess
+
+    cfg2str = _cfg2str
 
 def which_compat():
+    print "which_compat"
     g = globals()
-    if g.has_key('q') and g['q'].__class__.__name__ == 'PYMONKEY':
+    if sys.prefix == '/opt/qbase3':
         print "in q's hell"
+        
         r = Q()
     else:
         r = Compat()
-
+    print "compat=", r
     return r
-
 
 
 X = which_compat()
