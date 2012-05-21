@@ -26,6 +26,8 @@ module MemStore = (struct
 
   let get t k = let v = Hashtbl.find t.store k in Lwt.return (Some v)
   
+  let admin_get = get
+    
   let set_meta t s = 
     t.meta <- Some s;
     Lwt.return ()
