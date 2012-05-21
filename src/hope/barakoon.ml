@@ -335,18 +335,21 @@ let run_node myname config_file daemonize =
     BStore.close store >>= fun () ->
     Lwtc.log "Closed store"
   in
-  Lwt.finalize
-  ( fun () ->
-    Lwt.ignore_result ( upload_cfg_to_keeper cfg.nursery_cfg cluster_id my_clicfg) ;
-    Lwt.pick [ DRIVER.serve driver s' None ;
-             service driver;
-             msging # run ();
-             Lwt.join pass_msgs;
-             wait_for_sigterm (); 
-             ]
-  ) ( fun () ->
-    close_store()  
-  )
+  Lwt.catch
+    ( fun () ->
+      Lwt.ignore_result ( upload_cfg_to_keeper cfg.nursery_cfg cluster_id my_clicfg) ;
+      Lwt.pick [ DRIVER.serve driver s' None ;
+                 service driver;
+                 msging # run ();
+                 Lwt.join pass_msgs;
+                 wait_for_sigterm (); 
+               ] 
+      >>= fun () -> close_store()
+    ) 
+    ( fun exn ->
+      Lwt_log.fatal ~exn "going down" >>= fun () ->
+      close_store()  
+    ) 
 
 
 let init_db myname config_file =
