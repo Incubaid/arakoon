@@ -110,6 +110,11 @@ module ProtocolHandler (S:Core.STORE) = struct
   let _admin_set driver k m_v = 
     let u = Core.ADMIN_SET(k, m_v) in
     __do_unit_update driver u
+  
+  let _admin_get store k = 
+    S.admin_get store k >>= function
+      | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
+      | Some v -> Lwt.return v
     
   let _sequence driver sequence = __do_unit_update driver sequence
     
@@ -172,6 +177,13 @@ module ProtocolHandler (S:Core.STORE) = struct
         Client_protocol.response_ok_unit oc
       in
       do_write_op do_inner
+    in
+    let do_admin_get key =
+      let do_inner () =
+        _admin_get store key >>= fun res ->
+        Client_protocol.response_rc_string oc 0l res
+      in
+      only_if_master false do_inner
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
@@ -279,6 +291,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           in
           only_if_master allow_dirty do_multi_get
         end
+        
       | Common.RANGE ->             _do_range rest S.range (Llio.output_list Llio.output_string)
       | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries Llio.output_kv_list 
       | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries Llio.output_kv_list 
@@ -387,6 +400,8 @@ module ProtocolHandler (S:Core.STORE) = struct
         Lwt.return false
       | Common.SET_ROUTING -> do_admin_set __routing_key rest
       | Common.SET_INTERVAL -> do_admin_set __interval_key rest
+      | Common.GET_INTERVAL -> do_admin_get __interval_key 
+      | Common.GET_ROUTING -> do_admin_get __routing_key 
       | Common.STATISTICS -> 
         Lwt.catch 
           (fun () ->

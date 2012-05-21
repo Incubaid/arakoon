@@ -117,6 +117,7 @@ module type STORE = sig
   val commit : t -> tick -> result Lwt.t
   val log : t -> bool -> update -> tx_result Lwt.t
   val get : t -> k -> v option Lwt.t
+  val admin_get: t -> k -> v option Lwt.t
   val range: t -> string option -> bool -> string option -> bool -> int option 
     -> string list Lwt.t
   val range_entries: t -> string option -> bool -> string option -> bool -> int option 

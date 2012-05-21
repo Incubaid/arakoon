@@ -8,7 +8,7 @@ open Pq
 open Node_cfg.Node_cfg
 open Mp
 open Statistics
-
+open Client_cfg
 open Modules
 module BSC = C.ProtocolHandler(BStore)
 
@@ -248,6 +248,47 @@ let create_resyncs others cluster_id =
     others;
   resyncs
 
+let rec upload_cfg_to_keeper nursery_cfg my_cluster_id my_clicfg =
+	begin
+	  match nursery_cfg with
+	    | None -> Lwt_log.info "Cluster not part of nursery."
+	    | Some (n_cluster_id, cfg) ->
+	      begin 
+	        let attempt_send success node_id = 
+	          match success with
+	          | true -> Lwt.return true
+	          | false ->
+	            begin
+	              let (ip,port) = ClientCfg.get cfg node_id in
+	              Lwt.catch(
+	                fun () ->
+	                  let address = Network.make_address ip port in
+	                  let upload connection = 
+	                    Common.prologue n_cluster_id connection >>= fun () ->
+                      Common.set_nursery_cfg connection my_cluster_id my_clicfg
+	                  in 
+	                  Lwt_io.with_connection address upload >>= fun () ->
+	                  Lwt_log.info_f "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
+	                  Lwt.return true
+	              ) ( 
+	                fun e ->
+	                  let exc_msg = Printexc.to_string e in
+	                  Lwt_log.warning_f "Attempt to upload config to %s failed (%s)" node_id exc_msg >>= fun () -> 
+	                      Lwt.return false
+	                  )
+	            end
+	        in 
+	        let node_names = ClientCfg.node_names cfg in
+	        Lwt_list.fold_left_s attempt_send false node_names >>= fun succeeded ->
+	          begin
+	            match succeeded with
+	              | true -> Lwt.return ()
+	              | false -> Lwt_unix.sleep 5.0 >>= fun () -> upload_cfg_to_keeper nursery_cfg my_cluster_id my_clicfg
+	          end
+	            
+	      end
+	end
+      	  
 let run_node myname config_file daemonize =      
   Lwt_io.set_default_buffer_size 32768;
   let killswitch = Lwt_mutex.create () in
@@ -260,6 +301,17 @@ let run_node myname config_file daemonize =
     (fun sign -> let _ = Lwt_unix.on_signal sign (fun i -> unlock_killswitch ()) in () ) 
     quit_signals ;
   let cfg = read_config config_file in
+  let my_clicfg = 
+    begin
+      let ccfg = ClientCfg.make () in
+      let add_one cfg =
+        let node_address = cfg.ip, cfg.client_port in
+        ClientCfg.add ccfg cfg.node_name node_address
+      in
+      List.iter add_one cfg.cfgs;
+      ccfg
+    end
+  in 
   split_cfgs cfg myname >>= fun (others, mycfg) ->
   let () = if daemonize then Lwt_daemon.daemonize () in
   Lwtc.configure_logging mycfg >>= fun () ->
@@ -285,6 +337,7 @@ let run_node myname config_file daemonize =
   in
   Lwt.finalize
   ( fun () ->
+    Lwt.ignore_result ( upload_cfg_to_keeper cfg.nursery_cfg cluster_id my_clicfg) ;
     Lwt.pick [ DRIVER.serve driver s' None ;
              service driver;
              msging # run ();
