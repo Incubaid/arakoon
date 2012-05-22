@@ -136,7 +136,7 @@ class Q: # (Compat)
         self._q = q
         self._count = 0
         self.logging = _LOGGING(q)
-
+        self.AppStatusType = q.enumerators.AppStatusType
 
     def fileExists(self,fn):
         return self._q.system.fs.exists(fn)
