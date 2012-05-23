@@ -87,7 +87,7 @@ let rec update_from buf off =
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
-  | VALUE of v (* value option? *)
+  | VALUE_OPTION of v option 
 
 type tick = TICK of int64
   
@@ -139,6 +139,8 @@ module type STORE = sig
   val dump : t -> unit Lwt.t
   val raw_dump : t -> Lwtc.oc -> unit Lwt.t
 end
+
+(* output_action & input action are only in last_entries *)
 
 let output_action (oc:Lwtc.oc) (action:Baardskeerder.action) = 
   let (>>=) = Lwt.(>>=) in

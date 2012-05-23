@@ -256,7 +256,7 @@ module MULTI = struct
       Printf.sprintf "Reply (rc: %d) (msg: '%s')" 
           (Int32.to_int (Arakoon_exc.int32_of_rc rc)) msg
     | w, UNIT -> "Reply success (unit)"
-    | w, VALUE v -> Printf.sprintf "Reply success (value)" 
+    | w, VALUE_OPTION v -> Printf.sprintf "Reply success (value)" 
        
   type action =
     | A_RESYNC of node_id * tick * tick

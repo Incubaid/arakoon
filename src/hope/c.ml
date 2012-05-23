@@ -101,7 +101,7 @@ module ProtocolHandler (S:Core.STORE) = struct
     match a with 
       | Core.UNIT -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-      | Core.VALUE v -> failwith "Expected unit, not value"
+      | Core.VALUE_OPTION vo -> failwith "Expected unit, not value"
         
   let _set driver k v = 
     let q = Core.SET(k,v) in
@@ -117,7 +117,7 @@ module ProtocolHandler (S:Core.STORE) = struct
      match a with
        | Core.UNIT -> failwith "Expected value, not unit"
        | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-       | Core.VALUE v -> return v
+       | Core.VALUE_OPTION vo -> return vo
 
   let _admin_get store k = 
     S.admin_get store k >>= function
@@ -454,12 +454,11 @@ module ProtocolHandler (S:Core.STORE) = struct
         end
       | Common.USER_FUNCTION ->
         begin
-          Lwtc.log "USER_FUNCTION..." >>= fun  () ->
           let name = Pack.input_string rest in
           let po   = Pack.input_string_option rest in
           Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
           Lwt.catch 
-            (fun () -> let ro = Some "bla bla" in
+            (fun () -> _user_function driver name po >>= fun ro ->
                        Llio.output_int oc 0 >>= fun () ->
                        Llio.output_string_option oc ro >>= fun () ->
                        Lwt.return false

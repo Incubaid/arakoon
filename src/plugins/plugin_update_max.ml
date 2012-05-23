@@ -4,24 +4,24 @@ open Registry
 let s2i = int_of_string
 let i2s = string_of_int
 
-let update_max db po = 
+module UserDB = struct
+  let get tx (k:string) = Lwt.return None
+  let set tx (k:string) (v:string) = Lwt.return ()
+end
+
+let update_max tx po = 
   let _k = "max" in
-  let v = 
-    try let s = db#get _k in s2i s 
-    with Not_found -> 0 
-  in
-  let v' = match po with
+  let vo2i = function
     | None -> 0
-    | Some s -> 
-      try s2i s 
-      with _ -> raise (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "invalid arg"))
+    | Some v -> s2i v
   in
-  let m = max v v' in
+  UserDB.get tx _k >>= fun vo ->
+  let i = vo2i vo in
+  let i2 = vo2i po in
+  let m  = max i i2 in
   let ms = i2s m in
-  db#set _k ms;
-  Some (i2s m)
-
-
+  UserDB.set tx _k ms >>= fun () ->
+  Lwt.return (Some ms)
 
 
 let () = Registry.register "update_max" update_max

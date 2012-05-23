@@ -312,7 +312,11 @@ let run_node myname config_file daemonize =
       ccfg
     end
   in 
+
+
+  
   split_cfgs cfg myname >>= fun (others, mycfg) ->
+  Plugin_loader.load mycfg.home cfg.plugins >>= fun () -> 
   let () = if daemonize then Lwt_daemon.daemonize () in
   Lwtc.configure_logging mycfg >>= fun () ->
   log_prelude () >>= fun () ->
