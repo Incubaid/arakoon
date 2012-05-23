@@ -145,7 +145,7 @@ module Node_cfg = struct
       (Ini.default None)
 
   let _plugins inifile = 
-    Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
+    Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.required) (* Ini.default [] *)
 
   let _get_lease_period inifile = 
     Ini.get inifile "global" "lease_period" 

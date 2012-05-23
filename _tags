@@ -36,4 +36,4 @@ true: package(baardskeerder)
 <examples/ocaml/*.{bytes,native}>: use_thread
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
-<src/plugins/*.{cma,cmxa}>: use_thread
+<src/plugins/*.{cm*,cmx*}>: use_thread
