@@ -19,13 +19,15 @@ type update =
   | DELETE of k
   | ASSERT of k * v option
   | ADMIN_SET of k * v option
+  | USER_FUNCTION of string * string option
   | SEQUENCE of update list
 
 let update2s = function
-  | SET (k, _) -> Printf.sprintf "U_SET (k: %s)" k
-  | DELETE k -> Printf.sprintf "U_DEL (k: %s)" k
-  | ASSERT (k, _) -> Printf.sprintf "U_ASSERT (k: %s)" k
-  | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (k: %s)" k
+  | SET (k, _) -> Printf.sprintf "U_SET (%S,_)" k
+  | DELETE k -> Printf.sprintf "U_DEL (%S)" k
+  | ASSERT (k, _) -> Printf.sprintf "U_ASSERT (%S,_)" k
+  | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (%S,_)" k
+  | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
 
 let rec update_to buf = function
@@ -85,7 +87,7 @@ let rec update_from buf off =
 type result = 
   | UNIT
   | FAILURE of Arakoon_exc.rc * string
-  | VALUE of v
+  | VALUE of v (* value option? *)
 
 type tick = TICK of int64
   

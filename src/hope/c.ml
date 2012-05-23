@@ -111,6 +111,14 @@ module ProtocolHandler (S:Core.STORE) = struct
     let u = Core.ADMIN_SET(k, m_v) in
     __do_unit_update driver u
   
+  let _user_function driver name po = 
+    let q = Core.USER_FUNCTION(name, po) in
+    DRIVER.push_cli_req driver q >>= fun a ->
+     match a with
+       | Core.UNIT -> failwith "Expected value, not unit"
+       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
+       | Core.VALUE v -> return v
+
   let _admin_get store k = 
     S.admin_get store k >>= function
       | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
@@ -443,6 +451,20 @@ module ProtocolHandler (S:Core.STORE) = struct
           Llio.output_int32 oc 0l >>= fun () ->
           Llio.output_bool oc r >>= fun () ->
           Lwt.return false
+        end
+      | Common.USER_FUNCTION ->
+        begin
+          Lwtc.log "USER_FUNCTION..." >>= fun  () ->
+          let name = Pack.input_string rest in
+          let po   = Pack.input_string_option rest in
+          Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
+          Lwt.catch 
+            (fun () -> let ro = Some "bla bla" in
+                       Llio.output_int oc 0 >>= fun () ->
+                       Llio.output_string_option oc ro >>= fun () ->
+                       Lwt.return false
+            )
+            (Client_protocol.handle_exception oc)
         end
             
   (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)

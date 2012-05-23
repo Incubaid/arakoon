@@ -631,8 +631,8 @@ class ArakoonProtocol :
     @staticmethod    
     def encodeUserFunction(name, argument):
         retVal = _packInt(ARA_CMD_USER_FUNCTION)
-        retVal += _packString(name)
-        retVal += _packStringOption(argument)
+        retVal += _vpackString(name)
+        retVal += _vpackStringOption(argument)
         return retVal
 
     @staticmethod
