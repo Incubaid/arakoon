@@ -34,12 +34,12 @@ module ADispatcher (S:STORE) = struct
   }
 
   let create msging s tq resyncs=  
-	  {
-	    store = s;
-	    msg = msging;
-	    timeout_q = tq;
-	    resyncs = resyncs;
-	  } 
+    {
+      store = s;
+      msg = msging;
+      timeout_q = tq;
+      resyncs = resyncs;
+    } 
   
   let log_update t i u = 
     S.log t.store i u
@@ -110,7 +110,7 @@ module ADispatcher (S:STORE) = struct
       Lwtc.log "Logging update (i:%s)" (tick2s i) >>= fun () ->
       let d = (s.proposed <> i) in
       begin
-	      log_update t d u >>= fun res ->
+        log_update t d u >>= fun res ->
         let handle_client_failure rc msg = 
           begin
             (* Update log failed *)
@@ -122,37 +122,37 @@ module ADispatcher (S:STORE) = struct
         in
         match res with 
           
-	        | S.TX_SUCCESS ->
+          | S.TX_SUCCESS ->
             if s.master_id = Some s.constants.me 
             then
-		          begin
-				      (* Update logged succesfull *)
-				        match s.constants.others with
-		              (* If single node, we need to commit as well *)
-		 		          | [] ->  
-				            let s' = {
-				              s with
-				              prop = None;
-				              proposed = i;
-				              votes = [];
-				              cur_cli_req = None;
-				              valid_inputs = ch_all;
-				            } in
-	                  handle_commit t s' i u cli_req 
-		              (* Not single node, send out accepts *)
-				          | others ->
-				            let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
-	                  do_send_msg t s msg others >>= fun () ->
-	                  let s' =  {
-				              s with
-				              cur_cli_req = cli_req;
-				              votes = [s.constants.me];
-				              proposed = i;
-				              prop = Some u;
-				              valid_inputs = ch_node_and_timeout;
-				            } in 
-	                  Lwt.return s'
-    	          end
+              begin
+              (* Update logged succesfull *)
+                match s.constants.others with
+                  (* If single node, we need to commit as well *)
+                   | [] ->  
+                    let s' = {
+                      s with
+                      prop = None;
+                      proposed = i;
+                      votes = [];
+                      cur_cli_req = None;
+                      valid_inputs = ch_all;
+                    } in
+                    handle_commit t s' i u cli_req 
+                  (* Not single node, send out accepts *)
+                  | others ->
+                    let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
+                    do_send_msg t s msg others >>= fun () ->
+                    let s' =  {
+                      s with
+                      cur_cli_req = cli_req;
+                      votes = [s.constants.me];
+                      proposed = i;
+                      prop = Some u;
+                      valid_inputs = ch_node_and_timeout;
+                    } in 
+                    Lwt.return s'
+                end
               else
                 begin
                   let s' = { 
@@ -164,9 +164,9 @@ module ADispatcher (S:STORE) = struct
                 end
           | S.TX_ASSERT_FAIL k ->
             handle_client_failure Arakoon_exc.E_ASSERTION_FAILED k
-	        | S.TX_NOT_FOUND k -> 
+          | S.TX_NOT_FOUND k -> 
             handle_client_failure Arakoon_exc.E_NOT_FOUND k
-		  end
+      end
     | A_START_TIMER (n, m, d) ->
       start_timer t n m d >>= fun () -> 
       Lwt.return s
