@@ -11,9 +11,12 @@ let update_max tx po =
     | None -> 0
     | Some v -> s2i v
   in
-  UserDB.get tx _k >>= fun vo ->
-  let i = vo2i vo in
-  let i2 = vo2i po in
+  UserDB.get tx _k >>= fun vr ->
+  let i2 = match vr with
+    | Baardskeerder.OK v -> s2i v
+    | Baardskeerder.NOK k -> 0
+  in
+  let i = vo2i po in
   let m  = max i i2 in
   let ms = i2s m in
   UserDB.set tx _k ms >>= fun () ->

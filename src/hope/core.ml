@@ -173,3 +173,11 @@ let input_action (ic:Lwtc.ic) =
 
 
 module BS = Baardskeerder.Baardskeerder(Baardskeerder.Logs.Flog0)(Baardskeerder.Stores.Lwt)
+
+let __prefix = "@"
+let __admin_prefix = "*"
+
+let pref_key ?(_pf = __prefix) k = _pf ^ k
+let unpref_key ?(_pf = __prefix) k = 
+  let to_cut = String.length _pf in
+  String.sub k to_cut ((String.length k) - to_cut)

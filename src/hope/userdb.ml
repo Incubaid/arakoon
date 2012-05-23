@@ -1,20 +1,22 @@
 open Core
 open Lwt
 
+
 module UserDB = (struct
   type tx = BS.tx
   let set tx k v = 
     Lwtc.log "UserDB.set %S %S" k v>>= fun () ->
+    BS.set tx k v >>= fun () ->
     Lwt.return ()
 
   let get tx k = 
     Lwtc.log "UserDB.get %S" k >>= fun () ->
-    Lwt.return None
+    BS.get tx k 
     
 end : sig
   type tx = BS.tx
   val set : tx -> k -> v -> unit Lwt.t
-  val get : tx -> k -> v option Lwt.t
+  val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
 end)
 
 module Registry = struct
