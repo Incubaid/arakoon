@@ -3,14 +3,10 @@ open Lwt
 open Baardskeerder 
 open Unix
 
-module BS = Baardskeerder(Logs.Flog0)(Stores.Lwt)
 
-module Registry = struct
-  type f = BS.tx -> string option -> (string option) Lwt.t
-  let _r = Hashtbl.create 42
-  let register name (f:f) = Hashtbl.replace _r name f
-  let lookup name = Hashtbl.find _r name
-end
+
+
+
 
 let __prefix = "@"
 let __admin_prefix = "*"
@@ -120,7 +116,7 @@ module BStore = (struct
             (OK SEQ_SUCCESS)
               s 
           | Core.USER_FUNCTION (name, po) ->
-            let f = Registry.lookup name in
+            let f = Userdb.Registry.lookup name in
             f tx po >>= fun ro -> Lwtc.failfmt "USER_FUNCTION: got so here"
 
         in _inner tx u

@@ -311,15 +311,12 @@ let run_node myname config_file daemonize =
       List.iter add_one cfg.cfgs;
       ccfg
     end
-  in 
-
-
-  
+  in   
   split_cfgs cfg myname >>= fun (others, mycfg) ->
-  Plugin_loader.load mycfg.home cfg.plugins >>= fun () -> 
   let () = if daemonize then Lwt_daemon.daemonize () in
   Lwtc.configure_logging mycfg >>= fun () ->
   log_prelude () >>= fun () ->
+  Plugin_loader.load mycfg.home cfg.plugins >>= fun () -> 
   let cluster_id = cfg.cluster_id in 
   let msging = create_msging mycfg others cluster_id in
   let start = Unix.gettimeofday() in

@@ -1,6 +1,7 @@
 open Lwt
 
 let load home pnames = 
+  Lwtc.log "Plugin_loader.load" >>= fun () ->
   let rec _inner = function
     | [] -> Lwt.return ()
     | p :: ps -> 

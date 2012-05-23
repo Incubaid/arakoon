@@ -171,3 +171,5 @@ let input_action (ic:Lwtc.ic) =
       Lwt.return (Baardskeerder.Delete k)
     | c -> Llio.lwt_failfmt "input_action '%C' does not yield an action" c
 
+
+module BS = Baardskeerder.Baardskeerder(Baardskeerder.Logs.Flog0)(Baardskeerder.Stores.Lwt)

@@ -1,13 +1,9 @@
 open Lwt
-open Registry
+
+open Userdb
 
 let s2i = int_of_string
 let i2s = string_of_int
-
-module UserDB = struct
-  let get tx (k:string) = Lwt.return None
-  let set tx (k:string) (v:string) = Lwt.return ()
-end
 
 let update_max tx po = 
   let _k = "max" in
@@ -24,4 +20,4 @@ let update_max tx po =
   Lwt.return (Some ms)
 
 
-let () = Registry.register "update_max" update_max
+let () = Userdb.Registry.register "update_max" update_max
