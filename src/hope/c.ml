@@ -130,10 +130,6 @@ module ProtocolHandler (S:Core.STORE) = struct
       
   let _safe_get = S.get 
     
-  let _get store k = 
-    _safe_get store k >>= function
-      | None -> Lwt.fail (Common.XException(Arakoon_exc.E_NOT_FOUND, k))
-      | Some v -> Lwt.return v 
 
   let _get_key_count store = S.get_key_count store
 
@@ -300,9 +296,12 @@ module ProtocolHandler (S:Core.STORE) = struct
           Lwtc.log "GET %b %S" allow_dirty key >>= fun () ->
           let do_get () =
             let t0 = Unix.gettimeofday() in
-            _get store key >>= fun value ->
-            Statistics.new_get stats key value t0;
-            output_ok_string value
+            _safe_get store key >>= fun vo ->
+            match vo with
+              | None -> _output_simple_error oc Arakoon_exc.E_NOT_FOUND key
+              | Some v ->  
+                Statistics.new_get stats key v t0;
+                output_ok_string v
           in
           only_if_master allow_dirty do_get
         end 
@@ -349,11 +348,17 @@ module ProtocolHandler (S:Core.STORE) = struct
           let keys = Pack.input_list rest Pack.input_string in
           let do_multi_get () = 
             let t0 = Unix.gettimeofday() in
-            Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
-            Statistics.new_multiget stats t0;
-            Llio.output_int oc 0>>= fun () ->
-            Llio.output_list Llio.output_string oc values >>= fun () ->
-            Lwt.return false
+            let rec loop acc = function
+              | [] -> 
+                Statistics.new_multiget stats t0;
+                output_ok_string_list (List.rev acc)
+              | k :: ks ->
+                _safe_get store k >>= fun vo ->
+                match vo with
+                  | None -> _output_simple_error oc Arakoon_exc.E_NOT_FOUND k
+                  | Some v -> loop (v :: acc) ks
+            in
+            loop [] keys 
           in
           only_if_master allow_dirty do_multi_get
         end
