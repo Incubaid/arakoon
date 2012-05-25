@@ -156,21 +156,21 @@ module ProtocolHandler (S:Core.STORE) = struct
   let _get_meta store = S.get_meta store 
     
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
-    
+
+  let _close_write oc output =
+    let buf = Pack.close_output output in
+    Lwtc.log "BUFFER=%S" buf >>= fun () ->
+    Lwt_io.write oc buf >>= fun () ->
+    Lwt.return false    
+
+  let _output_simple_error oc rc msg = 
+    let size = String.length msg + 3 in
+    let out = Pack.make_output size in
+    Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+    Pack.string_to out msg;
+    _close_write oc out
+
   let one_command me (stats:Statistics.t) driver store ((ic,oc) as conn) =
-    let close_write output =
-      let buf = Pack.close_output output in
-      Lwtc.log "BUFFER=%S" buf >>= fun () ->
-      Lwt_io.write oc buf >>= fun () ->
-      Lwt.return false
-    in
-    let output_simple_error rc msg = 
-      let size = String.length msg + 3 in
-      let out = Pack.make_output size in
-      Pack.vint_to out (Arakoon_exc.int_of_rc rc);
-      Pack.string_to out msg;
-      close_write out
-    in
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
       Lwt.catch
@@ -227,39 +227,39 @@ module ProtocolHandler (S:Core.STORE) = struct
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.string_option_to out so;
-      close_write out
+      _close_write oc out
     in
     let output_ok_unit () = 
       let size = 64 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
-      close_write out
+      _close_write oc out
     in
     let output_ok_bool b =
       let out = Pack.make_output 1 in
       Pack.bool_to out b;
-      close_write out
+      _close_write oc out
     in
     let output_ok_int i = 
       let size = 4 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.vint_to out i;
-      close_write out
+      _close_write oc out
     in
     let output_ok_string s = 
       let size = String.length s + 2 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.string_to out s;
-      close_write out
+      _close_write oc out
     in
     let output_ok_list e_to l =
       let size = 1024 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.list_to out e_to l;
-      close_write out
+      _close_write oc out
     in
     let output_ok_string_list s = output_ok_list Pack.string_to s in
     let output_ok_kv_list s = 
@@ -268,6 +268,12 @@ module ProtocolHandler (S:Core.STORE) = struct
         Pack.string_to out v
       in
       output_ok_list e_to s
+    in
+    let unit_or_f a = 
+      match a with 
+        | Core.UNIT -> output_ok_unit ()
+        | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
+        | Core.VALUE_OPTION vo -> failwith "Expected unit, not value"
     in
     match comm with
       | Common.WHO_MASTER ->
@@ -305,9 +311,9 @@ module ProtocolHandler (S:Core.STORE) = struct
         Lwtc.log "DELETE %S" key >>= fun () ->
         let do_delete () =
           let t0 = Unix.gettimeofday() in
-          _delete driver key >>= fun () ->
+          DRIVER.push_cli_req driver (Core.DELETE key) >>= fun a ->
           Statistics.new_delete stats t0;
-          output_ok_unit ()
+          unit_or_f a
         in 
         do_write_op do_delete
           
@@ -374,7 +380,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           _safe_get store key >>= fun m_val ->
           if m_val <> req_val 
           then
-            output_simple_error Arakoon_exc.E_ASSERTION_FAILED key
+            _output_simple_error oc Arakoon_exc.E_ASSERTION_FAILED key
           else 
             output_ok_unit ()
         in

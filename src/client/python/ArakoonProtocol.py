@@ -282,7 +282,6 @@ class PInput:
         self._off = 0
 
     def input_vint(self):
-        print "input_vint"
         index = self._off
         go_on = True
         v = 0
@@ -292,15 +291,12 @@ class PInput:
             cv = ord(c)
             last = cv & 0x7f
             v = (v << 7) | last
-            print "v=", v
             if cv < 128:
                 go_on = False
-        print "v,index",v,index
         self._off = index
         return v
 
     def input_string(self):
-        print "inpunt_string"
         size = self.input_vint()
         next = self._off + size
         s = self._rest[self._off:next]
@@ -308,7 +304,6 @@ class PInput:
         return s
 
     def input_string_option(self):
-        print "input_string_option"
         c = self._rest[self._off]
         self._off = self._off + 1
         if c == '1':
@@ -754,10 +749,9 @@ class ArakoonProtocol :
 
     @staticmethod
     def decodeInt64Result( con ) :
-        ArakoonProtocol._evaluateErrorCode( con )
-        return _recvInt64( con )
-
-
+        input = ArakoonProtocol.readAnswer(con)
+        v = input.input_vint()
+        return v
 
     @staticmethod
     def decodeBoolResult( con ):
