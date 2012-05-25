@@ -20,6 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Baardskeerder
+
 module Routing = struct
 
   type range_direction =
@@ -37,7 +39,7 @@ module Routing = struct
     | Cluster a -> Printf.sprintf "{%s}" a
     | Branch (left,b,right) ->
       Printf.sprintf "%s,%s,%s"
-	(to_s left) b (to_s right)
+        (to_s left) b (to_s right)
 
 
   let rec build (sss, last) =
@@ -51,13 +53,13 @@ module Routing = struct
   match sss with
     | [] -> Cluster last
     | sss -> let left,right = split sss in
-	     let cn,sep = List.hd right in
-	     let right' = List.tl right in
-	     let lr  = left, cn in
-	     let rr  = right', last in
-	     let lt = build lr in
-	     let rt = build rr in
-	     Branch (lt, sep, rt)
+       let cn,sep = List.hd right in
+       let right' = List.tl right in
+       let lr  = left, cn in
+       let rr  = right', last in
+       let lt = build lr in
+       let rt = build rr in
+       Branch (lt, sep, rt)
 
   let contains t cid =
     let rec _walk = function
@@ -195,13 +197,13 @@ module Routing = struct
   let routing_to buf cfg =
     let rec walk = function
       | Cluster x ->
-	Llio.bool_to buf true;
-	Llio.string_to buf x
+        Pack.bool_to buf true;
+        Pack.string_to buf x
       | Branch(left,sep,right) ->
-	Llio.bool_to buf false;
-	Llio.string_to buf sep;
-	walk left;
-	walk right
+        Pack.bool_to buf false;
+        Pack.string_to buf sep;
+        walk left;
+        walk right
     in
     walk cfg
 
@@ -209,19 +211,19 @@ module Routing = struct
     let rec _build pos =
       let typ,p1 = Llio.bool_from buf pos in
       let r,p = if typ
-	then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
-	else let sep,p2 = Llio.string_from buf p1 in
-	     let left,p3 = _build p2 in
-	     let right,p4 = _build p3 in
-	     Branch(left,sep,right),p4
+        then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
+        else let sep,p2 = Llio.string_from buf p1 in
+             let left,p3 = _build p2 in
+             let right,p4 = _build p3 in
+             Branch(left,sep,right),p4
       in r,p
     in
     _build pos
-
+   
   let output_routing oc routing =
-    let buf = Buffer.create 97 in
+    let buf = Pack.make_output 97 in
     let () = routing_to buf routing in
-    let s = Buffer.contents buf in
+    let s = Pack.close_output buf in
     Llio.output_string oc s
 
   open Lwt
@@ -235,9 +237,9 @@ module Routing = struct
     let rec go = function
       | Cluster x -> x
       | Branch (left, sep, right) ->
-	if key < sep
-	then go left
-	else go right
+        if key < sep
+        then go left
+        else go right
     in go cfg
 
 
@@ -288,14 +290,14 @@ module Routing = struct
     let rec go ok = function
       | Cluster x -> x
       | Branch (left, sep, right) ->
-	if ok then
-	  if key < sep
-	  then go ok left
-	  else go ok right
-	else
-	  if key > sep
-	  then go true right
-	  else go ok left
+        if ok then
+          if key < sep
+          then go ok left
+          else go ok right
+        else
+          if key > sep
+          then go true right
+          else go ok left
     in go false cfg
 
   let get_diff t left sep right =

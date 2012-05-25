@@ -21,16 +21,18 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 open Lwt
 
+open Baardskeerder
+
 module ClientCfg = struct
   type sa = string * int
   type t = (string, sa) Hashtbl.t
   let cfg_to buf (t:t) = 
     let entry2 buf k (ip,p) = 
-      Llio.string_to buf k;
-      Llio.string_to buf ip;
-      Llio.int_to buf p
+      Pack.string_to buf k;
+      Pack.string_to buf ip;
+      Pack.vint_to buf p
     in
-    Llio.hashtbl_to buf entry2 t
+    Pack.hashtbl_to buf entry2 t
 
   let cfg_from buf pos = 
     let entry_from buf pos = 

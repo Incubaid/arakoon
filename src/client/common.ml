@@ -22,7 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Interval
-open Update
 open Routing
 open Client_cfg
 open Ncfg
@@ -296,8 +295,6 @@ let get_fringe (ic,oc) boundary direction =
   *)
 
 let set_interval(ic,oc) iv =
-  failwith "todo"
-  (*
   Client_log.debug "set_interval" >>= fun () ->
   let outgoing buf =
     command_to buf SET_INTERVAL;
@@ -305,7 +302,7 @@ let set_interval(ic,oc) iv =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "set_interval request sent" >>= fun () ->
-  response ic nothing*)
+  response ic nothing
 
 let get_interval (ic,oc) =
   Client_log.debug "get_interval" >>= fun () ->
@@ -326,10 +323,7 @@ let get_routing (ic,oc) =
 let set_routing (ic,oc) r =
   let outgoing out =
     command_to out SET_ROUTING;
-    let b' = Buffer.create 100 in
-    Routing.routing_to b' r;
-    let str = Buffer.contents b' in
-    Pack.string_to out str
+    Routing.routing_to out r;
   in
   request  oc outgoing >>= fun  () ->
   response ic nothing
@@ -351,15 +345,14 @@ let set_routing_delta (ic,oc) left sep right =
 let _build_sequence_request output changes =
   let update_buf = Buffer.create (32 * List.length changes) in
   let rec c2u = function
-    | Arakoon_client.Set (k,v) -> Update.Set(k,v)
-    | Arakoon_client.Delete k -> Update.Delete k
-    | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
-    | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
-    | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
+    | Arakoon_client.Set (k,v) -> Core.SET(k,v)
+    | Arakoon_client.Delete k -> Core.DELETE k
+    | Arakoon_client.Sequence cs -> Core.SEQUENCE (List.map c2u cs)
+    | Arakoon_client.Assert(k,vo) -> Core.ASSERT (k,vo)
   in
   let updates = List.map c2u changes in
-  let seq = Update.Sequence updates in
-  let () = Update.to_buffer update_buf seq in
+  let seq = Core.SEQUENCE updates in
+  let () = Core.update_to update_buf seq in
   let () = Pack.string_to output (Buffer.contents update_buf)
   in ()
 

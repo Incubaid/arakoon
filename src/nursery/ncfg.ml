@@ -22,18 +22,19 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Routing
 open Client_cfg
+open Baardskeerder
 
 module NCFG = struct
   type t = {mutable r: Routing.t;
 	    cfgs : (string, ClientCfg.t) Hashtbl.t}
 
-  let ncfg_to buf (r,cs) = 
+  let ncfg_to (buf:Pack.output) (r,cs) = 
     Routing.routing_to buf r;
     let e2 buf k v = 
-      Llio.string_to buf k;
+      Pack.string_to buf k;
       ClientCfg.cfg_to buf v
     in
-    Llio.hashtbl_to buf e2 cs
+    Pack.hashtbl_to buf e2 cs
 
   let ncfg_from buf pos = 
     let r,p1 = Routing.routing_from buf pos in

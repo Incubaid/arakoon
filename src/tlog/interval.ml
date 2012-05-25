@@ -20,6 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Baardskeerder
+
 module Interval = struct
   type t = (string option * string option) * (string option * string option)
 
@@ -48,7 +50,7 @@ module Interval = struct
 
   let interval_to buf t=
     let (pu_b,pu_e),(pr_b,pr_e) = t in
-    let so2 buf x= Llio.string_option_to buf x in
+    let so2 buf x= Pack.string_option_to buf x in
     so2 buf pu_b;
     so2 buf pu_e;
     so2 buf pr_b;
