@@ -302,7 +302,7 @@ let get_fringe (ic,oc) boundary direction =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
-  response ic Llio.input_kv_list
+  response_old ic Llio.input_kv_list
  
 
 let set_interval(ic,oc) iv =
@@ -313,7 +313,7 @@ let set_interval(ic,oc) iv =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "set_interval request sent" >>= fun () ->
-  response ic nothing
+  response_old ic nothing
 
 let get_interval (ic,oc) =
   Client_log.debug "get_interval" >>= fun () ->
@@ -374,7 +374,7 @@ let migrate_range (ic,oc) interval changes =
     _build_sequence_request out changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response ic nothing 
+  response_old ic nothing 
 
 
 let _sequence (ic,oc) changes cmd = 
