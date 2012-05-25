@@ -316,7 +316,12 @@ class PInput:
         elif c == '0':
             return None
         else:
-            raise 
+            raise
+
+    def input_string_list(self):
+        n = self.input_vint()
+        r = [self.input_string() for i in xrange(n)]
+        return r
     
 def _packString( toPack):
     toPackLength = len(toPack)
@@ -729,7 +734,11 @@ class ArakoonProtocol :
         s = input.input_string()
         return s
     
-
+    @staticmethod
+    def decodeStringListResult( con ):
+        input = ArakoonProtocol.readAnswer(con)
+        r = input.input_string_list()
+        return r
 
     @staticmethod
     def decodeInt64Result( con ) :
@@ -744,17 +753,7 @@ class ArakoonProtocol :
         return _recvBool( con )
 
 
-    @staticmethod
-    def decodeStringListResult( con ):
 
-        ArakoonProtocol._evaluateErrorCode( con )
-        retVal = []
-
-        arraySize = _recvInt( con )
-
-        for i in range( arraySize ) :
-            retVal[:0] = [ _recvString( con ) ]
-        return retVal
 
     @staticmethod
     def decodeNurseryCfgResult( con ):

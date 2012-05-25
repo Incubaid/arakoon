@@ -94,10 +94,6 @@ module ProtocolHandler (S:Core.STORE) = struct
     let max = Pack.input_option Pack.input_vint input in
     (allow_dirty, first, finc, last, linc, max)
     
-  let send_string_option oc so =
-    Llio.output_int oc 0 >>= fun () ->
-    Llio.output_string_option oc so 
-      
   let __do_unit_update driver q =
     DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
@@ -162,6 +158,19 @@ module ProtocolHandler (S:Core.STORE) = struct
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
     
   let one_command me (stats:Statistics.t) driver store ((ic,oc) as conn) =
+    let close_write output =
+      let buf = Pack.close_output output in
+      Lwtc.log "BUFFER=%S" buf >>= fun () ->
+      Lwt_io.write oc buf >>= fun () ->
+      Lwt.return false
+    in
+    let output_simple_error rc msg = 
+      let size = String.length msg + 3 in
+      let out = Pack.make_output size in
+      Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+      Pack.string_to out msg;
+      close_write out
+    in
     let only_if_master allow_dirty f =
       am_i_master store me >>= fun me_master ->
       Lwt.catch
@@ -215,41 +224,37 @@ module ProtocolHandler (S:Core.STORE) = struct
       assert (vs < 8 * 1024 * 1024);
       Pack.input_raw input vs
     in
-    let write_it buf =
-      Lwtc.log "BUFFER=%S" buf >>= fun () ->
-      Lwt_io.write oc buf >>= fun () ->
-      Lwt.return false
-    in
     let output_ok_string_option so = 
       let size = 64 (* TODO: better guess *) in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.string_option_to out so;
-      let buf = Pack.close_output out in
-      write_it buf
+      close_write out
     in
     let output_ok_unit () = 
       let size = 64 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
-      let buf = Pack.close_output out in
-      write_it buf
+      close_write out
+    in
+    let output_ok_bool b =
+      let out = Pack.make_output 1 in
+      Pack.bool_to out b;
+      close_write out
     in
     let output_ok_string s = 
       let size = String.length s + 2 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.string_to out s;
-      let buf = Pack.close_output out in
-      write_it buf
+      close_write out
     in
-    let output_error rc msg = 
-      let size = String.length msg + 3 in
+    let output_ok_string_list s = 
+      let size = 1024 in
       let out = Pack.make_output size in
-      Pack.vint_to out (Arakoon_exc.int_of_rc rc);
-      Pack.string_to out msg;
-      let buf = Pack.close_output out in
-      write_it buf
+      Pack.vint_to out 0;
+      Pack.list_to out Pack.string_to s;
+      close_write out
     in
     match comm with
       | Common.WHO_MASTER ->
@@ -329,7 +334,6 @@ module ProtocolHandler (S:Core.STORE) = struct
             Statistics.new_multiget stats t0;
             Llio.output_int oc 0>>= fun () ->
             Llio.output_list Llio.output_string oc values >>= fun () ->
-
             Lwt.return false
           in
           only_if_master allow_dirty do_multi_get
@@ -343,15 +347,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         let key = Pack.input_string rest in
         let do_exists () =
           _safe_get store key >>= fun m_val ->
-          Llio.output_int oc 0 >>= fun () ->
-          let r = 
-            match m_val with
-              | None -> false
-              | Some _ -> true 
-          in
-          Llio.output_bool oc r
-          >>= fun () ->
-          Lwt.return false
+          output_ok_bool (m_val <> None)
         in
         only_if_master allow_dirty do_exists
       | Common.ASSERT ->
@@ -365,7 +361,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           _safe_get store key >>= fun m_val ->
           if m_val <> req_val 
           then
-            output_error Arakoon_exc.E_ASSERTION_FAILED key
+            output_simple_error Arakoon_exc.E_ASSERTION_FAILED key
           else 
             output_ok_unit ()
         in
@@ -379,10 +375,8 @@ module ProtocolHandler (S:Core.STORE) = struct
             begin 
               _safe_get store key >>= fun v ->
               if v <> Some value 
-              then
-                _set driver key value 
-              else 
-                Lwt.return () 
+              then _set driver key value 
+              else Lwt.return () 
             end
             >>= fun () -> 
             Client_protocol.response_ok_unit oc
@@ -412,8 +406,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             end
           end >>= fun () ->
           Statistics.new_testandset stats t0;
-          send_string_option oc m_val >>= fun () ->
-          Lwt.return false
+          output_ok_string_option m_val 
         in
         do_write_op do_test_and_set 
       | Common.PREFIX_KEYS ->
@@ -428,9 +421,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         let do_prefix_keys () =
           _prefix_keys store key max >>= fun keys ->
           Lwtc.log "PREFIX_KEYS: result: [%s]" (String.concat ";" keys) >>= fun () ->
-          Llio.output_int oc 0 >>= fun () ->
-          Llio.output_list Llio.output_string oc (List.rev keys) >>= fun () ->
-          Lwt.return false
+          output_ok_string_list keys
         in
         only_if_master allow_dirty do_prefix_keys
       | Common.PING ->
