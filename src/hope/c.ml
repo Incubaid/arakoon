@@ -240,6 +240,13 @@ module ProtocolHandler (S:Core.STORE) = struct
       Pack.bool_to out b;
       close_write out
     in
+    let output_ok_int i = 
+      let size = 4 in
+      let out = Pack.make_output size in
+      Pack.vint_to out 0;
+      Pack.vint_to out i;
+      close_write out
+    in
     let output_ok_string s = 
       let size = String.length s + 2 in
       let out = Pack.make_output size in
@@ -474,12 +481,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.GET_KEY_COUNT ->
         begin
           Lwtc.log "GET_KEY_COUNT" >>= fun () ->
-          Lwt.catch
-            (fun () -> _get_key_count store >>= fun kc ->
-              let kc64 = Int64.of_int kc in
-              Client_protocol.response_ok_int64 oc kc64
-            )
-            (Client_protocol.handle_exception oc)
+          _get_key_count store >>= fun kc ->
+          output_ok_int kc
         end
       | Common.EXPECT_PROGRESS_POSSIBLE ->
         begin
@@ -487,9 +490,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           _get_meta store >>= fun ms ->
           let mo = extract_master_info ms in
           let r = mo <> None in
-          Llio.output_int32 oc 0l >>= fun () ->
-          Llio.output_bool oc r >>= fun () ->
-          Lwt.return false
+          output_ok_bool r
         end
       | Common.USER_FUNCTION ->
         begin
