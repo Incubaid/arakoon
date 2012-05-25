@@ -110,7 +110,7 @@ module type STORE = sig
   type t
   
   type tx_result =
-  | TX_SUCCESS
+  | TX_SUCCESS of v option
   | TX_NOT_FOUND of k
   | TX_ASSERT_FAIL of k
 

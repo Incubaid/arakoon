@@ -122,7 +122,7 @@ module ADispatcher (S:STORE) = struct
         in
         match res with 
           
-          | S.TX_SUCCESS ->
+          | S.TX_SUCCESS (x: v option) -> (* TODO: put x in state and return upward after consensus *)
             if s.master_id = Some s.constants.me 
             then
               begin

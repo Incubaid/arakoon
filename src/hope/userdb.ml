@@ -6,12 +6,14 @@ module UserDB = (struct
   type tx = BS.tx
   let set tx k v = 
     Lwtc.log "UserDB.set %S %S" k v>>= fun () ->
-    BS.set tx k v >>= fun () ->
+    let k' = pref_key k in
+    BS.set tx k' v >>= fun () ->
     Lwt.return ()
 
   let get tx k = 
     Lwtc.log "UserDB.get %S" k >>= fun () ->
-    BS.get tx k 
+    let k' = pref_key k in
+    BS.get tx k'
     
 end : sig
   type tx = BS.tx

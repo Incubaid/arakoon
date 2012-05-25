@@ -63,7 +63,7 @@ let sync ip port cluster_id (log : BStore.t) =
         let d = true in
         BStore.log  log d u 
       )
-      BStore.TX_SUCCESS
+      (BStore.TX_SUCCESS None)
     >>= fun () ->
     Lwt.return ()
   end

@@ -19,12 +19,12 @@ module BStore = (struct
            }
 
   type tx_result =
-  | TX_SUCCESS
+  | TX_SUCCESS of v option
   | TX_NOT_FOUND of k
   | TX_ASSERT_FAIL of k
 
   type seq_result = 
-  | SEQ_SUCCESS
+  | SEQ_SUCCESS of v option
   | SEQ_ASSERT_FAIL of k
 
   let init fn = 
@@ -61,23 +61,24 @@ module BStore = (struct
   let log t d u =
     let _exec tx =
       begin 
+        let ok_none  = (OK (SEQ_SUCCESS None)) in
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) ->
             Lwtc.log "set: %s" k >>= fun () -> 
-            BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
+            BS.set tx (pref_key k) v >>= fun () -> Lwt.return ok_none
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
               BS.delete tx (pref_key k) >>= function
                 | NOK k -> Lwt.return (NOK (unpref_key k))
-                | a -> Lwt.return (OK SEQ_SUCCESS)
+                | a -> Lwt.return ok_none
             end
           | Core.ADMIN_SET (k, m_v) -> 
             begin
               let k' = pref_key ~_pf:__admin_prefix k in
               match m_v with
-              | None -> BS.delete tx k' >>= fun _ -> Lwt.return (OK SEQ_SUCCESS)
-              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK SEQ_SUCCESS)
+              | None -> BS.delete tx k' >>= fun _ -> Lwt.return ok_none
+              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return ok_none
             end
           | Core.ASSERT (k, m_v) -> 
             begin
@@ -86,11 +87,11 @@ module BStore = (struct
                 | OK v' -> 
                   if m_v <> (Some v') 
                   then SEQ_ASSERT_FAIL k
-                  else SEQ_SUCCESS
+                  else (SEQ_SUCCESS None)
                 | NOK k -> 
                   if m_v <> None 
                   then SEQ_ASSERT_FAIL k
-                  else SEQ_SUCCESS
+                  else (SEQ_SUCCESS None)
               in
               Lwt.return (OK txr)
             end
@@ -98,11 +99,11 @@ module BStore = (struct
             Lwt_list.fold_left_s 
             (fun a u ->
               match a with
-                | OK SEQ_SUCCESS -> _inner tx u
+                | OK (SEQ_SUCCESS None) -> _inner tx u
                 | NOK k -> Lwt.return (NOK k) 
                 | a -> Lwt.return a
             )
-            (OK SEQ_SUCCESS)
+            ok_none
               s 
           | Core.USER_FUNCTION (name, po) ->
             let f = Userdb.Registry.lookup name in
@@ -115,7 +116,7 @@ module BStore = (struct
       (fun () -> 
         BS.log_update t.store ~diff:d _exec >>= fun r ->
         let rr = match r with
-          | OK SEQ_SUCCESS -> TX_SUCCESS
+          | OK SEQ_SUCCESS x-> (TX_SUCCESS x)
           | OK (SEQ_ASSERT_FAIL k) -> (TX_ASSERT_FAIL k)
           | NOK k -> (TX_NOT_FOUND k)
         in
