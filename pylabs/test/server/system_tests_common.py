@@ -587,7 +587,7 @@ def setup_nursery_n (n, home_dir):
     time.sleep(5.0)
     nmgmt = NurseryManagement.NurseryManagement()
     n = nmgmt.getNursery( CONFIG.nursery_keeper_id )
-    n.initialize( nursery_keeper_id )
+    n.initialize( CONFIG.nursery_keeper_id )
     
     logging.info("Setup complete")
         

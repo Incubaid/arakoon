@@ -37,9 +37,10 @@ class NurseryManagement:
 
     @staticmethod
     def getConfigLocation(clusterId):
-        cfg = X.getConfig( "arakoonclusters" )
+        fn = '%s/%s' % (X.cfgDir, 'arakoonclusters')
+        cfg = X.getConfig( fn )
         if cfg.has_section( clusterId ):
-            return "%s/%s.cfg" % (cfg[ clusterId ]["path"], clusterId)
+            return "%s/%s.cfg" % (cfg.get( clusterId, "path"), clusterId)
         else:
             raise RuntimeError("Unknown nursery cluster '%s'" % clusterId)
            
@@ -67,7 +68,7 @@ class NurseryManager:
         @rtype:                 void
         """
         cmd = self.__getBaseCmd()
-        cmd += "--nursery-migrate %s %s %s " % (leftClusterId, separator, rightClusterId)
+        cmd += ["--nursery-migrate", leftClusterId, separator, rightClusterId]
         cmd += self.__getConfigCmdline()
         self.__runCmd ( cmd )
     
@@ -83,7 +84,7 @@ class NurseryManager:
         @rtype void
         """
         cmd = self.__getBaseCmd()
-        cmd += "--nursery-init %s " % firstClusterId
+        cmd += ["--nursery-init", firstClusterId]
         cmd += self.__getConfigCmdline()
         self.__runCmd ( cmd )
     
@@ -109,14 +110,16 @@ class NurseryManager:
         self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
-        (exit, stdout, stderr) = q.system.process.run( commandline = cmd, stopOnError=False)
-        if exit :
-            raise RuntimeError( stderr )
+        X.subprocess.check_output( cmd )
+        
         
     def __getConfigCmdline(self):
-        return "-config %s " % self._keeperCfg
+        return ["-config", self._keeperCfg]
         
     def __getBaseCmd(self):
-        return ARAKOON_BINARY
-
-    
+        path = '%s/arakoon/bin/arakoon' % (X.appDir)
+        if X.fileExists(path):
+            return [path]
+        else:
+            return ["arakoon"]
+        
