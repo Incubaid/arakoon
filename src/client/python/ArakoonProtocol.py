@@ -741,6 +741,18 @@ class ArakoonProtocol :
         return r
 
     @staticmethod
+    def decodeStringPairListResult(con):
+        input = ArakoonProtocol.readAnswer(con)
+        size = input.input_vint()
+        r = []
+        for i in xrange(size):
+            k = input.input_string()
+            v = input.input_string()
+            p = (k,v)
+            r.append(p)
+        return r
+
+    @staticmethod
     def decodeInt64Result( con ) :
         ArakoonProtocol._evaluateErrorCode( con )
         return _recvInt64( con )
@@ -778,20 +790,6 @@ class ArakoonProtocol :
             resultCfgs[clusterId] = cliCfg
         return (routing, resultCfgs)      
         
-
-    @staticmethod
-    def decodeStringPairListResult(con):
-        ArakoonProtocol._evaluateErrorCode(con)
-        result = []
-
-        size = _recvInt( con )
-
-        for i in range(size):
-            k = _recvString ( con )
-            v = _recvString ( con )
-            result [:0] = [(k, v)]
-
-        return result
 
     @staticmethod
     def decodeStatistics(con):
