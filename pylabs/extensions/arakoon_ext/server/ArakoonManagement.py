@@ -54,8 +54,9 @@ class ArakoonManagement:
         """
         Returns a list with the existing clusters.
         """
-        config = q.config.getInifile("arakoonclusters")
-        return config.getSections()
+        fn = '%s/%s' % (X.cfgDir, 'arakoonclusters')
+        config = X.getConfig (fn)
+        return config.sections()
 
     def start(self):
         """
