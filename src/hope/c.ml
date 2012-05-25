@@ -243,6 +243,14 @@ module ProtocolHandler (S:Core.STORE) = struct
       let buf = Pack.close_output out in
       write_it buf
     in
+    let output_error rc msg = 
+      let size = String.length msg + 3 in
+      let out = Pack.make_output size in
+      Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+      Pack.string_to out msg;
+      let buf = Pack.close_output out in
+      write_it buf
+    in
     match comm with
       | Common.WHO_MASTER ->
         Lwtc.log "who master" >>= fun () -> 
@@ -357,10 +365,9 @@ module ProtocolHandler (S:Core.STORE) = struct
           _safe_get store key >>= fun m_val ->
           if m_val <> req_val 
           then
-            Lwt.fail (Common.XException(Arakoon_exc.E_ASSERTION_FAILED, key))
+            output_error Arakoon_exc.E_ASSERTION_FAILED key
           else 
-            Llio.output_int oc 0 >>= fun () ->
-          Lwt.return false
+            output_ok_unit ()
         in
         only_if_master allow_dirty do_assert
         
