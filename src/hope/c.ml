@@ -213,9 +213,7 @@ module ProtocolHandler (S:Core.STORE) = struct
       only_if_master allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
-          Llio.output_int oc 0 >>= fun () ->
-          output oc (List.rev l) >>= fun () ->
-          Lwt.return false
+          output l
         )
     in 
     my_read_command conn >>= fun (comm, rest) ->
@@ -249,12 +247,20 @@ module ProtocolHandler (S:Core.STORE) = struct
       Pack.string_to out s;
       close_write out
     in
-    let output_ok_string_list s = 
+    let output_ok_list e_to l =
       let size = 1024 in
       let out = Pack.make_output size in
       Pack.vint_to out 0;
-      Pack.list_to out Pack.string_to s;
+      Pack.list_to out e_to l;
       close_write out
+    in
+    let output_ok_string_list s = output_ok_list Pack.string_to s in
+    let output_ok_kv_list s = 
+      let e_to out (k,v) = 
+        Pack.string_to out k;
+        Pack.string_to out v
+      in
+      output_ok_list e_to s
     in
     match comm with
       | Common.WHO_MASTER ->
@@ -339,9 +345,9 @@ module ProtocolHandler (S:Core.STORE) = struct
           only_if_master allow_dirty do_multi_get
         end
         
-      | Common.RANGE ->             _do_range rest S.range (Llio.output_list Llio.output_string)
-      | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries Llio.output_kv_list 
-      | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries Llio.output_kv_list 
+      | Common.RANGE ->             _do_range rest S.range output_ok_string_list
+      | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries output_ok_kv_list
+      | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries output_ok_kv_list
       | Common.EXISTS ->
         let allow_dirty  = Pack.input_bool rest in
         let key = Pack.input_string rest in
