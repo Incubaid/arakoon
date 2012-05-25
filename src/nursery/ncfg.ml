@@ -27,7 +27,7 @@ open Baardskeerder
 module NCFG = struct
   type t = {mutable r: Routing.t;
 	    cfgs : (string, ClientCfg.t) Hashtbl.t}
-
+      
   let ncfg_to (buf:Pack.output) (r,cs) = 
     Routing.routing_to buf r;
     let e2 buf k v = 
@@ -36,15 +36,15 @@ module NCFG = struct
     in
     Pack.hashtbl_to buf e2 cs
 
-  let ncfg_from buf pos = 
-    let r,p1 = Routing.routing_from buf pos in
-    let ef (buf:string) pos = 
-      let k,p2 = Llio.string_from buf pos in
-      let v,p3 = ClientCfg.cfg_from buf p2 in
-      (k,v),p3
+  let ncfg_from (buf:Pack.input) = 
+    let r = Routing.routing_from buf in
+    let ef buf = 
+      let k = Pack.input_string buf in
+      let v = ClientCfg.cfg_from buf  in
+      (k,v)
     in
-    let cfgs,p2 = Llio.hashtbl_from buf ef p1 in
-    {r;cfgs},p2
+    let cfgs = Pack.hashtbl_from buf ef in
+    {r;cfgs}
 
   
   let make r = {r; cfgs = Hashtbl.create 17}

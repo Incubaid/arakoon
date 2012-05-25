@@ -34,15 +34,15 @@ module ClientCfg = struct
     in
     Pack.hashtbl_to buf entry2 t
 
-  let cfg_from buf pos = 
-    let entry_from buf pos = 
-      let k,p1 = Llio.string_from buf pos in
-      let ip,p2 = Llio.string_from buf p1 in
-      let p,p3 = Llio.int_from buf p2 in
+  let cfg_from (buf: Pack.input) = 
+    let entry_from buf = 
+      let k = Pack.input_string buf  in
+      let ip = Pack.input_string buf in
+      let p = Pack.input_vint buf in
       let (sa:sa) = ip,p in
-      (k,sa),p3
+      (k,sa)
     in
-    Llio.hashtbl_from buf entry_from pos
+    Pack.hashtbl_from buf entry_from 
  
   let to_string t = 
     let buffer = Buffer.create 127 in

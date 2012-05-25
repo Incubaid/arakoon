@@ -1,6 +1,8 @@
 open Lwt
 open Modules
 open Statistics
+open Routing
+open Interval
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -178,10 +180,9 @@ module ProtocolHandler (S:Core.STORE) = struct
         else only_if_master false f 
       ) (Client_protocol.handle_exception oc)
     in
-    let do_admin_set key rest =
-      let ser = Pack.input_string rest in
+    let do_admin_set key value =
       let do_inner () =
-        _admin_set driver key (Some ser) >>= fun () ->
+        _admin_set driver key (Some value) >>= fun () ->
         Client_protocol.response_ok_unit oc
       in
       do_write_op do_inner
@@ -287,7 +288,7 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.MULTI_GET ->
         begin
           let allow_dirty = Pack.input_bool rest in
-          let keys = Pack.input_list Pack.input_string rest in
+          let keys = Pack.input_list rest Pack.input_string in
           let do_multi_get () = 
             let t0 = Unix.gettimeofday() in
             Lwt_list.map_s (fun k -> _get store k ) keys >>= fun values ->
@@ -406,8 +407,18 @@ module ProtocolHandler (S:Core.STORE) = struct
         let msg = Printf.sprintf "Arakoon %S" Version.git_info in
         Llio.output_string oc msg >>= fun () ->
         Lwt.return false
-      | Common.SET_ROUTING -> do_admin_set __routing_key rest
-      | Common.SET_INTERVAL -> do_admin_set __interval_key rest
+      | Common.SET_ROUTING -> 
+        let r = Routing.routing_from rest in
+        let o = Pack.make_output 16 in
+        Routing.routing_to o r;
+        let v = Pack.close_output o in
+        do_admin_set __routing_key v
+      | Common.SET_INTERVAL -> 
+        let i = Interval.interval_from rest in
+        let o = Pack.make_output 16 in
+        Interval.interval_to o i;
+        let v = Pack.close_output o in
+        do_admin_set __interval_key v
       | Common.GET_INTERVAL -> do_admin_get __interval_key 
       | Common.GET_ROUTING -> do_admin_get __routing_key 
       | Common.STATISTICS -> 

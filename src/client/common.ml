@@ -255,11 +255,9 @@ let get_nursery_cfg_to b =
   command_to b GET_NURSERY_CFG
 
 let set_nursery_cfg_to b cluster_id client_cfg =
-  failwith "todo"
-  (*
   command_to b SET_NURSERY_CFG;
   Pack.string_to b cluster_id;
-  ClientCfg.cfg_to b client_cfg *)
+  ClientCfg.cfg_to b client_cfg 
 
 let prologue cluster (_,oc) =
   Llio.output_int32  oc _MAGIC >>= fun () ->
@@ -280,19 +278,17 @@ let get (ic,oc) ~allow_dirty key =
   response ic Llio.input_string
 
 let get_fringe (ic,oc) boundary direction =
-  failwith "todo"
-  (*
   let outgoing buf =
     command_to buf GET_FRINGE;
-    Llio.string_option_to buf boundary;
+    Pack.string_option_to buf boundary;
     match direction with
-      | Routing.UPPER_BOUND -> Llio.int_to buf 0
-      | Routing.LOWER_BOUND -> Llio.int_to buf 1
+      | Routing.UPPER_BOUND -> Pack.vint_to buf 0
+      | Routing.LOWER_BOUND -> Pack.vint_to buf 1
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
   response ic Llio.input_kv_list
-  *)
+ 
 
 let set_interval(ic,oc) iv =
   Client_log.debug "set_interval" >>= fun () ->
@@ -357,15 +353,13 @@ let _build_sequence_request output changes =
   in ()
 
 let migrate_range (ic,oc) interval changes =
-  failwith "todo"
-  (*
   let outgoing out =
     command_to out MIGRATE_RANGE;
-    Interval.interval_to buf interval;
-    _build_sequence_request buf changes
+    Interval.interval_to out interval;
+    _build_sequence_request out changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response ic nothing *)
+  response ic nothing 
 
 
 let _sequence (ic,oc) changes cmd = 
@@ -383,8 +377,9 @@ let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
 
 let get_nursery_cfg (ic,oc) =
   let decode ic =
-    Llio.input_string ic >>= fun buf ->
-    let cfg, pos = NCFG.ncfg_from buf 0 in
+    Llio.input_string ic >>= fun s ->
+    let input = Pack.make_input s 0 in
+    let cfg = NCFG.ncfg_from input in
     Lwt.return cfg
   in
   request oc get_nursery_cfg_to >>= fun () ->

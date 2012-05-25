@@ -207,18 +207,21 @@ module Routing = struct
     in
     walk cfg
 
-  let routing_from buf pos =
-    let rec _build pos =
-      let typ,p1 = Llio.bool_from buf pos in
-      let r,p = if typ
-        then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
-        else let sep,p2 = Llio.string_from buf p1 in
-             let left,p3 = _build p2 in
-             let right,p4 = _build p3 in
-             Branch(left,sep,right),p4
-      in r,p
+  let routing_from (buf: Pack.input) =
+    let rec _build ()  =
+      let typ = Pack.input_bool buf in
+      let r = if typ
+        then 
+          let s = Pack.input_string buf in 
+          Cluster s
+        else 
+          let sep = Pack.input_string buf in
+          let left = _build () in
+          let right = _build () in
+          Branch(left,sep,right)
+      in r
     in
-    _build pos
+    _build ()
    
   let output_routing oc routing =
     let buf = Pack.make_output 97 in
@@ -230,7 +233,8 @@ module Routing = struct
 
   let input_routing ic =
     Llio.input_string ic >>= fun s ->
-    let r,_ = routing_from s 0 in
+    let inp = Pack.make_input s 0 in
+    let r = routing_from inp in
     Lwt.return r
 
   let find cfg key =
