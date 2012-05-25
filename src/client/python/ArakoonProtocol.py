@@ -686,12 +686,12 @@ class ArakoonProtocol :
 
 
     @staticmethod
-    def _evaluateErrorCode( errorCode ):
-        print "_evaluateErrorCode", errorCode
+    def _evaluateErrorCode(input ):
+        errorCode = input.input_vint ()
         if errorCode == ARA_ERR_SUCCESS :
             return
         else :
-            errorMsg = _recvString ( con )
+            errorMsg = input.input_string()
 
         if errorCode == ARA_ERR_NOT_FOUND:
             raise ArakoonNotFound(errorMsg)
@@ -709,8 +709,7 @@ class ArakoonProtocol :
     @staticmethod
     def readAnswer(con):
         input = PInput(con)
-        errorCode= input.input_vint()
-        ArakoonProtocol._evaluateErrorCode(errorCode)
+        ArakoonProtocol._evaluateErrorCode(input)
         return input
         
     @staticmethod
@@ -727,10 +726,10 @@ class ArakoonProtocol :
     @staticmethod
     def decodeStringResult ( con ):
         input = ArakoonProtocol.readAnswer(con)
-        print "so_far ok"
         s = input.input_string()
         return s
     
+
 
     @staticmethod
     def decodeInt64Result( con ) :
@@ -743,9 +742,6 @@ class ArakoonProtocol :
     def decodeBoolResult( con ):
         ArakoonProtocol._evaluateErrorCode( con )
         return _recvBool( con )
-
-
-
 
 
     @staticmethod
