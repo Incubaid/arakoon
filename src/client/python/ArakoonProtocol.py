@@ -31,6 +31,7 @@ import struct
 import logging
 import select
 import cStringIO
+import binascii
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -175,7 +176,7 @@ def dump(src, length=8):
         s, src = src[:length], src[length:]
         hexa = ' '.join(["%02X"%ord(x) for x in s])
         s = s.translate(FILTER)
-        result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
+        result += "%04X:  %-*s   %s\n" % (N, length*3, hexa, s)
         N += length
     return result
 
@@ -274,6 +275,49 @@ def _vpackInt(toPack):
     v = r.getvalue()
     return v
 
+class PInput:
+    def __init__(self, con):
+        size = _recvSize(con)
+        self._rest = _readExactNBytes(con, size)
+        self._off = 0
+
+    def input_vint(self):
+        print "input_vint"
+        index = self._off
+        go_on = True
+        v = 0
+        while go_on:
+            c = self._rest[index]
+            index = index + 1
+            cv = ord(c)
+            last = cv & 0x7f
+            v = (v << 7) | last
+            print "v=", v
+            if cv < 128:
+                go_on = False
+        print "v,index",v,index
+        self._off = index
+        return v
+
+    def input_string(self):
+        print "inpunt_string"
+        size = self.input_vint()
+        next = self._off + size
+        s = self._rest[self._off:next]
+        self._off = next
+        return s
+
+    def input_string_option(self):
+        print "input_string_option"
+        c = self._rest[self._off]
+        self._off = self._off + 1
+        if c == '1':
+            return self.input_string()
+        elif c == '0':
+            return None
+        else:
+            raise 
+    
 def _packString( toPack):
     toPackLength = len(toPack)
     return struct.pack("I%ds" % ( toPackLength), toPackLength, toPack )
@@ -423,7 +467,7 @@ def _unpackNamedField(buf, offset):
     
     raise ArakoonException("Cannot decode named field %s. Invalid type: %d" % (name,type) )
 
-def _recvInt ( con ):
+def _recvSize ( con ):
     buf = _readExactNBytes ( con, ARA_TYPE_INT_SIZE )
     i,o2 = _unpackInt(buf,0)
     return i
@@ -462,7 +506,7 @@ def _recvStringOption ( con ):
 
 def _encodeRange(bKey,bInc,eKey,eInc, maxEntries, allowDirty):
     assert (maxEntries >= 0)
-    retVal = _vpackBool(allowDirty)
+    retVal  = _vpackBool(allowDirty)
     retVal += _vpackStringOption( bKey ) + _vpackBool ( bInc )
     retVal += _vpackStringOption( eKey ) + _vpackBool (eInc) + _vpackIntOption (maxEntries)
     return  retVal        
@@ -639,12 +683,11 @@ class ArakoonProtocol :
     def close(msgBuffer):
         total = _packInt(len(msgBuffer)) + msgBuffer
         return total
-    
-    @staticmethod
-    def _evaluateErrorCode( con ):
 
-        errorCode = _recvInt ( con )
-        # """ ArakoonException( "Received invalid response from the server" )"""
+
+    @staticmethod
+    def _evaluateErrorCode( errorCode ):
+        print "_evaluateErrorCode", errorCode
         if errorCode == ARA_ERR_SUCCESS :
             return
         else :
@@ -664,28 +707,46 @@ class ArakoonProtocol :
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 
     @staticmethod
+    def readAnswer(con):
+        input = PInput(con)
+        errorCode= input.input_vint()
+        ArakoonProtocol._evaluateErrorCode(errorCode)
+        return input
+        
+    @staticmethod
+    def decodeStringOptionResult ( con ):
+        input = ArakoonProtocol.readAnswer(con)
+        so = input.input_string_option()
+        return so
+
+    @staticmethod
+    def decodeVoidResult( con ):
+        input = ArakoonProtocol.readAnswer(con)
+        return
+
+    @staticmethod
+    def decodeStringResult ( con ):
+        input = ArakoonProtocol.readAnswer(con)
+        print "so_far ok"
+        s = input.input_string()
+        return s
+    
+
+    @staticmethod
     def decodeInt64Result( con ) :
         ArakoonProtocol._evaluateErrorCode( con )
         return _recvInt64( con )
 
-    @staticmethod
-    def decodeVoidResult( con ):
-        ArakoonProtocol._evaluateErrorCode( con )
+
 
     @staticmethod
     def decodeBoolResult( con ):
         ArakoonProtocol._evaluateErrorCode( con )
         return _recvBool( con )
 
-    @staticmethod
-    def decodeStringResult ( con ):
-        ArakoonProtocol._evaluateErrorCode( con )
-        return _recvString( con )
 
-    @staticmethod
-    def decodeStringOptionResult ( con ):
-        ArakoonProtocol._evaluateErrorCode( con )
-        return _recvStringOption( con )
+
+
 
     @staticmethod
     def decodeStringListResult( con ):

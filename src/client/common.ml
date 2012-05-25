@@ -121,6 +121,7 @@ let command_to output command =
   Pack.size_to output masked_i
 
 let nothing = fun ic -> Lwt.return ()
+let input_nothing = fun pack -> ()
 
 let value_array ic =
   Llio.input_int ic >>= fun size ->
@@ -158,15 +159,29 @@ let request oc f =
   Lwt_io.write oc s >>= fun () ->
   Lwt_io.flush oc
 
-let response ic f =
-  Llio.input_int32 ic >>= function
-    | 0l -> Client_log.debug "Client operation succeeded" >>= fun () -> f ic
-    | rc32 ->
-      Client_log.debug_f "Client operation failed: %ld" rc32 >>= fun () ->
-      Llio.input_string ic >>= fun msg ->
-      let rc = Arakoon_exc.rc_of_int32 rc32 in
+let response_limited ic (f) =
+  Llio.input_int ic >>= fun size ->
+  let buffer = String.create size in
+  Lwt_io.read_into_exactly ic buffer 0 size >>= fun () ->
+  let pack = Pack.make_input buffer 0 in
+  let rc = Pack.input_vint pack in
+  match rc with
+    | 0   -> Client_log.debug "Client operation succeeded"       >>= fun () -> 
+      let a = f pack in Lwt.return a
+    | rc  -> Client_log.debug_f "Client operation failed: %d" rc >>= fun () ->
+      let msg = Pack.input_string pack in
+      let rc = Arakoon_exc.rc_of_int rc in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
+let response_old ic f =
+  Llio.input_int ic >>= function
+    | 0 -> (Client_log.debug "Client operation succeeded" >>= fun () -> f ic)
+    | rc ->
+      Client_log.debug_f "Client operation failed: %x" rc >>= fun () ->
+      Llio.input_string ic >>= fun msg ->
+      let rc = Arakoon_exc.rc_of_int rc in
+      Lwt.fail (Arakoon_exc.Exception (rc, msg))
+            
 let exists_to out ~allow_dirty key =
   command_to out EXISTS;
   Pack.bool_to out allow_dirty;
@@ -267,15 +282,15 @@ let prologue cluster (_,oc) =
 
 let who_master (ic,oc) =
   request  oc (fun buf -> who_master_to buf) >>= fun () ->
-  response ic Llio.input_string_option
+  response_limited ic Pack.input_string_option
 
 let set (ic,oc) key value =
   request  oc (fun buf -> set_to buf key value) >>= fun () ->
-  response ic nothing
+  response_limited ic (fun _ -> ())
 
 let get (ic,oc) ~allow_dirty key =
   request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
-  response ic Llio.input_string
+  response_limited ic Pack.input_string
 
 let get_fringe (ic,oc) boundary direction =
   let outgoing buf =
@@ -307,13 +322,13 @@ let get_interval (ic,oc) =
   in
   request oc outgoing >>= fun () ->
   Client_log.debug "get_interval request sent" >>= fun () ->
-  response ic Interval.input_interval
+  response_old ic Interval.input_interval
 
 let get_routing (ic,oc) =
   let outgoing buf = command_to buf GET_ROUTING
   in
     request  oc outgoing >>= fun () ->
-    response ic Routing.input_routing
+    response_old ic Routing.input_routing
 
 
 let set_routing (ic,oc) r =
@@ -322,7 +337,7 @@ let set_routing (ic,oc) r =
     Routing.routing_to out r;
   in
   request  oc outgoing >>= fun  () ->
-  response ic nothing
+  response_old ic nothing
  
 
 let set_routing_delta (ic,oc) left sep right =
@@ -335,7 +350,7 @@ let set_routing_delta (ic,oc) left sep right =
   Client_log.debug "Changing routing" >>= fun () ->
   request oc outgoing >>= fun () ->
   Client_log.debug "set_routing_delta sent" >>= fun () ->
-  response ic nothing
+  response_old ic nothing
 
 
 let _build_sequence_request output changes =
@@ -368,7 +383,7 @@ let _sequence (ic,oc) changes cmd =
     _build_sequence_request buf changes
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response ic nothing
+  response_limited ic input_nothing
 
 let sequence conn changes = _sequence conn changes SEQUENCE
 
@@ -383,13 +398,13 @@ let get_nursery_cfg (ic,oc) =
     Lwt.return cfg
   in
   request oc get_nursery_cfg_to >>= fun () ->
-  response ic decode
+  response_old ic decode
 
 let set_nursery_cfg (ic,oc) clusterid cfg =
   let outgoing buf =
      set_nursery_cfg_to buf clusterid cfg
   in
   request oc outgoing >>= fun () ->
-  response ic nothing
+  response_old ic nothing
 
 exception XException of Arakoon_exc.rc * string

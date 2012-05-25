@@ -12,9 +12,9 @@ type rc =
   | E_OUTSIDE_INTERVAL
   | E_UNKNOWN_FAILURE
 
-val int32_of_rc : rc -> int32
+val int_of_rc : rc -> int
 
-val rc_of_int32: int32 -> rc
+val rc_of_int: int -> rc
 
 exception Exception of rc * string
 

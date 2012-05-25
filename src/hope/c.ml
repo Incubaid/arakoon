@@ -215,14 +215,40 @@ module ProtocolHandler (S:Core.STORE) = struct
       assert (vs < 8 * 1024 * 1024);
       Pack.input_raw input vs
     in
+    let write_it buf =
+      Lwtc.log "BUFFER=%S" buf >>= fun () ->
+      Lwt_io.write oc buf >>= fun () ->
+      Lwt.return false
+    in
+    let output_ok_string_option so = 
+      let size = 64 (* TODO: better guess *) in
+      let out = Pack.make_output size in
+      Pack.vint_to out 0;
+      Pack.string_option_to out so;
+      let buf = Pack.close_output out in
+      write_it buf
+    in
+    let output_ok_unit () = 
+      let size = 64 in
+      let out = Pack.make_output size in
+      Pack.vint_to out 0;
+      let buf = Pack.close_output out in
+      write_it buf
+    in
+    let output_ok_string s = 
+      let size = String.length s + 2 in
+      let out = Pack.make_output size in
+      Pack.vint_to out 0;
+      Pack.string_to out s;
+      let buf = Pack.close_output out in
+      write_it buf
+    in
     match comm with
       | Common.WHO_MASTER ->
         Lwtc.log "who master" >>= fun () -> 
         _get_meta store >>= fun ms ->
         let mo = extract_master_info ms in
-        Llio.output_int32 oc 0l >>= fun () ->
-        Llio.output_string_option oc mo >>= fun () ->
-        Lwt.return false
+        output_ok_string_option mo
       | Common.SET -> 
         begin
           let key = Pack.input_string rest in
@@ -231,7 +257,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             let t0 = Unix.gettimeofday() in
             _set driver key value >>= fun () ->
             Statistics.new_set stats key value t0;
-            Client_protocol.response_ok_unit oc
+            output_ok_unit ()
           in 
           do_write_op do_set
         end
@@ -244,7 +270,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             let t0 = Unix.gettimeofday() in
             _get store key >>= fun value ->
             Statistics.new_get stats key value t0;
-            Client_protocol.response_rc_string oc 0l value
+            output_ok_string value
           in
           only_if_master allow_dirty do_get
         end 
@@ -255,7 +281,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           let t0 = Unix.gettimeofday() in
           _delete driver key >>= fun () ->
           Statistics.new_delete stats t0;
-          Client_protocol.response_ok_unit oc
+          output_ok_unit ()
         in 
         do_write_op do_delete
           
@@ -282,7 +308,7 @@ module ProtocolHandler (S:Core.STORE) = struct
             in
             _sequence driver sequence >>= fun () ->
             Statistics.new_sequence stats t0;
-            Client_protocol.response_ok_unit oc
+            output_ok_unit ()
           in do_write_op do_sequence 
         end
       | Common.MULTI_GET ->
@@ -403,10 +429,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.PING ->
         let client_id = Pack.input_string rest in
         let cluster_id = Pack.input_string rest in
-        Llio.output_int oc 0 >>= fun () ->
         let msg = Printf.sprintf "Arakoon %S" Version.git_info in
-        Llio.output_string oc msg >>= fun () ->
-        Lwt.return false
+        output_ok_string msg
       | Common.SET_ROUTING -> 
         let r = Routing.routing_from rest in
         let o = Pack.make_output 16 in

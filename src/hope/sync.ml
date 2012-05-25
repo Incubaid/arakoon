@@ -40,7 +40,7 @@ let remote_iterate (sa:Unix.sockaddr) cluster_id (i0:int64)
     (fun (ic,oc) ->
       Common.prologue cluster_id  (ic,oc) >>= fun () ->
       Common.request oc outgoing >>= fun () ->
-      Common.response ic incoming
+      Common.response_old ic incoming
     )
 
 let sync ip port cluster_id (log : BStore.t) =
