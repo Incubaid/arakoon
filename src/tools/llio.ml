@@ -25,19 +25,7 @@ open Lwt
 type lwtoc = Lwt_io.output_channel
 type lwtic = Lwt_io.input_channel
 
-type namedValue =
-  | NAMED_INT of string * int
-  | NAMED_INT64 of string * int64
-  | NAMED_FLOAT of string * float
-  | NAMED_STRING of string * string
-  | NAMED_VALUELIST of string * (namedValue list)
 
-let named_value_info = function
-  | NAMED_INT       (n, i) -> n, 1
-  | NAMED_INT64     (n, i) -> n, 2
-  | NAMED_FLOAT     (n, f) -> n, 3
-  | NAMED_STRING    (n, s) -> n, 4
-  | NAMED_VALUELIST (n, l) -> n, 5
 
 let lwt_failfmt fmt =
   let k x = Lwt.fail (Failure x) in
@@ -313,55 +301,6 @@ let copy_stream ~length ~ic ~oc =
   loop n_bs >>= fun () ->
   Client_log.debug "done: copy_stream"
 
-let rec named_field_to (buffer: Buffer.t) (field: namedValue) : unit =
-  let field_name, field_type = named_value_info field in
-  int_to buffer field_type;
-  string_to buffer field_name;
-  match field with
-  | NAMED_INT (_, i) ->
-    int_to buffer i
-  | NAMED_FLOAT (_, f) ->
-    float_to buffer f
-  | NAMED_INT64 (_, i) ->
-    int64_to buffer i
-  | NAMED_STRING (_, s) ->
-    string_to buffer s
-  | NAMED_VALUELIST (_, l) ->
-    int_to buffer (List.length l);
-    let encode_entry = named_field_to buffer in
-    List.iter encode_entry l
-
-let rec named_field_from buffer offset: (namedValue*int) =
-  let field_type, offset = int_from buffer offset in
-  let field_name, offset = string_from buffer offset in
-  begin
-    match field_type with
-      | 1 ->
-        let i, offset = int_from buffer offset in
-        NAMED_INT(field_name, i), offset
-      | 2 ->
-        let i64, offset = int64_from buffer offset in
-        NAMED_INT64(field_name, i64), offset
-      | 3 ->
-        let f, offset = float_from buffer offset in
-        NAMED_FLOAT(field_name, f), offset
-      | 4 ->
-        let s, offset = string_from buffer offset in
-        NAMED_STRING(field_name, s), offset
-      | 5 ->
-        begin
-          let rec decode_loop decoded offset= function
-            | 0 -> (List.rev decoded), offset
-            | i ->
-              let new_elem, offset = named_field_from buffer offset in
-              decode_loop (new_elem :: decoded) offset (i-1)
-          in
-          let length, offset = int_from buffer offset in
-          let decoded, offset = decode_loop [] offset length in
-          NAMED_VALUELIST(field_name, decoded), offset
-        end
-      | _ -> failwith "Unknown value type. Cannot decode."
-  end
 
 let input_hashtbl fk fv ic =
   input_int ic >>= fun elem_cnt ->

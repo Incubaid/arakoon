@@ -24,13 +24,6 @@ type lwtoc = Lwt_io.output_channel
 type lwtic = Lwt_io.input_channel
 
 
-type namedValue =
-  | NAMED_INT of string * int
-  | NAMED_INT64 of string * int64
-  | NAMED_FLOAT of string * float
-  | NAMED_STRING of string * string
-  | NAMED_VALUELIST of string * (namedValue list)
-
 val lwt_failfmt :  ('a, unit, string, 'b Lwt.t) format4 -> 'a
 
 val bool_to  : Buffer.t -> bool   -> unit
@@ -41,7 +34,6 @@ val float_to : Buffer.t -> float  -> unit
 val string_to: Buffer.t -> string -> unit
 val option_to: (Buffer.t -> 'a -> unit) -> Buffer.t -> 'a option -> unit
 val string_option_to: Buffer.t -> string option -> unit
-val named_field_to: Buffer.t -> namedValue -> unit
 
 val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) -> 
   ('a, 'b) Hashtbl.t -> unit
@@ -54,7 +46,6 @@ val float_from: string -> int -> float * int
 val string_from: string -> int -> string * int
 val option_from: (string -> int -> 'a * int) -> string -> int -> 'a option * int
 val string_option_from: string -> int -> string option * int
-val named_field_from: string -> int -> namedValue * int
 
 val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int -> 
   ('a, 'b) Hashtbl.t * int

@@ -92,11 +92,7 @@ object(self: #Arakoon_client.client)
 
   method statistics () =
     request oc (fun buf -> command_to buf STATISTICS) >>= fun () ->
-    response_old ic
-      (fun ic -> Llio.input_string ic >>= fun ss ->
-	    let s,_  = Statistics.from_buffer ss 0 in
-	    Lwt.return s
-      )
+    response_limited ic Statistics.input_statistics
 
   method ping client_id cluster_id =
     request  oc (fun buf -> ping_to buf client_id cluster_id) >>= fun () ->

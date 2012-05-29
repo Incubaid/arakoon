@@ -265,6 +265,12 @@ module ProtocolHandler (S:Core.STORE) = struct
       in
       output_ok_list e_to s
     in
+    let output_ok_statistics s = 
+      let out = Pack.make_output 128 in
+      Pack.vint_to out 0;
+      Statistics.statistics_to out s;
+      _close_write oc out
+    in
     let unit_or_f a = 
       match a with 
         | Core.UNIT -> output_ok_unit ()
@@ -468,17 +474,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       | Common.GET_INTERVAL -> do_admin_get __interval_key 
       | Common.GET_ROUTING -> do_admin_get __routing_key 
       | Common.STATISTICS -> 
-        Lwt.catch 
-          (fun () ->
-            Lwtc.log "STATISTICS" >>= fun () ->
-            let b = Buffer.create 100 in
-            Statistics.to_buffer b stats;
-            let bs = Buffer.contents b in
-            Llio.output_int oc 0 >>= fun () ->
-            Llio.output_string oc bs >>= fun () ->
-            Lwt.return false) 
-          ( Client_protocol.handle_exception oc)
-
+        Lwtc.log "STATISTICS" >>= fun () ->
+        output_ok_statistics stats
       | Common.GET_DB ->
         begin
           Lwtc.log "GET_DB" >>= fun () ->

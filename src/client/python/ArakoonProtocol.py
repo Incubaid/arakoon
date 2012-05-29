@@ -296,6 +296,12 @@ class PInput:
         self._off = index
         return v
 
+    def input_float(self):
+        i = self.input_vint()
+        ib = struct.pack("q", i)
+        f = struct.unpack_from("d", ib, 0)
+        return f
+    
     def input_string(self):
         size = self.input_vint()
         next = self._off + size
@@ -317,6 +323,34 @@ class PInput:
         n = self.input_vint()
         r = [self.input_string() for i in xrange(n)]
         return r
+
+
+    def input_named_field(self):
+        type = self.input_vint()
+        name = self.input_string()
+        result = dict()
+        
+        if type == NAMED_FIELD_TYPE_INT:
+            result[name] = self.input_vint()
+        elif type == NAMED_FIELD_TYPE_INT64:
+            result[name] = self.input_vint64()
+        elif type == NAMED_FIELD_TYPE_FLOAT:
+            result[name] = self.input_float()
+        elif type == NAMED_FIELD_TYPE_STRING:
+            result[name] = self.input_string()
+        elif type == NAMED_FIELD_TYPE_LIST:
+            length = self.input_vint()
+            localDict = dict()
+            for i in xrange(length):
+                field = self.input_named_field()
+                localDict.update( field )
+                result[name] = localDict
+        return result
+    
+    def input_statistics(self):
+        r = self.input_named_field()
+        stats = r['arakoon_stats']
+        return stats
     
 def _packString( toPack):
     toPackLength = len(toPack)
@@ -439,31 +473,7 @@ def _unpackStringList(buf, offset):
         retVal.append(x)
     return retVal
 
-def _unpackNamedField(buf, offset):
-    type, offset = _unpackInt(buf, offset)
-    name, offset = _unpackString(buf, offset)
-    result = dict()
-    
-    if type == NAMED_FIELD_TYPE_INT:
-        result[name], offset = _unpackInt(buf,offset)
-        return result, offset
-    if type == NAMED_FIELD_TYPE_INT64:
-        result[name], offset = _unpackInt64(buf,offset)
-        return result, offset
-    if type == NAMED_FIELD_TYPE_FLOAT:
-        result[name], offset = _unpackFloat(buf,offset)
-        return result, offset
-    if type == NAMED_FIELD_TYPE_STRING:
-        result[name], offset = _unpackString(buf,offset)
-        return result, offset
-    if type == NAMED_FIELD_TYPE_LIST:
-        length, offset = _unpackInt(buf,offset)
-        localDict = dict()
-        for i in range(length):
-            field, offset = _unpackNamedField(buf, offset)
-            localDict.update( field )
-        result[name] = localDict
-        return result, offset
+
     
     raise ArakoonException("Cannot decode named field %s. Invalid type: %d" % (name,type) )
 
@@ -787,11 +797,9 @@ class ArakoonProtocol :
 
     @staticmethod
     def decodeStatistics(con):
-        ArakoonProtocol._evaluateErrorCode(con)
-        
-        buffer = _recvString(con)
-        result, offset = _unpackNamedField(buffer,0)
-        return result['arakoon_stats']
+        input = ArakoonProtocol.readAnswer(con)
+        r = input.input_statistics()
+        return r
 
     @staticmethod
     def encodeGetKeyCount () :

@@ -20,6 +20,49 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Baardskeerder
+type namedValue =
+  | NAMED_INT of string * int
+  | NAMED_INT64 of string * int64
+  | NAMED_FLOAT of string * float
+  | NAMED_STRING of string * string
+  | NAMED_VALUELIST of string * (namedValue list)
+
+let named_value_info = function
+  | NAMED_INT       (n, i) -> n, 1
+  | NAMED_INT64     (n, i) -> n, 2
+  | NAMED_FLOAT     (n, f) -> n, 3
+  | NAMED_STRING    (n, s) -> n, 4
+  | NAMED_VALUELIST (n, l) -> n, 5
+
+let rec named_field_to (o:Pack.output) (field: namedValue) : unit =
+  let field_name, field_type = named_value_info field in
+  Pack.vint_to o field_type;
+  Pack.string_to o field_name;
+  match field with
+  | NAMED_INT (_, i)       -> Pack.vint_to o i
+  | NAMED_FLOAT (_, f)     -> Pack.float_to o f
+  | NAMED_INT64 (_, i)     -> Pack.vint64_to o i
+  | NAMED_STRING (_, s)    -> Pack.string_to o s
+  | NAMED_VALUELIST (_, l) -> Pack.list_to o named_field_to l
+
+let rec input_named_field (input:Pack.input) =
+  let field_type = Pack.input_vint input in
+  let field_name = Pack.input_string input in
+  begin
+    match field_type with
+      | 1 -> let i= Pack.input_vint input in NAMED_INT(field_name, i)
+      | 2 -> let i64 = Pack.input_vint64 input in NAMED_INT64(field_name, i64)
+      | 3 -> let f= Pack.input_float input in NAMED_FLOAT(field_name, f)
+      | 4 -> let s= Pack.input_string input in NAMED_STRING(field_name, s)
+      | 5 ->
+        let l = Pack.input_list input input_named_field in
+        NAMED_VALUELIST(field_name, l)
+      | _ -> failwith "Unknown value type. Cannot decode."
+  end
+
+
+
 type time_stats ={
     mutable n : int;
     mutable min:float;
@@ -45,25 +88,25 @@ let time_stats_to_string (stats:time_stats) :string =
       (to_str_init_zero stats.avg)
       (to_str_init_zero (sqrt stats.var))
       
-let time_stats_from (buffer:string) (offset:int) : (time_stats * int) =
-  let n,  o1 = Llio.int_from buffer offset in
-  let min,o2 = Llio.float_from buffer o1 in
-  let max,o3 = Llio.float_from buffer o2 in
-  let m2 ,o4 = Llio.float_from buffer o3 in
-  let avg,o5 = Llio.float_from buffer o4 in
-  let var,o6 = Llio.float_from buffer o5 in
-  ( {n;min;max;m2;avg;var;}, o6)  
+let input_time_stats (input:Pack.input) =
+  let n   = Pack.input_vint input in
+  let min = Pack.input_float input in
+  let max = Pack.input_float input in
+  let m2  = Pack.input_float input in
+  let avg = Pack.input_float input in
+  let var = Pack.input_float input in
+  {n;min;max;m2;avg;var;} 
 
-let time_stats_to_value_list (stats:time_stats) (list_name:string) : Llio.namedValue =
+let time_stats_to_value_list (stats:time_stats) (list_name:string) : namedValue =
     let l = [ 
-      Llio.NAMED_INT ("n", stats.n);
-      Llio.NAMED_FLOAT ("min", stats.min);
-      Llio.NAMED_FLOAT ("max", stats.max);
-      Llio.NAMED_FLOAT ("m2", stats.m2);
-      Llio.NAMED_FLOAT ("avg", stats.avg);
-      Llio.NAMED_FLOAT ("var", stats.var)
+      NAMED_INT ("n", stats.n);
+      NAMED_FLOAT ("min", stats.min);
+      NAMED_FLOAT ("max", stats.max);
+      NAMED_FLOAT ("m2", stats.m2);
+      NAMED_FLOAT ("avg", stats.avg);
+      NAMED_FLOAT ("var", stats.var)
     ] in
-    Llio.NAMED_VALUELIST (list_name, l) 
+    NAMED_VALUELIST (list_name, l) 
     
 let create_time_stats () = {
     n = 0;
@@ -195,19 +238,19 @@ module Statistics = struct
     then Hashtbl.find t.node_is name
     else Sn.of_int (-1000)
       
-  let to_buffer b t =
+  let statistics_to (output:Pack.output) t =
     
     let node_is = 
       Hashtbl.fold
-        (fun n i l -> (Llio.NAMED_INT64 (n, i)) :: l )  
+        (fun n i l -> (NAMED_INT64 (n, i)) :: l )  
         t.node_is [] 
     in
     
     let value_list = [
-      Llio.NAMED_FLOAT ("start", t.start);
-      Llio.NAMED_FLOAT ("last", t.last);
-      Llio.NAMED_FLOAT ("avg_get_size", t.avg_set_size);
-      Llio.NAMED_FLOAT ("avg_set_size", t.avg_get_size);
+      NAMED_FLOAT ("start", t.start);
+      NAMED_FLOAT ("last", t.last);
+      NAMED_FLOAT ("avg_get_size", t.avg_set_size);
+      NAMED_FLOAT ("avg_set_size", t.avg_get_size);
       time_stats_to_value_list t.set_time_stats "set_info";
       time_stats_to_value_list t.get_time_stats "get_info";
       time_stats_to_value_list t.del_time_stats "del_info";
@@ -215,58 +258,56 @@ module Statistics = struct
       time_stats_to_value_list t.mget_time_stats "mget_info";
       time_stats_to_value_list t.tas_time_stats "tas_info";
       time_stats_to_value_list t.op_time_stats "op_info";
-      Llio.NAMED_VALUELIST ("node_is", node_is);
+      NAMED_VALUELIST ("node_is", node_is);
     ] in
     
-    Llio.named_field_to b (Llio.NAMED_VALUELIST ("arakoon_stats", value_list))
+    named_field_to output (NAMED_VALUELIST ("arakoon_stats", value_list))
     
       
-  let from_buffer buffer pos =
-    let n_value_list,pos = Llio.named_field_from buffer pos in
-    
-    let extract_next (l :Llio.namedValue list) : (Llio.namedValue * Llio.namedValue list) = 
+  let input_statistics input =
+    let n_value_list = input_named_field input in
+    let extract_next (l :namedValue list) : (namedValue * namedValue list) = 
       match l with 
         | [] -> failwith "Not enough elements in named value list"
         | hd :: tl -> 
           hd, tl
     in
-    
     let extract_list = function
-      | Llio.NAMED_VALUELIST (_,l) -> l 
+      | NAMED_VALUELIST (_,l) -> l 
       | _ -> failwith "Wrong value type (expected list)"
     in
-    let extract_float (value:Llio.namedValue) : float = 
+    let extract_float (value:namedValue) : float = 
       begin 
       match value with
-        | Llio.NAMED_FLOAT (_,f) -> f 
+        | NAMED_FLOAT (_,f) -> f 
         | _ -> failwith "Wrong value type (expected float)"
       end
     in
     let extract_int = function
-      | Llio.NAMED_INT (_,i) -> i 
+      | NAMED_INT (_,i) -> i 
       | _ -> failwith "Wrong value type (expected int)"
     in
-    let extract_time_stats (value:Llio.namedValue) : time_stats = 
+    let extract_time_stats (value:namedValue) : time_stats = 
       begin 
       match value with
-	| Llio.NAMED_VALUELIST (_,l) -> 
-          let v, l = extract_next l in
-          let n    = extract_int v in
-          let v, l = extract_next l in
+	| NAMED_VALUELIST (_,l) -> 
+      let v, l = extract_next l in
+      let n    = extract_int v in
+      let v, l = extract_next l in
 	  let min = extract_float v in
-          let v, l = extract_next l in
-          let max = extract_float v in
-          let v,l = extract_next  l in
-          let m2  = extract_float v in
-          let v, l = extract_next l in
-          let avg = extract_float v in
-          let v, l = extract_next l in
-          let var = extract_float v in
+      let v, l = extract_next l in
+      let max = extract_float v in
+      let v,l = extract_next  l in
+      let m2  = extract_float v in
+      let v, l = extract_next l in
+      let avg = extract_float v in
+      let v, l = extract_next l in
+      let var = extract_float v in
 	  {n; min; max; m2; avg; var;} 
 	| _ -> failwith "Wrong value type (expected list)"
       end
     in
-      
+    
     let v_list = extract_list n_value_list in
     let value, v_list = extract_next v_list in
     let start = extract_float value in
@@ -297,7 +338,7 @@ module Statistics = struct
     let node_is = Hashtbl.create 5 in
     let insert_node value =
       match value with
-        | Llio.NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
+        | NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
         | _ -> failwith "Wrong value type (expected int64)."
     in
     List.iter insert_node node_list; 
@@ -315,7 +356,7 @@ module Statistics = struct
       op_time_stats = op_stats;
       node_is = node_is;
     } in
-    t, pos 
+    t
 
   let string_of t =
     let template = 
