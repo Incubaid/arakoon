@@ -378,6 +378,7 @@ def test_download_db():
 def test_statistics():
     cli = C.get_client()
     stat_dict = cli.statistics()
+    X.logging.debug("stat_dict=%s", stat_dict)
     
     required_keys = [
        "start",
@@ -389,7 +390,7 @@ def test_statistics():
        "mget_info",
        "tas_info",
        "op_info",
-       "node_is",
+       #"node_is", ??
     ]
     required_timing_keys = [
         "n",
