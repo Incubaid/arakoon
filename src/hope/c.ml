@@ -155,7 +155,7 @@ module ProtocolHandler (S:Core.STORE) = struct
 
   let _close_write oc output =
     let buf = Pack.close_output output in
-    Lwtc.log "BUFFER=%S" buf >>= fun () ->
+    Lwtc.log "BUFFER(%i)=%S" (String.length buf) buf >>= fun () ->
     Lwt_io.write oc buf >>= fun () ->
     Lwt.return false    
 
@@ -209,6 +209,7 @@ module ProtocolHandler (S:Core.STORE) = struct
       only_if_master allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
+          Lwtc.log "length = %i" (List.length l) >>= fun () ->
           output l
         )
     in 
@@ -371,7 +372,9 @@ module ProtocolHandler (S:Core.STORE) = struct
         
       | Common.RANGE ->             _do_range rest S.range output_ok_string_list
       | Common.REV_RANGE_ENTRIES -> _do_range rest S.rev_range_entries output_ok_kv_list
-      | Common.RANGE_ENTRIES ->     _do_range rest S.range_entries output_ok_kv_list
+      | Common.RANGE_ENTRIES ->     
+        Lwtc.log "RANGE_ENTRIES" >>= fun () ->
+        _do_range rest S.range_entries output_ok_kv_list
       | Common.EXISTS ->
         let allow_dirty  = Pack.input_bool rest in
         let key = Pack.input_string rest in

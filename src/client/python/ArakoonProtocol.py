@@ -285,12 +285,14 @@ class PInput:
         index = self._off
         go_on = True
         v = 0
+        shift = 0
         while go_on:
             c = self._rest[index]
             index = index + 1
             cv = ord(c)
             last = cv & 0x7f
-            v = (v << 7) | last
+            v = v + (last << shift)
+            shift = shift + 7
             if cv < 128:
                 go_on = False
         self._off = index
