@@ -8,17 +8,18 @@ def shell(cmd):
     v2 = v.strip()
     return v2
 
-def get_info(option):
-    return shell(["hg","id",option])
-
-def get_tag():
-    return get_info('-t')
+def get_info():
+    s = shell(["git","describe","--all","--long","--always","--dirty"])
+    return s
 
 def get_version():
-    return get_info('-i')
+    info = get_info()
+    return info
 
 def get_branch():
-    return shell(["hg","branch"])
+    info = get_info()
+    i0 = info.find('/') +1
+    return info[i0:]
 
 def get_license():
     data = None
@@ -30,7 +31,7 @@ description =\
 """Arakoon is a simple distributed key value store.
 This package provides a pure python client for Arakoon.
 
-Mercurial version: %s
+Git info: %s
 """ % (get_version(),)
 
 setup(name='arakoon',

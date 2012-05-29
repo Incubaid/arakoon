@@ -248,7 +248,7 @@ def sequence_scenario( start_suffix ):
         seq.addSet(k, v)
         
     cli.sequence( seq )
-    
+    X.logging.debug("calling range_entries(%s,%s,%s,%s,%i)", start_key, True, end_key, True, 2*iter_size) 
     key_value_list = cli.range_entries( start_key, True, end_key, True , 2*iter_size)
     C.assert_key_value_list(start_suffix, iter_size , key_value_list )
     
@@ -257,7 +257,7 @@ def sequence_scenario( start_suffix ):
         k = CONFIG.key_format_str % (start_suffix + i) 
         seq.addDelete(k)
     cli.sequence( seq )
-    
+
     key_value_list = cli.range_entries( start_key, True, end_key, True, 2*iter_size )
     assert_equal( len(key_value_list), 0, 
                   "Still keys in the store, should have been deleted" )
