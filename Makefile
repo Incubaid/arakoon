@@ -13,30 +13,23 @@ build:
 	ocamlbuild -use-ocamlfind barakoon.native
 
 test:
-	./barakoon.native --run-all-tests
+	./barakoon.native --test
 
 install: install_client install_server
 
 install_server:
 	mkdir -p $(DESTDIR)/usr/bin/
-	cp ./arakoon.native $(DESTDIR)/usr/bin/arakoon
+	cp ./barakoon.native $(DESTDIR)/usr/bin/arakoon
 
 install_client:
 	mkdir -p $(OCAML_LIBDIR)
 	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
-	  _build/src/arakoon_client.cma \
-	  _build/src/arakoon_client.cmxa \
 	  _build/src/client/arakoon_exc.mli \
 	  _build/src/client/arakoon_exc.cmi \
 	  _build/src/client/arakoon_client.mli \
 	  _build/src/client/arakoon_client.cmi \
 	  _build/src/client/arakoon_remote_client.mli \
-	  _build/src/client/arakoon_remote_client.cmi \
-          _build/src/plugins/registry.mli \
-          _build/src/plugins/registry.cmi \
-          _build/src/tools/llio.mli \
-          _build/src/tools/llio.cmi \
-          _build/src/arakoon_client.a 
+	  _build/src/client/arakoon_remote_client.cmi
 
 uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)

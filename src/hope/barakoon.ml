@@ -415,6 +415,9 @@ let only_test test_refs =
   let _ = OUnit.run_test_tt nsuite in 
   ()
 
+let run_tests () = 
+  let _ = OUnit.run_test_tt Test.suite in
+  ()
 
 
 let main () =
@@ -488,6 +491,7 @@ let main () =
       | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
       | LastEntries -> Lwt_main.run  (last_entries !cluster_id !ip !port (Int64.of_string !is))
       | ListTest -> list_test ()
+      | Test     -> run_tests ()
       | OnlyTest -> only_test !test_refs
       | ShowUsage -> Arg.usage actions ""
       | ShowVersion -> show_version()

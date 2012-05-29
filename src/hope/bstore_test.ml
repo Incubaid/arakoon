@@ -28,7 +28,7 @@ let teardown ok (fn,t) =
   
 let t_log () =  
   let test (fn,t) = 
-    let fn = "t_log.bs" in
+    let fn = Filename.temp_file"t_log_" ".bs" in
     BStore.init fn >>= fun () ->
     BStore.create fn false >>= fun t ->
     let u = SET("x","x") in
