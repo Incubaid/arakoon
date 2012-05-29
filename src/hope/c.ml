@@ -337,9 +337,9 @@ module ProtocolHandler (S:Core.STORE) = struct
               | Core.SEQUENCE _ -> probably_sequence
               | _ -> raise (Failure "should be update")
             in
-            _sequence driver sequence >>= fun () ->
+            DRIVER.push_cli_req driver sequence >>= fun a ->
             Statistics.new_sequence stats t0;
-            output_ok_unit ()
+            unit_or_f a
           in do_write_op do_sequence 
         end
       | Common.MULTI_GET ->
