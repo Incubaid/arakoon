@@ -299,9 +299,8 @@ class PInput:
         return v
 
     def input_float(self):
-        i = self.input_vint()
-        ib = struct.pack("q", i)
-        f = struct.unpack_from("d", ib, 0)
+        f = struct.unpack_from("d", self._rest, self._off)
+        self._off = self._off + 8
         return f
     
     def input_string(self):
