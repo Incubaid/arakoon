@@ -89,6 +89,11 @@ type result =
   | FAILURE of Arakoon_exc.rc * string
   | VALUE_OPTION of v option 
 
+let result2s = function
+  | UNIT -> "UNIT"
+  | FAILURE (rc,msg) -> Printf.sprintf "FAILURE(_,%S)" msg
+  | VALUE_OPTION vo -> Printf.sprintf "VALUE_OPTION _"
+
 type tick = TICK of int64
   
 let (<:) (TICK i0) (TICK i1) = i0 < i1
@@ -105,6 +110,8 @@ let prev_tick (TICK i) =
 let add_tick (TICK l) (TICK r) = TICK (Int64.add l r)
 let tick2s (TICK t) = 
   Int64.to_string t
+
+
 
 module type STORE = sig
   type t
