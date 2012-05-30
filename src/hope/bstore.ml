@@ -103,7 +103,13 @@ module BStore = (struct
               s 
           | Core.USER_FUNCTION (name, po) ->
             let f = Userdb.Registry.lookup name in
-            f tx po >>= fun ro -> Lwtc.failfmt "USER_FUNCTION: got so here"
+            f tx po >>= fun ro -> 
+            Lwtc.log "Bstore.returning %s" (Log_extra.string_option_to_string ro) >>= fun () ->
+            let a = match ro with 
+              | None   -> ok_none
+              | Some v -> OK (SEQ_SUCCESS (Some v))
+            in
+            Lwt.return a
 
         in _inner tx u
       end

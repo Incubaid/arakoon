@@ -138,7 +138,11 @@ module ADispatcher (S:STORE) = struct
                       cur_cli_req = None;
                       valid_inputs = ch_all;
                     } in
-                    let to_client = Core.VOID in
+                    let to_client = 
+                      match x with
+                        | None -> VOID
+                        | Some v -> VALUE v
+                    in
                     handle_commit t s' i u cli_req to_client
                   (* Not single node, send out accepts *)
                   | others ->
