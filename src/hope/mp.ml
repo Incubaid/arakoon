@@ -261,8 +261,8 @@ module MULTI = struct
     | A_RESYNC of node_id * tick * tick
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
-    | A_COMMIT_UPDATE of tick * update * Core.result Lwt.u option
-    | A_LOG_UPDATE of tick * update * Core.result Lwt.u option
+    | A_COMMIT_UPDATE of tick * update * request_awakener option
+    | A_LOG_UPDATE    of tick * update * request_awakener option
     | A_START_TIMER of tick * tick * float
     | A_CLIENT_REPLY of client_reply
     | A_STORE_LEASE of node_id option
