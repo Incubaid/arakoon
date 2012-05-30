@@ -774,22 +774,22 @@ class ArakoonProtocol :
 
     @staticmethod
     def decodeNurseryCfgResult( con ):
-        ArakoonProtocol._evaluateErrorCode(con)
+        input = ArakoonProtocol.readAnswer(con)
         
-        offset = 0
-        encoded = _recvString( con )
-        routing, offset = RoutingInfo.unpack(encoded, offset, _unpackBool, _unpackString)
         
-        cfgCount, offset = _unpackInt(encoded, offset)
+        encoded = input.input_string()
+        routing, offset = RoutingInfo.unpack(encoded, 0, _unpackBool, _unpackString)
+        
+        cfgCount = input.input_vint()
         resultCfgs = dict()
         for i in range(cfgCount) :
-            clusterId, offset = _unpackString(encoded, offset)
-            clusterSize, offset = _unpackInt(encoded, offset)
+            clusterId = input.input_string()
+            clusterSize = input.input_vint()
             cfg = dict()
             for j in range(clusterSize):
-                nodeId, offset = _unpackString(encoded, offset)
-                ip, offset = _unpackString(encoded, offset)
-                port, offset = _unpackInt(encoded, offset)
+                nodeId = input.input_string ()
+                ip = input.input_string ()
+                port = input.input_vint()
                 cfg[nodeId] = (ip,port)
             cliCfg = ArakoonClientConfig(clusterId, cfg)
             resultCfgs[clusterId] = cliCfg

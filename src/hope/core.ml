@@ -129,6 +129,7 @@ module type STORE = sig
   val log : t -> bool -> update -> tx_result Lwt.t
   val get : t -> k -> v option Lwt.t
   val admin_get: t -> k -> v option Lwt.t
+  
   val range: t -> string option -> bool -> string option -> bool -> int option 
     -> string list Lwt.t
   val range_entries: t -> string option -> bool -> string option -> bool -> int option 
@@ -136,6 +137,7 @@ module type STORE = sig
   val rev_range_entries: t -> string option -> bool -> string option -> bool -> int option
     -> (string*string) list Lwt.t
 
+  val admin_prefix_keys: t -> string -> k list Lwt.t
   val prefix_keys: t -> string -> int option -> string list Lwt.t
   val is_read_only: t -> bool
 

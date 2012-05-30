@@ -3,17 +3,17 @@ open Modules
 open Statistics
 open Routing
 open Interval
+open Client_cfg
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
 let _VERSION = 2
 
-    
 let __routing_key = "routing"
 let __interval_key = "interval"
-    
+let __nursery_cluster_prefix = "nursery_cluster."
+
 let my_read_command (ic,oc) = 
-  
   let s = 8 in
   let h = String.create s in
   Lwt_io.read_into_exactly ic h 0 s >>= fun () ->
@@ -479,6 +479,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         let o = Pack.make_output 16 in
         Routing.routing_to o r;
         let v = Pack.close_output o in
+        Lwt_log.debug_f "Setting routing key to %S" v >>= fun () -> 
         do_admin_set __routing_key v
       | Common.SET_INTERVAL -> 
         let i = Interval.interval_from rest in
@@ -486,8 +487,12 @@ module ProtocolHandler (S:Core.STORE) = struct
         Interval.interval_to o i;
         let v = Pack.close_output o in
         do_admin_set __interval_key v
-      | Common.GET_INTERVAL -> do_admin_get __interval_key 
-      | Common.GET_ROUTING -> do_admin_get __routing_key 
+      | Common.GET_INTERVAL -> 
+        Lwt_log.debug "GET_INTERVAL" >>= fun () ->
+        do_admin_get __interval_key 
+      | Common.GET_ROUTING -> 
+        Lwt_log.debug "GET_ROUTING" >>= fun () ->
+        do_admin_get __routing_key 
       | Common.STATISTICS -> 
         Lwtc.log "STATISTICS" >>= fun () ->
         output_ok_statistics stats
@@ -514,6 +519,60 @@ module ProtocolHandler (S:Core.STORE) = struct
           let mo = extract_master_info ms in
           let r = mo <> None in
           output_ok_bool r
+        end
+      | Common.SET_NURSERY_CFG ->
+        begin
+          Lwtc.log "SET_NURSERY_CFG" >>= fun () ->
+          let cluster_id = Pack.input_string rest in
+          let cfg = ClientCfg.cfg_from rest in
+          let key = __nursery_cluster_prefix ^ cluster_id in
+          let out = Pack.make_output 16 in
+          ClientCfg.cfg_to out cfg;
+          let value = Pack.close_output out in 
+          do_admin_set key value
+        end
+      | Common.GET_NURSERY_CFG ->
+        begin
+          Lwtc.log "GET_NURSERY_CFG" >>= fun () ->
+          _admin_get store __routing_key >>= fun v ->
+          let input = Pack.make_input v 0 in
+          let rsize = Pack.input_size input in
+          Lwt_log.debug "Decoding routing info" >>= fun () ->
+          let r = Routing.routing_from input in
+          let out = Pack.make_output 32 in
+          Pack.vint_to out 0;
+          Lwt_log.debug "Repacking routing info" >>= fun () ->
+          Routing.routing_to out r;
+          Lwt_log.debug "Fetching nursery clusters" >>= fun () ->
+          S.admin_prefix_keys store __nursery_cluster_prefix >>= fun clu_keys ->
+          let clusters = Hashtbl.create 2 in
+          let key_start = String.length __nursery_cluster_prefix in
+          Lwt_list.iter_s 
+            (fun k -> 
+              Lwt_log.debug_f "Fetch nursery cluster: %s" k >>= fun () ->
+              S.admin_get store k >>= function
+                | None -> failwith "nursery cluster disappeared??"
+                | Some v ->
+                  begin
+                    let tail_size = (String.length k) - key_start in
+                    Lwt_log.debug_f "Sub %s %d %d" k key_start tail_size >>= fun () ->
+                    let clu_id = String.sub k key_start tail_size in
+                    let input = Pack.make_input v 0 in
+                    let input_size = Pack.input_size input in
+                    let cfg = ClientCfg.cfg_from input in
+                    Hashtbl.replace clusters clu_id cfg;
+                    Lwt.return ()
+                  end
+            )
+            clu_keys
+          >>= fun () ->
+          let pack_one out k e =
+            Pack.string_to out k; 
+            ClientCfg.cfg_to out e
+          in
+          Pack.hashtbl_to out pack_one clusters;
+          let s = Pack.close_output out in
+          Lwt_io.write oc s >>= fun () -> Lwt.return false  
         end
       | Common.USER_FUNCTION ->
         begin

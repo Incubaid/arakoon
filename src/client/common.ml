@@ -391,14 +391,8 @@ let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
 
 
 let get_nursery_cfg (ic,oc) =
-  let decode ic =
-    Llio.input_string ic >>= fun s ->
-    let input = Pack.make_input s 0 in
-    let cfg = NCFG.ncfg_from input in
-    Lwt.return cfg
-  in
   request oc get_nursery_cfg_to >>= fun () ->
-  response_old ic decode
+  response_limited ic NCFG.ncfg_from
 
 let set_nursery_cfg (ic,oc) clusterid cfg =
   let outgoing buf =

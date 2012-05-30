@@ -1,14 +1,10 @@
-open Update
+
 open Routing
 open Interval
 open Client_cfg
 open Ncfg
 
 class type nodestream = object
-  method iterate: 
-    Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
-    Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       
   method collapse: int -> unit Lwt.t
 

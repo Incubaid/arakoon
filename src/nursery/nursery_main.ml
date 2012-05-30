@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+
 open Lwt
 open Node_cfg
 open Nursery
@@ -132,18 +133,17 @@ let __delete_from_nursery config cluster_id sep =
   NC.delete nc cluster_id m_sep 
   
 let __main_run log_file f =
-  Lwt_main.run( 
-    Lwt.catch
-      ( fun () ->
-        setup_logger log_file >>= fun () ->
-        f () >>= fun () ->
-        File_system.unlink log_file 
-      )
-      ( fun e -> 
-        let msg = Printexc.to_string e in 
-        Lwt_log.fatal msg >>= fun () ->
-        Lwt.fail e)
-    ) ; 0
+  Lwt.catch
+  ( fun () ->
+    setup_logger log_file >>= fun () ->
+    f () >>= fun () ->
+    File_system.unlink log_file 
+  )
+  ( fun e -> 
+    let msg = Printexc.to_string e in 
+    Lwt_log.fatal msg >>= fun () ->
+    Lwt.fail e)
+  
     
 let migrate_nursery_range config left sep right =
   __main_run "/tmp/nursery_migrate.log" ( fun() -> __migrate_nursery_range config left sep right )

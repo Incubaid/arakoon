@@ -27,7 +27,7 @@ module MemStore = (struct
   let get t k = let v = Hashtbl.find t.store k in Lwt.return (Some v)
   
   let admin_get = get
-    
+  
   let set_meta t s = 
     t.meta <- Some s;
     Lwt.return ()
@@ -41,6 +41,7 @@ module MemStore = (struct
   let range_entries t first finc last linc max = Lwtc.failfmt "todo"
   let rev_range_entries t first finc last linc max = Lwtc.failfmt "todo"
   let prefix_keys t prefix max = Lwtc.failfmt "todo"
+  let admin_prefix_keys t prefix = prefix_keys t prefix None
   
   let last_update t = Lwtc.failfmt "todo"
   
