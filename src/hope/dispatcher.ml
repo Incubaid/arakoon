@@ -74,13 +74,13 @@ module ADispatcher (S:STORE) = struct
     Lwt.ignore_result( alarm() );
     Lwt.return ()
     
-  let handle_commit t s i u m_w =
+  let handle_commit t s i u m_w to_client =
     let () = validate_commit_update i s.accepted in
-    commit_update t i >>= fun res ->
+    commit_update t i >>= fun () ->
     begin
       match m_w with
         | None -> Lwt.return ()
-        | Some w -> safe_wakeup w res
+        | Some w -> safe_wakeup w to_client
     end
     >>= fun () -> 
     let s' = {
@@ -104,7 +104,7 @@ module ADispatcher (S:STORE) = struct
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
       Lwtc.log "Committing update (i:%s)" (tick2s i) >>= fun () ->
-      handle_commit t s i u m_w
+      handle_commit t s i u m_w Core.UNIT
     | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
       Lwtc.log "Logging update (i:%s)" (tick2s i) >>= fun () ->
@@ -138,7 +138,8 @@ module ADispatcher (S:STORE) = struct
                       cur_cli_req = None;
                       valid_inputs = ch_all;
                     } in
-                    handle_commit t s' i u cli_req 
+                    let to_client = Core.UNIT in
+                    handle_commit t s' i u cli_req to_client
                   (* Not single node, send out accepts *)
                   | others ->
                     let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in

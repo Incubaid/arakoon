@@ -50,11 +50,7 @@ module BStore = (struct
     Lwt.return t.meta
     
   let commit t i = 
-    Lwt_mutex.with_lock t.m
-    ( fun() ->
-      BS.commit_last t.store >>= fun () -> 
-      Lwt.return Core.UNIT 
-    )
+    Lwt_mutex.with_lock t.m (fun() -> BS.commit_last t.store)
     
   let close t = BS.close t.store
   

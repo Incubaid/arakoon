@@ -123,7 +123,7 @@ module type STORE = sig
 
   val create : string -> bool -> t Lwt.t
   val init : string -> unit Lwt.t
-  val commit : t -> tick -> result Lwt.t
+  val commit : t -> tick -> unit Lwt.t
   val log : t -> bool -> update -> tx_result Lwt.t
   val get : t -> k -> v option Lwt.t
   val admin_get: t -> k -> v option Lwt.t

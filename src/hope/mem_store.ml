@@ -20,7 +20,7 @@ module MemStore = (struct
   
   let is_read_only t = t.read_only
   
-  let commit t i = Lwt.return Core.UNIT
+  let commit t i = Lwt.return ()
 
   let create n ro = Lwt.return { store = Hashtbl.create 7 ; meta = None ; read_only = ro}
 
