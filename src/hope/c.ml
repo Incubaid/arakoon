@@ -109,13 +109,30 @@ module ProtocolHandler (S:Core.STORE) = struct
     let u = Core.ADMIN_SET(k, m_v) in
     __do_unit_update driver u
   
-  let _user_function driver name po = 
+      
+  let _close_write oc output =
+    let buf = Pack.close_output output in
+    Lwtc.log "BUFFER(%i)=%S" (String.length buf) buf >>= fun () ->
+    Lwt_io.write oc buf >>= fun () ->
+    Lwt.return false    
+
+  let _user_function driver name po oc = 
     let q = Core.USER_FUNCTION(name, po) in
     DRIVER.push_cli_req driver q >>= fun a ->
-     match a with
-       | Core.VOID -> return None
-       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-       | Core.VALUE v -> return (Some v)
+    let out = Pack.make_output 64 in
+    begin
+      match a with
+        | Core.VOID -> 
+          Pack.vint_to out 0;
+          Pack.string_option_to out None
+        | Core.FAILURE (rc, msg) -> 
+          Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+          Pack.string_to out msg
+        | Core.VALUE v -> 
+          Pack.vint_to out 0;
+          Pack.string_option_to out (Some v)
+    end;
+    _close_write oc out
 
   let _admin_get store k = 
     S.admin_get store k >>= function
@@ -153,11 +170,6 @@ module ProtocolHandler (S:Core.STORE) = struct
     
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
 
-  let _close_write oc output =
-    let buf = Pack.close_output output in
-    Lwtc.log "BUFFER(%i)=%S" (String.length buf) buf >>= fun () ->
-    Lwt_io.write oc buf >>= fun () ->
-    Lwt.return false    
 
   let _output_simple_error oc rc msg = 
     let size = String.length msg + 3 in
@@ -508,13 +520,7 @@ module ProtocolHandler (S:Core.STORE) = struct
           let name = Pack.input_string rest in
           let po   = Pack.input_string_option rest in
           Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
-          Lwt.catch 
-            (fun () -> _user_function driver name po >>= fun ro ->
-                       Llio.output_int oc 0 >>= fun () ->
-                       Llio.output_string_option oc ro >>= fun () ->
-                       Lwt.return false
-            )
-            (Client_protocol.handle_exception oc)
+          _user_function driver name po oc 
         end
             
   (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
