@@ -223,6 +223,8 @@ type action_type =
   | ListTest
   | Test
   | OnlyTest
+  | InitNursery
+  | MigrateNursery
 
 
 let split_cfgs cfg myname =
@@ -431,6 +433,9 @@ let main () =
   and value_size = ref 1024 
   and is = ref ""
   and ip = ref ""
+  and left = ref ""
+  and sep = ref ""
+  and right = ref ""
   and port = ref 0
   and cluster_id = ref ""
   and test_refs = ref ([]:string list) 
@@ -474,7 +479,11 @@ let main () =
     ("--list-test", set_action ListTest, "lists tests");
     ("--only-test", Arg.Tuple[set_action OnlyTest; Arg.String (fun str -> test_refs := str :: ! test_refs)], 
      "runs some tests");
-    
+    ("--nursery-init", Arg.Tuple[set_action InitNursery; Arg.Set_string cluster_id],
+     "<cluster_id>: Initialize the keeper so the nursery contains the single provided cluster");
+    ("--nursery-migrate", 
+     Arg.Tuple[set_action MigrateNursery; Arg.Set_string left; Arg.Set_string sep; Arg.Set_string right],
+     "<left> <sep> <right>: Change the nursery cluster distribution.");
   ] in
   
   Arg.parse actions  
@@ -495,8 +504,8 @@ let main () =
       | OnlyTest -> only_test !test_refs
       | ShowUsage -> Arg.usage actions ""
       | ShowVersion -> show_version()
-
-
+      | InitNursery -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
+      | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
 
   end
 

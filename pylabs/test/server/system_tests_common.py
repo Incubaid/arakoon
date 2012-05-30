@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys
-
+import logging
 
 
 from nose.tools import *
@@ -623,7 +623,7 @@ def basic_teardown( removeDirs ):
     X.logging.info( "Teardown complete" )
 
 def nursery_teardown( removeDirs ):
-    common_teardown(removeDirs, nursery_cluster_ids)
+    common_teardown(removeDirs, CONFIG.nursery_cluster_ids)
 
 def get_client ( c_id = None):
     if c_id is None:
@@ -634,11 +634,13 @@ def get_client ( c_id = None):
     return c
 
 def get_nursery_client():
-    client = ArakoonClient.getClient(nursery_keeper_id)
+    
+    client = get_client (CONFIG.nursery_keeper_id)
     return client
 
 def get_nursery():
-    return q.manage.nursery.getNursery(nursery_keeper_id)
+    ext = NurseryManagement.NurseryManagement()
+    return ext.getNursery(CONFIG.nursery_keeper_id)
 
 def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None ):
     client = get_client ()

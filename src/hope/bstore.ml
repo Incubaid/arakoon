@@ -173,11 +173,17 @@ module BStore = (struct
     Lwt.return (List.map unpref_key ks)
 
       
-  let prefix_keys t prefix max = 
-    let prefix' = pref_key prefix in
+  let __prefix_keys t prefix max p =
+    let prefix' = pref_key ~_pf:p prefix in
     BS.prefix_keys_latest t.store prefix' max >>= fun keys ->
-    Lwt.return (List.map unpref_key keys)
+    Lwt.return (List.map (unpref_key ~_pf:p) keys)
+  
+  let prefix_keys t prefix max = 
+    __prefix_keys t prefix max __prefix
     
+  let admin_prefix_keys t prefix =
+    __prefix_keys t prefix None __admin_prefix
+  
   let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
     let TICK i0 = t0 in
     let f acc i actions = 

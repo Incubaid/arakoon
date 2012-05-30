@@ -20,7 +20,6 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Update
 open Interval
 open Routing
 open Common
@@ -29,10 +28,6 @@ open Client_cfg
 open Ncfg
 
 class type nodestream = object
-  method iterate: 
-    Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
-    Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       
   method collapse: int -> unit Lwt.t
 
@@ -52,67 +47,9 @@ class type nodestream = object
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
-  method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
-    (tlog_coll: Tlogcollection.tlog_collection) 
-    ~head_saved_cb
-    =
-    let outgoing buf =
-      command_to buf LAST_ENTRIES;
-      Sn.sn_to buf i
-    in
-    let incoming ic =
-      let save_head () = tlog_coll # save_head ic in
-      let last_seen = ref None in
-      let rec loop_entries () =
-	Sn.input_sn ic >>= fun i2 ->
-	begin
-	  if i2 = (-1L) 
-	  then
-	    begin
-	    Lwt_log.info_f "remote_nodestream :: last_seen = %s" 
-	      (Log_extra.option_to_string Sn.string_of !last_seen)
-	    end
-	  else
-	    begin
-	      last_seen := Some i2;
-	      Llio.input_int32 ic >>= fun chksum ->
-	      Llio.input_string ic >>= fun entry ->	      
-	      let update,_ = Update.from_buffer entry 0 in
-	      f (i2, update) >>= fun () ->
-              loop_entries ()
-	    end
-	end
-      in 
-      let rec loop_parts () = 
-	Llio.input_int ic >>= function
-	  | 1 -> Lwt_log.debug "loop_entries" >>= fun () -> loop_entries ()
-	  | 2 -> 
-	    begin 
-	      Lwt_log.debug "save_head" >>= fun ()->
-	      save_head () >>= fun () -> 
-	      let hf_name = tlog_coll # get_head_name () in
-	      head_saved_cb hf_name >>= fun () ->
-	      loop_parts ()
-	    end
-	  | 3 ->
-	    begin
-	      Lwt_log.debug "save_file" >>= fun () ->
-	      Llio.input_string ic >>= fun name ->
-	      Llio.input_int64 ic >>= fun length ->
-	      Lwt_log.debug_f "got %s (%Li bytes)" name length >>= fun () ->
-	      tlog_coll # save_tlog_file name length ic >>= fun () ->
-	      loop_parts ()
-	    end
-	  | x -> Llio.lwt_failfmt "don't know what %i means" x
-      in
-      loop_parts()
-    in
-    request  oc outgoing >>= fun () ->
-    response ic incoming  
-
-
-  method collapse n =
-    let outgoing buf =
+  method collapse n = failwith "todo"
+  (*
+      let outgoing buf =
       command_to buf COLLAPSE_TLOGS;
       Llio.int_to buf n
     in
@@ -137,7 +74,8 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     in
     request  oc outgoing >>= fun () ->
     response ic incoming
-
+  *)
+  
 
   method set_interval iv = Common.set_interval conn iv
   method get_interval () = Common.get_interval conn 
@@ -158,7 +96,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
       Lwt_io.with_file ~mode:Lwt_io.output db_location (fun oc -> Llio.copy_stream ~length ~ic ~oc)
     in
     request  oc outgoing >>= fun () ->
-    response ic incoming
+    response_old ic incoming
 
   method get_fringe (boundary:string option) direction= Common.get_fringe conn boundary direction
   

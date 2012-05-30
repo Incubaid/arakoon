@@ -394,9 +394,9 @@ module NC = struct
     end
     
 end
-
+(*
 let nursery_test_main () =
-  All_test.configure_logging ();
+  (* All_test.configure_logging (); *)
   let repr = [("left", "ZZ")], "right" in (* all in left *)
   let routing = Routing.build repr in
   let left_cfg = ClientCfg.make () in
@@ -440,3 +440,4 @@ let nursery_test_main () =
   in
   Lwt_main.run (t ())
 
+*)
