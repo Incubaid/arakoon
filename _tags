@@ -9,8 +9,8 @@ true: package(dynlink)
 true: package(baardskeerder)
 "doc": include
 "src":include
-"src/otc":include
 "src/hope":include
+"src/otc":include
 "src/tools":include
 "src/client":include
 "src/toy":include
@@ -25,7 +25,6 @@ true: package(baardskeerder)
 "src/plugins": include
 "examples/ocaml": include
 "src/main" : include
-<**/arakoon.*{byte,native}>: is_main
 <**/nursery.*{byte,native}>: is_main,use_thread
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
 <**/bs_bench.*{byte,native}>: is_main, use_thread
@@ -35,5 +34,5 @@ true: package(baardskeerder)
 <**/*test.*{byte,native}>: is_main, use_thread
 <examples/ocaml/*.{bytes,native}>: use_thread
 <examples/ocaml/*.{byte,native}>: is_main
-<src/arakoon_client.*{cma,cmxa}>: use_thread
+<src/hope/arakoon.*{cma,cmxa}>: use_thread
 <src/plugins/*.{cm*,cmx*}>: use_thread

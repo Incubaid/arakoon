@@ -2,8 +2,12 @@ open Core
 open Lwt
 
 
-module UserDB = (struct
+module UserDB = struct
   type tx = BS.tx
+
+  type v = string
+  type k = string
+
   let set tx k v = 
     Lwtc.log "UserDB.set %S %S" k v>>= fun () ->
     let k' = pref_key k in
@@ -15,11 +19,7 @@ module UserDB = (struct
     let k' = pref_key k in
     BS.get tx k'
     
-end : sig
-  type tx = BS.tx
-  val set : tx -> k -> v -> unit Lwt.t
-  val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
-end)
+end 
 
 module Registry = struct
   type f = UserDB.tx -> string option -> (string option) Lwt.t

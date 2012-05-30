@@ -10,29 +10,27 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -use-ocamlfind barakoon.native
+	ocamlbuild -use-ocamlfind arakoon.cmxa barakoon.native
 
 test:
 	./barakoon.native --test
 
-install: install_client install_server
+install: install_lib install_server
 
 install_server:
 	mkdir -p $(DESTDIR)/usr/bin/
 	cp ./barakoon.native $(DESTDIR)/usr/bin/arakoon
 
-install_client:
+install_lib:
 	mkdir -p $(OCAML_LIBDIR)
-	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
-	  _build/src/client/arakoon_exc.mli \
-	  _build/src/client/arakoon_exc.cmi \
-	  _build/src/client/arakoon_client.mli \
-	  _build/src/client/arakoon_client.cmi \
-	  _build/src/client/arakoon_remote_client.mli \
-	  _build/src/client/arakoon_remote_client.cmi
+	$(OCAML_FIND) install arakoon META \
+	  _build/src/hope/arakoon.cmxa \
+          _build/src/hope/core.cmi \
+	  _build/src/hope/userdb.cmi 
 
-uninstall_client:
-	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
+
+uninstall_lib:
+	$(OCAML_FIND) remove arakoon 
 
 coverage:
 	ocamlbuild -use-ocamlfind \
@@ -41,5 +39,5 @@ coverage:
 	-tag 'syntax(bisect_pp)' \
 	barakoon.d.byte
 
-.PHONY: install test build install_client
+.PHONY: install test build install_lib
          
