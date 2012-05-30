@@ -85,14 +85,16 @@ let rec update_from buf off =
     | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
 
 type result = 
-  | UNIT
+  | VOID
+  | VALUE of v
   | FAILURE of Arakoon_exc.rc * string
-  | VALUE_OPTION of v option 
+
 
 let result2s = function
-  | UNIT -> "UNIT"
+  | VOID -> "VOID"
+  | VALUE v -> Printf.sprintf "VALUE %s" v
   | FAILURE (rc,msg) -> Printf.sprintf "FAILURE(_,%S)" msg
-  | VALUE_OPTION vo -> Printf.sprintf "VALUE_OPTION _"
+
 
 type tick = TICK of int64
   

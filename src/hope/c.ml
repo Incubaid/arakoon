@@ -97,9 +97,9 @@ module ProtocolHandler (S:Core.STORE) = struct
   let __do_unit_update driver q =
     DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
-      | Core.UNIT -> Lwt.return ()
+      | Core.VOID -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-      | Core.VALUE_OPTION vo -> failwith "Expected unit, not value"
+      | Core.VALUE v -> failwith "Expected unit, not value"
         
   let _set driver k v = 
     let q = Core.SET(k,v) in
@@ -113,9 +113,9 @@ module ProtocolHandler (S:Core.STORE) = struct
     let q = Core.USER_FUNCTION(name, po) in
     DRIVER.push_cli_req driver q >>= fun a ->
      match a with
-       | Core.UNIT -> failwith "Expected value, not unit"
+       | Core.VOID -> return None
        | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-       | Core.VALUE_OPTION vo -> return vo
+       | Core.VALUE v -> return (Some v)
 
   let _admin_get store k = 
     S.admin_get store k >>= function
@@ -274,9 +274,9 @@ module ProtocolHandler (S:Core.STORE) = struct
     in
     let unit_or_f a = 
       match a with 
-        | Core.UNIT -> output_ok_unit ()
+        | Core.VOID -> output_ok_unit ()
         | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
-        | Core.VALUE_OPTION vo -> failwith "Expected unit, not value"
+        | Core.VALUE v -> failwith "Expected unit, not value"
     in
     match comm with
       | Common.WHO_MASTER ->

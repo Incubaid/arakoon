@@ -254,8 +254,8 @@ module MULTI = struct
   let client_reply2s = function
     | w, FAILURE(rc,msg) -> 
       Printf.sprintf "Reply (rc: %d) (msg: '%s')" (Arakoon_exc.int_of_rc rc) msg
-    | w, UNIT -> "Reply success (unit)"
-    | w, VALUE_OPTION v -> Printf.sprintf "Reply success (value)" 
+    | w, VOID -> "Reply success (void)"
+    | w, VALUE v -> Printf.sprintf "Reply success (value)" 
        
   type action =
     | A_RESYNC of node_id * tick * tick

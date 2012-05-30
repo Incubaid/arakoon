@@ -104,7 +104,7 @@ module ADispatcher (S:STORE) = struct
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
       Lwtc.log "Committing update (i:%s)" (tick2s i) >>= fun () ->
-      handle_commit t s i u m_w Core.UNIT
+      handle_commit t s i u m_w Core.VOID
     | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
       Lwtc.log "Logging update (i:%s)" (tick2s i) >>= fun () ->
@@ -138,7 +138,7 @@ module ADispatcher (S:STORE) = struct
                       cur_cli_req = None;
                       valid_inputs = ch_all;
                     } in
-                    let to_client = Core.UNIT in
+                    let to_client = Core.VOID in
                     handle_commit t s' i u cli_req to_client
                   (* Not single node, send out accepts *)
                   | others ->
