@@ -1,0 +1,8 @@
+true: annot
+true: debug
+true: package(arakoon)
+true: package(lwt)
+true: package(threads)
+true: use_thread
+true: package(baardskeerder)
+<*.ml>: warn_error_A
