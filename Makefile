@@ -26,7 +26,8 @@ install_lib:
 	$(OCAML_FIND) install arakoon META \
 	  _build/src/hope/arakoon.cmxa \
           _build/src/hope/core.cmi \
-	  _build/src/hope/userdb.cmi 
+	  _build/src/hope/userdb.cmi \
+          _build/src/tools/llio.cmi
 
 
 uninstall_lib:
