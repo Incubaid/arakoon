@@ -27,7 +27,8 @@ install_lib:
 	  _build/src/hope/arakoon.cmxa \
           _build/src/hope/core.cmi \
 	  _build/src/hope/userdb.cmi \
-          _build/src/tools/llio.cmi
+          _build/src/tools/llio.cmi \
+          _build/src/client/arakoon_exc.cmi
 
 
 uninstall_lib:
