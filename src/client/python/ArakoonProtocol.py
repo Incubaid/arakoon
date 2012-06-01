@@ -298,6 +298,16 @@ class PInput:
         self._off = index
         return v
 
+    def input_bool(self):
+        c = self._rest[self._off]
+        self._off = self._off + 1
+        if c == '1':
+            return True
+        elif c == '0':
+            return False
+        else:
+            raise Exception("'%s' is not a bool" % c)
+            
     def input_float(self):
         f = struct.unpack_from("d", self._rest, self._off)
         self._off = self._off + 8
@@ -766,8 +776,9 @@ class ArakoonProtocol :
 
     @staticmethod
     def decodeBoolResult( con ):
-        ArakoonProtocol._evaluateErrorCode( con )
-        return _recvBool( con )
+        input = ArakoonProtocol.readAnswer(con)
+        r = input.input_bool()
+        return r
 
 
 

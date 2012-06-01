@@ -245,7 +245,8 @@ module ProtocolHandler (S:Core.STORE) = struct
       _close_write oc out
     in
     let output_ok_bool b =
-      let out = Pack.make_output 1 in
+      let out = Pack.make_output 2 in
+      Pack.vint_to out 0;
       Pack.bool_to out b;
       _close_write oc out
     in
@@ -295,6 +296,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         Lwtc.log "who master" >>= fun () -> 
         _get_meta store >>= fun ms ->
         let mo = extract_master_info ms in
+        Lwtc.log "mo = %s" (Log_extra.string_option_to_string mo) >>= fun () ->
         output_ok_string_option mo
       | Common.SET -> 
         begin
