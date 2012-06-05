@@ -10,7 +10,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -use-ocamlfind arakoon.cmxa barakoon.native
+	ocamlbuild -use-ocamlfind arakoon.cmxa barakoon.native arakoon.a
 
 test:
 	./barakoon.native --test
@@ -25,10 +25,17 @@ install_lib:
 	mkdir -p $(OCAML_LIBDIR)
 	$(OCAML_FIND) install arakoon META \
 	  _build/src/hope/arakoon.cmxa \
-          _build/src/hope/core.cmi \
+          _build/src/hope/arakoon.a \
+	  _build/src/hope/core.cmi \
 	  _build/src/hope/userdb.cmi \
           _build/src/tools/llio.cmi \
-          _build/src/client/arakoon_exc.cmi
+          _build/src/client/arakoon_exc.cmi  \
+	  _build/src/client/arakoon_client.mli \
+	  _build/src/client/arakoon_client.cmi \
+	  _build/src/client/arakoon_remote_client.mli \
+	  _build/src/client/arakoon_remote_client.cmi  \
+	  _build/src/hope/lwtc.cmi \
+	  _build/src/client/client_log.cmi
 
 
 uninstall_lib:
