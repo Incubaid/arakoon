@@ -511,11 +511,11 @@ def setup_n_nodes_base(c_id,
         config = cluster._getConfigFile()
         for k,v in extra.items():
             logging.info("%s -> %s", k, v)
-            config.add_param("global", k, v)
+            config.set("global", k, v)
         
-        X.logging.info("config=\n%s", config.getContent())
-        f = open
-        config.write ()
+        X.logging.info("config=\n%s", X.cfg2str(config))
+        h = cluster._getConfigFileName()
+        X.writeConfig(config,h)
         
     
     X.logging.info( "Creating client config" )

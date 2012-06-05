@@ -799,12 +799,12 @@ class ArakoonCluster:
         if self._getStatusOne(name) == X.AppStatusType.HALTED:
             return None
         line = self._cmdLine(name)
-        cmd = 'pgrep -o -fx "%s"' % line
-        (exitCode, stdout, stderr) = X.run( cmd )
-        if exitCode != 0 :
+        cmd = ["pgrep","-o","-fx", line]
+        try:
+            output = X.subprocess.check_output( cmd )
+            return int(output)
+        except:
             return None
-        else: 
-            return int(stdout)
                 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)

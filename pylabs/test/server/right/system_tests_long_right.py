@@ -222,9 +222,9 @@ def test_3_node_stop_master_slaves_restart():
     C.iterate_n_times( 1000, C.simple_set )
     cli = C.get_client()
     master = cli.whoMaster()
-    slaves = filter( lambda node: node != master, C.node_names )
+    slaves = filter( lambda node: node != master, CONFIG.node_names )
     C.stopOne( master )
-    ld = C.lease_duration
+    ld = CONFIG.lease_duration
     logging.info (ld )
     nap_time = 2 * ld
     logging.info( "Stopped master. Sleeping for %0.2f secs" % nap_time )
@@ -480,7 +480,7 @@ def test_log_rotation():
 
 @C.with_custom_setup(C.setup_3_nodes_mini, C.basic_teardown)
 def test_243():
-    node_names = C.node_names
+    node_names = CONFIG.node_names
     zero = node_names[0]
     one = node_names[1]
     two = node_names[2]
@@ -552,22 +552,22 @@ def test_large_catchup_while_running():
 
     cli.set('k','v')
     m = cli.whoMaster()
-
-    nod1 = C.node_names[0]
-    nod2 = C.node_names[1]
-    nod3 = C.node_names[2]
+    nns = CONFIG.node_names
+    nod1 = nns[0]
+    nod2 = nns[1]
+    nod3 = nns[2]
 
     n_name,others = (nod1, [nod2,nod3]) if nod1 != m else (nod2, [nod1, nod3])
-    node_pid = cluster._getPid(n_name)
-
+    node_pid = str(cluster._getPid(n_name))
+    X.logging.debug("node_pid=%s", node_pid)
     time.sleep(0.1)
-    C.q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    X.subprocess.call(["kill","-STOP", node_pid])
     C.iterate_n_times( 200000, C.simple_set )
     for n in others:
 	            C.collapse(n)
 
     time.sleep(1.0)
-    C.q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    X.subprocess.call(["kill","-CONT", node_pid ])
     cli.delete('k')
     time.sleep(10.0)
     C.assert_running_nodes(3)
