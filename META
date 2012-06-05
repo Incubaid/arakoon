@@ -3,7 +3,7 @@
 description = "libarakoon"
 version = "2.0.0+dev"
 #exists_if = "arakoon_client.cma,arakoon_client.cmxa,arakoon_client.cmxs"
-requires = "threads lwt lwt.unix str"
+requires = "baardskeerder,str"
 #archive(byte) = "libarakoon.cma"
 archive(native) = "arakoon.cmxa"
 
