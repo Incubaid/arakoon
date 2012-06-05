@@ -1,0 +1,3 @@
+true: package(lwt)
+true: package(arakoon)
+true: thread

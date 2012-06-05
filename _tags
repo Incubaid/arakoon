@@ -23,7 +23,6 @@ true: package(baardskeerder)
 "src/inifiles": include
 "src/nursery": include
 "src/plugins": include
-"examples/ocaml": include
 "src/main" : include
 <**/nursery.*{byte,native}>: is_main,use_thread
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
