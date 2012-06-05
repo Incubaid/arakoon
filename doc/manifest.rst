@@ -90,7 +90,7 @@ Keyspace defects
   which enforces it's own reconnection strategy.
 * Berkeley DB [#f1]_.
   
-It's not that these issues are impossible to address. It's just that when you're fighting these, you don't want to be owner of the problem, not a spectator.
+It's not that these issues are impossible to address. It's just that when you're fighting these, you want to be owner of the problem, not a spectator.
 
 high level overview
 -------------------
