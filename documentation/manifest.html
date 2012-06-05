@@ -150,11 +150,12 @@ prefers consistency above everything else.</td>
 <li><a class="reference internal" href="#important-remarks" id="id39">Important remarks</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#scaling-arakoon" id="id40">Scaling Arakoon</a><ul>
-<li><a class="reference internal" href="#id5" id="id41">Limitations</a></li>
-<li><a class="reference internal" href="#migrations" id="id42">Migrations</a></li>
-<li><a class="reference internal" href="#client-side-support" id="id43">Client side support</a></li>
-<li><a class="reference internal" href="#problems" id="id44">Problems</a></li>
+<li><a class="reference internal" href="#arakoon-statistics" id="id40">Arakoon Statistics</a></li>
+<li><a class="reference internal" href="#scaling-arakoon" id="id41">Scaling Arakoon</a><ul>
+<li><a class="reference internal" href="#id5" id="id42">Limitations</a></li>
+<li><a class="reference internal" href="#migrations" id="id43">Migrations</a></li>
+<li><a class="reference internal" href="#client-side-support" id="id44">Client side support</a></li>
+<li><a class="reference internal" href="#problems" id="id45">Problems</a></li>
 </ul>
 </li>
 </ul>
@@ -242,7 +243,7 @@ but now it&#8217;s abandoned in favour of a <em>SWIGed around C</em> library,
 which enforces it&#8217;s own reconnection strategy.</li>
 <li>Berkeley DB <a class="footnote-reference" href="#f1" id="id1">[1]</a>.</li>
 </ul>
-<p>It&#8217;s not that these issues are impossible to address. It&#8217;s just that when you&#8217;re fighting these, you don&#8217;t want to be owner of the problem, not a spectator.</p>
+<p>It&#8217;s not that these issues are impossible to address. It&#8217;s just that when you&#8217;re fighting these, you want to be owner of the problem, not a spectator.</p>
 </div>
 </div>
 <div class="section" id="high-level-overview">
@@ -1124,15 +1125,105 @@ This file needs to be available in the home directory of <em>all</em> the nodes 
 Furtunately, the <em>Llio</em> module is available both on client and server side, and has most things you need.</p>
 </div>
 </div>
+<div class="section" id="arakoon-statistics">
+<h2><a class="toc-backref" href="#id40">Arakoon Statistics</a><a class="headerlink" href="#arakoon-statistics" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon logs some statistics every X seconds. The frequency with which this happens is configurable.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># file arakoon.ini</span>
+
+<span class="o">...</span>
+
+<span class="c">#reporting every x seconds (default = 300)</span>
+<span class="n">reporting</span> <span class="o">=</span> <span class="mi">60</span>
+</pre></div>
+</div>
+<p>This will cause an Arakoon node to log and statistics every 60 seconds. One can inspect the statistics of a node through the command line</p>
+<div class="highlight-python"><pre>$&gt;arakoon --statistics
+{start: 1335453697.391374,
+last: 1335453915.442215,
+avg_set_size: 10.000000,
+avg_get_size: 0.000000,
+set_info: (n:284364 min: 0.000297069549561, max: 3.37631797791, avg: 0.000697004824587, dev: 0.00647210483987),
+get_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a),
+del_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a),
+mget_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a),
+seq_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a),
+tas_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a),
+ops_info: (n:284364 min: 0.000297069549561, max: 3.37631797791, avg: 0.000697004824587, dev: 0.00647210483987),
+node_is: }</pre>
+</div>
+<p>The names of the entries in the statistics are explained in the table below</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="30%" />
+<col width="70%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">item</th>
+<th class="head">meaning</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>start</td>
+<td>timestamp start of period</td>
+</tr>
+<tr class="row-odd"><td>last</td>
+<td>timestamp last update of statistics</td>
+</tr>
+<tr class="row-even"><td>set_info</td>
+<td>information about &#8216;set&#8217; calls (done this period)</td>
+</tr>
+<tr class="row-odd"><td>get_info</td>
+<td>... about &#8216;get&#8217;  ...</td>
+</tr>
+<tr class="row-even"><td>del_info</td>
+<td>... &#8216;delete&#8217; ... ...</td>
+</tr>
+<tr class="row-odd"><td>mget_info</td>
+<td>... &#8216;multi gets&#8217; ...</td>
+</tr>
+<tr class="row-even"><td>seq_info</td>
+<td>... &#8216;sequences&#8217;  ...</td>
+</tr>
+<tr class="row-odd"><td>tas_info</td>
+<td>... &#8216;test_and_set&#8217; ...</td>
+</tr>
+<tr class="row-even"><td>ops_info</td>
+<td>information about all operations</td>
+</tr>
+<tr class="row-odd"><td>n</td>
+<td>number of times the operation was performed</td>
+</tr>
+<tr class="row-even"><td>min</td>
+<td>the lowest execution time measured for that operation</td>
+</tr>
+<tr class="row-odd"><td>max</td>
+<td>the highest execution time measured for that operation</td>
+</tr>
+<tr class="row-even"><td>avg</td>
+<td>average of measured execution times</td>
+</tr>
+<tr class="row-odd"><td>dev</td>
+<td>deviation of measured execution times</td>
+</tr>
+<tr class="row-even"><td>avg_set_size</td>
+<td>average size of values in updates</td>
+</tr>
+<tr class="row-odd"><td>avg_get_size</td>
+<td>average size of values in gets</td>
+</tr>
+</tbody>
+</table>
+<p>In the example above, one was clearly putting a lot of small values into the system at a speed of <em>(last-start)/n</em> or about <em>1300 sets/s</em>.</p>
+</div>
 <div class="section" id="scaling-arakoon">
-<h2><a class="toc-backref" href="#id40">Scaling Arakoon</a><a class="headerlink" href="#scaling-arakoon" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id41">Scaling Arakoon</a><a class="headerlink" href="#scaling-arakoon" title="Permalink to this headline">¶</a></h2>
 <p>We want to be able to use arakoon for increasingly large key-value spaces.
 For a single arakoon cluster the capacity is limited by the size of a single disk.
 So it is only natural to allow different arakoon clusters to team up.
 A <em>nursery</em><a class="footnote-reference" href="#f3" id="id4">[3]</a> provides a semi-unified view on a set of arakoon clusters.
 Each cluster is uniquely responsible for a key prefix interval.</p>
 <div class="section" id="id5">
-<h3><a class="toc-backref" href="#id41">Limitations</a><a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<h3><a class="toc-backref" href="#id42">Limitations</a><a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
 <p>The simple strategy of mapping a cluster to an interval of keys already implies some limitations compared to the single cluster setup.
 As a result, applications willing to scale from a single cluster to a nursery need to do some planning.</p>
 <div class="section" id="impact-on-sequences">
@@ -1147,7 +1238,7 @@ As client range query will only be served by a single cluster, it means that onl
 </div>
 </div>
 <div class="section" id="migrations">
-<h3><a class="toc-backref" href="#id42">Migrations</a><a class="headerlink" href="#migrations" title="Permalink to this headline">¶</a></h3>
+<h3><a class="toc-backref" href="#id43">Migrations</a><a class="headerlink" href="#migrations" title="Permalink to this headline">¶</a></h3>
 <p>Once a cluster is filled, one needs to be able to split it, or move part of its interval elsewhere.
 This process is called migration.
 Each cluster has a <em>public</em> interval [k<sub>b</sub>,k<sub>e</sub>) it serves to clients,
@@ -1172,7 +1263,7 @@ This means we repeatedly have to execute the above procedure,
 each time choosing an <em>a</em> that chips off a set of key value pairs that can be migrated using a multiget and a sequence.</p>
 </div>
 <div class="section" id="client-side-support">
-<h3><a class="toc-backref" href="#id43">Client side support</a><a class="headerlink" href="#client-side-support" title="Permalink to this headline">¶</a></h3>
+<h3><a class="toc-backref" href="#id44">Client side support</a><a class="headerlink" href="#client-side-support" title="Permalink to this headline">¶</a></h3>
 <p>Each client needs to know which cluster is responsible for a certain key(-range).
 This information is kept in a routing table. At construction time, a client fetches this from a designated Arakoon that knows all the clusters in a nursery.
 The privileged clients performing migrations also must update this designated arakoon.
@@ -1182,7 +1273,7 @@ This means that either, there is some migration, or that the client has outdated
 In that case, it can simply refetch the ranges from the clusters it knows, or refetch it from the designated arakoon that keeps this information.</p>
 </div>
 <div class="section" id="problems">
-<h3><a class="toc-backref" href="#id44">Problems</a><a class="headerlink" href="#problems" title="Permalink to this headline">¶</a></h3>
+<h3><a class="toc-backref" href="#id45">Problems</a><a class="headerlink" href="#problems" title="Permalink to this headline">¶</a></h3>
 <p>We depend on having a designated arakoon that knows all the clusters in a nursery, and their routing tables.
 So conceptually, we introduced a single point of failure.
 Since this point is in reality an arakoon cluster which is synchronuously replicated, that should not pose big practical problems.</p>
