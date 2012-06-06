@@ -24,6 +24,8 @@ If not, see <http://www.gnu.org/licenses/>.
 let config_file = ref "cfg/arakoon.ini"
 
 let default_lease_period = 10
+let default_max_value_size = 8 * 1024 * 1024
+
 open Master_type
 open Client_cfg
 open Log_extra
@@ -79,6 +81,7 @@ module Node_cfg = struct
       plugins: string list;
       nursery_cfg : (string*ClientCfg.t) option;
       overwrite_tlog_entries: int option;
+      max_value_size: int;
     }
 
   let make_test_config ?(base=4000) n_nodes master lease_period = 
@@ -111,7 +114,6 @@ module Node_cfg = struct
     in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
-    let lease_period = default_lease_period in
     let cluster_id = "ricky" in
     let overwrite_tlog_entries = None in
     let cluster_cfg = { 
@@ -119,10 +121,11 @@ module Node_cfg = struct
       nursery_cfg = None;
       _master = master;
       quorum_function = quorum_function;
-      _lease_period = lease_period;
+      _lease_period = default_lease_period;
       cluster_id = cluster_id;
       plugins = [];
       overwrite_tlog_entries;
+      max_value_size = default_max_value_size;
     }
     in
     cluster_cfg
@@ -142,6 +145,10 @@ module Node_cfg = struct
     Ini.get inifile "global" "__tainted_tlog_entries_per_file" 
       (Ini.p_option Ini.p_int )
       (Ini.default None)
+
+  let _max_value_size inifile =
+    Ini.get inifile "global" "__tainted_max_value_size"
+      Ini.p_int (Ini.default (8 * 1024 * 1024))
 
   let _plugins inifile = 
     Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
@@ -274,15 +281,17 @@ module Node_cfg = struct
     let cluster_id = _get_cluster_id inifile in
     let m_n_cfg = get_nursery_cfg inifile config_file in
     let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
+    let max_value_size = _max_value_size inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
         nursery_cfg = m_n_cfg;
-	_master = fm;
-	quorum_function = quorum_function;
-	_lease_period = lease_period;
-	cluster_id = cluster_id;
-	plugins = plugin_names;
-	overwrite_tlog_entries;
+	    _master = fm;
+	    quorum_function = quorum_function;
+	    _lease_period = lease_period;
+	    cluster_id = cluster_id;
+	    plugins = plugin_names;
+	    overwrite_tlog_entries;
+        max_value_size;
       }
     in
     cluster_cfg

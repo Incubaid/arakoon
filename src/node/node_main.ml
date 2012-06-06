@@ -153,6 +153,8 @@ let log_prelude cluster_cfg =
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
   >>= fun () ->
+  Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size 
+  >>= fun () ->
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
   let ccfg_s = Log_extra.option_to_string p2s ncfgo in
@@ -478,6 +480,7 @@ let _main_2
 	      ~expect_reachable
 	      ~test
 	      ~read_only
+          ~max_value_size:cluster_cfg.max_value_size
 	  in
 	  let backend = (sb :> Backend.backend) in
 	  

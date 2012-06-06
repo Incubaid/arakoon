@@ -89,6 +89,7 @@ class sync_backend cfg push_update push_node_msg
   ~expect_reachable
   ~test
   ~(read_only:bool)
+  ~max_value_size
   =
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
@@ -96,7 +97,7 @@ class sync_backend cfg push_update push_node_msg
   let collapsing_lock = Lwt_mutex.create() in
   let assert_value_size value =
     let length = String.length value in
-    if length >= (8 * 1024 * 1024) then
+    if length >= max_value_size then
       raise (Arakoon_exc.Exception (Arakoon_exc.E_UNKNOWN_FAILURE,
 				    "value too large"))
   in

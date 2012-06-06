@@ -191,7 +191,7 @@ let output_string oc (s:string) =
 
 let input_string ic =
   input_int ic >>= fun size ->
-    if size > (16*1024*1024) then
+    if size > (4 * 1024 * 1024 * 1024) then
       lwt_failfmt "Unexpectedly large string size requested:%d" size
     else Lwt.return size  >>= fun size2 ->
     let result = String.create size2 in

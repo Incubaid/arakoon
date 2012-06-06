@@ -601,7 +601,6 @@ def setup_n_nodes_base(c_id, node_names, force_master,
             config.addParam("global", k, v)
         
         logging.info("config=\n%s", config.getContent())
-        f = open
         config.write ()
         
     

@@ -66,6 +66,23 @@ def test_start_stop_wrapper():
     C.assert_running_nodes(0)
     cluster.tearDown()
 
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_max_value_size_tinkering ():
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+    key = "key_not_so_big_v"
+    value = "xxxxxxxxxx" * 2000
+    client = C.get_client()
+    client.set(key,value)
+    cluster.stop()
+    cfg = cluster._getConfigFile()
+    cfg.addParam("global", "__tainted_max_value_size", "1024")
+    cfg.write()
+    cluster.start()
+    C.assert_running_nodes(1)
+    client = C.get_client()
+    assert_raises (ArakoonException, client.set, key, value)
+    
 
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )        
