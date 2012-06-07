@@ -22,6 +22,6 @@ mv ../arakoon_*_amd64.deb ${ARTEFACTS}
 # now the python egg part
 python setup.py bdist_egg
 
-mv dist/arakoon-2*py2.?.egg ${ARTEFACTS}
+mv dist/arakoon-*py2.?.egg ${ARTEFACTS}
 
 
