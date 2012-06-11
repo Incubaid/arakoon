@@ -93,6 +93,8 @@ class test_backend my_name = object(self:#backend)
   method optimize_db () =
     Lwt.return () 
 
+  method defrag_db () = Lwt.return ()
+
   method hello (client_id:string) (cluster_id:string) =
     let r =
       match cluster_id with

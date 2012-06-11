@@ -600,6 +600,12 @@ object(self: #backend)
     self # try_quiesced( store # optimize ) >>= fun () ->
     Lwt_log.debug "optimize_db: All done"
  
+  method defrag_db () = 
+    Lwt_log.debug "optimize_db: enter" >>= fun () ->
+    self # try_quiesced (store # defrag) >>= fun () ->
+    Lwt_log.debug "optimize_db: exit"
+
+
   method get_db m_oc =
     Lwt_log.debug "get_db: enter" >>= fun () ->
     begin

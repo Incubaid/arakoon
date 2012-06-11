@@ -386,6 +386,11 @@ object(self: #store)
     File_system.rename db_optimal my_location >>= fun () ->
     self # reopen (fun () -> Lwt.return ())
 
+  method defrag() = 
+    let bdb = Hotc.get_bdb db in
+    Bdb.bdb_defrag bdb;
+    Lwt.return ()
+
   method private open_db () =
     Hotc._open_lwt db
 

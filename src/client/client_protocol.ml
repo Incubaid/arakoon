@@ -448,6 +448,13 @@ let one_command (ic,oc) (backend:Backend.backend) =
         )
         (handle_exception oc)
       end
+    | DEFRAG_DB ->
+      begin
+        Lwt.catch
+          (fun () -> backend # defrag_db () >>= fun () ->
+            response_ok_unit oc)
+          (handle_exception oc)
+      end
     | CONFIRM ->
 	begin
           Llio.input_string ic >>= fun key ->

@@ -445,6 +445,12 @@ value bdb_optimize(value bdb)
   CAMLreturn(res?Val_true:Val_false);
 }
 
+value bdb_defrag(value bdb){
+  CAMLparam1(bdb);
+  int res = tcbdbdefrag(Bdb_val(bdb), INT64_MAX);
+  CAMLreturn(res?Val_true:Val_false);
+}
+
 value bdb_key_count(value bdb)
 {
   CAMLparam1(bdb);

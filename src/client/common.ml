@@ -72,6 +72,7 @@ type client_command =
   | REV_RANGE_ENTRIES
   | SYNCED_SEQUENCE
   | OPT_DB
+  | DEFRAG_DB
 
 
 let code2int = [
@@ -108,6 +109,7 @@ let code2int = [
   REV_RANGE_ENTRIES       , 0x23l;
   SYNCED_SEQUENCE         , 0x24l;
   OPT_DB                  , 0x25l;
+  DEFRAG_DB               , 0x26l;
 ]
 
 let int2code =
@@ -410,7 +412,12 @@ let optimize_db (ic,oc) =
    let outgoing buf =
       command_to buf OPT_DB
    in
-   request oc (fun buf -> outgoing buf) >>= fun () ->
+   request oc outgoing >>= fun () ->
    response ic nothing
+
+let defrag_db (ic,oc) = 
+  let outgoing buf = command_to buf OPT_DB in
+  request oc outgoing >>= fun () ->
+  response ic nothing
 
 exception XException of Arakoon_exc.rc * string

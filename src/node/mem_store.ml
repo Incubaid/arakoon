@@ -117,6 +117,7 @@ object (self: #store)
   method quiesced () = false
 
   method optimize () = Lwt.return ()
+  method defrag () = Lwt.return ()
 
   method aSSert ?(_pf=__prefix) key vo =
     let r =

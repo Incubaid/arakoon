@@ -50,6 +50,7 @@ type local_action =
   | Collapse_remote
   | Backup_db
   | Optimize_db
+  | Defrag_db
   | NumberOfValues
   | InitNursery
   | MigrateNurseryRange
@@ -328,11 +329,17 @@ let main () =
 			     ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
     ("--optimize-db", Arg.Tuple[set_laction Optimize_db;
-			      Arg.Set_string cluster_id;
-			      Arg.Set_string ip;
-			      Arg.Set_int port;
-			       ],
+			                    Arg.Set_string cluster_id;
+			                    Arg.Set_string ip;
+			                    Arg.Set_int port;
+			                   ],
      "<cluster_id> <ip> <port> requests the node to optimize its database (only works on slaves)");
+    ("--defrag-db", Arg.Tuple[set_laction Defrag_db;
+                              Arg.Set_string cluster_id;
+                              Arg.Set_string ip;
+                              Arg.Set_int port;
+                             ],
+     "<cluster_id> <ip> <port> requests the node to defragment its database");
     ("--n-values", set_laction NumberOfValues,
      "returns the number of values in the store");
     ("--ping", Arg.Tuple[set_laction PING;
@@ -373,6 +380,7 @@ let main () =
       !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
     | Optimize_db -> Nodestream_main.optimize_db !ip !port !cluster_id 
+    | Defrag_db   -> Nodestream_main.defrag_db !ip !port !cluster_id
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster

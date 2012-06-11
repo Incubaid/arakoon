@@ -85,5 +85,7 @@ module Bdb = struct
 
   external prefix_keys: bdb -> string -> int -> string array = "bdb_prefix_keys"
   external bdb_optimize: bdb -> unit = "bdb_optimize"
+
+  external bdb_defrag: bdb -> unit = "bdb_defrag"
   external get_key_count: bdb -> int64 = "bdb_key_count"
 end
