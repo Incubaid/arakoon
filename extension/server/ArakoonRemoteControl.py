@@ -69,16 +69,22 @@ def downloadDb(ip, port, clusterId, location):
     finally:
         s.close()
 
-def optimizeDb(ip, port, clusterId):
+def _simple_cmd(ip,port,clusterId, code):
    s = RCP.make_socket(ip, port) 
    RCP._prologue(clusterId, s)
-   cmd = RCP._int_to(RCP._OPTIMIZE_DB | RCP._MAGIC)
+   cmd = RCP._int_to(code | RCP._MAGIC)
    s.send(cmd)
    RCP.check_error_code(s)
+
+def optimizeDb(ip, port, clusterId):
+    _simple_cmd(ip,port,clusterId, RCP._OPTIMIZE_DB)
+    
+
+def defragDb(ip,port,clusterId):
+    _simple_cmd(ip,port,clusterId, RCP._DEFRAG_DB)
     
 def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
-    s = RCP.make_socket(ip,port)
-    
+    s = RCP.make_socket(ip,port)    
     try:
         RCP._prologue(cluster_id, s)
         cmd = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)

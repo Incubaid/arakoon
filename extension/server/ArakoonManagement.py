@@ -811,6 +811,17 @@ class ArakoonCluster:
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.optimizeDb(ip,port,self._clusterId)
+    def defragDB(self, nodeName):
+        """
+        Tell a node to defrag its database (only works on slaves)
+        @param nodeName The name of the node you want to optimize
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
+        port = int(config['client_port'])
+        ArakoonRemoteControl.defragDb(ip,port,self._clusterId)
  
     def restartOne(self, nodeName):
         """
