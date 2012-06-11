@@ -352,6 +352,10 @@ def optimizeDb(name):
     cluster = _getCluster()
     cluster.optimizeDb(name)
 
+def defragDb(name):
+    cluster = _getCluster()
+    cluster.defragDb(name)
+    
 def catchupOnly(name):
     cluster = _getCluster()
     cluster.catchupOnly(name)

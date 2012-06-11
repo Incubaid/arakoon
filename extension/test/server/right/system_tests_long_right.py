@@ -603,7 +603,7 @@ def test_db_defrag():
     Common.iterate_n_times(10000, Common.set_get_and_delete)
     db_file = Common.get_node_db_file( Common.node_names[1] )
     start_size = os.path.getsize( db_file )
-    Common.optimizeDb(Common.node_names[1]) 
+    Common.defragDb(Common.node_names[1]) 
     opt_size = os.path.getsize(db_file)
     template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
     msg = template % (start_size, opt_size) 
