@@ -247,7 +247,7 @@ object (self: #store)
   method relocate new_location = failwith "Memstore.relocation not implemented"
 
   method get_fringe boundary direction =
-    Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option_to_string boundary) >>= fun () ->
+    Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
     let cmp =
       begin
         match direction, boundary with

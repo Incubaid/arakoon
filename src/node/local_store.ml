@@ -678,7 +678,7 @@ object(self: #store)
           Bdb.last, Bdb.prev, cmp
       end
     in
-    Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option_to_string border) >>= fun () ->
+    Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
     let buf = Buffer.create 128 in
     Lwt.finalize
       (fun () ->

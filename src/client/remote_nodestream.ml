@@ -71,7 +71,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	  then
 	    begin
 	    Lwt_log.info_f "remote_nodestream :: last_seen = %s" 
-	      (Log_extra.option_to_string Sn.string_of !last_seen)
+	      (Log_extra.option2s Sn.string_of !last_seen)
 	    end
 	  else
 	    begin

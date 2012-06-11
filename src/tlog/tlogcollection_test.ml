@@ -88,7 +88,7 @@ let test_rollover_1002 (dn, factory) =
   c # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
   tlc_two # get_last_update (Sn.of_int (n_updates-1)) >>= fun uo ->
-  let uos = Log_extra.option_to_string Update.string_of uo in
+  let uos = Log_extra.option2s Update.string_of uo in
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
   Lwt.return ()
@@ -191,7 +191,7 @@ let test_validate_normal (dn, factory) =
   let validity, io = result in
   let wsn = Sn.of_int 122 in
   let wanted = (Some wsn) in
-  let tos x= Log_extra.option_to_string Sn.string_of x in
+  let tos x= Log_extra.option2s Sn.string_of x in
   Lwt_log.info_f "wanted:%s, got:%s" (tos wanted) (tos io)
   >>= fun() ->
   OUnit.assert_equal io wanted ;

@@ -181,7 +181,7 @@ let test_sequence () =
 
 let _test_user_function (client:Arakoon_client.client) = 
   client # user_function "reverse" (Some "echo") >>= fun ro ->
-  Lwt_log.debug_f "we got %s" (string_option_to_string ro) >>= fun () ->
+  Lwt_log.debug_f "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");
   Lwt.return ()
 
@@ -304,9 +304,9 @@ let test_and_set_to_none () =
     let wanted = Some wanted_s in
     let expected = None in
     client # test_and_set key expected wanted >>= fun result ->
-    OUnit.assert_equal ~printer:string_option_to_string ~msg:"assert1" result wanted;
+    OUnit.assert_equal ~printer:string_option2s ~msg:"assert1" result wanted;
     client # test_and_set key wanted None >>= fun result2 ->
-    OUnit.assert_equal ~printer:string_option_to_string ~msg:"assert2" result2 None;
+    OUnit.assert_equal ~printer:string_option2s ~msg:"assert2" result2 None;
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test
   

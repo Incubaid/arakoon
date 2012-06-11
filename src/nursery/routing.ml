@@ -309,8 +309,8 @@ module Routing = struct
             let low_sep = get_lower_sep None right t in
             Lwt.ignore_result (
             Client_log.debug_f "lower,upper = %s,%s"
-              (Log_extra.string_option_to_string low_sep)
-              (Log_extra.string_option_to_string up_sep)
+              (Log_extra.string_option2s low_sep)
+              (Log_extra.string_option2s up_sep)
             );
             begin
               match (low_sep, up_sep) with

@@ -63,12 +63,12 @@ module Node_cfg = struct
       in
       Printf.sprintf template
 	t.node_name 
-        (string_of_list (fun s -> s) t.ips)
+        (list2s (fun s -> s) t.ips)
         t.client_port 
 	t.messaging_port t.home t.tlog_dir
 	t.log_dir t.log_level t.lease_period
 	(master2s t.master) t.is_laggy t.is_learner
-	(string_of_list (fun s -> s) t.targets) t.use_compression t.is_test
+	(list2s (fun s -> s) t.targets) t.use_compression t.is_test
 	t.reporting
     end
       

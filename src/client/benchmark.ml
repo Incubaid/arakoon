@@ -153,7 +153,7 @@ let benchmark
   let phase_0 client oc = 
     client # who_master () >>= fun master ->
     Lwt_io.fprintlf oc "Master %s; size=%i" 
-      (Log_extra.string_option_to_string master)
+      (Log_extra.string_option2s master)
       sz
   in
   let phase_1 client oc = 

@@ -157,7 +157,7 @@ let log_prelude cluster_cfg =
   >>= fun () ->
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
-  let ccfg_s = Log_extra.option_to_string p2s ncfgo in
+  let ccfg_s = Log_extra.option2s p2s ncfgo in
   Lwt_log.info_f "client_cfg=%s" ccfg_s
 
 
@@ -351,7 +351,7 @@ let _main_2
                   | false ->
                     begin
                       let (ips, port) = ClientCfg.get cfg node_id in
-                      let ipss = Log_extra.string_of_list (fun s -> s) ips in
+                      let ipss = Log_extra.list2s (fun s -> s) ips in
                       Lwt_log.debug_f "upload_cfg_to_keeper (%s,%i)" ipss port >>= fun () ->
                       Lwt.catch(
                         fun () ->

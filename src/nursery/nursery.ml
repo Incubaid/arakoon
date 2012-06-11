@@ -25,7 +25,7 @@ open Client_cfg
 open Ncfg
 open Interval
 
-let so2s = Log_extra.string_option_to_string
+let so2s = Log_extra.string_option2s
 
 let try_connect (ips, port) =
   Lwt.catch
@@ -85,7 +85,7 @@ module NC = struct
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
     let node_names = ClientCfg.node_names ccfg in
-    Lwt_log.debug_f "names:%s" (Log_extra.string_of_list (fun s->s) node_names) 
+    Lwt_log.debug_f "names:%s" (Log_extra.list2s (fun s->s) node_names) 
     >>= fun () ->
     Lwt_list.map_s 
       (fun n -> 
@@ -146,7 +146,7 @@ module NC = struct
 
  
   let __migrate t clu_left sep clu_right finalize publish migration = 
-    Lwt_log.debug_f "migrate %s" (Log_extra.string_option_to_string sep) >>= fun () ->
+    Lwt_log.debug_f "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
     Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
     let pull () = 
@@ -246,7 +246,7 @@ module NC = struct
     let publish sep left right = 
       let route = NCFG.get_routing t.rc in 
       Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
-      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option_to_string sep) right >>= fun () ->
+      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
       begin
         match sep with
           | Some sep ->
@@ -293,7 +293,7 @@ module NC = struct
     let publish sep left right = 
       let route = NCFG.get_routing t.rc in 
       Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
-      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option_to_string sep) right >>= fun () ->
+      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
       begin
         match sep with
           | Some sep ->

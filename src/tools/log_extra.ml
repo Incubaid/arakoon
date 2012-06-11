@@ -20,16 +20,16 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-let option_to_string f = function
+let option2s f = function
   | None -> "None"
   | Some v -> "Some (" ^ String.escaped (f v ) ^ ")"
 
 
-let string_option_to_string = option_to_string (fun s -> s)
-let int_option_to_string = option_to_string string_of_int
-let p_option = string_option_to_string
+let string_option2s = option2s (fun s -> s)
+let int_option2s = option2s string_of_int
+let p_option = string_option2s
 
-let string_of_list e_to_s list =
+let list2s e_to_s list =
   let inner =
     List.fold_left (fun acc a -> acc ^ (e_to_s a) ^ ";") "" list
   in "[" ^ inner ^ "]"

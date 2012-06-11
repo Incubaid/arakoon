@@ -35,7 +35,7 @@ type store_tlc_cmp =
   | Store_ahead
 
 let _with_client_connection (ips,port) f = 
-  let sl2s ss = string_of_list (fun s -> s) ss in
+  let sl2s ss = list2s (fun s -> s) ss in
   let rec loop = function
     | [] -> Llio.lwt_failfmt "None of the ips: %s can be reached" (sl2s ips)
     | ip :: rest ->
@@ -200,7 +200,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     end >>= fun () -> 
     store # consensus_i () >>= fun store_i' ->
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
-      ( option_to_string Sn.string_of store_i')
+      ( option2s Sn.string_of store_i')
   >>= fun () ->
   begin
     
@@ -233,7 +233,7 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_
 
 
 let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master =
-  let io_s = Log_extra.option_to_string Sn.string_of  in
+  let io_s = Log_extra.option2s Sn.string_of  in
   store # consensus_i () >>= fun si_o ->
   Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->

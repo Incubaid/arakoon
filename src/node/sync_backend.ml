@@ -35,9 +35,7 @@ open Common
 open Store
 open Master_type
 
-let _s_ = function
-  | Some x -> "Some " ^ x
-  | None -> "None"
+let _s_ = string_option2s
 
 let ncfg_prefix_b4 = "nursery.cfg."
 let ncfg_prefix_2far = "nursery.cfg/"
@@ -292,8 +290,8 @@ object(self: #backend)
   method test_and_set key expected (wanted:string option) =
     let start = Unix.gettimeofday() in
     log_o self "test_and_set %s %s %s" key
-      (string_option_to_string expected)
-      (string_option_to_string wanted)
+      (string_option2s expected)
+      (string_option2s wanted)
     >>= fun () ->
     let () = match wanted with
       | None -> ()
@@ -422,7 +420,7 @@ object(self: #backend)
 	    | ReadOnly -> Some my_name, "readonly"
 
     in
-    log_o self "master:%s (%s)" (string_option_to_string result) argumentation
+    log_o self "master:%s (%s)" (string_option2s result) argumentation
     >>= fun () ->
     Lwt.return result
 
@@ -657,6 +655,6 @@ object(self: #backend)
     end
 
   method get_fringe boundary direction =
-    Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option_to_string boundary) >>= fun () ->
+    Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
     store # get_fringe boundary direction
 end

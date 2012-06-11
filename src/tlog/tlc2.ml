@@ -150,7 +150,7 @@ let _validate_one tlog_name =
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun a ->
-      Lwt_log.debug_f "XX:a=%s" (Log_extra.option_to_string a2s a) 
+      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s a2s a) 
       >>= fun () -> Lwt.return a
     )
     (function
@@ -430,7 +430,7 @@ object(self: # tlog_collection)
     Local_store.make_local_store head_name >>= fun head -> 
     head # consensus_i () >>= fun io ->
     head # close () >>= fun () ->
-    Lwt_log.debug_f "head has consensus_i=%s" (Log_extra.option_to_string Sn.string_of io)
+    Lwt_log.debug_f "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
     >>= fun () ->
     let next_i = match io with
       | None -> Sn.start
