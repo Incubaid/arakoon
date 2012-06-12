@@ -601,9 +601,9 @@ object(self: #backend)
     Lwt_log.debug "optimize_db: All done"
  
   method defrag_db () = 
-    Lwt_log.debug "optimize_db: enter" >>= fun () ->
-    self # try_quiesced (store # defrag) >>= fun () ->
-    Lwt_log.debug "optimize_db: exit"
+    Lwt_log.debug "defrag_db: enter" >>= fun () ->
+    store # defrag() >>= fun () ->
+    Lwt_log.debug "defrag_db: exit"
 
 
   method get_db m_oc =

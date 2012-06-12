@@ -375,9 +375,9 @@ object(self: #store)
       Hotc.create db_optimal >>= fun db_opt ->
       Lwt.finalize
       ( fun () ->
-        Lwt_log.debug "Optimizing db copy" >>= fun () ->
+        Lwt_log.info "Optimizing db copy" >>= fun () ->
         Hotc.optimize db_opt >>= fun () ->
-        Lwt_log.debug "Optimize db copy complete" 
+        Lwt_log.info "Optimize db copy complete"
       ) 
       ( fun () ->
         Hotc.close db_opt
@@ -387,8 +387,9 @@ object(self: #store)
     self # reopen (fun () -> Lwt.return ())
 
   method defrag() = 
-    let bdb = Hotc.get_bdb db in
-    Bdb.bdb_defrag bdb;
+    Lwt_log.debug "local_store :: defrag" >>= fun () ->
+    Hotc.defrag db >>= fun rc ->
+    Lwt_log.debug_f "local_store :: defrag done: rc=%i" rc>>= fun () ->
     Lwt.return ()
 
   method private open_db () =

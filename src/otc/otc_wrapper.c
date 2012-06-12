@@ -447,8 +447,14 @@ value bdb_optimize(value bdb)
 
 value bdb_defrag(value bdb){
   CAMLparam1(bdb);
-  int res = tcbdbdefrag(Bdb_val(bdb), INT64_MAX);
-  CAMLreturn(res?Val_true:Val_false);
+  //printf("otc_wrapper: bdb_defrag\n");
+  TCBDB* tcbdb = Bdb_val(bdb);
+  int res = !tcbdbdefrag(tcbdb, INT64_MAX);
+  //printf("otc_wrapper: bdb_defrag=>%i\n",res);
+  if (res){
+    bdb_handle_error(tcbdb);
+  }
+  CAMLreturn(Val_int(res));
 }
 
 value bdb_key_count(value bdb)

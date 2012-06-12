@@ -450,6 +450,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | DEFRAG_DB ->
       begin
+        Lwt_log.info "DEFRAG_DB" >>= fun () ->
         Lwt.catch
           (fun () -> backend # defrag_db () >>= fun () ->
             response_ok_unit oc)

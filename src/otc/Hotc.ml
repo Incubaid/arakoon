@@ -80,6 +80,10 @@ module Hotc = struct
         Bdb.bdb_optimize t.bdb
     ) ()
 
+  let defrag t = 
+    _do_locked t (fun () -> let r = Bdb.bdb_defrag t.bdb in 
+                            Lwt.return r)
+    
   let reopen t when_closed mode=
     _do_locked t
       (fun () ->

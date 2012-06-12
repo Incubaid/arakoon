@@ -416,7 +416,7 @@ let optimize_db (ic,oc) =
    response ic nothing
 
 let defrag_db (ic,oc) = 
-  let outgoing buf = command_to buf OPT_DB in
+  let outgoing buf = command_to buf DEFRAG_DB in
   request oc outgoing >>= fun () ->
   response ic nothing
 

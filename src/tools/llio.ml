@@ -211,7 +211,6 @@ let input_list input_element ic =
   input_int ic >>= fun size ->
   Client_log.debug_f "Received a list of %d elemements" size >>= fun () ->
   let rec loop i acc =
-    Client_log.debug_f "Receiving element %d" i >>= fun () ->
     if i = 0
     then Lwt.return acc
     else input_element ic >>= fun s -> loop (i-1) (s:: acc)
