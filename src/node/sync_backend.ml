@@ -601,6 +601,7 @@ object(self: #backend)
     Lwt_log.debug "optimize_db: All done"
  
   method defrag_db () = 
+    self # _not_if_master() >>= fun () ->
     Lwt_log.debug "defrag_db: enter" >>= fun () ->
     store # defrag() >>= fun () ->
     Lwt_log.debug "defrag_db: exit"

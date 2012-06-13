@@ -634,7 +634,7 @@ def test_db_defrag():
     opt_size = os.path.getsize(db_file)
     template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
     msg = template % (start_size, opt_size) 
-    assert_true( opt_size < 0.1*start_size, msg)
+    assert_true( opt_size < 0.9 * start_size, msg)
 
 
 
