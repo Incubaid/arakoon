@@ -128,7 +128,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
     | PING ->
       begin
         Llio.input_string ic >>= fun client_id ->
-	Llio.input_string ic >>= fun cluster_id ->
+	    Llio.input_string ic >>= fun cluster_id ->
         backend # hello client_id cluster_id >>= fun (rc,msg) ->
         response_rc_string oc rc msg
       end
@@ -143,12 +143,12 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | GET ->
       begin
-	Llio.input_bool   ic >>= fun allow_dirty ->
+	    Llio.input_bool   ic >>= fun allow_dirty ->
         Llio.input_string ic >>= fun  key ->
-	Lwt.catch
-	  (fun () -> backend # get ~allow_dirty key >>= fun value ->
-	    response_rc_string oc 0l value)
-	  (handle_exception oc)
+	    Lwt.catch
+	      (fun () -> backend # get ~allow_dirty key >>= fun value ->
+	        response_rc_string oc 0l value)
+	      (handle_exception oc)
       end
     | ASSERT ->
       begin
@@ -163,8 +163,8 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | SET ->
 	begin
-          Llio.input_string ic >>= fun key ->
-          Llio.input_string ic >>= fun value ->
+      Llio.input_string ic >>= fun key ->
+      Llio.input_string ic >>= fun value ->
 	  Lwt.catch
 	    (fun () -> backend # set key value >>= fun () ->
 	      response_ok_unit oc
@@ -173,152 +173,152 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	end
     | DELETE ->
 	begin
-          Llio.input_string ic >>= fun key ->
-          Lwt.catch
+      Llio.input_string ic >>= fun key ->
+      Lwt.catch
 	    (fun () ->
-	       backend # delete key >>= fun () ->
-	       response_ok_unit oc)
+	      backend # delete key >>= fun () ->
+	      response_ok_unit oc)
 	    (handle_exception oc)
 	end
     | RANGE ->
       begin
-	Llio.input_bool ic >>= fun allow_dirty ->
+	    Llio.input_bool ic >>= fun allow_dirty ->
         Llio.input_string_option ic >>= fun (first:string option) ->
         Llio.input_bool          ic >>= fun finc  ->
         Llio.input_string_option ic >>= fun (last:string option)  ->
         Llio.input_bool          ic >>= fun linc  ->
         Llio.input_int           ic >>= fun max   ->
         Lwt.catch
-	  (fun () ->
-	    backend # range ~allow_dirty first finc last linc max >>= fun list ->
-	    Llio.output_int32 oc 0l >>= fun () ->
-	    Llio.output_list Llio.output_string oc list >>= fun () ->
-      Lwt.return false
-	  )
-	  (handle_exception oc )
+	      (fun () ->
+	        backend # range ~allow_dirty first finc last linc max >>= fun list ->
+	        Llio.output_int32 oc 0l >>= fun () ->
+	        Llio.output_list Llio.output_string oc list >>= fun () ->
+            Lwt.return false
+	      )
+	      (handle_exception oc )
 	end
     | RANGE_ENTRIES ->
       begin
-	Llio.input_bool          ic >>= fun allow_dirty ->
-	Llio.input_string_option ic >>= fun first ->
-	Llio.input_bool          ic >>= fun finc  ->
-	Llio.input_string_option ic >>= fun last  ->
-	Llio.input_bool          ic >>= fun linc  ->
-	Llio.input_int           ic >>= fun max   ->
+	    Llio.input_bool          ic >>= fun allow_dirty ->
+	    Llio.input_string_option ic >>= fun first ->
+	    Llio.input_bool          ic >>= fun finc  ->
+	    Llio.input_string_option ic >>= fun last  ->
+	    Llio.input_bool          ic >>= fun linc  ->
+	    Llio.input_int           ic >>= fun max   ->
         Lwt.catch
-	  (fun () ->
-	    backend # range_entries ~allow_dirty first finc last linc max
-	    >>= fun (list:(string*string) list) ->
-	    Llio.output_int32 oc 0l >>= fun () ->
-	    let size = List.length list in
-	    Lwt_log.debug_f "size = %i" size >>= fun () ->
-	    Llio.output_list Llio.output_string_pair oc list >>= fun () ->
-      Lwt.return false
-	  )
-	  (handle_exception oc)
+	      (fun () ->
+	        backend # range_entries ~allow_dirty first finc last linc max
+	        >>= fun (list:(string*string) list) ->
+	        Llio.output_int32 oc 0l >>= fun () ->
+	        let size = List.length list in
+	        Lwt_log.debug_f "size = %i" size >>= fun () ->
+	        Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+            Lwt.return false
+	      )
+	      (handle_exception oc)
       end
     | REV_RANGE_ENTRIES ->
       begin
-	Llio.input_bool          ic >>= fun allow_dirty ->
-	Llio.input_string_option ic >>= fun first ->
-	Llio.input_bool          ic >>= fun finc  ->
-	Llio.input_string_option ic >>= fun last  ->
-	Llio.input_bool          ic >>= fun linc  ->
-	Llio.input_int           ic >>= fun max   ->
+	    Llio.input_bool          ic >>= fun allow_dirty ->
+	    Llio.input_string_option ic >>= fun first ->
+	    Llio.input_bool          ic >>= fun finc  ->
+	    Llio.input_string_option ic >>= fun last  ->
+	    Llio.input_bool          ic >>= fun linc  ->
+	    Llio.input_int           ic >>= fun max   ->
         Lwt.catch
-	  (fun () ->
-	    backend # rev_range_entries ~allow_dirty first finc last linc max
-	    >>= fun (list:(string*string) list) ->
-	    Llio.output_int32 oc 0l >>= fun () ->
-	    let size = List.length list in
-	    Lwt_log.debug_f "size = %i" size >>= fun () ->
-	    Llio.output_list Llio.output_string_pair oc list >>= fun () ->
-      Lwt.return false
-	  )
-	  (handle_exception oc)
+	      (fun () ->
+	        backend # rev_range_entries ~allow_dirty first finc last linc max
+	        >>= fun (list:(string*string) list) ->
+	        Llio.output_int32 oc 0l >>= fun () ->
+	        let size = List.length list in
+	        Lwt_log.debug_f "size = %i" size >>= fun () ->
+	        Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+            Lwt.return false
+	      )
+	      (handle_exception oc)
       end
     | LAST_ENTRIES ->
       begin
-	Sn.input_sn ic >>= fun i ->
-	Llio.output_int32 oc 0l >>= fun () ->
-	backend # last_entries i oc >>= fun () ->
-      Lwt.return false
+	    Sn.input_sn ic >>= fun i ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    backend # last_entries i oc >>= fun () ->
+        Lwt.return false
       end
     | WHO_MASTER ->
       begin
-	backend # who_master () >>= fun m ->
-	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_string_option oc m >>= fun () ->
-	Lwt.return false
+	    backend # who_master () >>= fun m ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    Llio.output_string_option oc m >>= fun () ->
+	    Lwt.return false
       end
     | EXPECT_PROGRESS_POSSIBLE ->
       begin
-	backend # expect_progress_possible () >>= fun poss ->
-	Llio.output_int32 oc 0l >>= fun () ->
-	Llio.output_bool oc poss >>= fun () ->
-	Lwt.return false
+	    backend # expect_progress_possible () >>= fun poss ->
+	    Llio.output_int32 oc 0l >>= fun () ->
+	    Llio.output_bool oc poss >>= fun () ->
+	    Lwt.return false
       end
     | TEST_AND_SET ->
       begin
-	Llio.input_string ic >>= fun key ->
-	Llio.input_string_option ic >>= fun expected ->
+	    Llio.input_string ic >>= fun key ->
+	    Llio.input_string_option ic >>= fun expected ->
         Llio.input_string_option ic >>= fun wanted ->
-	backend # test_and_set key expected wanted >>= fun vo ->
-	Llio.output_int oc 0 >>= fun () ->
+	    backend # test_and_set key expected wanted >>= fun vo ->
+	    Llio.output_int oc 0 >>= fun () ->
         Llio.output_string_option oc vo >>= fun () ->
-      Lwt.return false
+        Lwt.return false
       end
     | USER_FUNCTION ->
       begin
-	Llio.input_string ic >>= fun name ->
-	Llio.input_string_option ic >>= fun po ->
-	Lwt.catch
-	  (fun () ->
-	    begin
-	      backend # user_function name po >>= fun ro ->
-	      Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_string_option oc ro >>= fun () ->
-        Lwt.return false
-	    end
-	  )
-	  (handle_exception oc)
+	    Llio.input_string ic >>= fun name ->
+	    Llio.input_string_option ic >>= fun po ->
+	    Lwt.catch
+	      (fun () ->
+	        begin
+	          backend # user_function name po >>= fun ro ->
+	          Llio.output_int oc 0 >>= fun () ->
+	          Llio.output_string_option oc ro >>= fun () ->
+              Lwt.return false
+	        end
+	      )
+	      (handle_exception oc)
       end
     | PREFIX_KEYS ->
       begin
-	Llio.input_bool   ic >>= fun allow_dirty ->
-	Llio.input_string ic >>= fun key ->
-	Llio.input_int    ic >>= fun max ->
-	backend # prefix_keys ~allow_dirty key max >>= fun keys ->
+	    Llio.input_bool   ic >>= fun allow_dirty ->
+	    Llio.input_string ic >>= fun key ->
+	    Llio.input_int    ic >>= fun max ->
+	    backend # prefix_keys ~allow_dirty key max >>= fun keys ->
         let size = List.length keys in
-	Llio.output_int oc 0 >>= fun () ->
+	    Llio.output_int oc 0 >>= fun () ->
         Lwt_log.debug_f "size = %i" size >>= fun () ->
-	Llio.output_int oc size >>= fun () ->
-	Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
-	Lwt.return false
+	    Llio.output_int oc size >>= fun () ->
+	    Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
+	    Lwt.return false
       end
     | MULTI_GET ->
       begin
-	Llio.input_bool ic >>= fun allow_dirty ->
-	Llio.input_int  ic >>= fun length ->
-	let rec loop keys i =
-	  if i = 0
-	  then Lwt.return keys
-	  else
-	    begin
-	      Llio.input_string ic >>= fun key ->
-	      loop (key :: keys) (i-1)
-	    end
-	in
-	loop [] length >>= fun keys ->
-	Lwt.catch
-	  (fun () ->
-	    backend # multi_get ~allow_dirty keys >>= fun values ->
-	    Llio.output_int oc 0 >>= fun () ->
-	    Llio.output_int oc length >>= fun () ->
-	    Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-	    Lwt.return false
-	  )
-	  (handle_exception oc)
+	    Llio.input_bool ic >>= fun allow_dirty ->
+	    Llio.input_int  ic >>= fun length ->
+	    let rec loop keys i =
+	      if i = 0
+	      then Lwt.return keys
+	      else
+	        begin
+	          Llio.input_string ic >>= fun key ->
+	          loop (key :: keys) (i-1)
+	        end
+	    in
+	    loop [] length >>= fun keys ->
+	    Lwt.catch
+	      (fun () ->
+	        backend # multi_get ~allow_dirty keys >>= fun values ->
+	        Llio.output_int oc 0 >>= fun () ->
+	        Llio.output_int oc length >>= fun () ->
+	        Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
+	        Lwt.return false
+	      )
+	      (handle_exception oc)
       end
     | SEQUENCE -> handle_sequence ~sync:false ic oc backend
     | SYNCED_SEQUENCE -> handle_sequence ~sync:true ic oc backend
@@ -336,53 +336,53 @@ let one_command (ic,oc) (backend:Backend.backend) =
       end
     | STATISTICS ->
       begin
-	let s = backend # get_statistics () in
-	let b = Buffer.create 100 in
-	Statistics.to_buffer b s;
-	let bs = Buffer.contents b in
-	Llio.output_int oc 0 >>= fun () ->
-	Llio.output_string oc bs >>= fun () ->
-      Lwt.return false
+	    let s = backend # get_statistics () in
+	    let b = Buffer.create 100 in
+	    Statistics.to_buffer b s;
+	    let bs = Buffer.contents b in
+	    Llio.output_int oc 0 >>= fun () ->
+	    Llio.output_string oc bs >>= fun () ->
+        Lwt.return false
       end
     | COLLAPSE_TLOGS ->
       begin
-	let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
-	let t0 = sw() in
-	let cb' n =
-	  Lwt_log.debug "CB'" >>= fun () ->
-	  Llio.output_int oc 0 >>= fun () -> (* ok *)
-	  Lwt_io.flush oc >>= fun () ->
-	  Llio.output_int oc n
-	in
-	let cb () =
-	  Lwt_log.debug "CB" >>= fun () ->
-	  let ts = sw() in
-	  let d = Int64.sub ts t0 in
-	  Llio.output_int oc 0 >>= fun () ->
-	  Llio.output_int64 oc d >>= fun () ->
-	  Lwt_io.flush oc
-	in
-	Llio.input_int ic >>= fun n ->
-	Lwt.catch
-	  (fun () ->
-	    Lwt_log.info "... Start collapsing ..." >>= fun () ->
-	    backend # collapse n cb' cb >>= fun () ->
-	    Lwt_log.info "... Finished collapsing ..." >>= fun () ->
-	    Lwt.return false
-	  )
-	  (handle_exception oc)
+	    let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
+	    let t0 = sw() in
+	    let cb' n =
+	      Lwt_log.debug "CB'" >>= fun () ->
+	      Llio.output_int oc 0 >>= fun () -> (* ok *)
+	      Lwt_io.flush oc >>= fun () ->
+	      Llio.output_int oc n
+	    in
+	    let cb () =
+	      Lwt_log.debug "CB" >>= fun () ->
+	      let ts = sw() in
+	      let d = Int64.sub ts t0 in
+	      Llio.output_int oc 0 >>= fun () ->
+	      Llio.output_int64 oc d >>= fun () ->
+	      Lwt_io.flush oc
+	    in
+	    Llio.input_int ic >>= fun n ->
+	    Lwt.catch
+	      (fun () ->
+	        Lwt_log.info "... Start collapsing ..." >>= fun () ->
+	        backend # collapse n cb' cb >>= fun () ->
+	        Lwt_log.info "... Finished collapsing ..." >>= fun () ->
+	        Lwt.return false
+	      )
+	      (handle_exception oc)
       end
     | SET_INTERVAL ->
       begin
         Lwt.catch
 	      (fun () ->
-          Interval.input_interval ic >>= fun interval ->
-          backend # set_interval interval >>= fun () ->
-          response_ok_unit oc
-        )
-        (handle_exception oc)
-
-	    end
+            Interval.input_interval ic >>= fun interval ->
+            backend # set_interval interval >>= fun () ->
+            response_ok_unit oc
+          )
+          (handle_exception oc)
+          
+	  end
     | GET_INTERVAL ->
       begin
         Lwt.catch(
@@ -391,25 +391,25 @@ let one_command (ic,oc) (backend:Backend.backend) =
             Llio.output_int oc 0 >>= fun () ->
             Interval.output_interval oc interval >>= fun () ->
             Lwt.return false
-          )
+        )
           (handle_exception oc)
       end
     | GET_ROUTING ->
       Lwt.catch
-	(fun () -> backend # get_routing () >>= fun routing ->
-	  Llio.output_int oc 0 >>= fun () ->
-	  Routing.output_routing oc routing >>= fun () ->
-	  Lwt.return false
-	)
-	(handle_exception oc)
+	    (fun () -> backend # get_routing () >>= fun routing ->
+	      Llio.output_int oc 0 >>= fun () ->
+	      Routing.output_routing oc routing >>= fun () ->
+	      Lwt.return false
+	    )
+	    (handle_exception oc)
     | SET_ROUTING ->
       begin
-	Routing.input_routing ic >>= fun routing ->
-	Lwt.catch
-	  (fun () ->
-	    backend # set_routing routing >>= fun () ->
-	    response_ok_unit oc)
-	  (handle_exception oc)
+	    Routing.input_routing ic >>= fun routing ->
+	    Lwt.catch
+	      (fun () ->
+	        backend # set_routing routing >>= fun () ->
+	        response_ok_unit oc)
+	      (handle_exception oc)
       end
     | SET_ROUTING_DELTA ->
       begin
@@ -420,7 +420,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
             Llio.input_string ic >>= fun right ->
             backend # set_routing_delta left sep right >>= fun () ->
             response_ok_unit oc )
-        (handle_exception oc)
+          (handle_exception oc)
       end
     | GET_KEY_COUNT ->
       begin
@@ -442,11 +442,11 @@ let one_command (ic,oc) (backend:Backend.backend) =
     | OPT_DB ->
       begin
         Lwt.catch
-        ( fun () ->
-          backend # optimize_db () >>= fun () ->
-          response_ok_unit oc 
-        )
-        (handle_exception oc)
+          ( fun () ->
+            backend # optimize_db () >>= fun () ->
+            response_ok_unit oc 
+          )
+          (handle_exception oc)
       end
     | DEFRAG_DB ->
       begin
@@ -457,16 +457,16 @@ let one_command (ic,oc) (backend:Backend.backend) =
           (handle_exception oc)
       end
     | CONFIRM ->
-	begin
-          Llio.input_string ic >>= fun key ->
-          Llio.input_string ic >>= fun value ->
-	  Lwt.catch
-	    (fun () -> backend # confirm key value >>= fun () ->
-	      response_ok_unit oc
-	    )
-	    (handle_exception oc)
-	end
-
+	  begin
+        Llio.input_string ic >>= fun key ->
+        Llio.input_string ic >>= fun value ->
+	    Lwt.catch
+	      (fun () -> backend # confirm key value >>= fun () ->
+	        response_ok_unit oc
+	      )
+	      (handle_exception oc)
+	  end
+        
     | GET_NURSERY_CFG ->
       begin
         Lwt.catch (
@@ -479,7 +479,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
             Llio.output_string oc (Buffer.contents buf) >>= fun () ->
             Lwt.return false
         )
-        ( handle_exception oc )
+          ( handle_exception oc )
       end
     | SET_NURSERY_CFG ->
       begin
@@ -490,31 +490,31 @@ let one_command (ic,oc) (backend:Backend.backend) =
             backend # set_cluster_cfg cluster_id cfg >>= fun () ->
             response_ok_unit oc
         )
-        ( handle_exception oc )
+          ( handle_exception oc )
       end
     | GET_FRINGE ->
       begin
-	      Lwt.catch
+	    Lwt.catch
 	      (fun () ->
-          Llio.input_string_option ic >>= fun boundary ->
-          Llio.input_int ic >>= fun dir_as_int ->
-          let direction =
-            if dir_as_int = 0
-            then
-              Routing.UPPER_BOUND
-            else
-              Routing.LOWER_BOUND
-          in
+            Llio.input_string_option ic >>= fun boundary ->
+            Llio.input_int ic >>= fun dir_as_int ->
+            let direction =
+              if dir_as_int = 0
+              then
+                Routing.UPPER_BOUND
+              else
+                Routing.LOWER_BOUND
+            in
 	        backend # get_fringe boundary direction >>= fun kvs ->
-          Lwt_log.debug "get_fringe backend op complete" >>= fun () ->
-          Llio.output_int oc 0 >>= fun () ->
+            Lwt_log.debug "get_fringe backend op complete" >>= fun () ->
+            Llio.output_int oc 0 >>= fun () ->
 	        Llio.output_kv_list oc kvs >>= fun () ->
-          Lwt_log.debug "get_fringe all done" >>= fun () ->
+            Lwt_log.debug "get_fringe all done" >>= fun () ->
 	        Lwt.return false
 	      )
 	      (handle_exception oc)
       end
-
+        
 let protocol backend connection =
   let ic,oc = connection in
   let check magic version =
@@ -536,15 +536,16 @@ let protocol backend connection =
   in
   let rec loop () =
     begin
-	    one_command connection backend >>= fun closed ->
-	    if closed
-	    then Lwt_log.debug "leaving client loop" >>= fun () -> Lwt.return ()
-	    else
-	      begin
-	        Lwt_io.flush oc >>= fun() ->
-	        loop ()
-	      end
+	  one_command connection backend >>= fun closed ->
+	  if closed
+	  then Lwt_log.debug "leaving client loop" >>= fun () -> Lwt.return ()
+	  else
+	    begin
+	      Lwt_io.flush oc >>= fun() ->
+	      loop ()
+	    end
     end
   in
   prologue () >>= fun () ->
   loop ()
+    
