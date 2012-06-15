@@ -191,7 +191,7 @@ let benchmark
       ~mode:Lwt_io.output
       fn
       (fun oc ->
-	with_c (fun (client:Arakoon_client.client) -> phase client oc) 
+	    with_c (fun (client:Arakoon_client.client) -> phase client oc) 
       )
     >>= fun () ->
     Lwt.return ()

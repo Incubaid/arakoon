@@ -52,109 +52,113 @@ let master_consensus constants ((mo:master_option),v,n,i) () =
 let stable_master constants (v',n,new_i) = function
     | LeaseExpired n' ->
       let me = constants.me in
-      if n' < n then
-	begin
-	  log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
-	    (Sn.string_of n') (Sn.string_of n) >>= fun () ->
-	  Lwt.return (Stable_master (v',n,new_i))
-	end
+      if n' < n 
+      then
+	    begin
+	      log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
+	        (Sn.string_of n') (Sn.string_of n) >>= fun () ->
+	      Lwt.return (Stable_master (v',n,new_i))
+	    end
       else
-	begin
-	  let extend () = 
-	    log ~me "stable_master: half-lease_expired: update lease." 
-	    >>= fun () ->
-	    let ms = Update.make_master_set me None in
-	    let v = Update.make_update_value ms in
-		(* TODO: we need election timeout as well here *)
-	    Lwt.return (Master_dictate (None,v,n,new_i))
-	  in
-	  match constants.master with
-	    | Preferred p when p <> me ->
-	      let diff = Sn.diff new_i (constants.last_witnessed p) in
-	      if diff < (Sn.of_int 5) then
-		begin
-		  log ~me "stable_master: handover to %s" p >>= fun () ->
-		  Lwt.return (Stable_master (v', n, new_i))
-		end
-	      else
-		extend () 
-	    | _ -> extend()
-	end
+	    begin
+	      let extend () = 
+	        log ~me "stable_master: half-lease_expired: update lease." 
+	        >>= fun () ->
+	        let ms = Update.make_master_set me None in
+	        let v = Update.make_update_value ms in
+		    (* TODO: we need election timeout as well here *)
+	        Lwt.return (Master_dictate (None,v,n,new_i))
+	      in
+	      match constants.master with
+	        | Preferred p when p <> me ->
+	          let diff = Sn.diff new_i (constants.last_witnessed p) in
+	          if diff < (Sn.of_int 5) 
+              then
+		        begin
+		          log ~me "stable_master: handover to %s" p >>= fun () ->
+		          Lwt.return (Stable_master (v', n, new_i))
+		        end
+	          else
+		        extend () 
+	        | _ -> extend()
+	    end
     | FromClient (vo, finished) ->
       begin
-	match vo with
-	  | None ->
-	    begin
-	      finished Store.Stop >>= fun () ->
-	      Lwt.fail (Failure "forced_stop")
-	    end
-	  | Some value ->
-	    begin
-	      Lwt.return (Master_dictate (Some finished,value,n,new_i))
-	    end
+	    match vo with
+	      | None ->
+	        begin
+	          finished Store.Stop >>= fun () ->
+	          Lwt.fail (Failure "forced_stop")
+	        end
+	      | Some value ->
+	        begin
+	          Lwt.return (Master_dictate (Some finished,value,n,new_i))
+	        end
       end
     | FromNode (msg,source) ->
       begin
-	let me = constants.me in
-	match msg with
-	  | Prepare (n',i') ->
-	    begin
+	    let me = constants.me in
+	    match msg with
+	      | Prepare (n',i') ->
+	        begin
               if am_forced_master constants me
-	      then
-		begin
-		  let reply = Nak(n', (n,new_i)) in
-		  constants.send reply me source >>= fun () ->
-		  if n' > 0L 
-		  then
-		    let new_n = update_n constants n' in
-		    Lwt.return (Forced_master_suggest (new_n,new_i))
-		  else
-		    Lwt.return (Stable_master (v',n,new_i) )
-		end
-	      else
-		begin
-		  handle_prepare constants source n n' i' >>= function
-		    | Nak_sent 
-		    | Prepare_dropped ->
+	          then
+		        begin
+		          let reply = Nak(n', (n,new_i)) in
+		          constants.send reply me source >>= fun () ->
+		          if n' > 0L 
+		          then
+		            let new_n = update_n constants n' in
+		            Lwt.return (Forced_master_suggest (new_n,new_i))
+		          else
+		            Lwt.return (Stable_master (v',n,new_i) )
+		        end
+	          else
+		        begin
+		          handle_prepare constants source n n' i' >>= function
+		            | Nak_sent 
+		            | Prepare_dropped ->
                       Lwt.return  (Stable_master (v',n,new_i) )
-		    | Promise_sent_up2date ->
-		      begin
-			let tlog_coll = constants.tlog_coll in
-			tlog_coll # get_last_i () >>= fun tlc_i ->
-			tlog_coll # get_last_update tlc_i >>= fun l_update ->
-			let l_uval = 
-			  begin
-			    match l_update with 
-			      | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-			      | None -> None
-			  end in
-			Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
-		      end
-		    | Promise_sent_needs_catchup ->
+		            | Promise_sent_up2date ->
+		              begin
+			            let tlog_coll = constants.tlog_coll in
+			            tlog_coll # get_last_i () >>= fun tlc_i ->
+			            tlog_coll # get_last_update tlc_i >>= fun l_update ->
+			            let l_uval = 
+			              begin
+			                match l_update with 
+			                  | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			                  | None -> None
+			              end in
+			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
+		              end
+		            | Promise_sent_needs_catchup ->
                       Store.get_catchup_start_i constants.store >>= fun i ->
                       Lwt.return (Slave_discovered_other_master (source, i, n', i'))
-		end
-	    end
-	  | _ ->
-	    begin
-	      log ~me "stable_master received %S: dropping" (string_of msg)
-	      >>= fun () ->
-	      Lwt.return (Stable_master (v',n,new_i))
-		
-	    end
+		        end
+	        end
+	      | _ ->
+	        begin
+	          log ~me "stable_master received %S: dropping" (string_of msg)
+	          >>= fun () ->
+	          Lwt.return (Stable_master (v',n,new_i))
+		        
+	        end
       end
     | ElectionTimeout n' -> 
+      begin
       let me = constants.me in
       log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
       Lwt.return (Stable_master (v',n,new_i))
-
+      end
     | Quiesce (sleep,awake) ->
-      fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
-      Lwt.return (Stable_master (v',n,new_i))
-      
-    | Unquiesce ->
-      Lwt.fail (Failure "Unexpected unquiesce request while running as")
-      
+      begin
+        fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+        Lwt.return (Stable_master (v',n,new_i))
+      end
+        
+    | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
+                
 (* a master informes the others of a new value by means of Accept
    messages and then waits for Accepted responses *)
 

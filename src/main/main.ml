@@ -41,6 +41,7 @@ type local_action =
   | CompressTlog
   | UncompressTlog
   | BENCHMARK
+  | LOAD
   | SET
   | GET
   | DELETE
@@ -264,19 +265,20 @@ let main () =
 				  Arg.Set_string filename],
      "compress a tlog file");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
-				    Arg.Set_string filename],
+				                    Arg.Set_string filename],
      "uncompress a tlog file");
     ("--set", Arg.Tuple [set_laction SET;
-			 Arg.Set_string key;
-			 Arg.Set_string value;
-			], "<key> <value> : arakoon[<key>] = <value>");
+			             Arg.Set_string key;
+			             Arg.Set_string value;
+			            ], "<key> <value> : arakoon[<key>] = <value>");
     ("--get", Arg.Tuple [set_laction GET;
-			 Arg.Set_string key
-			],"<key> : arakoon[<key>]");
+			             Arg.Set_string key
+			            ],"<key> : arakoon[<key>]");
     ("--delete", Arg.Tuple[set_laction DELETE;
-			   Arg.Set_string key;
-			  ], "<key> : delete arakoon[<key>]");
+			               Arg.Set_string key;
+			              ], "<key> : delete arakoon[<key>]");
     ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
+    ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients], "<n> clients that generate load on a cluster");
     ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
     ("--expect-progress-possible", Arg.Tuple[set_laction EXPECT_PROGRESS_POSSIBLE;],
      "tells you if the master thinks progress is possible");
@@ -370,8 +372,10 @@ let main () =
     | UncompressTlog -> uncompress_tlog !filename
     | SET -> Client_main.set !config_file !key !value
     | GET -> Client_main.get !config_file !key
-    | BENCHMARK ->
-      Client_main.benchmark !config_file !size !tx_size !max_n !n_clients
+    | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n 
+      !n_clients
+    | LOAD -> Load_client.main !config_file 
+      !n_clients
     | DELETE -> Client_main.delete !config_file !key
     | WHO_MASTER -> Client_main.who_master !config_file ()
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
@@ -383,7 +387,8 @@ let main () =
     | Defrag_db   -> Nodestream_main.defrag_db !ip !port !cluster_id
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
-    | MigrateNurseryRange -> Nursery_main.migrate_nursery_range !config_file !left_cluster !separator !right_cluster
+    | MigrateNurseryRange -> Nursery_main.migrate_nursery_range 
+      !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping !ip !port !cluster_id
 
@@ -401,7 +406,7 @@ let main () =
 	let main_t = (Node_main.main_t make_config
 			!node_id !daemonize !catchup_only)
       in
-	Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t);
+	(* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
 	Lwt_main.run main_t;
 	0
       | TestNode ->
