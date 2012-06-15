@@ -25,7 +25,7 @@ try:
 except ImportError:
     from pylabs import q
 
-ARAKOON_BINARY = "/opt/qbase3/apps/arakoon/bin/arakoon "
+import ArakoonManagement
 
 class NurseryManagement:
     def getNursery(self, clusterId ):
@@ -70,9 +70,7 @@ class NurseryManager:
         @type rightClusterId:   string
         @rtype:                 void
         """
-        cmd = self.__getBaseCmd()
-        cmd += "--nursery-migrate %s %s %s " % (leftClusterId, separator, rightClusterId)
-        cmd += self.__getConfigCmdline()
+        cmd = "%s -config %s --nursery-migrate %s %s %s" % (self.__which(), self._keeperCfg, leftClusterId, separator, rightClusterId)
         self.__runCmd ( cmd )
     
     def initialize(self, firstClusterId):
@@ -86,9 +84,7 @@ class NurseryManager:
         
         @rtype void
         """
-        cmd = self.__getBaseCmd()
-        cmd += "--nursery-init %s " % firstClusterId
-        cmd += self.__getConfigCmdline()
+        cmd = "%s -config %s --nursery-init %s" % (self.__which(), self._keeperCfg, firstClusterId)
         self.__runCmd ( cmd )
     
     def delete(self, clusterId, separator = None):
@@ -103,13 +99,13 @@ class NurseryManager:
         
         @rtype void
         """
-        cmd = self.__getBaseCmd()
-        cmd += self.__getConfigCmdline()
-        cmd += "--nursery-delete %s " % clusterId
+        sep_string = None
         if separator is None:
-            cmd +=  '""'
-        else :
-            cmd += separator
+            sep_string = '""'
+        else:
+            sep_string = separator
+        
+        cmd = "%s -config %s --nursery-delete %s %s" % (self.__which(), self._keeperCfg, clusterId, sep_string)
         self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
@@ -117,10 +113,7 @@ class NurseryManager:
         if exit :
             raise RuntimeError( stderr )
         
-    def __getConfigCmdline(self):
-        return "-config %s " % self._keeperCfg
-        
-    def __getBaseCmd(self):
-        return ARAKOON_BINARY
+    def __which(self):
+        return ArakoonManagement.which_arakoon()
 
     
