@@ -90,6 +90,15 @@ class Lib:
         d = '%s/%s' % (ROOT, self._name)
         sh(cmd, cwd = d, env = env)
 
+class Lwt(Lib):
+    def __init__(self):
+        name = 'lwt-2.3.2-2012-03-19'
+        Lib.__init__(self, name, '.tar.gz', '%s')
+        
+    def extract(self):
+        flags = extract_flags[self._extension]
+        sh(['tar', '-C', ROOT, flags, './3rd-party/' + self._archive], cwd = OLD_CWD)
+    
 def install_ocaml():
     lib = Lib('ocaml-%s' % OCAML,'.tar.bz2',
               'http://caml.inria.fr/pub/distrib/ocaml-3.12/%s')
@@ -131,9 +140,7 @@ def install_lwt():
     # Tell lwt where libev can be found
     env['LIBRARY_PATH'] = '%s/lib' % PREFIX
     env['C_INCLUDE_PATH'] = '%s/include' % PREFIX
-    name = 'lwt-2.3.2'
-    lib = Lib(name, '.tar.gz', 'http://ocsigen.org/download/%s')
-    lib.download()
+    lib = Lwt()
     lib.extract()
     lib.sh(['make','clean'])
     lib.sh(['ocaml', 'setup.ml', '-configure', '--prefix', PREFIX])
@@ -315,10 +322,10 @@ def do_it():
         if options.bisect:
             install_bisect()
         #sudo cp lablgtk-2.14.2/examples/test.xpm /usr/share/pixmaps/ocaml.xpm
-        print_env_setup_help()
     else:
-        print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
-        print_env_setup_help()
+        pass
+        #print "setup_env.py:  quick-check tells me we're fine (%s)" % PREFIX
+    print_env_setup_help()
 
 
 if __name__ == '__main__':

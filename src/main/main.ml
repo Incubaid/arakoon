@@ -320,7 +320,7 @@ let main () =
         "<left_cluster> <separator> <right_cluster> migrate a range by either adding a new cluster or modifying an existing separator between two cluster ranges");
     ("--nursery-delete", Arg.Tuple[set_laction DeleteNurseryCluster;
         Arg.Set_string cluster_id;
-        Arg.Set_string separator;
+        Arg.Rest (fun s -> separator := s);
         ],
         "<cluster_id> <separator> removes <cluster_id> from the nursery, if the cluster is a boundary cluster no separator is required");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
