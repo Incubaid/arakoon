@@ -16,7 +16,7 @@ can be freely chosen.
 
     cluster = Node_0, Node_1, Node_2
     cluster_id = Demo_Cluster
-e
+
     #Optional parameters:
 
     #master = Node_0
