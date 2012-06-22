@@ -97,28 +97,25 @@ can be freely chosen.</p>
 # A setup with 3 nodes
 
 cluster = Node_0, Node_1, Node_2
-cluster_id = Demo_Cluster
-
-#Optional parameters:
-
-#master = Node_0
+cluster_id = Demo_Cluster</pre>
+</div>
+<dl class="docutils">
+<dt>e</dt>
+<dd><p class="first">#Optional parameters:</p>
+<p>#master = Node_0
 #preferred_master = true
 #lease_period = 60
-#readonly = true
-
-#quorum = 1
-
-
-[Node_0]
+#readonly = true</p>
+<p>#quorum = 1</p>
+<p>[Node_0]
 ip = 192.168.1.1
 client_port = 7080
 messaging_port = 10000
 home = /tmp/Node_0
 log_dir = /tmp/Node_0
 log_level = debug
-#disable_tlog_compression = true
-
-[Node_1]
+#disable_tlog_compression = true</p>
+<p>[Node_1]
 ip = 192.168.1.2
 client_port = 7081
 messaging_port = 10001
@@ -127,9 +124,8 @@ home = /tmp/arakoon_1
 #tlog_dir = /tmp/Node_1_tlog
 log_dir = /tmp/Node_1
 log_level = debug
-#disable_tlog_compression = true
-
-[Node_2]
+#disable_tlog_compression = true</p>
+<p class="last">[Node_2]
 ip = 192.168.1.3
 client_port = 7082
 messaging_port = 10002
@@ -138,8 +134,9 @@ home = /tmp/Node_2
 #tlog_dir = /tmp/Node_2_tlog
 log_dir = /tmp/Node_2
 log_level = debug
-#disable_tlog_compression = true</pre>
-</div>
+#disable_tlog_compression = true</p>
+</dd>
+</dl>
 <div class="section" id="content-of-a-configuration-file">
 <h2>Content of a Configuration File<a class="headerlink" href="#content-of-a-configuration-file" title="Permalink to this headline">¶</a></h2>
 <p>An Arakoon configuration file consists of at least two sections:</p>
