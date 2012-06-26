@@ -2,8 +2,8 @@
 Arakoon manifesto
 =================
 :Author: Romain Slootmaekers
-:Date: July 2010
-:Abstract: Arakoon tries to be a simple distributed key value store that
+:Date: June 2012
+:Abstract: Arakoon is a simple distributed key value store that
     prefers consistency above everything else.
 
 .. contents:: Table of Contents
@@ -13,12 +13,7 @@ introduction
 ============
 What kind of document is this?
 ------------------------------
-This document was written mainly before we started building Arakoon. 
-It served the purpose as a basis of discussion, 
-trying to get consensus on what we were going to build, before we build it. 
-We regularly come back to this document to record decisions, and to keep it anchored to reality. 
-Currently, it's not very well structured, the focus being on *getting the information in there first*. 
-Hopefully there will eventually be time to clean it up.
+we focus being on *getting the information in there first*. 
 
 why Arakoon?
 ------------
@@ -55,42 +50,28 @@ healing/recovery
 Whenever a component dies and is subsequently revived, or replaced the system must be able to guide that component towards a situation where that node again fully participates. 
 If this cannot be done fully automatically, then human intervention should be trivial.
 
+range queries
+~~~~~~~~~~~~~
+We want to be able to retrieve information about the ranges of keys. 
+For example what are the key/value pairs in the range *[x,y]*
+
+
 explicit failure
 ~~~~~~~~~~~~~~~~
 Whenever there is something wrong, failure should propagate quite quickly.
 This in contrast to systems that keep on trying to remedy the situation themselves al the time.
 
-Isn't this what Keyspace does?
-------------------------------
-Almost. We used keyspace for a while but were struggling with some issues.
-
 atomic multi updates
 ~~~~~~~~~~~~~~~~~~~~
-With Keyspace, you can do multiple updates in one request, 
-but it's nowhere near atomic, so when one of them fails, you're in limbo. Arakoon supports a sequence update which is an all or nothing thing.
+Arakoon supports a sequence update which is an all or nothing thing. This simplifies reasoning about failures.
 
 test_and_set
 ~~~~~~~~~~~~
 This is a conditional update, that only changes a value for a key when the store has the expected state.
-Keyspace supports this, but not when there is no expected value. 
-This makes it impossible to atomically set a value only if it was not present.
 An Arakoon *test_and_set* can be used to set a new value, 
 update an existing value, or remove an existing value.
 It's also important to notice Arakoon returns the *old* value after a
-*test_and_set*, allowing one to determine whether an update took place
-
-Keyspace defects
-~~~~~~~~~~~~~~~~
-* Segmentation violations under heavy load.
-* Accidental semantic changes of the interfaces
-* Keyspace nodes happily accept data even when the disk is full.
-* Several cluster in limbo (no updates possible) scenarios.
-* abandoned python client. There used to be a pure python client, 
-  but now it's abandoned in favour of a *SWIGed around C* library, 
-  which enforces it's own reconnection strategy.
-* Berkeley DB [#f1]_.
-  
-It's not that these issues are impossible to address. It's just that when you're fighting these, you don't want to be owner of the problem, not a spectator.
+*test_and_set*, allowing one to determine whether an update took place.
 
 high level overview
 -------------------
@@ -312,109 +293,23 @@ This increases throughput.
 Individual Slave failure
 ------------------------
 If a slave dies, the master is not affected.
-When a slave comes up, there are three possibilities. 
-The first is not very interesting. If the slave's log matches that of the master, nothing happened meanwhile and the slave is *in sync*. 
-The other cases are *small lapse* and *big lapse*.
+When a slave comes up, there are several possibilities. ...
 
-small lapse
-~~~~~~~~~~~
-Its replication counter I is still within the log of the master
-(or other any other slave that has a more recent state) . 
-So the slave first downloads the missing part of the log.
-Then it iterates over the tlog while adding the missing updates to the store.
-When finished the client again compares its log state with that of the other nodes. 
-It's either in back in sync or again within in a small lapse. 
-When the master is under load, it can be that a slave loops here until the master slows down.
-
-big lapse
-~~~~~~~~~
-Small lapse would be enough if one keeps the log files. 
-The only problem with this is that it wastes more than half of the available diskspace. 
-The good news is that these log files compress quite well, 
-so the only thing we want to be able to do is compress log files when rotate, 
-and make sure we can still read the compressed logs. 
-We also plan to implement the *collapsing* of logs: 
-Several updates for the same key can be replaced with the last update under certain conditions.
-Applications that only manage a limited set of keys, but update the values frequently will benefit from this a lot.
 
 Electing a master
 =================
-Master election should happen using paxos. 
-A master choice has a timeout, and a master tries to relect itself before the lease expires.
-Details are described in the PaxosLease paper.
+...
 
 
 Restart and Failure Scenarios
 =============================
-Comprehension greatly benefits from writing out explicitly what should happen after a failure [#f2]_.
-
-General power failure, after which the master is dead meat
-----------------------------------------------------------
-
-+-----+--------------------------------------+-----+--------------------------------------+-----+----------------------------------+
-|  A                                         |  B                                         |  C                                     |
-+=====+======================================+=====+======================================+=====+==================================+
-| 000 | :superscript:`s`\ MasterSet('C',...) | 000 | :superscript:`s`\ MasterSet('C',...) | 000 | MasterSet('C',...)               |
-+-----+--------------------------------------+-----+--------------------------------------+-----+----------------------------------+
-| 001 | :superscript:`t`\ Set('x','X')       | 001 | :superscript:`t`\ Set('x','X')       | 001 | :superscript:`s,t`\ Set('x','X') |
-+-----+--------------------------------------+-----+--------------------------------------+-----+----------------------------------+
-
-The table shows the situation when the power goes off. 
-Node C became master and dictated 1 update (*Set('x','X')*), received *Accepted* messages from all slaves,
-after which it pushed that update to its store. 
-The question is, what happens when node C is lost and A and B are started again?
-
-It's obvious that globally, there should be consensus on the *Set* update, but since there was no follow up, 
-both nodes don't realise this yet, and are trying to find out what should happen.
-A sends out a *Prepare(n,i=1)* to which B answers with a *Promise(n,i=1,Set('x','X'))*.
-All goes well, and A receives the promise, and thus decides that this is indeed the value for *i=1*.
-It pushes the value, to the store. 
-Node A goes into a state identical to C, before it became defunct.
-
-If node A gets this far, it's a de-facto leader, and can start acting like it. 
-The next thing A does is broadcast *Accept(n,2,MasterSet('A',...)* and things will soon be normal again.
-
-Unfortunate sequence of events
-------------------------------
-
-+-------+----------------------+-------+----------------------+-------+----------------------+
-| N1                           | N2                           | N3                           |
-+=======+======================+=======+======================+=======+======================+
-| i - 1 | :superscript:`s`\ v0 | i - 1 | :superscript:`t`\ v0 | i - 1 | :superscript:`t`\ v0 |
-+-------+----------------------+-------+----------------------+-------+----------------------+
-| i     | :superscript:`t`\ v1 | i     |                      | i     |                      |
-+-------+----------------------+-------+----------------------+-------+----------------------+
-
-A the starting situation is reached by a cluster where N1, being master accepted *v1* at *i* after which aferything goes down.
-After this, there are some problems with the master node (N1) and only N2 and N3 are restarted.
-They come up, resume service, and accept and reach consensus on a new value *v2*.
-
-+-------+----------------------+-------+----------------------+-------+----------------------+
-| N1                           | N2                           | N3                           |
-+=======+======================+=======+======================+=======+======================+
-| i - 1 | :superscript:`s`\ v0 | i - 1 | :superscript:`t`\ v0 | i - 1 | :superscript:`s`\ v0 |
-+-------+----------------------+-------+----------------------+-------+----------------------+
-| i     | :superscript:`t`\ v1 | i     | :superscript:`t`\ v2 | i     | :superscript:`t`\ v2 |
-+-------+----------------------+-------+----------------------+-------+----------------------+
-
-Then, disaster strikes again, and both N2 and N3 are stopped. 
-There seems to be a problem with N3, but the sysads did a great job and restored N1.
-Both N1 and N2 are started. 
-Now N1 promises v1 to N2 and N2 promises v2 to N1. 
-Neither can reach consensus and progress is blocked.
-
 
 
 Implementation choices
 ======================
 Inter-node communication
 ------------------------
-The nodes are fully connected with each other over tcp sockets.
-The low level (de-)serialization is handled by our llio library (C,Python and ocaml implementations available).
-This library is actually pretty efficient.
-For example, on inteloids, fetching a 64 bit integer from a buffer boils down to a reinterpretation of 8 bytes in the buffer (in C, it merely is a cast, while in Python it's a *struct.unpack('q',i)* ).
-Nodes all know one another from their configuration.
-Just above the socket layer, there's an abstract messaging layer, where you can just send and receive messages.
+The nodes are fully connected with each other over tcp sockets. We're playing with the idea of using IB (not IPoIB).
 
 Client-Node communication
 -------------------------
@@ -424,27 +319,36 @@ Just note that a list should be written out head first, so that naieve de-serial
 +----------+------------------------------------------------------------------------------+--------------+
 | type     | marshalled form                                                              | size (bytes) |
 +==========+==============================================================================+==============+
-| bool     | false -> 0 | true -> 1                                                       | 1            |
+| char     | ascii                                                                        | 1            |
 +----------+------------------------------------------------------------------------------+--------------+
-| int32    | little endian                                                                | 4            |
+| bool     | false -> '0' | true -> '1'                                                   | 1            |
 +----------+------------------------------------------------------------------------------+--------------+
-| int64    | little endian                                                                | 8            |
+| size     | little endian                                                                | 4            |
 +----------+------------------------------------------------------------------------------+--------------+
-| string   | [size:int\ :subscript:`32`\ ][bytes]                                         | 4 + n        |
+| varint   | continuation bit announces next byte                                         |   ..         |
++----------+------------------------------------------------------------------------------+--------------+
+| string   | [length:varint ][bytes]                                                      | ... + n      |
 +----------+------------------------------------------------------------------------------+--------------+
 | float    | IEE754 double                                                                | 8            |
 +----------+------------------------------------------------------------------------------+--------------+
-| x option | 0x00 (None) or 0x01 [x]                                                      | *|x| + 1*    |
+| x option | '0' (None) or '1' [x]                                                        | *|x| + 1*    |
 +----------+------------------------------------------------------------------------------+--------------+
-| x list   | [size:int\ :subscript:`32`\ ][x\ :subscript:`n-1`\ ]...[x\ :subscript:`0`\ ] |              |
+| x list   | [size:varint][x\ :subscript:`n-1`\ ]...[x\ :subscript:`0`\ ]                 |              |
 +----------+------------------------------------------------------------------------------+--------------+
-| x array  | [size:int\ :subscript:`32`\ ][x\ :subscript:`0`\ ]...[x\ :subscript:`n-1`\ ] |              |
+| x array  | [size:varint][x\ :subscript:`0`\ ]...[x\ :subscript:`n-1`\ ]                 |              |
 +----------+------------------------------------------------------------------------------+--------------+
 
+
 +-------------+---------------------+
-| 1:int32     | 0x01 0x00 0x00 0x00 |
+| 1:size      | 0x01 00 00 00       |
 +-------------+---------------------+
-| 70000:int32 | 0x70 0x11 0x01 0x00 |
+| 70000:size  | 0x70 0x17 0x01 0x00 |
++-------------+---------------------+
+| 1:int       | 0x01                |
++-------------+---------------------+
+| 40:int      | 0x40                |
++-------------+---------------------+
+| 70000:int   | 0xf0a204            |
 +-------------+---------------------+
 | 3.14:float  | 0x1f85eb51b81e0940  |
 +-------------+---------------------+
@@ -464,23 +368,23 @@ protocol definition
 The protocol is a very simple request/response based binary protocol.
 The client is the active party, and sends a command
 
-successful rpc call
+successful client-server conversation
 ~~~~~~~~~~~~~~~~~~~
 
 ::
 
-    client: [command : int32][parameter_0][parameter_1]... (&flush)
-    server: [0x0:int32][result_0][result_1]... (&flush)
+    client: [command : size][request_size:size][parameter_0][parameter_1]... (&flush)
+    server: [response_size:size][0x00][result_0][result_1]... (&flush)
 
 ::
 
-    client: [command : int32][parameter_0][parameter_1].. (&flush)
-    server: [rc:int32][size:int32}][bytes] (&flush)
+    client: [command : size][parameter_0][parameter_1].. (&flush)
+    server: [response_size:size][rc:varint][string]      (&flush)
 
 Each command is masked with the magic sequence ``0xb1ff0000``.
 The node checks the magic, proceeds with reading the parameters, and processes the request.
 Then the response code and response are written.
-If a failure happens, the server writes out a return code different from zero, and a string with a message after which he closes the connection.
+If a failure happens, the server writes out a return code different from zero, and a string with a message after which he may close the connection.
 
 The command codes and return codes are listed below.
 
@@ -543,12 +447,8 @@ We might have to reconsider this strategy as the number of different clients gro
 
 local key/value store
 ---------------------
-We've picked tokyo cabinet. 
-Our client interface matches its api quite well. 
-It might be an idea to make this pluggable, but we don't need this at the moment.
-Tokyo Cabinet is great for small values, but it will not cope with values of 1MB; 
-even 10KB gives problems if you don't tweak the parameters. 
-In essence, allowing both 1B and 1MB in the same BTree will eventually explode.
+Stuff about baardskeerder
+
 
 forced master and quorum
 ------------------------
@@ -581,28 +481,7 @@ The population can only change with reasonable increments.
 State machine
 =============
 
-.. graphviz:: states.dot
-
-This figure shows the state machine diagram for the arakoon nodes. 
-
-== ================================================ 
-1  /multicast Prepare n' 
-2  to\_receive $>$ 0/ 
-3  Promise(n,$new_i$,limit)/ 
-4  to\_receive $=$ 0/ multicast Accept(n,$new_i$,v)
-5  needed $>$ 0/
-6  Accept(n,i)/
-7  needed $=$ 0/
-8  /start lease
-9  FromClient / 
-10 multicast Accept(n,i,v) 
-11 Prepare(n'>n)
-12 Accept(n,i,v)
-13 Accept(n,i,v)
-14 Accept(n',i',v')
-15 /multicast Prepare(-1)
-16 Prepare(n)/
-== ================================================
+...
 
 
 .. _user-functions:
@@ -630,45 +509,49 @@ Each call to a user function is executed *inside a transaction*
 
 .. code-block:: ocaml
 
-    class type user_db = 
-    object 
-      method set : string -> string -> unit
-      method get : string -> string
-      method delete: string -> unit
-      method test_and_set: string -> string option -> string option -> 
-              string option
-      method range_entries: 
-          string option -> bool -> 
-          string option -> bool -> int -> (string * string) list 
-    end
+module UserDB : 
+sig
+  type tx = Core.BS.tx
+  type k = string
+  type v = string
+  val set : tx -> k -> v -> unit Lwt.t
+  val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
+end
 
 User functions have the following type:
 
 ::
 
-    user_db -> string option -> string option
+    type f = UserDB.tx -> string option -> (string option) Lwt.t
 
 Within the body of the user function, 
-one can make calls upon the *user_db* object that is passed in.
+one can make calls using the transaction value that is passed in.
 A sample implementation, for incrementing a counter is provided below.
 
 .. code-block:: ocaml
 
-    (* file : plugin_incr_counter.ml *)
-    let incr_counter db ko = 
-        match ko with
-        | None -> 
-            raise (Arakoon_exc.Exception(E_UNKNOWN_FAILURE, ``invalid arg''))
-        | Some key -> 
-            let counter = 
-                try int_of_string(db # get key) 
-                with Not_found -> 0 
-            in
-            let nv = string_of_int (counter + 1) in
-            let () = db # set key nv in
-            None
- 
-    let () = Registry.register ``incr_counter'' incr_counter
+    (* file : plugin_update_max.ml *)
+    let update_max tx po = 
+      let _k = "max" in
+      let vo2i = function
+          | None -> 0
+          | Some v -> s2i v
+      in
+      UserDB.get tx _k >>= fun vr ->
+      let i2 = match vr with
+          | Baardskeerder.OK v -> s2i v
+          | Baardskeerder.NOK k -> 0
+      in
+      let i = vo2i po in
+      let m  = max i i2 in
+      let ms = i2s m in
+      UserDB.set tx _k ms >>= fun () ->
+      Lwt.return (Some ms)
+
+
+    let () = Userdb.Registry.register "update_max" update_max
+
+
 
 The last line of the module takes care of the registration of the function.
 
@@ -687,14 +570,14 @@ The arakoon configuration file needs to have an extra line
     ...
 
     #plugin module needs to be in home
-    #plugins = plugin_incr_counter
+    plugins = plugin_plugin_update_max
 
     [arakoon_0]
     home = /tmp/arakoon_0
 
     ...
 
-This will cause the node to load *plugin_incr_counter.cmxs* when it starts. 
+This will cause the node to load *plugin_update_max.cmxs* when it starts. 
 This file needs to be available in the home directory of *all* the nodes of the cluster. After the nodes are started, clients can make use of this.
 
 Important remarks
@@ -785,7 +668,5 @@ Possible options are:
 
 .. rubric:: Footnotes
 
-.. [#f1] May, 2011, Scalien dropped Keyspace due to *'BerkeleyDB issues'*
-.. [#f2] Something we learned the hard way
 .. [#f3] after a *a nursery of raccoons*
 .. [#f4] you could build transactionality across clusters, but it's a can of worms
