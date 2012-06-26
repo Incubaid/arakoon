@@ -1,7 +1,7 @@
 #!/bin/bash -xue
 
-
-LATEST_ARAKOON_URI=$JENKINS_URL/view/arakoon-1.2/job/arakoon-1.2-base/lastSuccessfulBuild/artifact/arakoon
+BRANCH=$(hg branch)
+LATEST_ARAKOON_URI=$JENKINS_URL/view/arakoon-${BRANCH}/job/arakoon-${BRANCH}-base/lastSuccessfulBuild/artifact/arakoon
 TEST_BINARY=./src/client/php/test/arakoon
 
 echo JENKINS_USER=${JENKINS_USER}
