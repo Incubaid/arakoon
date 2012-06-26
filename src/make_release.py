@@ -41,7 +41,7 @@ class JiraClient(object):
 
         def tr_to_version(tr):
             rd = tr.findChild(name='span', attrs={'class':
-                'dtstart dtend mf-hidden'})
+                'dtstart dtend hidden'})
             release_date = datetime.datetime.strptime(rd.text, '%Y-%m-%dT%H-%M') \
                            if rd \
                            else None
@@ -59,7 +59,8 @@ class JiraClient(object):
                      'release_date': release_date,
                      })
 
-        return dict(map(tr_to_version, rows))
+        r = dict(map(tr_to_version, rows))
+        return r 
 
     def get_version_info(self, version):
         versions = self.get_versions()

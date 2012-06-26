@@ -17,8 +17,16 @@
     <lastmod>2011-12-22T01:18:20+01:00</lastmod>
   </url>
   <url>
+    <loc>http://arakoon.org/download-1.2.1.html</loc>
+    <lastmod>2012-04-27T17:10:45+02:00</lastmod>
+  </url>
+  <url>
+    <loc>http://arakoon.org/download-1.3.0.html</loc>
+    <lastmod>2012-06-26T18:11:22+02:00</lastmod>
+  </url>
+  <url>
     <loc>http://arakoon.org/download.html</loc>
-    <lastmod>2012-03-19T17:32:22+01:00</lastmod>
+    <lastmod>2012-06-26T18:17:03+02:00</lastmod>
   </url>
   <url>
     <loc>http://arakoon.org/index.html</loc>
@@ -73,7 +81,11 @@
     <lastmod>2012-04-27T17:10:45+02:00</lastmod>
   </url>
   <url>
+    <loc>http://arakoon.org/releases/1.3.0.html</loc>
+    <lastmod>2012-06-26T18:11:22+02:00</lastmod>
+  </url>
+  <url>
     <loc>http://arakoon.org/releases/index.html</loc>
-    <lastmod>2012-03-20T14:54:57+01:00</lastmod>
+    <lastmod>2012-06-26T18:17:03+02:00</lastmod>
   </url>
 </urlset>
