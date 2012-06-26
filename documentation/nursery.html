@@ -272,14 +272,16 @@ arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakooninsert
 <p>Besides adding a new Arakoon cluster to a nursery setup, you can also delete a cluster from it. Via the nursery keeper, you can perform this action.</p>
 <p>There is a difference between removing a boundary cluster and a cluster in between clusters. In case of a non-boundary cluster you have to provide a separator to the function.</p>
 <p>Remove a boundary cluster:</p>
-<div class="highlight-python"><pre>arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakoonfront
-arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakoonend</pre>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonfront</span>
+<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonend</span>
+</pre></div>
 </div>
 <p>The adjacent cluster automatically adjusts its new start or end key.</p>
 <p>Remove a cluster from in between other clusters:</p>
-<div class="highlight-python"><pre>arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakooninsert j
-# or
-arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakooninsert n</pre>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">j</span>
+<span class="c"># or</span>
+<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">n</span>
+</pre></div>
 </div>
 <p>Seen from a functional point of view, it is not important which separator you use for deleting an in-the-middle cluster. Seen from a load-balancing point of view, there is a big difference.</p>
 <p>When using the starting point, the cluster on the left will be loaded with the data of the deleted cluster.
