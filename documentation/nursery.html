@@ -95,13 +95,13 @@
 <p>You can compare a nursery setup with an old encyclopedia in book form. Those encyclopedias were divided in a couple of volumes, divided in an alphabetical way. One volume can then be considered as one Arakoon cluster in a nursery setup. For example volume one contains the information in a range from A to C, volume two from D to F, and so on.
 With Arakoon nursery we do exactly the same. We define the range of keys that must be stored in an Arakoon cluster. To define this range, the clusters are separated by strings. In the example below you can see a three-cluster nursery setup.</p>
 <img alt="_images/ArakoonNursery.png" src="_images/ArakoonNursery.png" style="width: 500pt;" />
-<p>A separator is always part of two clusters, but in one cluster the separator is excluded, in the other cluster the separator is included. In the example &#8216;J&#8217; is excluded from Arakoon Cluster 1, but included in Arakoon Cluster 2, similar for &#8216;S&#8217;, which is excluded from cluster 2, but included in cluster 3.</p>
+<p>A separator divides two clusters, where in the left cluster the separator is excluded, in the right cluster it is included. In the example &#8216;J&#8217; is excluded from Arakoon Cluster 1, but included in Arakoon Cluster 2, similar for &#8216;R&#8217;, which is excluded from cluster 2, but included in cluster 3.</p>
 <p>Cluster one and three are also referred to as the <em>Boundary</em> clusters.</p>
 </div>
-<div class="section" id="how-does-nursery-work">
-<h2>How Does Nursery Work<a class="headerlink" href="#how-does-nursery-work" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="nursery-functional">
+<h2>Nursery: Functional<a class="headerlink" href="#nursery-functional" title="Permalink to this headline">¶</a></h2>
 <p>A nursery setup consists of at least two Arakoon clusters. One cluster in the nursery setup will have the role of <em>Nursery Keeper</em> (NK). The NK is responsible for the segmentation of the nursery setup. It has the knowledge which information belongs to which Arakoon cluster.</p>
-<p>Instead of using the Arakoon client directly to execute a transaction, you can use the nursery client, who is aware of the complete Nursery setup. The nursery client has the same functions as the regular Arakoon client. The difference is that the nursery client calls the proper Arakoon client to execute a transaction, as shown below.</p>
+<p>Instead of using the Arakoon client directly, you can use the nursery client to execute transactions. Since the nursery client is aware of the complete Nursery setup, he directs the transactions to the proper Arakoon client as shown below. The nursery client has the same functions as the regular Arakoon client, but be aware that this client is only available through the :doc: <cite>Nursery Pylabs Client &lt;pylabs/nursery_pylabs_client&gt;</cite>.</p>
 <img alt="_images/ArakoonNurseryTransaction.png" src="_images/ArakoonNurseryTransaction.png" style="width: 500pt;" />
 <p>The transaction itself remains identical to a transaction on a normal Arakoon cluster.</p>
 </div>
@@ -245,26 +245,24 @@ client_port = 7082</pre>
 </div>
 <div class="section" id="adding-an-arakoon-cluster-to-existing-nursery-setup">
 <h2>Adding An Arakoon Cluster to Existing Nursery Setup<a class="headerlink" href="#adding-an-arakoon-cluster-to-existing-nursery-setup" title="Permalink to this headline">¶</a></h2>
-<p>When you want to add Arakoon cluster, you have three different situations:</p>
+<p>When you want to add an Arakoon cluster, you have three different situations:</p>
 <ol class="arabic simple">
 <li>the new Arakoon cluster is added in front of the nursery setup (before arakoonleft)</li>
 <li>the new Arakoon cluster is added somewhere in the middle (f.e. between arakoonleft and arakoonright)</li>
 <li>the new Arakoon cluster is added at the end of the nursery setup (after arakoonright)</li>
 </ol>
-<p>In the first and last situation, you only need to migrate once. When you place your new cluster between two existing clusters, you need to migrate twice.</p>
-<p>Example for cases 1 and 3:</p>
+<p>In all situations, you only need to migrate once.</p>
+<p>When you add your new cluster in between two existing clusters, you also need to migrate only once. This is because the starting point of the cluster on the right automatically becomes the end-point of the new cluster. In this case you set a new end-point for your cluster on the left, which is then the new starting point of the new cluster.</p>
+<p>Examples:</p>
 <div class="highlight-python"><pre>#at the beginning:
 arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonfront f arakoonleft
 
 #at the end:
-arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonright v arakoonend</pre>
-</div>
-<p>Example for case 2:
-Here you need to do twice a migration. One to indicate that the left cluster has a new end point, another one to set the endpoint of the inserted Arakoon cluster.</p>
-<div class="highlight-python"><pre>#between arakoonleft and arakoonright:
-arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonleft j arakooninsert
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonright v arakoonend
 
-arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakooninsert n arakoonright</pre>
+#between arakoonleft and arakoonright
+#set endpoint 'n' from arakoonleft to 'j'
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonleft j arakooninsert</pre>
 </div>
 </div>
 <div class="section" id="deleting-a-cluster-from-a-nursery-setup">
@@ -272,16 +270,14 @@ arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakooninsert
 <p>Besides adding a new Arakoon cluster to a nursery setup, you can also delete a cluster from it. Via the nursery keeper, you can perform this action.</p>
 <p>There is a difference between removing a boundary cluster and a cluster in between clusters. In case of a non-boundary cluster you have to provide a separator to the function.</p>
 <p>Remove a boundary cluster:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonfront</span>
-<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonend</span>
-</pre></div>
+<div class="highlight-python"><pre>arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakoonfront
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakoonend</pre>
 </div>
 <p>The adjacent cluster automatically adjusts its new start or end key.</p>
 <p>Remove a cluster from in between other clusters:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">j</span>
-<span class="c"># or</span>
-<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">n</span>
-</pre></div>
+<div class="highlight-python"><pre>arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakooninsert j
+# or
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-delete arakooninsert n</pre>
 </div>
 <p>Seen from a functional point of view, it is not important which separator you use for deleting an in-the-middle cluster. Seen from a load-balancing point of view, there is a big difference.</p>
 <p>When using the starting point, the cluster on the left will be loaded with the data of the deleted cluster.
