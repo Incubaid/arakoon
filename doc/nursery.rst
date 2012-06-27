@@ -17,17 +17,17 @@ With Arakoon nursery we do exactly the same. We define the range of keys that mu
 .. image:: /img/ArakoonNursery.png
     :width: 500pt
 
-A separator is always part of two clusters, but in one cluster the separator is excluded, in the other cluster the separator is included. In the example 'J' is excluded from Arakoon Cluster 1, but included in Arakoon Cluster 2, similar for 'S', which is excluded from cluster 2, but included in cluster 3.
+A separator divides two clusters, where in the left cluster the separator is excluded, in the right cluster it is included. In the example 'J' is excluded from Arakoon Cluster 1, but included in Arakoon Cluster 2, similar for 'R', which is excluded from cluster 2, but included in cluster 3.
 
 Cluster one and three are also referred to as the *Boundary* clusters.
 
 
-How Does Nursery Work
-=====================
+Nursery: Functional
+===================
 
 A nursery setup consists of at least two Arakoon clusters. One cluster in the nursery setup will have the role of *Nursery Keeper* (NK). The NK is responsible for the segmentation of the nursery setup. It has the knowledge which information belongs to which Arakoon cluster.
 
-Instead of using the Arakoon client directly to execute a transaction, you can use the nursery client, who is aware of the complete Nursery setup. The nursery client has the same functions as the regular Arakoon client. The difference is that the nursery client calls the proper Arakoon client to execute a transaction, as shown below.
+Instead of using the Arakoon client directly, you can use the nursery client to execute transactions. Since the nursery client is aware of the complete Nursery setup, he directs the transactions to the proper Arakoon client as shown below. The nursery client has the same functions as the regular Arakoon client, but be aware that this client is only available through the :doc: `Nursery Pylabs Client <pylabs/nursery_pylabs_client>`.
 
 .. image:: /img/ArakoonNurseryTransaction.png
     :width: 500pt
@@ -179,15 +179,17 @@ The separator separates two clusters where the used separator is always included
 
 Adding An Arakoon Cluster to Existing Nursery Setup
 ===================================================
-When you want to add Arakoon cluster, you have three different situations:
+When you want to add an Arakoon cluster, you have three different situations:
 
 1. the new Arakoon cluster is added in front of the nursery setup (before arakoonleft)
 2. the new Arakoon cluster is added somewhere in the middle (f.e. between arakoonleft and arakoonright)
 3. the new Arakoon cluster is added at the end of the nursery setup (after arakoonright)
 
-In the first and last situation, you only need to migrate once. When you place your new cluster between two existing clusters, you need to migrate twice.
+In all situations, you only need to migrate once. 
 
-Example for cases 1 and 3:
+When you add your new cluster in between two existing clusters, you also need to migrate only once. This is because the starting point of the cluster on the right automatically becomes the end-point of the new cluster. In this case you set a new end-point for your cluster on the left, which is then the new starting point of the new cluster.
+
+Examples:
 
 ::
 
@@ -197,15 +199,9 @@ Example for cases 1 and 3:
     #at the end:
     arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonright v arakoonend
 
-Example for case 2:
-Here you need to do twice a migration. One to indicate that the left cluster has a new end point, another one to set the endpoint of the inserted Arakoon cluster.
-
-::
-
-    #between arakoonleft and arakoonright:
+    #between arakoonleft and arakoonright
+    #set endpoint 'n' from arakoonleft to 'j'
     arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonleft j arakooninsert
-
-    arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakooninsert n arakoonright
 
 
 
