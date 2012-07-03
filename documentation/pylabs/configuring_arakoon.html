@@ -209,10 +209,11 @@ cluster&#8217;s updates but impacts neither progress nor majority. You sometimes
 to have a node like this for fast but sloppy read access. Adding a learner is
 similar to adding a regular node, but with two extra arguments. Suppose that we
 add a fourth machine, hosting Node_3 of the cluster.</p>
-<div class="highlight-python"><pre>newcluster = q.manage.arakoon.getCluster('Demo_Cluster')
-newcluster.addNode(name='Node_3', ip='192.168.1.3', clientPort=7083, messagingPort=10003, isLearner=True, targets=('Node_0', 'Node_1', 'Node_2')
-newcluster.addLocalNode('Node_3')
-newcluster.createDirs('Node_3')</pre>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">newcluster</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;Demo_Cluster&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">&#39;Node_3&#39;</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="s">&#39;192.168.1.3&#39;</span><span class="p">,</span> <span class="n">clientPort</span><span class="o">=</span><span class="mi">7083</span><span class="p">,</span> <span class="n">messagingPort</span><span class="o">=</span><span class="mi">10003</span><span class="p">,</span> <span class="n">isLearner</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">targets</span><span class="o">=</span><span class="p">(</span><span class="s">&#39;Node_0&#39;</span><span class="p">,</span> <span class="s">&#39;Node_1&#39;</span><span class="p">,</span> <span class="s">&#39;Node_2&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">addLocalNode</span><span class="p">(</span><span class="s">&#39;Node_3&#39;</span><span class="p">)</span>
+<span class="n">newcluster</span><span class="o">.</span><span class="n">createDirs</span><span class="p">(</span><span class="s">&#39;Node_3&#39;</span><span class="p">)</span>
+</pre></div>
 </div>
 </div>
 <div class="section" id="demo-setup">
