@@ -40,6 +40,12 @@ setup(name='arakoon',
       data_files = [('license',['COPYING'])],
       url='http://www.arakoon.org',
       description=description,
+      author='incubaid',
+      author_email='arakoon@incubaid.com',
+      classifiers=['Development Status :: 5 - Production/Stable',
+                   'Operating System :: OS Independent',
+                   'Topic :: Database',
+                   ],
       zip_safe=True,
       license= get_license()
       )
