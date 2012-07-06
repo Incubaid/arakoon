@@ -74,7 +74,7 @@ def retryDuringMasterReelection (f):
                 if len( self._config.getNodes().keys()) == 0 :
                     raise ArakoonInvalidConfig( "Empty client configuration" )
                 self._masterId = None
-                self._dropConnections()
+                self.dropConnections()
                 sleepPeriod = backoffPeriod * tryCount
                 if time.time() + sleepPeriod > deadline :
                     raise 
@@ -542,7 +542,15 @@ class ArakoonClient :
         msg = ArakoonProtocol.encodeGetNurseryCfg()
         con = self._sendToMaster(msg)
         return con.decodeNurseryCfgResult()
-        
+
+    def dropConnections(self):
+        '''Drop all connections to the Arakoon servers'''
+        keysToRemove = self._connections.keys()
+
+        for key in keysToRemove:
+            self._connections[key].close()
+            del self._connections[ key ] 
+
     def _determineMaster(self):
         nodeIds = []
 
@@ -657,11 +665,3 @@ class ArakoonClient :
             self._connections[ nodeId ] = connection
 
         return connection
-
-    def _dropConnections(self ):
-        keysToRemove = self._connections.keys()
-        
-        for key in keysToRemove:
-            self._connections[key].close()
-            del self._connections[ key ] 
-
