@@ -28,7 +28,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
-    <link rel="next" title="Arakoon OCaml Client" href="arakoon_ocaml_client.html" />
+    <link rel="next" title="Arakoon Nursery" href="nursery.html" />
     <link rel="prev" title="Cluster Nodes" href="cluster_nodes.html" />
   <meta name="description"
     content="Arakoon is a distributed, consistent key-value store">
@@ -250,6 +250,60 @@ be able to recover from multi-node failure.</p>
 # e.g.
 arakoon --backup-db ricky 127.0.0.1 7080 /mnt/drv/2011-19-07/mybackup.db</pre>
 </div>
+</div>
+<div class="section" id="optimizing-the-database">
+<h2>Optimizing the database<a class="headerlink" href="#optimizing-the-database" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon uses Tokyo Cabinet as the underlying data store. If you have a lot of keys that are
+added and deleted over time, this database might continue to grow. There is an operation
+you can perform that will reclaim some of the disk space, this operation is called
+&#8216;optimizing&#8217; the database.</p>
+<p>To optimize the database on a live node, simply run the following command:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># arakoon --optimize-db &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt;</span>
+<span class="c"># e.g.</span>
+<span class="c"># arakoon --optimize-db ricky 127.0.0.1 7080</span>
+</pre></div>
+</div>
+<p>Please note that this command can only be executed on a slave.</p>
+</div>
+<div class="section" id="id1">
+<h2>Collapsing tlogs<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Arakoon first logs an update into a tlog. If the cluster reaches consensus over this update,
+it&#8217;s entered into the store. The tlogs are also used to allow other nodes in the cluster to catchup.
+The downside to it is that it consumes a lot of diskspace.
+Therefore arakoon allows you to collapse the oldes tlogs into a head database. This reduces space and speeds up catchup as the other nodes can start from the head database if needed. To execute a collapse operation, run the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># arakoon --collapse-remote &lt;cluster_id&gt; &lt;ip&gt; &lt;port&gt; &lt;n&gt;</span>
+<span class="c"># e.g.</span>
+<span class="c"># arakoon --collapse-remote ricky 127.0.0.1 7080 5</span>
+</pre></div>
+</div>
+<p>This reads all but the 5 most recent tlogs and applies these to the head database. The older tlogs will be deleted.</p>
+</div>
+<div class="section" id="shortcut">
+<h2>Shortcut<a class="headerlink" href="#shortcut" title="Permalink to this headline">¶</a></h2>
+<p>There&#8217;s a shortcut procedure. If you don&#8217;t want to iterate over the tlogs (or your disk cannot keep up),
+you can do the following (given a slave on 4001 and a cluster called ricky):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># arakoon --backup-db ricky 127.0.0.1 4001 ./backup.db</span>
+</pre></div>
+</div>
+<p>this will yield you a ./backup.db file that is a consistent copy of the live store of the slave.
+(which you would not have if you would do a cp):</p>
+<div class="highlight-python"><pre># arakoon --dump-store backup.db
+i: Some (1011216)
+master: Some(arakoon_0,1341233965)
+routing : –
+interval: (None,None) (None,None)</pre>
+</div>
+<p>the important thing to note is the number i. there are 100000 entries in a tlf file.
+so this database is ahead of 0.tlf ... 9.tlf</p>
+<p>you can optimize this database with the tokyo cabinet management tools.:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># tcbmgr optimize backup.db</span>
+</pre></div>
+</div>
+<p>You can copy this backup.db over the head.db and then remove the .tlf files that have entries below the i in your store.</p>
+<p>you can do this all without restarting the node. the only thing you have to be careful about,
+is to not have a collapsing running on that node while you copy your db over the head.
+At a later point in time, you can still opt for a remote collapses, as
+the fact your head is not at a rounded i doesn&#8217;t hurt.</p>
 </div>
 </div>
 

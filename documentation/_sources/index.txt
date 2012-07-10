@@ -19,6 +19,7 @@ Contents:
    arakoon_configuration
    cluster_nodes
    managing_arakoon
+   nursery
    arakoon_ocaml_client
    arakoon_python_client
    arakoon_man_page
