@@ -57,6 +57,7 @@ type local_action =
   | MigrateNurseryRange
   | DeleteNurseryCluster
   | PING
+  | InjectAsHead
 
 type server_action =
   | Node
@@ -125,6 +126,10 @@ let dump_tlog filename =
   in
   Lwt_main.run t
 
+
+
+
+
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
@@ -136,6 +141,7 @@ let make_tlog tlog_name (i:int) =
 
 let dump_store filename = Dump_store.dump_store filename
 
+let inject_as_head filename node_id cfg_name = Dump_store.inject_as_head filename node_id cfg_name
 
 let compress_tlog tlu =
   let tlf = Tlc2.to_archive_name tlu in
@@ -349,7 +355,13 @@ let main () =
                          Arg.Set_string ip;
                          Arg.Set_int port;
                         ],
-     "<cluster_id> <ip> <port> sends a ping to the node")
+     "<cluster_id> <ip> <port> sends a ping to the node");
+    ("--inject-as-head", Arg.Tuple [set_laction InjectAsHead;
+                                    Arg.Set_string filename;
+                                    Arg.Set_string node_id],
+     "<head.db> <node_id>"
+    )
+                                    
 
   ] in
 
@@ -391,6 +403,7 @@ let main () =
       !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping !ip !port !cluster_id
+    | InjectAsHead -> inject_as_head !filename !node_id !config_file
 
   in
   let do_server node =
