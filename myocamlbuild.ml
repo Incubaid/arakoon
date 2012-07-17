@@ -45,8 +45,8 @@ let make_version _ _ =
   let cmd =
     let template = "let hg_revision = %S\n" ^^
       "let compile_time = %S\n" ^^
-      "let machine = %S" ^^
-      "let version = %S"
+      "let machine = %S\n" ^^
+      "let version = %S\n"
     in
     Printf.sprintf template hg_revision time machine branch_version
   in
