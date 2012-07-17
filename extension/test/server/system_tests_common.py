@@ -748,18 +748,18 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
                 if isinstance(ex, valid_ex ) :
                     fatal = False
             if failure_count > failure_max or fatal :
-                client._dropConnections()
+                client.dropConnections()
                 test_failed = True
                 logging.critical( "!!! Failing test")
                 tb = traceback.format_exc()
                 logging.critical( tb )
                 raise
         if client.recreate :
-            client._dropConnections()
+            client.dropConnections()
             client = get_client()
             client.recreate = False
             
-    client._dropConnections()
+    client.dropConnections()
         
 
 def create_and_start_thread (f ):
@@ -880,7 +880,7 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             # Make sure we propagate the need to recreate the client 
             # (or the next iteration we are back to using the old one)
             client.recreate = True
-            client._dropConnections()
+            client.dropConnections()
             client = get_client() 
             
         except Exception, ex:
@@ -994,7 +994,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             cli = get_client()
             cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
             master_id = cli.whoMaster()
-            cli._dropConnections()
+            cli.dropConnections()
             stopOne( master_id )
             startOne( master_id )
         except:
@@ -1044,7 +1044,7 @@ def prefix_scenario( start_suffix ):
     key_list = client.prefix( test_key_pref, 7 )
     assert_key_list ( start_suffix + 90, 7, key_list)
     
-    client._dropConnections ()
+    client.dropConnections ()
 
 def range_scenario ( start_suffix ):
 

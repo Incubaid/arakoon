@@ -158,7 +158,7 @@ def test_restart_master_long ():
     Common.assert_last_i_in_sync( node_names[2], node_names[1] )
     Common.compare_stores( node_names[0], node_names[1] )
     Common.compare_stores( node_names[2], node_names[1] )
-    cli._dropConnections()
+    cli.dropConnections()
     logging.info("end of `test_restart_master_long`")
     
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown ) 
@@ -249,14 +249,14 @@ def test_3_node_stop_master_slaves_restart():
     for node in slaves:
         Common.startOne( node )
     
-    cli._dropConnections()
+    cli.dropConnections()
     cli = Common.get_client()
     
     logging.info( "Sleeping a while" )
     time.sleep( ld / 2 )
     
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
-    cli._dropConnections()
+    cli.dropConnections()
 
 @Common.with_custom_setup( Common.setup_2_nodes_forced_master , Common.basic_teardown )
 def test_missed_accept ():
@@ -387,7 +387,7 @@ def test_3_nodes_2_slaves_down ():
     
     assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
             
-    cli._dropConnections()
+    cli.dropConnections()
 
 
 

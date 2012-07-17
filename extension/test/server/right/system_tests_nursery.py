@@ -46,7 +46,7 @@ def check_migrated_keys(keys, final_routing):
         assert_equals(ara_cli.get(k), k, "Key not migrated properly %s" % k)
     
     for (clu_id, ara_cli) in ara_clients.iteritems():
-        ara_cli._dropConnections()
+        ara_cli.dropConnections()
         
     
 def multi_migration_scenario( migrations, keys, final_routing):

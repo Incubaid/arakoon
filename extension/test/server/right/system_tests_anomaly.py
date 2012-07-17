@@ -210,7 +210,7 @@ def disk_full_scenario( node_id, cli ):
         logging.error( "Caught exception when disk was full => %s: %s", ex.__class__.__name__, ex ) 
     
     q.system.fs.unlink( disk_filling )
-    cli._dropConnections()
+    cli.dropConnections()
    
     # Make sure the node with a full disk is no longer running
     NT.assert_equals( cluster.getStatusOne(node_id),
@@ -220,7 +220,7 @@ def disk_full_scenario( node_id, cli ):
     
     cli2 = Common.get_client()
     cli2.whoMaster()
-    cli2._dropConnections()
+    cli2.dropConnections()
    
     Common.start_all()
  
@@ -286,7 +286,7 @@ def iterate_block_unblock_nodes ( iter_cnt, node_ids, period = 1.0 ):
 def iterate_block_unblock_single_slave ( ):
     cli = get_client() 
     master_id = cli.whoMaster()
-    cli._dropConnections()
+    cli.dropConnections()
     
     if ( master_id is None ) :
         logging.error( "Cannot determine who is master skipping this method")
@@ -299,7 +299,7 @@ def iterate_block_unblock_single_slave ( ):
 def iterate_block_unblock_both_slaves ( ):
     cli = get_client() 
     master_id = cli.whoMaster()
-    cli._dropConnections()
+    cli.dropConnections()
     
     if ( master_id is None ) :
         logging.error( "Cannot determine who is master skipping this method")
@@ -316,7 +316,7 @@ def iterate_block_unblock_both_slaves ( ):
 def iterate_block_unblock_master ( ):
     cli = get_client() 
     master_id = cli.whoMaster()
-    cli._dropConnections()
+    cli.dropConnections()
     
     if ( master_id is None ) :
         logging.error( "Cannot determine who is master skipping this method")
@@ -376,7 +376,7 @@ def test_block_master_ports () :
         new_master_id = new_cli.whoMaster()
             
         NT.assert_not_equals( new_master_id, None, "No new master elected." )
-        new_cli._dropConnections()
+        new_cli.dropConnections()
         
         cli_cfg_only_master = dict()
         for key in cli._config.getNodes().keys() :
@@ -386,7 +386,7 @@ def test_block_master_ports () :
             arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id, 
                                                 cli_cfg_only_master ) )
         NT.assert_raises( ArakoonNoMaster, new_cli.whoMaster )
-        new_cli._dropConnections()
+        new_cli.dropConnections()
         
         return new_master_id
     
@@ -411,5 +411,5 @@ def test_block_master_ports () :
     
     cli._masterId = None
     Common.set_get_and_delete( cli, "k1", "v1")
-    cli._dropConnections()
+    cli.dropConnections()
     

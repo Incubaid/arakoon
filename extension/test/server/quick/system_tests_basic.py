@@ -219,7 +219,7 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
             logging.error ( "Caught not found for key %s" % key )
         assert_raises( ArakoonNotFound, client.get, key )
     
-    client._dropConnections()
+    client.dropConnections()
 
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
@@ -231,14 +231,14 @@ def test_who_master_fixed () :
     client = C.get_client()
     node = client.whoMaster()
     assert_equals ( node, C.node_names[0] ) 
-    client._dropConnections()
+    client.dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )
 def test_who_master () :
     client = C.get_client()
     node = client.whoMaster()
     assert_true ( node in C.node_names ) 
-    client._dropConnections()
+    client.dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_restart_single_slave_short ():
@@ -317,7 +317,7 @@ def sequence_scenario( start_suffix ):
     key_value_list = cli.range_entries( start_key, True, end_key, True )
     assert_equal( len(key_value_list), 0, "There are keys in the store, should not be the case" )
     
-    cli._dropConnections()
+    cli.dropConnections()
     
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_sequence ():
@@ -339,7 +339,7 @@ def test_3_nodes_stop_all_start_slaves ():
     for slave in slaves:
         C.startOne( slave )
     
-    cli._dropConnections()
+    cli.dropConnections()
     cli = C.get_client()
     stored_value = cli.get( key )
     assert_equals( stored_value, value, 
