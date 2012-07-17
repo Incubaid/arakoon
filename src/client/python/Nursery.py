@@ -68,7 +68,7 @@ class NurseryClient:
         self._routing = routing
         logging.debug( "Nursery client has routing: %s" % str(routing))
         for (clusterId,client) in self._clusterClients.iteritems() :
-            client._dropConnections()
+            client.dropConnections()
         
         self._clusterClients = dict()
         logging.debug("Nursery contains %d clusters", len(cfgs))
