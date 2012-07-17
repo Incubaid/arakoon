@@ -798,7 +798,7 @@ class ArakoonCluster:
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.collapse(ip,port,self._clusterId, n)
-    
+
     def optimizeDb(self, nodeName):
         """
         Tell a node to optimize its database (only works on slaves)
@@ -812,6 +812,22 @@ class ArakoonCluster:
         port = int(config['client_port'])
         ArakoonRemoteControl.optimizeDb(ip,port,self._clusterId)
 
+
+    def injectAsHead(self, nodeName, newHead):
+        """
+        tell the node to use the file as its new head database
+        @param nodeName The (local) node where you want to inject the database
+        @param newHead  a database file that can serve as head
+        @return void
+        """
+        self._requireLocal(nodeName)
+        r =  [self._binary,'--inject-as-head', nodeName, '-config',
+              '%s/%s.cfg' % (self._clusterPath, self._clusterId) ]
+        output = subprocess.check_output(r, shell= True)
+        print output
+        return
+        
+        
     def defragDb(self, nodeName):
         """
         Tell a node to defrag its database (only works on slaves)

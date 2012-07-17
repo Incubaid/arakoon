@@ -473,13 +473,6 @@ def test_large_catchup_while_running():
     time.sleep(10.0)
     Common.assert_running_nodes(3)
 
-@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
-def test_log_rotation():
-    node = Common.node_names[0]
-    for i in range(100):
-        Common.rotate_log(node, 1, False)
-        time.sleep(0.2)
-        Common.assert_running_nodes(1)
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_log_rotation():
@@ -667,3 +660,31 @@ def test_272():
     if rc <> 0:
         raise Exception("kaboom:tc = %s" % rc)
 
+@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
+def test_inject_as_head():
+    """
+    Shortcut for those who don't want to collapse periodically.
+    ARAKOON-288
+    ARAKOON-308
+    """
+    cluster = Common._getCluster()
+    n = 403210
+    Common.iterate_n_times(n,Common.simple_set)
+    m = cluster.whoMaster()
+    slaves = filter(lambda x:x != m, Common.node_names)
+    s0 = slaves[0]
+    s1 = slaves[1]
+    new_head = '/tmp/test_inject_as_head.db'
+    clu.backupDb(s0, new_head)
+    logging.info("backup-ed %s from %s", new_head, s0)
+    cluster.injectAsHead(s1, new_head)
+    logging.info("injected as head")
+    Common.iterate_n_times(n,C.simple_set)
+    logging.info("iterated")
+    cluster.remoteCollapse(s1, 3)
+    logging.info("done")
+    ntlogs = Common.get_tlog_dir(s1)
+    logging.info("get_tlog_dir => %i", ntlogs)
+    
+    
+    
