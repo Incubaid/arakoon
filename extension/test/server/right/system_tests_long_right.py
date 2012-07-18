@@ -670,16 +670,17 @@ def test_inject_as_head():
     cluster = Common._getCluster()
     n = 403210
     Common.iterate_n_times(n,Common.simple_set)
-    m = cluster.whoMaster()
+    client = Common.get_client()
+    m = client.whoMaster()
     slaves = filter(lambda x:x != m, Common.node_names)
     s0 = slaves[0]
     s1 = slaves[1]
     new_head = '/tmp/test_inject_as_head.db'
-    clu.backupDb(s0, new_head)
+    cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
     cluster.injectAsHead(s1, new_head)
     logging.info("injected as head")
-    Common.iterate_n_times(n,C.simple_set)
+    Common.iterate_n_times(n,Common.simple_set)
     logging.info("iterated")
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
