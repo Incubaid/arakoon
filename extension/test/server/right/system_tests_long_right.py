@@ -684,7 +684,7 @@ def test_inject_as_head():
     logging.info("iterated")
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
-    ntlogs = Common.get_tlog_dir(s1)
+    ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
     
     
