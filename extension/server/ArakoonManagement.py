@@ -823,8 +823,10 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         r =  [self._binary,'--inject-as-head', nodeName, '-config',
               '%s/%s.cfg' % (self._clusterPath, self._clusterId) ]
-        output = subprocess.check_output(r, shell= True)
-        print output
+        #output = subprocess.check_output(r, shell= True) # starting from python 2.7
+        p = subprocess.Popen(r, shell= True, stdout = subprocess.PIPE)
+        output = p.communicate()[0]
+        logging.debug("injectAsHead returned %s", output)
         return
         
         
