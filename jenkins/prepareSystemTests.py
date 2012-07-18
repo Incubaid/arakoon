@@ -1,5 +1,6 @@
 from pymonkey.InitBase import i,q
 import os
+import subprocess
 
 packages = [
             ('testrunner','1.1'),
@@ -14,7 +15,9 @@ for (k,v) in os.environ.items():
     print k
 
 
-branch = "1.3"
+v = subprocess.Popen(['hg','branch'], stdout = subprocess.PIPE).communicate()[0]
+branch = v.strip()
+
 coDir = "/".join( [q.dirs.tmpDir, "arakoon-x"] )
 q.system.fs.createDir( coDir )
 q.system.process.run( "hg clone https://bitbucket.org/despiegk/arakoon %s" % coDir ) 
