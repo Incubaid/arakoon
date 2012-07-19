@@ -221,24 +221,18 @@ you can do the following (given a slave on 4001 and a cluster called ricky)::
     # arakoon --backup-db ricky 127.0.0.1 4001 ./backup.db
 
 this will yield you a ./backup.db file that is a consistent copy of the live store of the slave.
-(which you would not have if you would do a cp)::
-
-    # arakoon --dump-store backup.db
-    i: Some (1011216)
-    master: Some(arakoon_0,1341233965)
-    routing : –
-    interval: (None,None) (None,None)
-
-the important thing to note is the number i. there are 100000 entries in a tlf file.
-so this database is ahead of 0.tlf ... 9.tlf
-
-you can optimize this database with the tokyo cabinet management tools.::
+(which you would not have if you would do a cp)
+You can optimize this database with the tokyo cabinet management tools.::
 
     # tcbmgr optimize backup.db
 
 You can copy this backup.db over the head.db and then remove the .tlf files that have entries below the i in your store.
+We've made a command to do all this in one step: ::
 
-you can do this all without restarting the node. the only thing you have to be careful about,
+    # arakoon --inject-as-head backup.db arakoon_0 -config cfg/arakoon.ini
+
+This copies the backup.db as head.db in the right place for the local node 'arakoon_0' of the cluster (which is given by cfg/arakoon.ini).
+You can do this all without restarting the node. The only thing you have to be careful about,
 is to not have a collapsing running on that node while you copy your db over the head. 
-At a later point in time, you can still opt for a remote collapses, as
-the fact your head is not at a rounded i doesn't hurt.
+At a later point in time, you can still opt for remote collapses.
+
