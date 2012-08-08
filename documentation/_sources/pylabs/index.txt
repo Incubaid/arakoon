@@ -15,3 +15,4 @@ In this Chapter...
    configuring_arakoon
    cloning_a_node
    arakoon_pylabs_client
+   nursery_pylabs_client

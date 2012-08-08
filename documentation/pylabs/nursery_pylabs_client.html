@@ -1,0 +1,316 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Nursery Pylabs Client</title>
+
+    
+    <link rel="stylesheet" href="../_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="../index.html" />
+    <link rel="up" title="Managing Arakoon with PyLabs" href="index.html" />
+    <link rel="prev" title="Arakoon PyLabs Client" href="arakoon_pylabs_client.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="../_static/bootstrap.css" rel="stylesheet" />
+  <link href="../_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='../_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="../index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="nursery-pylabs-client">
+<h1>Nursery Pylabs Client<a class="headerlink" href="#nursery-pylabs-client" title="Permalink to this headline">¶</a></h1>
+<p>Besides using Arakoon nursery via command-line, you can also use a Pylabs extension.</p>
+<p>As seen in the <a class="reference internal" href="../nursery.html"><em>Nursery chapter</em></a> earlier, the Arakoon nursery creates a cluster-like setup of multiple Arakoon clusters.</p>
+<p>In this section you find more information about the usage of Arakoon nursery via Pylabs.</p>
+<div class="section" id="general-steps-to-set-up-arakoon-nursery">
+<h2>General Steps to Set Up Arakoon Nursery<a class="headerlink" href="#general-steps-to-set-up-arakoon-nursery" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li>Create Arakoon clusters</li>
+<li>Generate client configuration for the clusters.</li>
+<li>Define the Nursery Keeper on one of the Arakoon clusters.</li>
+<li>Initialize the Nursery Keeper.</li>
+<li>Add the other clusters to the Nursery Keeper</li>
+<li>Define the ranges of the clusters</li>
+<li>Create the nursery client</li>
+</ol>
+</div>
+<div class="section" id="setting-up-arakoon-nursery">
+<h2>Setting Up Arakoon Nursery<a class="headerlink" href="#setting-up-arakoon-nursery" title="Permalink to this headline">¶</a></h2>
+<p>In this example you will see a demo nursery setup with three Arakoon clusters (leftCluster, middleCluster, and rightCluster) each containing one node. All nodes run on the same machine</p>
+<ol class="arabic simple">
+<li>Create the three Arakoon clusters</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">left</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+<span class="n">middle</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;middleCluster&#39;</span><span class="p">)</span>
+<span class="n">right</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">manage</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getCluster</span><span class="p">(</span><span class="s">&#39;rightCluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li>Set up the three clusters, each with one node</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">left</span><span class="o">.</span><span class="n">setUp</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">middle</span><span class="o">.</span><span class="n">setUp</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">right</span><span class="o">.</span><span class="n">setUp</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li>Update the ports in the configuration files of the middle and right clusters (<tt class="docutils literal"><span class="pre">/opt/qbase5/cfg/qconfig/arakoon/&lt;cluster</span> <span class="pre">name&gt;/&lt;cluster</span> <span class="pre">name&gt;.cfg</span></tt>). Below you see the default values, update the two parameters in both file, make sure that no port is used twice.</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">client_port</span> <span class="o">=</span> <span class="mi">7080</span>
+<span class="n">messaging_port</span> <span class="o">=</span> <span class="mi">7081</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="4">
+<li>Generate the Arakoon client for each cluster:</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">client_left</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+<span class="n">client_left</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+<span class="n">client_middle</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;middleCluster&#39;</span><span class="p">)</span>
+<span class="n">client_middle</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+<span class="n">client_right</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">arakoon</span><span class="o">.</span><span class="n">getClientConfig</span><span class="p">(</span><span class="s">&#39;rightCluster&#39;</span><span class="p">)</span>
+<span class="n">client_right</span><span class="o">.</span><span class="n">generateFromServerConfig</span><span class="p">()</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="5">
+<li>Assign the nursery keeper function to one of the Arakoon clusters. In this example we take the <em>leftCluster</em> as nursery keeper.</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">left</span><span class="o">.</span><span class="n">setNurseryKeeper</span><span class="p">(</span><span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+<span class="n">middle</span><span class="o">.</span><span class="n">setNurseryKeeper</span><span class="p">(</span><span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+<span class="n">right</span><span class="o">.</span><span class="n">setNurseryKeeper</span><span class="p">(</span><span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="6">
+<li>Start your three Arakoon clusters:</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">left</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="n">middle</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="n">right</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="7">
+<li>Get the nursery keeper to start working with the created nursery setup:</li>
+</ol>
+<div class="highlight-python"><pre>q.manage.nursery.getNursery(?
+Definition: q.manage.nursery.getNursery(self, clusterId)
+Documentation:
+    Retrieve the nursery manager for the nursery with the provided keeper
+
+
+    Parameters:
+
+    - clusterId:  The keeper of the nursery
+
+nursekeeper = q.manage.nursery.getKeeper('leftCluster')</pre>
+</div>
+<ol class="arabic simple" start="8">
+<li>Initialize the nursery setup:</li>
+</ol>
+<div class="highlight-python"><pre>nursekeeper.initialize(?
+Definition: nk.initialize(self, firstClusterId)
+Documentation:
+    Initialize the routing of the nursery so it only contains the provided cluster
+
+    A nursery can only be initialized once
+
+
+    Parameters:
+
+    - firstClusterId:  The first cluster of the nursery
+
+nursekeeper.initialize('leftCluster')</pre>
+</div>
+<ol class="arabic simple" start="9">
+<li>The last step before using the nursery setup is to divide it into different segments. In this example you will see that &#8216;j&#8217; and &#8216;r&#8217; are the separators between the clusters.</li>
+</ol>
+<div class="highlight-python"><pre>nursekeeper.migrate(?
+Definition: nk.migrate(self, leftClusterId, separator, rightClusterId)
+Documentation:
+    Trigger a migration of key range in the nursery.
+
+    Either leftClusterId or rightClusterId must already be part of the nursery.
+    So it is not possible to add two clusters at the same time.
+
+    The separator will serve as the boundary of the key range that is migrated.
+
+    For more documentation see the docs on our portal (www.arakoon.org)
+
+
+    Parameters:
+
+    - leftClusterId:   The cluster that will be responsible for the key range up to the separator
+    - separator:       The separator separating the key ranges between the two clusters
+    - rightClusterId:  The cluster that will be responsible for the key range starting with the separator
+
+nursekeeper.migrate('leftCluster', 'j', 'middleCluster')
+nursekeeper.migrate('middleCluster', 'r', 'rightCluster')</pre>
+</div>
+<p>The nursery setup is now fully configured.</p>
+</div>
+<div class="section" id="working-with-the-nursery-client">
+<h2>Working with the Nursery Client<a class="headerlink" href="#working-with-the-nursery-client" title="Permalink to this headline">¶</a></h2>
+<p>Working with the nursery client is similar to working with the normal <a class="reference internal" href="arakoon_pylabs_client.html"><em>Arakoon client</em></a>. You can do the three base Arakoon functions, set, get, and delete. The nursery client will act as a proxy for the Arakoon clients.</p>
+<p>To get the nursery client, you must use the cluster name that acts as the nursery keeper:</p>
+<div class="highlight-python"><pre>q.clients.nursery.getClient(?
+Definition:  nclient = q.clients.nursery.getClient(self, cluster_id)
+
+nurse_client = q.clients.nursery.getClient('leftCluster')</pre>
+</div>
+<p>From that moment on you can start transactions.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">nurse_client</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s">&#39;x&#39;</span><span class="p">,</span> <span class="s">&#39;foo&#39;</span><span class="p">)</span>
+
+<span class="n">nurse_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;x&#39;</span><span class="p">)</span>
+<span class="s">&quot;foo&quot;</span>
+
+<span class="n">nurse_client</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s">&#39;x&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="adding-an-arakoon-cluster">
+<h2>Adding An Arakoon Cluster<a class="headerlink" href="#adding-an-arakoon-cluster" title="Permalink to this headline">¶</a></h2>
+<p>When you want to add Arakoon cluster, you have three different situations:</p>
+<ol class="arabic simple">
+<li>the new Arakoon cluster is added in front of the nursery setup (before leftCluster)</li>
+<li>the new Arakoon cluster is added somewhere in the middle (f.e. between middleCluster and rightCluster)</li>
+<li>the new Arakoon cluster is added at the end of the nursery setup (after rightCluster)</li>
+</ol>
+<p>In the first and last situation, you only need to migrate once. When you place your new cluster between two existing clusters, you need to migrate twice.</p>
+<p>Example for cases 1 and 3:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#at the beginning:</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="s">&#39;frontCluster&#39;</span><span class="p">,</span> <span class="s">&#39;f&#39;</span><span class="p">,</span> <span class="s">&#39;leftCluster&#39;</span><span class="p">)</span>
+
+<span class="c">#at the end:</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="s">&#39;rightCluster&#39;</span><span class="p">,</span> <span class="s">&#39;v&#39;</span><span class="p">,</span> <span class="s">&#39;endCluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Example for case 2:
+Here you need to do twice a migration. One to indicate that the left cluster has a new end point, another one to set the endpoint of the inserted Arakoon cluster.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#between middleCluster and rightCluster:</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="s">&#39;middleCluster&#39;</span><span class="p">,</span> <span class="s">&#39;n&#39;</span><span class="p">,</span> <span class="s">&#39;insertCluster&#39;</span><span class="p">)</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="s">&#39;insertCluster&#39;</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="s">&#39;rightCluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="deleting-a-cluster-from-a-nursery-setup">
+<h2>Deleting a Cluster from a Nursery Setup<a class="headerlink" href="#deleting-a-cluster-from-a-nursery-setup" title="Permalink to this headline">¶</a></h2>
+<p>Besides adding a new Arakoon cluster to a nursery setup, you can also delete a cluster from it. Via the nursery keeper, you can perform this action.</p>
+<div class="highlight-python"><pre>#help
+nursekeeper.delete(?
+Definition: nk.delete(self, clusterId, separator=None)
+Documentation:
+    Remove a cluster from the nursery. If the cluster is a boundary cluster, no separator can be provided.
+
+
+    Parameters:
+
+    - clusterId:  The cluster to be removed
+    - separator:  Separator separating the clusters neighbouring the cluster that will be removed (not valid when deleting boundary clusters</pre>
+</div>
+<p>In the help-function, you can see that there is a difference between removing a boundary cluster and a cluster in between clusters.</p>
+<p>Remove a boundary cluster:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">nursekeeper</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s">&#39;frontCluster&#39;</span><span class="p">)</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s">&#39;endCluster&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The adjacent cluster automatically adjusts its new start or end key.</p>
+<p>Remove a cluster in between other clusters:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">nursekeeper</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s">&#39;insertCluster&#39;</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+<span class="c"># or</span>
+<span class="n">nursekeeper</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s">&#39;insertCluster&#39;</span><span class="p">,</span> <span class="s">&#39;n&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Seen from a functional point of view, it is not important which separator you use for deleting an in-the-middle cluster. Seen from a load-balancing point of view, there is a big difference.</p>
+<p>When using the starting point, the cluster on the left will be loaded with the data of the deleted cluster.
+When using the end point, the cluster on the right will take the data of the deleted cluster.</p>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>
