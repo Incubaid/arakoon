@@ -229,6 +229,7 @@ object(self: #backend)
     self # _update_rendezvous update update_sets push_update
 
 
+
   method confirm key value =
     log_o self "confirm %S" key >>= fun () ->
     let () = assert_value_size value in
@@ -314,6 +315,34 @@ object(self: #backend)
       | Store.Stop -> Lwt.fail Forced_stop
       | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
       | Store.Ok x -> Lwt.return x
+
+
+  method delete_prefix prefix = 
+    let start = Unix.gettimeofday () in
+    log_o self "delete_prefix %S" prefix >>= fun () ->
+    (* do we need to test the prefix on the interval ? *)
+    self # _write_allowed () >>= fun () ->
+    let update = Update.DeletePrefix prefix in
+    let p_value = Update.make_update_value update in
+    let sleep, awake = Lwt.wait() in
+    let update_stats () = () in
+    let went_well = make_went_well update_stats awake sleep in
+    push_update (Some p_value, went_well) >>= fun () ->
+    sleep >>= function
+      | Store.Stop -> Lwt.fail Forced_stop
+      | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
+      | Store.Ok x -> 
+        (* getting very messy here: *) 
+        let r = 
+          match x with 
+            | None -> 0
+            | Some s -> let r', _ = Llio.int_from s 0 in
+                        r' 
+        in
+        Lwt.return r
+          
+  (* self # _update_rendezvous update update_stats push_update *)
+
 
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in

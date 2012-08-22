@@ -426,7 +426,21 @@ def test_download_db():
     C.assert_running_nodes(1)
     C.stop_all()
     C.compare_stores(n0,n1)
-    
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_delete_prefix():
+    cli = C.get_client()
+    for i in xrange(100):
+        cli.set("key_%04i" % i, "whatever")
+    prefix = "key_004"
+    keys = cli.prefix(prefix)
+    l = len(keys)
+    l2 = cli.delete_prefix(prefix)
+    assert_equals(l2,l, "wrong number of keys deleted")
+    l3 = cli.delete_prefix(prefix)
+    assert_equals(l3,0)
+    logging.debug("done")
+
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
     cli = C.get_client()

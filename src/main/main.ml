@@ -45,6 +45,7 @@ type local_action =
   | SET
   | GET
   | DELETE
+  | DELETE_PREFIX
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
@@ -285,6 +286,9 @@ let main () =
     ("--delete", Arg.Tuple[set_laction DELETE;
 			               Arg.Set_string key;
 			              ], "<key> : delete arakoon[<key>]");
+    ("--delete-prefix", Arg.Tuple[set_laction DELETE_PREFIX;
+                                  Arg.Set_string key;
+                                 ], "<prefix> : delete all entries where the key matches <prefix>");
     ("--prefix", Arg.Tuple[set_laction PREFIX;
                            Arg.Set_string key;
                           ], "<prefix>: all starting with <prefix>");
@@ -387,6 +391,7 @@ let main () =
     | SET -> Client_main.set !config_file !key !value
     | GET -> Client_main.get !config_file !key
     | PREFIX -> Client_main.prefix !config_file !key !max_results
+    | DELETE_PREFIX -> Client_main.delete_prefix !config_file !key
     | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n 
       !n_clients
     | LOAD -> Load_client.main !config_file 

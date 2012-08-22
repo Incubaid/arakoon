@@ -114,6 +114,13 @@ let delete cfg_name key =
   in 
   run t
 
+let delete_prefix cfg_name prefix = 
+  let t () = with_master_client cfg_name (
+    fun client -> client # delete_prefix prefix >>= fun n_deleted ->
+      Lwt_io.printlf "%i" n_deleted
+  )
+  in
+  run t
 let prefix cfg_name prefix prefix_size = 
   let t () = with_master_client cfg_name 
     (fun client ->

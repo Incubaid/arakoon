@@ -90,4 +90,5 @@ class type backend = object
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
 
+  method delete_prefix: string -> int Lwt.t
 end

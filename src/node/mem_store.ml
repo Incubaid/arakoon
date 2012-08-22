@@ -265,6 +265,9 @@ object (self: #store)
       kv []
     in
     Lwt.return all
+
+  method delete_prefix ?(_pf=__prefix) prefix = Lwt.return 0
+    
 end
 
 let make_mem_store ?(read_only=false) db_name =
@@ -274,3 +277,5 @@ let make_mem_store ?(read_only=false) db_name =
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
+
+
