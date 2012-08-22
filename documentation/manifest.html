@@ -359,6 +359,11 @@ else, it behaves as a set.</p>
 <p>You can remove a key/value pair.
 There was a suggestion to open this op to allow a regular expression.</p>
 </div>
+<div class="section" id="delete-prefix-key-int-c-t">
+<h4>delete_prefix: key -&gt; int C.t<a class="headerlink" href="#delete-prefix-key-int-c-t" title="Permalink to this headline">¶</a></h4>
+<p><em>delete_prefix p</em> removes all key/value pairs for which the key starts with <em>p</em>.
+The number of deleted pairs is returned.</p>
+</div>
 <div class="section" id="test-and-set-key-value-option-value-option-value-option-c-t">
 <h4>test_and_set : key -&gt; value option -&gt; value option -&gt; (value option) C.t<a class="headerlink" href="#test-and-set-key-value-option-value-option-value-option-c-t" title="Permalink to this headline">¶</a></h4>
 <p>This is a careful update.</p>
@@ -811,6 +816,9 @@ If a failure happens, the server writes out a return code different from zero, a
 </tr>
 <tr class="row-odd"><td>synced_sequence</td>
 <td>0x0000 0024</td>
+</tr>
+<tr class="row-even"><td>delete_prefix</td>
+<td>0x0000 0027</td>
 </tr>
 </tbody>
 </table>
