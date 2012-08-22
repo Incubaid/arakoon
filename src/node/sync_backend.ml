@@ -173,10 +173,14 @@ object(self: #backend)
       Lwt.return ()
 
   method range ~allow_dirty (first:string option) finc (last:string option) linc max =
-    log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
+    let start = Unix.gettimeofday() in
+    log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range first finc last linc max
+    store # range first finc last linc max >>= fun keys ->
+    let n_keys = List.length keys in
+    Statistics.new_range _stats start n_keys;
+    Lwt.return keys
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
 
@@ -186,17 +190,16 @@ object(self: #backend)
           self # block_collapser start_i ;
           self # _last_entries start_i oc
         end
-    ) (
-      fun () ->
-        Lwt.return ( self # unblock_collapser start_i )
+    ) 
+      (fun () -> Lwt.return ( self # unblock_collapser start_i )
     )
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
-    log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
+    log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range_entries first finc last linc max
+    store # range_entries first finc last linc max 
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
@@ -206,11 +209,14 @@ object(self: #backend)
     store # rev_range_entries first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
+    let start = Unix.gettimeofday() in
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [prefix]  >>= fun () ->
     store # prefix_keys prefix max   >>= fun key_list ->
-    Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
+    let n_keys = List.length key_list in
+    Lwt_log.debug_f "prefix_keys found %d matching keys" n_keys >>= fun () ->
+    Statistics.new_prefix_keys _stats start n_keys;
     Lwt.return key_list
 
   method set key value =
