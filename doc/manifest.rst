@@ -192,6 +192,12 @@ delete : key -> unit C.t
 You can remove a key/value pair. 
 There was a suggestion to open this op to allow a regular expression.
 
+
+delete_prefix: key -> int C.t
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*delete_prefix p* removes all key/value pairs for which the key starts with *p*. 
+The number of deleted pairs is returned.
+
 test_and_set : key -> value option -> value option -> (value option) C.t
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This is a careful update.
@@ -507,6 +513,7 @@ get_key_count            0x0000 001a
 confirm                  0x0000 001b
 rev_range_entries        0x0000 0023
 synced_sequence          0x0000 0024
+delete_prefix            0x0000 0027
 ======================== ===========
 
 =========== ====================
