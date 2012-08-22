@@ -5,6 +5,7 @@ import subprocess
 packages = [
             ('testrunner','1.1'),
             ('arakoon_dev','0.10.0'),
+            ('mercurial', '1.9.2'),
            ]
 
 for (p,v) in packages:
