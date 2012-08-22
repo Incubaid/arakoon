@@ -48,6 +48,7 @@ type local_action =
   | WHO_MASTER
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
+  | PREFIX
   | Collapse_remote
   | Backup_db
   | Optimize_db
@@ -227,6 +228,7 @@ let main () =
   and n_tlogs = ref 1
   and n_clients = ref 1
   and catchup_only = ref false
+  and max_results = ref 1000
   and location = ref ""
   and left_cluster = ref ""
   and separator = ref ""
@@ -283,6 +285,9 @@ let main () =
     ("--delete", Arg.Tuple[set_laction DELETE;
 			               Arg.Set_string key;
 			              ], "<key> : delete arakoon[<key>]");
+    ("--prefix", Arg.Tuple[set_laction PREFIX;
+                           Arg.Set_string key;
+                          ], "<prefix>: all starting with <prefix>");
     ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
     ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients], "<n> clients that generate load on a cluster");
     ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
@@ -299,14 +304,11 @@ let main () =
      "will only do a catchup of the node, without actually starting it (option to --node)");
     ("-daemonize", Arg.Set daemonize,
      "add if you want the process to daemonize (only for --node)");
-    ("-value_size", Arg.Set_int size,
-     "size of the values (only for --benchmark)");
-    ("-tx_size", Arg.Set_int tx_size,
-     "size of transactions (only for --benchmark)");
-    ("-max_n", Arg.Set_int max_n,
-     "<benchmark size> (for --benchmark)");
-    ("-n_clients", Arg.Set_int n_clients,
-     "<n_clients> (for --benchmark)");
+    ("-value_size", Arg.Set_int size, "size of the values (only for --benchmark)");
+    ("-tx_size", Arg.Set_int tx_size, "size of transactions (only for --benchmark)");
+    ("-max_n", Arg.Set_int max_n,     "<benchmark size> (only for --benchmark)");
+    ("-n_clients", Arg.Set_int n_clients, "<n_clients>  (only for --benchmark)");
+    ("-max_results", Arg.Set_int max_results, "max size of the result (for --prefix)");
     ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
     ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
 				    Arg.Set_string cluster_id;
@@ -320,21 +322,21 @@ let main () =
                  ],
      "<cluster_id> Initialize the routing to contain a single cluster");
     ("--nursery-migrate", Arg.Tuple[set_laction MigrateNurseryRange;
-        Arg.Set_string left_cluster;
-        Arg.Set_string separator;
-        Arg.Set_string right_cluster; ],
+                                    Arg.Set_string left_cluster;
+                                    Arg.Set_string separator;
+                                    Arg.Set_string right_cluster; ],
         "<left_cluster> <separator> <right_cluster> migrate a range by either adding a new cluster or modifying an existing separator between two cluster ranges");
     ("--nursery-delete", Arg.Tuple[set_laction DeleteNurseryCluster;
-        Arg.Set_string cluster_id;
-        Arg.Rest (fun s -> separator := s);
-        ],
+                                   Arg.Set_string cluster_id;
+                                   Arg.Rest (fun s -> separator := s);
+                                  ],
         "<cluster_id> <separator> removes <cluster_id> from the nursery, if the cluster is a boundary cluster no separator is required");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
-			      Arg.Set_string cluster_id;
-			      Arg.Set_string ip;
-			      Arg.Set_int port;
-			      Arg.Set_string location;
-			     ],
+			                  Arg.Set_string cluster_id;
+			                  Arg.Set_string ip;
+			                  Arg.Set_int port;
+			                  Arg.Set_string location;
+			                 ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
     ("--optimize-db", Arg.Tuple[set_laction Optimize_db;
 			                    Arg.Set_string cluster_id;
@@ -384,6 +386,7 @@ let main () =
     | UncompressTlog -> uncompress_tlog !filename
     | SET -> Client_main.set !config_file !key !value
     | GET -> Client_main.get !config_file !key
+    | PREFIX -> Client_main.prefix !config_file !key !max_results
     | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n 
       !n_clients
     | LOAD -> Load_client.main !config_file 
