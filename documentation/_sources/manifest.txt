@@ -744,9 +744,9 @@ This will cause an Arakoon node to log and statistics every 60 seconds. One can 
 
 The names of the entries in the statistics are explained in the table below
  
-======================== =======================================================
+======================== ===========================================================
 item                     meaning
-======================== =======================================================
+======================== ===========================================================
 start                    timestamp start of period
 last                     timestamp last update of statistics
 set_info                 information about 'set' calls (done this period)
@@ -755,6 +755,9 @@ del_info                 ... 'delete' ... ...
 mget_info                ... 'multi gets' ...
 seq_info                 ... 'sequences'  ...
 tas_info                 ... 'test_and_set' ...
+prefix_info              ... 'prefix' ...
+range_info               ... 'range' ...
+delete_prefix_info       ... 'delete_prefix_info' ...
 ops_info                 information about all operations
 n                        number of times the operation was performed
 min                      the lowest execution time measured for that operation
@@ -763,7 +766,10 @@ avg                      average of measured execution times
 dev                      deviation of measured execution times
 avg_set_size             average size of values in updates
 avg_get_size             average size of values in gets
-======================== =======================================================
+avg_range_size           average number of results in 'range' queries
+avg_prefix_size          average number of results in 'prefix' queries
+avg_del_prefix           average number of keys deleted in 'delete_prefix' queries
+======================== ===========================================================
 
 In the example above, one was clearly putting a lot of small values into the system at a speed of *(last-start)/n* or about *1300 sets/s*.
 
