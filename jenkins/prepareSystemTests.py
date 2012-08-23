@@ -16,8 +16,8 @@ for (k,v) in os.environ.items():
     print k
 
 
-def run_it(cmd):
-    p = subprocess.Popen(cmd, stdout = subprocess.PIPE)
+def run_it(cmd, cwd = None):
+    p = subprocess.Popen(cmd, stdout = subprocess.PIPE, cwd = cwd)
     r = p.communicate()[0]
     rc = p.returncode
     if rc != 0:
