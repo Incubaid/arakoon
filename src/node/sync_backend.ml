@@ -43,7 +43,10 @@ let ncfg_prefix_b4_o = Some ncfg_prefix_b4
 let ncfg_prefix_2far_o = Some ncfg_prefix_2far
 
 exception Forced_stop
-let make_went_well stats_cb awake sleeper =
+
+let no_stats _ = ()
+
+let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
   fun b ->
     begin
       Lwt.catch
@@ -68,7 +71,7 @@ let make_went_well stats_cb awake sleeper =
 	      end
 	    | _ -> Lwt.fail e
 	) >>= fun () ->
-      stats_cb ();
+      stats_cb b;
       Lwt.return ()
     end
 
@@ -225,7 +228,7 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in
-    let update_sets () = Statistics.new_set _stats key value start in
+    let update_sets (update_result:Store.update_result) = Statistics.new_set _stats key value start in
     self # _update_rendezvous update update_sets push_update
 
 
@@ -246,26 +249,24 @@ object(self: #backend)
   method set_routing r =
     log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in
-    let cb () = () in
-    self # _update_rendezvous update cb push_update
+    self # _update_rendezvous update no_stats push_update
 
   method set_routing_delta left sep right =
     log_o self "set_routing_delta" >>= fun () ->
     let update = Update.SetRoutingDelta (left, sep, right) in
-    let cb () = () in
-    self # _update_rendezvous update cb push_update
+    self # _update_rendezvous update no_stats push_update
 
   method set_interval iv =
     log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
     let update = Update.SetInterval iv in
-    self # _update_rendezvous update (fun () -> ()) push_update
+    self # _update_rendezvous update no_stats push_update
 
   method user_function name po =
     log_o self "user_function %s" name >>= fun () ->
     let update = Update.UserFunction(name,po) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait() in
-    let went_well = make_went_well (fun () -> ()) awake sleep in
+    let went_well = make_went_well no_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
@@ -278,7 +279,7 @@ object(self: #backend)
       let update = Update.Assert(key,vo) in
       let p_value = Update.make_update_value update in
       let sleep,awake = Lwt.wait() in
-      let went_well = make_went_well (fun () -> ()) awake sleep in
+      let went_well = make_went_well no_stats awake sleep in
       push_update (Some p_value, went_well) >>= fun () ->
       sleep >>= fun sr ->
       log_o self "after sleep" >>= fun () ->
@@ -308,7 +309,7 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let update_stats () = Statistics.new_testandset _stats start in
+    let update_stats ur = Statistics.new_testandset _stats start in
     let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
@@ -325,7 +326,14 @@ object(self: #backend)
     let update = Update.DeletePrefix prefix in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait() in
-    let update_stats () = () in
+    let update_stats ur = 
+      let n_keys = 
+        match ur with 
+          | Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
+          | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
+      in
+      Statistics.new_delete_prefix _stats start n_keys
+    in
     let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
@@ -347,7 +355,7 @@ object(self: #backend)
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in
     let update = Update.Delete key in
-    let update_stats () = Statistics.new_delete _stats start in
+    let update_stats ur = Statistics.new_delete _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method hello (client_id:string) (cluster_id:string) =
@@ -417,7 +425,7 @@ object(self: #backend)
       then Update.SyncedSequence updates 
       else Update.Sequence updates
     in
-    let update_stats () = Statistics.new_sequence _stats start in
+    let update_stats ur = Statistics.new_sequence _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method multi_get ~allow_dirty (keys:string list) =
@@ -683,7 +691,7 @@ object(self: #backend)
     ClientCfg.cfg_to buf cfg;
     let value = Buffer.contents buf in
     let update = Update.AdminSet (key,Some value) in
-    self # _update_rendezvous update (fun () -> ()) push_update >>= fun () ->
+    self # _update_rendezvous update no_stats push_update >>= fun () ->
     begin
       match client_cfgs with
         | None ->

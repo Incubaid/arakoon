@@ -101,8 +101,9 @@ module Statistics = struct
     
     mutable avg_set_size:float (* size of values *);
     mutable avg_get_size:float;
-    mutable avg_prefix_size:float;
     mutable avg_range_size:float;
+    mutable avg_prefix_size:float;
+    mutable avg_del_prefix_size:float;
     mutable set_time_stats:   time_stats;
     mutable get_time_stats:   time_stats;
     mutable del_time_stats:   time_stats;
@@ -111,6 +112,7 @@ module Statistics = struct
     mutable tas_time_stats:   time_stats;
     mutable range_time_stats: time_stats;
     mutable prefix_time_stats: time_stats;
+    mutable delete_prefix_time_stats: time_stats;
     mutable op_time_stats:    time_stats;
     mutable node_is:          (string , Sn.t) Hashtbl.t;
   }
@@ -123,8 +125,9 @@ module Statistics = struct
      last  = Unix.gettimeofday();
      avg_set_size=0.0;
      avg_get_size=0.0;
-     avg_prefix_size = 0.0;
      avg_range_size = 0.0;
+     avg_prefix_size = 0.0;
+     avg_del_prefix_size = 0.0;
      set_time_stats=create_time_stats();
      get_time_stats=create_time_stats();
      del_time_stats=create_time_stats();
@@ -133,6 +136,7 @@ module Statistics = struct
      tas_time_stats=create_time_stats();
      range_time_stats = create_time_stats();
      prefix_time_stats = create_time_stats();
+     delete_prefix_time_stats = create_time_stats();
      op_time_stats=create_time_stats();
      node_is = Hashtbl.create 5;
     }
@@ -143,14 +147,18 @@ module Statistics = struct
       t.last  <- Unix.gettimeofday();
       t.avg_set_size <- 0.0;
       t.avg_get_size <- 0.0;
+      t.avg_range_size <- 0.0;
+      t.avg_prefix_size <- 0.0;
+      t.avg_del_prefix_size <- 0.0;
       t.set_time_stats    <- create_time_stats();
       t.get_time_stats    <- create_time_stats();
       t.del_time_stats    <- create_time_stats();
       t.seq_time_stats    <- create_time_stats();
       t.mget_time_stats   <- create_time_stats();
       t.tas_time_stats    <- create_time_stats();
-      t.prefix_time_stats <- create_time_stats();
       t.range_time_stats  <- create_time_stats();
+      t.prefix_time_stats <- create_time_stats();
+      t.delete_prefix_time_stats <- create_time_stats();
       t.op_time_stats     <- create_time_stats()
     end
 
@@ -214,6 +222,14 @@ module Statistics = struct
     let nf = float n in
     t.avg_range_size <- t.avg_range_size +. ((float n_keys -. t.avg_range_size) /. nf)
 
+
+  let new_delete_prefix t (start:float) n_keys = 
+    let x = new_op t start in
+    update_time_stats t.delete_prefix_time_stats x;
+    let n = t.delete_prefix_time_stats.n in
+    let nf = float n in
+    t.avg_del_prefix_size <- t.avg_del_prefix_size +. ((float n_keys -. t.avg_del_prefix_size) /. nf)
+
   let witness t name i =
     Hashtbl.replace t.node_is name i
 
@@ -235,8 +251,9 @@ module Statistics = struct
       Llio.NAMED_FLOAT ("last", t.last);
       Llio.NAMED_FLOAT ("avg_get_size", t.avg_set_size);
       Llio.NAMED_FLOAT ("avg_set_size", t.avg_get_size);
-      Llio.NAMED_FLOAT ("avt_prefix_size", t.avg_prefix_size);
       Llio.NAMED_FLOAT ("avg_range_size", t.avg_range_size);
+      Llio.NAMED_FLOAT ("avg_prefix_size", t.avg_prefix_size);
+      Llio.NAMED_FLOAT ("avg_del_prefix_size", t.avg_del_prefix_size);
 
       time_stats_to_value_list t.set_time_stats "set_info";
       time_stats_to_value_list t.get_time_stats "get_info";
@@ -245,8 +262,9 @@ module Statistics = struct
       time_stats_to_value_list t.mget_time_stats "mget_info";
       time_stats_to_value_list t.tas_time_stats "tas_info";
 
-      time_stats_to_value_list t.prefix_time_stats "prefix_info";
       time_stats_to_value_list t.range_time_stats "range_info";
+      time_stats_to_value_list t.prefix_time_stats "prefix_info";
+      time_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
 
       time_stats_to_value_list t.op_time_stats "op_info";
       Llio.NAMED_VALUELIST ("node_is", node_is);
@@ -313,10 +331,13 @@ module Statistics = struct
     let avg_get_size = extract_float value in
 
     let value, v_list = extract_next v_list in
+    let avg_range_size = extract_float value in
+
+    let value, v_list = extract_next v_list in
     let avg_prefix_size = extract_float value in
 
     let value, v_list = extract_next v_list in
-    let avg_range_size = extract_float value in
+    let avg_del_prefix_size = extract_float value in
     
     let value, v_list = extract_next v_list in
     let set_stats   = extract_time_stats value in
@@ -332,11 +353,15 @@ module Statistics = struct
     let value, v_list = extract_next v_list in
     let tas_stats   = extract_time_stats value in
 
+
+    let value, v_list = extract_next v_list in
+    let range_stats = extract_time_stats value in
+
     let value, v_list = extract_next v_list in
     let prefix_stats = extract_time_stats value in
 
     let value, v_list = extract_next v_list in
-    let range_stats = extract_time_stats value in
+    let delete_prefix_stats = extract_time_stats value in
 
     let value, v_list = extract_next v_list in
     let op_stats    = extract_time_stats value in
@@ -356,17 +381,18 @@ module Statistics = struct
       last = last;
       avg_set_size = avg_set_size;
       avg_get_size = avg_get_size;
-      avg_prefix_size = avg_prefix_size;
       avg_range_size = avg_range_size;
-
+      avg_prefix_size = avg_prefix_size;
+      avg_del_prefix_size = avg_del_prefix_size;
       set_time_stats = set_stats;
       get_time_stats = get_stats;
       del_time_stats = del_stats;
       seq_time_stats = seq_stats;
       mget_time_stats = mget_stats;
       tas_time_stats = tas_stats;
-      prefix_time_stats = prefix_stats;
       range_time_stats = range_stats;
+      prefix_time_stats = prefix_stats;
+      delete_prefix_time_stats = delete_prefix_stats;
       op_time_stats = op_stats;
       node_is = node_is;
     } in
@@ -375,22 +401,24 @@ module Statistics = struct
   let string_of t =
     let template = 
       "{start: %f, " ^^
-	"last: %f, " ^^
+	    "last: %f, " ^^
         "avg_set_size: %f, " ^^
         "avg_get_size: %f, " ^^
-        "avg_prefix_size: %f, " ^^
         "avg_range_size: %f, " ^^
-        "set_info: %s, " ^^	
-        "get_info: %s, " ^^
-        "del_info: %s, " ^^
-	    "mget_info: %s, " ^^
-	    "seq_info: %s, " ^^
-        "tas_info: %s, " ^^
-        "prefix_info: %s, " ^^
-        "range_info: %s, " ^^
-        "ops_info: %s, " ^^
+        "avg_prefix_size: %f, " ^^
+        "avg_del_prefix_size: %f,\n" ^^
+        "set_info: %s,\n" ^^	
+        "get_info: %s,\n" ^^
+        "del_info: %s,\n" ^^
+	    "mget_info: %s,\n" ^^
+	    "seq_info: %s,\n" ^^
+        "tas_info: %s,\n" ^^
+        "range_info: %s,\n" ^^
+        "prefix_info: %s,\n" ^^
+        "delete_prefix_info: %s,\n" ^^
+        "ops_info: %s,\n" ^^
         "node_is: %s" ^^
-	"}"
+	"}\n"
     in
     let node_iss = Buffer.create 100 in
     let () = Hashtbl.fold (fun n i () ->
@@ -402,16 +430,18 @@ module Statistics = struct
       t.last 
       t.avg_set_size 
       t.avg_get_size
-      t.avg_prefix_size
       t.avg_range_size
+      t.avg_prefix_size
+      t.avg_del_prefix_size
       (time_stats_to_string t.set_time_stats)
       (time_stats_to_string t.get_time_stats)
       (time_stats_to_string t.del_time_stats)
       (time_stats_to_string t.mget_time_stats)
       (time_stats_to_string t.seq_time_stats)
       (time_stats_to_string t.tas_time_stats)
-      (time_stats_to_string t.prefix_time_stats)
       (time_stats_to_string t.range_time_stats)
+      (time_stats_to_string t.prefix_time_stats)
+      (time_stats_to_string t.delete_prefix_time_stats)
       (time_stats_to_string t.op_time_stats)
       (Buffer.contents node_iss)
 end
