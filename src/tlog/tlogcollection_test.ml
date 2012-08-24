@@ -49,22 +49,6 @@ let setup factory test_name () =
     | false -> File_system.mkdir dn 0o755
   ) >>= fun () ->
   Lwt.return (dn, factory)      
-  (*
-  Lwt_preemptive.detach
-    (fun () ->
-      let () = 
-        if Sys.file_exists dn then
-          let rc = Sys.command (Printf.sprintf "rm -rf '%s'" dn) in 
-          if rc <> 0 then 
-            let msg = Printf.sprintf "rm -rf '%s' gave rc %i" dn rc in
-            failwith msg
-      in
-      Unix.mkdir dn 0o755
-    )
-    ()
-  >>= fun ()->
-    Lwt.return (dn, factory)
-  *)
   
 
 
