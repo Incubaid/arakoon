@@ -28,9 +28,28 @@ open Tlogcollection
 open Tlogcommon
 
 
-let setup factory () =
-  let dn = "/tmp/tlogcollection" in
+let setup factory test_name () =
+  let dn = Printf.sprintf "/tmp/%s" test_name in
   Lwt_log.info_f "setup %s" dn >>= fun () ->
+  File_system.exists dn >>= (function
+    | true -> 
+      begin
+        Lwt_log.info_f "%s exists cleaning" dn >>= fun () ->
+        let cmd = Lwt_process.shell (Printf.sprintf "rm -rf %s" dn) in
+        Lwt_process.exec cmd
+        >>= fun status ->
+        begin
+          match status with
+            | Unix.WEXITED rc when rc = 0 -> File_system.mkdir dn 0o755
+            | Unix.WEXITED rc             -> Llio.lwt_failfmt "rm -rf '%s' gave rc %i" dn rc
+            | _                           -> Llio.lwt_failfmt "rm -rf '%s' failed" dn
+        end
+
+      end
+    | false -> File_system.mkdir dn 0o755
+  ) >>= fun () ->
+  Lwt.return (dn, factory)      
+  (*
   Lwt_preemptive.detach
     (fun () ->
       let () = 
@@ -44,7 +63,9 @@ let setup factory () =
     )
     ()
   >>= fun ()->
-  Lwt.return (dn, factory)
+    Lwt.return (dn, factory)
+  *)
+  
 
 
 let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn 
@@ -227,13 +248,15 @@ let test_validate_corrupt_1 (dn,factory) =
   >>= fun () -> 
   Lwt.return ()
 
-let wrap factory test = lwt_bracket (setup factory) test teardown
+let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
+
 let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn true 
-let wrap_memory = wrap create_test_tlc
+
+let wrap_memory name = wrap create_test_tlc name
 
 let suite_mem = "mem_tlogcollection" >::: [
-  "empty_collection" >:: wrap_memory test_empty_collection;
-  "rollover" >:: wrap_memory test_rollover;
+  "empty_collection" >:: wrap_memory test_empty_collection "empty_collection";
+  "rollover" >:: wrap_memory test_rollover "rollover";
 (* "get_value_bug" >:: wrap_memory test_get_value_bug; 
     (* assumption that different tlog_collections with the same name have the same state *) 
 *)
