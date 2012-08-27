@@ -114,6 +114,23 @@ let delete cfg_name key =
   in 
   run t
 
+let delete_prefix cfg_name prefix = 
+  let t () = with_master_client cfg_name (
+    fun client -> client # delete_prefix prefix >>= fun n_deleted ->
+      Lwt_io.printlf "%i" n_deleted
+  )
+  in
+  run t
+let prefix cfg_name prefix prefix_size = 
+  let t () = with_master_client cfg_name 
+    (fun client ->
+      client # prefix_keys prefix prefix_size >>= fun keys ->
+      Lwt_list.iter_s (fun k -> Lwt_io.printlf "%S" k ) keys >>= fun () ->
+      Lwt.return ()
+    )
+  in
+  run t
+  
 let benchmark cfg_name size tx_size max_n n_clients = 
   Lwt_io.set_default_buffer_size 32768;
   let t () = 

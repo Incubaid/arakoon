@@ -239,7 +239,7 @@ ARA_CMD_CONFIRM                  = 0x0000001c | ARA_CMD_MAG
 ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
 ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
-
+ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -601,7 +601,12 @@ class ArakoonProtocol :
         retVal += _packStringOption(argument)
         return retVal
     
-    
+    @staticmethod
+    def encodeDeletePrefix(prefix):
+        retVal =  _packInt(ARA_CMD_DELETE_PREFIX)
+        retVal += _packString(prefix)
+        return retVal
+        
     @staticmethod
     def _evaluateErrorCode( con ):
 
@@ -631,6 +636,11 @@ class ArakoonProtocol :
         ArakoonProtocol._evaluateErrorCode( con )
         return _recvInt64( con )
 
+    @staticmethod
+    def decodeIntResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        return _recvInt(con)
+    
     @staticmethod
     def decodeVoidResult( con ):
         ArakoonProtocol._evaluateErrorCode( con )

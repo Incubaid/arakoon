@@ -39,6 +39,7 @@ module Update = struct
     | UserFunction of string * string option
     | AdminSet of string * string option
     | SyncedSequence of t list 
+    | DeletePrefix of string
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -50,12 +51,11 @@ module Update = struct
     | Some w -> String.length w
 
   let rec string_of = function
-    | Set (k,v)                 -> Printf.sprintf "Set       ;%S;%i" k (String.length v)
-    | Delete k                  -> Printf.sprintf "Delete    ;%S" k
-    | MasterSet (m,i)           -> Printf.sprintf "MasterSet ;%S;%Ld" m i
+    | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i" k (String.length v)
+    | Delete k                  -> Printf.sprintf "Delete         ;%S" k
+    | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%Ld" m i
     | TestAndSet (k, _, wo) -> 
-      let ws = _size_of wo in
-      Printf.sprintf "TestAndSet;%S;%i" k ws
+      let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i" k ws
     | Sequence updates ->
       let buf = Buffer.create (64 * List.length updates) in
       let () = Buffer.add_string buf "Sequence([" in
@@ -69,16 +69,17 @@ module Update = struct
       in
       let () = loop updates in
       Buffer.contents buf
-    | SetInterval range ->     Printf.sprintf "SetInterval  ;%s" (Interval.to_string range)
-    | SetRouting routing -> Printf.sprintf "SetRouting;%s" (Routing.to_s routing)
+    | SetInterval range ->      Printf.sprintf "SetInterval     ;%s" (Interval.to_string range)
+    | SetRouting routing ->     Printf.sprintf "SetRouting      ;%s" (Routing.to_s routing)
     | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
     | Nop -> "NOP"
-    | Assert (key,vo)       -> Printf.sprintf "Assert    ;%S;%i" key (_size_of vo)
+    | Assert (key,vo)        -> Printf.sprintf "Assert          ;%S;%i" key (_size_of vo)
     | UserFunction (name,param) ->
       let ps = _size_of param in
       Printf.sprintf "UserFunction;%s;%i" name ps
-    | AdminSet (key,vo) -> Printf.sprintf "AdminSet  ;%S;%i" key (_size_of vo)
-    | SyncedSequence updates -> Printf.sprintf "SyncedSequence ..."
+    | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i" key (_size_of vo)
+    | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
+    | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
 
   
   let rec to_buffer b t =
@@ -89,44 +90,44 @@ module Update = struct
     in
     match t with
       | Set(k,v) ->
-	Llio.int_to    b 1;
-	Llio.string_to b k;
-	Llio.string_to b v
+	    Llio.int_to    b 1;
+	    Llio.string_to b k;
+	    Llio.string_to b v
       | Delete k ->
-	Llio.int_to    b 2;
-	Llio.string_to b k
+	    Llio.int_to    b 2;
+	    Llio.string_to b k
       | TestAndSet (k,e,w) ->
-	Llio.int_to    b 3;
-	Llio.string_to b k;
-	Llio.string_option_to b e;
-	Llio.string_option_to b w
+	    Llio.int_to    b 3;
+	    Llio.string_to b k;
+	    Llio.string_option_to b e;
+	    Llio.string_option_to b w
       | MasterSet (m,i) ->
-	Llio.int_to    b 4;
-	Llio.string_to b m;
-	Llio.int64_to b i
+	    Llio.int_to    b 4;
+	    Llio.string_to b m;
+	    Llio.int64_to b i
       | Sequence us ->
-	Llio.int_to b 5;
+	    Llio.int_to b 5;
         _us_to b us
       | Nop -> 
-	Llio.int_to b 6
+	    Llio.int_to b 6
       | UserFunction (name, param) ->
-	Llio.int_to b 7;
-	Llio.string_to b name;
-	Llio.string_option_to b param
+	    Llio.int_to b 7;
+	    Llio.string_to b name;
+	    Llio.string_option_to b param
       | Assert (k,vo) ->
-	Llio.int_to b 8;
-	Llio.string_to b k;
-	Llio.string_option_to b vo
+	    Llio.int_to b 8;
+	    Llio.string_to b k;
+	    Llio.string_option_to b vo
       | AdminSet(k,vo) ->
         Llio.int_to b 9;
         Llio.string_to b k;
         Llio.string_option_to b vo;
       | SetInterval interval ->
-	Llio.int_to b 10;
-	Interval.interval_to b interval
+	    Llio.int_to b 10;
+	    Interval.interval_to b interval
       | SetRouting r ->
-	Llio.int_to b 11;
-	Routing.routing_to b r
+	    Llio.int_to b 11;
+	    Routing.routing_to b r
       | SetRoutingDelta (l,s,r) ->
         Llio.int_to b 12;
         Llio.string_to b l;
@@ -135,6 +136,9 @@ module Update = struct
       | SyncedSequence us ->
         Llio.int_to b 13;
         _us_to b us
+      | DeletePrefix prefix ->
+        Llio.int_to b 14;
+        Llio.string_to b prefix
 
 
 
@@ -173,24 +177,24 @@ module Update = struct
         Sequence us, pos2
       | 6 -> Nop, pos1
       | 7 ->
-	let n,  pos2 = Llio.string_from b pos1 in
-	let po, pos3 = Llio.string_option_from b pos2 in
-	let r = UserFunction(n,po) in
-	r, pos3
+	    let n,  pos2 = Llio.string_from b pos1 in
+	    let po, pos3 = Llio.string_option_from b pos2 in
+	    let r = UserFunction(n,po) in
+	    r, pos3
       | 8 ->
-	let k, pos2 = Llio.string_from b pos1 in
-	let vo,pos3 = Llio.string_option_from b pos2 in
-	Assert (k,vo) , pos3
+	    let k, pos2 = Llio.string_from b pos1 in
+	    let vo,pos3 = Llio.string_option_from b pos2 in
+	    Assert (k,vo) , pos3
       | 9 ->
         let k,pos2 = Llio.string_from b pos1 in
         let vo, pos3 = Llio.string_option_from b pos2 in
         AdminSet(k,vo), pos3
       | 10 -> 
-	let interval,pos2 = Interval.interval_from b pos1 in
-	SetInterval interval, pos2
+	    let interval,pos2 = Interval.interval_from b pos1 in
+	    SetInterval interval, pos2
       | 11 ->
-	let r,pos2 = Routing.routing_from b pos1 in
-	SetRouting r, pos2
+	    let r,pos2 = Routing.routing_from b pos1 in
+	    SetRouting r, pos2
       | 12 ->
         let l, pos2 = Llio.string_from b pos1 in
         let s, pos3 = Llio.string_from b pos2 in
@@ -199,6 +203,9 @@ module Update = struct
       | 13 ->
         let us, pos2 = _us_from b pos1 in
         SyncedSequence us, pos2
+      | 14 ->
+        let p, pos2 = Llio.string_from b pos1 in
+        DeletePrefix p, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
 

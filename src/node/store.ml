@@ -61,6 +61,7 @@ class type store = object
   method set: ?_pf: string -> string -> string -> unit Lwt.t
   method test_and_set: ?_pf: string -> string -> string option -> string option -> string option Lwt.t
   method delete: ?_pf: string -> string -> unit Lwt.t
+  method delete_prefix: ?_pf: string -> string -> int Lwt.t
   method sequence : ?_pf: string -> Update.t list -> unit Lwt.t
   method set_master: string -> int64 -> unit Lwt.t
   method set_master_no_inc: string -> int64 -> unit Lwt.t
@@ -129,36 +130,53 @@ let _insert_update (store:store) update =
       with_error "Not_found" (fun () -> store # set_master m lease)
     | Update.Delete(key) ->
       with_error key (fun () -> store # delete key)
+    | Update.DeletePrefix prefix ->
+      begin
+        Lwt.catch
+          (fun () ->
+            store # delete_prefix prefix >>= fun n_deleted ->
+            let sb = Buffer.create 8 in
+            let () = Llio.int_to sb n_deleted in
+            let ser = Buffer.contents sb in
+            Lwt.return (Ok (Some ser)))
+          (fun e -> 
+            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+            and msg = Printexc.to_string e
+            in
+            Lwt.return (Update_fail (rc,msg)))
+      end
     | Update.TestAndSet(key,expected,wanted)->
-      Lwt.catch
-	(fun () ->
-	  store # test_and_set key expected wanted >>= fun res ->
-	  Lwt.return (Ok res))
-	(function
-	  | Not_found ->
-	    let rc = Arakoon_exc.E_NOT_FOUND
-	    and msg = key in
-	    Lwt.return (Update_fail (rc,msg))
-	  | e ->
-	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	    and msg = Printexc.to_string e
-	    in
-	    Lwt.return (Update_fail (rc,msg))
-	)
+      begin
+        Lwt.catch
+	      (fun () ->
+	        store # test_and_set key expected wanted >>= fun res ->
+	        Lwt.return (Ok res))
+	      (function
+	        | Not_found ->
+	          let rc = Arakoon_exc.E_NOT_FOUND
+	          and msg = key in
+	          Lwt.return (Update_fail (rc,msg))
+	        | e ->
+	          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	          and msg = Printexc.to_string e
+	          in
+	          Lwt.return (Update_fail (rc,msg))
+	      )
+      end
     | Update.UserFunction(name,po) ->
       Lwt.catch
-	(fun () ->
-	  store # user_function name po >>= fun ro ->
-	  Lwt.return (Ok ro)
-	)
-	(function
-	  | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
-	  | e ->
-	    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	    and msg = Printexc.to_string e
-	    in
-	    Lwt.return (Update_fail(rc,msg))
-	)
+	    (fun () ->
+	      store # user_function name po >>= fun ro ->
+	      Lwt.return (Ok ro)
+	    )
+	    (function
+	      | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
+	      | e ->
+	        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	        and msg = Printexc.to_string e
+	        in
+	        Lwt.return (Update_fail(rc,msg))
+	    )
     | Update.Sequence updates 
     | Update.SyncedSequence updates ->
       Lwt.catch

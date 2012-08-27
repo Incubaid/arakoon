@@ -67,6 +67,10 @@ method rev_range_entries:
 
   method delete: key -> unit Lwt.t
 
+  method delete_prefix: key -> int Lwt.t
+  (**
+     [delete_prefix prefix] deletes all entries with the prefix and yields the number of entries deleted
+  *)
 
   (** updates a value conditionally *)
   method test_and_set: key -> value option -> value option -> (value option) Lwt.t

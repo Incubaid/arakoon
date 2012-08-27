@@ -49,6 +49,8 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> delete_to buf key) >>= fun () ->
     response ic nothing
 
+  method delete_prefix prefix = Common.delete_prefix (ic,oc) prefix
+
   method range ?(allow_dirty=false) first finc last linc max =
     request oc (fun buf -> range_to buf ~allow_dirty first finc last linc max)
     >>= fun () ->

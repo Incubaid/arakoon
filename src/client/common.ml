@@ -73,6 +73,7 @@ type client_command =
   | SYNCED_SEQUENCE
   | OPT_DB
   | DEFRAG_DB
+  | DELETE_PREFIX
 
 
 let code2int = [
@@ -110,6 +111,7 @@ let code2int = [
   SYNCED_SEQUENCE         , 0x24l;
   OPT_DB                  , 0x25l;
   DEFRAG_DB               , 0x26l;
+  DELETE_PREFIX           , 0x27l;
 ]
 
 let int2code =
@@ -352,6 +354,15 @@ let set_routing_delta (ic,oc) left sep right =
   request oc outgoing >>= fun () ->
   Client_log.debug "set_routing_delta sent" >>= fun () ->
   response ic nothing
+
+let delete_prefix (ic,oc) prefix = 
+  let outgoing buf = 
+    command_to buf DELETE_PREFIX;
+    Llio.string_to buf prefix
+  in
+  Client_log.debug_f "delete_prefix %S" prefix >>= fun () ->
+  request oc outgoing >>= fun () ->
+  response ic Llio.input_int
 
 
 let _build_sequence_request buf changes =

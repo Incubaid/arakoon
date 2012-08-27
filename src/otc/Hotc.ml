@@ -244,4 +244,30 @@ module Hotc = struct
 		one [] batch_size
 	  )
       )
+
+
+  let delete_prefix bdb prefix = 
+    let count = ref 0 in
+    with_cursor2 bdb 
+      (fun bdb cur ->
+        try
+          let () = Bdb.jump bdb cur prefix in
+          let rec step () =  
+            let jumped_key = Bdb.key bdb cur in
+            if String_extra.prefix_match prefix jumped_key 
+            then 
+              let () = Bdb.cur_out bdb cur in (* and jump to next *)
+              let () = incr count in
+              step () 
+            else 
+              ()
+                
+          in
+          step ()
+        with
+          | Not_found -> ()
+      );
+    !count
+
+
 end

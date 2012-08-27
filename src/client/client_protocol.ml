@@ -514,6 +514,19 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	      )
 	      (handle_exception oc)
       end
+    | DELETE_PREFIX ->
+      begin
+        Lwt.catch 
+          ( fun () ->
+            Llio.input_string ic >>= fun prefix ->
+            Lwt_log.debug_f "delete_prefix %S" prefix >>= fun () ->
+            backend # delete_prefix prefix >>= fun n_deleted ->
+            Llio.output_int oc 0 >>= fun () ->
+            Llio.output_int oc n_deleted >>= fun () ->
+            Lwt.return false
+          ) 
+          (handle_exception oc)
+      end
         
 let protocol backend connection =
   let ic,oc = connection in

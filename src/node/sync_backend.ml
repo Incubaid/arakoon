@@ -43,7 +43,10 @@ let ncfg_prefix_b4_o = Some ncfg_prefix_b4
 let ncfg_prefix_2far_o = Some ncfg_prefix_2far
 
 exception Forced_stop
-let make_went_well stats_cb awake sleeper =
+
+let no_stats _ = ()
+
+let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
   fun b ->
     begin
       Lwt.catch
@@ -68,7 +71,7 @@ let make_went_well stats_cb awake sleeper =
 	      end
 	    | _ -> Lwt.fail e
 	) >>= fun () ->
-      stats_cb ();
+      stats_cb b;
       Lwt.return ()
     end
 
@@ -173,10 +176,14 @@ object(self: #backend)
       Lwt.return ()
 
   method range ~allow_dirty (first:string option) finc (last:string option) linc max =
-    log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
+    let start = Unix.gettimeofday() in
+    log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range first finc last linc max
+    store # range first finc last linc max >>= fun keys ->
+    let n_keys = List.length keys in
+    Statistics.new_range _stats start n_keys;
+    Lwt.return keys
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
 
@@ -186,17 +193,16 @@ object(self: #backend)
           self # block_collapser start_i ;
           self # _last_entries start_i oc
         end
-    ) (
-      fun () ->
-        Lwt.return ( self # unblock_collapser start_i )
+    ) 
+      (fun () -> Lwt.return ( self # unblock_collapser start_i )
     )
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
-    log_o self "%s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
+    log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range_entries first finc last linc max
+    store # range_entries first finc last linc max 
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
@@ -206,11 +212,14 @@ object(self: #backend)
     store # rev_range_entries first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
+    let start = Unix.gettimeofday() in
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [prefix]  >>= fun () ->
     store # prefix_keys prefix max   >>= fun key_list ->
-    Lwt_log.debug_f "prefix_keys found %d matching keys" (List.length key_list) >>= fun () ->
+    let n_keys = List.length key_list in
+    Lwt_log.debug_f "prefix_keys found %d matching keys" n_keys >>= fun () ->
+    Statistics.new_prefix_keys _stats start n_keys;
     Lwt.return key_list
 
   method set key value =
@@ -219,8 +228,9 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in
-    let update_sets () = Statistics.new_set _stats key value start in
+    let update_sets (update_result:Store.update_result) = Statistics.new_set _stats key value start in
     self # _update_rendezvous update update_sets push_update
+
 
 
   method confirm key value =
@@ -239,26 +249,24 @@ object(self: #backend)
   method set_routing r =
     log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in
-    let cb () = () in
-    self # _update_rendezvous update cb push_update
+    self # _update_rendezvous update no_stats push_update
 
   method set_routing_delta left sep right =
     log_o self "set_routing_delta" >>= fun () ->
     let update = Update.SetRoutingDelta (left, sep, right) in
-    let cb () = () in
-    self # _update_rendezvous update cb push_update
+    self # _update_rendezvous update no_stats push_update
 
   method set_interval iv =
     log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
     let update = Update.SetInterval iv in
-    self # _update_rendezvous update (fun () -> ()) push_update
+    self # _update_rendezvous update no_stats push_update
 
   method user_function name po =
     log_o self "user_function %s" name >>= fun () ->
     let update = Update.UserFunction(name,po) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait() in
-    let went_well = make_went_well (fun () -> ()) awake sleep in
+    let went_well = make_went_well no_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
       | Store.Stop -> Lwt.fail Forced_stop
@@ -271,7 +279,7 @@ object(self: #backend)
       let update = Update.Assert(key,vo) in
       let p_value = Update.make_update_value update in
       let sleep,awake = Lwt.wait() in
-      let went_well = make_went_well (fun () -> ()) awake sleep in
+      let went_well = make_went_well no_stats awake sleep in
       push_update (Some p_value, went_well) >>= fun () ->
       sleep >>= fun sr ->
       log_o self "after sleep" >>= fun () ->
@@ -301,7 +309,7 @@ object(self: #backend)
     let update = Update.TestAndSet(key, expected, wanted) in
     let p_value = Update.make_update_value update in
     let sleep, awake = Lwt.wait () in
-    let update_stats () = Statistics.new_testandset _stats start in
+    let update_stats ur = Statistics.new_testandset _stats start in
     let went_well = make_went_well update_stats awake sleep in
     push_update (Some p_value, went_well) >>= fun () ->
     sleep >>= function
@@ -309,10 +317,45 @@ object(self: #backend)
       | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
       | Store.Ok x -> Lwt.return x
 
+
+  method delete_prefix prefix = 
+    let start = Unix.gettimeofday () in
+    log_o self "delete_prefix %S" prefix >>= fun () ->
+    (* do we need to test the prefix on the interval ? *)
+    self # _write_allowed () >>= fun () ->
+    let update = Update.DeletePrefix prefix in
+    let p_value = Update.make_update_value update in
+    let sleep, awake = Lwt.wait() in
+    let update_stats ur = 
+      let n_keys = 
+        match ur with 
+          | Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
+          | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
+      in
+      Statistics.new_delete_prefix _stats start n_keys
+    in
+    let went_well = make_went_well update_stats awake sleep in
+    push_update (Some p_value, went_well) >>= fun () ->
+    sleep >>= function
+      | Store.Stop -> Lwt.fail Forced_stop
+      | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
+      | Store.Ok x -> 
+        (* getting very messy here: *) 
+        let r = 
+          match x with 
+            | None -> 0
+            | Some s -> let r', _ = Llio.int_from s 0 in
+                        r' 
+        in
+        Lwt.return r
+          
+  (* self # _update_rendezvous update update_stats push_update *)
+
+
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in
     let update = Update.Delete key in
-    let update_stats () = Statistics.new_delete _stats start in
+    let update_stats ur = Statistics.new_delete _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method hello (client_id:string) (cluster_id:string) =
@@ -382,7 +425,7 @@ object(self: #backend)
       then Update.SyncedSequence updates 
       else Update.Sequence updates
     in
-    let update_stats () = Statistics.new_sequence _stats start in
+    let update_stats ur = Statistics.new_sequence _stats start in
     self # _update_rendezvous update update_stats push_update
 
   method multi_get ~allow_dirty (keys:string list) =
@@ -648,7 +691,7 @@ object(self: #backend)
     ClientCfg.cfg_to buf cfg;
     let value = Buffer.contents buf in
     let update = Update.AdminSet (key,Some value) in
-    self # _update_rendezvous update (fun () -> ()) push_update >>= fun () ->
+    self # _update_rendezvous update no_stats push_update >>= fun () ->
     begin
       match client_cfgs with
         | None ->
