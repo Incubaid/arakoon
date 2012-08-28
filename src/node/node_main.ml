@@ -155,6 +155,8 @@ let log_prelude cluster_cfg =
   >>= fun () ->
   Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size 
   >>= fun () ->
+  Lwt_log.info_f "max_buffer_size: %i" Tcp_messaging.max_buffer_size
+  >>= fun () ->
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
   let ccfg_s = Log_extra.option2s p2s ncfgo in
