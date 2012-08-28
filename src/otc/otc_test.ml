@@ -111,6 +111,7 @@ let test_null db =
   let () = eq_int "char0" 0 (int_of_char str2.[4]) in
     ()
 
+
 let suite =
   let wrap f = bracket setup_tc f teardown_tc in
   "Otc" >:::

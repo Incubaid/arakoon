@@ -284,4 +284,15 @@ class test_backend my_name = object(self:#backend)
   method set_cluster_cfg cluster_id cfg =
     failwith "set_cluster not implemented in testbackend"
 
+  method delete_prefix prefix = 
+    let kv',n_deleted = 
+      StringMap.fold 
+        (fun k v ((s,c)as acc) -> 
+          if String_extra.prefix_match prefix k 
+          then (StringMap.remove k s,c+1)  
+          else acc) _kv  (_kv,0) 
+     in
+    _kv <- kv';
+    Lwt.return n_deleted
+    
 end

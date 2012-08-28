@@ -216,22 +216,26 @@ let test_compression_bug (dn, factory) =
     ~msg:"tlc has a hole" n (List.length !entries);
   Lwt.return ()
 
-let suite = "tlc2" >:::[
-  "regexp" >:: wrap_tlc Tlogcollection_test.test_regexp;
-  "empty_collection" >:: wrap_tlc Tlogcollection_test.test_empty_collection;
-  "rollover" >:: wrap_tlc Tlogcollection_test.test_rollover;
-  "get_value_bug" >:: wrap_tlc Tlogcollection_test.test_get_value_bug;
-  "test_restart" >:: wrap_tlc Tlogcollection_test.test_restart;
-  "test_iterate" >:: wrap_tlc Tlogcollection_test.test_iterate;
-  "test_iterate2" >:: wrap_tlc Tlogcollection_test.test_iterate2;
-  "test_iterate3" >:: wrap_tlc Tlogcollection_test.test_iterate3;
-  "test_iterate4" >:: wrap_tlc test_iterate4;
-  "test_iterate5" >:: wrap_tlc test_iterate5;
-  "test_iterate6" >:: wrap_tlc test_iterate6;
-  "validate" >:: wrap_tlc Tlogcollection_test.test_validate_normal;
-  "validate_corrupt" >:: wrap_tlc Tlogcollection_test.test_validate_corrupt_1;
-  "test_rollover_1002" >:: wrap_tlc Tlogcollection_test.test_rollover_1002;
-  "test_rollover_boundary" >:: wrap_tlc test_validate_at_rollover_boundary;
-  "test_interrupted_rollover" >:: wrap_tlc test_interrupted_rollover;
-  "test_compression_bug" >:: wrap_tlc test_compression_bug;
-]
+let make_test_tlc (x, y) = x >:: wrap_tlc y x
+
+let suite = "tlc2" >:::
+  List.map make_test_tlc
+  [
+    ("regexp", Tlogcollection_test.test_regexp);
+    ("empty_collection",Tlogcollection_test.test_empty_collection);
+    ("rollover", Tlogcollection_test.test_rollover);
+    ("get_value_bug", Tlogcollection_test.test_get_value_bug);
+    ("test_restart", Tlogcollection_test.test_restart);
+    ("test_iterate", Tlogcollection_test.test_iterate);
+    ("test_iterate2", Tlogcollection_test.test_iterate2);
+    ("test_iterate3", Tlogcollection_test.test_iterate3);    
+    ("test_iterate4", test_iterate4);
+    ("test_iterate5", test_iterate5);
+    ("test_iterate6", test_iterate6);
+    ("validate",  Tlogcollection_test.test_validate_normal);
+    ("validate_corrupt", Tlogcollection_test.test_validate_corrupt_1);
+    ("test_rollover_1002", Tlogcollection_test.test_rollover_1002);
+    ("test_rollover_boundary", test_validate_at_rollover_boundary);
+    ("test_interrupted_rollover", test_interrupted_rollover);
+    ("test_compression_bug", test_compression_bug);
+  ]

@@ -326,6 +326,21 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeDelete( key ) )
         conn.decodeVoidResult()
 
+    @utils.update_argspec('self','prefix')
+    @retryDuringMasterReelection
+    @SignatureValidator('string')
+    def deletePrefix(self, prefix):
+        """
+        Remove ALL key-value pairs from the store for which the key matches the prefix
+        returns the number of pairs deleted
+        
+        @type prefix: string
+        @rtype: integer
+        """
+        msg = ArakoonProtocol.encodeDeletePrefix(prefix)
+        conn = self._sendToMaster(msg)
+        result = conn.decodeIntResult()
+        return result
 
     __setitem__= set
     __getitem__= get

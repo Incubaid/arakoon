@@ -131,6 +131,10 @@ let _set _pf bdb key value = Bdb.put bdb (_pf ^ key) value
 
 let _delete _pf bdb key    = Bdb.out bdb (_pf ^ key)
 
+let _delete_prefix _pf bdb prefix = 
+  let xprefix = _pf ^ prefix in
+  Hotc.delete_prefix bdb xprefix
+
 let _test_and_set _pf bdb key expected wanted =
   let key' = _pf ^ key in
   try
@@ -258,10 +262,10 @@ let rec _sequence _pf bdb interval updates =
       let _ = _test_and_set _pf bdb key expected wanted in () (* TODO: do we want this? *)
     | Update.Assert(k,vo) ->
       begin
-	match _assert _pf bdb k vo with
-	  | true -> ()
-	  | false ->
-	    raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
+	    match _assert _pf bdb k vo with
+	      | true -> ()
+	      | false ->
+	        raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
       end
     | Update.UserFunction(name,po) ->
       let _ = _user_function bdb interval name po in ()
@@ -283,6 +287,7 @@ let rec _sequence _pf bdb interval updates =
         | _ -> raise  (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot modify admin keys in user sequence"))
     end
     | Update.Nop -> ()
+    | Update.DeletePrefix prefix -> let _ = _delete_prefix _pf bdb prefix in ()
   in let get_key = function
     | Update.Set (key,value) -> Some key
     | Update.Delete key -> Some key
@@ -515,6 +520,13 @@ object(self: #store)
       (fun db ->
 	let r = _test_and_set _pf db key expected wanted in
 	Lwt.return r)
+
+
+  method delete_prefix ?(_pf=__prefix) prefix = 
+    Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
+    _tx_with_incr (self #_incr_i_cached) db 
+      (fun db -> let c = _delete_prefix _pf db prefix in 
+                 Lwt.return c)
 
   method sequence ?(_pf=__prefix) updates =
     _tx_with_incr (self # _incr_i_cached) db

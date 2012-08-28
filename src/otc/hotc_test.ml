@@ -249,11 +249,31 @@ let test_rev_range_entries3 db =
   let () = eq "l1" [("faa", "boo")] l1 in
   Lwt.return ()
 
+
+let test_delete_prefix db = 
+  let bdb = Hotc.get_bdb db in
+  let rec fill i = 
+    if i = 100 
+    then ()
+    else
+      let () = Bdb.put bdb (Printf.sprintf "my_prefix_%i"  i) "value does not matter" in
+      fill (i+1)
+  in
+  let () = fill 0 in
+  let g0 = Hotc.delete_prefix bdb "x" in
+  let my_test a b = OUnit.assert_equal ~printer:string_of_int a b in
+  my_test 0 g0;
+  let g11 = Hotc.delete_prefix bdb "my_prefix_2" in
+  my_test 11 g11;
+  let g89 = Hotc.delete_prefix bdb "my_prefix_" in
+  my_test 89 g89;
+  Lwt.return ()
+
 let setup () = Hotc.create "/tmp/foo.tc"
 
 let teardown db =
   Hotc.delete db >>= fun () ->
-  let () = Unix.unlink "/tmp/foo.tc" in
+  let () = Unix.unlink "/tmp/foo.tc" in 
   Lwt.return ()
 
 let suite =
@@ -269,4 +289,5 @@ let suite =
       "rev_range_entries" >:: wrap test_rev_range_entries;
       "rev_range_entries2" >:: wrap test_rev_range_entries2;
       "rev_range_entries3" >:: wrap test_rev_range_entries3;
+      "delete_prefix" >:: wrap test_delete_prefix;
     ]

@@ -69,9 +69,15 @@ let test_interval2() =
       Lwt.return ())
   in
   Lwt_main.run (t())
-    
+
+let test_delete_prefix () = 
+  let u = Update.DeletePrefix "whatever" in
+  let u' = _b2b u in
+  _cmp u u'
+
 let suite = "update" >:::[
   "sequence" >:: test_sequence;
   "interval" >:: test_interval;
-  "interval2">:: test_interval2
+  "interval2">:: test_interval2;
+  "delete_prefix" >:: test_delete_prefix;
 ]
