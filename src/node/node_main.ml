@@ -78,7 +78,7 @@ let _config_logging me get_cfgs =
       Lwt.return None
     end
 
-let _config_messaging me others cookie laggy lease_period=
+let _config_messaging me others cookie laggy lease_period max_buffer_size =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
 	      let f msg source target = 
@@ -99,7 +99,7 @@ let _config_messaging me others cookie laggy lease_period=
       [] others
   in
   let messaging = new tcp_messaging 
-    (me.ips, me.messaging_port) cookie drop_it ~timeout:lease_period in
+    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:lease_period in
     messaging # register_receivers mapping;
     (messaging :> Messaging.messaging)
 
@@ -155,7 +155,7 @@ let log_prelude cluster_cfg =
   >>= fun () ->
   Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size 
   >>= fun () ->
-  Lwt_log.info_f "max_buffer_size: %i" Tcp_messaging.max_buffer_size
+  Lwt_log.info_f "max_buffer_size: %i" cluster_cfg.max_buffer_size
   >>= fun () ->
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
@@ -386,7 +386,7 @@ let _main_2
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) in
+      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
       Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (Lwt_log.info_f "other: %s")
 	other_names >>= fun () ->

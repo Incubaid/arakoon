@@ -327,7 +327,7 @@ let build_perfect () =
 
 let build_tcp () =
   let (m : messaging) = new tcp_messaging (["127.0.0.1"], 7777) "yummie"
-    (fun _ _ _ -> false) 
+    (fun _ _ _ -> false) Node_cfg.default_max_buffer_size
   in
   let network = network_of_messaging m in
   network

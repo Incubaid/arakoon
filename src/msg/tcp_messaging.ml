@@ -27,8 +27,6 @@ open Log_extra
 open Lwt_buffer
 open Network
 
-let max_buffer_size = 128 * 1024 * 1024
-
 type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
 
@@ -50,12 +48,12 @@ module RR = struct
 end
 
 
-class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function)  =
+class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function) max_buffer_size =
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
   let my_ips, my_port = my_addresses in
   let my_ip = List.hd my_ips in
-  let me = Printf.sprintf "(%s,%i)" my_ip my_port 
+  let me = Printf.sprintf "(%s,%i)" my_ip my_port
   in
 object(self : # messaging )
   val _id2address = Hashtbl.create 10

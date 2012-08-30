@@ -106,6 +106,7 @@ let post_failure () =
     nursery_cfg = None;
     overwrite_tlog_entries = None;
     max_value_size = Node_cfg.default_max_value_size;
+    max_buffer_size = Node_cfg.default_max_buffer_size;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -158,7 +159,8 @@ let restart_slaves () =
      plugins = [];
      nursery_cfg = None;
      overwrite_tlog_entries = None;
-     max_value_size = Node_cfg.default_max_value_size
+     max_value_size = Node_cfg.default_max_value_size;
+     max_buffer_size = Node_cfg.default_max_buffer_size
     }
   in
   let get_cfgs () = cluster_cfg in 
