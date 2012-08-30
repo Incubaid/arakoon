@@ -90,7 +90,7 @@ Keyspace defects
   which enforces it's own reconnection strategy.
 * Berkeley DB [#f1]_.
   
-It's not that these issues are impossible to address. It's just that when you're fighting these, you want to be owner of the problem, not a spectator.
+It's not that these issues are impossible to address. It's just that when you're fighting these, you don't want to be owner of the problem, not a spectator.
 
 high level overview
 -------------------
@@ -191,12 +191,6 @@ delete : key -> unit C.t
 ~~~~~~~~~~~~~~~~~~~~~~~~
 You can remove a key/value pair. 
 There was a suggestion to open this op to allow a regular expression.
-
-
-delete_prefix: key -> int C.t
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*delete_prefix p* removes all key/value pairs for which the key starts with *p*. 
-The number of deleted pairs is returned.
 
 test_and_set : key -> value option -> value option -> (value option) C.t
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -513,7 +507,6 @@ get_key_count            0x0000 001a
 confirm                  0x0000 001b
 rev_range_entries        0x0000 0023
 synced_sequence          0x0000 0024
-delete_prefix            0x0000 0027
 ======================== ===========
 
 =========== ====================
@@ -710,68 +703,6 @@ Once a user function is installed, it needs to remain available, with the same f
 
 The input and output are of type *String option*, which means that if you want to pass in a string list, you need to device some kind of (de)marshalling. 
 Furtunately, the *Llio* module is available both on client and server side, and has most things you need.
-
-Arakoon Statistics
-==================
-Arakoon logs some statistics every X seconds. The frequency with which this happens is configurable.
-
-::
-
-    # file arakoon.ini
-
-    ...
-
-    #reporting every x seconds (default = 300)
-    reporting = 60
-
-This will cause an Arakoon node to log and statistics every 60 seconds. One can inspect the statistics of a node through the command line
-
-::
-
-        $>arakoon --statistics
-        {start: 1335453697.391374, 
-        last: 1335453915.442215, 
-        avg_set_size: 10.000000, 
-        avg_get_size: 0.000000, 
-        set_info: (n:284364 min: 0.000297069549561, max: 3.37631797791, avg: 0.000697004824587, dev: 0.00647210483987),
-        get_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a), 
-        del_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a), 
-        mget_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a), 
-        seq_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a), 
-        tas_info: (n:0 min: n/a, max: n/a, avg: n/a, dev: n/a), 
-        ops_info: (n:284364 min: 0.000297069549561, max: 3.37631797791, avg: 0.000697004824587, dev: 0.00647210483987),
-        node_is: }
-
-The names of the entries in the statistics are explained in the table below
- 
-======================== ===========================================================
-item                     meaning
-======================== ===========================================================
-start                    timestamp start of period
-last                     timestamp last update of statistics
-set_info                 information about 'set' calls (done this period)
-get_info                 ... about 'get'  ...
-del_info                 ... 'delete' ... ...
-mget_info                ... 'multi gets' ...
-seq_info                 ... 'sequences'  ...
-tas_info                 ... 'test_and_set' ...
-prefix_info              ... 'prefix' ...
-range_info               ... 'range' ...
-delete_prefix_info       ... 'delete_prefix_info' ...
-ops_info                 information about all operations
-n                        number of times the operation was performed
-min                      the lowest execution time measured for that operation
-max                      the highest execution time measured for that operation
-avg                      average of measured execution times
-dev                      deviation of measured execution times
-avg_set_size             average size of values in updates
-avg_get_size             average size of values in gets
-avg_range_size           average number of results in 'range' queries
-avg_prefix_size          average number of results in 'prefix' queries
-avg_del_prefix           average number of keys deleted in 'delete_prefix' queries
-======================== ===========================================================
-
-In the example above, one was clearly putting a lot of small values into the system at a speed of *(last-start)/n* or about *1300 sets/s*.
 
 
 
