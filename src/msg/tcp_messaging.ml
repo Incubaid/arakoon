@@ -27,6 +27,7 @@ open Log_extra
 open Lwt_buffer
 open Network
 
+let max_buffer_size = 128 * 1024 * 1024
 
 type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
@@ -322,7 +323,7 @@ object(self : # messaging )
 	      Llio.input_int ic] 
             >>= fun msg_size ->                      
             begin
-              if msg_size > 32 * 1024 * 1024 
+              if msg_size > max_buffer_size
               then Llio.lwt_failfmt "msg_size (%i) > 32MB" msg_size
               else Lwt.return ()
             end
