@@ -49,7 +49,7 @@ let master_consensus constants ((mo:master_option),v,n,i) () =
 
 
 
-let stable_master constants (v',n,new_i) = function
+let stable_master constants ((v',n,new_i) as current_state) = function
     | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
@@ -57,7 +57,7 @@ let stable_master constants (v',n,new_i) = function
 	    begin
 	      log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
 	        (Sn.string_of n') (Sn.string_of n) >>= fun () ->
-	      Lwt.return (Stable_master (v',n,new_i))
+	      Lwt.return (Stable_master current_state)
 	    end
       else
 	    begin
@@ -76,7 +76,7 @@ let stable_master constants (v',n,new_i) = function
               then
 		        begin
 		          log ~me "stable_master: handover to %s" p >>= fun () ->
-		          Lwt.return (Stable_master (v', n, new_i))
+		          Lwt.return (Stable_master current_state)
 		        end
 	          else
 		        extend () 
@@ -111,14 +111,13 @@ let stable_master constants (v',n,new_i) = function
 		            let new_n = update_n constants n' in
 		            Lwt.return (Forced_master_suggest (new_n,new_i))
 		          else
-		            Lwt.return (Stable_master (v',n,new_i) )
+		            Lwt.return (Stable_master current_state )
 		        end
 	          else
 		        begin
 		          handle_prepare constants source n n' i' >>= function
 		            | Nak_sent 
-		            | Prepare_dropped ->
-                      Lwt.return  (Stable_master (v',n,new_i) )
+		            | Prepare_dropped -> Lwt.return  (Stable_master current_state )
 		            | Promise_sent_up2date ->
 		              begin
 			            let tlog_coll = constants.tlog_coll in
@@ -137,11 +136,18 @@ let stable_master constants (v',n,new_i) = function
                       Lwt.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
+          | Accepted(n,i) -> (* This one is not relevant anymore, but we're interested
+                                to see the slower slaves in the statistics as well :
+                                TODO: should not be solved on this level.
+                             *)
+	        log ~me "stable_master received %S: dropping (but witnessing)" (string_of msg) >>= fun () ->
+            constants.on_witness source i >>= fun () ->
+            Lwt.return (Stable_master current_state)
 	      | _ ->
 	        begin
 	          log ~me "stable_master received %S: dropping" (string_of msg)
 	          >>= fun () ->
-	          Lwt.return (Stable_master (v',n,new_i))
+	          Lwt.return (Stable_master current_state)
 		        
 	        end
       end
@@ -149,12 +155,12 @@ let stable_master constants (v',n,new_i) = function
       begin
       let me = constants.me in
       log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
-      Lwt.return (Stable_master (v',n,new_i))
+      Lwt.return (Stable_master current_state)
       end
     | Quiesce (sleep,awake) ->
       begin
         fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
-        Lwt.return (Stable_master (v',n,new_i))
+        Lwt.return (Stable_master current_state)
       end
         
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
