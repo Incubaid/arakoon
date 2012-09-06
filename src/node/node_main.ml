@@ -149,7 +149,7 @@ let log_prelude cluster_cfg =
   Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
   Lwt_log.info_f "version: %s" Version.version >>= fun () ->
-  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Hard) 
+  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft) 
   >>= fun () ->
   Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
   >>= fun () ->
