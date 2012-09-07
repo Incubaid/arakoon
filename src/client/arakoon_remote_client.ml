@@ -110,6 +110,9 @@ object(self: #Arakoon_client.client)
 
   method get_cluster_cfgs () =
     Common.get_nursery_cfg (ic,oc)
+
+  method version () =
+    Common.version (ic,oc)
 end
 
 let make_remote_client cluster connection =

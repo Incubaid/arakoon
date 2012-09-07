@@ -50,6 +50,8 @@ let ping ip port cluster_id =
   let t = Lwt_io.with_connection sa do_it in
   Lwt_main.run t; 0
 
+
+
 let find_master cluster_cfg =
   let cfgs = cluster_cfg.cfgs in
   let rec loop = function
@@ -121,6 +123,7 @@ let delete_prefix cfg_name prefix =
   )
   in
   run t
+
 let prefix cfg_name prefix prefix_size = 
   let t () = with_master_client cfg_name 
     (fun client ->
@@ -166,3 +169,27 @@ let who_master cfg_name () =
     Lwt_io.printl master_name
   in
   run t 
+
+
+let node_version node_name cfg_name = 
+  let cluster_cfg = read_config cfg_name in
+  let rec _find cfgs = 
+    let rec loop = function
+      | [] -> failwith (node_name ^ " is not known in config " ^ cfg_name) 
+      | cfg :: rest ->
+        if cfg.node_name = node_name then cfg
+        else loop rest
+    in
+    loop cfgs
+  in
+  let node_cfg = _find cluster_cfg.cfgs in
+  let cluster = cluster_cfg.cluster_id in
+  let t () = 
+    with_client node_cfg cluster
+      (fun client ->
+        client # version () >>= fun (major,minor,patch, info) ->
+        Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
+        Lwt_io.printl info
+      )
+  in
+  run t

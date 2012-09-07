@@ -98,4 +98,7 @@ method rev_range_entries:
   method get_key_count: unit -> int64 Lwt.t
 
   method get_cluster_cfgs: unit -> NCFG.t Lwt.t
+
+  method version : unit -> (int * int * int * string) Lwt.t
+    (** returns [(major,minor,patch, info)] *)
 end

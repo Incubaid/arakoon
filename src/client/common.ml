@@ -74,6 +74,7 @@ type client_command =
   | OPT_DB
   | DEFRAG_DB
   | DELETE_PREFIX
+  | VERSION
 
 
 let code2int = [
@@ -112,6 +113,7 @@ let code2int = [
   OPT_DB                  , 0x25l;
   DEFRAG_DB               , 0x26l;
   DELETE_PREFIX           , 0x27l;
+  VERSION                 , 0x28l;
 ]
 
 let int2code =
@@ -263,6 +265,7 @@ let ping_to b client_id cluster_id =
   Llio.string_to b client_id;
   Llio.string_to b cluster_id
 
+let version_to b = command_to b VERSION
 let get_key_count_to b =
   command_to b GET_KEY_COUNT
 
@@ -430,5 +433,17 @@ let defrag_db (ic,oc) =
   let outgoing buf = command_to buf DEFRAG_DB in
   request oc outgoing >>= fun () ->
   response ic nothing
+
+let version (ic,oc) = 
+  let outgoing buf = command_to buf VERSION in
+  request oc outgoing >>= fun () ->
+  response ic 
+    (fun ic -> 
+      Llio.input_int ic >>= fun major ->
+      Llio.input_int ic >>= fun minor ->
+      Llio.input_int ic >>= fun patch ->
+      Llio.input_string ic >>= fun info ->
+      Lwt.return (major,minor,patch,info)
+    )
 
 exception XException of Arakoon_exc.rc * string

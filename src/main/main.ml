@@ -60,6 +60,7 @@ type local_action =
   | DeleteNurseryCluster
   | PING
   | InjectAsHead
+  | NODE_VERSION
 
 type server_action =
   | Node
@@ -74,8 +75,8 @@ let do_path p = Printf.printf "%s\n" (OUnit.string_of_path p)
 let list_tests() =
   List.iter do_path (OUnit.test_case_paths All_test.suite)
 
-let show_version ()=
-  Printf.printf "version: %S\n" Version.version;
+let show_version ()= 
+  Printf.printf "version: %i.%i.%i\n" Version.major Version.minor Version.patch;
   Printf.printf "hg_revision: %S\n" Version.hg_revision;
   Printf.printf "compiled: %S\n" Version.compile_time;
   Printf.printf "machine: %S\n" Version.machine;
@@ -362,6 +363,9 @@ let main () =
                          Arg.Set_int port;
                         ],
      "<cluster_id> <ip> <port> sends a ping to the node");
+    ("--node-version", Arg.Tuple[set_laction NODE_VERSION;
+                                 Arg.Set_string node_id], 
+     "<node> : returns the version of <node>");
     ("--inject-as-head", Arg.Tuple [set_laction InjectAsHead;
                                     Arg.Set_string filename;
                                     Arg.Set_string node_id],
@@ -411,6 +415,7 @@ let main () =
       !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping !ip !port !cluster_id
+    | NODE_VERSION -> Client_main.node_version !node_id !config_file
     | InjectAsHead -> inject_as_head !filename !node_id !config_file
 
   in

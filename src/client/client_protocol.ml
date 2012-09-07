@@ -527,6 +527,18 @@ let one_command (ic,oc) (backend:Backend.backend) =
           ) 
           (handle_exception oc)
       end
+    | VERSION ->
+      Llio.output_int oc 0 >>= fun () ->
+      Llio.output_int oc Version.major >>= fun () ->
+      Llio.output_int oc Version.minor >>= fun () ->
+      Llio.output_int oc Version.patch >>= fun () ->
+      let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
+        Version.hg_revision
+        Version.compile_time
+        Version.machine
+      in
+      Llio.output_string oc rest >>= fun () ->
+      Lwt.return false
         
 let protocol backend connection =
   let ic,oc = connection in

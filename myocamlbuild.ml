@@ -46,9 +46,18 @@ let make_version _ _ =
     let template = "let hg_revision = %S\n" ^^
       "let compile_time = %S\n" ^^
       "let machine = %S\n" ^^
-      "let version = %S\n"
+      "let major = %i\n" ^^
+      "let minor = %i\n" ^^
+      "let patch = %i\n" 
     in
-    Printf.sprintf template hg_revision time machine branch_version
+    let major,minor,patch = 
+      try
+        Scanf.sscanf branch_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
+      with _ -> 
+        try Scanf.sscanf branch_version "%i.%i" (fun ma mi -> (ma,mi,-1)) 
+        with _ -> (-1,-1,-1)
+    in
+    Printf.sprintf template hg_revision time machine major minor patch
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 
