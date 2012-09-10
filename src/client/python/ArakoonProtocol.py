@@ -493,7 +493,7 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeGetVersion():
-        r = _pathInt(ARA_CMD_VERSION)
+        r = _packInt(ARA_CMD_VERSION)
         return r
     
     @staticmethod
