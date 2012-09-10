@@ -240,6 +240,22 @@ def test_who_master () :
     assert_true ( node in C.node_names ) 
     client.dropConnections()
 
+
+@C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)
+def test_get_version():
+    client = C.get_client()
+    #first on master:
+    
+    vt = client.getVersion()
+    logging.debug("tuple = %s", str(vt))
+    (major,minor,patch, info) = vt
+    assert_equals(major, 1)
+    #then on specific level:
+    vt2 = client.getVersion(C.node_names[0])
+    logging.debug("tuple = %s", str(vt2))
+    client.dropConnections() # needed?
+    
+    
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_restart_single_slave_short ():
     C.restart_single_slave_scenario( 2, 100 )

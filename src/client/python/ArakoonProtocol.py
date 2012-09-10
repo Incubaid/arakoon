@@ -240,6 +240,8 @@ ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
 ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
+ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
+
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -490,6 +492,11 @@ class ArakoonProtocol :
         return r
 
     @staticmethod
+    def encodeGetVersion():
+        r = _pathInt(ARA_CMD_VERSION)
+        return r
+    
+    @staticmethod
     def encodeWhoMaster():
         return _packInt( ARA_CMD_WHO )
 
@@ -717,6 +724,15 @@ class ArakoonProtocol :
         result, offset = _unpackNamedField(buffer,0)
         return result['arakoon_stats']
 
+    @staticmethod
+    def decodeVersionResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        major = _recvInt(con)
+        minor = _recvInt(con)
+        patch = _recvInt(con)
+        info  = _recvString(con)
+        return (major,minor, patch, info)
+    
     @staticmethod
     def encodeGetKeyCount () :
         return _packInt(ARA_CMD_KEY_COUNT)
