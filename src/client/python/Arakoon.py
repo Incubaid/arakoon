@@ -186,7 +186,7 @@ class ArakoonClient :
         return conn.decodeStringResult()
 
 
-    def getVersion(nodeId = None):
+    def getVersion(self, nodeId = None):
         """
         will return a tuple containing major, minor and patch level versions of the server side
         @type nodeId : String
