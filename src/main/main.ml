@@ -109,9 +109,9 @@ let run_system_tests () =
   let _ = OUnit.run_test_tt tests in
   0
 
-let dump_tlog filename =
+let dump_tlog filename ~values=
   let printer () (i,u) =
-    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u) in
+    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u ~values) in
   let folder,_ = Tlc2.folder_for filename in
 
   let t =
@@ -230,6 +230,7 @@ let main () =
   and n_tlogs = ref 1
   and n_clients = ref 1
   and catchup_only = ref false
+  and dump_values = ref false
   and max_results = ref 1000
   and location = ref ""
   and left_cluster = ref ""
@@ -262,8 +263,9 @@ let main () =
 				   Arg.Set_string filename],
      "<filename> : truncate a tlog after the last valid entry");
     ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
-			       Arg.Set_string filename],
+			                   Arg.Set_string filename],
      "<filename> : dump a tlog file in readable format");
+    ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
 			       Arg.Set_int counter;],
@@ -272,7 +274,7 @@ let main () =
 				 Arg.Set_string filename],
      "<filename> : dump a store");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
-				  Arg.Set_string filename],
+				                  Arg.Set_string filename],
      "compress a tlog file");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
 				                    Arg.Set_string filename],
@@ -386,7 +388,7 @@ let main () =
     | ListTests -> list_tests ();0
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
-    | DumpTlog -> dump_tlog !filename
+    | DumpTlog -> dump_tlog !filename !dump_values
     | MakeTlog -> make_tlog !filename !counter
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename

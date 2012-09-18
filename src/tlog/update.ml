@@ -50,37 +50,44 @@ module Update = struct
     | None -> 0
     | Some w -> String.length w
 
-  let rec string_of = function
-    | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i" k (String.length v)
-    | Delete k                  -> Printf.sprintf "Delete         ;%S" k
-    | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%Ld" m i
-    | TestAndSet (k, _, wo) -> 
-      let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i" k ws
-    | Sequence updates ->
-      let buf = Buffer.create (64 * List.length updates) in
-      let () = Buffer.add_string buf "Sequence([" in
-      let rec loop = function
-	| [] -> Buffer.add_string buf "])"
-	| u::us ->
-	  let () = Buffer.add_string buf (string_of u) in
-	  let () = if (us <> []) then Buffer.add_string buf "; "
-	  in
-	  loop us
-      in
-      let () = loop updates in
-      Buffer.contents buf
-    | SetInterval range ->      Printf.sprintf "SetInterval     ;%s" (Interval.to_string range)
-    | SetRouting routing ->     Printf.sprintf "SetRouting      ;%s" (Routing.to_s routing)
-    | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
-    | Nop -> "NOP"
-    | Assert (key,vo)        -> Printf.sprintf "Assert          ;%S;%i" key (_size_of vo)
-    | UserFunction (name,param) ->
-      let ps = _size_of param in
-      Printf.sprintf "UserFunction;%s;%i" name ps
-    | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i" key (_size_of vo)
-    | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
-    | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
-
+  let string_of ?(values=false) u = 
+    let maybe s = if values then s else "..." 
+    and maybe_o = function 
+      | None -> "None"
+      | Some s -> if values then s else "..." 
+    in 
+    let rec _inner = function
+      | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i;%S" k (String.length v) (maybe v)
+      | Delete k                  -> Printf.sprintf "Delete         ;%S" k
+      | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%Ld" m i
+      | TestAndSet (k, _, wo) -> 
+        let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i;%S" k ws (maybe_o wo)
+      | Sequence updates ->
+        let buf = Buffer.create (64 * List.length updates) in
+        let () = Buffer.add_string buf "Sequence([" in
+        let rec loop = function
+	      | [] -> Buffer.add_string buf "])"
+	      | u::us ->
+	        let () = Buffer.add_string buf (_inner u) in
+	        let () = if (us <> []) then Buffer.add_string buf "; "
+	        in
+	        loop us
+        in
+        let () = loop updates in
+        Buffer.contents buf
+      | SetInterval range ->      Printf.sprintf "SetInterval     ;%s" (Interval.to_string range)
+      | SetRouting routing ->     Printf.sprintf "SetRouting      ;%s" (Routing.to_s routing)
+      | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
+      | Nop -> "NOP"
+      | Assert (key,vo)        -> Printf.sprintf "Assert          ;%S;%i" key (_size_of vo)
+      | UserFunction (name,param) ->
+        let ps = _size_of param in
+        Printf.sprintf "UserFunction;%s;%i" name ps
+      | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
+      | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
+      | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
+    in
+    _inner u
   
   let rec to_buffer b t =
     let _us_to b us = 
