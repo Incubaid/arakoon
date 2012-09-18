@@ -547,8 +547,9 @@ object(self: #store)
     Lwt.return _store_i
 
   method close () =
+    Hotc.sync db >>= fun () ->
     Hotc.close db >>= fun () ->
-    Lwt_log.debug "local_store :: close () " >>= fun () ->
+    Lwt_log.info "local_store :: synced & closed () " >>= fun () ->
     Lwt.return ()
 
   method get_location () = Hotc.filename db
