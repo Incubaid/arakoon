@@ -38,6 +38,8 @@ from ..system_tests_common import whipe
 from ..system_tests_common import lease_duration
 from ..system_tests_common import compare_stores
 
+from .. import system_tests_common as C
+
 from nose.tools import *
 
 import time
@@ -113,7 +115,7 @@ def test_concurrent_collapse_fails():
 
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_exercises():
-    time.sleep(1.0) # ??
+    time.sleep(C.lease_duration) # ??
     
     def do_one(n, max_wait):
         logging.info("do_one(%i,%f)", n, max_wait)
