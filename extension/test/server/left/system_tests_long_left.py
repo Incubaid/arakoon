@@ -116,6 +116,7 @@ def test_catchup_exercises():
     time.sleep(1.0) # ??
     
     def do_one(n, max_wait):
+        logging.info("do_one(%i,%f)", n, max_wait)
         iterate_n_times(n, simple_set)
         stop_all()
         logging.info("stopped all nodes")
