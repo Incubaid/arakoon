@@ -43,9 +43,8 @@ let lwt_bracket setup testcase teardown () =
     begin
     try_lwt_ setup >>= fun x ->
     try_lwt_ (fun () ->
-      Lwt.finalize 
-        (fun () -> testcase x)
-	    (fun () -> teardown x)
+      Lwt.finalize (fun () -> testcase x)
+	(fun () -> teardown x)
     ) >>= fun () ->
     Lwt.return ()
     end

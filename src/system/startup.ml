@@ -78,7 +78,6 @@ let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    >>= fun _ -> Lwt.return () 
 
 let _dump_tlc ~tlcs node = 
   let tlc0 = Hashtbl.find tlcs node in

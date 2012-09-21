@@ -39,13 +39,9 @@ let should_fail x error_msg success_msg =
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
-let _wait_a_period cluster_cfg = 
-  let sp = float(cluster_cfg._lease_period) in
-  Lwt_unix.sleep sp 
-
 
 let all_same_master (cluster_cfg, all_t) =
-  _wait_a_period cluster_cfg >>= fun () ->
+  Lwt_unix.sleep 5.0 >>= fun () ->
   let scenario () = 
     Lwt_log.debug "all_same_master: start of scenario" >>= fun () ->
     let set_one client = client # set "key" "value" in
@@ -58,9 +54,9 @@ let all_same_master (cluster_cfg, all_t) =
     let do_one cfg =
       Lwt_log.info_f "cfg:name=%s" (node_name cfg)  >>= fun () ->
       let f client =
-	    client # who_master () >>= function master ->
-	      masters := master :: !masters;
-	      Lwt.return ()
+	client # who_master () >>= function master ->
+	  masters := master :: !masters;
+	  Lwt.return ()
       in
       Client_main.with_client cfg cluster_cfg.cluster_id f
     in
@@ -72,22 +68,21 @@ let all_same_master (cluster_cfg, all_t) =
     let test = function
       | [] -> assert_failure "can't happen"
       | s :: rest ->
-	    begin
-	      List.iter
-	        (fun s' ->
-	          if s <> s' then assert_failure "different"
-	          else match s with | None -> assert_failure "None" | _ -> ()
-	        )
-	        rest
-	    end
+	begin
+	  List.iter
+	    (fun s' ->
+	      if s <> s' then assert_failure "different"
+	      else match s with | None -> assert_failure "None" | _ -> ()
+	    )
+	    rest
+	end
     in
     Lwt_log.debug "all_same_master:testing" >>= fun () ->
     let () = test !masters in
     Lwt.return ()
   in
-  Lwt.pick [
-    Lwt.join all_t;
-    scenario () ]
+  Lwt.pick [Lwt.join all_t;
+	    scenario () ]
   
 
 let nothing_on_slave (cluster_cfg, _) =
@@ -452,7 +447,8 @@ let _multi_get (client: client) =
   
 
 let _with_master (cluster_cfg, _) f =
-  _wait_a_period cluster_cfg >>= fun () ->
+  let sp = float(cluster_cfg._lease_period) in
+  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *) 
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Lwt_log.info_f "master=%S" master_name >>= fun () ->
   let master_cfg =
@@ -507,10 +503,9 @@ let assert3 tpl = _with_master tpl _assert3
 let setup master base () =
   let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let epi _ = Lwt.return () in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" >>= epi in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" >>= epi in
-  let t2 = Node_main.test_t make_config "t_arakoon_2" >>= epi in
+  let t0 = Node_main.test_t make_config "t_arakoon_0" in
+  let t1 = Node_main.test_t make_config "t_arakoon_1" in
+  let t2 = Node_main.test_t make_config "t_arakoon_2" in
   let all_t = [t0;t1;t2] in
   Lwt.return (make_config (), all_t)
 
