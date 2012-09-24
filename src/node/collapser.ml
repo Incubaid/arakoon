@@ -146,6 +146,20 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
       fun () -> new_store # close ()
     )
 
+let _head_i (create_store:store_maker) head_location =
+  Lwt.catch
+    (fun () ->
+      let read_only=true in
+      create_store ~read_only head_location >>= fun head ->
+      head # consensus_i () >>= fun head_io ->
+      head # close () >>= fun () ->
+      Lwt.return head_io
+    )
+    (fun exn -> 
+      Lwt_log.info ~exn "returning assuming no I" >>= fun () ->
+      Lwt.return None
+    )
+
 let collapse_many tlog_coll 
     store_fs 
     tlogs_to_keep cb' cb =
@@ -154,13 +168,10 @@ let collapse_many tlog_coll
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   Lwt_log.debug_f "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let ((create_store:store_maker),_,(head_location:string)) = store_fs in
-  let read_only = true in
-  create_store ~read_only head_location >>= fun head ->
-  head # consensus_i () >>= fun head_io ->
+  _head_i create_store head_location >>= fun head_io ->
   tlog_coll # get_last_i () >>= fun last_i ->
   Lwt_log.debug_f "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
   >>= fun () ->
-  head # close () >>= fun () ->
   let head_i = match head_io with None -> Sn.start | Some i -> i in
   let lag = Sn.to_int (Sn.sub last_i head_i) in
   let npt = !Tlogcommon.tlogEntriesPerFile in
