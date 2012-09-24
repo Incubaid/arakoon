@@ -159,6 +159,7 @@ def apply_iptables_rules ( rules ) :
         for line in lines :
             if line.strip() != "" :
                 cmd = "iptables %s" % line
+                logging.info("cmd=%s", cmd)
                 Common.run_cmd( cmd, False )
         
         

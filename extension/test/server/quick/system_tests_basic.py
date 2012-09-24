@@ -396,7 +396,7 @@ def test_get_storage_utilization():
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def _test_gather_evidence():
-    """ disabled, because of upstream inertia"
+    """ disabled, because of upstream inertia"""
     data_base_dir = C.data_base_dir
     q = C.q
     fs = q.system.fs

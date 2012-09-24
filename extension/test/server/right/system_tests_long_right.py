@@ -327,6 +327,7 @@ def test_is_progress_possible():
 
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
+    """ the scaling scenario from 1 node to 3 nodes the way A-server does it (eta : 2200 s) """
     global test_failed
     test_failed = False 
     
@@ -456,6 +457,7 @@ def test_sabotage():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
+    """ make sure catchup does not interphere with normal operation (eta : 720s) """
     cli = Common.get_client()
     cluster = Common._getCluster()
 
