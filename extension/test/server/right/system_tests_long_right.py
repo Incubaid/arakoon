@@ -40,6 +40,9 @@ def test_single_client_100000_sets():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_delete_non_existing_with_catchup ():
+    """
+    catchup after deleting a non existing value (eta: 6s)
+    """
     Common.stopOne( Common.node_names[1] )
     key='key'
     value='value'
@@ -64,6 +67,9 @@ def test_delete_non_existing_with_catchup ():
     
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown )
 def test_expect_progress_fixed_master ():
+    """
+    see if expect_progress gives the correct result after a cluster restart (eta: 67s)
+    """
     Common.stopOne( Common.node_names[1] )
     key='key'
     value='value'
@@ -377,7 +383,7 @@ def test_sso_deployment():
     
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_nodes_2_slaves_down ():
-    
+    """ make sure the 'set' operation fails when 2 slaves are down, (eta: 63s) """
     cli = Common.get_client()
     master_id = cli.whoMaster()
     
@@ -393,7 +399,9 @@ def test_3_nodes_2_slaves_down ():
 
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_disable_tlog_compression():
-    
+    """
+    assert we can disable tlog compression (eta: 460s)
+    """
     clu = _getCluster()
     clu.disableTlogCompression()
     clu.restart()
@@ -579,7 +587,10 @@ def test_large_catchup_while_running():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, 
                            Common.basic_teardown)
-def test_db_optimize(): 
+def test_db_optimize():
+    """
+    assert an 'optimizeDb' call shrinks the database enoug (eta: 60s)
+    """
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
     Common.iterate_n_times(10000, Common.set_get_and_delete)
     db_file = Common.get_node_db_file( Common.node_names[1] )
@@ -593,6 +604,9 @@ def test_db_optimize():
 @Common.with_custom_setup (Common.setup_3_nodes_forced_master,
                            Common.basic_teardown)
 def test_db_defrag():
+    """
+    make sure the defrag call works, and actually shrinks the database (eta: 600s)
+    """
     assert_raises( Exception, Common.defragDb, Common.node_names[0] )
     client = Common.get_client()
     a = 16807
@@ -634,7 +648,7 @@ def test_db_defrag():
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_272():
     """ 
-    arakoon can go down during log rotation, but you need to have load to reproduce it
+    arakoon can go down during log rotation, but you need to have load to reproduce it (eta: 1110s)
     """
     node = Common.node_names[0]
     cluster = Common._getCluster()
@@ -644,7 +658,7 @@ def test_272():
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode
     if rc <> None:
-        raise Exception ("benchmark should not finish")
+        raise Exception ("benchmark should not have finished yet.")
 
     for i in range(100):
         Common.rotate_log(node, 1, False)
@@ -661,9 +675,9 @@ def test_272():
         raise Exception("kaboom:tc = %s" % rc)
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
-def test_inject_as_head():
+def _test_inject_as_head():
     """
-    Shortcut for those who don't want to collapse periodically.
+    Shortcut for those who don't want to collapse periodically. (eta: ...s)
     ARAKOON-288
     ARAKOON-308
     """
