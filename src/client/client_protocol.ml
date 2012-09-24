@@ -349,26 +349,29 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	    let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
 	    let t0 = sw() in
 	    let cb' n =
-	      Lwt_log.debug "CB'" >>= fun () ->
+	      Lwt_log.debug_f "CB' %i" n >>= fun () ->
 	      Llio.output_int oc 0 >>= fun () -> (* ok *)
-	      Lwt_io.flush oc >>= fun () ->
-	      Llio.output_int oc n
+	      Llio.output_int oc n >>= fun () ->
+          Lwt_io.flush oc
 	    in
-	    let cb () =
-	      Lwt_log.debug "CB" >>= fun () ->
-	      let ts = sw() in
-	      let d = Int64.sub ts t0 in
-	      Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_int64 oc d >>= fun () ->
-	      Lwt_io.flush oc
+	    let cb  =
+          let count = ref 0 in
+          fun () ->
+	        Lwt_log.debug_f "CB %i" !count >>= fun () ->
+            let () = incr count in
+	        let ts = sw() in
+	        let d = Int64.sub ts t0 in
+	        Llio.output_int oc 0 >>= fun () ->
+	        Llio.output_int64 oc d >>= fun () ->
+	        Lwt_io.flush oc
 	    in
 	    Llio.input_int ic >>= fun n ->
 	    Lwt.catch
 	      (fun () ->
-	        Lwt_log.info "... Start collapsing ..." >>= fun () ->
+	        Lwt_log.info_f "... Start collapsing ... (n=%i)" n >>= fun () ->
 	        backend # collapse n cb' cb >>= fun () ->
 	        Lwt_log.info "... Finished collapsing ..." >>= fun () ->
-	        Lwt.return false
+	        Lwt.return false 
 	      )
 	      (handle_exception oc)
       end

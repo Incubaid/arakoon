@@ -674,15 +674,16 @@ def test_272():
     if rc <> 0:
         raise Exception("kaboom:tc = %s" % rc)
 
-@Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
-def _test_inject_as_head():
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
+def test_inject_as_head():
     """
-    Shortcut for those who don't want to collapse periodically. (eta: ...s)
+    Shortcut for those who don't want to collapse periodically. (eta: 20 s)
     ARAKOON-288
     ARAKOON-308
     """
     cluster = Common._getCluster()
-    n = 403210
+    npt = 1000
+    n = 4 * npt + 65
     Common.iterate_n_times(n,Common.simple_set)
     client = Common.get_client()
     m = client.whoMaster()
@@ -690,14 +691,18 @@ def _test_inject_as_head():
     s0 = slaves[0]
     s1 = slaves[1]
     new_head = '/tmp/test_inject_as_head.db'
+    print "1"
     cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
     cluster.injectAsHead(s1, new_head)
+    print "2"
     logging.info("injected as head")
     Common.iterate_n_times(n,Common.simple_set)
     logging.info("iterated")
+    print "3"
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
+    print "4"
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
     

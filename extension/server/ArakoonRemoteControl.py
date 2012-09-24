@@ -44,7 +44,9 @@ def collapse(ip, port, clusterId, n):
         s.send(cmd)
         RCP.check_error_code(s)
         collapse_count = RCP._receive_int(s)
+        logging.debug("collapse_count = %i", collapse_count)
         for i in range(collapse_count):
+            logging.debug("i=%i", i)
             RCP.check_error_code(s)
             took = RCP._receive_int64(s)
             logging.info("took %i", took)
