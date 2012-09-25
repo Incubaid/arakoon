@@ -425,6 +425,23 @@ def test_get_key_count():
     assert_equals(c, test_size, "getKeyCount should return %d but got %d" % 
                   (test_size, c) )
 
+@C.with_custom_setup (C.default_setup, C.basic_teardown)
+def test_close_on_sigterm():
+    n0 = C.node_names[0]
+    C.stopOne(n0)
+    cfg = C.getConfig(n0)
+    log_file = "/".join([cfg['log_dir'], n0 + ".log"])
+    with open(log_file,'r') as f:
+        lines = f.readlines()
+        tail = lines[-10:]
+        found = False
+        for l in tail:
+            print l
+            if l.find("fatal") > 0 and l.find ("OK") >0:
+                found = True
+                break
+    assert_true(found)
+
 @C.with_custom_setup (C.setup_2_nodes, C.basic_teardown )
 def test_download_db():
     C.iterate_n_times( 100, C.simple_set )

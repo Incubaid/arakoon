@@ -568,13 +568,7 @@ let _main_2
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in 
-        Lwt.finalize 
-          (fun ()  -> to_run constants buffers new_i vo)
-          (fun () -> 
-            Lwt_log.fatal "last spasm of backend" >>= fun () ->
-            store # close () >>= fun () ->
-            Lwt_log.fatal ">>> The car seems OK <<<"
-          )
+        to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -590,12 +584,16 @@ let _main_2
 	          build_startup_state () >>= fun (start_state,
 					                          service, 
 					                          rapporting) -> 
+              let (_,_,_,_,_,store) = start_state in
 	          Lwt.pick[ start_backend start_state;
 			            service ();
 			            rapporting ();
                         (listen_for_sigterm () >>= fun () ->
 			             Lwt_log.info "got sigterm" >>= fun () ->
-			             Lwt_io.printlf "(stdout)got sigterm")
+			             Lwt_io.printlf "(stdout)got sigterm" >>= fun () ->
+                         store # close () >>= fun () ->
+                         Lwt_log.fatal ">>> The car seems OK <<<"
+                        )
 			            ;
 		              ]
 	        end
