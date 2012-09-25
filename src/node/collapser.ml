@@ -156,7 +156,7 @@ let _head_i (create_store:store_maker) head_location =
       Lwt.return head_io
     )
     (fun exn -> 
-      Lwt_log.info ~exn "returning assuming no I" >>= fun () ->
+      Lwt_log.info_f ~exn "returning assuming no I %S" head_location >>= fun () ->
       Lwt.return None
     )
 
@@ -175,8 +175,9 @@ let collapse_many tlog_coll
   let head_i = match head_io with None -> Sn.start | Some i -> i in
   let lag = Sn.to_int (Sn.sub last_i head_i) in
   let npt = !Tlogcommon.tlogEntriesPerFile in
-  let tlog_lag = lag / npt in
+  let tlog_lag = (lag +npt - 1)/ npt in
   let tlogs_to_collapse = tlog_lag - tlogs_to_keep - 1 in
+  Lwt_log.debug_f "tlog_lag = %i; tlogs_to_collapse = %i" tlog_lag tlogs_to_collapse >>= fun () ->
   if tlogs_to_collapse <= 0
   then
     Lwt_log.info_f "Nothing to collapse..." >>= fun () -> 
