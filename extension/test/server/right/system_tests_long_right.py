@@ -429,6 +429,9 @@ def test_disable_tlog_compression():
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
+    """
+    scenario countering a sysadmin removing files (s)he shouldn't (eta : 400s)
+    """
     clu = _getCluster()
     tlog_size = Common.get_entries_per_tlog()
     num_tlogs = 2
@@ -442,15 +445,20 @@ def test_sabotage():
     files = map(lambda x : "%s/%s" % (node_home_dir, x),
                 [ "002.tlog",
                   "%s.db" % (node_id,),
-                  "%s.db.wal" % (node_id,),
+                  #"%s.db.wal" % (node_id,), # should not exist after a `proper` close
                   ])
     for f in files:
         print f
         q.system.fs.remove(f)
     clu.start()
-    time.sleep(20)
+    delay = 80
+    logging.info("sleeping for %i", delay)
+    time.sleep(delay)
+    logging.info("doing 2000 sets")
     Common.iterate_n_times(2000, Common.simple_set)
+    logging.info("sleeping fo 10s")
     time.sleep(10)
+    
     size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
@@ -674,7 +682,7 @@ def test_272():
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
     if rc <> 0:
-        raise Exception("kaboom:tc = %s" % rc)
+        raise Exception("benchmark exited with rc = %s" % rc)
 
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_inject_as_head():
