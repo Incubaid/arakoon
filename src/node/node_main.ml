@@ -410,136 +410,136 @@ let _main_2
       )
     >>= fun () ->
     make_store db_name >>= fun (store:Store.store) ->
-	  Lwt.catch
-	    ( fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
-	    ( function 
-              | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                store # consensus_i () >>= fun store_i ->
-                Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
-                let tlog_i = 
-                  begin
-		    match tlog_i with
-		      | i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
-		      | _ -> tlog_i 
-                  end 
-                in
-                let s_i = 
-                  begin
-		    match store_i with
-		      | Some i -> i
-		      | None -> Sn.start
-                  end
-                in
-                begin
-                  Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
-		    (Sn.string_of s_i) 
-		    (Sn.string_of tlog_i)  
-		    (Sn.compare s_i tlog_i)  >>= fun() ->
-                  if (Sn.compare s_i tlog_i)  <= 0
-                  then
-		    begin
-                      Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
-			last_tlog >>= fun () ->
-                      let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.use_compression 
-		    end
-                  else 
-		    begin
-                      Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" 
-			(Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
-                      Lwt.fail( Tlc2.TLCCorrupt (pos,tlog_i) )
-		    end
-                end
-                  | ex -> Lwt.fail ex 
-	    )
-          >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-	  _check_tlogs tlog_coll me.tlog_dir >>= fun lastI ->
-	  let current_i = match lastI with
-	    | None -> Sn.start 
-	    | Some i -> i
-	  in
-	  Catchup.verify_n_catchup_store me.node_name 
-	    (store,tlog_coll,lastI) 
-	    current_i master 
+	Lwt.catch
+	  ( fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
+	  ( function 
+        | Tlc2.TLCCorrupt (pos,tlog_i) ->
+          store # consensus_i () >>= fun store_i ->
+          Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
+          let tlog_i = 
+            begin
+		      match tlog_i with
+		        | i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) (Sn.of_int last_c) )
+		        | _ -> tlog_i 
+            end 
+          in
+          let s_i = 
+            begin
+		      match store_i with
+		        | Some i -> i
+		        | None -> Sn.start
+            end
+          in
+          begin
+            Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
+		      (Sn.string_of s_i) 
+		      (Sn.string_of tlog_i)  
+		      (Sn.compare s_i tlog_i)  >>= fun() ->
+            if (Sn.compare s_i tlog_i)  <= 0
+            then
+		      begin
+                Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
+			      last_tlog >>= fun () ->
+                let _ = Tlc2.truncate_tlog last_tlog in
+                make_tlog_coll me.tlog_dir me.use_compression 
+		      end
+            else 
+		      begin
+                Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" 
+			      (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
+                Lwt.fail( Tlc2.TLCCorrupt (pos,tlog_i) )
+		      end
+          end
+            | ex -> Lwt.fail ex 
+	  )
+      >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
+	_check_tlogs tlog_coll me.tlog_dir >>= fun lastI ->
+	let current_i = match lastI with
+	  | None -> Sn.start 
+	  | Some i -> i
+	in
+	Catchup.verify_n_catchup_store me.node_name 
+	  (store,tlog_coll,lastI) 
+	  current_i master 
 	  >>= fun (new_i, vo) ->
-	  
-	  let client_buffer =
-	    let capacity = (Some 10) in
-	    Lwt_buffer.create ~capacity () in
-	  let client_push v = Lwt_buffer.add v client_buffer 
-	  in
-	  let node_buffer = messaging # get_buffer my_name in
-	  let expect_reachable = messaging # expect_reachable in
-	  let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
-	  let inject_push v = Lwt_buffer.add v inject_buffer in
-	  let read_only = master = ReadOnly in
-	  let sb =
-	    let test = Node_cfg.Node_cfg.test cluster_cfg in
-	    new Sync_backend.sync_backend me client_push inject_push
-	      store (make_store, copy_store, full_snapshot_path) 
-              tlog_coll lease_period
-	      ~quorum_function n_nodes
-	      ~expect_reachable
-	      ~test
-	      ~read_only
-          ~max_value_size:cluster_cfg.max_value_size
-	  in
-	  let backend = (sb :> Backend.backend) in
-	  
-	  let service = _config_service me backend in
-	  
-	  let send, receive, run, register =
-	    Multi_paxos.network_of_messaging messaging in
-	  
-	  let on_consensus = X.on_consensus store in
-	  let on_witness (name:string) (i: Sn.t) = backend # witness name i in
-	  let last_witnessed (name:string) = backend # last_witnessed name in
-	  let on_accept = X.on_accept tlog_coll store in
-	  
-	  let get_last_value (i:Sn.t) =
-	    begin
-	      tlog_coll # get_last_update i >>= fun uo ->
-	      let r  = match uo with
-		| None -> None
-		| Some update -> Some (Update.make_update_value update)
-	      in
-	      Lwt.return r
-	    end
-	  in
-	  let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
-	  let inject_event (e:Multi_paxos.paxos_event) =
-	    let buffer,name = 
-	      match e with
-		| Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
-		| _ -> inject_buffer, "inject"
+	
+	let client_buffer =
+	  let capacity = (Some 10) in
+	  Lwt_buffer.create ~capacity () in
+	let client_push v = Lwt_buffer.add v client_buffer 
+	in
+	let node_buffer = messaging # get_buffer my_name in
+	let expect_reachable = messaging # expect_reachable in
+	let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+	let inject_push v = Lwt_buffer.add v inject_buffer in
+	let read_only = master = ReadOnly in
+	let sb =
+	  let test = Node_cfg.Node_cfg.test cluster_cfg in
+	  new Sync_backend.sync_backend me client_push inject_push
+	    store (make_store, copy_store, full_snapshot_path) 
+        tlog_coll lease_period
+	    ~quorum_function n_nodes
+	    ~expect_reachable
+	    ~test
+	    ~read_only
+        ~max_value_size:cluster_cfg.max_value_size
+	in
+	let backend = (sb :> Backend.backend) in
+	
+	let service = _config_service me backend in
+	
+	let send, receive, run, register =
+	  Multi_paxos.network_of_messaging messaging in
+	
+	let on_consensus = X.on_consensus store in
+	let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+	let last_witnessed (name:string) = backend # last_witnessed name in
+	let on_accept = X.on_accept tlog_coll store in
+	
+	let get_last_value (i:Sn.t) =
+	  begin
+	    tlog_coll # get_last_update i >>= fun uo ->
+	    let r  = match uo with
+		  | None -> None
+		  | Some update -> Some (Update.make_update_value update)
 	    in
-	    Lwt_log.debug_f "XXX injecting event into %s" name >>= fun () ->
-	    Lwt_buffer.add e buffer
+	    Lwt.return r
+	  end
+	in
+	let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
+	let inject_event (e:Multi_paxos.paxos_event) =
+	  let buffer,name = 
+	    match e with
+		  | Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
+		  | _ -> inject_buffer, "inject"
 	  in
-	  let buffers = Multi_paxos_fsm.make_buffers
-	    (client_buffer,
-	     node_buffer,
-	     inject_buffer,
-	     election_timeout_buffer)
-	  in
-	  let constants = 
-	    Multi_paxos.make my_name 
-	      me.is_learner 
-	      other_names send receive 
-	      get_last_value 
-	      on_accept 
-              on_consensus
-              on_witness
-	      last_witnessed
-	      (quorum_function: int -> int)
-	      (master : master)
-	      store tlog_coll others lease_period inject_event 
-	      ~cluster_id
-              false
-	  in 
-	  let reporting_period = me.reporting in
-	  Lwt.return ((master,constants, buffers, new_i, vo), 
-		      service, X.reporting reporting_period backend)
+	  Lwt_log.debug_f "XXX injecting event into %s" name >>= fun () ->
+	  Lwt_buffer.add e buffer
+	in
+	let buffers = Multi_paxos_fsm.make_buffers
+	  (client_buffer,
+	   node_buffer,
+	   inject_buffer,
+	   election_timeout_buffer)
+	in
+	let constants = 
+	  Multi_paxos.make my_name 
+	    me.is_learner 
+	    other_names send receive 
+	    get_last_value 
+	    on_accept 
+        on_consensus
+        on_witness
+	    last_witnessed
+	    (quorum_function: int -> int)
+	    (master : master)
+	    store tlog_coll others lease_period inject_event 
+	    ~cluster_id
+        false
+	in 
+	let reporting_period = me.reporting in
+	Lwt.return ((master,constants, buffers, new_i, vo), 
+		        service, X.reporting reporting_period backend)
 	end
 	  
       in
@@ -550,53 +550,53 @@ let _main_2
       let listen_for_sigterm () = Lwt_mutex.lock killswitch in
 
       let start_backend (master, constants, buffers, new_i, vo) =
-	let to_run = 
-	  match master with
-	    | Forced master  -> if master = my_name 
-	      then Multi_paxos_fsm.enter_forced_master
-	      else 
-		begin
-		  if me.is_learner 
-		  then Multi_paxos_fsm.enter_simple_paxos
-		  else Multi_paxos_fsm.enter_forced_slave 
-		end
-	    | _ -> Multi_paxos_fsm.enter_simple_paxos
-	in to_run constants buffers new_i vo
+	    let to_run = 
+	      match master with
+	        | Forced master  -> if master = my_name 
+	          then Multi_paxos_fsm.enter_forced_master
+	          else 
+		        begin
+		          if me.is_learner 
+		          then Multi_paxos_fsm.enter_simple_paxos
+		          else Multi_paxos_fsm.enter_forced_slave 
+		        end
+	        | _ -> Multi_paxos_fsm.enter_simple_paxos
+	    in to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
-	(fun () ->
+	    (fun () ->
           let _ = Lwt_unix.on_signal 15
             (fun i -> 
-	      unlock_killswitch ()
-	    )
+	          unlock_killswitch ()
+	        )
           in
-	  Lwt.pick [ 
-	    messaging # run ();
-	    begin
-	      build_startup_state () >>= fun (start_state,
-					      service, 
-					      rapporting) -> 
-	      Lwt.pick[ start_backend start_state;
-			service ();
-			rapporting ();
+	      Lwt.pick [ 
+	        messaging # run ();
+	        begin
+	          build_startup_state () >>= fun (start_state,
+					                          service, 
+					                          rapporting) -> 
+	          Lwt.pick[ start_backend start_state;
+			            service ();
+			            rapporting ();
                         (listen_for_sigterm () >>= fun () ->
-			 Lwt_log.info "got sigterm" >>= fun () ->
-			 Lwt_io.printlf "(stdout)got sigterm")
-			;
-		      ]
-	    end
-	  ] >>= fun () ->
-        Lwt_log.info "Completed shutdown"
+			             Lwt_log.info "got sigterm" >>= fun () ->
+			             Lwt_io.printlf "(stdout)got sigterm")
+			            ;
+		              ]
+	        end
+	      ] >>= fun () ->
+          Lwt_log.info "Completed shutdown"
         )
-	(fun exn -> 
-	  Lwt_log.fatal ~exn "going down" >>= fun () ->
-	  Lwt_log.fatal "after pick" >>= fun() ->
-	  match dump_crash_log with
-	    | None -> Lwt_log.info "Not dumping state"
-	    | Some f -> f() )
+	    (fun exn -> 
+	      Lwt_log.fatal ~exn "going down" >>= fun () ->
+	      Lwt_log.fatal "after pick" >>= fun() ->
+	      match dump_crash_log with
+	        | None -> Lwt_log.info "Not dumping state"
+	        | Some f -> f() )
     end
-
+      
 
 let main_t make_config name daemonize catchup_only=
   let make_store = Local_store.make_local_store in
