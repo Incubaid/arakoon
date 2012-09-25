@@ -75,6 +75,7 @@ def test_collapse():
 
 @with_custom_setup(setup_1_node, basic_teardown)
 def test_concurrent_collapse_fails():
+    """ assert only one collapse goes through at any time (eta : 450s) """
     zero = node_names[0]
     n = 298765
     iterate_n_times(n, simple_set)
