@@ -534,12 +534,16 @@ let _main_2
 	          last_witnessed
 	          (quorum_function: int -> int)
 	          (master : master)
-	          store tlog_coll others lease_period inject_event 
+	          store 
+              tlog_coll 
+              others 
+              lease_period 
+              inject_event 
 	          ~cluster_id
               false
 	      in 
 	      let reporting_period = me.reporting in
-	      Lwt.return ((master,constants, buffers, new_i, vo), 
+	      Lwt.return ((master,constants, buffers, new_i, vo, store), 
 		              service, X.reporting reporting_period backend)
 	    end
 	      
@@ -550,7 +554,7 @@ let _main_2
       let unlock_killswitch () = Lwt_mutex.unlock killswitch in
       let listen_for_sigterm () = Lwt_mutex.lock killswitch in
       
-      let start_backend (master, constants, buffers, new_i, vo) =
+      let start_backend (master, constants, buffers, new_i, vo, store) =
 	    let to_run = 
 	      match master with
 	        | Forced master  -> 
@@ -563,7 +567,14 @@ let _main_2
 		          else Multi_paxos_fsm.enter_forced_slave 
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
-	    in to_run constants buffers new_i vo
+	    in 
+        Lwt.finalize 
+          (fun ()  -> to_run constants buffers new_i vo)
+          (fun () -> 
+            Lwt_log.fatal "last spasm of backend" >>= fun () ->
+            store # close () >>= fun () ->
+            Lwt_log.fatal ">>> The car seems OK <<<"
+          )
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
