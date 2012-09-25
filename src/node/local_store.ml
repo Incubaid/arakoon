@@ -394,7 +394,7 @@ object(self: #store)
   method defrag() = 
     Lwt_log.debug "local_store :: defrag" >>= fun () ->
     Hotc.defrag db >>= fun rc ->
-    Lwt_log.debug_f "local_store :: defrag done: rc=%i" rc>>= fun () ->
+    Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" db_location rc>>= fun () ->
     Lwt.return ()
 
   method private open_db () =
@@ -547,8 +547,9 @@ object(self: #store)
     Lwt.return _store_i
 
   method close () =
+    Hotc.sync db >>= fun () ->
     Hotc.close db >>= fun () ->
-    Lwt_log.debug "local_store :: close () " >>= fun () ->
+    Lwt_log.info_f "local_store %S :: synced & closed  () " db_location >>= fun () ->
     Lwt.return ()
 
   method get_location () = Hotc.filename db
@@ -561,7 +562,7 @@ object(self: #store)
       else
         Bdb.default_mode
     end in
-    Lwt_log.debug "local_store::reopen calling Hotc::reopen" >>= fun () ->
+    Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
     Hotc.reopen db f mode >>= fun () ->
     Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
     (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
