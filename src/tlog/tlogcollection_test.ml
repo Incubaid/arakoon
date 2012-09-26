@@ -54,11 +54,6 @@ let setup factory test_name () =
 
 let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn 
 
-let test_empty_collection (dn, factory) =
-  Lwt_log.info "test_empty_collection" >>= fun () ->
-  factory dn >>= fun c ->
-  c # validate ()  >>= fun (v,i) ->
-  Lwt.return ( OUnit.assert_equal i None )
 
 let _log_repeat tlc update n = 
   let sync = false in
@@ -239,7 +234,6 @@ let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn true
 let wrap_memory name = wrap create_test_tlc name
 
 let suite_mem = "mem_tlogcollection" >::: [
-  "empty_collection" >:: wrap_memory test_empty_collection "empty_collection";
   "rollover" >:: wrap_memory test_rollover "rollover";
 (* "get_value_bug" >:: wrap_memory test_get_value_bug; 
     (* assumption that different tlog_collections with the same name have the same state *) 

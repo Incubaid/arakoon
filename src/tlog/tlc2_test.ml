@@ -222,7 +222,6 @@ let suite = "tlc2" >:::
   List.map make_test_tlc
   [
     ("regexp", Tlogcollection_test.test_regexp);
-    ("empty_collection",Tlogcollection_test.test_empty_collection);
     ("rollover", Tlogcollection_test.test_rollover);
     ("get_value_bug", Tlogcollection_test.test_get_value_bug);
     ("test_restart", Tlogcollection_test.test_restart);

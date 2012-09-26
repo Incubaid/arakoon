@@ -45,9 +45,6 @@ object (self: #tlog_collection)
     | None -> Lwt.return Sn.start
     | Some( i, u ) -> Lwt.return i
 
-  method validate () =
-    Lwt.return (TlogValidComplete, None)
-
   method iterate i last_i f =
     let data' = List.filter (fun (ei,eu) -> ei >= i && ei <= last_i) data in
     Lwt_list.iter_s f (List.rev data')

@@ -135,9 +135,9 @@ let fold_read tlog_dir file_name
 	  Lwt.fail exn
       | exn -> Lwt.fail exn)
 	  
-      
+type validation_result = (Sn.t * Update.t) option
 
-let _validate_one tlog_name =      
+let _validate_one tlog_name : validation_result Lwt.t =      
   Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let a2s (i,u) = Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in 
@@ -146,7 +146,9 @@ let _validate_one tlog_name =
       let first = Sn.of_int 0 in
       let folder,_ = folder_for tlog_name in
       let do_it ic = folder ic Sn.start None ~first None
-	(fun a0 (i,u) -> let r = Some (i,u) in let () = prev_entry := r in Lwt.return r)
+	    (fun a0 (i,u) -> let r = Some (i,u) in 
+                         let () = prev_entry := r in 
+                         Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun a ->
@@ -157,36 +159,22 @@ let _validate_one tlog_name =
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return None
       | Tlogcommon.TLogCheckSumError pos ->
         begin 
-        match !prev_entry with 
-        | Some(i,u) -> Lwt.fail (TLCCorrupt (pos,i))
-        | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
+          match !prev_entry with 
+            | Some(i,u) -> Lwt.fail (TLCCorrupt (pos,i))
+            | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
         end
       | exn -> Lwt.fail exn
     )
 
+
 let _validate_list tlog_names = 
-  if tlog_names = [] 
-  then Lwt.return (TlogValidIncomplete, None)
-  else 
-    begin
-      Lwt_list.fold_left_s 
-	(fun acc tn -> 
-	  _validate_one tn 
-          (* 
-	     >>= fun eo ->
-	     let e2s (i,u) = Printf.sprintf "i:%s" (Sn.string_of i) in
-	     Lwt_log.debug_f "YY:%s" (Log_extra.option_to_string e2s eo)
-	     >>= fun () ->
-	     Lwt.return eo 
-	  *)
-	) None tlog_names
-      >>= fun eo ->
-      let r = match eo with
+  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn) None tlog_names >>= fun eo ->
+  let r = match eo with
 	| None -> (TlogValidIncomplete, None)
 	| Some (i,u) ->
 	  (TlogValidIncomplete,Some i)
-      in Lwt.return r
-    end
+  in Lwt.return r
+ 
       
       
 let validate_last tlog_dir = 
@@ -199,21 +187,18 @@ let validate_last tlog_dir =
       let last = List.nth tlog_names (n-1) in
       let fn = Filename.concat tlog_dir last in
       _validate_list [fn] >>= fun (validity, last_i) ->
-        match last_i with
-          | None -> 
-            begin
-              if n > 1 then
-                let prev_last = List.nth tlog_names (n-2) in 
-                let last_non_empty = Filename.concat tlog_dir prev_last in
-                _validate_list [last_non_empty]
-              else
-                Lwt.return (validity, last_i)
-            end 
-          | Some i -> Lwt.return (validity, last_i)
-
-
-let validate tlog_dir = 
-  _validate_list []
+      match last_i with
+        | None -> 
+          begin
+            if n > 1 then
+              let prev_last = List.nth tlog_names (n-2) in 
+              let last_non_empty = Filename.concat tlog_dir prev_last in
+              _validate_list [last_non_empty]
+            else
+              Lwt.return (validity, last_i)
+          end 
+        | Some i -> Lwt.return (validity, last_i)
+          
 
 
 let get_count tlog_names = 
@@ -223,9 +208,9 @@ let get_count tlog_names =
 	   let length = String.length last in
 	   let postfix = String.sub last (length -4) 4 in
 	   let number = get_number last in
-	   if postfix = "tlog" then 
-	     number
-	   else  number + 1
+	   if postfix = "tlog" 
+       then number
+	   else number + 1
 
 
 let _init_ocfd tlog_dir c =
@@ -298,8 +283,6 @@ object(self: # tlog_collection)
 
       
   method validate_last_tlog () = validate_last tlog_dir 
-
-  method validate () = validate tlog_dir
 
 
   method private start_compression_loop () = 
