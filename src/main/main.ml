@@ -112,7 +112,7 @@ let run_system_tests () =
 let dump_tlog filename ~values=
   let printer () (i,u) =
     Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u ~values) in
-  let folder,_ = Tlc2.folder_for filename in
+  let folder,_,index = Tlc2.folder_for filename None in
 
   let t =
       begin
@@ -121,7 +121,7 @@ let dump_tlog filename ~values=
 	  and higherI = None
 	  and first = Sn.of_int 0
 	  and a0 = () in
-	  folder ic lowerI higherI ~first a0 printer >>= fun () ->
+	  folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
 	  Lwt.return 0
 	in
 	Lwt_io.with_file ~mode:Lwt_io.input filename do_it

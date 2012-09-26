@@ -31,9 +31,40 @@ let uncompress_block compressed =
   let r = Bz2.uncompress compressed 0 lc in
   Lwt.return r
 
+module Index = struct
+  type index_r = { filename: string;
+                   mutable mapping: (Sn.t * int64) list;
+                 }
+  type index = index_r option
+
+  let make filename = Some {filename; mapping=[]}
+
+  let replace filename = function
+    | None -> None
+    | (Some index_r) as idx -> 
+      if filename = index_r.filename 
+      then idx 
+      else None
+
+  let find_pos start_i = function
+    | None -> 0L
+    | Some index_r -> 0L
+
+  let note i pos index= 
+    let k = Sn.of_int 1000 in
+    match index with
+      | None      -> ()
+      | Some idxr -> 
+        if (Sn.rem i k) = Sn.start 
+        then idxr.mapping <- (i,pos) :: idxr.mapping 
+
+
+end
+
 
 module type TR = sig
   val fold: Lwt_io.input_channel -> 
+    ?index:Index.index ->
     Sn.t -> Sn.t option -> first:Sn.t ->
     'a ->
     ('a -> Sn.t* Update.t -> 'a Lwt.t) -> 'a Lwt.t
@@ -44,60 +75,73 @@ module type TR = sig
 end
 
 module U = struct
-  let fold ic lowerI 
+
+  let fast_forward ic index lowerI = 
+    let pos = Index.find_pos lowerI index in
+    if pos <> 0L 
+    then Lwt_log.info_f "fast_forward to %Li" pos 
+    else Lwt.return () 
+  
+
+  let next ic =
+    Lwt.catch
+	  (fun () ->
+	    Tlogcommon.read_entry ic >>= fun t ->
+	    Lwt.return (Some t)
+	  )
+	  (function
+	    | End_of_file -> (Lwt_io.close ic >>= fun () -> Lwt.return None )
+	    | exn -> Lwt.fail exn)
+
+  let rec skip_until ic lowerI =
+    next ic >>= function
+      | None -> Lwt.return None
+      | Some (i,update) ->
+	    if i < lowerI
+	    then skip_until ic lowerI
+	    else Lwt.return (Some (i, update) )
+ 
+  let fold ic 
+      ?(index=None)
+      lowerI 
       (too_far_i:Sn.t option)
       ~first
       (a0:'a) (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
     let sno2s sno= Log_extra.option2s Sn.string_of sno in
     Lwt_log.debug_f "U.fold %s %s" (Sn.string_of lowerI)
       (sno2s too_far_i) >>= fun () ->
-    let next () =
-      Lwt.catch
-	(fun () ->
-	  Tlogcommon.read_entry ic >>= fun t ->
-	  Lwt.return (Some t)
-	)
-	(function
-	  | End_of_file -> (Lwt_io.close ic >>= fun () -> Lwt.return None )
-	  | exn -> Lwt.fail exn)
-  in
-  let rec skip_until () =
-    next () >>= function
-      | None -> Lwt.return None
-      | Some (i,update) ->
-	    if i < lowerI
-	    then skip_until ()
-	    else Lwt.return (Some (i, update) )
-      in
-      let rec _fold (a:'a) (i,u) =
-        match too_far_i with
-          | None -> 
-	    begin 
-              f a (i,u) >>= fun a' -> 
-              next () >>= function
-                | None -> Lwt.return a'
-                | Some (i',u') -> _fold a' (i',u')
-            end
-          | Some hi ->
-            if (i >= hi) 
-            then Lwt.return a
-            else 
-              begin
-                f a (i,u) >>= fun a' ->
-                next () >>= function
-                  | None -> Lwt.return a'
-                  | Some (i',u') -> _fold a' (i',u')
-              end
-      in skip_until () >>= function
-        | None ->  Lwt.return a0
-        | Some (i0,u0) ->
-          _fold a0 (i0,u0)
 
+    let rec _fold (a:'a) (i,u) =
+      match too_far_i with
+        | None -> 
+	      begin 
+            f a (i,u) >>= fun a' -> 
+            next ic >>= function
+              | None -> Lwt.return a'
+              | Some iu' -> _fold a' iu'
+          end
+        | Some hi ->
+          if (i >= hi) 
+          then Lwt.return a
+          else 
+            begin
+              f a (i,u) >>= fun a' ->
+              next ic >>= function
+                | None -> Lwt.return a'
+                | Some iu' -> _fold a' iu'
+            end
+    in 
+    fast_forward ic index lowerI >>= fun () ->
+    skip_until ic lowerI >>= function
+      | None ->  Lwt.return a0
+      | Some iu0 ->
+        _fold a0 iu0
+          
 end
 
 
 module C = struct
-  let fold ic (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f = 
+  let fold ic ?(index=None) (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f = 
     Lwt_log.debug_f "C.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i) 
       (Sn.string_of first)
@@ -189,7 +233,7 @@ module C = struct
 end
 
 module O = struct (* correct but slow folder for .tlc (aka Old) format *)
-  let fold ic (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f = 
+  let fold ic ?(index=None) (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f = 
     Lwt_log.debug_f "O.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i) 
       (Sn.string_of first)

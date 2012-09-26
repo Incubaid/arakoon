@@ -94,18 +94,17 @@ let extension_of filename =
   let len = lm - dot_pos +1 in
   String.sub filename dot_pos len
 
-let folder_for filename = 
+let folder_for filename index = 
   let extension = extension_of filename in
-  let r = 
-    if extension = ".tlog" then Tlogreader2.AU.fold
-    else if extension = archive_extension then Tlogreader2.C.fold
-    else if extension = ".tlc" then Tlogreader2.O.fold
-    else failwith (Printf.sprintf "no folder for '%s'" extension) 
-  in
-  r,extension
+  if extension = ".tlog" 
+  then Tlogreader2.AU.fold, extension, None
+  else if extension = archive_extension then Tlogreader2.C.fold, extension, None
+  else if extension = ".tlc" then Tlogreader2.O.fold, extension, None
+  else failwith (Printf.sprintf "no folder for '%s'" extension) 
 
     
 let fold_read tlog_dir file_name 
+    ?(index=None)
     (lowerI:Sn.t) 
     (too_far_i:Sn.t option) 
     ~first
@@ -113,27 +112,29 @@ let fold_read tlog_dir file_name
     (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
   Lwt_log.debug "fold_read" >>= fun () ->
   let full_name = Filename.concat tlog_dir file_name in
-  let folder, extension = folder_for file_name in 
-  let ic_f ic = folder ic lowerI too_far_i ~first a0 f in
+  let folder, extension, index' = folder_for file_name index in 
+  let ic_f ic = folder ic ~index:index' lowerI too_far_i ~first a0 f in
   Lwt.catch
-    (fun () ->
-      Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
+    (fun () -> Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
     (function 
       | Unix.Unix_error(_,"open",_) as exn ->
-	if extension = ".tlog" 
-	then (* file might have moved meanwhile *)
-	  begin
-	    Lwt_log.debug_f "%s became %s meanwhile " file_name archive_extension 
-	    >>= fun () ->
-	    let an = to_archive_name file_name in
-	    let full_an = Filename.concat tlog_dir an in
-	    Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
-	    Lwt_io.with_file ~mode:Lwt_io.input full_an 
-	      (fun ic -> Tlogreader2.AC.fold ic lowerI too_far_i ~first a0 f)
-	  end
-	else
-	  Lwt.fail exn
-      | exn -> Lwt.fail exn)
+	    if extension = ".tlog" 
+	    then (* file might have moved meanwhile *)
+	      begin
+	        Lwt_log.debug_f "%s became %s meanwhile " file_name archive_extension 
+	        >>= fun () ->
+	        let an = to_archive_name file_name in
+	        let full_an = Filename.concat tlog_dir an in
+	        Lwt_log.debug_f "folding compressed %s" an >>= fun () ->
+	        Lwt_io.with_file ~mode:Lwt_io.input full_an 
+	          (fun ic -> 
+                let index = None in
+                Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
+	      end
+	    else
+	      Lwt.fail exn
+      | exn -> Lwt.fail exn
+    )
 	  
 type validation_result = (Sn.t * Update.t) option
 
@@ -144,8 +145,8 @@ let _validate_one tlog_name : validation_result Lwt.t =
   Lwt.catch
     (fun () ->
       let first = Sn.of_int 0 in
-      let folder,_ = folder_for tlog_name in
-      let do_it ic = folder ic Sn.start None ~first None
+      let folder, _, index = folder_for tlog_name None in
+      let do_it ic = folder ic ~index Sn.start None ~first None
 	    (fun a0 (i,u) -> let r = Some (i,u) in 
                          let () = prev_entry := r in 
                          Lwt.return r)
@@ -592,14 +593,13 @@ let make_tlc2 tlog_dir use_compression =
 
 
 let truncate_tlog filename =
-  let skipper () (i,u) =
-    Lwt.return ()
+  let skipper () (i,u) = Lwt.return ()
   in
   let t =
     begin
-      let folder,extension = folder_for filename in
-      if extension <> ".tlog" then
-          Lwt.fail (Failure "Cannot truncate a compressed tlog")
+      let folder,extension,index = folder_for filename None in
+      if extension <> ".tlog" 
+      then Lwt.fail (Failure "Cannot truncate a compressed tlog")
       else
         begin
         let do_it ic =
@@ -607,15 +607,14 @@ let truncate_tlog filename =
           and higherI = None
           and first = Sn.of_int 0
           in
-          Lwt.catch( fun() ->
-             folder ic lowerI higherI ~first () skipper
-          ) (
-          function
-            | Tlogcommon.TLogCheckSumError pos ->
-              let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
-              Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
-            | ex -> Lwt.fail ex
-          ) >>= fun () ->
+          Lwt.catch
+            (fun() -> folder ic ~index lowerI higherI ~first () skipper) 
+            (function
+              | Tlogcommon.TLogCheckSumError pos ->
+                let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
+                Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
+              | ex -> Lwt.fail ex
+            ) >>= fun () ->
           Lwt.return 0
         in
         Lwt_io.with_file ~mode:Lwt_io.input filename do_it
