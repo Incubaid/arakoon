@@ -167,7 +167,7 @@ let request oc f =
 
 let response ic f =
   Llio.input_int32 ic >>= function
-    | 0l -> Client_log.debug "Client operation succeeded" >>= fun () -> f ic
+    | 0l -> f ic
     | rc32 ->
       Client_log.debug_f "Client operation failed: %ld" rc32 >>= fun () ->
       Llio.input_string ic >>= fun msg ->

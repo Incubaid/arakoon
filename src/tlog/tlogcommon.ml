@@ -23,6 +23,15 @@ If not, see <http://www.gnu.org/licenses/>.
 open Update
 open Lwt
 
+module Entry = struct
+  type t = Sn.t * Update.t (* * int64 *)
+
+  let make i u p : t = (i,u)
+  let i_of (i,_) : Sn.t = i
+  let u_of (_,u) : Update.t = u
+
+end
+
 exception TLogCheckSumError of Int64.t
 
 let tlogEntriesPerFile = 
@@ -51,33 +60,36 @@ let validateTlogEntry buffer checkSum =
 
 let read_entry ic =
   let last_valid_pos = Lwt_io.position ic in
-  Lwt.catch ( fun () ->
-    Sn.input_sn    ic >>= fun  i     ->
-    Llio.input_int32 ic >>= fun chkSum ->
-    Llio.input_string ic >>= fun cmd  -> 
-    (* if you want to do validation, do it here *)
-    let chksum2 = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
-    begin
-      if chkSum <> chksum2 then
-        Lwt.fail (TLogCheckSumError last_valid_pos )
-      else Lwt.return ()
-    end >>= fun () ->
-    let update,_ = Update.from_buffer cmd 0 in
-    Lwt.return (i, update)
-  ) ( 
-    function
-    | End_of_file ->
-      let new_pos = Lwt_io.position ic in 
-      Lwt_log.debug_f "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos) (Int64.to_int last_valid_pos) >>= fun () ->
-      begin 
-        if ( Int64.compare new_pos last_valid_pos ) == 0 
-        then
-          Lwt.fail End_of_file
-        else
-          Lwt.fail (TLogCheckSumError last_valid_pos)
-      end
-    | ex -> Lwt.fail ex
-  ) 
+  Lwt.catch 
+    ( fun () ->
+      Sn.input_sn    ic >>= fun  i     ->
+      Llio.input_int32 ic >>= fun chkSum ->
+      Llio.input_string ic >>= fun cmd  -> 
+      (* if you want to do validation, do it here *)
+      let chksum2 = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
+      begin
+        if chkSum <> chksum2 
+        then Lwt.fail (TLogCheckSumError last_valid_pos )
+        else Lwt.return ()
+      end >>= fun () ->
+      let update,_ = Update.from_buffer cmd 0 in
+      let entry = Entry.make i update last_valid_pos in
+      Lwt.return entry
+    ) 
+    ( function
+      | End_of_file ->
+        begin
+          let new_pos = Lwt_io.position ic in 
+          Lwt_log.debug_f "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos) 
+            (Int64.to_int last_valid_pos) >>= fun () ->
+          begin 
+            if ( Int64.compare new_pos last_valid_pos ) = 0 
+            then Lwt.fail End_of_file
+            else Lwt.fail (TLogCheckSumError last_valid_pos)
+          end
+        end
+      | ex -> Lwt.fail ex
+    ) 
  
 
 let entry_from buff pos = 
@@ -105,7 +117,7 @@ let entry_to buf i update =
   let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.int32_to buf crc;
   Llio.string_to buf cmd
-
+    
 let write_entry oc i update =
   Sn.output_sn oc i >>= fun () ->
   let b = Buffer.create 64 in
@@ -114,7 +126,7 @@ let write_entry oc i update =
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.output_int32 oc chksum >>= fun() ->
   Llio.output_string oc cmd
-
+    
 type tlogValidity =
   | TlogValidIncomplete
   | TlogValidComplete
