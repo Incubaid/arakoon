@@ -48,7 +48,15 @@ module Index = struct
 
   let find_pos start_i = function
     | None -> 0L
-    | Some index_r -> 0L
+    | Some index_r -> 
+      let rec loop best = function
+        | [] -> best
+        | (i,p) :: rest ->
+          if i <= start_i 
+          then p
+          else loop best rest
+      in
+      loop 0L index_r.mapping
 
   let note i pos index= 
     let k = Sn.of_int 1000 in
@@ -57,8 +65,18 @@ module Index = struct
       | Some idxr -> 
         if (Sn.rem i k) = Sn.start 
         then idxr.mapping <- (i,pos) :: idxr.mapping 
-
-
+          
+  let to_string index = 
+    match index with
+      | None -> "None"
+      | Some idxr ->
+        let s =
+          match idxr.mapping with
+            | [] -> "[]"
+            | (i,p) :: _ -> Printf.sprintf "(%s,%Li)::<%i items >::[]" 
+              (Sn.string_of i) p (List.length idxr.mapping -1)
+        in
+        Printf.sprintf "{filename=%S;mapping=%s}" idxr.filename s
 end
 open Tlogcommon
 

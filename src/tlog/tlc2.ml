@@ -136,11 +136,11 @@ let fold_read tlog_dir file_name
       | exn -> Lwt.fail exn
     )
 	  
-type validation_result = (Sn.t * Update.t) option
+type validation_result = Entry.t option
 
 let _validate_one tlog_name : validation_result Lwt.t =      
   Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
-  let a2s (i,u) = Printf.sprintf "(%s,_)" (Sn.string_of i) in
+  let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in 
   Lwt.catch
     (fun () ->
@@ -148,24 +148,21 @@ let _validate_one tlog_name : validation_result Lwt.t =
       let folder, _, index = folder_for tlog_name None in
       let do_it ic = folder ic ~index Sn.start None ~first None
 	    (fun a0 entry -> 
-          let i = Entry.i_of entry 
-          and u = Entry.u_of entry
-          in
-          let r = Some (i,u) in 
+          let r = Some entry in 
           let () = prev_entry := r in 
           Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-      >>= fun a ->
-      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s a2s a) 
-      >>= fun () -> Lwt.return a
+      >>= fun e ->
+      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) 
+      >>= fun () -> Lwt.return e
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return None
       | Tlogcommon.TLogCheckSumError pos ->
         begin 
           match !prev_entry with 
-            | Some(i,u) -> Lwt.fail (TLCCorrupt (pos,i))
+            | Some entry -> let i = Entry.i_of entry in Lwt.fail (TLCCorrupt (pos,i))
             | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
         end
       | exn -> Lwt.fail exn
@@ -176,7 +173,8 @@ let _validate_list tlog_names =
   Lwt_list.fold_left_s (fun _ tn -> _validate_one tn) None tlog_names >>= fun eo ->
   let r = match eo with
 	| None -> (TlogValidIncomplete, None)
-	| Some (i,u) ->
+	| Some entry ->
+      let i = Entry.i_of entry in
 	  (TlogValidIncomplete,Some i)
   in Lwt.return r
  
@@ -245,8 +243,8 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
     let lowp_s = Sn.string_of lowp in
     let test_result = 
       (test0 <= lowp) &&
-	(low   <  test1) &&
-	low <= too_far_i
+	    (low   <  test1) &&
+	    low <= too_far_i
     in
     Lwt_log.debug_f "%s <?= lowp:%s &&  low:%s <? %s && (low:%s <?= %s) yields:%b" 
       (Sn.string_of test0 ) lowp_s 
@@ -257,10 +255,10 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
     if test_result
     then 
       begin
-	Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
-	  (Sn.string_of test0) >>= fun () ->
-	let first = test0 in
-	fold_read tlog_dir fn low (Some too_far_i) ~first low acc_entry
+	    Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
+	      (Sn.string_of test0) >>= fun () ->
+	    let first = test0 in
+	    fold_read tlog_dir fn low (Some too_far_i) ~first low acc_entry
       end
     else Lwt.return low
   in
@@ -268,19 +266,21 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
   >>= fun x ->
   Lwt.return ()    
     
-class tlc2 (tlog_dir:string) (new_c:int) (last:(Sn.t * Update.t) option) (use_compression:bool) = 
+class tlc2 (tlog_dir:string) (new_c:int) 
+  (last:Entry.t option) (use_compression:bool) = 
   let inner = 
     match last with
       | None -> 0
-      | Some (i,_) ->
-	let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	(Sn.to_int (Sn.rem i step)) + 1
+      | Some e ->
+        let i = Entry.i_of e in
+	    let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+	    (Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
   val mutable _ocfd = None 
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
-  val mutable _previous_update = last
+  val mutable _previous_entry = last
   val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
   val mutable _compressing = false
   val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
@@ -320,6 +320,7 @@ object(self: # tlog_collection)
 
   method log_update i update ~sync =
     self # _prelude i >>= fun (oc,fd) ->
+    let p = Lwt_io.position oc in
     Tlogcommon.write_entry oc i update >>= fun () -> 
     Lwt_io.flush oc >>= fun () ->
     begin
@@ -328,39 +329,41 @@ object(self: # tlog_collection)
       else Lwt.return ()
     end
     >>= fun () ->
-    let () = match _previous_update with
+    let () = match _previous_entry with
       | None -> _inner <- _inner +1
-      | Some (pi,pu) -> if pi < i then _inner <- _inner +1 
+      | Some pe-> 
+        let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
     in
-    _previous_update <- Some (i,update);
+    let entry = Entry.make i update p in
+    _previous_entry <- Some entry;
     Lwt.return ()
     
   method private _prelude i =
     match _ocfd with
       | None ->
-	begin
-	  let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	  _outer <- Sn.to_int outer;
-	  _init_ocfd tlog_dir _outer >>= fun ocfd ->
-	  _ocfd <- Some ocfd;
-	  Lwt.return ocfd
-	end
+	    begin
+	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+	      _outer <- Sn.to_int outer;
+	      _init_ocfd tlog_dir _outer >>= fun ocfd ->
+	      _ocfd <- Some ocfd;
+	      Lwt.return ocfd
+	    end
       | Some ocfd -> 
-	if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
-	then
+	    if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
+	    then
           let do_rotate() =
             Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
             self # _rotate ocfd (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
           in
           begin
-            match _previous_update with
-            | Some (pi, _) when pi = i -> Lwt.return ocfd
-            | _ -> do_rotate ()
+            match _previous_entry with
+              | Some pe when (Entry.i_of pe) = i -> Lwt.return ocfd
+              | _ -> do_rotate ()
           end
-	else
-	  Lwt.return ocfd
-
-      
+	    else
+	      Lwt.return ocfd
+            
+            
   method private _rotate ocfd new_outer =
     let oc,fd = ocfd in
     Lwt_io.close oc >>= fun () ->
@@ -440,25 +443,29 @@ object(self: # tlog_collection)
 
   
  method get_last_i () =
-    match _previous_update with
-      | None -> Lwt.return Sn.start
-      | Some (pi,pu) -> Lwt.return pi
+   let i = 
+     match _previous_entry with
+      | None -> Sn.start
+      | Some pe -> let pi = Entry.i_of pe in pi
+   in
+   Lwt.return i
 
   method get_last_update i =
     let vo =
-      match _previous_update with
-	| None -> None
-	| Some (pi,pu) -> 
-	  if pi = i then 
-	    Some pu
-	  else 
-	    if i > pi then
-	      None
-	    else (* pi > i *)
-	      let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
-		(Sn.string_of pi) (Sn.string_of i)
-	      in
-	      failwith msg
+      match _previous_entry with
+	    | None -> None
+	    | Some pe -> 
+          let pi = Entry.i_of pe in
+	      if pi = i 
+          then Some (Entry.u_of pe) 
+	      else 
+	        if i > pi 
+            then None
+	        else (* pi > i *)
+	          let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
+		        (Sn.string_of pi) (Sn.string_of i)
+	          in
+	          failwith msg
     in 
     Lwt.return vo
      
@@ -589,7 +596,7 @@ let make_tlc2 tlog_dir use_compression =
   let msg = 
     match last with
       | None -> "None"
-      | Some (li,_) -> "Some" ^ (Sn.string_of li)
+      | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
   let col = new tlc2 tlog_dir new_c last use_compression in

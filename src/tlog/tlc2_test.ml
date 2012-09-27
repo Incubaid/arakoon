@@ -216,7 +216,6 @@ let test_compression_bug (dn, factory) =
   tlc2 # iterate 0L (Sn.of_int n)   
     (fun entry -> 
       let i = Entry.i_of entry in
-      let u = Entry.u_of entry in
       entries := i :: !entries;
       Lwt_log.debug_f "ENTRY: i=%Li" i) 
   >>= fun () ->
