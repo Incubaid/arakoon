@@ -24,11 +24,11 @@ open Update
 open Lwt
 
 module Entry = struct
-  type t = Sn.t * Update.t (* * int64  *)
+  type t = {i: Sn.t ;u : Update.t;p:int64}
 
-  let make i u p : t = (i,u)
-  let i_of ((i,_):t) : Sn.t = i
-  let u_of ((_,u):t) : Update.t = u
+  let make i u p : t = {i;u;p}
+  let i_of t = t.i
+  let u_of t = t.u
 
 end
 
