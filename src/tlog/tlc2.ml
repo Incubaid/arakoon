@@ -109,7 +109,7 @@ let fold_read tlog_dir file_name
     (too_far_i:Sn.t option) 
     ~first
     (a0:'a) 
-    (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
+    (f:'a -> Entry.t -> 'a Lwt.t) =
   Lwt_log.debug "fold_read" >>= fun () ->
   let full_name = Filename.concat tlog_dir file_name in
   let folder, extension, index' = folder_for file_name index in 
@@ -147,9 +147,13 @@ let _validate_one tlog_name : validation_result Lwt.t =
       let first = Sn.of_int 0 in
       let folder, _, index = folder_for tlog_name None in
       let do_it ic = folder ic ~index Sn.start None ~first None
-	    (fun a0 (i,u) -> let r = Some (i,u) in 
-                         let () = prev_entry := r in 
-                         Lwt.return r)
+	    (fun a0 entry -> 
+          let i = Entry.i_of entry 
+          and u = Entry.u_of entry
+          in
+          let r = Some (i,u) in 
+          let () = prev_entry := r in 
+          Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun a ->
@@ -228,7 +232,7 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
     tlog_dir (Sn.string_of start_i) tfs 
   >>= fun () ->
   get_tlog_names tlog_dir >>= fun tlog_names ->
-  let acc_entry (i0:Sn.t) (i,u) = f (i,u) >>= fun () -> Lwt.return i
+  let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
   in
   let maybe_fold low fn =
     let factor = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
@@ -380,7 +384,7 @@ object(self: # tlog_collection)
 
 
 
-  method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Sn.t * Update.t -> unit Lwt.t) =
+  method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
     iterate_tlog_dir tlog_dir start_i too_far_i f
 
 
@@ -593,7 +597,7 @@ let make_tlc2 tlog_dir use_compression =
 
 
 let truncate_tlog filename =
-  let skipper () (i,u) = Lwt.return ()
+  let skipper () entry = Lwt.return ()
   in
   let t =
     begin

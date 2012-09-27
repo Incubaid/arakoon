@@ -134,7 +134,9 @@ let test_iterate (dn, factory) =
   _log_repeat tlc update 323 >>= fun () ->
   let sum = ref 0 in
   tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
-    (fun (i,u) -> sum := !sum + (Int64.to_int i); 
+    (fun entry -> 
+      let i = Entry.i_of entry in
+      sum := !sum + (Int64.to_int i); 
       Lwt_log.debug_f"i=%s" (Sn.string_of i) >>= fun () ->
       Lwt.return ())
   >>= fun () ->
@@ -151,9 +153,11 @@ let test_iterate2 (dn, factory) =
   _log_repeat tlc update 3 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 0) (Sn.of_int 1) 
-    (fun (i,u) -> result := i :: ! result; 
-     Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
-     Lwt.return ())
+    (fun entry -> 
+      let i = Entry.i_of entry in
+      result := i :: ! result; 
+      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      Lwt.return ())
   >>= fun () -> 
   OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
   tlc # close () >>= fun () ->
@@ -167,7 +171,8 @@ let test_iterate3 (dn,factory) =
   _log_repeat tlc update 120 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
-    (fun (i,u) -> 
+    (fun entry -> 
+      let i = Entry.i_of entry in
       Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
       let () = result := i :: !result in
       Lwt.return ()

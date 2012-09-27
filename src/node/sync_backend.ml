@@ -34,6 +34,7 @@ open Mp_msg
 open Common
 open Store
 open Master_type
+open Tlogcommon
 
 let _s_ = string_option2s
 
@@ -409,7 +410,11 @@ object(self: #backend)
 	    loop_parts start_i2
 	    >>= fun start_i3 ->
 	    Llio.output_int oc 1 >>= fun () ->
-	    let f(i,u) = Tlogcommon.write_entry oc i u in
+	    let f entry = 
+          let i = Entry.i_of entry
+          and u = Entry.u_of entry
+          in
+          Tlogcommon.write_entry oc i u in
 	    tlog_collection # iterate start_i3 too_far_i f >>= fun () ->
 	    Sn.output_sn oc (-1L)
 	  end

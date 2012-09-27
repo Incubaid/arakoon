@@ -24,6 +24,7 @@ open Lwt
 open Version
 open OUnit_XML
 open OUnit
+open Tlogcommon
 
 open Node_cfg
 type local_action =
@@ -110,10 +111,13 @@ let run_system_tests () =
   0
 
 let dump_tlog filename ~values=
-  let printer () (i,u) =
+  let printer () entry =
+    let i = Entry.i_of entry 
+    and u = Entry.u_of entry
+    in
     Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u ~values) in
   let folder,_,index = Tlc2.folder_for filename None in
-
+  
   let t =
       begin
 	let do_it ic =

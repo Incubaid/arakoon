@@ -35,18 +35,20 @@ let configure_logging () =
 
 let tokyo_tests = "tokyo" >::: [Otc_test.suite;Hotc_test.suite;]
 
-let tools_tests = "tools" >::: [Server_test.suite;
-				Backoff_test.suite;
-				Cllio_test.suite;
-			       ]
-
-let client_tests = "client" >::: [Arakoon_remote_client_test.suite;
-				  Remote_nodestream_test.suite;
-                                  Statistics_test.suite;
+let tools_tests = "tools" >::: [
+  Server_test.suite;
+  Backoff_test.suite;
+  Cllio_test.suite;
 ]
 
+let client_tests = "client" >::: [
+  Arakoon_remote_client_test.suite;
+  Remote_nodestream_test.suite;
+  Statistics_test.suite;
+]
+  
 let tcp_messaging_tests = "messaging" >::: [Tcp_messaging_test.suite]
-
+  
 let paxos_tests = "paxos" >::: [Multi_paxos_test.suite;]
 
 let update_tests = "updates" >::: [Update_test.suite]

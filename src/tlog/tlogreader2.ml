@@ -107,7 +107,7 @@ module U = struct
       lowerI 
       (too_far_i:Sn.t option)
       ~first
-      (a0:'a) (f:'a -> Sn.t * Update.t -> 'a Lwt.t) =
+      (a0:'a) (f:'a -> Entry.t -> 'a Lwt.t) =
     let sno2s sno= Log_extra.option2s Sn.string_of sno in
     Lwt_log.debug_f "U.fold %s %s" (Sn.string_of lowerI)
       (sno2s too_far_i) >>= fun () ->
@@ -122,7 +122,7 @@ module U = struct
               | Some iu' -> _fold a' iu'
           end
         | Some hi ->
-          let (i,u) = iu in
+          let i = Entry.i_of iu in
           if (i >= hi) 
           then Lwt.return a
           else 
@@ -166,7 +166,6 @@ module C = struct
 	      begin
 	        let entry1, pos1 = Tlogcommon.entry_from buffer pos in
             let i1 = Entry.i_of entry1 in
-            
 	        if i1 > lowerI 
 	        then maybe_p, pos
 	        else 

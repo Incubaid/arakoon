@@ -26,6 +26,7 @@ open Lwt
 open Node_cfg.Node_cfg
 open Update
 open Master_type
+open Tlogcommon
 
 let _make_cfg name n lease_period =
   {
@@ -81,8 +82,11 @@ let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () =
 
 let _dump_tlc ~tlcs node = 
   let tlc0 = Hashtbl.find tlcs node in
-  let printer (i,u) = 
-    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) in
+  let printer entry = 
+    let i = Entry.i_of entry in
+    let u = Entry.u_of entry in
+    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) 
+  in
   Lwt_log.debug_f "--- %s ---" node >>= fun () ->
   tlc0 # iterate Sn.start 20L printer >>= fun () ->
   Lwt.return ()

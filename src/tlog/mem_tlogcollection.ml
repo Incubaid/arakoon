@@ -29,12 +29,12 @@ class mem_tlog_collection tlog_dir use_compression =
 object (self: #tlog_collection)
 
   val mutable data = []
-  val mutable last_update = None
+  val mutable last_update = (None: Entry.t option)
 
   method validate_last_tlog () =
     let io = match last_update with
       | None -> None
-      | Some (i,u) -> Some i 
+      | Some entry -> let i = Entry.i_of entry in Some i 
     in
     Lwt.return (TlogValidComplete, io)
 
@@ -43,10 +43,15 @@ object (self: #tlog_collection)
   method get_last_i () =
     match last_update with
     | None -> Lwt.return Sn.start
-    | Some( i, u ) -> Lwt.return i
+    | Some entry -> let i = Entry.i_of entry in Lwt.return i
 
   method iterate i last_i f =
-    let data' = List.filter (fun (ei,eu) -> ei >= i && ei <= last_i) data in
+    let data' = List.filter 
+      (fun entry -> 
+        let ei = Entry.i_of entry 
+        (*and eu = Entry.u_of entry*)
+        in
+        ei >= i && ei <= last_i) data in
     Lwt_list.iter_s f (List.rev data')
 
   method get_tlog_count() = failwith "not supported"
@@ -56,26 +61,30 @@ object (self: #tlog_collection)
   method save_tlog_file name length ic = failwith "not supported"
 
   method  log_update i u ~sync=
-    let () = data <- (i,u)::data in
-    let () = last_update <- (Some (i,u)) in
+    let entry = Entry.make i u 0L in
+    let () = data <- entry::data in
+    let () = last_update <- (Some entry) in
     Lwt.return ()
 
   method get_last_update i =
     match last_update with
       | None ->
-	begin
-	  Lwt_log.info_f "get_value: no update logged yet" >>= fun () ->
-	  Lwt.return None
-	end
-      | Some (i',x) ->
-	begin
-	  if i = i'
-	  then Lwt.return (Some x)
-	  else
-	    (Lwt_log.info_f "get_value: i(%s) is not latest update" (Sn.string_of i) >>= fun () ->
-	     Lwt.return None)
-	end
-
+	    begin
+	      Lwt_log.info_f "get_value: no update logged yet" >>= fun () ->
+	      Lwt.return None
+	    end
+      | Some entry ->
+        let i' = Entry.i_of entry in
+	    begin
+	      if i = i'
+	      then 
+            let x = Entry.u_of entry in
+            Lwt.return (Some x)
+	      else
+	        (Lwt_log.info_f "get_value: i(%s) is not latest update" (Sn.string_of i) >>= fun () ->
+	         Lwt.return None)
+	    end
+          
   method dump_head oc = Llio.lwt_failfmt "not implemented"
   method save_head ic = Llio.lwt_failfmt "not implemented"
 

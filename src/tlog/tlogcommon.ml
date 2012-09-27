@@ -24,11 +24,11 @@ open Update
 open Lwt
 
 module Entry = struct
-  type t = Sn.t * Update.t (* * int64 *)
+  type t = Sn.t * Update.t (* * int64  *)
 
   let make i u p : t = (i,u)
-  let i_of (i,_) : Sn.t = i
-  let u_of (_,u) : Update.t = u
+  let i_of ((i,_):t) : Sn.t = i
+  let u_of ((_,u):t) : Update.t = u
 
 end
 
@@ -97,7 +97,8 @@ let entry_from buff pos =
   let crc,pos3 = Llio.int32_from  buff pos2 in
   let cmd,pos4 = Llio.string_from buff pos3 in
   let update,_ = Update.from_buffer cmd 0 in
-  (i,update), pos4 
+  let e = Entry.make i update 0L in
+  e, pos4 
 
 
 let read_into ic buf =

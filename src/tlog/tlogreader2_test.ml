@@ -23,11 +23,14 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Update
 open OUnit
+open Tlogcommon
 
 let test_old_format () =
   let do_it () = 
     let fn = "./data/005.tlc" in
-    let print_entry a (i,u) = 
+    let print_entry a entry = 
+      let i = Entry.i_of entry in
+      let u = Entry.u_of entry in
       let is = Sn.string_of i in 
       let us = Update.string_of u in
       Lwt_io.printlf "%s:%s" is us >>= fun () ->

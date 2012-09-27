@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 type store_maker= ?read_only:bool -> string -> Store.store Lwt.t
-
+open Tlogcommon
 
 let collapse_until (tlog_coll:Tlogcollection.tlog_collection) 
     ((create_store:store_maker), copy_store, head_location) 
@@ -77,7 +77,10 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		        | _ -> Lwt.return ()
 		    end 
 		  in
-		  let add_to_store (i,update) = 
+		  let add_to_store entry = 
+            let i = Entry.i_of entry 
+            and update = Entry.u_of entry 
+            in
 		    begin 
 		      match !acc with
 		        | None ->

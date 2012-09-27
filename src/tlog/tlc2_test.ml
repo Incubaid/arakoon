@@ -26,6 +26,7 @@ open Lwt
 open Update
 open Extra
 open Tlogcollection
+open Tlogcommon
 
 let create_test_tlc dn = Tlc2.make_tlc2 dn true
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc 
@@ -135,7 +136,10 @@ let test_iterate5 (dn,factory) =
   loop tlc 0 >>= fun () ->
   let start_i = Sn.of_int 10 in
   let too_far_i = Sn.of_int 11 in
-  let f (i,u) = Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
+  let f entry = 
+    let i = Entry.i_of entry in
+    let u = Entry.u_of entry in
+    Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
     (Update.string_of u) 
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
@@ -151,18 +155,18 @@ let test_iterate6 (dn,factory) =
     else
       begin
         let is = string_of_int i in
-	let sni = Sn.of_int i in
+	    let sni = Sn.of_int i in
         let update = Update.Set("test_iterate_" ^ is ,is) in
           begin
             if i != 19
             then 
               tlc # log_update sni update ~sync
             else
-	      begin
-		tlc # log_update sni update ~sync >>= fun _ ->
-		let u2 = Update.Set("something_else","gotcha") in
-		tlc # log_update sni u2 ~sync
-	      end
+	          begin
+		        tlc # log_update sni update ~sync >>= fun _ ->
+		        let u2 = Update.Set("something_else","gotcha") in
+		        tlc # log_update sni u2 ~sync
+	          end
           end >>= fun _ ->
         loop (i+1)
       end
@@ -172,7 +176,9 @@ let test_iterate6 (dn,factory) =
   let start_i = Sn.of_int 19 in
   let too_far_i = Sn.of_int 20 in
   tlc # iterate start_i too_far_i
-    (fun (i,u) -> 
+    (fun entry -> 
+      let i = Entry.i_of entry in
+      let u = Entry.u_of entry in
       sum := !sum + (Int64.to_int i); 
       Lwt_log.debug_f "i=%s : %s" (Sn.string_of i) (Update.string_of u)
       >>= fun () ->
@@ -208,7 +214,10 @@ let test_compression_bug (dn, factory) =
   let entries = ref [] in
   factory dn >>= fun tlc2 ->
   tlc2 # iterate 0L (Sn.of_int n)   
-    (fun (i,u) -> entries := i :: !entries;
+    (fun entry -> 
+      let i = Entry.i_of entry in
+      let u = Entry.u_of entry in
+      entries := i :: !entries;
       Lwt_log.debug_f "ENTRY: i=%Li" i) 
   >>= fun () ->
   OUnit.assert_equal 
