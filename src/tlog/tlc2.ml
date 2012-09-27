@@ -26,6 +26,7 @@ open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
+open Tlogreader2
 
 exception TLCCorrupt of (Int64.t * Sn.t)
 
@@ -136,29 +137,33 @@ let fold_read tlog_dir file_name
       | exn -> Lwt.fail exn
     )
 	  
-type validation_result = Entry.t option
+type validation_result = (Entry.t option * Index.index)
 
 let _validate_one tlog_name : validation_result Lwt.t =      
   Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in 
+  let new_index = Index.make tlog_name in
   Lwt.catch
     (fun () ->
       let first = Sn.of_int 0 in
       let folder, _, index = folder_for tlog_name None in
+
       let do_it ic = folder ic ~index Sn.start None ~first None
 	    (fun a0 entry -> 
+          let () = Index.note entry new_index in
           let r = Some entry in 
           let () = prev_entry := r in 
           Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun e ->
-      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) 
-      >>= fun () -> Lwt.return e
+      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) >>= fun () ->
+      Lwt_log.info_f "After validation index=%s" (Index.to_string new_index) >>= fun () ->
+      Lwt.return (e, new_index)
     )
     (function
-      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return None
+      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
       | Tlogcommon.TLogCheckSumError pos ->
         begin 
           match !prev_entry with 
@@ -170,13 +175,9 @@ let _validate_one tlog_name : validation_result Lwt.t =
 
 
 let _validate_list tlog_names = 
-  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn) None tlog_names >>= fun eo ->
-  let r = match eo with
-	| None -> (TlogValidIncomplete, None)
-	| Some entry ->
-      let i = Entry.i_of entry in
-	  (TlogValidIncomplete,Some i)
-  in Lwt.return r
+  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn) (None,None) tlog_names >>= fun (eo,index) ->
+  Lwt.return (TlogValidIncomplete, eo, index)
+
  
       
       
@@ -189,18 +190,20 @@ let validate_last tlog_dir =
       let n = List.length tlog_names in
       let last = List.nth tlog_names (n-1) in
       let fn = Filename.concat tlog_dir last in
-      _validate_list [fn] >>= fun (validity, last_i) ->
-      match last_i with
+      _validate_list [fn] >>= fun r ->
+      let (validity, last_eo, index) = r in
+      match last_eo with
         | None -> 
           begin
-            if n > 1 then
+            if n > 1 
+            then
               let prev_last = List.nth tlog_names (n-2) in 
               let last_non_empty = Filename.concat tlog_dir prev_last in
               _validate_list [last_non_empty]
             else
-              Lwt.return (validity, last_i)
+              Lwt.return r
           end 
-        | Some i -> Lwt.return (validity, last_i)
+        | Some i -> Lwt.return r
           
 
 
@@ -267,7 +270,7 @@ let iterate_tlog_dir tlog_dir start_i too_far_i f =
   Lwt.return ()    
     
 class tlc2 (tlog_dir:string) (new_c:int) 
-  (last:Entry.t option) (use_compression:bool) = 
+  (last:Entry.t option) (index:Index.index) (use_compression:bool) = 
   let inner = 
     match last with
       | None -> 0
@@ -561,8 +564,9 @@ let get_last_tlog tlog_dir =
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
 
-let maybe_correct tlog_dir new_c last = 
-  if new_c > 0 && last = None then
+let maybe_correct tlog_dir new_c last index = 
+  if new_c > 0 && last = None 
+  then
     begin
      (* somebody sabotaged us:
 	(s)he deleted the .tlog file but we have .tlf's 
@@ -581,25 +585,25 @@ let maybe_correct tlog_dir new_c last =
       Lwt_log.info_f "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->
       File_system.unlink tlc_name >>= fun () ->
       Lwt_log.info "Counter Sabotage finished" >>= fun () ->
-      _validate_one tlu_name >>= fun last ->
-      Lwt.return (new_c -1 , last)
+      _validate_one tlu_name >>= fun (last,new_index) ->
+      Lwt.return (new_c -1 , last, new_index)
 
     end
   else
-    Lwt.return (new_c, last)
+    Lwt.return (new_c, last, index)
 
 let make_tlc2 tlog_dir use_compression =
   Lwt_log.debug_f "make_tlc %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir >>= fun (new_c, fn) ->
-  _validate_one fn >>= fun last ->
-  maybe_correct tlog_dir new_c last >>= fun (new_c,last) ->
+  _validate_one fn >>= fun (last, index) ->
+  maybe_correct tlog_dir new_c last index >>= fun (new_c,last,new_index) ->
   let msg = 
     match last with
       | None -> "None"
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir new_c last use_compression in
+  let col = new tlc2 tlog_dir new_c last new_index use_compression in
   Lwt.return col
 
 

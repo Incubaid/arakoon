@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Update
-
+open Tlogcommon
 
 let uncompress_block compressed = 
   (* it exploded on the monkey when I did a Lwt_preemptive detach here *)
@@ -58,11 +58,13 @@ module Index = struct
       in
       loop 0L index_r.mapping
 
-  let note i pos index= 
+  let note entry index= 
     let k = Sn.of_int 1000 in
     match index with
       | None      -> ()
       | Some idxr -> 
+        let i = Entry.i_of entry in
+        let pos = Entry.p_of entry in
         if (Sn.rem i k) = Sn.start 
         then idxr.mapping <- (i,pos) :: idxr.mapping 
           

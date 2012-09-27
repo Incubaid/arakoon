@@ -24,12 +24,12 @@ If not, see <http://www.gnu.org/licenses/>.
 open Tlogwriter
 open Tlogcommon
 open Update
-
+open Tlogreader2
 open Lwt
 
 
 class type tlog_collection = object
-  method validate_last_tlog: unit -> (tlogValidity * Sn.t option) Lwt.t 
+  method validate_last_tlog: unit -> (tlogValidity * Entry.t option * Index.index) Lwt.t 
   method iterate: Sn.t -> Sn.t -> (Entry.t -> unit Lwt.t) -> unit Lwt.t
   method log_update: Sn.t -> Update.t -> sync:bool -> unit Lwt.t
   method get_last_update: Sn.t -> Update.t option Lwt.t

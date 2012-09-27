@@ -63,20 +63,21 @@ let test_interrupted_rollover (dn,factory) =
 let test_validate_at_rollover_boundary (dn,factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn >>= fun val_tlog_coll ->
-  val_tlog_coll # validate_last_tlog () >>= fun (validity, lasti) ->
-  let lasti_str = 
-  begin
-    match lasti with
-      | None -> "None"
-      | Some i -> Sn.string_of i
-  end in
+  val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
+  let lasti, lasti_str = 
+    begin
+      match lasteo with
+        | None -> Sn.start, "None"
+        | Some e -> let i = Entry.i_of e in i, Sn.string_of i
+    end 
+  in
   val_tlog_coll # close () >>= fun _ ->
   let msg = Printf.sprintf "Values of is are different 4 <> %s" lasti_str in
   begin
-    if lasti <> (Some 4L)
+    if lasti <> 4L
     then Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value
   end;
-  OUnit.assert_equal ~msg lasti (Some 4L) ;
+  OUnit.assert_equal ~msg lasti 4L;
   factory dn >>= fun (tlog_coll:tlog_collection) ->
   let update = Update.make_master_set "me" None in
   let sync = false in

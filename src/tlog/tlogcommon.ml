@@ -29,7 +29,7 @@ module Entry = struct
   let make i u p : t = {i;u;p}
   let i_of t = t.i
   let u_of t = t.u
-
+  let p_of t = t.p
 end
 
 exception TLogCheckSumError of Int64.t

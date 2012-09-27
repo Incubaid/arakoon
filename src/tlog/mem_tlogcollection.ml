@@ -29,21 +29,20 @@ class mem_tlog_collection tlog_dir use_compression =
 object (self: #tlog_collection)
 
   val mutable data = []
-  val mutable last_update = (None: Entry.t option)
+  val mutable last_entry = (None: Entry.t option)
 
   method validate_last_tlog () =
-    let io = match last_update with
-      | None -> None
-      | Some entry -> let i = Entry.i_of entry in Some i 
-    in
-    Lwt.return (TlogValidComplete, io)
+    Lwt.return (TlogValidComplete, last_entry, None)
 
   method get_infimum_i () = Lwt.return Sn.start
 
   method get_last_i () =
-    match last_update with
-    | None -> Lwt.return Sn.start
-    | Some entry -> let i = Entry.i_of entry in Lwt.return i
+    let i = 
+      match last_entry with
+        | None -> Sn.start
+        | Some entry -> Entry.i_of entry 
+    in 
+    Lwt.return i
 
   method iterate i last_i f =
     let data' = List.filter 
@@ -63,11 +62,11 @@ object (self: #tlog_collection)
   method  log_update i u ~sync=
     let entry = Entry.make i u 0L in
     let () = data <- entry::data in
-    let () = last_update <- (Some entry) in
+    let () = last_entry <- (Some entry) in
     Lwt.return ()
 
   method get_last_update i =
-    match last_update with
+    match last_entry with
       | None ->
 	    begin
 	      Lwt_log.info_f "get_value: no update logged yet" >>= fun () ->

@@ -193,9 +193,10 @@ let test_validate_normal (dn, factory) =
   tlc # close () >>= fun () ->
   factory dn >>= fun (tlc_two:tlog_collection) ->
   tlc_two # validate_last_tlog () >>= fun result ->
-  let validity, io = result in
+  let validity, eo, _ = result in
   let wsn = Sn.of_int 122 in
   let wanted = (Some wsn) in
+  let io = match eo with None -> None | Some e -> Some (Entry.i_of e) in
   let tos x= Log_extra.option2s Sn.string_of x in
   Lwt_log.info_f "wanted:%s, got:%s" (tos wanted) (tos io)
   >>= fun() ->

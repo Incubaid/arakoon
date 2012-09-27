@@ -107,13 +107,13 @@ open Mp_msg
     
 let _check_tlogs collection tlog_dir =
   Lwt_log.info_f "checking tlog directory: %s" tlog_dir >>= fun () ->
-  collection # validate_last_tlog () >>= fun (validity, lastI) ->
+  collection # validate_last_tlog () >>= fun (validity, last_eo, index) ->
   begin
-    match lastI with
+    match last_eo with
       | None -> (Lwt_log.info_f "tlog is empty" )
-      | Some i  -> Lwt_log.info_f "tlog's lastI = %s" (Sn.string_of i)
+      | Some e  -> Lwt_log.info_f "tlog's last i = %s" (Sn.string_of (Entry.i_of e))
   end >>= fun () ->
-  Lwt.return lastI
+  Lwt.return last_eo
     
     
 let _config_service cfg backend=
@@ -454,13 +454,13 @@ let _main_2
                   | ex -> Lwt.fail ex 
 	        )
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-	      _check_tlogs tlog_coll me.tlog_dir >>= fun lastI ->
-	      let current_i = match lastI with
-	        | None -> Sn.start 
-	        | Some i -> i
+	      _check_tlogs tlog_coll me.tlog_dir >>= fun last_eo ->
+	      let current_i,last_io = match last_eo with
+	        | None -> Sn.start , None
+	        | Some e -> let i = Entry.i_of e in i , Some i
 	      in
 	      Catchup.verify_n_catchup_store me.node_name 
-	        (store,tlog_coll,lastI) 
+	        (store, tlog_coll, last_io) 
 	        current_i master 
 	      >>= fun (new_i, vo) ->
 	      
