@@ -220,12 +220,19 @@ let get_count tlog_names =
 	   else number + 1
 
 
-let _init_ocfd tlog_dir c =
+type _file = {oc:Lwt_io.output Lwt_io.channel;
+              fd:Lwt_unix.file_descr;
+              fn:string;
+              c: int;}
+
+let _file_pos f = Lwt_io.position f.oc
+
+let _init_file tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
-  Lwt.return (oc,fd)
+  Lwt.return {oc; fd; fn; c}
 
 
 let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
@@ -270,7 +277,7 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
   >>= fun x ->
   Lwt.return ()    
 
-type ocfd = Lwt_io.output Lwt_io.channel * Lwt_unix.file_descr 
+
 
 
 
@@ -285,12 +292,12 @@ class tlc2 (tlog_dir:string) (new_c:int)
 	    (Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _ocfd = (None:ocfd option) (* output stream and fd *)
+  val mutable _file = (None:_file option) (* output stream and fd *)
   val mutable _index = (None: Index.index)
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_entry = last
-  val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
+  val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5 
   val mutable _compressing = false
   val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
   initializer self # start_compression_loop ()
@@ -342,13 +349,14 @@ object(self: # tlog_collection)
     Lwt.ignore_result (loop ())
       
   method log_update i update ~sync =
-    self # _prelude i >>= fun (oc,fd) ->
-    let p = Lwt_io.position oc in
-    Tlogcommon.write_entry oc i update >>= fun () -> 
-    Lwt_io.flush oc >>= fun () ->
+    self # _prelude i >>= fun file ->
+    let p = _file_pos file in
+    Lwt_log.debug_f "writing %s in %s" (Sn.string_of i) file.fn >>= fun () ->
+    Tlogcommon.write_entry file.oc i update >>= fun () -> 
+    Lwt_io.flush file.oc >>= fun () ->
     begin
       if sync 
-      then Lwt_unix.fsync fd >>= fun () -> Lwt_log.info "FSYNC tlog"
+      then Lwt_unix.fsync file.fd >>= fun () -> Lwt_log.info "FSYNC tlog"
       else Lwt.return ()
     end
     >>= fun () ->
@@ -362,37 +370,52 @@ object(self: # tlog_collection)
     Lwt.return ()
     
   method private _prelude i =
-    match _ocfd with
+    let ( *: ) = Sn.mul in
+    match _file with
       | None ->
 	    begin
+          Lwt_log.debug_f "prelude %s None" (Sn.string_of i) >>= fun () ->
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
-	      _init_ocfd tlog_dir _outer >>= fun (ocfd:ocfd) ->
-	      _ocfd <- Some ocfd;
-	      Lwt.return ocfd
+	      _init_file tlog_dir _outer >>= fun (file:_file) ->
+	      _file <- Some file;
+	      Lwt.return file
 	    end
-      | Some (ocfd:ocfd) -> 
-	    if Sn.rem i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) = Sn.start 
+      | Some (file:_file) -> 
+	    if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1)) 
 	    then
           let do_rotate() =
-            Lwt_log.debug_f "i= %s & outer = %i => rotate" (Sn.string_of i) _outer >>= fun () ->
-            self # _rotate ocfd (Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))) 
+            let new_outer = _outer + 1 in
+            Lwt_log.info_f "i= %s & outer = %i => rotate to %i" (Sn.string_of i) _outer new_outer
+            >>= fun () ->
+            self # _rotate file new_outer
           in
           begin
             match _previous_entry with
-              | Some pe when (Entry.i_of pe) = i -> Lwt.return ocfd
+              | Some pe when (Entry.i_of pe) = i -> Lwt.return file
               | _ -> do_rotate ()
           end
 	    else
-	      Lwt.return ocfd
+	      Lwt.return file
             
             
-  method private _rotate ocfd new_outer =
-    let oc,fd = ocfd in
-    Lwt_io.close oc >>= fun () ->
+  method private _rotate file new_outer =
+    assert (new_outer = _outer + 1);
+    Lwt_io.close file.oc >>= fun () ->
+    let old_outer = _outer in
     _inner <- 0;
-    let tlu = Filename.concat tlog_dir (file_name _outer) in
-    let tlc = Filename.concat tlog_dir (archive_name _outer) in
+    _outer <- new_outer;
+    _init_file tlog_dir new_outer >>= fun (new_file:_file) ->
+    _file <- Some new_file;
+    let index = 
+      let fn = file_name _outer in
+      let full_name = Filename.concat tlog_dir fn in
+      Index.make full_name
+    in
+    _index <- index;
+    (* make compression job *)
+    let tlu = Filename.concat tlog_dir (file_name old_outer) in
+    let tlc = Filename.concat tlog_dir (archive_name old_outer) in
     let tlc_temp = tlc ^ ".part" in
     begin
       if use_compression 
@@ -403,16 +426,7 @@ object(self: # tlog_collection)
         Lwt.return ()
     end
     >>= fun () ->
-    _outer <- new_outer;
-    _init_ocfd tlog_dir _outer >>= fun (new_ocfd:ocfd) ->
-    _ocfd <- Some new_ocfd;
-    let index = 
-      let fn = file_name _outer in
-      let full_name = Filename.concat tlog_dir fn in
-      Index.make full_name
-    in
-    _index <- index;
-    Lwt.return new_ocfd
+    Lwt.return new_file
 
 
 
@@ -511,9 +525,9 @@ object(self: # tlog_collection)
       end
       >>= fun () ->
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
-      match _ocfd with
+      match _file with
         | None -> Lwt.return ()
-        | Some (oc,_) -> Lwt_io.close oc
+        | Some file -> Lwt_io.close file.oc
     end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))

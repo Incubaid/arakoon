@@ -569,6 +569,9 @@ def test_243():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():
+    """
+    test_large_catchup_while_running : assert cluster is still ok after (catchup // collapse) (eta : 600s)
+    """
     cli = Common.get_client()
     cluster = Common._getCluster()
 
@@ -599,7 +602,7 @@ def test_large_catchup_while_running():
                            Common.basic_teardown)
 def test_db_optimize():
     """
-    assert an 'optimizeDb' call shrinks the database enoug (eta: 60s)
+    test_db_optimize : asserts an 'optimizeDb' call shrinks the database enough (eta: 100s)
     """
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
     Common.iterate_n_times(10000, Common.set_get_and_delete)
@@ -615,7 +618,7 @@ def test_db_optimize():
                            Common.basic_teardown)
 def test_db_defrag():
     """
-    make sure the defrag call works, and actually shrinks the database (eta: 600s)
+    test_db_defrag : asserts the defrag call works, and actually shrinks the database (eta: 650s)
     """
     assert_raises( Exception, Common.defragDb, Common.node_names[0] )
     client = Common.get_client()
@@ -658,7 +661,7 @@ def test_db_defrag():
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_272():
     """ 
-    arakoon can go down during log rotation, but you need to have load to reproduce it (eta: 1110s)
+    test_272 : arakoon can go down during log rotation, but you need to have load to reproduce it (eta: 1110s)
     """
     node = Common.node_names[0]
     cluster = Common._getCluster()
@@ -687,7 +690,7 @@ def test_272():
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_inject_as_head():
     """
-    Shortcut for those who don't want to collapse periodically. (eta: 20 s)
+    test_inject_as_head : asserts shortcut for those who don't want to collapse periodically. (eta: 20 s)
     ARAKOON-288
     ARAKOON-308
     """
