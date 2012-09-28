@@ -1,169 +1,658 @@
 open Core
 
-let _log m = Lwt.ignore_result(Lwtc.log m)
- 
-module MULTI = struct
-  type state_name = 
-    | S_CLUELESS
-    | S_RUNNING_FOR_MASTER
-    | S_MASTER
-    | S_SLAVE
-  
-  let option2s (x : 'a option)  = 
-    match x with
-      | Some _ -> "Some ..."
-      | None -> "None"
+type node_id = string
+type request_awakener = Core.result Lwt.u
+type client_reply = request_awakener * result
 
-   let so2s = function
-    | None -> "None"
-    | Some s -> Printf.sprintf "'%s'" s
-  
-  type request_awakener = Core.result Lwt.u 
-  type node_id = string
-    
-  type message = 
-    | M_PREPARE of node_id * tick * tick * tick
-    | M_PROMISE of node_id * tick * tick * tick * update option
-    | M_NACK of node_id * tick * tick * tick
-    | M_ACCEPT of node_id * tick * tick * tick * update
-    | M_ACCEPTED of node_id * tick * tick * tick
-    | M_LEASE_TIMEOUT of tick * tick
-    | M_CLIENT_REQUEST of request_awakener * update
-    | M_MASTERSET of node_id * tick * tick
+(* "Show" helpers *)
+let string_of_option f = function
+  | None -> "None"
+  | Some v -> Printf.sprintf "Some (%s)" (f v)
 
-  let msg2s = function 
-    | M_PREPARE (src, n, m, i) -> 
-      Printf.sprintf "M_PREPARE (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
-    | M_PROMISE (src, n, m, i, m_upd) ->
-      Printf.sprintf "M_PROMISE (src: %s) (n: %s) (m: %s) (i: %s) (m_u: %s)"
-          src (tick2s n) (tick2s m) (tick2s i) (option2s m_upd)
-    | M_NACK (src, n, m, i) -> 
-      Printf.sprintf "M_NACK (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
-    | M_ACCEPT (src, n, m, i, upd) ->
-      Printf.sprintf "M_ACCEPT (src: %s) (n: %s) (m: %s) (i: %s) (u: %s)" 
-          src (tick2s n) (tick2s m) (tick2s i) (update2s upd)
-    | M_ACCEPTED (src, n, m, i) -> 
-      Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
-    | M_LEASE_TIMEOUT (n, m) ->
-      Printf.sprintf "M_LEASE_TIMEOUT (n: %s) (m: %s)" (tick2s n) (tick2s m)
-    | M_CLIENT_REQUEST (w, u) ->
-      Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
-    | M_MASTERSET (m_id, n, m) ->
-      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (tick2s n) (tick2s m) m_id
- 
-  let string_of_msg msg = 
-    let buf = Buffer.create 8 in
-    begin
-      match msg with
-      | M_PREPARE (src, (TICK n), (TICK m), (TICK i)) ->
-        Llio.int_to buf 1; 
-        Llio.string_to buf src;  
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i;
-      | M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_upd) ->
-        begin
-          Llio.int_to buf 2; 
-          Llio.string_to buf src;
-          Llio.int64_to buf n;
-          Llio.int64_to buf m;
-          Llio.int64_to buf i;
-          begin
-            match m_upd with 
-              | None -> Llio.bool_to buf false
-              | Some upd -> 
-                Llio.bool_to buf true;
-                update_to buf upd   
-          end;
-        end
-      | M_NACK (src, (TICK n), (TICK m), (TICK i)) -> 
-        Llio.int_to buf 3;
-        Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i
-      | M_ACCEPT (src, (TICK n), (TICK m), (TICK i), upd) ->
-        Llio.int_to buf 4;
-        Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i;
-        update_to buf upd  
-      | M_ACCEPTED (src, (TICK n), (TICK m), (TICK i)) ->
-        Llio.int_to buf 5;
-        Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i 
-      | M_MASTERSET (src, TICK n, TICK m) ->
-        Llio.int_to buf 6;
-        Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m
-      | M_LEASE_TIMEOUT (n, m) -> failwith "lease timeout message cannot be serialized"
-      | M_CLIENT_REQUEST (w, u) -> failwith "client request cannot be serialized"
-    end;
-    Buffer.contents buf
-    
-  let msg_of_string str =
-    let (kind, off) = Llio.int_from str 0 in
-    let get_src_n_i off = 
-        let (src, off) = Llio.string_from str off in
-        let (n, off) = Llio.int64_from str off in
-        let (i, off) = Llio.int64_from str off in
-        (src, n, i, off)
+let string_of_list f l =
+  let rec helper acc = function
+    | [] -> ""
+    | (h :: t) -> helper (acc ^ f h) t
+  in
+  "[" ^ helper "" l ^ "]"
+
+let string_of_string = Printf.sprintf "\"%s\""
+
+let string_of_pair f1 f2 (a, b) = Printf.sprintf "(%s, %s)" (f1 a) (f2 b)
+
+let const a = fun _ -> a
+
+
+module Lens = struct
+  (* 'a is "record" type, 'b is "field" type *)
+  type ('a, 'b) getter = 'a -> 'b
+  type ('a, 'b) setter = 'a -> 'b -> 'a
+  type ('a, 'b) lens = ('a, 'b) getter * ('a, 'b) setter
+
+  let read (l : ('a, 'b) lens) (a : 'a) : 'b = (fst l) a
+  let update (l : ('a, 'b) lens) (a : 'a) (b : 'b) : 'a = (snd l) a b
+
+  (* Lens composition *)
+  let (<.>) (b : ('b, 'c) lens) (a : ('a, 'b) lens) : ('a, 'c) lens =
+    (fun v -> fst b (fst a v)), (fun v n -> (snd a) v (snd b (fst a v) n))
+end
+open Lens
+
+
+type round_diff =
+  | N_EQUAL
+  | N_BEHIND
+  | N_AHEAD
+
+type proposed_diff =
+  | P_ACCEPTABLE
+  | P_BEHIND
+  | P_AHEAD
+  
+type accepted_diff  =
+  | A_COMMITABLE
+  | A_BEHIND
+  | A_AHEAD
+
+type state_diff = round_diff * proposed_diff * accepted_diff
+
+
+module type TICK = sig
+  type t
+
+  val to_string : t -> string
+  val encode : Buffer.t -> t -> unit
+  val decode : string -> int -> (t * int)
+
+  val to_int64 : t -> int64
+  val succ : t -> t
+end
+
+module NTick : TICK = struct
+  type t = int64
+
+  let to_string = Int64.to_string
+  let encode = Llio.int64_to
+  let decode = Llio.int64_from
+  let to_int64 x = x
+  let succ = Int64.succ
+end
+module MTick : TICK = struct
+  type t = int64
+
+  let to_string = Int64.to_string
+  let encode = Llio.int64_to
+  let decode = Llio.int64_from
+  let to_int64 x = x
+  let succ = Int64.succ
+end
+module ITick : TICK = struct
+  type t = int64
+
+  let to_string = Int64.to_string
+  let encode = Llio.int64_to
+  let decode = Llio.int64_from
+  let to_int64 x = x
+  let succ = Int64.succ
+end
+
+
+module State = struct
+  module StateName = struct
+    type t = S_CLUELESS
+           | S_RUNNING_FOR_MASTER
+           | S_MASTER
+           | S_SLAVE
+
+    let to_string = function
+      | S_CLUELESS -> "S_CLUELESS"
+      | S_RUNNING_FOR_MASTER -> "S_RUNNING_FOR_MASTER"
+      | S_MASTER -> "S_MASTER"
+      | S_SLAVE -> "S_SLAVE"
+  end
+
+  module ElectionVotes = struct
+    type t = { nones : node_id list
+             ; somes : (update * node_id list) list
+             }
+
+    let to_string t =
+      Printf.sprintf "ElectionVotes.t { nones=%s; somes=%s }"
+      (string_of_list string_of_string t.nones)
+      (string_of_list
+        (string_of_pair string_of_update (string_of_list string_of_string))
+        t.somes)
+  end
+
+  module PaxosConstants = struct
+    type t = { _me : node_id
+             ; _others : node_id list
+             ; _quorum : int
+             ; _node_ix : int
+             ; _node_cnt : int
+             ; _lease_duration : float
+             }
+
+    let to_string t =
+      Printf.sprintf
+        "PaxosConstants.t { _me=\"%s\"; _others=%s; _quorum=%i; _node_ix=%i; _lease_duration=%f }"
+        t._me (string_of_list string_of_string t._others) t._quorum t._node_ix
+        t._lease_duration
+
+    let me = (fun v -> v._me), (fun v n -> { v with _me=n })
+    let others = (fun v -> v._others), (fun v n -> { v with _others=n })
+    let quorum = (fun v -> v._quorum), (fun v n -> { v with _quorum=n })
+    let node_ix = (fun v -> v._node_ix), (fun v n -> { v with _node_ix=n })
+    let node_cnt = (fun v -> v._node_cnt), (fun v n -> { v with _node_cnt=n })
+    let lease_duration = (fun v -> v._lease_duration), (fun v n -> { v with _lease_duration=n })
+  end
+
+  module MessageChannel = struct
+    type t = CH_CLIENT
+           | CH_NODE
+           | CH_TIMEOUT
+
+    let to_string = function
+      | CH_CLIENT -> "CH_CLIENT"
+      | CH_NODE -> "CH_NODE"
+      | CH_TIMEOUT -> "CH_TIMEOUT"
+  end
+
+  (* TODO Use NTick.t/MTick.t/ITick.t *)
+  type tick = int64
+
+  type t = { _round : tick
+           ; _extensions : tick
+           ; _proposed : tick
+           ; _accepted : tick
+           ; _state_name : StateName.t
+           ; _master_id : node_id option
+           ; _prop : update option
+           ; _votes : node_id list
+           ; _election_votes : ElectionVotes.t
+           ; _constants : PaxosConstants.t
+           ; _cur_cli_req : request_awakener option
+           ; _valid_inputs : MessageChannel.t list
+           }
+
+  let to_string t =
+    Printf.sprintf
+      "State.t { _round=%s; _extensions=%s; _proposed=%s; _accepted=%s; _state_name=%s; _master_id=%s; _prop=%s; _votes=%s; _election_votes=%s; _constants=%s; _cur_cli_req=%s; _valid_inputs=%s }"
+      (Int64.to_string t._round) (Int64.to_string t._extensions)
+      (Int64.to_string t._proposed) (Int64.to_string t._accepted)
+      (StateName.to_string t._state_name)
+      (string_of_option string_of_string t._master_id)
+      (string_of_option string_of_update t._prop)
+      (string_of_list string_of_string t._votes)
+      (ElectionVotes.to_string t._election_votes)
+      (PaxosConstants.to_string t._constants)
+      (string_of_option (const "<request_awakener>") t._cur_cli_req)
+      (string_of_list MessageChannel.to_string t._valid_inputs)
+
+  let round = (fun s -> s._round), (fun s r -> { s with _round=r })
+  let extensions = (fun s -> s._extensions), (fun s e -> { s with _extensions=e })
+  let proposed = (fun s -> s._proposed), (fun s p -> { s with _proposed=p })
+  let accepted = (fun s -> s._accepted), (fun s a -> { s with _accepted=a })
+  let state_name : (t, StateName.t) lens =
+    (fun s -> s._state_name), (fun s n -> { s with _state_name=n })
+  let master_id = (fun s -> s._master_id), (fun s m -> { s with _master_id=m })
+  let prop = (fun s -> s._prop), (fun s p -> { s with _prop=p })
+  let votes = (fun s -> s._votes), (fun s v -> { s with _votes=v })
+  let election_votes = (fun s -> s._election_votes), (fun s e -> { s with _election_votes=e })
+  let constants = (fun s -> s._constants), (fun s c -> { s with _constants=c })
+  let cur_cli_req = (fun s -> s._cur_cli_req), (fun s c -> { s with _cur_cli_req=c })
+  let valid_inputs = (fun s -> s._valid_inputs), (fun s v -> { s with _valid_inputs=v })
+
+  let compare t n i =
+    let c_diff = match t._round with
+      | n' when n > n' -> N_BEHIND
+      | n' when n < n' -> N_AHEAD
+      | n' -> N_EQUAL
     in
-    match kind with
-      | 1 ->
-        let src, n, m, off = get_src_n_i off in
-        let i, off = Llio.int64_from str off in
-        M_PREPARE (src, (TICK n), (TICK m), (TICK i))
-      | 2 ->
-        let src, n, m, off = get_src_n_i off in
-        let i, off = Llio.int64_from str off in
-        let b, off = Llio.bool_from str off in
-        let m_up =
-          begin
-            if b 
-            then
-              let u, off = update_from str off in
-              Some u 
-            else
-              None
+    let p_diff = match Int64.succ t._proposed with
+      | i' when i > i' -> P_BEHIND
+      | i' when i < t._proposed -> P_AHEAD
+      | i' ->
+          if t._proposed = t._accepted
+          then
+            if i = Int64.succ t._proposed
+            then P_ACCEPTABLE
+            else P_AHEAD
+          else P_ACCEPTABLE
+    in
+    let a_diff = match Int64.succ t._accepted with
+      | i' when i > i' -> A_BEHIND
+      | i' when i < i' -> A_AHEAD
+      | i' -> A_COMMITABLE
+    in
+    (c_diff, p_diff, a_diff)
+end
+
+module rec Action : sig
+  type t = A_RESYNC of node_id * tick * tick
+         | A_SEND_MSG of Message.t * node_id
+         | A_BROADCAST_MSG of Message.t
+         | A_COMMIT_UPDATE of tick * update * request_awakener option
+         | A_LOG_UPDATE of tick * update * request_awakener option
+         | A_START_TIMER of tick * tick * float
+         | A_CLIENT_REPLY of client_reply
+         | A_STORE_LEASE of node_id option
+
+  val to_string : t -> string
+end = struct
+  type t = A_RESYNC of node_id * tick * tick
+         | A_SEND_MSG of Message.t * node_id
+         | A_BROADCAST_MSG of Message.t
+         | A_COMMIT_UPDATE of tick * update * request_awakener option
+         | A_LOG_UPDATE of tick * update * request_awakener option
+         | A_START_TIMER of tick * tick * float
+         | A_CLIENT_REPLY of client_reply
+         | A_STORE_LEASE of node_id option
+
+  let to_string = function
+    | A_RESYNC (node_id, t1, t2) ->
+        Printf.sprintf "A_RESYNC (\"%s\", %s, %s)"
+          node_id (tick2s t1) (tick2s t2)
+    | A_SEND_MSG (msg, node_id) ->
+        Printf.sprintf "A_SEND_MSSG (%s, \"%s\")"
+          (Message.to_string msg) node_id
+    | A_BROADCAST_MSG msg ->
+        Printf.sprintf "A_BROADCAST_MSG (%s)"
+          (Message.to_string msg)
+    | A_COMMIT_UPDATE (t, u, r) ->
+        Printf.sprintf "A_COMMIT_UPDATE (%s, %s, %s)"
+          (tick2s t) (string_of_update u)
+          (string_of_option (const "<request_awakener>") r)
+    | A_LOG_UPDATE (t, u, r) ->
+        Printf.sprintf "A_COMMIT_UPDATE (%s, %s, %s)"
+          (tick2s t) (string_of_update u)
+          (string_of_option (const "<request_awakener>") r)
+    | A_START_TIMER (t1, t2, f) ->
+        Printf.sprintf "A_START_TIMER (%s, %s, %f)"
+          (tick2s t1) (tick2s t2) f
+    | A_CLIENT_REPLY r ->
+        Printf.sprintf "A_CLIENT_REPLY (%s)"
+          (string_of_pair (const "<request_awakener>") result2s r)
+    | A_STORE_LEASE n ->
+        Printf.sprintf "A_STORE_LEASE (%s)"
+          (string_of_option string_of_string n)
+end
+and StepResult : sig
+  type t = Success of (Action.t list * State.t)
+         | Failure of string
+
+  val to_string : t -> string
+end = struct
+  type t = Success of (Action.t list * State.t)
+         | Failure of string
+
+  let to_string = function
+    | Success (actions, state) ->
+        Printf.sprintf "Success (%s, %s)"
+          (string_of_list Action.to_string actions)
+          (State.to_string state)
+    | Failure s -> "Failure " ^ string_of_string s
+end
+
+and Message : sig
+  type t
+  val to_string : t -> string
+  val encode : t -> string
+  val decode : string -> t
+end = struct
+
+  module type MESSAGE = sig
+    type t
+
+    val to_string : t -> string
+
+    (*val handle : State.t -> t -> StepResult.t*)
+  end
+
+  module type SERIALIZABLE_MESSAGE = sig
+    include MESSAGE
+
+    val encode : t -> Buffer.t -> unit
+    val decode : string -> int -> (t * int)
+  end
+
+  module rec MPrepare : sig
+    include SERIALIZABLE_MESSAGE
+    val make : node_id -> NTick.t -> MTick.t -> ITick.t -> t
+  end = struct
+    type t = { src : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             ; i : ITick.t
+             }
+
+    let to_string t =
+      Printf.sprintf "MPrepare.t { src=\"%s\"; n=%s; m=%s; i=%s }"
+        t.src (NTick.to_string t.n) (MTick.to_string t.m) (ITick.to_string t.i)
+
+
+    let encode t buf =
+      Llio.string_to buf t.src;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m;
+      ITick.encode buf t.i
+
+    let decode s off =
+      let (src, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      let (i, off) = ITick.decode s off in
+      ({ src=src; n=n; m=m; i=i }, off)
+
+    let make src n m i =
+      { src=src; n=n; m=m; i=i }
+  end
+
+  and MPromise : SERIALIZABLE_MESSAGE = struct
+    type t = { src : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             ; i : ITick.t
+             ; update : update option
+             }
+
+    let to_string t =
+      Printf.sprintf "MPromise.t { src=\"%s\"; n=%s; m=%s; i=%s; update=%s }"
+        t.src (NTick.to_string t.n) (MTick.to_string t.m)
+        (ITick.to_string t.i) (string_of_option string_of_update t.update)
+
+    let encode t buf =
+      Llio.string_to buf t.src;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m;
+      ITick.encode buf t.i;
+
+      match t.update with
+        | None ->
+            Llio.bool_to buf false
+        | Some upd ->
+            Llio.bool_to buf true;
+            update_to buf upd
+
+    let decode s off =
+      let (src, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      let (i, off) = ITick.decode s off in
+      let (update, off) = match Llio.bool_from s off with
+        | (false, off) -> (None, off)
+        | (true, off) ->
+            let (upd, off) = update_from s off in
+            (Some upd, off)
+      in
+      ({ src=src; n=n; m=m; i=i; update=update }, off)
+  end
+
+  and MNack : SERIALIZABLE_MESSAGE = struct
+    type t = { src : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             ; i : ITick.t
+             }
+
+    let to_string t =
+      Printf.sprintf "MNack.t { src=\"%s\"; n=%s; m=%s; i=%s }"
+        t.src (NTick.to_string t.n) (MTick.to_string t.m) (ITick.to_string t.i)
+
+    let encode t buf =
+      Llio.string_to buf t.src;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m;
+      ITick.encode buf t.i
+
+    let decode s off =
+      let (src, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      let (i, off) = ITick.decode s off in
+      ({ src=src; n=n; m=m; i=i }, off)
+  end
+
+  and MAccept : SERIALIZABLE_MESSAGE = struct
+    type t = { src : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             ; i : ITick.t
+             ; update : update
+             }
+
+    let to_string t =
+      Printf.sprintf "MAccept.t { src=\"%s\"; n=%s; m=%s; i=%s; update=%s }"
+        t.src (NTick.to_string t.n) (MTick.to_string t.m) (ITick.to_string t.i)
+        (string_of_update t.update)
+
+    let encode t buf =
+      Llio.string_to buf t.src;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m;
+      ITick.encode buf t.i;
+      update_to buf t.update
+
+    let decode s off =
+      let (src, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      let (i, off) = ITick.decode s off in
+      let (update, off) = update_from s off in
+      ({ src=src; n=n; m=m; i=i; update=update }, off)
+  end
+
+  and MAccepted : SERIALIZABLE_MESSAGE = struct
+    type t = { src : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             ; i : ITick.t
+             }
+
+    let to_string t =
+      Printf.sprintf "MAccepted.t { src=\"%s\"; n=%s; m=%s; i=%s }"
+      t.src (NTick.to_string t.n) (MTick.to_string t.m) (ITick.to_string t.i)
+
+    let encode t buf =
+      Llio.string_to buf t.src;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m;
+      ITick.encode buf t.i
+
+    let decode s off =
+      let (src, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      let (i, off) = ITick.decode s off in
+      ({ src=src; n=n; m=m; i=i }, off)
+  end
+
+  and MLeaseTimeout : MESSAGE = struct
+    type t = { n : NTick.t
+             ; m : MTick.t
+             }
+
+    let to_string t =
+      Printf.sprintf "MLeaseTimeout.t { n=%s; m=%s }"
+      (NTick.to_string t.n) (MTick.to_string t.m)
+
+    let start_elections (new_n : NTick.t) (m : MTick.t) state =
+      let open State.StateName in
+      let me = read (State.PaxosConstants.me <.> State.constants) state in
+
+      let sn, mid = match read State.state_name state with
+        | S_MASTER ->
+            if read State.round state = NTick.to_int64 new_n
+            then (S_MASTER, Some me)
+            else (S_RUNNING_FOR_MASTER, None)
+        | _ ->
+            (S_RUNNING_FOR_MASTER, None)
+      in
+
+      let msg = Sum.M_PREPARE (MPrepare.make me new_n m (ITick.succ (read State.accepted state))) in
+      let new_state = multi_update state [
+        (State.round, new_n);
+        (State.extensions, m);
+        (State.master_id, mid);
+        (State.state_name, sn);
+        (State.votes, []);
+        (State.election_votes, State.ElectionVotes.empty)
+      ] in
+      let lease_duration = read (State.PaxosConstants.lease_duration <.> State.constants) state in
+      let lease_expiry = build_lease_timer new_n m (lease_duration /. 2.0) in
+      Success ([A_STORE_LEASE mid; A_BROADCAST_MSG msg; lease_expiry], new_state)
+
+    let handle state t =
+      match State.compare state t.n 0L with
+        | (N_EQUAL, _, _) when t.m = read State.extensions state -> begin
+            match read State.master_id state with
+              | Some m when m = read (State.PaxosConstants.me <.> State.constants) state ->
+                  let new_m = Int64.succ (read State.extensions state) in
+                  start_elections (read State.round state) new_m state
+              | _ ->
+                  let node_cnt = read (State.PaxosConstants.node_cnt <.> State.constants) state
+                  and node_ix = read (State.PaxosConstants.node_ix <.> State.constants) state in
+                  let new_n = next_n t.n node_cnt node_ix in
+                  start_elections new_n 0L state
           end
-        in 
-        M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_up)
-      | 3 -> 
-        let src, n, m, off = get_src_n_i off in
-        let i, off = Llio.int64_from str off in
-        M_NACK (src, (TICK n), (TICK m), (TICK i))
-      | 4 -> 
-        let src, n, m, off = get_src_n_i off in
-        let i, off = Llio.int64_from str off in
-        let u, off = update_from str off in
-        M_ACCEPT (src, (TICK n), (TICK m), (TICK i), u)
-      | 5 -> 
-        let src, n, m, off = get_src_n_i off in
-        let i, off = Llio.int64_from str off in
-        M_ACCEPTED (src, (TICK n), (TICK m), (TICK i))
-      | 6 ->
-        let (src, off) = Llio.string_from str off in
-        let (n, off) = Llio.int64_from str off in
-        let (m, off) = Llio.int64_from str off in
-        M_MASTERSET (src, (TICK n), (TICK m))
-      | i -> failwith "Unknown message type. Aborting."
+        | (_, _, _) -> Success([], state)
+  end
 
+  and MClientRequest : MESSAGE = struct
+    type t = { request_awakener : request_awakener
+             ; update : update
+             }
 
-  type paxos_constants = 
-  {
-    me             : node_id;
-    others         : node_id list;
-    quorum         : int;
-    node_ix        : int;
-    node_cnt       : int;
-    lease_duration : float; 
-  }
-  
+    let to_string t =
+      Printf.sprintf "MClientRequest.t { request_awakener; update=%s }"
+      (string_of_update (t.update))
+
+    let handle state t =
+      let open State.StateName in
+      let open Action in
+      let open StepResult in
+      match read State.state_name state with
+        | S_MASTER ->
+            match read State.cur_cli_req state with
+              | None ->
+                  let next_i = Int64.succ (read State.accepted state) in
+                  let action = A_LOG_UPDATE(TICK next_i, t.update, Some t.request_awakener) in
+                  Success([action], state)
+              | Some _ -> (* This diverges from the original code, since I think it's wrong due to aliasing of 'w' *)
+                  let exc = FAILURE(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot process request, already handling a client request") in
+                  let reply = (t.request_awakener, exc) in
+                  Success([A_CLIENT_REPLY reply], state)
+        | _ ->
+            let exc = FAILURE(Arakoon_exc.E_NOT_MASTER, "Cannot process request on non-master") in
+            let reply = (t.request_awakener, exc) in
+            Success([A_CLIENT_REPLY reply], state)
+  end
+
+  and MMasterSet : SERIALIZABLE_MESSAGE = struct
+    type t = { master_id : node_id
+             ; n : NTick.t
+             ; m : MTick.t
+             }
+
+    let to_string t =
+      Printf.sprintf "MMasterSet.t { master_id=\"%s\"; n=%s; m=%s }"
+      t.master_id (NTick.to_string t.n) (MTick.to_string t.m)
+
+    let encode t buf =
+      Llio.string_to buf t.master_id;
+      NTick.encode buf t.n;
+      MTick.encode buf t.m
+
+    let decode s off =
+      let (master_id, off) = Llio.string_from s off in
+      let (n, off) = NTick.decode s off in
+      let (m, off) = MTick.decode s off in
+      ({ master_id=master_id; n=n; m=m }, off)
+
+    let handle state t =
+      let open State.StateName in
+      let open Action in
+      let open StepResult in
+      match read State.state_name state with
+        | S_SLAVE when read State.round state = t.n ->
+            let l = A_STORE_LEASE (Some t.master_id) in
+            let t =
+              if read State.round state = t.n && read State.extensions state = t.m
+              then []
+              else
+                let d = read (State.PaxosConstants.lease_duration <.> State.constants) state in
+                [A_START_TIMER (TICK t.n, TICK t.m, d)]
+            in
+            Success (l :: t, state)
+        | _ ->
+            Success ([], state)
+  end
+
+  and Sum : sig
+    type t = M_PREPARE of MPrepare.t
+           | M_PROMISE of MPromise.t
+           | M_NACK of MNack.t
+           | M_ACCEPT of MAccept.t
+           | M_ACCEPTED of MAccepted.t
+           | M_LEASE_TIMEOUT of MLeaseTimeout.t
+           | M_CLIENT_REQUEST of MClientRequest.t
+           | M_MASTERSET of MMasterSet.t
+  end = struct
+    type t = M_PREPARE of MPrepare.t
+           | M_PROMISE of MPromise.t
+           | M_NACK of MNack.t
+           | M_ACCEPT of MAccept.t
+           | M_ACCEPTED of MAccepted.t
+           | M_LEASE_TIMEOUT of MLeaseTimeout.t
+           | M_CLIENT_REQUEST of MClientRequest.t
+           | M_MASTERSET of MMasterSet.t
+  end
+
+  type t = Sum.t
+
+  let to_string = function
+    | M_PREPARE v -> MPrepare.to_string v
+    | M_PROMISE v -> MPromise.to_string v
+    | M_NACK v -> MNack.to_string v
+    | M_ACCEPT v -> MAccept.to_string v
+    | M_ACCEPTED v -> MAccepted.to_string v
+    | M_LEASE_TIMEOUT v -> MLeaseTimeout.to_string v
+    | M_CLIENT_REQUEST v -> MClientRequest.to_string v
+    | M_MASTERSET v -> MMasterSet.to_string v
+
+  let encode t =
+    let (id, f) = match t with
+      | M_PREPARE v -> (1, MPrepare.encode v)
+      | M_PROMISE v -> (2, MPromise.encode v)
+      | M_NACK v -> (3, MNack.encode v)
+      | M_ACCEPT v -> (4, MAccept.encode v)
+      | M_ACCEPTED v -> (5, MAccepted.encode v)
+      | M_MASTERSET v -> (6, MMasterSet.encode v)
+      | M_LEASE_TIMEOUT _ ->
+          failwith "Lease timeout message cannot be serialized"
+      | M_CLIENT_REQUEST _ ->
+          failwith "Client request message cannot be serialized"
+    in
+    let buf = Buffer.create 8 in
+    Llio.int_to buf id;
+    f buf;
+    Buffer.contents buf
+
+  let decode s =
+    let (kind, off) = Llio.int_from s 0 in
+
+    match kind with
+      | 1 -> M_PREPARE (fst (MPrepare.decode s off))
+      | 2 -> M_PROMISE (fst (MPromise.decode s off))
+      | 3 -> M_NACK (fst (MNack.decode s off))
+      | 4 -> M_ACCEPT (fst (MAccept.decode s off))
+      | 5 -> M_ACCEPTED (fst (MAccepted.decode s off))
+      | 6 -> M_MASTERSET (fst (MMasterSet.decode s off))
+      | i -> failwith (Printf.sprintf "Unknown message type %d" i)
+end
+
+module MULTI = struct
+
   let build_mp_constants q n n_others lease ix node_cnt =
     {
       quorum = q;
@@ -174,35 +663,8 @@ module MULTI = struct
       node_cnt = node_cnt;
     } 
   
-  type msg_channel =
-    | CH_CLIENT
-    | CH_NODE
-    | CH_TIMEOUT
-  
   let ch_all              = [CH_CLIENT; CH_NODE; CH_TIMEOUT]
   let ch_node_and_timeout = [CH_NODE; CH_TIMEOUT] 
-  
-  type election_votes = 
-  {
-    nnones : node_id list;
-    nsomes : (update * node_id list) list;
-  }
-  
-  type state =
-  {
-    round             : tick;
-    extensions        : tick;
-    proposed          : tick;
-    accepted          : tick;
-    state_n           : state_name;
-    master_id         : node_id option;
-    prop              : update option;
-    votes             : node_id list;
-    election_votes    : election_votes;
-    constants         : paxos_constants;
-    cur_cli_req       : request_awakener option;
-    valid_inputs      : msg_channel list;
-  }
   
   let build_state c n p a u =
     {
@@ -220,36 +682,7 @@ module MULTI = struct
       valid_inputs = ch_all;
     }
 
-  let state_n2s = function 
-    | S_CLUELESS           -> "S_CLUELESS"
-    | S_RUNNING_FOR_MASTER -> "S_RUNNING_FOR_MASTER"
-    | S_MASTER             -> "S_MASTER"
-    | S_SLAVE              -> "S_SLAVE"
   
-  let state2s s =
-    let m = so2s s.master_id in
-    Printf.sprintf "id: %s, n: %s, m: %s, p: %s, a: %s, state: %s, master: %s, votes: %d"
-          s.constants.me (tick2s s.round) (tick2s s.extensions) (tick2s s.proposed) (tick2s s.accepted) 
-          (state_n2s s.state_n) m (List.length s.votes)
-  
-  type round_diff =
-    | N_EQUAL
-    | N_BEHIND
-    | N_AHEAD
-
-  type proposed_diff =
-    | P_ACCEPTABLE
-    | P_BEHIND
-    | P_AHEAD
-  
-  type accepted_diff  =
-    | A_COMMITABLE
-    | A_BEHIND
-    | A_AHEAD
-
-  type state_diff = round_diff * proposed_diff * accepted_diff 
-  
-  type client_reply = request_awakener * result
   
   let client_reply2s = function
     | w, FAILURE(rc,msg) -> 
@@ -257,75 +690,7 @@ module MULTI = struct
     | w, VOID -> "Reply success (void)"
     | w, VALUE v -> Printf.sprintf "Reply success (value)" 
        
-  type action =
-    | A_RESYNC of node_id * tick * tick
-    | A_SEND_MSG of message * node_id
-    | A_BROADCAST_MSG of message
-    | A_COMMIT_UPDATE of tick * update * request_awakener option
-    | A_LOG_UPDATE    of tick * update * request_awakener option
-    | A_START_TIMER of tick * tick * float
-    | A_CLIENT_REPLY of client_reply
-    | A_STORE_LEASE of node_id option
 
-  let action2s = function
-    | A_RESYNC (src, n, m) -> 
-      Printf.sprintf "A_RESYNC (from: %s) (n: %s) (m: %s)" src (tick2s n) (tick2s m) 
-    | A_SEND_MSG (msg, dest) ->
-      Printf.sprintf "A_SEND_MSG (msg: %s) (dest: %s)" (msg2s msg) dest
-    | A_BROADCAST_MSG msg ->
-      Printf.sprintf "A_BROADCAST_MSG (msg: %s)" (msg2s msg)
-    | A_COMMIT_UPDATE (i, upd, req_id) ->
-      Printf.sprintf "A_COMMIT_UPDATE (i: %s) (u: %s) (req_id: %s)"
-        (tick2s i) (update2s upd) (option2s req_id) 
-    | A_LOG_UPDATE (i, upd, cli_req) ->
-      Printf.sprintf "A_LOG_UPDATE (i: %s) (u: %s) (req_id: %s)"
-         (tick2s i) (update2s upd) (option2s cli_req)
-    | A_START_TIMER (n, m, d) ->
-      Printf.sprintf "A_START_TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d
-    | A_CLIENT_REPLY rep ->
-      Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
-    | A_STORE_LEASE m ->
-      Printf.sprintf "A_STORE_LEASE (m:%s)" (so2s m) 
-      
-  type step_result =
-    | StepFailure of string
-    | StepSuccess of action list * state
-
-  let state_cmp n i state =
-    let c_diff =
-      begin
-        match state.round with 
-          | n' when n > n' -> N_BEHIND
-          | n' when n < n' -> N_AHEAD
-          | n'             -> N_EQUAL
-      end
-    in
-    let p_diff =
-      begin
-        match (next_tick state.proposed) with 
-          | i' when i > i'             -> P_BEHIND
-          | i' when i < state.proposed -> P_AHEAD
-          | i' -> 
-            if state.proposed = state.accepted 
-            then
-              if i = next_tick state.proposed 
-              then
-                P_ACCEPTABLE
-              else
-                P_AHEAD
-            else
-              P_ACCEPTABLE
-      end
-    in
-    let a_diff = 
-      begin 
-        match next_tick state.accepted with
-          | i' when i > i' -> A_BEHIND
-          | i' when i < i' -> A_AHEAD
-          | i' -> A_COMMITABLE
-      end
-    in
-    (c_diff, p_diff, a_diff)
   
   let next_n n node_cnt node_ix =
     let (+) = Int64.add in
@@ -369,9 +734,6 @@ module MULTI = struct
       end
     in
     M_PROMISE(state.constants.me, n, m, i, m_upd)
-  
-  let build_lease_timer n m d =
-    A_START_TIMER (n, m, d) 
   
   let build_nack me n m i dest =
     let reply = M_NACK(me, n, m, i) in
@@ -666,75 +1028,7 @@ module MULTI = struct
     let lease_expiry = build_lease_timer new_n m (state.constants.lease_duration /. 2.0 ) in
     StepSuccess([A_STORE_LEASE mid; A_BROADCAST_MSG msg; lease_expiry], new_state)
 
-  let handle_lease_timeout n m state =
-    let diff = state_cmp n start_tick state in
-    begin
-      match diff with
-        | (N_EQUAL , _, _) when m = state.extensions ->
-          begin
-            match state.master_id
-            with
-              | Some m when m = state.constants.me ->
-                begin
-                  let new_m = next_tick state.extensions in
-                  start_elections state.round new_m state
-                end
-              
-              | _  ->
-                begin
-                  let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
-                  start_elections new_n start_tick state
-                end
-          end
-        | (_, _, _) -> StepSuccess([], state)
-    end
 
-  let handle_client_request w upd state =
-    begin
-      match state.state_n with
-        | S_MASTER ->
-          begin
-            match state.cur_cli_req with
-              | None -> 
-                begin
-                  let actions = build_accept_action (next_tick state.accepted) upd (Some w) in 
-                  StepSuccess (actions, state)
-                end
-              | Some w ->
-                begin 
-                  let reply = (w, FAILURE(Arakoon_exc.E_UNKNOWN_FAILURE, 
-                               "Cannot process request, already handling a client request")) 
-                  in
-                  StepSuccess ([A_CLIENT_REPLY reply], state)
-                end
-          end
-        | _ ->
-          begin
-            let reply = (w, FAILURE(Arakoon_exc.E_NOT_MASTER, 
-                                            "Cannot process request on none-master")) 
-            in
-            StepSuccess([A_CLIENT_REPLY reply], state)
-          end
-    end
-
-  let handle_masterset n m src state =
-    begin
-      match state.state_n with
-        | S_SLAVE when state.round = n ->
-          begin
-            let l = A_STORE_LEASE (Some src) in
-            let t =
-              if state.round = n && state.extensions = m 
-              then []
-              else
-                let d = state.constants.lease_duration in
-                [A_START_TIMER (n, m, d)]
-            in 
-            StepSuccess (l :: t, state)
-          end
-        | _ -> StepSuccess([], state) 
-    end
-    
   let step msg state =
     match msg with
       | M_PREPARE (src, n, m, i) -> handle_prepare n m i src state
@@ -749,5 +1043,5 @@ end
 
 module type MP_ACTION_DISPATCHER = sig
   type t
-  val dispatch : t -> MULTI.state -> MULTI.action -> MULTI.state Lwt.t
+  val dispatch : t -> State.t -> Action.t -> State.t Lwt.t
 end

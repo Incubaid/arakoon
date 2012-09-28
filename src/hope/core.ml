@@ -29,6 +29,7 @@ let update2s = function
   | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (%S,_)" k
   | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
+let string_of_update = update2s
 
 let rec update_to buf = function
   | SET (k,v) ->
