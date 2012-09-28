@@ -219,20 +219,29 @@ let get_count tlog_names =
        then number
 	   else number + 1
 
+module F = struct
+  type t = {oc:Lwt_io.output Lwt_io.channel;
+            fd:Lwt_unix.file_descr;
+            fn:string;
+            c: int;}
 
-type _file = {oc:Lwt_io.output Lwt_io.channel;
-              fd:Lwt_unix.file_descr;
-              fn:string;
-              c: int;}
 
-let _file_pos f = Lwt_io.position f.oc
+  let make oc fd fn c = {oc;fd;fn;c}
+  let file_pos t = Lwt_io.position t.oc      
+  let fn_of t = t.fn
+  let oc_of t = t.oc
+  let fsync t = Lwt_unix.fsync t.fd
+  let close t = Lwt_io.close t.oc
+end
+
 
 let _init_file tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
-  Lwt.return {oc; fd; fn; c}
+  let f = F.make oc fd fn c in
+  Lwt.return f
 
 
 let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
@@ -292,7 +301,7 @@ class tlc2 (tlog_dir:string) (new_c:int)
 	    (Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _file = (None:_file option) (* output stream and fd *)
+  val mutable _file = (None:F.t option) 
   val mutable _index = (None: Index.index)
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
@@ -350,13 +359,14 @@ object(self: # tlog_collection)
       
   method log_update i update ~sync =
     self # _prelude i >>= fun file ->
-    let p = _file_pos file in
-    Lwt_log.debug_f "writing %s in %s" (Sn.string_of i) file.fn >>= fun () ->
-    Tlogcommon.write_entry file.oc i update >>= fun () -> 
-    Lwt_io.flush file.oc >>= fun () ->
+    let p = F.file_pos file in
+    Lwt_log.debug_f "writing %s in %s" (Sn.string_of i) (F.fn_of file) >>= fun () ->
+    let oc = F.oc_of file in
+    Tlogcommon.write_entry oc i update >>= fun () -> 
+    Lwt_io.flush oc >>= fun () ->
     begin
       if sync 
-      then Lwt_unix.fsync file.fd >>= fun () -> Lwt_log.info "FSYNC tlog"
+      then F.fsync file >>= fun () -> Lwt_log.info "FSYNC tlog"
       else Lwt.return ()
     end
     >>= fun () ->
@@ -377,11 +387,11 @@ object(self: # tlog_collection)
           Lwt_log.debug_f "prelude %s None" (Sn.string_of i) >>= fun () ->
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
-	      _init_file tlog_dir _outer >>= fun (file:_file) ->
+	      _init_file tlog_dir _outer >>= fun file ->
 	      _file <- Some file;
 	      Lwt.return file
 	    end
-      | Some (file:_file) -> 
+      | Some (file:F.t) -> 
 	    if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1)) 
 	    then
           let do_rotate() =
@@ -401,11 +411,11 @@ object(self: # tlog_collection)
             
   method private _rotate file new_outer =
     assert (new_outer = _outer + 1);
-    Lwt_io.close file.oc >>= fun () ->
+    F.close file >>= fun () ->
     let old_outer = _outer in
     _inner <- 0;
     _outer <- new_outer;
-    _init_file tlog_dir new_outer >>= fun (new_file:_file) ->
+    _init_file tlog_dir new_outer >>= fun new_file ->
     _file <- Some new_file;
     let index = 
       let fn = file_name _outer in
@@ -527,7 +537,7 @@ object(self: # tlog_collection)
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
       match _file with
         | None -> Lwt.return ()
-        | Some file -> Lwt_io.close file.oc
+        | Some file -> F.close file
     end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
