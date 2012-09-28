@@ -1,0 +1,59 @@
+
+==============
+Arakoon 1.4.0
+==============
+
+Published on: 2012-09-28
+
+Release
+=======
++----------------+------------------+----------------+--------------+
+| QPackage name  | QPackage version | QPackage build |   Revision   |
++================+==================+================+==============+
+| arakoon        |      1.4.0       |       0        | 0e5df4623084 |
++----------------+------------------+----------------+--------------+
+| arakoon_client |      1.4.0       |       0        | 0e5df4623084 |
++----------------+------------------+----------------+--------------+
+
+What's new
+==========
+
++--------------+------------------------------------------------------------------+
+| Jira key     | Comment                                                          |
++==============+==================================================================+
+| ARAKOON-310_ | delete_prefix                                                    |
++--------------+------------------------------------------------------------------+
+| ARAKOON-315_ | --prefix in cmdline                                              |
++--------------+------------------------------------------------------------------+
+| ARAKOON-317_ | Maximum message length should be configurable                    |
++--------------+------------------------------------------------------------------+
+| ARAKOON-318_ | Include dropped ACCEPTEDS in the node_is arakoon statistics      |
++--------------+------------------------------------------------------------------+
+| ARAKOON-321_ | getVersion call                                                  |
++--------------+------------------------------------------------------------------+
+| ARAKOON-323_ | Get the minor / major version of the server in a call            |
++--------------+------------------------------------------------------------------+
+| ARAKOON-327_ | possibility to dump tlogs with or without the values             |
++--------------+------------------------------------------------------------------+
+
+What's fixed
+============
+
++--------------+------------------------------------------------------------------+
+| Jira key     | Comment                                                          |
++==============+==================================================================+
+| ARAKOON-329_ | Remote Collapse can hang on client side.                         |
++--------------+------------------------------------------------------------------+
+
+.. _ARAKOON-310:  http://jira.incubaid.com/browse/ARAKOON-310
+.. _ARAKOON-315:  http://jira.incubaid.com/browse/ARAKOON-315
+.. _ARAKOON-317:  http://jira.incubaid.com/browse/ARAKOON-317
+.. _ARAKOON-318:  http://jira.incubaid.com/browse/ARAKOON-318
+.. _ARAKOON-321:  http://jira.incubaid.com/browse/ARAKOON-321
+.. _ARAKOON-323:  http://jira.incubaid.com/browse/ARAKOON-323
+.. _ARAKOON-327:  http://jira.incubaid.com/browse/ARAKOON-327
+.. _ARAKOON-329:  http://jira.incubaid.com/browse/ARAKOON-329
+.. _ARAKOON-314:  http://jira.incubaid.com/browse/ARAKOON-314
+.. _ARAKOON-320:  http://jira.incubaid.com/browse/ARAKOON-320
+.. _ARAKOON-326:  http://jira.incubaid.com/browse/ARAKOON-326
+
