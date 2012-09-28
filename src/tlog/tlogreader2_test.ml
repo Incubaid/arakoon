@@ -41,7 +41,7 @@ let test_old_format () =
       let first = Sn.of_int 500015 in
       let start = Sn.of_int 500015 in
       let stop  = Some (Sn.of_int 500175) in
-      Tlogreader2.O.fold ic 
+      Tlogreader2.O.fold ic ~index:None
         start ~first stop a0 print_entry >>= fun () ->
       Lwt.return () 
     in
