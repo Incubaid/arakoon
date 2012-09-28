@@ -360,7 +360,6 @@ object(self: # tlog_collection)
   method log_update i update ~sync =
     self # _prelude i >>= fun file ->
     let p = F.file_pos file in
-    Lwt_log.debug_f "writing %s in %s" (Sn.string_of i) (F.fn_of file) >>= fun () ->
     let oc = F.oc_of file in
     Tlogcommon.write_entry oc i update >>= fun () -> 
     Lwt_io.flush oc >>= fun () ->
