@@ -212,8 +212,11 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
         | Some i -> i
         | None -> Sn.start
       in
-      if si < (Sn.pred too_far_i) then
-	    Lwt.fail (Failure "Catchup store failed. Store counter is too low" )
+      let pred_too_far_i = Sn.pred too_far_i in
+      if si < pred_too_far_i 
+      then
+	    Llio.lwt_failfmt "Catchup store failed. Store counter is too low: %s < %s" 
+          (Sn.string_of si) (Sn.string_of pred_too_far_i)
 	  else 
 	    Lwt.return ()
 	end >>= fun () ->
