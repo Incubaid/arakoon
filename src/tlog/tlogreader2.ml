@@ -61,12 +61,12 @@ module Index = struct
   let match_filename fn index = 
     match index with 
       | None -> false
-      | Some idxr ->  idxr.filename = fn
+      | Some idxr -> idxr.filename = fn
 
   let note entry index= 
     let k = Sn.of_int 1000 in
     match index with
-      | None      -> ()
+      | None      -> failwith "note None?"
       | Some idxr -> 
         let i = Entry.i_of entry in
         let pos = Entry.p_of entry in
@@ -102,14 +102,14 @@ end
 module U = struct
 
   let maybe_jump_forward ic index lowerI = 
-    Lwt_log.info_f "maybe_fast_forward %s with %s" 
+    Lwt_log.debug_f "maybe_fast_forward %s with %s" 
       (Sn.string_of lowerI) 
       (Index.to_string index) >>= fun () ->
     let pos = Index.find_pos lowerI index in
     if pos <> 0L 
     then 
       begin
-        Lwt_log.info_f "jump to %Li" pos >>= fun () ->
+        Lwt_log.info_f "%s => jump to %Li" (Index.to_string index) pos >>= fun () ->
         Lwt_io.set_position ic pos
       end
     else Lwt.return () 

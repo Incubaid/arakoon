@@ -159,7 +159,7 @@ let _validate_one tlog_name : validation_result Lwt.t =
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
       >>= fun e ->
       Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) >>= fun () ->
-      Lwt_log.info_f "After validation index=%s" (Index.to_string new_index) >>= fun () ->
+      Lwt_log.debug_f "After validation index=%s" (Index.to_string new_index) >>= fun () ->
       Lwt.return (e, new_index)
     )
     (function
@@ -316,7 +316,11 @@ object(self: # tlog_collection)
     let (validity, entry, new_index) = r in
     let tlu = Filename.concat tlog_dir (file_name _outer) in
     let matches = Index.match_filename tlu new_index in
-    Lwt_log.info_f "tlu = %s new_index=%s %b" tlu (Index.to_string index) matches >>= fun () ->
+    Lwt_log.debug_f "tlu=%S new_index=%s index=%s => matches=%b" 
+      tlu 
+      (Index.to_string new_index) 
+      (Index.to_string index)
+      matches >>= fun () ->
     begin
       if matches 
       then
@@ -325,7 +329,7 @@ object(self: # tlog_collection)
       else 
         Lwt.return () 
     end
-                                 >>= fun () ->
+    >>= fun () ->
     Lwt.return r
 
 
@@ -376,6 +380,7 @@ object(self: # tlog_collection)
     in
     let entry = Entry.make i update p in
     _previous_entry <- Some entry;
+    Index.note entry _index;
     Lwt.return ()
     
   method private _prelude i =
@@ -383,11 +388,12 @@ object(self: # tlog_collection)
     match _file with
       | None ->
 	    begin
-          Lwt_log.debug_f "prelude %s None" (Sn.string_of i) >>= fun () ->
+          Lwt_log.debug_f "prelude %s" (Sn.string_of i) >>= fun () ->
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
 	      _init_file tlog_dir _outer >>= fun file ->
 	      _file <- Some file;
+          _index <- Index.make (F.fn_of file);
 	      Lwt.return file
 	    end
       | Some (file:F.t) -> 
@@ -441,7 +447,7 @@ object(self: # tlog_collection)
 
   method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
     let index = _index in
-    Lwt_log.info_f "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
+    Lwt_log.debug_f "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
     iterate_tlog_dir tlog_dir ~index start_i too_far_i f
 
 
@@ -648,7 +654,7 @@ let make_tlc2 tlog_dir use_compression =
   get_last_tlog tlog_dir >>= fun (new_c, fn) ->
   _validate_one fn >>= fun (last, index) ->
   maybe_correct tlog_dir new_c last index >>= fun (new_c,last,new_index) ->
-  Lwt_log.info_f "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
+  Lwt_log.debug_f "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg = 
     match last with
       | None -> "None"

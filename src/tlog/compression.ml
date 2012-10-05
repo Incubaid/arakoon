@@ -31,7 +31,7 @@ let tlog_name archive_name =
   String.sub archive_name 0 (len-4)
     
 let compress_tlog tlog_name archive_name =
-  let limit = 896 * 1024 in
+  let limit = 8 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
     (fun ic ->
