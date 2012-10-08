@@ -105,16 +105,6 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
     
 open Mp_msg
     
-let _check_tlogs collection tlog_dir =
-  Lwt_log.info_f "checking tlog directory: %s" tlog_dir >>= fun () ->
-  collection # validate_last_tlog () >>= fun (validity, last_eo, index) ->
-  begin
-    match last_eo with
-      | None -> (Lwt_log.info_f "tlog is empty" )
-      | Some e  -> Lwt_log.info_f "tlog's last i = %s" (Sn.string_of (Entry.i_of e))
-  end >>= fun () ->
-  Lwt.return last_eo
-    
     
 let _config_service cfg backend=
   let port = cfg.client_port in
@@ -410,6 +400,14 @@ let _main_2
             )
           >>= fun () ->
           make_store db_name >>= fun (store:Store.store) ->
+          store # consensus_i () >>= fun store_i ->
+          let s_i = 
+            begin
+		      match store_i with
+		        | Some i -> i
+		        | None -> Sn.start
+            end
+          in
 	      Lwt.catch
 	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
 	        (function 
@@ -423,13 +421,6 @@ let _main_2
                                                   (Sn.of_int last_c) )
 		              | _ -> tlog_i 
                   end 
-                in
-                let s_i = 
-                  begin
-		            match store_i with
-		              | Some i -> i
-		              | None -> Sn.start
-                  end
                 in
                 begin
                   Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
@@ -454,14 +445,11 @@ let _main_2
                   | ex -> Lwt.fail ex 
 	        )
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-	      _check_tlogs tlog_coll me.tlog_dir >>= fun last_eo ->
-	      let current_i,last_io = match last_eo with
-	        | None -> Sn.start , None
-	        | Some e -> let i = Entry.i_of e in i , Some i
-	      in
+          tlog_coll # get_last_i () >>= fun last_i ->
+          let ti_o = if last_i = Sn.start then None else Some last_i in
 	      Catchup.verify_n_catchup_store me.node_name 
-	        (store, tlog_coll, last_io) 
-	        current_i master 
+	        (store, tlog_coll, ti_o) 
+	        s_i master 
 	      >>= fun (new_i, vo) ->
 	      
 	      let client_buffer =

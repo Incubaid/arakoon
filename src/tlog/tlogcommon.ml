@@ -30,6 +30,8 @@ module Entry = struct
   let i_of t = t.i
   let u_of t = t.u
   let p_of t = t.p
+
+  let entry2s t = Printf.sprintf "{i=%s;u=%S;p=%Li}" (Sn.string_of t.i) (Update.string_of t.u) t.p
 end
 
 exception TLogCheckSumError of Int64.t
