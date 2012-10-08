@@ -75,8 +75,10 @@ if prev_version_dir_server is None:
     print '\n\nNo previous versions of arakoon found in metadata repo. Aborting...\n\n'
     sys.exit(255) 
 
-def get_arakoon_codemanagement_tasklet(branch):
-    return """import pymonkey.config.IConfigBase
+template = """
+import pymonkey.config.IConfigBase
+
+
     
 __author__ = 'incubaid'
 __tags__   = 'codemanagement',
@@ -92,7 +94,7 @@ def main(q, i, params, tags):
     
     q.logger.log( "Checking out %%s %%s from bitbucket.org" %% (qpackage.name, qpackage.version) )
     
-    packageDir = "%%s-%%s" %% (qpackage.name, qpackage.version)
+    packageDir = "%%s-%%s" % (qpackage.name, qpackage.version)
     targetDirectory = q.system.fs.joinPaths( q.dirs.tmpDir, packageDir )
     
     recipe = HgRecipe()
@@ -111,19 +113,18 @@ def main(q, i, params, tags):
         q.logger.log( "Removing directory %%s" %% targetDirectory )
         q.system.fs.removeDirTree ( targetDirectory )
     
-    connection.clone()
     recipe.addRepository( connection )    
-    recipe.addSource( connection, ".", targetDirectory, srcRepoBranch )
+    recipe.addSource( connection, "src/client/python", q.system.fs.joinPaths(targetDirectory, 'src'), srcRepoBranch )
+    recipe.addSource( connection, "extension/client", q.system.fs.joinPaths(targetDirectory, 'extension'), srcRepoBranch )
     recipe.executeTaskletAction( params['action'] )
-   
-     # Copy over the .hg directory so version info is maintained
-    hgSrcDir = q.system.fs.joinPaths( q.dirs.varDir, "hg", "arakoon", ".hg" )
-    q.system.fs.copyDirTree( hgSrcDir, q.system.fs.joinPaths( targetDirectory, ".hg" ) )
-    cmd = "hg up -C -r %%s" %% srcRepoBranch
-    q.system.process.run ( cmd, cwd=targetDirectory )
-        
+    
     q.logger.log( "Checkout complete" ) 
-""" % {'branch': branch}
+
+"""
+
+def get_arakoon_codemanagement_tasklet(branch):
+    tasklet = template % {'branch' : branch}
+    return tasklet
 
 def createNewPackage( package_name, package_description, old_version, new_version) :
     pkg = q.qp.createNewQPackage( 'pylabs.org', package_name, new_version, package_description , ['linux64'] )
