@@ -50,7 +50,7 @@ let test_interval() =
   let u0 = Update.SetInterval r0 in
   let u0' = _b2b u0 in
   _cmp u0 u0';
-  let r1 = ((Some "b",Some "k"),(Some "a",Some "z")) in
+  let r1 = Interval.make (Some "b") (Some "k") (Some "a") (Some "z") in
   let u1 = Update.SetInterval r1 in
   let u1' = _b2b u1 in
   _cmp u1 u1'

@@ -88,7 +88,7 @@ let range_ kv first finc last linc max =
 class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
   val mutable _routing = (None: Routing.t option)
-  val mutable _interval = ((None, None),(None, None) : Interval.t)
+  val mutable _interval = Interval.max
 
   method optimize_db () =
     Lwt.return () 

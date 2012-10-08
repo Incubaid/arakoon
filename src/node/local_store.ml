@@ -580,9 +580,7 @@ object(self: #store)
 	Lwt.return ()
       )
 
-  method get_interval () =
-    Lwt_log.debug "get_interval" >>= fun ()->
-    Lwt.return _interval
+  method get_interval () = Lwt.return _interval
 
   method get_routing () =
     Lwt_log.debug "get_routing " >>= fun () ->

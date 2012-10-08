@@ -136,7 +136,6 @@ object(self: #backend)
 	  | ext -> Lwt.fail ext)
 
   method get_interval () =
-    log_o self "get_interval" >>= fun () ->
     self # _read_allowed false >>= fun () ->
     store # get_interval ()
 

@@ -176,7 +176,8 @@ module NC = struct
     get_interval from_cn >>= fun from_i -> 
     Lwt_log.debug_f "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
-    let rec loop from_i to_i =
+    let open Interval in
+    let rec loop (from_i:Interval.t) (to_i:Interval.t) =
       pull () >>= fun fringe ->
       match fringe with
         | [] -> 
@@ -193,8 +194,16 @@ module NC = struct
 	         - change public interval 'to'
 	         - publish new route.
           *)
-          let (fpu_b,fpu_e),(fpr_b,fpr_e) = from_i in
-          let (tpu_b,tpu_e),(tpr_b,tpr_e) = to_i in
+          let fpu_b = from_i.pu_b
+          and fpu_e = from_i.pu_e
+          and fpr_b = from_i.pr_b
+          and fpr_e = from_i.pr_e
+          in
+          let tpu_b = to_i.pu_b
+          and tpu_e = to_i.pu_e
+          and tpr_b = to_i.pr_b
+          and tpr_e = to_i.pr_e
+          in
           begin 
             match direction with
               | Routing.UPPER_BOUND -> 
@@ -259,21 +268,31 @@ module NC = struct
       end 
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
+    let open Interval in
     let finalize (from_i: Interval.t) (to_i: Interval.t) = 
       Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
-      let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
-      let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
+
+      let fpu_b = from_i.pu_b
+      and fpu_e = from_i.pu_e
+      and fpr_b = from_i.pr_b
+      and fpr_e = from_i.pr_e
+      in
+      let tpu_b = to_i.pu_b
+      and tpu_e = to_i.pu_e
+      and tpr_b = to_i.pr_b
+      and tpr_e = to_i.pr_e
+      in
       let (from_i', to_i', left, right) = 
         begin
           match direction with
             | Routing.UPPER_BOUND ->
-              let from_i' = (Some sep, fpu_e), (Some sep, fpr_e) in
-              let to_i' = (tpu_b, Some sep), (tpr_b, Some sep) in
+              let from_i' = Interval.make (Some sep) fpu_e (Some sep) fpr_e in
+              let to_i'   = Interval.make tpu_b (Some sep) tpr_b (Some sep) in
               from_i', to_i', to_cn, from_cn
              
             | Routing.LOWER_BOUND ->
-              let from_i' = (fpu_b, Some sep), (fpr_b, Some sep) in
-              let to_i' = (Some sep, tpu_e), (Some sep, tpr_e) in
+              let from_i' = Interval.make fpu_b (Some sep) fpr_b (Some sep) in
+              let to_i'   = Interval.make (Some sep) tpu_e (Some sep) tpr_e in
               from_i', to_i', from_cn, to_cn
         end 
       in
@@ -311,21 +330,30 @@ module NC = struct
       end 
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
+    let open Interval in
     let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) = 
       Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
-      let (fpu_b, fpu_e), (fpr_b, fpr_e) = from_i in
-      let (tpu_b, tpu_e), (tpr_b, tpr_e) = to_i in
+      let fpu_b = from_i.pu_b
+      and fpu_e = from_i.pu_e
+      and fpr_b = from_i.pr_b
+      and fpr_e = from_i.pr_e
+      in
+      let tpu_b = to_i.pu_b
+      and tpu_e = to_i.pu_e
+      and tpr_b = to_i.pr_b
+      and tpr_e = to_i.pr_e
+      in
       let (from_i', to_i', left, right) = 
         begin
           match direction with
             | Routing.UPPER_BOUND ->
-              let from_i' = (sep, fpu_e), (sep, fpr_e) in
-              let to_i' = (tpu_b, sep), (tpr_b, sep) in
+              let from_i' = Interval.make sep fpu_e sep fpr_e in
+              let to_i' = Interval.make tpu_b sep  tpr_b sep  in
               from_i', to_i', to_cn, from_cn
              
             | Routing.LOWER_BOUND ->
-              let from_i' = (fpu_b, sep), (fpr_b, sep) in
-              let to_i' = (sep, tpu_e), (sep, tpr_e) in
+              let from_i' = Interval.make fpu_b sep fpr_b sep in
+              let to_i' = Interval.make sep tpu_e sep tpr_e   in
               from_i', to_i', from_cn, to_cn
         end 
       in
@@ -431,8 +459,8 @@ let nursery_test_main () =
 	NC.set nc k v >>= fun () -> 
 	fill (i-1)
     in
-    let left_i  = Interval.make None None None None    (* all *)
-    and right_i = Interval.make None None None None in (* all *)
+    let left_i  = Interval.max    (* all *)
+    and right_i = Interval.max in (* all *)
     NC.force_interval nc "left" left_i >>= fun () ->
     NC.force_interval nc "right" right_i >>= fun () ->
     fill 90 >>= fun () ->

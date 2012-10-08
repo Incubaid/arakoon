@@ -1,6 +1,7 @@
 open Lwt
 open Routing
 open Node_cfg.Node_cfg
+open Interval
 
 let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
   Lwt.catch
@@ -14,13 +15,10 @@ let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
       | e ->         Lwt_io.printlf "%s : %s" name (Printexc.to_string e)
     )
 
-let _interval2s ((a,b), (c,d)) = 
-  let so2s so = Log_extra.string_option2s so in
-  Printf.sprintf "(%s,%s) (%s,%s)" (so2s a) (so2s b) (so2s c) (so2s d)
 
 let _dump_routing store =  try_fetch "routing" (store # get_routing) Routing.to_s
 
-let _dump_interval store = try_fetch "interval" (store # get_interval) _interval2s
+let _dump_interval store = try_fetch "interval" (store # get_interval) Interval.to_string
 
 let summary store =
   store # consensus_i () >>= fun consensus_i ->
