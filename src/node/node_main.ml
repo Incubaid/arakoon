@@ -447,9 +447,10 @@ let _main_2
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           tlog_coll # get_last_i () >>= fun last_i ->
           let ti_o = Some last_i in
+          let current_i = last_i in (* ?? *)
 	      Catchup.verify_n_catchup_store me.node_name 
 	        (store, tlog_coll, ti_o) 
-	        s_i master 
+	        ~current_i master 
 	      >>= fun (new_i, vo) ->
 	      
 	      let client_buffer =

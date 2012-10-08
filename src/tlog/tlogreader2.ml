@@ -77,13 +77,13 @@ module Index = struct
     match index with
       | None -> "None"
       | Some idxr ->
-        let s =
-          match idxr.mapping with
-            | [] -> "[]"
-            | (i,p) :: _ -> Printf.sprintf "(%s,%Li)::<%i items >::[]" 
-              (Sn.string_of i) p (List.length idxr.mapping -1)
+        let s = 
+          String.concat "::"
+            (List.map (fun (i,p) -> 
+              Printf.sprintf "(%s,%Li)" (Sn.string_of i) p)
+               idxr.mapping)
         in
-        Printf.sprintf "{filename=%S;mapping=%s}" idxr.filename s
+        Printf.sprintf "Some {filename=%S;mapping=%s}" idxr.filename s
 end
 open Tlogcommon
 

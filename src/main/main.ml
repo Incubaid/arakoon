@@ -119,17 +119,18 @@ let dump_tlog filename ~values=
   let folder,_,index = Tlc2.folder_for filename None in
   
   let t =
-      begin
-	let do_it ic =
-	  let lowerI = Sn.start
-	  and higherI = None
-	  and first = Sn.of_int 0
-	  and a0 = () in
-	  folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
-	  Lwt.return 0
-	in
-	Lwt_io.with_file ~mode:Lwt_io.input filename do_it
-      end
+    begin
+	  let do_it ic =
+        
+	    let lowerI = Sn.start
+	    and higherI = None
+	    and first = Sn.of_int 0
+	    and a0 = () in
+	    folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
+	    Lwt.return 0
+	  in
+	  Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+    end
   in
   Lwt_main.run t
 

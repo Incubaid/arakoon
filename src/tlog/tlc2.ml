@@ -221,13 +221,14 @@ let get_count tlog_names =
 
 module F = struct
   type t = {oc:Lwt_io.output Lwt_io.channel;
+            oc_start: int64;
             fd:Lwt_unix.file_descr;
             fn:string;
             c: int;}
 
 
-  let make oc fd fn c = {oc;fd;fn;c}
-  let file_pos t = Lwt_io.position t.oc      
+  let make oc fd fn c oc_start = {oc;fd;fn;c;oc_start}
+  let file_pos t = Int64.add (Lwt_io.position t.oc) t.oc_start
   let fn_of t = t.fn
   let oc_of t = t.oc
   let fsync t = Lwt_unix.fsync t.fd
@@ -239,8 +240,11 @@ let _init_file tlog_dir c =
   let fn = file_name c in
   let full_name = Filename.concat tlog_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
+  Lwt_unix.LargeFile.fstat fd >>= fun stats ->
+  let pos0 = stats.st_size in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
-  let f = F.make oc fd fn c in
+  Lwt_log.debug_f "_init_file pos0 : %Li" pos0 >>= fun () ->
+  let f = F.make oc fd fn c pos0 in
   Lwt.return f
 
 
