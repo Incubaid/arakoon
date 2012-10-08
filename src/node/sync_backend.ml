@@ -467,8 +467,6 @@ object(self: #backend)
 	    | ReadOnly -> Some my_name, "readonly"
 
     in
-    log_o self "master:%s (%s)" (string_option2s result) argumentation
-    >>= fun () ->
     Lwt.return result
 
   method private _not_if_master() =
