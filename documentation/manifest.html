@@ -359,11 +359,6 @@ else, it behaves as a set.</p>
 <p>You can remove a key/value pair.
 There was a suggestion to open this op to allow a regular expression.</p>
 </div>
-<div class="section" id="delete-prefix-key-int-c-t">
-<h4>delete_prefix: key -&gt; int C.t<a class="headerlink" href="#delete-prefix-key-int-c-t" title="Permalink to this headline">¶</a></h4>
-<p><em>delete_prefix p</em> removes all key/value pairs for which the key starts with <em>p</em>.
-The number of deleted pairs is returned.</p>
-</div>
 <div class="section" id="test-and-set-key-value-option-value-option-value-option-c-t">
 <h4>test_and_set : key -&gt; value option -&gt; value option -&gt; (value option) C.t<a class="headerlink" href="#test-and-set-key-value-option-value-option-value-option-c-t" title="Permalink to this headline">¶</a></h4>
 <p>This is a careful update.</p>
@@ -817,9 +812,6 @@ If a failure happens, the server writes out a return code different from zero, a
 <tr class="row-odd"><td>synced_sequence</td>
 <td>0x0000 0024</td>
 </tr>
-<tr class="row-even"><td>delete_prefix</td>
-<td>0x0000 0027</td>
-</tr>
 </tbody>
 </table>
 <table border="1" class="docutils">
@@ -1162,8 +1154,8 @@ node_is: }</pre>
 <p>The names of the entries in the statistics are explained in the table below</p>
 <table border="1" class="docutils">
 <colgroup>
-<col width="29%" />
-<col width="71%" />
+<col width="30%" />
+<col width="70%" />
 </colgroup>
 <thead valign="bottom">
 <tr class="row-odd"><th class="head">item</th>
@@ -1195,47 +1187,29 @@ node_is: }</pre>
 <tr class="row-odd"><td>tas_info</td>
 <td>... &#8216;test_and_set&#8217; ...</td>
 </tr>
-<tr class="row-even"><td>prefix_info</td>
-<td>... &#8216;prefix&#8217; ...</td>
-</tr>
-<tr class="row-odd"><td>range_info</td>
-<td>... &#8216;range&#8217; ...</td>
-</tr>
-<tr class="row-even"><td>delete_prefix_info</td>
-<td>... &#8216;delete_prefix_info&#8217; ...</td>
-</tr>
-<tr class="row-odd"><td>ops_info</td>
+<tr class="row-even"><td>ops_info</td>
 <td>information about all operations</td>
 </tr>
-<tr class="row-even"><td>n</td>
+<tr class="row-odd"><td>n</td>
 <td>number of times the operation was performed</td>
 </tr>
-<tr class="row-odd"><td>min</td>
+<tr class="row-even"><td>min</td>
 <td>the lowest execution time measured for that operation</td>
 </tr>
-<tr class="row-even"><td>max</td>
+<tr class="row-odd"><td>max</td>
 <td>the highest execution time measured for that operation</td>
 </tr>
-<tr class="row-odd"><td>avg</td>
+<tr class="row-even"><td>avg</td>
 <td>average of measured execution times</td>
 </tr>
-<tr class="row-even"><td>dev</td>
+<tr class="row-odd"><td>dev</td>
 <td>deviation of measured execution times</td>
 </tr>
-<tr class="row-odd"><td>avg_set_size</td>
+<tr class="row-even"><td>avg_set_size</td>
 <td>average size of values in updates</td>
 </tr>
-<tr class="row-even"><td>avg_get_size</td>
+<tr class="row-odd"><td>avg_get_size</td>
 <td>average size of values in gets</td>
-</tr>
-<tr class="row-odd"><td>avg_range_size</td>
-<td>average number of results in &#8216;range&#8217; queries</td>
-</tr>
-<tr class="row-even"><td>avg_prefix_size</td>
-<td>average number of results in &#8216;prefix&#8217; queries</td>
-</tr>
-<tr class="row-odd"><td>avg_del_prefix</td>
-<td>average number of keys deleted in &#8216;delete_prefix&#8217; queries</td>
 </tr>
 </tbody>
 </table>
