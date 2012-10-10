@@ -255,6 +255,7 @@ ARA_ERR_NOT_FOUND = 5
 ARA_ERR_WRONG_CLUSTER = 6
 ARA_ERR_ASSERTION_FAILED = 7
 ARA_ERR_RANGE_ERROR = 9
+ARA_ERR_GOING_DOWN = 16
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -634,7 +635,8 @@ class ArakoonProtocol :
             raise ArakoonAssertionFailed(errorMsg)    
         if errorCode == ARA_ERR_RANGE_ERROR:
             raise NurseryRangeError(errorMsg) 
-           
+        if errorCode == ARA_ERR_GOING_DOWN:
+            raise ArakoonGoingDown(errorMsg)
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 

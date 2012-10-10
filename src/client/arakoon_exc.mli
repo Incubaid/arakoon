@@ -10,6 +10,7 @@ type rc =
   | E_ASSERTION_FAILED
   | E_READ_ONLY
   | E_OUTSIDE_INTERVAL
+  | E_GOING_DOWN
   | E_UNKNOWN_FAILURE
 
 val int32_of_rc : rc -> int32

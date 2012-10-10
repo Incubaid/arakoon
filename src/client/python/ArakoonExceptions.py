@@ -77,7 +77,9 @@ class ArakoonAssertionFailed(ArakoonException):
     def __init__(self,msg):
         ArakoonException.__init__(self,msg)
 
-
+class ArakoonGoingDown(ArakoonException):
+    _msg = "Server is going down"
+    
 class ArakoonSocketException ( ArakoonException ):
     pass
 

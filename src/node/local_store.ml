@@ -345,6 +345,7 @@ object(self: #store)
   val mutable _mlo = mlo
   val mutable _quiesced = false
   val mutable _store_i = store_i
+  val mutable _closed = false (* set when close method is called *)
 
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
@@ -489,8 +490,12 @@ object(self: #store)
     Lwt.catch
       (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set _pf db key value; Lwt.return ()))
       (function
-	| Failure _ -> Lwt.fail Server.FOOBAR
-	| exn -> Lwt.fail exn)
+	    | Failure s -> 
+          Lwt_log.debug_f "Failure %s: => FOOBAR? %b" s _closed >>= fun () ->
+          if _closed 
+          then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+          else Lwt.fail Server.FOOBAR
+	    | exn -> Lwt.fail exn)
 
   method set_master master lease =
     _tx_with_incr (self # _incr_i_cached) db
@@ -549,6 +554,7 @@ object(self: #store)
   method close () =
     Hotc.close db >>= fun () ->
     Lwt_log.info_f "local_store %S :: closed  () " db_location >>= fun () ->
+    _closed <- true;
     Lwt.return ()
 
   method get_location () = Hotc.filename db

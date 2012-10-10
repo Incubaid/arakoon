@@ -228,7 +228,8 @@ module F = struct
 
 
   let make oc fd fn c oc_start = {oc;fd;fn;c;oc_start}
-  let file_pos t = Int64.add (Lwt_io.position t.oc) t.oc_start
+  let file_pos t = Int64.add (Lwt_io.position t.oc) t.oc_start 
+      (* the channel always starts at pos 0, even if it's a file that was opened in append mode *)
   let fn_of t = t.fn
   let oc_of t = t.oc
   let fsync t = Lwt_unix.fsync t.fd

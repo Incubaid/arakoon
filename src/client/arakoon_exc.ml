@@ -32,6 +32,7 @@ type rc =
   | E_ASSERTION_FAILED
   | E_READ_ONLY
   | E_OUTSIDE_INTERVAL
+  | E_GOING_DOWN
   | E_UNKNOWN_FAILURE
 
 let int32_of_rc = function
@@ -45,6 +46,7 @@ let int32_of_rc = function
   | E_ASSERTION_FAILED    -> 0x07l
   | E_READ_ONLY           -> 0x08l
   | E_OUTSIDE_INTERVAL    -> 0x09l
+  | E_GOING_DOWN          -> 0x10l
   | E_UNKNOWN_FAILURE     -> 0xffl
 
 let rc_of_int32 = function
@@ -58,6 +60,7 @@ let rc_of_int32 = function
   | 0x07l -> E_ASSERTION_FAILED
   | 0x08l -> E_READ_ONLY
   | 0x09l -> E_OUTSIDE_INTERVAL
+  | 0x10l -> E_GOING_DOWN
   | 0xffl -> E_UNKNOWN_FAILURE
   | _     -> E_UNKNOWN_FAILURE
 
