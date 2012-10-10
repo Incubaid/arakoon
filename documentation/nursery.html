@@ -1,0 +1,311 @@
+
+
+<!DOCTYPE html>
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  <title>Arakoon :: Arakoon Nursery</title>
+
+    
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
+    <link rel="next" title="Arakoon OCaml Client" href="arakoon_ocaml_client.html" />
+    <link rel="prev" title="Managing Arakoon" href="managing_arakoon.html" />
+  <meta name="description"
+    content="Arakoon is a distributed, consistent key-value store">
+
+  <link href="_static/bootstrap.css" rel="stylesheet" />
+  <link href="_static/site-style.css" rel="stylesheet" />
+
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-27966654-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+  <style type='text/css'>
+    footer {
+      margin-top: 20px;
+    }
+  </style>
+
+  </head>
+  <body>
+  <header>
+    <div class="topbar">
+      <div class='container'>
+              <a href='http://arakoon.org'>
+          <img alt='Arakoon' title='Arakoon Logo' src='_static/logo.png' id='logo' />
+        </a>
+      </div>
+
+      <div class="fill">
+        <div class="container">
+        <nav>
+          <ul class="nav">
+            <li><a href="http://arakoon.org">Home</a></li>
+            <li><a href="http://arakoon.org/download.html">Download</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
+            <li><a href="http://arakoon.org/contact.html">Contact</a></li>
+          </ul>
+        </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" id='main'>
+    
+  <div class="section" id="arakoon-nursery">
+<h1>Arakoon Nursery<a class="headerlink" href="#arakoon-nursery" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introducing-arakoon-nursery">
+<h2>Introducing Arakoon Nursery<a class="headerlink" href="#introducing-arakoon-nursery" title="Permalink to this headline">¶</a></h2>
+<p>A normal Arakoon cluster is limited to the size of a physical disk in your cluster, because the Arakoon database can never grow beyond the size of the disk that it hosts.</p>
+<p>If the Arakoon database risks to grow beyond the host disk size, you can use the <strong>nursery</strong> functionality. The nursery function allows you to create a cluster-like setup of multiple Arakoon clusters.</p>
+<p>As opposed to a real cluster, each Arakoon cluster in the nursery setup contains only a part of the data.</p>
+<p>You can compare a nursery setup with an old encyclopedia in book form. Those encyclopedias were divided in a couple of volumes, divided in an alphabetical way. One volume can then be considered as one Arakoon cluster in a nursery setup. For example volume one contains the information in a range from A to C, volume two from D to F, and so on.
+With Arakoon nursery we do exactly the same. We define the range of keys that must be stored in an Arakoon cluster. To define this range, the clusters are separated by strings. In the example below you can see a three-cluster nursery setup.</p>
+<img alt="_images/ArakoonNursery.png" src="_images/ArakoonNursery.png" style="width: 500pt;" />
+<p>A separator divides two clusters, where in the left cluster the separator is excluded, in the right cluster it is included. In the example &#8216;J&#8217; is excluded from Arakoon Cluster 1, but included in Arakoon Cluster 2, similar for &#8216;R&#8217;, which is excluded from cluster 2, but included in cluster 3.</p>
+<p>Cluster one and three are also referred to as the <em>Boundary</em> clusters.</p>
+</div>
+<div class="section" id="nursery-functional">
+<h2>Nursery: Functional<a class="headerlink" href="#nursery-functional" title="Permalink to this headline">¶</a></h2>
+<p>A nursery setup consists of at least two Arakoon clusters. One cluster in the nursery setup will have the role of <em>Nursery Keeper</em> (NK). The NK is responsible for the segmentation of the nursery setup. It has the knowledge which information belongs to which Arakoon cluster.</p>
+<p>Instead of using the Arakoon client directly, you can use the nursery client to execute transactions. Since the nursery client is aware of the complete Nursery setup, he directs the transactions to the proper Arakoon client as shown below. The nursery client has the same functions as the regular Arakoon client, but be aware that this client is only available through the :doc: <cite>Nursery Pylabs Client &lt;pylabs/nursery_pylabs_client&gt;</cite>.</p>
+<img alt="_images/ArakoonNurseryTransaction.png" src="_images/ArakoonNurseryTransaction.png" style="width: 500pt;" />
+<p>The transaction itself remains identical to a transaction on a normal Arakoon cluster.</p>
+</div>
+<div class="section" id="general-steps-to-set-up-arakoon-nursery">
+<h2>General Steps to Set Up Arakoon Nursery<a class="headerlink" href="#general-steps-to-set-up-arakoon-nursery" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li>Create Arakoon clusters</li>
+<li>Generate client configuration for the clusters.</li>
+<li>Define the Nursery Keeper on one of the Arakoon clusters.</li>
+<li>Initialize the Nursery Keeper.</li>
+<li>Add the other clusters to the Nursery Keeper</li>
+<li>Define the ranges of the clusters</li>
+</ol>
+</div>
+<div class="section" id="commandline">
+<h2>Commandline<a class="headerlink" href="#commandline" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="setting-up-one-cluster-nursery">
+<h3>Setting Up One Cluster Nursery<a class="headerlink" href="#setting-up-one-cluster-nursery" title="Permalink to this headline">¶</a></h3>
+<p>1. Create an Arakoon cluster, the example below shows a setup with three nodes.
+For more information about the configuration file, see <a class="reference external" href="http://arakoon.org/documentation/arakoon_configuration.html">http://arakoon.org/documentation/arakoon_configuration.html</a></p>
+<blockquote>
+<div><div class="highlight-python"><pre>[global]
+cluster = Cluster_Left_0, Cluster_Left_1, Cluster_Left_2
+cluster_id = arakoonleft
+
+[Cluster_Left_0]
+ip = 127.0.0.1
+client_port = 7080
+messaging_port = 10000
+home = /tmp/arakoonleft/Cluster_Left_0
+log_dir = /tmp/arakoonleft/Cluster_Left_0
+log_level = debug
+
+[Cluster_Left_1]
+ip = 127.0.0.1
+client_port = 7081
+messaging_port = 10001
+home = /tmp/arakoonleft/Cluster_Left_1
+log_dir = /tmp/arakoonleft/Cluster_Left_1
+log_level = debug
+
+[Cluster_Left_2]
+ip = 127.0.0.1
+client_port = 7082
+messaging_port = 10002
+home = /tmp/arakoonleft/Cluster_Left_2
+log_dir = /tmp/arakoonleft/Cluster_Left_2
+log_level = debug</pre>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li>Create the directories that are defined in the configuration file.</li>
+<li>Start Arakoon nodes: <tt class="docutils literal"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">0</span> <span class="pre">1</span> <span class="pre">2;</span> <span class="pre">do</span> <span class="pre">arakoon</span> <span class="pre">-daemonize</span> <span class="pre">-config</span> <span class="pre">/path/to/arakoonconfig/arakoonleft.ini</span> <span class="pre">--node</span> <span class="pre">Cluster_Left_$i;</span> <span class="pre">done</span></tt></li>
+<li>Check if everything works by adding and retrieving a key-pair in your Arakoon setup. In this example we assume that your working directory is the one where you have stored your Arakoon configuration file.</li>
+</ol>
+<div class="highlight-python"><pre>arakoon -config arakoonleft.ini --set a foo
+
+arakoon -config arakoonleft.ini --get a
+This should return "foo", if not, your Arakoon setup is not configured correctly.</pre>
+</div>
+<ol class="arabic" start="5">
+<li><p class="first">To make this cluster the Nursery Keeper (NK), add the following lines to your Arakoon configuration file.</p>
+<blockquote>
+<div><ol class="lowerroman simple">
+<li>The section is always called &#8216;nursery&#8217;.</li>
+<li><em>cluster_id</em>: the cluster_id as defined in the section [global].</li>
+<li><em>cluster</em>: the nodes that are used for the NK.</li>
+</ol>
+<div class="highlight-python"><div class="highlight"><pre><span class="p">[</span><span class="n">nursery</span><span class="p">]</span>
+<span class="n">cluster_id</span> <span class="o">=</span> <span class="n">arakoonleft</span>
+<span class="n">cluster</span> <span class="o">=</span> <span class="n">Cluster_Left_0</span><span class="p">,</span> <span class="n">Cluster_Left_1</span><span class="p">,</span> <span class="n">Cluster_Left_2</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+<p>6. Initialize the nursery setup: <tt class="docutils literal"><span class="pre">arakoon</span> <span class="pre">-config</span> <span class="pre">arakoonleft.ini</span> <span class="pre">--nursery-init</span> <span class="pre">arakoonleft</span></tt>
+The nursery setup now contains one cluster, which is identical to just one cluster.</p>
+</div>
+<div class="section" id="adding-a-cluster-to-a-nursery-setup">
+<h3>Adding a Cluster to a Nursery Setup<a class="headerlink" href="#adding-a-cluster-to-a-nursery-setup" title="Permalink to this headline">¶</a></h3>
+<p>1. Create another Arakoon cluster. The example below shows an identical setup as cluster one.
+Again a nursery section is created.</p>
+<blockquote>
+<div><ol class="lowerroman simple">
+<li>cluster_id: the id of the Arakoon cluster that has the role of NK</li>
+<li>cluster: the nodes of the Arakoon cluster that are included for the NK</li>
+</ol>
+</div></blockquote>
+<p>For each node, create a new section with its IP and client port.</p>
+<div class="highlight-python"><pre>[global]
+cluster = Cluster_Right_0, Cluster_Right_1, Cluster_Right_2
+cluster_id = arakoonright
+
+[Cluster_Right_0]
+ip = 127.0.0.1
+client_port = 7180
+messaging_port = 10100
+home = /tmp/arakoonright/Cluster_Right_0
+log_dir = /tmp/arakoonright/Cluster_Right_0
+log_level = debug
+
+[Cluster_Right_1]
+ip = 127.0.0.1
+client_port = 7181
+messaging_port = 10101
+home = /tmp/arakoonright/Cluster_Right_1
+log_dir = /tmp/arakoonright/Cluster_Right_1
+log_level = debug
+
+[Cluster_Right_2]
+ip = 127.0.0.1
+client_port = 7182
+messaging_port = 10102
+home = /tmp/arakoonright/Cluster_Right_2
+log_dir = /tmp/arakoonright/Cluster_Right_2
+log_level = debug
+
+[nursery]
+cluster_id = arakoonleft
+cluster = Cluster_Left_0, Cluster_Left_1, Cluster_Left_2
+
+[Cluster_Left_0]
+ip = 127.0.0.1
+client_port = 7080
+
+[Cluster_Left_1]
+ip = 127.0.0.1
+client_port = 7081
+
+[Cluster_Left_2]
+ip = 127.0.0.1
+client_port = 7082</pre>
+</div>
+<ol class="arabic simple" start="2">
+<li>Start all nodes of your new cluster: <tt class="docutils literal"><span class="pre">for</span> <span class="pre">i</span> <span class="pre">in</span> <span class="pre">0</span> <span class="pre">1</span> <span class="pre">2;</span> <span class="pre">do</span> <span class="pre">arakoon</span> <span class="pre">-daemonize</span> <span class="pre">-config</span> <span class="pre">/opt/arakoon/cfg/arakoonright.ini</span>&nbsp; <span class="pre">--node</span> <span class="pre">Cluster_Right_$i;</span> <span class="pre">done</span></tt></li>
+<li>Set a limiter between the two clusters. For example, all keys that are greater than &#8216;n&#8217; (included), must be stored in this new cluster: <tt class="docutils literal"><span class="pre">arakoon</span> <span class="pre">-config</span> <span class="pre">/opt/arakoon/cfg/arakoonleft.ini</span> <span class="pre">--nursery-migrate</span> <span class="pre">arakoonleft</span> <span class="pre">n</span> <span class="pre">arakoonright</span></tt></li>
+</ol>
+<p>The separator separates two clusters where the used separator is always included in the right cluster, in this example &#8216;arakoonright&#8217;.</p>
+</div>
+</div>
+<div class="section" id="adding-an-arakoon-cluster-to-existing-nursery-setup">
+<h2>Adding An Arakoon Cluster to Existing Nursery Setup<a class="headerlink" href="#adding-an-arakoon-cluster-to-existing-nursery-setup" title="Permalink to this headline">¶</a></h2>
+<p>When you want to add an Arakoon cluster, you have three different situations:</p>
+<ol class="arabic simple">
+<li>the new Arakoon cluster is added in front of the nursery setup (before arakoonleft)</li>
+<li>the new Arakoon cluster is added somewhere in the middle (f.e. between arakoonleft and arakoonright)</li>
+<li>the new Arakoon cluster is added at the end of the nursery setup (after arakoonright)</li>
+</ol>
+<p>In all situations, you only need to migrate once.</p>
+<p>When you add your new cluster in between two existing clusters, you also need to migrate only once. This is because the starting point of the cluster on the right automatically becomes the end-point of the new cluster. In this case you set a new end-point for your cluster on the left, which is then the new starting point of the new cluster.</p>
+<p>Examples:</p>
+<div class="highlight-python"><pre>#at the beginning:
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonfront f arakoonleft
+
+#at the end:
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonright v arakoonend
+
+#between arakoonleft and arakoonright
+#set endpoint 'n' from arakoonleft to 'j'
+arakoon -config /opt/arakoon/cfg/arakoonleft.ini --nursery-migrate arakoonleft j arakooninsert</pre>
+</div>
+</div>
+<div class="section" id="deleting-a-cluster-from-a-nursery-setup">
+<h2>Deleting a Cluster from a Nursery Setup<a class="headerlink" href="#deleting-a-cluster-from-a-nursery-setup" title="Permalink to this headline">¶</a></h2>
+<p>Besides adding a new Arakoon cluster to a nursery setup, you can also delete a cluster from it. Via the nursery keeper, you can perform this action.</p>
+<p>There is a difference between removing a boundary cluster and a cluster in between clusters. In case of a non-boundary cluster you have to provide a separator to the function.</p>
+<p>Remove a boundary cluster:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonfront</span>
+<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakoonend</span>
+</pre></div>
+</div>
+<p>The adjacent cluster automatically adjusts its new start or end key.</p>
+<p>Remove a cluster from in between other clusters:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">j</span>
+<span class="c"># or</span>
+<span class="n">arakoon</span> <span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">arakoon</span><span class="o">/</span><span class="n">cfg</span><span class="o">/</span><span class="n">arakoonleft</span><span class="o">.</span><span class="n">ini</span> <span class="o">--</span><span class="n">nursery</span><span class="o">-</span><span class="n">delete</span> <span class="n">arakooninsert</span> <span class="n">n</span>
+</pre></div>
+</div>
+<p>Seen from a functional point of view, it is not important which separator you use for deleting an in-the-middle cluster. Seen from a load-balancing point of view, there is a big difference.</p>
+<p>When using the starting point, the cluster on the left will be loaded with the data of the deleted cluster.
+When using the end point, the cluster on the right will take the data of the deleted cluster.</p>
+</div>
+</div>
+
+
+  </div>
+
+  <div class='container'>
+    <footer>
+      <div class='row'>
+        <div class='span-one-third'>
+          <p>&copy; 2012, Incubaid BVBA</p>
+        </div>
+        <div class='span-two-thirds'>
+          <p class='pull-right'>
+            <a href='http://arakoon.org/disclaimer.html'>Disclaimer</a>
+            |
+            <a href='http://arakoon.org/privacy_policy.html'>Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  </body>
+</html>
