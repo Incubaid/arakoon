@@ -350,6 +350,20 @@ object(self: #store)
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
 
+  method private _wrap_exception name (f:unit -> 'a Lwt.t) = 
+    Lwt.catch
+      f 
+      (function
+	    | Failure s -> 
+          begin
+            Lwt_log.debug_f "%s Failure %s: => FOOBAR? %b" name s _closed >>= fun () ->
+            if _closed 
+            then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+            else Lwt.fail Server.FOOBAR
+          end
+	    | exn -> Lwt.fail exn)    
+
+
   method quiesce () =
     begin
       if _quiesced then
@@ -487,22 +501,15 @@ object(self: #store)
 	  Lwt.return keys_list
 
   method set ?(_pf=__prefix) key value =
-    Lwt.catch
+    self # _wrap_exception "set"
       (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set _pf db key value; Lwt.return ()))
-      (function
-	    | Failure s -> 
-          Lwt_log.debug_f "Failure %s: => FOOBAR? %b" s _closed >>= fun () ->
-          if _closed 
-          then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
-          else Lwt.fail Server.FOOBAR
-	    | exn -> Lwt.fail exn)
 
   method set_master master lease =
     _tx_with_incr (self # _incr_i_cached) db
       (fun db ->
-	_set_master db master lease ;
-	_mlo <- Some (master,lease);
-	Lwt.return ()
+	    _set_master db master lease ;
+	    _mlo <- Some (master,lease);
+	    Lwt.return ()
       )
 
   method set_master_no_inc master lease =
@@ -518,7 +525,8 @@ object(self: #store)
   method who_master () = Lwt.return _mlo
 
   method delete ?(_pf=__prefix) key =
-    _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete _pf db key; Lwt.return ())
+    self # _wrap_exception "delete"
+      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete _pf db key; Lwt.return ()))
 
   method test_and_set ?(_pf=__prefix) key expected wanted =
     _tx_with_incr (self # _incr_i_cached) db

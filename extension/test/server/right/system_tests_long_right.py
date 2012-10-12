@@ -137,7 +137,10 @@ def test_restart_master_long ():
         Common.iterate_n_times( 100000, 
                                 Common.retrying_set_get_and_delete, 
                                 failure_max=2*restart_iter_cnt, 
-                                valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
+                                valid_exceptions=[ArakoonSockNotReadable,
+                                                  ArakoonNotFound,
+                                                  ArakoonGoingDown
+                                                  ] )
         
     def restart_loop (): 
         Common.delayed_master_restart_loop( restart_iter_cnt , 
