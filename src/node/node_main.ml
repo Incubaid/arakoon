@@ -581,7 +581,9 @@ let _main_2
 			             Lwt_log.info "got sigterm" >>= fun () ->
 			             Lwt_io.printlf "(stdout)got sigterm" >>= fun () ->
                          store # close () >>= fun () ->
-                         Lwt_log.fatal ">>> The car seems OK <<<"
+                         Lwt_log.fatal_f 
+                           ">>> Closing the store @ %S succeeded: everything seems OK <<<"
+                           (store # get_location ())
                         )
 			            ;
 		              ]
