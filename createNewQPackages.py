@@ -94,7 +94,7 @@ def main(q, i, params, tags):
     
     q.logger.log( "Checking out %%s %%s from bitbucket.org" %% (qpackage.name, qpackage.version) )
     
-    packageDir = "%%s-%%s" % (qpackage.name, qpackage.version)
+    packageDir = "%%s-%%s" %% (qpackage.name, qpackage.version)
     targetDirectory = q.system.fs.joinPaths( q.dirs.tmpDir, packageDir )
     
     recipe = HgRecipe()
@@ -164,12 +164,12 @@ def replace_deps( p, deps_to_replace):
 
 packages = list()
 
-
+tasklet_code = get_arakoon_codemanagement_tasklet(branch)
 p = createNewPackage('arakoon_client', 'Version %s of the arakoon client' % new_version, prev_version, new_version )
 packages.append(p)
 # Update codemanagement.py
 tasklet_path = fs.joinPaths(p.qpackage.getPathMetadata(), 'tasklets', 'codemanagement.py')
-q.system.fs.writeFile(tasklet_path, get_arakoon_codemanagement_tasklet(branch))
+q.system.fs.writeFile(tasklet_path, tasklet_code)
 
 p = createNewPackage('arakoon', 'Version %s of the arakoon key value store' % new_version, prev_version, new_version )
 replace_deps(p, ['arakoon_client'])
