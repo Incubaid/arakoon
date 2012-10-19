@@ -28,24 +28,24 @@ open Update
 
 let time_for_elections constants n' maybe_previous =
   begin
-  if ( constants.store # quiesced () ) then
-    Lwt.return false
-  else
-    begin
-		  let ns' = Sn.string_of n' in
-		  let last_accepted_lease () = 
-            let maybe_stored = constants.store # who_master() in 
-		    match maybe_stored with
-		      | None -> Lwt.return ( "not_in_store", ("None", Sn.start) )
-		      | Some (sm,sd) -> Lwt.return( "stored", (sm,sd) )
-		  in
-		  last_accepted_lease () >>= fun (origine,(am,al)) ->
-		  let now = Int64.of_float (Unix.time()) in
-		  Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
-		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
-		  let diff = abs (Int64.to_int (Int64.sub now al)) in
-		  Lwt.return ( diff >= constants.lease_expiration )
-    end
+    if constants.store # quiesced () 
+    then false
+    else
+      begin
+	    let origine,(am,al) = 
+          match constants.store # who_master() with
+		    | None         -> "not_in_store", ("None", Sn.start) 
+		    | Some (sm,sd) -> "stored", (sm,sd) 
+	    in
+	    let now = Int64.of_float (Unix.time()) in
+	    (* 
+           let ns' = Sn.string_of n' in
+           Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
+		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () -> 
+        *)
+	    let diff = abs (Int64.to_int (Int64.sub now al)) in
+	    diff >= constants.lease_expiration
+      end
   end
 
 (* a forced slave or someone who is outbidded sends a fake prepare
@@ -166,7 +166,7 @@ let slave_steady_state constants state event =
 	end
       else
 	begin 
-	  time_for_elections constants n' (Some (previous,Sn.pred i)) >>= fun elections_needed ->
+	  let elections_needed = time_for_elections constants n' (Some (previous,Sn.pred i)) in
 	  if elections_needed then
 	    begin
 	      log ~me "ELECTIONS NEEDED" >>= fun () ->
@@ -325,7 +325,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
         end
       else
-        time_for_elections constants n' maybe_previous >>= fun elections_needed ->
+        let elections_needed = time_for_elections constants n' maybe_previous in
         if elections_needed then
           begin
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
