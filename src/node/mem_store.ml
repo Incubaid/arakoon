@@ -130,8 +130,7 @@ object (self: #store)
 	  end
     in Lwt.return r
 
-  method who_master () =
-    Lwt.return master
+  method who_master () = master
 
   method private delete_no_incr ?(_pf=__prefix) key =
     if StringMap.mem key kv then
@@ -198,7 +197,7 @@ object (self: #store)
 	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
 	Lwt.fail exn)
 
-  method consensus_i () = Lwt.return i
+  method consensus_i () = i
 
   method close () = Lwt.return ()
 

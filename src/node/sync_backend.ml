@@ -365,7 +365,7 @@ object(self: #backend)
 
   method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-    store # consensus_i () >>= fun consensus_i ->
+    let consensus_i = store # consensus_i () in
     begin
       match consensus_i with
 	| None -> Lwt.return ()
@@ -446,7 +446,7 @@ object(self: #backend)
     store # who_master ()
 
   method who_master () =
-    self # _who_master () >>= fun mo ->
+    let mo = self # _who_master () in
     let result,argumentation =
       match mo with
 	| None -> None,"young cluster"
@@ -530,18 +530,18 @@ object(self: #backend)
   method witness name i =
     Statistics.witness _stats name i;
     Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
-    store # consensus_i () >>= fun cio ->
+    let cio = store # consensus_i () in
     begin
       match cio with
-	| None -> ()
-	| Some ci -> Statistics.witness _stats my_name  ci
+	    | None -> ()
+	    | Some ci -> Statistics.witness _stats my_name  ci
     end;
     Lwt.return ()
-
+      
   method last_witnessed name = Statistics.last_witnessed _stats name
 
   method expect_progress_possible () =
-    store # consensus_i () >>= function
+    match store # consensus_i () with
       | None -> Lwt.return false
       | Some i ->
 	let q = quorum_function n_nodes in

@@ -217,7 +217,7 @@ module X = struct
 	      begin
             let logit () =
               let now = Int64.of_float (Unix.gettimeofday ()) in
-              store # who_master () >>= fun m_old_master ->
+              let m_old_master = store # who_master () in
 	          store # set_master_no_inc m now >>= fun _ ->
               begin
                 let new_master =
@@ -400,7 +400,7 @@ let _main_2
             )
           >>= fun () ->
           make_store db_name >>= fun (store:Store.store) ->
-          store # consensus_i () >>= fun store_i ->
+          let store_i = store # consensus_i () in
           let s_i = 
             begin
 		      match store_i with
@@ -412,7 +412,7 @@ let _main_2
 	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                store # consensus_i () >>= fun store_i ->
+                let store_i = store # consensus_i () in
                 Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
                 let tlog_i = 
                   begin

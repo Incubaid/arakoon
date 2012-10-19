@@ -65,12 +65,12 @@ class type store = object
   method sequence : ?_pf: string -> Update.t list -> unit Lwt.t
   method set_master: string -> int64 -> unit Lwt.t
   method set_master_no_inc: string -> int64 -> unit Lwt.t
-  method who_master: unit -> (string*int64) option Lwt.t
+  method who_master: unit -> (string*int64) option
 
   (** last value on which there is consensus.
       For an empty store, This is None
   *)
-  method consensus_i: unit -> Sn.t option Lwt.t
+  method consensus_i: unit -> Sn.t option
   method incr_i: unit -> unit Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
@@ -275,7 +275,7 @@ let safe_insert_update (store:store) (i:Sn.t) update =
      change between lookup of i and insert...
      rethink transaction wrapping strategy
   *)
-  store # consensus_i () >>= fun store_i ->
+  let store_i = store # consensus_i () in
   begin
     match i, store_i with
       | 0L , None -> Lwt.return ()
@@ -306,7 +306,7 @@ let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
-  store # consensus_i () >>= fun m_store_i ->
+  let m_store_i = store # consensus_i () in
   begin
   match m_store_i with
   | None ->
@@ -335,7 +335,7 @@ let on_consensus (store:store) (v,n,i) =
     end
 
 let get_succ_store_i (store:store) =
-  store # consensus_i () >>= fun m_si ->
+  let m_si = store # consensus_i () in
   match m_si with
     | None -> Lwt.return Sn.start
     | Some si -> Lwt.return (Sn.succ si)

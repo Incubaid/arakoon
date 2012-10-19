@@ -484,7 +484,7 @@ object(self: # tlog_collection)
     >>= fun () ->
     Lwt_io.flush oc >>= fun () ->
     Local_store.make_local_store head_name >>= fun head -> 
-    head # consensus_i () >>= fun io ->
+    let io = head # consensus_i () in
     head # close () >>= fun () ->
     Lwt_log.debug_f "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
     >>= fun () ->

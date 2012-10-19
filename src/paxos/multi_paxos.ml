@@ -47,19 +47,17 @@ let paxos_fatal me fmt =
   Printf.ksprintf k fmt
 
 let can_promise store lease_expiration requester =
-  store # who_master() >>= function
+  match store # who_master() with
     | Some (m, ml) ->
       let l64 = Int64.of_int lease_expiration in
       if (
         ( (Int64.add ml l64) > Int64.of_float (Unix.time()) )
         &&
-        (String.compare requester m) <> 0
-        )
-      then 
-        Lwt.return false
-      else 
-        Lwt.return true
-    | None -> Lwt.return true
+          (String.compare requester m) <> 0
+      )
+      then false
+      else true
+    | None -> true
 
 type ballot = int * string list (* still needed, & who voted *)
 
@@ -217,7 +215,7 @@ let handle_prepare constants dest n n' i' =
   if not ( List.mem dest constants.others) then
     begin
       let store = constants.store in
-      store # consensus_i () >>= fun s_i ->
+      let s_i = store # consensus_i () in
       let nak_i = 
         begin
           match s_i with
@@ -232,8 +230,7 @@ let handle_prepare constants dest n n' i' =
     end
   else
     begin
-      can_promise constants.store constants.lease_expiration dest 
-      >>= fun can_pr ->
+      let can_pr = can_promise constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
 	begin 
@@ -245,13 +242,14 @@ let handle_prepare constants dest n n' i' =
       else 
 	begin
           let store = constants.store in
-          store # consensus_i () >>= fun s_i ->
+          let s_i = store # consensus_i () in
           let nak_max = 
             begin
               match s_i with
-		| None -> Sn.start
-		| Some si -> Sn.succ si
-	    end in
+		        | None -> Sn.start
+		        | Some si -> Sn.succ si
+	        end 
+          in
           constants.get_value(nak_max) >>= fun lv ->
           
           if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 

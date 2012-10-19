@@ -46,7 +46,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
     fun () ->
 	  tlog_coll # get_infimum_i () >>= fun min_i ->
       let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
-	  new_store # consensus_i () >>= fun store_i ->
+	  let store_i = new_store # consensus_i () in
 	  let tfs = Sn.string_of too_far_i in
 	  let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 	  let processed = ref 0 in
@@ -120,7 +120,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		              >>= fun () ->
 		  tlog_coll # iterate start_i too_far_i add_to_store 
 		              >>= fun () ->
-		  new_store # consensus_i () >>= fun m_si ->
+		  let m_si = new_store # consensus_i () in
 		  let si = 
 		    begin
 		      match m_si with
@@ -154,7 +154,7 @@ let _head_i (create_store:store_maker) head_location =
     (fun () ->
       let read_only=true in
       create_store ~read_only head_location >>= fun head ->
-      head # consensus_i () >>= fun head_io ->
+      let head_io = head # consensus_i () in
       head # close () >>= fun () ->
       Lwt.return head_io
     )

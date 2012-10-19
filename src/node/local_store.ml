@@ -522,7 +522,7 @@ object(self: #store)
 	  Lwt.return ()
         )
 
-  method who_master () = Lwt.return _mlo
+  method who_master () = _mlo
 
   method delete ?(_pf=__prefix) key =
     self # _wrap_exception "delete"
@@ -556,8 +556,7 @@ object(self: #store)
 	let (ro:string option) = _user_function db _interval name po in
 	Lwt.return ro)
 
-  method consensus_i () =
-    Lwt.return _store_i
+  method consensus_i () = _store_i
 
   method close () =
     Hotc.close db >>= fun () ->
