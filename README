@@ -1,43 +1,57 @@
-Arakoon: a simple distributed key/value store
+Arakoon: a simple distributed key/value store with preference for consistency.
+It's an ocaml based multi-paxos implementation on top of Tokyo Cabinet.
 
 Compiling: see COMPILING
 
 License information: 
-  for the full license text, see COPYING
+  GNU AFFERO GENERAL PUBLIC LICENSE
+  (for the full license text, see COPYING)
 
 Libraries we use: see LIBRARIES
   
 
-You're either reading this because you downloaded a binary package,
-and want to get started on playing with it, or you downloaded the source
-tarball, or cloned the repo.  
+Releases:
+  - The 1.X.Y branches are releases that passed our system test suite.
+  - The 1.X branches are development branches so might be less stable
+ 
+Documentation:
+  www.arakoon.org
 
-Getting Started:
-RUNNING A SINGLE NODE TEST SERVER:
+For the impatient:
 
-create the following configuration:
-    [global]
-    cluster = arakoon_0
-    cluster_id = my_cluster 
+RUNNING A SINGLE NODE DEMO SERVER
 
-    [arakoon_0]
-    ip = 127.0.0.1
-    client_port = 4000
-    messaging_port = 4010
-    home = /tmp/arakoon_0
-    log_dir = /tmp/arakoon_0
-    log_level = info
+You need a config file, like this one
 
-A sample configuration like this can be found in the cfg dir.
+$> cat single.ini
+[global]
+cluster = arakoon_0 
+cluster_id = ricky
 
-Just running './arakoon.native --node arakoon_0' starts a 1 node cluster for you to play with.
+[arakoon_0]
+ip = 127.0.0.1
+client_port = 4000
+messaging_port = 4010
+home = /tmp
+log_level = info  
+
+
+Start the node
+
+$> ./arakoon.native -config single.ini --node arakoon_0
+
+This starts a single node cluster for you to play with.
 
 You can get/set values from the command line using :
-./arakoon.native --set key value  
-./arakoon.native --get key
+$> ./arakoon.native -config examples/single.ini --set hello world  
+$> ./arakoon.native -config examples/single.ini --get hello
+"world"
 
 to get an overview of what else the command line provides.
 ./arakoon.native --help
+
+Of course you want to use Arakoon from within a program. 
+For this reason, we provide OCaml, C, Python, and Php clients.
 
 have fun,
 
