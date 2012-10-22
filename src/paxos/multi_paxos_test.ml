@@ -383,25 +383,26 @@ let test_simulation filters () =
       | None -> None 
       | Some up -> Some (Update.make_update_value up)
   in
-  let constants = {me = me;
-		   is_learner = false;
-		   others = ["c1";"c2"];
-		   send = send;
-		   get_value = get_value;
-		   on_accept = on_accept me;
-		   on_consensus = on_consensus me;
-		   on_witness = on_witness;
-		   last_witnessed = last_witnessed;
-		   quorum_function = Multi_paxos.quorum_function;
-		   master = Elected;
-		   store = store;
-		   tlog_coll = tlog_coll;
-		   other_cfgs = [];
-		   lease_expiration = 60;
-		   inject_event = inject_event;
-		   cluster_id = "whatever";
-       quiesced = false;
-		  } in
+  let constants = {
+    me = me;
+	is_learner = false;
+	others = ["c1";"c2"];
+	send = send;
+	get_value = get_value;
+	on_accept = on_accept me;
+	on_consensus = on_consensus me;
+	on_witness = on_witness;
+	last_witnessed = last_witnessed;
+	quorum_function = Multi_paxos.quorum_function;
+	master = Elected;
+	store = store;
+	tlog_coll = tlog_coll;
+	other_cfgs = [];
+	lease_expiration = 60;
+	inject_event = inject_event;
+	cluster_id = "whatever";
+    quiesced = false;
+  } in
   let c0_t () =
     let expected prev_key key =
       log ~me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
@@ -434,11 +435,11 @@ let test_simulation filters () =
     in
     let expected prev_key key =
       log ~me "node from %s to %s" 
-	(Multi_paxos_type.show_transition prev_key) 
-	(Multi_paxos_type.show_transition key) >>= fun () ->
+	    (Multi_paxos_type.show_transition prev_key) 
+	    (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	| (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-	| _ -> Lwt.return None
+	    | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+	    | _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
       (client_buffer, 
@@ -451,13 +452,13 @@ let test_simulation filters () =
     Lwt.return ()
   in
   Lwt.pick [c0_t (); 
-	    cx_t "c1" "c2"; 
-	    cx_t "c2" "c1"; 
-	    begin
-	      Lwt_unix.sleep 80.0 >>= fun () -> 
-	      Llio.lwt_failfmt "test: should have finished successfully by now";
-	    end
-	   ] >>= fun () ->
+	        cx_t "c1" "c2"; 
+	        cx_t "c2" "c1"; 
+	        begin
+	          Lwt_unix.sleep 80.0 >>= fun () -> 
+	          Llio.lwt_failfmt "test: should have finished successfully by now";
+	        end
+	       ] >>= fun () ->
   log "after pick"
 
 
