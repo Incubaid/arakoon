@@ -117,7 +117,7 @@ let slave_steady_state constants state event =
 	          log ~me "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
 		        (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	          >>= fun () ->
-              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              let cu_pred = Store.get_catchup_start_i constants.store in
               let new_state = (source,cu_pred,n',i') in 
               Lwt.return (Slave_discovered_other_master(new_state) ) 
 	        end
@@ -128,12 +128,12 @@ let slave_steady_state constants state event =
 		        | Nak_sent ->
 		          Lwt.return (Slave_steady_state state)
 		        | Promise_sent_up2date ->
-		          Store.get_succ_store_i constants.store >>= fun next_i ->
+		          let next_i = Store.get_succ_store_i constants.store in
 		          Lwt.return (Slave_wait_for_accept (n', next_i, None, None))
-		            | Promise_sent_needs_catchup ->
-		              Store.get_catchup_start_i constants.store >>= fun i ->
-		              let new_state = (source, i, n', i') in 
-		              Lwt.return (Slave_discovered_other_master(new_state) ) 
+		        | Promise_sent_needs_catchup ->
+		          let i = Store.get_catchup_start_i constants.store in
+		          let new_state = (source, i, n', i') in 
+		          Lwt.return (Slave_discovered_other_master(new_state) ) 
 	        end
 	      | Nak (n',(n'',i'')) ->
 	        begin
@@ -173,7 +173,7 @@ let slave_steady_state constants state event =
 	        begin
 	          log ~me "ELECTIONS NEEDED" >>= fun () ->
 	          let new_n = update_n constants n in
-              Store.get_succ_store_i constants.store >>= fun el_i ->
+              let el_i = Store.get_succ_store_i constants.store in
               let el_up =
 		        begin
 		          if el_i = (Sn.pred i) 
@@ -231,7 +231,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                 | Nak_sent -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
                 | Promise_sent_up2date -> Lwt.return( Slave_wait_for_accept (n',i,vo, maybe_previous) )
                 | Promise_sent_needs_catchup -> 
-                  Store.get_catchup_start_i constants.store >>= fun i ->
+                  let i = Store.get_catchup_start_i constants.store in
                   let state = (source, i, n', i') in 
                   Lwt.return( Slave_discovered_other_master state )
             end
@@ -247,8 +247,8 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
               else
                 begin
 	              if i' > i then 
-                    Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-                  Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
+                    let cu_pred = Store.get_catchup_start_i constants.store in
+                    Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
                   else
                     begin
 	                  constants.on_accept (v,n,i') >>= fun v ->
@@ -290,7 +290,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                 log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
                   (Sn.string_of i) (Sn.string_of i')  
                  >>= fun () -> 
-              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+              let cu_pred = Store.get_catchup_start_i constants.store in
               let new_state = (source, cu_pred, n', i') in 
               Lwt.return (Slave_discovered_other_master(new_state) ) 
               else
@@ -337,7 +337,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           begin
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
             (* begin *)
-            Store.get_succ_store_i constants.store >>= fun el_i ->
+            let el_i = Store.get_succ_store_i constants.store in
             let el_up = constants.get_value el_i in
             (*
               begin
@@ -429,15 +429,15 @@ let slave_discovered_other_master constants state () =
       let f_i = tlog_coll # get_last_i () in
       let vo = tlog_coll # get_last_update f_i in
       begin
-      match vo with 
-        | None -> 
-          begin
-            Lwt_log.debug "slave_discovered_other_master: no previous" 
-		    >>= fun () -> Lwt.return None
-          end
-        | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" 
-	      (Sn.string_of f_i) >>= fun () ->
-          Lwt.return (Some ( Update.make_update_value u , f_i ))
+        match vo with 
+          | None -> 
+            begin
+              Lwt_log.debug "slave_discovered_other_master: no previous" 
+		      >>= fun () -> Lwt.return None
+            end
+          | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" 
+	        (Sn.string_of f_i) >>= fun () ->
+            Lwt.return (Some ( Update.make_update_value u , f_i ))
       end >>= fun vo' ->
       log ~me "Resending Promise" >>= fun () ->
       let prom_val = constants.get_value future_i in
@@ -448,24 +448,15 @@ let slave_discovered_other_master constants state () =
     end
   else
     begin
-      if is_election constants
-      then 
-	      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election"
-	      >>= fun () ->
+      let next_i = Store.get_succ_store_i constants.store in
+      let s, m =
+        if is_election constants
+        then 
 	      (* we have to go to election here or we can get in a situation where
 	         everybody just waits for each other *)
 	      let new_n = update_n constants future_n in
-	      let store = constants.store in
-	      let store_i = store # consensus_i () in
-	      let suc_store = 
-	        begin
-	          match store_i with
-	            | None -> Sn.start
-	            | Some si -> Sn.succ si
-	        end 
-          in
 	      let tlog_coll = constants.tlog_coll in
-	      let l_up = tlog_coll # get_last_update suc_store in
+	      let l_up = tlog_coll # get_last_update next_i in
 	      let l_up_v =
 	        begin 
 	          match l_up with
@@ -473,10 +464,15 @@ let slave_discovered_other_master constants state () =
 	            | Some up -> Some ( Update.make_update_value up )
 	        end 
           in 
-	      Lwt.return (Election_suggest (new_n, suc_store, l_up_v))
+	      (Election_suggest (new_n, next_i, l_up_v)), 
+          "slave_discovered_other_master: my i is bigger then theirs ; back to election"
       else
-        log ~me "slave_discovered_other_master: forced slave, back to slave mode" >>= fun () ->
-      Store.get_succ_store_i constants.store >>= fun next_i ->
-      Lwt.return (Slave_wait_for_accept( future_n, next_i, None, None ) )
+        begin
+          Slave_wait_for_accept( future_n, next_i, None, None ),
+          "slave_discovered_other_master: forced slave, back to slave mode" 
+        end
+      in
+      Lwt_log.debug_f "%s : %s" constants.me m >>= fun () ->
+      Lwt.return s
     end
 

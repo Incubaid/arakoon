@@ -337,7 +337,7 @@ let on_consensus (store:store) (v,n,i) =
 let get_succ_store_i (store:store) =
   let m_si = store # consensus_i () in
   match m_si with
-    | None -> Lwt.return Sn.start
-    | Some si -> Lwt.return (Sn.succ si)
+    | None -> Sn.start
+    | Some si -> Sn.succ si
 
 let get_catchup_start_i = get_succ_store_i

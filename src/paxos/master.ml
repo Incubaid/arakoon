@@ -132,7 +132,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
 		              end
 		            | Promise_sent_needs_catchup ->
-                      Store.get_catchup_start_i constants.store >>= fun i ->
+                      let i = Store.get_catchup_start_i constants.store in
                       Lwt.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
