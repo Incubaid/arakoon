@@ -87,7 +87,7 @@ let test_rollover_1002 (dn, factory) =
   _log_repeat c update n_updates >>= fun () ->
   c # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
-  tlc_two # get_last_update (Sn.of_int (n_updates-1)) >>= fun uo ->
+  let uo = tlc_two # get_last_update (Sn.of_int (n_updates-1)) in
   let uos = Log_extra.option2s Update.string_of uo in
   Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
   tlc_two # close() >>= fun () ->
@@ -101,7 +101,7 @@ let test_get_value_bug (dn, factory) =
   c0 # log_update 0L u0 ~sync:false >>= fun wr_result ->
   factory dn >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
-  c1 # get_last_update 0L >>= function
+  match c1 # get_last_update 0L with
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some u -> let () = OUnit.assert_equal u u0 in Lwt.return ()
 
@@ -121,7 +121,7 @@ let test_restart (dn, factory) =
   _log_repeat tlc_one update 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
-  tlc_two # get_last_update (Sn.of_int 99) >>= fun uo ->
+  let uo = tlc_two # get_last_update (Sn.of_int 99) in
   tlc_two # close () >>= fun () ->
   Lwt.return ()
 

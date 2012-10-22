@@ -232,7 +232,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
      begin
        constants.on_witness source i' >>= fun () ->
        let tlog_coll = constants.tlog_coll in
-       tlog_coll # get_last_i () >>= fun tlc_i ->
+       let tlc_i = tlog_coll # get_last_i () in
        if i' < tlc_i 
        then 
          log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
@@ -331,7 +331,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             log ~me "slave_wait_for_accept: Elections needed" >>= fun () ->
             (* begin *)
             Store.get_succ_store_i constants.store >>= fun el_i ->
-            constants.get_value( el_i ) >>= fun el_up ->
+            let el_up = constants.get_value el_i in
             (*
             begin
               if el_i = (Sn.pred i) 
@@ -383,7 +383,7 @@ let slave_discovered_other_master constants state () =
     begin
       log ~me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
       begin
-        tlog_coll # get_last_update current_i >>= function
+        match tlog_coll # get_last_update current_i with
           | None -> Lwt.return None
           | Some up -> Lwt.return( Some( Update.make_update_value up ))
       end >>= fun m_val ->
@@ -416,8 +416,8 @@ let slave_discovered_other_master constants state () =
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
-      tlog_coll # get_last_i () >>= fun f_i ->
-      tlog_coll # get_last_update f_i >>= fun vo ->
+      let f_i = tlog_coll # get_last_i () in
+      let vo = tlog_coll # get_last_update f_i in
       begin
       match vo with 
       | None -> Lwt_log.debug "slave_discovered_other_master: no previous" 
@@ -427,7 +427,7 @@ let slave_discovered_other_master constants state () =
         Lwt.return (Some ( Update.make_update_value u , f_i ))
       end >>= fun vo' ->
       log ~me "Resending Promise" >>= fun () ->
-      constants.get_value future_i >>= fun prom_val -> 
+      let prom_val = constants.get_value future_i in
       let reply = Promise(future_n, future_i, prom_val ) in
       constants.send reply me master >>= fun () ->
       start_election_timeout constants future_n >>= fun () ->
@@ -451,7 +451,7 @@ let slave_discovered_other_master constants state () =
 	          | Some si -> Sn.succ si
 	      end in
 	      let tlog_coll = constants.tlog_coll in
-	      tlog_coll # get_last_update( suc_store ) >>= fun l_up ->
+	      let l_up = tlog_coll # get_last_update suc_store in
 	      let l_up_v =
 	        begin 
 	          match l_up with

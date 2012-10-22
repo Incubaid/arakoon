@@ -445,7 +445,7 @@ let _main_2
                   | ex -> Lwt.fail ex 
 	        )
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-          tlog_coll # get_last_i () >>= fun last_i ->
+          let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = last_i in (* ?? *)
 	      Catchup.verify_n_catchup_store me.node_name 
@@ -488,12 +488,12 @@ let _main_2
 	      
 	      let get_last_value (i:Sn.t) =
 	        begin
-	          tlog_coll # get_last_update i >>= fun uo ->
+	          let uo = tlog_coll # get_last_update i in
 	          let r  = match uo with
 		        | None -> None
 		        | Some update -> Some (Update.make_update_value update)
 	          in
-	          Lwt.return r
+	          r
 	        end
 	      in
 	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in

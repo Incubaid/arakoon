@@ -132,7 +132,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
     )
     (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
   >>= fun () ->
-  tlog_coll # get_last_i () >>= fun tlc_i ->
+  let tlc_i = tlog_coll # get_last_i () in
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
@@ -248,7 +248,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | None, None -> Lwt.return (0L,None)
     | Some 0L, None -> Lwt.return (0L,None)
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
-      tlog_coll # get_last_update i >>= fun uo ->
+      let uo = tlog_coll # get_last_update i in
       let vo = match uo with
 	| None -> None
 	| Some u -> let v = Update.make_update_value u in Some v

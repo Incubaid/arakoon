@@ -41,7 +41,7 @@ let forced_master_suggest constants (n,i) () =
   start_election_timeout constants n >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
   let tlog_coll = constants.tlog_coll in
-  tlog_coll # get_last_update i >>= fun l_upd ->
+  let l_upd = tlog_coll # get_last_update i in
   
   let v_lims =
     begin
@@ -104,8 +104,8 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 		  Lwt.return( Slave_waiting_for_prepare(current_i, current_n ) )
 		| Promise_sent_up2date ->
 		  let tlog_coll = constants.tlog_coll in
-		  tlog_coll # get_last_i () >>= fun tlc_i ->
-		  tlog_coll # get_last_update tlc_i >>= fun l_update ->
+		  let tlc_i = tlog_coll # get_last_i () in
+		  let l_update = tlog_coll # get_last_update tlc_i in
 		  let l_uval = 
 		    begin
 		      match l_update with 
@@ -134,7 +134,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	    begin
 	      log ~me "got %s => we're in sync" (string_of msg) >>= fun () ->
               (* pick in @ steady state *)
-	      constants.get_value i2 >>= fun p ->
+	      let p = constants.get_value i2 in
 	      match p with
           | None ->
             begin
@@ -353,8 +353,8 @@ let wait_for_promises constants state event =
                     | Promise_sent_up2date ->
 		      begin
 			let tlog_coll = constants.tlog_coll in
-			tlog_coll # get_last_i () >>= fun tlc_i ->
-			tlog_coll # get_last_update tlc_i >>= fun l_update ->
+			let tlc_i = tlog_coll # get_last_i () in
+			let l_update = tlog_coll # get_last_update tlc_i in
 			let l_uval = 
 			  begin
 			    match l_update with 
@@ -550,26 +550,29 @@ let wait_for_accepteds constants state (event:paxos_event) =
             Lwt.return (Forced_master_suggest (n',i))
 	      else 
           begin
-            handle_prepare constants source n n' i' >>= function
-              | Prepare_dropped
-              | Nak_sent -> 
-                Lwt.return( Wait_for_accepteds state )
-              | Promise_sent_up2date ->
-                let tlog_coll = constants.tlog_coll in
-				        tlog_coll # get_last_i () >>= fun tlc_i ->
-				        tlog_coll # get_last_update tlc_i >>= fun l_update ->
-				        let l_uval = 
-				        begin
-				          match l_update with 
-				            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-				            | None -> None
-				        end in
-                lost_master_role () >>= fun () ->
-					      Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
-              | Promise_sent_needs_catchup ->
-                Store.get_catchup_start_i constants.store >>= fun i ->
-                lost_master_role () >>= fun () ->
-                Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+            handle_prepare constants source n n' i' >>= 
+              function
+                | Prepare_dropped
+                | Nak_sent -> 
+                  Lwt.return( Wait_for_accepteds state )
+                | Promise_sent_up2date ->
+                  begin
+                    let tlog_coll = constants.tlog_coll in
+				    let tlc_i = tlog_coll # get_last_i () in
+				    let l_update = tlog_coll # get_last_update tlc_i in
+				    let l_uval = 
+				      begin
+				        match l_update with 
+				          | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+				          | None -> None
+				      end in
+                    lost_master_role () >>= fun () ->
+				    Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
+                  end
+                | Promise_sent_needs_catchup ->
+                  Store.get_catchup_start_i constants.store >>= fun i ->
+                  lost_master_role () >>= fun () ->
+                  Lwt.return (Slave_discovered_other_master (source, i, n', i'))
           end
       end 
 	  | Nak (n',i) ->

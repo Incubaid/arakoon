@@ -67,10 +67,10 @@ let test_generic network_factory n_nodes () =
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
-    tlog_coll # get_last_update i >>= function
-      | None -> Lwt.return None 
-      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
-     
+    match tlog_coll # get_last_update i with
+      | None -> None 
+      | Some up -> Some (Update.make_update_value up)
+        
     
   in
   let base = {me = "???";
@@ -250,9 +250,9 @@ let test_master_loop network_factory ()  =
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
-    tlog_coll # get_last_update i >>= function
-      | None -> Lwt.return None 
-      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
+    match tlog_coll # get_last_update i with
+      | None -> None 
+      | Some up -> Some (Update.make_update_value up)
   in
   let constants = {me = me; 
 		   is_learner = false;
@@ -379,9 +379,9 @@ let test_simulation filters () =
   Mem_store.make_mem_store "MEM#store"  >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
   let get_value i = 
-    tlog_coll # get_last_update i >>= function
-      | None -> Lwt.return None 
-      | Some up -> Lwt.return ( Some (Update.make_update_value up) )
+    match tlog_coll # get_last_update i with
+      | None -> None 
+      | Some up -> Some (Update.make_update_value up)
   in
   let constants = {me = me;
 		   is_learner = false;

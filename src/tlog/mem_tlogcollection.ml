@@ -37,12 +37,9 @@ object (self: #tlog_collection)
   method get_infimum_i () = Lwt.return Sn.start
 
   method get_last_i () =
-    let i = 
-      match last_entry with
-        | None -> Sn.start
-        | Some entry -> Entry.i_of entry 
-    in 
-    Lwt.return i
+    match last_entry with
+      | None -> Sn.start
+      | Some entry -> Entry.i_of entry 
 
   method iterate i last_i f =
     let data' = List.filter 
@@ -67,21 +64,16 @@ object (self: #tlog_collection)
 
   method get_last_update i =
     match last_entry with
-      | None ->
-	    begin
-	      Lwt_log.info_f "get_value: no update logged yet" >>= fun () ->
-	      Lwt.return None
-	    end
+      | None -> None
       | Some entry ->
         let i' = Entry.i_of entry in
 	    begin
 	      if i = i'
 	      then 
             let x = Entry.u_of entry in
-            Lwt.return (Some x)
+            Some x
 	      else
-	        (Lwt_log.info_f "get_value: i(%s) is not latest update" (Sn.string_of i) >>= fun () ->
-	         Lwt.return None)
+	        None
 	    end
           
   method dump_head oc = Llio.lwt_failfmt "not implemented"

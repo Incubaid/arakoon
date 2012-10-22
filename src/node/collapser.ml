@@ -172,7 +172,7 @@ let collapse_many tlog_coll
   Lwt_log.debug_f "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let ((create_store:store_maker),_,(head_location:string)) = store_fs in
   _head_i create_store head_location >>= fun head_io ->
-  tlog_coll # get_last_i () >>= fun last_i ->
+  let last_i = tlog_coll # get_last_i () in
   Lwt_log.debug_f "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
   >>= fun () ->
   let head_i = match head_io with None -> Sn.start | Some i -> i in

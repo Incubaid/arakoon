@@ -121,8 +121,8 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		            | Promise_sent_up2date ->
 		              begin
 			            let tlog_coll = constants.tlog_coll in
-			            tlog_coll # get_last_i () >>= fun tlc_i ->
-			            tlog_coll # get_last_update tlc_i >>= fun l_update ->
+			            let tlc_i = tlog_coll # get_last_i () in
+			            let l_update = tlog_coll # get_last_update tlc_i in
 			            let l_uval = 
 			              begin
 			                match l_update with 

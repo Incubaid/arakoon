@@ -109,7 +109,7 @@ type constants =
     {me:id;
      others: id list;
      send: MPMessage.t -> id -> id -> unit Lwt.t;
-     get_value: Sn.t -> Value.t option Lwt.t;
+     get_value: Sn.t -> Value.t option;
      on_accept: Value.t * Sn.t * Sn.t -> Value.t Lwt.t;
      on_consensus:
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
@@ -250,7 +250,7 @@ let handle_prepare constants dest n n' i' =
 		        | Some si -> Sn.succ si
 	        end 
           in
-          constants.get_value(nak_max) >>= fun lv ->
+          let lv = constants.get_value nak_max in
           
           if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 
           then
@@ -260,7 +260,7 @@ let handle_prepare constants dest n n' i' =
           else
             begin
             (* We will send a Promise, start election timer *)
-              constants.get_value(nak_max) >>= fun lv ->
+              let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
               log ~me "handle_prepare: starting election timer" >>= fun () ->
               start_election_timeout constants n' >>= fun () ->

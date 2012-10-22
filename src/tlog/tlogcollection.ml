@@ -32,9 +32,9 @@ class type tlog_collection = object
   method validate_last_tlog: unit -> (tlogValidity * Entry.t option * Index.index) Lwt.t 
   method iterate: Sn.t -> Sn.t -> (Entry.t -> unit Lwt.t) -> unit Lwt.t
   method log_update: Sn.t -> Update.t -> sync:bool -> unit Lwt.t
-  method get_last_update: Sn.t -> Update.t option Lwt.t
+  method get_last_i: unit -> Sn.t 
+  method get_last_update: Sn.t -> Update.t option (* Lwt.t *)
   method close : unit -> unit Lwt.t
-  method get_last_i: unit -> Sn.t Lwt.t
   method get_infimum_i : unit -> Sn.t Lwt.t
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
   method save_head : Lwt_io.input_channel -> unit Lwt.t

@@ -508,32 +508,26 @@ object(self: # tlog_collection)
 
   
  method get_last_i () =
-   let i = 
-     match _previous_entry with
-      | None -> Sn.start
-      | Some pe -> let pi = Entry.i_of pe in pi
-   in
-   Lwt.return i
+   match _previous_entry with
+     | None -> Sn.start
+     | Some pe -> let pi = Entry.i_of pe in pi
 
   method get_last_update i =
-    let vo =
-      match _previous_entry with
-	    | None -> None
-	    | Some pe -> 
-          let pi = Entry.i_of pe in
-	      if pi = i 
-          then Some (Entry.u_of pe) 
-	      else 
-	        if i > pi 
-            then None
-	        else (* pi > i *)
-	          let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
-		        (Sn.string_of pi) (Sn.string_of i)
-	          in
-	          failwith msg
-    in 
-    Lwt.return vo
-     
+    match _previous_entry with
+	  | None -> None
+	  | Some pe -> 
+        let pi = Entry.i_of pe in
+	    if pi = i 
+        then Some (Entry.u_of pe) 
+	    else 
+	      if i > pi 
+          then None
+	      else (* pi > i *)
+	        let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
+		      (Sn.string_of pi) (Sn.string_of i)
+	        in
+	        failwith msg
+              
   method close () =
     begin
       Lwt_log.debug "tlc2::close()" >>= fun () ->
