@@ -20,7 +20,6 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Hotc
 open OUnit
 
 let configure_logging () = 
@@ -32,8 +31,6 @@ let configure_logging () =
   in
   Lwt_log.default := logger;
   Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug
-
-let tokyo_tests = "tokyo" >::: [Otc_test.suite;Hotc_test.suite;]
 
 let tools_tests = "tools" >::: [
   Server_test.suite;
@@ -79,7 +76,6 @@ let lwt_socket_tests = "lwt" >::: [Lwt_socket_test.suite]
 
 let suite = "universe" >::: [
   lwt_socket_tests;
-  tokyo_tests;
   crc32c_tests; 
   tools_tests; 
   client_tests; 

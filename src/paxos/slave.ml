@@ -225,7 +225,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	    match msg with
 	      | Prepare (n',i') ->
             begin
-	          constants.on_witness source i' >>= fun () ->
+	          let () = constants.on_witness source i' in
               handle_prepare constants source n n' i' >>= function
                 | Prepare_dropped -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
                 | Nak_sent -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
@@ -237,7 +237,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             end
           | Accept (n',i',v) when n'=n ->
             begin
-              constants.on_witness source i' >>= fun () ->
+              let () = constants.on_witness source i' in
               let tlog_coll = constants.tlog_coll in
               let tlc_i = tlog_coll # get_last_i () in
               if i' < tlc_i 
@@ -428,17 +428,13 @@ let slave_discovered_other_master constants state () =
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
       let f_i = tlog_coll # get_last_i () in
       let vo = tlog_coll # get_last_update f_i in
-      begin
-        match vo with 
-          | None -> 
-            begin
-              Lwt_log.debug "slave_discovered_other_master: no previous" 
-		      >>= fun () -> Lwt.return None
-            end
-          | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" 
-	        (Sn.string_of f_i) >>= fun () ->
-            Lwt.return (Some ( Update.make_update_value u , f_i ))
-      end >>= fun vo' ->
+      let vo', m = match vo with 
+        | None -> None, "slave_discovered_other_master: no previous" 
+        | Some u -> 
+          Some ( Update.make_update_value u , f_i ),
+          (Printf.sprintf "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i))
+      in
+      log ~me "%s" m >>= fun () ->
       log ~me "Resending Promise" >>= fun () ->
       let prom_val = constants.get_value future_i in
       let reply = Promise(future_n, future_i, prom_val ) in

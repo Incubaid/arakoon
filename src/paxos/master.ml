@@ -141,7 +141,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
                                 TODO: should not be solved on this level.
                              *)
 	        log ~me "stable_master received %S: dropping (but witnessing)" (string_of msg) >>= fun () ->
-            constants.on_witness source i >>= fun () ->
+            let () = constants.on_witness source i in
             Lwt.return (Stable_master current_state)
 	      | _ ->
 	        begin

@@ -33,8 +33,7 @@ open Master_type
 
 let sn2s = Sn.string_of 
 
-let test_take () =
-  Lwt.return (None, (fun s -> Lwt.return ()))
+let test_take () = Lwt.return (None, (fun s -> Lwt.return ()))
 
 let build_name j = "c" ^ (string_of_int j) 
 
@@ -44,6 +43,13 @@ let build_names n =
     | j -> _loop (build_name j :: names ) (j-1)
   in _loop [] n
 
+let on_witness who i = () 
+
+let get_value tlog_coll i = 
+  match tlog_coll # get_last_update i with
+    | None -> None 
+    | Some up -> Some (Update.make_update_value up)
+        
 
 let test_generic network_factory n_nodes () =
   Lwt_log.info "START:TEST_GENERIC" >>= fun () ->
@@ -60,38 +66,30 @@ let test_generic network_factory n_nodes () =
     log ~me "on_consensus(%s,%s)" (sn2s n) (sn2s i)
       >>= fun () -> Lwt.return (Store.Ok None)
   in
-  let on_witness who i = Lwt.return () in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
-  let get_value i = 
-    match tlog_coll # get_last_update i with
-      | None -> None 
-      | Some up -> Some (Update.make_update_value up)
-        
-    
-  in
   let base = {me = "???";
-	      others = [] ;
-	      is_learner = false;
-	      send = send;
-	      get_value = get_value;
-	      on_accept= on_accept "???";
+	          others = [] ;
+	          is_learner = false;
+	          send = send;
+	          get_value = get_value tlog_coll;
+	          on_accept= on_accept "???";
               on_consensus = on_consensus "???";
               on_witness = on_witness;
-	      last_witnessed = last_witnessed;
-	      quorum_function = Multi_paxos.quorum_function;
-	      master=Elected;
-	      store = store;
-	      tlog_coll = tlog_coll;
-	      other_cfgs = [];
-	      lease_expiration = 60;
-	      inject_event = inject_ev inject_buffer;
-	      cluster_id = "whatever";
+	          last_witnessed = last_witnessed;
+	          quorum_function = Multi_paxos.quorum_function;
+	          master=Elected;
+	          store = store;
+	          tlog_coll = tlog_coll;
+	          other_cfgs = [];
+	          lease_expiration = 60;
+	          inject_event = inject_ev inject_buffer;
+	          cluster_id = "whatever";
               quiesced = false;
-	     }
+	         }
   in
   let all_happy = build_names (n_nodes -1) in
   let build_others name = List.filter (fun n -> n <> name) all_happy in
@@ -241,7 +239,6 @@ let test_master_loop network_factory ()  =
     log "accepted n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return v
   in
-  let on_witness who i = Lwt.return () in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
@@ -249,16 +246,11 @@ let test_master_loop network_factory ()  =
 
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
-  let get_value i = 
-    match tlog_coll # get_last_update i with
-      | None -> None 
-      | Some up -> Some (Update.make_update_value up)
-  in
   let constants = {me = me; 
 		   is_learner = false;
 		   others = others;
 		   send = send;
-		   get_value = get_value;
+		   get_value = get_value tlog_coll;
 		   on_accept = on_accept;
 		   on_consensus = on_consensus;
 		   on_witness = on_witness;
@@ -350,7 +342,6 @@ let test_simulation filters () =
     >>= fun () ->
     Lwt.return (Store.Ok None)
   in
-  let on_witness who i = Lwt.return () in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
@@ -378,17 +369,12 @@ let test_simulation filters () =
   
   Mem_store.make_mem_store "MEM#store"  >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
-  let get_value i = 
-    match tlog_coll # get_last_update i with
-      | None -> None 
-      | Some up -> Some (Update.make_update_value up)
-  in
   let constants = {
     me = me;
 	is_learner = false;
 	others = ["c1";"c2"];
 	send = send;
-	get_value = get_value;
+	get_value = get_value tlog_coll;
 	on_accept = on_accept me;
 	on_consensus = on_consensus me;
 	on_witness = on_witness;

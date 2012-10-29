@@ -114,7 +114,7 @@ type constants =
      on_consensus:
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
        Store.update_result Lwt.t;
-     on_witness: id -> Sn.t -> unit Lwt.t;
+     on_witness: id -> Sn.t -> unit;
      last_witnessed: id -> Sn.t;
      quorum_function: int -> int;
      master: master;
@@ -211,7 +211,7 @@ type prepare_repsonse =
 
 let handle_prepare constants dest n n' i' =
   let me = constants.me in
-  constants.on_witness dest i' >>= fun () ->
+  let () = constants.on_witness dest i' in 
   if not ( List.mem dest constants.others) then
     begin
       let store = constants.store in

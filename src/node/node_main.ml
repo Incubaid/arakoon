@@ -20,7 +20,6 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Hotc
 open Node_cfg.Node_cfg
 open Tcp_messaging
 open Update

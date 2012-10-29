@@ -26,8 +26,6 @@ open Client_cfg
 open Node_cfg
 open Lwt
 open Log_extra
-open Hotc
-open Otc
 open Update
 open Interval
 open Mp_msg
@@ -528,15 +526,14 @@ object(self: #backend)
     check_option last
 
   method witness name i =
-    Statistics.witness _stats name i;
-    Lwt_log.debug_f "witnessed (%s,%s)" name (Sn.string_of i) >>= fun () ->
+    Statistics.witness _stats name i;    
     let cio = store # consensus_i () in
     begin
       match cio with
 	    | None -> ()
 	    | Some ci -> Statistics.witness _stats my_name  ci
     end;
-    Lwt.return ()
+    ()
       
   method last_witnessed name = Statistics.last_witnessed _stats name
 

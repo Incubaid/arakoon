@@ -483,7 +483,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	match msg with
 	  | Accepted (n',i') when (n',i')=(n,i)  ->
 	    begin
-	      constants.on_witness source i' >>= fun () ->
+	      let () = constants.on_witness source i' in 
 	      if List.mem source already_voted then
 		let reason = Printf.sprintf "%s already voted" source in
 		drop msg reason
@@ -493,14 +493,14 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    end
 	  | Accepted (n',i') when n' = n && i' < i ->
 	    begin
-	      constants.on_witness source i' >>= fun () ->
+	      let () = constants.on_witness source i' in
 	      log ~me "wait_for_accepteds: received older Accepted for my n: ignoring" 
 	      >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
 	  | Accepted (n',i') when n' < n ->
 	    begin
-	      constants.on_witness source i' >>= fun () ->
+	      let () = constants.on_witness source i' in
 	      let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
 		(Sn.string_of n) (Sn.string_of i) in
 	      drop msg reason
@@ -510,7 +510,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      
 	  | Promise(n',i', limit) ->
 	    begin
-	      constants.on_witness source i' >>= fun () ->
+	      let () = constants.on_witness source i' in
 	      if n' <= n then
           begin
 					  let reason = Printf.sprintf

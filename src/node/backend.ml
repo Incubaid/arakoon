@@ -59,7 +59,7 @@ class type backend = object
   method who_master: unit -> string option Lwt.t
   method sequence: sync:bool -> Update.t list -> unit Lwt.t
 
-  method witness : string -> Sn.t -> unit Lwt.t
+  method witness : string -> Sn.t -> unit
 
   method last_witnessed : string -> Sn.t
 

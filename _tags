@@ -6,10 +6,10 @@ true: package(lwt.unix)
 true: package(oUnit)
 true: package(bz2)
 true: package(str)
+true: package(camltc)
 true: package(dynlink)
 "doc": include
 "src":include
-"src/otc":include
 "src/tools":include
 "src/client":include
 "src/toy":include
