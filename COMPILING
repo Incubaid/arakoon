@@ -5,8 +5,9 @@ Some of the packages we use are not in the main opam repository (yet). So it's e
 opam remote -add devel -kind git git://github.com/Incubaid/opam-repository-devel.git
 
 Packages we use:
+
 ocamlfind.1.3.3
-camlbz.0.6.0
+camlbz2.0.6.0
 camltc
 
 
