@@ -1,11 +1,9 @@
 
 
-BUILD_ENV=/var/hudson/workspace/ROOT/OCAML
+echo ${WORKSPACE}
+BUILD_ENV=${WORKSPACE}/ROOT/OCAML
 echo BUILD_ENV=${BUILD_ENV}
-
-export PATH=$BUILD_ENV/bin:$PATH
-export LD_LIBRARY_PATH=$BUILD_ENV/lib
-export LIBRARY_PATH=$BUILD_ENV/lib
+eval `${WORKSPACE}/ROOT/OPAM/bin/opam --root ${WORKSPACE}/ROOT/OPAM_ROOT config -env`
 
 ocamlfind list
 ocamlbuild -clean
