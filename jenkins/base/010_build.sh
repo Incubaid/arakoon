@@ -1,10 +1,11 @@
 
 
-echo ${WORKSPACE}
-BUILD_ENV=${WORKSPACE}/ROOT/OCAML
+echo WORKSPACE=${WORKSPACE}
+BUILD_ENV=${WORKSPACE%${JOB_NAME}}
 echo BUILD_ENV=${BUILD_ENV}
-eval `${WORKSPACE}/ROOT/OPAM/bin/opam --root ${WORKSPACE}/ROOT/OPAM_ROOT config -env`
+eval `${BUILD_ENV}/ROOT/OPAM/bin/opam --root ${BUILD_ENV}/ROOT/OPAM_ROOT config -env`
 
+ocamlfind printconf
 ocamlfind list
 ocamlbuild -clean
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
