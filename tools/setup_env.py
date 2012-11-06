@@ -92,13 +92,14 @@ def maybe_install_opam():
               'https://github.com/OCamlPro/%s/tarball/master')
     lib.download()
     sh(['tar','-zxvf',lib._archive], cwd = ROOT)
-    d = ROOT + '/OCamlPro-opam-cdc6dec'
 
-    #'OCAMLRUNPARAM' : 'b',
-    #'MANPATH': OPAM_ROOT + '/system/man',
-    #'OCAML_TOPLEVEL_PATH' : OPAM_ROOT + '/system/lib/toplevel',
-    #'CAML_LD_LIBRARY_PATH' : OPAM_ROOT + '/system/lib/stublibs:%s/lib/ocaml/stublibs' % PREFIX,
-
+    #which is the ocaml dir?
+    files = os.listdir(ROOT)
+    d = None
+    for f in files:
+        if f.startswith('OCamlPro'):
+            d = ROOT + '/' + f
+            break
     sh(['./configure', '--prefix=%s' % OPAM_HOME], cwd = d, env = env)
     sh(['make','clean'], cwd = d, env = env)
     sh(['make'], cwd = d, env = env)
