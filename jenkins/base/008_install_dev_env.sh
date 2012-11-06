@@ -1,1 +1,1 @@
-python tools/setup_env.py -y -b
+python tools/setup_env.py
