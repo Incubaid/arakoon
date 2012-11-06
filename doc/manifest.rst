@@ -369,7 +369,7 @@ The protocol is a very simple request/response based binary protocol.
 The client is the active party, and sends a command
 
 successful client-server conversation
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -509,14 +509,15 @@ Each call to a user function is executed *inside a transaction*
 
 .. code-block:: ocaml
 
-module UserDB : 
-sig
-  type tx = Core.BS.tx
-  type k = string
-  type v = string
-  val set : tx -> k -> v -> unit Lwt.t
-  val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
-end
+    module UserDB : 
+    sig
+      type tx = Core.BS.tx
+      type k = string
+      type v = string
+      val set : tx -> k -> v -> unit Lwt.t
+      val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
+    end
+
 
 User functions have the following type:
 
