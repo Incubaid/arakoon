@@ -17,10 +17,12 @@
    License along with this library; if not, write to the Free Software         
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA   
 *)
+
 (* 
    changes to original (Romain Slootmaekers): 
    - removed pcre dependency 
    - fixed little bug on parsing of empty lines with spaces
+   - little change to fold signature to accomodate ocaml 4.0
 *)
 
 open Parseini
@@ -245,7 +247,7 @@ let readdir path =
     Unix.closedir dir;
     lst
 
-let fold func path initial =
+let fold ?(spec=[]) func path initial =
   let check_file path = 
     match 
       (path, 
@@ -260,9 +262,9 @@ let fold func path initial =
        func
        initial
        (List.rev_map
-	  (new inifile)
-	  (List.filter
-	     check_file
-	     (List.rev_map
-		(fun p -> (path ^ "/" ^ p))
-		(readdir path)))))
+	      (new inifile ~spec)
+	      (List.filter
+	         check_file
+	         (List.rev_map
+		        (fun p -> (path ^ "/" ^ p))
+		        (readdir path)))))

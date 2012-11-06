@@ -78,4 +78,4 @@ end
 (** Executes a fold left across a directory of ini files
     (skips files which do not end with .ini). fold f path a 
     computes (f ... (f (f file1 a) file2) fileN) *)
-val fold: ('a -> inifile -> 'a) -> string -> 'a -> 'a
+val fold: ?spec:section_specification list -> ('a -> inifile -> 'a) -> string -> 'a -> 'a
