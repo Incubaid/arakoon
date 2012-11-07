@@ -223,6 +223,6 @@ module BStore = (struct
     >>= fun () ->
     Lwtc.log "raw_dump: done"
 
-  let get_key_count t = Lwt.return 0 (* TODO: baardskeerder part *)
+  let get_key_count t = BS.key_count_latest t.store
 end: STORE)
 
