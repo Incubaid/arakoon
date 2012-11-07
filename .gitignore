@@ -17,6 +17,7 @@ nusery.byte
 debian/tmp/*
 debian/libarakoon-ocaml-dev/*
 debian/arakoon/*
+_virtualenv/*
 *.pyc
 *.orig
 .paths
