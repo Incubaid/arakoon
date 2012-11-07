@@ -26,11 +26,11 @@ open Node_cfg
 open Nursery
 open Routing
 
-let with_remote_stream (cluster:string) cfg f =
+let with_admin (cluster:string) cfg f =
   let host,port = cfg in
   let sa = Network.make_address host port in
   let do_it connection =
-    Remote_nodestream.make_remote_nodestream cluster connection 
+    Remote_admin.make cluster connection 
     >>= fun (client) ->
     f client
   in
@@ -65,10 +65,10 @@ let find_master cluster_id cli_cfg =
     | None -> failwith "No master found"
     | Some m -> Lwt.return m  
 
-let with_master_remote_stream cluster_id cfg f =
+let with_master_admin cluster_id cfg f =
   find_master cluster_id cfg >>= fun master_name ->
   let master_cfg = Hashtbl.find cfg master_name in
-  with_remote_stream cluster_id master_cfg f
+  with_admin cluster_id master_cfg f
 
 let setup_logger file_name =
   Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
@@ -93,7 +93,7 @@ let get_nursery_client keeper_id cli_cfg =
     client # get_nursery_cfg () >>= fun ncfg ->
     Lwt.return ( NC.make ncfg keeper_id )
   in
-  with_master_remote_stream keeper_id cli_cfg get_nc 
+  with_master_admin keeper_id cli_cfg get_nc 
 
 
 let __migrate_nursery_range config left sep right =
@@ -116,7 +116,7 @@ let __init_nursery config cluster_id =
       | e -> Lwt.fail e 
     ) 
   in
-  with_master_remote_stream keeper_id cli_cfg set_routing 
+  with_master_admin keeper_id cli_cfg set_routing 
   
   
 let __delete_from_nursery config cluster_id sep = 

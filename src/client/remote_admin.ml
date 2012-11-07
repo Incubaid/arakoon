@@ -27,7 +27,7 @@ open Lwt
 open Client_cfg
 open Ncfg
 
-class type nodestream = object
+class type admin = object
       
   method collapse: int -> unit Lwt.t
 
@@ -46,7 +46,7 @@ class type nodestream = object
   method get_nursery_cfg: unit -> NCFG.t Lwt.t
 end
 
-class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
+class remote_admin ((ic,oc) as conn) = object(self :# admin)
   method collapse n = failwith "todo"
   (*
       let outgoing buf =
@@ -107,10 +107,10 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     Common.get_nursery_cfg (ic,oc)
 end
 
-let make_remote_nodestream cluster connection = 
+let make cluster connection = 
   prologue cluster connection >>= fun () ->
-  let rns = new remote_nodestream connection in
-  let a = (rns :> nodestream) in
+  let rns = new remote_admin connection in
+  let a = (rns :> admin) in
   Lwt.return a
   
  

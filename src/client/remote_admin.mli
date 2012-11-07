@@ -4,7 +4,7 @@ open Interval
 open Client_cfg
 open Ncfg
 
-class type nodestream = object
+class type admin = object
       
   method collapse: int -> unit Lwt.t
 
@@ -24,5 +24,5 @@ class type nodestream = object
   
 end
 
-val make_remote_nodestream : 
-  string -> Lwt_io.input_channel * Lwt_io.output_channel -> nodestream Lwt.t
+val make : 
+  string -> Lwt_io.input_channel * Lwt_io.output_channel -> admin Lwt.t
