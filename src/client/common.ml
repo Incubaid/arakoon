@@ -55,7 +55,6 @@ type client_command =
   | MULTI_GET
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
-  | COLLAPSE_TLOGS
   | USER_FUNCTION
   | GET_INTERVAL
   | SET_INTERVAL
@@ -70,6 +69,7 @@ type client_command =
   | GET_NURSERY_CFG
   | REV_RANGE_ENTRIES
   | SYNCED_SEQUENCE
+  | COMPACT
 
 
 let code2int = [
@@ -88,7 +88,6 @@ let code2int = [
   MULTI_GET,                0x11l;
   EXPECT_PROGRESS_POSSIBLE, 0x12l;
   STATISTICS              , 0x13l;
-  COLLAPSE_TLOGS          , 0x14l;
   USER_FUNCTION           , 0x15l;
   ASSERT                  , 0x16l;
   SET_INTERVAL            , 0x17l;
@@ -105,6 +104,7 @@ let code2int = [
   MIGRATE_RANGE           , 0x22l;
   REV_RANGE_ENTRIES       , 0x23l;
   SYNCED_SEQUENCE         , 0x24l;
+  COMPACT                 , 0x25l;
 ]
 
 let int2code =
@@ -159,7 +159,7 @@ let request oc f =
   Lwt_io.write oc s >>= fun () ->
   Lwt_io.flush oc
 
-let response_limited ic (f) =
+let response_limited ic f =
   Llio.input_int ic >>= fun size ->
   let buffer = String.create size in
   Lwt_io.read_into_exactly ic buffer 0 size >>= fun () ->

@@ -6,7 +6,7 @@ open Ncfg
 
 class type admin = object
       
-  method collapse: int -> unit Lwt.t
+  method compact: int -> unit Lwt.t (* number of transactions to keep *)
 
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t

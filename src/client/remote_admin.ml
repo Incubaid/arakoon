@@ -29,7 +29,7 @@ open Ncfg
 
 class type admin = object
       
-  method collapse: int -> unit Lwt.t
+  method compact: int -> unit Lwt.t 
 
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t
@@ -46,36 +46,14 @@ class type admin = object
   method get_nursery_cfg: unit -> NCFG.t Lwt.t
 end
 
+open Baardskeerder
 class remote_admin ((ic,oc) as conn) = object(self :# admin)
-  method collapse n = failwith "todo"
-  (*
-      let outgoing buf =
-      command_to buf COLLAPSE_TLOGS;
-      Llio.int_to buf n
-    in
-    let incoming ic =
-      Llio.input_int ic >>= fun collapse_count ->
-      let rec loop i =
-      	if i = 0 
-        then Lwt.return ()
-        else 
-      	  begin
-            Llio.input_int ic >>= function
-              | 0 ->
-	              Llio.input_int64 ic >>= fun took ->
-	              Lwt_log.debug_f "collapsing one file took %Li" took >>= fun () ->
-	              loop (i-1)
-              | e ->
-                Llio.input_string ic >>= fun msg ->
-                Llio.lwt_failfmt "%s (EC: %d)" msg e
-          end
-      in
-      loop collapse_count
-    in
-    request  oc outgoing >>= fun () ->
-    response ic incoming
-  *)
-  
+  method compact n = 
+    Common.request oc (fun buf -> 
+      Common.command_to buf COMPACT;
+      Pack.vint_to buf n) 
+    >>= fun () ->
+    Common.response_limited ic (fun _ -> ())
 
   method set_interval iv = Common.set_interval conn iv
   method get_interval () = Common.get_interval conn 

@@ -70,6 +70,17 @@ let response_rc_string oc rc string =
   Llio.output_string oc string >>= fun () ->
   Lwt.return false
 
+let response_ok_string oc string = 
+  Llio.output_int32 oc 0l >>= fun () ->
+  Llio.output_string oc string >>= fun () ->
+  Lwt.return false
+
+let response_ok_string_option oc so =
+  Llio.output_int32 oc 0l >>= fun () ->
+  Llio.output_string_option oc so >>= fun () ->
+  Lwt.return false
+
+
 let response_rc_bool oc rc b =
   Llio.output_int32 oc rc >>= fun () ->
   Llio.output_bool oc b >>= fun () ->
