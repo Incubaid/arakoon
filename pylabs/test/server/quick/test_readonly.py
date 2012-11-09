@@ -28,8 +28,9 @@ from arakoon.ArakoonExceptions import *
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_read_only():
+   protocol_version = 2
    cluster = C._getCluster()
-   client = C.get_client()
+   client = C.get_client(protocol_version)
    v = 'XXX'
    client ['xxx']= v
    cluster.stop()
