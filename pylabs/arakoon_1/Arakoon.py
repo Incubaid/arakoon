@@ -37,6 +37,8 @@ from ArakoonValidators import SignatureValidator
 
 from functools import wraps
 
+#from arakoon import utils
+import utils
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -68,11 +70,11 @@ def retryDuringMasterReelection (f):
             try :
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected) as ex:
+            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected, ArakoonGoingDown) as ex:
                 if len( self._config.getNodes().keys()) == 0 :
                     raise ArakoonInvalidConfig( "Empty client configuration" )
                 self._masterId = None
-                self._dropConnections()
+                self.dropConnections()
                 sleepPeriod = backoffPeriod * tryCount
                 if time.time() + sleepPeriod > deadline :
                     raise 
@@ -128,6 +130,7 @@ class ArakoonClient :
     def _initialize(self, config ):
         self._config = config
 
+    @utils.update_argspec('self', 'node')
     @SignatureValidator('string')
     def setDirtyReadNode(self, node):
         """
@@ -141,6 +144,7 @@ class ArakoonClient :
             raise ArakoonUnknownNode( node )
         self._dirtyReadNode = node
 
+    @utils.update_argspec('self')
     @retryDuringMasterReelection 
     def getKeyCount (self) :
         """
@@ -161,9 +165,10 @@ class ArakoonClient :
         """
         return self._dirtyReadNode
 
+    @utils.update_argspec('self', 'clientId', ('clusterId', 'arakoon'))
     @retryDuringMasterReelection
-    @SignatureValidator( 'string' )
-    def ping (self, clientId, clusterId = 'arakoon'):
+    @SignatureValidator( 'string', 'string' )
+    def hello (self, clientId, clusterId = 'arakoon'):
         """
         send a hello message to the node with your id and the cluster id.
         
@@ -180,6 +185,28 @@ class ArakoonClient :
         conn = self._sendToMaster(encoded)
         return conn.decodeStringResult()
 
+
+    def getVersion(self, nodeId = None):
+        """
+        will return a tuple containing major, minor and patch level versions of the server side
+        @type nodeId : String
+        @param nodeId : id of the node you want to query (None if you want to query the master)
+        @rtype : (int,int,int,string)
+        @return : (major, minor, patch, info)
+        """
+        msg = ArakoonProtocol.encodeGetVersion()
+        conn = None
+        if nodeId is None:
+            conn = self._sendToMaster(msg)
+        else:
+            conn = self._sendMessage(nodeId, msg )
+
+        result = conn.decodeVersionResult()
+        
+        return result
+    
+
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def exists(self, key):
@@ -195,6 +222,7 @@ class ArakoonClient :
             conn = self._sendToMaster (msg)
         return conn.decodeBoolResult()
 
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def get(self, key):
@@ -216,6 +244,7 @@ class ArakoonClient :
         result = conn.decodeStringResult()
         return result
 
+    @utils.update_argspec('self', 'keys')
     @retryDuringMasterReelection
     def multiGet(self,keys):
         """
@@ -233,6 +262,7 @@ class ArakoonClient :
         result = conn.decodeStringListResult()
         return result
     
+    @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string' )
     def set(self, key, value):
@@ -250,10 +280,10 @@ class ArakoonClient :
 
         @rtype: void
         """
-        msg = ArakoonProtocol.encodeSet( key, value ) 
-        conn = self._sendToMaster (msg)
+        conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
         conn.decodeVoidResult()
 
+    @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator('string','string')
     def confirm(self, key,value):
@@ -266,6 +296,7 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         conn.decodeVoidResult()
         
+    @utils.update_argspec('self', 'key', 'vo')
     @retryDuringMasterReelection
     @SignatureValidator('string','string_option')
     def aSSert(self, key, vo):
@@ -285,8 +316,9 @@ class ArakoonClient :
         result = conn.decodeVoidResult()
         return result
 
+    @utils.update_argspec('self', 'seq', ('sync', False))
     @retryDuringMasterReelection
-    @SignatureValidator( 'sequence' )
+    @SignatureValidator( 'sequence', 'bool' )
     def sequence(self, seq, sync = False):
         """
         Try to execute a sequence of updates. 
@@ -300,6 +332,7 @@ class ArakoonClient :
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
     
+    @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
     def delete(self, key):
@@ -314,15 +347,32 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeDelete( key ) )
         conn.decodeVoidResult()
 
+    @utils.update_argspec('self','prefix')
+    @retryDuringMasterReelection
+    @SignatureValidator('string')
+    def deletePrefix(self, prefix):
+        """
+        Remove ALL key-value pairs from the store for which the key matches the prefix
+        returns the number of pairs deleted
+        
+        @type prefix: string
+        @rtype: integer
+        """
+        msg = ArakoonProtocol.encodeDeletePrefix(prefix)
+        conn = self._sendToMaster(msg)
+        result = conn.decodeIntResult()
+        return result
 
     __setitem__= set
     __getitem__= get
     __delitem__= delete
     __contains__ = exists
     
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
+        'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
-    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = 100 ):
+    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = -1 ):
         """
         Perform a range query on the store, retrieving the set of matching keys
 
@@ -334,12 +384,12 @@ class ArakoonClient :
         @type beginKeyIncluded: boolean
         @type endKey :string option
         @type endKeyIncluded: boolean
-        @type maxElements: integer option
+        @type maxElements: integer
         @param beginKey: Lower boundary of the requested range
         @param beginKeyIncluded: Indicates if the lower boundary should be part of the result set
         @param endKey: Upper boundary of the requested range
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
-        @param maxElements: The maximum number of keys to return. None no maximum, all matches will be returned. Defaults to 100.
+        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
 
         @rtype: list of strings
         @return: Returns a list containing all matching keys
@@ -352,6 +402,8 @@ class ArakoonClient :
             conn = self._sendToMaster (msg)
         return conn.decodeStringListResult()
     
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
+        'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
     def range_entries(self,
@@ -359,7 +411,7 @@ class ArakoonClient :
                       beginKeyIncluded,
                       endKey,
                       endKeyIncluded,
-                      maxElements= 100):
+                      maxElements= -1):
         """
         Perform a range query on the store, retrieving the set of matching key-value pairs
 
@@ -376,7 +428,7 @@ class ArakoonClient :
         @param beginKeyIncluded: Indicates if the lower boundary should be part of the result set
         @param endKey: Upper boundary of the requested range
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
-        @param maxElements: The maximum number of key-value pairs to return. None means no maximum, all matches will be returned. Defaults to 100.
+        @param maxElements: The maximum number of key-value pairs to return. Negative means no maximum, all matches will be returned. Defaults to -1.
 
         @rtype: list of (string,string)
         @return: Returns a list containing all matching key-value pairs
@@ -394,12 +446,14 @@ class ArakoonClient :
         result = conn.decodeStringPairListResult()
         return result
 
+    @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
+        'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator('string_option', 'bool', 'string_option', 'bool','int')
     def rev_range_entries(self,
                           beginKey, beginKeyIncluded,
                           endKey,  endKeyIncluded,
-                          maxElements= 100):
+                          maxElements= -1):
         """ 
         Performs a reverse range query on the store, returning a sorted (in reverse order) list of key value pairs.
         @type beginKey: string option
@@ -409,7 +463,7 @@ class ArakoonClient :
         @type maxElements: integer
         @param beginKey: higher boundary of the requested range
         @param endKey: lower boundary of the requested range
-        @param maxElements: maximum number of key-value pairs to return. None means 'all'. Defaults to 100
+        @param maxElements: maximum number of key-value pairs to return. Negative means 'all'. Defaults to -1
         @rtype : list of (string,string)
         """
         msg = ArakoonProtocol.encodeReverseRangeEntries(beginKey,
@@ -426,9 +480,10 @@ class ArakoonClient :
         return result
 
     
+    @utils.update_argspec('self', 'keyPrefix', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'int' )
-    def prefix(self, keyPrefix , maxElements = None ):
+    def prefix(self, keyPrefix , maxElements = -1 ):
         """
         Retrieve a set of keys that match with the provided prefix.
 
@@ -436,9 +491,9 @@ class ArakoonClient :
         Additionaly you can limit the size of the result set to maxElements
 
         @type keyPrefix: string
-        @type maxElements: integer option
+        @type maxElements: integer
         @param keyPrefix: The prefix that will be used when pattern matching the keys in the store
-        @param maxElements: The maximum number of keys to return. None means all matches will be returned. Defaults to None.
+        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
 
         @rtype: list of strings
         @return: Returns a list of keys matching the provided prefix
@@ -474,6 +529,7 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         return conn.decodeStatistics()
 
+    @utils.update_argspec('self', 'key', 'oldValue', 'newValue')
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string_option', 'string_option' )
     def testAndSet(self, key, oldValue, newValue):
@@ -498,6 +554,7 @@ class ArakoonClient :
         conn = self._sendToMaster( msg )
         return conn.decodeStringOptionResult()
         
+    @utils.update_argspec('self', 'name', 'argument')
     @retryDuringMasterReelection
     @SignatureValidator('string', 'string_option')
     def userFunction(self, name, argument): #pylint: disable-msg=C0103
@@ -515,12 +572,21 @@ class ArakoonClient :
         conn = self._sendToMaster(msg)
         return conn.decodeStringOptionResult()
 
+    @utils.update_argspec('self')
     @retryDuringMasterReelection
     def getNurseryConfig(self):
         msg = ArakoonProtocol.encodeGetNurseryCfg()
         con = self._sendToMaster(msg)
         return con.decodeNurseryCfgResult()
-        
+
+    def dropConnections(self):
+        '''Drop all connections to the Arakoon servers'''
+        keysToRemove = self._connections.keys()
+
+        for key in keysToRemove:
+            self._connections[key].close()
+            del self._connections[ key ] 
+
     def _determineMaster(self):
         nodeIds = []
 
@@ -601,9 +667,7 @@ class ArakoonClient :
 
                 try :
                     connection = self._getConnection( nodeId )
-                    total = ArakoonProtocol.close(msgBuffer)
-                    #print dump(total)
-                    connection.send( total )
+                    connection.send( msgBuffer )
 
                     # Message sent correctly, return client connection so result can be read
                     result = connection
@@ -631,17 +695,9 @@ class ArakoonClient :
             connection = self._connections [ nodeId ]
 
         if connection is None:
-            nodeLocation = self._config.getNodeLocation( nodeId )
+            nodeLocations = self._config.getNodeLocations( nodeId )
             clusterId = self._config.getClusterId()
-            connection = ArakoonClientConnection ( nodeLocation , clusterId)
+            connection = ArakoonClientConnection ( nodeLocations , clusterId)
             self._connections[ nodeId ] = connection
 
         return connection
-
-    def dropConnections(self ):
-        keysToRemove = self._connections.keys()
-        
-        for key in keysToRemove:
-            self._connections[key].close()
-            del self._connections[ key ] 
-

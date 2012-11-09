@@ -43,6 +43,9 @@ from arakoon_ext.server import ArakoonManagement
 from arakoon_ext.server import NurseryManagement
 from arakoon_ext.client import ArakoonClient
 
+from arakoon_1 import Arakoon as Ara1
+
+
 test_failed = False 
 
 from Compat import X
@@ -625,12 +628,19 @@ def basic_teardown( removeDirs ):
 def nursery_teardown( removeDirs ):
     common_teardown(removeDirs, CONFIG.nursery_cluster_ids)
 
-def get_client ( c_id = None):
+def get_client ( protocol_version, c_id = None):
     if c_id is None:
         c_id = CONFIG.cluster_id
+    c = None
     ext = ArakoonClient.ArakoonClient()
-    c = ext.getClient(c_id)
-    X.logging.debug("client's config = %s", c._config)
+    if protocol_version == 2:
+            c = ext.getClient(c_id)
+            X.logging.debug("client's config = %s", c._config)
+    elif protocol_version == 1:
+        cfg = ext._getClientConfig(c_id)
+        c = Ara1.ArakoonClient(cfg)
+        print c
+    
     return c
 
 def get_nursery_client():
@@ -642,8 +652,8 @@ def get_nursery():
     ext = NurseryManagement.NurseryManagement()
     return ext.getNursery(CONFIG.nursery_keeper_id)
 
-def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None ):
-    client = get_client ()
+def iterate_n_times (n, f, protocol_version, startSuffix = 0, failure_max=0, valid_exceptions=None ):
+    client = get_client (protocol_version = protocol_version)
     failure_count = 0
     client.recreate = False
     
@@ -669,18 +679,18 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
                 if isinstance(ex, valid_ex ) :
                     fatal = False
             if failure_count > failure_max or fatal :
-                client._dropConnections()
+                client.dropConnections()
                 test_failed = True
                 X.logging.critical( "!!! Failing test")
                 tb = traceback.format_exc()
                 X.logging.critical( tb )
                 raise
         if client.recreate :
-            client._dropConnections()
+            client.dropConnections()
             client = get_client()
             client.recreate = False
             
-    client._dropConnections()
+    client.dropConnections()
         
 
 def create_and_start_thread (f ):
@@ -970,13 +980,15 @@ def get_entries_per_tlog():
     stdout = X.subprocess.check_process(cmd)
     return int(stdout.split('\n')[-2].split(':')[1])
 
-def prefix_scenario( start_suffix ):
-    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
+def prefix_scenario( start_suffix, protocol_version):
+    iterate_n_times( 100, simple_set,
+                     protocol_version = protocol_version,
+                     startSuffix = start_suffix )
     
     test_key_pref = CONFIG.key_format_str  % ( start_suffix + 90 ) 
     test_key_pref = test_key_pref [:-1]
     
-    client = get_client()
+    client = get_client(protocol_version = protocol_version)
     
     key_list = client.prefix( test_key_pref )
     X.logging.debug("key_list = %s", key_list)
@@ -992,7 +1004,7 @@ def prefix_scenario( start_suffix ):
 
 def range_scenario ( start_suffix ):
 
-    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
+    iterate_n_times( 100, simple_set, protocol_version = 2, startSuffix = start_suffix )
     
     client = get_client()
     

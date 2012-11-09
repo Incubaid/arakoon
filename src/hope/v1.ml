@@ -31,9 +31,6 @@ module V1(S:Core.STORE) = struct
         end
     end
 
-
-
-
   let _response_ok_string oc string = 
     Llio.output_int32 oc 0l >>= fun () ->
     Llio.output_string oc string >>= fun () ->
@@ -49,6 +46,10 @@ module V1(S:Core.STORE) = struct
     Llio.output_string_option oc so >>= fun () ->
     Lwt.return false
 
+  let _response_ok_string_list oc ss =
+    Llio.output_int32 oc 0l >>= fun () ->
+    Llio.output_list Llio.output_string oc ss >>= fun () ->
+    Lwt.return false
 
   let _get_meta store = S.get_meta store 
     
@@ -62,6 +63,10 @@ module V1(S:Core.STORE) = struct
   let _set driver k v = 
     let q = Core.SET(k,v) in
     __do_unit_update driver q    
+
+  let _delete driver k = 
+    let q = Core.DELETE k in
+    __do_unit_update driver q
 
   let _handle_exception oc = V.handle_exception oc
     
@@ -143,11 +148,62 @@ module V1(S:Core.STORE) = struct
     in
     _only_if_master (ic,oc) me store allow_dirty _inner
       
-  let _do_who_master (_,oc) store () =
+  let _do_who_master (_,oc) store =
     _get_meta store >>= fun ms ->
     let mo = Core.extract_master_info ms in
     _response_ok_string_option oc mo
+     
+  let _do_range (ic,oc) me store stats =
+    Llio.input_bool          ic >>= fun allow_dirty ->
+    Llio.input_string_option ic >>= fun first ->
+    Llio.input_bool          ic >>= fun finc ->
+    Llio.input_string_option ic >>= fun last ->
+    Llio.input_bool          ic >>= fun linc ->
+    Llio.input_int           ic >>= fun max  ->
+
+    let so2s = Log_extra.string_option_to_string in
+    Lwtc.log "_do_range %s %b %s %b %i" 
+      (so2s first) finc (so2s last) linc max >>= fun () ->
+
+    let _inner () = 
+      S.range store first finc last linc (Some max) >>= fun keys ->
+      _response_ok_string_list oc keys
+    in
+    _only_if_master (ic,oc) me store allow_dirty _inner
       
+  let _do_prefix_keys (ic,oc) me store stats = 
+    Llio.input_bool    ic >>= fun allow_dirty ->
+    Llio.input_string  ic >>= fun key ->
+    Llio.input_int     ic >>= fun max ->
+    let _inner () = 
+      S.prefix_keys store key (Some max) >>= fun keys ->
+      _response_ok_string_list oc keys
+    in
+    _only_if_master (ic,oc) me store allow_dirty _inner
+    
+  let _do_test_and_set (ic,oc) me store stats driver = 
+    Llio.input_string        ic >>= fun key ->
+    Llio.input_string_option ic >>= fun expected ->
+    Llio.input_string_option ic >>= fun wanted ->
+    let _inner () = 
+      let t0 = Unix.gettimeofday () in
+      S.get store key >>= fun m_val ->
+      begin
+        if m_val = expected
+        then
+          begin
+            match wanted with
+              | None   -> _delete driver key 
+              | Some v -> _set driver key v
+          end
+        else
+          Lwt.return ()
+      end >>= fun () ->
+      Statistics.new_testandset stats t0;
+      _response_ok_string_option oc m_val
+    in
+    _do_write_op (ic,oc) me store _inner
+
       
   type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
@@ -155,14 +211,24 @@ module V1(S:Core.STORE) = struct
     _read_command conn >>= fun c -> 
     let fail () = failwith (Printf.sprintf "%li not backward compatible yet" (List.assoc c Common.code2int)) in
     match c with
-      | Common.PING       -> _do_ping       conn
-      | Common.WHO_MASTER -> _do_who_master conn    store ()
-      | Common.EXISTS     -> _do_exists     conn me store stats
-      | Common.GET        -> _do_get        conn me store stats
-      | Common.SET        -> _do_set        conn me store stats driver
-      | Common.DELETE     -> _do_delete     conn me store stats driver 
-      | Common.RANGE | Common.PREFIX_KEYS -> fail ()
-          
-
+      | Common.PING                      -> _do_ping        conn
+      | Common.WHO_MASTER                -> _do_who_master  conn    store
+      | Common.EXISTS                    -> _do_exists      conn me store stats
+      | Common.GET                       -> _do_get         conn me store stats
+      | Common.SET                       -> _do_set         conn me store stats driver
+      | Common.DELETE                    -> _do_delete      conn me store stats driver 
+      | Common.RANGE                     -> _do_range       conn me store stats
+      | Common.PREFIX_KEYS               -> _do_prefix_keys conn me store stats
+      | Common.TEST_AND_SET              -> fail ()
+      | Common.LAST_ENTRIES              -> fail ()
+      | Common.RANGE_ENTRIES             -> fail ()
+      | Common.SEQUENCE                  -> fail ()
+      | Common.MULTI_GET                 -> fail ()
+      | Common.EXPECT_PROGRESS_POSSIBLE  -> fail ()
+      | Common.STATISTICS                -> fail ()
+      | Common.USER_FUNCTION             -> fail ()
+      | Common.ASSERT                    -> fail ()
+      | Common.SET_INTERVAL              -> fail ()
+        
       | c -> fail ()
 end

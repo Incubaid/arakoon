@@ -142,7 +142,11 @@ def test_aSSert_sequences():
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_prefix ():
-    C.prefix_scenario(1000)
+    C.prefix_scenario(1000, protocol_version = 2)
+
+@C.with_custom_setup( C.default_setup, C.basic_teardown )
+def test_prefix_1_4():
+    C.prefix_scenario(1000, protocol_version = 1)
 
 def tes_and_set_scenario( start_suffix ): #tes is deliberate
     client = C.get_client()

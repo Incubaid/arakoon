@@ -59,7 +59,7 @@ module ProtocolHandler (S:Core.STORE) = struct
         | 1 -> One.one_command 
         | _ -> failwith "bad protocol version"
     in
-    Lwtc.log "prologue ok: %s" me >>= fun () ->
+    Lwtc.log "prologue ok: %s PROTOCOL %i" me pv >>= fun () ->
     loop vx_command
       
 end
