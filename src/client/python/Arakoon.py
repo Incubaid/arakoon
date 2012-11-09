@@ -72,7 +72,7 @@ def retryDuringMasterReelection (f):
                 if len( self._config.getNodes().keys()) == 0 :
                     raise ArakoonInvalidConfig( "Empty client configuration" )
                 self._masterId = None
-                self._dropConnections()
+                self.dropConnections()
                 sleepPeriod = backoffPeriod * tryCount
                 if time.time() + sleepPeriod > deadline :
                     raise 

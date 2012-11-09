@@ -855,7 +855,8 @@ def retrying_set_get_and_delete( client, key, value ):
     
 def add_node_scenario ( node_to_add_index ):
     X.logging.info("(1) some sets")
-    iterate_n_times( 100, simple_set )
+    protocol_version = 2
+    iterate_n_times( 100, simple_set, protocol_version )
     X.logging.info("(2) stopping & adding node")
     stop_all()
     add_node( node_to_add_index )
@@ -863,9 +864,9 @@ def add_node_scenario ( node_to_add_index ):
     X.logging.info("(3) starting all nodes")
     start_all()
     X.logging.info("(4) some asserts")
-    iterate_n_times( 100, assert_get )
+    iterate_n_times( 100, assert_get, protocol_version )
     X.logging.info("(5) some crud")
-    iterate_n_times( 100, set_get_and_delete, 100)
+    iterate_n_times( 100, set_get_and_delete, protocol_version, 100)
 
 def assert_key_value_list( start_suffix, list_size, list ):
     assert_equals( len(list), list_size )
@@ -953,7 +954,7 @@ def delayed_master_restart_loop ( iter_cnt, delay , protocol_version) :
             cli = get_client(protocol_version)
             cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
             master_id = cli.whoMaster()
-            cli._dropConnections()
+            cli.dropConnections()
             stopOne( master_id )
             startOne( master_id )
         except:
@@ -1008,13 +1009,13 @@ def prefix_scenario( start_suffix, protocol_version):
     assert_key_list ( start_suffix + 90, 7, key_list)
     
     
-    client._dropConnections ()
+    client.dropConnections ()
 
-def range_scenario ( start_suffix ):
+def range_scenario ( start_suffix, protocol_version ):
 
     iterate_n_times( 100, simple_set, protocol_version = 2, startSuffix = start_suffix )
     
-    client = get_client()
+    client = get_client(protocol_version = protocol_version)
     
     start_key = CONFIG.key_format_str % (start_suffix )
     end_key = CONFIG.key_format_str % (start_suffix + 100 )

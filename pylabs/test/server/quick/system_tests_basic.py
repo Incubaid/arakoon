@@ -285,11 +285,11 @@ def test_sequence ():
 
 @C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )   
 def test_3_nodes_stop_all_start_slaves ():
-    
+    protocol_version = 2
     key = C.getRandomString()
     value = C.getRandomString() 
     
-    cli = C.get_client(protocol_version = 2)
+    cli = C.get_client(protocol_version)
     cli.set(key,value)
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, CONFIG.node_names )
@@ -298,8 +298,8 @@ def test_3_nodes_stop_all_start_slaves ():
     for slave in slaves:
         C.startOne( slave )
     
-    cli._dropConnections()
-    cli = C.get_client()
+    cli.dropConnections()
+    cli = C.get_client(protocol_version)
     stored_value = cli.get( key )
     assert_equals( stored_value, value, 
                    "Stored value mismatch for key '%s' ('%s' != '%s')" % 
@@ -308,7 +308,7 @@ def test_3_nodes_stop_all_start_slaves ():
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_get_storage_utilization():
     cl = C._getCluster()
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     cli.set('key','value')
     time.sleep(0.2)
     C.stop_all()
@@ -356,11 +356,12 @@ def test_gather_evidence():
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown ) 
 def test_get_key_count():
-    cli = C.get_client()
+    protocol_version = 2
+    cli = C.get_client(protocol_version)
     c = cli.getKeyCount()
     assert_equals(c, 0, "getKeyCount should return 0 but got %d" % c)
     test_size = 100
-    C.iterate_n_times( test_size, C.simple_set )
+    C.iterate_n_times( test_size, C.simple_set, protocol_version )
 
     X.logging.debug ("cli's config = %s", cli._config)
     c = cli.getKeyCount()
@@ -369,8 +370,9 @@ def test_get_key_count():
 
 @C.with_custom_setup (C.setup_2_nodes, C.basic_teardown )
 def test_download_db():
-    C.iterate_n_times( 100, C.simple_set )
-    cli = C.get_client()
+    protocol_version = 2
+    C.iterate_n_times( 100, C.simple_set, protocol_version = protocol_version )
+    cli = C.get_client(protocol_version = protocol_version)
     m = cli.whoMaster()
     clu = C._getCluster()
     clu.backupDb(m, "/tmp/backup")
