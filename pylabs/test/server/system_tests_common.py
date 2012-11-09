@@ -44,6 +44,7 @@ from arakoon_ext.server import NurseryManagement
 from arakoon_ext.client import ArakoonClient
 
 from arakoon_1 import Arakoon as Ara1
+from arakoon_1.ArakoonProtocol import ArakoonClientConfig as Ara1Cfg
 
 
 test_failed = False 
@@ -638,14 +639,21 @@ def get_client ( protocol_version, c_id = None):
             X.logging.debug("client's config = %s", c._config)
     elif protocol_version == 1:
         cfg = ext._getClientConfig(c_id)
-        c = Ara1.ArakoonClient(cfg)
+        nodes = cfg.getNodes()
+        # we get a cfg for Arakoon2, transform it to one for Arakoon1
+        nodes1 = {}
+        for nn in nodes.keys():
+            nip,nport = nodes[nn]
+            nodes1[nn] = ([nip],nport)
+        print nodes1
+        cfg1 = Ara1Cfg(c_id, nodes1)
+        c = Ara1.ArakoonClient(cfg1)
         print c
     
     return c
 
 def get_nursery_client():
-    
-    client = get_client (CONFIG.nursery_keeper_id)
+    client = get_client (protocol_version = 2, c_id = CONFIG.nursery_keeper_id)
     return client
 
 def get_nursery():
@@ -687,7 +695,7 @@ def iterate_n_times (n, f, protocol_version, startSuffix = 0, failure_max=0, val
                 raise
         if client.recreate :
             client.dropConnections()
-            client = get_client()
+            client = get_client(protocol_version = protocol_version)
             client.recreate = False
             
     client.dropConnections()
@@ -781,7 +789,7 @@ def mindless_retrying_set_get_and_delete( client, key, value ):
     generic_retrying_set_get_and_delete( client, key, value, validate_ex )
     
     
-def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
+def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex):
     start = time.time()
     failed = True
     tryCnt = 0
@@ -811,7 +819,7 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             # Make sure we propagate the need to recreate the client 
             # (or the next iteration we are back to using the old one)
             client.recreate = True
-            client._dropConnections()
+            client.dropConnections()
             client = get_client() 
             
         except Exception, ex:
@@ -937,12 +945,12 @@ def destroy_ram_fs( node_index ) :
     except :
         pass
     
-def delayed_master_restart_loop ( iter_cnt, delay ) :
+def delayed_master_restart_loop ( iter_cnt, delay , protocol_version) :
     for i in range( iter_cnt ):
         global test_failed
         try:
             time.sleep( delay )
-            cli = get_client()
+            cli = get_client(protocol_version)
             cli.set('delayed_master_restart_loop','delayed_master_restart_loop')
             master_id = cli.whoMaster()
             cli._dropConnections()
@@ -966,7 +974,7 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     start_stop_wait = 3.0
     stop_start_wait = 1.0
     slave_loop = lambda : restart_loop( 1, restart_cnt, start_stop_wait, stop_start_wait )
-    set_loop = lambda : iterate_n_times( set_cnt, set_get_and_delete )
+    set_loop = lambda : iterate_n_times( set_cnt, set_get_and_delete, protocol_version = 2)
     create_and_wait_for_thread_list( [slave_loop, set_loop] )
     
     # Give the slave some time to catch up 
@@ -1041,11 +1049,11 @@ def range_scenario ( start_suffix ):
     key_list = client.range( test_key, True, test_key_2 , False, 10 )
     assert_key_list ( start_suffix+25, 10, key_list )
 
-def range_entries_scenario( start_suffix ):
+def range_entries_scenario( start_suffix, protocol_version ):
     
-    iterate_n_times( 100, simple_set, startSuffix = start_suffix )
+    iterate_n_times( 100, simple_set, protocol_version, startSuffix = start_suffix)
     
-    client = get_client()
+    client = get_client(protocol_version)
     
     start_key = CONFIG.key_format_str % (start_suffix )
     end_suffix = CONFIG.key_format_str % ( start_suffix + 100 )
@@ -1083,9 +1091,9 @@ def range_entries_scenario( start_suffix ):
         raise ex
         
     
-def reverse_range_entries_scenario(start_suffix):
-    iterate_n_times(100, simple_set, startSuffix = start_suffix)
-    client = get_client ()
+def reverse_range_entries_scenario(start_suffix, protocol_version):
+    iterate_n_times(100, simple_set, protocol_version, startSuffix = start_suffix)
+    client = get_client(protocol_version)
     start_key = CONFIG.key_format_str % (start_suffix)
     end_key = CONFIG.key_format_str % (start_suffix + 100)
     try:

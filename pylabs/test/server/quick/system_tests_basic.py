@@ -49,7 +49,7 @@ def test_start_stop_three_nodes_forced () :
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )        
 def test_single_client_100_set_get_and_deletes() :
-    C.iterate_n_times( 100, C.set_get_and_delete )
+    C.iterate_n_times( 100, C.set_get_and_delete , protocol_version = 2)
     
 @C.with_custom_setup( C.setup_1_node_forced_master, C.basic_teardown)
 def test_deploy_1_to_2():
@@ -61,17 +61,17 @@ def test_deploy_2_to_3():
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_range ():
-    C.range_scenario ( 1000 )
+    C.range_scenario ( 1000, protocol_version = 2)
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown)
 def test_reverse_range_entries():
-    C.reverse_range_entries_scenario(1000)
+    C.reverse_range_entries_scenario(1000, protocol_version = 2)
 
 
 @C.with_custom_setup ( C.setup_1_node_forced_master, C.basic_teardown )
 def test_large_value ():
     value = 'x' * (10 * 1024 * 1024)
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     try:
         client.set ('some_key', value)
         raise Exception('this should have failed')
@@ -82,12 +82,12 @@ def test_large_value ():
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_range_entries ():
-    C.range_entries_scenario( 1000 )
+    C.range_entries_scenario( 1000 , protocol_version = 2)
     
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_1():
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     client.set('x','x')
     try:
         client.aSSert('x','x') 
@@ -97,13 +97,13 @@ def test_aSSert_scenario_1():
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_2():
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     client.set('x','x')
     assert_raises( ArakoonAssertionFailed, client.aSSert, 'x', None)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_3():
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     client.set('x','x')
     ass = arakoon.ArakoonProtocol.Assert('x','x')
     seq = arakoon.ArakoonProtocol.Sequence()
@@ -112,7 +112,7 @@ def test_aSSert_scenario_3():
 
 @C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
 def test_aSSert_sequences():
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     client.set ('test_assert','test_assert')
     client.aSSert('test_assert', 'test_assert')    
     assert_raises(ArakoonAssertionFailed, 
@@ -148,8 +148,8 @@ def test_prefix ():
 def test_prefix_1_4():
     C.prefix_scenario(1000, protocol_version = 1)
 
-def tes_and_set_scenario( start_suffix ): #tes is deliberate
-    client = C.get_client()
+def tes_and_set_scenario( start_suffix, protocol_version): #tes is deliberate
+    client = C.get_client(protocol_version = protocol_version)
     
     old_value_prefix = "old_"
     new_value_prefix = "new_"
@@ -179,30 +179,30 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
             X.logging.error ( "Caught not found for key %s" % key )
         assert_raises( ArakoonNotFound, client.get, key )
     
-    client._dropConnections()
+    client.dropConnections()
 
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_test_and_set() :
-    tes_and_set_scenario( 100000 )
+    tes_and_set_scenario( 100000, protocol_version = 2)
     
 @C.with_custom_setup( C.setup_3_nodes_forced_master , C.basic_teardown )
 def test_who_master_fixed () :
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     node = client.whoMaster()
     assert_equals ( node, CONFIG.node_names[0] ) 
-    client._dropConnections()
+    client.dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )
 def test_who_master () :
-    client = C.get_client()
+    client = C.get_client(protocol_version = 2)
     node = client.whoMaster()
     assert_true ( node in CONFIG.node_names ) 
-    client._dropConnections()
+    client.dropConnections()
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_restart_single_slave_short ():
-    C.restart_single_slave_scenario( 2, 100 )
+    C.restart_single_slave_scenario( 2, 100  )
 
 
 def test_show_version () :
@@ -217,7 +217,7 @@ def test_show_version () :
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_delete_non_existing() :
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     try :
         cli.delete( 'non-existing' )
     except ArakoonNotFound as ex:
@@ -228,7 +228,7 @@ def test_delete_non_existing() :
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_delete_non_existing_sequence() :
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     seq = arakoon.ArakoonProtocol.Sequence()
     seq.addDelete( 'non-existing' )
     try :
@@ -241,7 +241,7 @@ def test_delete_non_existing_sequence() :
         
 def sequence_scenario( start_suffix ):
     iter_size = 1000
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     
     start_key = CONFIG.key_format_str % start_suffix
     end_key = CONFIG.key_format_str % ( start_suffix + iter_size - 1 )
@@ -276,7 +276,7 @@ def sequence_scenario( start_suffix ):
     key_value_list = cli.range_entries( start_key, True, end_key, True, 2*iter_size )
     assert_equal( len(key_value_list), 0, "There are keys in the store, should not be the case" )
     
-    cli._dropConnections()
+    cli.dropConnections()
     
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_sequence ():
@@ -289,7 +289,7 @@ def test_3_nodes_stop_all_start_slaves ():
     key = C.getRandomString()
     value = C.getRandomString() 
     
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     cli.set(key,value)
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, CONFIG.node_names )
@@ -380,7 +380,7 @@ def test_download_db():
     
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     stat_dict = cli.statistics()
     X.logging.debug("stat_dict=%s", stat_dict)
     
