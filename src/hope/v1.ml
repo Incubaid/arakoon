@@ -272,6 +272,12 @@ module V1(S:Core.STORE) = struct
     in
     _only_if_master (ic,oc) me store allow_dirty _inner
 
+  let _do_expect_pp (ic,oc) store = 
+    _get_meta store >>= fun ms ->
+    let mo = Core.extract_master_info ms in    
+    let r = mo <> None in
+    _response_ok_bool oc r
+
   let _do_statistics (ic,oc) stats = _non_fatal oc Arakoon_exc.E_UNKNOWN_FAILURE "not supported"
     
   type connection = Lwt_io.input_channel * Lwt_io.output_channel
@@ -293,7 +299,7 @@ module V1(S:Core.STORE) = struct
       | Common.RANGE_ENTRIES             -> _do_range_entries conn me store stats
       | Common.SEQUENCE                  -> _do_sequence      conn me store stats driver
       | Common.MULTI_GET                 -> _do_multi_get     conn me store stats
-      | Common.EXPECT_PROGRESS_POSSIBLE  -> fail ()
+      | Common.EXPECT_PROGRESS_POSSIBLE  -> _do_expect_pp     conn    store
       | Common.STATISTICS                -> _do_statistics    conn          stats
       | Common.USER_FUNCTION             -> fail ()
       | Common.ASSERT                    -> _do_assert        conn me store stats

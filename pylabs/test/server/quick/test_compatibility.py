@@ -108,4 +108,9 @@ def test_multiget():
    client.set('y','Y')
    vs = client.multiGet(['x','y'])
    assert_equals(vs,['X','Y'])
-   
+
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_expect_progress_possible():
+   client = C.get_client(protocol_version = 1)
+   pp = client.expectProgressPossible()
+   assert_equals(pp,True)
