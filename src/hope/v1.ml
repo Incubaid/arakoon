@@ -172,12 +172,17 @@ module V1(S:Core.STORE) = struct
     _only_if_master (ic,oc) me store allow_dirty _inner
       
   let _do_prefix_keys (ic,oc) me store stats = 
+    Lwtc.log "_do_prefix_keys" >>= fun () ->
     Llio.input_bool    ic >>= fun allow_dirty ->
     Llio.input_string  ic >>= fun key ->
     Llio.input_int     ic >>= fun max ->
+    Lwtc.log "_do_prefix_keys %b %s %i" allow_dirty key max >>= fun () ->
     let _inner () = 
-      S.prefix_keys store key (Some max) >>= fun keys ->
-      _response_ok_string_list oc keys
+      let max' = if max = -1 then None else Some max in
+      S.prefix_keys store key max' >>= fun keys ->
+      Lwtc.log "keys: %S" (Log_extra.string_of_list (fun s -> s) keys) >>= fun () ->
+      let rev_keys = List.rev keys in
+      _response_ok_string_list oc rev_keys
     in
     _only_if_master (ic,oc) me store allow_dirty _inner
     
@@ -190,7 +195,7 @@ module V1(S:Core.STORE) = struct
       S.get store key >>= fun m_val ->
       begin
         if m_val = expected
-        then
+        then 
           begin
             match wanted with
               | None   -> _delete driver key 
@@ -204,30 +209,58 @@ module V1(S:Core.STORE) = struct
     in
     _do_write_op (ic,oc) me store _inner
 
-      
+  let _do_assert (ic,oc) me store stats = 
+    Llio.input_bool          ic >>= fun allow_dirty ->
+    Llio.input_string        ic >>= fun key ->
+    Llio.input_string_option ic >>= fun vo  ->
+    let _inner () = 
+      S.get store key >>= fun m_val ->
+      begin
+        if m_val <> vo
+        then _non_fatal oc Arakoon_exc.E_ASSERTION_FAILED key
+        else V.response_ok_unit oc
+      end
+    in
+    _only_if_master (ic,oc) me store allow_dirty _inner
+
+  let _do_sequence (ic,oc) me store stats driver = 
+    Llio.input_string ic >>= fun data ->
+    let _inner () = 
+      let t0 = Unix.gettimeofday () in
+      let probably_sequence, _ = Core.update_from data 0 in
+      let sequence = match probably_sequence with
+        | Core.SEQUENCE _ -> probably_sequence
+        | _ -> raise (Failure "should be sequence")
+      in
+      DRIVER.push_cli_req driver sequence >>= fun a ->
+      Statistics.new_sequence stats t0;
+      _unit_or_f oc a
+    in
+    _do_write_op (ic,oc) me store _inner
+
   type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
   let one_command (me:string) (stats:Statistics.t) driver store (conn:connection) = 
     _read_command conn >>= fun c -> 
     let fail () = failwith (Printf.sprintf "%li not backward compatible yet" (List.assoc c Common.code2int)) in
     match c with
-      | Common.PING                      -> _do_ping        conn
-      | Common.WHO_MASTER                -> _do_who_master  conn    store
-      | Common.EXISTS                    -> _do_exists      conn me store stats
-      | Common.GET                       -> _do_get         conn me store stats
-      | Common.SET                       -> _do_set         conn me store stats driver
-      | Common.DELETE                    -> _do_delete      conn me store stats driver 
-      | Common.RANGE                     -> _do_range       conn me store stats
-      | Common.PREFIX_KEYS               -> _do_prefix_keys conn me store stats
-      | Common.TEST_AND_SET              -> fail ()
+      | Common.PING                      -> _do_ping         conn
+      | Common.WHO_MASTER                -> _do_who_master   conn    store
+      | Common.EXISTS                    -> _do_exists       conn me store stats
+      | Common.GET                       -> _do_get          conn me store stats
+      | Common.SET                       -> _do_set          conn me store stats driver
+      | Common.DELETE                    -> _do_delete       conn me store stats driver 
+      | Common.RANGE                     -> _do_range        conn me store stats
+      | Common.PREFIX_KEYS               -> _do_prefix_keys  conn me store stats
+      | Common.TEST_AND_SET              -> _do_test_and_set conn me store stats driver
       | Common.LAST_ENTRIES              -> fail ()
       | Common.RANGE_ENTRIES             -> fail ()
-      | Common.SEQUENCE                  -> fail ()
+      | Common.SEQUENCE                  -> _do_sequence     conn me store stats driver
       | Common.MULTI_GET                 -> fail ()
       | Common.EXPECT_PROGRESS_POSSIBLE  -> fail ()
       | Common.STATISTICS                -> fail ()
       | Common.USER_FUNCTION             -> fail ()
-      | Common.ASSERT                    -> fail ()
+      | Common.ASSERT                    -> _do_assert       conn me store stats
       | Common.SET_INTERVAL              -> fail ()
         
       | c -> fail ()

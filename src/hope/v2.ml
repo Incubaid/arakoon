@@ -316,7 +316,7 @@ module V2(S:Core.STORE) = struct
             let probably_sequence,_ = Core.update_from data 0 in
             let sequence = match probably_sequence with
               | Core.SEQUENCE _ -> probably_sequence
-              | _ -> raise (Failure "should be update")
+              | _ -> raise (Failure "should be sequence")
             in
             DRIVER.push_cli_req driver sequence >>= fun a ->
             Statistics.new_sequence stats t0;

@@ -175,8 +175,11 @@ module BStore = (struct
       
   let __prefix_keys t prefix max p =
     let prefix' = pref_key ~_pf:p prefix in
+    Lwtc.log "prefix' = %S" prefix' >>= fun () ->
     BS.prefix_keys_latest t.store prefix' max >>= fun keys ->
-    Lwt.return (List.map (unpref_key ~_pf:p) keys)
+    let u = List.map (unpref_key ~_pf:p) keys in
+    
+    Lwt.return u
   
   let prefix_keys t prefix max = 
     __prefix_keys t prefix max __prefix

@@ -70,9 +70,9 @@ def test_asserts():
       assert_equals(True,False)
 
    X.logging.debug('second variation')
-   assert_raises( ArakoonAssertionFailed, client.aSSert, 'x', None)
+   assert_raises( A1X.ArakoonAssertionFailed, client.aSSert, 'x', None)
 
-   X.Logging.debug('third variation')
+   X.logging.debug('third variation')
    ass = A1P.Assert('x','x')
    seq = A1P.Sequence()
    seq.addUpdate(ass)
@@ -87,11 +87,12 @@ def test_prefix():
 def test_test_and_set():
    client = C.get_client(protocol_version = 1)
    v2 = client.testAndSet('x',None,'X')
-   assert_equals(v2, 'X')
+   assert_equals(v2, None)
+   X.logging.debug("test_and_set None 'X' OK")
    v3 = client.testAndSet('x','X','X3')
-   assert_equals(v3,'X3')
+   assert_equals(v3, 'X')
    v4 = client.testAndSet('x','X2','X4')
-   assert_equals(v4,'X3')
+   assert_equals(v4, 'X3')
 
 
 @C.with_custom_setup( C.setup_1_node, C.basic_teardown )
