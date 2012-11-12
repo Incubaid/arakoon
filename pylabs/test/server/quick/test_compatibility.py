@@ -83,3 +83,19 @@ def test_asserts():
 def test_prefix():
     C.prefix_scenario(1000, protocol_version = 1)
 
+@C.with_custom_setup( C.setup_1_node, C.basic_teardown )
+def test_test_and_set():
+   client = C.get_client(protocol_version = 1)
+   v2 = client.testAndSet('x',None,'X')
+   assert_equals(v2, 'X')
+   v3 = client.testAndSet('x','X','X3')
+   assert_equals(v3,'X3')
+   v4 = client.testAndSet('x','X2','X4')
+   assert_equals(v4,'X3')
+
+
+@C.with_custom_setup( C.setup_1_node, C.basic_teardown )
+def test_statistics():
+   client = C.get_client(protocol_version = 1)
+   stats = client.statistics()
+   X.logging.debug("stats = %s", stats)
