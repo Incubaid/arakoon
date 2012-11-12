@@ -73,7 +73,7 @@ def test_asserts():
    assert_raises( A1X.ArakoonAssertionFailed, client.aSSert, 'x', None)
 
    X.logging.debug('third variation')
-   ass = A1P.Assert('x','x')
+   ass = A1P.Assert('x','X')
    seq = A1P.Sequence()
    seq.addUpdate(ass)
    client.sequence(seq)
