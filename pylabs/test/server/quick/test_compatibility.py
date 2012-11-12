@@ -100,3 +100,12 @@ def test_statistics():
    client = C.get_client(protocol_version = 1)
    stats = client.statistics()
    X.logging.debug("stats = %s", stats)
+
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_multiget():
+   client = C.get_client(protocol_version = 1)
+   client.set('x','X')
+   client.set('y','Y')
+   vs = client.multiGet(['x','y'])
+   assert_equals(vs,['X','Y'])
+   

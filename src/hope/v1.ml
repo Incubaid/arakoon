@@ -238,6 +238,25 @@ module V1(S:Core.STORE) = struct
     in
     _do_write_op (ic,oc) me store _inner
 
+  let _do_multi_get (ic,oc) me store stats = 
+    Llio.input_bool         ic >>= fun allow_dirty ->
+    Llio.input_string_list  ic >>= fun keys ->
+    let _inner () = 
+      let t0 = Unix.gettimeofday () in
+      let rec loop acc = function
+        | [] ->
+          Statistics.new_multiget stats t0;
+          _response_ok_string_list oc (List.rev acc)
+        | k :: ks ->
+          S.get store k >>= fun vo ->
+          match vo with
+            | None ->  _non_fatal oc Arakoon_exc.E_NOT_FOUND k
+            | Some v -> loop (v :: acc) ks
+      in
+      loop [] keys
+    in
+    _only_if_master (ic,oc) me store allow_dirty _inner
+        
   type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
   let one_command (me:string) (stats:Statistics.t) driver store (conn:connection) = 
@@ -256,7 +275,7 @@ module V1(S:Core.STORE) = struct
       | Common.LAST_ENTRIES              -> fail ()
       | Common.RANGE_ENTRIES             -> fail ()
       | Common.SEQUENCE                  -> _do_sequence     conn me store stats driver
-      | Common.MULTI_GET                 -> fail ()
+      | Common.MULTI_GET                 -> _do_multi_get    conn me store stats
       | Common.EXPECT_PROGRESS_POSSIBLE  -> fail ()
       | Common.STATISTICS                -> fail ()
       | Common.USER_FUNCTION             -> fail ()
