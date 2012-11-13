@@ -217,12 +217,12 @@ def test_get_version():
     #first on master:
     
     vt = client.getVersion()
-    logging.debug("tuple = %s", str(vt))
+    X.logging.debug("tuple = %s", str(vt))
     (major,minor,patch, info) = vt
-    assert_equals(major, 1)
+    assert_equals(major, 2)
     #then on specific level:
-    vt2 = client.getVersion(C.node_names[0])
-    logging.debug("tuple = %s", str(vt2))
+    vt2 = client.getVersion(CONFIG.node_names[0])
+    X.logging.debug("tuple = %s", str(vt2))
     client.dropConnections() # needed?
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )

@@ -465,6 +465,25 @@ class ArakoonClient :
         except ArakoonNoMaster:
             return False
 
+    def getVersion(self, nodeId = None):
+        """
+        will return a tuple containing major, minor and patch level versions of the server side
+        @type nodeId : String
+        @param nodeId : id of the node you want to query (None if you want to query the master)
+        @rtype : (int,int,int,string)
+        @return : (major, minor, patch, info)
+        """
+        msg = ArakoonProtocol.encodeGetVersion()
+        conn = None
+        if nodeId is None:
+            conn = self._sendToMaster(msg)
+        else:
+            conn = self._sendMessage(nodeId, msg )
+
+        result = conn.decodeVersionResult()
+        
+        return result
+
 
     def statistics(self):
         """

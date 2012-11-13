@@ -228,7 +228,7 @@ ARA_CMD_CONFIRM                  = 0x0000001c | ARA_CMD_MAG
 ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
 ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
-
+ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -693,6 +693,19 @@ class ArakoonProtocol :
         retVal = _packInt(ARA_CMD_STATISTICS)
         return retVal
 
+    @staticmethod
+    def encodeGetVersion():
+        retVal = _packInt(ARA_CMD_VERSION)
+        return retVal
+
+    @staticmethod
+    def encodeGetKeyCount () :
+        return _packInt(ARA_CMD_KEY_COUNT)
+    
+    @staticmethod 
+    def encodeGetNurseryCfg ():
+        return _packInt(ARA_CMD_GET_NURSERY_CFG)
+    
     @staticmethod    
     def encodeUserFunction(name, argument):
         retVal = _packInt(ARA_CMD_USER_FUNCTION)
@@ -749,6 +762,15 @@ class ArakoonProtocol :
         input = ArakoonProtocol.readAnswer(con)
         s = input.input_string()
         return s
+
+    @staticmethod
+    def decodeVersionResult(con):
+        input = ArakoonProtocol.readAnswer(con)
+        major = input.input_vint()
+        minor = input.input_vint()
+        patch = input.input_vint()
+        info  = input.input_string()
+        return (major,minor,patch,info)
     
     @staticmethod
     def decodeStringListResult( con ):
@@ -813,10 +835,4 @@ class ArakoonProtocol :
         r = input.input_statistics()
         return r
 
-    @staticmethod
-    def encodeGetKeyCount () :
-        return _packInt(ARA_CMD_KEY_COUNT)
-    
-    @staticmethod 
-    def encodeGetNurseryCfg ():
-        return _packInt(ARA_CMD_GET_NURSERY_CFG) 
+

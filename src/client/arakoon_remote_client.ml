@@ -112,9 +112,8 @@ object(self: #Arakoon_client.client)
         let major = Pack.input_vint   pack in
         let minor = Pack.input_vint   pack in
         let patch = Pack.input_vint   pack in
-        let patch' = if patch > 20 then -1 else patch in (* TODO: fix *)
         let info  = Pack.input_string pack in
-        (major,minor,patch', info)
+        (major,minor,patch, info)
       )
       
 end

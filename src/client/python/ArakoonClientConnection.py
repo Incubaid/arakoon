@@ -97,5 +97,7 @@ class ArakoonClientConnection :
     
     def decodeNurseryCfgResult(self):
         return ArakoonProtocol.decodeNurseryCfgResult(self)
-    
+
+    def decodeVersionResult(self):
+        return ArakoonProtocol.decodeVersionResult(self)
     

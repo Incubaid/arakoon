@@ -54,8 +54,8 @@ let make_version _ _ =
       try
         Scanf.sscanf branch_version "* %i.%i.%i" (fun ma mi p -> (ma,mi,p))
       with _ -> 
-        try Scanf.sscanf branch_version "* %i.%i" (fun ma mi -> (ma,mi,-1)) 
-        with _ -> (-1,-1,-1)
+        try Scanf.sscanf branch_version "* %i.%i" (fun ma mi -> (ma,mi,999)) 
+        with _ -> (2,0,999)
     in
     Printf.sprintf template git_info time machine 
       major minor patch
