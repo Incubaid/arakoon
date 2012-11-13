@@ -78,14 +78,14 @@ let set cfg_name key value =
   let t () = with_master_client cfg_name (fun client -> client # set key value)
   in run t
 
-let get cfg_name key =
+(*let get cfg_name key =
   let f (client:Arakoon_client.client) =
     client # get key >>= fun value ->
     Lwt_io.printlf "%S%!" value
   in
   let t () = with_master_client cfg_name f in
   run t
-
+*)
 
 let get_key_count cfg_name () = 
   let f (client:Arakoon_client.client) = 
@@ -94,6 +94,36 @@ let get_key_count cfg_name () =
   in
   let t () = with_master_client cfg_name f in
   run t
+
+let node_version cfg_name node_name= 
+  let cluster_cfg = read_config cfg_name in
+  let rec _find cfgs = 
+    let rec loop = function
+      | [] -> failwith (node_name ^ " is not known in config " ^ cfg_name) 
+      | cfg :: rest ->
+        if cfg.node_name = node_name then cfg
+        else loop rest
+    in
+    loop cfgs
+  in
+  let node_cfg = _find cluster_cfg.cfgs in
+  let cluster = cluster_cfg.cluster_id in
+  with_client node_cfg cluster
+    (fun client ->
+      client # version () >>= fun (major,minor,patch, info) ->
+      Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
+      Lwt_io.printl info
+    )
+
+
+
+
+
+
+
+
+
+
 
 let delete cfg_name key =
   let t () = with_master_client cfg_name (fun client -> client # delete key )

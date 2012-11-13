@@ -548,5 +548,22 @@ module V2(S:Core.STORE) = struct
           _user_function driver name po oc 
         end
           
+      | Common.VERSION ->
+        begin
+          Lwtc.log "VERSION" >>= fun () ->
+          let out = Pack.make_output 128 in
+          Pack.vint_to out 0;
+          Pack.vint_to out Version.major;
+          Pack.vint_to out Version.minor;
+          Pack.vint_to out Version.patch;
+          let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
+            Version.git_info
+            Version.compile_time
+            Version.machine
+          in
+          Pack.string_to out rest;
+          let s = Pack.close_output out in
+          Lwt_io.write oc s >>= fun () -> Lwt.return false
+        end
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

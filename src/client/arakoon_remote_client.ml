@@ -104,6 +104,19 @@ object(self: #Arakoon_client.client)
 
   method get_cluster_cfgs () =
     Common.get_nursery_cfg (ic,oc)
+
+  method version () = 
+    request oc (fun buf -> command_to buf VERSION) >>= fun () ->
+    response_limited ic 
+      (fun pack -> 
+        let major = Pack.input_vint   pack in
+        let minor = Pack.input_vint   pack in
+        let patch = Pack.input_vint   pack in
+        let patch' = if patch > 20 then -1 else patch in (* TODO: fix *)
+        let info  = Pack.input_string pack in
+        (major,minor,patch', info)
+      )
+      
 end
 
 let make_remote_client cluster connection =

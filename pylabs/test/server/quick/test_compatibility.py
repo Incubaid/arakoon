@@ -114,3 +114,29 @@ def test_expect_progress_possible():
    client = C.get_client(protocol_version = 1)
    pp = client.expectProgressPossible()
    assert_equals(pp,True)
+
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_delete_prefix():
+   client = C.get_client(protocol_version = 1)
+   for i in xrange(100):
+      client.set("key_%04i" % i, "whatever")
+   prefix = "key_004"
+   keys = client.prefix(prefix)
+   l = len(keys)
+   l2 = client.deletePrefix(prefix)
+   assert_equals(l2,l, "wrong number of keys deleted")
+   l3 = client.deletePrefix(prefix)
+   assert_equals(l3,0)
+   X.logging.debug("done")
+
+
+@C.with_custom_setup( C.setup_1_node , C.basic_teardown )
+def test_get_version():
+    client = C.get_client(protocol_version = 1)
+    #first on master:
+    
+    vt = client.getVersion()
+    X.logging.debug("tuple = %s", str(vt))
+    (major,minor,patch, info) = vt
+    assert_equals(major, 2)
+    client.dropConnections()

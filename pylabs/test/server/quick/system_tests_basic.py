@@ -211,6 +211,20 @@ def test_show_version () :
     local_mods = version.find ("dirty") 
     assert_equals( local_mods, -1, "Invalid daemon, built with local modifications")
 
+@C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )
+def test_get_version():
+    client = C.get_client(protocol_version = 2)
+    #first on master:
+    
+    vt = client.getVersion()
+    logging.debug("tuple = %s", str(vt))
+    (major,minor,patch, info) = vt
+    assert_equals(major, 1)
+    #then on specific level:
+    vt2 = client.getVersion(C.node_names[0])
+    logging.debug("tuple = %s", str(vt2))
+    client.dropConnections() # needed?
+
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_delete_non_existing() :
     cli = C.get_client(protocol_version = 2)

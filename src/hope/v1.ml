@@ -279,7 +279,21 @@ module V1(S:Core.STORE) = struct
     _response_ok_bool oc r
 
   let _do_statistics (ic,oc) stats = _non_fatal oc Arakoon_exc.E_UNKNOWN_FAILURE "not supported"
-    
+
+  let _do_version (ic,oc) =
+    Llio.output_int oc 0 >>= fun () ->
+    Llio.output_int oc Version.major >>= fun () ->
+    Llio.output_int oc Version.minor >>= fun () ->
+    Llio.output_int oc Version.patch >>= fun () ->
+    Lwtc.log "%i.%i.%i" Version.major Version.minor Version.patch >>= fun () ->
+    let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
+      Version.git_info
+      Version.compile_time
+      Version.machine
+    in
+    Llio.output_string oc rest >>= fun () ->
+    Lwt.return false
+
   type connection = Lwt_io.input_channel * Lwt_io.output_channel
 
   let one_command (me:string) (stats:Statistics.t) driver store (conn:connection) = 
@@ -304,6 +318,8 @@ module V1(S:Core.STORE) = struct
       | Common.USER_FUNCTION             -> fail ()
       | Common.ASSERT                    -> _do_assert        conn me store stats
       | Common.SET_INTERVAL              -> fail ()
+      | Common.DELETE_PREFIX             -> fail ()
+      | Common.VERSION                   -> _do_version       conn
         
       | c -> fail ()
 end

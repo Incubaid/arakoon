@@ -20,6 +20,8 @@ let git_info = run_cmd "git describe --all --long --always --dirty"
 
 let machine = run_cmd "uname -mnrpio"
 
+let branch_version = run_cmd "git branch --merged"
+
 let split s ch =
   let x = ref [] in
   let rec go s =
@@ -43,11 +45,33 @@ let make_version _ _ =
   let cmd =
     let template = "let git_info = %S\n" ^^
       "let compile_time = %S\n" ^^
+      "let machine = %S\n" ^^
+      "let major = %i\n" ^^
+      "let minor = %i\n" ^^
+      "let patch = %i\n" 
+    in
+    let major,minor,patch = 
+      try
+        Scanf.sscanf branch_version "* %i.%i.%i" (fun ma mi p -> (ma,mi,p))
+      with _ -> 
+        try Scanf.sscanf branch_version "* %i.%i" (fun ma mi -> (ma,mi,-1)) 
+        with _ -> (-1,-1,-1)
+    in
+    Printf.sprintf template git_info time machine 
+      major minor patch
+  in
+  Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
+
+(*let make_version _ _ =
+  let cmd =
+    let template = "let git_info = %S\n" ^^
+      "let compile_time = %S\n" ^^
       "let machine = %S"
     in
     Printf.sprintf template git_info time machine 
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
+*)
 
 let before_space s =
   try

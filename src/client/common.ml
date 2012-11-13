@@ -70,6 +70,8 @@ type client_command =
   | REV_RANGE_ENTRIES
   | SYNCED_SEQUENCE
   | COMPACT
+  | DELETE_PREFIX
+  | VERSION
 
 
 let code2int = [
@@ -105,6 +107,8 @@ let code2int = [
   REV_RANGE_ENTRIES       , 0x23l;
   SYNCED_SEQUENCE         , 0x24l;
   COMPACT                 , 0x25l;
+  DELETE_PREFIX           , 0x27l;
+  VERSION                 , 0x28l;
 ]
 
 let int2code =
