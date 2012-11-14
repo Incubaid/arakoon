@@ -41,6 +41,11 @@ module V1(S:Core.STORE) = struct
     Llio.output_bool oc bool >>= fun () ->
     Lwt.return false
 
+  let _response_ok_int oc i =
+    Llio.output_int32 oc 0l >>= fun () ->
+    Llio.output_int oc i >>= fun () ->
+    Lwt.return false
+
   let _response_ok_string_option oc so =
     Llio.output_int32 oc 0l >>= fun () ->
     Llio.output_string_option oc so >>= fun () ->
@@ -132,6 +137,18 @@ module V1(S:Core.STORE) = struct
       _unit_or_f oc a
     in
     _do_write_op (ic,oc) me store _inner 
+
+  let _do_delete_prefix (ic,oc) me store stats driver = 
+    Llio.input_string ic >>= fun prefix ->
+    let _inner () =
+      let t0 = Unix.gettimeofday () in
+      DRIVER.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
+      (* Statistics.new_delete_prefix stats t0; *)
+      match a with
+        | _ -> _response_ok_int oc 0
+    in
+    _do_write_op (ic,oc) me store _inner
+    
       
   let _do_get (ic,oc) me store stats = 
     Llio.input_bool   ic >>= fun allow_dirty ->
@@ -318,7 +335,7 @@ module V1(S:Core.STORE) = struct
       | Common.USER_FUNCTION             -> fail ()
       | Common.ASSERT                    -> _do_assert        conn me store stats
       | Common.SET_INTERVAL              -> fail ()
-      | Common.DELETE_PREFIX             -> fail ()
+      | Common.DELETE_PREFIX             -> _do_delete_prefix conn me store stats driver
       | Common.VERSION                   -> _do_version       conn
         
       | c -> fail ()
