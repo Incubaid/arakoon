@@ -547,7 +547,30 @@ module V2(S:Core.STORE) = struct
           Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
           _user_function driver name po oc 
         end
-          
+      | Common.DELETE_PREFIX ->
+        begin
+          let key = Pack.input_string rest in
+          Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
+          let _inner () = 
+            let t0 = Unix.gettimeofday () in
+            DRIVER.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
+            let out = Pack.make_output 64 in
+            begin
+              match a with
+                | Core.VOID -> 
+                  Pack.vint_to out 0;
+                  Pack.string_option_to out None
+                | Core.FAILURE (rc, msg) -> 
+                  Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+                  Pack.string_to out msg
+                | Core.VALUE v -> 
+                  Pack.vint_to out 0;
+                  Pack.string_option_to out (Some v)
+            end;
+            _close_write oc out
+          in
+          do_write_op _inner 
+        end
       | Common.VERSION ->
         begin
           Lwtc.log "VERSION" >>= fun () ->

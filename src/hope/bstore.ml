@@ -69,6 +69,13 @@ module BStore = (struct
                 | NOK k -> Lwt.return (NOK (unpref_key k))
                 | a -> Lwt.return ok_none
             end
+          | Core.DELETE_PREFIX k ->
+            begin
+              Lwtc.log "delete_prefix : %s" k >>= fun () ->
+              BS.delete_prefix tx (pref_key k) >>= function
+                | NOK k -> Lwt.return (NOK (unpref_key k))
+                | OK c  -> Lwt.return ok_none (* TODO: return count *)
+            end
           | Core.ADMIN_SET (k, m_v) -> 
             begin
               let k' = pref_key ~_pf:__admin_prefix k in

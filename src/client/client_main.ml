@@ -74,18 +74,7 @@ let with_master_client cfg_name f =
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) cfgs) in
   with_client master_cfg ccfg.cluster_id f
   
-let set cfg_name key value =
-  let t () = with_master_client cfg_name (fun client -> client # set key value)
-  in run t
 
-(*let get cfg_name key =
-  let f (client:Arakoon_client.client) =
-    client # get key >>= fun value ->
-    Lwt_io.printlf "%S%!" value
-  in
-  let t () = with_master_client cfg_name f in
-  run t
-*)
 
 let get_key_count cfg_name () = 
   let f (client:Arakoon_client.client) = 
@@ -115,20 +104,6 @@ let node_version cfg_name node_name=
       Lwt_io.printl info
     )
 
-
-
-
-
-
-
-
-
-
-
-let delete cfg_name key =
-  let t () = with_master_client cfg_name (fun client -> client # delete key )
-  in 
-  run t
 
 let benchmark cfg_name size tx_size max_n n_clients = 
   Lwt_io.set_default_buffer_size 32768;
@@ -165,3 +140,4 @@ let who_master cfg_name () =
     Lwt_io.printl master_name
   in
   run t 
+

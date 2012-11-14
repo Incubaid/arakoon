@@ -218,7 +218,9 @@ type action_type =
   | DumpDb
   | Set
   | Get
+  | PrefixKeys
   | Delete
+  | DeletePrefix
   | Benchmark
   | LastEntries
   | ListTest
@@ -388,6 +390,18 @@ let get cfg_name k =
 
 let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
 
+let delete_prefix cfg_name prefix = 
+  Client_main.with_master_client cfg_name 
+    (fun client -> client # delete_prefix prefix >>= fun i ->
+      Lwt_io.printlf "%i" i
+    )
+
+let prefix_keys cfg_name prefix max = 
+  Client_main.with_master_client cfg_name
+    (fun client -> client # prefix_keys prefix max >>= fun keys ->
+      Lwt_list.iter_s Lwt_io.printl keys
+    )
+
 let node_version cfg_name node_name =
   Client_main.node_version cfg_name node_name
 
@@ -464,11 +478,15 @@ let main () =
     ("--set", Arg.Tuple[set_action Set; Arg.Set_string key; Arg.Set_string value],
      "<key> <value> : arakoon[key]:= value"
     );
-    ("--get", Arg.Tuple[set_action Get; Arg.Set_string key;],
+    ("--get", Arg.Tuple[set_action Get; Arg.Set_string key],
      "<key> : Returns arakoon[key]"
     );
+    ("--prefix-keys", Arg.Tuple[set_action PrefixKeys;Arg.Set_string key;],
+     "<prefix> : list all keys with this prefix");
     ("--delete", Arg.Tuple[set_action Delete;Arg.Set_string key;],
      "<key> : Delete arakoon[key]");
+    ("--delete-prefix", Arg.Tuple[set_action DeletePrefix;Arg.Set_string key],
+     "<prefix> : Delete all values where key has prefix");
     ("--benchmark", Arg.Tuple [set_action Benchmark],
      " : Runs a benchmark against an existing cluster");
     ("-max_n", Arg.Tuple[Arg.Set_int max_n], 
@@ -505,7 +523,9 @@ let main () =
       | DumpDb -> Lwt_main.run (dump_db !node_id !config_file)
       | Set -> Lwt_main.run (set !config_file !key !value)
       | Get -> Lwt_main.run (get !config_file !key)
+      | PrefixKeys -> Lwt_main.run (prefix_keys !config_file !key (Some 100))
       | Delete -> Lwt_main.run (delete !config_file !key)
+      | DeletePrefix -> Lwt_main.run (delete_prefix !config_file !key)
       | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
       | LastEntries -> Lwt_main.run  (last_entries !cluster_id !ip !port (Int64.of_string !is))
       | ListTest -> list_test ()

@@ -21,6 +21,7 @@ type update =
   | ADMIN_SET of k * v option
   | USER_FUNCTION of string * string option
   | SEQUENCE of update list
+  | DELETE_PREFIX of k
 
 let update2s = function
   | SET (k, _) -> Printf.sprintf "U_SET (%S,_)" k
@@ -29,6 +30,7 @@ let update2s = function
   | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (%S,_)" k
   | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
+  | DELETE_PREFIX k -> Printf.sprintf "U_DELETE_PREFIX %S" k
 
 let rec update_to buf = function
   | SET (k,v) ->
@@ -50,6 +52,9 @@ let rec update_to buf = function
     Llio.int_to buf 9;
     Llio.string_to buf k;
     Llio.string_option_to buf m_v
+  | DELETE_PREFIX k ->
+    Llio.int_to buf 14;
+    Llio.string_to buf k
 
 let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
@@ -81,7 +86,9 @@ let rec update_from buf off =
       let k, off = Llio.string_from buf off in
       let m_v, off = Llio.string_option_from buf off in
       ADMIN_SET (k, m_v), off
-          
+    | 14 ->
+      let k, off = Llio.string_from buf off in
+      DELETE_PREFIX k, off
     | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
 
 type result = 

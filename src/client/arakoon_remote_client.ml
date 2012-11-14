@@ -64,7 +64,7 @@ object(self: #Arakoon_client.client)
     >>= fun () ->
     response_old ic Llio.input_kv_list
 
-  method prefix_keys ?(allow_dirty=false) pref max =
+  method prefix_keys ?(allow_dirty=false) pref (max:int option) =
     request  oc (fun buf -> prefix_keys_to buf ~allow_dirty pref max) >>= fun () ->
     response_old ic Llio.input_string_list
 
@@ -115,7 +115,10 @@ object(self: #Arakoon_client.client)
         let info  = Pack.input_string pack in
         (major,minor,patch, info)
       )
-      
+
+  method delete_prefix prefix = 
+    request oc (fun buf -> delete_prefix_to buf prefix) >>= fun () ->
+    response_limited ic Pack.input_vint
 end
 
 let make_remote_client cluster connection =

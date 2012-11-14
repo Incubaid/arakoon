@@ -216,6 +216,10 @@ let delete_to out key =
   command_to out DELETE;
   Pack.string_to out key
 
+let delete_prefix_to out prefix =
+  command_to out DELETE_PREFIX;
+  Pack.string_to out prefix
+
 let _range_params b cmd ~allow_dirty first finc last linc max = 
   command_to b cmd;
   Pack.bool_to b allow_dirty;
@@ -234,11 +238,11 @@ let range_entries_to b ~allow_dirty first finc last linc max =
 let rev_range_entries_to b ~allow_dirty first finc last linc max =
   _range_params b REV_RANGE_ENTRIES ~allow_dirty first finc last linc max
 
-let prefix_keys_to b ~allow_dirty prefix max =
+let prefix_keys_to b ~allow_dirty prefix (max:int option) =
   command_to b PREFIX_KEYS;
   Pack.bool_to b allow_dirty;
   Pack.string_to b prefix;
-  Pack.vint_to b max
+  Pack.option_to b Pack.vint_to max
 
 let test_and_set_to b key expected wanted =
   command_to b TEST_AND_SET;

@@ -49,7 +49,7 @@ method rev_range_entries:
   *)
 
   (** yields the list of keys starting with that prefix *)
-  method prefix_keys: ?allow_dirty:bool -> key -> int -> key list Lwt.t
+  method prefix_keys: ?allow_dirty:bool -> key -> int option -> key list Lwt.t
 
   method multi_get: ?allow_dirty:bool -> key list -> (value list) Lwt.t
 
@@ -100,4 +100,9 @@ method rev_range_entries:
       returns [(major,minor,patch, info)] 
   *)
 
+  method delete_prefix : key -> int Lwt.t
+    (**
+       [delete_prefix prefix] deletes all values for which the key has the prefix
+       returns number of entries deleted
+    **)
 end
