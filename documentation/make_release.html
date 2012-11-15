@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-  <title>Arakoon :: Welcome to Arakoon’s documentation!</title>
+  <title>Arakoon :: How to make a release</title>
 
     
     <link rel="stylesheet" href="_static/basic.css" type="text/css" />
@@ -27,8 +27,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <link rel="top" title="Arakoon 1.0.0 documentation" href="#" />
-    <link rel="next" title="Arakoon manifesto" href="manifest.html" />
+    <link rel="top" title="Arakoon 1.0.0 documentation" href="index.html" />
   <meta name="description"
     content="Arakoon is a distributed, consistent key-value store">
 
@@ -73,7 +72,7 @@
           <ul class="nav">
             <li><a href="http://arakoon.org">Home</a></li>
             <li><a href="http://arakoon.org/download.html">Download</a></li>
-            <li class="active"><a href="#">Documentation</a></li>
+            <li class="active"><a href="index.html">Documentation</a></li>
             <li><a href="http://arakoon.org/contact.html">Contact</a></li>
           </ul>
         </nav>
@@ -84,36 +83,41 @@
 
   <div class="container" id='main'>
     
-  <div class="section" id="welcome-to-arakoon-s-documentation">
-<h1>Welcome to Arakoon&#8217;s documentation!<a class="headerlink" href="#welcome-to-arakoon-s-documentation" title="Permalink to this headline">¶</a></h1>
-<p>Contents:</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="manifest.html">Arakoon manifesto</a></li>
-<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installing_arakoon.html">Installing Arakoon</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arakoon_deployment.html">Arakoon Deployment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arakoon_configuration.html">Arakoon Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cluster_nodes.html">Cluster Nodes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="managing_arakoon.html">Managing Arakoon</a></li>
-<li class="toctree-l1"><a class="reference internal" href="nursery.html">Arakoon Nursery</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arakoon_ocaml_client.html">Arakoon OCaml Client</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arakoon_python_client.html">Arakoon Python Client</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arakoon_man_page.html">Arakoon Man Page</a></li>
-<li class="toctree-l1"><a class="reference internal" href="working_with_tlogs.html">Working with TLogs</a></li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pylabs/index.html">Managing Arakoon with PyLabs</a></li>
-</ul>
-</div>
-</div>
-<div class="section" id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="how-to-make-a-release">
+<h1>How to make a release<a class="headerlink" href="#how-to-make-a-release" title="Permalink to this headline">¶</a></h1>
+<blockquote>
+<div><ul>
+<li><p class="first">Run the tools/make_release_branch.py script which</p>
 <ul class="simple">
-<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
-<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
-<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+<li>creates the X.Y.Z branch</li>
+<li>updates debian changelog</li>
+<li>commits branch =&gt; ${REV}</li>
 </ul>
+</li>
+<li><p class="first">Jenkins: arakoon-release-qp4</p>
+</li>
+<li><p class="first">Jenkins: arakoon-release-deb</p>
+</li>
+<li><p class="first">Bitbucket: first download artefacts (2 .debs, 1 .egg) and
+then upload these to bitbucket downloads</p>
+</li>
+<li><p class="first">Jira: resolve issues and release X.Y.Z branch</p>
+</li>
+<li><p class="first">Git: gh-pages branch (src)</p>
+<p>** python make_download.py &#8211;version X.Y.Z &#8211;rev ${REV}</p>
+<p>** python make_release.py &#8211;version X.Y.Z &#8211;rev ${REV} &gt; releases/X.Y.Z.rst</p>
+<p>** commit git</p>
+<p>** python build.py</p>
+<p>** check local site</p>
+<p>** commit</p>
+<p>** push</p>
+</li>
+<li><p class="first">wait until github published it.</p>
+</li>
+<li><p class="first">send mail to <a class="reference external" href="mailto:arakoon_internal&#37;&#52;&#48;incubaid&#46;com">arakoon_internal<span>&#64;</span>incubaid<span>&#46;</span>com</a></p>
+</li>
+</ul>
+</div></blockquote>
 </div>
 
 
