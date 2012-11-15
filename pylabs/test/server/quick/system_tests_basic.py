@@ -346,24 +346,6 @@ def test_get_storage_utilization():
                   (sum,total))
 
 
-@C.with_custom_setup( C.default_setup, C.basic_teardown )
-def test_gather_evidence():
-    data_base_dir = C.data_base_dir
-    q = C.q
-    cluster = C._getCluster()
-    dest_file = '/'.join([data_base_dir, "evidence.tgz" ])
-    dest_dir =  '/'.join([data_base_dir, "evidence"])
-    destination = 'file://%s' % dest_file 
-    cluster.gatherEvidence(destination, test = True)
-    
-    fs.targzUncompress(dest_file, dest_dir)
-    nodes = X.listDirsInDir(dest_dir)
-    files = []
-    for node in nodes:
-        files.extend(fs.listFilesInDir(node))
-    assert_equals(len(nodes),3, "Did not get data from all nodes")
-    assert_equals(len(files) > 12, True , "Did not gather enough files")
-
 @C.with_custom_setup( C.default_setup, C.basic_teardown ) 
 def test_get_key_count():
     protocol_version = 2
