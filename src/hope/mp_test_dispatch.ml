@@ -24,7 +24,7 @@ module MPTestDispatch = struct
      PQ.push q msg 
 
   let start_lease t s n d = 
-    t.timeouts <- (n, s.now +. d)::t.timeouts
+    t.timeouts <- (n, s.now +. d) :: t.timeouts
     
   let add_msg_target t id q =
     Hashtbl.replace t.msging id q

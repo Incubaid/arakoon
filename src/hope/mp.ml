@@ -1,7 +1,5 @@
 open Core
 
-let _log m = Lwt.ignore_result(Lwtc.log m)
- 
 module MULTI = struct
   type state_name = 
     | S_CLUELESS
@@ -416,25 +414,14 @@ module MULTI = struct
   let handle_prepare n m i src state =
     let diff = state_cmp n i state in
     match diff with
-      | (N_BEHIND, P_ACCEPTABLE, _) ->
-        begin
-          send_promise state src n m i
-        end
+      | (N_BEHIND, P_ACCEPTABLE, _) -> send_promise state src n m i
       | (N_EQUAL, P_ACCEPTABLE, _) ->
         if Some src = state.master_id || state.master_id = None 
-        then
-          send_promise state src n m i
-        else 
-          send_nack state.constants.me state.round state.extensions state.accepted src state
+        then send_promise state src n m i
+        else send_nack state.constants.me state.round state.extensions state.accepted src state
       | (N_AHEAD, P_ACCEPTABLE, _) 
-      | ( _, P_AHEAD, _ ) ->
-        begin
-          send_nack state.constants.me state.round state.extensions state.accepted src state
-        end
-      | ( _, P_BEHIND, _) ->
-        begin
-          StepSuccess ([A_RESYNC (src, n, m)], state)
-        end
+      | ( _, P_AHEAD, _ ) -> send_nack state.constants.me state.round state.extensions state.accepted src state
+      | ( _, P_BEHIND, _) -> StepSuccess ([A_RESYNC (src, n, m)], state)
 
   let get_updated_votes votes vote =
     let cleaned_votes = List.filter (fun v -> v <> vote) votes in
@@ -735,16 +722,16 @@ module MULTI = struct
         | _ -> StepSuccess([], state) 
     end
     
-  let step msg state =
+  let step msg state : step_result =
     match msg with
-      | M_PREPARE (src, n, m, i) -> handle_prepare n m i src state
-      | M_PROMISE (src, n, m, i, m_upd) -> handle_promise n m i m_upd src state
-      | M_NACK (src, n, m, i) -> handle_nack n m i src state
-      | M_ACCEPT (src, n, m, i, upd) -> handle_accept n m i upd src state
-      | M_ACCEPTED (src, n, m, i) -> handle_accepted n m i src state
-      | M_LEASE_TIMEOUT (n, m) -> handle_lease_timeout n m state
-      | M_CLIENT_REQUEST (w, upd) -> handle_client_request w upd state
-      | M_MASTERSET (src, n, m) -> handle_masterset n m src state
+      | M_PREPARE (src, n, m, i)        -> handle_prepare        n m i src state
+      | M_PROMISE (src, n, m, i, m_upd) -> handle_promise        n m i m_upd src state
+      | M_NACK    (src, n, m, i)        -> handle_nack           n m i src state
+      | M_ACCEPT  (src, n, m, i, upd)   -> handle_accept         n m i upd src state
+      | M_ACCEPTED (src, n, m, i)       -> handle_accepted       n m i src state
+      | M_LEASE_TIMEOUT (n, m)          -> handle_lease_timeout  n m state
+      | M_CLIENT_REQUEST (w, upd)       -> handle_client_request w upd state
+      | M_MASTERSET (src, n, m)         -> handle_masterset      n m src state
 end 
 
 module type MP_ACTION_DISPATCHER = sig

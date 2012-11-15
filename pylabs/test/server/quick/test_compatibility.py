@@ -123,8 +123,16 @@ def test_delete_prefix():
    prefix = "key_004"
    keys = client.prefix(prefix)
    l = len(keys)
+   print keys
    l2 = client.deletePrefix(prefix)
-   assert_equals(l2,l, "wrong number of keys deleted")
+
+   for key in keys:
+       ok = not client.exists(key)
+       assert_true(ok, "%s should NOT be there" % key)
+   X.logging.debug("ok, none of the keys with the prefix are present")
+   
+   assert_equals(l2,l, "keys were deleted but count is not correct: %i<>%i" % (l, l2))
+
    l3 = client.deletePrefix(prefix)
    assert_equals(l3,0)
    X.logging.debug("done")
@@ -134,7 +142,7 @@ def test_delete_prefix():
 def test_get_version():
     client = C.get_client(protocol_version = 1)
     #first on master:
-    
+
     vt = client.getVersion()
     X.logging.debug("tuple = %s", str(vt))
     (major,minor,patch, info) = vt
