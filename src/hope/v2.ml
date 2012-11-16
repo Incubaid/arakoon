@@ -125,7 +125,6 @@ let _set driver k v =
         | Core.VOID -> 
           Pack.vint_to out 0; 
           Pack.string_option_to out None (* TODO: shouldn't we fail ? *)
-        | Core.INT _ -> failwith "did not expect int here"
         | Core.FAILURE (rc, msg) -> 
           Pack.vint_to out (Arakoon_exc.int_of_rc rc);
           Pack.string_to out msg
@@ -138,7 +137,6 @@ let _set driver k v =
   let _unit_or_f oc = function
     | Core.VOID              -> _output_ok_unit oc
     | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
-    | Core.INT _ 
     | Core.VALUE _           -> failwith "Expected unit, not value"
 
   let _only_if_master rest oc me store allow_dirty f =
@@ -178,10 +176,9 @@ let _set driver k v =
         | Core.FAILURE (rc, msg) -> 
           Pack.vint_to out (Arakoon_exc.int_of_rc rc);
           Pack.string_to out msg
-        | Core.INT i -> 
-          Pack.vint_to out 0;
-          Pack.vint_to out i
-        | Core.VALUE _ 
+        | Core.VALUE v -> let i,_ = Llio.int_from v 0 in
+                          Pack.vint_to out 0;
+                          Pack.vint_to out i
         | Core.VOID  -> failwith "excpted int, not this"
       end;
       _close_write oc out

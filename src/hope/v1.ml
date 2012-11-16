@@ -70,7 +70,6 @@ module V1(S:Core.STORE) = struct
     DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
       | Core.VOID              -> Lwt.return ()
-      | Core.INT _             -> failwith "Expected unit, not int"
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
       | Core.VALUE v           -> failwith "Expected unit, not value"
         
@@ -109,7 +108,6 @@ module V1(S:Core.STORE) = struct
       
   let _unit_or_f oc = function
     | Core.VOID            -> V.response_ok_unit oc
-    | Core.INT  _          -> failwith "Expected unit, not int"
     | Core.FAILURE(rc,msg) -> _non_fatal oc rc msg
     | Core.VALUE v         -> failwith "Expected unit, not value"
       
@@ -147,8 +145,10 @@ module V1(S:Core.STORE) = struct
       DRIVER.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
       (* Statistics.new_delete_prefix stats t0; *)
       match a with
-        | Core.INT i -> _response_ok_int oc i
-        | _          -> failwith "expected int, not this"
+        | Core.VALUE v -> 
+          let c,_ = Llio.int_from v 0 in
+          _response_ok_int oc c
+        | _            -> failwith "expected int, not this"
     in
     _do_write_op (ic,oc) me store _inner
     

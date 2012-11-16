@@ -93,14 +93,12 @@ let rec update_from buf off =
 
 type result = 
   | VOID
-  | INT of int
   | VALUE of v
   | FAILURE of Arakoon_exc.rc * string
 
 
 let result2s = function
   | VOID -> "VOID"
-  | INT i -> Printf.sprintf "INT %i" i
   | VALUE v -> Printf.sprintf "VALUE %s" v
   | FAILURE (rc,msg) -> Printf.sprintf "FAILURE(_,%S)" msg
 

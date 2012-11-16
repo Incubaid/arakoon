@@ -252,7 +252,6 @@ module MULTI = struct
   let client_reply2s (_,r) = match r with
     | FAILURE(rc,msg) -> Printf.sprintf "Reply (rc: %d) (msg: '%s')" (Arakoon_exc.int_of_rc rc) msg
     | VOID            -> "Reply success (void)"
-    | INT i           -> Printf.sprintf "Reply success (int %i) " i
     | VALUE v         -> "Reply success (value)" 
        
   type action =

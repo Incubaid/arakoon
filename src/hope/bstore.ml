@@ -65,7 +65,10 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
             begin
               Lwtc.log "delete_prefix : %s" k >>= fun () ->
               BS.delete_prefix tx (pref_key k) >>= fun c ->
-              Lwt.return (OK None)
+              let b = Buffer.create 8 in (* TODO: this means we're doing something wrong *)
+              let () = Llio.int_to b c  in
+              let v = Buffer.contents b in
+              Lwt.return (OK (Some v))
             end
           | Core.ADMIN_SET (k, m_v) -> 
             begin

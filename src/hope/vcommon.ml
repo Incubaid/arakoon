@@ -43,7 +43,6 @@ module VCommon(S:Core.STORE) = struct
     DRIVER.push_cli_req driver q >>= function
       | Core.VOID -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-      | Core.INT _   -> failwith "Expected unit, not int"
       | Core.VALUE v -> failwith "Expected unit, not value"
 
   let admin_set driver k m_v = 
