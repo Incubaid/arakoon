@@ -84,7 +84,21 @@ module V2(S:Core.STORE) = struct
     Pack.string_to out msg;
     _close_write oc out (* ?? *)
 
-  let _set driver k v = 
+  let _output_ok_unit oc = 
+    let size = 64 in
+    let out = Pack.make_output size in
+    Pack.vint_to out 0;
+    _close_write oc out
+
+
+  let _output_ok_bool oc b =
+    let out = Pack.make_output 2 in
+    Pack.vint_to out 0;
+    Pack.bool_to out b;
+    _close_write oc out
+
+  
+let _set driver k v = 
     let q = Core.SET(k,v) in
     V.do_unit_update driver q
 
@@ -101,6 +115,7 @@ module V2(S:Core.STORE) = struct
   let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
 
 
+
   let _user_function driver name po oc = 
     let q = Core.USER_FUNCTION(name, po) in
     DRIVER.push_cli_req driver q >>= fun a ->
@@ -108,8 +123,9 @@ module V2(S:Core.STORE) = struct
     begin
       match a with
         | Core.VOID -> 
-          Pack.vint_to out 0;
-          Pack.string_option_to out None
+          Pack.vint_to out 0; 
+          Pack.string_option_to out None (* TODO: shouldn't we fail ? *)
+        | Core.INT _ -> failwith "did not expect int here"
         | Core.FAILURE (rc, msg) -> 
           Pack.vint_to out (Arakoon_exc.int_of_rc rc);
           Pack.string_to out msg
@@ -119,39 +135,89 @@ module V2(S:Core.STORE) = struct
     end;
     _close_write oc out
 
+  let _unit_or_f oc = function
+    | Core.VOID              -> _output_ok_unit oc
+    | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
+    | Core.INT _ 
+    | Core.VALUE _           -> failwith "Expected unit, not value"
+
+  let _only_if_master rest oc me store allow_dirty f =
+    V.am_i_master store me >>= fun me_master ->
+    Lwt.catch
+      (fun () -> 
+        if me_master || allow_dirty
+        then f ()
+        else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
+      ) 
+      (V.handle_exception oc)
+
+  let _do_write_op rest oc me store f = 
+    Lwt.catch
+      ( fun () ->
+        if S.is_read_only store 
+        then Lwt.fail( Common.XException(Arakoon_exc.E_READ_ONLY, me ) )
+        else _only_if_master rest oc me store false f 
+      ) (V.handle_exception oc)
+
+
+  let _do_user_function rest oc me store stats driver = 
+    let name = Pack.input_string rest in
+    let po   = Pack.input_string_option rest in
+    Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
+    _user_function driver name po oc 
+
+  let _do_delete_prefix rest oc  me store stats driver = 
+    let key = Pack.input_string rest in
+    Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
+    let _inner () = 
+      let t0 = Unix.gettimeofday () in
+      DRIVER.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
+      let out = Pack.make_output 64 in
+      begin
+        match a with
+        | Core.FAILURE (rc, msg) -> 
+          Pack.vint_to out (Arakoon_exc.int_of_rc rc);
+          Pack.string_to out msg
+        | Core.INT i -> 
+          Pack.vint_to out 0;
+          Pack.vint_to out i
+        | Core.VALUE _ 
+        | Core.VOID  -> failwith "excpted int, not this"
+      end;
+      _close_write oc out
+    in
+    _do_write_op rest oc me store _inner 
+
+  let _do_version oc = 
+    Lwtc.log "VERSION" >>= fun () ->
+    let out = Pack.make_output 128 in
+    Pack.vint_to out 0;
+    Pack.vint_to out Version.major;
+    Pack.vint_to out Version.minor;
+    Pack.vint_to out Version.patch;
+    let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
+      Version.git_info
+      Version.compile_time
+      Version.machine
+    in
+    Pack.string_to out rest;
+    let s = Pack.close_output out in
+    Lwt_io.write oc s >>= fun () -> Lwt.return false
 
   let one_command me (stats:Statistics.t) driver store ((ic,oc) as conn) =
-    let only_if_master allow_dirty f =
-      V.am_i_master store me >>= fun me_master ->
-      Lwt.catch
-        (fun () -> 
-          if me_master || allow_dirty
-          then f ()
-          else Lwt.fail (Common.XException(Arakoon_exc.E_NOT_MASTER, me))
-        ) 
-        (V.handle_exception oc)
-    in    
-    let do_write_op f = 
-      Lwt.catch
-        ( fun () ->
-          if S.is_read_only store 
-          then Lwt.fail( Common.XException(Arakoon_exc.E_READ_ONLY, me ) )
-          else only_if_master false f 
-        ) (V.handle_exception oc)
-    in
-    let do_admin_set key value =
+    let do_admin_set rest key value =
       let do_inner () =
         V.admin_set driver key (Some value) >>= fun () ->
         V.response_ok_unit oc
       in
-      do_write_op do_inner
+      _do_write_op rest oc me store do_inner
     in
-    let do_admin_get key =
+    let do_admin_get rest key =
       let do_inner () =
         V.admin_get store key >>= fun res ->
         V.response_rc_string oc 0l res
       in
-      only_if_master false do_inner
+      _only_if_master rest oc me store false do_inner
     in
     let _do_range rest inner output = 
       let (allow_dirty, first, finc, last, linc, max) = get_range_params rest in
@@ -160,7 +226,7 @@ module V2(S:Core.STORE) = struct
         (so2s first) finc (so2s last) linc 
         (Log_extra.int_option_to_string max) 
       >>= fun () ->
-      only_if_master allow_dirty 
+      _only_if_master rest oc me store allow_dirty 
         (fun () -> 
           inner store first finc last linc max >>= fun l ->
           Lwtc.log "length = %i" (List.length l) >>= fun () ->
@@ -178,18 +244,6 @@ module V2(S:Core.STORE) = struct
       let out = Pack.make_output size in
       Pack.vint_to out 0;
       Pack.string_option_to out so;
-      _close_write oc out
-    in
-    let output_ok_unit () = 
-      let size = 64 in
-      let out = Pack.make_output size in
-      Pack.vint_to out 0;
-      _close_write oc out
-    in
-    let output_ok_bool b =
-      let out = Pack.make_output 2 in
-      Pack.vint_to out 0;
-      Pack.bool_to out b;
       _close_write oc out
     in
     let output_ok_int i = 
@@ -227,12 +281,6 @@ module V2(S:Core.STORE) = struct
       Statistics.statistics_to out s;
       _close_write oc out
     in
-    let unit_or_f a = 
-      match a with 
-        | Core.VOID -> output_ok_unit ()
-        | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
-        | Core.VALUE v -> failwith "Expected unit, not value"
-    in
     match comm with
       | Common.PING ->
         let client_id = Pack.input_string rest in
@@ -253,9 +301,9 @@ module V2(S:Core.STORE) = struct
           let key = Pack.input_string rest in
           let do_exists () =
             S.get store key >>= fun m_val ->
-            output_ok_bool (m_val <> None)
+            _output_ok_bool oc (m_val <> None)
           in
-          only_if_master allow_dirty do_exists
+          _only_if_master rest oc me store allow_dirty do_exists
         end
       | Common.GET ->
         begin
@@ -271,7 +319,7 @@ module V2(S:Core.STORE) = struct
                 Statistics.new_get stats key v t0;
                 output_ok_string v
           in
-          only_if_master allow_dirty do_get
+          _only_if_master rest oc me store allow_dirty do_get
         end 
       | Common.SET -> 
         begin
@@ -281,9 +329,9 @@ module V2(S:Core.STORE) = struct
             let t0 = Unix.gettimeofday() in
             _set driver key value >>= fun () ->
             Statistics.new_set stats key value t0;
-            output_ok_unit ()
+            _output_ok_unit oc
           in 
-          do_write_op do_set
+          _do_write_op rest oc me store do_set
         end
       | Common.DELETE ->
         begin
@@ -293,9 +341,9 @@ module V2(S:Core.STORE) = struct
             let t0 = Unix.gettimeofday() in
             DRIVER.push_cli_req driver (Core.DELETE key) >>= fun a ->
             Statistics.new_delete stats t0;
-            unit_or_f a
+            _unit_or_f oc a
           in 
-          do_write_op do_delete
+          _do_write_op rest oc me store do_delete
         end
       | Common.LAST_ENTRIES ->
         begin
@@ -310,7 +358,7 @@ module V2(S:Core.STORE) = struct
       | Common.SEQUENCE ->
         begin
           Lwtc.log "SEQUENCE" >>= fun () ->
-          let do_sequence () =
+          let inner () =
             let t0 = Unix.gettimeofday() in
             let data = Pack.input_string rest in
             let probably_sequence,_ = Core.update_from data 0 in
@@ -320,14 +368,14 @@ module V2(S:Core.STORE) = struct
             in
             DRIVER.push_cli_req driver sequence >>= fun a ->
             Statistics.new_sequence stats t0;
-            unit_or_f a
-          in do_write_op do_sequence 
+            _unit_or_f oc a
+          in _do_write_op rest oc me store inner
         end
       | Common.MULTI_GET ->
         begin
           let allow_dirty = Pack.input_bool rest in
           let keys = Pack.input_list rest Pack.input_string in
-          let do_multi_get () = 
+          let inner () = 
             let t0 = Unix.gettimeofday() in
             let rec loop acc = function
               | [] -> 
@@ -341,7 +389,7 @@ module V2(S:Core.STORE) = struct
             in
             loop [] keys 
           in
-          only_if_master allow_dirty do_multi_get
+          _only_if_master rest oc me store allow_dirty inner
         end
           
       | Common.RANGE ->             _do_range rest S.range output_ok_string_list
@@ -360,21 +408,21 @@ module V2(S:Core.STORE) = struct
           Lwtc.log "ASSERT: allow_dirty:%b key:%s req_val:%s" allow_dirty key 
             (Log_extra.string_option_to_string req_val) 
           >>= fun () ->
-          let do_assert () =
+          let inner () =
             S.get store key >>= fun m_val ->
             if m_val <> req_val 
             then
               _output_simple_error oc Arakoon_exc.E_ASSERTION_FAILED key
             else 
-              output_ok_unit ()
+              _output_ok_unit oc
           in
-          only_if_master allow_dirty do_assert
+          _only_if_master rest oc me store allow_dirty inner
         end
       | Common.CONFIRM ->
         begin
           let key = Pack.input_string rest in
           let value = Pack.input_string rest in
-          let do_confirm () =
+          let inner () =
             begin 
               S.get store key >>= fun v ->
               if v <> Some value 
@@ -384,7 +432,7 @@ module V2(S:Core.STORE) = struct
             >>= fun () -> 
             V.response_ok_unit oc
           in 
-          do_write_op do_confirm
+          _do_write_op rest oc me store inner
         end
       | Common.TEST_AND_SET ->
         begin
@@ -395,7 +443,7 @@ module V2(S:Core.STORE) = struct
             (Log_extra.string_option_to_string m_old)
             (Log_extra.string_option_to_string m_new)
           >>= fun () ->
-          let do_test_and_set () = 
+          let inner () = 
             let t0 = Unix.gettimeofday() in
             S.get store key >>= fun m_val ->
             begin
@@ -412,7 +460,7 @@ module V2(S:Core.STORE) = struct
             Statistics.new_testandset stats t0;
             output_ok_string_option m_val 
           in
-          do_write_op do_test_and_set 
+          _do_write_op rest oc me store inner
         end
       | Common.PREFIX_KEYS ->
         begin
@@ -424,12 +472,12 @@ module V2(S:Core.STORE) = struct
             allow_dirty key (Log_extra.int_option_to_string max)
             
           >>= fun () ->
-          let do_prefix_keys () =
+          let inner () =
             _prefix_keys store key max >>= fun keys ->
             Lwtc.log "PREFIX_KEYS: result: [%s]" (String.concat ";" keys) >>= fun () ->
             output_ok_string_list keys
           in
-          only_if_master allow_dirty do_prefix_keys
+          _only_if_master rest oc me store allow_dirty inner
         end
           
       | Common.SET_ROUTING -> 
@@ -439,23 +487,23 @@ module V2(S:Core.STORE) = struct
           Routing.routing_to o r;
           let v = Pack.close_output o in
           Lwt_log.debug_f "Setting routing key to %S" v >>= fun () -> 
-          do_admin_set V.__routing_key v
+          do_admin_set rest V.__routing_key v
         end
       | Common.SET_INTERVAL -> 
         let i = Interval.interval_from rest in
         let o = Pack.make_output 16 in
         Interval.interval_to o i;
         let v = Pack.close_output o in
-        do_admin_set V.__interval_key v
+        do_admin_set rest V.__interval_key v
       | Common.GET_INTERVAL -> 
         begin
           Lwt_log.debug "GET_INTERVAL" >>= fun () ->
-          do_admin_get V.__interval_key 
+          do_admin_get rest V.__interval_key 
         end
       | Common.GET_ROUTING -> 
         begin
           Lwt_log.debug "GET_ROUTING" >>= fun () ->
-          do_admin_get V.__routing_key 
+          do_admin_get rest V.__routing_key 
         end
       | Common.STATISTICS -> 
         begin
@@ -484,7 +532,7 @@ module V2(S:Core.STORE) = struct
           S.get_meta store >>= fun ms ->
           let mo = Core.extract_master_info ms in
           let r = mo <> None in
-          output_ok_bool r
+          _output_ok_bool oc r
         end
       | Common.SET_NURSERY_CFG ->
         begin
@@ -495,7 +543,7 @@ module V2(S:Core.STORE) = struct
           let out = Pack.make_output 16 in
           ClientCfg.cfg_to out cfg;
           let value = Pack.close_output out in 
-          do_admin_set key value
+          do_admin_set rest key value
         end
       | Common.GET_NURSERY_CFG ->
         begin
@@ -540,53 +588,9 @@ module V2(S:Core.STORE) = struct
           let s = Pack.close_output out in
           Lwt_io.write oc s >>= fun () -> Lwt.return false  
         end
-      | Common.USER_FUNCTION ->
-        begin
-          let name = Pack.input_string rest in
-          let po   = Pack.input_string_option rest in
-          Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
-          _user_function driver name po oc 
-        end
-      | Common.DELETE_PREFIX ->
-        begin
-          let key = Pack.input_string rest in
-          Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
-          let _inner () = 
-            let t0 = Unix.gettimeofday () in
-            DRIVER.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
-            let out = Pack.make_output 64 in
-            begin
-              match a with
-                | Core.VOID -> 
-                  Pack.vint_to out 0;
-                  Pack.string_option_to out None
-                | Core.FAILURE (rc, msg) -> 
-                  Pack.vint_to out (Arakoon_exc.int_of_rc rc);
-                  Pack.string_to out msg
-                | Core.VALUE v -> 
-                  Pack.vint_to out 0;
-                  Pack.string_option_to out (Some v)
-            end;
-            _close_write oc out
-          in
-          do_write_op _inner 
-        end
-      | Common.VERSION ->
-        begin
-          Lwtc.log "VERSION" >>= fun () ->
-          let out = Pack.make_output 128 in
-          Pack.vint_to out 0;
-          Pack.vint_to out Version.major;
-          Pack.vint_to out Version.minor;
-          Pack.vint_to out Version.patch;
-          let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
-            Version.git_info
-            Version.compile_time
-            Version.machine
-          in
-          Pack.string_to out rest;
-          let s = Pack.close_output out in
-          Lwt_io.write oc s >>= fun () -> Lwt.return false
-        end
+      | Common.USER_FUNCTION -> _do_user_function rest oc me store stats driver
+      | Common.DELETE_PREFIX -> _do_delete_prefix rest oc me store stats driver
+      | Common.VERSION       -> _do_version            oc
+
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

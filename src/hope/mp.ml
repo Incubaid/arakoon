@@ -249,11 +249,11 @@ module MULTI = struct
   
   type client_reply = request_awakener * result
   
-  let client_reply2s = function
-    | w, FAILURE(rc,msg) -> 
-      Printf.sprintf "Reply (rc: %d) (msg: '%s')" (Arakoon_exc.int_of_rc rc) msg
-    | w, VOID -> "Reply success (void)"
-    | w, VALUE v -> Printf.sprintf "Reply success (value)" 
+  let client_reply2s (_,r) = match r with
+    | FAILURE(rc,msg) -> Printf.sprintf "Reply (rc: %d) (msg: '%s')" (Arakoon_exc.int_of_rc rc) msg
+    | VOID            -> "Reply success (void)"
+    | INT i           -> Printf.sprintf "Reply success (int %i) " i
+    | VALUE v         -> "Reply success (value)" 
        
   type action =
     | A_RESYNC of node_id * tick * tick

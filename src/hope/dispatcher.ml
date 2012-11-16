@@ -122,7 +122,7 @@ module ADispatcher (S:STORE) = struct
         in
         match res with 
           
-          | S.TX_SUCCESS (x: v option) -> (* TODO: put x in state and return upward after consensus *)
+          | Baardskeerder.OK (x: v option) -> (* TODO: put x in state and return upward after consensus *)
             if s.master_id = Some s.constants.me 
             then
               begin
@@ -167,10 +167,8 @@ module ADispatcher (S:STORE) = struct
                   } in
                   Lwt.return s' 
                 end
-          | S.TX_ASSERT_FAIL k ->
-            handle_client_failure Arakoon_exc.E_ASSERTION_FAILED k
-          | S.TX_NOT_FOUND k -> 
-            handle_client_failure Arakoon_exc.E_NOT_FOUND k
+          | Baardskeerder.NOK (rc,k) -> handle_client_failure rc k
+
       end
     | A_START_TIMER (n, m, d) ->
       start_timer t n m d >>= fun () -> 

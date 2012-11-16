@@ -93,12 +93,14 @@ let rec update_from buf off =
 
 type result = 
   | VOID
+  | INT of int
   | VALUE of v
   | FAILURE of Arakoon_exc.rc * string
 
 
 let result2s = function
   | VOID -> "VOID"
+  | INT i -> Printf.sprintf "INT %i" i
   | VALUE v -> Printf.sprintf "VALUE %s" v
   | FAILURE (rc,msg) -> Printf.sprintf "FAILURE(_,%S)" msg
 
@@ -121,15 +123,11 @@ let tick2s (TICK t) =
   Int64.to_string t
 
 
+type tx_result = (v option, Arakoon_exc.rc * k) Baardskeerder.result
 
 module type STORE = sig
   type t
   
-  type tx_result =
-  | TX_SUCCESS of v option
-  | TX_NOT_FOUND of k
-  | TX_ASSERT_FAIL of k
-
   val create : string -> bool -> t Lwt.t
   val init : string -> unit Lwt.t
   val commit : t -> tick -> unit Lwt.t

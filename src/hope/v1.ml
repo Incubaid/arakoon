@@ -69,9 +69,10 @@ module V1(S:Core.STORE) = struct
   let __do_unit_update driver q =
     DRIVER.push_cli_req driver q >>= fun a ->
     match a with 
-      | Core.VOID -> Lwt.return ()
+      | Core.VOID              -> Lwt.return ()
+      | Core.INT _             -> failwith "Expected unit, not int"
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
-      | Core.VALUE v -> failwith "Expected unit, not value"
+      | Core.VALUE v           -> failwith "Expected unit, not value"
         
   let _set driver k v = 
     let q = Core.SET(k,v) in
@@ -107,9 +108,10 @@ module V1(S:Core.STORE) = struct
       (V.handle_exception oc)
       
   let _unit_or_f oc = function
-    | Core.VOID -> V.response_ok_unit oc
+    | Core.VOID            -> V.response_ok_unit oc
+    | Core.INT  _          -> failwith "Expected unit, not int"
     | Core.FAILURE(rc,msg) -> _non_fatal oc rc msg
-    | Core.VALUE v -> failwith "Expected unit, not value"
+    | Core.VALUE v         -> failwith "Expected unit, not value"
       
       
   let _do_ping (ic,oc) = 
@@ -145,7 +147,8 @@ module V1(S:Core.STORE) = struct
       DRIVER.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
       (* Statistics.new_delete_prefix stats t0; *)
       match a with
-        | _ -> _response_ok_int oc 0
+        | Core.INT i -> _response_ok_int oc i
+        | _          -> failwith "expected int, not this"
     in
     _do_write_op (ic,oc) me store _inner
     

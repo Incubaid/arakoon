@@ -3,10 +3,6 @@ open Lwt
 
 module MemStore = (struct
   type t = { store: (k, v) Hashtbl.t; mutable meta: string option; read_only:bool}
-  type tx_result = 
-  | TX_SUCCESS of v option
-  | TX_NOT_FOUND of k
-  | TX_ASSERT_FAIL of k
   
   let rec log t i u = 
     begin
@@ -16,7 +12,7 @@ module MemStore = (struct
         | SEQUENCE s -> Lwt_list.iter_s (fun u -> log t i u >>= fun _ -> Lwt.return ()) s
     end
     >>= fun () -> 
-    Lwt.return (TX_SUCCESS None)
+    Lwt.return (Baardskeerder.OK None)
   
   let is_read_only t = t.read_only
   

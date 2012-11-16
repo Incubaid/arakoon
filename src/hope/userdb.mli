@@ -5,7 +5,7 @@ sig
   type k = string
   type v = string
   val set : tx -> k -> v -> unit Lwt.t
-  val get : tx -> k -> Baardskeerder.v Baardskeerder.result Lwt.t
+  val get : tx -> k -> (v, k) Baardskeerder.result Lwt.t
 end
 
 module Registry:

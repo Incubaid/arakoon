@@ -18,15 +18,8 @@ module BStore = (struct
              fn : string;
            }
 
-  type tx_result =
-  | TX_SUCCESS of v option
-  | TX_NOT_FOUND of k
-  | TX_ASSERT_FAIL of k
-
-  type seq_result = 
-  | SEQ_SUCCESS of v option
-  | SEQ_ASSERT_FAIL of k
-
+type tx_result = (v option, Arakoon_exc.rc * k) result
+ 
   let init fn = 
     BS.init fn 
     
@@ -55,82 +48,98 @@ module BStore = (struct
   let close t = BS.close t.store
   
   let log t d u =
-    let _exec tx =
+    let _exec tx :tx_result Lwt.t=
       begin 
-        let ok_none  = (OK (SEQ_SUCCESS None)) in
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) ->
             Lwtc.log "set: %s" k >>= fun () -> 
-            BS.set tx (pref_key k) v >>= fun () -> Lwt.return ok_none
+            BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
               BS.delete tx (pref_key k) >>= function
-                | NOK k -> Lwt.return (NOK (unpref_key k))
-                | a -> Lwt.return ok_none
+                | NOK _ -> Lwt.return (NOK (Arakoon_exc.E_NOT_FOUND, k))
+                | a -> Lwt.return (OK None)
             end
           | Core.DELETE_PREFIX k ->
             begin
               Lwtc.log "delete_prefix : %s" k >>= fun () ->
-              BS.delete_prefix tx (pref_key k) >>= function
-                | NOK k -> Lwt.return (NOK (unpref_key k))
-                | OK c  -> Lwt.return ok_none (* TODO: return count *)
+              BS.delete_prefix tx (pref_key k) >>= fun c ->
+              Lwt.return (OK None)
             end
           | Core.ADMIN_SET (k, m_v) -> 
             begin
               let k' = pref_key ~_pf:__admin_prefix k in
               match m_v with
-              | None -> BS.delete tx k' >>= fun _ -> Lwt.return ok_none
-              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return ok_none
+              | None -> BS.delete tx k' >>= fun _ -> Lwt.return (OK None)
+              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK None)
             end
           | Core.ASSERT (k, m_v) -> 
+            (*
+              begin
+              let pk = pref_key k in
+              match m_v with
+              | None -> 
+                begin
+                  BS.exists tx pk >>= fun b ->
+                  let r = 
+                    if b 
+                    then TX_FAIL (Arakoon_exc.E_ASSERTION_FAILED,k)
+                    else TX_SUCCESS None
+                  in
+                  Lwt.return r
+                end
+              | Some v -> 
+                begin
+                  BS.get tx pk >>= fun vo ->
+                  let r = 
+                    match vo with
+                    | Some v' when v = v'-> TX_SUCCESS None
+                    | _                  -> TX_FAIL (Arakoon_exc.E_ASSERTION_FAILED,k)
+                  in
+                  Lwt.return r
+                end
+            end
+            *)
             begin
               BS.get tx (pref_key k) >>= fun r ->              
-              let txr = match r with
+              let (r':tx_result) = match r with
                 | OK v' -> 
                   if m_v <> (Some v') 
-                  then SEQ_ASSERT_FAIL k
-                  else (SEQ_SUCCESS None)
+                  then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
+                  else OK None
                 | NOK k -> 
                   if m_v <> None 
-                  then SEQ_ASSERT_FAIL k
-                  else (SEQ_SUCCESS None)
+                  then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
+                  else OK None
               in
-              Lwt.return (OK txr)
+              Lwt.return r'
             end
+
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 
             (fun a u ->
               match a with
-                | OK (SEQ_SUCCESS None) -> _inner tx u
-                | NOK k -> Lwt.return (NOK k) 
-                | a -> Lwt.return a
+                | OK _ -> _inner tx u  (* throws away the intermediate result *)
+                | a    -> Lwt.return a
             )
-            ok_none
+            (OK None)
               s 
           | Core.USER_FUNCTION (name, po) ->
             let f = Userdb.Registry.lookup name in
             f tx po >>= fun ro -> 
             Lwtc.log "Bstore.returning %s" (Log_extra.string_option_to_string ro) >>= fun () ->
             let a = match ro with 
-              | None   -> ok_none
-              | Some v -> OK (SEQ_SUCCESS (Some v))
+              | None   -> OK None
+              | Some v -> OK (Some v)
             in
             Lwt.return a
 
         in _inner tx u
       end
     in  
-    Lwt_mutex.with_lock t.m 
-      (fun () -> 
-        BS.log_update t.store ~diff:d _exec >>= fun r ->
-        let rr = match r with
-          | OK SEQ_SUCCESS x-> (TX_SUCCESS x)
-          | OK (SEQ_ASSERT_FAIL k) -> (TX_ASSERT_FAIL k)
-          | NOK k -> (TX_NOT_FOUND k)
-        in
-        Lwt.return rr
-      )
+    Lwt_mutex.with_lock t.m (fun () -> BS.log_update t.store ~diff:d _exec)
+
   let is_read_only t = t.read_only
   
   let last_update t =
