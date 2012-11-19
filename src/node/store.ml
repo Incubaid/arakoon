@@ -228,46 +228,44 @@ let _insert_update (store:store) update =
 	)
     | Update.SetRoutingDelta (left, sep, right) ->
       Lwt.catch
-    (fun () ->
-      store # set_routing_delta left sep right >>= fun () ->
-      Lwt.return (Ok None))
-    (function
-      | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
-      | e ->
-        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-        and msg = Printexc.to_string e
-        in
-        Lwt.return (Update_fail (rc,msg))
-    )
+        (fun () ->
+          store # set_routing_delta left sep right >>= fun () ->
+          Lwt.return (Ok None))
+        (function
+        | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+        | e ->
+          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+          and msg = Printexc.to_string e
+          in
+          Lwt.return (Update_fail (rc,msg))
+        )
     | Update.Nop -> Lwt.return (Ok None)
     | Update.Assert(k,vo) ->
       Lwt.catch
-	(fun () -> store # aSSert k vo >>= function
-	  | true -> Lwt.return (Ok None)
-	  | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-	)
-	(fun e ->
-	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	  and msg = Printexc.to_string e
-	  in Lwt.return (Update_fail(rc, msg)))
+	    (fun () -> store # aSSert k vo >>= function
+	    | true -> Lwt.return (Ok None)
+	    | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+	    )
+	    (fun e ->
+	      let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	      and msg = Printexc.to_string e
+	      in Lwt.return (Update_fail(rc, msg)))
     | Update.AdminSet(k,vo) ->
-      Lwt.catch(
-        fun () ->
+      Lwt.catch
+        (fun () ->
           begin
             match vo with
-            | None ->
-              store # delete ~_pf:__adminprefix k
-            | Some v ->
-              store # set ~_pf:__adminprefix k v
+            | None   -> store # delete ~_pf:__adminprefix k
+            | Some v -> store # set    ~_pf:__adminprefix k v
           end
           >>= fun () ->
           Lwt.return (Ok None)
-      ) (
-        fun e ->
+        ) 
+        (fun e ->
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
           and msg = Printexc.to_string e
           in Lwt.return (Update_fail(rc,msg))
-      )
+        )
 
 
 let safe_insert_update (store:store) (i:Sn.t) update =
@@ -297,9 +295,8 @@ let safe_insert_update (store:store) (i:Sn.t) update =
       _insert_update store update
     end
 
-let _insert (store:store) v i =
-  let Value.V(update_string) = v in
-  let u,_ = Update.from_buffer update_string 0 in
+let _insert (store:store) v i = 
+  let u = Update.from_update_value v in
   _insert_update store u
 
 let on_consensus (store:store) (v,n,i) =

@@ -74,8 +74,18 @@ let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
       Lwt.return ()
     end
 
+let _mute_so _ = ()
 
-
+let _update_rendezvous self ~so_post update update_stats push =
+  self # _write_allowed () >>= fun () ->
+  let p_value = Update.create_value update in
+  let sleep, awake = Lwt.wait () in
+  let went_well = make_went_well update_stats awake sleep in
+  push (Some p_value, went_well) >>= fun () ->
+  sleep >>= function
+  | Store.Stop -> Lwt.fail Forced_stop
+  | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
+  | Store.Ok so -> Lwt.return (so_post so)
 
 
 class sync_backend cfg push_update push_node_msg
@@ -107,6 +117,9 @@ object(self: #backend)
   val _stats = Statistics.create ()
   val mutable client_cfgs = None
 
+
+
+
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
@@ -137,16 +150,6 @@ object(self: #backend)
     self # _read_allowed false >>= fun () ->
     store # get_interval ()
 
-  method private _update_rendezvous update update_stats push =
-    self # _write_allowed () >>= fun () ->
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait () in
-    let went_well = make_went_well update_stats awake sleep in
-    push (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
-      | Store.Ok _ -> Lwt.return ()
 
   method private block_collapser (i: Sn.t) =
     let tlog_file_n = tlog_collection # get_tlog_from_i i  in
@@ -227,7 +230,7 @@ object(self: #backend)
     let () = assert_value_size value in
     let update = Update.Set(key,value) in
     let update_sets (update_result:Store.update_result) = Statistics.new_set _stats key value start in
-    self # _update_rendezvous update update_sets push_update
+    _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
 
 
@@ -236,61 +239,39 @@ object(self: #backend)
     let () = assert_value_size value in
     self # exists ~allow_dirty:false key >>= function
       | true ->
-	begin
-	  store # get key >>= fun old_value ->
-	  if old_value = value
-	  then Lwt.return ()
-	  else self # set key value
-	end
+	    begin
+	      store # get key >>= fun old_value ->
+	      if old_value = value
+	      then Lwt.return ()
+	      else self # set key value
+	    end
       | false -> self # set key value
 
   method set_routing r =
     log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in
-    self # _update_rendezvous update no_stats push_update
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method set_routing_delta left sep right =
     log_o self "set_routing_delta" >>= fun () ->
     let update = Update.SetRoutingDelta (left, sep, right) in
-    self # _update_rendezvous update no_stats push_update
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method set_interval iv =
     log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
     let update = Update.SetInterval iv in
-    self # _update_rendezvous update no_stats push_update
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method user_function name po =
     log_o self "user_function %s" name >>= fun () ->
     let update = Update.UserFunction(name,po) in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait() in
-    let went_well = make_went_well no_stats awake sleep in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail(rc,str) -> Lwt.fail(Common.XException (rc,str))
-      | Store.Ok x -> Lwt.return x
+    let so_post so = so in
+    _update_rendezvous self update no_stats push_update ~so_post
 
   method aSSert ~allow_dirty (key:string) (vo:string option) =
     log_o self "aSSert %S ..." key >>= fun () ->
-    begin
-      let update = Update.Assert(key,vo) in
-      let p_value = Update.make_update_value update in
-      let sleep,awake = Lwt.wait() in
-      let went_well = make_went_well no_stats awake sleep in
-      push_update (Some p_value, went_well) >>= fun () ->
-      sleep >>= fun sr ->
-      log_o self "after sleep" >>= fun () ->
-      match sr with
-	| Store.Stop -> Lwt.fail Forced_stop
-	| Store.Update_fail(rc,str) ->
-	  log_o self "Update Fail case (%li)"
-	    (Arakoon_exc.int32_of_rc rc)>>= fun () ->
-	  Lwt.fail (Common.XException(rc,str))
-	| Store.Ok _ ->
-	  log_o self "Update Ok case" >>= fun () ->
-	  Lwt.return ()
-    end
+    let update = Update.Assert(key,vo) in
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
 
   method test_and_set key expected (wanted:string option) =
@@ -303,27 +284,16 @@ object(self: #backend)
       | None -> ()
       | Some w -> assert_value_size w
     in
-    self # _write_allowed () >>= fun () ->
     let update = Update.TestAndSet(key, expected, wanted) in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait () in
     let update_stats ur = Statistics.new_testandset _stats start in
-    let went_well = make_went_well update_stats awake sleep in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
-      | Store.Ok x -> Lwt.return x
-
+    let so_post so = so in
+    _update_rendezvous self update update_stats push_update ~so_post
 
   method delete_prefix prefix = 
     let start = Unix.gettimeofday () in
     log_o self "delete_prefix %S" prefix >>= fun () ->
     (* do we need to test the prefix on the interval ? *)
-    self # _write_allowed () >>= fun () ->
     let update = Update.DeletePrefix prefix in
-    let p_value = Update.make_update_value update in
-    let sleep, awake = Lwt.wait() in
     let update_stats ur = 
       let n_keys = 
         match ur with 
@@ -332,29 +302,19 @@ object(self: #backend)
       in
       Statistics.new_delete_prefix _stats start n_keys
     in
-    let went_well = make_went_well update_stats awake sleep in
-    push_update (Some p_value, went_well) >>= fun () ->
-    sleep >>= function
-      | Store.Stop -> Lwt.fail Forced_stop
-      | Store.Update_fail (rc,str) -> Lwt.fail (Failure str)
-      | Store.Ok x -> 
-        (* getting very messy here: *) 
-        let r = 
-          match x with 
-            | None -> 0
-            | Some s -> let r', _ = Llio.int_from s 0 in
-                        r' 
-        in
-        Lwt.return r
-          
-  (* self # _update_rendezvous update update_stats push_update *)
+    let so_post = function
+      | None -> 0
+      | Some s -> let r', _ = Llio.int_from s 0 in
+                  r' 
+    in
+    _update_rendezvous self update update_stats push_update ~so_post
 
 
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in
     let update = Update.Delete key in
     let update_stats ur = Statistics.new_delete _stats start in
-    self # _update_rendezvous update update_stats push_update
+    _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
   method hello (client_id:string) (cluster_id:string) =
     log_o self "hello %S %S" client_id cluster_id >>= fun () ->
@@ -428,7 +388,8 @@ object(self: #backend)
       else Update.Sequence updates
     in
     let update_stats ur = Statistics.new_sequence _stats start in
-    self # _update_rendezvous update update_stats push_update
+    let so_post _ = () in
+    _update_rendezvous self update update_stats push_update ~so_post
 
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
@@ -474,24 +435,23 @@ object(self: #backend)
       | Some m ->
         if m = my_name
         then
-          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+          let msg = "Operation cannot be performed on master node" in
+          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, msg))
         else
           Lwt.return ()
 
-  method private _write_allowed () =
+  method (* private *) _write_allowed () =
     if read_only
     then Lwt.fail (XException(Arakoon_exc.E_READ_ONLY, my_name))
     else
       begin
-	self # who_master () >>= function
-	  | None ->
-	    Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
-	  | Some m ->
-	    if m <> my_name
-	    then
-	      Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
-	    else
-	      Lwt.return ()
+	    self # who_master () >>= function
+	    | None ->
+	      Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
+	    | Some m ->
+	      if m <> my_name
+	      then Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
+	      else Lwt.return ()
       end
 
   method private _read_allowed (allow_dirty:bool) =
@@ -690,7 +650,7 @@ object(self: #backend)
     ClientCfg.cfg_to buf cfg;
     let value = Buffer.contents buf in
     let update = Update.AdminSet (key,Some value) in
-    self # _update_rendezvous update no_stats push_update >>= fun () ->
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so >>= fun () ->
     begin
       match client_cfgs with
         | None ->

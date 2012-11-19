@@ -49,7 +49,7 @@ let forced_master_suggest constants (n,i) () =
         | None -> 
            (1,[]) 
         | Some u ->
-           (0, [(Update.make_update_value (u),1)])      
+           (0, [(Update.create_value (u),1)])      
     end in
   let who_voted = [me] in
   
@@ -109,7 +109,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 		  let l_uval = 
 		    begin
 		      match l_update with 
-			| Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			| Some u -> Some( ( Update.create_value u ), tlc_i ) 
 			| None -> None
 		    end 
           in
@@ -190,11 +190,11 @@ let promises_check_done constants state () =
   let bv,bf =
   begin 
     match v_s with 
-      | [] ->  (Update.make_update_value (Update.make_master_set me None), 0)
+      | [] ->  (Update.create_value (Update.make_master_set me None), 0)
       | hd::tl -> 
         let bv, bf = hd in
         if Update.is_master_set bv 
-        then (Update.make_update_value (Update.make_master_set me None), bf)
+        then (Update.create_value (Update.make_master_set me None), bf)
         else bv, bf
          
   end in 
@@ -361,7 +361,7 @@ let wait_for_promises constants state event =
 			            let l_uval = 
 			              begin
 			                match l_update with 
-			                  | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			                  | Some u -> Some( ( Update.create_value u ), tlc_i ) 
 			                  | None -> None
 			              end in
 			            Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
@@ -566,7 +566,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 				    let l_uval = 
 				      begin
 				        match l_update with 
-				          | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+				          | Some u -> Some( ( Update.create_value u ), tlc_i ) 
 				          | None -> None
 				      end in
                     lost_master_role () >>= fun () ->

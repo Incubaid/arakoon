@@ -48,7 +48,7 @@ let on_witness who i = ()
 let get_value tlog_coll i = 
   match tlog_coll # get_last_update i with
     | None -> None 
-    | Some up -> Some (Update.make_update_value up)
+    | Some up -> Some (Update.create_value up)
         
 
 let test_generic network_factory n_nodes () =
@@ -175,8 +175,7 @@ let test_generic network_factory n_nodes () =
   let len = Hashtbl.length values in
   log "end of main... validating len = %d" len >>= fun () ->
   let all_consensusses = Hashtbl.fold (fun a b acc -> 
-    let Value.V us = b in
-    let update,_ = Update.from_buffer us 0 in
+    let update = Update.from_update_value b in
     let d = Update.string_of update in
     (a,d) :: acc) values [] in
   Lwt_list.iter_s 
@@ -213,7 +212,7 @@ let test_master_loop network_factory ()  =
       let key = Printf.sprintf "key_%d" n in
       let value = Printf.sprintf "value_%d" n in
       let actual_update = Update.Set( key, value ) in
-      let actual_value = Update.make_update_value actual_update in
+      let actual_value = Update.create_value actual_update in
       actual_value :: ( create_values (n-1) values ) 
   in
   let values = create_values 5 [] in
@@ -230,10 +229,9 @@ let test_master_loop network_factory ()  =
 	Lwt_unix.sleep 2.0
       ) values
   ) in
-  let on_consensus (v,n,i) =
+  let on_consensus (_,n,i) =
     log "consensus: n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
-    match v with
-      | Value.V s -> Lwt.return (Store.Ok None)
+    Lwt.return (Store.Ok None)
   in
   let on_accept (v,n,i) =
     log "accepted n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->

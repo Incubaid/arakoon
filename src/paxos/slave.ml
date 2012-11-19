@@ -393,7 +393,7 @@ let slave_discovered_other_master constants state () =
       begin
         match tlog_coll # get_last_update current_i with
           | None -> Lwt.return None
-          | Some up -> Lwt.return( Some( Update.make_update_value up ))
+          | Some up -> Lwt.return( Some( Update.create_value up ))
       end >>= fun m_val ->
       let reply = Promise(future_n, current_i,m_val) in
       constants.send reply me master >>= fun () ->
@@ -431,7 +431,7 @@ let slave_discovered_other_master constants state () =
       let vo', m = match vo with 
         | None -> None, "slave_discovered_other_master: no previous" 
         | Some u -> 
-          Some ( Update.make_update_value u , f_i ),
+          Some ( Update.create_value u , f_i ),
           (Printf.sprintf "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i))
       in
       log ~me "%s" m >>= fun () ->
@@ -457,7 +457,7 @@ let slave_discovered_other_master constants state () =
 	        begin 
 	          match l_up with
 	            | None -> None
-	            | Some up -> Some ( Update.make_update_value up )
+	            | Some up -> Some ( Update.create_value up )
 	        end 
           in 
 	      (Election_suggest (new_n, next_i, l_up_v)), 

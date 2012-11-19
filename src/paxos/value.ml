@@ -20,13 +20,13 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type t = V of string
-let create s = V s
+type t = Vx of string
+let create s = Vx s
 
 
-let value_to buf (V s)= Llio.string_to buf s
+let value_to buf (Vx s)= Llio.string_to buf s
     
 let value_from string pos = 
   let s, pos1 = Llio.string_from string pos in 
-     (V s), pos1
+     (Vx s), pos1
 

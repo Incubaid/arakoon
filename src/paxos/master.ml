@@ -65,7 +65,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	        log ~me "stable_master: half-lease_expired: update lease." 
 	        >>= fun () ->
 	        let ms = Update.make_master_set me None in
-	        let v = Update.make_update_value ms in
+	        let v = Update.create_value ms in
 		    (* TODO: we need election timeout as well here *)
 	        Lwt.return (Master_dictate (None,v,n,new_i))
 	      in
@@ -126,7 +126,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 			            let l_uval = 
 			              begin
 			                match l_update with 
-			                  | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+			                  | Some u -> Some( ( Update.create_value u ), tlc_i ) 
 			                  | None -> None
 			              end in
 			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))

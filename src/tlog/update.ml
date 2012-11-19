@@ -215,19 +215,23 @@ module Update = struct
         DeletePrefix p, pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
+  let is_synced = function
+    | SyncedSequence _ -> true
+    | _ -> false
 
-  let make_update_value update =
+
+
+  let create_value update =
     let b = Buffer.create 64 in
     let () = to_buffer b update in
     let s = Buffer.contents b in
     Value.create s
-
-  let is_synced = function
-    | SyncedSequence _ -> true
-    | _ -> false
     
-  let is_master_set (Value.V buf) = 
+  let is_master_set (Value.Vx buf) = 
     let kind,_ = Llio.int_from buf 0 in
     kind = 4
         
+  let from_update_value (Value.Vx update_string) =
+    let u,_ = from_buffer update_string 0 in
+    u
 end
