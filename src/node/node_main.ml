@@ -192,7 +192,7 @@ module X = struct
   let on_consensus store vni =
     let (v,n,i) = vni in
     begin
-      if Update.is_master_set v
+      if Value.is_master_set v
       then 
 	    begin
 	      store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
@@ -206,7 +206,7 @@ module X = struct
   let on_accept tlog_coll store (v,n,i) =
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
-    let u = Update.from_update_value v in
+    let u = Value.update_from_value v in
     let sync = Update.is_synced u in
     tlog_coll # log_update i u ~sync >>= fun wr_result ->
     begin
@@ -487,7 +487,7 @@ let _main_2
 	          let uo = tlog_coll # get_last_update i in
 	          let r  = match uo with
 		        | None -> None
-		        | Some update -> Some (Update.create_value update)
+		        | Some update -> Some (Value.create_value update)
 	          in
 	          r
 	        end

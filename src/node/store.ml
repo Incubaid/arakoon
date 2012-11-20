@@ -296,7 +296,7 @@ let safe_insert_update (store:store) (i:Sn.t) update =
     end
 
 let _insert (store:store) v i = 
-  let u = Update.from_update_value v in
+  let u = Value.update_from_value v in
   _insert_update store u
 
 let on_consensus (store:store) (v,n,i) =

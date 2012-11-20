@@ -48,7 +48,7 @@ let on_witness who i = ()
 let get_value tlog_coll i = 
   match tlog_coll # get_last_update i with
     | None -> None 
-    | Some up -> Some (Update.create_value up)
+    | Some up -> Some (Value.create_value up)
         
 
 let test_generic network_factory n_nodes () =
@@ -173,7 +173,7 @@ let test_generic network_factory n_nodes () =
   let len = Hashtbl.length values in
   log "end of main... validating len = %d" len >>= fun () ->
   let all_consensusses = Hashtbl.fold (fun a b acc -> 
-    let update = Update.from_update_value b in
+    let update = Value.update_from_value b in
     let d = Update.string_of update in
     (a,d) :: acc) values [] in
   Lwt_list.iter_s 
@@ -184,11 +184,11 @@ let test_generic network_factory n_nodes () =
   let _ = 
     List.fold_left (fun maybe_ms (name,us) -> 
       match maybe_ms with 
-	| None -> Some us 
-	| Some ms ->
-	  let msg = Printf.sprintf "%s:consensus" name in
-	  Extra.eq_conv (fun s -> s) msg ms us;
-	  maybe_ms
+	    | None -> Some us 
+	    | Some ms ->
+	        let msg = Printf.sprintf "%s:consensus" name in
+	        Extra.eq_conv (fun s -> s) msg ms us;
+	        maybe_ms
     ) 
       None all_consensusses
   in
@@ -202,18 +202,16 @@ let test_master_loop network_factory ()  =
   let me = "c0" in
   let i0 = 0L in
   let others = [] in
-  let rec create_values n values =
-    if n = 0 
-    then
-      values
-    else
-      let key = Printf.sprintf "key_%d" n in
-      let value = Printf.sprintf "value_%d" n in
-      let actual_update = Update.Set( key, value ) in
-      let actual_value = Update.create_value actual_update in
-      actual_value :: ( create_values (n-1) values ) 
+  let rec create_values values = function
+    | 0 -> values
+    | n ->
+        let key = Printf.sprintf "key_%d" n in
+        let value = Printf.sprintf "value_%d" n in
+        let actual_update = Update.Set( key, value ) in
+        let actual_value = Value.create_value actual_update in
+        create_values (actual_value :: values) (n-1)
   in
-  let values = create_values 5 [] in
+  let values = create_values [] 5 in
   let finished = fun (a:Store.update_result) ->
     log "finished" >>= fun () ->
     Lwt.return ()
@@ -222,9 +220,9 @@ let test_master_loop network_factory ()  =
   let () = Lwt.ignore_result (
     Lwt_list.iter_s
       (fun x ->
-	Lwt_buffer.add (Some (x),finished) client_buffer 
-	>>= fun () ->
-	Lwt_unix.sleep 2.0
+	    Lwt_buffer.add (Some (x),finished) client_buffer 
+	    >>= fun () ->
+	    Lwt_unix.sleep 2.0
       ) values
   ) in
   let on_consensus (_,n,i) =

@@ -20,9 +20,23 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type t = Vx of string
-let create s = Vx s
+open Update
 
+type t = Vx of string
+
+let create_value update =
+    let b = Buffer.create 64 in
+    let () = Update.to_buffer b update in
+    let s = Buffer.contents b in
+    Vx s
+
+let is_master_set (Vx s) = 
+  let kind,_ = Llio.int_from s 0 in
+  kind = 4
+
+let update_from_value (Vx s) =
+    let u,_ = Update.from_buffer s 0 in
+    u
 
 let value_to buf (Vx s)= Llio.string_to buf s
     

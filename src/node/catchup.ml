@@ -217,7 +217,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     (* TODO: straighten interface *)
     let vo = match !acc with
       | None -> None
-      | Some (i,u) -> let v = Update.create_value u in Some v
+      | Some (i,u) -> let v = Value.create_value u in Some v
     in
     Lwt.return (too_far_i, vo)
   end
@@ -246,7 +246,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
         let uo = tlog_coll # get_last_update i in
         let vo = match uo with
 	      | None -> None
-	      | Some u -> let v = Update.create_value u in Some v
+	      | Some u -> let v = Value.create_value u in Some v
         in
         Lwt.return (i,vo)
       end

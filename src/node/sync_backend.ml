@@ -78,7 +78,7 @@ let _mute_so _ = ()
 
 let _update_rendezvous self ~so_post update update_stats push =
   self # _write_allowed () >>= fun () ->
-  let p_value = Update.create_value update in
+  let p_value = Value.create_value update in
   let sleep, awake = Lwt.wait () in
   let went_well = make_went_well update_stats awake sleep in
   push (Some p_value, went_well) >>= fun () ->
