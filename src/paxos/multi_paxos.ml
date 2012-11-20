@@ -110,7 +110,7 @@ type constants =
      others: id list;
      send: MPMessage.t -> id -> id -> unit Lwt.t;
      get_value: Sn.t -> Value.t option;
-     on_accept: Value.t * Sn.t * Sn.t -> Value.t Lwt.t;
+     on_accept: Value.t * Sn.t * Sn.t -> unit Lwt.t;
      on_consensus:
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
        Store.update_result Lwt.t;

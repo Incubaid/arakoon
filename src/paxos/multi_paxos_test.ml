@@ -57,9 +57,7 @@ let test_generic network_factory n_nodes () =
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
-  let on_accept me (v,n,i) =
-    log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i) >>= fun () ->
-    Lwt.return v
+  let on_accept me (v,n,i) = log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i) 
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
@@ -233,9 +231,7 @@ let test_master_loop network_factory ()  =
     log "consensus: n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return (Store.Ok None)
   in
-  let on_accept (v,n,i) =
-    log "accepted n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
-    Lwt.return v
+  let on_accept (v,n,i) = log "accepted n:%s i:%s" (sn2s n) (sn2s i) 
   in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
@@ -331,10 +327,7 @@ let test_simulation filters () =
    let me = "c0" in
   let current_n = 42L in
   let current_i = 0L in
-  let on_accept me (v,n,i) =
-    log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i) >>= fun () ->
-    Lwt.return v
-  in
+  let on_accept me (v,n,i) = log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i) in
   let on_consensus me (v,n,i) =
     log ~me "on_consensus: (%s,%s) " (sn2s n) (sn2s i)
     >>= fun () ->

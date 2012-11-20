@@ -169,7 +169,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
    messages and then waits for Accepted responses *)
 
 let master_dictate constants (mo,v,n,i) () =
-  constants.on_accept (v,n,i) >>= fun v ->
+  constants.on_accept (v,n,i) >>= fun () ->
   begin
     if Update.is_master_set v
     then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 

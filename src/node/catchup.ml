@@ -169,21 +169,15 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 	          if pi < i then
 		        begin
 		          Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
-		  (* not happy with this, but we need to avoid that 
-		     a node in catchup thinks it's master due to 
-		     some lease starting in the past *)
+		          (* not happy with this, but we need to avoid that 
+		             a node in catchup thinks it's master due to 
+		             some lease starting in the past *)
 		          let pu' = match pu with
 		            | Update.MasterSet(m,l) ->
 		              Update.MasterSet(m,0L)
 		            | x -> x
 		          in
 		          Store.safe_insert_update store pi pu' >>= fun _ ->
-                   begin
-                     match store # consensus_i () with 
-		              | None -> Lwt_log.debug "Store still empty" 
-		              | Some cons_i -> Lwt_log.debug_f "Store counter is at %s" 
-			            (Sn.string_of cons_i)
-		          end >>= fun () ->
 		          let () = acc := Some(i,update) in
 		          Lwt.return ()
 		        end

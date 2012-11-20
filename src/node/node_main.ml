@@ -238,8 +238,6 @@ module X = struct
 	      end
 	    | _ -> Lwt.return()
     end 
-    >>= fun () ->
-    Lwt.return v
       
   let reporting period backend () = 
     let fp = float period in

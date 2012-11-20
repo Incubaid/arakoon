@@ -94,7 +94,7 @@ let slave_steady_state constants state event =
 			              Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
 	            end 
               end >>= fun _ ->
-	          constants.on_accept(v,n,i) >>= fun v ->
+	          constants.on_accept(v,n,i) >>= fun () ->
               begin
 		        if Update.is_master_set v 
 		        then start_lease_expiration_thread constants n constants.lease_expiration
@@ -251,7 +251,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                     Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
                   else
                     begin
-	                  constants.on_accept (v,n,i') >>= fun v ->
+	                  constants.on_accept (v,n,i') >>= fun () ->
                       begin
 		                if Update.is_master_set v 
 		                then start_lease_expiration_thread constants n constants.lease_expiration 
