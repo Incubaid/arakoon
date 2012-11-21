@@ -22,25 +22,24 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Update
 
-type t = Vx of string
+type t = Vx of Update.t
 
-let create_value update =
-    let b = Buffer.create 64 in
-    let () = Update.to_buffer b update in
-    let s = Buffer.contents b in
-    Vx s
+let create_value (u:Update.t) = Vx u
 
-let is_master_set (Vx s) = 
-  let kind,_ = Llio.int_from s 0 in
-  kind = 4
+let is_master_set (Vx u) = 
+  match u with 
+    | Update.MasterSet _ -> true
+    | _ -> false
 
-let update_from_value (Vx s) =
-    let u,_ = Update.from_buffer s 0 in
-    u
+let update_from_value (Vx u) = u
 
-let value_to buf (Vx s)= Llio.string_to buf s
+let value_to buf (Vx u)= 
+  let () = Llio.int_to buf 0xff in
+  Update.to_buffer buf u
     
 let value_from string pos = 
-  let s, pos1 = Llio.string_from string pos in 
-     (Vx s), pos1
+  let i0,p1 = Llio.int_from string pos in
+  let () = assert (i0 = 0xff) in
+  let u,p2 = Update.from_buffer string  p1 in
+  (Vx u), p2
 
