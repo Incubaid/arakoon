@@ -241,9 +241,12 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
               let tlog_coll = constants.tlog_coll in
               let tlc_i = tlog_coll # get_last_i () in
               if i' < tlc_i 
-              then 
-                log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
-              Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
+              then
+                begin
+                  log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" 
+                    (Sn.string_of i) (Sn.string_of i') >>= fun () ->
+                  Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
+                end
               else
                 begin
 	              if i' > i then 
@@ -422,20 +425,13 @@ let slave_discovered_other_master constants state () =
   else if current_i = future_i then
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
-      let f_i = tlog_coll # get_last_i () in
-      let vo = tlog_coll # get_last_value f_i in
-      let vo', m = match vo with 
-        | None   -> None, "slave_discovered_other_master: no previous" 
-        | Some v -> Some (v , f_i ),
-          (Printf.sprintf "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i))
-      in
-      log ~me "%s" m >>= fun () ->
+      let last = tlog_coll # get_last () in
       log ~me "Resending Promise" >>= fun () ->
       let prom_val = constants.get_value future_i in
       let reply = Promise(future_n, future_i, prom_val ) in
       constants.send reply me master >>= fun () ->
       start_election_timeout constants future_n >>= fun () ->
-      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, vo'))
+      Lwt.return (Slave_wait_for_accept (future_n, current_i, None, last))
     end
   else
     begin

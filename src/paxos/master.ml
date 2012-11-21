@@ -120,16 +120,8 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		            | Prepare_dropped -> Lwt.return  (Stable_master current_state )
 		            | Promise_sent_up2date ->
 		              begin
-			            let tlog_coll = constants.tlog_coll in
-			            let tlc_i  = tlog_coll # get_last_i () in
-			            let l_val  = tlog_coll # get_last_value tlc_i in
-                        let l_uval = 
-                          begin
-			                match l_val with 
-			                  | Some v -> Some(v, tlc_i ) 
-			                  | None -> None
-			              end in
-			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))
+                        let l_val = constants.tlog_coll # get_last () in
+			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
                       let i = Store.get_catchup_start_i constants.store in

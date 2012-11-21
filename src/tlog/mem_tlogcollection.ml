@@ -41,27 +41,6 @@ object (self: #tlog_collection)
       | None -> Sn.start
       | Some entry -> Entry.i_of entry 
 
-  method iterate i last_i f =
-    let data' = List.filter 
-      (fun entry -> 
-        let ei = Entry.i_of entry 
-        (*and eu = Entry.u_of entry*)
-        in
-        ei >= i && ei <= last_i) data in
-    Lwt_list.iter_s f (List.rev data')
-
-  method get_tlog_count() = failwith "not supported"
-
-  method dump_tlog_file start_i oc = failwith "not supported"
-
-  method save_tlog_file name length ic = failwith "not supported"
-
-  method log_value i (v:Value.t) ~sync=
-    let entry = Entry.make i v 0L in
-    let () = data <- entry::data in
-    let () = last_entry <- (Some entry) in
-    Lwt.return ()
-
   method get_last_value i =
     match last_entry with
       | None -> None
@@ -75,6 +54,36 @@ object (self: #tlog_collection)
 	      else
 	        None
 	    end
+          
+  method get_last () =
+    match last_entry with
+      | None -> None
+      | Some e -> Some (Entry.v_of e, Entry.i_of e)
+
+
+  method iterate i last_i f =
+    let data' = List.filter 
+      (fun entry -> 
+        let ei = Entry.i_of entry 
+        (*and eu = Entry.u_of entry*)
+        in
+        ei >= i && ei <= last_i) data in
+    Lwt_list.iter_s f (List.rev data')
+
+      
+  method get_tlog_count() = failwith "not supported"
+
+  method dump_tlog_file start_i oc = failwith "not supported"
+
+  method save_tlog_file name length ic = failwith "not supported"
+
+  method log_value i (v:Value.t) ~sync=
+    let entry = Entry.make i v 0L in
+    let () = data <- entry::data in
+    let () = last_entry <- (Some entry) in
+    Lwt.return ()
+
+
           
   method dump_head oc = Llio.lwt_failfmt "not implemented"
   method save_head ic = Llio.lwt_failfmt "not implemented"

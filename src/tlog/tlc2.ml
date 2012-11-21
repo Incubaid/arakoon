@@ -527,7 +527,12 @@ object(self: # tlog_collection)
 		      (Sn.string_of pi) (Sn.string_of i)
 	        in
 	        failwith msg
-              
+
+  method get_last () =
+    match _previous_entry with
+      | None -> None
+      | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
+
   method close () =
     begin
       Lwt_log.debug "tlc2::close()" >>= fun () ->

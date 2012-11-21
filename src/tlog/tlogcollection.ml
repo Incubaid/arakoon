@@ -34,6 +34,7 @@ class type tlog_collection = object
   method log_value: Sn.t -> Value.t -> sync:bool -> unit Lwt.t
   method get_last_i: unit -> Sn.t 
   method get_last_value: Sn.t -> Value.t option (* Lwt.t *)
+  method get_last: unit -> (Value.t * Sn.t) option
   method close : unit -> unit Lwt.t
   method get_infimum_i : unit -> Sn.t Lwt.t
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
