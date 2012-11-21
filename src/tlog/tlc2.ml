@@ -366,11 +366,11 @@ object(self: # tlog_collection)
     in 
     Lwt.ignore_result (loop ())
       
-  method log_update i update ~sync =
+  method log_value i value ~sync =
     self # _prelude i >>= fun file ->
     let p = F.file_pos file in
     let oc = F.oc_of file in
-    Tlogcommon.write_entry oc i update >>= fun () -> 
+    Tlogcommon.write_entry oc i value >>= fun () -> 
     Lwt_io.flush oc >>= fun () ->
     begin
       if sync 
@@ -383,7 +383,7 @@ object(self: # tlog_collection)
       | Some pe-> 
         let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
     in
-    let entry = Entry.make i update p in
+    let entry = Entry.make i value p in
     _previous_entry <- Some entry;
     Index.note entry _index;
     Lwt.return ()
@@ -512,18 +512,18 @@ object(self: # tlog_collection)
      | None -> Sn.start
      | Some pe -> let pi = Entry.i_of pe in pi
 
-  method get_last_update i =
+  method get_last_value i =
     match _previous_entry with
 	  | None -> None
 	  | Some pe -> 
         let pi = Entry.i_of pe in
 	    if pi = i 
-        then Some (Entry.u_of pe) 
+        then Some (Entry.v_of pe) 
 	    else 
 	      if i > pi 
           then None
 	      else (* pi > i *)
-	        let msg = Printf.sprintf "get_last_update %s > %s can't look back so far" 
+	        let msg = Printf.sprintf "get_last_value %s > %s can't look back so far" 
 		      (Sn.string_of pi) (Sn.string_of i)
 	        in
 	        failwith msg

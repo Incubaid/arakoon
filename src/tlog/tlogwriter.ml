@@ -35,16 +35,16 @@ class tlogWriter oc lastI =
 
     method closeChannel () = Lwt_io.close oc
 
-    method log_update i update =
+    method log_value i value =
       if isValidSuccessor i lastWrittenI  then
-	begin
-          write_entry oc i update >>= fun () ->
+	    begin
+          write_entry oc i value >>= fun () ->
           Lwt_io.flush oc >>= fun () ->
-	  let () = lastWrittenI <- i in
+	      let () = lastWrittenI <- i in
           Lwt.return ()
         end
       else
-	Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
+	    Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
 
 
  end

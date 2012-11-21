@@ -121,12 +121,12 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		            | Promise_sent_up2date ->
 		              begin
 			            let tlog_coll = constants.tlog_coll in
-			            let tlc_i = tlog_coll # get_last_i () in
-			            let l_update = tlog_coll # get_last_update tlc_i in
-			            let l_uval = 
-			              begin
-			                match l_update with 
-			                  | Some u -> Some( ( Value.create_value u ), tlc_i ) 
+			            let tlc_i  = tlog_coll # get_last_i () in
+			            let l_val  = tlog_coll # get_last_value tlc_i in
+                        let l_uval = 
+                          begin
+			                match l_val with 
+			                  | Some v -> Some(v, tlc_i ) 
 			                  | None -> None
 			              end in
 			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_uval))

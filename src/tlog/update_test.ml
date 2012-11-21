@@ -33,7 +33,7 @@ let _b2b u =
   let u',_ = Update.from_buffer flat 0 in
   u'
 
-let _cmp = OUnit.assert_equal ~printer:Update.string_of 
+let _cmp = OUnit.assert_equal ~printer:Update.update2s
 
 let test_sequence () =
   let s = Update.Sequence [

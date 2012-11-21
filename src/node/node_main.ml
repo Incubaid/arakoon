@@ -206,37 +206,39 @@ module X = struct
   let on_accept tlog_coll store (v,n,i) =
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
-    let u = Value.update_from_value v in
-    let sync = Update.is_synced u in
-    tlog_coll # log_update i u ~sync >>= fun wr_result ->
+    let sync = Value.is_synced v in
+    tlog_coll # log_value i v ~sync >>= fun wr_result ->
     begin
-      match u with
-	    | Update.MasterSet (m,l) ->
-	      begin
-            let logit () =
-              let now = Int64.of_float (Unix.gettimeofday ()) in
-              let m_old_master = store # who_master () in
-	          store # set_master_no_inc m now >>= fun _ ->
-              begin
-                let new_master =
+      if not (Value.is_master_set v )
+      then Lwt.return ()
+      else
+        match (Value.update_from_value v) with
+	      | Update.MasterSet (m,l) ->
+	          begin
+                let logit () =
+                  let now = Int64.of_float (Unix.gettimeofday ()) in
+                  let m_old_master = store # who_master () in
+	              store # set_master_no_inc m now >>= fun _ ->
                   begin
-                    match m_old_master with
-                      | Some(m_old,_) -> m <> m_old
-                      | None -> true
-                  end 
-                in
-                if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
-                  begin
-                    last_master_log_stmt := now;
-                    Lwt_log.info_f "%s is master"  m
-                  end 
-                else 
-                  Lwt.return ()
-              end
-            in 
-            logit ()
-	      end
-	    | _ -> Lwt.return()
+                    let new_master =
+                      begin
+                        match m_old_master with
+                          | Some(m_old,_) -> m <> m_old
+                          | None -> true
+                      end 
+                    in
+                    if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
+                      begin
+                        last_master_log_stmt := now;
+                        Lwt_log.info_f "%s is master"  m
+                      end 
+                    else 
+                      Lwt.return ()
+                  end
+                in 
+                logit ()
+	          end
+	      | _ -> Lwt.return()
     end 
       
   let reporting period backend () = 
@@ -482,16 +484,7 @@ let _main_2
 	      let last_witnessed (name:string) = backend # last_witnessed name in
 	      let on_accept = X.on_accept tlog_coll store in
 	      
-	      let get_last_value (i:Sn.t) =
-	        begin
-	          let uo = tlog_coll # get_last_update i in
-	          let r  = match uo with
-		        | None -> None
-		        | Some update -> Some (Value.create_value update)
-	          in
-	          r
-	        end
-	      in
+	      let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
 	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	      let inject_event (e:Multi_paxos.paxos_event) =
 	        let buffer,name = 

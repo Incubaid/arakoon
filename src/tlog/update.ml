@@ -50,7 +50,7 @@ module Update = struct
     | None -> 0
     | Some w -> String.length w
 
-  let string_of ?(values=false) u = 
+  let update2s ?(values=false) u = 
     let maybe s = if values then s else "..." 
     and maybe_o = function 
       | None -> "None"

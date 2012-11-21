@@ -79,18 +79,18 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		  in
 		  let add_to_store entry = 
             let i = Entry.i_of entry 
-            and update = Entry.u_of entry 
+            and value = Entry.v_of entry 
             in
 		    begin 
 		      match !acc with
 		        | None ->
 		          begin
-		            let () = acc := Some(i,update) in
+		            let () = acc := Some(i,value) in
 		            Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) 
 		            >>= fun () ->
 		            Lwt.return ()
 		          end
-		        | Some (pi,pu) ->
+		        | Some (pi,pv) ->
 		          if pi < i then
 		            begin
 		              maybe_log pi >>= fun () ->
@@ -104,14 +104,14 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		                  Lwt.return ()
 		              end 
 		              >>= fun () ->
-		              Store.safe_insert_update new_store pi pu >>= fun _ ->
-		              let () = acc := Some(i,update) in
+		              Store.safe_insert_update new_store pi pv >>= fun _ ->
+		              let () = acc := Some(i,value) in
 		              Lwt.return ()
 		            end
 		          else
 		            begin
 		              Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-		              let () = acc := Some(i,update) in
+		              let () = acc := Some(i,value) in
 		              Lwt.return ()
 		            end
 		    end

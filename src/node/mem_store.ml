@@ -173,7 +173,7 @@ object (self: #store)
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let () = self # _incr_i () in
     let do_one u =
-      let u_s = Update.string_of u in
+      let u_s = Update.update2s u in
       Lwt_log.debug_f "u=%s" u_s >>= fun () ->
       match u with
 	| Update.Set (k,v) -> self # set_no_incr k v

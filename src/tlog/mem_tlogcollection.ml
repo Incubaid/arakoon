@@ -56,13 +56,13 @@ object (self: #tlog_collection)
 
   method save_tlog_file name length ic = failwith "not supported"
 
-  method  log_update i u ~sync=
-    let entry = Entry.make i u 0L in
+  method log_value i (v:Value.t) ~sync=
+    let entry = Entry.make i v 0L in
     let () = data <- entry::data in
     let () = last_entry <- (Some entry) in
     Lwt.return ()
 
-  method get_last_update i =
+  method get_last_value i =
     match last_entry with
       | None -> None
       | Some entry ->
@@ -70,8 +70,8 @@ object (self: #tlog_collection)
 	    begin
 	      if i = i'
 	      then 
-            let x = Entry.u_of entry in
-            Some x
+            let v = Entry.v_of entry in
+            Some v
 	      else
 	        None
 	    end

@@ -20,18 +20,17 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Update
 open Lwt
 
 module Entry = struct
-  type t = {i: Sn.t ;u : Update.t;p:int64}
+  type t = {i: Sn.t ;v : Value.t;p:int64}
 
-  let make i u p : t = {i;u;p}
+  let make i v p : t = {i;v;p}
   let i_of t = t.i
-  let u_of t = t.u
+  let v_of t = t.v
   let p_of t = t.p
 
-  let entry2s t = Printf.sprintf "{i=%s;u=%S;p=%Li}" (Sn.string_of t.i) (Update.string_of t.u) t.p
+  let entry2s t = Printf.sprintf "{i=%s;v=%S;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) t.p
 end
 
 exception TLogCheckSumError of Int64.t
@@ -74,8 +73,8 @@ let read_entry ic =
         then Lwt.fail (TLogCheckSumError last_valid_pos )
         else Lwt.return ()
       end >>= fun () ->
-      let update,_ = Update.from_buffer cmd 0 in
-      let entry = Entry.make i update last_valid_pos in
+      let value,_ = Value.value_from cmd 0 in
+      let entry = Entry.make i value last_valid_pos in
       Lwt.return entry
     ) 
     ( function
@@ -98,8 +97,8 @@ let entry_from buff pos =
   let i, pos2  = Sn.sn_from       buff pos  in
   let crc,pos3 = Llio.int32_from  buff pos2 in
   let cmd,pos4 = Llio.string_from buff pos3 in
-  let update,_ = Update.from_buffer cmd 0 in
-  let e = Entry.make i update 0L in
+  let value,_ = Value.value_from cmd 0 in
+  let e = Entry.make i value 0L in
   e, pos4 
 
 
@@ -112,19 +111,19 @@ let read_into ic buf =
   Llio.string_to buf cmd;
   Lwt.return () 
 
-let entry_to buf i update =
+let entry_to buf i value =
   Sn.sn_to buf i;
   let b = Buffer.create 64 in
-  let () = Update.to_buffer b update in
+  let () = Value.value_to b value in
   let cmd = Buffer.contents b in
   let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.int32_to buf crc;
   Llio.string_to buf cmd
     
-let write_entry oc i update =
+let write_entry oc i value =
   Sn.output_sn oc i >>= fun () ->
   let b = Buffer.create 64 in
-  let () = Update.to_buffer b update in
+  let () = Value.value_to b value in
   let cmd = Buffer.contents b in
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.output_int32 oc chksum >>= fun() ->

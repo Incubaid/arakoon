@@ -114,11 +114,8 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
 
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
-    let f (i,update) =
-      (*Lwt_log.debug_f "%s:%s => tlog" 
-	(Sn.string_of i) (Update.string_of update) >>= fun () -> *)
-      tlog_coll # log_update i update ~sync:false >>=
-	fun _ -> 
+    let f (i,value) =
+      tlog_coll # log_value i value ~sync:false >>= fun _ -> 
       Lwt.return ()
     in
 
@@ -158,33 +155,29 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     let acc = ref None in
     let f entry =
       let i = Entry.i_of entry 
-      and update = Entry.u_of entry 
+      and value = Entry.v_of entry 
       in
       match !acc with
 	    | None ->
-	      let () = acc := Some(i,update) in
-	      Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) >>= fun () ->
+	      let () = acc := Some(i,value) in
+	      Lwt_log.debug_f "value %s has no previous" (Sn.string_of i) >>= fun () ->
 	      Lwt.return ()
-	        | Some (pi,pu) ->
+	        | Some (pi,pv) ->
 	          if pi < i then
 		        begin
 		          Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
 		          (* not happy with this, but we need to avoid that 
 		             a node in catchup thinks it's master due to 
 		             some lease starting in the past *)
-		          let pu' = match pu with
-		            | Update.MasterSet(m,l) ->
-		              Update.MasterSet(m,0L)
-		            | x -> x
-		          in
-		          Store.safe_insert_update store pi pu' >>= fun _ ->
-		          let () = acc := Some(i,update) in
+		          let pv' = Value.clear_master_set pv in
+		          Store.safe_insert_update store pi pv' >>= fun _ ->
+		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
 	          else
 		        begin
 		          Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-		          let () = acc := Some(i,update) in
+		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
     in
@@ -192,9 +185,9 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     begin
       match !acc with 
         | None -> Lwt.return ()
-        | Some(i,update) -> 
+        | Some(i,value) -> 
           Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
-          Store.safe_insert_update store i update >>= fun _ -> Lwt.return ()
+          Store.safe_insert_update store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
     let store_i' = store # consensus_i () in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
@@ -217,7 +210,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     (* TODO: straighten interface *)
     let vo = match !acc with
       | None -> None
-      | Some (i,u) -> let v = Value.create_value u in Some v
+      | Some (i,v) -> Some v
     in
     Lwt.return (too_far_i, vo)
   end
@@ -243,11 +236,7 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | Some 0L, None -> Lwt.return (0L,None)
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
       begin
-        let uo = tlog_coll # get_last_update i in
-        let vo = match uo with
-	      | None -> None
-	      | Some u -> let v = Value.create_value u in Some v
-        in
+        let vo = tlog_coll # get_last_value i in
         Lwt.return (i,vo)
       end
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)

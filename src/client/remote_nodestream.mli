@@ -6,7 +6,7 @@ open Ncfg
 
 class type nodestream = object
   method iterate: 
-    Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
+    Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       

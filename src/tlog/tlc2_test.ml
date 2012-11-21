@@ -35,13 +35,13 @@ let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
   Tlogcommon.tlogEntriesPerFile := 5 ;
   factory dn >>= fun (tlog_coll:tlog_collection) ->
-  let update = Update.make_master_set "me" None in
+  let value = Value.create_value (Update.make_master_set "me" None) in
   let sync = false in
-  tlog_coll # log_update 0L update ~sync >>= fun _ ->
-  tlog_coll # log_update 1L update ~sync >>= fun _ ->
-  tlog_coll # log_update 2L update ~sync >>= fun _ ->
-  tlog_coll # log_update 3L update ~sync >>= fun _ ->
-  tlog_coll # log_update 4L update ~sync >>= fun _ ->
+  tlog_coll # log_value 0L value ~sync >>= fun _ ->
+  tlog_coll # log_value 1L value ~sync >>= fun _ ->
+  tlog_coll # log_value 2L value ~sync >>= fun _ ->
+  tlog_coll # log_value 3L value ~sync >>= fun _ ->
+  tlog_coll # log_value 4L value ~sync >>= fun _ ->
   tlog_coll # close () >>= fun _ ->
   Lwt.return old_tlog_entries_value
 
@@ -50,8 +50,8 @@ let test_interrupted_rollover (dn,factory) =
   (*let fn = Filename.concat dn "001.tlog" in
   Unix.unlink fn; *)
   factory dn >>= fun tlog_coll ->
-  let update = Update.make_master_set "me" None in
-  tlog_coll # log_update 5L update ~sync:false >>= fun _ ->
+  let value = Value.create_value (Update.make_master_set "me" None) in
+  tlog_coll # log_value 5L value ~sync:false >>= fun _ ->
   tlog_coll # close () >>= fun _ ->
   Tlc2.get_tlog_names dn >>= fun tlog_names ->
   let n = List.length tlog_names in
@@ -79,13 +79,13 @@ let test_validate_at_rollover_boundary (dn,factory) =
   end;
   OUnit.assert_equal ~msg lasti 4L;
   factory dn >>= fun (tlog_coll:tlog_collection) ->
-  let update = Update.make_master_set "me" None in
+  let value = Value.create_value (Update.make_master_set "me" None) in
   let sync = false in
-  tlog_coll # log_update 5L update ~sync >>= fun _ ->
-  tlog_coll # log_update 6L update ~sync >>= fun _ ->
-  tlog_coll # log_update 7L update ~sync >>= fun _ ->
-  tlog_coll # log_update 8L update ~sync >>= fun _ ->
-  tlog_coll # log_update 9L update ~sync >>= fun _ ->    
+  tlog_coll # log_value 5L value ~sync >>= fun _ ->
+  tlog_coll # log_value 6L value ~sync >>= fun _ ->
+  tlog_coll # log_value 7L value ~sync >>= fun _ ->
+  tlog_coll # log_value 8L value ~sync >>= fun _ ->
+  tlog_coll # log_value 9L value ~sync >>= fun _ ->    
   Tlc2.get_tlog_names dn >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
@@ -96,8 +96,8 @@ let test_iterate4 (dn, factory) =
   Lwt_log.debug "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let update = Update.Set("test_iterate4","xxx") in
-  Tlogcollection_test._log_repeat tlc update 120 >>= fun () ->
+  let value = Value.create_value (Update.Set("test_iterate4","xxx")) in
+  Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
   let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
   Unix.unlink fnc;
@@ -119,8 +119,8 @@ let test_iterate5 (dn,factory) =
     else
       begin
         let is = string_of_int i in
-        let update = Update.Set("test_iterate_" ^ is ,is) in
-        tlc # log_update (Sn.of_int i) update ~sync:false >>= fun _ ->
+        let value = Value.create_value (Update.Set("test_iterate_" ^ is ,is)) in
+        tlc # log_value (Sn.of_int i) value ~sync:false >>= fun _ ->
           begin
             if i mod 3 = 2 
             then 
@@ -139,9 +139,9 @@ let test_iterate5 (dn,factory) =
   let too_far_i = Sn.of_int 11 in
   let f entry = 
     let i = Entry.i_of entry in
-    let u = Entry.u_of entry in
+    let v = Entry.v_of entry in
     Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
-    (Update.string_of u) 
+    (Value.value2s v) 
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return () 
@@ -157,16 +157,16 @@ let test_iterate6 (dn,factory) =
       begin
         let is = string_of_int i in
 	    let sni = Sn.of_int i in
-        let update = Update.Set("test_iterate_" ^ is ,is) in
+        let value = Value.create_value (Update.Set("test_iterate_" ^ is ,is)) in
           begin
             if i != 19
             then 
-              tlc # log_update sni update ~sync
+              tlc # log_value sni value ~sync
             else
 	          begin
-		        tlc # log_update sni update ~sync >>= fun _ ->
-		        let u2 = Update.Set("something_else","gotcha") in
-		        tlc # log_update sni u2 ~sync
+		        tlc # log_value sni value ~sync >>= fun _ ->
+		        let value2 = Value.create_value (Update.Set("something_else","gotcha")) in
+		        tlc # log_value sni value2 ~sync
 	          end
           end >>= fun _ ->
         loop (i+1)
@@ -179,9 +179,9 @@ let test_iterate6 (dn,factory) =
   tlc # iterate start_i too_far_i
     (fun entry -> 
       let i = Entry.i_of entry in
-      let u = Entry.u_of entry in
+      let v = Entry.v_of entry in
       sum := !sum + (Int64.to_int i); 
-      Lwt_log.debug_f "i=%s : %s" (Sn.string_of i) (Update.string_of u)
+      Lwt_log.debug_f "i=%s : %s" (Sn.string_of i) (Value.value2s v)
       >>= fun () ->
       Lwt.return ())
   >>= fun () ->
@@ -202,12 +202,12 @@ let test_compression_bug (dn, factory) =
     if i = n then Lwt.return () 
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
-      let update = Update.Set(key, v) in
+      let value = Value.create_value (Update.Set(key, v)) in
       let sni = Sn.of_int i in
-      tlc # log_update sni update ~sync:false >>= fun () ->
+      tlc # log_value sni value ~sync:false >>= fun () ->
       loop (i+1) 
   in
-  tlc # log_update 0L (Update.Set("xxx","XXX")) ~sync:false >>= fun () ->
+  tlc # log_value 0L (Value.create_value (Update.Set("xxx","XXX"))) ~sync:false >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
   File_system.stat (dn ^ "/000.tlf") >>= fun stat ->

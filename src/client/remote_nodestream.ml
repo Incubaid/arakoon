@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Update
+open Value
 open Interval
 open Routing
 open Common
@@ -30,7 +30,7 @@ open Ncfg
 
 class type nodestream = object
   method iterate: 
-    Sn.t -> (Sn.t * Update.t -> unit Lwt.t) ->
+    Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
       
@@ -54,7 +54,7 @@ class type nodestream = object
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
-  method iterate (i:Sn.t) (f: Sn.t * Update.t -> unit Lwt.t)  
+  method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)  
     (tlog_coll: Tlogcollection.tlog_collection) 
     ~head_saved_cb
     =
@@ -79,8 +79,8 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	      last_seen := Some i2;
 	      Llio.input_int32 ic >>= fun chksum ->
 	      Llio.input_string ic >>= fun entry ->	      
-	      let update,_ = Update.from_buffer entry 0 in
-	      f (i2, update) >>= fun () ->
+	      let value,_ = Value.value_from entry 0 in
+	      f (i2, value) >>= fun () ->
               loop_entries ()
 	    end
 	end

@@ -45,11 +45,7 @@ let build_names n =
 
 let on_witness who i = () 
 
-let get_value tlog_coll i = 
-  match tlog_coll # get_last_update i with
-    | None -> None 
-    | Some up -> Some (Value.create_value up)
-        
+let get_value tlog_coll i = tlog_coll # get_last_value i 
 
 let test_generic network_factory n_nodes () =
   Lwt_log.info "START:TEST_GENERIC" >>= fun () ->
@@ -174,7 +170,7 @@ let test_generic network_factory n_nodes () =
   log "end of main... validating len = %d" len >>= fun () ->
   let all_consensusses = Hashtbl.fold (fun a b acc -> 
     let update = Value.update_from_value b in
-    let d = Update.string_of update in
+    let d = Update.update2s update in
     (a,d) :: acc) values [] in
   Lwt_list.iter_s 
     (fun (name, update_string) -> 

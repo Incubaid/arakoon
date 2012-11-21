@@ -42,9 +42,9 @@ let compress_tlog tlog_name archive_name =
 	          (fun () -> 
 		        Tlogcommon.read_entry ic >>= fun (entry:Entry.t) ->
                 let i = Entry.i_of entry 
-                and u = Entry.u_of entry 
+                and v = Entry.v_of entry 
                 in
-		        Tlogcommon.entry_to buffer i u;
+		        Tlogcommon.entry_to buffer i v;
 		        let (last_i':Sn.t) = if i > last_i then i else last_i in
 		        if Buffer.length buffer < limit || counter = 0
 		        then fill_buffer (buffer:Buffer.t) last_i' (counter+1)

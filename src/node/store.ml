@@ -107,7 +107,7 @@ type update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-let _insert_update (store:store) update =
+let _insert_update (store:store) (value:Value.t) =
   let with_error notfound_msg f =
     Lwt.catch
       (fun () ->
@@ -124,6 +124,7 @@ let _insert_update (store:store) update =
 	  Lwt.return (Update_fail(rc, msg))
       )
   in
+  let update = Value.update_from_value value in
   match update with
     | Update.Set(key,value) ->
       with_error key (fun () -> store # set key value)
@@ -295,9 +296,7 @@ let safe_insert_update (store:store) (i:Sn.t) update =
       _insert_update store update
     end
 
-let _insert (store:store) v i = 
-  let u = Value.update_from_value v in
-  _insert_update store u
+let _insert (store:store) (v:Value.t) i = _insert_update store v
 
 let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"

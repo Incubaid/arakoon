@@ -390,12 +390,8 @@ let slave_discovered_other_master constants state () =
   if current_i < future_i then
     begin
       log ~me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
-      begin
-        match tlog_coll # get_last_update current_i with
-          | None -> Lwt.return None
-          | Some up -> Lwt.return( Some( Value.create_value up ))
-      end >>= fun m_val ->
-      let reply = Promise(future_n, current_i,m_val) in
+      let m_val = tlog_coll # get_last_value current_i in
+      let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
@@ -427,11 +423,10 @@ let slave_discovered_other_master constants state () =
     begin
       log ~me "slave_discovered_other_master: no need for catchup %s" master >>= fun () ->
       let f_i = tlog_coll # get_last_i () in
-      let vo = tlog_coll # get_last_update f_i in
+      let vo = tlog_coll # get_last_value f_i in
       let vo', m = match vo with 
-        | None -> None, "slave_discovered_other_master: no previous" 
-        | Some u -> 
-          Some ( Value.create_value u , f_i ),
+        | None   -> None, "slave_discovered_other_master: no previous" 
+        | Some v -> Some (v , f_i ),
           (Printf.sprintf "slave_discovered_other_master: setting previous to %s" (Sn.string_of f_i))
       in
       log ~me "%s" m >>= fun () ->
@@ -452,14 +447,7 @@ let slave_discovered_other_master constants state () =
 	         everybody just waits for each other *)
 	      let new_n = update_n constants future_n in
 	      let tlog_coll = constants.tlog_coll in
-	      let l_up = tlog_coll # get_last_update next_i in
-	      let l_up_v =
-	        begin 
-	          match l_up with
-	            | None -> None
-	            | Some up -> Some ( Value.create_value up )
-	        end 
-          in 
+	      let l_up_v = tlog_coll # get_last_value next_i in
 	      (Election_suggest (new_n, next_i, l_up_v)), 
           "slave_discovered_other_master: my i is bigger then theirs ; back to election"
       else

@@ -31,6 +31,14 @@ let is_master_set (Vx u) =
     | Update.MasterSet _ -> true
     | _ -> false
 
+let is_synced (Vx u) = Update.is_synced u
+
+let clear_master_set v =
+  let Vx u = v in
+  match u with
+    | Update.MasterSet(m,l) -> let u' = Update.MasterSet(m,0L) in Vx u'
+    | _ -> v
+
 let update_from_value (Vx u) = u
 
 let value_to buf (Vx u)= 
@@ -39,7 +47,18 @@ let value_to buf (Vx u)=
     
 let value_from string pos = 
   let i0,p1 = Llio.int_from string pos in
-  let () = assert (i0 = 0xff) in
-  let u,p2 = Update.from_buffer string  p1 in
-  (Vx u), p2
+  if i0 = 0xff 
+  then 
+    let u,p2 = Update.from_buffer string  p1 in
+    (Vx u), p2
+  else
+    begin
+      (* this is for backward compatibility: 
+         formerly, we logged updates iso values *)
+      let u,p2 = Update.from_buffer string pos in
+      (Vx u), p2
+    end
+  
 
+
+let value2s ?(values=false) (Vx u) = Printf.sprintf "(Vx %s)" (Update.update2s u ~values)

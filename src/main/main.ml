@@ -113,9 +113,9 @@ let run_system_tests () =
 let dump_tlog filename ~values=
   let printer () entry =
     let i = Entry.i_of entry 
-    and u = Entry.u_of entry
+    and v = Entry.v_of entry
     in
-    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Update.Update.string_of u ~values) in
+    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Value.value2s v ~values) in
   let folder,_,index = Tlc2.folder_for filename None in
   
   let t =
@@ -141,7 +141,7 @@ let dump_tlog filename ~values=
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
-    let f oc = Tlogcommon.write_entry oc sni Update.Update.Nop
+    let f oc = Tlogcommon.write_entry oc sni (Value.create_value (Update.Update.Nop))
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in

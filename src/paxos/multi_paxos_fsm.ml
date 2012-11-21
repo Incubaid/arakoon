@@ -41,16 +41,15 @@ let forced_master_suggest constants (n,i) () =
   start_election_timeout constants n >>= fun () ->
   log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
   let tlog_coll = constants.tlog_coll in
-  let l_upd = tlog_coll # get_last_update i in
+  let l_val = tlog_coll # get_last_value i in
   
   let v_lims =
     begin
-      match l_upd with
-        | None -> 
-           (1,[]) 
-        | Some u ->
-           (0, [(Value.create_value (u),1)])      
-    end in
+      match l_val with
+        | None -> (1,[]) 
+        | Some v ->(0, [v,1])      
+    end 
+  in
   let who_voted = [me] in
   
   let i_lim = Some (me,i) in
@@ -105,12 +104,12 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 		| Promise_sent_up2date ->
 		  let tlog_coll = constants.tlog_coll in
 		  let tlc_i = tlog_coll # get_last_i () in
-		  let l_update = tlog_coll # get_last_update tlc_i in
+		  let l_val = tlog_coll # get_last_value tlc_i in
 		  let l_uval = 
 		    begin
-		      match l_update with 
-			| Some u -> Some( ( Value.create_value u ), tlc_i ) 
-			| None -> None
+		      match l_val with 
+			    | Some v -> Some (v, tlc_i ) 
+			    | None -> None
 		    end 
           in
 		  Lwt.return (Slave_wait_for_accept (n', current_i, None, l_uval))
@@ -357,13 +356,14 @@ let wait_for_promises constants state event =
 		              begin
 			            let tlog_coll = constants.tlog_coll in
 			            let tlc_i = tlog_coll # get_last_i () in
-			            let l_update = tlog_coll # get_last_update tlc_i in
+			            let l_val = tlog_coll # get_last_value tlc_i in
 			            let l_uval = 
 			              begin
-			                match l_update with 
-			                  | Some u -> Some( ( Value.create_value u ), tlc_i ) 
+			                match l_val with 
+			                  | Some v -> Some (v, tlc_i) 
 			                  | None -> None
-			              end in
+			              end 
+                        in
 			            Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
 		              end
 		            | Promise_sent_needs_catchup ->
@@ -562,11 +562,11 @@ let wait_for_accepteds constants state (event:paxos_event) =
                   begin
                     let tlog_coll = constants.tlog_coll in
 				    let tlc_i = tlog_coll # get_last_i () in
-				    let l_update = tlog_coll # get_last_update tlc_i in
+				    let l_val = tlog_coll # get_last_value tlc_i in
 				    let l_uval = 
 				      begin
-				        match l_update with 
-				          | Some u -> Some( ( Value.create_value u ), tlc_i ) 
+				        match l_val with 
+				          | Some v -> Some (v, tlc_i ) 
 				          | None -> None
 				      end in
                     lost_master_role () >>= fun () ->

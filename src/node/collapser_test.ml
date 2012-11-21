@@ -35,19 +35,19 @@ let _should_fail x error_msg success_msg =
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
-let _make_updates tlc n =
+let _make_values tlc n =
   let sync = false in
   let rec loop i =
     if i = n
     then Lwt.return ()
     else 
       let a = i mod 10000 in
-      let key = Printf.sprintf "sqrt(%i)" a in
-      let value = Printf.sprintf "%f" (sqrt (float a)) in
-      let update = Update.Set(key, value) 
-      in
+      let k = Printf.sprintf "sqrt(%i)" a in
+      let v = Printf.sprintf "%f" (sqrt (float a)) in
+      let update = Update.Set(k, v) in
+      let value = Value.create_value update in
       let sni = Sn.of_int i in
-      tlc # log_update sni update ~sync >>= fun wr_result ->
+      tlc # log_value sni value ~sync >>= fun wr_result ->
       loop (i+1)
   in
   loop 0
@@ -56,7 +56,7 @@ let test_collapse_until dn =
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Lwt_log.debug_f "dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn true >>= fun tlc ->
-  _make_updates tlc 1111 >>= fun () ->
+  _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
@@ -95,7 +95,7 @@ let test_collapse_many dn =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn true >>= fun tlc ->
-  _make_updates tlc 632 >>= fun () ->
+  _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = Filename.concat test_dn "head.db" in

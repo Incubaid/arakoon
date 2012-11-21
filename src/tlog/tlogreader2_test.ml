@@ -30,10 +30,10 @@ let test_old_format () =
     let fn = "./data/005.tlc" in
     let print_entry a entry = 
       let i = Entry.i_of entry in
-      let u = Entry.u_of entry in
+      let v = Entry.v_of entry in
       let is = Sn.string_of i in 
-      let us = Update.string_of u in
-      Lwt_io.printlf "%s:%s" is us >>= fun () ->
+      let vs = Value.value2s v in
+      Lwt_io.printlf "%s:%s" is vs >>= fun () ->
       Lwt.return a 
     in
     let f ic = 

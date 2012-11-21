@@ -55,13 +55,13 @@ let setup factory test_name () =
 let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn 
 
 
-let _log_repeat tlc update n = 
+let _log_repeat tlc (value:Value.t) n = 
   let sync = false in
   let rec loop i = 
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-	tlc # log_update i update ~sync >>= fun wr_result ->
+	tlc # log_value i value ~sync >>= fun wr_result ->
 	loop (Sn.succ i)
       end
   in loop Sn.start 
@@ -71,8 +71,8 @@ let test_rollover (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
   factory dn >>= fun c ->
 
-  let update = Update.Set ("x","y") in
-  _log_repeat c update 101 >>= fun () ->
+  let value = Value.create_value (Update.Set ("x","y")) in
+  _log_repeat c value 101 >>= fun () ->
   c # close () >>= fun ()->
   Lwt.return ()
 
@@ -82,14 +82,14 @@ let test_rollover_1002 (dn, factory) =
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
   factory dn >>= fun c ->
-  let update = Update.Set("x","y") in
+  let value = Value.create_value (Update.Set("x","y")) in
   let n_updates = 1002 * n + 3 in
-  _log_repeat c update n_updates >>= fun () ->
+  _log_repeat c value n_updates >>= fun () ->
   c # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
-  let uo = tlc_two # get_last_update (Sn.of_int (n_updates-1)) in
-  let uos = Log_extra.option2s Update.string_of uo in
-  Lwt_log.info_f "last_update = %s" uos >>= fun () -> 
+  let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
+  let vos = Log_extra.option2s Value.value2s vo in
+  Lwt_log.info_f "last_value = %s" vos >>= fun () -> 
   tlc_two # close() >>= fun () ->
   Lwt.return ()
 
@@ -97,13 +97,13 @@ let test_rollover_1002 (dn, factory) =
 let test_get_value_bug (dn, factory) = 
   Lwt_log.info "test_get_value_bug" >>= fun () ->
   factory dn >>= fun c0 ->
-  let u0 = Update.make_master_set "XXXX" None in
-  c0 # log_update 0L u0 ~sync:false >>= fun wr_result ->
+  let v0 = Value.create_value (Update.make_master_set "XXXX" None) in
+  c0 # log_value 0L v0 ~sync:false >>= fun wr_result ->
   factory dn >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
-  match c1 # get_last_update 0L with
+  match c1 # get_last_value 0L with
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
-    | Some u -> let () = OUnit.assert_equal u u0 in Lwt.return ()
+    | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
 let test_regexp (dn,factory) = 
   Lwt_log.info "test_get_regexp_bug" >>= fun () ->
@@ -117,11 +117,11 @@ let test_regexp (dn,factory) =
 
 let test_restart (dn, factory) =
   factory dn >>= fun tlc_one ->
-  let update = Update.Set("x","y") in
-  _log_repeat tlc_one update 100 >>= fun () ->
+  let value = Value.create_value (Update.Set("x","y")) in
+  _log_repeat tlc_one value 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
-  let uo = tlc_two # get_last_update (Sn.of_int 99) in
+  let uo = tlc_two # get_last_value (Sn.of_int 99) in
   tlc_two # close () >>= fun () ->
   Lwt.return ()
 
@@ -130,8 +130,8 @@ let test_restart (dn, factory) =
 let test_iterate (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun  tlc ->
-  let update = Update.Set("xxx","y")in
-  _log_repeat tlc update 323 >>= fun () ->
+  let value = Value.create_value (Update.Set("xxx","y")) in
+  _log_repeat tlc value 323 >>= fun () ->
   let sum = ref 0 in
   tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
     (fun entry -> 
@@ -149,8 +149,8 @@ let test_iterate (dn, factory) =
 let test_iterate2 (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let update = Update.Set("test_iterate0","xxx") in
-  _log_repeat tlc update 3 >>= fun () ->
+  let value = Value.create_value (Update.Set("test_iterate0","xxx")) in
+  _log_repeat tlc value 3 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 0) (Sn.of_int 1) 
     (fun entry -> 
@@ -167,8 +167,8 @@ let test_iterate2 (dn, factory) =
 let test_iterate3 (dn,factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let update = Update.Set("test_iterate3","xxx") in
-  _log_repeat tlc update 120 >>= fun () ->
+  let value = Value.create_value (Update.Set("test_iterate3","xxx")) in
+  _log_repeat tlc value 120 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
     (fun entry -> 
@@ -188,8 +188,8 @@ let test_iterate3 (dn,factory) =
 let test_validate_normal (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn >>= fun (tlc:tlog_collection) ->
-  let update = Update.Set ("XXX","X") in
-  _log_repeat tlc update 123 >>= fun () ->
+  let value = Value.create_value (Update.Set ("XXX","X")) in
+  _log_repeat tlc value 123 >>= fun () ->
   tlc # close () >>= fun () ->
   factory dn >>= fun (tlc_two:tlog_collection) ->
   tlc_two # validate_last_tlog () >>= fun result ->
@@ -206,8 +206,8 @@ let test_validate_normal (dn, factory) =
 let test_validate_corrupt_1 (dn,factory) =
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn >>= fun (tlc:tlog_collection) -> 
-  let update = Update.Set("Incompetent","Politicians") in
-  _log_repeat tlc update 42 >>= fun () ->
+  let value = Value.create_value (Update.Set("Incompetent","Politicians")) in
+  _log_repeat tlc value 42 >>= fun () ->
   tlc # close () >>= fun () ->
   let fn = Filename.concat dn "000.tlog" in
   Lwt_unix.openfile fn [Unix.O_RDWR] 0o640 >>= fun fd ->

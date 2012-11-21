@@ -48,17 +48,17 @@ let _make_cfg name n lease_period =
     reporting = 300;
   }
 
-let _make_tlog_coll tlcs updates tlc_name use_compression = 
+let _make_tlog_coll tlcs values tlc_name use_compression = 
   Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 
-    | u :: us -> 
+    | v :: vs -> 
       begin
-	tlc # log_update i u ~sync:false >>= fun _ ->
-	loop (Sn.succ i) us
+	    tlc # log_value i v ~sync:false >>= fun _ ->
+	    loop (Sn.succ i) vs
       end
   in
-  loop Sn.start updates >>= fun () ->
+  loop Sn.start values >>= fun () ->
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
@@ -68,11 +68,11 @@ let _make_store ?(read_only=false) stores now node_name (db_name:string) =
   Hashtbl.add stores db_name store;
   Lwt.return store
 
-let _make_run ~stores ~tlcs ~now ~updates ~get_cfgs name () = 
+let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () = 
   let sm ?(read_only=false) db_name = _make_store stores now name db_name in
   Node_main._main_2 
     sm
-    (_make_tlog_coll tlcs updates)
+    (_make_tlog_coll tlcs values)
     get_cfgs
     (fun () -> "DUMMY")
     (fun s d o -> Lwt.return () )
@@ -84,8 +84,8 @@ let _dump_tlc ~tlcs node =
   let tlc0 = Hashtbl.find tlcs node in
   let printer entry = 
     let i = Entry.i_of entry in
-    let u = Entry.u_of entry in
-    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Update.string_of u) 
+    let v = Entry.v_of entry in
+    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Value.value2s v) 
   in
   Lwt_log.debug_f "--- %s ---" node >>= fun () ->
   tlc0 # iterate Sn.start 20L printer >>= fun () ->
@@ -114,15 +114,15 @@ let post_failure () =
   }
   in
   let get_cfgs () = cluster_cfg in
-  let u0 = Update.MasterSet(node0,0L)  in
-  let u1 = Update.Set("x","y") in
+  let v0 = Value.create_value (Update.MasterSet(node0,0L))  in
+  let v1 = Value.create_value (Update.Set("x","y")) in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
 
-  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
-  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
-  let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0]    node2 in
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
+  let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0]    node2 in
   let eventually_stop () = Lwt_unix.sleep 10.0 
 
   in
@@ -168,14 +168,14 @@ let restart_slaves () =
     }
   in
   let get_cfgs () = cluster_cfg in 
-  let u0 = Update.MasterSet(node0, 0L) in
-  let u1 = Update.Set("xxx","xxx") in
+  let v0 = Value.create_value (Update.MasterSet(node0, 0L)) in
+  let v1 = Value.create_value (Update.Set("xxx","xxx")) in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float(Unix.time()) in
   
-  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node0 in
-  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node1 in
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
   let eventually_stop() = Lwt_unix.sleep 10.0 in
   Lwt_log.debug "start of scenario" >>= fun () ->

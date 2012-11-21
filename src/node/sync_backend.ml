@@ -369,9 +369,9 @@ object(self: #backend)
 	    Llio.output_int oc 1 >>= fun () ->
 	    let f entry = 
           let i = Entry.i_of entry
-          and u = Entry.u_of entry
+          and v = Entry.v_of entry
           in
-          Tlogcommon.write_entry oc i u in
+          Tlogcommon.write_entry oc i v in
 	    tlog_collection # iterate start_i3 too_far_i f >>= fun () ->
 	    Sn.output_sn oc (-1L)
 	  end

@@ -34,11 +34,12 @@ let _fill tlog_coll n =
     then Lwt.return ()
     else
       begin
-	let k = Printf.sprintf "key%i" i
-	and v = Printf.sprintf "value%i" i in
-	let u = Update.Set (k,v) in
-	tlog_coll # log_update (Sn.of_int i) u ~sync >>= fun _ ->
-	_loop (i+1)
+	    let k = Printf.sprintf "key%i" i
+	    and v = Printf.sprintf "value%i" i in
+	    let u = Update.Set (k,v) in
+        let value = Value.create_value u in
+	    tlog_coll # log_value (Sn.of_int i) value ~sync >>= fun _ ->
+	    _loop (i+1)
       end
   in
   _loop 0
@@ -49,16 +50,18 @@ let _fill2 tlog_coll n =
     if i = n then Lwt.return ()
     else
       begin 
-	let k = Printf.sprintf "_2_key%i" i
-	and v = Printf.sprintf "_2_value%i" i 
-	and k2 = Printf.sprintf "key%i" i 
-	and v2 = Printf.sprintf "value%i" i 
-	in
-	let u = Update.Set(k,v) in
-	let u2 = Update.Set(k2,v2) in
-	tlog_coll # log_update (Sn.of_int i) u ~sync  >>= fun _ ->
-	tlog_coll # log_update (Sn.of_int i) u2 ~sync >>= fun _ ->
-	_loop (i+1)
+	    let k = Printf.sprintf "_2_key%i" i
+	    and v = Printf.sprintf "_2_value%i" i 
+	    and k2 = Printf.sprintf "key%i" i 
+	    and v2 = Printf.sprintf "value%i" i 
+	    in
+	    let u = Update.Set(k,v) in
+	    let u2 = Update.Set(k2,v2) in
+        let value = Value.create_value u in
+        let value2 = Value.create_value u2 in
+	    tlog_coll # log_value (Sn.of_int i) value  ~sync  >>= fun _ ->
+	    tlog_coll # log_value (Sn.of_int i) value2 ~sync  >>= fun _ ->
+	    _loop (i+1)
       end
   in
   _loop 0
