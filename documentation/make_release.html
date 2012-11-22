@@ -86,14 +86,15 @@
   <div class="section" id="how-to-make-a-release">
 <h1>How to make a release<a class="headerlink" href="#how-to-make-a-release" title="Permalink to this headline">¶</a></h1>
 <blockquote>
-<div><ul>
-<li><p class="first">Run the tools/make_release_branch.py script which</p>
-<ul class="simple">
-<li>creates the X.Y.Z branch</li>
-<li>updates debian changelog</li>
-<li>commits branch =&gt; ${REV}</li>
+<div><ul class="simple">
+<li>make the X.Y.Z branch</li>
+<li>update debian changelog</li>
+<li>commit branch =&gt; ${REV}</li>
 </ul>
-</li>
+</div></blockquote>
+<p>(these first steps are covered by tools/make_release_branch.py)</p>
+<blockquote>
+<div><ul>
 <li><p class="first">Jenkins: arakoon-release-qp4</p>
 </li>
 <li><p class="first">Jenkins: arakoon-release-deb</p>
