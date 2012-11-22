@@ -181,11 +181,11 @@ let promises_check_done constants state () =
   let bv,bf =
   begin 
     match v_s with 
-      | [] ->  (Value.create_value (Update.make_master_set me None), 0)
+      | [] ->  (Value.create_master_value (me, 0L), 0)
       | hd::tl -> 
         let bv, bf = hd in
         if Value.is_master_set bv 
-        then (Value.create_value (Update.make_master_set me None), bf)
+        then (Value.create_master_value (me, 0L), bf)
         else bv, bf
          
   end in 
@@ -724,11 +724,13 @@ type ('a,'b,'c) buffers =
      inject_buffer : 'c Lwt_buffer.t;
      election_timeout_buffer: 'c Lwt_buffer.t;
     } 
-let make_buffers (a,b,c,d) = {client_buffer = a;
-			      node_buffer = b;
-			      inject_buffer = c;
-			      election_timeout_buffer = d;}
-      
+let make_buffers (a,b,c,d) = {
+  client_buffer = a;
+  node_buffer = b;
+  inject_buffer = c;
+  election_timeout_buffer = d;
+}
+  
 let rec paxos_produce buffers
     constants product_wanted =
   let me = constants.me in

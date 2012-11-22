@@ -34,6 +34,7 @@ type namedValue =
 val lwt_failfmt :  ('a, unit, string, 'b Lwt.t) format4 -> 'a
 
 val bool_to  : Buffer.t -> bool   -> unit
+val char_to  : Buffer.t -> char   -> unit
 val int_to   : Buffer.t -> int    -> unit
 val int32_to : Buffer.t -> int32  -> unit
 val int64_to : Buffer.t -> int64  -> unit
@@ -48,6 +49,7 @@ val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
   ('a, 'b) Hashtbl.t -> unit
 
 val bool_from : string -> int -> bool  * int
+val char_from : string -> int -> char  * int
 val int_from  : string -> int -> int   * int
 val int32_from: string -> int -> int32 * int
 val int64_from: string -> int -> int64 * int

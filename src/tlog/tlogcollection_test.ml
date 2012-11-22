@@ -71,7 +71,7 @@ let test_rollover (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
   factory dn >>= fun c ->
 
-  let value = Value.create_value (Update.Set ("x","y")) in
+  let value = Value.create_client_value (Update.Set ("x","y")) in
   _log_repeat c value 101 >>= fun () ->
   c # close () >>= fun ()->
   Lwt.return ()
@@ -82,7 +82,7 @@ let test_rollover_1002 (dn, factory) =
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
   factory dn >>= fun c ->
-  let value = Value.create_value (Update.Set("x","y")) in
+  let value = Value.create_client_value (Update.Set("x","y")) in
   let n_updates = 1002 * n + 3 in
   _log_repeat c value n_updates >>= fun () ->
   c # close () >>= fun () ->
@@ -97,7 +97,7 @@ let test_rollover_1002 (dn, factory) =
 let test_get_value_bug (dn, factory) = 
   Lwt_log.info "test_get_value_bug" >>= fun () ->
   factory dn >>= fun c0 ->
-  let v0 = Value.create_value (Update.make_master_set "XXXX" None) in
+  let v0 = Value.create_client_value (Update.make_master_set "XXXX" None) in
   c0 # log_value 0L v0 ~sync:false >>= fun wr_result ->
   factory dn >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
@@ -117,7 +117,7 @@ let test_regexp (dn,factory) =
 
 let test_restart (dn, factory) =
   factory dn >>= fun tlc_one ->
-  let value = Value.create_value (Update.Set("x","y")) in
+  let value = Value.create_client_value (Update.Set("x","y")) in
   _log_repeat tlc_one value 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
   factory dn >>= fun tlc_two ->
@@ -130,7 +130,7 @@ let test_restart (dn, factory) =
 let test_iterate (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun  tlc ->
-  let value = Value.create_value (Update.Set("xxx","y")) in
+  let value = Value.create_client_value (Update.Set("xxx","y")) in
   _log_repeat tlc value 323 >>= fun () ->
   let sum = ref 0 in
   tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
@@ -149,7 +149,7 @@ let test_iterate (dn, factory) =
 let test_iterate2 (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let value = Value.create_value (Update.Set("test_iterate0","xxx")) in
+  let value = Value.create_client_value (Update.Set("test_iterate0","xxx")) in
   _log_repeat tlc value 3 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 0) (Sn.of_int 1) 
@@ -167,7 +167,7 @@ let test_iterate2 (dn, factory) =
 let test_iterate3 (dn,factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let value = Value.create_value (Update.Set("test_iterate3","xxx")) in
+  let value = Value.create_client_value (Update.Set("test_iterate3","xxx")) in
   _log_repeat tlc value 120 >>= fun () ->
   let result = ref [] in
   tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
@@ -188,7 +188,7 @@ let test_iterate3 (dn,factory) =
 let test_validate_normal (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn >>= fun (tlc:tlog_collection) ->
-  let value = Value.create_value (Update.Set ("XXX","X")) in
+  let value = Value.create_client_value (Update.Set ("XXX","X")) in
   _log_repeat tlc value 123 >>= fun () ->
   tlc # close () >>= fun () ->
   factory dn >>= fun (tlc_two:tlog_collection) ->
@@ -206,7 +206,7 @@ let test_validate_normal (dn, factory) =
 let test_validate_corrupt_1 (dn,factory) =
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn >>= fun (tlc:tlog_collection) -> 
-  let value = Value.create_value (Update.Set("Incompetent","Politicians")) in
+  let value = Value.create_client_value (Update.Set("Incompetent","Politicians")) in
   _log_repeat tlc value 42 >>= fun () ->
   tlc # close () >>= fun () ->
   let fn = Filename.concat dn "000.tlog" in

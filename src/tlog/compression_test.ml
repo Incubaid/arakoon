@@ -38,7 +38,7 @@ let test_compress_file () =
 		   begin
 		     let v = Printf.sprintf "<xml_bla>value%Li</xml_bla>" i in
 		     let update = Update.Set ("x", v) in
-             let value = Value.create_value update in
+             let value = Value.create_client_value update in
 		     writer # log_value i value >>= fun _ ->
 		     loop (Int64.succ i)		     
 		   end

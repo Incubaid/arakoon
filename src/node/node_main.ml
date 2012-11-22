@@ -463,7 +463,9 @@ let _main_2
 	      let read_only = master = ReadOnly in
 	      let sb =
 	        let test = Node_cfg.Node_cfg.test cluster_cfg in
-	        new Sync_backend.sync_backend me client_push inject_push
+	        new Sync_backend.sync_backend me 
+              (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
+              inject_push
 	          store (make_store, copy_store, full_snapshot_path) 
               tlog_coll lease_period
 	          ~quorum_function n_nodes

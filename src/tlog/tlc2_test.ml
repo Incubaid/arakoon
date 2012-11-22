@@ -35,7 +35,7 @@ let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
   Tlogcommon.tlogEntriesPerFile := 5 ;
   factory dn >>= fun (tlog_coll:tlog_collection) ->
-  let value = Value.create_value (Update.make_master_set "me" None) in
+  let value = Value.create_master_value ("me",0L) in
   let sync = false in
   tlog_coll # log_value 0L value ~sync >>= fun _ ->
   tlog_coll # log_value 1L value ~sync >>= fun _ ->
@@ -50,7 +50,7 @@ let test_interrupted_rollover (dn,factory) =
   (*let fn = Filename.concat dn "001.tlog" in
   Unix.unlink fn; *)
   factory dn >>= fun tlog_coll ->
-  let value = Value.create_value (Update.make_master_set "me" None) in
+  let value = Value.create_master_value ("me", 0L) in
   tlog_coll # log_value 5L value ~sync:false >>= fun _ ->
   tlog_coll # close () >>= fun _ ->
   Tlc2.get_tlog_names dn >>= fun tlog_names ->
@@ -79,7 +79,7 @@ let test_validate_at_rollover_boundary (dn,factory) =
   end;
   OUnit.assert_equal ~msg lasti 4L;
   factory dn >>= fun (tlog_coll:tlog_collection) ->
-  let value = Value.create_value (Update.make_master_set "me" None) in
+  let value = Value.create_master_value ("me",0L) in
   let sync = false in
   tlog_coll # log_value 5L value ~sync >>= fun _ ->
   tlog_coll # log_value 6L value ~sync >>= fun _ ->
@@ -96,7 +96,7 @@ let test_iterate4 (dn, factory) =
   Lwt_log.debug "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let value = Value.create_value (Update.Set("test_iterate4","xxx")) in
+  let value = Value.create_client_value (Update.Set("test_iterate4","xxx")) in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
   let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
@@ -119,7 +119,7 @@ let test_iterate5 (dn,factory) =
     else
       begin
         let is = string_of_int i in
-        let value = Value.create_value (Update.Set("test_iterate_" ^ is ,is)) in
+        let value = Value.create_client_value (Update.Set("test_iterate_" ^ is ,is)) in
         tlc # log_value (Sn.of_int i) value ~sync:false >>= fun _ ->
           begin
             if i mod 3 = 2 
@@ -157,7 +157,7 @@ let test_iterate6 (dn,factory) =
       begin
         let is = string_of_int i in
 	    let sni = Sn.of_int i in
-        let value = Value.create_value (Update.Set("test_iterate_" ^ is ,is)) in
+        let value = Value.create_client_value (Update.Set("test_iterate_" ^ is ,is)) in
           begin
             if i != 19
             then 
@@ -165,7 +165,7 @@ let test_iterate6 (dn,factory) =
             else
 	          begin
 		        tlc # log_value sni value ~sync >>= fun _ ->
-		        let value2 = Value.create_value (Update.Set("something_else","gotcha")) in
+		        let value2 = Value.create_client_value (Update.Set("something_else","gotcha")) in
 		        tlc # log_value sni value2 ~sync
 	          end
           end >>= fun _ ->
@@ -202,12 +202,12 @@ let test_compression_bug (dn, factory) =
     if i = n then Lwt.return () 
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
-      let value = Value.create_value (Update.Set(key, v)) in
+      let value = Value.create_client_value (Update.Set(key, v)) in
       let sni = Sn.of_int i in
       tlc # log_value sni value ~sync:false >>= fun () ->
       loop (i+1) 
   in
-  tlc # log_value 0L (Value.create_value (Update.Set("xxx","XXX"))) ~sync:false >>= fun () ->
+  tlc # log_value 0L (Value.create_client_value (Update.Set("xxx","XXX"))) ~sync:false >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
   File_system.stat (dn ^ "/000.tlf") >>= fun stat ->

@@ -64,8 +64,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	      let extend () = 
 	        log ~me "stable_master: half-lease_expired: update lease." 
 	        >>= fun () ->
-	        let ms = Update.make_master_set me None in
-	        let v = Value.create_value ms in
+            let v = Value.create_master_value (me,0L) in
 		    (* TODO: we need election timeout as well here *)
 	        Lwt.return (Master_dictate (None,v,n,new_i))
 	      in
@@ -82,18 +81,10 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		        extend () 
 	        | _ -> extend()
 	    end
-    | FromClient (vo, finished) ->
+    | FromClient (update, finished) ->
       begin
-	    match vo with
-	      | None ->
-	        begin
-	          finished Store.Stop >>= fun () ->
-	          Lwt.fail (Failure "forced_stop")
-	        end
-	      | Some value ->
-	        begin
-	          Lwt.return (Master_dictate (Some finished,value,n,new_i))
-	        end
+        let value = Value.create_client_value update in
+	    Lwt.return (Master_dictate (Some finished, value, n, new_i))
       end
     | FromNode (msg,source) ->
       begin

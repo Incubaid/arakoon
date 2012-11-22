@@ -141,7 +141,7 @@ let dump_tlog filename ~values=
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
-    let f oc = Tlogcommon.write_entry oc sni (Value.create_value (Update.Update.Nop))
+    let f oc = Tlogcommon.write_entry oc sni (Value.create_client_value (Update.Update.Nop))
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in

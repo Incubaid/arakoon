@@ -114,11 +114,11 @@ let test_generic network_factory n_nodes () =
 	       let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	       let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	       let buffers = Multi_paxos_fsm.make_buffers 
-		 (client_buffer,get_buffer me, 
-		  inject_buffer, election_timeout_buffer) in
+		     (client_buffer,get_buffer me, 
+		      inject_buffer, election_timeout_buffer) in
 	       Multi_paxos_fsm.expect_run_forced_slave 
-		 constants buffers expected steps (current_i,Sn.start)
-		 >>= fun result ->
+		     constants buffers expected steps (current_i,Sn.start)
+		   >>= fun result ->
 	       log ~me "node done." >>= fun () ->
 	       Lwt.return ()
 	     in
@@ -198,16 +198,15 @@ let test_master_loop network_factory ()  =
   let me = "c0" in
   let i0 = 0L in
   let others = [] in
-  let rec create_values values = function
-    | 0 -> values
+  let rec create_updates acc = function
+    | 0 -> acc
     | n ->
         let key = Printf.sprintf "key_%d" n in
         let value = Printf.sprintf "value_%d" n in
-        let actual_update = Update.Set( key, value ) in
-        let actual_value = Value.create_value actual_update in
-        create_values (actual_value :: values) (n-1)
+        let update = Update.Set( key, value ) in
+        create_updates (update :: acc) (n-1)
   in
-  let values = create_values [] 5 in
+  let updates = create_updates [] 5 in
   let finished = fun (a:Store.update_result) ->
     log "finished" >>= fun () ->
     Lwt.return ()
@@ -215,11 +214,10 @@ let test_master_loop network_factory ()  =
   let client_buffer = Lwt_buffer.create () in
   let () = Lwt.ignore_result (
     Lwt_list.iter_s
-      (fun x ->
-	    Lwt_buffer.add (Some (x),finished) client_buffer 
-	    >>= fun () ->
+      (fun x -> 
+        Lwt_buffer.add (x, finished) client_buffer >>= fun () ->
 	    Lwt_unix.sleep 2.0
-      ) values
+      ) updates
   ) in
   let on_consensus (_,n,i) =
     log "consensus: n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
@@ -259,22 +257,21 @@ let test_master_loop network_factory ()  =
       log ~me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	| (Multi_paxos_type.Stable_master x) ->
-	  if !continue = 0 
-    then 
-      Lwt.return (Some x) 
-    else
-	    let () = continue := (!continue -1) in 
-      Lwt.return None
-	| _ -> Lwt.return None
+	    | (Multi_paxos_type.Stable_master x) ->
+	        if !continue = 0 
+            then Lwt.return (Some x) 
+            else
+	          let () = continue := (!continue -1) in 
+              Lwt.return None
+	    | _ -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers = 
       Multi_paxos_fsm.make_buffers 
-	(client_buffer, 
-	 get_buffer me, 
-	 inject_buffer, 
-	 election_timeout_buffer) in
+	    (client_buffer, 
+	     get_buffer me, 
+	     inject_buffer, 
+	     election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers expected 20 current_n i0
     >>= fun result -> log "after loop"
   in

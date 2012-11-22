@@ -78,17 +78,18 @@ let _mute_so _ = ()
 
 let _update_rendezvous self ~so_post update update_stats push =
   self # _write_allowed () >>= fun () ->
-  let p_value = Value.create_value update in
   let sleep, awake = Lwt.wait () in
   let went_well = make_went_well update_stats awake sleep in
-  push (Some p_value, went_well) >>= fun () ->
+  push (update, went_well) >>= fun () ->
   sleep >>= function
   | Store.Stop -> Lwt.fail Forced_stop
   | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
   | Store.Ok so -> Lwt.return (so_post so)
 
 
-class sync_backend cfg push_update push_node_msg
+class sync_backend cfg 
+  (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t) 
+  (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
   (store:Store.store)
   (store_methods:
      (?read_only:bool -> string -> Store.store Lwt.t) *

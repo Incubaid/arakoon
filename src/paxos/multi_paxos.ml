@@ -98,7 +98,7 @@ type quiesce_result =
   | Quiesced_fail
  				      
 type paxos_event =
-  | FromClient of ((Value.t option) * (Store.update_result -> unit Lwt.t))
+  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t))
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of Sn.t
   | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)

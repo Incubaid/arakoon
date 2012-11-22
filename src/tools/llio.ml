@@ -139,6 +139,13 @@ let string_to buffer s =
     int_to buffer size;
     Buffer.add_string buffer s
 
+let char_to buffer c = Buffer.add_char buffer c
+
+let char_from buffer pos =
+  let c = buffer.[pos] in
+  c, pos + 1
+
+
 let bool_to buffer b =
   let c = if b then '\x01' else '\x00' in
   Buffer.add_char buffer c
@@ -150,6 +157,7 @@ let bool_from buffer pos =
     | '\x01' -> true
     | _ -> failwith "not a boolean"
   in r,pos + 1
+
 
 let output_int32 oc (i:int32) =
   let buf = Buffer.create 4 in
