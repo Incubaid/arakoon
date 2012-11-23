@@ -11,7 +11,7 @@ ocamlfind list | grep lwt
 ocamlfind list | grep camltc
 
 ocamlbuild -clean
-ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
+ocamlbuild -use-ocamlfind arakoon.native
 
-sudo ./buildInSandbox.sh
+./buildInSandbox.sh
 
