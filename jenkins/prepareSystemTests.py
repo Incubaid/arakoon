@@ -3,6 +3,7 @@ import os
 import subprocess
 
 packages = [
+            ('qbase_extra','3.2'),
             ('testrunner','1.1'),
            ]
 
