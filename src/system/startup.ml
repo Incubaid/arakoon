@@ -115,7 +115,7 @@ let post_failure () =
   in
   let get_cfgs () = cluster_cfg in
   let v0 = Value.create_master_value (node0,0L)  in
-  let v1 = Value.create_client_value (Update.Set("x","y")) in
+  let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
@@ -169,7 +169,7 @@ let restart_slaves () =
   in
   let get_cfgs () = cluster_cfg in 
   let v0 = Value.create_master_value (node0, 0L) in
-  let v1 = Value.create_client_value (Update.Set("xxx","xxx")) in
+  let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float(Unix.time()) in

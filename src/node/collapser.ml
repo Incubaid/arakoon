@@ -104,7 +104,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		                  Lwt.return ()
 		              end 
 		              >>= fun () ->
-		              Store.safe_insert_update new_store pi pv >>= fun _ ->
+		              Store.safe_insert_value new_store pi pv >>= fun _ ->
 		              let () = acc := Some(i,value) in
 		              Lwt.return ()
 		            end

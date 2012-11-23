@@ -45,7 +45,7 @@ let _make_values tlc n =
       let k = Printf.sprintf "sqrt(%i)" a in
       let v = Printf.sprintf "%f" (sqrt (float a)) in
       let update = Update.Set(k, v) in
-      let value = Value.create_client_value update in
+      let value = Value.create_client_value [update] sync in
       let sni = Sn.of_int i in
       tlc # log_value sni value ~sync >>= fun wr_result ->
       loop (i+1)

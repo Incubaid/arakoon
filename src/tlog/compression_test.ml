@@ -30,19 +30,20 @@ let test_compress_file () =
   Lwt_log.info "test_compress_file" >>= fun () ->
   let tlog_name = "/tmp/test_compress_file.tlog" in
   Lwt_io.with_file tlog_name ~mode:Lwt_io.output 
-    (fun oc -> let writer = new tlogWriter oc 0L in
-	       let rec loop i = 
-		 if i = 100000L 
-		 then Lwt.return ()
-		 else 
-		   begin
-		     let v = Printf.sprintf "<xml_bla>value%Li</xml_bla>" i in
-		     let update = Update.Set ("x", v) in
-             let value = Value.create_client_value update in
-		     writer # log_value i value >>= fun _ ->
-		     loop (Int64.succ i)		     
-		   end
-	       in loop 0L
+    (fun oc -> 
+      let writer = new tlogWriter oc 0L in
+	  let rec loop i = 
+		if i = 100000L 
+		then Lwt.return ()
+		else 
+		  begin
+		    let v = Printf.sprintf "<xml_bla>value%Li</xml_bla>" i in
+		    let updates = [Update.Set ("x", v)] in
+            let value = Value.create_client_value updates false in
+		    writer # log_value i value >>= fun _ ->
+		    loop (Int64.succ i)		     
+		  end
+	  in loop 0L
     ) >>= fun () ->
   let archive_name = Compression.archive_name tlog_name in
   compress_tlog tlog_name archive_name >>= fun () -> 

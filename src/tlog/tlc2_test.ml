@@ -96,7 +96,7 @@ let test_iterate4 (dn, factory) =
   Lwt_log.debug "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn >>= fun tlc ->
-  let value = Value.create_client_value (Update.Set("test_iterate4","xxx")) in
+  let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
   let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
@@ -118,9 +118,10 @@ let test_iterate5 (dn,factory) =
     then Lwt.return ()
     else
       begin
+        let sync = false in
         let is = string_of_int i in
-        let value = Value.create_client_value (Update.Set("test_iterate_" ^ is ,is)) in
-        tlc # log_value (Sn.of_int i) value ~sync:false >>= fun _ ->
+        let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
+        tlc # log_value (Sn.of_int i) value ~sync >>= fun _ ->
           begin
             if i mod 3 = 2 
             then 
@@ -157,7 +158,7 @@ let test_iterate6 (dn,factory) =
       begin
         let is = string_of_int i in
 	    let sni = Sn.of_int i in
-        let value = Value.create_client_value (Update.Set("test_iterate_" ^ is ,is)) in
+        let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
           begin
             if i != 19
             then 
@@ -165,7 +166,7 @@ let test_iterate6 (dn,factory) =
             else
 	          begin
 		        tlc # log_value sni value ~sync >>= fun _ ->
-		        let value2 = Value.create_client_value (Update.Set("something_else","gotcha")) in
+		        let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
 		        tlc # log_value sni value2 ~sync
 	          end
           end >>= fun _ ->
@@ -197,17 +198,18 @@ let test_compression_bug (dn, factory) =
   let v = String.create (1024 * 1024) in
   factory dn >>= fun tlc ->
   Lwt_log.info "have tlc" >>= fun () ->
+  let sync = false in
   let n = 12 in
   let rec loop i = 
     if i = n then Lwt.return () 
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
-      let value = Value.create_client_value (Update.Set(key, v)) in
+      let value = Value.create_client_value [Update.Set(key, v)] sync in
       let sni = Sn.of_int i in
-      tlc # log_value sni value ~sync:false >>= fun () ->
+      tlc # log_value sni value ~sync >>= fun () ->
       loop (i+1) 
   in
-  tlc # log_value 0L (Value.create_client_value (Update.Set("xxx","XXX"))) ~sync:false >>= fun () ->
+  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) ~sync >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
   File_system.stat (dn ^ "/000.tlf") >>= fun stat ->

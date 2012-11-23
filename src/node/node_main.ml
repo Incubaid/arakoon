@@ -195,7 +195,7 @@ module X = struct
       if Value.is_master_set v
       then 
 	    begin
-	      store # incr_i () >>= fun () -> Lwt.return (Store.Ok None) 
+	      store # incr_i () >>= fun () -> Lwt.return [Store.Ok None]
 	    end
       else
 	    Store.on_consensus store vni
@@ -209,36 +209,33 @@ module X = struct
     let sync = Value.is_synced v in
     tlog_coll # log_value i v ~sync >>= fun wr_result ->
     begin
-      if not (Value.is_master_set v )
-      then Lwt.return ()
-      else
-        match (Value.update_from_value v) with
-	      | Update.MasterSet (m,l) ->
-	          begin
-                let logit () =
-                  let now = Int64.of_float (Unix.gettimeofday ()) in
-                  let m_old_master = store # who_master () in
-	              store # set_master_no_inc m now >>= fun _ ->
-                  begin
-                    let new_master =
-                      begin
-                        match m_old_master with
-                          | Some(m_old,_) -> m <> m_old
-                          | None -> true
-                      end 
-                    in
-                    if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
-                      begin
-                        last_master_log_stmt := now;
-                        Lwt_log.info_f "%s is master"  m
-                      end 
-                    else 
-                      Lwt.return ()
-                  end
-                in 
-                logit ()
-	          end
-	      | _ -> Lwt.return()
+      match v with
+        | Value.Vc _     -> Lwt.return () 
+        | Value.Vm (m,l) ->
+	        begin
+              let logit () =
+                let now = Int64.of_float (Unix.gettimeofday ()) in
+                let m_old_master = store # who_master () in
+	            store # set_master_no_inc m now >>= fun _ ->
+                begin
+                  let new_master =
+                    begin
+                      match m_old_master with
+                        | Some(m_old,_) -> m <> m_old
+                        | None -> true
+                    end 
+                  in
+                  if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
+                    begin
+                      last_master_log_stmt := now;
+                      Lwt_log.info_f "%s is master"  m
+                    end 
+                  else 
+                    Lwt.return ()
+                end
+              in 
+              logit ()
+	        end
     end 
       
   let reporting period backend () = 

@@ -37,7 +37,7 @@ let _fill tlog_coll n =
 	    let k = Printf.sprintf "key%i" i
 	    and v = Printf.sprintf "value%i" i in
 	    let u = Update.Set (k,v) in
-        let value = Value.create_client_value u in
+        let value = Value.create_client_value [u] sync in
 	    tlog_coll # log_value (Sn.of_int i) value ~sync >>= fun _ ->
 	    _loop (i+1)
       end
@@ -57,8 +57,8 @@ let _fill2 tlog_coll n =
 	    in
 	    let u = Update.Set(k,v) in
 	    let u2 = Update.Set(k2,v2) in
-        let value = Value.create_client_value u in
-        let value2 = Value.create_client_value u2 in
+        let value = Value.create_client_value [u] sync in
+        let value2 = Value.create_client_value [u2] sync in
 	    tlog_coll # log_value (Sn.of_int i) value  ~sync  >>= fun _ ->
 	    tlog_coll # log_value (Sn.of_int i) value2 ~sync  >>= fun _ ->
 	    _loop (i+1)

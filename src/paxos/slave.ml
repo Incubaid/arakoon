@@ -89,7 +89,7 @@ let slave_steady_state constants state event =
 			            if Sn.compare store_i prev_i == 0
 			            then 
 			              Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
-                      Lwt.return (Store.Ok None)
+                      Lwt.return [Store.Ok None]
 			            else
 			              Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
 	            end 
@@ -188,28 +188,35 @@ let slave_steady_state constants state event =
 	          Lwt.return (Slave_steady_state(n,i,previous))
 	        end
 	    end
-    | FromClient (vo,cb) -> 
-      begin
-      (* there is a window in election 
-	     that allows clients to get through before the node became a slave
-	     but I know I'm a slave now, so I let the update fail.
-      *)      
-        let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
-        cb result >>= fun () ->
-        Lwt.return (Slave_steady_state(n,i,previous))
-      end
+    | FromClient ufs -> 
+        begin
+          
+          (* there is a window in election 
+	         that allows clients to get through before the node became a slave
+	         but I know I'm a slave now, so I let the update fail.
+          *)      
+          let updates,finished_funs = List.split ufs in
+          let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
+          let rec loop = function
+            | []       -> Lwt.return ()
+            | f :: ffs -> f result >>= fun () ->
+                loop ffs
+          in
+          loop finished_funs >>= fun () ->
+          Lwt.return (Slave_steady_state(n,i,previous))
+        end
     | Quiesce (sleep,awake) ->
-      begin
-        handle_quiesce_request constants.store sleep awake >>= fun () ->
-        Lwt.return (Slave_steady_state state)
-      end
-      
+        begin
+          handle_quiesce_request constants.store sleep awake >>= fun () ->
+          Lwt.return (Slave_steady_state state)
+        end
+          
     | Unquiesce ->
-      begin
-        handle_unquiesce_request constants n >>= fun (store_i, vo) ->
-        Lwt.return (Slave_steady_state state)
-      end
-      
+        begin
+          handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+          Lwt.return (Slave_steady_state state)
+        end
+          
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =

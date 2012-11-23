@@ -81,12 +81,23 @@ module Lwt_buffer = struct
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
 
+  let harvest t = 
+    Lwt_mutex.with_lock t.empty_m 
+      (fun () -> if Queue.is_empty t.q
+        then Lwt_condition.wait ~mutex:t.empty_m t.empty
+        else Lwt.return () 
+      ) >>= fun () ->
+    let size = Queue.length t.q in
+    Lwt_log.debug_f "harvest could yield %i" size >>= fun () ->
+    take t >>= fun e -> Lwt.return [e]
+
   let wait_for_item t =
-    Lwt_mutex.with_lock t.empty_m (fun () ->
-      if Queue.is_empty t.q then
-	Lwt_condition.wait t.empty
-      else Lwt.return ()
-    )
+    Lwt_mutex.with_lock t.empty_m 
+      (fun () ->
+        if Queue.is_empty t.q then
+	      Lwt_condition.wait t.empty
+        else Lwt.return ()
+      )
 
   let wait_until_empty t = 
     if Queue.is_empty t.q 

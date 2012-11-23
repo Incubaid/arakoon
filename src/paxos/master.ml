@@ -30,23 +30,24 @@ open Update
 (* a (possibly potential) master has found consensus on a value
    first potentially finish of a client request and then on to
    being a stable master *)
-let master_consensus constants ((mo:master_option),v,n,i) () =
-  constants.on_consensus (v,n,i) >>= fun so ->
+let master_consensus constants ((finished_funs : master_option),v,n,i) () =
+  constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
   begin
-    match mo with
-      | Some finished ->
-	(* consensus on a client request *)
-	finished so
-      | None -> (* first time consensus on master *)
-	begin
-	  let me = constants.me in
-	  log ~me "running as STABLE MASTER n:%s i:%s" 
-	    (Sn.string_of n) (Sn.string_of (Sn.succ i))
-	end
+    let rec loop ffs urs =
+      match (ffs,urs) with
+        | [],[] -> Lwt.return ()
+        | finished_f :: ffs , update_result :: urs -> 
+            finished_f update_result >>= fun () ->
+            loop ffs urs
+        | _,_ -> failwith "mismatch"
+    in
+    Lwt_log.debug_f "on_consensus for : %s => %i finished_fs %i result(s) " 
+      (Value.value2s v) (List.length finished_funs) (List.length urs) >>= fun ()->
+    loop finished_funs urs
   end >>= fun () ->
   let state = (v,n,(Sn.succ i)) in
   Lwt.return (Stable_master state)
-
+    
 
 
 let stable_master constants ((v',n,new_i) as current_state) = function
@@ -65,8 +66,9 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	        log ~me "stable_master: half-lease_expired: update lease." 
 	        >>= fun () ->
             let v = Value.create_master_value (me,0L) in
+            let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
-	        Lwt.return (Master_dictate (None,v,n,new_i))
+	        Lwt.return (Master_dictate ([ff], v,n,new_i))
 	      in
 	      match constants.master with
 	        | Preferred p when p <> me ->
@@ -81,11 +83,13 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		        extend () 
 	        | _ -> extend()
 	    end
-    | FromClient (update, finished) ->
-      begin
-        let value = Value.create_client_value update in
-	    Lwt.return (Master_dictate (Some finished, value, n, new_i))
-      end
+    | FromClient ufs ->
+        begin
+          let updates, finished_funs = List.split ufs in
+          let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
+          let value = Value.create_client_value updates synced in
+	      Lwt.return (Master_dictate (finished_funs, value, n, new_i))
+        end
     | FromNode (msg,source) ->
       begin
 	    let me = constants.me in

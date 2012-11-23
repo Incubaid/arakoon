@@ -170,7 +170,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		             a node in catchup thinks it's master due to 
 		             some lease starting in the past *)
 		          let pv' = Value.clear_master_set pv in
-		          Store.safe_insert_update store pi pv' >>= fun _ ->
+		          Store.safe_insert_value store pi pv' >>= fun _ ->
 		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
@@ -187,7 +187,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
         | None -> Lwt.return ()
         | Some(i,value) -> 
           Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
-          Store.safe_insert_update store i value >>= fun _ -> Lwt.return ()
+          Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
     let store_i' = store # consensus_i () in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 

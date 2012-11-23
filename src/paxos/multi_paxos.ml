@@ -98,7 +98,7 @@ type quiesce_result =
   | Quiesced_fail
  				      
 type paxos_event =
-  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t))
+  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of Sn.t
   | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
@@ -113,7 +113,7 @@ type constants =
      on_accept: Value.t * Sn.t * Sn.t -> unit Lwt.t;
      on_consensus:
        Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
-       Store.update_result Lwt.t;
+       (Store.update_result list) Lwt.t;
      on_witness: id -> Sn.t -> unit;
      last_witnessed: id -> Sn.t;
      quorum_function: int -> int;
@@ -240,7 +240,7 @@ let handle_prepare constants dest n n' i' =
 	    
 	end
       else 
-	begin
+	    begin
           let store = constants.store in
           let s_i = store # consensus_i () in
           let nak_max = 
@@ -254,30 +254,30 @@ let handle_prepare constants dest n n' i' =
           
           if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 
           then
-          (* Send Nak, other node is behind *)
+            (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
             Lwt.return (Nak_sent, reply) 
           else
             begin
-            (* We will send a Promise, start election timer *)
+              (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
               log ~me "handle_prepare: starting election timer" >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
-              (* Send Promise, but I need catchup *)
-		Lwt.return(Promise_sent_needs_catchup, reply)
+                (* Send Promise, but I need catchup *)
+		        Lwt.return(Promise_sent_needs_catchup, reply)
               else (* i' = i *)
-              (* Send Promise, we are in sync *)
-		Lwt.return(Promise_sent_up2date, reply)
+                (* Send Promise, we are in sync *)
+		        Lwt.return(Promise_sent_up2date, reply)
             end 
-	end >>= fun (ret_val, reply) ->
+	    end >>= fun (ret_val, reply) ->
       log ~me "handle_prepare replying with %S" (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
-  end
-
+    end
+      
 let safe_wakeup sleeper awake value =
   Lwt.catch 
   ( fun () -> Lwt.return (Lwt.wakeup awake value) )

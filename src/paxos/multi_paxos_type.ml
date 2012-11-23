@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 type finished_fun = Store.update_result -> unit Lwt.t
-type master_option = finished_fun option
+type master_option = (finished_fun list) 
 
 type v_limits = int * (Value.t * int) list 
      (* number of times None was chosen;

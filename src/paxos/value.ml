@@ -23,32 +23,35 @@ If not, see <http://www.gnu.org/licenses/>.
 open Update
 
 type t = 
-  | Vc of Update.t
+  | Vc of (Update.t list * bool) (* is_synced *)
   | Vm of (string * int64)
 
-let create_client_value (u:Update.t) = Vc u
+let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
 let create_master_value (m,l) = Vm (m,l)
 
 let is_master_set  = function
   | Vm _ ->  true
-  | _ -> false
+  | _    -> false
 
 let is_synced = function 
   | Vm _ -> false
-  | Vc u -> Update.is_synced u
+  | Vc (_,s) -> s
 
-let clear_master_set =function
-    | Vm (m,l) -> Vm(m,0L) 
-    | v -> v
-
-let update_from_value = function
-  | Vc u -> u
-  | Vm (m,l) -> Update.MasterSet(m,l)
+let clear_master_set = function
+  | Vm (m,l) -> Vm(m, 0L) 
+  | v        -> v
+      
+let updates_from_value = function
+  | Vc (us,s)     -> us
+  | Vm (m,l)      -> [Update.MasterSet(m,l)]
 
 let value_to buf v= 
   let () = Llio.int_to buf 0xff in
   match v with
-    | Vc u     -> Llio.char_to buf 'c'; Update.to_buffer buf u
+    | Vc (us,synced)     -> 
+        Llio.char_to buf 'c'; 
+        Llio.bool_to buf synced;
+        Llio.list_to buf Update.to_buffer us
     | Vm (m,l) -> 
         begin
           Llio.char_to buf 'm'; 
@@ -62,8 +65,11 @@ let value_from string pos =
   then 
     let c,p2 = Llio.char_from string p1 in
     match c with
-      | 'c' -> let u, p3 = Update.from_buffer string  p2 in
-               (Vc u), p3
+      | 'c' -> 
+          let synced, p3 = Llio.bool_from string p2 in
+          let us, p4     = Llio.list_from string Update.from_buffer p3 in
+          let r = Vc(us,synced) in
+          r, p4
       | 'm' -> let m, p3 = Llio.string_from string p2 in
                let l, p4 = Llio.int64_from string p3 in
                (Vm (m,l)), p4
@@ -73,11 +79,15 @@ let value_from string pos =
       (* this is for backward compatibility: 
          formerly, we logged updates iso values *)
       let u,p2 = Update.from_buffer string pos in
-      (Vc u), p2
-    end;;
-      
+      let synced = Update.is_synced u in
+      let r = Vc ([u], synced) in
+      r, p2
+    end
       
 
+
 let value2s ?(values=false) = function
-  | Vc u     -> Printf.sprintf "(Vc %s)" (Update.update2s u ~values)
-  | Vm (m,l) -> Printf.sprintf "(Vm (%s,%Li)" m l
+  | Vc (us,synced)  -> 
+      let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
+      Printf.sprintf "(Vc (%s,%b)" uss synced
+  | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%Li))" m l
