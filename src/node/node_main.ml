@@ -195,7 +195,8 @@ module X = struct
       if Value.is_master_set v
       then 
 	    begin
-	      store # incr_i () >>= fun () -> Lwt.return [Store.Ok None]
+	      store # incr_i () >>= fun () -> 
+          Lwt.return [Store.Ok None]
 	    end
       else
 	    Store.on_consensus store vni

@@ -125,11 +125,11 @@ let _insert_update (store:store) (update:Update.t) =
   in  
   match update with
     | Update.Set(key,value) ->
-      with_error key (fun () -> store # set key value)
+        with_error key (fun () -> store # set key value)
     | Update.MasterSet (m, lease) ->
-      with_error "Not_found" (fun () -> store # set_master m lease)
+        with_error "Not_found" (fun () -> store # set_master m lease)
     | Update.Delete(key) ->
-      with_error key (fun () -> store # delete key)
+        with_error key (fun () -> store # delete key)
     | Update.DeletePrefix prefix ->
       begin
         Lwt.catch
@@ -272,9 +272,11 @@ let _insert_updates (store:store) (us: Update.t list) =
 
 let _insert_value (store:store) (value:Value.t) =  
   let updates = Value.updates_from_value value in
-  _insert_updates store updates >>= fun (urs:update_result list) ->
-  Lwt.return urs
-
+  Lwt.finalize
+    (fun () ->
+      _insert_updates store updates >>= fun (urs:update_result list) ->
+      Lwt.return urs)
+    (fun () -> store # incr_i ())
 
 let safe_insert_value (store:store) (i:Sn.t) value =
   (* TODO: race condition:
@@ -313,29 +315,30 @@ let on_consensus (store:store) (v,n,i) =
   >>= fun () ->
   let m_store_i = store # consensus_i () in
   begin
-  match m_store_i with
-  | None ->
-    if Sn.compare i Sn.start == 0
-    then
-      Lwt.return()
-    else
-      Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
-  | Some store_i ->
-    if (Sn.compare (Sn.pred i) store_i) == 0
-    then
-      Lwt.return()
-    else
-      Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
-	(Sn.string_of i) (Sn.string_of store_i)
+    match m_store_i with
+      | None ->
+          if Sn.compare i Sn.start == 0
+          then
+            Lwt.return()
+          else
+            Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
+      | Some store_i ->
+          if (Sn.compare (Sn.pred i) store_i) == 0
+          then
+            Lwt.return()
+          else
+            Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
+	          (Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
-  if store # quiesced () then
+  if store # quiesced () 
+  then
     begin
       store # incr_i () >>= fun () ->
       Lwt.return [Ok None]
     end
   else
     _insert store v i 
-
+      
 let get_succ_store_i (store:store) =
   let m_si = store # consensus_i () in
   match m_si with

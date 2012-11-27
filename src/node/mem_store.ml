@@ -93,7 +93,6 @@ object (self: #store)
     in Lwt.return keys
 
   method set ?(_pf=__prefix) key value =
-    let () = self # _incr_i () in
     self # set_no_incr key value
 
   method private set_no_incr ?(_pf=__prefix) key value =
@@ -101,7 +100,6 @@ object (self: #store)
     Lwt.return ()
 
   method set_master master' l =
-    let () = self # _incr_i () in
     let () = master <- Some (master', now64()) in
     Lwt.return ()
 
@@ -147,31 +145,30 @@ object (self: #store)
 
   method delete ?(_pf=__prefix) key =
     Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
-    let () = self # _incr_i () in
     self # delete_no_incr key
 
   method test_and_set ?(_pf=__prefix) key expected wanted =
     Lwt.catch
       (fun () ->
-	self # get key >>= fun res -> Lwt.return (Some res))
+	    self # get key >>= fun res -> Lwt.return (Some res))
       (function
-	| Not_found -> Lwt.return None
-	| exn -> Lwt.fail exn)
+	    | Not_found -> Lwt.return None
+	    | exn -> Lwt.fail exn)
     >>= fun existing ->
     if existing <> expected
-    then let () = self # _incr_i () in Lwt.return existing
+    then Lwt.return existing
     else
       begin
-	(match wanted with
-	  | None -> self # delete key
-	  | Some wanted_s -> self # set key wanted_s)
-	>>= fun () -> Lwt.return wanted
+	    (match wanted with
+	      | None -> self # delete key
+	      | Some wanted_s -> self # set key wanted_s)
+	    >>= fun () -> 
+        Lwt.return wanted
       end
 
 
   method sequence ?(_pf=__prefix) updates =
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
-    let () = self # _incr_i () in
     let do_one u =
       let u_s = Update.update2s u in
       Lwt_log.debug_f "u=%s" u_s >>= fun () ->

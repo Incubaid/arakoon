@@ -88,8 +88,16 @@ module Lwt_buffer = struct
         else Lwt.return () 
       ) >>= fun () ->
     let size = Queue.length t.q in
-    Lwt_log.debug_f "harvest could yield %i" size >>= fun () ->
-    take t >>= fun e -> Lwt.return [e]
+    Lwt_log.debug_f "harvest yields %i" size >>= fun () ->
+    let rec loop es = function
+      | 0 -> List.rev es
+      | i -> 
+          let es' = Queue.take t.q :: es 
+          and i' = i - 1 in
+          loop es' i'
+    in
+    let es = loop [] size in
+    Lwt.return es
 
   let wait_for_item t =
     Lwt_mutex.with_lock t.empty_m 

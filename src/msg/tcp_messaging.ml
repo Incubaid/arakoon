@@ -133,20 +133,22 @@ object(self : # messaging )
   method private _establish_connection address =
     let host_ip, port = address in
     let socket_address = Network.make_address host_ip port in
-    Lwt_log.debug_f "establishing connection to (%s,%i)" host_ip port
+    let timeout = 5.0 in
+    Lwt_log.debug_f "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
     >>= fun () ->
-    Lwt.pick[ Lwt_unix.timeout 5.0;
-	      __open_connection socket_address] 
-    >>= fun (ic,oc) ->
-
+    Lwt.pick[ 
+      Lwt_unix.timeout timeout;
+	  __open_connection socket_address
+    ] 
+    >>= fun (ic,oc) ->    
     Llio.output_int64 oc _MAGIC >>= fun () ->
     Llio.output_int oc _VERSION >>= fun () ->
     Llio.output_string oc my_cookie >>= fun () ->
     Llio.output_string oc my_ip >>= fun () ->
     Llio.output_int oc my_port  >>= fun () ->
     Lwt.return (ic,oc)
-  (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
-     on local host *)
+     (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
+        on local host *)
 
   method private _get_connection (addresses:RR.t) =
     let (address:address) = RR.current addresses in
@@ -180,55 +182,55 @@ object(self : # messaging )
 	    Lwt.catch
 	      (fun () -> try_send ())
 	      (fun exn ->
-                let () = RR.rotate addresses in
-                match exn with
-		  | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
-		    begin
-		      Lwt_log.debug_f "stale connection" >>= fun () ->
-		      self # _drop_connection address >>= fun () ->
-		      Lwt.catch
-		        (fun () -> try_send ())
-		        (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
-		    end
-                  | Lwt.Canceled -> Lwt.fail Lwt.Canceled
-		  | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
-		    begin 
-		      let reason = 
-		        Printf.sprintf "machine with %s up, server down => dropping %s"
-			  target (Message.string_of msg ) 
-		      in 
-		      drop exn reason >>= fun () ->
-		      Lwt_unix.sleep 1.0 (* not to hammer machine *)
-		    end
-		  | Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
-		    begin
-		      let reason = 
-		        Printf.sprintf "machine with %s unreachable => dropping %s"
-			  target (Message.string_of msg) 
-		      in
-		      drop exn reason >>= fun () ->
-		      Lwt_unix.sleep 2.0
-		    end
-		  | Lwt_unix.Timeout as exn ->
-		    begin
-		      let reason =
-		        Printf.sprintf "machine with %s (probably) down => dropping %s"
-			  target (Message.string_of msg) 
-		      in
-		      drop exn reason >>= fun () ->
-		      Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
-		    end
-		  | exn -> 
-		    begin
-		      let reason = 
-		        Printf.sprintf "dropping message %s with destination '%s' because of"
-			  (Message.string_of msg) target 
-		      in
-		      drop exn reason
-		    end
+            let () = RR.rotate addresses in
+            match exn with
+		      | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
+		          begin
+		            Lwt_log.debug_f "stale connection" >>= fun () ->
+		            self # _drop_connection address >>= fun () ->
+		            Lwt.catch
+		              (fun () -> try_send ())
+		              (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
+		          end
+              | Lwt.Canceled -> Lwt.fail Lwt.Canceled
+		      | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
+		          begin 
+		            let reason = 
+		              Printf.sprintf "machine with %s up, server down => dropping %s"
+			            target (Message.string_of msg ) 
+		            in 
+		            drop exn reason >>= fun () ->
+		            Lwt_unix.sleep 1.0 (* not to hammer machine *)
+		          end
+		      | Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
+		          begin
+		            let reason = 
+		              Printf.sprintf "machine with %s unreachable => dropping %s"
+			            target (Message.string_of msg) 
+		            in
+		            drop exn reason >>= fun () ->
+		            Lwt_unix.sleep 2.0
+		          end
+		      | Lwt_unix.Timeout as exn ->
+		          begin
+		            let reason =
+		              Printf.sprintf "machine with %s (probably) down => dropping %s"
+			            target (Message.string_of msg) 
+		            in
+		            drop exn reason >>= fun () ->
+		            Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
+		          end
+		      | exn -> 
+		          begin
+		            let reason = 
+		              Printf.sprintf "dropping message %s with destination '%s' because of"
+			            (Message.string_of msg) target 
+		            in
+		            drop exn reason
+		          end
 	      )
 	  | None -> (* we don't talk to strangers *)
-	    Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
+	      Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
       end
       >>= fun () -> _loop_for_q ()
     in
@@ -237,15 +239,15 @@ object(self : # messaging )
       w >>= fun () ->
       Lwt_log.debug "wait until tcp_messaging is running" >>= fun () ->
       begin
-	if _running 
-	then Lwt.return () 
-	else Lwt_condition.wait _running_c 
+	    if _running 
+	    then Lwt.return () 
+	    else Lwt_condition.wait _running_c 
       end 
       >>= fun () ->
       Lwt_log.debug_f "sender_loop for '%s' running" target >>= fun () ->
       Lwt.finalize 
 	_loop_for_q 
-	(fun () -> Lwt_log.debug_f "end of sender_q for '%s'" target)
+	    (fun () -> Lwt_log.debug_f "end of sender_q for '%s'" target)
     in 
     let () = _my_threads <- w :: _my_threads in
     Lwt.wakeup u ();
@@ -314,20 +316,20 @@ object(self : # messaging )
       begin
 	let rec loop b0 =
 	  begin
-            Lwt.pick [
-              (Lwt_unix.sleep timeout >>= fun () -> 
-               Llio.lwt_failfmt "connection from (%s,%i) was idle too long (> %f)" ip port timeout
-              );
+        Lwt.pick [
+          (Lwt_unix.sleep timeout >>= fun () -> 
+           Llio.lwt_failfmt "connection from (%s,%i) was idle too long (> %f)" ip port timeout
+          );
 	      Llio.input_int ic] 
-            >>= fun msg_size ->                      
-            begin
-              if msg_size > max_buffer_size
-              then 
-                let mbs_mb = max_buffer_size lsr 20 in 
-                Llio.lwt_failfmt "msg_size (%i) > %iMB" msg_size mbs_mb
-              else Lwt.return ()
-            end
-            >>= fun () ->
+        >>= fun msg_size ->                      
+        begin
+          if msg_size > max_buffer_size
+          then 
+            let mbs_mb = max_buffer_size lsr 20 in 
+            Llio.lwt_failfmt "msg_size (%i) > %iMB" msg_size mbs_mb
+          else Lwt.return ()
+        end
+        >>= fun () ->
 	    let b1 = 
 	      if msg_size > String.length b0 
 	      then String.create msg_size

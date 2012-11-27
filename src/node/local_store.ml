@@ -288,22 +288,24 @@ let rec _sequence _pf bdb interval updates =
     end
     | Update.Nop -> ()
     | Update.DeletePrefix prefix -> let _ = _delete_prefix _pf bdb prefix in ()
-  in let get_key = function
+  in 
+  let get_key = function
     | Update.Set (key,value) -> Some key
     | Update.Delete key -> Some key
     | Update.TestAndSet (key, expected, wanted) -> Some key
     | _ -> None
-  in let helper update =
+  in 
+  let helper update =
     try
       do_one update
     with
       | Not_found ->
-        let key = get_key update
-        in match key with
-        | Some key -> raise (Key_not_found key)
-        | None -> raise Not_found
+          let key = get_key update
+          in match key with
+            | Some key -> raise (Key_not_found key)
+            | None -> raise Not_found
   in List.iter helper updates
-
+  
 
 let _set_master bdb master (lease_start:int64) =
   B.put bdb __master_key master;
@@ -313,19 +315,13 @@ let _set_master bdb master (lease_start:int64) =
   B.put bdb __lease_key lease
 
 
-let _tx_with_incr (incr: unit -> Sn.t ) (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
-  let new_i = incr () in
-  Lwt.catch
-    (fun () ->
-      Camltc.Hotc.transaction db
+let _with_tx (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
+  Camltc.Hotc.transaction db
 	(fun db ->
-	  _save_i new_i db >>= fun () ->
 	  f db >>= fun (a:'a) ->
 	  Lwt.return a)
-    )
-    (fun ex ->
-      Camltc.Hotc.transaction db (_save_i new_i) >>= fun () ->
-      Lwt.fail ex)
+
+(* let _tx_with_incr _ _ _ = failwith "_tx_with_incr" *)
 
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
@@ -366,13 +362,13 @@ object(self: #store)
 
   method quiesce () =
     begin
-      if _quiesced then
-	Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+      if _quiesced 
+      then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
       else
         begin
           _quiesced <- true;
-	  self # reopen (fun () -> Lwt.return ()) >>= fun () ->
-	  Lwt.return ()
+	      self # reopen (fun () -> Lwt.return ()) >>= fun () ->
+	      Lwt.return ()
         end
     end
 
@@ -421,7 +417,7 @@ object(self: #store)
     then ()
     else
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
-				 Printf.sprintf "%s not in interval" key)
+				                 Printf.sprintf "%s not in interval" key)
       in raise ex
 
   method exists ?(_pf = __prefix) key =
@@ -467,11 +463,9 @@ object(self: #store)
   method incr_i () =
     let new_i = self # _incr_i_cached () in
     begin
-    if _quiesced
-    then
-      Lwt.return ()
-    else
-      Camltc.Hotc.transaction db (_save_i new_i)
+      if _quiesced 
+      then Lwt.return ()
+      else Camltc.Hotc.transaction db (_save_i new_i)
     end
 
 
@@ -498,10 +492,22 @@ object(self: #store)
 
   method set ?(_pf=__prefix) key value =
     self # _wrap_exception "set"
-      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _set _pf db key value; Lwt.return ()))
+      (fun () -> _with_tx db 
+        (fun db -> _set _pf db key value; Lwt.return ()))
 
+  method delete ?(_pf=__prefix) key =
+    self # _wrap_exception "delete"
+      (fun () -> _with_tx db 
+        (fun db -> _delete _pf db key; Lwt.return ()) )
+
+  method test_and_set ?(_pf=__prefix) key expected wanted =
+    _with_tx db
+      (fun db ->
+	    let r = _test_and_set _pf db key expected wanted in
+	    Lwt.return r)
+      
   method set_master master lease =
-    _tx_with_incr (self # _incr_i_cached) db
+    _with_tx db
       (fun db ->
 	    _set_master db master lease ;
 	    _mlo <- Some (master,lease);
@@ -510,47 +516,38 @@ object(self: #store)
 
   method set_master_no_inc master lease =
     _mlo <- Some (master,lease);
-    if _quiesced then
-      Lwt.return ()
+    if _quiesced 
+    then Lwt.return ()
     else
-        Camltc.Hotc.transaction db
+      Camltc.Hotc.transaction db
         (fun db -> _set_master db master lease;
-	  Lwt.return ()
+	      Lwt.return ()
         )
 
   method who_master () = _mlo
 
-  method delete ?(_pf=__prefix) key =
-    self # _wrap_exception "delete"
-      (fun () -> _tx_with_incr (self # _incr_i_cached) db (fun db -> _delete _pf db key; Lwt.return ()))
-
-  method test_and_set ?(_pf=__prefix) key expected wanted =
-    _tx_with_incr (self # _incr_i_cached) db
-      (fun db ->
-	let r = _test_and_set _pf db key expected wanted in
-	Lwt.return r)
-
 
   method delete_prefix ?(_pf=__prefix) prefix = 
     Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
-    _tx_with_incr (self #_incr_i_cached) db 
-      (fun db -> let c = _delete_prefix _pf db prefix in 
-                 Lwt.return c)
+    _with_tx db 
+      (fun db -> 
+        let c = _delete_prefix _pf db prefix in 
+        Lwt.return c)
 
   method sequence ?(_pf=__prefix) updates =
-    _tx_with_incr (self # _incr_i_cached) db
+    _with_tx db
       (fun db -> _sequence _pf db _interval updates; Lwt.return ())
 
   method aSSert ?(_pf=__prefix) key (vo:string option) =
-    _tx_with_incr (self # _incr_i_cached) db  (fun db -> let r = _assert _pf db key vo in Lwt.return r)
+    _with_tx db  
+      (fun db -> let r = _assert _pf db key vo in Lwt.return r)
 
   method user_function name (po:string option) =
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db
+    _with_tx db
       (fun db ->
-
-	let (ro:string option) = _user_function db _interval name po in
-	Lwt.return ro)
+	    let (ro:string option) = _user_function db _interval name po in
+	    Lwt.return ro)
 
   method consensus_i () = _store_i
 
@@ -582,11 +579,11 @@ object(self: #store)
   method set_interval interval =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string interval)
     >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db
+    _with_tx db
       (fun db ->
-	_set_interval db interval;
-	_interval <- interval;
-	Lwt.return ()
+	    _set_interval db interval;
+	    _interval <- interval;
+	    Lwt.return ()
       )
 
   method get_interval () = Lwt.return _interval
@@ -600,11 +597,11 @@ object(self: #store)
   method set_routing r =
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
-    _tx_with_incr (self # _incr_i_cached) db (fun db -> _set_routing db r; Lwt.return ())
+    _with_tx db (fun db -> _set_routing db r; Lwt.return ())
 
   method set_routing_delta left sep right =
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    _tx_with_incr (self # _incr_i_cached) db
+    _with_tx db
       (fun db ->
         let r = _set_routing_delta db left sep right in
         _routing <- Some r ;
@@ -621,32 +618,33 @@ object(self: #store)
     Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
 
   method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
-    if _quiesced then
-    begin
-      let db_name = my_location in
-      let stat = Unix.LargeFile.stat db_name in
-      let length = stat.st_size in
-      Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+    if _quiesced 
+    then
       begin
-        if _networkClient 
-        then
-          Llio.output_int oc 0 >>= fun () ->
+        let db_name = my_location in
+        let stat = Unix.LargeFile.stat db_name in
+        let length = stat.st_size in
+        Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+        begin
+          if _networkClient 
+          then
+            Llio.output_int oc 0 >>= fun () ->
           Llio.output_int64 oc length 
-        else Lwt.return ()
+          else Lwt.return ()
+        end
+        >>= fun () ->
+        Lwt_io.with_file
+          ~flags:[Unix.O_RDONLY]
+          ~mode:Lwt_io.input
+          db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+        >>= fun () ->
+        Lwt_io.flush oc
       end
-      >>= fun () ->
-      Lwt_io.with_file
-        ~flags:[Unix.O_RDONLY]
-        ~mode:Lwt_io.input
-        db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
-      >>= fun () ->
-      Lwt_io.flush oc
-    end
     else
-    begin
-      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
-      raise ex
-    end
+      begin
+        let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+        raise ex
+      end
 
   method relocate new_location =
     copy_store my_location new_location true >>= fun () ->
