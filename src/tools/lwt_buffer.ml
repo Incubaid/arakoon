@@ -54,34 +54,36 @@ module Lwt_buffer = struct
   let add e t =
     Lwt_mutex.with_lock t.full_m (fun () ->
       let _add e = 
-	let () = Queue.add e t.q in
-	let () = Lwt_condition.signal t.empty () in
-	Lwt.return () 
+	    let () = Queue.add e t.q in
+	    let () = Lwt_condition.signal t.empty () in
+	    Lwt.return () 
       in
       if _is_full t 
       then 
-	if t.leaky
-	then Lwt.return () (* Lwt_log.debug "leaky buffer reached capacity: dropping" *)
-	else
-	  begin
-	    Lwt_condition.wait ~mutex:t.full_m t.full >>= fun () ->
-	    _add e
-	  end
+	    if t.leaky
+	    then Lwt.return () (* Lwt_log.debug "leaky buffer reached capacity: dropping" *)
+	    else
+	      begin
+	        Lwt_condition.wait ~mutex:t.full_m t.full >>= fun () ->
+	        _add e
+	      end
       else 
-	_add e
+	    _add e
     ) 
       
   let take t =
-    Lwt_mutex.with_lock t.empty_m (fun () ->
-      if Queue.is_empty t.q
-      then Lwt_condition.wait ~mutex:t.empty_m t.empty
-      else Lwt.return ()
-    ) >>= fun () ->
+    Lwt_mutex.with_lock t.empty_m 
+      (fun () ->
+        if Queue.is_empty t.q
+        then Lwt_condition.wait ~mutex:t.empty_m t.empty
+        else Lwt.return ()
+      ) >>= fun () ->
     let e = Queue.take t.q in
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
-
+      
   let harvest t = 
+    (* take t >>= fun e -> Lwt.return [e] *)
     Lwt_mutex.with_lock t.empty_m 
       (fun () -> if Queue.is_empty t.q
         then Lwt_condition.wait ~mutex:t.empty_m t.empty
@@ -97,6 +99,7 @@ module Lwt_buffer = struct
           loop es' i'
     in
     let es = loop [] size in
+    let () = Lwt_condition.signal t.full() in 
     Lwt.return es
 
   let wait_for_item t =
