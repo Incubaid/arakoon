@@ -21,9 +21,18 @@ If not, see <http://www.gnu.org/licenses/>.
 */
 #include <stdio.h>
 
-#define cpuid(func,ax,bx,cx,dx)					\
+#ifndef __LP64__ && defined(__PIC__)
+# define cpuid(func, ax, bx, cx, dx) \
+    __asm__ __volatile__ ("mov %%ebx, %%edi;"                          \
+                          "cpuid;"                                     \
+                          "xchgl %%ebx, %%edi;"                        \
+                          : "=a" (ax), "=D" (bx), "=c" (cx), "=d" (dx) \
+                          : "a" (func))
+#else
+# define cpuid(func,ax,bx,cx,dx)					\
   __asm__ __volatile__ ("cpuid":				\
 			"=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (func));
+#endif
 
 int has_sse_2 = 0;
 int has_sse_3 = 0;
