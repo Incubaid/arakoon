@@ -254,6 +254,11 @@ let wait_for_promises constants state event =
             | Promise (n' ,i', limit) when n' < n ->
               let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
               drop msg reason
+            | Promise (n',i', limit) when n' = n && i' < i ->
+                let reason = Printf.sprintf "old promise with lower i: %s < %s"
+                  (Sn.string_of i') (Sn.string_of i)
+                in
+                drop msg reason
             | Promise (n' ,new_i, limit) when n' = n ->
               if List.mem source who_voted then
                 drop msg "duplicate promise"
