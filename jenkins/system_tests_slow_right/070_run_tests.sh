@@ -9,6 +9,7 @@ output_folder = '${WORKSPACE}/testresults'
 arguments = q.testrunner._parseArgs('%s_results' % test_spec, output_format, output_folder, False)
 
 arguments.extend([
+    '--logging-format=%(asctime)-15s %(message)s',
     '--with-coverage',
     '--cover-package=arakoon',
     '--cover-erase',
