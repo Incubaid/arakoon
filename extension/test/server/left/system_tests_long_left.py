@@ -114,19 +114,20 @@ def test_catchup_exercises():
         logging.info("stopped all nodes")
         nn = C.node_names[1]
         C.wipe(nn)
-        logging.info("wiped %s", nn)
+
         C.start_all()
         logging.info("started all")
-        cli = C.get_client ()
+        
         counter = 0
         up2date = False
-
+        cli = C.get_client ()
         while not up2date and counter < max_wait :
             time.sleep( 1.0 )
             counter += 1
             up2date = cli.expectProgressPossible()
             logging.info("up2date=%s", up2date)
-    
+        
+        cli.dropConnections()
         if counter >= max_wait :
             raise Exception ("Node did not catchup in a timely fashion")
 
