@@ -742,6 +742,7 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
         try:
             f(client, key, value )
         except Exception, ex:
+            logging.info("%i:Exception: %s for key=%s", i,ex,key)
             failure_count += 1
             fatal = True
             for valid_ex in valid_exceptions:
