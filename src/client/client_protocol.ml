@@ -565,13 +565,10 @@ let protocol backend connection =
   let rec loop () =
     begin
 	  one_command connection backend >>= fun closed ->
+	  Lwt_io.flush oc >>= fun() ->
 	  if closed
-	  then Lwt_log.debug "leaving client loop" >>= fun () -> Lwt.return ()
-	  else
-	    begin
-	      Lwt_io.flush oc >>= fun() ->
-	      loop ()
-	    end
+	  then Lwt_log.debug "leaving client loop" 
+	  else loop ()
     end
   in
   prologue () >>= fun () ->
