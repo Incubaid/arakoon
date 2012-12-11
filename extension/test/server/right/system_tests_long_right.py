@@ -106,7 +106,7 @@ def test_catchup_while_collapsing():
     Common.iterate_n_times(2* tpet, Common.simple_set )
     
     Common.stop_all()
-    Common.whipe( node_names[0] )
+    Common.wipe( node_names[0] )
     Common.startOne(node_names[1])
     
     delayed_start = lambda: Common.startOne(node_names[0])
@@ -306,7 +306,7 @@ def test_is_progress_possible():
     logging.info( "Stored all keys" ) 
     Common.stop_all()
 
-    Common.whipe(Common.node_names[1])
+    Common.wipe(Common.node_names[1])
 
     cli = Common.get_client()
     Common.start_all()

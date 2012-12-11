@@ -49,7 +49,7 @@ def test_collapse():
     C.collapse(zero,1)
     logging.info("collapsing done")
     C.stopOne(one)
-    C.whipe(one)
+    C.wipe(one)
     C.startOne(one)
     cli = C.get_client()
     assert_false(cli.expectProgressPossible())
@@ -109,11 +109,14 @@ def test_catchup_exercises():
     def do_one(n, max_wait):
         logging.info("do_one(%i,%f)", n, max_wait)
         C.iterate_n_times(n, C.simple_set)
+        logging.info("sets done, stopping")
         C.stop_all()
         logging.info("stopped all nodes")
-        C.whipe(C.node_names[1])
-
+        nn = C.node_names[1]
+        C.wipe(nn)
+        logging.info("wiped %s", nn)
         C.start_all()
+        logging.info("started all")
         cli = C.get_client ()
         counter = 0
         up2date = False
@@ -140,8 +143,9 @@ def test_catchup_only():
     C.iterate_n_times(123000, C.simple_set)
     n0 = C.node_names[0]
     n1 = C.node_names[1]
+    logging.info("stopping %s", n1)
     C.stopOne(n1)
-    C.whipe(n1)
+    C.wipe(n1)
     logging.info("catchup-only")
     C.catchupOnly(n1)
     logging.info("done with catchup-only")

@@ -430,12 +430,12 @@ def regenerateClientConfig( cluster_id ):
     cliCfg.generateFromServerConfig()
     
 
-def whipe(name):
+def wipe(name):
     config = getConfig(name)
     data_dir = config['home']
     q.system.fs.removeDirTree(data_dir)
     q.system.fs.createDir(data_dir)
-    logging.info("whiped %s" % name)
+    logging.info("wiped %s" % name)
 
 def get_memory_usage(node_name):
     cluster = _getCluster()
