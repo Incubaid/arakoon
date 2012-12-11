@@ -21,22 +21,10 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from ..system_tests_common import with_custom_setup
-from ..system_tests_common import get_client
+
 from ..system_tests_common import setup_1_node, setup_2_nodes
 from ..system_tests_common import setup_2_nodes_forced_master
 from ..system_tests_common import basic_teardown
-from ..system_tests_common import node_names
-from ..system_tests_common import iterate_n_times
-from ..system_tests_common import simple_set
-from ..system_tests_common import collapse
-from ..system_tests_common import startOne
-from ..system_tests_common import stopOne
-from ..system_tests_common import catchupOnly
-from ..system_tests_common import start_all
-from ..system_tests_common import stop_all
-from ..system_tests_common import whipe
-from ..system_tests_common import lease_duration
-from ..system_tests_common import compare_stores
 
 from .. import system_tests_common as C
 
@@ -53,17 +41,17 @@ def _getCluster():
 
 @with_custom_setup(setup_2_nodes, basic_teardown)
 def test_collapse():
-    zero = node_names[0]
-    one = node_names[1]
+    zero = C.node_names[0]
+    one = C.node_names[1]
     n = 298765
-    iterate_n_times(n, simple_set)
+    C.iterate_n_times(n, C.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
-    collapse(zero,1)
+    C.collapse(zero,1)
     logging.info("collapsing done")
-    stopOne(one)
-    whipe(one)
-    startOne(one)
-    cli = get_client()
+    C.stopOne(one)
+    C.whipe(one)
+    C.startOne(one)
+    cli = C.get_client()
     assert_false(cli.expectProgressPossible())
     up2date = False
     counter = 0
@@ -76,9 +64,9 @@ def test_collapse():
 @with_custom_setup(setup_1_node, basic_teardown)
 def test_concurrent_collapse_fails():
     """ assert only one collapse goes through at any time (eta : 450s) """
-    zero = node_names[0]
+    zero = C.node_names[0]
     n = 298765
-    iterate_n_times(n, simple_set)
+    C.iterate_n_times(n, C.simple_set)
     logging.info("Did %i sets, now going into collapse scenario", n)
     
     class SecondCollapseThread(threading.Thread):
@@ -93,7 +81,7 @@ def test_concurrent_collapse_fails():
             time.sleep(self.sleep_time)
             
             logging.info('Starting concurrent collapse')
-            rc = collapse(zero, 1)
+            rc = C.collapse(zero, 1)
    
             logging.info('Concurrent collapse returned %d', rc)
 
@@ -107,7 +95,7 @@ def test_concurrent_collapse_fails():
     s.start()
 
     logging.info('Launching main collapse')
-    collapse(zero, 1)
+    C.collapse(zero, 1)
        
     logging.info("collapsing finished")
     assert_true(s.exception_received)
@@ -120,13 +108,13 @@ def test_catchup_exercises():
     
     def do_one(n, max_wait):
         logging.info("do_one(%i,%f)", n, max_wait)
-        iterate_n_times(n, simple_set)
-        stop_all()
+        C.iterate_n_times(n, C.simple_set)
+        C.stop_all()
         logging.info("stopped all nodes")
-        whipe(node_names[1])
+        C.whipe(C.node_names[1])
 
-        start_all()
-        cli = get_client ()
+        C.start_all()
+        cli = C.get_client ()
         counter = 0
         up2date = False
 
@@ -149,13 +137,13 @@ def test_catchup_exercises():
 
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_only():
-    iterate_n_times(123000,simple_set)
-    n0 = node_names[0]
-    n1 = node_names[1]
-    stopOne(n1)
-    whipe(n1)
+    C.iterate_n_times(123000, C.simple_set)
+    n0 = C.node_names[0]
+    n1 = C.node_names[1]
+    C.stopOne(n1)
+    C.whipe(n1)
     logging.info("catchup-only")
-    catchupOnly(n1)
+    C.catchupOnly(n1)
     logging.info("done with catchup-only")
-    stopOne(n0)
-    compare_stores(n1,n0)
+    C.stopOne(n0)
+    C.compare_stores(n1,n0)
