@@ -300,7 +300,7 @@ def test_is_progress_possible():
     def write_loop (): 
         Common.iterate_n_times( 50000, 
                                 Common.retrying_set_get_and_delete  )
-
+    logging.info("before write loop")
     Common.create_and_wait_for_thread_list( [write_loop] )
    
     logging.info( "Stored all keys" ) 
