@@ -872,18 +872,6 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             # assert_raises ( ArakoonNotFound, client.get, key )
             failed = False
             last_ex = None
-        except (ArakoonNoMaster, ArakoonNodeNotMaster), ex:
-            if isinstance(ex, ArakoonNoMaster) :
-                logging.debug("No master in cluster. Recreating client.")
-            else :
-                logging.debug("Old master is not yet ready to succumb. Recreating client")
-            
-            # Make sure we propagate the need to recreate the client 
-            # (or the next iteration we are back to using the old one)
-            client.recreate = True
-            client.dropConnections()
-            client = get_client() 
-            
         except Exception, ex:
             logging.debug( "Caught an exception => %s: %s", ex.__class__.__name__, ex )
             time.sleep( 0.5 )
@@ -892,6 +880,10 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
                 # test_failed = True
                 logging.debug( "Re-raising exception => %s: %s", ex.__class__.__name__, ex )
                 raise
+            logging.debug("recreating client")
+            client.recreate = True
+            client.dropConnections()
+            client = get_client() 
     
     if last_ex is not None:
         raise last_ex
