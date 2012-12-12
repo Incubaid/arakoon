@@ -1,7 +1,7 @@
 sudo /opt/qbase3/qshell -c "
 q.testrunner.list()
 
-test_spec = 'arakoon_system_tests.server.right'
+test_spec = 'arakoon_system_tests.server.right.system_tests_long_right:test_is_progress_possible'
 
 output_format = q.enumerators.TestRunnerOutputFormat.XML
 output_folder = '${WORKSPACE}/testresults'
