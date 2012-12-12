@@ -878,10 +878,11 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
             last_ex = ex
             if not is_valid_ex( ex, tryCnt ) :
                 # test_failed = True
-                logging.debug( "Re-raising exception => %s: %s", ex.__class__.__name__, ex )
+                logging.debug( "Re-raising exception => %s: %s (tryCnt=%i)", ex.__class__.__name__, ex, tryCnt )
                 raise
             logging.debug("recreating client")
             client.recreate = True
+            failed = False
             client.dropConnections()
             client = get_client() 
     
