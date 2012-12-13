@@ -29,7 +29,8 @@ let tlog_name archive_name =
   let ext = String.sub archive_name (len-4) 4 in
   assert (ext=".aar");
   String.sub archive_name 0 (len-4)
-    
+
+
 let compress_tlog tlog_name archive_name =
   let limit = 8 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
@@ -64,14 +65,18 @@ let compress_tlog tlog_name archive_name =
 		        in
 		        output) () 
 	        >>= fun output ->
-	        Lwt_log.debug_f "compressed %i bytes into %i" 
-	          (String.length contents) (String.length output) 
+            let t1 = Unix.gettimeofday() in
+	        let d = t1 -. t0 in
+            let cl = String.length contents in
+            let ol = String.length output in 
+            let factor = (float cl) /. (float ol) in
+	        Lwt_log.debug_f "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor 
 	        >>= fun () ->
 	        Llio.output_int64 oc last_i >>= fun () ->
 	        Llio.output_string oc output >>= fun () ->
-	        let t1 = Unix.gettimeofday() in
-	        let d = t1 -. t0 in
-	        Lwt_unix.sleep (2.0 *. d) (* consume ~ 1/3  of the time *)
+            let sleep = 2.0 *. d in
+            Lwt_log.debug_f "compression: sleeping %f" sleep >>= fun () ->
+            Lwt_unix.sleep sleep
 	      in
 	      let buffer = Buffer.create buffer_size in
 	      let rec loop () = 
