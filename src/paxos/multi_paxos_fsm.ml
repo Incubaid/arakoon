@@ -766,41 +766,49 @@ let rec paxos_produce buffers
   in
   Lwt.catch 
     (fun () ->
+      Lwt_log.debug "T:waiting for event" >>= fun () ->
+      let t0 = Unix.gettimeofday () in
+
       Lwt.pick waiters >>= fun ready_list ->
+
+      let t1 = Unix.gettimeofday () in
+      let d = t1 -. t0 in 
+      Lwt_log.debug_f "T:waiting for event took:%f" d >>= fun () ->
+
       let get_highest_prio_evt r_list =
         let f acc b = match acc with 
-        | None -> Some b
-        | Some pb ->
-          if prio(b) > prio (pb)
-          then acc
-          else Some b
-       in
-       let best = List.fold_left f None r_list in
-       match best with
-        | Some Inject_ready ->
-	        begin
-	          log ~me "taking from inject" >>= fun () ->
-	          Lwt_buffer.take buffers.inject_buffer
-	        end
-	    | Some Client_ready ->
-	        begin
-	          Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
-              let event = FromClient reqs in
-	          Lwt.return event
-	        end
-	    | Some Node_ready ->
-	        begin
-	          Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
-	          let msg2 = MPMessage.of_generic msg in
-	          Lwt.return (FromNode (msg2,source))
-	        end
-	    | Some Election_timeout_ready ->
-	        begin
-	          log ~me "taking from timeout" >>= fun () ->
-	          Lwt_buffer.take buffers.election_timeout_buffer 
-	        end
-        | None -> 
-	        Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
+          | None -> Some b
+          | Some pb ->
+              if prio(b) > prio (pb)
+              then acc
+              else Some b
+        in
+        let best = List.fold_left f None r_list in
+        match best with
+          | Some Inject_ready ->
+	          begin
+	            log ~me "taking from inject" >>= fun () ->
+	            Lwt_buffer.take buffers.inject_buffer
+	          end
+	      | Some Client_ready ->
+	          begin
+	            Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
+                let event = FromClient reqs in
+	            Lwt.return event
+	          end
+	      | Some Node_ready ->
+	          begin
+	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
+	            let msg2 = MPMessage.of_generic msg in
+	            Lwt.return (FromNode (msg2,source))
+	          end
+	      | Some Election_timeout_ready ->
+	          begin
+	            log ~me "taking from timeout" >>= fun () ->
+	            Lwt_buffer.take buffers.election_timeout_buffer 
+	          end
+          | None -> 
+	          Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
       in get_highest_prio_evt ( [ ready_list ] ) 
     ) 
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)

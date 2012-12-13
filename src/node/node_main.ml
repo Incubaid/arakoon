@@ -199,12 +199,19 @@ module X = struct
           Lwt.return [Store.Ok None]
 	    end
       else
-	    Store.on_consensus store vni
+        let t0 = Unix.gettimeofday() in
+	    Store.on_consensus store vni >>= fun r ->
+        let t1 = Unix.gettimeofday () in
+        let d = t1 -. t0 in
+        Lwt_log.debug_f "T:on_consensus took: %f" d  >>= fun () ->
+        Lwt.return r
+
     end
   
   let last_master_log_stmt = ref 0L  
     
   let on_accept tlog_coll store (v,n,i) =
+    let t0 = Unix.gettimeofday () in
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
     let sync = Value.is_synced v in
@@ -237,7 +244,10 @@ module X = struct
               in 
               logit ()
 	        end
-    end 
+    end  >>= fun () ->
+    let t1 = Unix.gettimeofday() in
+    let d = t1 -. t0 in
+    Lwt_log.debug_f "T:on_accept took: %f" d 
       
   let reporting period backend () = 
     let fp = float period in
