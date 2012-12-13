@@ -105,6 +105,14 @@ type paxos_event =
   | Unquiesce
   | ElectionTimeout of Sn.t
 
+let paxos_event2s = function
+  | FromClient _ -> "FromClient _"
+  | FromNode _ -> "FromNode _ "
+  | LeaseExpired _ -> "LeaseExpired _"
+  | Quiesce _ -> "Quiesce _"
+  | Unquiesce -> "Unquiesce _"
+  | ElectionTimeout _ -> "ElectionTimeout _"
+
 type constants =
     {me:id;
      others: id list;

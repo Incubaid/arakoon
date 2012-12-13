@@ -502,7 +502,10 @@ let _main_2
 		        | Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
 		        | _ -> inject_buffer, "inject"
 	        in
-	        Lwt_log.debug_f "XXX injecting event into %s" name >>= fun () ->
+	        Lwt_log.debug_f "XXX injecting event %s into '%s'" 
+              (Multi_paxos.paxos_event2s e)
+              name 
+            >>= fun () ->
 	        Lwt_buffer.add e buffer
 	      in
 	      let buffers = Multi_paxos_fsm.make_buffers
