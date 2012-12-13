@@ -58,6 +58,7 @@ let read_command (ic,oc) =
 
 
 let response_ok_unit oc =
+  Lwt_log.debug "ok_unit back to client" >>= fun () ->
   Llio.output_int32 oc 0l >>= fun () ->
   Lwt.return false
 

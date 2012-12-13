@@ -46,12 +46,14 @@ let session_thread (sid:string) protocol fd =
       in protocol (ic,oc) 
     )
     (function
-      | FOOBAR as foobar-> Lwt.fail foobar
+      | FOOBAR as foobar-> 
+          Lwt_log.fatal "propagating FOOBAR" >>= fun () ->
+          Lwt.fail foobar
       | exn -> info_f ~exn "exiting session (%s)" sid)
   >>= fun () -> 
   Lwt.catch 
-  ( fun () -> Lwt_unix.close fd )
-  ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
+    ( fun () -> Lwt_unix.close fd )
+    ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
