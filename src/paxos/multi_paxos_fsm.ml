@@ -754,19 +754,19 @@ let rec paxos_produce buffers
     Lwt_buffer.wait_for_item buffers.election_timeout_buffer >>= fun () ->
     Lwt.return Election_timeout_ready
   in
-  let waiters =
+  let wmsg, waiters =
     match product_wanted with
-      | Node_only -> [ready_from_node ();]
-      | Full -> [ready_from_inject();ready_from_node ();ready_from_client ();]
-      | Node_and_inject -> [ready_from_inject();ready_from_node ();]
-      | Node_and_timeout -> [ready_from_election_timeout (); ready_from_node();]
+      | Node_only -> "Node_only",[ready_from_node ();]
+      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client ();]
+      | Node_and_inject -> "Node_and_inject", [ready_from_inject();ready_from_node ();]
+      | Node_and_timeout -> "Node_and_timeout", [ready_from_election_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
-	      [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
-      | Nop -> failwith "Nop should not happen here"
+	      "Node_and_inject_and_timeout", [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
+      | Nop -> "Nop", failwith "Nop should not happen here"
   in
   Lwt.catch 
     (fun () ->
-      Lwt_log.debug "T:waiting for event" >>= fun () ->
+      Lwt_log.debug_f "T:waiting for event (%s)" wmsg >>= fun () ->
       let t0 = Unix.gettimeofday () in
 
       Lwt.pick waiters >>= fun ready_list ->
