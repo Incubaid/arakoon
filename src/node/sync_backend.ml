@@ -81,7 +81,11 @@ let _update_rendezvous self ~so_post update update_stats push =
   let sleep, awake = Lwt.wait () in
   let went_well = make_went_well update_stats awake sleep in
   push (update, went_well) >>= fun () ->
-  sleep >>= function
+  let t0 = Unix.gettimeofday() in
+  sleep >>= fun r ->
+  let t1 = Unix.gettimeofday() in
+  Lwt_log.debug_f "rendezvous took :%f" (t1 -. t0) >>= fun () ->
+  match r with 
   | Store.Stop -> Lwt.fail Forced_stop
   | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
   | Store.Ok so -> Lwt.return (so_post so)

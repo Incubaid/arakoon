@@ -26,6 +26,7 @@ let config_file = ref "cfg/arakoon.ini"
 let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
 let default_max_buffer_size = 32 * 1024 * 1024
+let default_client_buffer_capacity = 32
 
 open Master_type
 open Client_cfg
@@ -84,6 +85,7 @@ module Node_cfg = struct
       overwrite_tlog_entries: int option;
       max_value_size: int;
       max_buffer_size: int;
+      client_buffer_capacity: int;
     }
 
   let make_test_config ?(base=4000) n_nodes master lease_period = 
@@ -129,6 +131,7 @@ module Node_cfg = struct
       overwrite_tlog_entries;
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
+      client_buffer_capacity = default_client_buffer_capacity;
     }
     in
     cluster_cfg
@@ -167,6 +170,9 @@ module Node_cfg = struct
   let _get_bool inifile node_section x = 
     Ini.get inifile node_section x Ini.p_bool (Ini.default false)
 
+  let _client_buffer_capacity inifile = 
+    Ini.get inifile "global" "client_buffer_capacity"
+      Ini.p_int (Ini.default default_client_buffer_capacity)
 
   let _startup_mode inifile =
     let master =
@@ -290,6 +296,7 @@ module Node_cfg = struct
     let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
+    let client_buffer_capacity = _client_buffer_capacity inifile in
     let cluster_cfg = 
       { cfgs = cfgs;
         nursery_cfg = m_n_cfg;
@@ -301,6 +308,7 @@ module Node_cfg = struct
 	    overwrite_tlog_entries;
         max_value_size;
         max_buffer_size;
+        client_buffer_capacity;
       }
     in
     cluster_cfg

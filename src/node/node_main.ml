@@ -137,15 +137,12 @@ let log_prelude cluster_cfg =
   Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
   Lwt_log.info_f "hg_revision: %s " Version.hg_revision >>= fun () ->
   Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
-  Lwt_log.info_f "version: %i.%i.%i" Version.major Version.minor Version.patch >>= fun () ->
-  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft) 
-  >>= fun () ->
-  Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)
-  >>= fun () ->
-  Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size 
-  >>= fun () ->
-  Lwt_log.info_f "max_buffer_size: %i" cluster_cfg.max_buffer_size
-  >>= fun () ->
+  Lwt_log.info_f "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
+  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
+  Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
+  Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size                 >>= fun () ->
+  Lwt_log.info_f "max_buffer_size: %i" cluster_cfg.max_buffer_size               >>= fun () ->
+  Lwt_log.info_f "client_buffer_capacity: %i" cluster_cfg.client_buffer_capacity >>= fun () -> 
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
   let ccfg_s = Log_extra.option2s p2s ncfgo in
@@ -460,10 +457,9 @@ let _main_2
 	      >>= fun (new_i, vo) ->
 	      
 	      let client_buffer =
-	        let capacity = (Some 10) in
+	        let capacity = Some (cluster_cfg.client_buffer_capacity) in
 	        Lwt_buffer.create ~capacity () in
-	      let client_push v = Lwt_buffer.add v client_buffer 
-	      in
+	      let client_push v = Lwt_buffer.add v client_buffer in
 	      let node_buffer = messaging # get_buffer my_name in
 	      let expect_reachable = messaging # expect_reachable in
 	      let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in

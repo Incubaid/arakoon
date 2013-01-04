@@ -104,6 +104,7 @@ module Statistics = struct
     mutable avg_range_size:float;
     mutable avg_prefix_size:float;
     mutable avg_del_prefix_size:float;
+    mutable harvest_exp_avg:float;
     mutable set_time_stats:   time_stats;
     mutable get_time_stats:   time_stats;
     mutable del_time_stats:   time_stats;
@@ -139,6 +140,7 @@ module Statistics = struct
      delete_prefix_time_stats = create_time_stats();
      op_time_stats=create_time_stats();
      node_is = Hashtbl.create 5;
+     harvest_exp_avg = 0.0;
     }
 
   let clear_most t = 
@@ -159,7 +161,8 @@ module Statistics = struct
       t.range_time_stats  <- create_time_stats();
       t.prefix_time_stats <- create_time_stats();
       t.delete_prefix_time_stats <- create_time_stats();
-      t.op_time_stats     <- create_time_stats()
+      t.op_time_stats     <- create_time_stats();
+      t.harvest_exp_avg <- 0.0;
     end
 
   let _clock t start = 
@@ -179,6 +182,9 @@ module Statistics = struct
     let n' = t.set_time_stats.n in
     let nf' = float n' in
     t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf')
+
+  let new_harvest t n =
+    t.harvest_exp_avg <- (t.harvest_exp_avg +. (float n)) *. 0.5
 
   let new_get t (key:string) (value:string) (start:float) = 
     let x = new_op t start in
@@ -254,6 +260,7 @@ module Statistics = struct
       Llio.NAMED_FLOAT ("avg_range_size", t.avg_range_size);
       Llio.NAMED_FLOAT ("avg_prefix_size", t.avg_prefix_size);
       Llio.NAMED_FLOAT ("avg_del_prefix_size", t.avg_del_prefix_size);
+      Llio.NAMED_FLOAT ("harvest_exp_avg", t.harvest_exp_avg);
 
       time_stats_to_value_list t.set_time_stats "set_info";
       time_stats_to_value_list t.get_time_stats "get_info";
@@ -340,6 +347,10 @@ module Statistics = struct
     let avg_del_prefix_size = extract_float value in
     
     let value, v_list = extract_next v_list in
+    let harvest_exp_avg = extract_float value in
+
+    
+    let value, v_list = extract_next v_list in
     let set_stats   = extract_time_stats value in
     let value, v_list = extract_next v_list in
     let get_stats   = extract_time_stats value in
@@ -384,6 +395,7 @@ module Statistics = struct
       avg_range_size = avg_range_size;
       avg_prefix_size = avg_prefix_size;
       avg_del_prefix_size = avg_del_prefix_size;
+      harvest_exp_avg = harvest_exp_avg;
       set_time_stats = set_stats;
       get_time_stats = get_stats;
       del_time_stats = del_stats;
@@ -407,6 +419,7 @@ module Statistics = struct
         "avg_range_size: %f, " ^^
         "avg_prefix_size: %f, " ^^
         "avg_del_prefix_size: %f,\n" ^^
+        "harvest_exp_avg: %f,\n" ^^
         "set_info: %s,\n" ^^	
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
@@ -433,6 +446,7 @@ module Statistics = struct
       t.avg_range_size
       t.avg_prefix_size
       t.avg_del_prefix_size
+      t.harvest_exp_avg
       (time_stats_to_string t.set_time_stats)
       (time_stats_to_string t.get_time_stats)
       (time_stats_to_string t.del_time_stats)
