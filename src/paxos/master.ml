@@ -156,18 +156,27 @@ let stable_master constants ((v',n,new_i) as current_state) = function
    messages and then waits for Accepted responses *)
 
 let master_dictate constants (mo,v,n,i) () =
-  constants.on_accept (v,n,i) >>= fun () ->
-  begin
-    if Value.is_master_set v
-    then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
-    else Lwt.return ()
-  end >>= fun () ->
-  mcast constants (Accept(n,i,v)) >>= fun () ->
+  let accept_e = EAccept (v,n,i) in
+  
+  let start_e = EStart (v,n) in
+  let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in
   let needed = constants.quorum_function (List.length others + 1) in
   let needed' = needed - 1 in
   let ballot = (needed' , [me] ) in
-  log ~me "master_dictate n:%s i:%s needed:%d" 
-    (Sn.string_of n) (Sn.string_of i) needed' >>= fun () ->
-  Fsm.return (Accepteds_check_done (mo, n, i, ballot, v))
+  
+  let log_e = 
+    ELog (fun () ->
+      Printf.sprintf "master_dictate n:%s i:%s needed:%d" 
+        (Sn.string_of n) (Sn.string_of i) needed' 
+    )
+  in
+  let sides = 
+    [accept_e;
+     start_e;
+     mcast_e;
+     log_e;
+    ]
+  in
+  Fsm.return ~sides (Accepteds_check_done (mo, n, i, ballot, v))

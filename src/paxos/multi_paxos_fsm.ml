@@ -817,10 +817,25 @@ let rec paxos_produce buffers
     ) 
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
+
+
+let _execute_effects constants e = 
+  match e with
+    | ELog build ->
+        let s = build () in
+        let s' = constants.me ^ " : " ^ s in
+        Lwt_log.debug s' 
+    | EMCast msg      -> mcast constants msg
+    | EAccept (v,n,i) -> constants.on_accept (v,n,i) 
+    | EStart (v,n) ->
+        begin
+          if Value.is_master_set v
+          then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
+          else Lwt.return ()
+        end 
+
+
 (* the entry methods *)
-
-let _slookup constants e = fun () -> Lwt.return ()
-
 
 let enter_forced_slave constants buffers new_i vo=
   let me = constants.me in
@@ -832,7 +847,7 @@ let enter_forced_slave constants buffers new_i vo=
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace 
-        (_slookup constants)
+        (_execute_effects constants)
         produce 
 	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
     ) 
@@ -850,7 +865,7 @@ let enter_forced_master constants buffers current_i vo =
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace 
-        (_slookup constants)
+        (_execute_effects constants)
         produce 
 	    (machine constants) 
 	    (forced_master_suggest constants (current_n,current_i))
@@ -869,7 +884,7 @@ let enter_simple_paxos constants buffers current_i vo =
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace 
-        (_slookup constants)
+        (_execute_effects constants)
         produce 
 	(machine constants) 
 	(election_suggest constants (current_n, current_i, vo))
@@ -889,7 +904,7 @@ let enter_read_only constants buffers current_i vo =
   Lwt.catch
     (fun () ->
       Fsm.loop ~trace 
-        (_slookup constants)
+        (_execute_effects constants)
         produce
 	    (machine constants)
 	    (read_only constants (current_n, current_i, vo))
@@ -906,7 +921,7 @@ let expect_run_forced_slave constants buffers expected step_count new_i =
   Lwt.catch 
     (fun () ->
       Fsm.expect_loop 
-        (_slookup constants)
+        (_execute_effects constants)
         expected step_count Start_transition produce 
 	(machine constants) (Slave.slave_fake_prepare constants new_i)
     ) 
@@ -922,7 +937,7 @@ let expect_run_forced_master constants buffers expected step_count current_n cur
   Lwt.catch 
     (fun () ->
         Fsm.expect_loop 
-          (_slookup constants)
+          (_execute_effects constants)
           expected step_count Start_transition produce 
 	    (machine constants) 
 	    (forced_master_suggest constants (current_n,current_i))

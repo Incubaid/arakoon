@@ -31,6 +31,7 @@ let log ?(me="???") x =
   let k s= Lwt_log.debug (me ^ ": " ^ s) in
   Printf.ksprintf k x
 
+
 let quorum_function = Quorum.quorum_function
 
 exception ConflictException of (Value.t * Value.t list)

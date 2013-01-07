@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 
-type 'e elookup = 'e -> (unit -> unit Lwt.t)
+type 'e e_execute = 'e -> unit Lwt.t
 
 type ('s, 'e) unit_transition  = unit -> ('s * 'e list) Lwt.t
 type ('m,'s, 'e) msg_transition = 'm   -> ('s * 'e list) Lwt.t
@@ -34,12 +34,8 @@ type ('m, 's, 'e) state =
 and  ('m, 's,'e) lookup = 's -> ('m,'s,'e) state
 
 
-let do_side_effects elookup es  = 
-  Lwt_list.iter_s 
-    (fun e -> 
-      let f = elookup e in 
-      f ()
-    ) es
+let do_side_effects e_execute es  = 
+  Lwt_list.iter_s e_execute es
 
 let return ?(sides=[]) x = Lwt.return (x, sides)
 
@@ -48,7 +44,7 @@ let return ?(sides=[]) x = Lwt.return (x, sides)
 let nop_trace _ = Lwt.return ()
 
 let loop ?(trace=nop_trace) 
-    (elookup : 'e elookup)
+    (e_execute : 'e e_execute)
     produce lookup (transition: ('s,'e) unit_transition) =
   let rec _interprete key =
     let arg, product_type = lookup key in
@@ -57,18 +53,18 @@ let loop ?(trace=nop_trace)
       | Msg_arg next -> produce product_type >>= fun msg -> _step_msg next msg
   and _step_unit transition =
     transition () >>= fun (key, es) ->
-    do_side_effects elookup es >>= fun () ->
+    do_side_effects e_execute es >>= fun () ->
     trace key >>= fun () ->
     _interprete key
   and _step_msg transition msg =
     transition msg >>= fun (key, es) ->
-    do_side_effects elookup es >>= fun () ->
+    do_side_effects e_execute es >>= fun () ->
     trace key >>= fun () ->
     _interprete key
   in _step_unit transition
 
 let expect_loop 
-    (elookup : 'e elookup)
+    (e_execute : 'e e_execute)
     expected step_count trans_init produce lookup (transition: ('s,'e) unit_transition) =
   let rec _step_unit prev_key step_count transition =
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
