@@ -51,7 +51,7 @@ let master_consensus constants ((finished_funs : master_option),v,n,i) () =
 
 
 let stable_master constants ((v',n,new_i) as current_state) = function
-    | LeaseExpired n' ->
+  | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
       then
