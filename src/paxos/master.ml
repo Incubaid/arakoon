@@ -46,7 +46,7 @@ let master_consensus constants ((finished_funs : master_option),v,n,i) () =
     loop finished_funs urs
   end >>= fun () ->
   let state = (v,n,(Sn.succ i)) in
-  Lwt.return (Stable_master state)
+  Fsm.return (Stable_master state)
     
 
 
@@ -58,7 +58,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	    begin
 	      log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
 	        (Sn.string_of n') (Sn.string_of n) >>= fun () ->
-	      Lwt.return (Stable_master current_state)
+	      Fsm.return (Stable_master current_state)
 	    end
       else
 	    begin
@@ -68,7 +68,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
             let v = Value.create_master_value (me,0L) in
             let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
-	        Lwt.return (Master_dictate ([ff], v,n,new_i))
+	        Fsm.return (Master_dictate ([ff], v,n,new_i))
 	      in
 	      match constants.master with
 	        | Preferred p when p <> me ->
@@ -77,7 +77,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
               then
 		        begin
 		          log ~me "stable_master: handover to %s" p >>= fun () ->
-		          Lwt.return (Stable_master current_state)
+		          Fsm.return (Stable_master current_state)
 		        end
 	          else
 		        extend () 
@@ -88,7 +88,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
           let updates, finished_funs = List.split ufs in
           let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
           let value = Value.create_client_value updates synced in
-	      Lwt.return (Master_dictate (finished_funs, value, n, new_i))
+	      Fsm.return (Master_dictate (finished_funs, value, n, new_i))
         end
     | FromNode (msg,source) ->
       begin
@@ -104,23 +104,23 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		          if n' > 0L 
 		          then
 		            let new_n = update_n constants n' in
-		            Lwt.return (Forced_master_suggest (new_n,new_i))
+		            Fsm.return (Forced_master_suggest (new_n,new_i))
 		          else
-		            Lwt.return (Stable_master current_state )
+		            Fsm.return (Stable_master current_state )
 		        end
 	          else
 		        begin
 		          handle_prepare constants source n n' i' >>= function
 		            | Nak_sent 
-		            | Prepare_dropped -> Lwt.return  (Stable_master current_state )
+		            | Prepare_dropped -> Fsm.return  (Stable_master current_state )
 		            | Promise_sent_up2date ->
 		              begin
                         let l_val = constants.tlog_coll # get_last () in
-			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_val))
+			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
                       let i = Store.get_catchup_start_i constants.store in
-                      Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+                      Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
           | Accepted(n,i) -> (* This one is not relevant anymore, but we're interested
@@ -129,12 +129,12 @@ let stable_master constants ((v',n,new_i) as current_state) = function
                              *)
 	        log ~me "stable_master received %S: dropping (but witnessing)" (string_of msg) >>= fun () ->
             let () = constants.on_witness source i in
-            Lwt.return (Stable_master current_state)
+            Fsm.return (Stable_master current_state)
 	      | _ ->
 	        begin
 	          log ~me "stable_master received %S: dropping" (string_of msg)
 	          >>= fun () ->
-	          Lwt.return (Stable_master current_state)
+	          Fsm.return (Stable_master current_state)
 		        
 	        end
       end
@@ -142,12 +142,12 @@ let stable_master constants ((v',n,new_i) as current_state) = function
       begin
       let me = constants.me in
       log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
-      Lwt.return (Stable_master current_state)
+      Fsm.return (Stable_master current_state)
       end
     | Quiesce (sleep,awake) ->
       begin
         fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
-        Lwt.return (Stable_master current_state)
+        Fsm.return (Stable_master current_state)
       end
         
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
@@ -170,4 +170,4 @@ let master_dictate constants (mo,v,n,i) () =
   let ballot = (needed' , [me] ) in
   log ~me "master_dictate n:%s i:%s needed:%d" 
     (Sn.string_of n) (Sn.string_of i) needed' >>= fun () ->
-  Lwt.return (Accepteds_check_done (mo, n, i, ballot, v))
+  Fsm.return (Accepteds_check_done (mo, n, i, ballot, v))
