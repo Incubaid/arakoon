@@ -123,26 +123,27 @@ let stable_master constants ((v',n,new_i) as current_state) = function
                       Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
-          | Accepted(n,i) -> (* This one is not relevant anymore, but we're interested
-                                to see the slower slaves in the statistics as well :
-                                TODO: should not be solved on this level.
-                             *)
-	        log ~me "stable_master received %S: dropping (but witnessing)" (string_of msg) >>= fun () ->
-            let () = constants.on_witness source i in
-            Fsm.return (Stable_master current_state)
+          | Accepted(n,i) -> 
+              (* This one is not relevant anymore, but we're interested
+                 to see the slower slaves in the statistics as well :
+                 TODO: should not be solved on this level.
+              *)
+              let () = constants.on_witness source i in
+              Fsm.return (Stable_master current_state)
 	      | _ ->
-	        begin
-	          log ~me "stable_master received %S: dropping" (string_of msg)
-	          >>= fun () ->
-	          Fsm.return (Stable_master current_state)
-		        
-	        end
+	          begin
+                let log_e = ELog (fun () -> 
+                  Printf.sprintf "stable_master received %S: dropping" (string_of msg)) 
+                in
+	            Fsm.return ~sides:[log_e] (Stable_master current_state)
+	          end
       end
     | ElectionTimeout n' -> 
-      begin
-      let me = constants.me in
-      log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
-      Fsm.return (Stable_master current_state)
+        begin
+          let log_e = ELog (fun () ->
+            Printf.sprintf "ignoring election timeout (%s)" (Sn.string_of n') )
+          in          
+          Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
     | Quiesce (sleep,awake) ->
       begin

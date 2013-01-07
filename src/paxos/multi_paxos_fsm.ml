@@ -453,7 +453,6 @@ let lost_master_role finished_funs =
 
 let accepteds_check_done constants state () =
   let (mo,n,i,ballot,v) = state in
-  let me = constants.me in
   let needed, already_voted = ballot in
   if needed = 0 
   then
@@ -468,7 +467,7 @@ let accepteds_check_done constants state () =
       Fsm.return ~sides (Master_consensus (mo,v,n,i))
     end
   else
-    Fsm.return (Wait_for_accepteds (mo,n,i,ballot,v))
+    Fsm.return (Wait_for_accepteds state)
       
 (* a (potential or full) master is waiting for accepteds and receives a msg *)
 let wait_for_accepteds constants state (event:paxos_event) =

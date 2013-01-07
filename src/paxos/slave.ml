@@ -300,39 +300,40 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             begin
               if i' > i 
               then
-                log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
-                  (Sn.string_of i) (Sn.string_of i')  
-                 >>= fun () -> 
-              let cu_pred = Store.get_catchup_start_i constants.store in
-              let new_state = (source, cu_pred, n', i') in 
-              Fsm.return (Slave_discovered_other_master(new_state) ) 
+                let log_e = ELog 
+                  (fun () ->
+                    Printf.sprintf 
+                      "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)" 
+                      (Sn.string_of i) (Sn.string_of i')  
+                  )
+                in
+                let cu_pred = Store.get_catchup_start_i constants.store in
+                let new_state = (source, cu_pred, n', i') in 
+                Fsm.return ~sides:[log_e] (Slave_discovered_other_master(new_state) ) 
               else
-	            log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
-	             >>= fun () ->
-	          Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
+                let log_e = ELog
+                  (fun () ->
+	                Printf.sprintf "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
+                  )
+	            in
+	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	        end
 	      | Accept (n',i',v) ->
-	        begin
-	          log ~me "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare" 
-		        (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) 
-	          >>= fun () ->
-	          Fsm.return (Slave_fake_prepare (i,n'))
-	        end
-	      | Promise(n',i',vo') ->
-	        begin
-	          log ~me "dropping: %s " (string_of msg) >>= fun () ->
-	          Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-	        end
-	      | Nak (n',(n2,i2)) ->
-	        begin
-		      log ~me "ignoring %s " (string_of msg) >>= fun () ->
-		      Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-	        end
-	      | Accepted _ ->
-	        begin
-	          log ~me "dropping old %S " (string_of msg) >>= fun () ->
-	          Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-	        end
+	          begin
+                let log_e = ELog (fun () ->
+                  Printf.sprintf "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare" 
+		            (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) 
+                )
+                in
+	            Fsm.return ~sides:[log_e] (Slave_fake_prepare (i,n'))
+	          end
+	      | Promise _
+          | Nak _
+          | Accepted _ ->
+	          begin
+                let log_e = ELog (fun () -> "dropping : " ^ (string_of msg)) in
+	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
+	          end
       end
     | ElectionTimeout n' 
     | LeaseExpired n' ->
