@@ -15,12 +15,29 @@ let run_cmd cmd =
     let () = close_in ch in
     hg_version
   with | End_of_file -> "Not available"
-    
+
+
+let output_cmd cmd = 
+  let acc = ref [] in
+  let ch = Unix.open_process_in cmd in
+  try
+    let rec loop () = 
+      let line = input_line ch in
+      let () = acc := line :: !acc in
+      loop ()
+    in
+    loop ()
+  with | End_of_file -> 
+    let () = close_in ch in
+    List.rev (!acc)
+
 let hg_revision = run_cmd "hg id -i"
 
 let branch_version = run_cmd "hg branch"
 
 let machine = run_cmd "uname -mnrpio"
+
+let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc'";;
 
 let split s ch =
   let x = ref [] in
@@ -48,7 +65,8 @@ let make_version _ _ =
       "let machine = %S\n" ^^
       "let major = %i\n" ^^
       "let minor = %i\n" ^^
-      "let patch = %i\n" 
+      "let patch = %i\n" ^^
+      "let dependencies = %S\n"
     in
     let major,minor,patch = 
       try
@@ -57,7 +75,8 @@ let make_version _ _ =
         try Scanf.sscanf branch_version "%i.%i" (fun ma mi -> (ma,mi,-1)) 
         with _ -> (-1,-1,-1)
     in
-    Printf.sprintf template hg_revision time machine major minor patch
+    Printf.sprintf template hg_revision time machine major minor patch 
+      (String.concat "\\n" dependencies)
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 

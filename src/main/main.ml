@@ -81,7 +81,9 @@ let show_version ()=
   Printf.printf "hg_revision: %S\n" Version.hg_revision;
   Printf.printf "compiled: %S\n" Version.compile_time;
   Printf.printf "machine: %S\n" Version.machine;
-  Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile
+  Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
+  Printf.printf "dependencies:\n%s\n" Version.dependencies
+    
 
 let run_all_tests () =
   All_test.configure_logging();
