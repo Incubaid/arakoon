@@ -41,12 +41,34 @@ let master_consensus constants ((finished_funs : master_option),v,n,i) () =
             loop ffs urs
         | _,_ -> failwith "mismatch"
     in
-    Lwt_log.debug_f "on_consensus for : %s => %i finished_fs %i result(s) " 
-      (Value.value2s v) (List.length finished_funs) (List.length urs) >>= fun ()->
-    loop finished_funs urs
-  end >>= fun () ->
+    loop finished_funs urs 
+
+
+  end 
+  >>= fun () ->
+  (*
+  let gen_e = EGen (fun () ->
+    constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
+    begin
+      let rec loop ffs urs =
+        match (ffs,urs) with
+          | [],[] -> Lwt.return ()
+          | finished_f :: ffs , update_result :: urs -> 
+              finished_f update_result >>= fun () ->
+              loop ffs urs
+          | _,_ -> failwith "mismatch"
+      in
+      loop finished_funs urs 
+    end 
+  )
+  in
+  *)
+  let log_e = ELog (fun () ->
+    Printf.sprintf "on_consensus for : %s => %i finished_fs %i result(s) " 
+      (Value.value2s v) (List.length finished_funs) (List.length urs))
+  in
   let state = (v,n,(Sn.succ i)) in
-  Fsm.return (Stable_master state)
+  Fsm.return ~sides:[log_e] (Stable_master state)
     
 
 
@@ -56,19 +78,20 @@ let stable_master constants ((v',n,new_i) as current_state) = function
       if n' < n 
       then
 	    begin
-	      log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
-	        (Sn.string_of n') (Sn.string_of n) >>= fun () ->
-	      Fsm.return (Stable_master current_state)
+          let log_e = ELog (fun () ->
+	        Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s" 
+	          (Sn.string_of n') (Sn.string_of n))
+          in
+	      Fsm.return ~sides:[log_e] (Stable_master current_state)
 	    end
       else
 	    begin
 	      let extend () = 
-	        log ~me "stable_master: half-lease_expired: update lease." 
-	        >>= fun () ->
+            let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
             let v = Value.create_master_value (me,0L) in
             let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
-	        Fsm.return (Master_dictate ([ff], v,n,new_i))
+	        Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i))
 	      in
 	      match constants.master with
 	        | Preferred p when p <> me ->
@@ -76,8 +99,8 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	          if diff < (Sn.of_int 5) 
               then
 		        begin
-		          log ~me "stable_master: handover to %s" p >>= fun () ->
-		          Fsm.return (Stable_master current_state)
+                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
+		          Fsm.return ~sides:[log_e] (Stable_master current_state)
 		        end
 	          else
 		        extend () 

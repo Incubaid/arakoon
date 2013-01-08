@@ -89,5 +89,7 @@ let show_transition = function
 type effect = 
   | ELog of (unit -> string)
   | EMCast  of Mp_msg.MPMessage.t
+  | ESend of Mp_msg.MPMessage.t * Messaging.id
   | EAccept of (Value.t * n * i)  
   | EStart of (Value.t * n )
+  | EGen of (unit -> unit Lwt.t)

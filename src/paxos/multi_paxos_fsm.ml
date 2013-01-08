@@ -240,60 +240,68 @@ let wait_for_promises constants state event =
               Some bv
         end
         in
-        let drop msg reason = 
-          log ~me "dropping %s because: %s" (string_of msg) reason >>= fun () ->
-          Fsm.return (Wait_for_promises state) 
+	    let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
+
+        let log_e0 = 
+          ELog(fun () ->
+            Printf.sprintf "wait_for_promises:n=%s i=%s who_voted = %s received %s from %s" 
+              (Sn.string_of n) (Sn.string_of i) who_voted_s 
+              (string_of msg) source
+          )
         in
-	      let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
-        log ~me "wait_for_promises:n=%s i=%s who_voted = %s" (Sn.string_of n) (Sn.string_of i) who_voted_s 
-	      >>= fun () ->
+        let drop msg reason = 
+          let log_e = ELog(fun () ->
+            Printf.sprintf "dropping %s because: %s" (string_of msg) reason) 
+          in
+          Fsm.return ~sides:[log_e0;log_e] (Wait_for_promises state) 
+        in
         begin
-          log ~me "wait_for_promises:: received %S from %s" (string_of msg) source 
-	        >>= fun () ->
           match msg with
             | Promise (n' ,i', limit) when n' < n ->
-              let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
-              drop msg reason
+                let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
+                drop msg reason
             | Promise (n',i', limit) when n' = n && i' < i ->
                 let reason = Printf.sprintf "old promise with lower i: %s < %s"
                   (Sn.string_of i') (Sn.string_of i)
                 in
                 drop msg reason
             | Promise (n' ,new_i, limit) when n' = n ->
-              if List.mem source who_voted then
-                drop msg "duplicate promise"
-              else
-                let v_lims' = 
-                begin
-                   if new_i < i then
-                     let (nnones, nsomes) = v_lims in
-                     (nnones+1, nsomes)
-                   else
-                     update_votes v_lims limit 
-                end in
-                let who_voted' = source :: who_voted in
-                let new_ilim = match i_lim with
-                  | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
-                  | None -> Some (source,new_i)
-		            in
-                let state' = (n, i, who_voted', v_lims', new_ilim) in
-                Fsm.return (Promises_check_done state')
+                if List.mem source who_voted then
+                  drop msg "duplicate promise"
+                else
+                  let v_lims' = 
+                    begin
+                      if new_i < i then
+                        let (nnones, nsomes) = v_lims in
+                        (nnones+1, nsomes)
+                      else
+                        update_votes v_lims limit 
+                    end in
+                  let who_voted' = source :: who_voted in
+                  let new_ilim = match i_lim with
+                    | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
+                    | None -> Some (source,new_i)
+		          in
+                  let state' = (n, i, who_voted', v_lims', new_ilim) in
+                  Fsm.return (Promises_check_done state')
             | Promise (n' ,i', limit) -> (* n ' > n *)
-              begin
-		        log ~me "Received Promise from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
-		        >>= fun () ->
-		        let new_n = update_n constants n' in
-		        Fsm.return (Election_suggest (new_n,i, wanted))
-              end
+                begin
+		          log ~me "Received Promise from previous incarnation. Bumping n from %s over %s." 
+                    (Sn.string_of n) (Sn.string_of n') 
+		          >>= fun () ->
+		          let new_n = update_n constants n' in
+		          Fsm.return (Election_suggest (new_n,i, wanted))
+                end
             | Nak (n',(n'',i')) when n' < n ->
-              begin
-		        log ~me "wait_for_promises:: received old %S (ignoring)" (string_of msg) 
-		        >>= fun () ->
-		        Fsm.return (Wait_for_promises state)
-              end
+                begin
+		          log ~me "wait_for_promises:: received old %S (ignoring)" (string_of msg) 
+		          >>= fun () ->
+		          Fsm.return (Wait_for_promises state)
+                end
             | Nak (n',(n'',i')) when n' > n ->
                 begin
-		          log ~me "Received Nak from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
+		          log ~me "Received Nak from previous incarnation. Bumping n from %s over %s." 
+                    (Sn.string_of n) (Sn.string_of n') 
 		          >>= fun () ->
 		          let new_n = update_n constants n' in
 		          Fsm.return (Election_suggest (new_n,i, wanted))
@@ -840,10 +848,11 @@ let _execute_effects constants e =
   match e with
     | ELog build ->
         let s = build () in
-        let s' = constants.me ^ " : " ^ s in
+        let s' = "PURE:" ^ constants.me ^ " : " ^ s in
         Lwt_log.debug s' 
-    | EMCast msg      -> mcast constants msg
-    | EAccept (v,n,i) -> constants.on_accept (v,n,i) 
+    | EMCast msg          -> mcast constants msg
+    | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
+    | ESend (msg, target) -> constants.send msg constants.me target
     | EStart (v,n) ->
         begin
           if Value.is_master_set v

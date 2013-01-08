@@ -242,12 +242,12 @@ let handle_prepare constants dest n n' i' =
       let can_pr = can_promise constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
-	begin 
+	    begin 
           log ~me "handle_prepare: Dropping prepare - lease still active" 
-	  >>= fun () ->
-	  Lwt.return Prepare_dropped
-	    
-	end
+	      >>= fun () ->
+	      Lwt.return Prepare_dropped
+	        
+	    end
       else 
 	    begin
           let store = constants.store in
