@@ -843,13 +843,21 @@ let rec paxos_produce buffers
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
 
+let section = 
+  let s = Lwt_log.Section.make "PAXOS" in
+  let () = Lwt_log.Section.set_level s Lwt_log.Debug in
+  s 
 
 let _execute_effects constants e = 
   match e with
     | ELog build ->
-        let s = build () in
-        let s' = "PURE:" ^ constants.me ^ " : " ^ s in
-        Lwt_log.debug s' 
+        if Lwt_log.Section.level section <= Lwt_log.Debug 
+        then
+          let s = build () in
+          let s' = "PURE:" ^ constants.me ^ " : " ^ s in
+          Lwt_log.debug s' 
+        else
+          Lwt.return ()
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
     | ESend (msg, target) -> constants.send msg constants.me target
