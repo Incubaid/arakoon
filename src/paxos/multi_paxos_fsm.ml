@@ -853,12 +853,28 @@ let _execute_effects constants e =
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
     | ESend (msg, target) -> constants.send msg constants.me target
-    | EStart (v,n) ->
+    | EStartLeaseExpiration (v,n) ->
         begin
           if Value.is_master_set v
           then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
           else Lwt.return ()
         end 
+    | EStartElectionTimeout n -> start_election_timeout constants n
+
+    | EConsensus (finished_funs, v,n,i) ->
+        constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
+        begin
+          let rec loop ffs urs =
+            match (ffs,urs) with
+              | [],[] -> Lwt.return ()
+              | finished_f :: ffs , update_result :: urs -> 
+                  finished_f update_result >>= fun () ->
+                  loop ffs urs
+              | _,_ -> failwith "mismatch"
+          in
+          loop finished_funs urs 
+        end 
+    | EGen f -> f ()
 
 
 (* the entry methods *)

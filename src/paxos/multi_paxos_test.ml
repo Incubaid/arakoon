@@ -57,8 +57,8 @@ let test_generic network_factory n_nodes () =
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
-    log ~me "on_consensus(%s,%s)" (sn2s n) (sn2s i)
-      >>= fun () -> Lwt.return [Store.Ok None]
+    log ~me "on_consensus(%s,%s)" (sn2s n) (sn2s i) >>= fun () -> 
+    Lwt.return [Store.Ok None]
   in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -104,11 +104,11 @@ let test_generic network_factory n_nodes () =
 	     } in
 	     let t =
 	       let expected prev_key key =
-		 log ~me "node from %s to %s" (Multi_paxos_type.show_transition prev_key) 
-		   (Multi_paxos_type.show_transition key) >>= fun () ->
-		 match key with
-		   | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-		   | _ -> Lwt.return None
+		     log ~me "node from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+		       (Multi_paxos_type.show_transition key) >>= fun () ->
+		     match key with
+		       | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+		       | _ -> Lwt.return None
 	       in
 	       let client_buffer = Lwt_buffer.create () in
 	       let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in

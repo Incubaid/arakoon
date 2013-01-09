@@ -70,7 +70,8 @@ let expect_loop
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	    transition () >>= fun (key,_) ->
+	    transition () >>= fun (key, es) ->
+        do_side_effects e_execute es >>= fun () ->
 	    expected prev_key key >>= function
 	      | Some x ->
 	    (* Printf.printf "XXX finished\n"; *)
@@ -88,7 +89,8 @@ let expect_loop
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	    transition msg >>= fun (key,_) ->
+	    transition msg >>= fun (key, es) ->
+        do_side_effects e_execute es >>= fun () ->
 	    expected prev_key key >>= function
 	      | Some x ->
 	    (* Printf.printf "XXX finished\n"; *)
