@@ -1,11 +1,13 @@
 How to make a release
 =====================
 
- * Run the tools/make_release_branch.py script which
+ * make the X.Y.Z branch
+ 
+ * update debian changelog
 
-   - creates the X.Y.Z branch
-   - updates debian changelog
-   - commits branch => ${REV}
+ * commit branch => ${REV}
+
+(these first steps are covered by tools/make_release_branch.py) 
 
  * Jenkins: arakoon-release-qp4
 
