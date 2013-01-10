@@ -162,6 +162,16 @@ let one_command (ic,oc) (backend:Backend.backend) =
 	  )
 	  (handle_exception oc)
       end
+    | ASSERTEXISTS ->
+      begin
+	Llio.input_bool ic          >>= fun allow_dirty ->
+	Llio.input_string ic        >>= fun key ->
+	Lwt.catch
+	  (fun () -> backend # aSSert_exists ~allow_dirty key>>= fun () ->
+	    response_ok_unit oc
+	  )
+	  (handle_exception oc)
+      end
     | SET ->
 	begin
       Llio.input_string ic >>= fun key ->

@@ -70,14 +70,35 @@ let test_interval2() =
   in
   Lwt_main.run (t())
 
-let test_delete_prefix () = 
+let test_delete_prefix () =
   let u = Update.DeletePrefix "whatever" in
   let u' = _b2b u in
+  _cmp u u' 
+
+let test_assert ()=
+  let u1= Update.Set ("keyi", "valuei") in
+  let u2 = Update.Assert ("key", Some "value") in
+  let u' = _b2b u2 in
+  _cmp u2 u'
+
+let test_assert_exists () =
+  let ui= Update.Set ("keyi", "valuei") in
+  let ua = Update.Assert_exists ("keyi") in
+  let u' = _b2b ua in
+  _cmp ua u'
+(*
+  let u = Update.Set ("key2", "value")in
+  let u2 = Update.Assert_exists ("mkey")in
+  let u3 = Lwt_io.printlf "ok!" in
+  let u' = _b2b u2 in
   _cmp u u'
+*)
 
 let suite = "update" >:::[
   "sequence" >:: test_sequence;
   "interval" >:: test_interval;
   "interval2">:: test_interval2;
   "delete_prefix" >:: test_delete_prefix;
+  "assert_exists" >:: test_assert_exists;
+  "assert"        >:: test_assert;
 ]

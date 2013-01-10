@@ -77,6 +77,11 @@ class ArakoonAssertionFailed(ArakoonException):
     def __init__(self,msg):
         ArakoonException.__init__(self,msg)
 
+class ArakoonAssertExistsFailed(ArakoonException):    
+    _msg = "AssertExists did not yield expected result"
+    def __init__(self,msg):
+        ArakoonException.__init__(self,msg)
+
 class ArakoonGoingDown(ArakoonException):
     _msg = "Server is going down"
     

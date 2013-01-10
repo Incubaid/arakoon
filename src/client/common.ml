@@ -44,6 +44,7 @@ type client_command =
   | EXISTS
   | GET
   | ASSERT
+  | ASSERTEXISTS
   | SET
   | DELETE
   | RANGE
@@ -114,6 +115,7 @@ let code2int = [
   DEFRAG_DB               , 0x26l;
   DELETE_PREFIX           , 0x27l;
   VERSION                 , 0x28l;
+  ASSERTEXISTS            , 0x29l;
 ]
 
 let int2code =
@@ -189,6 +191,11 @@ let assert_to ~allow_dirty buffer key vo =
   Llio.bool_to buffer allow_dirty;
   Llio.string_to buffer key;
   Llio.string_option_to buffer vo
+
+let assert_exists_to ~allow_dirty buffer key=
+  command_to buffer ASSERTEXISTS;
+  Llio.bool_to buffer allow_dirty;
+  Llio.string_to buffer key
 
 let set_to buffer key value =
   command_to buffer SET;
@@ -376,6 +383,7 @@ let _build_sequence_request buf changes =
     | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
     | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
     | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
+    | Arakoon_client.Assert_exists(k) -> Update.Assert_exists(k)
   in
   let updates = List.map c2u changes in
   let seq = Update.Sequence updates in
