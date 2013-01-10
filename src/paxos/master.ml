@@ -31,44 +31,36 @@ open Update
    first potentially finish of a client request and then on to
    being a stable master *)
 let master_consensus constants ((finished_funs : master_option),v,n,i) () =
-  constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
-  begin
-    let rec loop ffs urs =
-      match (ffs,urs) with
-        | [],[] -> Lwt.return ()
-        | finished_f :: ffs , update_result :: urs -> 
-            finished_f update_result >>= fun () ->
-            loop ffs urs
-        | _,_ -> failwith "mismatch"
-    in
-    Lwt_log.debug_f "on_consensus for : %s => %i finished_fs %i result(s) " 
-      (Value.value2s v) (List.length finished_funs) (List.length urs) >>= fun ()->
-    loop finished_funs urs
-  end >>= fun () ->
+  let gen_e = EConsensus(finished_funs, v,n,i) in
+  let log_e = ELog (fun () ->
+    Printf.sprintf "on_consensus for : %s => %i finished_fs " 
+      (Value.value2s v) (List.length finished_funs) )
+  in
   let state = (v,n,(Sn.succ i)) in
-  Lwt.return (Stable_master state)
+  Fsm.return ~sides:[gen_e;log_e] (Stable_master state)
     
 
 
 let stable_master constants ((v',n,new_i) as current_state) = function
-    | LeaseExpired n' ->
+  | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
       then
 	    begin
-	      log ~me "stable_master: ignoring old lease_expired with n:%s < n:%s" 
-	        (Sn.string_of n') (Sn.string_of n) >>= fun () ->
-	      Lwt.return (Stable_master current_state)
+          let log_e = ELog (fun () ->
+	        Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s" 
+	          (Sn.string_of n') (Sn.string_of n))
+          in
+	      Fsm.return ~sides:[log_e] (Stable_master current_state)
 	    end
       else
 	    begin
 	      let extend () = 
-	        log ~me "stable_master: half-lease_expired: update lease." 
-	        >>= fun () ->
+            let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
             let v = Value.create_master_value (me,0L) in
             let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
-	        Lwt.return (Master_dictate ([ff], v,n,new_i))
+	        Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i))
 	      in
 	      match constants.master with
 	        | Preferred p when p <> me ->
@@ -76,8 +68,8 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	          if diff < (Sn.of_int 5) 
               then
 		        begin
-		          log ~me "stable_master: handover to %s" p >>= fun () ->
-		          Lwt.return (Stable_master current_state)
+                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
+		          Fsm.return ~sides:[log_e] (Stable_master current_state)
 		        end
 	          else
 		        extend () 
@@ -88,7 +80,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
           let updates, finished_funs = List.split ufs in
           let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
           let value = Value.create_client_value updates synced in
-	      Lwt.return (Master_dictate (finished_funs, value, n, new_i))
+	      Fsm.return (Master_dictate (finished_funs, value, n, new_i))
         end
     | FromNode (msg,source) ->
       begin
@@ -104,50 +96,51 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		          if n' > 0L 
 		          then
 		            let new_n = update_n constants n' in
-		            Lwt.return (Forced_master_suggest (new_n,new_i))
+		            Fsm.return (Forced_master_suggest (new_n,new_i))
 		          else
-		            Lwt.return (Stable_master current_state )
+		            Fsm.return (Stable_master current_state )
 		        end
 	          else
 		        begin
 		          handle_prepare constants source n n' i' >>= function
 		            | Nak_sent 
-		            | Prepare_dropped -> Lwt.return  (Stable_master current_state )
+		            | Prepare_dropped -> Fsm.return  (Stable_master current_state )
 		            | Promise_sent_up2date ->
 		              begin
                         let l_val = constants.tlog_coll # get_last () in
-			            Lwt.return (Slave_wait_for_accept (n', new_i, None, l_val))
+			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
                       let i = Store.get_catchup_start_i constants.store in
-                      Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+                      Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
-          | Accepted(n,i) -> (* This one is not relevant anymore, but we're interested
-                                to see the slower slaves in the statistics as well :
-                                TODO: should not be solved on this level.
-                             *)
-	        log ~me "stable_master received %S: dropping (but witnessing)" (string_of msg) >>= fun () ->
-            let () = constants.on_witness source i in
-            Lwt.return (Stable_master current_state)
+          | Accepted(n,i) -> 
+              (* This one is not relevant anymore, but we're interested
+                 to see the slower slaves in the statistics as well :
+                 TODO: should not be solved on this level.
+              *)
+              let () = constants.on_witness source i in
+              Fsm.return (Stable_master current_state)
 	      | _ ->
-	        begin
-	          log ~me "stable_master received %S: dropping" (string_of msg)
-	          >>= fun () ->
-	          Lwt.return (Stable_master current_state)
-		        
-	        end
+	          begin
+                let log_e = ELog (fun () -> 
+                  Printf.sprintf "stable_master received %S: dropping" (string_of msg)) 
+                in
+	            Fsm.return ~sides:[log_e] (Stable_master current_state)
+	          end
       end
     | ElectionTimeout n' -> 
-      begin
-      let me = constants.me in
-      log ~me "ignoring election timeout (%s)" (Sn.string_of n') >>= fun () ->
-      Lwt.return (Stable_master current_state)
+        begin
+          let log_e = ELog (fun () ->
+            Printf.sprintf "ignoring election timeout (%s)" (Sn.string_of n') )
+          in          
+          Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
     | Quiesce (sleep,awake) ->
       begin
         fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
-        Lwt.return (Stable_master current_state)
+        Fsm.return (Stable_master current_state)
       end
         
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
@@ -156,18 +149,27 @@ let stable_master constants ((v',n,new_i) as current_state) = function
    messages and then waits for Accepted responses *)
 
 let master_dictate constants (mo,v,n,i) () =
-  constants.on_accept (v,n,i) >>= fun () ->
-  begin
-    if Value.is_master_set v
-    then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
-    else Lwt.return ()
-  end >>= fun () ->
-  mcast constants (Accept(n,i,v)) >>= fun () ->
+  let accept_e = EAccept (v,n,i) in
+  
+  let start_e = EStartLeaseExpiration (v,n) in
+  let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in
   let needed = constants.quorum_function (List.length others + 1) in
   let needed' = needed - 1 in
   let ballot = (needed' , [me] ) in
-  log ~me "master_dictate n:%s i:%s needed:%d" 
-    (Sn.string_of n) (Sn.string_of i) needed' >>= fun () ->
-  Lwt.return (Accepteds_check_done (mo, n, i, ballot, v))
+  
+  let log_e = 
+    ELog (fun () ->
+      Printf.sprintf "master_dictate n:%s i:%s needed:%d" 
+        (Sn.string_of n) (Sn.string_of i) needed' 
+    )
+  in
+  let sides = 
+    [accept_e;
+     start_e;
+     mcast_e;
+     log_e;
+    ]
+  in
+  Fsm.return ~sides (Accepteds_check_done (mo, n, i, ballot, v))

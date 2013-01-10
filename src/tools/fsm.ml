@@ -22,67 +22,86 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-type ('m, 's) state =
-  | Msg_arg of ('m -> 's)
-  | Unit_arg of (unit -> 's)
-and  ('m, 's) lookup = 's -> ('m,'s) state
 
-type 's unit_transition = unit -> 's Lwt.t
-type ('m,'s) msg_transition = 'm -> 's Lwt.t
+type 'e e_execute = 'e -> unit Lwt.t
+
+type ('s, 'e) unit_transition  = unit -> ('s * 'e list) Lwt.t
+type ('m,'s, 'e) msg_transition = 'm   -> ('s * 'e list) Lwt.t
+
+type ('m, 's, 'e) state =
+  | Msg_arg  of  ('m, 's,'e) msg_transition
+  | Unit_arg of  ('s, 'e) unit_transition
+and  ('m, 's,'e) lookup = 's -> ('m,'s,'e) state
+
+
+let do_side_effects e_execute es  = 
+  Lwt_list.iter_s e_execute es
+
+let return ?(sides=[]) x = Lwt.return (x, sides)
+
+
 
 let nop_trace _ = Lwt.return ()
 
-let loop ?(trace=nop_trace) produce lookup transition =
+let loop ?(trace=nop_trace) 
+    (e_execute : 'e e_execute)
+    produce lookup (transition: ('s,'e) unit_transition) =
   let rec _interprete key =
     let arg, product_type = lookup key in
     match arg with
       | Unit_arg next -> _step_unit next
       | Msg_arg next -> produce product_type >>= fun msg -> _step_msg next msg
   and _step_unit transition =
-    transition () >>= fun key ->
+    transition () >>= fun (key, es) ->
+    do_side_effects e_execute es >>= fun () ->
     trace key >>= fun () ->
     _interprete key
   and _step_msg transition msg =
-    transition msg >>= fun key ->
+    transition msg >>= fun (key, es) ->
+    do_side_effects e_execute es >>= fun () ->
     trace key >>= fun () ->
     _interprete key
   in _step_unit transition
 
-let expect_loop expected step_count trans_init produce lookup transition =
+let expect_loop 
+    (e_execute : 'e e_execute)
+    expected step_count trans_init produce lookup (transition: ('s,'e) unit_transition) =
   let rec _step_unit prev_key step_count transition =
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	transition () >>= fun key ->
-	expected prev_key key >>= function
-	  | Some x ->
+	    transition () >>= fun (key, es) ->
+        do_side_effects e_execute es >>= fun () ->
+	    expected prev_key key >>= function
+	      | Some x ->
 	    (* Printf.printf "XXX finished\n"; *)
-	    Lwt.return x
-	  | None ->
+	          Lwt.return x
+	      | None ->
 		(* Printf.printf "XXX continuing %d\n" step_count; *)
-	    let arg,product_type = lookup key in
-	    match arg with
-	      | Unit_arg next -> _step_unit key (step_count-1) next
-	      | Msg_arg next ->
-		produce product_type >>= fun msg ->
-		_step_msg key (step_count-1) next msg
+	          let arg,product_type = lookup key in
+	          match arg with
+	            | Unit_arg next -> _step_unit key (step_count-1) next
+	            | Msg_arg next ->
+		            produce product_type >>= fun msg ->
+		            _step_msg key (step_count-1) next msg
       end
   and _step_msg prev_key step_count transition msg =
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	transition msg >>= fun key ->
-	expected prev_key key >>= function
-	  | Some x ->
+	    transition msg >>= fun (key, es) ->
+        do_side_effects e_execute es >>= fun () ->
+	    expected prev_key key >>= function
+	      | Some x ->
 	    (* Printf.printf "XXX finished\n"; *)
-	    Lwt.return x
-	  | None ->
+	          Lwt.return x
+	      | None ->
 		(* Printf.printf "XXX continuing %d\n" step_count; *)
-	    let arg,product_type = lookup key in
-	    match arg with
-	      | Unit_arg next -> _step_unit key (step_count-1) next
-	      | Msg_arg next ->
-		produce product_type >>= fun msg ->
-		_step_msg key (step_count-1) next msg
+	          let arg,product_type = lookup key in
+	          match arg with
+	            | Unit_arg next -> _step_unit key (step_count-1) next
+	            | Msg_arg next ->
+		            produce product_type >>= fun msg ->
+		            _step_msg key (step_count-1) next msg
       end
   in _step_unit trans_init step_count transition

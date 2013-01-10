@@ -86,3 +86,12 @@ let show_transition = function
   | Master_dictate _ -> "Master_dictate"
   | Read_only _ -> "Read_only"
 
+type effect = 
+  | ELog of (unit -> string)
+  | EMCast  of Mp_msg.MPMessage.t
+  | ESend of Mp_msg.MPMessage.t * Messaging.id
+  | EAccept of (Value.t * n * i)  
+  | EStartLeaseExpiration of (Value.t * n )
+  | EStartElectionTimeout of n
+  | EConsensus of (master_option * Value.t * n * i)
+  | EGen of (unit -> unit Lwt.t)

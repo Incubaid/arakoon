@@ -31,6 +31,7 @@ let log ?(me="???") x =
   let k s= Lwt_log.debug (me ^ ": " ^ s) in
   Printf.ksprintf k x
 
+
 let quorum_function = Quorum.quorum_function
 
 exception ConflictException of (Value.t * Value.t list)
@@ -241,12 +242,12 @@ let handle_prepare constants dest n n' i' =
       let can_pr = can_promise constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
-	begin 
+	    begin 
           log ~me "handle_prepare: Dropping prepare - lease still active" 
-	  >>= fun () ->
-	  Lwt.return Prepare_dropped
-	    
-	end
+	      >>= fun () ->
+	      Lwt.return Prepare_dropped
+	        
+	    end
       else 
 	    begin
           let store = constants.store in
