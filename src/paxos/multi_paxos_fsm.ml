@@ -308,7 +308,9 @@ let wait_for_promises constants state event =
                 end
             | Nak (n',(n'',i')) -> (* n' = n *)
                 begin
-		          log ~me "wait_for_promises:: received %S for my Prep" (string_of msg) 
+		          log ~me "wait_for_promises:: received %S for my Prep(i=%s, _) " 
+                    (string_of msg) 
+                    (Sn.string_of i)
 		          >>= fun () ->
 		          if am_forced_master constants me
 		          then
@@ -323,7 +325,7 @@ let wait_for_promises constants state event =
                     begin
                       log ~me "wait_for_promises; discovered other node" 
                       >>= fun () ->
-                      if n'' > n || i' > i 
+                      if i' > i 
                       then
                         let cu_pred = Store.get_catchup_start_i constants.store in
                         Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))

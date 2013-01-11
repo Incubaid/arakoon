@@ -265,6 +265,8 @@ let handle_prepare constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
+            log ~me "NAK:other node is behind: i':%s nak_max:%s" 
+              (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply) 
           else
             begin
