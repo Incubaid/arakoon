@@ -1022,7 +1022,14 @@ def get_entries_per_tlog():
     cmd = "%s --version" % binary_full_path 
     (exit,stdout,stderr) = q.system.process.run(cmd)
     assert_equals( exit, 0 )
-    return int(stdout.split('\n')[-2].split(':')[1])
+    lines = stdout.split('\n')
+    k = 'tlogEntriesPerFile:'
+    for line in lines:
+        i = line.find(k)
+        if i > -1:
+            n = int(line[i+len(k):])
+            return n
+    raise KeyError(k)
 
 def prefix_scenario( start_suffix ):
     iterate_n_times( 100, simple_set, startSuffix = start_suffix )
