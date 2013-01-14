@@ -325,12 +325,13 @@ def _readExactNBytes( con, n ):
             bytesRemaining = bytesRemaining - newChunkSize
 
         else :
+            msg = "no message"
             try: 
+                msg = con._socket._socketInfo
                 con._socket.close()
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
             con._connected = False
-            msg = con._socket.getpeername() 
             raise ArakoonSockNotReadable(msg = msg)
 
     return tmpResult
