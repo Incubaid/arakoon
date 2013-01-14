@@ -466,8 +466,17 @@ def test_download_db():
     C.startOne(n0)
     time.sleep(0.1)
     db_file = C.get_node_db_file (n1)
+
+    # since there is only 1 node running, there can't be a master and
+    # we should be able to do this without problems:
+
+    C.assert_running_nodes(1)
+    cli2 = C.get_client()
+    assert_raises(ArakoonNoMaster, cli2.whoMaster)
+
     clu.backupDb(n0, db_file)
     C.assert_running_nodes(1)
+
     C.stop_all()
     C.compare_stores(n0,n1)
 
