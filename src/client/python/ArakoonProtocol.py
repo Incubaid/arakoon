@@ -330,8 +330,8 @@ def _readExactNBytes( con, n ):
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
             con._connected = False
-
-            raise ArakoonSockNotReadable()
+            msg = con._socket.getpeername() 
+            raise ArakoonSockNotReadable(msg = msg)
 
     return tmpResult
 
