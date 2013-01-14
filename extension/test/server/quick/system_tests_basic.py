@@ -115,30 +115,11 @@ def test_large_value ():
         raise Exception('this should have failed')
     except ArakoonException as inst:
         logging.info('inst=%s', inst)
-    
-
-
-
-    
-
-
-    
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_range_entries ():
     C.range_entries_scenario( 1000 )
     
-
-@C.with_custom_setup(C.default_setup, C.basic_teardown)
-def test_aSSert_exists():
-    client = C.get_client()
-    client.set('x','x')
-    try:
-        client.aSSert_exists('x') 
-    except ArakoonException as ex:
-        logging.error ( "Bad stuff happened: %s" % ex)
-        assert_equals(True,False)
-
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_1():
     client = C.get_client()
@@ -192,7 +173,60 @@ def test_aSSert_sequences():
     
     v = client.get('test_assert')
     assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
+
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_1():
+    client = C.get_client()
+    client.set('x_e','x_e')
+    try:
+        client.aSSert_exists('x_e') 
+    except ArakoonException as ex:
+        logging.error ( "Bad stuff happened: %s" % ex)
+        assert_equals(True,False)
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_2():
+    client = C.get_client()
+    client.set('x_e','x_e')
+    assert_raises( ArakoonAssertionFailed, client.aSSert_exists, 'no_x')
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_3():
+    client = C.get_client()
+    client.set('x_e','x_e')
+    ass = arakoon.ArakoonProtocol.AssertExists('x_e')
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addUpdate(ass)
+    client.sequence(seq)
+
+@C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
+def test_aSSert_exists_sequences():
+    client = C.get_client()
+    client.set ('test_assert_exists','test_assert_exists')
+    client.aSSert_exists('test_assert_exists')    
+    assert_raises(ArakoonAssertionFailed, 
+                  client.aSSert_exists, 
+                  'test_assert_not_set')
+
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addAssertExists('test_assert_exists')
+    seq.addSet('test_assert','changed')
+    client.sequence(seq)
+
+    v = client.get('test_assert')
+
+    assert_equals(v, 'changed', "first_sequence failed")
+
+    seq2 = arakoon.ArakoonProtocol.Sequence() 
+    seq2.addAssertExists('test_assert_exists_not_set_2')
+    seq2.addSet('test_assert','changed2')
+    assert_raises(ArakoonAssertionFailed, 
+                  client.sequence,
+                  seq2)
     
+    v = client.get('test_assert')
+    assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_prefix ():
