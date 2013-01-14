@@ -186,6 +186,12 @@ let _assert _pf bdb key vo =
 	with Not_found -> false
       end
 
+let _assert_exists _pf bdb key =
+  let pk = _pf ^ key in
+	try let _ = B.get bdb pk in true
+	with Not_found -> false
+
+
 let copy_store old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
@@ -263,6 +269,13 @@ let rec _sequence _pf bdb interval updates =
     | Update.Assert(k,vo) ->
       begin
 	    match _assert _pf bdb k vo with
+	      | true -> ()
+	      | false ->
+	        raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
+      end
+    | Update.Assert_exists(k) ->
+      begin
+	    match _assert_exists _pf bdb k with
 	      | true -> ()
 	      | false ->
 	        raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
@@ -541,6 +554,10 @@ object(self: #store)
   method aSSert ?(_pf=__prefix) key (vo:string option) =
     _with_tx db  
       (fun db -> let r = _assert _pf db key vo in Lwt.return r)
+
+  method aSSert_exists ?(_pf=__prefix) key =
+    _with_tx db  
+      (fun db -> let r = _assert_exists _pf db key in Lwt.return r)
 
   method user_function name (po:string option) =
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->

@@ -130,6 +130,16 @@ def test_range_entries ():
     
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists():
+    client = C.get_client()
+    client.set('x','x')
+    try:
+        client.aSSert_exists('x') 
+    except ArakoonException as ex:
+        logging.error ( "Bad stuff happened: %s" % ex)
+        assert_equals(True,False)
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_1():
     client = C.get_client()
     client.set('x','x')

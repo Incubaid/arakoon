@@ -210,7 +210,7 @@ ARA_CMD_GET    = 0x00000008 | ARA_CMD_MAG
 # Update a value
 ARA_CMD_SET    = 0x00000009 | ARA_CMD_MAG
 # Delete a key value pair
-ARA_CMD_ASSERT = 0x00000016 | ARA_CMD_MAG
+ARA_CMD_ASSERT       = 0x00000016 | ARA_CMD_MAG
 ARA_CMD_DEL    = 0x0000000a | ARA_CMD_MAG
 # Get a range of keys
 ARA_CMD_RAN    = 0x0000000b | ARA_CMD_MAG
@@ -241,7 +241,7 @@ ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
 ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
-
+ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -256,6 +256,7 @@ ARA_ERR_WRONG_CLUSTER = 6
 ARA_ERR_ASSERTION_FAILED = 7
 ARA_ERR_RANGE_ERROR = 9
 ARA_ERR_GOING_DOWN = 16
+ARA_ERR_ASSERTEXISTS_FAILED = 17
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -458,6 +459,14 @@ class Assert(Update):
         fob.write(_packString(self._key))
         fob.write(_packStringOption(self._vo))
 
+class AssertExists(Update):
+    def __init__(self, key):
+        self._key = key
+
+    def write(self, fob):
+        fob.write(_packInt(15))
+        fob.write(_packString(self._key))
+
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -475,6 +484,9 @@ class Sequence(Update):
 
     def addAssert(self, key,vo):
         self._updates.append(Assert(key,vo))
+
+    def addAssertExists(self, key):
+        self._updates.append(AssertExists(key))
 
     def write(self, fob):
         fob.write( _packInt(5))
@@ -516,6 +528,13 @@ class ArakoonProtocol :
         msg += _packStringOption(vo)
         return msg
 
+    @staticmethod
+    def encodeAssertExists(key, allowDirty):
+        print "encodeAE"
+        msg = _packInt(ARA_CMD_ASSERT_EXISTS)
+        msg += _packBool(allowDirty)
+        msg += _packString(key)
+        return msg
 
     @staticmethod
     def encodeGet(key , allowDirty):
@@ -617,22 +636,20 @@ class ArakoonProtocol :
         
     @staticmethod
     def _evaluateErrorCode( con ):
-
         errorCode = _recvInt ( con )
-        
         # """ ArakoonException( "Received invalid response from the server" )"""
         if errorCode == ARA_ERR_SUCCESS :
             return
         else :
             errorMsg = _recvString ( con )
-
         if errorCode == ARA_ERR_NOT_FOUND:
             raise ArakoonNotFound(errorMsg)
-
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
         if errorCode == ARA_ERR_ASSERTION_FAILED:
-            raise ArakoonAssertionFailed(errorMsg)    
+            raise ArakoonAssertionFailed(errorMsg)
+        if errorCode == ARA_ERR_ASSERTEXISTS_FAILED:
+            raise ArakoonAssertExistsFailed(errorMsg)    
         if errorCode == ARA_ERR_RANGE_ERROR:
             raise NurseryRangeError(errorMsg) 
         if errorCode == ARA_ERR_GOING_DOWN:

@@ -36,6 +36,7 @@ module Update = struct
     | SetRoutingDelta of (string * string * string)
     | Nop
     | Assert of string * string option
+    | Assert_exists of string
     | UserFunction of string * string option
     | AdminSet of string * string option
     | SyncedSequence of t list 
@@ -80,6 +81,7 @@ module Update = struct
       | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
       | Nop -> "NOP"
       | Assert (key,vo)        -> Printf.sprintf "Assert          ;%S;%i" key (_size_of vo)
+      | Assert_exists (key)    -> Printf.sprintf "Assert_exists   ;%S"    key
       | UserFunction (name,param) ->
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
@@ -146,7 +148,9 @@ module Update = struct
       | DeletePrefix prefix ->
         Llio.int_to b 14;
         Llio.string_to b prefix
-
+      | Assert_exists (k) ->
+	    Llio.int_to b 15;
+	    Llio.string_to b k
 
 
   let rec from_buffer b pos =
@@ -213,6 +217,9 @@ module Update = struct
       | 14 ->
         let p, pos2 = Llio.string_from b pos1 in
         DeletePrefix p, pos2
+      | 15 ->
+	    let k, pos2 = Llio.string_from b pos1 in
+	    Assert_exists (k) , pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function

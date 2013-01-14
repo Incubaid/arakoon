@@ -278,6 +278,10 @@ object(self: #backend)
     let update = Update.Assert(key,vo) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
+ method aSSert_exists ~allow_dirty (key:string)=
+    log_o self "aSSert %S ..." key >>= fun () ->
+    let update = Update.Assert_exists(key) in
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method test_and_set key expected (wanted:string option) =
     let start = Unix.gettimeofday() in
