@@ -88,7 +88,7 @@ node_client_base_port = 7080
 node_msg_base_port = 10000
 daemon_name = "arakoon"
 binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoon"
-lease_duration = 4.0 # was 2.0 s but is not enough on our virtualized test env.
+lease_duration = 8.0 # was 2.0 s but is not enough on our virtualized test env.
 tlog_entries_per_tlog = 1000
 
 nursery_nodes = {
