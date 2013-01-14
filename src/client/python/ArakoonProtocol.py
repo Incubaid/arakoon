@@ -530,7 +530,6 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeAssertExists(key, allowDirty):
-        print "encodeAE"
         msg = _packInt(ARA_CMD_ASSERT_EXISTS)
         msg += _packBool(allowDirty)
         msg += _packString(key)
