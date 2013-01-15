@@ -106,6 +106,13 @@ let test_set_get () =
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test
 
+let test_assert_exists () =
+  let real_test (client:Arakoon_client.client) =
+    client # set "key" "value" >>= fun () ->
+    client # aSSert_exists "key" >>= fun () ->
+    Lwt.return ()
+  in __client_server_wrapper__ _CLUSTER real_test
+
 let test_confirm () =
   let real_test (client:Arakoon_client.client) = 
     let key = "key" and value = "value" in
@@ -312,6 +319,7 @@ let suite = "remote_client" >::: [
   "ping"      >:: test_ping;
   "wrong_cluster" >:: test_wrong_cluster;
   "set"        >:: test_set_get;
+  "assert_exists" >:: test_assert_exists;
   "delete"     >:: test_delete;
   "range"      >:: test_range;
   "prefix_keys"  >:: test_prefix_keys;
