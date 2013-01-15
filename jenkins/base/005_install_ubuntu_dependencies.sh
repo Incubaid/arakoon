@@ -6,4 +6,4 @@ for PKG in texlive texlive-latex-extra darcs git automake fakeroot python-epydoc
     sudo aptitude install -yVDq $PKG
 done
 
-gem1.9.1 install --user-install github-upload
+#gem1.9.1 install --user-install github-upload

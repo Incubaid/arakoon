@@ -115,10 +115,10 @@ def maybe_install_packages():
     sh(['mkdir', '-p', OPAM_ROOT])
     opam_env = env.copy()
     def opam(x):
-        sh(['opam','--verbose', '--yes', '--root', OPAM_ROOT] + x, env = opam_env)
+        sh(['opam'] + x + ['-v', '-y', '-r', OPAM_ROOT], env = opam_env)
 
     opam(['init'])
-    opam(['remote', '-add', 'devel', '-kind', 'git', INCUBAID_DEVEL])
+    opam(['remote', 'add', 'devel', '-k', 'git', INCUBAID_DEVEL])
     opam(['update'])
     opam(['install', 'ocamlfind','baardskeerder'])
     
@@ -129,7 +129,7 @@ def do_it():
     maybe_install_packages()
 
     print 'now do the following to update your environment:'
-    print 'eval `%s/bin/opam --root %s config -env`' % (OPAM_HOME, OPAM_ROOT)
+    print 'eval `%s/bin/opam config env -r %s`' % (OPAM_HOME, OPAM_ROOT)
 
 
 
