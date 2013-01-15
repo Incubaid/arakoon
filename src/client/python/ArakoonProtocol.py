@@ -229,6 +229,8 @@ ARA_CMD_GET_NURSERY_CFG          = 0x00000020 | ARA_CMD_MAG
 ARA_CMD_REV_RAN_E                = 0x00000023 | ARA_CMD_MAG
 ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
+ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
+
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -241,6 +243,7 @@ ARA_ERR_NOT_FOUND = 5
 # wrong cluster
 ARA_ERR_WRONG_CLUSTER = 6
 ARA_ERR_ASSERTION_FAILED = 7
+ARA_ERR_ASSERT_EXISTS_FAILED = 17
 ARA_ERR_RANGE_ERROR = 9
 
 NAMED_FIELD_TYPE_INT    = 1
@@ -562,6 +565,15 @@ class Assert(Update):
         fob.write(_packString(self._key))
         fob.write(_packStringOption(self._vo))
 
+class Assert_exists(Update):
+    def __init__(self, key):
+        self._key = key
+
+    def write(self, fob):
+        fob.write(_packInt(15))
+        fob.write(_packString(self._key))
+
+
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -579,6 +591,9 @@ class Sequence(Update):
 
     def addAssert(self, key,vo):
         self._updates.append(Assert(key,vo))
+
+    def addAssert_exists(self, key):
+        self._updates.append(Assert_exists(key))
 
     def write(self, fob):
         fob.write( _packInt(5))
@@ -615,6 +630,12 @@ class ArakoonProtocol :
         msg += _vpackStringOption(vo)
         return msg
 
+    @staticmethod
+    def encodeAssert_exists(key,  allowDirty):
+        msg = _packInt(ARA_CMD_ASSERT_EXISTS)
+        msg += _vpackBool(allowDirty)
+        msg += _vpackString(key)
+        return msg
 
     @staticmethod
     def encodeGet(key , allowDirty):
@@ -733,7 +754,9 @@ class ArakoonProtocol :
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
         if errorCode == ARA_ERR_ASSERTION_FAILED:
-            raise ArakoonAssertionFailed(errorMsg)    
+            raise ArakoonAssertionFailed(errorMsg)
+        if errorCode == ARA_ERR_ASSERT_EXISTS_FAILED:
+            raise ArakoonAssertExistsFailed(errorMsg)
         if errorCode == ARA_ERR_RANGE_ERROR:
             raise NurseryRangeError(errorMsg) 
            

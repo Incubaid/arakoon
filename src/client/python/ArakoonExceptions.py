@@ -75,6 +75,10 @@ class ArakoonAssertionFailed(ArakoonException):
     def __init__(self,msg):
         ArakoonException.__init__(self,msg)
 
+class ArakoonAssertExistsFailed(ArakoonException):    
+    _msg = "Assert_exists did not yield expected result"
+    def __init__(self,msg):
+        ArakoonException.__init__(self,msg)
 
 class ArakoonSocketException ( ArakoonException ):
     pass

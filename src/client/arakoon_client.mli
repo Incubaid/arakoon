@@ -9,6 +9,7 @@ type change =
   | Set of key * value
   | Delete of key
   | Assert of (key * value option)
+  | Assert_exists of (key)
   | TestAndSet of key * value option * value option
   | Sequence of change list
 
@@ -62,6 +63,12 @@ method rev_range_entries:
   method aSSert: ?allow_dirty:bool -> key -> value option -> unit Lwt.t
   (**
      [aSSert key vo] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if
+     the value associated with the key is not what was expected.
+  *)
+
+  method aSSert_exists: ?allow_dirty:bool -> key -> unit Lwt.t
+  (**
+     [aSSert_exists key] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if
      the value associated with the key is not what was expected.
   *)
 

@@ -286,6 +286,22 @@ class ArakoonClient :
         return result
 
     @retryDuringMasterReelection
+    def aSSert_exists(self, key):
+        """
+        verifies the value for key exists
+        @type key: string
+        @param key: the key to be verified
+        @rtype: void
+        """
+        msg = ArakoonProtocol.encodeAssert_exists(key, self._allowDirty)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster (msg)
+        result = conn.decodeVoidResult()
+        return result
+
+    @retryDuringMasterReelection
     @SignatureValidator( 'sequence' )
     def sequence(self, seq, sync = False):
         """
