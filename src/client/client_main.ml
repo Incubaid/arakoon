@@ -124,14 +124,12 @@ let expect_progress_possible cfg_name =
   run t
 
 
-let statistics cfg_name =
-  let f client =
-    client # statistics () >>= fun statistics ->
-    let rep = Statistics.string_of statistics in
-    Lwt_io.printl rep
-  in
-  let t () = with_master_client cfg_name f
-  in run t
+let statistics cfg_name = 
+  let f client = 
+    client # statistics ()  >>= fun stats ->
+    Lwt.return (Statistics.string_of stats)
+  in    
+  with_master_client cfg_name f
 
 let who_master cfg_name () =
   let cluster_cfg = read_config cfg_name in
