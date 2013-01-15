@@ -118,6 +118,15 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
               in
               Lwt.return r'
             end
+          | Core.ASSERT_EXISTS (k) ->
+            begin
+              BS.get tx (pref_key k) >>= fun r ->              
+              let (r':tx_result) = match r with
+                | OK v' -> OK None
+                | NOK k -> NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
+              in
+              Lwt.return r'
+            end
 
           | Core.SEQUENCE s -> 
             Lwt_list.fold_left_s 

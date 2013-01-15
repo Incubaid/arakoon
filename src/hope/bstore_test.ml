@@ -34,7 +34,9 @@ let t_log () =
     let u = SET("x","x") in
     BStore.log t true u >>= fun _ ->
     let u2 = SEQUENCE [ASSERT("x",Some "x")] in
+    let u3 = SEQUENCE [ASSERT_EXISTS("x")] in
     BStore.log t true u2 >>= fun _ ->
+    BStore.log t true u3 >>= fun _ ->
     Lwt.return ()
   in
   let main_t () = lwt_wrap setup () test teardown in

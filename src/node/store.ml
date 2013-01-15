@@ -78,7 +78,8 @@ class type store = object
   method relocate: string -> unit Lwt.t
 
   method aSSert: ?_pf: string -> string -> string option -> bool Lwt.t
-
+  method aSSert_exists: ?_pf: string -> string           -> bool Lwt.t
+  
   method user_function : string -> string option -> (string option) Lwt.t
   method get_interval: unit -> Interval.t Lwt.t
   method set_interval: Interval.t -> unit Lwt.t
@@ -229,6 +230,16 @@ let _insert_update (store:store) update =
 	  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	  and msg = Printexc.to_string e
 	  in Lwt.return (Update_fail(rc, msg)))
+    | Update.Assert_exists(k) ->
+        Lwt.catch
+          (fun () -> store # aSSert_exists k >>= function
+            | true -> Lwt.return (Ok None)
+            | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+          )
+          (fun e ->
+            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+            and msg = Printexc.to_string e
+            in Lwt.return (Update_fail(rc, msg)))
     | Update.AdminSet(k,vo) ->
       Lwt.catch(
         fun () ->

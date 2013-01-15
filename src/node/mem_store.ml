@@ -127,6 +127,10 @@ object (self: #store)
 	  end
     in Lwt.return r
 
+  method aSSert_exists ?(_pf=__prefix) key =
+    let r = (StringMap.mem key kv)
+    in Lwt.return r
+
   method who_master () =
     Lwt.return master
 
@@ -185,6 +189,15 @@ object (self: #store)
 		  Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, k) in
 		Lwt.fail ex
 	  end
+        | Update.Assert_exists(k) ->
+          begin
+            self # aSSert_exists k >>= function
+              | true -> Lwt.return ()
+              | false ->
+                let ex =
+                  Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, k) in
+                Lwt.fail ex
+          end
 	| _ -> Llio.lwt_failfmt "Sequence does not support %s" u_s
     in
     let old_kv = kv in
