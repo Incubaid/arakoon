@@ -13,6 +13,7 @@ let update_serialization () =
     SET("key_set", "value_set");
     DELETE "key_delete";
     ASSERT ("key_assert", None);
+    ASSERT_EXISTS ("key_assert_exists");
     ADMIN_SET ("key_admin", Some "admin_value");
     SEQUENCE [SET ("k0","v0)");
               SET ("k1","v1");
