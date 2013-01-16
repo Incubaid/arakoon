@@ -1015,6 +1015,7 @@ class ArakoonCluster:
         def helper(config):
             home = config['home']
             log_dir = config['log_dir']
+            real_tlog_dir = config.get('tlog_dir', home)
 
             files_in_dir = lambda dir_: itertools.ifilter(os.path.isfile,
                 (os.path.join(dir_, name) for name in os.listdir(dir_)))
@@ -1030,7 +1031,7 @@ class ArakoonCluster:
                 for file_ in files)
 
             return {
-                'tlog': sum_size(tlog_files(files_in_dir(home))),
+                'tlog': sum_size(tlog_files(files_in_dir(real_tlog_dir))),
                 'db': sum_size(db_files(files_in_dir(home))),
                 'log': sum_size(log_files(files_in_dir(log_dir)))
             }
