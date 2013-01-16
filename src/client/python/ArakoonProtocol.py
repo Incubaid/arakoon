@@ -325,13 +325,13 @@ def _readExactNBytes( con, n ):
             bytesRemaining = bytesRemaining - newChunkSize
 
         else :
+            msg = str(con._socketInfo)
             try: 
                 con._socket.close()
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
             con._connected = False
-
-            raise ArakoonSockNotReadable()
+            raise ArakoonSockNotReadable(msg = msg)
 
     return tmpResult
 
@@ -530,7 +530,6 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeAssertExists(key, allowDirty):
-        print "encodeAE"
         msg = _packInt(ARA_CMD_ASSERT_EXISTS)
         msg += _packBool(allowDirty)
         msg += _packString(key)

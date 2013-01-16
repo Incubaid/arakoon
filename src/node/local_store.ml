@@ -360,6 +360,7 @@ object(self: #store)
        "Invalid operation on quiesced store")
 
   method private _wrap_exception name (f:unit -> 'a Lwt.t) = 
+    (* this should not be a method as it hinders polymorphism *)
     Lwt.catch
       f 
       (function
@@ -367,7 +368,7 @@ object(self: #store)
           begin
             Lwt_log.debug_f "%s Failure %s: => FOOBAR? %b" name s _closed >>= fun () ->
             if _closed 
-            then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+            then Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
             else Lwt.fail Server.FOOBAR
           end
 	    | exn -> Lwt.fail exn)    
@@ -444,7 +445,14 @@ object(self: #store)
         let bdb = Camltc.Hotc.get_bdb db in
         Lwt.return (B.get bdb (_pf ^ key)))
       (function
-	| Failure _ -> Lwt.fail CorruptStore
+	| Failure msg -> 
+        Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
+        if _closed 
+        then
+          Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN, 
+                                       Printf.sprintf "GET %S database already closed" key))
+        else
+          Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn)
 
   method multi_get ?(_pf = __prefix) keys =
@@ -569,9 +577,9 @@ object(self: #store)
   method consensus_i () = _store_i
 
   method close () =
+    _closed <- true;
     Camltc.Hotc.close db >>= fun () ->
     Lwt_log.info_f "local_store %S :: closed  () " db_location >>= fun () ->
-    _closed <- true;
     Lwt.return ()
 
   method get_location () = Camltc.Hotc.filename db

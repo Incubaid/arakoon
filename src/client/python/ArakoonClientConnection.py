@@ -34,6 +34,7 @@ class ArakoonClientConnection :
         self._index = 0
         self._connected = False
         self._socket = None
+        self._socketInfo = None
         self._reconnect()
 
     def _reconnect(self):
@@ -42,6 +43,7 @@ class ArakoonClientConnection :
             ip = self._nodeIPs[self._index]
             self._socket = socket.create_connection((ip , self._nodePort),
                                                     ArakoonClientConfig.getConnectionTimeout())
+            self._socketInfo = (ip, self._nodePort)
             sendPrologue(self._socket, self._clusterId)
             self._connected = True
         except Exception, ex :
@@ -74,7 +76,7 @@ class ArakoonClientConnection :
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket to %s:%s (%s: '%s')" , 
                     self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
-
+            self._socketInfo = None
             self._connected = False
 
     def decodeStringResult(self) :

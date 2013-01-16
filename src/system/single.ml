@@ -304,6 +304,50 @@ let _assert3 (client:client) =
   OUnit.assert_equal v2 "REALLY";
   Lwt.return ()
 
+let _assert_exists1 (client: client) =
+  Lwt_log.info "_assert_exists1" >>= fun () ->
+  client # set "my_value_exists" "my_value_exists" >>= fun () ->
+  client # aSSert_exists "my_value_exists" >>= fun () ->
+  Lwt.return ()
+
+let _assert_exists2 (client: client) = 
+  Lwt_log.info "_assert_exists2" >>= fun () ->
+  client # set "x_exists" "x_exists" >>= fun () ->
+  should_fail 
+    (fun () -> client # aSSert_exists "x_no_exists")
+    "PROBLEM:_assert_exists2: yielded unit"
+    "_assert_exists2: ok, this aSSert should indeed fail"
+
+let _assert_exists3 (client:client) = 
+  Lwt_log.info "_assert_exists3" >>= fun () ->
+  let k = "_assert_exists3" in
+  client # set k k >>= fun () ->
+  Lwt_log.info "_assert_exists3: value set" >>= fun () ->
+  let updates = [
+    Arakoon_client.Assert_exists(k);
+    Arakoon_client.Set(k, "REALLY")
+  ]
+  in
+  client # sequence updates >>= fun () ->
+  client # get k >>= fun v2 ->
+  OUnit.assert_equal v2 "REALLY";
+  Lwt.catch
+    (fun () ->
+      client # sequence updates >>= fun () ->
+      let u2 = [
+	Arakoon_client.Assert_exists(k);
+	Arakoon_client.Set(k,"NO WAY")
+      ]
+      in
+      client # sequence u2)
+  (function
+    | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
+    | ex -> Lwt.fail ex
+  )
+  >>= fun () ->
+  client # get k >>= fun  v3 ->
+  OUnit.assert_equal v2 "REALLY";
+  Lwt.return ()
 
 let _range_1 (client: client) =
   Lwt_log.info_f "_range_1" >>= fun () ->
@@ -499,6 +543,11 @@ let assert2 tpl = _with_master tpl _assert2
 
 let assert3 tpl = _with_master tpl _assert3
 
+let assert_exists1 tpl = _with_master tpl _assert_exists1
+
+let assert_exists2 tpl = _with_master tpl _assert_exists2
+
+let assert_exists3 tpl = _with_master tpl _assert_exists3
 
 let setup master base () =
   let lease_period = 10 in
@@ -524,7 +573,10 @@ let make_suite base name w =
       "trivial_master5" >:: w  (base +700) trivial_master5; 
       "assert1" >:: w (base + 800) assert1; 
       "assert2" >:: w (base + 900) assert2;
-      "assert3" >:: w (base + 1000) assert3; 
+      "assert3" >:: w (base + 1000) assert3;
+      "assert_exists1" >:: w (base + 800) assert_exists1; 
+      "assert_exists2" >:: w (base + 900) assert_exists2;
+      "assert_exists3" >:: w (base + 1000) assert_exists3; 
     ]
 
 let force_master =

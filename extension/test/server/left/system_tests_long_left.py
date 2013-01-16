@@ -132,7 +132,7 @@ def test_catchup_exercises():
             raise Exception ("Node did not catchup in a timely fashion")
 
     n = 20000
-    w = 40 # 500/s should be more than enough even for dss driven vmachines
+    w = 80 # 250/s should be more than enough even for dss driven vmachines
     for i in range(5):
         do_one(n,w)
         n = n * 2
