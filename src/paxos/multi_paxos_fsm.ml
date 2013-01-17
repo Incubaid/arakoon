@@ -863,10 +863,16 @@ let _execute_effects constants e =
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
     | ESend (msg, target) -> constants.send msg constants.me target
-    | EStartLeaseExpiration (v,n) ->
+    | EStartLeaseExpiration (v,n, slave) ->
         begin
           if Value.is_master_set v
-          then start_lease_expiration_thread constants n (constants.lease_expiration / 2) 
+          then 
+            let period = 
+              if slave 
+              then constants.lease_expiration 
+              else constants.lease_expiration / 2 
+            in
+            start_lease_expiration_thread constants n period
           else Lwt.return ()
         end 
     | EStartElectionTimeout n -> start_election_timeout constants n

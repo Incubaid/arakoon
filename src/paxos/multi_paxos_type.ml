@@ -91,7 +91,7 @@ type effect =
   | EMCast  of Mp_msg.MPMessage.t
   | ESend of Mp_msg.MPMessage.t * Messaging.id
   | EAccept of (Value.t * n * i)  
-  | EStartLeaseExpiration of (Value.t * n )
+  | EStartLeaseExpiration of (Value.t * n * bool (* is slave *))
   | EStartElectionTimeout of n
   | EConsensus of (master_option * Value.t * n * i)
   | EGen of (unit -> unit Lwt.t)
