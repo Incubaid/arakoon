@@ -151,7 +151,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 let master_dictate constants (mo,v,n,i) () =
   let accept_e = EAccept (v,n,i) in
   
-  let start_e = EStartLeaseExpiration (v,n) in
+  let start_e = EStartLeaseExpiration (v,n,false) in
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in

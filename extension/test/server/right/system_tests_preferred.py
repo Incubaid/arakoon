@@ -38,13 +38,22 @@ def test_prefered_master():
     client = Common.get_client()
     master = client.whoMaster()
     NT.assert_equals(pm, master)
+
+    logging.info("master indeed is `%s`", pm)
+    client.dropConnections()
+    del client
     cluster.stopOne(pm)
-    time.sleep(8.0 * Common.lease_duration)
+    delay = 8.0 * Common.lease_duration
+
+    logging.info("stopped master, waiting for things to settle (%fs)", delay)
+    time.sleep(delay)
     client = Common.get_client()
     master2 = client.whoMaster()
     logging.info("master2 = %s",master2)
     NT.assert_equals(True, master2 != pm)
+    logging.info("node %s took over, now restarting preferred master", master2)
     cluster.startOne(pm)
+    logging.info("waiting for things to settle")
     time.sleep(4.0* Common.lease_duration)
     client = Common.get_client()
     master3 = client.whoMaster()

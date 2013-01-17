@@ -29,7 +29,7 @@ open Update
 let time_for_elections constants n' maybe_previous =
   begin
     if constants.store # quiesced () 
-    then false
+    then false, "quiesced"
     else
       begin
 	    let origine,(am,al) = 
@@ -44,7 +44,7 @@ let time_for_elections constants n' maybe_previous =
 		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () -> 
         *)
 	    let diff = abs (Int64.to_int (Int64.sub now al)) in
-	    diff >= constants.lease_expiration
+	    diff >= constants.lease_expiration, Printf.sprintf "diff=%i" diff
       end
   end
 
@@ -61,7 +61,6 @@ let slave_fake_prepare constants (current_i,current_n) () =
    to receive accepts *)
 let slave_steady_state constants state event =
   let (n,i,previous) = state in
-  let me = constants.me in
   let store = constants.store in
   match event with
     | FromNode (msg,source) ->
@@ -98,7 +97,7 @@ let slave_steady_state constants state event =
                   end 
                   >>= fun _ ->
                   let accept_e = EAccept (v,n,i) in
-                  let start_e = EStartLeaseExpiration(v,n) in
+                  let start_e = EStartLeaseExpiration(v,n, true) in
                   let send_e = ESend(reply, source) in
                   let log_e = ELog (fun () -> 
                     Printf.sprintf "steady_state :: replying with %S" (string_of reply)
@@ -159,38 +158,42 @@ let slave_steady_state constants state event =
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
     | LeaseExpired n' -> 
-      let ns  = (Sn.string_of n) 
-      and ns' = (Sn.string_of n') in
-      if (not (is_election constants || constants.is_learner)) || n' < n
-      then 
-	    begin
-          let log_e = ELog (fun () ->
-	        Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
-          in
-	      Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
-	    end
-      else
-	    begin 
-	      let elections_needed = time_for_elections constants n' (Some (previous,Sn.pred i)) in
-	      if elections_needed then
-	        begin
-	          let new_n = update_n constants n in
-              let el_i = Store.get_succ_store_i constants.store in
-              let el_up =
-		        begin
-		          if el_i = (Sn.pred i) 
-		          then Some previous
-		          else None
-		        end
-              in
-              let log_e = ELog (fun () -> "ELECTIONS NEEDED") in
-	          Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
-	        end
-	      else
-	        begin
-	          Fsm.return (Slave_steady_state(n,i,previous))
-	        end
-	    end
+        let ns  = (Sn.string_of n) 
+        and ns' = (Sn.string_of n') in
+        if (not (is_election constants || constants.is_learner)) || n' < n
+        then 
+	      begin
+            let log_e = ELog (fun () ->
+	          Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
+            in
+	        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
+	      end
+        else
+	      begin 
+	        let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
+	        if elections_needed then
+	          begin
+	            let new_n = update_n constants n in
+                let el_i = Store.get_succ_store_i constants.store in
+                let el_up =
+		          begin
+		            if el_i = (Sn.pred i) 
+		            then Some previous
+		            else None
+		          end
+                in
+                let log_e = ELog (fun () -> "ELECTIONS NEEDED") in
+	            Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
+	          end
+	        else
+	          begin
+                let log_e = ELog(fun () -> 
+                  Printf.sprintf 
+                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg) 
+                in
+	            Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
+	          end
+	      end
     | FromClient ufs -> 
         begin
           
@@ -223,7 +226,6 @@ let slave_steady_state constants state event =
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
-  let me = constants.me in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -351,7 +353,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
         Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
         end
       else
-        let elections_needed = time_for_elections constants n' maybe_previous in
+        let elections_needed,_ = time_for_elections constants n' maybe_previous in
         if elections_needed then
           begin
             let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
