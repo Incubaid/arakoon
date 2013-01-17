@@ -66,6 +66,7 @@ def test_concurrent_collapse_fails():
     """ assert only one collapse goes through at any time (eta : 450s) """
     zero = C.node_names[0]
     n = 298765
+    logging.info("going to do %i sets to fill tlogs", n)
     C.iterate_n_times(n, C.simple_set)
     logging.info("Did %i sets, now going into collapse scenario", n)
     
@@ -88,7 +89,7 @@ def test_concurrent_collapse_fails():
             if rc == 255:
                 self.exception_received = True
 
-    s = SecondCollapseThread(5)
+    s = SecondCollapseThread(8)
     assert not s.exception_received
        
     logging.info('Launching second collapser thread')
