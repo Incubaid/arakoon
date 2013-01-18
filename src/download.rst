@@ -56,5 +56,5 @@ Download Archives
 =================
 Older releases of Arakoon can be found on the `Archives page`_.
 
-.. _Archives page: http://...
+.. _Archives page: archives.html
 

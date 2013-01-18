@@ -1,6 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://arakoon.org/archives.html</loc>
+    <lastmod>??????:??</lastmod>
+  </url>
+  <url>
     <loc>http://arakoon.org/bug_reporting_guidelines.html</loc>
     <lastmod>2011-12-22T12:12:37+01:00</lastmod>
   </url>
