@@ -135,17 +135,20 @@ def create_dirs(base, name):
         os.makedirs(target, 0755)
 
 def git_modification_date(path):
-    out = subprocess.check_output(['git', 'log', '-n1', '--date=iso', path])
+    try:
+        out = subprocess.check_output(['git', 'log', '-n1', '--date=iso', path])
 
-    date = DATE_RE.findall(out)[0] \
-            .replace(' +', '+') \
-            .replace(' ', 'T')
+        date = DATE_RE.findall(out)[0] \
+                 .replace(' +', '+') \
+                 .replace(' ', 'T')
 
-    tz = date[-4:]
-    if tz.isdigit():
-        date = '%s%s:%s' % (date[:-4], tz[:2], tz[2:])
+        tz = date[-4:]
+        if tz.isdigit():
+            date = '%s%s:%s' % (date[:-4], tz[:2], tz[2:])
 
-    return date
+        return date
+    except:
+        return "??????:??"
 
 def generate_sitemap(pages):
     ns = '{%s}' % SITEMAP_NS
