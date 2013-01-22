@@ -10,7 +10,7 @@ open Mp
 open Statistics
 open Client_cfg
 open Modules
-module BSC = C.ProtocolHandler(BStore)
+module BSC = C.ProtocolHandler(BStore)(BADispatcher)
 
 (*
 module MC = struct

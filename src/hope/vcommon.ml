@@ -1,8 +1,11 @@
 open Lwt
 open Modules
 open Common
+open Mp
 
-module VCommon(S:Core.STORE) = struct
+module VCommon(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
+  module D = Mp_driver.MPDriver(A)
+
   let __routing_key = "routing"
   let __interval_key = "interval"
   let __nursery_cluster_prefix = "nursery_cluster."
@@ -40,7 +43,7 @@ module VCommon(S:Core.STORE) = struct
 
   
   let do_unit_update driver q =
-    DRIVER.push_cli_req driver q >>= function
+    D.push_cli_req driver q >>= function
       | Core.VOID -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
       | Core.VALUE v -> failwith "Expected unit, not value"

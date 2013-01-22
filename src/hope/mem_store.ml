@@ -2,8 +2,12 @@ open Core
 open Lwt
 
 module MemStore = (struct
-  type t = { store: (k, v) Hashtbl.t; mutable meta: string option; read_only:bool}
-  
+  type t = { 
+    store: (k, v) Hashtbl.t; 
+    mutable meta: string option; 
+    read_only:bool
+  }
+
   let rec log t i u = 
     begin
       match u with
@@ -48,5 +52,6 @@ module MemStore = (struct
 
   let raw_dump t oc = Lwtc.failfmt "todo: MemStore.raw_dump"
   let get_key_count t = Lwtc.failfmt "todo: MemStore.get_key_count"
+
 end: STORE)
 

@@ -1,11 +1,13 @@
 open Lwt
-open Modules
+
 open Statistics
 open Vcommon
 open Common
+open Mp
 
-module V1(S:Core.STORE) = struct
-  module V = VCommon(S)
+module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
+  module D = Mp_driver.MPDriver(A)
+  module V = VCommon(S)(A)
 
   let _read_command (ic,oc) =
     Llio.input_int32 ic >>= fun masked ->
@@ -67,7 +69,7 @@ module V1(S:Core.STORE) = struct
   let _get_meta store = S.get_meta store 
     
   let __do_unit_update driver q =
-    DRIVER.push_cli_req driver q >>= fun a ->
+    D.push_cli_req driver q >>= fun a ->
     match a with 
       | Core.VOID              -> Lwt.return ()
       | Core.FAILURE (rc, msg) -> Lwt.fail (Common.XException(rc,msg))
@@ -132,7 +134,7 @@ module V1(S:Core.STORE) = struct
     Llio.input_string ic >>= fun key ->
     let _inner () = 
       let t0 = Unix.gettimeofday() in
-      DRIVER.push_cli_req driver (Core.DELETE key) >>= fun a ->
+      D.push_cli_req driver (Core.DELETE key) >>= fun a ->
       Statistics.new_delete stats t0;
       _unit_or_f oc a
     in
@@ -142,7 +144,7 @@ module V1(S:Core.STORE) = struct
     Llio.input_string ic >>= fun prefix ->
     let _inner () =
       let t0 = Unix.gettimeofday () in
-      DRIVER.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
+      D.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
       (* Statistics.new_delete_prefix stats t0; *)
       match a with
         | Core.VALUE v -> 
@@ -267,7 +269,7 @@ module V1(S:Core.STORE) = struct
         | Core.SEQUENCE _ -> probably_sequence
         | _ -> raise (Failure "should be sequence")
       in
-      DRIVER.push_cli_req driver sequence >>= fun a ->
+      D.push_cli_req driver sequence >>= fun a ->
       Statistics.new_sequence stats t0;
       _unit_or_f oc a
     in

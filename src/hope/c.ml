@@ -1,19 +1,16 @@
 open Lwt
-open Modules
 open Statistics
 open Routing
 open Interval
 open Client_cfg
 open Vcommon
+open Mp
 
-
-
-
-module ProtocolHandler (S:Core.STORE) = struct      
+module ProtocolHandler (S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct      
   open Baardskeerder
   module V   = VCommon(S)
-  module One = V1.V1(S)
-  module Two = V2.V2(S)
+  module One = V1.V1(S)(A)
+  module Two = V2.V2(S)(A)
 
   let prologue (ic,oc) = 
     let check magic = 

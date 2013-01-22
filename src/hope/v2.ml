@@ -2,13 +2,14 @@ open Statistics
 open Lwt
 open Baardskeerder (* for Pack *)
 open Common
-open Modules
 open Routing
 open Interval
 open Client_cfg
+open Mp
 
-module V2(S:Core.STORE) = struct
-  module V = Vcommon.VCommon(S)
+module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
+  module V = Vcommon.VCommon(S)(A)
+  module D = Mp_driver.MPDriver(A)
 
   let my_read_command (ic,oc) = 
     let s = 8 in
@@ -118,7 +119,7 @@ let _set driver k v =
 
   let _user_function driver name po oc = 
     let q = Core.USER_FUNCTION(name, po) in
-    DRIVER.push_cli_req driver q >>= fun a ->
+    D.push_cli_req driver q >>= fun a ->
     let out = Pack.make_output 64 in
     begin
       match a with
@@ -169,7 +170,7 @@ let _set driver k v =
     Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
     let _inner () = 
       let t0 = Unix.gettimeofday () in
-      DRIVER.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
+      D.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
       let out = Pack.make_output 64 in
       begin
         match a with
@@ -336,7 +337,7 @@ let _set driver k v =
           Lwtc.log "DELETE %S" key >>= fun () ->
           let do_delete () =
             let t0 = Unix.gettimeofday() in
-            DRIVER.push_cli_req driver (Core.DELETE key) >>= fun a ->
+            D.push_cli_req driver (Core.DELETE key) >>= fun a ->
             Statistics.new_delete stats t0;
             _unit_or_f oc a
           in 
@@ -363,7 +364,7 @@ let _set driver k v =
               | Core.SEQUENCE _ -> probably_sequence
               | _ -> raise (Failure "should be sequence")
             in
-            DRIVER.push_cli_req driver sequence >>= fun a ->
+            D.push_cli_req driver sequence >>= fun a ->
             Statistics.new_sequence stats t0;
             _unit_or_f oc a
           in _do_write_op rest oc me store inner

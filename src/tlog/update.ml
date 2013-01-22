@@ -89,41 +89,41 @@ module Update = struct
     in
     match t with
       | Set(k,v) ->
-	Llio.int_to    b 1;
-	Llio.string_to b k;
-	Llio.string_to b v
+          Llio.int_to    b 1;
+	      Llio.string_to b k;
+	      Llio.string_to b v
       | Delete k ->
-	Llio.int_to    b 2;
-	Llio.string_to b k
+          Llio.int_to    b 2;
+          Llio.string_to b k
       | TestAndSet (k,e,w) ->
-	Llio.int_to    b 3;
-	Llio.string_to b k;
-	Llio.string_option_to b e;
-	Llio.string_option_to b w
+	      Llio.int_to    b 3;
+	      Llio.string_to b k;
+          Llio.string_option_to b e;
+          Llio.string_option_to b w
       | MasterSet (m,i) ->
-	Llio.int_to    b 4;
-	Llio.string_to b m;
-	Llio.int64_to b i
+	      Llio.int_to    b 4;
+	      Llio.string_to b m;
+	      Llio.int64_to b i
       | Sequence us ->
-	Llio.int_to b 5;
+	      Llio.int_to b 5;
         _us_to b us
       | Nop -> 
-	Llio.int_to b 6
+	      Llio.int_to b 6
       | UserFunction (name, param) ->
-	Llio.int_to b 7;
-	Llio.string_to b name;
-	Llio.string_option_to b param
+	      Llio.int_to b 7;
+	      Llio.string_to b name;
+	      Llio.string_option_to b param
       | Assert (k,vo) ->
-	Llio.int_to b 8;
-	Llio.string_to b k;
-	Llio.string_option_to b vo
+	      Llio.int_to b 8;
+	      Llio.string_to b k;
+	      Llio.string_option_to b vo
       | AdminSet(k,vo) ->
-        Llio.int_to b 9;
-        Llio.string_to b k;
+          Llio.int_to b 9;
+          Llio.string_to b k;
         Llio.string_option_to b vo;
       | SetInterval interval ->
-	Llio.int_to b 10;
-	Interval.interval_to b interval
+	      Llio.int_to b 10;
+	      Interval.interval_to b interval
       | SetRouting r ->
 	Llio.int_to b 11;
 	Routing.routing_to b r
