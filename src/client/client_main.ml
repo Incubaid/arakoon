@@ -135,9 +135,5 @@ let statistics cfg_name =
 
 let who_master cfg_name () =
   let cluster_cfg = read_config cfg_name in
-  let t () = 
-    find_master cluster_cfg >>= fun master_name ->
-    Lwt_io.printl master_name
-  in
-  run t 
-
+  find_master cluster_cfg 
+    

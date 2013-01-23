@@ -228,6 +228,7 @@ type action_type =
   | OnlyTest
   | InitNursery
   | MigrateNursery
+  | WhoMaster
 
 
 let split_cfgs cfg myname =
@@ -388,6 +389,10 @@ let get cfg_name k =
       Lwt_io.printlf "%S" v
     )
 
+let who_master cfg_name = 
+  Client_main.who_master cfg_name () >>= fun m -> 
+  Lwt_io.printlf "%s" m
+
 let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
 
 let delete_prefix cfg_name prefix = 
@@ -475,6 +480,7 @@ let main () =
     ("--node-version",
      Arg.Tuple [set_action NodeVersion;Arg.Set_string node_id],
      "<node_id> : Returns version info for a remote node");
+    ("--who-master", set_action WhoMaster, "shows which node (if any) is the master of the cluster");
     ("--set", Arg.Tuple[set_action Set; Arg.Set_string key; Arg.Set_string value],
      "<key> <value> : arakoon[key]:= value"
     );
@@ -536,6 +542,7 @@ let main () =
       | NodeVersion -> Lwt_main.run (node_version !config_file !node_id)
       | InitNursery -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
       | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
+      | WhoMaster -> Lwt_main.run (who_master !config_file)
 
   end
 
