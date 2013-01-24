@@ -18,6 +18,11 @@ module UserDB = struct
     Lwtc.log "UserDB.get %S" k >>= fun () ->
     let k' = pref_key k in
     BS.get tx k'
+
+  let delete tx k = 
+    Lwtc.log "UserDB.delete %S" k >>= fun ()->
+    let k' = pref_key k in
+    BS.delete tx k'
     
 end 
 

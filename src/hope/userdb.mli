@@ -4,8 +4,9 @@ sig
   type tx = Core.BS.tx
   type k = string
   type v = string
-  val set : tx -> k -> v -> unit Lwt.t
-  val get : tx -> k -> (v, k) Baardskeerder.result Lwt.t
+  val set    : tx -> k -> v -> unit Lwt.t
+  val get    : tx -> k -> (v, k) Baardskeerder.result Lwt.t
+  val delete : tx -> k -> (unit, Baardskeerder.k) Baardskeerder.result Lwt.t
 end
 
 module Registry:
