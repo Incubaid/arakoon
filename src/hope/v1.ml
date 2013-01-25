@@ -143,7 +143,6 @@ module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
   let _do_delete_prefix (ic,oc) me store stats driver = 
     Llio.input_string ic >>= fun prefix ->
     let _inner () =
-      let t0 = Unix.gettimeofday () in
       D.push_cli_req driver (Core.DELETE_PREFIX prefix) >>= fun a ->
       (* Statistics.new_delete_prefix stats t0; *)
       match a with
