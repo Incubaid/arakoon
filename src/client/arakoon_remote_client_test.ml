@@ -91,9 +91,9 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     let ix = 0 in
     let node_cnt = 1 in
     let c = Mp.MULTI.build_mp_constants q me n_others lease_period ix node_cnt in
-    let n = Core.start_tick in
-    let p = Core.start_tick in
-    let a = Core.start_tick in
+    let n = Core.NTickUtils.start_tick in
+    let p = Core.ITickUtils.start_tick in
+    let a = Core.ITickUtils.start_tick in
     let u = None in
     Mp.MULTI.build_state c n p a u 
   in
@@ -105,7 +105,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     let protocol = MyHandler.protocol me stats driver store in
     let s0 = build_start_state () in
     let delayed_timeout = Mp.MULTI.A_START_TIMER (s0.Mp.MULTI.round, 
-                                                  Core.start_tick, 
+                                                  Core.MTickUtils.start_tick, 
                                                   lease_period) 
     in
     let pass_msg msging q target = 

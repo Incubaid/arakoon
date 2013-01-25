@@ -51,10 +51,11 @@ let sync ip port cluster_id (log : BStore.t) =
     let i0 =  
       match luo with
       | None -> 0L
-      | Some (Core.TICK ct,cuo) -> 
+      | Some (ct, cuo) ->
+        let ct' = Core.ITick.to_int64 ct in
         if cuo = None 
-        then Int64.succ ct
-        else ct
+        then Int64.succ ct'
+        else ct'
     in
     remote_iterate sa cluster_id i0 
       (fun a i acs -> 

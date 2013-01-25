@@ -20,52 +20,56 @@ module MULTI = struct
   type node_id = string
     
   type message = 
-    | M_PREPARE of node_id * tick * tick * tick
-    | M_PROMISE of node_id * tick * tick * tick * update option
-    | M_NACK of node_id * tick * tick * tick
-    | M_ACCEPT of node_id * tick * tick * tick * update
-    | M_ACCEPTED of node_id * tick * tick * tick
-    | M_LEASE_TIMEOUT of tick * tick
+    | M_PREPARE of node_id * NTick.t * MTick.t * ITick.t
+    | M_PROMISE of node_id * NTick.t * MTick.t * ITick.t * update option
+    | M_NACK of node_id * NTick.t * MTick.t * ITick.t
+    | M_ACCEPT of node_id * NTick.t * MTick.t * ITick.t * update
+    | M_ACCEPTED of node_id * NTick.t * MTick.t * ITick.t
+    | M_LEASE_TIMEOUT of NTick.t * MTick.t
     | M_CLIENT_REQUEST of request_awakener * update
-    | M_MASTERSET of node_id * tick * tick
+    | M_MASTERSET of node_id * NTick.t * MTick.t
 
-  let msg2s = function 
+  let msg2s =
+    let ntick2s = NTickUtils.tick2s
+    and mtick2s = MTickUtils.tick2s
+    and itick2s = ITickUtils.tick2s in
+    function 
     | M_PREPARE (src, n, m, i) -> 
-      Printf.sprintf "M_PREPARE (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
+      Printf.sprintf "M_PREPARE (src: %s) (n: %s) (m: %s) (i: %s)" src (ntick2s n) (mtick2s m) (itick2s i)
     | M_PROMISE (src, n, m, i, m_upd) ->
       Printf.sprintf "M_PROMISE (src: %s) (n: %s) (m: %s) (i: %s) (m_u: %s)"
-          src (tick2s n) (tick2s m) (tick2s i) (option2s m_upd)
+          src (ntick2s n) (mtick2s m) (itick2s i) (option2s m_upd)
     | M_NACK (src, n, m, i) -> 
-      Printf.sprintf "M_NACK (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
+      Printf.sprintf "M_NACK (src: %s) (n: %s) (m: %s) (i: %s)" src (ntick2s n) (mtick2s m) (itick2s i)
     | M_ACCEPT (src, n, m, i, upd) ->
       Printf.sprintf "M_ACCEPT (src: %s) (n: %s) (m: %s) (i: %s) (u: %s)" 
-          src (tick2s n) (tick2s m) (tick2s i) (update2s upd)
+          src (ntick2s n) (mtick2s m) (itick2s i) (update2s upd)
     | M_ACCEPTED (src, n, m, i) -> 
-      Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (m: %s) (i: %s)" src (tick2s n) (tick2s m) (tick2s i)
+      Printf.sprintf "M_ACCEPTED (src: %s) (n: %s) (m: %s) (i: %s)" src (ntick2s n) (mtick2s m) (itick2s i)
     | M_LEASE_TIMEOUT (n, m) ->
-      Printf.sprintf "M_LEASE_TIMEOUT (n: %s) (m: %s)" (tick2s n) (tick2s m)
+      Printf.sprintf "M_LEASE_TIMEOUT (n: %s) (m: %s)" (ntick2s n) (mtick2s m)
     | M_CLIENT_REQUEST (w, u) ->
       Printf.sprintf "M_CLIENT_REQUEST (u: %s)" (update2s u)
     | M_MASTERSET (m_id, n, m) ->
-      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (tick2s n) (tick2s m) m_id
+      Printf.sprintf "M_MASTERSET (n: %s) (m: %s) (m_id: %s)" (ntick2s n) (mtick2s m) m_id
  
   let string_of_msg msg = 
     let buf = Buffer.create 8 in
     begin
       match msg with
-      | M_PREPARE (src, (TICK n), (TICK m), (TICK i)) ->
+      | M_PREPARE (src, n, m, i) ->
         Llio.int_to buf 1; 
         Llio.string_to buf src;  
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i;
-      | M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_upd) ->
+        Llio.int64_to buf (NTick.to_int64 n);
+        Llio.int64_to buf (MTick.to_int64 m);
+        Llio.int64_to buf (ITick.to_int64 i);
+      | M_PROMISE (src, n, m, i, m_upd) ->
         begin
           Llio.int_to buf 2; 
           Llio.string_to buf src;
-          Llio.int64_to buf n;
-          Llio.int64_to buf m;
-          Llio.int64_to buf i;
+          Llio.int64_to buf (NTick.to_int64 n);
+          Llio.int64_to buf (MTick.to_int64 m);
+          Llio.int64_to buf (ITick.to_int64 i);
           begin
             match m_upd with 
               | None -> Llio.bool_to buf false
@@ -74,30 +78,30 @@ module MULTI = struct
                 update_to buf upd   
           end;
         end
-      | M_NACK (src, (TICK n), (TICK m), (TICK i)) -> 
+      | M_NACK (src, n, m, i) -> 
         Llio.int_to buf 3;
         Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i
-      | M_ACCEPT (src, (TICK n), (TICK m), (TICK i), upd) ->
+        Llio.int64_to buf (NTick.to_int64 n);
+        Llio.int64_to buf (MTick.to_int64 m);
+        Llio.int64_to buf (ITick.to_int64 i)
+      | M_ACCEPT (src, n, m, i, upd) ->
         Llio.int_to buf 4;
         Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i;
+        Llio.int64_to buf (NTick.to_int64 n);
+        Llio.int64_to buf (MTick.to_int64 m);
+        Llio.int64_to buf (ITick.to_int64 i);
         update_to buf upd  
-      | M_ACCEPTED (src, (TICK n), (TICK m), (TICK i)) ->
+      | M_ACCEPTED (src, n, m, i) ->
         Llio.int_to buf 5;
         Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m;
-        Llio.int64_to buf i 
-      | M_MASTERSET (src, TICK n, TICK m) ->
+        Llio.int64_to buf (NTick.to_int64 n);
+        Llio.int64_to buf (MTick.to_int64 m);
+        Llio.int64_to buf (ITick.to_int64 i)
+      | M_MASTERSET (src, n, m) ->
         Llio.int_to buf 6;
         Llio.string_to buf src;
-        Llio.int64_to buf n;
-        Llio.int64_to buf m
+        Llio.int64_to buf (NTick.to_int64 n);
+        Llio.int64_to buf (MTick.to_int64 m)
       | M_LEASE_TIMEOUT (n, m) -> failwith "lease timeout message cannot be serialized"
       | M_CLIENT_REQUEST (w, u) -> failwith "client request cannot be serialized"
     end;
@@ -115,7 +119,7 @@ module MULTI = struct
       | 1 ->
         let src, n, m, off = get_src_n_i off in
         let i, off = Llio.int64_from str off in
-        M_PREPARE (src, (TICK n), (TICK m), (TICK i))
+        M_PREPARE (src, NTick.from_int64 n, MTick.from_int64 m, ITick.from_int64 i)
       | 2 ->
         let src, n, m, off = get_src_n_i off in
         let i, off = Llio.int64_from str off in
@@ -130,25 +134,25 @@ module MULTI = struct
               None
           end
         in 
-        M_PROMISE (src, (TICK n), (TICK m), (TICK i), m_up)
+        M_PROMISE (src, NTick.from_int64 n, MTick.from_int64 m, ITick.from_int64 i, m_up)
       | 3 -> 
         let src, n, m, off = get_src_n_i off in
         let i, off = Llio.int64_from str off in
-        M_NACK (src, (TICK n), (TICK m), (TICK i))
+        M_NACK (src, NTick.from_int64 n, MTick.from_int64 m, ITick.from_int64 i)
       | 4 -> 
         let src, n, m, off = get_src_n_i off in
         let i, off = Llio.int64_from str off in
         let u, off = update_from str off in
-        M_ACCEPT (src, (TICK n), (TICK m), (TICK i), u)
+        M_ACCEPT (src, NTick.from_int64 n, MTick.from_int64 m, ITick.from_int64 i, u)
       | 5 -> 
         let src, n, m, off = get_src_n_i off in
         let i, off = Llio.int64_from str off in
-        M_ACCEPTED (src, (TICK n), (TICK m), (TICK i))
+        M_ACCEPTED (src, NTick.from_int64 n, MTick.from_int64 m, ITick.from_int64 i)
       | 6 ->
         let (src, off) = Llio.string_from str off in
         let (n, off) = Llio.int64_from str off in
         let (m, off) = Llio.int64_from str off in
-        M_MASTERSET (src, (TICK n), (TICK m))
+        M_MASTERSET (src, NTick.from_int64 n, MTick.from_int64 m)
       | i -> failwith "Unknown message type. Aborting."
 
 
@@ -188,10 +192,10 @@ module MULTI = struct
   
   type state =
   {
-    round             : tick;
-    extensions        : tick;
-    proposed          : tick;
-    accepted          : tick;
+    round             : NTick.t;
+    extensions        : MTick.t;
+    proposed          : ITick.t;
+    accepted          : ITick.t;
     state_n           : state_name;
     master_id         : node_id option;
     prop              : update option;
@@ -205,7 +209,7 @@ module MULTI = struct
   let build_state c n p a u =
     {
       round = n;
-      extensions = start_tick;
+      extensions = MTickUtils.start_tick;
       proposed = p;
       accepted = a;
       state_n = S_CLUELESS;
@@ -227,7 +231,8 @@ module MULTI = struct
   let state2s s =
     let m = so2s s.master_id in
     Printf.sprintf "id: %s, n: %s, m: %s, p: %s, a: %s, state: %s, master: %s, votes: %d"
-          s.constants.me (tick2s s.round) (tick2s s.extensions) (tick2s s.proposed) (tick2s s.accepted) 
+          s.constants.me (NTickUtils.tick2s s.round) (MTickUtils.tick2s s.extensions)
+          (ITickUtils.tick2s s.proposed) (ITickUtils.tick2s s.accepted) 
           (state_n2s s.state_n) m (List.length s.votes)
   
   type round_diff =
@@ -255,30 +260,34 @@ module MULTI = struct
     | VALUE v         -> "Reply success (value)" 
        
   type action =
-    | A_RESYNC of node_id * tick * tick
+    | A_RESYNC of node_id * NTick.t * MTick.t
     | A_SEND_MSG of message * node_id
     | A_BROADCAST_MSG of message
-    | A_COMMIT_UPDATE of tick * update * request_awakener option
-    | A_LOG_UPDATE    of tick * update * request_awakener option
-    | A_START_TIMER of tick * tick * float
+    | A_COMMIT_UPDATE of ITick.t * update * request_awakener option
+    | A_LOG_UPDATE    of ITick.t * update * request_awakener option
+    | A_START_TIMER of NTick.t * MTick.t * float
     | A_CLIENT_REPLY of client_reply
     | A_STORE_LEASE of node_id option
 
-  let action2s = function
+  let action2s =
+    let ntick2s = NTickUtils.tick2s
+    and mtick2s = MTickUtils.tick2s
+    and itick2s = ITickUtils.tick2s in
+    function
     | A_RESYNC (src, n, m) -> 
-      Printf.sprintf "A_RESYNC (from: %s) (n: %s) (m: %s)" src (tick2s n) (tick2s m) 
+      Printf.sprintf "A_RESYNC (from: %s) (n: %s) (m: %s)" src (ntick2s n) (mtick2s m) 
     | A_SEND_MSG (msg, dest) ->
       Printf.sprintf "A_SEND_MSG (msg: %s) (dest: %s)" (msg2s msg) dest
     | A_BROADCAST_MSG msg ->
       Printf.sprintf "A_BROADCAST_MSG (msg: %s)" (msg2s msg)
     | A_COMMIT_UPDATE (i, upd, req_id) ->
       Printf.sprintf "A_COMMIT_UPDATE (i: %s) (u: %s) (req_id: %s)"
-        (tick2s i) (update2s upd) (option2s req_id) 
+        (itick2s i) (update2s upd) (option2s req_id) 
     | A_LOG_UPDATE (i, upd, cli_req) ->
       Printf.sprintf "A_LOG_UPDATE (i: %s) (u: %s) (req_id: %s)"
-         (tick2s i) (update2s upd) (option2s cli_req)
+         (itick2s i) (update2s upd) (option2s cli_req)
     | A_START_TIMER (n, m, d) ->
-      Printf.sprintf "A_START_TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d
+      Printf.sprintf "A_START_TIMER (n: %s) (m: %s) (d: %f)" (ntick2s n) (mtick2s m) d
     | A_CLIENT_REPLY rep ->
       Printf.sprintf "A_CLIENT_REPLY (r: %s)" (client_reply2s rep)
     | A_STORE_LEASE m ->
@@ -299,13 +308,13 @@ module MULTI = struct
     in
     let p_diff =
       begin
-        match (next_tick state.proposed) with 
+        match (ITickUtils.next_tick state.proposed) with 
           | i' when i > i'             -> P_BEHIND
           | i' when i < state.proposed -> P_AHEAD
           | i' -> 
             if state.proposed = state.accepted 
             then
-              if i = next_tick state.proposed 
+              if i = ITickUtils.next_tick state.proposed 
               then
                 P_ACCEPTABLE
               else
@@ -316,7 +325,7 @@ module MULTI = struct
     in
     let a_diff = 
       begin 
-        match next_tick state.accepted with
+        match ITickUtils.next_tick state.accepted with
           | i' when i > i' -> A_BEHIND
           | i' when i < i' -> A_AHEAD
           | i' -> A_COMMITABLE
@@ -327,26 +336,26 @@ module MULTI = struct
   let next_n n node_cnt node_ix =
     let (+) = Int64.add in
     let (-) = Int64.sub in
-    let TICK n' = n in
+    let n' = NTick.to_int64 n in
     let node_cnt = Int64.of_int node_cnt in
     let node_ix = Int64.of_int node_ix in 
     let modulo = Int64.rem n' node_cnt in
     let n' = n' + node_cnt - modulo in
-    TICK (n' + node_ix) 
+    NTick.from_int64 (n' + node_ix) 
   
   let prev_n n node_cnt node_ix =
     let (+) = Int64.add in
     let (-) = Int64.sub in
-    let TICK n' = n in
+    let n' = NTick.to_int64 n in
     let node_cnt = Int64.of_int node_cnt in
     let node_ix = Int64.of_int node_ix in 
     let modulo = Int64.rem n' node_cnt in
     let n'' = n' - modulo in
     if n'' + node_ix < n'
     then 
-      TICK (n'' + node_ix)
+      NTick.from_int64 (n'' + node_ix)
     else 
-      TICK (n'' - node_cnt + node_ix) 
+      NTick.from_int64 (n'' - node_cnt + node_ix) 
   
   let is_node_master node_id state = 
     begin
@@ -557,7 +566,7 @@ module MULTI = struct
           with
             | None -> []
             | Some u -> 
-              let new_accepted = next_tick state.accepted in
+              let new_accepted = ITickUtils.next_tick state.accepted in
               [A_COMMIT_UPDATE (new_accepted, u, state.cur_cli_req)]
         end 
     end
@@ -607,7 +616,7 @@ module MULTI = struct
                   match state.prop with
                     | None -> new_input_ch, state.prop, [], state.cur_cli_req, new_votes
                     | Some u ->
-                       let n_accepted = next_tick state.accepted in
+                       let n_accepted = ITickUtils.next_tick state.accepted in
                        let ci = A_COMMIT_UPDATE (n_accepted, u, state.cur_cli_req) in
                        ch_all, None, [ci], None, []
                 else
@@ -639,7 +648,7 @@ module MULTI = struct
         | _ -> (S_RUNNING_FOR_MASTER, None)
       end
     in
-    let msg = M_PREPARE (state.constants.me, new_n, m, (next_tick state.accepted)) in
+    let msg = M_PREPARE (state.constants.me, new_n, m, (ITickUtils.next_tick state.accepted)) in
     let new_state = {
       state with
       round = new_n;
@@ -653,7 +662,7 @@ module MULTI = struct
     StepSuccess([A_STORE_LEASE mid; A_BROADCAST_MSG msg; lease_expiry], new_state)
 
   let handle_lease_timeout n m state =
-    let diff = state_cmp n start_tick state in
+    let diff = state_cmp n ITickUtils.start_tick state in
     begin
       match diff with
         | (N_EQUAL , _, _) when m = state.extensions ->
@@ -662,14 +671,14 @@ module MULTI = struct
             with
               | Some m when m = state.constants.me ->
                 begin
-                  let new_m = next_tick state.extensions in
+                  let new_m = MTickUtils.next_tick state.extensions in
                   start_elections state.round new_m state
                 end
               
               | _  ->
                 begin
                   let new_n = next_n n state.constants.node_cnt state.constants.node_ix in
-                  start_elections new_n start_tick state
+                  start_elections new_n MTickUtils.start_tick state
                 end
           end
         | (_, _, _) -> StepSuccess([], state)
@@ -683,7 +692,7 @@ module MULTI = struct
             match state.cur_cli_req with
               | None -> 
                 begin
-                  let actions = build_accept_action (next_tick state.accepted) upd (Some w) in 
+                  let actions = build_accept_action (ITickUtils.next_tick state.accepted) upd (Some w) in 
                   StepSuccess (actions, state)
                 end
               | Some w ->

@@ -113,7 +113,7 @@ let _set driver k v =
   let _sequence driver sequence = V.do_unit_update driver sequence
     
     
-  let _last_entries store i oc = S.last_entries store (Core.TICK i) oc
+  let _last_entries store i oc = S.last_entries store (Core.ITick.from_int64 i) oc
 
 
 

@@ -152,7 +152,7 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
         | None -> Lwt.return None
         | Some (i_time, ups, committed) ->
           begin
-            let tick_i = TICK i_time in
+            let tick_i = ITick.from_int64 i_time in
             let cvo = 
               if committed 
               then None
@@ -206,8 +206,8 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
   let admin_prefix_keys t prefix =
     __prefix_keys t prefix None __admin_prefix
   
-  let last_entries t (t0:Core.tick) (oc:Llio.lwtoc) = 
-    let TICK i0 = t0 in
+  let last_entries t (t0:Core.ITick.t) (oc:Llio.lwtoc) = 
+    let i0 = ITick.to_int64 t0 in
     let f acc i actions = 
       Lwtc.log "f ... %Li ..." i >>= fun () ->
       Llio.output_int64 oc i >>= fun () ->

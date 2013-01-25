@@ -5,21 +5,24 @@ open Lwt
 open Core
 open Pq
 
+let ntick2s = NTickUtils.tick2s
+and mtick2s = MTickUtils.tick2s
+and itick2s = ITickUtils.tick2s
 
 let validate_log_update i p =
-  if i = p || i = (next_tick p) 
+  if i = p || i = (ITickUtils.next_tick p) 
   then ()
   else 
     let msg = Printf.sprintf 
-      "Invalid log update request. (i:%s) (p:%s)" (tick2s i) (tick2s p) in
+      "Invalid log update request. (i:%s) (p:%s)" (itick2s i) (itick2s p) in
     failwith msg
 
 let validate_commit_update i a =
-  if i = (next_tick a) 
+  if i = (ITickUtils.next_tick a) 
   then ()
   else 
     let msg = Printf.sprintf
-      "Invalid commit update request. (i:%s) (a:%s)" (tick2s i) (tick2s a) in
+      "Invalid commit update request. (i:%s) (a:%s)" (itick2s i) (itick2s a) in
     failwith msg
     
     
@@ -63,11 +66,11 @@ module ADispatcher (S:STORE) = struct
     S.set_meta t.store s
   
   let start_timer t n m d =
-    Lwtc.log "STARTING TIMER (n: %s) (m: %s) (d: %f)" (tick2s n) (tick2s m) d >>= fun () ->
+    Lwtc.log "STARTING TIMER (n: %s) (m: %s) (d: %f)" (ntick2s n) (mtick2s m) d >>= fun () ->
     let alarm () =
       Lwt_unix.sleep d >>= fun () ->
       let msg = M_LEASE_TIMEOUT (n, m) in
-      Lwtc.log "Pushing timeout msg (n: %s) (m: %s)" (tick2s n) (tick2s m) >>= fun () ->
+      Lwtc.log "Pushing timeout msg (n: %s) (m: %s)" (ntick2s n) (mtick2s m) >>= fun () ->
       PQ.push t.timeout_q msg;
       Lwt.return ()
     in
@@ -103,11 +106,11 @@ module ADispatcher (S:STORE) = struct
       do_send_msg t s msg [tgt] >>= fun () ->
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
-      Lwtc.log "Committing update (i:%s)" (tick2s i) >>= fun () ->
+      Lwtc.log "Committing update (i:%s)" (itick2s i) >>= fun () ->
       handle_commit t s i u m_w Core.VOID
     | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
-      Lwtc.log "Logging update (i:%s)" (tick2s i) >>= fun () ->
+      Lwtc.log "Logging update (i:%s)" (itick2s i) >>= fun () ->
       let d = (s.proposed <> i) in
       begin
         log_update t d u >>= fun res ->
@@ -196,7 +199,7 @@ module ADispatcher (S:STORE) = struct
       let i =
         begin 
           match m_upd with
-            | None -> start_tick
+            | None -> ITickUtils.start_tick
             | Some (i,_) -> i
         end
       in 

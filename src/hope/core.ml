@@ -103,23 +103,50 @@ let result2s = function
   | FAILURE (rc,msg) -> Printf.sprintf "FAILURE(_,%S)" msg
 
 
-type tick = TICK of int64
-  
-let (<:) (TICK i0) (TICK i1) = i0 < i1
-
-let start_tick = TICK 0L
-let next_tick (TICK i) = TICK (Int64.succ i)
-let prev_tick (TICK i) = 
-  begin 
-    match i with
-      | 0L -> start_tick
-      | i -> TICK (Int64.pred i)
+module type TICK =
+  sig
+    type t
+    val from_int64 : int64 -> t
+    val to_int64 : t -> int64
   end
-    
-let add_tick (TICK l) (TICK r) = TICK (Int64.add l r)
-let tick2s (TICK t) = 
-  Int64.to_string t
 
+module NTick : TICK =
+  struct
+    type t = int64
+    let from_int64 i = i
+    let to_int64 i = i
+  end
+module MTick : TICK =
+  struct
+    type t = int64
+    let from_int64 i = i
+    let to_int64 i = i
+  end
+module ITick : TICK =
+  struct
+    type t = int64
+    let from_int64 i = i
+    let to_int64 i = i
+  end
+
+module TickUtils = functor(Tick : TICK) ->
+  struct
+    let (<:) t0 t1 = Tick.to_int64 t0 < Tick.to_int64 t1
+    let start_tick = Tick.from_int64 0L
+    let next_tick t = Tick.from_int64 (Int64.succ (Tick.to_int64 t))
+    let prev_tick t = 
+      match Tick.to_int64 t with
+        | 0L -> start_tick
+        | i -> Tick.from_int64 (Int64.pred i)
+    
+    let add_tick l r = Tick.from_int64 (Int64.add (Tick.to_int64 l) (Tick.to_int64 r))
+    let tick2s t = 
+      Int64.to_string (Tick.to_int64 t)
+  end
+
+module NTickUtils = TickUtils(NTick)
+module MTickUtils = TickUtils(MTick)
+module ITickUtils = TickUtils(ITick)
 
 type tx_result = (v option, Arakoon_exc.rc * k) Baardskeerder.result
 
@@ -128,7 +155,7 @@ module type STORE = sig
   
   val create : string -> bool -> t Lwt.t
   val init : string -> unit Lwt.t
-  val commit : t -> tick -> unit Lwt.t
+  val commit : t -> ITick.t -> unit Lwt.t
   val log : t -> bool -> update -> tx_result Lwt.t
   val get : t -> k -> v option Lwt.t
   val admin_get: t -> k -> v option Lwt.t
@@ -144,8 +171,8 @@ module type STORE = sig
   val prefix_keys: t -> string -> int option -> string list Lwt.t
   val is_read_only: t -> bool
 
-  val last_entries: t -> tick -> Lwtc.oc -> unit Lwt.t
-  val last_update: t -> (tick * update option) option Lwt.t
+  val last_entries: t -> ITick.t -> Lwtc.oc -> unit Lwt.t
+  val last_update: t -> (ITick.t * update option) option Lwt.t
   val get_key_count : t -> int Lwt.t
   val get_meta: t -> string option Lwt.t
   val set_meta: t -> string -> unit Lwt.t

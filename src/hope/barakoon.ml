@@ -185,7 +185,7 @@ let create_driver disp q =
   DRIVER.create disp q (PQ.create())
 
 let build_start_state store mycfg others =
-  let n = Core.start_tick in
+  let n = Core.NTickUtils.start_tick in
   BStore.last_update store >>= fun m_last ->
   let p, a, u =
     begin
@@ -194,9 +194,9 @@ let build_start_state store mycfg others =
           begin
             match u with
               | None -> i_time, i_time, None
-              | _ -> i_time, (Core.prev_tick i_time), u
+              | _ -> i_time, (Core.ITickUtils.prev_tick i_time), u
           end
-        | None -> Core.start_tick, Core.start_tick, None
+        | None -> Core.ITickUtils.start_tick, Core.ITickUtils.start_tick, None
     end
   in
   let c = build_mpc mycfg others in
@@ -334,7 +334,7 @@ let run_node myname config_file daemonize =
   let driver = create_driver disp q in
   let service driver = server_t mycfg.node_name driver store mycfg.ip mycfg.client_port in
   build_start_state store mycfg others >>= fun s ->
-  let delayed_timeout = MULTI.A_START_TIMER (s.MULTI.round, Core.start_tick, float_of_int mycfg.lease_period) in
+  let delayed_timeout = MULTI.A_START_TIMER (s.MULTI.round, Core.MTickUtils.start_tick, float_of_int mycfg.lease_period) in
   DRIVER.dispatch driver s delayed_timeout >>= fun s' ->
   let other_names = List.fold_left (fun acc c -> c.node_name :: acc) [] others in
   let pass_msgs = List.map (pass_msg msging q) (myname :: other_names) in
