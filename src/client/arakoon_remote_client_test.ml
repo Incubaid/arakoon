@@ -151,7 +151,17 @@ let test_set_get () =
   in 
   __client_server_wrapper__ _CLUSTER real_test
 
+let test_set_delete() = 
+  let real_test (client: Arakoon_client.client) = 
+    let v = "X" in
+    client # set "x" v >>= fun () ->
+    client # delete "x" >>= fun () ->
+    Lwt.return ()
+  in
+  __client_server_wrapper__ _CLUSTER real_test
+
   
 let suite = "remote_client" >::: [
   "set_get"      >:: test_set_get;
+  "set_delete"   >:: test_set_delete;
 ]
