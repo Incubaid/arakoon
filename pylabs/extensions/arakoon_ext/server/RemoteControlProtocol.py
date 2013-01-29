@@ -80,7 +80,9 @@ def _receive_string(sock):
     return s
 
 def check_error_code(s):
+    logging.debug("check_error_code")
     rc = _receive_int(s)
+    logging.debug("rc=%i", rc)
     if rc:
         msg   = _receive_string(s)
         raise Exception(rc, msg)

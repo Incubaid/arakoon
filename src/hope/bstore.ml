@@ -243,7 +243,9 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
     Lwt_io.with_file ~mode:Lwt_io.input t.fn
       (fun ic -> Llio.copy_stream ~length ~ic ~oc)
     >>= fun () ->
-    Lwtc.log "raw_dump: done"
+    Lwt_io.flush oc >>= fun () ->
+    Lwtc.log "raw_dump: flushed & done"
+      
 
   let get_key_count t = BS.key_count_latest t.store
 end: STORE)
