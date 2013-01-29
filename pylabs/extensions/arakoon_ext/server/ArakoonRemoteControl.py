@@ -61,10 +61,14 @@ def downloadDb(ip, port, clusterId, location):
             s.send(cmd)
             RCP.check_error_code(s)
             db_size = RCP._receive_int64(s)
+            logging.debug("db_size = %i", db_size)
             while (db_size > 0 ) :
                 chunkSize = min(4*1024, db_size)
+                logging.debug("reading chunk of %i", chunkSize)
                 chunk = RCP._receive_all(s, chunkSize)
-                db_size -= len(chunk)
+                read = len(chunk)
+                logging.debug("actually read %i", read)
+                db_size -= read
                 db_file.write(chunk)
     finally:
         s.close()
