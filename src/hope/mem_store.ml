@@ -24,7 +24,11 @@ module MemStore = (struct
 
   let create n ro = Lwt.return { store = Hashtbl.create 7 ; meta = None ; read_only = ro}
 
-  let get t k = let v = Hashtbl.find t.store k in Lwt.return (Some v)
+  let get t k = 
+    try
+      let v = Hashtbl.find t.store k in 
+      Lwt.return (Some v)
+    with Not_found -> Lwt.return None
   
   let admin_get = get
   
