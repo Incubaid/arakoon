@@ -160,8 +160,24 @@ let test_set_delete() =
   in
   __client_server_wrapper__ _CLUSTER real_test
 
+let test_delete_non_existing() = 
+  let real_test (client: Arakoon_client.client) = 
+    Lwt.catch
+      (fun () -> client # delete "I'm not there"  >>= fun () ->
+        OUnit.assert_bool "should not get here" false; 
+        Lwt.return ()
+      )
+      (fun ex ->
+        match ex with
+          | Failure _ -> Lwt.fail ex
+          | _ -> Lwt_io.printlf "throws %S" (Printexc.to_string ex)
+      )
+  in
+  __client_server_wrapper__ _CLUSTER real_test
+      
   
 let suite = "remote_client" >::: [
   "set_get"      >:: test_set_get;
   "set_delete"   >:: test_set_delete;
+  "delete_non_existing" >:: test_delete_non_existing;
 ]
