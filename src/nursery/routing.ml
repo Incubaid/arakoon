@@ -233,7 +233,7 @@ module Routing = struct
 
   let input_routing ic =
     Llio.input_string ic >>= fun s ->
-    let inp = Pack.make_input s 0 in
+    let inp = Pack.make_input s 4 in
     let r = routing_from inp in
     Lwt.return r
 

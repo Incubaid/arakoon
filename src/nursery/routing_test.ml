@@ -1,14 +1,17 @@
 open OUnit
 open Routing
+open Baardskeerder
 
 let test_serialization () = 
   let repr =[("left"),"k";],"right" in
   let routing = Routing.build repr in
   Printf.printf "original=%s\n" (Routing.to_s routing);
-  let b = Buffer.create 127 in
+  let b = Pack.make_output 127 in
   Routing.routing_to b routing ;
-  let flat = Buffer.contents b in
-  let inflated,_ = Routing.routing_from flat 0 in
+  let flat = Pack.close_output b in
+  Printf.printf "flat = %S" flat;
+  let input = Pack.make_input flat 4 in (* skip size *)
+  let inflated = Routing.routing_from input in
   Printf.printf "reinflated=%s\n" (Routing.to_s inflated);
   OUnit.assert_equal routing inflated ~printer:Routing.to_s;
   ()

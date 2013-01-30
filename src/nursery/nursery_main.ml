@@ -118,6 +118,15 @@ let __init_nursery config cluster_id =
   in
   with_master_admin keeper_id cli_cfg set_routing 
   
+
+let __get_routing config = 
+  let (keeper_id, cli_cfg) = get_keeper_config config in
+  let get_routing client = 
+    client # get_routing () >>= fun cur ->
+    let cur_s = Routing.to_s cur in
+    Lwt_io.printl cur_s
+  in
+  with_master_admin keeper_id cli_cfg get_routing
   
 let __delete_from_nursery config cluster_id sep = 
   Lwt_log.info "=== STARTING DELETE ===" >>= fun () ->
@@ -154,3 +163,5 @@ let init_nursery config cluster_id =
 let delete_nursery_cluster config cluster_id sep =
   __main_run "/tmp/nursery_delete.log" ( fun () -> __delete_from_nursery config cluster_id sep )
     
+let get_routing config = 
+  __main_run "/tmp/get_routing.log" (fun () -> __get_routing config)

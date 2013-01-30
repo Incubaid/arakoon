@@ -187,7 +187,7 @@ module BStore = (struct
   
   let admin_get t k =
     BS.get_latest t.store (pref_key ~_pf:__admin_prefix k) >>= function 
-      | OK v -> Lwt.return (Some v)
+      | OK v -> begin Lwt_log.debug_f "admin_get %s --> %S" k v >>= fun () ->  Lwt.return (Some v) end
       | NOK k -> Lwt.return None
      
   let get t k = 

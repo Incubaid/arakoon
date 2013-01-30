@@ -229,6 +229,7 @@ type action_type =
   | InitNursery
   | MigrateNursery
   | WhoMaster
+  | GetRouting
 
 
 let split_cfgs cfg myname =
@@ -514,6 +515,7 @@ let main () =
     ("--nursery-migrate", 
      Arg.Tuple[set_action MigrateNursery; Arg.Set_string left; Arg.Set_string sep; Arg.Set_string right],
      "<left> <sep> <right>: Change the nursery cluster distribution.");
+    ("--nursery-routing", set_action GetRouting, "returns the routing information of the nursery");
   ] in
   
   Arg.parse actions  
@@ -540,6 +542,7 @@ let main () =
       | InitNursery    -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
       | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
       | WhoMaster      -> Lwt_main.run (who_master !config_file)
+      | GetRouting     -> Lwt_main.run (Nursery_main.get_routing !config_file)
 
   end
 
