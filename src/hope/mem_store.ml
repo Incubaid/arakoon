@@ -10,13 +10,25 @@ module MemStore = (struct
 
   let rec log t i u = 
     begin
+      let _ok = Lwt.return (Baardskeerder.OK None) in
       match u with
-        | SET (k,v) -> Lwt.return (Hashtbl.replace t.store k v)
-        | DELETE k  -> Lwt.return (Hashtbl.remove  t.store k)
-        | SEQUENCE s -> Lwt_list.iter_s (fun u -> log t i u >>= fun _ -> Lwt.return ()) s
+        | SET (k,v) -> let () = Hashtbl.replace t.store k v in _ok
+        | DELETE k  -> 
+            if Hashtbl.mem t.store k 
+            then let () = Hashtbl.remove  t.store k in _ok
+            else Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_NOT_FOUND,k))
+        | SEQUENCE s -> 
+            let rec _loop = function
+              | [] -> _ok
+              | u :: us -> 
+                  begin
+                    log t i u >>= function
+                      | Baardskeerder.OK _ -> _loop us
+                      | x -> Lwt.return x
+                  end
+            in
+            _loop s
     end
-    >>= fun () -> 
-    Lwt.return (Baardskeerder.OK None)
   
   let is_read_only t = t.read_only
   

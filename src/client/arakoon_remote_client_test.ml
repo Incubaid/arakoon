@@ -160,10 +160,9 @@ let _test_delete_non_existing (client:Arakoon_client.client) =
       OUnit.assert_bool "should not get here" false; 
       Lwt.return ()
     )
-    (fun ex ->
-      match ex with
-        | Failure _ -> Lwt.fail ex
-        | _ -> Lwt_io.printlf "throws %S" (Printexc.to_string ex)
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND, "I'm not there") -> Lwt.return ()
+      | ex -> Lwt.fail ex
     )
     
       
