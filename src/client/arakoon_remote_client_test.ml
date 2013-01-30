@@ -164,8 +164,72 @@ let _test_delete_non_existing (client:Arakoon_client.client) =
       | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND, "I'm not there") -> Lwt.return ()
       | ex -> Lwt.fail ex
     )
-    
+
+let _test_assert  (client: Arakoon_client.client) =
+  client # set "key" "value" >>= fun () ->
+  client # aSSert "key" (Some "value") >>= fun () ->
+  Lwt.catch
+    (fun () -> client # aSSert "key" (Some "nothing")  >>= fun () ->
+      OUnit.assert_bool "should not get here" false; 
+      Lwt.return ()
+    )
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, "key") -> Lwt.return ()
+      | ex -> Lwt.fail ex
+    )
+  >>= fun () ->
+  Lwt_log.info "part-2" >>= fun () ->
+  Lwt.catch
+    (fun () -> client # aSSert "nothing" (Some "value")  >>= fun () ->
+      OUnit.assert_bool "should not get here@part_2" false; 
+      Lwt.return ()
+    )
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, "nothing") -> Lwt.return ()
+      | ex -> Lwt.fail ex
+    )
+    >>= fun () ->
+  Lwt_log.info "part-3" >>= fun () ->
+  client # delete "key" >>= fun () ->
+  Lwt.catch
+    (fun () -> client # aSSert "key" (Some "value")  >>= fun () ->
+      OUnit.assert_bool "should not get here @part_3" false; 
+      Lwt.return ()
+    )
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, "key") -> Lwt.return ()
+      | ex -> Lwt.fail ex
+    )
+  >>= fun () -> 
+  Lwt.return ()    
       
+let _test_assert_exists  (client: Arakoon_client.client) =
+  client # set "key" "value" >>= fun () ->
+  client # aSSert_exists "key" >>= fun () ->
+  Lwt.catch
+    (fun () -> client # aSSert_exists "key_wrong"  >>= fun () ->
+      OUnit.assert_bool "should not get here" false; 
+      Lwt.return ()
+    )
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, "key_wrong") -> Lwt.return ()
+      | ex -> Lwt.fail ex
+    )
+  >>= fun () ->
+  Lwt_log.info "part-2" >>= fun () ->
+  client # delete "key" >>= fun () ->
+  Lwt.catch
+    (fun () -> client # aSSert_exists "key"  >>= fun () ->
+      OUnit.assert_bool "should not get here @part_2" false; 
+      Lwt.return ()
+    )
+    (function
+      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, "key") -> Lwt.return ()
+      | ex -> Lwt.fail ex
+    )
+  >>= fun () -> 
+  Lwt.return () 
+
 let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
 let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
@@ -175,5 +239,7 @@ let suite = "remote_client" >:::
     ("set_get", _test_set_get) ;
     ("set_delete", _test_set_delete);
     ("delete_non_existing", _test_delete_non_existing) ;
+    ("assert" , _test_assert);
+    ("assert_exists" , _test_assert_exists);
   ]
 
