@@ -43,11 +43,11 @@ object(self: #Arakoon_client.client)
 
   method aSSert ?(allow_dirty=false) key vo =
     request oc (fun buf -> assert_to ~allow_dirty buf key vo) >>= fun () ->
-    response_old ic nothing
+    response_limited ic (fun _ -> ())
 
   method aSSert_exists ?(allow_dirty=false) key =
     request oc (fun buf -> assert_exists_to ~allow_dirty buf key) >>= fun () ->
-    response_old ic nothing
+    response_limited ic (fun _ -> ())
 
   method delete key =
     request  oc (fun buf -> delete_to buf key) >>= fun () ->
