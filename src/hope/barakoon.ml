@@ -215,7 +215,7 @@ type action_type =
   | NodeVersion
   | RunNode
   | InitDb
-  | DumpDb
+  | StoreInfo
   | Set
   | Get
   | PrefixKeys
@@ -365,11 +365,8 @@ let init_db myname config_file =
   let fn = get_db_name mycfg myname in
   BStore.init fn
 
-let dump_db myname config_file = 
-  let cfg = read_config config_file in
-  split_cfgs cfg myname >>= fun (_, mycfg) ->
-  let fn = get_db_name mycfg myname in
-  BStore.create fn true >>= fun store ->
+let store_info store_fn = 
+  BStore.create store_fn true >>= fun store ->
   BStore.dump store >>= fun () ->
   BStore.close store
 
@@ -502,8 +499,8 @@ let main () =
     ("--init-db", 
      Arg.Tuple [set_action InitDb; Arg.Set_string node_id;],
      "<node_id> : Initialize the database for the given node");
-    ("--dump-db", Arg.Tuple [set_action DumpDb; Arg.Set_string node_id],
-     "<node_id> : Dump contents of database");
+    ("--store-info", Arg.Tuple [set_action StoreInfo; Arg.Set_string node_id],
+     "<file> : summary about that store");
     ("--last-entries", Arg.Tuple[set_action LastEntries; Arg.Set_string cluster_id; 
         Arg.Set_string ip; Arg.Set_int port; Arg.Set_string is],
      "<cluster_id> <ip> <port> <i> : Retrieve a nodes update stream starting with <i>");
@@ -524,25 +521,25 @@ let main () =
     "";
   begin 
     match !action with
-      | RunNode -> Lwt_main.run (run_node !node_id !config_file !daemonize)
-      | InitDb -> Lwt_main.run (init_db !node_id !config_file)
-      | DumpDb -> Lwt_main.run (dump_db !node_id !config_file)
-      | Set -> Lwt_main.run (set !config_file !key !value)
-      | Get -> Lwt_main.run (get !config_file !key)
-      | PrefixKeys -> Lwt_main.run (prefix_keys !config_file !key (Some 100))
-      | Delete -> Lwt_main.run (delete !config_file !key)
-      | DeletePrefix -> Lwt_main.run (delete_prefix !config_file !key)
-      | Benchmark -> Lwt_main.run (benchmark !config_file !max_n !value_size)
-      | LastEntries -> Lwt_main.run  (last_entries !cluster_id !ip !port (Int64.of_string !is))
-      | ListTest -> list_test ()
-      | Test     -> run_tests ()
-      | OnlyTest -> only_test !test_refs
-      | ShowUsage -> Arg.usage actions ""
-      | ShowVersion -> show_version()
-      | NodeVersion -> Lwt_main.run (node_version !config_file !node_id)
-      | InitNursery -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
+      | RunNode        -> Lwt_main.run (run_node !node_id !config_file !daemonize)
+      | InitDb         -> Lwt_main.run (init_db !node_id !config_file)
+      | StoreInfo      -> Lwt_main.run (store_info !node_id)
+      | Set            -> Lwt_main.run (set !config_file !key !value)
+      | Get            -> Lwt_main.run (get !config_file !key)
+      | PrefixKeys     -> Lwt_main.run (prefix_keys !config_file !key (Some 100))
+      | Delete         -> Lwt_main.run (delete !config_file !key)
+      | DeletePrefix   -> Lwt_main.run (delete_prefix !config_file !key)
+      | Benchmark      -> Lwt_main.run (benchmark !config_file !max_n !value_size)
+      | LastEntries    -> Lwt_main.run  (last_entries !cluster_id !ip !port (Int64.of_string !is))
+      | ListTest       -> list_test ()
+      | Test           -> run_tests ()
+      | OnlyTest       -> only_test !test_refs
+      | ShowUsage      -> Arg.usage actions ""
+      | ShowVersion    -> show_version()
+      | NodeVersion    -> Lwt_main.run (node_version !config_file !node_id)
+      | InitNursery    -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
       | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
-      | WhoMaster -> Lwt_main.run (who_master !config_file)
+      | WhoMaster      -> Lwt_main.run (who_master !config_file)
 
   end
 

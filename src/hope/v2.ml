@@ -485,23 +485,23 @@ let _set driver k v =
           Routing.routing_to o r;
           let v = Pack.close_output o in
           Lwt_log.debug_f "Setting routing key to %S" v >>= fun () -> 
-          do_admin_set rest V.__routing_key v
+          do_admin_set rest Core.__routing_key v
         end
       | Common.SET_INTERVAL -> 
         let i = Interval.interval_from rest in
         let o = Pack.make_output 16 in
         Interval.interval_to o i;
         let v = Pack.close_output o in
-        do_admin_set rest V.__interval_key v
+        do_admin_set rest Core.__interval_key v
       | Common.GET_INTERVAL -> 
         begin
           Lwt_log.debug "GET_INTERVAL" >>= fun () ->
-          do_admin_get rest V.__interval_key 
+          do_admin_get rest Core.__interval_key 
         end
       | Common.GET_ROUTING -> 
         begin
           Lwt_log.debug "GET_ROUTING" >>= fun () ->
-          do_admin_get rest V.__routing_key 
+          do_admin_get rest Core.__routing_key 
         end
       | Common.STATISTICS -> 
         begin
@@ -537,7 +537,7 @@ let _set driver k v =
           Lwtc.log "SET_NURSERY_CFG" >>= fun () ->
           let cluster_id = Pack.input_string rest in
           let cfg = ClientCfg.cfg_from rest in
-          let key = V.__nursery_cluster_prefix ^ cluster_id in
+          let key = Core.__nursery_cluster_prefix ^ cluster_id in
           let out = Pack.make_output 16 in
           ClientCfg.cfg_to out cfg;
           let value = Pack.close_output out in 
@@ -546,7 +546,7 @@ let _set driver k v =
       | Common.GET_NURSERY_CFG ->
         begin
           Lwtc.log "GET_NURSERY_CFG" >>= fun () ->
-          V.admin_get store V.__routing_key >>= fun v ->
+          V.admin_get store Core.__routing_key >>= fun v ->
           let input = Pack.make_input v 0 in
           let rsize = Pack.input_size input in
           Lwt_log.debug "Decoding routing info" >>= fun () ->
@@ -556,9 +556,9 @@ let _set driver k v =
           Lwt_log.debug "Repacking routing info" >>= fun () ->
           Routing.routing_to out r;
           Lwt_log.debug "Fetching nursery clusters" >>= fun () ->
-          S.admin_prefix_keys store V.__nursery_cluster_prefix >>= fun clu_keys ->
+          S.admin_prefix_keys store Core.__nursery_cluster_prefix >>= fun clu_keys ->
           let clusters = Hashtbl.create 2 in
-          let key_start = String.length V.__nursery_cluster_prefix in
+          let key_start = String.length Core.__nursery_cluster_prefix in
           Lwt_list.iter_s 
             (fun k -> 
               Lwt_log.debug_f "Fetch nursery cluster: %s" k >>= fun () ->

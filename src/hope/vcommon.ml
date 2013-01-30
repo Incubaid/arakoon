@@ -6,9 +6,6 @@ open Mp
 module VCommon(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
   module D = Mp_driver.MPDriver(A)
 
-  let __routing_key = "routing"
-  let __interval_key = "interval"
-  let __nursery_cluster_prefix = "nursery_cluster."
 
   let handle_exception oc exn=
     let rc, msg, is_fatal, close_socket = match exn with

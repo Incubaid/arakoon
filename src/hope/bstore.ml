@@ -2,13 +2,23 @@ open Core
 open Lwt
 open Baardskeerder 
 open Unix
-
+open Interval
 
     
 let action2update = function
   | Set (k,v) -> Core.SET(unpref_key k,v)
   | Delete k -> Core.DELETE (unpref_key k)
+
+let inflate_interval m_v = 
+  let s = Pack.make_input m_v 0 in
+  let iv = Interval.interval_from s in
+  iv
     
+let _read_interval (store:BS.t) =
+  BS.get_latest store (pref_key ~_pf:__admin_prefix Core.__interval_key) >>= function 
+    | OK v  -> let iv = inflate_interval v in Lwt.return iv
+    | NOK k -> let iv = Interval.max       in Lwt.return iv 
+     
 
 module BStore = (struct
   type t = { m: Lwt_mutex.t; 
@@ -16,31 +26,45 @@ module BStore = (struct
              mutable meta: string option; 
              read_only: bool;
              fn : string;
+             mutable interval: Interval.t;
            }
 
-type tx_result = (v option, Arakoon_exc.rc * k) result
+  type tx_result = (v option, Arakoon_exc.rc * k) result
  
   let init fn = 
     BS.init fn 
-    
+      
   let create fn read_only = 
     BS.make fn >>= fun store ->
+    _read_interval store >>= fun interval ->
     let m = Lwt_mutex.create() in
     let r = {
       m; 
       store; 
       meta=None; 
       read_only; 
-      fn
+      fn;
+      interval;
     } 
     in
     Lwt.return r
   
-  let set_meta t s =
-    Lwt.return (t.meta <- Some s)
+  let set_meta t s = Lwt.return (t.meta <- Some s)
   
-  let get_meta t =
-    Lwt.return t.meta
+  let get_meta t = Lwt.return t.meta
+    
+  let _outside k   = Lwt.return (NOK (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+  let _not_found k = Lwt.return (NOK (Arakoon_exc.E_NOT_FOUND       , k))
+
+  let _check_interval ?(nok=_outside)
+      t k (ok: k -> 'a) = 
+    let iv = t.interval in
+    let f = 
+      if Interval.is_ok iv k
+      then ok
+      else nok
+    in
+    f k
     
   let commit t i = 
     Lwt_mutex.with_lock t.m (fun() -> BS.commit_last t.store)
@@ -52,14 +76,20 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
       begin 
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) ->
-            Lwtc.log "set: %s" k >>= fun () -> 
-            BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
+              begin
+                Lwtc.log "set: %s" k >>= fun () -> 
+                _check_interval t k 
+                  (fun k -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None))
+              end
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
-              BS.delete tx (pref_key k) >>= function
-                | NOK _ -> Lwt.return (NOK (Arakoon_exc.E_NOT_FOUND, k))
-                | a -> Lwt.return (OK None)
+              _check_interval t k 
+                (fun k ->
+                  BS.delete tx (pref_key k) >>= function
+                    | NOK _ -> _not_found k
+                    | a -> Lwt.return (OK None)
+                )
             end
           | Core.DELETE_PREFIX k ->
             begin
@@ -71,73 +101,60 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
               Lwt.return (OK (Some v))
             end
           | Core.ADMIN_SET (k, m_v) -> 
-            begin
-              let k' = pref_key ~_pf:__admin_prefix k in
-              match m_v with
-              | None -> BS.delete tx k' >>= fun _ -> Lwt.return (OK None)
-              | Some v -> BS.set tx k' v >>= fun () -> Lwt.return (OK None)
-            end
-          | Core.ASSERT (k, m_v) -> 
-            (*
               begin
-              let pk = pref_key k in
-              match m_v with
-              | None -> 
-                begin
-                  BS.exists tx pk >>= fun b ->
-                  let r = 
-                    if b 
-                    then TX_FAIL (Arakoon_exc.E_ASSERTION_FAILED,k)
-                    else TX_SUCCESS None
-                  in
-                  Lwt.return r
-                end
-              | Some v -> 
-                begin
-                  BS.get tx pk >>= fun vo ->
-                  let r = 
-                    match vo with
-                    | Some v' when v = v'-> TX_SUCCESS None
-                    | _                  -> TX_FAIL (Arakoon_exc.E_ASSERTION_FAILED,k)
-                  in
-                  Lwt.return r
-                end
-            end
-            *)
-            begin
-              BS.get tx (pref_key k) >>= fun r ->              
-              let (r':tx_result) = match r with
-                | OK v' -> 
-                  if m_v <> (Some v') 
-                  then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
-                  else OK None
-                | NOK k -> 
-                  if m_v <> None 
-                  then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
-                  else OK None
-              in
-              Lwt.return r'
-            end
+                let () = 
+                  if k = Core.__interval_key 
+                  then 
+                    match m_v with 
+                      | None -> ()
+                      | Some  v ->
+                          let iv = inflate_interval v in
+                          t.interval <- iv
+                  else ()
+                in
+                let k' = pref_key ~_pf:__admin_prefix k in
+                match m_v with
+                  | None   -> BS.delete tx k'  >>= fun  _ -> Lwt.return (OK None)
+                  | Some v -> BS.set tx k' v   >>= fun () -> Lwt.return (OK None)
+              end
+          | Core.ASSERT (k, m_v) -> 
+              begin
+                BS.get tx (pref_key k) >>= fun r ->              
+                let (r':tx_result) = match r with
+                  | OK v' -> 
+                      if m_v <> (Some v') 
+                      then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
+                      else OK None
+                  | NOK k -> 
+                      if m_v <> None 
+                      then NOK (Arakoon_exc.E_ASSERTION_FAILED, k)
+                      else OK None
+                in
+                Lwt.return r'
+              end
 
           | Core.SEQUENCE s -> 
-            Lwt_list.fold_left_s 
-            (fun a u ->
-              match a with
-                | OK _ -> _inner tx u  (* throws away the intermediate result *)
-                | a    -> Lwt.return a
-            )
-            (OK None)
-              s 
+              begin
+                Lwt_list.fold_left_s 
+                  (fun a u ->
+                    match a with
+                      | OK _ -> _inner tx u  (* throws away the intermediate result *)
+                      | a    -> Lwt.return a
+                  )
+                  (OK None)
+                  s 
+              end
           | Core.USER_FUNCTION (name, po) ->
-            let f = Userdb.Registry.lookup name in
-            f tx po >>= fun ro -> 
-            Lwtc.log "Bstore.returning %s" (Log_extra.string_option_to_string ro) >>= fun () ->
-            let a = match ro with 
-              | None   -> OK None
-              | Some v -> OK (Some v)
-            in
-            Lwt.return a
-
+              begin
+                let f = Userdb.Registry.lookup name in
+                f tx po >>= fun ro -> 
+                Lwtc.log "Bstore.returning %s" (Log_extra.string_option_to_string ro) >>= fun () ->
+                let a = match ro with 
+                  | None   -> OK None
+                  | Some v -> OK (Some v)
+                in
+                Lwt.return a
+              end
         in _inner tx u
       end
     in  
@@ -231,9 +248,9 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
 
   let rev_range_entries t first finc last linc max =
     _do_range_entries BS.rev_range_entries_latest t first finc last linc max
+
+  let get_interval t = t.interval
     
-  let dump t =
-    Lwtc.failfmt "todo"
 
   let raw_dump t (oc:Lwtc.oc) = 
     File_system.stat t.fn >>= fun stat ->
@@ -248,5 +265,15 @@ type tx_result = (v option, Arakoon_exc.rc * k) result
       
 
   let get_key_count t = BS.key_count_latest t.store
+
+  let dump t = (* TODO: need a better name *)
+    let interval = get_interval t in
+    Lwt_io.printlf "interval:\t%s" (Interval.to_string interval) >>= fun ()->
+    Lwt_io.printf  "last    :\t" >>= fun () ->
+    last_update t >>= function
+      | None       -> Lwt_io.printl  "None"
+      | Some (i,_) -> Lwt_io.printlf "Some (%s, _ )" (Core.ITickUtils.tick2s i)
+    (* ... *)
+
 end: STORE)
 

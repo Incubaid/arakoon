@@ -179,6 +179,7 @@ module type STORE = sig
   val close : t -> unit Lwt.t
   val dump : t -> unit Lwt.t
   val raw_dump : t -> Lwtc.oc -> unit Lwt.t
+
 end
 
 (* output_action & input action are only in last_entries *)
@@ -222,6 +223,11 @@ module BS = Baardskeerder.Baardskeerder(Baardskeerder.Logs.Flog0)(Baardskeerder.
 
 let __prefix = "@"
 let __admin_prefix = "*"
+
+let __routing_key = "routing"
+let __interval_key = "interval"
+let __nursery_cluster_prefix = "nursery_cluster."
+
 
 let pref_key ?(_pf = __prefix) k = _pf ^ k
 let unpref_key ?(_pf = __prefix) k = 

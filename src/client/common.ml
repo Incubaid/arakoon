@@ -333,6 +333,7 @@ let get_interval (ic,oc) =
   response_old ic Interval.input_interval
 
 let get_routing (ic,oc) =
+  Client_log.debug "get_routing" >>= fun () ->
   let outgoing buf = command_to buf GET_ROUTING
   in
     request  oc outgoing >>= fun () ->
