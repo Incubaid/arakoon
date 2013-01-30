@@ -140,44 +140,40 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   Lwt_main.run main
 
 
-let test_set_get () =
-  let real_test (client: Arakoon_client.client) = 
+let _test_set_get (client: Arakoon_client.client) = 
     let v = "X" in
     client # set "x" v >>= fun () ->
     client # get "x" >>= fun v2 ->
     Lwtc.log "v = %S v2 = %S" v v2 >>= fun ()-> 
     OUnit.assert_equal ~printer:(fun s -> s) v v2;
     Lwt.return ()
-  in 
-  __client_server_wrapper__ _CLUSTER real_test
 
-let test_set_delete() = 
-  let real_test (client: Arakoon_client.client) = 
-    let v = "X" in
-    client # set "x" v >>= fun () ->
-    client # delete "x" >>= fun () ->
-    Lwt.return ()
-  in
-  __client_server_wrapper__ _CLUSTER real_test
+let _test_set_delete (client: Arakoon_client.client) = 
+  let v = "X" in
+  client # set "x" v >>= fun () ->
+  client # delete "x" >>= fun () ->
+  Lwt.return ()
 
-let test_delete_non_existing() = 
-  let real_test (client: Arakoon_client.client) = 
-    Lwt.catch
-      (fun () -> client # delete "I'm not there"  >>= fun () ->
-        OUnit.assert_bool "should not get here" false; 
-        Lwt.return ()
-      )
-      (fun ex ->
-        match ex with
-          | Failure _ -> Lwt.fail ex
-          | _ -> Lwt_io.printlf "throws %S" (Printexc.to_string ex)
-      )
-  in
-  __client_server_wrapper__ _CLUSTER real_test
+let _test_delete_non_existing (client:Arakoon_client.client) = 
+  Lwt.catch
+    (fun () -> client # delete "I'm not there"  >>= fun () ->
+      OUnit.assert_bool "should not get here" false; 
+      Lwt.return ()
+    )
+    (fun ex ->
+      match ex with
+        | Failure _ -> Lwt.fail ex
+        | _ -> Lwt_io.printlf "throws %S" (Printexc.to_string ex)
+    )
+    
       
+let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
-let suite = "remote_client" >::: [
-  "set_get"      >:: test_set_get;
-  "set_delete"   >:: test_set_delete;
-  "delete_non_existing" >:: test_delete_non_existing;
-]
+let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
+
+let suite = "remote_client" >::: 
+  map_wrap [
+    ("set_get", _test_set_get) ;
+    ("set_delete", _test_set_delete);
+    ("delete_non_existing", _test_delete_non_existing) ;
+  ]
