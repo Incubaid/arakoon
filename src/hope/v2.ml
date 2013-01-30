@@ -416,6 +416,22 @@ let _set driver k v =
           in
           _only_if_master rest oc me store allow_dirty inner
         end
+      | Common.ASSERT_EXISTS ->
+        begin
+          let allow_dirty = Pack.input_bool rest in
+          let key = Pack.input_string rest in
+          Lwtc.log "ASSERT_EXISTS: allow_dirty:%b key:%s" allow_dirty key 
+          >>= fun () ->
+          let inner () =
+            S.get store key >>= fun m_val ->
+            if m_val = None 
+            then
+              _output_simple_error oc Arakoon_exc.E_ASSERTION_FAILED key
+            else 
+              _output_ok_unit oc
+          in
+          _only_if_master rest oc me store allow_dirty inner
+        end
       | Common.CONFIRM ->
         begin
           let key = Pack.input_string rest in

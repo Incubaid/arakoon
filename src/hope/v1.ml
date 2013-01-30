@@ -260,6 +260,20 @@ module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
     in
     _only_if_master (ic,oc) me store allow_dirty _inner
 
+  let _do_assert_exists (ic,oc) me store stats = 
+    Llio.input_bool          ic >>= fun allow_dirty ->
+    Llio.input_string        ic >>= fun key ->
+    let _inner () = 
+      S.get store key >>= fun m_val ->
+      begin
+        if m_val = None
+        then _non_fatal oc Arakoon_exc.E_ASSERTION_FAILED key
+        else V.response_ok_unit oc
+      end
+    in
+    _only_if_master (ic,oc) me store allow_dirty _inner
+
+
   let _do_sequence (ic,oc) me store stats driver = 
     Llio.input_string ic >>= fun data ->
     let _inner () = 
@@ -339,6 +353,7 @@ module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
       | Common.STATISTICS                -> _do_statistics    conn          stats
       | Common.USER_FUNCTION             -> fail ()
       | Common.ASSERT                    -> _do_assert        conn me store stats
+      | Common.ASSERT_EXISTS             -> _do_assert_exists conn me store stats
       | Common.SET_INTERVAL              -> fail ()
       | Common.DELETE_PREFIX             -> _do_delete_prefix conn me store stats driver
       | Common.VERSION                   -> _do_version       conn

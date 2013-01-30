@@ -287,6 +287,26 @@ object(self: #backend)
 	  Lwt.return ()
     end
 
+  method aSSert_exists ~allow_dirty (key:string) =
+    log_o self "aSSert_exists %S ..." key >>= fun () ->
+    begin
+      let update = Update.Assert_exists(key) in
+      let p_value = Update.make_update_value update in
+      let sleep,awake = Lwt.wait() in
+      let went_well = make_went_well (fun () -> ()) awake sleep in
+      push_update (Some p_value, went_well) >>= fun () ->
+      sleep >>= fun sr ->
+      log_o self "after sleep" >>= fun () ->
+      match sr with
+	| Store.Stop -> Lwt.fail Forced_stop
+	| Store.Update_fail(rc,str) ->
+	  log_o self "Update Fail case (%li)"
+	    (Arakoon_exc.int32_of_rc rc)>>= fun () ->
+	  Lwt.fail (Common.XException(rc,str))
+	| Store.Ok _ ->
+	  log_o self "Update Ok case" >>= fun () ->
+	  Lwt.return ()
+    end
 
   method test_and_set key expected (wanted:string option) =
     let start = Unix.gettimeofday() in

@@ -122,6 +122,17 @@ class test_backend my_name = object(self:#backend)
       in Lwt.fail (Arakoon_exc.Exception (rc, msg))
     else Lwt.return ()
 
+  method aSSert_exists ~allow_dirty (key:string)=
+    Lwt_log.debug_f "test_backend :: aSSert_exists %s" key >>= fun () ->
+    let ok =
+      StringMap.mem key _kv
+    in
+    if not ok
+    then
+      let rc = Arakoon_exc.E_ASSERTION_FAILED
+      and msg = Printf.sprintf "assert_exists %s %S" key ("XXX")
+      in Lwt.fail (Arakoon_exc.Exception (rc, msg))
+    else Lwt.return ()
 
   method get ~allow_dirty (key:string) =
     let value = StringMap.find key _kv in

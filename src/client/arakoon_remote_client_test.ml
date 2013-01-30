@@ -176,3 +176,4 @@ let suite = "remote_client" >:::
     ("set_delete", _test_set_delete);
     ("delete_non_existing", _test_delete_non_existing) ;
   ]
+

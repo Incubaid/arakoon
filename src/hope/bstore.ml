@@ -132,7 +132,6 @@ module BStore = (struct
                 in
                 Lwt.return r'
               end
-
           | Core.SEQUENCE s -> 
               begin
                 Lwt_list.fold_left_s 
