@@ -230,6 +230,28 @@ let _test_assert_exists  (client: Arakoon_client.client) =
   >>= fun () -> 
   Lwt.return () 
 
+let _test_confirm (client: Arakoon_client.client) = 
+  let key = "key" and value = "value" in
+  let value2 = "value2" and value3 = "value3" in
+  client # confirm key value >>= fun () ->
+  client # get key >>= fun v2 ->
+  OUnit.assert_equal v2 value;
+  client # confirm key value >>= fun () ->
+  client # get key >>= fun v3 ->
+  OUnit.assert_equal v3 value;
+  client # confirm key value2 >>= fun () ->
+  client # get key >>= fun v4 ->
+  OUnit.assert_equal v4 value2;
+  client # set key value >>= fun () ->
+  client # confirm key value2 >>= fun () ->
+  client # get key >>= fun v5 ->
+  OUnit.assert_equal v5 value2;
+  client # delete key >>= fun () ->
+  client # confirm key value3 >>= fun () ->
+  client # get key >>= fun v6 ->
+  OUnit.assert_equal v6 value3;
+  Lwt.return ()
+
 let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
 let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
@@ -241,5 +263,6 @@ let suite = "remote_client" >:::
     ("delete_non_existing", _test_delete_non_existing) ;
     ("assert" , _test_assert);
     ("assert_exists" , _test_assert_exists);
+    ("assert_confirm" , _test_confirm);
   ]
 
