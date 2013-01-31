@@ -31,7 +31,7 @@ object(self: #Arakoon_client.client)
 
   method exists ?(allow_dirty=false) key =
     request  oc (fun buf -> exists_to ~allow_dirty buf key) >>= fun () ->
-    response_old ic Llio.input_bool
+    response_limited ic Pack.input_bool
 
   method get ?(allow_dirty=false) key = Common.get conn ~allow_dirty key
 
