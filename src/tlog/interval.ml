@@ -40,8 +40,6 @@ module Interval = struct
 
   let is_ok t key =
     let ((pu_b,pu_e),(pr_b,pr_e)) = t in
-    let msg = to_string t in
-    Lwt.ignore_result( Client_log.debug_f "INTERVAL::IS_OK -> %s" msg );
     match pu_b,pu_e with
     | None  , None   -> true
     | Some b, None   -> b <= key
@@ -66,22 +64,12 @@ module Interval = struct
     r
 
   open Lwt
-  let output_interval oc t=
-    let o_so = Llio.output_string_option oc in
-    let (pu_b,pu_e),(pr_b,pr_e) = t in
-    o_so pu_b >>= fun () ->
-    o_so pu_e >>= fun () ->
-    o_so pr_b >>= fun () ->
-    o_so pr_e >>= fun () ->
-    Lwt.return ()
-
   let input_interval ic =
-    let i_so () = Llio.input_string_option ic in
-    i_so () >>= fun pu_b ->
-    i_so () >>= fun pu_e ->
-    i_so () >>= fun pr_b ->
-    i_so () >>= fun pr_e ->
-    let r = (make pu_b pu_e pr_b pr_e) in
-    Lwt.return r
+    Llio.input_string ic >>= fun s ->
+    Lwt_log.debug_f "input_interval :%S" s >>= fun () ->
+    let p = Pack.make_input s 4 (* sight *) in
+    let iv = interval_from p in
+    Lwt.return iv
+    
 end
 

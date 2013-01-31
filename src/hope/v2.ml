@@ -213,6 +213,7 @@ let _set driver k v =
     let do_admin_get rest key =
       let do_inner () =
         V.admin_get store key >>= fun res ->
+        Lwt_log.debug_f "do_admin_get %s ==> %S" key res >>= fun () ->
         V.response_rc_string oc 0l res
       in
       _only_if_master rest oc me store false do_inner
@@ -590,5 +591,9 @@ let _set driver k v =
       | Common.DELETE_PREFIX -> _do_delete_prefix rest oc me store stats driver
       | Common.VERSION       -> _do_version            oc
 
+      | Common.GET_FRINGE ->
+          begin
+            Lwt.fail (Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,"not implemented"))
+          end
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

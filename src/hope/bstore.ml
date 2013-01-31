@@ -14,10 +14,18 @@ let inflate_interval m_v =
   let iv = Interval.interval_from s in
   iv
     
+let deflate_interval iv =
+  let p = Pack.make_output 32 in
+  let () = Interval.interval_to p iv in
+  Pack.close_output p 
+
 let _read_interval (store:BS.t) =
   BS.get_latest store (pref_key ~_pf:__admin_prefix Core.__interval_key) >>= function 
-    | OK v  -> let iv = inflate_interval v in Lwt.return iv
-    | NOK k -> let iv = Interval.max       in Lwt.return iv 
+    | OK v  -> let iv = inflate_interval v in 
+               Lwt.return (iv,v)
+    | NOK k -> let iv = Interval.max  in 
+               let v = deflate_interval iv in
+               Lwt.return (iv,v )
      
 
 module BStore = (struct
@@ -26,7 +34,7 @@ module BStore = (struct
              mutable meta: string option; 
              read_only: bool;
              fn : string;
-             mutable interval: Interval.t;
+             mutable interval: (Interval.t * string);
            }
 
   type tx_result = (v option, Arakoon_exc.rc * k) result
@@ -58,7 +66,7 @@ module BStore = (struct
 
   let _check_interval ?(nok=_outside)
       t k (ok: k -> 'a) = 
-    let iv = t.interval in
+    let iv,_ = t.interval in
     let f = 
       if Interval.is_ok iv k
       then ok
@@ -109,13 +117,17 @@ module BStore = (struct
                       | None -> ()
                       | Some  v ->
                           let iv = inflate_interval v in
-                          t.interval <- iv
+                          t.interval <- (iv,v)
                   else ()
                 in
                 let k' = pref_key ~_pf:__admin_prefix k in
                 match m_v with
                   | None   -> BS.delete tx k'  >>= fun  _ -> Lwt.return (OK None)
-                  | Some v -> BS.set tx k' v   >>= fun () -> Lwt.return (OK None)
+                  | Some v -> BS.set tx k' v   >>= fun () -> 
+                      begin
+                        Lwt_log.debug_f "ADMIN_SET: %s %S" k v >>= fun () ->
+                        Lwt.return (OK None)
+                      end
               end
           | Core.ASSERT (k, m_v) -> 
               begin
@@ -184,11 +196,18 @@ module BStore = (struct
           end
           
     end
+
+  let get_interval t = t.interval
   
   let admin_get t k =
-    BS.get_latest t.store (pref_key ~_pf:__admin_prefix k) >>= function 
-      | OK v -> begin Lwt_log.debug_f "admin_get %s --> %S" k v >>= fun () ->  Lwt.return (Some v) end
-      | NOK k -> Lwt.return None
+    if k = Core.__interval_key 
+    then 
+      let (_,v) = get_interval t in
+      Lwt.return (Some v)
+    else
+      BS.get_latest t.store (pref_key ~_pf:__admin_prefix k) >>= function 
+        | OK v -> begin Lwt_log.debug_f "admin_get %s --> %S" k v >>= fun () ->  Lwt.return (Some v) end
+        | NOK k -> Lwt.return None
      
   let get t k = 
     BS.get_latest t.store (pref_key k) >>= function
@@ -249,7 +268,7 @@ module BStore = (struct
   let rev_range_entries t first finc last linc max =
     _do_range_entries BS.rev_range_entries_latest t first finc last linc max
 
-  let get_interval t = t.interval
+
     
 
   let raw_dump t (oc:Lwtc.oc) = 
@@ -267,8 +286,8 @@ module BStore = (struct
   let get_key_count t = BS.key_count_latest t.store
 
   let dump t = (* TODO: need a better name *)
-    let interval = get_interval t in
-    Lwt_io.printlf "interval:\t%s" (Interval.to_string interval) >>= fun ()->
+    let iv,_ = get_interval t in
+    Lwt_io.printlf "interval:\t%s" (Interval.to_string iv) >>= fun ()->
     Lwt_io.printf  "last    :\t" >>= fun () ->
     last_update t >>= function
       | None       -> Lwt_io.printl  "None"

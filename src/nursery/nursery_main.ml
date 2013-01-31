@@ -142,6 +142,7 @@ let __delete_from_nursery config cluster_id sep =
   NC.delete nc cluster_id m_sep 
   
 let __main_run log_file f =
+  let () = Client_log.enable_lwt_logging_for_client_lib_code () in
   Lwt.catch
   ( fun () ->
     setup_logger log_file >>= fun () ->
