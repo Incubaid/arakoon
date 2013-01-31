@@ -252,6 +252,26 @@ let _test_confirm (client: Arakoon_client.client) =
   OUnit.assert_equal v6 value3;
   Lwt.return ()
 
+let _test_sequence (client: Arakoon_client.client) = 
+  client # set "XXX0" "YYY0" >>= fun () ->
+  let changes = [Arakoon_client.Set("XXX1","YYY1");
+                 Arakoon_client.Set("XXX2","YYY2");
+                 Arakoon_client.Set("XXX3","YYY3");
+                 Arakoon_client.Delete "XXX0";
+                ]
+
+  in
+  client # sequence changes >>= fun () ->
+  client # get "XXX1" >>= fun v1 ->
+  OUnit.assert_equal v1 "YYY1";
+  client # get "XXX2" >>= fun v2 ->
+  OUnit.assert_equal v2 "YYY2";
+  client # get "XXX3">>= fun v3 ->
+  OUnit.assert_equal v3 "YYY3";
+  client # exists "XXX0" >>= fun exists ->
+  OUnit.assert_bool "XXX0 should not be there" (not exists);
+  Lwt.return ()
+
 let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
 let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
@@ -264,5 +284,6 @@ let suite = "remote_client" >:::
     ("assert" , _test_assert);
     ("assert_exists" , _test_assert_exists);
     ("assert_confirm" , _test_confirm);
+    ("assert_sequence" , _test_sequence);
   ]
 

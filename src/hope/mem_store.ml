@@ -17,6 +17,19 @@ module MemStore = (struct
             if Hashtbl.mem t.store k 
             then let () = Hashtbl.remove  t.store k in _ok
             else Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_NOT_FOUND,k))
+        | ASSERT (k,v) ->
+            let _nok =  Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_ASSERTION_FAILED,k)) in
+            if Hashtbl.mem t.store k then 
+              begin
+                if (Some (Hashtbl.find t.store k)) = v then _ok
+                else _nok
+              end
+            else _nok
+        | ASSERT_EXISTS (k) ->
+            let _nok =  Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_ASSERTION_FAILED,k)) in
+            if Hashtbl.mem t.store k 
+            then _ok
+            else Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_ASSERTION_FAILED,k))
         | SEQUENCE s -> 
             let rec _loop = function
               | [] -> _ok
