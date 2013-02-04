@@ -28,7 +28,12 @@ end
 
 module Registry = struct
   type f = UserDB.tx -> string option -> (string option) Lwt.t
+  type f2 = (Core.k, Core.v) Hashtbl.t -> string option -> (string option) Lwt.t
+  (*type f2 = (string, string) Hashtbl.t -> string option -> (string option) Lwt.t*)
   let _r = Hashtbl.create 42
+  let _r2 = Hashtbl.create 42
   let register (name:string) (f:f) = Hashtbl.replace _r name f
+  let register2 (name:string) (f2:f2) = Hashtbl.replace _r2 name f2
   let lookup (name:string) = Hashtbl.find _r name
+  let lookup2 (name:string) = Hashtbl.find _r2 name
 end

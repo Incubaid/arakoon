@@ -29,6 +29,11 @@ open Statistics
 open Pq
 open OUnit
 
+(*
+open Baardskeerder 
+open Unix
+open Interval
+*)
 
 module MyStore = (MemStore :STORE)
 module MyDispatcher = Dispatcher.ADispatcher(MyStore)  
@@ -295,6 +300,19 @@ let _test_sequence_inside_sequence (client: Arakoon_client.client) =
   OUnit.assert_bool "XXX3 should not be there" (not exists2);
   Lwt.return ()
 
+
+let _test_user_fn (client: Arakoon_client.client) =
+    let myFn (ts:(Core.k, Core.v) Hashtbl.t) (vo) = 
+    let () = Hashtbl.replace ts "user_fn" "user_fn" in
+    Lwt.return None
+  in
+  let () = Userdb.Registry.register2 "myFn" myFn in
+  client # user_function "myFn" (Some "user_fn") >>= fun ro ->
+  client # get "user_fn" >>= fun res ->
+  OUnit.assert_equal res "user_fn";
+  Lwt.return ()
+  
+  
 let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
 let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
@@ -309,5 +327,6 @@ let suite = "remote_client" >:::
     ("assert_confirm" , _test_confirm);
     ("assert_sequence" , _test_sequence);
     ("assert_sequence_rec" , _test_sequence_inside_sequence);
+    ("assert_user_fn"      , _test_user_fn);
   ]
 

@@ -12,7 +12,17 @@ module MemStore = (struct
     begin
       let _ok = Lwt.return (Baardskeerder.OK None) in
       match u with
+
         | SET (k,v) -> let () = Hashtbl.replace t.store k v in _ok
+        | USER_FUNCTION (name,po) -> 
+            let f = Userdb.Registry.lookup2 name in
+            f t.store po >>= fun ro -> 
+            Lwtc.log "Mstore.returning %s" (Log_extra.string_option_to_string ro) >>= fun () ->
+            let a = match ro with 
+              | None   -> (Baardskeerder.OK None)
+              | Some v -> (Baardskeerder.NOK (Arakoon_exc.E_NOT_FOUND,v))
+            in
+            Lwt.return a
         | DELETE k  -> 
             if Hashtbl.mem t.store k 
             then let () = Hashtbl.remove  t.store k in _ok
@@ -30,6 +40,7 @@ module MemStore = (struct
             if Hashtbl.mem t.store k 
             then _ok
             else Lwt.return (Baardskeerder.NOK (Arakoon_exc.E_ASSERTION_FAILED,k))
+
         | SEQUENCE s -> 
             let rec _loop = function
               | [] -> _ok

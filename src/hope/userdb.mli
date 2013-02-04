@@ -12,7 +12,10 @@ end
 module Registry:
 sig
   type f = UserDB.tx -> string option -> (string option) Lwt.t
+  type f2 = (Core.k,Core.v) Hashtbl.t -> string option -> (string option) Lwt.t
+  val register2: string -> f2 ->unit
   val register: string -> f -> unit
   val lookup: string -> f
+  val lookup2: string -> f2
 end
     
