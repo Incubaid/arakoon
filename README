@@ -1,6 +1,6 @@
 Arakoon: a simple distributed key/value store
 
-(Note: if you have previous 1.x Arakoon, then duo to environement possible conflicts, You can replace arakoon with barakoon, e.g ./barakoon.native)
+(Note: if you have previous 1.x Arakoon, then due to environement possible conflicts, You can replace arakoon with barakoon, e.g ./barakoon.native)
 Compiling: see COMPILING
 
 License information: 
