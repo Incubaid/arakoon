@@ -17,44 +17,55 @@ type v = string
 type update = 
   | SET of k * v
   | DELETE of k
+  | TEST_AND_SET of (k * v option * v option)
   | ASSERT of k * v option
   | ADMIN_SET of k * v option
   | USER_FUNCTION of string * string option
   | SEQUENCE of update list
   | DELETE_PREFIX of k
 
+
 let update2s = function
   | SET (k, _) -> Printf.sprintf "U_SET (%S,_)" k
   | DELETE k -> Printf.sprintf "U_DEL (%S)" k
+  | TEST_AND_SET (k,e,w) -> Printf.sprintf "U_TEST_AND_SET (%S,_,_)" k 
   | ASSERT (k, _) -> Printf.sprintf "U_ASSERT (%S,_)" k
   | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (%S,_)" k
   | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
   | DELETE_PREFIX k -> Printf.sprintf "U_DELETE_PREFIX %S" k
 
+
 let rec update_to buf = function
   | SET (k,v) ->
-    Llio.int_to buf 1;
-    Llio.string_to buf k;
-    Llio.string_to buf v
+      Llio.int_to buf 1;
+      Llio.string_to buf k;
+      Llio.string_to buf v
   | DELETE k ->
-    Llio.int_to buf 2;
-    Llio.string_to buf k
+      Llio.int_to buf 2;
+      Llio.string_to buf k
+  | TEST_AND_SET (k,e,w) ->
+      Llio.int_to           buf 3;
+	  Llio.string_to        buf k;
+	  Llio.string_option_to buf e;
+	  Llio.string_option_to buf w
   | SEQUENCE s ->
-    Llio.int_to buf 5;
-    Llio.int_to buf (List.length s);
-    List.iter (fun u -> update_to buf u) s
+      Llio.int_to buf 5;
+      Llio.int_to buf (List.length s);
+      List.iter (fun u -> update_to buf u) s
   | ASSERT (k, m_v) ->
-    Llio.int_to buf 8;
-    Llio.string_to buf k ;
+      Llio.int_to buf 8;
+      Llio.string_to buf k ;
     Llio.string_option_to buf m_v
   | ADMIN_SET (k, m_v) ->
-    Llio.int_to buf 9;
-    Llio.string_to buf k;
-    Llio.string_option_to buf m_v
+      Llio.int_to buf 9;
+      Llio.string_to buf k;
+      Llio.string_option_to buf m_v
   | DELETE_PREFIX k ->
-    Llio.int_to buf 14;
-    Llio.string_to buf k
+      Llio.int_to buf 14;
+      Llio.string_to buf k
+
+
 
 let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
@@ -66,6 +77,14 @@ let rec update_from buf off =
     | 2 ->
       let k, off = Llio.string_from buf off in
       DELETE k, off
+    | 3 ->
+        begin
+          let k,o2 = Llio.string_from        buf off in
+          let e,o3 = Llio.string_option_from buf o2  in
+          let w,o4 = Llio.string_option_from buf o3 in
+          let u = TEST_AND_SET (k,e,w) in
+          u, o4
+        end
     | 5 ->
       let slen, off = Llio.int_from buf off in
       begin
@@ -90,6 +109,7 @@ let rec update_from buf off =
       let k, off = Llio.string_from buf off in
       DELETE_PREFIX k, off
     | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
+                                                               
 
 type result = 
   | VOID

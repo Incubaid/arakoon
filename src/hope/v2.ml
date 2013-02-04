@@ -135,6 +135,25 @@ let _set driver k v =
     end;
     _close_write oc out
 
+  let _test_and_set driver (k:string) (e:v option) (w:v option) oc = 
+    let q = Core.TEST_AND_SET(k,e,w) in
+    D.push_cli_req driver q >>= fun a ->
+    Lwtc.log "_test_and_set result=%s" (Core.result2s a) >>= fun () ->
+    let out = Pack.make_output 64 in
+    begin
+      match a with
+        | Core.VOID -> 
+            Pack.vint_to out 0;
+            Pack.string_option_to out None
+        | Core.VALUE v -> 
+            Pack.vint_to out 0;
+            Pack.string_option_to out (Some v)
+        | Core.FAILURE (rc, msg) ->
+            Pack.vint_to out  (Arakoon_exc.int_of_rc rc);
+            Pack.string_to out msg
+    end;
+    _close_write oc out
+
   let _unit_or_f oc = function
     | Core.VOID              -> _output_ok_unit oc
     | Core.FAILURE (rc, msg) -> _output_simple_error oc rc msg
@@ -164,6 +183,39 @@ let _set driver k v =
     let po   = Pack.input_string_option rest in
     Lwtc.log "USER_FUNCTION %S %S" name (Log_extra.string_option_to_string po) >>= fun () ->
     _user_function driver name po oc 
+
+  let _do_test_and_set rest oc me store stats driver = 
+    begin
+      let k = Pack.input_string rest in 
+      let e = Pack.input_string_option rest in
+      let w = Pack.input_string_option rest in
+      Lwtc.log "TEST_AND_SET key:%S e:%S w:%S" k
+        (Log_extra.string_option_to_string e)
+        (Log_extra.string_option_to_string w)
+      >>= fun () ->
+      _test_and_set driver k e w oc
+          (*
+          let inner () = 
+            let t0 = Unix.gettimeofday() in
+            S.get store key >>= fun m_val ->
+            begin
+              if m_val = m_old 
+              then begin
+                match m_new with
+                  | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
+                  | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
+              end 
+              else begin
+                Lwtc.log "Test_and_set: nothing to be done"
+              end
+            end >>= fun () ->
+            Statistics.new_testandset stats t0;
+            output_ok_string_option m_val 
+          in
+          _do_write_op rest oc me store inner
+          *)
+    end
+
 
   let _do_delete_prefix rest oc  me store stats driver = 
     let key = Pack.input_string rest in
@@ -433,34 +485,7 @@ let _set driver k v =
           in 
           _do_write_op rest oc me store inner
         end
-      | Common.TEST_AND_SET ->
-        begin
-          let key = Pack.input_string rest in 
-          let m_old = Pack.input_string_option rest in
-          let m_new = Pack.input_string_option rest in
-          Lwtc.log "TEST_AND_SET key:%S m_old:%s m_new:%s" key 
-            (Log_extra.string_option_to_string m_old)
-            (Log_extra.string_option_to_string m_new)
-          >>= fun () ->
-          let inner () = 
-            let t0 = Unix.gettimeofday() in
-            S.get store key >>= fun m_val ->
-            begin
-              if m_val = m_old 
-              then begin
-                match m_new with
-                  | None -> Lwtc.log "Test_and_set: delete" >>= fun () -> _delete driver key
-                      | Some v -> Lwtc.log "Test_and_set: set" >>= fun () ->  _set driver key v
-              end 
-              else begin
-                Lwtc.log "Test_and_set: nothing to be done"
-              end
-            end >>= fun () ->
-            Statistics.new_testandset stats t0;
-            output_ok_string_option m_val 
-          in
-          _do_write_op rest oc me store inner
-        end
+      | Common.TEST_AND_SET -> _do_test_and_set rest oc me store stats driver
       | Common.PREFIX_KEYS ->
         begin
           Lwtc.log "PREFIX_KEYS" >>= fun () ->
