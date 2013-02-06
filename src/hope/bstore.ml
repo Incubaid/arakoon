@@ -101,10 +101,6 @@ module BStore = (struct
             end
           | Core.TEST_AND_SET (k,eo,wo) ->
               begin
-                Lwtc.log "test_and_set (%s,%s,%s)" k 
-                  (Log_extra.string_option_to_string eo)
-                  (Log_extra.string_option_to_string wo)
-                >>= fun () ->
                 _check_interval t k 
                   (fun k ->
                     let pk = pref_key k in
@@ -115,8 +111,6 @@ module BStore = (struct
                     and set w =
                       begin
                         BS.set tx pk w >>= fun () -> 
-                        Lwtc.log "returning %S" (Log_extra.string_option_to_string eo) 
-                        >>= fun ()->
                         Lwt.return (OK eo)
                       end
                     in
@@ -134,19 +128,17 @@ module BStore = (struct
                           end
                       | Some e ->
                           begin
-                            Lwtc.log "hiere" >>= fun () ->
                             BS.get tx pk >>= function
                               | OK v  -> 
-                                  Lwtc.log "test_and_set: %s got %s"  pk v >>= fun() ->
                                   if v = e 
                                   then 
-                                    Lwtc.log "test_and_set %s==%s" v e >>= fun ()->
                                     match wo with
                                       | None   -> delete() 
                                       | Some w -> set w
                                   else
                                     Lwt.return (OK (Some v))
-                              | NOK _ -> Lwt.return (OK None)                                  
+                              | NOK _ -> 
+                                  Lwt.return (OK None)                                  
                           end
                             
                   )

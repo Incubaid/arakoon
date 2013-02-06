@@ -149,7 +149,7 @@ def tes_and_set_scenario( start_suffix, protocol_version): #tes is deliberate
     
     old_value_prefix = "old_"
     new_value_prefix = "new_"
-    n = 1#000
+    n = 1000
     try:
         for i in range (n):
         
@@ -163,11 +163,13 @@ def tes_and_set_scenario( start_suffix, protocol_version): #tes is deliberate
             X.logging.debug("so far so good, now getting_value")
             set_value = client.get ( key )
             assert_equals( set_value, new_value )
-    
+            X.logging.debug("first test_and_set succeeded")
+            X.logging.debug("try test_and_set with different expected value")
             set_value = client.testAndSet( key, old_value, old_value )
             assert_equals( set_value, new_value )
-    
+            X.logging.debug("returned value is ok")
             set_value = client.get ( key )
+            X.logging.debug("set_value = %s", set_value)
             assert_not_equals( set_value, old_value )
         
             try:

@@ -40,7 +40,28 @@ let t_log () =
   let main_t () = lwt_wrap setup () test teardown in
   Lwt_main.run (main_t())
 
+
+let t_test_and_set () =
+  let test(fn,t) = 
+    let fn = Filename.temp_file "t_test_and_set_" ".bs" in
+    BStore.init fn >>= fun () ->
+    BStore.create fn false >>= fun t ->
+    let key = "x" in
+    let u = TEST_AND_SET(key ,None, Some"X") in
+    BStore.log t true u >>= fun _ ->
+    let u2 = TEST_AND_SET (key, Some "Y", Some "Z") in
+    BStore.log t true u2 >>= fun _ ->
+    BStore.commit t (Core.ITick.from_int64 2L) >>= fun _ ->
+    BStore.get t key >>= fun vo ->
+    Lwtc.log "got %s" (Log_extra.string_option_to_string vo) >>= fun () ->
+    OUnit.assert_equal ~printer:Log_extra.string_option_to_string vo (Some "X");
+    Lwt.return ()
+  in
+  let main_t () = lwt_wrap setup () test teardown in
+  Lwt_main.run (main_t())
+
 let suite = 
   "Bstore" >:::[
     "log" >:: t_log;
+    "test_and_set" >:: t_test_and_set; 
   ]

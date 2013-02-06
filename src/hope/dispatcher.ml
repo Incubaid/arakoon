@@ -80,6 +80,9 @@ module ADispatcher (S:STORE) = struct
   let handle_commit t s i u m_w to_client =
     let () = validate_commit_update i s.accepted in
     commit_update t i >>= fun () ->
+    Lwtc.log "commited i:%s to_client:%s" 
+      (ITickUtils.tick2s i)
+      (Core.result2s to_client) >>= fun () ->
     begin
       match m_w with
         | None -> Lwt.return ()
@@ -88,7 +91,9 @@ module ADispatcher (S:STORE) = struct
     >>= fun () -> 
     let s' = {
       s with
-      accepted = i
+        accepted = i;
+        cur_cli_res = None;
+        cur_cli_req = None;
     } in
     Lwt.return s'
 
