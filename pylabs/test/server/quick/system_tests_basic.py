@@ -149,32 +149,35 @@ def tes_and_set_scenario( start_suffix, protocol_version): #tes is deliberate
     
     old_value_prefix = "old_"
     new_value_prefix = "new_"
-    n = 1000
-    for i in range (n):
+    n = 1#000
+    try:
+        for i in range (n):
         
-        old_value = old_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
-        new_value = new_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
-        key = CONFIG.key_format_str % ( i+start_suffix )
+            old_value = old_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
+            new_value = new_value_prefix + CONFIG.value_format_str % ( i+start_suffix )
+            key = CONFIG.key_format_str % ( i+start_suffix )
+            X.logging.debug("set %s,%s", key,old_value)
+            client.set( key, old_value )
+            set_value = client.testAndSet( key, old_value , new_value )
+            assert_equals( set_value, old_value ) 
+            X.logging.debug("so far so good, now getting_value")
+            set_value = client.get ( key )
+            assert_equals( set_value, new_value )
     
-        client.set( key, old_value )
-        set_value = client.testAndSet( key, old_value , new_value )
-        assert_equals( set_value, old_value ) 
+            set_value = client.testAndSet( key, old_value, old_value )
+            assert_equals( set_value, new_value )
+    
+            set_value = client.get ( key )
+            assert_not_equals( set_value, old_value )
         
-        set_value = client.get ( key )
-        assert_equals( set_value, new_value )
-    
-        set_value = client.testAndSet( key, old_value, old_value )
-        assert_equals( set_value, new_value )
-    
-        set_value = client.get ( key )
-        assert_not_equals( set_value, old_value )
-        
-        try:
-            client.delete( key )
-        except ArakoonNotFound:
-            X.logging.error ( "Caught not found for key %s" % key )
-        assert_raises( ArakoonNotFound, client.get, key )
-    
+            try:
+                client.delete( key )
+            except ArakoonNotFound:
+                X.logging.error ( "Caught not found for key %s" % key )
+                assert_raises( ArakoonNotFound, client.get, key )
+    except Exception,e:
+        X.logging.error("should not get here:%s", e)
+        assert_true(False)
     client.dropConnections()
 
 

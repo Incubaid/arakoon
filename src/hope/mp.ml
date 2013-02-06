@@ -203,6 +203,7 @@ module MULTI = struct
     election_votes    : election_votes;
     constants         : paxos_constants;
     cur_cli_req       : request_awakener option;
+    cur_cli_res       : Core.result option;
     valid_inputs      : msg_channel list;
   }
   
@@ -219,6 +220,7 @@ module MULTI = struct
       election_votes = {nnones = []; nsomes = []};
       constants = c;
       cur_cli_req = None;
+      cur_cli_res = None;
       valid_inputs = ch_all;
     }
 

@@ -107,7 +107,13 @@ module ADispatcher (S:STORE) = struct
       Lwt.return s
     | A_COMMIT_UPDATE (i, u, m_w) ->
       Lwtc.log "Committing update (i:%s)" (itick2s i) >>= fun () ->
-      handle_commit t s i u m_w Core.VOID
+        let to_client = 
+          let res = s.cur_cli_res in
+          match res with
+            | None -> Core.VOID
+            | Some tc -> tc
+        in
+        handle_commit t s i u m_w to_client
     | A_LOG_UPDATE (i, u, cli_req) ->
       let () = validate_log_update i s.proposed in
       Lwtc.log "Logging update (i:%s)" (itick2s i) >>= fun () ->
@@ -125,41 +131,44 @@ module ADispatcher (S:STORE) = struct
         in
         match res with 
           
-          | Baardskeerder.OK (x: v option) -> (* TODO: put x in state and return upward after consensus *)
-            if s.master_id = Some s.constants.me 
-            then
-              begin
-              (* Update logged succesfull *)
-                match s.constants.others with
-                  (* If single node, we need to commit as well *)
-                   | [] ->  
-                    let s' = {
-                      s with
-                      prop = None;
-                      proposed = i;
-                      votes = [];
-                      cur_cli_req = None;
-                      valid_inputs = ch_all;
-                    } in
-                    let to_client = 
-                      match x with
-                        | None -> VOID
-                        | Some v -> VALUE v
-                    in
-                    handle_commit t s' i u cli_req to_client
-                  (* Not single node, send out accepts *)
-                  | others ->
-                    let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
-                    do_send_msg t s msg others >>= fun () ->
-                    let s' =  {
-                      s with
-                      cur_cli_req = cli_req;
-                      votes = [s.constants.me];
-                      proposed = i;
-                      prop = Some u;
-                      valid_inputs = ch_node_and_timeout;
-                    } in 
-                    Lwt.return s'
+          | Baardskeerder.OK (x: v option) -> 
+              if s.master_id = Some s.constants.me 
+              then
+                begin
+                  let to_client = 
+                    match x with
+                      | None -> VOID
+                      | Some v -> VALUE v
+                  in
+                  
+                  (* Update logged succesfull *)
+                  match s.constants.others with
+                    (* If single node, we need to commit as well *)
+                    | [] ->  
+                        let s' = {
+                          s with
+                            prop = None;
+                            proposed = i;
+                            votes = [];
+                            cur_cli_req = None;
+                            valid_inputs = ch_all;
+                        } in
+                        handle_commit t s' i u cli_req to_client
+                    (* Not single node, send out accepts *)
+                    | others ->
+                        let msg = M_ACCEPT(s.constants.me, s.round, s.extensions, i, u) in
+                        Lwtc.log "HIERE: to_client = %s in state" (Core.result2s to_client) >>= fun () ->
+                        do_send_msg t s msg others >>= fun () ->
+                        let s' =  {
+                          s with
+                            cur_cli_req = cli_req;
+                            cur_cli_res = Some to_client;
+                            votes = [s.constants.me];
+                            proposed = i;
+                            prop = Some u;
+                            valid_inputs = ch_node_and_timeout;
+                        } in 
+                        Lwt.return s'
                 end
               else
                 begin
