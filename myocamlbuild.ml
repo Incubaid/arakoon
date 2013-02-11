@@ -11,14 +11,29 @@ let ocamlfind x = S[A"ocamlfind"; x]
 let run_cmd cmd =
   try
     let ch = Unix.open_process_in cmd in
-    let hg_version = input_line ch in
+    let line = input_line ch in
     let () = close_in ch in
-    hg_version
+    line
   with | End_of_file -> "Not available"
-    
-let hg_revision = run_cmd "hg id -i"
 
-let branch_version = run_cmd "hg branch"
+
+let output_cmd cmd = 
+  let acc = ref [] in
+  let ch = Unix.open_process_in cmd in
+  try
+    let rec loop () = 
+      let line = input_line ch in
+      let () = acc := line :: !acc in
+      loop ()
+    in
+    loop ()
+  with | End_of_file -> 
+    let () = close_in ch in
+    List.rev (!acc)
+
+let git_revision = run_cmd "git describe --all --long --always --dirty"
+let tag_version = run_cmd "git describe --tags --exact-match"
+let branch_version = run_cmd "git describe --all"
 
 let machine = run_cmd "uname -mnrpio"
 
@@ -43,7 +58,7 @@ let time =
 
 let make_version _ _ =
   let cmd =
-    let template = "let hg_revision = %S\n" ^^
+    let template = "let git_revision = %S\n" ^^
       "let compile_time = %S\n" ^^
       "let machine = %S\n" ^^
       "let major = %i\n" ^^
@@ -52,12 +67,12 @@ let make_version _ _ =
     in
     let major,minor,patch = 
       try
-        Scanf.sscanf branch_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
+        Scanf.sscanf tag_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
       with _ -> 
-        try Scanf.sscanf branch_version "%i.%i" (fun ma mi -> (ma,mi,-1)) 
+        try Scanf.sscanf branch_version "heads/%i.%i" (fun ma mi -> (ma,mi,-1))
         with _ -> (-1,-1,-1)
     in
-    Printf.sprintf template hg_revision time machine major minor patch
+    Printf.sprintf template git_revision time machine major minor patch
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 

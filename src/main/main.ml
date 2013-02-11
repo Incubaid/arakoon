@@ -78,7 +78,7 @@ let list_tests() =
 
 let show_version ()= 
   Printf.printf "version: %i.%i.%i\n" Version.major Version.minor Version.patch;
-  Printf.printf "hg_revision: %S\n" Version.hg_revision;
+  Printf.printf "git_revision: %S\n" Version.git_revision;
   Printf.printf "compiled: %S\n" Version.compile_time;
   Printf.printf "machine: %S\n" Version.machine;
   Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile
