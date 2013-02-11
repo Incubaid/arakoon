@@ -634,7 +634,23 @@ let _set driver k v =
 
       | Common.GET_FRINGE ->
           begin
-            Lwt.fail (Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,"not implemented"))
+            let boundary = Pack.input_string rest in
+            let direction_i = Pack.input_vint rest in
+            let direction  = match direction_i with
+              | 0 -> Routing.UPPER_BOUND
+              | 1 -> Routing.LOWER_BOUND
+              
+            in
+            Lwtc.log "GET_FRINGE: %s %i"  boundary direction_i >>= fun () ->
+            S.get_fringe store boundary direction >>= fun kvs ->
+            let out = Pack.make_output 4096 in
+            Pack.vint_to out 0; 
+            Pack.list_to out 
+              (fun out ((k:string),(v:string)) -> 
+                Pack.string_to out k;
+                Pack.string_to out v;
+              ) kvs;
+            _close_write oc out
           end
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

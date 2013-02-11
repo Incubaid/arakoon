@@ -176,6 +176,8 @@ module ITickUtils = TickUtils(ITick)
 
 type tx_result = (v option, Arakoon_exc.rc * k) Baardskeerder.result
 
+open Routing (* for range_direction  TODO: maybe promote? *)
+
 module type STORE = sig
   type t
   
@@ -206,6 +208,7 @@ module type STORE = sig
   val dump : t -> unit Lwt.t
   val raw_dump : t -> Lwtc.oc -> unit Lwt.t
 
+  val get_fringe : t -> string -> Routing.range_direction -> ((string * string) list) Lwt.t
 end
 
 (* output_action & input action are only in last_entries *)

@@ -173,8 +173,10 @@ module NC = struct
     let i2s i = Interval.to_string i in
     Lwt_log.debug_f "Getting initial interval from %s" from_cn >>= fun () ->
     get_interval from_cn >>= fun from_i -> 
+    Lwt_log.debug_f "from_i: %s" (Interval.to_string from_i) >>= fun () ->
     Lwt_log.debug_f "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
+    Lwt_log.debug_f "to_i: %s" (Interval.to_string to_i) >>= fun () ->
     let rec loop from_i to_i =
       pull () >>= fun fringe ->
       match fringe with
@@ -240,6 +242,7 @@ module NC = struct
     
     
   let migrate t clu_left (sep: string) clu_right  =
+    Lwt_log.debug_f "migrate: %s %S %s" clu_left sep clu_right >>= fun () ->
     let r = NCFG.get_routing t.rc in
     let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
     let publish sep left right = 

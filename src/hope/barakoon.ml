@@ -230,6 +230,7 @@ type action_type =
   | MigrateNursery
   | WhoMaster
   | GetRouting
+  | GetInterval
 
 
 let split_cfgs cfg myname =
@@ -387,6 +388,11 @@ let get cfg_name k =
       Lwt_io.printlf "%S" v
     )
 
+let get_interval cfg_name = 
+  Nursery_main.get_interval cfg_name
+
+
+
 let who_master cfg_name = 
   Client_main.who_master cfg_name () >>= fun m -> 
   Lwt_io.printlf "%s" m
@@ -516,6 +522,9 @@ let main () =
      Arg.Tuple[set_action MigrateNursery; Arg.Set_string left; Arg.Set_string sep; Arg.Set_string right],
      "<left> <sep> <right>: Change the nursery cluster distribution.");
     ("--nursery-routing", set_action GetRouting, "returns the routing information of the nursery");
+    ("--get-interval",
+     set_action GetInterval,
+     " : returns the interval this cluster is responsible for (Nursery context)")
   ] in
   
   Arg.parse actions  
@@ -543,6 +552,7 @@ let main () =
       | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
       | WhoMaster      -> Lwt_main.run (who_master !config_file)
       | GetRouting     -> Lwt_main.run (Nursery_main.get_routing !config_file)
+      | GetInterval    -> Lwt_main.run (get_interval !config_file)
 
   end
 

@@ -85,10 +85,10 @@ module ClientCfg = struct
     let nodes      = _get section "cluster" Ini.p_string_list in
     let () = List.iter
       (fun n ->
-	let ip = _get n "ip" Ini.p_string in
-	let port = _get n "client_port" Ini.p_int in
-	let sa = ip,port in
-	add cfg n sa
+	    let ip = _get n "ip" Ini.p_string in
+	    let port = _get n "client_port" Ini.p_int in
+	    let sa = ip,port in
+	    add cfg n sa
       ) nodes
     in
     cfg

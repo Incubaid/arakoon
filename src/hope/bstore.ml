@@ -3,7 +3,7 @@ open Lwt
 open Baardskeerder 
 open Unix
 open Interval
-
+open Routing
     
 let action2update = function
   | Set (k,v) -> Core.SET(unpref_key k,v)
@@ -321,6 +321,11 @@ module BStore = (struct
     _do_range_entries BS.rev_range_entries_latest t first finc last linc max
 
 
+  let get_fringe t boundary direction =
+    let (r: (string * string) list) = [] in
+    match direction with
+      | Routing.LOWER_BOUND -> Lwt.return r
+      | Routing.UPPER_BOUND -> Lwt.return r
     
 
   let raw_dump t (oc:Lwtc.oc) = 

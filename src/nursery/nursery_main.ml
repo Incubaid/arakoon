@@ -25,6 +25,7 @@ open Lwt
 open Node_cfg
 open Nursery
 open Routing
+open Interval
 
 let with_admin (cluster:string) cfg f =
   let host,port = cfg in
@@ -153,7 +154,24 @@ let __main_run log_file f =
     let msg = Printexc.to_string e in 
     Lwt_log.fatal msg >>= fun () ->
     Lwt.fail e)
-  
+
+let get_interval cfg_name = 
+  let client_cfg = Client_cfg.ClientCfg.from_file "global" cfg_name in
+  with_master_admin "xxx" client_cfg 
+    (fun admin -> 
+      admin # get_interval () >>= fun interval ->
+      Lwt_io.printl (Interval.to_string interval) >>= fun () ->
+      Lwt.return ())  
+    >>= fun () ->
+  (*
+  let cluster_cfg = Node_cfg.read_config cfg_name in
+  let cluster_id = Node_cfg.cluster_id cluster_cfg in
+
+  *)
+  Lwt.return ()
+    (*
+
+    *)
     
 let migrate_nursery_range config left sep right =
   __main_run "/tmp/nursery_migrate.log" ( fun() -> __migrate_nursery_range config left sep right )
