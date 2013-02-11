@@ -1,4 +1,3 @@
-syntax: glob
 doc/*.aux
 doc/*.log
 doc/*.pdf
@@ -23,6 +22,4 @@ debian/arakoon/*
 .paths
 .project
 .settings/*
-syntax:regexp
-^_build
-~$
+/_build/
