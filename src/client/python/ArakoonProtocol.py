@@ -830,22 +830,19 @@ class ArakoonProtocol :
 
     @staticmethod
     def decodeNurseryCfgResult( con ):
-        input = ArakoonProtocol.readAnswer(con)
-        
-        
-        encoded = input.input_string()
-        routing, offset = RoutingInfo.unpack(encoded, 0, _unpackBool, _unpackString)
-        
-        cfgCount = input.input_vint()
+        pin = ArakoonProtocol.readAnswer(con)
+        routing = RoutingInfo.input(pin)
+        logging.debug("routing=%s", routing)
+        cfgCount = pin.input_vint()
         resultCfgs = dict()
         for i in range(cfgCount) :
-            clusterId = input.input_string()
-            clusterSize = input.input_vint()
+            clusterId = pin.input_string()
+            clusterSize = pin.input_vint()
             cfg = dict()
             for j in range(clusterSize):
-                nodeId = input.input_string ()
-                ip = input.input_string ()
-                port = input.input_vint()
+                nodeId = pin.input_string()
+                ip = pin.input_string()
+                port = pin.input_vint()
                 cfg[nodeId] = (ip,port)
             cliCfg = ArakoonClientConfig(clusterId, cfg)
             resultCfgs[clusterId] = cliCfg

@@ -25,8 +25,10 @@ from arakoon.ArakoonExceptions import *
 import arakoon
 import time
 from nose.tools import *
-import logging
 from arakoon.NurseryRouting import RoutingInfo, LeafRoutingNode
+
+#from Compat import X
+import logging
 
 clus = C.CONFIG.nursery_cluster_ids
 
@@ -40,10 +42,15 @@ def check_migrated_keys(keys, final_routing):
     ara_clients = dict()
     for k in keys:
         clu_id = final_routing.getClusterId(k)
+        logging.debug("key %s => cluster: %s", k, clu_id)
         if not ara_clients.has_key(clu_id):
-            ara_clients[clu_id] = C.get_client( clu_id )
+            logging.debug("getting new client for cluster '%s'", clu_id)
+            ara_cli = C.get_client(protocol_version = 2, c_id = clu_id )
+            ara_clients[clu_id] = ara_cli
+
         ara_cli = ara_clients[clu_id]
-        assert_equals(ara_cli.get(k), k, "Key not migrated properly %s" % k)
+        has_it = ara_cli.exists(k)
+        assert_equals(has_it, True, "Key not migrated properly '%s' it should be in cluster %s" % (k, clu_id))
     
     for (clu_id, ara_cli) in ara_clients.iteritems():
         ara_cli._dropConnections()
@@ -59,9 +66,10 @@ def multi_migration_scenario( migrations, keys, final_routing):
     for m in migrations:
         left, sep, right = m
         n.migrate( left, sep, right )
-        cli._fetchNurseryConfig()
-        assert_true( cli._routing.contains(left), "Routing not correctly updated. Should contain %s" % left )
-        assert_true( cli._routing.contains(right), "Routing not correctly updated. Should contain %s" % right )
+        r,cfg = cli.getNurseryConfig()
+        logging.debug("r=%s, cfg=%s", r, str(cfg))
+        assert_true(r.contains(left), "Routing not correctly updated. Should contain %s" % left )
+        assert_true(r.contains(right), "Routing not correctly updated. Should contain %s" % right )
     
     check_migrated_keys(keys, final_routing)
     
