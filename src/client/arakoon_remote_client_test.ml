@@ -168,6 +168,7 @@ let _test_delete_non_existing (client:Arakoon_client.client) =
       
 let wrap f = (fun () -> __client_server_wrapper__ _CLUSTER f)
   
+
 let map_wrap = List.map (fun (name, inner) -> name >:: (wrap inner))
 
 let suite = "remote_client" >::: 

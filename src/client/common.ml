@@ -43,6 +43,7 @@ type client_command =
   | EXISTS
   | GET
   | ASSERT
+  | ASSERT_EXISTS
   | SET
   | DELETE
   | RANGE
@@ -109,6 +110,7 @@ let code2int = [
   COMPACT                 , 0x25l;
   DELETE_PREFIX           , 0x27l;
   VERSION                 , 0x28l;
+  ASSERT_EXISTS           , 0x29l;
 ]
 
 let int2code =
@@ -201,6 +203,11 @@ let assert_to ~allow_dirty out key vo =
   Pack.bool_to out allow_dirty;
   Pack.string_to out key;
   Pack.string_option_to out vo
+
+let assert_exists_to ~allow_dirty out key =
+  command_to out ASSERT_EXISTS;
+  Pack.bool_to out allow_dirty;
+  Pack.string_to out key
 
 let set_to out key value =
   command_to out SET;
@@ -368,7 +375,8 @@ let _build_sequence_request output changes =
     | Arakoon_client.Set (k,v) -> Core.SET(k,v)
     | Arakoon_client.Delete k -> Core.DELETE k
     | Arakoon_client.Sequence cs -> Core.SEQUENCE (List.map c2u cs)
-    | Arakoon_client.Assert(k,vo) -> Core.ASSERT (k,vo)
+    | Arakoon_client.Assert(k,vo) ->  Core.ASSERT (k,vo)
+    | Arakoon_client.Assert_exists(k) -> Core.ASSERT_EXISTS(k)
   in
   let updates = List.map c2u changes in
   let seq = Core.SEQUENCE updates in

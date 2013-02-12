@@ -19,6 +19,7 @@ type update =
   | DELETE of k
   | TEST_AND_SET of (k * v option * v option)
   | ASSERT of k * v option
+  | ASSERT_EXISTS of k
   | ADMIN_SET of k * v option
   | USER_FUNCTION of string * string option
   | SEQUENCE of update list
@@ -30,6 +31,7 @@ let update2s = function
   | DELETE k -> Printf.sprintf "U_DEL (%S)" k
   | TEST_AND_SET (k,e,w) -> Printf.sprintf "U_TEST_AND_SET (%S,_,_)" k 
   | ASSERT (k, _) -> Printf.sprintf "U_ASSERT (%S,_)" k
+  | ASSERT_EXISTS (k) -> Printf.sprintf "U_ASSERT_EXISTS (%S,_)" k
   | ADMIN_SET (k, _) -> Printf.sprintf "U_ADMINSET (%S,_)" k
   | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
@@ -64,8 +66,9 @@ let rec update_to buf = function
   | DELETE_PREFIX k ->
       Llio.int_to buf 14;
       Llio.string_to buf k
-
-
+  | ASSERT_EXISTS (k) ->
+      Llio.int_to buf 15;
+      Llio.string_to buf k
 
 let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
@@ -108,6 +111,9 @@ let rec update_from buf off =
     | 14 ->
       let k, off = Llio.string_from buf off in
       DELETE_PREFIX k, off
+    | 15 -> 
+      let k, off = Llio.string_from buf off in
+      ASSERT_EXISTS (k), off
     | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
                                                                
 

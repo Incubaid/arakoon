@@ -138,7 +138,56 @@ def test_aSSert_sequences():
     
     v = client.get('test_assert')
     assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
-    
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_1():
+    client = C.get_client(protocol_version = 2)
+    client.set('x_new','x')
+    try:
+        client.aSSert_exists('x_new') 
+    except ArakoonException as ex:
+        X.logging.error ( "Bad stuff happened: %s" % ex)
+        assert_equals(True,False)
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_2():
+    client = C.get_client(protocol_version = 2)
+    client.set('x_new2','x')
+    assert_raises( ArakoonAssertionFailed, client.aSSert_exists, 'x')
+
+@C.with_custom_setup(C.default_setup, C.basic_teardown)
+def test_aSSert_exists_scenario_3():
+    client = C.get_client(protocol_version = 2)
+    client.set('x3','x3')
+    ass = arakoon.ArakoonProtocol.Assert_exists('x3')
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addUpdate(ass)
+    client.sequence(seq)
+
+@C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
+def test_aSSert_exists_sequences():
+    client = C.get_client(protocol_version = 2)
+    client.set ('test_assert_2','test_assert')
+    client.aSSert_exists('test_assert_2')    
+    assert_raises(ArakoonAssertionFailed, 
+                  client.aSSert_exists, 
+                  'test_assert_3')
+
+    seq = arakoon.ArakoonProtocol.Sequence()
+    seq.addAssert_exists('test_assert_2')
+    seq.addSet('test_assert_2','changed')
+    client.sequence(seq)
+
+    seq2 = arakoon.ArakoonProtocol.Sequence() 
+    seq2.addAssert_exists('test_assert_4')
+    seq2.addSet('test_assert_4','changed2')
+    assert_raises(ArakoonAssertionFailed, 
+                  client.sequence,
+                  seq2)
+    client.set ('test_assert_4','changed3')
+    client.aSSert_exists('test_assert_4')
+    v = client.get('test_assert_4')
+    assert_equals(v, 'changed3', 'third_sequence: %s <> %s' % (v,'changed'))    
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_prefix ():
