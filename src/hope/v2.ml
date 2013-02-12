@@ -634,14 +634,16 @@ let _set driver k v =
 
       | Common.GET_FRINGE ->
           begin
-            let boundary = Pack.input_string rest in
+            let boundary = Pack.input_string_option rest in
             let direction_i = Pack.input_vint rest in
             let direction  = match direction_i with
               | 0 -> Routing.UPPER_BOUND
               | 1 -> Routing.LOWER_BOUND
               
             in
-            Lwtc.log "GET_FRINGE: %s %i"  boundary direction_i >>= fun () ->
+            Lwtc.log "GET_FRINGE: %s %i"  
+              (Log_extra.string_option_to_string boundary) 
+              direction_i >>= fun () ->
             S.get_fringe store boundary direction >>= fun kvs ->
             let out = Pack.make_output 4096 in
             Pack.vint_to out 0; 

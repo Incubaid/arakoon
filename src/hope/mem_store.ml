@@ -1,5 +1,6 @@
 open Core
 open Lwt
+open Routing
 
 module MemStore = (struct
   type t = { 
@@ -69,6 +70,24 @@ module MemStore = (struct
   let raw_dump t oc = Lwtc.failfmt "todo: MemStore.raw_dump"
   let get_key_count t = Lwtc.failfmt "todo: MemStore.get_key_count"
 
-  let get_fringe t boundary dir = Lwtc.failfmt "todo: MemStore.get_fringe"
+  let get_fringe t (boundary:string option) dir = 
+    let ok = 
+      match boundary with
+        | None -> fun _ -> true
+        | Some boundary ->
+            match dir with 
+              | Routing.LOWER_BOUND ->
+                  fun k -> k > boundary
+              | Routing.UPPER_BOUND ->
+                  fun k -> k < boundary
+    in
+    let kvs = 
+      Hashtbl.fold 
+        (fun k v acc -> 
+          if ok k
+          then (k,v) :: acc
+          else acc) t.store []
+    in
+    Lwt.return kvs
 end: STORE)
 

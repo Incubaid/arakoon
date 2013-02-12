@@ -208,7 +208,7 @@ module type STORE = sig
   val dump : t -> unit Lwt.t
   val raw_dump : t -> Lwtc.oc -> unit Lwt.t
 
-  val get_fringe : t -> string -> Routing.range_direction -> ((string * string) list) Lwt.t
+  val get_fringe : t -> string option -> Routing.range_direction -> ((string * string) list) Lwt.t
 end
 
 (* output_action & input action are only in last_entries *)

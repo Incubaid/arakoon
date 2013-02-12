@@ -317,7 +317,13 @@ let get_fringe (ic,oc) boundary direction =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
-  response_old ic Llio.input_kv_list
+  let input_kv_list input = 
+    Pack.input_list input (fun input -> 
+      let k = Pack.input_string input in
+      let v = Pack.input_string input in
+      (k,v))
+  in
+  response_limited ic input_kv_list
  
 
 let set_interval(ic,oc) iv =
