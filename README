@@ -1,5 +1,6 @@
 Arakoon: a simple distributed key/value store
 
+(Note: if you have previous 1.x Arakoon, then duo to environement possible conflicts, You can replace arakoon with barakoon, e.g ./barakoon.native)
 Compiling: see COMPILING
 
 License information: 
@@ -30,7 +31,9 @@ create the following configuration:
 
 A sample configuration like this can be found in the cfg dir.
 
-Just running './arakoon.native --node arakoon_0' starts a 1 node cluster for you to play with.
+You will need to init first starting from Arakoon 2.0: 
+'./arakoon.native --init-db arakoon_0' which init node arakoon_0.
+After this, Just running './arakoon.native --node arakoon_0' starts a 1 node cluster for you to play with.
 
 You can get/set values from the command line using :
 ./arakoon.native --set key value  

@@ -20,6 +20,7 @@ documentation
 
 executable
 	ocamlbuild -use-ocamlfind arakoon.native      ==> arakoon.native
+(Note: if you have previous 1.x Arakoon then duo to environement possible conflicts, 'ocamlbuild -use-ocamlfind barakoon.native')
 
 libraries
 	ocamlbuild -use-ocamlfind arakoon_client.cma arakoon_client.cmxa arakoon_client.a ==>
