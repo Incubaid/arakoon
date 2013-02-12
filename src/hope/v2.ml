@@ -99,7 +99,7 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
     _close_write oc out
 
   
-let _set driver k v = 
+  let _set driver k v = 
     let q = Core.SET(k,v) in
     V.do_unit_update driver q
 
@@ -153,6 +153,11 @@ let _set driver k v =
             Pack.string_to out msg
     end;
     _close_write oc out
+
+  let _set_routing_delta oc driver left sep right = 
+    let q = Core.SET_ROUTING_DELTA(left,sep,right) in
+    D.push_cli_req driver q >>= fun a ->
+    _output_ok_unit oc
 
   let _unit_or_f oc = function
     | Core.VOID              -> _output_ok_unit oc
@@ -216,7 +221,14 @@ let _set driver k v =
           *)
     end
 
+  let _do_set_routing_delta rest oc me store stats driver =
+    let left  = Pack.input_string rest in
+    let sep   = Pack.input_string rest in
+    let right = Pack.input_string rest in
+    _set_routing_delta oc driver left sep right 
+            
 
+    
   let _do_delete_prefix rest oc  me store stats driver = 
     let key = Pack.input_string rest in
     Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
@@ -530,104 +542,108 @@ let _set driver k v =
           do_admin_set rest Core.__routing_key v
         end
       | Common.SET_INTERVAL -> 
-        let i = Interval.interval_from rest in
-        let o = Pack.make_output 16 in
-        Interval.interval_to o i;
-        let v = Pack.close_output o in
-        do_admin_set rest Core.__interval_key v
+          begin
+            Lwtc.log "SET_INTERVAL" >>= fun () ->
+            let i = Interval.interval_from rest in
+            Lwtc.log "interval = %s" (Interval.to_string i) >>= fun () ->
+            let o = Pack.make_output 16 in
+            Interval.interval_to o i;
+            let v = Pack.close_output o in
+            do_admin_set rest Core.__interval_key v
+          end
       | Common.GET_INTERVAL -> 
-        begin
-          Lwt_log.debug "GET_INTERVAL" >>= fun () ->
-          do_admin_get rest Core.__interval_key 
-        end
+          begin
+            Lwt_log.debug "GET_INTERVAL" >>= fun () ->
+            do_admin_get rest Core.__interval_key 
+          end
       | Common.GET_ROUTING -> 
-        begin
-          Lwt_log.debug "GET_ROUTING" >>= fun () ->
-          do_admin_get rest Core.__routing_key 
-        end
+          begin
+            Lwt_log.debug "GET_ROUTING" >>= fun () ->
+            do_admin_get rest Core.__routing_key 
+          end
       | Common.STATISTICS -> 
-        begin
-          Lwtc.log "STATISTICS" >>= fun () ->
-          output_ok_statistics stats
-        end
+          begin
+            Lwtc.log "STATISTICS" >>= fun () ->
+            output_ok_statistics stats
+          end
       | Common.GET_DB ->
-        begin
-          Lwtc.log "GET_DB" >>= fun () ->
-          Lwt.catch
-            (fun () -> 
-              Llio.output_int oc 0 >>= fun () ->
-              S.raw_dump store oc >>= fun () ->
-              Lwt.return true)
-            (V.handle_exception oc)
-        end
+          begin
+            Lwtc.log "GET_DB" >>= fun () ->
+            Lwt.catch
+              (fun () -> 
+                Llio.output_int oc 0 >>= fun () ->
+                S.raw_dump store oc >>= fun () ->
+                Lwt.return true)
+              (V.handle_exception oc)
+          end
       | Common.GET_KEY_COUNT ->
-        begin
-          Lwtc.log "GET_KEY_COUNT" >>= fun () ->
-          S.get_key_count store >>= fun kc ->
-          output_ok_int kc
-        end
+          begin
+            Lwtc.log "GET_KEY_COUNT" >>= fun () ->
+            S.get_key_count store >>= fun kc ->
+            output_ok_int kc
+          end
       | Common.EXPECT_PROGRESS_POSSIBLE ->
-        begin
-          Lwtc.log "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
-          S.get_meta store >>= fun ms ->
-          let mo = Core.extract_master_info ms in
-          let r = mo <> None in
-          _output_ok_bool oc r
-        end
+          begin
+            Lwtc.log "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
+            S.get_meta store >>= fun ms ->
+            let mo = Core.extract_master_info ms in
+            let r = mo <> None in
+            _output_ok_bool oc r
+          end
       | Common.SET_NURSERY_CFG ->
-        begin
-          Lwtc.log "SET_NURSERY_CFG" >>= fun () ->
-          let cluster_id = Pack.input_string rest in
-          let cfg = ClientCfg.cfg_from rest in
-          let key = Core.__nursery_cluster_prefix ^ cluster_id in
-          let out = Pack.make_output 16 in
-          ClientCfg.cfg_to out cfg;
-          let value = Pack.close_output out in 
-          do_admin_set rest key value
-        end
+          begin
+            Lwtc.log "SET_NURSERY_CFG" >>= fun () ->
+            let cluster_id = Pack.input_string rest in
+            let cfg = ClientCfg.cfg_from rest in
+            let key = Core.__nursery_cluster_prefix ^ cluster_id in
+            let out = Pack.make_output 16 in
+            ClientCfg.cfg_to out cfg;
+            let value = Pack.close_output out in 
+            do_admin_set rest key value
+          end
       | Common.GET_NURSERY_CFG ->
-        begin
-          Lwtc.log "GET_NURSERY_CFG" >>= fun () ->
-          V.admin_get store Core.__routing_key >>= fun v ->
-          let input = Pack.make_input v 0 in
-          let rsize = Pack.input_size input in
-          Lwt_log.debug "Decoding routing info" >>= fun () ->
-          let r = Routing.routing_from input in
-          let out = Pack.make_output 32 in
-          Pack.vint_to out 0;
-          Lwt_log.debug "Repacking routing info" >>= fun () ->
-          Routing.routing_to out r;
-          Lwt_log.debug "Fetching nursery clusters" >>= fun () ->
-          S.admin_prefix_keys store Core.__nursery_cluster_prefix >>= fun clu_keys ->
-          let clusters = Hashtbl.create 2 in
-          let key_start = String.length Core.__nursery_cluster_prefix in
-          Lwt_list.iter_s 
-            (fun k -> 
-              Lwt_log.debug_f "Fetch nursery cluster: %s" k >>= fun () ->
-              S.admin_get store k >>= function
-                | None -> failwith "nursery cluster disappeared??"
-                | Some v ->
-                  begin
-                    let tail_size = (String.length k) - key_start in
-                    Lwt_log.debug_f "Sub %s %d %d" k key_start tail_size >>= fun () ->
-                    let clu_id = String.sub k key_start tail_size in
-                    let input = Pack.make_input v 0 in
-                    let input_size = Pack.input_size input in
-                    let cfg = ClientCfg.cfg_from input in
-                    Hashtbl.replace clusters clu_id cfg;
-                    Lwt.return ()
-                  end
-            )
-            clu_keys
-          >>= fun () ->
-          let pack_one out k e =
-            Pack.string_to out k; 
-            ClientCfg.cfg_to out e
-          in
-          Pack.hashtbl_to out pack_one clusters;
-          let s = Pack.close_output out in
-          Lwt_io.write oc s >>= fun () -> Lwt.return false  
-        end
+          begin
+            Lwtc.log "GET_NURSERY_CFG" >>= fun () ->
+            V.admin_get store Core.__routing_key >>= fun v ->
+            let input = Pack.make_input v 0 in
+            let rsize = Pack.input_size input in
+            Lwt_log.debug "Decoding routing info" >>= fun () ->
+            let r = Routing.routing_from input in
+            let out = Pack.make_output 32 in
+            Pack.vint_to out 0;
+            Lwt_log.debug "Repacking routing info" >>= fun () ->
+            Routing.routing_to out r;
+            Lwt_log.debug "Fetching nursery clusters" >>= fun () ->
+            S.admin_prefix_keys store Core.__nursery_cluster_prefix >>= fun clu_keys ->
+            let clusters = Hashtbl.create 2 in
+            let key_start = String.length Core.__nursery_cluster_prefix in
+            Lwt_list.iter_s 
+              (fun k -> 
+                Lwt_log.debug_f "Fetch nursery cluster: %s" k >>= fun () ->
+                S.admin_get store k >>= function
+                  | None -> failwith "nursery cluster disappeared??"
+                  | Some v ->
+                      begin
+                        let tail_size = (String.length k) - key_start in
+                        Lwt_log.debug_f "Sub %s %d %d" k key_start tail_size >>= fun () ->
+                        let clu_id = String.sub k key_start tail_size in
+                        let input = Pack.make_input v 0 in
+                        let input_size = Pack.input_size input in
+                        let cfg = ClientCfg.cfg_from input in
+                        Hashtbl.replace clusters clu_id cfg;
+                        Lwt.return ()
+                      end
+              )
+              clu_keys
+            >>= fun () ->
+            let pack_one out k e =
+              Pack.string_to out k; 
+              ClientCfg.cfg_to out e
+            in
+            Pack.hashtbl_to out pack_one clusters;
+            let s = Pack.close_output out in
+            Lwt_io.write oc s >>= fun () -> Lwt.return false  
+          end
       | Common.USER_FUNCTION -> _do_user_function rest oc me store stats driver
       | Common.DELETE_PREFIX -> _do_delete_prefix rest oc me store stats driver
       | Common.VERSION       -> _do_version            oc
@@ -653,6 +669,9 @@ let _set driver k v =
                 Pack.string_to out v;
               ) kvs;
             _close_write oc out
-          end
+          end 
+
+      | Common.MIGRATE_RANGE     -> Lwt.fail (Failure "MIGRATE_RANGE")
+      | Common.SET_ROUTING_DELTA -> _do_set_routing_delta rest oc me store stats driver
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end
