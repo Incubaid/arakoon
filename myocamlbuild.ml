@@ -73,7 +73,10 @@ let make_version _ _ =
         Scanf.sscanf tag_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
       with _ -> 
         try Scanf.sscanf branch_version "heads/%i.%i" (fun ma mi -> (ma,mi,-1))
-        with _ -> (-1,-1,-1)
+        with _ ->
+          (* This one matches what's on Jenkins slaves *)
+          try Scanf.sscanf branch_version "remotes/origin/%i.%i" (fun ma mi -> (ma, mi, -1))
+          with _ -> (-1,-1,-1)
     in
     Printf.sprintf template git_revision time machine major minor patch
       (String.concat "\\n" dependencies)
