@@ -131,7 +131,9 @@ module NC = struct
     _with_master_connection t cn todo
 
   let get t key = 
+    Lwtc.log "get %s" key  >>= fun () ->
     let cn = NCFG.find_cluster t.rc key in
+    Lwt_log.debug_f "get %s => %s" key cn >>= fun () ->
     let todo conn = Common.get conn false key in
     _with_master_connection t cn todo
 

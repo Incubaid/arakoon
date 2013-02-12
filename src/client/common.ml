@@ -372,7 +372,7 @@ let set_routing_delta (ic,oc) left sep right =
   Client_log.debug "Changing routing" >>= fun () ->
   request oc outgoing >>= fun () ->
   Client_log.debug "set_routing_delta sent" >>= fun () ->
-  response_old ic nothing
+  response_limited ic input_nothing
 
 
 let _build_sequence_request output changes =
@@ -391,6 +391,7 @@ let _build_sequence_request output changes =
   in ()
 
 let migrate_range (ic,oc) interval changes =
+  Lwtc.log "migrate_range %s" (Interval.to_string interval) >>= fun () ->
   let outgoing out =
     command_to out MIGRATE_RANGE;
     Interval.interval_to out interval;
@@ -418,6 +419,7 @@ let get_nursery_cfg (ic,oc) =
   response_limited ic NCFG.ncfg_from
 
 let set_nursery_cfg (ic,oc) clusterid cfg =
+  Lwtc.log "set_nursery_cfg %s" clusterid >>= fun() ->
   let outgoing buf =
      set_nursery_cfg_to buf clusterid cfg
   in
