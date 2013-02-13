@@ -185,7 +185,7 @@ module Node_cfg = struct
 	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
 	else 
 	  if _get_bool inifile "global" "preferred_master" 
-	  then (Preferred m)
+          then (Preferred [m])
 	  else (Forced m)
       with (Inifiles.Invalid_element _) -> 
 	let read_only = _get_bool inifile "global" "readonly" in

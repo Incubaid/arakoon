@@ -63,8 +63,12 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	        Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i))
 	      in
 	      match constants.master with
-	        | Preferred p when p <> me ->
-	          let diff = Sn.diff new_i (constants.last_witnessed p) in
+	        | Preferred ps when not (List.mem me ps) ->
+                  let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
+                  (* Multiply with -1 to get a reverse-sorted list *)
+                  let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
+                  let (p, p_i) = List.hd slws in
+	          let diff = Sn.diff new_i p_i in
 	          if diff < (Sn.of_int 5) 
               then
 		        begin

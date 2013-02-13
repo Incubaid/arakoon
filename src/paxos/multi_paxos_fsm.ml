@@ -69,7 +69,7 @@ let election_suggest constants (n,i,vo) () =
   start_election_timeout constants n >>= fun () ->
   let delay =
     match constants.master with
-      | Preferred p when p <> me -> 1 + (constants.lease_expiration /2)
+      | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2)
       | _ -> 0
   in
   let df = float delay in
