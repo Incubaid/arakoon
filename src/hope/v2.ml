@@ -113,6 +113,7 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
   let _sequence driver sequence = V.do_unit_update driver sequence
     
     
+    
   let _last_entries store i oc = S.last_entries store (Core.ITick.from_int64 i) oc
 
 
@@ -671,7 +672,28 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
             _close_write oc out
           end 
 
-      | Common.MIGRATE_RANGE     -> Lwt.fail (Failure "MIGRATE_RANGE")
+      | Common.MIGRATE_RANGE     -> 
+          let interval = Interval.interval_from rest in
+          let data = Pack.input_string rest in
+          let probably_sequence,_ = Core.update_from data 0 in
+          let sequence = match probably_sequence with
+            | Core.SEQUENCE us -> 
+                let extra = 
+                  let v = 
+                    let out = Pack.make_output 32 in
+                    let () = Interval.interval_to out interval in
+                    Pack.close_output out
+                  in
+                  Core.ADMIN_SET (Core.__interval_key, Some v)
+                in
+                let xus = extra :: us in
+                Core.SEQUENCE xus
+            | _ -> raise (Failure "should be sequence")     
+          in
+          let inner () =
+            D.push_cli_req driver sequence >>= fun a ->
+            _unit_or_f oc a
+          in _do_write_op rest oc me store inner
       | Common.SET_ROUTING_DELTA -> _do_set_routing_delta rest oc me store stats driver
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

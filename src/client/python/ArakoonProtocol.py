@@ -70,6 +70,8 @@ class ArakoonClientConfig :
                                             str(self._nodes))
         return r
 
+    __repr__ = __str__
+
     @staticmethod
     def getNoMasterRetryPeriod() :
         """

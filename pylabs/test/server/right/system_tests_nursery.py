@@ -67,7 +67,7 @@ def multi_migration_scenario( migrations, keys, final_routing):
         left, sep, right = m
         n.migrate( left, sep, right )
         r,cfg = cli.getNurseryConfig()
-        logging.debug("r=%s, cfg=%s", r, str(cfg))
+        logging.debug("r=%r, cfg=%r", r, cfg)
         assert_true(r.contains(left), "Routing not correctly updated. Should contain %s" % left )
         assert_true(r.contains(right), "Routing not correctly updated. Should contain %s" % right )
     
