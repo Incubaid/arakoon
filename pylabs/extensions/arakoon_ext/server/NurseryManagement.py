@@ -110,7 +110,9 @@ class NurseryManager:
         self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
-        X.subprocess.check_output( cmd )
+        X.logging.debug("cmd: %s", cmd)
+        output = X.subprocess.check_output( cmd )
+        X.logging.debug("output: %s", output)
         
         
     def __getConfigCmdline(self):

@@ -27,13 +27,21 @@ import time
 from nose.tools import *
 from arakoon.NurseryRouting import RoutingInfo, LeafRoutingNode
 
-#from Compat import X
-import logging
+from Compat import X
+#import logging
 
 clus = C.CONFIG.nursery_cluster_ids
 
 def validate_keys_in_nursery (n_cli, keys ):
+    X.logging.debug("validate_keys_in_nursery %s", keys)
+    n_cli._fetchNurseryConfig()
+    r = n_cli._routing
     for k in keys:
+        cid = r.getClusterId(k)
+        exists = n_cli.exists(k)
+        X.logging.debug("%s => %s exists:%s", k, cid, exists)
+        if not exists :
+            assert_true(False, "'%s' should exist in nursery" % k)
         stored = n_cli.get(k)
         assert_equals( stored , k, "Key has wrong value '%s' != '%s' (stored != expected)" % (stored, k) )
 
@@ -42,9 +50,9 @@ def check_migrated_keys(keys, final_routing):
     ara_clients = dict()
     for k in keys:
         clu_id = final_routing.getClusterId(k)
-        logging.debug("key %s => cluster: %s", k, clu_id)
+        X.logging.debug("key %s => cluster: %s", k, clu_id)
         if not ara_clients.has_key(clu_id):
-            logging.debug("getting new client for cluster '%s'", clu_id)
+            X.logging.debug("getting new client for cluster '%s'", clu_id)
             ara_cli = C.get_client(protocol_version = 2, c_id = clu_id )
             ara_clients[clu_id] = ara_cli
 
@@ -53,7 +61,8 @@ def check_migrated_keys(keys, final_routing):
         assert_equals(has_it, True, "Key not migrated properly '%s' it should be in cluster %s" % (k, clu_id))
     
     for (clu_id, ara_cli) in ara_clients.iteritems():
-        ara_cli._dropConnections()
+        ara_cli.dropConnections()
+
         
     
 def multi_migration_scenario( migrations, keys, final_routing):
@@ -65,16 +74,17 @@ def multi_migration_scenario( migrations, keys, final_routing):
     n = C.get_nursery()
     for m in migrations:
         left, sep, right = m
+        X.logging.debug("going to migrate: %s, %s ,%s", left,sep,right)
         n.migrate( left, sep, right )
-        r,cfg = cli.getNurseryConfig()
-        logging.debug("r=%r, cfg=%r", r, cfg)
+        cli._fetchNurseryConfig()
+        r = cli._routing 
         assert_true(r.contains(left), "Routing not correctly updated. Should contain %s" % left )
         assert_true(r.contains(right), "Routing not correctly updated. Should contain %s" % right )
     
     check_migrated_keys(keys, final_routing)
-    
-    validate_keys_in_nursery(cli,keys)
+    X.logging.debug("migration checked")
     n_cli = C.get_nursery_client()
+    X.logging.debug("class:%s", n_cli.__class__)
     validate_keys_in_nursery(n_cli, keys)
             
 @C.with_custom_setup( C.setup_nursery_2, C.nursery_teardown )

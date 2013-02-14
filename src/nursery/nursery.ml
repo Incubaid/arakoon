@@ -145,6 +145,10 @@ module NC = struct
 
   let close t = Llio.lwt_failfmt "close not implemented"
 
+  let _log_fringe fringe = 
+    let size = List.length fringe in
+    Lwt_log.debug_f "fringe. size = %i" size >>= fun () ->
+    Lwt_list.iter_s (fun (k,_) -> Lwt_log.debug_f "   %s:_" k) fringe
  
   let __migrate t clu_left sep clu_right finalize publish migration = 
     Lwt_log.debug_f "migrate %s" (Log_extra.string_option_to_string sep) >>= fun () ->
@@ -160,9 +164,12 @@ module NC = struct
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
         (fun conn -> Common.migrate_range conn i seq)
+      >>= fun () ->
+      Lwt_log.debug "done pushing" 
     in
+
     let delete fringe = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
+      let seq = List.map (fun (k,_) -> Arakoon_client.Delete k) fringe in
       Lwt_log.debug "delete" >>= fun () ->
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
@@ -183,12 +190,15 @@ module NC = struct
       pull () >>= fun fringe ->
       match fringe with
         | [] -> 
-          begin
-            finalize from_i to_i
-          end 
+            begin
+              Lwt_log.debug_f "from_i: %s to_i: %s => empty fringe" 
+                (Interval.to_string from_i) 
+                (Interval.to_string to_i)
+              >>= fun () ->
+              finalize from_i to_i
+            end 
         | fringe -> 
-          let size = List.length fringe in
-          Lwt_log.debug_f "Length = %i" size >>= fun () ->
+            _log_fringe fringe >>= fun () ->
 	        (* 
 	         - change public interval on 'from'
 	         - push fringe & change private interval on 'to'
@@ -209,6 +219,7 @@ module NC = struct
                 set_interval from_cn from_i' >>= fun () ->
                 let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in
                 push fringe to_i1 >>= fun () ->
+                Lwt_log.debug "going to delete fringe" >>= fun () ->
                 delete fringe >>= fun () ->
                 Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in

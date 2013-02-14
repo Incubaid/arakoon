@@ -127,6 +127,7 @@ let command_to output command =
   Pack.size_to output masked_i
 
 let nothing = fun ic -> Lwt.return ()
+
 let input_nothing = fun pack -> ()
 
 let value_array ic =
@@ -397,8 +398,11 @@ let migrate_range (ic,oc) interval changes =
     Interval.interval_to out interval;
     _build_sequence_request out changes
   in
-  request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response_old ic nothing 
+  request  oc (fun buf -> outgoing buf) 
+  >>= fun () ->
+  response_limited ic input_nothing 
+  >>= fun () ->
+  Lwtc.log "end of migrate_range request"
 
 
 let _sequence (ic,oc) changes cmd = 

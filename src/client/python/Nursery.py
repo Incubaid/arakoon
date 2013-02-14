@@ -68,7 +68,7 @@ class NurseryClient:
         self._routing = routing
         logging.debug( "Nursery client has routing: %s" % str(routing))
         for (clusterId,client) in self._clusterClients.iteritems() :
-            client._dropConnections()
+            client.dropConnections()
         
         self._clusterClients = dict()
         logging.debug("Nursery contains %d clusters", len(cfgs))
@@ -117,6 +117,16 @@ class NurseryClient:
         client = self._getArakoonClient(key)
         return client.get(key)
     
+    @retryDuringMigration
+    def exists(self,key):
+        """
+        queries existence of a single value.
+        @type key: string
+        @rtype:bool
+        """
+        client = self._getArakoonClient(key)
+        return client.exists(key)
+
     @retryDuringMigration
     def delete(self, key):
         """

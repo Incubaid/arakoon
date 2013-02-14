@@ -360,15 +360,17 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
           output_ok_string_option mo
         end
       | Common.EXISTS ->
-        begin
-          let allow_dirty  = Pack.input_bool rest in
-          let key = Pack.input_string rest in
-          let do_exists () =
-            S.get store key >>= fun m_val ->
-            _output_ok_bool oc (m_val <> None)
-          in
-          _only_if_master rest oc me store allow_dirty do_exists
-        end
+          begin            
+            let allow_dirty  = Pack.input_bool rest in
+            let key = Pack.input_string rest in
+            let do_exists () =
+              S.get store key >>= fun m_val ->
+              let exists = m_val <> None in
+              Lwtc.log "EXISTS %b %S => %b" allow_dirty key exists >>= fun () ->
+              _output_ok_bool oc exists
+            in
+            _only_if_master rest oc me store allow_dirty do_exists
+          end
       | Common.GET ->
         begin
           let allow_dirty =Pack.input_bool rest in
@@ -673,6 +675,7 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
           end 
 
       | Common.MIGRATE_RANGE     -> 
+          Lwtc.log "MIGRATE_RANGE" >>= fun () ->
           let interval = Interval.interval_from rest in
           let data = Pack.input_string rest in
           let probably_sequence,_ = Core.update_from data 0 in
@@ -693,7 +696,10 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
           let inner () =
             D.push_cli_req driver sequence >>= fun a ->
             _unit_or_f oc a
-          in _do_write_op rest oc me store inner
+          in 
+          _do_write_op rest oc me store inner >>= fun b ->
+          Lwtc.log "end of migrate_range %b" b >>= fun () ->
+          Lwt.return b
       | Common.SET_ROUTING_DELTA -> _do_set_routing_delta rest oc me store stats driver
     (*| _ -> Client_protocol.handle_exception oc (Failure "Command not implemented (yet)") *)
   end

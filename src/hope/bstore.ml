@@ -92,12 +92,12 @@ module BStore = (struct
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
-              _check_interval t k 
-                (fun k ->
+              (*_check_interval t k (* TODO: re-enable this check, but do admin_sequence *)
+                (fun k ->*)
                   BS.delete tx (pref_key k) >>= function
                     | NOK _ -> _not_found k
                     | a -> Lwt.return (OK None)
-                )
+               (* ) *)
             end
           | Core.TEST_AND_SET (k,eo,wo) ->
               begin
@@ -335,9 +335,17 @@ module BStore = (struct
     Lwt.return (List.map unpref_kv kvs)
     
   let range_entries t first finc last linc max =
+    Lwtc.log "range_rentries %s %b %s %b" 
+      (Log_extra.string_option_to_string first) finc 
+      (Log_extra.string_option_to_string last)  linc 
+    >>= fun () ->
     _do_range_entries BS.range_entries_latest t first finc last linc max
 
   let rev_range_entries t first finc last linc max =
+    Lwtc.log "rev_range_entries %s %b %s %b"
+      (Log_extra.string_option_to_string first) finc
+      (Log_extra.string_option_to_string last) linc
+      >>= fun () ->
     _do_range_entries BS.rev_range_entries_latest t first finc last linc max
 
 
@@ -348,16 +356,17 @@ module BStore = (struct
       match direction with
         | Routing.LOWER_BOUND -> 
             begin
+              Lwtc.log "Bstore LOWER_BOUND fringe" >>= fun () ->
               let rec loop start acc = 
                 rev_range_entries t start false boundary false size >>= fun kvs ->
-                Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "k:%s" k) kvs >>= fun () ->
                 let acc' = kvs @ acc in
                 Lwt.return  acc' 
               in
-              loop None []
+              loop (Some "z") []
           end
       | Routing.UPPER_BOUND -> 
           begin
+            Lwtc.log "Bstore UPPER_BOUND fringe" >>= fun () ->
             let rec loop start acc = 
               range_entries t start false boundary false size >>= fun kvs ->
               let acc' = kvs @ acc in
@@ -366,7 +375,11 @@ module BStore = (struct
             loop None []
           end
     in
-    Lwt_mutex.with_lock t.m _inner
+    Lwt_mutex.with_lock t.m _inner >>= fun kvs ->
+    Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs) >>= fun () ->
+    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "k:%s" k) kvs >>= fun () ->
+    Lwt.return kvs
+    
       
                   
 
