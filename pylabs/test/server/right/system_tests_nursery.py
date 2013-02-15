@@ -30,7 +30,7 @@ from arakoon.NurseryRouting import RoutingInfo, LeafRoutingNode
 from Compat import X
 #import logging
 
-clus = C.CONFIG.nursery_cluster_ids
+CLUSTER_IDS = C.CONFIG.nursery_cluster_ids
 
 def validate_keys_in_nursery (n_cli, keys ):
     X.logging.debug("validate_keys_in_nursery %s", keys)
@@ -90,17 +90,17 @@ def multi_migration_scenario( migrations, keys, final_routing):
 @C.with_custom_setup( C.setup_nursery_2, C.nursery_teardown )
 def test_nursery_single_migration_1():
     keys = ['a', 'b', 'l', 'm']
-    migrations = [ (clus[0], 'k', clus[1]) ]
+    migrations = [ (CLUSTER_IDS[0], 'k', CLUSTER_IDS[1]) ]
     routing = RoutingInfo(LeafRoutingNode(clus[0]))
-    routing.split('k', clus[1])
+    routing.split('k', CLUSTER_IDS[1])
     multi_migration_scenario(migrations, keys, routing)
     
 @C.with_custom_setup( C.setup_nursery_2, C.nursery_teardown )
 def test_nursery_single_migration_2():
     keys = ['a', 'b', 'l', 'm']
     migrations = [ (clus[1], 'k', clus[0]) ]
-    routing = RoutingInfo(LeafRoutingNode(clus[1]))
-    routing.split('k', clus[0])
+    routing = RoutingInfo(LeafRoutingNode(CLUSTER_IDS[1]))
+    routing.split('k', CLUSTER_IDS[0])
     multi_migration_scenario(migrations, keys, routing)
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
@@ -108,10 +108,10 @@ def test_nursery_invalid_migration():
 
     cli = C.get_nursery_client()
     n = C.get_nursery()
-    assert_raises( RuntimeError, n.migrate, C.nursery_cluster_ids[1], "k", C.nursery_cluster_ids[2] )
+    assert_raises( RuntimeError, n.migrate, CLUSTER_IDS[1], "k", CLUSTER_IDS[2] )
     assert_raises( RuntimeError, n.migrate, "none_0", "k", "none_1" )
-    n.migrate( C.nursery_cluster_ids[0], "k", C.nursery_cluster_ids[1])
-    assert_raises( RuntimeError, n.migrate, C.nursery_cluster_ids[0], "l", C.nursery_cluster_ids[2] )
+    n.migrate( CLUSTER_IDS[0], "k", CLUSTER_IDS[1])
+    assert_raises( RuntimeError, n.migrate, CLUSTER_IDS[0], "l", CLUSTER_IDS[2] )
 
 
 def migration_scenario_1( migrations ):

@@ -111,8 +111,12 @@ class NurseryManager:
         
     def __runCmd(self, cmd):
         X.logging.debug("cmd: %s", cmd)
-        output = X.subprocess.check_output( cmd )
-        X.logging.debug("output: %s", output)
+        try:
+            output = X.subprocess.check_output( cmd )
+            X.logging.debug("output: %s", output)
+        except X.subprocess.CalledProcessError,e:
+            X.logging.debug("output: %s", e.output)
+            raise RuntimeError(e)
         
         
     def __getConfigCmdline(self):

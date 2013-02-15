@@ -362,7 +362,7 @@ module BStore = (struct
                 let acc' = kvs @ acc in
                 Lwt.return  acc' 
               in
-              loop (Some "z") []
+              loop (Some "\xff") []
           end
       | Routing.UPPER_BOUND -> 
           begin
@@ -376,9 +376,10 @@ module BStore = (struct
           end
     in
     Lwt_mutex.with_lock t.m _inner >>= fun kvs ->
-    Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs) >>= fun () ->
-    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "k:%s" k) kvs >>= fun () ->
-    Lwt.return kvs
+    let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in
+    Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs') >>= fun () ->
+    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "k:%s" k) kvs' >>= fun () ->
+    Lwt.return kvs'
     
       
                   

@@ -60,10 +60,10 @@ module NC = struct
     let connections = Hashtbl.create 13 in
     let () = NCFG.iter_cfgs rc
       (fun cluster v -> 
-	Hashtbl.iter (fun node (ip,port) ->
-	  let nn = (cluster,node) in
-	  let a = Address (ip,port) in
-	  Hashtbl.add connections nn a) v)
+	    Hashtbl.iter (fun node (ip,port) ->
+	      let nn = (cluster,node) in
+	      let a = Address (ip,port) in
+	      Hashtbl.add connections nn a) v)
     in
     {rc; connections;masters;keeper_cn}
 
@@ -71,16 +71,16 @@ module NC = struct
     let (cn,node) = nn in
     match Hashtbl.find t.connections nn with
       | Address (ip,port) -> 
-	begin
-	  try_connect (ip,port) >>= function
-	    | Some conn -> 
-	      Common.prologue cn conn >>= fun () ->
-	      let () = Hashtbl.add t.connections nn (Connection conn) in
-	      Lwt.return conn
-	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
-	end
+	      begin
+	        try_connect (ip,port) >>= function
+	          | Some conn -> 
+	              Common.prologue cn conn >>= fun () ->
+	              let () = Hashtbl.add t.connections nn (Connection conn) in
+	              Lwt.return conn
+	          | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
+	      end
       | Connection conn -> Lwt.return conn
-  
+          
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
     let node_names = ClientCfg.node_names ccfg in
@@ -88,8 +88,8 @@ module NC = struct
     >>= fun () ->
     Lwt_list.map_s 
       (fun n -> 
-	let nn = (cn,n) in 
-	_get_connection t nn
+	    let nn = (cn,n) in 
+	    _get_connection t nn
       ) 
       node_names 
     >>= fun connections ->
@@ -97,7 +97,7 @@ module NC = struct
       begin
         match acc with
           | None ->
-            Common.who_master conn
+              Common.who_master conn
           | x -> Lwt.return x
       end
     in
