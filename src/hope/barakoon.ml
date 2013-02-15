@@ -228,6 +228,7 @@ type action_type =
   | OnlyTest
   | InitNursery
   | MigrateNursery
+  | DeleteNurseryCluster
   | WhoMaster
   | GetRouting
   | GetInterval
@@ -521,10 +522,20 @@ let main () =
     ("--nursery-migrate", 
      Arg.Tuple[set_action MigrateNursery; Arg.Set_string left; Arg.Set_string sep; Arg.Set_string right],
      "<left> <sep> <right>: Change the nursery cluster distribution.");
+    ("--nursery-delete",
+     Arg.Tuple[set_action DeleteNurseryCluster;
+               Arg.Set_string cluster_id;
+               Arg.Rest (fun s -> sep := s);
+              ],
+     "<cluster_id> <separator> removes <cluster_id> from the nursery, " ^ 
+       "if the cluster is a boundary cluster no separator is required"
+    );
     ("--nursery-routing", set_action GetRouting, "returns the routing information of the nursery");
+
     ("--get-interval",
      set_action GetInterval,
      " : returns the interval this cluster is responsible for (Nursery context)")
+
   ] in
   
   Arg.parse actions  
@@ -550,6 +561,8 @@ let main () =
       | NodeVersion    -> Lwt_main.run (node_version !config_file !node_id)
       | InitNursery    -> Lwt_main.run  (Nursery_main.init_nursery !config_file !cluster_id) 
       | MigrateNursery -> Lwt_main.run (Nursery_main.migrate_nursery_range !config_file !left !sep !right) 
+      | DeleteNurseryCluster -> 
+          Lwt_main.run (Nursery_main.delete_nursery_cluster !config_file !cluster_id !sep)
       | WhoMaster      -> Lwt_main.run (who_master !config_file)
       | GetRouting     -> Lwt_main.run (Nursery_main.get_routing !config_file)
       | GetInterval    -> Lwt_main.run (get_interval !config_file)

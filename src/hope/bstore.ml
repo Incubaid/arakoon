@@ -85,9 +85,12 @@ module BStore = (struct
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) ->
               begin
-                Lwtc.log "set: %s" k >>= fun () -> 
+                (* Lwtc.log "set: %s" k >>= fun () -> 
                 _check_interval t k 
-                  (fun k -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None))
+                  (fun k -> 
+                *)
+                   BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
+              (* ) *)
               end
           | Core.DELETE k  -> 
             begin
@@ -331,8 +334,10 @@ module BStore = (struct
   let _do_range_entries inner t first finc last linc max =
     inner t.store (opx true first) finc (opx false last) linc max
     >>= fun kvs ->
+    let c0 = __admin_prefix.[0] in
+    let kvs' = List.filter (fun (k,_) -> k.[0] <> c0) kvs in
     let unpref_kv (k,v) = (unpref_key k, v) in
-    Lwt.return (List.map unpref_kv kvs)
+    Lwt.return (List.map unpref_kv kvs')
     
   let range_entries t first finc last linc max =
     Lwtc.log "range_rentries %s %b %s %b" 
@@ -378,7 +383,7 @@ module BStore = (struct
     Lwt_mutex.with_lock t.m _inner >>= fun kvs ->
     let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in
     Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs') >>= fun () ->
-    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "k:%s" k) kvs' >>= fun () ->
+    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key:%s" k) kvs' >>= fun () ->
     Lwt.return kvs'
     
       

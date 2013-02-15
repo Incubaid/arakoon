@@ -103,10 +103,8 @@ class NurseryManager:
         cmd = self.__getBaseCmd()
         cmd += self.__getConfigCmdline()
         cmd += ["--nursery-delete", clusterId]
-        if separator is None:
-            cmd +=  '""'
-        else :
-            cmd += separator
+        if separator :
+            cmd += [separator]
         self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
