@@ -91,14 +91,14 @@ def multi_migration_scenario( migrations, keys, final_routing):
 def test_nursery_single_migration_1():
     keys = ['a', 'b', 'l', 'm']
     migrations = [ (CLUSTER_IDS[0], 'k', CLUSTER_IDS[1]) ]
-    routing = RoutingInfo(LeafRoutingNode(clus[0]))
+    routing = RoutingInfo(LeafRoutingNode(CLUSTER_IDS[0]))
     routing.split('k', CLUSTER_IDS[1])
     multi_migration_scenario(migrations, keys, routing)
     
 @C.with_custom_setup( C.setup_nursery_2, C.nursery_teardown )
 def test_nursery_single_migration_2():
     keys = ['a', 'b', 'l', 'm']
-    migrations = [ (clus[1], 'k', clus[0]) ]
+    migrations = [ (CLUSTER_IDS[1], 'k', CLUSTER_IDS[0]) ]
     routing = RoutingInfo(LeafRoutingNode(CLUSTER_IDS[1]))
     routing.split('k', CLUSTER_IDS[0])
     multi_migration_scenario(migrations, keys, routing)
@@ -116,42 +116,42 @@ def test_nursery_invalid_migration():
 
 def migration_scenario_1( migrations ):
     keys = ['a', 'b', 'l', 'm', 'y', 'z']
-    routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    routing.split("d", clus[1])
-    routing.split("p", clus[2])
+    routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    routing.split("d", CLUSTER_IDS[1])
+    routing.split("p", CLUSTER_IDS[2])
     multi_migration_scenario(migrations, keys, routing)
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_double_migration_1():
     migrations = [
-        (clus[0], 'p', clus[2]),
-        (clus[0], 'd', clus[1])
+        (CLUSTER_IDS[0], 'p', CLUSTER_IDS[2]),
+        (CLUSTER_IDS[0], 'd', CLUSTER_IDS[1])
     ]
     migration_scenario_1(migrations)
 
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_double_migration_2():
     migrations = [
-        (clus[0], 'd', clus[2]),   
-        (clus[1], 'p', clus[2])
+        (CLUSTER_IDS[0], 'd', CLUSTER_IDS[2]),   
+        (CLUSTER_IDS[1], 'p', CLUSTER_IDS[2])
     ]
     migration_scenario_1(migrations)
 
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_triple_migration_1():
     migrations = [
-        (clus[0], 'd', clus[2]),   
-        (clus[1], 'k', clus[2]),
-        (clus[1], 'p', clus[2])
+        (CLUSTER_IDS[0], 'd', CLUSTER_IDS[2]),   
+        (CLUSTER_IDS[1], 'k', CLUSTER_IDS[2]),
+        (CLUSTER_IDS[1], 'p', CLUSTER_IDS[2])
     ]
     migration_scenario_1(migrations)
 
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_triple_migration_2():
     migrations = [
-        (clus[0], 'd', clus[2]),   
-        (clus[1], 'z', clus[2]),
-        (clus[1], 'p', clus[2])
+        (CLUSTER_IDS[0], 'd', CLUSTER_IDS[2]),   
+        (CLUSTER_IDS[1], 'z', CLUSTER_IDS[2]),
+        (CLUSTER_IDS[1], 'p', CLUSTER_IDS[2])
     ]
     migration_scenario_1(migrations)
     
@@ -162,23 +162,23 @@ def test_nursery_multi_phaze_migration_1():
     for i in range(2048):
         keys.append( "l_%0512d" % (i) )
     migrations = [
-        (clus[0], 'k', clus[1])
+        (CLUSTER_IDS[0], 'k', CLUSTER_IDS[1])
     ]    
-    routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    routing.split("d", clus[1])
+    routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    routing.split("d", CLUSTER_IDS[1])
     multi_migration_scenario(migrations, keys, routing)
 
 def delete_scenario(to_delete, separator, final_routing):
     
-    node_to_delete  = clus[to_delete]
+    node_to_delete  = CLUSTER_IDS[to_delete]
     keys = ['a', 'b', 'l', 'm', 'y', 'z']
     migrations = [
-        (clus[0], 'd', clus[1]),
-        (clus[1], 'p', clus[2])
+        (CLUSTER_IDS[0], 'd', CLUSTER_IDS[1]),
+        (CLUSTER_IDS[1], 'p', CLUSTER_IDS[2])
     ]
-    routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    routing.split("d", clus[1])
-    routing.split("p", clus[2])
+    routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    routing.split("d", CLUSTER_IDS[1])
+    routing.split("p", CLUSTER_IDS[2])
     
     multi_migration_scenario(migrations, keys, routing)
     
@@ -188,30 +188,31 @@ def delete_scenario(to_delete, separator, final_routing):
     check_migrated_keys( keys, final_routing )
     
     n_cli = C.get_nursery_client()
-    assert_false( n_cli._routing.contains( node_to_delete ) , "Routing still contains cluster %s which should have been deleted - %s" % 
+    assert_false( n_cli._routing.contains( node_to_delete ) , 
+                  "Routing still contains cluster %s which should have been deleted - %s" % 
                   (node_to_delete, str(n_cli._routing) ) )
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_delete_scenario_1():
-    final_routing = RoutingInfo( LeafRoutingNode(clus[1]) )
-    final_routing.split("p", clus[2])
+    final_routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[1]) )
+    final_routing.split("p", CLUSTER_IDS[2])
     delete_scenario( 0, None, final_routing )
 
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_delete_scenario_2():
-    final_routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    final_routing.split("m", clus[2])
+    final_routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    final_routing.split("m", CLUSTER_IDS[2])
     delete_scenario( 1, "m", final_routing )
     
 @C.with_custom_setup( C.setup_nursery_3, C.nursery_teardown )
 def test_nursery_delete_scenario_3():
-    final_routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    final_routing.split("d", clus[1])
+    final_routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    final_routing.split("d", CLUSTER_IDS[1])
     delete_scenario( 2, None, final_routing )
 
 def test_routing_contains():
-    routing = RoutingInfo( LeafRoutingNode(clus[0]) )
-    assert_true(routing.contains(clus[0]), "Not even one is correct")
-    routing.split("d", clus[1])
-    routing.split("p", clus[2])
+    routing = RoutingInfo( LeafRoutingNode(CLUSTER_IDS[0]) )
+    assert_true(routing.contains(CLUSTER_IDS[0]), "Not even one is correct")
+    routing.split("d", CLUSTER_IDS[1])
+    routing.split("p", CLUSTER_IDS[2])
     

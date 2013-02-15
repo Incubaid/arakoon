@@ -102,7 +102,7 @@ class NurseryManager:
         """
         cmd = self.__getBaseCmd()
         cmd += self.__getConfigCmdline()
-        cmd += "--nursery-delete %s " % clusterId
+        cmd += ["--nursery-delete", clusterId]
         if separator is None:
             cmd +=  '""'
         else :
