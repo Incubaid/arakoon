@@ -363,7 +363,7 @@ module BStore = (struct
             begin
               Lwtc.log "Bstore LOWER_BOUND fringe" >>= fun () ->
               let rec loop start acc = 
-                rev_range_entries t start false boundary false size >>= fun kvs ->
+                rev_range_entries t start false boundary true size >>= fun kvs ->
                 let acc' = kvs @ acc in
                 Lwt.return  acc' 
               in
