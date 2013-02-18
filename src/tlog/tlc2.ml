@@ -257,7 +257,9 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
   get_tlog_names tlog_dir >>= fun tlog_names ->
   let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
   in
-  let maybe_fold low fn =
+  let num_tlogs = List.length tlog_names in
+  let maybe_fold acc fn =
+    let cnt,low = acc in
     let factor = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
     let linf = Sn.of_int (get_number fn) in
     let ( * ) = Sn.mul in
@@ -280,14 +282,18 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
     if test_result
     then 
       begin
-	    Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn 
+        Lwt_log.debug_f "fold_read over: %s (test0=%s)" fn
 	      (Sn.string_of test0) >>= fun () ->
-	    let first = test0 in
-	    fold_read tlog_dir fn ~index low (Some too_far_i) ~first low acc_entry
+        let first = test0 in
+        Lwt_log.info_f "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
+        let t1 = Sys.time () in
+        fold_read tlog_dir fn ~index low (Some too_far_i) ~first low acc_entry >>= fun x ->
+        Lwt_log.info_f "Completed replay of %s, took %f seconds, %i to go" fn (Sys.time () -. t1) (num_tlogs - cnt) >>= fun () ->
+        Lwt.return (cnt+1,x)
       end
-    else Lwt.return low
+    else Lwt.return (cnt+1,low)
   in
-  Lwt_list.fold_left_s maybe_fold start_i tlog_names 
+  Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names 
   >>= fun x ->
   Lwt.return ()    
 
