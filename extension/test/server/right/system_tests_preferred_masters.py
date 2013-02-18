@@ -60,3 +60,100 @@ def test_prefered_master():
     logging.info("master3 = %s", master3)
     NT.assert_equals(master3,pm)
     
+
+@Common.with_custom_setup(lambda h: Common.setup_n_nodes(5, False, h), Common.basic_teardown)
+def test_prefered_masters():
+    # Get reference to the cluster
+    cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster.stop()
+
+    # 2 of 5 nodes are preferred masters
+    preferred_masters = Common.node_names[:2]
+
+    cluster.preferredMasters(preferred_masters)
+
+    # Launch cluster and wait until it's up-and-running
+    cluster.start()
+    Common.assert_running_nodes(5)
+
+    time.sleep(4.0 * Common.lease_duration)
+    logging.info('Cluster running')
+
+    # *** Check 1: make sure one of the preferred masters is elected as master
+    client = Common.get_client()
+    master = client.whoMaster()
+    logging.info('Current master: %s', master)
+    assert master in preferred_masters
+
+    client.dropConnections()
+    del client
+
+    # Kill all preferred masters
+    for master in preferred_masters:
+        cluster.stopNode(master)
+
+    delay = 8.0 * Common.lease_duration
+
+    logging.info('Stopped preferred masters, waiting for callback to take over')
+    time.sleep(delay)
+    client = Common.get_client()
+    master = client.whoMaster()
+    logging.info('Backup master: %s', master)
+    assert master not in preferred_masters
+
+    # *** Check 2: make sure whenever a preferred master is available, it
+    # becomes master
+    logging.info(
+        'Restarting preferred masters one by one, making sure they take over')
+    for preferred_master in preferred_masters:
+        logging.info('Launching preferred master "%s"', preferred_master)
+        cluster.startOne(preferred_master)
+
+        logging.debug('Waiting for things to settle')
+        time.sleep(4.0 * Common.lease_duration)
+
+        client = Common.get_client()
+        master = client.whoMaster()
+        logging.info('Current master: %s', master)
+
+        assert master == preferred_master
+
+        logging.info('Killing master')
+        cluster.stopNode(master)
+
+        logging.info('Stopped master, waiting for things to settle')
+        time.sleep(delay)
+        client = Common.get_client()
+        master = client.whoMaster()
+
+        logging.info('Node "%s" took over', master)
+
+        assert master not in preferred_masters
+
+    logging.info('Starting all preferred master nodes')
+    for preferred_master in preferred_masters:
+        cluster.startOne(preferred_master)
+
+    logging.debug('Waiting for things to settle')
+    time.sleep(delay)
+
+    # *** Check 3: as long as one of the preferred masters is running, it should
+    # be elected as the master
+    preferred_masters_2 = list(preferred_masters)
+    while True:
+        if len(preferred_masters_2) == 0:
+            break
+
+        client = Common.get_client()
+        master = client.whoMaster()
+
+        logging.info('Current master: %s', master)
+
+        assert master in preferred_masters_2
+
+        logging.info('Killing master')
+        cluster.stopNode(master)
+        preferred_masters_2.remove(master)
+
+        logging.debug('Waiting for things to settle')
+        time.sleep(delay)
