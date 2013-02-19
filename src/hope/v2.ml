@@ -221,7 +221,6 @@ let _set driver k v =
     let key = Pack.input_string rest in
     Lwtc.log "DELETE_PREFIX %S" key >>= fun () ->
     let _inner () = 
-      let t0 = Unix.gettimeofday () in
       D.push_cli_req driver (Core.DELETE_PREFIX key) >>= fun a ->
       let out = Pack.make_output 64 in
       begin
@@ -334,8 +333,8 @@ let _set driver k v =
     in
     match comm with
       | Common.PING ->
-        let client_id = Pack.input_string rest in
-        let cluster_id = Pack.input_string rest in
+        let _client_id = Pack.input_string rest in
+        let _cluster_id = Pack.input_string rest in
         let msg = Printf.sprintf "Arakoon %S" Version.git_info in
         output_ok_string msg
       | Common.WHO_MASTER ->
@@ -590,7 +589,7 @@ let _set driver k v =
           Lwtc.log "GET_NURSERY_CFG" >>= fun () ->
           V.admin_get store Core.__routing_key >>= fun v ->
           let input = Pack.make_input v 0 in
-          let rsize = Pack.input_size input in
+          let _rsize = Pack.input_size input in
           Lwt_log.debug "Decoding routing info" >>= fun () ->
           let r = Routing.routing_from input in
           let out = Pack.make_output 32 in
@@ -612,7 +611,7 @@ let _set driver k v =
                     Lwt_log.debug_f "Sub %s %d %d" k key_start tail_size >>= fun () ->
                     let clu_id = String.sub k key_start tail_size in
                     let input = Pack.make_input v 0 in
-                    let input_size = Pack.input_size input in
+                    let _input_size = Pack.input_size input in
                     let cfg = ClientCfg.cfg_from input in
                     Hashtbl.replace clusters clu_id cfg;
                     Lwt.return ()
