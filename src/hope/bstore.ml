@@ -356,32 +356,63 @@ module BStore = (struct
 
   let get_fringe t boundary direction =
     Lwtc.log "Bstore.get_fringe" >>= fun () ->
+    let last_key kvs = 
+      let rec _loop = function
+        | [] -> failwith "Empty"
+        | [(k,_)] -> k
+        | _ :: y -> _loop y
+      in
+      _loop kvs
+    in
+    let limit = 1 * 1024 * 1024 in
     let _inner () = 
-      let size = Some 4 in
+      let size = Some 100 in
       match direction with
         | Routing.LOWER_BOUND -> 
             begin
-              Lwtc.log "Bstore LOWER_BOUND fringe" >>= fun () ->
-              let rec loop start acc = 
-                rev_range_entries t start false boundary true size >>= fun kvs ->
-                let acc' = kvs @ acc in
-                Lwt.return  acc' 
+              Lwtc.log "Bstore LOWER_BOUND fringe" >>= fun () ->              
+              let rec loop start mem acc = 
+                rev_range_entries t start false boundary true size >>= fun kvs_rev ->
+                let len = List.length kvs_rev in
+                if len = 0
+                then Lwt.return (List.rev acc) 
+                else
+                  let acc' = acc @ kvs_rev in
+                  let start' = Some (last_key kvs_rev) in
+                  let mem' = List.fold_left 
+                    (fun mem (k,v) ->
+                      mem + String.length k + String.length v) mem kvs_rev 
+                  in
+                  if mem' < limit
+                  then loop start' mem' acc'
+                  else Lwt.return acc'
               in
-              loop (Some "\xff") []
+              loop (Some "\xff") 0 []
           end
       | Routing.UPPER_BOUND -> 
           begin
             Lwtc.log "Bstore UPPER_BOUND fringe" >>= fun () ->
-            let rec loop start acc = 
+            let rec loop start mem acc = 
               range_entries t start false boundary false size >>= fun kvs ->
-              let acc' = kvs @ acc in
-              Lwt.return acc' 
+              let len = List.length kvs in
+              if len = 0 
+              then return acc
+              else
+                let acc' = acc @ kvs in
+                let start' = Some (last_key kvs) in
+                let mem' = List.fold_left
+                  (fun mem (k,v) -> mem + String.length k + String.length v) mem kvs in
+                if mem' < limit 
+                then
+                  loop start' mem' acc'
+                else
+                  Lwt.return acc'
             in
-            loop None []
+            loop None 0 []
           end
     in
     Lwt_mutex.with_lock t.m _inner >>= fun kvs ->
-    let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in
+    let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in (* not needed *)
     Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs') >>= fun () ->
     Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key:%s" k) kvs' >>= fun () ->
     Lwt.return kvs'
