@@ -90,7 +90,7 @@ def test_prefered_masters():
 
     # Kill all preferred masters
     for master in preferred_masters:
-        cluster.stopNode(master)
+        cluster.stopOne(master)
 
     delay = 8.0 * Common.lease_duration
 
