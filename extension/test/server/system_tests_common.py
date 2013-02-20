@@ -82,8 +82,8 @@ if __name__ == "__main__" :
 
 data_base_dir = None
 cluster_id = 'sturdy'
-node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
-node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
+node_names = ['sturdy_%d' % n for n in xrange(5)]
+node_ips = ["127.0.0.1"] * len(node_names)
 node_client_base_port = 7080
 node_msg_base_port = 10000
 daemon_name = "arakoon"
