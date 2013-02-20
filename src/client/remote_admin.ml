@@ -76,7 +76,8 @@ class remote_admin ((ic,oc) as conn) = object(self :# admin)
     request  oc outgoing >>= fun () ->
     response_old ic incoming
 
-  method get_fringe (boundary:string option) direction= Common.get_fringe conn boundary direction
+  method get_fringe (boundary:string option) direction= 
+    Common.get_fringe conn boundary direction
   
   method store_cluster_cfg cluster_id cfg =
     Common.set_nursery_cfg (ic,oc) cluster_id cfg

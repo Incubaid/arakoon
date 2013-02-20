@@ -60,10 +60,10 @@ module NC = struct
     let connections = Hashtbl.create 13 in
     let () = NCFG.iter_cfgs rc
       (fun cluster v -> 
-	Hashtbl.iter (fun node (ip,port) ->
-	  let nn = (cluster,node) in
-	  let a = Address (ip,port) in
-	  Hashtbl.add connections nn a) v)
+	    Hashtbl.iter (fun node (ip,port) ->
+	      let nn = (cluster,node) in
+	      let a = Address (ip,port) in
+	      Hashtbl.add connections nn a) v)
     in
     {rc; connections;masters;keeper_cn}
 
@@ -71,16 +71,16 @@ module NC = struct
     let (cn,node) = nn in
     match Hashtbl.find t.connections nn with
       | Address (ip,port) -> 
-	begin
-	  try_connect (ip,port) >>= function
-	    | Some conn -> 
-	      Common.prologue cn conn >>= fun () ->
-	      let () = Hashtbl.add t.connections nn (Connection conn) in
-	      Lwt.return conn
-	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
-	end
+	      begin
+	        try_connect (ip,port) >>= function
+	          | Some conn -> 
+	              Common.prologue cn conn >>= fun () ->
+	              let () = Hashtbl.add t.connections nn (Connection conn) in
+	              Lwt.return conn
+	          | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
+	      end
       | Connection conn -> Lwt.return conn
-  
+          
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
     let node_names = ClientCfg.node_names ccfg in
@@ -88,8 +88,8 @@ module NC = struct
     >>= fun () ->
     Lwt_list.map_s 
       (fun n -> 
-	let nn = (cn,n) in 
-	_get_connection t nn
+	    let nn = (cn,n) in 
+	    _get_connection t nn
       ) 
       node_names 
     >>= fun connections ->
@@ -97,7 +97,7 @@ module NC = struct
       begin
         match acc with
           | None ->
-            Common.who_master conn
+              Common.who_master conn
           | x -> Lwt.return x
       end
     in
@@ -131,7 +131,9 @@ module NC = struct
     _with_master_connection t cn todo
 
   let get t key = 
+    Lwtc.log "get %s" key  >>= fun () ->
     let cn = NCFG.find_cluster t.rc key in
+    Lwt_log.debug_f "get %s => %s" key cn >>= fun () ->
     let todo conn = Common.get conn false key in
     _with_master_connection t cn todo
 
@@ -143,6 +145,10 @@ module NC = struct
 
   let close t = Llio.lwt_failfmt "close not implemented"
 
+  let _log_fringe fringe = 
+    let size = List.length fringe in
+    Lwt_log.debug_f "fringe. size = %i" size >>= fun () ->
+    Lwt_list.iter_s (fun (k,_) -> Lwt_log.debug_f "   %s:_" k) fringe
  
   let __migrate t clu_left sep clu_right finalize publish migration = 
     Lwt_log.debug_f "migrate %s" (Log_extra.string_option_to_string sep) >>= fun () ->
@@ -158,9 +164,12 @@ module NC = struct
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
         (fun conn -> Common.migrate_range conn i seq)
+      >>= fun () ->
+      Lwt_log.debug "done pushing" 
     in
+
     let delete fringe = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
+      let seq = List.map (fun (k,_) -> Arakoon_client.Delete k) fringe in
       Lwt_log.debug "delete" >>= fun () ->
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
@@ -173,18 +182,23 @@ module NC = struct
     let i2s i = Interval.to_string i in
     Lwt_log.debug_f "Getting initial interval from %s" from_cn >>= fun () ->
     get_interval from_cn >>= fun from_i -> 
+    Lwt_log.debug_f "from_i: %s" (Interval.to_string from_i) >>= fun () ->
     Lwt_log.debug_f "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
+    Lwt_log.debug_f "to_i: %s" (Interval.to_string to_i) >>= fun () ->
     let rec loop from_i to_i =
       pull () >>= fun fringe ->
       match fringe with
         | [] -> 
-          begin
-            finalize from_i to_i
-          end 
+            begin
+              Lwt_log.debug_f "from_i: %s to_i: %s => empty fringe" 
+                (Interval.to_string from_i) 
+                (Interval.to_string to_i)
+              >>= fun () ->
+              finalize from_i to_i
+            end 
         | fringe -> 
-          let size = List.length fringe in
-          Lwt_log.debug_f "Length = %i" size >>= fun () ->
+            _log_fringe fringe >>= fun () ->
 	        (* 
 	         - change public interval on 'from'
 	         - push fringe & change private interval on 'to'
@@ -205,6 +219,7 @@ module NC = struct
                 set_interval from_cn from_i' >>= fun () ->
                 let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in
                 push fringe to_i1 >>= fun () ->
+                Lwt_log.debug "going to delete fringe" >>= fun () ->
                 delete fringe >>= fun () ->
                 Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in
@@ -240,6 +255,7 @@ module NC = struct
     
     
   let migrate t clu_left (sep: string) clu_right  =
+    Lwt_log.debug_f "migrate: %s %S %s" clu_left sep clu_right >>= fun () ->
     let r = NCFG.get_routing t.rc in
     let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
     let publish sep left right = 
