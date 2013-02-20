@@ -183,12 +183,7 @@ module Statistics = struct
     let nf' = float n' in
     t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf')
 
-  let new_harvest t n =
-    update_x_stats t.harvest_stats (float n);
-    ()
-    (* 
-    *)
-      
+  let new_harvest t n = update_x_stats t.harvest_stats (float n)
 
   let new_get t (key:string) (value:string) (start:float) = 
     let x = new_op t start in
