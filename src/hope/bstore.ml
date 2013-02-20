@@ -375,7 +375,7 @@ module BStore = (struct
                 rev_range_entries t start false boundary true size >>= fun kvs_rev ->
                 let len = List.length kvs_rev in
                 if len = 0
-                then Lwt.return (List.rev acc) 
+                then Lwt.return (List.rev acc, mem) 
                 else
                   let acc' = acc @ kvs_rev in
                   let start' = Some (last_key kvs_rev) in
@@ -385,7 +385,7 @@ module BStore = (struct
                   in
                   if mem' < limit
                   then loop start' mem' acc'
-                  else Lwt.return acc'
+                  else Lwt.return (acc', mem')
               in
               loop (Some "\xff") 0 []
           end
@@ -396,7 +396,7 @@ module BStore = (struct
               range_entries t start false boundary false size >>= fun kvs ->
               let len = List.length kvs in
               if len = 0 
-              then return acc
+              then return (acc, mem)
               else
                 let acc' = acc @ kvs in
                 let start' = Some (last_key kvs) in
@@ -406,12 +406,13 @@ module BStore = (struct
                 then
                   loop start' mem' acc'
                 else
-                  Lwt.return acc'
+                  Lwt.return (acc', mem')
             in
             loop None 0 []
           end
     in
-    Lwt_mutex.with_lock t.m _inner >>= fun kvs ->
+    Lwt_mutex.with_lock t.m _inner >>= fun (kvs,mem) ->
+    Lwtc.log "get_fringe retuns a chunk of %i bytes" mem >>= fun () ->
     let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in (* not needed *)
     Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs') >>= fun () ->
     Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key:%s" k) kvs' >>= fun () ->
