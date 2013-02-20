@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type time_stats ={
+type x_stats ={
     mutable n : int;
     mutable min:float;
     mutable max:float;
@@ -29,7 +29,7 @@ type time_stats ={
     mutable var:float;
   }
 
-let time_stats_to_string (stats:time_stats) :string =
+let x_stats_to_string (stats:x_stats) :string =
     let to_str_init_max = function
       | x when x = max_float -> "n/a"
       | x -> string_of_float x 
@@ -45,7 +45,7 @@ let time_stats_to_string (stats:time_stats) :string =
       (to_str_init_zero stats.avg)
       (to_str_init_zero (sqrt stats.var))
       
-let time_stats_from (buffer:string) (offset:int) : (time_stats * int) =
+let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
   let n,  o1 = Llio.int_from buffer offset in
   let min,o2 = Llio.float_from buffer o1 in
   let max,o3 = Llio.float_from buffer o2 in
@@ -54,7 +54,7 @@ let time_stats_from (buffer:string) (offset:int) : (time_stats * int) =
   let var,o6 = Llio.float_from buffer o5 in
   ( {n;min;max;m2;avg;var;}, o6)  
 
-let time_stats_to_value_list (stats:time_stats) (list_name:string) : Llio.namedValue =
+let x_stats_to_value_list (stats:x_stats) (list_name:string) : Llio.namedValue =
     let l = [ 
       Llio.NAMED_INT ("n", stats.n);
       Llio.NAMED_FLOAT ("min", stats.min);
@@ -65,7 +65,7 @@ let time_stats_to_value_list (stats:time_stats) (list_name:string) : Llio.namedV
     ] in
     Llio.NAMED_VALUELIST (list_name, l) 
     
-let create_time_stats () = {
+let create_x_stats () = {
     n = 0;
     min = max_float;
     max = 0.0;
@@ -74,7 +74,7 @@ let create_time_stats () = {
     var = 0.0;
 }
 
-let update_time_stats (t:time_stats) x =
+let update_x_stats (t:x_stats) x =
   let n = t.n in
   let n' = n + 1 in
   t.n <- n';
@@ -104,17 +104,17 @@ module Statistics = struct
     mutable avg_range_size:float;
     mutable avg_prefix_size:float;
     mutable avg_del_prefix_size:float;
-    mutable harvest_exp_avg:float;
-    mutable set_time_stats:   time_stats;
-    mutable get_time_stats:   time_stats;
-    mutable del_time_stats:   time_stats;
-    mutable seq_time_stats:   time_stats;
-    mutable mget_time_stats:  time_stats;
-    mutable tas_time_stats:   time_stats;
-    mutable range_time_stats: time_stats;
-    mutable prefix_time_stats: time_stats;
-    mutable delete_prefix_time_stats: time_stats;
-    mutable op_time_stats:    time_stats;
+    mutable harvest_stats: x_stats;
+    mutable set_time_stats:           x_stats;
+    mutable get_time_stats:           x_stats;
+    mutable del_time_stats:           x_stats;
+    mutable seq_time_stats:           x_stats;
+    mutable mget_time_stats:          x_stats;
+    mutable tas_time_stats:           x_stats;
+    mutable range_time_stats:         x_stats;
+    mutable prefix_time_stats:        x_stats;
+    mutable delete_prefix_time_stats: x_stats;
+    mutable op_time_stats:            x_stats;
     mutable node_is:          (string , Sn.t) Hashtbl.t;
   }
  
@@ -129,18 +129,18 @@ module Statistics = struct
      avg_range_size = 0.0;
      avg_prefix_size = 0.0;
      avg_del_prefix_size = 0.0;
-     set_time_stats=create_time_stats();
-     get_time_stats=create_time_stats();
-     del_time_stats=create_time_stats();
-     seq_time_stats=create_time_stats();
-     mget_time_stats=create_time_stats();
-     tas_time_stats=create_time_stats();
-     range_time_stats = create_time_stats();
-     prefix_time_stats = create_time_stats();
-     delete_prefix_time_stats = create_time_stats();
-     op_time_stats=create_time_stats();
+     set_time_stats=  create_x_stats();
+     get_time_stats=  create_x_stats();
+     del_time_stats=  create_x_stats();
+     seq_time_stats=  create_x_stats();
+     mget_time_stats= create_x_stats();
+     tas_time_stats=  create_x_stats();
+     range_time_stats = create_x_stats();
+     prefix_time_stats = create_x_stats();
+     delete_prefix_time_stats = create_x_stats();
+     op_time_stats=create_x_stats();
      node_is = Hashtbl.create 5;
-     harvest_exp_avg = 0.0;
+     harvest_stats = create_x_stats ();
     }
 
   let clear_most t = 
@@ -152,17 +152,17 @@ module Statistics = struct
       t.avg_range_size <- 0.0;
       t.avg_prefix_size <- 0.0;
       t.avg_del_prefix_size <- 0.0;
-      t.set_time_stats    <- create_time_stats();
-      t.get_time_stats    <- create_time_stats();
-      t.del_time_stats    <- create_time_stats();
-      t.seq_time_stats    <- create_time_stats();
-      t.mget_time_stats   <- create_time_stats();
-      t.tas_time_stats    <- create_time_stats();
-      t.range_time_stats  <- create_time_stats();
-      t.prefix_time_stats <- create_time_stats();
-      t.delete_prefix_time_stats <- create_time_stats();
-      t.op_time_stats     <- create_time_stats();
-      t.harvest_exp_avg <- 0.0;
+      t.set_time_stats    <-  create_x_stats();
+      t.get_time_stats    <-  create_x_stats();
+      t.del_time_stats    <-  create_x_stats();
+      t.seq_time_stats    <-  create_x_stats();
+      t.mget_time_stats   <-  create_x_stats();
+      t.tas_time_stats    <-  create_x_stats();
+      t.range_time_stats  <-  create_x_stats();
+      t.prefix_time_stats <-  create_x_stats();
+      t.delete_prefix_time_stats <- create_x_stats();
+      t.op_time_stats     <-  create_x_stats();
+      t.harvest_stats     <- create_x_stats ();
     end
 
   let _clock t start = 
@@ -171,24 +171,28 @@ module Statistics = struct
 
   let new_op t start =
     let x = _clock t start in
-    update_time_stats t.op_time_stats x ;
+    update_x_stats t.op_time_stats x ;
     x
     
   
   let new_set t (key:string) (value:string) (start:float)= 
     let x = new_op t start in
-    update_time_stats t.set_time_stats x;
+    update_x_stats t.set_time_stats x;
     let size = float(String.length value) in
     let n' = t.set_time_stats.n in
     let nf' = float n' in
     t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf')
 
   let new_harvest t n =
-    t.harvest_exp_avg <- (t.harvest_exp_avg +. (float n)) *. 0.5
+    update_x_stats t.harvest_stats (float n);
+    ()
+    (* 
+    *)
+      
 
   let new_get t (key:string) (value:string) (start:float) = 
     let x = new_op t start in
-    update_time_stats t.get_time_stats x;
+    update_x_stats t.get_time_stats x;
     let size = float(String.length value) in
     let n' = t.get_time_stats.n in
     let nf' = float n' in
@@ -196,34 +200,34 @@ module Statistics = struct
 
   let new_delete t (start:float)=
     let x = new_op t start in
-    update_time_stats t.del_time_stats x
+    update_x_stats t.del_time_stats x
 
   let new_sequence t (start:float)= 
     let x = new_op t start in
-    update_time_stats t.seq_time_stats x
+    update_x_stats t.seq_time_stats x
     
   let new_multiget t (start:float)= 
     let x = new_op t start in
-    update_time_stats t.mget_time_stats x 
+    update_x_stats t.mget_time_stats x 
 
   let new_testandset t (start:float)=
     let x = new_op t start in
-    update_time_stats t.tas_time_stats x
+    update_x_stats t.tas_time_stats x
 
   let new_range t (start:float) = 
     let x = new_op t start in
-    update_time_stats t.range_time_stats x
+    update_x_stats t.range_time_stats x
 
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
-    update_time_stats t.prefix_time_stats x;
+    update_x_stats t.prefix_time_stats x;
     let n = t.prefix_time_stats.n in
     let nf = float n in
     t.avg_prefix_size <- t.avg_prefix_size +. ((float n_keys -. t.avg_prefix_size) /. nf)
 
   let new_range t (start:float) n_keys = 
     let x = new_op t start in
-    update_time_stats t.range_time_stats x;
+    update_x_stats t.range_time_stats x;
     let n = t.range_time_stats.n in
     let nf = float n in
     t.avg_range_size <- t.avg_range_size +. ((float n_keys -. t.avg_range_size) /. nf)
@@ -231,7 +235,7 @@ module Statistics = struct
 
   let new_delete_prefix t (start:float) n_keys = 
     let x = new_op t start in
-    update_time_stats t.delete_prefix_time_stats x;
+    update_x_stats t.delete_prefix_time_stats x;
     let n = t.delete_prefix_time_stats.n in
     let nf = float n in
     t.avg_del_prefix_size <- t.avg_del_prefix_size +. ((float n_keys -. t.avg_del_prefix_size) /. nf)
@@ -260,20 +264,19 @@ module Statistics = struct
       Llio.NAMED_FLOAT ("avg_range_size", t.avg_range_size);
       Llio.NAMED_FLOAT ("avg_prefix_size", t.avg_prefix_size);
       Llio.NAMED_FLOAT ("avg_del_prefix_size", t.avg_del_prefix_size);
-      Llio.NAMED_FLOAT ("harvest_exp_avg", t.harvest_exp_avg);
+      x_stats_to_value_list t.harvest_stats "harvest_stats";
+      x_stats_to_value_list t.set_time_stats "set_info";
+      x_stats_to_value_list t.get_time_stats "get_info";
+      x_stats_to_value_list t.del_time_stats "del_info";
+      x_stats_to_value_list t.seq_time_stats "seq_info";
+      x_stats_to_value_list t.mget_time_stats "mget_info";
+      x_stats_to_value_list t.tas_time_stats "tas_info";
 
-      time_stats_to_value_list t.set_time_stats "set_info";
-      time_stats_to_value_list t.get_time_stats "get_info";
-      time_stats_to_value_list t.del_time_stats "del_info";
-      time_stats_to_value_list t.seq_time_stats "seq_info";
-      time_stats_to_value_list t.mget_time_stats "mget_info";
-      time_stats_to_value_list t.tas_time_stats "tas_info";
+      x_stats_to_value_list t.range_time_stats "range_info";
+      x_stats_to_value_list t.prefix_time_stats "prefix_info";
+      x_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
 
-      time_stats_to_value_list t.range_time_stats "range_info";
-      time_stats_to_value_list t.prefix_time_stats "prefix_info";
-      time_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
-
-      time_stats_to_value_list t.op_time_stats "op_info";
+      x_stats_to_value_list t.op_time_stats "op_info";
       Llio.NAMED_VALUELIST ("node_is", node_is);
     ] in
     
@@ -305,24 +308,24 @@ module Statistics = struct
       | Llio.NAMED_INT (_,i) -> i 
       | _ -> failwith "Wrong value type (expected int)"
     in
-    let extract_time_stats (value:Llio.namedValue) : time_stats = 
+    let extract_x_stats (value:Llio.namedValue) : x_stats = 
       begin 
       match value with
-	| Llio.NAMED_VALUELIST (_,l) -> 
-          let v, l = extract_next l in
-          let n    = extract_int v in
-          let v, l = extract_next l in
-	  let min = extract_float v in
-          let v, l = extract_next l in
-          let max = extract_float v in
-          let v,l = extract_next  l in
-          let m2  = extract_float v in
-          let v, l = extract_next l in
-          let avg = extract_float v in
-          let v, l = extract_next l in
-          let var = extract_float v in
-	  {n; min; max; m2; avg; var;} 
-	| _ -> failwith "Wrong value type (expected list)"
+	    | Llio.NAMED_VALUELIST (_,l) -> 
+            let v, l = extract_next l in
+            let n    = extract_int v in
+            let v, l = extract_next l in
+	        let min = extract_float v in
+            let v, l = extract_next l in
+            let max = extract_float v in
+            let v,l = extract_next  l in
+            let m2  = extract_float v in
+            let v, l = extract_next l in
+            let avg = extract_float v in
+            let v, l = extract_next l in
+            let var = extract_float v in
+	        {n; min; max; m2; avg; var;} 
+	    | _ -> failwith "Wrong value type (expected list)"
       end
     in
       
@@ -347,35 +350,35 @@ module Statistics = struct
     let avg_del_prefix_size = extract_float value in
     
     let value, v_list = extract_next v_list in
-    let harvest_exp_avg = extract_float value in
+    let harvest_stats = extract_x_stats value in
 
-    
+ 
     let value, v_list = extract_next v_list in
-    let set_stats   = extract_time_stats value in
+    let set_stats   = extract_x_stats value in
     let value, v_list = extract_next v_list in
-    let get_stats   = extract_time_stats value in
+    let get_stats   = extract_x_stats value in
     let value, v_list = extract_next v_list in
-    let del_stats   = extract_time_stats value in
+    let del_stats   = extract_x_stats value in
     let value, v_list = extract_next v_list in
-    let seq_stats   = extract_time_stats value in
+    let seq_stats   = extract_x_stats value in
     let value, v_list = extract_next v_list in
-    let mget_stats  = extract_time_stats value in
-
-    let value, v_list = extract_next v_list in
-    let tas_stats   = extract_time_stats value in
-
+    let mget_stats  = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
-    let range_stats = extract_time_stats value in
+    let tas_stats   = extract_x_stats value in
+
 
     let value, v_list = extract_next v_list in
-    let prefix_stats = extract_time_stats value in
+    let range_stats = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
-    let delete_prefix_stats = extract_time_stats value in
+    let prefix_stats = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
-    let op_stats    = extract_time_stats value in
+    let delete_prefix_stats = extract_x_stats value in
+
+    let value, v_list = extract_next v_list in
+    let op_stats    = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
     let node_list = extract_list value in
@@ -395,7 +398,7 @@ module Statistics = struct
       avg_range_size = avg_range_size;
       avg_prefix_size = avg_prefix_size;
       avg_del_prefix_size = avg_del_prefix_size;
-      harvest_exp_avg = harvest_exp_avg;
+      harvest_stats = harvest_stats;
       set_time_stats = set_stats;
       get_time_stats = get_stats;
       del_time_stats = del_stats;
@@ -419,7 +422,7 @@ module Statistics = struct
         "avg_range_size: %f, " ^^
         "avg_prefix_size: %f, " ^^
         "avg_del_prefix_size: %f,\n" ^^
-        "harvest_exp_avg: %f,\n" ^^
+        "harvest_stats: %s,\n" ^^
         "set_info: %s,\n" ^^	
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
@@ -446,16 +449,16 @@ module Statistics = struct
       t.avg_range_size
       t.avg_prefix_size
       t.avg_del_prefix_size
-      t.harvest_exp_avg
-      (time_stats_to_string t.set_time_stats)
-      (time_stats_to_string t.get_time_stats)
-      (time_stats_to_string t.del_time_stats)
-      (time_stats_to_string t.mget_time_stats)
-      (time_stats_to_string t.seq_time_stats)
-      (time_stats_to_string t.tas_time_stats)
-      (time_stats_to_string t.range_time_stats)
-      (time_stats_to_string t.prefix_time_stats)
-      (time_stats_to_string t.delete_prefix_time_stats)
-      (time_stats_to_string t.op_time_stats)
+      (x_stats_to_string t.harvest_stats)         
+      (x_stats_to_string t.set_time_stats)
+      (x_stats_to_string t.get_time_stats)
+      (x_stats_to_string t.del_time_stats)
+      (x_stats_to_string t.mget_time_stats)
+      (x_stats_to_string t.seq_time_stats)
+      (x_stats_to_string t.tas_time_stats)
+      (x_stats_to_string t.range_time_stats)
+      (x_stats_to_string t.prefix_time_stats)
+      (x_stats_to_string t.delete_prefix_time_stats)
+      (x_stats_to_string t.op_time_stats)
       (Buffer.contents node_iss)
 end

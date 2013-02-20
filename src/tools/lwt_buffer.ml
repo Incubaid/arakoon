@@ -84,14 +84,12 @@ module Lwt_buffer = struct
     Lwt.return e
       
   let harvest t = 
-    (* take t >>= fun e -> Lwt.return [e] *)
     Lwt_mutex.with_lock t.empty_m 
       (fun () -> if Queue.is_empty t.q
         then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
         else Lwt.return () 
       ) >>= fun () ->
     let size = Queue.length t.q in
-    Lwt_log.debug_f "harvest yields %i" size >>= fun () ->
     let rec loop es = function
       | 0 -> List.rev es
       | i -> 
