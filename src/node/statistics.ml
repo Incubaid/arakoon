@@ -134,8 +134,11 @@ let update_time_stats (t:time_stats) x =
       t.m2 <- m2'
     end;
   let nf = float n in (* old size ! *)
-  t.var <- t.m2 /. nf;
-  
+  if nf = 0.0 then 
+    (t.var <- 0.0) 
+  else 
+    (t.var <- t.m2 /. nf) 
+  ;
 module Statistics = struct
 
   type t ={ 
