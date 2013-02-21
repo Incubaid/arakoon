@@ -29,6 +29,7 @@ open Tlogcommon
 open Gc
 open Master_type
 open Client_cfg
+open Statistics
 
 let rec _split node_name cfgs =
   let rec loop me_o others = function
@@ -207,7 +208,7 @@ module X = struct
   
   let last_master_log_stmt = ref 0L  
     
-  let on_accept tlog_coll store (v,n,i) =
+  let on_accept statistics tlog_coll store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
@@ -215,7 +216,10 @@ module X = struct
     tlog_coll # log_value i v ~sync >>= fun wr_result ->
     begin
       match v with
-        | Value.Vc _     -> Lwt.return () 
+        | Value.Vc (us,_)     -> 
+            let size = List.length us in
+            let () = Statistics.new_harvest statistics size in
+            Lwt.return () 
         | Value.Vm (m,l) ->
 	        begin
               let logit () =
@@ -251,7 +255,7 @@ module X = struct
     let rec _inner () =
       Lwt_unix.sleep fp >>= fun () ->
       let stats = backend # get_statistics () in
-      Lwt_log.info_f "stats: %s" (Statistics.Statistics.string_of stats) 
+      Lwt_log.info_f "stats: %s" (Statistics.string_of stats) 
       >>= fun () ->
       let maxrss = Limits.get_maxrss() in
       let stat = Gc.stat () in
@@ -488,7 +492,8 @@ let _main_2
 	      let on_consensus = X.on_consensus store in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	      let last_witnessed (name:string) = backend # last_witnessed name in
-	      let on_accept = X.on_accept tlog_coll store in
+          let statistics = backend # get_statistics () in
+	      let on_accept = X.on_accept statistics tlog_coll store in
 	      
 	      let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
 	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
