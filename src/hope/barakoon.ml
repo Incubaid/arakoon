@@ -233,6 +233,7 @@ type action_type =
   | GetRouting
   | GetInterval
 
+  | Statistics
 
 let split_cfgs cfg myname =
   let (others, me_as_list) = List.partition (fun cfg -> cfg.node_name <> myname) cfg.cfgs in
@@ -398,6 +399,9 @@ let who_master cfg_name =
   Client_main.who_master cfg_name () >>= fun m -> 
   Lwt_io.printlf "%s" m
 
+let statistics cfg_name = Client_main.statistics cfg_name >>= fun statistics ->
+  Lwt_io.printlf "%s" statistics
+
 let delete cfg_name k = Client_main.with_master_client cfg_name (fun client -> client # delete k)
 
 let delete_prefix cfg_name prefix = 
@@ -534,8 +538,9 @@ let main () =
 
     ("--get-interval",
      set_action GetInterval,
-     " : returns the interval this cluster is responsible for (Nursery context)")
+     " : returns the interval this cluster is responsible for (Nursery context)");
 
+    ("--statistics", set_action Statistics, "returns some master statistics");
   ] in
   
   Arg.parse actions  
@@ -567,6 +572,7 @@ let main () =
       | GetRouting     -> Lwt_main.run (Nursery_main.get_routing !config_file)
       | GetInterval    -> Lwt_main.run (get_interval !config_file)
 
+      | Statistics     -> Lwt_main.run (statistics !config_file)
   end
 
 let () = main ()
