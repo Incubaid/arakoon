@@ -102,15 +102,19 @@ class NurseryManager:
         """
         cmd = self.__getBaseCmd()
         cmd += self.__getConfigCmdline()
-        cmd += "--nursery-delete %s " % clusterId
-        if separator is None:
-            cmd +=  '""'
-        else :
-            cmd += separator
+        cmd += ["--nursery-delete", clusterId]
+        if separator :
+            cmd += [separator]
         self.__runCmd( cmd )
         
     def __runCmd(self, cmd):
-        X.subprocess.check_output( cmd )
+        X.logging.debug("cmd: %s", cmd)
+        try:
+            output = X.subprocess.check_output( cmd )
+            X.logging.debug("output: %s", output)
+        except X.subprocess.CalledProcessError,e:
+            X.logging.debug("output: %s", e.output)
+            raise RuntimeError(e)
         
         
     def __getConfigCmdline(self):

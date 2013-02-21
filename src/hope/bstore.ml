@@ -3,14 +3,14 @@ open Lwt
 open Baardskeerder 
 open Unix
 open Interval
-
+open Routing
     
 let action2update = function
   | Set (k,v) -> Core.SET(unpref_key k,v)
   | Delete k -> Core.DELETE (unpref_key k)
 
 let inflate_interval m_v = 
-  let s = Pack.make_input m_v 0 in
+  let s = Pack.make_input m_v 4 in
   let iv = Interval.interval_from s in
   iv
     
@@ -85,19 +85,22 @@ module BStore = (struct
         let rec _inner (tx: BS.tx) = function
           | Core.SET (k,v) ->
               begin
-                Lwtc.log "set: %s" k >>= fun () -> 
+                (* Lwtc.log "set: %s" k >>= fun () -> 
                 _check_interval t k 
-                  (fun k -> BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None))
+                  (fun k -> 
+                *)
+                   BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
+              (* ) *)
               end
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
-              _check_interval t k 
-                (fun k ->
+              (*_check_interval t k (* TODO: re-enable this check, but do admin_sequence *)
+                (fun k ->*)
                   BS.delete tx (pref_key k) >>= function
                     | NOK _ -> _not_found k
                     | a -> Lwt.return (OK None)
-                )
+               (* ) *)
             end
           | Core.TEST_AND_SET (k,eo,wo) ->
               begin
@@ -153,6 +156,7 @@ module BStore = (struct
               Lwt.return (OK (Some v))
             end
           | Core.ADMIN_SET (k, m_v) -> 
+              Lwtc.log "admin_set: %s %s" k (Log_extra.string_option_to_string m_v) >>= fun () ->
               begin
                 let () = 
                   if k = Core.__interval_key 
@@ -172,6 +176,25 @@ module BStore = (struct
                         Lwt_log.debug_f "ADMIN_SET: %s %S" k v >>= fun () ->
                         Lwt.return (OK None)
                       end
+              end
+          | Core.SET_ROUTING_DELTA(left,sep,right) ->
+              begin
+                let k = pref_key ~_pf:__admin_prefix Core.__routing_key in
+                BS.get tx k >>= fun rs ->
+                let r' = match rs with
+                  | NOK _ -> Routing.build ([(left,sep)],right)
+                  | OK v  -> 
+                      let input = Pack.make_input v 4 in
+                      let r = Routing.routing_from input in
+                      Routing.change r left sep right
+                in
+                let rc = Routing.compact r' in
+                let out = Pack.make_output 80 in
+                let () = Routing.routing_to out rc in
+                let routing_s = Pack.close_output out in
+                BS.set tx k routing_s >>= fun _ ->
+                Lwt.return (OK None)
+
               end
           | Core.ASSERT (k, m_v) -> 
               begin
@@ -311,17 +334,92 @@ module BStore = (struct
   let _do_range_entries inner t first finc last linc max =
     inner t.store (opx true first) finc (opx false last) linc max
     >>= fun kvs ->
+    let c0 = __admin_prefix.[0] in
+    let kvs' = List.filter (fun (k,_) -> k.[0] <> c0) kvs in
     let unpref_kv (k,v) = (unpref_key k, v) in
-    Lwt.return (List.map unpref_kv kvs)
+    Lwt.return (List.map unpref_kv kvs')
     
   let range_entries t first finc last linc max =
+    Lwtc.log "range_rentries %s %b %s %b" 
+      (Log_extra.string_option_to_string first) finc 
+      (Log_extra.string_option_to_string last)  linc 
+    >>= fun () ->
     _do_range_entries BS.range_entries_latest t first finc last linc max
 
   let rev_range_entries t first finc last linc max =
+    Lwtc.log "rev_range_entries %s %b %s %b"
+      (Log_extra.string_option_to_string first) finc
+      (Log_extra.string_option_to_string last) linc
+      >>= fun () ->
     _do_range_entries BS.rev_range_entries_latest t first finc last linc max
 
 
+  let get_fringe t boundary direction =
+    Lwtc.log "Bstore.get_fringe" >>= fun () ->
+    let last_key kvs = 
+      let rec _loop = function
+        | [] -> failwith "Empty"
+        | [(k,_)] -> k
+        | _ :: y -> _loop y
+      in
+      _loop kvs
+    in
+    let limit = 1 * 1024 * 1024 in
+    let _inner () = 
+      let size = Some 100 in
+      match direction with
+        | Routing.LOWER_BOUND -> 
+            begin
+              Lwtc.log "Bstore LOWER_BOUND fringe" >>= fun () ->              
+              let rec loop start mem acc = 
+                rev_range_entries t start false boundary true size >>= fun kvs_rev ->
+                let len = List.length kvs_rev in
+                if len = 0
+                then Lwt.return (List.rev acc, mem) 
+                else
+                  let acc' = acc @ kvs_rev in
+                  let start' = Some (last_key kvs_rev) in
+                  let mem' = List.fold_left 
+                    (fun mem (k,v) ->
+                      mem + String.length k + String.length v) mem kvs_rev 
+                  in
+                  if mem' < limit
+                  then loop start' mem' acc'
+                  else Lwt.return (acc', mem')
+              in
+              loop (Some "\xff") 0 []
+          end
+      | Routing.UPPER_BOUND -> 
+          begin
+            Lwtc.log "Bstore UPPER_BOUND fringe" >>= fun () ->
+            let rec loop start mem acc = 
+              range_entries t start false boundary false size >>= fun kvs ->
+              let len = List.length kvs in
+              if len = 0 
+              then return (acc, mem)
+              else
+                let acc' = acc @ kvs in
+                let start' = Some (last_key kvs) in
+                let mem' = List.fold_left
+                  (fun mem (k,v) -> mem + String.length k + String.length v) mem kvs in
+                if mem' < limit 
+                then
+                  loop start' mem' acc'
+                else
+                  Lwt.return (acc', mem')
+            in
+            loop None 0 []
+          end
+    in
+    Lwt_mutex.with_lock t.m _inner >>= fun (kvs,mem) ->
+    Lwtc.log "get_fringe retuns a chunk of %i bytes" mem >>= fun () ->
+    let kvs' = List.sort (fun (k2,_) (k1,_) -> String.compare k1 k2)kvs in (* not needed *)
+    Lwt_log.debug_f "get_fringe yields %i kvs" (List.length kvs') >>= fun () ->
+    Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key:%s" k) kvs' >>= fun () ->
+    Lwt.return kvs'
     
+      
+                  
 
   let raw_dump t (oc:Lwtc.oc) = 
     File_system.stat t.fn >>= fun stat ->

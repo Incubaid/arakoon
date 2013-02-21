@@ -24,16 +24,16 @@ import logging
 class RoutingInfo:
     
     @staticmethod
-    def unpack(buffer, offset, decodeBool, decodeString ):
-        isLeaf, offset = decodeBool (buffer, offset)
+    def input(pin):
+        isLeaf = pin.input_bool()
         if isLeaf:
-            clusterId, offset = decodeString(buffer, offset)
-            return LeafRoutingNode(clusterId), offset
+            clusterId = pin.input_string()
+            return LeafRoutingNode(clusterId)
         else:
-            boundary, offset = decodeString(buffer, offset)
-            left, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
-            right, offset = RoutingInfo.unpack(buffer, offset, decodeBool, decodeString)
-            return InternalRoutingNode(left,boundary,right), offset
+            boundary = pin.input_string()
+            left  = RoutingInfo.input(pin)
+            right = RoutingInfo.input(pin)
+            return InternalRoutingNode(left,boundary,right)
         
     def __init__(self, rootNode):
         self.__root = rootNode

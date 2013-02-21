@@ -44,7 +44,7 @@ def _cfg2str(self, cfg):
 
 def _getConfig(self, h):
     fn = h + '.cfg'
-    self.logging.debug("reading %s",fn)
+    #self.logging.debug("reading %s",fn)
     p = ConfigParser.ConfigParser()
     p.read(fn)
     #logging.debug("config file=\n%s", self.cfg2str(p))

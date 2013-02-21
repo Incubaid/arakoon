@@ -37,6 +37,7 @@ import random
 import threading
 import time
 import arakoon.ArakoonProtocol  
+import arakoon.Nursery
 from arakoon.ArakoonExceptions import * 
 
 from arakoon_ext.server import ArakoonManagement
@@ -653,8 +654,10 @@ def get_client ( protocol_version, c_id = None):
     return c
 
 def get_nursery_client():
-    client = get_client (protocol_version = 2, c_id = CONFIG.nursery_keeper_id)
-    return client
+    ext = ArakoonClient.ArakoonClient()
+    cfg = ext._getClientConfig(CONFIG.nursery_keeper_id)
+    nCli = arakoon.Nursery.NurseryClient(cfg)
+    return nCli
 
 def get_nursery():
     ext = NurseryManagement.NurseryManagement()

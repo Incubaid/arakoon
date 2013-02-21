@@ -127,6 +127,7 @@ let command_to output command =
   Pack.size_to output masked_i
 
 let nothing = fun ic -> Lwt.return ()
+
 let input_nothing = fun pack -> ()
 
 let value_array ic =
@@ -317,7 +318,13 @@ let get_fringe (ic,oc) boundary direction =
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
-  response_old ic Llio.input_kv_list
+  let input_kv_list input = 
+    Pack.input_list input (fun input -> 
+      let k = Pack.input_string input in
+      let v = Pack.input_string input in
+      (k,v))
+  in
+  response_limited ic input_kv_list
  
 
 let set_interval(ic,oc) iv =
@@ -366,7 +373,7 @@ let set_routing_delta (ic,oc) left sep right =
   Client_log.debug "Changing routing" >>= fun () ->
   request oc outgoing >>= fun () ->
   Client_log.debug "set_routing_delta sent" >>= fun () ->
-  response_old ic nothing
+  response_limited ic input_nothing
 
 
 let _build_sequence_request output changes =
@@ -385,13 +392,17 @@ let _build_sequence_request output changes =
   in ()
 
 let migrate_range (ic,oc) interval changes =
+  Lwtc.log "migrate_range %s" (Interval.to_string interval) >>= fun () ->
   let outgoing out =
     command_to out MIGRATE_RANGE;
     Interval.interval_to out interval;
     _build_sequence_request out changes
   in
-  request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response_old ic nothing 
+  request  oc (fun buf -> outgoing buf) 
+  >>= fun () ->
+  response_limited ic input_nothing 
+  >>= fun () ->
+  Lwtc.log "end of migrate_range request"
 
 
 let _sequence (ic,oc) changes cmd = 
@@ -412,6 +423,7 @@ let get_nursery_cfg (ic,oc) =
   response_limited ic NCFG.ncfg_from
 
 let set_nursery_cfg (ic,oc) clusterid cfg =
+  Lwtc.log "set_nursery_cfg %s" clusterid >>= fun() ->
   let outgoing buf =
      set_nursery_cfg_to buf clusterid cfg
   in

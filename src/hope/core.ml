@@ -24,6 +24,7 @@ type update =
   | USER_FUNCTION of string * string option
   | SEQUENCE of update list
   | DELETE_PREFIX of k
+  | SET_ROUTING_DELTA of (string * string * string)
 
 
 let update2s = function
@@ -36,6 +37,7 @@ let update2s = function
   | USER_FUNCTION(n,po) -> Printf.sprintf "U_USER_FUNCTION(%S,_)" n
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
   | DELETE_PREFIX k -> Printf.sprintf "U_DELETE_PREFIX %S" k
+  | SET_ROUTING_DELTA (l,s,r) -> Printf.sprintf "U_SET_ROUTING_DELTA (%S,%S,%S)" l s r
 
 
 let rec update_to buf = function
@@ -63,6 +65,11 @@ let rec update_to buf = function
       Llio.int_to buf 9;
       Llio.string_to buf k;
       Llio.string_option_to buf m_v
+  | SET_ROUTING_DELTA (l,s,r) ->
+      Llio.int_to buf 12;
+      Llio.string_to buf l;
+      Llio.string_to buf s;
+      Llio.string_to buf r
   | DELETE_PREFIX k ->
       Llio.int_to buf 14;
       Llio.string_to buf k
@@ -108,6 +115,11 @@ let rec update_from buf off =
       let k, off = Llio.string_from buf off in
       let m_v, off = Llio.string_option_from buf off in
       ADMIN_SET (k, m_v), off
+    | 12 ->
+        let l, off = Llio.string_from buf off in
+        let s, off = Llio.string_from buf off in
+        let r, off = Llio.string_from buf off in
+        SET_ROUTING_DELTA(l,s,r), off
     | 14 ->
       let k, off = Llio.string_from buf off in
       DELETE_PREFIX k, off
@@ -176,6 +188,8 @@ module ITickUtils = TickUtils(ITick)
 
 type tx_result = (v option, Arakoon_exc.rc * k) Baardskeerder.result
 
+open Routing (* for range_direction  TODO: maybe promote? *)
+
 module type STORE = sig
   type t
   
@@ -206,6 +220,7 @@ module type STORE = sig
   val dump : t -> unit Lwt.t
   val raw_dump : t -> Lwtc.oc -> unit Lwt.t
 
+  val get_fringe : t -> string option -> Routing.range_direction -> ((string * string) list) Lwt.t
 end
 
 (* output_action & input action are only in last_entries *)
