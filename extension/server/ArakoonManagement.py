@@ -364,6 +364,66 @@ class ArakoonCluster:
                 config.removeParam(g, pm)
         config.write()
 
+    def preferredMasters(self, nodes):
+        '''
+        Set a list of preferred master nodes
+
+        When the given list is empty, the configuration item is unset.
+
+        Since this option is incompatible with a fixed master, this method will
+
+        - raise an exception if 'master' is set and 'preferred_master' is false
+          (or not set, which defaults to false)
+        - unset 'master' and 'preferred_master' if both are set and
+          'preferred_master' is true
+
+        @param nodes: Names of preferred master nodes
+        @type nodes: `list` of `str`
+        '''
+
+        if isinstance(nodes, basestring):
+            raise TypeError('Expected list of strings, not string')
+
+        config = self._getConfigFile()
+
+        if not nodes:
+            if config.checkParam('global', 'preferred_masters'):
+                config.removeParam('global', 'preferred_masters')
+                config.write()
+
+                return
+
+
+        section = 'global'
+        master = 'master'
+        preferred_master = 'preferred_master'
+
+        # Check existing master/preferred_master configuration. Bail out if
+        # incompatible.
+        if config.checkParam(section, master):
+            preferred_master_setting = \
+                config.getValue(section, preferred_master).lower() \
+                if config.checkParam(section, preferred_master) \
+                else 'false'
+
+            if preferred_master_setting != 'true':
+                raise Exception(
+                    'Can\'t set both \'master\' and \'preferred_masters\'')
+
+            # If reached, 'master' was set and 'preferred_master' was true.
+            # We're free to remove both, since they're replaced by the
+            # 'preferred_masters' setting.
+            config.removeParam(section, master)
+            if config.checkParam(section, preferred_master):
+                config.removeParam(section, preferred_master)
+
+        # Set up preferred_masters
+        preferred_masters = 'preferred_masters'
+
+        config.addParam(section, preferred_masters, ', '.join(nodes))
+
+        config.write()
+
     def setLogLevel(self, level, nodes=None):
         if nodes is None:
             nodes = self.listNodes()

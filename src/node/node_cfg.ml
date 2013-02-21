@@ -178,6 +178,10 @@ module Node_cfg = struct
     let master =
       try
 	let m_s = (inifile # getval "global" "master") in
+        if Ini.get inifile "global" "preferred_masters" (fun _ -> true) (fun _ _ -> false)
+        then
+          failwith ("'master' and 'preferred_masters' are incompatible")
+        else
 	let m = Scanf.sscanf m_s "%s" (fun s -> s) in
 	let nodes = _node_names inifile in
 	if not (List.mem m nodes)
@@ -185,10 +189,15 @@ module Node_cfg = struct
 	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
 	else 
 	  if _get_bool inifile "global" "preferred_master" 
-	  then (Preferred m)
+          then (Preferred [m])
 	  else (Forced m)
-      with (Inifiles.Invalid_element _) -> 
-	let read_only = _get_bool inifile "global" "readonly" in
+      with (Inifiles.Invalid_element _) ->
+        let pms = Ini.get inifile "global" "preferred_masters" Ini.p_string_list (fun _ _ -> []) in
+        if pms <> []
+        then
+          Preferred pms
+        else
+        let read_only = _get_bool inifile "global" "readonly" in
 	if read_only 
 	then ReadOnly
 	else Elected

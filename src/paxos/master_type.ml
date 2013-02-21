@@ -24,10 +24,10 @@ type master =
   | Elected 
   | ReadOnly
   | Forced of string 
-  | Preferred of string
+  | Preferred of string list
 
 let master2s = function
   | Elected -> "Elected"
   | ReadOnly -> "ReadOnly"
   | Forced s -> Printf.sprintf "(Forced %s)" s
-  | Preferred s -> Printf.sprintf "(Preferred %s)" s
+  | Preferred s -> Printf.sprintf "(Preferred [%s])" (String.concat ", " s)

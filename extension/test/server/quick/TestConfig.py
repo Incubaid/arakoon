@@ -199,6 +199,72 @@ class TestConfig:
         p = config.getValue("global", "preferred_master")
         assert_equals(p,'true')
         
+
+    def testPreferredMastersNoMaster(self):
+        cid = self._clusterId
+        cluster = self._getCluster()
+
+        for i in xrange(3):
+            cluster.addNode('%s_%i' % (cid, i))
+
+        cluster.preferredMasters(['%s_1' % cid, '%s_2' % cid])
+
+        config = cluster._getConfigFile()
+        assert_true(config.checkParam('global', 'preferred_masters'))
+        pms = map(str.strip,
+                config.getValue('global', 'preferred_masters').split(','))
+        assert_equals(pms, ['%s_1' % cid, '%s_2' % cid])
+
+    def testPreferredMastersForcedMaster(self):
+        cid = self._clusterId
+        cluster = self._getCluster()
+
+        for i in xrange(3):
+            cluster.addNode('%s_%i' % (cid, i))
+
+        cluster.forceMaster('%s_0' % cid, preferred=False)
+
+        assert_raises(Exception, cluster.preferredMasters, ['%s_1' % cid])
+
+    def testPreferredMastersPreferredMaster(self):
+        cid = self._clusterId
+        cluster = self._getCluster()
+
+        for i in xrange(3):
+            cluster.addNode('%s_%i' % (cid, i))
+
+        cluster.forceMaster('%s_0' % cid, preferred=True)
+
+        cluster.preferredMasters(['%s_0' % cid, '%s_1' % cid])
+
+        config = cluster._getConfigFile()
+        assert_false(config.checkParam('global', 'master'))
+        assert_false(config.checkParam('global', 'preferred_master'))
+        assert_true(config.checkParam('global', 'preferred_masters'))
+        pms = map(str.strip,
+                config.getValue('global', 'preferred_masters').split(','))
+        assert_equals(pms, ['%s_0' % cid, '%s_1' % cid])
+
+    def testUnsetPreferredMaster(self):
+        cid = self._clusterId
+        cluster = self._getCluster()
+
+        for i in xrange(3):
+            cluster.addNode('%s_%i' % (cid, i))
+
+        cluster.preferredMasters(['%s_0' % cid, '%s_1' % cid])
+
+        config = cluster._getConfigFile()
+        assert_true(config.checkParam('global', 'preferred_masters'))
+        pms = map(str.strip,
+                config.getValue('global', 'preferred_masters').split(','))
+        assert_equals(pms, ['%s_0' % cid, '%s_1' % cid])
+
+        cluster.preferredMasters([])
+        config = cluster._getConfigFile()
+        assert_false(config.checkParam('global', 'preferred_masters'))
+
+
     def testSetQuorum(self):
         cid = self._clusterId
         cluster = self._getCluster()
