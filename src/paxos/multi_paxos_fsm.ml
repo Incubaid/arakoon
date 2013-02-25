@@ -39,7 +39,7 @@ let forced_master_suggest constants (n,i) () =
   let n' = update_n constants n in
   mcast constants (Prepare (n',i)) >>= fun () ->
   start_election_timeout constants n >>= fun () ->
-  log ~me "forced_master_suggest: suggesting n=%s" (Sn.string_of n') >>= fun () ->
+  log ~me "PAXOS: n=%s, i=%s, forced_master_suggest: suggesting n=%s"(Sn.string_of n) (Sn.string_of i) (Sn.string_of n') >>= fun () ->
   let tlog_coll = constants.tlog_coll in
   let l_val = tlog_coll # get_last_value i in
   
@@ -65,7 +65,7 @@ let election_suggest constants (n,i,vo) () =
         (1,[]) , "None"
       | Some x -> (0,[(x,1)]) , "Some _"
   in
-  log ~me "election_suggest: n=%s i=%s %s"  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
+  log ~me "PAXOS: election_suggest: n=%s i=%s %s"  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
   start_election_timeout constants n >>= fun () ->
   let delay =
     match constants.master with
@@ -82,7 +82,8 @@ let election_suggest constants (n,i,vo) () =
 
 let read_only constants state () =
   Lwt_unix.sleep 60.0 >>= fun () ->
-  Lwt_log.debug "read_only ..." >>= fun () ->
+  let me = constants.me in
+  log ~me "PAXOS: read_only ..." >>= fun () ->
   Fsm.return (Read_only state)
 
 (* a pending slave that is waiting for a prepare or a nak
@@ -92,11 +93,12 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
     | FromNode(msg,source) ->
       begin
 	let me = constants.me in
-	log ~me "slave_waiting_for_prepare: %S" (MPMessage.string_of msg) 
+	log ~me "PAXOS: n=%s, i=%s, slave_waiting_for_prepare: %S" (Sn.string_of current_n) (Sn.string_of current_i) (MPMessage.string_of msg) 
 	>>= fun () ->
 	match msg with
 	  | Prepare(n',i') ->
-	    begin
+	      begin
+            log ~me "PAXOS: n=%s, i=%s, slave_prepare for n(%s),i(%s)" (Sn.string_of current_n) (Sn.string_of current_i) (Sn.string_of n') (Sn.string_of i') >>= fun () ->
           handle_prepare constants source current_n n' i' >>= function
 		    | Nak_sent
 		    | Prepare_dropped ->
@@ -113,19 +115,19 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	    end
 	  | Nak(n',(n2, i2)) when n' = -1L ->
 	      begin
-	        log ~me "fake prepare response: discovered master" >>= fun () ->
+	        log ~me "PAXOS: n=%s, i=%s, Fake prepare response: discovered master" (Sn.string_of current_n) (Sn.string_of current_i)  >>= fun () ->
             let cu_pred = Store.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	      end
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	      begin
-	        log ~me "got %s => go to catchup" (string_of msg) >>= fun () ->
+	        log ~me  "PAXOS: n=%s, i=%s, Got %s => go to catchup" (Sn.string_of current_n) (Sn.string_of current_i) (string_of msg) >>= fun () ->
             let cu_pred =  Store.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	      end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
 	      begin
-	        log ~me "got %s => we're in sync" (string_of msg) >>= fun () ->
+	        log ~me "PAXOS: n=%s, i=%s, Got %s => we're in sync" (Sn.string_of current_n) (Sn.string_of current_i) (string_of msg) >>= fun () ->
           (* pick in @ steady state *)
 	        let p = constants.get_value i2 in
 	        match p with
@@ -135,8 +137,8 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
                   end
               | Some v ->
                   begin
-                    log ~me "reentering steady state @(%s,%s)" 
-		              (Sn.string_of n2) (Sn.string_of i2) 
+                    log ~me "PAXOS: n=%s, i=%s, reentering steady state @(%s,%s)" 
+		            (Sn.string_of current_n) (Sn.string_of current_i) (Sn.string_of n2) (Sn.string_of i2) 
                     >>= fun () ->
                     start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
                     Fsm.return (Slave_steady_state (n2, i2, v))
@@ -144,10 +146,11 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	      end
       | Accept(n', i', v) when current_n = n' && i' > current_i ->
           begin
+            log ~me "PAXOS: n=%s, i=%s, Accept => n'(%s), i'(%s) " (Sn.string_of current_n) (Sn.string_of current_i) (Sn.string_of n') (Sn.string_of i')  >>= fun () ->
             let cu_pred = Store.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n', i'))
           end
-	  | _ -> log ~me "dropping unexpected %s" (string_of msg) >>= fun () ->
+	  | _ -> log ~me "PAXOS: n=%s, i=%s, dropping unexpected %s" (Sn.string_of current_n) (Sn.string_of current_i) (string_of msg) >>= fun () ->
 	      Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
       end
     | ElectionTimeout n' 
@@ -195,7 +198,7 @@ let promises_check_done constants state () =
   if bf + nnones = needed 
   then
     begin
-      log ~me "promises_check_done: consensus on %s" (Sn.string_of i)
+      log ~me "PAXOS: n=%s, i=%s, promises_check_done: consensus on %s" (Sn.string_of n) (Sn.string_of i) (Sn.string_of i)
       >>= fun () ->
       constants.on_accept (bv,n,i) >>= fun () ->
       start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
@@ -207,17 +210,27 @@ let promises_check_done constants state () =
     end
   else (* bf < needed *)
     if nvoted < nnodes 
-    then Fsm.return (Wait_for_promises state)
+    then 
+      begin 
+        log ~me "PAXOS: n=%s, i=%s, promises_check_done: number of votes(%i) lower than the nnodes (%i)" (Sn.string_of n) (Sn.string_of i) nvoted nnodes >>= fun () ->
+        Fsm.return (Wait_for_promises state)
+      end
     else (* split vote *)
       begin
     	if am_forced_master constants me
-	    then
-	      Fsm.return (Forced_master_suggest (n,i))
-	    else 
+	    then 
+          begin
+            log ~me "PAXOS: n=%s, i=%s, promises_check_done: number of votes low: forced master" (Sn.string_of n) (Sn.string_of i)  >>= fun () ->
+	        Fsm.return (Forced_master_suggest (n,i))
+          end
+	    else
 	      if is_election constants 
 	      then
-	        let n' = update_n constants n in
-	        Fsm.return (Election_suggest (n',i, Some bv))
+            begin
+	          let n' = update_n constants n in
+              log ~me "PAXOS: n=%s, i=%s, promises_check_done: number of votes low: Election suggested" (Sn.string_of n) (Sn.string_of i) >>= fun () ->
+	          Fsm.return (Election_suggest (n',i, Some bv))
+            end
 	      else
 	        paxos_fatal me "slave checking for promises"
       end
@@ -244,14 +257,14 @@ let wait_for_promises constants state event =
 
         let log_e0 = 
           ELog(fun () ->
-            Printf.sprintf "wait_for_promises:n=%s i=%s who_voted = %s received %s from %s" 
+            Printf.sprintf "PAXOS: n=%s, i=%s, wait_for_promises: who_voted = %s received %s from %s" 
               (Sn.string_of n) (Sn.string_of i) who_voted_s 
               (string_of msg) source
           )
         in
         let drop msg reason = 
           let log_e = ELog(fun () ->
-            Printf.sprintf "dropping %s because: %s" (string_of msg) reason) 
+            Printf.sprintf "PAXOS: n=%s, i=%s, dropping %s because: %s"(Sn.string_of n) (Sn.string_of i)  (string_of msg) reason) 
           in
           Fsm.return ~sides:[log_e0;log_e] (Wait_for_promises state) 
         in
@@ -286,36 +299,35 @@ let wait_for_promises constants state event =
                   Fsm.return (Promises_check_done state')
             | Promise (n' ,i', limit) -> (* n ' > n *)
                 begin
-		          log ~me "Received Promise from previous incarnation. Bumping n from %s over %s." 
-                    (Sn.string_of n) (Sn.string_of n') 
+		          log ~me "PAXOS: n=%s, i=%s, Received Promise from previous incarnation. Bumping n from %s over %s." 
+                    (Sn.string_of n) (Sn.string_of i) (Sn.string_of n) (Sn.string_of n') 
 		          >>= fun () ->
 		          let new_n = update_n constants n' in
 		          Fsm.return (Election_suggest (new_n,i, wanted))
                 end
             | Nak (n',(n'',i')) when n' < n ->
                 begin
-		          log ~me "wait_for_promises:: received old %S (ignoring)" (string_of msg) 
+		          log ~me "PAXOS: n=%s, i=%s, wait_for_promises:: received old %S (ignoring)" (Sn.string_of n) (Sn.string_of i) (string_of msg) 
 		          >>= fun () ->
 		          Fsm.return (Wait_for_promises state)
                 end
             | Nak (n',(n'',i')) when n' > n ->
                 begin
-		          log ~me "Received Nak from previous incarnation. Bumping n from %s over %s." 
-                    (Sn.string_of n) (Sn.string_of n') 
+		          log ~me "PAXOS: n=%s, i=%s, Received Nak from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of i) (Sn.string_of n) (Sn.string_of n') 
 		          >>= fun () ->
 		          let new_n = update_n constants n' in
 		          Fsm.return (Election_suggest (new_n,i, wanted))
                 end
             | Nak (n',(n'',i')) -> (* n' = n *)
                 begin
-		          log ~me "wait_for_promises:: received %S for my Prep(i=%s, _) " 
-                    (string_of msg) 
+		          log ~me "PAXOS: n=%s, i=%s, wait_for_promises:: received %S for my Prep(i=%s, _) " 
+                    (Sn.string_of n) (Sn.string_of i) (string_of msg) 
                     (Sn.string_of i)
 		          >>= fun () ->
 		          if am_forced_master constants me
 		          then
 		            begin
-                      log ~me "wait_for_promises; forcing new master suggest" >>= fun () ->
+                      log ~me "PAXOS: n=%s, i=%s, wait_for_promises; forcing new master suggest" (Sn.string_of n) (Sn.string_of i) >>= fun () ->
                       let n3 = update_n constants (max n n'') in
                       Fsm.return (Forced_master_suggest (n3,i))
 		            end
@@ -323,8 +335,8 @@ let wait_for_promises constants state event =
                     (* if is_election constants 
                        then *)
                     begin
-                      log ~me "wait_for_promises; discovered other node" 
-                      >>= fun () ->
+                      log ~me "PAXOS: n=%s, i=%s, wait_for_promises; discovered other node" 
+                      (Sn.string_of n) (Sn.string_of i) >>= fun () ->
                       if i' > i 
                       then
                         let cu_pred = Store.get_catchup_start_i constants.store in
@@ -344,7 +356,7 @@ let wait_for_promises constants state event =
                 if (am_forced_master constants me) && n' > 0L
 	              then
 		              begin
-		                log ~me "wait_for_promises:dueling; forcing new master suggest" >>= fun () ->
+		                log ~me "PAXOS: n=%s, i=%s, wait_for_promises:dueling; forcing new master suggest" (Sn.string_of n) (Sn.string_of i)  >>= fun () ->
 		                let reply = Nak (n', (n,i))  in
 				        constants.send reply me source >>= fun () ->
 				        let new_n = update_n constants n' in
@@ -354,7 +366,7 @@ let wait_for_promises constants state event =
                   
                   handle_prepare constants source n n' i' >>= function
                     | Nak_sent ->
-                      log ~me "wait_for_promises: resending prepare" >>= fun () ->
+                      log ~me "PAXOS: n=%s, i=%s, wait_for_promises: resending prepare" (Sn.string_of n) (Sn.string_of i)  >>= fun () ->
                       let reply = Prepare(n, i) in
                       constants.send reply me source >>= fun () ->
                       Fsm.return (Wait_for_promises state)
@@ -374,11 +386,11 @@ let wait_for_promises constants state event =
                   if i < _i
                   then
                     begin
-                      log ~me "wait_for_promises: still have an active master (received %s) -> catching up from master"  (string_of msg) >>= fun () ->
+                      log ~me "PAXOS: n=%s, i=%s, wait_for_promises: still have an active master (received %s) -> catching up from master" (Sn.string_of n) (Sn.string_of i) (string_of msg) >>= fun () ->
                       Fsm.return (Slave_discovered_other_master (source, i, n', _i))
 		            end
                 else
-		            log ~me "wait_for_promises: ignoring old Accept %s" (Sn.string_of n') 
+		            log ~me "PAXOS: n=%s, i=%s, wait_for_promises: ignoring old Accept %s" (Sn.string_of n) (Sn.string_of i)  (Sn.string_of n') 
 		             >>= fun () ->
 		          Fsm.return (Wait_for_promises state)
               end
@@ -386,22 +398,22 @@ let wait_for_promises constants state event =
               if n' = n && _i < i 
               then
 		        begin
-                  log ~me "wait_for_promises: ignoring %s (my i is %s)" (string_of msg) (Sn.string_of i) >>= fun () ->
+                  log ~me "PAXOS: n=%s, i=%s, wait_for_promises: ignoring %s (my i is %s)" (Sn.string_of n) (Sn.string_of i)  (string_of msg) (Sn.string_of i) >>= fun () ->
                   Fsm.return (Wait_for_promises state)
 		        end
               else
 		        begin
-                  log ~me "wait_for_promises: received %S -> back to fake prepare"  (string_of msg) >>= fun () ->
+                  log ~me "PAXOS: n=%s, i=%s, wait_for_promises: received %S -> back to fake prepare" (Sn.string_of n) (Sn.string_of i)  (string_of msg) >>= fun () ->
                   Fsm.return (Slave_fake_prepare (i,n))
 		        end
             | Accepted (n',_i) when n' < n ->
               begin
-		        log ~me "wait_for_promises: ignoring old Accepted %s" (Sn.string_of n') >>= fun () ->
+		        log ~me "PAXOS: n=%s, i=%s, wait_for_promises: ignoring old Accepted %s" (Sn.string_of n) (Sn.string_of i) (Sn.string_of n') >>= fun () ->
 		        Fsm.return (Wait_for_promises state)
               end
             | Accepted (n',_i) -> (* n' >= n *)
               begin 
-		        log ~me "Received Nak from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of n') 
+		        log ~me "PAXOS: n=%s, i=%s, Received Nak from previous incarnation. Bumping n from %s over %s." (Sn.string_of n) (Sn.string_of i)  (Sn.string_of n) (Sn.string_of n') 
 		        >>= fun () ->
 		        let new_n = update_n constants n' in
 		        Fsm.return (Election_suggest (new_n,i, wanted))
@@ -419,23 +431,25 @@ let wait_for_promises constants state event =
               let bv, bf = hd in
               Some bv
         end
-        in
+      in
       if n' = n && not ( constants.store # quiesced () ) 
       then
 	    begin
-          log ~me "wait_for_promises: election timeout, restart from scratch"	  
+          log ~me "PAXOS: n=%s, i=%s, wait_for_promises: election timeout, restart from scratch" (Sn.string_of n) (Sn.string_of i)	  
 	      >>= fun () ->
 	      Fsm.return (Election_suggest (n,i, wanted))
 	    end
       else
 	    begin
+          log ~me "PAXOS: n=%s, i=%s, wait_for_promises: election timeout, wait_for_promises" (Sn.string_of n) (Sn.string_of i)	  
+	      >>= fun () ->
 	      Fsm.return (Wait_for_promises state)
 	    end
     | LeaseExpired _ ->
-        Lwt_log.debug "Ignoring lease expiration" >>= fun () ->
+        log ~me "PAXOS: n=%s, i=%s, Ignoring lease expiration" (Sn.string_of n) (Sn.string_of i) >>= fun () ->
         Fsm.return (Wait_for_promises state)
     | FromClient _ -> 
-        paxos_fatal me "wait_for_promises: don't want FromClient"
+        paxos_fatal me "PAXOS: wait_for_promises: don't want FromClient"
           
     | Quiesce (sleep,awake) ->
         handle_quiesce_request constants.store sleep awake >>= fun () ->
@@ -464,13 +478,14 @@ let lost_master_role finished_funs =
 let accepteds_check_done constants state () =
   let (mo,n,i,ballot,v) = state in
   let needed, already_voted = ballot in
+  let me = constants.me in
   if needed = 0 
   then
     begin
       let log_e = 
         ELog (fun () ->
-          Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
-	        (Sn.string_of n) ( Sn.string_of i )
+          Printf.sprintf "%s:PAXOS: n=%s, i=%s, accepted_check_done :: we're done! returning"
+	       me (Sn.string_of n) (Sn.string_of i) 
         )
       in
       let sides = [log_e] in
@@ -491,13 +506,13 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    let drop msg reason =
           let log_e = ELog 
             (fun () ->
-	          Printf.sprintf "dropping %s because : '%s'" (MPMessage.string_of msg) reason
+	          Printf.sprintf "%s: PAXOS: dropping %s because : '%s'" me (MPMessage.string_of msg) reason
             )
           in	      
 	      Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
 	    in
 	    let needed, already_voted = ballot in
-	    log ~me "wait_for_accepteds(%i to go) got %S from %s" needed 
+	    log ~me "PAXOS: n=%s, i=%s, wait_for_accepteds(%i to go) got %S from %s" (Sn.string_of n) (Sn.string_of i) needed 
 	      (MPMessage.string_of msg) source >>= fun () ->
         begin
 	      match msg with
@@ -505,7 +520,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	            begin
 	              let () = constants.on_witness source i' in 
 	              if List.mem source already_voted then
-		            let reason = Printf.sprintf "%s already voted" source in
+		            let reason = Printf.sprintf "%s: PAXOS: n=%s, i=%s, %s already voted" me (Sn.string_of n) (Sn.string_of i)  source in
 		            drop msg reason
 	              else
 		            let ballot' = needed -1, source :: already_voted in
@@ -514,15 +529,14 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	        | Accepted (n',i') when n' = n && i' < i ->
 	            begin
 	              let () = constants.on_witness source i' in
-	              log ~me "wait_for_accepteds: received older Accepted for my n: ignoring" 
-	              >>= fun () ->
+	              log ~me "PAXOS: n=%s, i=%s, wait_for_accepteds: received older Accepted for my n: ignoring, n'=n,i'(%s)" 
+	              (Sn.string_of n) (Sn.string_of i) (Sn.string_of i') >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
 	        | Accepted (n',i') when n' < n ->
 	            begin
 	              let () = constants.on_witness source i' in
-	              let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
-		            (Sn.string_of n) (Sn.string_of i) in
+	              let reason = Printf.sprintf "%s: PAXOS: n=%s, i=%s, n'=%s,  dropping old %S" me (Sn.string_of n) (Sn.string_of i)  (Sn.string_of n') (string_of msg) in
 	              drop msg reason
 	            end
 	        | Accepted (n',i') -> (* n' > n *)
@@ -534,8 +548,8 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	              if n' <= n then
                     begin
 			          let reason = Printf.sprintf
-				        "already reached consensus on (%s,%s)" 
-				        (Sn.string_of n) (Sn.string_of i) 
+				        "%s: PAXOS: n=%s, i=%s, n'=%s, i'=%s,  already reached consensus" 
+				        me (Sn.string_of n)  (Sn.string_of i) (Sn.string_of n') (Sn.string_of i') 
 			          in
 			          drop msg reason
 			        end
@@ -585,39 +599,37 @@ let wait_for_accepteds constants state (event:paxos_event) =
                 end 
 	        | Nak (n',i) ->
 	            begin
-	              log ~me "wait_for_accepted: ignoring %S from %s when collecting accepteds" 
-                    (MPMessage.string_of msg) source >>= fun () ->
+	              log ~me "PAXOS: n=%s, wait_for_accepted: ignoring %S from %s when collecting accepteds" (Sn.string_of n) (MPMessage.string_of msg) source >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
 	        | Accept (n',_i,_v) when n' < n ->
 	            begin
-	              log ~me "wait_for_accepted: dropping old Accept %S" (string_of msg) >>= fun () ->
+	              log ~me "PAXOS: n=%s, i=%s, wait_for_accepted: dropping old Accept %S, n'=%s" (Sn.string_of n) (Sn.string_of i) (string_of msg) (Sn.string_of n') >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
 	        | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
 	            begin
-	              log ~me "wait_for_accepted: ignoring extra Accept %S" (string_of msg) >>= fun () ->
+	              log ~me "PAXOS: n=%s, i=%s, wait_for_accepted: ignoring extra Accept %S" (Sn.string_of n) (Sn.string_of i)  (string_of msg) >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
 	        | Accept (n',i',v') when n' > n ->
                 lost_master_role mo >>= fun () ->
                 begin 
                   (* Become slave, goto catchup *)
-                  log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
+                  log ~me "PAXOS: n=%s, i=%s, n'=%s,  wait_for_accepteds: received Accept from new master %S" (Sn.string_of n) (Sn.string_of i) (Sn.string_of n')  (string_of msg)  >>= fun () ->
                   let cu_pred = Store.get_catchup_start_i constants.store in
                   let new_state = (source,cu_pred,n,i') in 
                   Fsm.return (Slave_discovered_other_master new_state)
                 end
 	        | Accept (n',i',v') when i' <= i -> (* n' = n *)
                 begin
-                  log ~me "wait_for_accepteds: dropping accept with n = %s and i = %s" 
-                    (Sn.string_of n) (Sn.string_of i') >>= fun () ->
+                  log ~me "PAXOS: n=%s, i=%s, wait_for_accepteds: dropping accept with n = %s and i = %s" (Sn.string_of n) (Sn.string_of i) (Sn.string_of n) (Sn.string_of i') >>= fun () ->
                   Fsm.return (Wait_for_accepteds state)
                 end
             | Accept (n',i',v') -> (* n' = n *)
 	            begin
-                  log ~me "wait_for_accepteds: got accept with n = %s and higher i = %s" 
-                    (Sn.string_of n) (Sn.string_of i') >>= fun () ->
+                  log ~me "PAXOS: n=%s, i=%s, i'=%s, wait_for_accepteds: got accept with n = %s and higher i = %s" 
+                    (Sn.string_of n) (Sn.string_of i)  (Sn.string_of i') (Sn.string_of n) (Sn.string_of i') >>= fun () ->
                   let cu_pred = Store.get_catchup_start_i constants.store in
                   let new_state = (source,cu_pred,n,i') in
                   Fsm.return(Slave_discovered_other_master new_state)
@@ -646,7 +658,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      begin
 	        if (am_forced_master constants me) then
 	          begin
-		        log ~me "going to RESEND Accept messages" >>= fun () ->
+		        log ~me "PAXOS: n=n'=%s, i=%s, going to RESEND Accept messages" (Sn.string_of n) (Sn.string_of i)  >>= fun () ->
 		        let needed, already_voted = ballot in
 		        let msg = Accept(n,i,v) in
 		        let silent_others = List.filter (fun o -> not (List.mem o already_voted)) 
@@ -659,7 +671,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	          begin
                 let log_e = 
                   ELog (fun ()->
-		            Printf.sprintf "%s TODO: election part of election timeout" here) 
+		            Printf.sprintf "%s:PAXOS: n=%s, i=%s, %s TODO: election part of election timeout" me (Sn.string_of n)  (Sn.string_of i) here) 
                 in
 		        Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
 	          end
@@ -797,14 +809,14 @@ let rec paxos_produce buffers
   in
   Lwt.catch 
     (fun () ->
-      Lwt_log.debug_f "T:waiting for event (%s)" wmsg >>= fun () ->
+      log ~me "PAXOS: T:waiting for event (%s)" wmsg >>= fun () ->
       let t0 = Unix.gettimeofday () in
 
       Lwt.pick waiters >>= fun ready_list ->
 
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in 
-      Lwt_log.debug_f "T:waiting for event took:%f" d >>= fun () ->
+      log ~me "PAXOS: T:waiting for event took:%f" d >>= fun () ->
 
       let get_highest_prio_evt r_list =
         let f acc b = match acc with 
@@ -818,7 +830,7 @@ let rec paxos_produce buffers
         match best with
           | Some Inject_ready ->
 	          begin
-	            log ~me "taking from inject" >>= fun () ->
+	            log ~me "PAXOS: taking from inject" >>= fun () ->
 	            Lwt_buffer.take buffers.inject_buffer
 	          end
 	      | Some Client_ready ->
@@ -835,17 +847,17 @@ let rec paxos_produce buffers
 	          end
 	      | Some Election_timeout_ready ->
 	          begin
-	            log ~me "taking from timeout" >>= fun () ->
+	            log ~me "PAXOS: taking from timeout" >>= fun () ->
 	            Lwt_buffer.take buffers.election_timeout_buffer 
 	          end
           | None -> 
 	          Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
       in get_highest_prio_evt ( [ ready_list ] ) 
     ) 
-    (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
+    (fun e -> log ~me "PAXOS: Exception caught %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
 
-let section = 
+let section = (*TODO_347: why is this, can we remove this, or will affect something?*)
   let s = Lwt_log.Section.make "PAXOS" in
   let () = Lwt_log.Section.set_level s Lwt_log.Debug in
   s 
@@ -897,11 +909,10 @@ let _execute_effects constants e =
 
 let enter_forced_slave constants buffers new_i vo=
   let me = constants.me in
-  log ~me "+starting FSM for forced_slave." >>= fun () ->
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   let new_n = Sn.start in
-  
+  log ~me "PAXOS:+starting FSM for forced_slave => new_n =%s" (Sn.string_of new_n) >>= fun () ->
   Lwt.catch 
     (fun () ->
       Fsm.loop ~trace 
@@ -910,13 +921,13 @@ let enter_forced_slave constants buffers new_i vo=
 	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
     ) 
     (fun exn ->
-      Lwt_log.warning ~exn "FSM BAILED due to uncaught exception" 
+      Lwt_log.warning ~exn "FSM BAILED due to uncaught exception"
       >>= fun () -> Lwt.fail exn
     )
 
 let enter_forced_master constants buffers current_i vo =
   let me = constants.me in
-  log ~me "+starting FSM for forced_master." >>= fun () ->
+  log ~me "PAXOS: +starting FSM for forced_master => current_n is 0" >>= fun () ->
   let current_n = 0L in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
@@ -929,14 +940,14 @@ let enter_forced_master constants buffers current_i vo =
 	    (forced_master_suggest constants (current_n,current_i))
     ) 
     (fun e ->
-      log ~me "FSM BAILED due to uncaught exception %s" (Printexc.to_string e)
+      log ~me "PAXOS: FSM BAILED due to uncaught exception %s" (Printexc.to_string e)
       >>= fun () -> Lwt.fail e
     )
 
 let enter_simple_paxos constants buffers current_i vo =
   let me = constants.me in
-  log ~me "+starting FSM election." >>= fun () ->
   let current_n = Sn.start in
+  log ~me "PAXOS: current_n=%s, current_i=%s, +starting FSM election" (Sn.string_of current_n) (Sn.string_of current_i) >>= fun () ->
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   Lwt.catch 
@@ -948,15 +959,15 @@ let enter_simple_paxos constants buffers current_i vo =
 	(election_suggest constants (current_n, current_i, vo))
     ) 
     (fun e ->
-      log ~me "FSM BAILED (run_election) due to uncaught exception %s" 
+      log ~me "PAXOS: current_n=%s, current_i=%s, FSM BAILED (run_election) due to uncaught exception %s" (Sn.string_of current_n) (Sn.string_of current_i)
 	(Printexc.to_string e) 
       >>= fun () -> Lwt.fail e
     )
 
 let enter_read_only constants buffers current_i vo =
   let me = constants.me in
-  log ~me "+starting FSM for read_only." >>= fun () ->
   let current_n = 0L in
+  log ~me "PAXOS: current_n=%s, current_i=%s, +starting FSM for read_only." (Sn.string_of current_n) (Sn.string_of current_i) >>= fun () ->
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   Lwt.catch
@@ -973,8 +984,8 @@ let enter_read_only constants buffers current_i vo =
     )
 
 let expect_run_forced_slave constants buffers expected step_count new_i =
-  let me = constants.me in
-  log ~me "+starting forced_slave FSM with expect" >>= fun () ->
+  let me = constants.me in 
+  log ~me "PAXOS: +starting forced_slave FSM with expect" >>= fun () ->
   let produce = paxos_produce buffers constants in
   Lwt.catch 
     (fun () ->
@@ -991,7 +1002,7 @@ let expect_run_forced_slave constants buffers expected step_count new_i =
 let expect_run_forced_master constants buffers expected step_count current_n current_i =
   let me = constants.me in
   let produce = paxos_produce buffers constants in
-  log ~me "+starting forced_master FSM with expect" >>= fun () ->
+  log ~me "PAXOS: current_n=%s, +starting forced_master FSM with expect" (Sn.string_of current_n) >>= fun () ->
   Lwt.catch 
     (fun () ->
         Fsm.expect_loop 
@@ -1001,6 +1012,6 @@ let expect_run_forced_master constants buffers expected step_count current_n cur
 	    (forced_master_suggest constants (current_n,current_i))
     ) 
     (fun e ->
-      log ~me "FSM BAILED due to uncaught exception %s" (Printexc.to_string e)
+      log ~me "PAXOS: current_n=%s, FSM BAILED due to uncaught exception %s" (Printexc.to_string e) (Sn.string_of current_n)
       >>= fun () -> Lwt.fail e
     )

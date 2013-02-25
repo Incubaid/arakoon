@@ -28,7 +28,7 @@ open Lwt_buffer
 open Network
 
 type connection = Lwt_io.input_channel * Lwt_io.output_channel
-
+let section = Lwt_log.Section.make "tcp_messaging"
 
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()
@@ -92,7 +92,7 @@ object(self : # messaging )
 	
 	
   method private __die__ () = 
-    Lwt_log.debug_f "tcp_messaging %s: cancelling my threads" me >>= fun () ->
+    Lwt_log.debug_f ~section "tcp_messaging %s: cancelling my threads" me >>= fun () ->
     List.iter (fun w -> Lwt.cancel w) _my_threads;
     _my_threads <- [];
     Lwt.return () 
@@ -110,6 +110,7 @@ object(self : # messaging )
 	
   method send_message m ~source ~target =
     let tq = self # _get_send_q ~target in
+    Lwt_log.debug_f ~section "MSG: %s => sending msg(%s) to => %s" source (Message.string_of m) target >>= fun () ->
     Lwt_buffer.add (source, target, m) tq 
 
 
@@ -128,13 +129,18 @@ object(self : # messaging )
 
   method recv_message ~target =
     let q = self # get_buffer target in 
-    Lwt_buffer.take q
+    Lwt_buffer.take q >>= fun msg ->
+    let a,b = msg in
+    Lwt_log.debug_f ~section "MSG: receiving msg(kind:%s) from %s" (Message.kind_of a) b >>= fun () ->
+    Lwt.return msg
+
+    
 
   method private _establish_connection address =
     let host_ip, port = address in
     let socket_address = Network.make_address host_ip port in
     let timeout = 5.0 in
-    Lwt_log.debug_f "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
+    Lwt_log.debug_f ~section "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
     >>= fun () ->
     Lwt.pick[ 
       Lwt_unix.timeout timeout;
@@ -169,7 +175,7 @@ object(self : # messaging )
 	  | Some (addresses:RR.t) ->
             let address = RR.current addresses in
 	    let drop exn reason =
-	      Lwt_log.debug ~exn reason >>= fun () ->
+	      Lwt_log.debug ~section ~exn reason >>= fun () ->
 	      self # _drop_connection address
 	    in
 	    let try_send () =
@@ -186,11 +192,11 @@ object(self : # messaging )
             match exn with
 		      | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
 		          begin
-		            Lwt_log.debug_f "stale connection" >>= fun () ->
+		            Lwt_log.debug_f ~section "stale connection" >>= fun () ->
 		            self # _drop_connection address >>= fun () ->
 		            Lwt.catch
 		              (fun () -> try_send ())
-		              (fun exn -> Lwt_log.debug_f ~exn "dropped message for %s" target)
+		              (fun exn -> Lwt_log.debug_f ~section ~exn "dropped message for %s" target)
 		          end
               | Lwt.Canceled -> Lwt.fail Lwt.Canceled
 		      | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
@@ -230,24 +236,24 @@ object(self : # messaging )
 		          end
 	      )
 	  | None -> (* we don't talk to strangers *)
-	      Lwt_log.warning_f "we don't send messages to %s (we don't know her)" target
+	      Lwt_log.warning_f ~section "we don't send messages to %s (we don't know her)" target
       end
       >>= fun () -> _loop_for_q ()
     in
     let (w,u) = Lwt.task () in
     let thread () =
       w >>= fun () ->
-      Lwt_log.debug "wait until tcp_messaging is running" >>= fun () ->
+      Lwt_log.debug ~section "wait until tcp_messaging is running" >>= fun () ->
       begin
 	    if _running 
 	    then Lwt.return () 
 	    else Lwt_condition.wait _running_c 
       end 
       >>= fun () ->
-      Lwt_log.debug_f "sender_loop for '%s' running" target >>= fun () ->
+      Lwt_log.debug_f ~section "sender_loop for '%s' running" target >>= fun () ->
       Lwt.finalize 
 	_loop_for_q 
-	    (fun () -> Lwt_log.debug_f "end of sender_q for '%s'" target)
+	    (fun () -> Lwt_log.debug_f ~section "end of sender_q for '%s'" target)
     in 
     let () = _my_threads <- w :: _my_threads in
     Lwt.wakeup u ();
@@ -258,20 +264,20 @@ object(self : # messaging )
 
   method private _drop_connection address =
 
-    Lwt_log.debug "_drop_connection" >>= fun () ->
+    Lwt_log.debug ~section "_drop_connection" >>= fun () ->
     if Hashtbl.mem _connections address then
       begin
 	let conn = Hashtbl.find _connections address in
-	Lwt_log.debug "found connection, closing it" >>= fun () ->
+	Lwt_log.debug ~section "found connection, closing it" >>= fun () ->
 	let ic,oc = conn in
       (* something with conn *)
 	Lwt.catch
 	  (fun () ->
 	    Lwt_io.close ic >>= fun () ->
 	    Lwt_io.close oc >>= fun () ->
-	    Lwt_log.debug "closed connection"
+	    Lwt_log.debug ~section "closed connection"
 	  )
-	  (fun exn -> Lwt_log.warning ~exn "exception while closing, too little too late" )
+	  (fun exn -> Lwt_log.warning ~section ~exn "exception while closing, too little too late" )
 	>>= fun () ->
 	let () = Hashtbl.remove _connections address in
 	Lwt.return ()
@@ -289,9 +295,9 @@ object(self : # messaging )
   method private _maybe_insert_connection address =
     let host,port = address in
     if Hashtbl.mem _connections address then
-      Lwt_log.debug_f "XXX already have connection with (%S,%i)" host port
+      Lwt_log.debug_f ~section "XXX already have connection with (%S,%i)" host port
     else
-      Lwt_log.debug_f "XXX first connection with (%S,%i)" host port
+      Lwt_log.debug_f ~section "XXX first connection with (%S,%i)" host port
 
   method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback)  () =
     Lwt_log.info_f "tcp_messaging %s: run" me >>= fun () ->
@@ -304,7 +310,7 @@ object(self : # messaging )
       then Llio.lwt_failfmt "COOKIE %s mismatch" cookie
       else Lwt.return ()
     in
-    let protocol (ic,oc) =
+    let protocol (ic,oc,cid) =
       Llio.input_int64 ic >>= fun magic ->
       Llio.input_int ic >>= fun version ->
       _check_mv magic version >>= fun () ->
@@ -347,7 +353,7 @@ object(self : # messaging )
 		  if not (Hashtbl.mem _id2address source)
 		  then 
                     let () = self # _register_receiver source (ip,port) in
-		    Lwt_log.debug_f "registered %s => (%s,%i)" source ip port 
+		    Lwt_log.debug_f ~section "registered %s => (%s,%i)" source ip port 
 		  else Lwt.return () 
 		end >>= fun () ->
 		let q = self # get_buffer target in
@@ -359,7 +365,7 @@ object(self : # messaging )
 	catch
 	  (fun () -> loop (String.create 1024))
 	  (fun exn ->
-	    Lwt_log.info ~exn "going to drop outgoing connection as well" >>= fun () ->
+	    Lwt_log.info ~section ~exn "going to drop outgoing connection as well" >>= fun () ->
 	    let address = (ip,port) in
 	    self # _drop_connection address >>= fun () ->
 	    Lwt.fail exn)
@@ -382,7 +388,7 @@ object(self : # messaging )
     _running <- true;
     Lwt_condition.broadcast _running_c ();
     servers_t () >>= fun () ->
-    Lwt_log.info_f "tcp_messaging %s: end of run" me >>= fun () ->
+    Lwt_log.info_f ~section "tcp_messaging %s: end of run" me >>= fun () ->
     Lwt.return ()
     	
 end

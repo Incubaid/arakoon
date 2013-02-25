@@ -35,8 +35,12 @@ messaging_port = 4010
 home = /tmp
 log_level = info  
 
+Debug sections:
 
-Start the node
+Current logging sections are: paxos,client_protocl,tcp_messaging. 
+Environment variable LWT_LOG='paxos -> info;client_protocl ->debug; * -> error' can help to choose the desired level for each section.All sections are initialzed by default to debug.
+
+Start the node:
 
 $> ./arakoon.native -config single.ini --node arakoon_0
 

@@ -27,8 +27,9 @@ open Messaging
 open Multi_paxos_type
 open Master_type
 
+let section = Lwt_log.Section.make "paxos"
 let log ?(me="???") x =
-  let k s= Lwt_log.debug (me ^ ": " ^ s) in
+  let k s= Lwt_log.debug ~section (me ^ ": " ^ s) in
   Printf.ksprintf k x
 
 
@@ -66,12 +67,14 @@ let network_of_messaging (m:messaging) =
   (* conversion since not all code is 'networked' *)
   let send msg source target =
     let g = MPMessage.generic_of msg in
+    log  "%s PAXOS: => sending msg:(%s) => %s" source (Mp_msg.MPMessage.string_of msg) target >>= fun () ->
     m # send_message g ~source ~target
   in
   let receive target =
     (* log "calling receive" >>= fun () -> *)
     m # recv_message ~target >>= fun (g,s) ->
     let msg = MPMessage.of_generic g in
+    log "%s PAXOS: Receiving me shall be s receiving msg:(%s) from %s " target (Mp_msg.MPMessage.string_of msg)  s >>= fun () ->
     Lwt.return (msg,s)
   in
   let register = m # register_receivers in
@@ -189,9 +192,9 @@ let start_lease_expiration_thread constants n expiration =
   let me = constants.me in
   let t () =
     begin
-      log ~me "waiting %2.1f seconds for lease to expire" sleep_sec >>= fun () ->
+      log ~me "PAXOS: n=%s, waiting %2.1f seconds for lease to expire" (Sn.string_of n) sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log ~me "lease expired (%2.1f passed)=> injecting LeaseExpired event for %s" 
+      log ~me "PAXOS: n=%s, lease expired (%2.1f passed)=> injecting LeaseExpired event for %s" (Sn.string_of n)
 	sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
     end in
@@ -203,9 +206,9 @@ let start_election_timeout constants n =
   let me = constants.me in
   let t () = 
     begin
-      log ~me "waiting %2.1f seconds for election to finish" sleep_sec >>= fun () ->
+      log ~me "PAXOS: n=%s, waiting %2.1f seconds for election to finish" (Sn.string_of n)  sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log ~me "election (n=%s) should have finished by now." (Sn.string_of n) >>= fun () ->
+      log ~me "PAXOS: n=%s, election should have finished by now." (Sn.string_of n) >>= fun () ->
       constants.inject_event (ElectionTimeout n)
     end
   in
@@ -232,7 +235,7 @@ let handle_prepare constants dest n n' i' =
             | Some si -> Sn.succ si
 	end in
       let reply = Nak( n',(n,nak_i)) in
-      log ~me "replying with %S to learner %s" (string_of reply) dest
+      log ~me "PAXOS: n=%s, n'=%s, i'=%s, replying with %S to learner %s" (Sn.string_of n) (Sn.string_of n') (Sn.string_of i')  (string_of reply) dest
       >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return Nak_sent 
@@ -243,7 +246,7 @@ let handle_prepare constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
 	    begin 
-          log ~me "handle_prepare: Dropping prepare - lease still active" 
+          log ~me "PAXOS: n=%s, n'=%s, i'=%s, handle_prepare: Dropping prepare - lease still active" (Sn.string_of n) (Sn.string_of n') (Sn.string_of i')
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
 	        
@@ -265,15 +268,15 @@ let handle_prepare constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            log ~me "NAK:other node is behind: i':%s nak_max:%s" 
-              (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
+            log ~me "PAXOS: n=%s, n'=%s, i'=%s, NAK:other node is behind: nak_max:%s" 
+              (Sn.string_of n) (Sn.string_of n') (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply) 
           else
             begin
               (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
-              log ~me "handle_prepare: starting election timer" >>= fun () ->
+              log ~me "PAXOS: n=%s, n'=%s, i'=%s, handle_prepare: starting election timer" (Sn.string_of n) (Sn.string_of n') (Sn.string_of i')  >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
@@ -284,7 +287,7 @@ let handle_prepare constants dest n n' i' =
 		        Lwt.return(Promise_sent_up2date, reply)
             end 
 	    end >>= fun (ret_val, reply) ->
-      log ~me "handle_prepare replying with %S" (string_of reply) >>= fun () ->
+      log ~me "PAXOS: n=%s, n'=%s, i'=%s, handle_prepare replying with %S" (Sn.string_of n) (Sn.string_of n') (Sn.string_of i') (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end

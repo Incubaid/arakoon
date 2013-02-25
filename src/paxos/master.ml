@@ -31,32 +31,33 @@ open Update
    first potentially finish of a client request and then on to
    being a stable master *)
 let master_consensus constants ((finished_funs : master_option),v,n,i) () =
+  let me = constants.me in
   let gen_e = EConsensus(finished_funs, v,n,i) in
   let log_e = ELog (fun () ->
-    Printf.sprintf "on_consensus for : %s => %i finished_fs " 
-      (Value.value2s v) (List.length finished_funs) )
+    Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) on_consensus for : %s => %i finished_fs " 
+    me (Sn.string_of n) (Sn.string_of i) (Value.value2s v) (List.length finished_funs) )
   in
   let state = (v,n,(Sn.succ i)) in
   Fsm.return ~sides:[gen_e;log_e] (Stable_master state)
     
 
 
-let stable_master constants ((v',n,new_i) as current_state) = function
+let stable_master constants ((v',n,new_i) as current_state) = function  
   | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
       then
 	    begin
           let log_e = ELog (fun () ->
-	        Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s" 
-	          (Sn.string_of n') (Sn.string_of n))
+	        Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) stable_master: ignoring old lease_expired with n:%s < n:%s" 
+	         me (Sn.string_of n) (Sn.string_of new_i) (Sn.string_of n') (Sn.string_of n))
           in
 	      Fsm.return ~sides:[log_e] (Stable_master current_state)
 	    end
       else
 	    begin
 	      let extend () = 
-            let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
+            let log_e = ELog (fun () -> "%s: PAXOS:(master) stable_master: half-lease_expired: update lease." ) in
             let v = Value.create_master_value (me,0L) in
             let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
@@ -72,7 +73,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	          if diff < (Sn.of_int 5) 
               then
 		        begin
-                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
+                  let log_e = ELog (fun () -> Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) stable_master: handover to %s" me (Sn.string_of n) (Sn.string_of new_i) p) in
 		          Fsm.return ~sides:[log_e] (Stable_master current_state)
 		        end
 	          else
@@ -80,15 +81,18 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	        | _ -> extend()
 	    end
     | FromClient ufs ->
+        let me = constants.me in
         begin
           let updates, finished_funs = List.split ufs in
           let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
           let value = Value.create_client_value updates synced in
-	      Fsm.return (Master_dictate (finished_funs, value, n, new_i))
+	      log ~me "PAXOS: n=%s, new_i=%s,(master) request:(%s)" (Sn.string_of n) (Sn.string_of new_i)  (Value.value2s value) >>= fun () ->
+          Fsm.return (Master_dictate (finished_funs, value, n, new_i))
         end
     | FromNode (msg,source) ->
       begin
 	    let me = constants.me in
+        log ~me "PAXOS: (master), msg(%s), source::(%s)" (Mp_msg.MPMessage.string_of msg) source >>= fun () ->
 	    match msg with
 	      | Prepare (n',i') ->
 	        begin
@@ -129,15 +133,16 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	      | _ ->
 	          begin
                 let log_e = ELog (fun () -> 
-                  Printf.sprintf "stable_master received %S: dropping" (string_of msg)) 
+                  Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) stable_master received %S: dropping" me (Sn.string_of n) (Sn.string_of new_i) (string_of msg)) 
                 in
 	            Fsm.return ~sides:[log_e] (Stable_master current_state)
 	          end
       end
     | ElectionTimeout n' -> 
         begin
+          let me = constants.me in
           let log_e = ELog (fun () ->
-            Printf.sprintf "ignoring election timeout (%s)" (Sn.string_of n') )
+            Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) ignoring election timeout (%s)" me (Sn.string_of n) (Sn.string_of new_i) (Sn.string_of n') )
           in          
           Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
@@ -165,8 +170,7 @@ let master_dictate constants (mo,v,n,i) () =
   
   let log_e = 
     ELog (fun () ->
-      Printf.sprintf "master_dictate n:%s i:%s needed:%d" 
-        (Sn.string_of n) (Sn.string_of i) needed' 
+      Printf.sprintf "%s: PAXOS: n=%s, i=%s, (master) master_dictate n:%s i:%s needed:%d" me (Sn.string_of n) (Sn.string_of i) (Sn.string_of n) (Sn.string_of i) needed' 
     )
   in
   let sides = 

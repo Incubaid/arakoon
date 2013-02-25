@@ -84,12 +84,19 @@ let _update_rendezvous self ~so_post update update_stats push =
   let t0 = Unix.gettimeofday() in
   sleep >>= fun r ->
   let t1 = Unix.gettimeofday() in
-  Lwt_log.debug_f "rendezvous took :%f" (t1 -. t0) >>= fun () ->
+  let t = (t1 -. t0) in
+  let f = 
+    if t > 1.0 
+    then Lwt_log.info_f 
+    else Lwt_log.debug_f 
+  in 
+  f "rendezvous (%s) took %f" (Update.update2s update) t
+  >>= fun () ->
   match r with 
-  | Store.Stop -> Lwt.fail Forced_stop
-  | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
-  | Store.Ok so -> Lwt.return (so_post so)
-
+    | Store.Stop -> Lwt.fail Forced_stop
+    | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
+    | Store.Ok so -> Lwt.return (so_post so)
+        
 
 class sync_backend cfg 
   (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t) 
@@ -126,13 +133,11 @@ object(self: #backend)
 
 
   method exists ~allow_dirty key =
-    log_o self "exists %s" key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     store # exists key
 
   method get ~allow_dirty key =
     let start = Unix.gettimeofday () in
-    log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [key] >>= fun () ->
     Lwt.catch
@@ -183,7 +188,6 @@ object(self: #backend)
 
   method range ~allow_dirty (first:string option) finc (last:string option) linc max =
     let start = Unix.gettimeofday() in
-    log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
     store # range first finc last linc max >>= fun keys ->
@@ -192,7 +196,6 @@ object(self: #backend)
     Lwt.return keys
 
   method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-
     Lwt.finalize(
       fun () ->
         begin
@@ -205,21 +208,18 @@ object(self: #backend)
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
-    log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
     store # range_entries first finc last linc max 
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
-    log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range last first >>= fun () ->
     store # rev_range_entries first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let start = Unix.gettimeofday() in
-    log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [prefix]  >>= fun () ->
     store # prefix_keys prefix max   >>= fun key_list ->
@@ -230,7 +230,6 @@ object(self: #backend)
 
   method set key value =
     let start = Unix.gettimeofday () in
-    log_o self "set %S" key >>= fun () ->
     self # _check_interval [key] >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in
@@ -240,7 +239,6 @@ object(self: #backend)
 
 
   method confirm key value =
-    log_o self "confirm %S" key >>= fun () ->
     let () = assert_value_size value in
     self # exists ~allow_dirty:false key >>= function
       | true ->
@@ -253,42 +251,32 @@ object(self: #backend)
       | false -> self # set key value
 
   method set_routing r =
-    log_o self "set_routing" >>= fun () ->
     let update = Update.SetRouting r in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method set_routing_delta left sep right =
-    log_o self "set_routing_delta" >>= fun () ->
     let update = Update.SetRoutingDelta (left, sep, right) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method set_interval iv =
-    log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
     let update = Update.SetInterval iv in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method user_function name po =
-    log_o self "user_function %s" name >>= fun () ->
     let update = Update.UserFunction(name,po) in
     let so_post so = so in
     _update_rendezvous self update no_stats push_update ~so_post
 
   method aSSert ~allow_dirty (key:string) (vo:string option) =
-    log_o self "aSSert %S ..." key >>= fun () ->
     let update = Update.Assert(key,vo) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
  method aSSert_exists ~allow_dirty (key:string)=
-    log_o self "aSSert %S ..." key >>= fun () ->
     let update = Update.Assert_exists(key) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
   method test_and_set key expected (wanted:string option) =
     let start = Unix.gettimeofday() in
-    log_o self "test_and_set %s %s %s" key
-      (string_option2s expected)
-      (string_option2s wanted)
-    >>= fun () ->
     let () = match wanted with
       | None -> ()
       | Some w -> assert_value_size w
@@ -300,7 +288,6 @@ object(self: #backend)
 
   method delete_prefix prefix = 
     let start = Unix.gettimeofday () in
-    log_o self "delete_prefix %S" prefix >>= fun () ->
     (* do we need to test the prefix on the interval ? *)
     let update = Update.DeletePrefix prefix in
     let update_stats ur = 
@@ -326,12 +313,10 @@ object(self: #backend)
     _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
   method hello (client_id:string) (cluster_id:string) =
-    log_o self "hello %S %S" client_id cluster_id >>= fun () ->
     let msg = Printf.sprintf "Arakoon %i.%i.%i" Version.major Version.minor Version.patch in
     Lwt.return (0l, msg)
 
   method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-    log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
     let consensus_i = store # consensus_i () in
     begin
       match consensus_i with
@@ -340,12 +325,6 @@ object(self: #backend)
 	  begin
 	    tlog_collection # get_infimum_i () >>= fun inf_i ->
 	    let too_far_i = Sn.succ ci in
-	    log_o self
-	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-	      (Sn.string_of too_far_i)
-
-
-	    >>= fun () ->
 	    begin
 	      if start_i < inf_i
 	      then
@@ -391,7 +370,6 @@ object(self: #backend)
 
   method sequence ~sync (updates:Update.t list) =
     let start = Unix.gettimeofday() in
-    log_o self "sequence ~sync:%b" sync >>= fun () ->
     let update = if sync 
       then Update.SyncedSequence updates 
       else Update.Sequence updates
@@ -402,7 +380,6 @@ object(self: #backend)
 
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
-    log_o self "multi_get" >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
     Statistics.new_multiget _stats start;
@@ -594,7 +571,6 @@ object(self: #backend)
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
   
   method private unquiesce_db () =
-    Lwt_log.debug "unquiesce_db: Leaving quisced state" >>= fun () ->
     let update = Multi_paxos.Unquiesce in
     push_node_msg update 
       
@@ -607,19 +583,14 @@ object(self: #backend)
     end
 
   method optimize_db () =
-    Lwt_log.debug "optimize_db: enter" >>= fun () ->
-    self # try_quiesced( store # optimize ) >>= fun () ->
-    Lwt_log.debug "optimize_db: All done"
+    self # try_quiesced( store # optimize )
  
   method defrag_db () = 
     self # _not_if_master() >>= fun () ->
-    Lwt_log.debug "defrag_db: enter" >>= fun () ->
-    store # defrag() >>= fun () ->
-    Lwt_log.debug "defrag_db: exit"
+    store # defrag()
 
 
   method get_db m_oc =
-    Lwt_log.debug "get_db: enter" >>= fun () ->
     begin
       match m_oc with
         | None ->
@@ -627,8 +598,7 @@ object(self: #backend)
           Lwt.fail ex
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
-    self # try_quiesced ( fun () -> store # copy_store oc ) >>= fun () ->
-    Lwt_log.debug "get_db: All done"
+    self # try_quiesced ( fun () -> store # copy_store oc )
 
   method get_cluster_cfgs () =
     begin
@@ -673,6 +643,5 @@ object(self: #backend)
     end
 
   method get_fringe boundary direction =
-    Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
     store # get_fringe boundary direction
 end
