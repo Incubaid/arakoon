@@ -331,8 +331,15 @@ module BStore = (struct
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
-  let _do_range_entries inner t first finc last linc max =
-    inner t.store (opx true first) finc (opx false last) linc max
+  let _do_range_entries inner left_flag t first finc last linc max =
+    let fopx = opx left_flag first 
+    and lopx = opx false last 
+    in
+    Lwtc.log "_do_range_entries fopx:%s lopx:%s" 
+      (Log_extra.string_option_to_string fopx)
+      (Log_extra.string_option_to_string lopx)
+    >>= fun () ->
+    inner t.store fopx finc lopx linc max
     >>= fun kvs ->
     let c0 = __admin_prefix.[0] in
     let kvs' = List.filter (fun (k,_) -> k.[0] <> c0) kvs in
@@ -344,17 +351,17 @@ module BStore = (struct
       (Log_extra.string_option_to_string first) finc 
       (Log_extra.string_option_to_string last)  linc 
     >>= fun () ->
-    _do_range_entries BS.range_entries_latest t first finc last linc max
+    _do_range_entries BS.range_entries_latest true t first finc last linc max
 
   let rev_range_entries t first finc last linc max =
     Lwtc.log "rev_range_entries %s %b %s %b"
       (Log_extra.string_option_to_string first) finc
       (Log_extra.string_option_to_string last) linc
       >>= fun () ->
-    _do_range_entries BS.rev_range_entries_latest t first finc last linc max
+    _do_range_entries BS.rev_range_entries_latest false t first finc last linc max
 
 
-  let get_fringe t boundary direction =
+  let get_fringe t boundary direction =    
     Lwtc.log "Bstore.get_fringe" >>= fun () ->
     let last_key kvs = 
       let rec _loop = function
@@ -387,7 +394,7 @@ module BStore = (struct
                   then loop start' mem' acc'
                   else Lwt.return (acc', mem')
               in
-              loop (Some "\xff") 0 []
+              loop None 0 []
           end
       | Routing.UPPER_BOUND -> 
           begin
