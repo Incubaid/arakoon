@@ -110,14 +110,14 @@ def test_catchup_exercises():
         X.logging.info("status=%s", stat)
         C.assert_running_nodes(2)
         X.logging.info("going to do %i sets", n)
-        C.iterate_n_times(n, C.simple_set)
+        C.iterate_n_times(n, C.simple_set, protocol_version = 2)
         C.stop_all()
         X.logging.info("stopped all nodes")
         C.whipe(nn)
         X.logging.info("whiped %s", nn)
         C.start_all()
         X.logging.info("started all nodes")
-        cli = C.get_client ()
+        cli = C.get_client(protocol_version = 2)
         counter = 0
         up2date = False
 
@@ -140,7 +140,7 @@ def test_catchup_exercises():
 
 @C.with_custom_setup(C.setup_2_nodes_forced_master, C.basic_teardown)
 def test_catchup_only():
-    C.iterate_n_times(123000,C.simple_set)
+    C.iterate_n_times(123000,C.simple_set, protocol_version = 2)
     n0 = CONFIG.node_names[0]
     n1 = CONFIG.node_names[1]
     C.stopOne(n1)
@@ -153,7 +153,7 @@ def test_catchup_only():
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_sequence_catchup():
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     seq = arakoon.ArakoonProtocol.Sequence()
     seq.addSet("k","v")
     seq.addDelete("k")
