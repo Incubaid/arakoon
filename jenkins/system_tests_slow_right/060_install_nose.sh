@@ -1,13 +1,15 @@
+#!/bin/bash -xue
+
 echo "Install nose utilities in QBase"
 
 test -f /tmp/coverage-3.4b2.tar.gz || wget -q -O /tmp/coverage-3.4b2.tar.gz http://pypi.python.org/packages/source/c/coverage/coverage-3.4b2.tar.gz
-sudo /opt/qbase3/bin/easy_install /tmp/coverage-3.4b2.tar.gz
+/opt/qbase3/bin/easy_install /tmp/coverage-3.4b2.tar.gz
 
 test -f /tmp/nosexcover-1.0.4.tar.gz || wget -q -O /tmp/nosexcover-1.0.4.tar.gz http://pypi.python.org/packages/source/n/nosexcover/nosexcover-1.0.4.tar.gz
-sudo /opt/qbase3/bin/easy_install /tmp/nosexcover-1.0.4.tar.gz
+/opt/qbase3/bin/easy_install /tmp/nosexcover-1.0.4.tar.gz
 
-sudo rm -f ${WORKSPACE}/coverage.xml
-sudo rm -f /opt/qbase3/var/tests/coverage.xml
+rm -f ${WORKSPACE}/coverage.xml
+rm -f /opt/qbase3/var/tests/coverage.xml
 
 cd ${WORKSPACE}
 mkdir -p _tools
