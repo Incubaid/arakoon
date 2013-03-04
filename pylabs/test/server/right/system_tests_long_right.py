@@ -33,7 +33,7 @@ CONFIG = C.CONFIG
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_single_client_100000_sets():
-    C.iterate_n_times( 100000, C.simple_set )
+    C.iterate_n_times( 100000, C.simple_set, protocol_version = 2 )
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_delete_non_existing_with_catchup ():
@@ -125,13 +125,17 @@ def test_restart_master_long ():
     restart_iter_cnt = 10
     def write_loop ():
         C.iterate_n_times( 100000, 
-                                C.retrying_set_get_and_delete, 
-                                failure_max=2*restart_iter_cnt, 
-                                valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound] )
+                           C.retrying_set_get_and_delete, 
+                           failure_max=2*restart_iter_cnt, 
+                           valid_exceptions=[ArakoonSockNotReadable,ArakoonNotFound],
+                           protocol_version = 2
+                           )
         
     def restart_loop (): 
         C.delayed_master_restart_loop( restart_iter_cnt , 
-                                            1.5 * C.CONFIG.lease_duration )
+                                       1.5 * C.CONFIG.lease_duration,
+                                       protocol_version = 2
+                                       )
     global test_failed
     test_failed = False 
     C.create_and_wait_for_thread_list( [restart_loop, write_loop] )
@@ -322,18 +326,22 @@ def test_sso_deployment():
     
     def write_loop (): 
         C.iterate_n_times( 10000, 
-                           C.retrying_set_get_and_delete )
+                           C.retrying_set_get_and_delete, protocol_version = 2)
 
     def large_write_loop (): 
         C.iterate_n_times( 280000, 
                            C.retrying_set_get_and_delete, 
-                           startSuffix = 1000000 ) 
+                           startSuffix = 1000000,
+                           protocol_version = 2
+                           ) 
 
     write_thr1 = C.create_and_start_thread ( write_loop )
     def non_retrying_write_loop (): 
         C.iterate_n_times( 10000, 
                            C.set_get_and_delete, 
-                           startSuffix = 2000000  )
+                           startSuffix = 2000000,
+                           protocol_version = 2
+                           )
     
     C.add_node( 1 )
     cl = C._getCluster()

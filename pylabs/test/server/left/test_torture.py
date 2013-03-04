@@ -31,32 +31,32 @@ def last_slave(master_id):
     
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_shaky_slave():
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
     C.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 2000
-    C.iterate_n_times( n, C.simple_set)
+    C.iterate_n_times( n, C.simple_set, protocol_version = 2)
     cycles = 100 
     for i in range(cycles):
         print ("starting cycle %i" % i)
         C.startOne(slave_id)
-        C.iterate_n_times( n, C.simple_set)
+        C.iterate_n_times( n, C.simple_set, protocol_version = 2)
         C.stopOne(slave_id)
-        C.iterate_n_times( n, C.simple_set)
+        C.iterate_n_times( n, C.simple_set, protocol_version = 2)
     print "phewy!"
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_fat_shaky_slave():
-    cli = C.get_client()
+    cli = C.get_client(protocol_version = 2)
     master_id = cli.whoMaster()
     slave_id = last_slave(master_id)
     C.stopOne(slave_id)
     X.logging.debug("slave %s stopped",slave_id)
     n = 20000
     X.logging.debug("doing %i sets", n)
-    C.iterate_n_times( n, C.simple_set)
+    C.iterate_n_times( n, C.simple_set, protocol_version = 2)
     X.logging.debug("done with sets")
     cycles = 10
     cluster = C._getCluster()
@@ -67,12 +67,12 @@ def test_fat_shaky_slave():
         C.startOne(slave_id)
         X.logging.debug("started slave %s", slave_id)
         X.logging.debug("doing %i sets" , n)
-        C.iterate_n_times( n, C.simple_set)
+        C.iterate_n_times( n, C.simple_set, protocol_version = 2)
         X.logging.debug("done with sets")
         X.logging.debug("stopping %s",slave_id)
         C.stopOne(slave_id)
         X.logging.debug("another %i sets",n)
-        C.iterate_n_times( n, C.simple_set)
+        C.iterate_n_times( n, C.simple_set, protocol_version = 2)
     print "phewy!"
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)

@@ -73,6 +73,7 @@ type client_command =
   | COMPACT
   | DELETE_PREFIX
   | VERSION
+  | ADMIN_SEQUENCE
 
 
 let code2int = [
@@ -111,6 +112,7 @@ let code2int = [
   DELETE_PREFIX           , 0x27l;
   VERSION                 , 0x28l;
   ASSERT_EXISTS           , 0x29l;
+  ADMIN_SEQUENCE          , 0x2al;
 ]
 
 let int2code =
@@ -376,7 +378,7 @@ let set_routing_delta (ic,oc) left sep right =
   response_limited ic input_nothing
 
 
-let _build_sequence_request output changes =
+let _build_sequence_request output changes is_admin =
   let update_buf = Buffer.create (32 * List.length changes) in
   let rec c2u = function
     | Arakoon_client.Set (k,v) -> Core.SET(k,v)
@@ -386,7 +388,11 @@ let _build_sequence_request output changes =
     | Arakoon_client.Assert_exists(k) -> Core.ASSERT_EXISTS(k)
   in
   let updates = List.map c2u changes in
-  let seq = Core.SEQUENCE updates in
+  let seq = 
+    if is_admin 
+    then Core.ADMIN_SEQUENCE updates 
+    else Core.SEQUENCE updates 
+  in
   let () = Core.update_to update_buf seq in
   let () = Pack.string_to output (Buffer.contents update_buf)
   in ()
@@ -396,7 +402,7 @@ let migrate_range (ic,oc) interval changes =
   let outgoing out =
     command_to out MIGRATE_RANGE;
     Interval.interval_to out interval;
-    _build_sequence_request out changes
+    _build_sequence_request out changes true
   in
   request  oc (fun buf -> outgoing buf) 
   >>= fun () ->
@@ -405,17 +411,23 @@ let migrate_range (ic,oc) interval changes =
   Lwtc.log "end of migrate_range request"
 
 
-let _sequence (ic,oc) changes cmd = 
+
+let _sequence (ic,oc) changes cmd is_admin = 
   let outgoing buf =
     command_to buf cmd;
-    _build_sequence_request buf changes
+    _build_sequence_request buf changes is_admin
   in
   request  oc (fun buf -> outgoing buf) >>= fun () ->
   response_limited ic input_nothing
 
-let sequence conn changes = _sequence conn changes SEQUENCE
+let sequence conn changes= 
+  let cmd = SEQUENCE in
+  _sequence conn changes cmd false
 
-let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
+let admin_delete conn changes =
+  _sequence conn changes ADMIN_SEQUENCE true
+
+let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE false
 
 
 let get_nursery_cfg (ic,oc) =

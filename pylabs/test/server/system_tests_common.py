@@ -759,7 +759,7 @@ def create_and_wait_for_threads ( thr_cnt, iter_cnt, f, timeout=None ):
     
     f_list = []
     for i in range( thr_cnt ) :
-        g = lambda : iterate_n_times(iter_cnt, f )
+        g = lambda : iterate_n_times(iter_cnt, f, protocol_version = 2 )
         f_list.append( g )
     
     create_and_wait_for_thread_list( f_list, timeout)    
@@ -823,7 +823,7 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex):
             # (or the next iteration we are back to using the old one)
             client.recreate = True
             client.dropConnections()
-            client = get_client() 
+            client = get_client( protocol_version = 2) 
             
         except Exception, ex:
             X.logging.debug( "Caught an exception => %s: %s", ex.__class__.__name__, ex )
