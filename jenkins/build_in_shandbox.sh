@@ -1,8 +1,7 @@
+#!/bin/bash -xue
+
 echo WORKSPACE=${WORKSPACE}
-BUILD_ENV=${WORKSPACE%${JOB_NAME}}
-echo BUILD_ENV=${BUILD_ENV}
-PATH=${BUILD_ENV}/ROOT/OCAML/bin:$PATH
-eval `${BUILD_ENV}/ROOT/OPAM/bin/opam config env -r ${BUILD_ENV}/ROOT/OPAM_ROOT`
+eval `opam config env`
 
 
 ocamlfind printconf

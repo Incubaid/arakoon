@@ -1,11 +1,6 @@
+#!/bin/bash -xue
 
-
-echo WORKSPACE=${WORKSPACE}
-BUILD_ENV=${WORKSPACE%${JOB_NAME}}
-echo BUILD_ENV=${BUILD_ENV}
-PATH=${BUILD_ENV}/ROOT/OCAML/bin:$PATH
-eval `${BUILD_ENV}/ROOT/OPAM/bin/opam config env -r ${BUILD_ENV}/ROOT/OPAM_ROOT`
-
+eval `opam config env`
 
 ocamlfind printconf
 ocamlfind list | grep bz2
@@ -14,6 +9,10 @@ ocamlfind list | grep camltc
 
 ocamlbuild -clean
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
+
+echo "Fixup symlinks (absolute to relative)"
+symlinks -c .
+
 #make coverage 
 #./arakoon.d.byte --run-all-tests-xml foobar.xml
 ./arakoon.native --run-all-tests-xml foobar.xml

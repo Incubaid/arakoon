@@ -565,7 +565,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port, 
                        extra = None):
     
-    q.system.process.run( "/sbin/iptables -F" )
+    q.system.process.run( "sudo /sbin/iptables -F" )
     
     cluster = q.manage.arakoon.getCluster( c_id )
     cluster.tearDown()

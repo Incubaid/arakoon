@@ -1,4 +1,6 @@
-sudo /opt/qbase3/qshell -c "
+#!/bin/bash -xue
+
+/opt/qbase3/qshell -c "
 q.testrunner.list()
 
 test_spec = 'arakoon_system_tests.server.right.system_tests_long_right'
@@ -22,7 +24,7 @@ q.testrunner._runTests(arguments)
 
 RESULT=$?
 
-test -f /opt/qbase3/var/tests/coverage.xml && sudo mv /opt/qbase3/var/tests/coverage.xml ${WORKSPACE}/coverage.xml
+test -f /opt/qbase3/var/tests/coverage.xml && mv /opt/qbase3/var/tests/coverage.xml ${WORKSPACE}/coverage.xml
 
 cat ${WORKSPACE}/coverage.xml | python ${WORKSPACE}/_tools/fix_coverage.py "${WORKSPACE}" ".opt.qbase3.lib.python.site-packages." ".var.hudson.workspace.pyrakoon-tip-system-tests.python_env.pyrakoon." > ${WORKSPACE}/coverage_fixed.xml
 

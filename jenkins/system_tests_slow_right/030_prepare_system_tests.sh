@@ -1,3 +1,5 @@
-sudo /opt/qbase3/qshell ./jenkins/prepareSystemTests.py
+#!/bin/bash -xue
 
-sudo mkdir -p ${WORKSPACE}/testresults
+/opt/qbase3/qshell ./jenkins/prepareSystemTests.py
+
+mkdir -p ${WORKSPACE}/testresults
