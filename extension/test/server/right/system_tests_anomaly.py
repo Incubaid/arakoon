@@ -145,7 +145,7 @@ def build_iptables_block_rules( tcp_port ) :
 
 def get_current_iptables_rules (): 
     rules_file = q.system.fs.joinPaths( q.dirs.tmpDir, "iptables-rules-save")
-    cmd = "iptables-save > %s" % rules_file
+    cmd = "sudo /sbin/iptables-save > %s" % rules_file
     Common.run_cmd( cmd )
     rules_file_contents = q.system.fs.fileGetContents( rules_file )
     return rules_file_contents.split( "\n") [5:-3]
@@ -158,7 +158,7 @@ def apply_iptables_rules ( rules ) :
         lines = rule.split("\n")
         for line in lines :
             if line.strip() != "" :
-                cmd = "iptables %s" % line
+                cmd = "sudo /sbin/iptables %s" % line
                 logging.info("cmd=%s", cmd)
                 Common.run_cmd( cmd, False )
         
@@ -326,7 +326,7 @@ def iterate_block_unblock_master ( ):
     iterate_block_unblock_nodes ( 60, [ master_id ] )
 
 def flush_all_rules() :
-    cmd = "iptables -F"
+    cmd = "sudo /sbin/iptables -F"
     Common.run_cmd( cmd, False )
     
 def iptables_teardown( removeDirs ) :
