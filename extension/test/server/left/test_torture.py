@@ -25,8 +25,11 @@ from .. import system_tests_common as Common
 from pymonkey import q
 import logging
 
-def last_slave(master_id):
-    slaves = filter(lambda x: x!= master_id, Common.node_names)
+def last_slave(master_id, slaves=None):
+    if slaves is None:
+        slaves = Common.node_names
+
+    slaves = filter(lambda x: x!= master_id, slaves)
     return slaves [-1]
 
     
@@ -34,7 +37,7 @@ def last_slave(master_id):
 def test_shaky_slave():
     cli = Common.get_client()
     master_id = cli.whoMaster()
-    slave_id = last_slave(master_id)
+    slave_id = last_slave(master_id, Common.node_names[:3])
     Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 2000
@@ -52,7 +55,7 @@ def test_shaky_slave():
 def test_fat_shaky_slave():
     cli = Common.get_client()
     master_id = cli.whoMaster()
-    slave_id = last_slave(master_id)
+    slave_id = last_slave(master_id, Common.node_names[:3])
     Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
     n = 20000
