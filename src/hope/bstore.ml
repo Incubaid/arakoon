@@ -64,11 +64,11 @@ module BStore = (struct
   let _outside k   = Lwt.return (NOK (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
   let _not_found k = Lwt.return (NOK (Arakoon_exc.E_NOT_FOUND       , k))
 
-  let _check_interval ?(nok=_outside)
+  let _check_interval is_admin ?(nok=_outside)
       t k (ok: k -> 'a) = 
     let iv,_ = t.interval in
     let f = 
-      if Interval.is_ok iv k
+      if is_admin || Interval.is_ok iv k
       then ok
       else nok
     in
@@ -82,29 +82,28 @@ module BStore = (struct
   let log t d u =
     let _exec tx :tx_result Lwt.t=
       begin 
-        let rec _inner (tx: BS.tx) = function
+        let rec _inner (is_admin:bool) (tx: BS.tx) = function
           | Core.SET (k,v) ->
               begin
-                (* Lwtc.log "set: %s" k >>= fun () -> 
-                _check_interval t k 
-                  (fun k -> 
-                *)
-                   BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
-              (* ) *)
+                Lwtc.log "set: %s" k >>= fun () -> 
+                _check_interval is_admin t k 
+                  (fun k ->  
+                    BS.set tx (pref_key k) v >>= fun () -> Lwt.return (OK None)
+                  )  
               end
           | Core.DELETE k  -> 
             begin
               Lwtc.log "del: %s" k >>= fun () ->
-              (*_check_interval t k (* TODO: re-enable this check, but do admin_sequence *)
-                (fun k ->*)
+              _check_interval is_admin t k 
+                (fun k ->
                   BS.delete tx (pref_key k) >>= function
                     | NOK _ -> _not_found k
                     | a -> Lwt.return (OK None)
-               (* ) *)
+                ) 
             end
           | Core.TEST_AND_SET (k,eo,wo) ->
               begin
-                _check_interval t k 
+                _check_interval is_admin t k 
                   (fun k ->
                     let pk = pref_key k in
                     let delete () = 
@@ -220,17 +219,10 @@ module BStore = (struct
               in
               Lwt.return r'
             end
-          | Core.SEQUENCE s -> 
-              begin
-                Lwt_list.fold_left_s 
-                  (fun a u ->
-                    match a with
-                      | OK _ -> _inner tx u  (* throws away the intermediate result *)
-                      | a    -> Lwt.return a
-                  )
-                  (OK None)
-                  s 
-              end
+          | Core.SEQUENCE s -> _sequence is_admin tx s
+          | Core.ADMIN_SEQUENCE s -> 
+              Lwtc.log "ADMIN_SEQUENCE" >>= fun () ->
+              _sequence true tx s
           | Core.USER_FUNCTION (name, po) ->
               begin
                 let f = Userdb.Registry.lookup name in
@@ -242,7 +234,17 @@ module BStore = (struct
                 in
                 Lwt.return a
               end
-        in _inner tx u
+        and _sequence is_admin tx s = 
+          Lwt_list.fold_left_s 
+            (fun a u ->
+              match a with
+                | OK _ -> _inner is_admin tx u  (* throws away the intermediate result *)
+                | a    -> Lwt.return a
+            )
+            (OK None)
+            s             
+        in _inner false tx u
+        
       end
     in  
     Lwt_mutex.with_lock t.m (fun () -> BS.log_update t.store ~diff:d _exec)
@@ -331,8 +333,15 @@ module BStore = (struct
     Lwtc.log "Bstore.last_entries done">>= fun () ->
     Lwt.return ()
 
-  let _do_range_entries inner t first finc last linc max =
-    inner t.store (opx true first) finc (opx false last) linc max
+  let _do_range_entries inner left_flag t first finc last linc max =
+    let fopx = opx left_flag first 
+    and lopx = opx false last 
+    in
+    Lwtc.log "_do_range_entries fopx:%s lopx:%s" 
+      (Log_extra.string_option_to_string fopx)
+      (Log_extra.string_option_to_string lopx)
+    >>= fun () ->
+    inner t.store fopx finc lopx linc max
     >>= fun kvs ->
     let c0 = __admin_prefix.[0] in
     let kvs' = List.filter (fun (k,_) -> k.[0] <> c0) kvs in
@@ -344,17 +353,17 @@ module BStore = (struct
       (Log_extra.string_option_to_string first) finc 
       (Log_extra.string_option_to_string last)  linc 
     >>= fun () ->
-    _do_range_entries BS.range_entries_latest t first finc last linc max
+    _do_range_entries BS.range_entries_latest true t first finc last linc max
 
   let rev_range_entries t first finc last linc max =
     Lwtc.log "rev_range_entries %s %b %s %b"
       (Log_extra.string_option_to_string first) finc
       (Log_extra.string_option_to_string last) linc
       >>= fun () ->
-    _do_range_entries BS.rev_range_entries_latest t first finc last linc max
+    _do_range_entries BS.rev_range_entries_latest false t first finc last linc max
 
 
-  let get_fringe t boundary direction =
+  let get_fringe t boundary direction =    
     Lwtc.log "Bstore.get_fringe" >>= fun () ->
     let last_key kvs = 
       let rec _loop = function
@@ -387,7 +396,7 @@ module BStore = (struct
                   then loop start' mem' acc'
                   else Lwt.return (acc', mem')
               in
-              loop (Some "\xff") 0 []
+              loop None 0 []
           end
       | Routing.UPPER_BOUND -> 
           begin

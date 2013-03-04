@@ -25,6 +25,7 @@ type update =
   | SEQUENCE of update list
   | DELETE_PREFIX of k
   | SET_ROUTING_DELTA of (string * string * string)
+  | ADMIN_SEQUENCE of update list
 
 
 let update2s = function
@@ -38,7 +39,7 @@ let update2s = function
   | SEQUENCE s -> Printf.sprintf "U_SEQ (...)"
   | DELETE_PREFIX k -> Printf.sprintf "U_DELETE_PREFIX %S" k
   | SET_ROUTING_DELTA (l,s,r) -> Printf.sprintf "U_SET_ROUTING_DELTA (%S,%S,%S)" l s r
-
+  | ADMIN_SEQUENCE s -> Printf.sprintf "U_ADMIN_SEQUENCE (...)"
 
 let rec update_to buf = function
   | SET (k,v) ->
@@ -73,20 +74,36 @@ let rec update_to buf = function
   | DELETE_PREFIX k ->
       Llio.int_to buf 14;
       Llio.string_to buf k
-  | ASSERT_EXISTS (k) ->
+  | ASSERT_EXISTS k ->
       Llio.int_to buf 15;
       Llio.string_to buf k
+  | ADMIN_SEQUENCE s ->
+      Llio.int_to buf 16;
+      Llio.int_to buf (List.length s);
+      List.iter (fun u -> update_to buf u) s
+
 
 let rec update_from buf off =
   let kind, off = Llio.int_from buf off in
+  let _sequence buf off =
+    let slen, off = Llio.int_from buf off in
+    let rec loop acc off = function
+      | 0 -> (List.rev acc), off
+      | i -> 
+          let u, off = update_from buf off in
+          loop (u :: acc) off (i-1) 
+    in
+    loop [] off slen 
+  in
+
   match kind with
     | 1 ->
-      let k, off = Llio.string_from buf off in
-      let v, off = Llio.string_from buf off in
-      SET(k,v), off
+        let k, off = Llio.string_from buf off in
+        let v, off = Llio.string_from buf off in
+        SET(k,v), off
     | 2 ->
-      let k, off = Llio.string_from buf off in
-      DELETE k, off
+        let k, off = Llio.string_from buf off in
+        DELETE k, off
     | 3 ->
         begin
           let k,o2 = Llio.string_from        buf off in
@@ -96,36 +113,30 @@ let rec update_from buf off =
           u, o4
         end
     | 5 ->
-      let slen, off = Llio.int_from buf off in
-      begin
-        let rec loop acc off = function
-          | 0 -> acc, off
-          | i -> 
-            let u, off = update_from buf off in
-            loop (u :: acc) off (i-1) 
-        in
-        let ups, off = loop [] off slen in
-        SEQUENCE (List.rev ups), off
-      end
+        let ups, off = _sequence buf off in 
+        SEQUENCE ups, off
     | 8 -> 
-      let k, off = Llio.string_from buf off in
-      let m_v, off = Llio.string_option_from buf off in
-      ASSERT (k, m_v), off
+        let k, off = Llio.string_from buf off in
+        let m_v, off = Llio.string_option_from buf off in
+        ASSERT (k, m_v), off
     | 9 -> 
-      let k, off = Llio.string_from buf off in
-      let m_v, off = Llio.string_option_from buf off in
-      ADMIN_SET (k, m_v), off
+        let k, off = Llio.string_from buf off in
+        let m_v, off = Llio.string_option_from buf off in
+        ADMIN_SET (k, m_v), off
     | 12 ->
         let l, off = Llio.string_from buf off in
         let s, off = Llio.string_from buf off in
         let r, off = Llio.string_from buf off in
         SET_ROUTING_DELTA(l,s,r), off
     | 14 ->
-      let k, off = Llio.string_from buf off in
-      DELETE_PREFIX k, off
+        let k, off = Llio.string_from buf off in
+        DELETE_PREFIX k, off
     | 15 -> 
-      let k, off = Llio.string_from buf off in
-      ASSERT_EXISTS (k), off
+        let k, off = Llio.string_from buf off in
+        ASSERT_EXISTS k, off
+    | 16 ->
+        let ups, off = _sequence buf off in
+        ADMIN_SEQUENCE ups, off
     | i -> let msg = Printf.sprintf "Unknown update type %d" i in failwith msg
                                                                
 
