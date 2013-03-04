@@ -437,6 +437,22 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
             _unit_or_f oc a
           in _do_write_op rest oc me store inner
         end
+      | Common.ADMIN_SEQUENCE ->
+          begin
+            Lwtc.log "ADMIN_SEQUENCE" >>= fun () ->
+            let inner () =
+              let t0 = Unix.gettimeofday() in
+              let data = Pack.input_string rest in
+              let probably_sequence,_ = Core.update_from data 0 in
+              let sequence = match probably_sequence with
+                | Core.ADMIN_SEQUENCE _ -> probably_sequence
+                | _ -> raise (Failure "should be admin sequence")
+              in
+              D.push_cli_req driver sequence >>= fun a ->
+              Statistics.new_sequence stats t0;
+              _unit_or_f oc a
+            in _do_write_op rest oc me store inner
+          end
       | Common.MULTI_GET ->
         begin
           let allow_dirty = Pack.input_bool rest in
@@ -680,7 +696,7 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
           let data = Pack.input_string rest in
           let probably_sequence,_ = Core.update_from data 0 in
           let sequence = match probably_sequence with
-            | Core.SEQUENCE us -> 
+            | Core.ADMIN_SEQUENCE us -> 
                 let extra = 
                   let v = 
                     let out = Pack.make_output 32 in
@@ -690,7 +706,7 @@ module V2(S:Core.STORE) (A:MP_ACTION_DISPATCHER) = struct
                   Core.ADMIN_SET (Core.__interval_key, Some v)
                 in
                 let xus = extra :: us in
-                Core.SEQUENCE xus
+                Core.ADMIN_SEQUENCE xus
             | _ -> raise (Failure "should be sequence")     
           in
           let inner () =

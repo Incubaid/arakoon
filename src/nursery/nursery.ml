@@ -160,19 +160,19 @@ module NC = struct
         (fun conn -> Common.get_fringe conn sep direction )
     in
     let push fringe i = 
-      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
+      let ups = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
       Lwt_log.debug "push" >>= fun () ->
       _with_master_connection t to_cn 
-        (fun conn -> Common.migrate_range conn i seq)
+        (fun conn -> Common.migrate_range conn i ups)
       >>= fun () ->
       Lwt_log.debug "done pushing" 
     in
 
     let delete fringe = 
-      let seq = List.map (fun (k,_) -> Arakoon_client.Delete k) fringe in
+      let ups = List.map (fun (k,_) -> Arakoon_client.Delete k) fringe in
       Lwt_log.debug "delete" >>= fun () ->
       _with_master_connection t from_cn 
-        (fun conn -> Common.sequence conn seq)
+        (fun conn -> Common.admin_delete conn ups)
     in
     let get_next_key k =
       k ^ (String.make 1 (Char.chr 1))
