@@ -543,8 +543,8 @@ let _main_2
       
       let killswitch = Lwt_mutex.create () in
       Lwt_mutex.lock killswitch >>= fun () ->
-      let unlock_killswitch () = Lwt_mutex.unlock killswitch in
-      let listen_for_sigterm () = Lwt_mutex.lock killswitch in
+      let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
+      let listen_for_signal () = Lwt_mutex.lock killswitch in
       
       let start_backend (master, constants, buffers, new_i, vo, store) =
 	    let to_run = 
@@ -565,28 +565,29 @@ let _main_2
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
 	    (fun () ->
-          let _ = Lwt_unix.on_signal 15
-            (fun i -> 
-	          unlock_killswitch ()
-	        )
-          in
+          let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
+          let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
 	      Lwt.pick [ 
 	        messaging # run ();
 	        begin
 	          build_startup_state () >>= fun (start_state,
 					                          service, 
 					                          rapporting) -> 
-              let (_,_,_,_,_,store) = start_state in
+              let (_,constants,_,_,_,store) = start_state in
 	          Lwt.pick[ start_backend start_state;
 			            service ();
 			            rapporting ();
-                        (listen_for_sigterm () >>= fun () ->
-			             Lwt_log.info "got sigterm" >>= fun () ->
-			             Lwt_io.printlf "(stdout)got sigterm" >>= fun () ->
+                        (listen_for_signal () >>= fun () ->
+                         let msg = "got TERM | INT" in
+			             Lwt_log.info msg >>= fun () ->
+			             Lwt_io.printl msg >>= fun () ->
                          store # close () >>= fun () ->
                          Lwt_log.fatal_f 
                            ">>> Closing the store @ %S succeeded: everything seems OK <<<"
                            (store # get_location ())
+                         >>= fun () ->
+                         let open Multi_paxos in constants.tlog_coll # close () 
+                             
                         )
 			            ;
 		              ]
