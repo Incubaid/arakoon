@@ -181,7 +181,9 @@ def compare_stores( node1_id, node2_id ):
         (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
         i_line = stdout.split("\n") [0]
         i_str = i_line.split("(")[1][:-1]
-        return int(i_str)
+        #"..."
+        i_str2 = i_str[1:-1]
+        return int(i_str2)
      
     
 
