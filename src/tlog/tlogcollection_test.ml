@@ -28,6 +28,7 @@ open Tlogcollection
 open Tlogcommon
 
 
+
 let setup factory test_name () =
   let dn = Printf.sprintf "/tmp/%s" test_name in
   Lwt_log.info_f "setup %s" dn >>= fun () ->
@@ -57,12 +58,11 @@ let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn
 let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
 
 let _log_repeat tlc (value:Value.t) n = 
-  let sync = false in
   let rec loop i = 
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-	tlc # log_value i value ~sync >>= fun wr_result ->
+	tlc # log_value i value >>= fun wr_result ->
 	loop (Sn.succ i)
       end
   in loop Sn.start 
@@ -70,7 +70,7 @@ let _log_repeat tlc (value:Value.t) n =
 let test_rollover (dn, factory) =
   Lwt_log.info "test_rollover" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
-  factory dn >>= fun c ->
+  factory dn "node_name" >>= fun c ->
   let value = _make_set_v "x" "y" in
   _log_repeat c value 101 >>= fun () ->
   c # close () >>= fun ()->
@@ -81,12 +81,12 @@ let test_rollover_1002 (dn, factory) =
   Lwt_log.info "test_rollover_1002" >>= fun () ->
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
-  factory dn >>= fun c ->
+  factory dn "node_name" >>= fun c ->
   let value = _make_set_v "x" "y" in
   let n_updates = 1002 * n + 3 in
   _log_repeat c value n_updates >>= fun () ->
   c # close () >>= fun () ->
-  factory dn >>= fun tlc_two ->
+  factory dn "node_name" >>= fun tlc_two ->
   let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
   let vos = Log_extra.option2s Value.value2s vo in
   Lwt_log.info_f "last_value = %s" vos >>= fun () -> 
@@ -96,10 +96,11 @@ let test_rollover_1002 (dn, factory) =
 
 let test_get_value_bug (dn, factory) = 
   Lwt_log.info "test_get_value_bug" >>= fun () ->
-  factory dn >>= fun c0 ->
+  factory dn "node_name" >>= fun c0 ->
   let v0 = Value.create_master_value ("XXXX",0L) in
-  c0 # log_value 0L v0 ~sync:false >>= fun wr_result ->
-  factory dn >>= fun c1 ->
+  c0 # log_value 0L v0 >>= fun wr_result ->
+  c0 # close () >>= fun () ->
+  factory dn "node_name" >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
   match c1 # get_last_value 0L with
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
@@ -116,11 +117,11 @@ let test_regexp (dn,factory) =
   Lwt.return ()
 
 let test_restart (dn, factory) =
-  factory dn >>= fun tlc_one ->
+  factory dn "node_name" >>= fun tlc_one ->
   let value = _make_set_v "x" "y" in
   _log_repeat tlc_one value 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
-  factory dn >>= fun tlc_two ->
+  factory dn "node_name" >>= fun tlc_two ->
   let uo = tlc_two # get_last_value (Sn.of_int 99) in
   tlc_two # close () >>= fun () ->
   Lwt.return ()
@@ -129,7 +130,7 @@ let test_restart (dn, factory) =
 
 let test_iterate (dn, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn >>= fun  tlc ->
+  factory dn "node_name" >>= fun  tlc ->
   let value = _make_set_v "xxx" "y" in
   _log_repeat tlc value 323 >>= fun () ->
   let sum = ref 0 in
@@ -148,7 +149,7 @@ let test_iterate (dn, factory) =
 
 let test_iterate2 (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn >>= fun tlc ->
+  factory dn "node_name" >>= fun tlc ->
   let value = _make_set_v "test_iterate0" "xxx" in
   _log_repeat tlc value 3 >>= fun () ->
   let result = ref [] in
@@ -166,7 +167,7 @@ let test_iterate2 (dn, factory) =
 
 let test_iterate3 (dn,factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn >>= fun tlc ->
+  factory dn "node_name" >>= fun tlc ->
   let value = _make_set_v "test_iterate3" "xxx" in
   _log_repeat tlc value 120 >>= fun () ->
   let result = ref [] in
@@ -187,11 +188,12 @@ let test_iterate3 (dn,factory) =
 
 let test_validate_normal (dn, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
-  factory dn >>= fun (tlc:tlog_collection) ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "XXX" "X" in
   _log_repeat tlc value 123 >>= fun () ->
   tlc # close () >>= fun () ->
-  factory dn >>= fun (tlc_two:tlog_collection) ->
+  Lwt_log.debug_f "reopening %s" dn >>= fun () ->
+  factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
   tlc_two # validate_last_tlog () >>= fun result ->
   let validity, eo, _ = result in
   let wsn = Sn.of_int 122 in
@@ -205,7 +207,7 @@ let test_validate_normal (dn, factory) =
 
 let test_validate_corrupt_1 (dn,factory) =
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
-  factory dn >>= fun (tlc:tlog_collection) -> 
+  factory dn "node_name" >>= fun (tlc:tlog_collection) -> 
   let value = _make_set_v "Incompetent" "Politicians" in
   _log_repeat tlc value 42 >>= fun () ->
   tlc # close () >>= fun () ->
@@ -217,7 +219,7 @@ let test_validate_corrupt_1 (dn,factory) =
   Lwt_log.info_f "corrupted 6 bytes" >>= fun () ->
   Lwt.catch
     (fun () -> 
-      factory dn >>= fun (tlc_two:tlog_collection) ->
+      factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
       tlc_two # validate_last_tlog () >>= fun _ -> 
       tlc_two # close () >>= fun () ->
       OUnit.assert_bool "this tlog should not be valid" false;

@@ -174,7 +174,7 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
     end
   in
   make_store db_name >>= fun (store:Store.store) ->
-  make_tlog_coll me.tlog_dir me.use_compression >>= fun tlc ->
+  make_tlog_coll me.tlog_dir me.use_compression name >>= fun tlc ->
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -208,12 +208,13 @@ module X = struct
   
   let last_master_log_stmt = ref 0L  
     
-  let on_accept statistics tlog_coll store (v,n,i) =
+  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
     let sync = Value.is_synced v in
-    tlog_coll # log_value i v ~sync >>= fun wr_result ->
+    let marker = (None:string option) in
+    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
     begin
       match v with
         | Value.Vc (us,_)     -> 
@@ -416,7 +417,7 @@ let _main_2
             end
           in
 	      Lwt.catch
-	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
+	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression name ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
                 let store_i = store # consensus_i () in
@@ -440,7 +441,7 @@ let _main_2
                       Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
 			            last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.use_compression 
+                      make_tlog_coll me.tlog_dir me.use_compression name
 		            end
                   else 
 		            begin

@@ -32,6 +32,10 @@ module Entry = struct
   let m_of t = t.m
 
   let has_marker t = t.m <> None
+  let check_marker t s = 
+    match t.m with
+      | None -> false
+      | Some ms -> s = ms
 
   let entry2s t = 
     let ms = Log_extra.string_option2s t.m in
