@@ -394,7 +394,7 @@ def test_3_nodes_stop_all_start_slaves ():
     cli.set(key,value)
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, C.node_names )
-    
+    logging.debug("slaves=%s", slaves)
     C.stop_all()
     for slave in slaves:
         C.startOne( slave )

@@ -78,7 +78,7 @@ object (self: #tlog_collection)
   method save_tlog_file name length ic = failwith "not supported"
 
   method log_value i (v:Value.t) ~sync=
-    let entry = Entry.make i v 0L in
+    let entry = Entry.make i v 0L None in
     let () = data <- entry::data in
     let () = last_entry <- (Some entry) in
     Lwt.return ()

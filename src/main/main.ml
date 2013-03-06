@@ -116,8 +116,12 @@ let dump_tlog filename ~values=
   let printer () entry =
     let i = Entry.i_of entry 
     and v = Entry.v_of entry
+    and m = Entry.m_of entry in
+    let ms = match m with None -> "" | Some s -> Printf.sprintf ":%S" s
     in
-    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Value.value2s v ~values) in
+    Lwt_io.printlf "%s:%s%s" (Sn.string_of i) 
+      (Value.value2s v ~values) ms
+  in
   let folder,_,index = Tlc2.folder_for filename None in
   
   let t =

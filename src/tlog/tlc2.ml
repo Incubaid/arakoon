@@ -157,10 +157,18 @@ let _validate_one tlog_name : validation_result Lwt.t =
           Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-      >>= fun e ->
-      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) >>= fun () ->
+      >>= fun eo ->
+      let eo' = 
+        match eo with 
+          | None -> None
+          | Some e ->
+              if Entry.has_marker e 
+              then !prev_entry
+              else failwith "no marker"
+      in
+      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
       Lwt_log.debug_f "After validation index=%s" (Index.to_string new_index) >>= fun () ->
-      Lwt.return (e, new_index)
+      Lwt.return (eo', new_index)
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
@@ -389,7 +397,7 @@ object(self: # tlog_collection)
       | Some pe-> 
         let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
     in
-    let entry = Entry.make i value p in
+    let entry = Entry.make i value p None in
     _previous_entry <- Some entry;
     Index.note entry _index;
     Lwt.return ()
@@ -552,7 +560,15 @@ object(self: # tlog_collection)
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
       match _file with
         | None -> Lwt.return ()
-        | Some file -> F.close file
+        | Some file -> 
+            begin
+              match self # get_last () with
+                | None       -> Lwt.return ()
+                | Some (v,i) -> 
+                    let oc = F.oc_of file in
+                    Tlogcommon.write_marker oc i v (Some "xxx")
+            end >>= fun () ->
+            F.close file
     end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
