@@ -29,8 +29,7 @@ let dump_tlog filename ~values=
   in
   Lwt_main.run t
 
-
-let strip_tlog filename = 
+let _last_entry filename = 
   let last = ref None in
   let printer () entry = 
     let i = Entry.i_of entry in
@@ -39,37 +38,58 @@ let strip_tlog filename =
     Lwt_io.printlf "%s:%Li" (Sn.string_of i) p
   in
   let folder,_,index = Tlc2.folder_for filename None in
+  let do_it ic = 
+    let lowerI = Sn.start in
+    let higherI = None 
+    and first = Sn.of_int 0
+    and a0 = () in
+    folder ic ~index lowerI higherI ~first a0 printer 
+  in
+  Lwt_io.with_file ~mode:Lwt_io.input filename do_it >>= fun () ->
+  Lwt.return !last
+      
+
+let strip_tlog filename = 
+  let maybe_truncate = 
+    function 
+      | None -> Lwt.return 0
+      | Some e -> 
+          if Entry.has_marker e 
+          then
+            begin
+              let p = Entry.p_of e in
+              let pi = Int64.to_int p in
+              Lwt_io.printlf "last=%s => truncating to %i" (Entry.entry2s e) pi >>= fun () ->
+              Lwt_unix.truncate filename pi >>= fun () ->
+              Lwt.return 0
+            end
+          else
+            begin
+              Lwt_io.eprintlf "no marker found, not truncating" >>= fun () ->
+              Lwt.return 1
+            end
+  in
+  let t =
+    _last_entry filename >>= fun last ->
+    maybe_truncate last 
+  in
+  Lwt_main.run t
+
+let mark_tlog file_name node_name = 
   let t = 
-    begin
-      let maybe_truncate = 
-        function 
-          | None -> Lwt.return 0
-          | Some e -> 
-              if Entry.has_marker e 
-              then
-                begin
-                  let p = Entry.p_of e in
-                  let pi = Int64.to_int p in
-                  Lwt_io.printlf "last=%s => truncating to %i" (Entry.entry2s e) pi >>= fun () ->
-                  Lwt_unix.truncate filename pi >>= fun () ->
-                  Lwt.return 0
-                end
-              else
-                begin
-                  Lwt_io.eprintlf "no marker found, not truncating" >>= fun () ->
-                  Lwt.return 1
-                end
-      in
-      let do_it ic = 
-        let lowerI = Sn.start in
-        let higherI = None 
-        and first = Sn.of_int 0
-        and a0 = () in
-        folder ic ~index lowerI higherI ~first a0 printer 
-      in
-      Lwt_io.with_file ~mode:Lwt_io.input filename do_it >>= fun () ->
-      maybe_truncate !last 
-    end
+    _last_entry file_name >>= fun last ->
+    match last with
+      | None -> Lwt.return 0
+      | Some e ->
+          let i     = Entry.i_of e 
+          and value = Entry.v_of e 
+          in
+          let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
+          Lwt_io.with_file 
+            ~mode:Lwt_io.output 
+            ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
+            file_name f
+            >>= fun () -> Lwt.return 0
   in
   Lwt_main.run t
 

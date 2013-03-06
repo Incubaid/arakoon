@@ -39,6 +39,7 @@ type local_action =
   | StripTlog
   | DumpStore
   | MakeTlog
+  | MarkTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -218,7 +219,12 @@ let main () =
      "<filename> : dump a tlog file in readable format");
     ("--strip-tlog", Arg.Tuple[ set_laction StripTlog;
                                Arg.Set_string filename],
-     "<filename> : (development) remove the marker of a tlog");
+     "<filename> : remove the marker of a tlog (development)");
+    ("--mark-tlog", Arg.Tuple[ set_laction MarkTlog;
+                               Arg.Set_string filename;
+                               Arg.Set_string key;
+                             ],
+     "<filename> <key>: add a marker to a tlog");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
@@ -345,6 +351,7 @@ let main () =
     | DumpTlog -> Tlog_main.dump_tlog !filename !dump_values
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
+    | MarkTlog -> Tlog_main.mark_tlog !filename !key
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename

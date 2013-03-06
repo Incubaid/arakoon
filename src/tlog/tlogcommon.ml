@@ -32,6 +32,7 @@ module Entry = struct
   let m_of t = t.m
 
   let has_marker t = t.m <> None
+
   let entry2s t = 
     let ms = Log_extra.string_option2s t.m in
     Printf.sprintf "{i=%s;v=%s;m=%s;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) ms t.p
