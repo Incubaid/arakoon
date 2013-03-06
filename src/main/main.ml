@@ -36,6 +36,7 @@ type local_action =
   | SystemTests
   | ShowVersion
   | DumpTlog
+  | StripTlog
   | DumpStore
   | MakeTlog
   | TruncateTlog
@@ -141,7 +142,48 @@ let dump_tlog filename ~values=
   Lwt_main.run t
 
 
-
+let strip_tlog filename = 
+  let last = ref None in
+  let printer () entry = 
+    let i = Entry.i_of entry in
+    let p = Entry.p_of entry in
+    let () = last := Some entry in
+    Lwt_io.printlf "%s:%Li" (Sn.string_of i) p
+  in
+  let folder,_,index = Tlc2.folder_for filename None in
+  let t = 
+    begin
+      let maybe_truncate = 
+        function 
+          | None -> Lwt.return 0
+          | Some e -> 
+              if Entry.has_marker e 
+              then
+                begin
+                  let p = Entry.p_of e in
+                  let pi = Int64.to_int p in
+                  Lwt_io.printlf "last=%s => truncating to %i" (Entry.entry2s e) pi >>= fun () ->
+                  Lwt_unix.truncate filename pi >>= fun () ->
+                  Lwt.return 0
+                end
+              else
+                begin
+                  Lwt_io.eprintlf "no marker found, not truncating" >>= fun () ->
+                  Lwt.return 1
+                end
+      in
+      let do_it ic = 
+        let lowerI = Sn.start in
+        let higherI = None 
+        and first = Sn.of_int 0
+        and a0 = () in
+        folder ic ~index lowerI higherI ~first a0 printer 
+      in
+      Lwt_io.with_file ~mode:Lwt_io.input filename do_it >>= fun () ->
+      maybe_truncate !last 
+    end
+  in
+  Lwt_main.run t
 
 
 let make_tlog tlog_name (i:int) =
@@ -277,6 +319,9 @@ let main () =
     ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
 			                   Arg.Set_string filename],
      "<filename> : dump a tlog file in readable format");
+    ("--strip-tlog", Arg.Tuple[ set_laction StripTlog;
+                               Arg.Set_string filename],
+     "<filename> : (development) remove the marker of a tlog");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
@@ -401,6 +446,7 @@ let main () =
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
     | DumpTlog -> dump_tlog !filename !dump_values
+    | StripTlog -> strip_tlog !filename
     | MakeTlog -> make_tlog !filename !counter
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename

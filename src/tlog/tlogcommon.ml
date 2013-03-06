@@ -33,7 +33,8 @@ module Entry = struct
 
   let has_marker t = t.m <> None
   let entry2s t = 
-    Printf.sprintf "{i=%s;v=%S;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) t.p
+    let ms = Log_extra.string_option2s t.m in
+    Printf.sprintf "{i=%s;v=%s;m=%s;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) ms t.p
 end
 
 exception TLogCheckSumError of Int64.t
