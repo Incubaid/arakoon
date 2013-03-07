@@ -25,7 +25,7 @@ open Tlogcommon
 open Lwt
 
 
-class mem_tlog_collection tlog_dir use_compression =
+class mem_tlog_collection tlog_dir use_compression name =
 object (self: #tlog_collection)
 
   val mutable data = []
@@ -77,12 +77,14 @@ object (self: #tlog_collection)
 
   method save_tlog_file name length ic = failwith "not supported"
 
-  method log_value i (v:Value.t) ~sync=
-    let entry = Entry.make i v 0L in
+
+  method log_value_explicit i (v:Value.t) sync marker =
+    let entry = Entry.make i v 0L marker in
     let () = data <- entry::data in
     let () = last_entry <- (Some entry) in
     Lwt.return ()
 
+  method log_value i v = self #log_value_explicit i v false None
 
           
   method dump_head oc = Llio.lwt_failfmt "not implemented"
@@ -101,7 +103,7 @@ object (self: #tlog_collection)
   method remove_below i = Lwt.return ()
 end
 
-let make_mem_tlog_collection tlog_dir use_compression =
-  let x = new mem_tlog_collection tlog_dir use_compression in
+let make_mem_tlog_collection tlog_dir use_compression name =
+  let x = new mem_tlog_collection tlog_dir use_compression name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

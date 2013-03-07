@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 let option2s f = function
   | None -> "None"
-  | Some v -> "Some (" ^ String.escaped (f v ) ^ ")"
+  | Some v -> "Some (\"" ^ String.escaped (f v ) ^ "\")"
 
 
 let string_option2s = option2s (fun s -> s)

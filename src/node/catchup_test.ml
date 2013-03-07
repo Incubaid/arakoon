@@ -38,7 +38,7 @@ let _fill tlog_coll n =
 	    and v = Printf.sprintf "value%i" i in
 	    let u = Update.Set (k,v) in
         let value = Value.create_client_value [u] sync in
-	    tlog_coll # log_value (Sn.of_int i) value ~sync >>= fun _ ->
+	    tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
 	    _loop (i+1)
       end
   in
@@ -59,8 +59,9 @@ let _fill2 tlog_coll n =
 	    let u2 = Update.Set(k2,v2) in
         let value = Value.create_client_value [u] sync in
         let value2 = Value.create_client_value [u2] sync in
-	    tlog_coll # log_value (Sn.of_int i) value  ~sync  >>= fun _ ->
-	    tlog_coll # log_value (Sn.of_int i) value2 ~sync  >>= fun _ ->
+        let sni = Sn.of_int i in
+	    tlog_coll # log_value  sni value  >>= fun () ->
+	    tlog_coll # log_value  sni value2 >>= fun () ->
 	    _loop (i+1)
       end
   in
@@ -79,7 +80,7 @@ let setup () =
     
 let test_common () =
   Lwt_log.info "test_common" >>= fun () ->
-  Tlc2.make_tlc2 _dir_name true>>= fun tlog_coll ->
+  Tlc2.make_tlc2 _dir_name true "node_name" >>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
@@ -105,7 +106,7 @@ let teardown () =
 
 let _tic filler_function name =
   Tlogcommon.tlogEntriesPerFile := 101; 
-  Tlc2.make_tlc2 _dir_name true>>= fun tlog_coll ->
+  Tlc2.make_tlc2 _dir_name true "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll 1000 >>= fun () ->
   let tlog_i = Sn.of_int 1000 in 
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in

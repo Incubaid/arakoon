@@ -48,13 +48,13 @@ let _make_cfg name n lease_period =
     reporting = 300;
   }
 
-let _make_tlog_coll tlcs values tlc_name use_compression = 
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression >>= fun tlc ->
+let _make_tlog_coll tlcs values tlc_name use_compression node_id = 
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression node_id >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 
     | v :: vs -> 
       begin
-	    tlc # log_value i v ~sync:false >>= fun _ ->
+	    tlc # log_value i v >>= fun () ->
 	    loop (Sn.succ i) vs
       end
   in
@@ -79,6 +79,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
+    >>= fun _ -> Lwt.return ()
 
 let _dump_tlc ~tlcs node = 
   let tlc0 = Hashtbl.find tlcs node in

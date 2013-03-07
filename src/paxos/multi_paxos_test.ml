@@ -64,7 +64,7 @@ let test_generic network_factory n_nodes () =
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true "???">>= fun tlog_coll ->
   let base = {me = "???";
 	          others = [] ;
 	          is_learner = false;
@@ -232,7 +232,7 @@ let test_master_loop network_factory ()  =
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
   Mem_store.make_mem_store "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true me >>= fun tlog_coll ->
   let constants = {me = me; 
 		   is_learner = false;
 		   others = others;
@@ -351,7 +351,7 @@ let test_simulation filters () =
   in
   
   Mem_store.make_mem_store "MEM#store"  >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true >>= fun tlog_coll ->
+  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true me >>= fun tlog_coll ->
   let constants = {
     me = me;
 	is_learner = false;
