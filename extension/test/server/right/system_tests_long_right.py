@@ -235,7 +235,7 @@ def test_3_node_stop_master_slaves_restart():
     Common.iterate_n_times( 1000, Common.simple_set )
     cli = Common.get_client()
     master = cli.whoMaster()
-    slaves = filter( lambda node: node != master, Common.node_names )
+    slaves = filter( lambda node: node != master, Common.node_names[:3] )
     Common.stopOne( master )
     ld = Common.lease_duration
     logging.info (ld )
@@ -391,7 +391,7 @@ def test_3_nodes_2_slaves_down ():
     cli = Common.get_client()
     master_id = cli.whoMaster()
     
-    slaves = filter( lambda n: n != master_id, Common.node_names )
+    slaves = filter( lambda n: n != master_id, Common.node_names[:3] )
     for slave in slaves:
         Common.stopOne( slave )
     
@@ -679,12 +679,18 @@ def test_272():
     for i in range(100):
         Common.rotate_log(node, 1, False)
         time.sleep(0.2)
-        Common.assert_running_nodes(1)
+        # Note:
+        # At this point, we expect one node to be running, as well as the
+        # benchmark process. The `assert_running_nodes` procedure uses
+        # 'pgrep -c' which counts the number of 'arakoon' processes running, so
+        # we should pass *2* here, despite only a single node process should be
+        # running.
+        Common.assert_running_nodes(2)
         rc = bench.returncode
         if rc <> None:
             raise Exception ("benchmark should not have stopped")
 
-    Common.assert_running_nodes(1)
+    Common.assert_running_nodes(2)
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
     if rc <> 0:
