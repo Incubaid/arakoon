@@ -29,6 +29,7 @@ open Lwt_buffer
 open Tlogreader2
 
 exception TLCCorrupt of (Int64.t * Sn.t)
+exception TLCNotProperlyClosed of string
 
 let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
@@ -171,7 +172,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
                   let s = _make_marker node_id in
                   if Entry.check_marker e s
                   then !prev_entry
-                  else failwith (Printf.sprintf "marker mismatch: %s" (Entry.entry2s e))
+                  else raise (TLCNotProperlyClosed (Entry.entry2s e))
           in
           Lwt.return eo'
       end

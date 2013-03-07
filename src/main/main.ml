@@ -386,37 +386,39 @@ let main () =
   let do_server node =
     match node with
       | Node ->
-	let canonical =
-	  if !config_file.[0] = '/'
-	  then !config_file
-	  else Filename.concat (Unix.getcwd()) !config_file
-	in
-	let make_config () = Node_cfg.read_config canonical in
-	Daemons.maybe_daemonize !daemonize make_config;
-	let main_t = (Node_main.main_t make_config
-			!node_id !daemonize !catchup_only)
-      in
-	(* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-	Lwt_main.run main_t;
-	0
+          begin
+	        let canonical =
+	          if !config_file.[0] = '/'
+	          then !config_file
+	          else Filename.concat (Unix.getcwd()) !config_file
+	        in
+	        let make_config () = Node_cfg.read_config canonical in
+	        Daemons.maybe_daemonize !daemonize make_config;
+	        let main_t = (Node_main.main_t make_config
+			                !node_id !daemonize !catchup_only)
+            in
+	        (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
+	        Lwt_main.run main_t 
+          end
       | TestNode ->
-	let lease_period = 60 in
-	let node = Master_type.Forced "t_arakoon_0" in
-	let make_config () = Node_cfg.make_test_config 3 node lease_period in
-	let main_t = (Node_main.test_t make_config !node_id) in
-	Lwt_main.run main_t;
-	0
-
+          begin
+	        let lease_period = 60 in
+	        let node = Master_type.Forced "t_arakoon_0" in
+	        let make_config () = Node_cfg.make_test_config 3 node lease_period in
+	        let main_t = (Node_main.test_t make_config !node_id) in
+	        Lwt_main.run main_t
+	      end
   in
   Arg.parse
     interface
     (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
     usage;
-  let res =
+  let exit_code =
     match !action with
       | LocalAction la -> do_local la
       | ServerAction sa -> do_server sa
   in
-  exit res;;
+  (* let () = Printf.printf "[rc=%i]\n" rc in *)
+  exit exit_code
 
 

@@ -276,7 +276,7 @@ end
 let _main_2 
     (make_store: ?read_only:bool -> string -> Store.store Lwt.t) 
     make_tlog_coll make_config get_snapshot_name copy_store ~name 
-    ~daemonize ~catchup_only =
+    ~daemonize ~catchup_only : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -298,7 +298,7 @@ let _main_2
     begin
       only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll 
       >>= fun _ -> (* we don't need that here as there is no continuation *)
-      Lwt.return ()
+      Lwt.return 0
     end
   else
     begin
@@ -594,18 +594,32 @@ let _main_2
 		              ]
 	        end
 	      ] >>= fun () ->
-          Lwt_log.info "Completed shutdown"
+          Lwt_log.info "Completed shutdown" 
+          >>= fun () ->
+          Lwt.return 0
         )
-	    (fun exn -> 
-	      Lwt_log.fatal ~exn "going down" >>= fun () ->
-	      Lwt_log.fatal "after pick" >>= fun() ->
-	      match dump_crash_log with
-	        | None -> Lwt_log.info "Not dumping state"
-	        | Some f -> f() )
+	    (function
+          | Tlc2.TLCNotProperlyClosed msg -> 
+              let rc = 42 in
+              Lwt_log.fatal_f "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+              Lwt.return 42
+
+          | exn -> 
+              begin
+	            Lwt_log.fatal ~exn "going down" >>= fun () ->
+	            Lwt_log.fatal "after pick" >>= fun() ->
+	            begin
+                  match dump_crash_log with
+	                | None -> Lwt_log.info "Not dumping state"
+	                | Some f -> f() 
+                end >>= fun () ->
+                Lwt.return 1
+                end
+        )
     end
       
       
-let main_t make_config name daemonize catchup_only=
+let main_t make_config name daemonize catchup_only : int Lwt.t =
   let make_store = Local_store.make_local_store in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in

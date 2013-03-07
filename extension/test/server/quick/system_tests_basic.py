@@ -103,6 +103,14 @@ def test_marker_presence_required ():
     cluster.start()
     C.assert_running_nodes(0)
 
+    #check the exit code:
+    try:
+       cfgp = "%s.cfg" % (cluster._getConfigFilePath()) # OMG
+       logging.debug("cfgp=%s",cfgp)
+       subprocess.check_call([C.binary_full_path, '--node', nn, '-config', cfgp])
+    except subprocess.CalledProcessError,e:
+        assert_equals(e.returncode,42)
+
     # add the marker and start again:
     subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed %s' % nn])
     cluster.start()
