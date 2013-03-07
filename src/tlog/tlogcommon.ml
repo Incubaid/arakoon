@@ -23,14 +23,23 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 module Entry = struct
-  type t = {i: Sn.t ;v : Value.t;p:int64}
+  type t = {i: Sn.t ;v : Value.t; p:int64; m: string option}
 
-  let make i v p : t = {i;v;p}
+  let make i v p m : t = {i;v;p;m}
   let i_of t = t.i
   let v_of t = t.v
   let p_of t = t.p
+  let m_of t = t.m
 
-  let entry2s t = Printf.sprintf "{i=%s;v=%S;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) t.p
+  let has_marker t = t.m <> None
+  let check_marker t s = 
+    match t.m with
+      | None -> false
+      | Some ms -> s = ms
+
+  let entry2s t = 
+    let ms = Log_extra.string_option2s t.m in
+    Printf.sprintf "{i=%s;v=%s;m=%s;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) ms t.p
 end
 
 exception TLogCheckSumError of Int64.t
@@ -67,14 +76,22 @@ let read_entry ic =
       Llio.input_int32 ic >>= fun chkSum ->
       Llio.input_string ic >>= fun cmd  -> 
       (* if you want to do validation, do it here *)
-      let chksum2 = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
+      let cmdl = String.length cmd in
+      let chksum2 = Crc32c.calculate_crc32c cmd 0 cmdl in
       begin
         if chkSum <> chksum2 
         then Lwt.fail (TLogCheckSumError last_valid_pos )
         else Lwt.return ()
       end >>= fun () ->
-      let value,_ = Value.value_from cmd 0 in
-      let entry = Entry.make i value last_valid_pos in
+      let value,off = Value.value_from cmd 0 in
+      let marker = 
+        if off = cmdl 
+        then None 
+        else 
+          let m,_ = Llio.string_option_from cmd off in
+          m
+      in
+      let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
       Lwt.return entry
     ) 
     ( function
@@ -98,7 +115,7 @@ let entry_from buff pos =
   let crc,pos3 = Llio.int32_from  buff pos2 in
   let cmd,pos4 = Llio.string_from buff pos3 in
   let value,_ = Value.value_from cmd 0 in
-  let e = Entry.make i value 0L in
+  let e = Entry.make i value 0L None in
   e, pos4 
 
 
@@ -129,6 +146,17 @@ let write_entry oc i value =
   Llio.output_int32 oc chksum >>= fun() ->
   Llio.output_string oc cmd
     
+let write_marker oc i value m = 
+  Sn.output_sn oc i >>= fun () ->
+  let b = Buffer.create 64 in
+  let () = Value.value_to b value in
+  let () = Llio.option_to Llio.string_to b m in
+  let cmd = Buffer.contents b in
+  let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
+  Llio.output_int32 oc crc >>= fun () ->
+  Llio.output_string oc cmd
+
+
 type tlogValidity =
   | TlogValidIncomplete
   | TlogValidComplete

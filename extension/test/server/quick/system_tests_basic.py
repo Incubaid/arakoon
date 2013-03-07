@@ -83,6 +83,38 @@ def test_max_value_size_tinkering ():
     client = C.get_client()
     assert_raises (ArakoonException, client.set, key, value)
     
+@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
+def test_marker_presence_required ():
+    C.assert_running_nodes(1)
+    client = C.get_client()
+    for x in xrange(100):
+        client.set("x%i" % x,"X%i" % x)
+    cluster = C._getCluster()
+    cluster.stop()
+
+    # remove the marker
+    nn = C.node_names[0]
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
+    subprocess.call([C.binary_full_path,'--strip-tlog', tlog])
+    
+    # this will fail
+    cluster.start()
+    C.assert_running_nodes(0)
+
+    #check the exit code:
+    try:
+       cfgp = "%s.cfg" % (cluster._getConfigFilePath()) # OMG
+       logging.debug("cfgp=%s",cfgp)
+       subprocess.check_call([C.binary_full_path, '--node', nn, '-config', cfgp])
+    except subprocess.CalledProcessError,e:
+        assert_equals(e.returncode,42)
+
+    # add the marker and start again:
+    subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed %s' % nn])
+    cluster.start()
+    C.assert_running_nodes(1)
 
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )        
@@ -394,7 +426,7 @@ def test_3_nodes_stop_all_start_slaves ():
     cli.set(key,value)
     master = cli.whoMaster()
     slaves = filter( lambda node: node != master, C.node_names )
-    
+    logging.debug("slaves=%s", slaves)
     C.stop_all()
     for slave in slaves:
         C.startOne( slave )

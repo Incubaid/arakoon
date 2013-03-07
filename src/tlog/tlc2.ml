@@ -29,6 +29,7 @@ open Lwt_buffer
 open Tlogreader2
 
 exception TLCCorrupt of (Int64.t * Sn.t)
+exception TLCNotProperlyClosed of string
 
 let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
 let file_name c = Printf.sprintf "%03i.tlog" c 
@@ -139,7 +140,9 @@ let fold_read tlog_dir file_name
 	  
 type validation_result = (Entry.t option * Index.index)
 
-let _validate_one tlog_name : validation_result Lwt.t =      
+let _make_marker node_id = "closed " ^ node_id
+
+let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =      
   Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in 
@@ -157,10 +160,26 @@ let _validate_one tlog_name : validation_result Lwt.t =
           Lwt.return r)
       in
       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-      >>= fun e ->
-      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s e) >>= fun () ->
+      >>= fun eo ->
+      begin
+        if not check_marker 
+        then Lwt.return eo
+        else
+          let eo' = 
+            match eo with 
+              | None -> None
+              | Some e ->
+                  let s = _make_marker node_id in
+                  if Entry.check_marker e s
+                  then !prev_entry
+                  else raise (TLCNotProperlyClosed (Entry.entry2s e))
+          in
+          Lwt.return eo'
+      end
+      >>= fun eo' ->
+      Lwt_log.debug_f "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
       Lwt_log.debug_f "After validation index=%s" (Index.to_string new_index) >>= fun () ->
-      Lwt.return (e, new_index)
+      Lwt.return (eo', new_index)
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
@@ -174,24 +193,24 @@ let _validate_one tlog_name : validation_result Lwt.t =
     )
 
 
-let _validate_list tlog_names = 
-  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn) (None,None) tlog_names >>= fun (eo,index) ->
+let _validate_list tlog_names node_id ~check_marker= 
+  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn node_id ~check_marker) (None,None) tlog_names >>= fun (eo,index) ->
   Lwt_log.info_f "_validate_list %s => %s" (String.concat ";" tlog_names) (Index.to_string index) >>= fun () ->
   Lwt.return (TlogValidIncomplete, eo, index)
 
  
       
       
-let validate_last tlog_dir = 
-  Lwt_log.debug "validate_last" >>= fun () ->
+let validate_last tlog_dir node_id ~check_marker= 
+  Lwt_log.debug_f "validate_last ~check_marker:%b" check_marker >>= fun () ->
   get_tlog_names tlog_dir >>= fun tlog_names ->
   match tlog_names with
-    | [] -> _validate_list []
+    | [] -> _validate_list [] node_id ~check_marker
     | _ -> 
       let n = List.length tlog_names in
       let last = List.nth tlog_names (n-1) in
       let fn = Filename.concat tlog_dir last in
-      _validate_list [fn] >>= fun r ->
+      _validate_list [fn] node_id ~check_marker>>= fun r ->
       let (validity, last_eo, index) = r in
       match last_eo with
         | None -> 
@@ -200,7 +219,7 @@ let validate_last tlog_dir =
             then
               let prev_last = List.nth tlog_names (n-2) in 
               let last_non_empty = Filename.concat tlog_dir prev_last in
-              _validate_list [last_non_empty]
+              _validate_list [last_non_empty] node_id ~check_marker
             else
               Lwt.return r
           end 
@@ -302,7 +321,9 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
 
 
 class tlc2 (tlog_dir:string) (new_c:int) 
-  (last:Entry.t option) (index:Index.index) (use_compression:bool) = 
+  (last:Entry.t option) (index:Index.index) (use_compression:bool) 
+  (node_id:string)
+  = 
   let inner = 
     match last with
       | None -> 0
@@ -323,7 +344,8 @@ object(self: # tlog_collection)
   initializer self # start_compression_loop ()
 
       
-  method validate_last_tlog () = validate_last tlog_dir >>= fun r ->
+  method validate_last_tlog () = 
+    validate_last tlog_dir node_id ~check_marker:false >>= fun r ->
     let (validity, entry, new_index) = r in
     let tlu = Filename.concat tlog_dir (file_name _outer) in
     let matches = Index.match_filename tlu new_index in
@@ -371,8 +393,9 @@ object(self: # tlog_collection)
       loop ()
     in 
     Lwt.ignore_result (loop ())
+
       
-  method log_value i value ~sync =
+  method log_value_explicit i value sync marker =
     self # _prelude i >>= fun file ->
     let p = F.file_pos file in
     let oc = F.oc_of file in
@@ -389,11 +412,13 @@ object(self: # tlog_collection)
       | Some pe-> 
         let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
     in
-    let entry = Entry.make i value p in
+    let entry = Entry.make i value p marker in
     _previous_entry <- Some entry;
     Index.note entry _index;
     Lwt.return ()
     
+  method log_value i value = self # log_value_explicit i value false None
+
   method private _prelude i =
     let ( *: ) = Sn.mul in
     match _file with
@@ -552,7 +577,16 @@ object(self: # tlog_collection)
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
       match _file with
         | None -> Lwt.return ()
-        | Some file -> F.close file
+        | Some file -> 
+            begin
+              match self # get_last () with
+                | None       -> Lwt.return ()
+                | Some (v,i) -> 
+                    let oc = F.oc_of file in
+                    let marker = _make_marker node_id in
+                    Tlogcommon.write_marker oc i v (Some marker)
+            end >>= fun () ->
+            F.close file
     end
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
@@ -631,7 +665,7 @@ let get_last_tlog tlog_dir =
   Lwt_log.debug_f "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
 
-let maybe_correct tlog_dir new_c last index = 
+let maybe_correct tlog_dir new_c last index node_id = 
   if new_c > 0 && last = None 
   then
     begin
@@ -646,24 +680,24 @@ let maybe_correct tlog_dir new_c last index =
       let tlu_name = Filename.concat tlog_dir (file_name pc)  in
       Lwt_log.warning "Sabotage!" >>= fun () ->
       Lwt_log.info_f "Counter Sabotage: decompress %s into %s" 
-	tlc_name tlu_name
+	    tlc_name tlu_name
       >>= fun () ->
       Compression.uncompress_tlog tlc_name tlu_name >>= fun () ->
       Lwt_log.info_f "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->
       File_system.unlink tlc_name >>= fun () ->
       Lwt_log.info "Counter Sabotage finished" >>= fun () ->
-      _validate_one tlu_name >>= fun (last,new_index) ->
+      _validate_one tlu_name node_id ~check_marker:false >>= fun (last,new_index) ->
       Lwt.return (new_c -1 , last, new_index)
 
     end
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 tlog_dir use_compression =
-  Lwt_log.debug_f "make_tlc %S" tlog_dir >>= fun () ->
+let make_tlc2 tlog_dir use_compression node_id =
+  Lwt_log.debug_f "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir >>= fun (new_c, fn) ->
-  _validate_one fn >>= fun (last, index) ->
-  maybe_correct tlog_dir new_c last index >>= fun (new_c,last,new_index) ->
+  _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
+  maybe_correct tlog_dir new_c last index node_id >>= fun (new_c,last,new_index) ->
   Lwt_log.debug_f "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg = 
     match last with
@@ -671,7 +705,19 @@ let make_tlc2 tlog_dir use_compression =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir new_c last new_index use_compression in
+  let col = new tlc2 tlog_dir new_c last new_index use_compression node_id in
+  (* rewrite last entry with ANOTHER marker so we can see we got here *)
+  begin
+    match last with
+      | None   -> Lwt.return ()
+      | Some e ->
+          let i = Entry.i_of e in
+          let v = Entry.v_of e in
+          let marker = Some ("opened:" ^ node_id) in
+          col # log_value_explicit i v false marker
+  end
+  >>= fun () ->
+  Lwt_log.debug_f "wrote marker for %S" node_id >>= fun ()->
   Lwt.return col
 
 

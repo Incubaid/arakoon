@@ -36,8 +36,10 @@ type local_action =
   | SystemTests
   | ShowVersion
   | DumpTlog
+  | StripTlog
   | DumpStore
   | MakeTlog
+  | MarkTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -112,74 +114,16 @@ let run_system_tests () =
   let _ = OUnit.run_test_tt tests in
   0
 
-let dump_tlog filename ~values=
-  let printer () entry =
-    let i = Entry.i_of entry 
-    and v = Entry.v_of entry
-    in
-    Lwt_io.printlf "%s:%s" (Sn.string_of i) (Value.value2s v ~values) in
-  let folder,_,index = Tlc2.folder_for filename None in
-  
-  let t =
-    begin
-	  let do_it ic =
-        
-	    let lowerI = Sn.start
-	    and higherI = None
-	    and first = Sn.of_int 0
-	    and a0 = () in
-	    folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
-	    Lwt.return 0
-	  in
-	  Lwt_io.with_file ~mode:Lwt_io.input filename do_it
-    end
-  in
-  Lwt_main.run t
 
 
 
 
-
-let make_tlog tlog_name (i:int) =
-  let sni = Sn.of_int i in
-  let t =
-    let f oc = Tlogcommon.write_entry oc sni 
-      (Value.create_client_value [Update.Update.Nop] false)
-    in
-    Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
-  in
-  Lwt_main.run t;0
 
 let dump_store filename = Dump_store.dump_store filename
 
 let inject_as_head filename node_id cfg_name = Dump_store.inject_as_head filename node_id cfg_name
 
-let compress_tlog tlu =
-  let tlf = Tlc2.to_archive_name tlu in
-  let t = Compression.compress_tlog tlu tlf in
-  Unix.unlink tlu;
-  Lwt_main.run t;0
 
-let uncompress_tlog tlx =
-  let t =
-    let extension = Tlc2.extension_of tlx in
-    if extension = Tlc2.archive_extension then
-      begin
-	let tlu = Tlc2.to_tlog_name tlx in
-	Compression.uncompress_tlog tlx tlu >>= fun () ->
-	Unix.unlink tlx;
-	Lwt.return ()
-      end
-    else if extension = ".tlc" then
-      begin
-	let tlu = Tlc2.to_tlog_name tlx in
-	Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
-	Unix.unlink tlx;
-	Lwt.return ()
-      end
-    else Lwt.fail (Failure "unknown file format")
-  in
-  Lwt_main.run t;0
 
 let run_some_tests repeat_count filter =
   All_test.configure_logging();
@@ -273,6 +217,14 @@ let main () =
     ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
 			                   Arg.Set_string filename],
      "<filename> : dump a tlog file in readable format");
+    ("--strip-tlog", Arg.Tuple[ set_laction StripTlog;
+                               Arg.Set_string filename],
+     "<filename> : remove the marker of a tlog (development)");
+    ("--mark-tlog", Arg.Tuple[ set_laction MarkTlog;
+                               Arg.Set_string filename;
+                               Arg.Set_string key;
+                             ],
+     "<filename> <key>: add a marker to a tlog");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
@@ -396,12 +348,14 @@ let main () =
     | ListTests -> list_tests ();0
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
-    | DumpTlog -> dump_tlog !filename !dump_values
-    | MakeTlog -> make_tlog !filename !counter
+    | DumpTlog -> Tlog_main.dump_tlog !filename !dump_values
+    | StripTlog -> Tlog_main.strip_tlog !filename
+    | MakeTlog -> Tlog_main.make_tlog !filename !counter
+    | MarkTlog -> Tlog_main.mark_tlog !filename !key
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
-    | CompressTlog -> compress_tlog !filename
-    | UncompressTlog -> uncompress_tlog !filename
+    | CompressTlog -> Tlog_main.compress_tlog !filename
+    | UncompressTlog -> Tlog_main.uncompress_tlog !filename
     | SET -> Client_main.set !config_file !key !value
     | GET -> Client_main.get !config_file !key
     | PREFIX -> Client_main.prefix !config_file !key !max_results
@@ -432,37 +386,39 @@ let main () =
   let do_server node =
     match node with
       | Node ->
-	let canonical =
-	  if !config_file.[0] = '/'
-	  then !config_file
-	  else Filename.concat (Unix.getcwd()) !config_file
-	in
-	let make_config () = Node_cfg.read_config canonical in
-	Daemons.maybe_daemonize !daemonize make_config;
-	let main_t = (Node_main.main_t make_config
-			!node_id !daemonize !catchup_only)
-      in
-	(* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-	Lwt_main.run main_t;
-	0
+          begin
+	        let canonical =
+	          if !config_file.[0] = '/'
+	          then !config_file
+	          else Filename.concat (Unix.getcwd()) !config_file
+	        in
+	        let make_config () = Node_cfg.read_config canonical in
+	        Daemons.maybe_daemonize !daemonize make_config;
+	        let main_t = (Node_main.main_t make_config
+			                !node_id !daemonize !catchup_only)
+            in
+	        (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
+	        Lwt_main.run main_t 
+          end
       | TestNode ->
-	let lease_period = 60 in
-	let node = Master_type.Forced "t_arakoon_0" in
-	let make_config () = Node_cfg.make_test_config 3 node lease_period in
-	let main_t = (Node_main.test_t make_config !node_id) in
-	Lwt_main.run main_t;
-	0
-
+          begin
+	        let lease_period = 60 in
+	        let node = Master_type.Forced "t_arakoon_0" in
+	        let make_config () = Node_cfg.make_test_config 3 node lease_period in
+	        let main_t = (Node_main.test_t make_config !node_id) in
+	        Lwt_main.run main_t
+	      end
   in
   Arg.parse
     interface
     (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
     usage;
-  let res =
+  let exit_code =
     match !action with
       | LocalAction la -> do_local la
       | ServerAction sa -> do_server sa
   in
-  exit res;;
+  (* let () = Printf.printf "[rc=%i]\n" rc in *)
+  exit exit_code
 
 

@@ -552,9 +552,9 @@ let assert_exists3 tpl = _with_master tpl _assert_exists3
 let setup master base () =
   let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" in
-  let t2 = Node_main.test_t make_config "t_arakoon_2" in
+  let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
+  let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
   Lwt.return (make_config (), all_t)
 

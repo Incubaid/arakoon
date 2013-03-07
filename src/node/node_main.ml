@@ -174,7 +174,7 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
     end
   in
   make_store db_name >>= fun (store:Store.store) ->
-  make_tlog_coll me.tlog_dir me.use_compression >>= fun tlc ->
+  make_tlog_coll me.tlog_dir me.use_compression name >>= fun tlc ->
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -208,12 +208,13 @@ module X = struct
   
   let last_master_log_stmt = ref 0L  
     
-  let on_accept statistics tlog_coll store (v,n,i) =
+  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
     let sync = Value.is_synced v in
-    tlog_coll # log_value i v ~sync >>= fun wr_result ->
+    let marker = (None:string option) in
+    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
     begin
       match v with
         | Value.Vc (us,_)     -> 
@@ -275,7 +276,7 @@ end
 let _main_2 
     (make_store: ?read_only:bool -> string -> Store.store Lwt.t) 
     make_tlog_coll make_config get_snapshot_name copy_store ~name 
-    ~daemonize ~catchup_only =
+    ~daemonize ~catchup_only : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -297,7 +298,7 @@ let _main_2
     begin
       only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll 
       >>= fun _ -> (* we don't need that here as there is no continuation *)
-      Lwt.return ()
+      Lwt.return 0
     end
   else
     begin
@@ -416,7 +417,7 @@ let _main_2
             end
           in
 	      Lwt.catch
-	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression ) 
+	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression name ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
                 let store_i = store # consensus_i () in
@@ -440,7 +441,7 @@ let _main_2
                       Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
 			            last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.use_compression 
+                      make_tlog_coll me.tlog_dir me.use_compression name
 		            end
                   else 
 		            begin
@@ -543,8 +544,8 @@ let _main_2
       
       let killswitch = Lwt_mutex.create () in
       Lwt_mutex.lock killswitch >>= fun () ->
-      let unlock_killswitch () = Lwt_mutex.unlock killswitch in
-      let listen_for_sigterm () = Lwt_mutex.lock killswitch in
+      let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
+      let listen_for_signal () = Lwt_mutex.lock killswitch in
       
       let start_backend (master, constants, buffers, new_i, vo, store) =
 	    let to_run = 
@@ -565,45 +566,60 @@ let _main_2
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
 	    (fun () ->
-          let _ = Lwt_unix.on_signal 15
-            (fun i -> 
-	          unlock_killswitch ()
-	        )
-          in
+          let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
+          let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
 	      Lwt.pick [ 
 	        messaging # run ();
 	        begin
 	          build_startup_state () >>= fun (start_state,
 					                          service, 
 					                          rapporting) -> 
-              let (_,_,_,_,_,store) = start_state in
+              let (_,constants,_,_,_,store) = start_state in
 	          Lwt.pick[ start_backend start_state;
 			            service ();
 			            rapporting ();
-                        (listen_for_sigterm () >>= fun () ->
-			             Lwt_log.info "got sigterm" >>= fun () ->
-			             Lwt_io.printlf "(stdout)got sigterm" >>= fun () ->
+                        (listen_for_signal () >>= fun () ->
+                         let msg = "got TERM | INT" in
+			             Lwt_log.info msg >>= fun () ->
+			             Lwt_io.printl msg >>= fun () ->
                          store # close () >>= fun () ->
                          Lwt_log.fatal_f 
                            ">>> Closing the store @ %S succeeded: everything seems OK <<<"
                            (store # get_location ())
+                         >>= fun () ->
+                         let open Multi_paxos in constants.tlog_coll # close () 
+                             
                         )
 			            ;
 		              ]
 	        end
 	      ] >>= fun () ->
-          Lwt_log.info "Completed shutdown"
+          Lwt_log.info "Completed shutdown" 
+          >>= fun () ->
+          Lwt.return 0
         )
-	    (fun exn -> 
-	      Lwt_log.fatal ~exn "going down" >>= fun () ->
-	      Lwt_log.fatal "after pick" >>= fun() ->
-	      match dump_crash_log with
-	        | None -> Lwt_log.info "Not dumping state"
-	        | Some f -> f() )
+	    (function
+          | Tlc2.TLCNotProperlyClosed msg -> 
+              let rc = 42 in
+              Lwt_log.fatal_f "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+              Lwt.return 42
+
+          | exn -> 
+              begin
+	            Lwt_log.fatal ~exn "going down" >>= fun () ->
+	            Lwt_log.fatal "after pick" >>= fun() ->
+	            begin
+                  match dump_crash_log with
+	                | None -> Lwt_log.info "Not dumping state"
+	                | Some f -> f() 
+                end >>= fun () ->
+                Lwt.return 1
+                end
+        )
     end
       
       
-let main_t make_config name daemonize catchup_only=
+let main_t make_config name daemonize catchup_only : int Lwt.t =
   let make_store = Local_store.make_local_store in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
