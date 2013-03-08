@@ -951,8 +951,22 @@ def assert_last_i_in_sync ( node_1, node_2 ):
         pass
 
 
+def check_output(args):
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    output, unused_err = process.communicate()
+    retcode = process.poll()
+    if retcode:
+        cmd = args[0]
+        raise subprocess.CalledProcessError(retcode, cmd)
+    return output
+
 def assert_running_nodes ( n ):
-    assert_not_equals ( q.system.process.checkProcess( daemon_name, n), 1, "Number of expected running nodes missmatch" )
+    try:
+        count = int(check_output(['pgrep', '-c', daemon_name]))
+    except subprocess.CalledProcessError:
+        count = 0
+
+    assert_equals(count, n, "Number of expected running nodes mismatch")
 
 def assert_value_list ( start_suffix, list_size, list ) :
     assert_list( value_format_str, start_suffix, list_size, list )
