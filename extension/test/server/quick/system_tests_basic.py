@@ -22,6 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
+from arakoon.ArakoonProtocol import ArakoonClientConfig
+from arakoon.Arakoon import ArakoonClient
 import arakoon
 import time
 import subprocess
@@ -501,6 +503,33 @@ def test_get_key_count():
     assert_equals(c, test_size, "getKeyCount should return %d but got %d" % 
                   (test_size, c) )
 
+@C.with_custom_setup (C.default_setup, C.basic_teardown)
+def test_get_key_count_on_slave():
+    # 
+    cli = C.get_client()
+    m = cli.whoMaster()
+    slaves = filter(lambda x: x <> m, C.node_names)
+    s0 = slaves[0] 
+    cluster = C._getCluster()
+    port = cluster.getNodeConfig(s0)['client_port']
+    s0_coords = ["127.0.0.1", port] 
+    # evil: point everything to the slave
+    cfg = ArakoonClientConfig(C.cluster_id, 
+                              { 'sturdy_0' : s0_coords,
+                                'sturdy_1' : s0_coords,
+                                'sturdy_2' : s0_coords,
+                                })
+
+    slave_only_client = ArakoonClient(cfg)
+    try:
+        count = slave_only_client.getKeyCount()
+        logging.debug("count = %i", count)
+        assert_true(False)
+    except ArakoonException, e:
+        pass
+    
+        
+    
 @C.with_custom_setup (C.default_setup, C.basic_teardown)
 def test_close_on_sigterm():
     n0 = C.node_names[0]
