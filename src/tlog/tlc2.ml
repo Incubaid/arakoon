@@ -584,8 +584,13 @@ object(self: # tlog_collection)
                 | Some (v,i) -> 
                     let oc = F.oc_of file in
                     let marker = _make_marker node_id in
-                    Tlogcommon.write_marker oc i v (Some marker)
-            end >>= fun () ->
+                    Tlogcommon.write_marker oc i v (Some marker) >>= fun () ->
+                    Lwt_log.debug_f "wrote marker %s  @i=%s in %s" 
+                      marker
+                      (Sn.string_of i) (F.fn_of file)
+                      
+            end 
+            >>= fun () ->
             F.close file
     end
 
@@ -711,13 +716,18 @@ let make_tlc2 tlog_dir use_compression node_id =
     match last with
       | None   -> Lwt.return ()
       | Some e ->
-          let i = Entry.i_of e in
-          let v = Entry.v_of e in
-          let marker = Some ("opened:" ^ node_id) in
-          col # log_value_explicit i v false marker
+          (* 
+             (* for some reason this will cause mayhem 'test_243' *) 
+             let i = Entry.i_of e in
+             let v = Entry.v_of e in
+             let m = "opened:" ^ node_id in
+             let marker = Some m in
+             col # log_value_explicit i v false marker >>= fun () ->
+             Lwt_log.debug_f "wrote %S marker @i=%s for %S" m (Sn.string_of i) node_id  >>= fun () ->
+          *)
+          Lwt.return ()
   end
   >>= fun () ->
-  Lwt_log.debug_f "wrote marker for %S" node_id >>= fun ()->
   Lwt.return col
 
 
