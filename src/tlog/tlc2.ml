@@ -396,6 +396,9 @@ object(self: # tlog_collection)
 
       
   method log_value_explicit i value sync marker =
+    Lwt_log.debug_f "log_value_explicit %s %s %b %s" (Sn.string_of i) (Value.value2s value) sync 
+      (Log_extra.string_option2s marker )
+    >>= fun () ->
     self # _prelude i >>= fun file ->
     let p = F.file_pos file in
     let oc = F.oc_of file in
@@ -716,15 +719,18 @@ let make_tlc2 tlog_dir use_compression node_id =
     match last with
       | None   -> Lwt.return ()
       | Some e ->
-          (* 
+          Lwt_log.debug_f "will write marker: new_c:%i \n%s" new_c (Tlogreader2.Index.to_string index)
+          >>= fun() ->
              (* for some reason this will cause mayhem 'test_243' *) 
-             let i = Entry.i_of e in
-             let v = Entry.v_of e in
-             let m = "opened:" ^ node_id in
-             let marker = Some m in
-             col # log_value_explicit i v false marker >>= fun () ->
-             Lwt_log.debug_f "wrote %S marker @i=%s for %S" m (Sn.string_of i) node_id  >>= fun () ->
-          *)
+          let i = Entry.i_of e in
+          let v = Entry.v_of e in
+          let m = "opened:" ^ node_id in
+          let marker = Some m in
+          _init_file tlog_dir new_c >>= fun file ->
+          let oc = F.oc_of file in
+          Tlogcommon.write_marker oc i v marker >>= fun () ->
+          F.close file >>= fun () ->
+          Lwt_log.debug_f "wrote %S marker @i=%s for %S" m (Sn.string_of i) node_id  >>= fun () ->
           Lwt.return ()
   end
   >>= fun () ->
