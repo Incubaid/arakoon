@@ -396,9 +396,6 @@ object(self: # tlog_collection)
 
       
   method log_value_explicit i value sync marker =
-    Lwt_log.debug_f "log_value_explicit %s %s %b %s" (Sn.string_of i) (Value.value2s value) sync 
-      (Log_extra.string_option2s marker )
-    >>= fun () ->
     self # _prelude i >>= fun file ->
     let p = F.file_pos file in
     let oc = F.oc_of file in
