@@ -557,6 +557,14 @@ let one_command (ic,oc) (backend:Backend.backend) =
       in
       Llio.output_string oc rest >>= fun () ->
       Lwt.return false
+    | DROP_MASTER ->
+      begin
+        Lwt_log.info "DROP_MASTER" >>= fun () ->
+        Lwt.catch
+          (fun () -> backend # drop_master () >>= fun () ->
+            response_ok_unit oc)
+          (handle_exception oc)
+      end
         
 let protocol backend connection =
   let ic,oc = connection in

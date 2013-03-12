@@ -92,4 +92,6 @@ class type backend = object
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
 
   method delete_prefix: string -> int Lwt.t
+
+  method drop_master: unit -> unit Lwt.t
 end

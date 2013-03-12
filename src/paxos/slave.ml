@@ -222,7 +222,10 @@ let slave_steady_state constants state event =
           handle_unquiesce_request constants n >>= fun (store_i, vo) ->
           Fsm.return  (Slave_steady_state state)
         end
-          
+    | DropMaster (sleep, awake) ->
+        Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
+        Fsm.return (Slave_steady_state state)
+
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
@@ -397,7 +400,9 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           handle_unquiesce_request constants n >>= fun (store_i, store_vo) ->
           Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
         end
-
+    | DropMaster (sleep, awake) ->
+        Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
+        Fsm.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
 
 (* a pending slave that discovered another master has to do
    catchup and then go to steady state or wait_for_accept
