@@ -114,7 +114,7 @@ def test_marker_presence_required ():
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
-    subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed %s' % nn])
+    subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed:%s' % nn])
     cluster.start()
     C.assert_running_nodes(1)
 

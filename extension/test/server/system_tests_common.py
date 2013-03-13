@@ -683,7 +683,7 @@ def setup_nursery_2 (home_dir):
 def setup_nursery_3 (home_dir):
     setup_nursery_n(3, home_dir)
         
-def dummy_teardown():
+def dummy_teardown(removeDirs):
     pass
 
 

@@ -140,7 +140,7 @@ let fold_read tlog_dir file_name
 	  
 type validation_result = (Entry.t option * Index.index)
 
-let _make_marker node_id = "closed " ^ node_id
+let _make_close_marker node_id = "closed:" ^ node_id
 
 let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =      
   Lwt_log.debug_f "Tlc2._validate_one %s" tlog_name >>= fun () ->
@@ -169,7 +169,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
             match eo with 
               | None -> None
               | Some e ->
-                  let s = _make_marker node_id in
+                  let s = _make_close_marker node_id in
                   if Entry.check_marker e s
                   then !prev_entry
                   else raise (TLCNotProperlyClosed (Entry.entry2s e))
@@ -189,7 +189,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
             | Some entry -> let i = Entry.i_of entry in Lwt.fail (TLCCorrupt (pos,i))
             | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
         end
-      | exn -> Lwt.fail exn
+      | exn -> Lwt_log.debug ~exn "in _validate_one" >>= fun () -> Lwt.fail exn
     )
 
 
@@ -321,6 +321,7 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
 
 
 class tlc2 (tlog_dir:string) (new_c:int) 
+  (file:F.t option)
   (last:Entry.t option) (index:Index.index) (use_compression:bool) 
   (node_id:string)
   = 
@@ -333,8 +334,8 @@ class tlc2 (tlog_dir:string) (new_c:int)
 	    (Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
-  val mutable _file = (None:F.t option) 
-  val mutable _index = (None: Index.index)
+  val mutable _file = file
+  val mutable _index = index
   val mutable _inner = inner (* ~ pos in file *)
   val mutable _outer = new_c (* ~ pos in dir *) 
   val mutable _previous_entry = last
@@ -421,34 +422,39 @@ object(self: # tlog_collection)
 
   method private _prelude i =
     let ( *: ) = Sn.mul in
-    match _file with
-      | None ->
-	    begin
-          Lwt_log.debug_f "prelude %s" (Sn.string_of i) >>= fun () ->
-	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	      _outer <- Sn.to_int outer;
-	      _init_file tlog_dir _outer >>= fun file ->
-	      _file <- Some file;
-          _index <- Index.make (F.fn_of file);
-	      Lwt.return file
-	    end
-      | Some (file:F.t) -> 
-	    if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1)) 
-	    then
-          let do_rotate() =
-            let new_outer = _outer + 1 in
-            Lwt_log.info_f "i= %s & outer = %i => rotate to %i" (Sn.string_of i) _outer new_outer
-            >>= fun () ->
-            self # _rotate file new_outer
-          in
-          begin
-            match _previous_entry with
-              | Some pe when (Entry.i_of pe) = i -> Lwt.return file
-              | _ -> do_rotate ()
-          end
-	    else
-	      Lwt.return file
-            
+    begin 
+      match _file with
+        | None ->
+	        begin
+              Lwt_log.debug_f "prelude %s" (Sn.string_of i) >>= fun () ->
+	          let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+	          _outer <- Sn.to_int outer;
+	          _init_file tlog_dir _outer >>= fun file ->
+	          _file <- Some file;
+              _index <- Index.make (F.fn_of file);
+	          Lwt.return file
+	        end
+        | Some (file:F.t) -> 
+            begin
+	        if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1)) 
+	        then
+              let do_rotate() =
+                let new_outer = _outer + 1 in
+                Lwt_log.info_f "i= %s & outer = %i => rotate to %i" (Sn.string_of i) _outer new_outer
+                >>= fun () ->
+                self # _rotate file new_outer
+              in
+              begin
+                match _previous_entry with
+                  | Some pe when (Entry.i_of pe) = i -> Lwt.return file
+                  | _ -> do_rotate ()
+              end
+	        else
+	          Lwt.return file
+            end
+    end
+    >>= fun file ->
+    Lwt.return file
             
   method private _rotate file new_outer =
     assert (new_outer = _outer + 1);
@@ -580,10 +586,10 @@ object(self: # tlog_collection)
         | Some file -> 
             begin
               match self # get_last () with
-                | None       -> Lwt.return ()
+                | None       -> Lwt_log.debug "last is None" >>= fun () ->Lwt.return ()
                 | Some (v,i) -> 
                     let oc = F.oc_of file in
-                    let marker = _make_marker node_id in
+                    let marker = _make_close_marker node_id in
                     Tlogcommon.write_marker oc i v (Some marker) >>= fun () ->
                     Lwt_log.debug_f "wrote marker %s  @i=%s in %s" 
                       marker
@@ -710,24 +716,35 @@ let make_tlc2 tlog_dir use_compression node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Lwt_log.debug_f "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir new_c last new_index use_compression node_id in
+
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
-      | None   -> Lwt.return ()
+      | None   -> _init_file tlog_dir new_c >>= fun file -> Lwt.return (Some file)
       | Some e ->
-          (* 
+          Lwt_log.debug_f "will write marker: new_c:%i \n%s" new_c (Tlogreader2.Index.to_string index)
+          >>= fun() ->
              (* for some reason this will cause mayhem 'test_243' *) 
-             let i = Entry.i_of e in
-             let v = Entry.v_of e in
-             let m = "opened:" ^ node_id in
-             let marker = Some m in
-             col # log_value_explicit i v false marker >>= fun () ->
-             Lwt_log.debug_f "wrote %S marker @i=%s for %S" m (Sn.string_of i) node_id  >>= fun () ->
-          *)
-          Lwt.return ()
+          let i = Entry.i_of e in
+          let v = Entry.v_of e in
+          let m = "opened:" ^ node_id in
+          let marker = Some m in
+          _init_file tlog_dir new_c >>= fun file ->
+          let oc = F.oc_of file in
+          Tlogcommon.write_marker oc i v marker >>= fun () ->
+          Lwt_log.debug_f "wrote %S marker @i=%s for %S" m (Sn.string_of i) node_id  >>= fun () ->
+          let fo = Some file in
+          Lwt.return fo
   end
-  >>= fun () ->
+  >>= fun file ->
+  let col = new tlc2 tlog_dir new_c 
+    file
+    last 
+    new_index 
+    use_compression 
+    node_id 
+  in
+  Lwt_log.debug "end of make_tlc2" >>= fun () ->
   Lwt.return col
 
 
