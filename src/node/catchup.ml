@@ -29,6 +29,9 @@ open Update
 open Store
 open Tlogcommon
 
+exception StoreAheadOfTlogs of (Int64.t * Sn.t)
+exception StoreCounterTooLow of string
+
 type store_tlc_cmp =
   | Store_n_behind
   | Store_1_behind
@@ -144,9 +147,10 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
   in
   if Sn.compare start_i too_far_i > 0 
   then 
-    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting." 
+    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting."
       (Sn.string_of start_i) (Sn.string_of too_far_i) in
-    Lwt.fail (Failure msg)
+    Lwt_log.error msg >>= fun () ->
+    Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
   else
   begin 
   Lwt_log.debug_f "will replay starting from %s into store, too_far_i:%s" 
@@ -202,11 +206,14 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
       let pred_too_far_i = Sn.pred too_far_i in
       if si < pred_too_far_i 
       then
-	    Llio.lwt_failfmt "Catchup store failed. Store counter is too low: %s < %s" 
+        let msg = Printf.sprintf
+          "Catchup store failed. Store counter is too low: %s < %s"
           (Sn.string_of si) (Sn.string_of pred_too_far_i)
-	  else 
-	    Lwt.return ()
-	end >>= fun () ->
+        in
+        Lwt.fail (StoreCounterTooLow msg)
+      else
+        Lwt.return ()
+      end >>= fun () ->
     (* TODO: straighten interface *)
     let vo = match !acc with
       | None -> None
@@ -250,12 +257,14 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
 	    catchup_store me (store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	    Lwt.return (end_i,vo)
       end
-    | _,_ -> 
-      let msg = Printf.sprintf 
-	    "ti_o:%s, si_o:%s should not happen: tlogs have been removed?" 
-	    (io_s ti_o) (io_s si_o) 
+    | _,_ ->
+      let msg = Printf.sprintf
+	    "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"
+	    (io_s ti_o) (io_s si_o)
       in
-      Lwt.fail (Failure msg)
+      Lwt_log.fatal msg >>= fun () ->
+      let maybe a = function | None -> a | Some b -> b in
+      Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, maybe (-1L) ti_o))
 
 let get_db db_name cluster_id cfgs =
 
