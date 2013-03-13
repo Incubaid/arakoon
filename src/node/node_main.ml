@@ -447,7 +447,7 @@ let _main_2
 		            begin
                       Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" 
 			            (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
-                      Lwt.fail( Tlc2.TLCCorrupt (pos,tlog_i) )
+                      Lwt.fail(Catchup.StoreAheadOfTlogs(pos,tlog_i))
 		            end
                 end
                   | ex -> Lwt.fail ex 
@@ -599,11 +599,27 @@ let _main_2
           Lwt.return 0
         )
 	    (function
+          | Catchup.StoreAheadOfTlogs(s_i, tlog_i) ->
+              let rc = 40 in
+              Lwt_log.fatal_f "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
+                rc (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
+              Lwt.return rc
+          | Catchup.StoreCounterTooLow msg ->
+              let rc = 41 in
+              Lwt_log.fatal_f "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
+              Lwt.return rc
           | Tlc2.TLCNotProperlyClosed msg -> 
               let rc = 42 in
               Lwt_log.fatal_f "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
-              Lwt.return 42
-
+              Lwt.return rc
+          | Node_cfg.InvalidTlogDir dir ->
+              let rc = 43 in
+              Lwt_log.fatal_f "[rc=%i] Missing or inaccessible tlog directory: %s" rc dir >>= fun () ->
+              Lwt.return rc
+          | Node_cfg.InvalidHomeDir dir ->
+              let rc = 44 in
+              Lwt_log.fatal_f "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
+              Lwt.return rc
           | exn -> 
               begin
 	            Lwt_log.fatal ~exn "going down" >>= fun () ->

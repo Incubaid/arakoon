@@ -66,7 +66,17 @@ let get_number fn =
   int_of_string pre
 
 let get_tlog_names tlog_dir = 
-  File_system.lwt_directory_list tlog_dir >>= fun entries ->
+  Lwt.catch
+    (fun () ->
+      File_system.lwt_directory_list tlog_dir
+    )
+    (function
+      | Unix.Unix_error(Unix.EIO, fn, _) as exn ->
+          if fn = "readdir"
+          then Lwt.fail (Node_cfg.InvalidTlogDir tlog_dir)
+          else Lwt.fail exn
+      | exn -> Lwt.fail exn
+    ) >>= fun entries ->
   let filtered = List.filter 
     (fun e -> Str.string_match file_regexp e 0) 
     entries 
