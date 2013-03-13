@@ -573,6 +573,7 @@ object(self: #backend)
 
 
   method get_key_count () =
+    self # _read_allowed false >>= fun () -> 
     store # get_key_count ()
 
   method private quiesce_db () =
