@@ -586,23 +586,27 @@ object(self: # tlog_collection)
       end
       >>= fun () ->
       Lwt_log.debug "tlc2::closes () (part2)" >>= fun () ->
-      match _file with
-        | None -> Lwt.return ()
-        | Some file -> 
-            begin
-              match self # get_last () with
-                | None       -> Lwt.return ()
-                | Some (v,i) -> 
-                    let oc = F.oc_of file in
-                    let marker = _make_close_marker node_id in
-                    Tlogcommon.write_marker oc i v marker >>= fun () ->
-                    Lwt_log.debug_f "wrote marker %s  @i=%s in %s" (Log_extra.string_option2s marker)
-                      (Sn.string_of i) (F.fn_of file)
-                      
-            end 
-            >>= fun () ->
-            F.close file
+      let last_file () = 
+        match _file with
+          | None -> _init_file tlog_dir _outer 
+          | Some file -> Lwt.return file
+      in
+      last_file () >>= fun file ->
+      begin
+        match self # get_last() with
+          | None -> Lwt.return ()
+          | Some(v,i) ->
+              begin
+                let oc = F.oc_of file in
+                let marker = _make_close_marker node_id in
+                Tlogcommon.write_marker oc i v marker >>= fun () ->
+                Lwt_log.debug_f "wrote %S marker @i=%s for %S" 
+                  (Log_extra.string_option2s marker) (Sn.string_of i) node_id  
+              end
+      end >>= fun () ->
+      F.close file 
     end
+
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
   

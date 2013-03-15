@@ -62,6 +62,7 @@ let test_interrupted_rollover (dn,factory) =
 let test_validate_at_rollover_boundary (dn,factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
+  Lwt_log.debug "1" >>= fun () ->
   val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
   let lasti, lasti_str = 
     begin
@@ -70,7 +71,7 @@ let test_validate_at_rollover_boundary (dn,factory) =
         | Some e -> let i = Entry.i_of e in i, Sn.string_of i
     end 
   in
-  val_tlog_coll # close () >>= fun _ ->
+  val_tlog_coll # close () >>= fun () ->
   let msg = Printf.sprintf "Values of is are different 4 <> %s" lasti_str in
   begin
     if lasti <> 4L
