@@ -60,7 +60,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     ~teardown_callback
     ~scheme
     "127.0.0.1" port
-    (Client_protocol.protocol backend) in
+    (Client_protocol.protocol backend false) in
 
   let client_t () =
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in

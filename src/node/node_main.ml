@@ -109,16 +109,17 @@ open Mp_msg
 let _config_service cfg backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
+  let log_commands = cfg.log_commands in
   let max_connections = 
     let soft = Limits.get_rlimit Limits.NOFILE Limits.Soft in
     max (soft -200) 200
   in
   let scheme = Server.create_connection_allocation_scheme max_connections in
   let services = List.map
-    (fun host -> 
+    (fun host ->
       let name = Printf.sprintf "%s:client_service" host in
-      Server.make_server_thread ~name host port 
-        (Client_protocol.protocol backend) 
+      Server.make_server_thread ~name host port
+        (Client_protocol.protocol backend log_commands)
         ~scheme
     )
     hosts
