@@ -24,7 +24,7 @@ open OUnit
 open Lwt
 open Lwt_log
 
-let echo_protocol (ic,oc) = 
+let echo_protocol (ic,oc,cid) = 
   let size = 1024 in
   let buffer = String.create size in
   let rec loop () = 

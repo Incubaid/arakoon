@@ -280,11 +280,13 @@ object (self: #store)
 end
 
 let make_mem_store ?(read_only=false) db_name =
+  Lwt_log.debug_f "mem_store:: make store with datbase:%s" db_name >>= fun () ->
   let store = new mem_store db_name in
   let store2 = (store :> store) in
   Lwt.return store2
 
 let copy_store old_location new_location overwrite =
+  Lwt_log.debug_f "mem_store:: copy store%s to %s" old_location new_location >>= fun () ->
   Lwt.return ()
 
 
