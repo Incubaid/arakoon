@@ -536,7 +536,7 @@ let one_command (ic,oc) (backend:Backend.backend) =
       Llio.output_int oc Version.minor >>= fun () ->
       Llio.output_int oc Version.patch >>= fun () ->
       let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
-        Version.hg_revision
+        Version.git_revision
         Version.compile_time
         Version.machine
       in

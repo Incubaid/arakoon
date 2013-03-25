@@ -24,6 +24,23 @@ open Otc
 
 open Lwt
 
+let next_prefix prefix =
+  let next_char c =
+    let code = Char.code c + 1 in
+    match code with
+      | 256 -> Char.chr 0, true
+      | code -> Char.chr code, false in
+  let rec inner s pos =
+    let c, carry = next_char s.[pos] in
+    s.[pos] <- c;
+    match carry, pos with
+      | false, _ -> Some s
+      | true, 0 -> None
+      | true, pos -> inner s (pos - 1) in
+  let copy = String.copy prefix in
+  inner copy ((String.length copy) - 1)
+
+
 module Hotc = struct
 
   type t = {
@@ -136,53 +153,49 @@ module Hotc = struct
         let () = Bdb._cur_delete cursor in
         raise exn
 
-  (* some remarks: normally you'll want yo use this function with a
-     first parameter. Without a first parameter the FIRST entry in
-     the prefix will be first, this is probably not very useful
-     when reverse paging *)
+
   let rev_range_entries prefix bdb first finc last linc max =
-    let first = match first with | None -> prefix | Some x -> prefix ^ x in
+    let first, finc = match first with
+      | None -> next_prefix prefix, false
+      | Some x -> Some (prefix ^ x), finc in
     let last = match last with | None -> "" | Some x -> prefix ^ x in
     let pl = String.length prefix in
     try with_cursor2 bdb (fun bdb cur ->
-      let () =
-        try
-          Bdb.jump bdb cur first
-        with
-          | Not_found -> Bdb.last bdb cur
+      let () = match first with
+        | None -> Bdb.last bdb cur
+        | Some first ->
+            try
+              let () = Bdb.jump bdb cur first in
+              let jumped_key = Bdb.key bdb cur in
+              if (String.compare jumped_key first) > 0 or (not finc) then Bdb.prev bdb cur
+            with
+              | Not_found -> Bdb.last bdb cur
       in
-      let jumped_key = Bdb.key bdb cur in
-      let jumped_key_prefix = String.sub jumped_key 0 pl in
-      let () = if not finc || jumped_key_prefix <> prefix then Bdb.prev bdb cur in
       let rec rev_e_loop acc count =
         if count = max then acc
         else
           let key, value = Bdb.record bdb cur in
           let l = String.length key in
-          (* make sure we have a key length long enough to contain the prefix *)
-          if l < pl then acc
+          if not (String_extra.prefix_match prefix key) then
+            acc
           else
-            (* make sure the prefix is still the wanted prefix *)
-            let prefix2 = String.sub key 0 pl in
-            if prefix2 <> prefix then acc
+            let key2 = String.sub key pl (l-pl) in
+            if last = key then
+              if linc then (key2,value)::acc else acc
+            else if last > key then acc
             else
-              let key2 = String.sub key pl (l-pl) in
-              if last = key then
-                if linc then (key2,value)::acc else acc
-              else if last > key then acc
-              else
-                let acc = (key2,value)::acc in
-                let maybe_next =
-                  try
-                    let () = Bdb.prev bdb cur in
-                    None
-                  with
-                    | Not_found ->
+              let acc = (key2,value)::acc in
+              let maybe_next =
+                try
+                  let () = Bdb.prev bdb cur in
+                  None
+                with
+                  | Not_found ->
                       Some acc
-                in
-                match maybe_next with
-                  | Some acc -> acc
-                  | None -> rev_e_loop acc (count+1)
+              in
+              match maybe_next with
+                | Some acc -> acc
+                | None -> rev_e_loop acc (count+1)
       in
       rev_e_loop [] 0
     )

@@ -476,6 +476,18 @@ def test_delete_prefix():
     assert_equals(l3,0)
     logging.debug("done")
 
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_rev_range_entries_arakoon368():
+    """ assert ARAKOON-368 bugfix """
+    cli = C.get_client()
+    cli.set("key0", "value0")
+    cli.set("key1", "value1")
+    cli.set("key2", "value2")
+    l1 = cli.rev_range_entries("kez",False, "a", True, 10)
+    correct = [("key2","value2"), ("key1","value1"), ("key0","value0") ] 
+    assert_equals(l1, correct)
+
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
     cli = C.get_client()
