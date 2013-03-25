@@ -171,6 +171,15 @@ let show_l l =
   let l2 = List.map (fun (k,v) -> Printf.sprintf "('%s','%s')" k v) l in
   "[" ^ (String.concat ";" l2) ^ "]"
 
+let test_next_prefix =
+  let get = function | Some x -> x | _ -> raise Exit in
+  let some_next_prefix s = get (next_prefix s) in
+  let assert_next prefix next = eq_string "" (some_next_prefix prefix) next in
+  assert_next "aa" "ab";
+  assert_next "a\255\255" "b\000\000";
+  let next = next_prefix "\255\255" in
+  if (next <> None) then failwith "next prefix not correct"
+
 let test_rev_range_entries db =
   let eq = eq_list (eq_tuple eq_string eq_string) in
   Hotc.transaction db
@@ -179,13 +188,14 @@ let test_rev_range_entries db =
       Prefix_otc.put db "VOL" "ha" "lo" >>= fun () ->
       Prefix_otc.put db "VOL" "he" "pluto" >>= fun () ->
       Prefix_otc.put db "VOL" "hello" "world" >>= fun () ->
-      Prefix_otc.put db "VOL" "hi" "mars"
+      Prefix_otc.put db "VOL" "hi" "mars" >>= fun () ->
+      Prefix_otc.put db "Z"   "h" "f"
     ) >>= fun () ->
   let bdb = Hotc.get_bdb db in
-  (* as we give NO start entry this will start at the FIRST entry in the prefix, not the last one... *)
+  (* as we give NO start entry this will start at the LAST entry in the prefix... *)
   let l1 = Hotc.rev_range_entries "VOL" bdb None true None true 3 in
   let () = Printf.printf "l1: %s\n" (show_l l1) in
-  let () = eq "l1" [("ha","lo")] l1 in
+  let () = eq "l1" [("he","pluto");("hello","world");("hi","mars")] l1 in
   let l2 = Hotc.rev_range_entries "VOL" bdb (Some "hi") true None true 3 in
   let () = Printf.printf "l2: %s\n" (show_l l2) in
   (* note that they are returned IN order *)
@@ -209,6 +219,12 @@ let test_rev_range_entries db =
   let l8 = Hotc.rev_range_entries "VOL" bdb (Some "he") true (Some "h") false 4 in
   let () = Printf.printf "l8: %s\n" (show_l l8) in
   let () = eq "l8" [("ha","lo");("he","pluto")] l8 in
+  let l9 = Hotc.rev_range_entries "VOL" bdb (Some "hd") false None true 3 in
+  let () = Printf.printf "l9: %s\n" (show_l l9) in
+  let () = eq "l9" [("ha","lo")] l9 in
+  let l10 = Hotc.rev_range_entries "VOL" bdb (Some "hu") false None true 3 in
+  let () = Printf.printf "l10: %s\n" (show_l l10) in
+  let () = eq "l10" [("he","pluto");("hello","world");("hi","mars")] l10 in
   Lwt.return ()
 
 let test_rev_range_entries2 db =
@@ -246,9 +262,24 @@ let test_rev_range_entries3 db =
   let bdb = Hotc.get_bdb db in
   let l1 = Hotc.rev_range_entries _pf bdb first finc last linc max in
   let () = Printf.printf "l1: %s\n" (show_l l1) in
-  let () = eq "l1" [("faa", "boo")] l1 in
+  let () = eq "l1" [("faa", "boo");("foo","bar")] l1 in
   Lwt.return ()
 
+let test_rev_range_entries4 db = 
+  Hotc.transaction db
+    (fun bdb ->
+      Bdb.put bdb "key0" "value0";
+      Bdb.put bdb "key1" "value1";
+      Bdb.put bdb "key2" "value2";
+      Lwt.return ()
+    ) >>= fun () ->
+  let bdb = Hotc.get_bdb db in
+  let l1 = Hotc.rev_range_entries "" bdb (Some "kez") false (Some "a") true 10 in
+  let () = Printf.printf "l1:%s\n" (show_l l1) in
+  let eq = eq_list (eq_tuple eq_string eq_string) in
+  let () = eq  "l1" [("key0","value0");("key1","value1");("key2","value2")] l1
+  in
+  Lwt.return () 
 
 let test_delete_prefix db = 
   let bdb = Hotc.get_bdb db in
@@ -289,5 +320,6 @@ let suite =
       "rev_range_entries" >:: wrap test_rev_range_entries;
       "rev_range_entries2" >:: wrap test_rev_range_entries2;
       "rev_range_entries3" >:: wrap test_rev_range_entries3;
+      "rev_range_entries4" >:: wrap test_rev_range_entries4;
       "delete_prefix" >:: wrap test_delete_prefix;
     ]

@@ -5,7 +5,6 @@ import subprocess
 packages = [
             ('testrunner','1.1'),
             ('arakoon_dev','0.10.0'),
-            ('mercurial', '1.9.2'),
            ]
 
 for (p,v) in packages:
@@ -26,16 +25,15 @@ def run_it(cmd, cwd = None):
     return r
 
 
-which_hg = run_it(['which','hg'])
-hg_version = run_it(['hg', 'version'])
-v = run_it(['hg','branch'])
-branch = v.strip()
+which_git = run_it(['which','git'])
+git_version = run_it(['git', '--version'])
+rev = run_it(['git','rev-parse', 'HEAD']).strip()
 
 coDir = "/".join( [q.dirs.tmpDir, "arakoon-x"] )
 
-print "which_hg=%s\nhg_version=%s\nbranch=%s\ncoDir=%s" % (which_hg, hg_version, branch, coDir) 
+print "which_git=%s\ngit_version=%s\nrev=%s\ncoDir=%s" % (which_git, git_version, rev, coDir)
 
 q.system.fs.createDir( coDir )
 
-run_it(["hg","clone","https://bitbucket.org/despiegk/arakoon", coDir]) 
-run_it(["hg","update", branch], cwd = coDir)
+run_it(["git","clone","git://github.com/Incubaid/arakoon", coDir])
+run_it(["git","checkout", rev], cwd = coDir)
