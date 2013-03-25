@@ -24,6 +24,23 @@ open Otc
 
 open Lwt
 
+let next_prefix prefix =
+  let next_char c =
+    let code = Char.code c + 1 in
+    match code with
+      | 256 -> Char.chr 0, true
+      | code -> Char.chr code, false in
+  let rec inner s pos =
+    let c, carry = next_char (String.get s pos) in
+    String.set s pos c;
+    match carry, pos with
+      | false, _ -> Some s
+      | true, 0 -> None
+      | true, pos -> inner s (pos - 1) in
+  let copy = String.copy prefix in
+  inner copy ((String.length copy) - 1)
+
+
 module Hotc = struct
 
   type t = {
@@ -136,24 +153,24 @@ module Hotc = struct
         let () = Bdb._cur_delete cursor in
         raise exn
 
-  (* some remarks: normally you'll want yo use this function with a
-     first parameter. Without a first parameter the FIRST entry in
-     the prefix will be first, this is probably not very useful
-     when reverse paging *)
+
   let rev_range_entries prefix bdb first finc last linc max =
-    let first = match first with | None -> prefix | Some x -> prefix ^ x in
+    let first, finc = match first with
+      | None -> next_prefix prefix, false
+      | Some x -> Some (prefix ^ x), finc in
     let last = match last with | None -> "" | Some x -> prefix ^ x in
     let pl = String.length prefix in
     try with_cursor2 bdb (fun bdb cur ->
-      let () =
-        try
-          Bdb.jump bdb cur first
-        with
-          | Not_found -> Bdb.last bdb cur
+      let () = match first with
+        | None -> Bdb.last bdb cur
+        | Some first ->
+            try
+              let () = Bdb.jump bdb cur first in
+              let jumped_key = Bdb.key bdb cur in
+              if (String.compare jumped_key first) > 0 or (not finc) then Bdb.prev bdb cur
+            with
+              | Not_found -> Bdb.last bdb cur; print_string "koekoek twas Not_found"
       in
-      let jumped_key = Bdb.key bdb cur in
-      let jumped_key_prefix = String.sub jumped_key 0 pl in
-      let () = if not finc || jumped_key_prefix <> prefix then Bdb.prev bdb cur in
       let rec rev_e_loop acc count =
         if count = max then acc
         else
