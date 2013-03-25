@@ -265,6 +265,21 @@ let test_rev_range_entries3 db =
   let () = eq "l1" [("faa", "boo");("foo","bar")] l1 in
   Lwt.return ()
 
+let test_rev_range_entries4 db = 
+  Hotc.transaction db
+    (fun bdb ->
+      Bdb.put bdb "key0" "value0";
+      Bdb.put bdb "key1" "value1";
+      Bdb.put bdb "key2" "value2";
+      Lwt.return ()
+    ) >>= fun () ->
+  let bdb = Hotc.get_bdb db in
+  let l1 = Hotc.rev_range_entries "" bdb (Some "kez") false (Some "a") true 10 in
+  let () = Printf.printf "l1:%s\n" (show_l l1) in
+  let eq = eq_list (eq_tuple eq_string eq_string) in
+  let () = eq  "l1" [("key0","value0");("key1","value1");("key2","value2")] l1
+  in
+  Lwt.return () 
 
 let test_delete_prefix db = 
   let bdb = Hotc.get_bdb db in
@@ -305,5 +320,6 @@ let suite =
       "rev_range_entries" >:: wrap test_rev_range_entries;
       "rev_range_entries2" >:: wrap test_rev_range_entries2;
       "rev_range_entries3" >:: wrap test_rev_range_entries3;
+      "rev_range_entries4" >:: wrap test_rev_range_entries4;
       "delete_prefix" >:: wrap test_delete_prefix;
     ]
