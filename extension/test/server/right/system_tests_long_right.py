@@ -328,6 +328,16 @@ def test_is_progress_possible():
     cli.set('k','v')
 
 
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+def test_drop_master():
+    time.sleep(5)
+    cli = Common.get_client()
+    for i in range(10):
+        print "fds"
+        master = cli.whoMaster()
+        Common.dropMaster(master)
+
+
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
     """ the scaling scenario from 1 node to 3 nodes the way A-server does it (eta : 2200 s) """
