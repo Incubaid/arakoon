@@ -22,6 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 type t = Int64.t
 let start = 0L
+let zero = 0L
 let succ t = Int64.succ t
 let pred t = Int64.pred t
 let compare = Int64.compare

@@ -157,6 +157,20 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     (Sn.string_of start_i) (Sn.string_of too_far_i)
   >>= fun () ->
     let acc = ref None in
+    let maybe_log_progress pi =
+      let (+:) = Sn.add 
+      and border = Sn.of_int 100 in
+      if pi < start_i +: border ||
+         pi +: border > too_far_i 
+      then
+	    Lwt_log.debug_f "%s => store" (Sn.string_of pi) 
+      else 
+        if Sn.rem pi border = Sn.zero 
+        then
+          Lwt_log.debug_f "... %s ..." (Sn.string_of pi) 
+        else
+          Lwt.return ()
+    in
     let f entry =
       let i = Entry.i_of entry 
       and value = Entry.v_of entry 
@@ -169,7 +183,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 	        | Some (pi,pv) ->
 	          if pi < i then
 		        begin
-		          Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
+                  maybe_log_progress pi >>= fun () ->
 		          (* not happy with this, but we need to avoid that 
 		             a node in catchup thinks it's master due to 
 		             some lease starting in the past *)
