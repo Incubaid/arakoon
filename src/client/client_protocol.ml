@@ -129,10 +129,7 @@ let handle_sequence ~sync ic oc backend =
   end
 
 let one_command (ic,oc) (backend:Backend.backend) log_commands =
-  let get_string = function
-    | None -> ""
-    | Some s -> s
-  and log_command_f =
+  let log_command_f =
     begin
       if log_commands then
         Lwt_log.info_f
@@ -143,8 +140,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
     | PING ->
         begin
           Llio.input_string ic >>= fun client_id ->
-	  Llio.input_string ic >>= fun cluster_id ->
-          log_command_f "PING: client_id=%S cluster_id=%S" client_id cluster_id >>= fun _ ->
+	      Llio.input_string ic >>= fun cluster_id ->
+          log_command_f "PING: client_id=%S cluster_id=%S" client_id cluster_id >>= fun () ->
           backend # hello client_id cluster_id >>= fun (rc,msg) ->
           response_rc_string oc rc msg
         end
@@ -220,8 +217,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
           Llio.input_string_option ic >>= fun (last:string option)  ->
           Llio.input_bool          ic >>= fun linc  ->
           Llio.input_int           ic >>= fun max   ->
-          log_command_f "RANGE: allow_dirty=%B first=%S finc:%B last:%S linc:%B max:%i"
-            allow_dirty (get_string first) finc (get_string last) linc max >>= fun () ->
+          log_command_f "RANGE: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # range ~allow_dirty first finc last linc max >>= fun list ->
@@ -239,8 +236,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_string_option ic >>= fun last  ->
 	  Llio.input_bool          ic >>= fun linc  ->
 	  Llio.input_int           ic >>= fun max   ->
-          log_command_f "RANGE_ENTRIES: allow_dirty=%B first=%S finc:%B last:%S linc:%B max:%i"
-            allow_dirty (get_string first) finc (get_string last) linc max >>= fun () ->
+          log_command_f "RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # range_entries ~allow_dirty first finc last linc max
@@ -261,8 +258,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_string_option ic >>= fun last  ->
 	  Llio.input_bool          ic >>= fun linc  ->
 	  Llio.input_int           ic >>= fun max   ->
-          log_command_f "REV_RANGE_ENTRIES: allow_dirty=%B first=%S finc:%B last:%S linc:%B max:%i"
-            allow_dirty (get_string first) finc (get_string last) linc max >>= fun () ->
+          log_command_f "REV_RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # rev_range_entries ~allow_dirty first finc last linc max
@@ -576,8 +573,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
                 else
                   Routing.LOWER_BOUND
               in
-              log_command_f "GET_FRINGE: boundary=%S dir=%S"
-                (get_string boundary)
+              log_command_f "GET_FRINGE: boundary=%s dir=%s"
+                (p_option boundary)
                 (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
               >>= fun () ->
 	      backend # get_fringe boundary direction >>= fun kvs ->
