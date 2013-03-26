@@ -99,7 +99,7 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
       [] others
   in
   let messaging = new tcp_messaging 
-    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:lease_period in
+    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
     

@@ -38,8 +38,8 @@ module MPMessage = struct
       let ns = Sn.string_of n
       and is = Sn.string_of i
       and vs = match v with
-	| None -> "None"
-	| Some s -> "Some ..."
+	    | None -> "None"
+	    | Some s -> "Some ..."
       in
       "Promise(" ^ ns ^ "," ^ is ^ "," ^ vs ^ ")"
     | Accept (n,i, v) ->

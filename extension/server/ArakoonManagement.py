@@ -35,6 +35,7 @@ import types
 import string
 import logging
 
+from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
@@ -519,6 +520,10 @@ class ArakoonCluster:
 
         return clientconfig
 
+    def getClient(self):
+        config = self.getClientConfig()
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
+        return client
    
     def listNodes(self):
         """
