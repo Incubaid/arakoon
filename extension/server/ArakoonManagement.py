@@ -211,6 +211,7 @@ class ArakoonCluster:
                 clientPort = 7080,
                 messagingPort = 10000,
                 logLevel = "info",
+                logCommands = False,
                 logDir = None,
                 home = None,
                 tlogDir = None,
@@ -221,12 +222,12 @@ class ArakoonCluster:
         """
         Add a node to the configuration of the supplied cluster
 
-        The function also creates 
         @param name :the name of the node, should be unique across the environment
         @param ip : the ip(s) this node should be contacted on (string or string list)
         @param clientPort : the port the clients should use to contact this node
         @param messagingPort : the port the other nodes should use to contact this node
         @param logLevel : the loglevel (debug info notice warning error fatal)
+        @param logCommands : specifies whether this node should log all incoming commands
         @param logDir :  the directory used for logging
         @param home : the directory used for the nodes data
         @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
@@ -262,6 +263,9 @@ class ArakoonCluster:
         self.__validateInt("messagingPort", messagingPort)
         config.addParam(name, "messaging_port", messagingPort)
         config.addParam(name, "log_level", logLevel)
+
+        if logCommands:
+            config.addParam(name, "log_commands", "true")
         
         if wrapper is not None:
             config.addParam(name, "wrapper", wrapper)
@@ -421,6 +425,22 @@ class ArakoonCluster:
         preferred_masters = 'preferred_masters'
 
         config.addParam(section, preferred_masters, ', '.join(nodes))
+
+        config.write()
+
+    def setLogCommands(self, logCommands, nodes=None):
+        if nodes is None:
+            nodes = self.listNodes()
+        else:
+            for n in nodes :
+                self.__validateName( n )
+
+        config = self._getConfigFile()
+        for n in nodes:
+            if logCommands:
+                config.addParam(n, "log_commands", "true")
+            else:
+                config.removeParam(n, "log_commands")
 
         config.write()
 

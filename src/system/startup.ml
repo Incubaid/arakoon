@@ -38,6 +38,7 @@ let _make_cfg name n lease_period =
     tlog_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
+    log_commands = false;
     lease_period = lease_period;
     master = Elected;
     is_laggy = false;

@@ -27,7 +27,7 @@ let __wrap__ port conversation =
   let scheme = Server.make_default_scheme () in
   let server = 
     Server.make_server_thread ~setup_callback "127.0.0.1" port ~scheme
-      (Client_protocol.protocol backend) in
+      (Client_protocol.protocol backend false) in
   let client_t () =
     sleep >>= fun () ->
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
