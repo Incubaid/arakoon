@@ -45,6 +45,7 @@ module Node_cfg = struct
 	    tlog_dir:string;
 	    log_dir:string;
 	    log_level:string;
+            log_commands: bool;
 	    lease_period:int;
 	    master: master;
 	    is_laggy : bool;
@@ -59,8 +60,8 @@ module Node_cfg = struct
     begin
       let template =
 	"{node_name=%S; ips=%s; client_port=%d; " ^^
-	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^ 
-	  "log_dir=%S; log_level=%S; lease_period=%i; " ^^
+	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
+	  "log_dir=%S; log_level=%S; log_commands=%b; lease_period=%i; " ^^
 	  "master=%S; is_laggy=%b; is_learner=%b; " ^^
 	  "targets=%s; use_compression=%b; is_test=%b; " ^^
 	  "reporting=%i; " ^^
@@ -71,7 +72,7 @@ module Node_cfg = struct
         (list2s (fun s -> s) t.ips)
         t.client_port 
 	t.messaging_port t.home t.tlog_dir
-	t.log_dir t.log_level t.lease_period
+	t.log_dir t.log_level t.log_commands t.lease_period
 	(master2s t.master) t.is_laggy t.is_learner
 	(list2s (fun s -> s) t.targets) t.use_compression t.is_test
 	t.reporting
@@ -104,6 +105,7 @@ module Node_cfg = struct
 	tlog_dir = home;
 	log_dir = ":None";
 	log_level = "DEBUG";
+        log_commands = false;
 	lease_period = lease_period;
 	master = master;
 	is_laggy = false;
@@ -250,6 +252,7 @@ module Node_cfg = struct
       with _ -> home 
     in
     let log_level = String.lowercase (get_string "log_level")  in
+    let log_commands = get_bool "log_commands" in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
@@ -272,6 +275,7 @@ module Node_cfg = struct
      tlog_dir;
      log_dir;
      log_level;
+     log_commands;
      lease_period;
      master;
      is_laggy;
