@@ -766,6 +766,12 @@ let make_buffers (a,b,c,d) = {
   election_timeout_buffer = d;
 }
   
+let section = 
+  let s = Lwt_log.Section.make "PAXOS" in
+  let () = Lwt_log.Section.set_level s Lwt_log.Debug in
+  s 
+
+
 let rec paxos_produce buffers
     constants product_wanted =
   let me = constants.me in
@@ -831,6 +837,14 @@ let rec paxos_produce buffers
 	          begin
 	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
 	            let msg2 = MPMessage.of_generic msg in
+                begin
+                  if Lwt_log.Section.level section <= Lwt_log.Debug
+                  then
+                    let t0 = Unix.gettimeofday() in
+                    Lwt_log.debug_f "%f SEQ: %s => %s : %s " t0
+                      source me (Mp_msg.MPMessage.string_of msg2) 
+                  else Lwt.return ()
+                end >>= fun () ->
 	            Lwt.return (FromNode (msg2,source))
 	          end
 	      | Some Election_timeout_ready ->
@@ -845,10 +859,7 @@ let rec paxos_produce buffers
     (fun e -> log ~me "ZYX %s" (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
 
-let section = 
-  let s = Lwt_log.Section.make "PAXOS" in
-  let () = Lwt_log.Section.set_level s Lwt_log.Debug in
-  s 
+
 
 let _execute_effects constants e = 
   match e with
