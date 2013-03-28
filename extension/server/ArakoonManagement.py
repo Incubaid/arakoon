@@ -211,14 +211,14 @@ class ArakoonCluster:
                 clientPort = 7080,
                 messagingPort = 10000,
                 logLevel = "info",
-                logCommands = False,
                 logDir = None,
                 home = None,
                 tlogDir = None,
                 wrapper = None,
                 isLearner = False,
                 targets = None,
-                isLocal = True):
+                isLocal = True,
+                logCommands = False):
         """
         Add a node to the configuration of the supplied cluster
 

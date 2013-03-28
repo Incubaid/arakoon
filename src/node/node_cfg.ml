@@ -38,24 +38,24 @@ exception InvalidTlogDir of string
 module Node_cfg = struct
 
   type t = {node_name:string;
-	    ips: string list;
-	    client_port:int;
-	    messaging_port:int;
-	    home:string;
-	    tlog_dir:string;
-	    log_dir:string;
-	    log_level:string;
-            log_commands: bool;
-	    lease_period:int;
-	    master: master;
-	    is_laggy : bool;
-	    is_learner : bool;
-	    targets : string list;
-	    use_compression : bool;
-	    is_test : bool;
-	    reporting: int;
-	   }
-      
+        ips: string list;
+        client_port:int;
+        messaging_port:int;
+        home:string;
+        tlog_dir:string;
+        log_dir:string;
+        log_level:string;
+        log_commands: bool;
+        lease_period:int;
+        master: master;
+        is_laggy : bool;
+        is_learner : bool;
+        targets : string list;
+        use_compression : bool;
+        is_test : bool;
+        reporting: int;
+       }
+
   let string_of (t:t) =
     begin
       let template =
