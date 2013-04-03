@@ -92,28 +92,30 @@ module Node_cfg = struct
       client_buffer_capacity: int;
     }
 
-  let make_test_config ?(base=4000) n_nodes master lease_period = 
+  let make_test_config 
+      ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
+      n_nodes master lease_period = 
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
       {
-	node_name = "t_arakoon_" ^ ns;
-	ips = ["127.0.0.1"];
-	client_port = (base + n);
-	messaging_port = (base + 10 + n);
-	home = home;
-	tlog_dir = home;
-	log_dir = ":None";
-	log_level = "DEBUG";
+	    node_name = node_name n;
+	    ips = ["127.0.0.1"];
+	    client_port = (base + n);
+	    messaging_port = (base + 10 + n);
+	    home = home;
+	    tlog_dir = home;
+	    log_dir = ":None";
+	    log_level = "DEBUG";
         log_commands = false;
-	lease_period = lease_period;
-	master = master;
-	is_laggy = false;
-	is_learner = false;
-	targets = [];
+	    lease_period = lease_period;
+	    master = master;
+	    is_laggy = false;
+	    is_learner = false;
+	    targets = [];
         use_compression = true;
-	is_test = true;
-	reporting = 300;
+	    is_test = true;
+	    reporting = 300;
       }
     in
     let rec loop acc = function
@@ -123,7 +125,6 @@ module Node_cfg = struct
     in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
-    let cluster_id = "ricky" in
     let overwrite_tlog_entries = None in
     let cluster_cfg = { 
       cfgs= cfgs; 
@@ -131,7 +132,7 @@ module Node_cfg = struct
       _master = master;
       quorum_function = quorum_function;
       _lease_period = default_lease_period;
-      cluster_id = cluster_id;
+      cluster_id;
       plugins = [];
       overwrite_tlog_entries;
       max_value_size = default_max_value_size;

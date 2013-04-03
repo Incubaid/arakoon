@@ -39,11 +39,15 @@ let should_fail x error_msg success_msg =
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
+let _start tn = 
+  let d = 5.0 in
+  Lwt_log.info_f "START of %s (& sleep %f" tn d >>= fun () ->
+  Lwt_unix.sleep d
 
 let all_same_master (cluster_cfg, all_t) =
-  Lwt_unix.sleep 5.0 >>= fun () ->
+  _start "all_same_master" >>= fun () ->
   let scenario () = 
-    Lwt_log.debug "all_same_master: start of scenario" >>= fun () ->
+    Lwt_log.debug "start of scenario" >>= fun () ->
     let set_one client = client # set "key" "value" in
     Client_main.find_master cluster_cfg >>= fun master_name ->
     let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
@@ -549,41 +553,52 @@ let assert_exists2 tpl = _with_master tpl _assert_exists2
 
 let assert_exists3 tpl = _with_master tpl _assert_exists3
 
-let setup master base () =
+let _node_name tn n = Printf.sprintf "%s_%i" tn n 
+
+let setup make_master tn base () =
   let lease_period = 10 in
-  let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
-  let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in
+  let cluster_id = Printf.sprintf "%s_%i" tn base in
+  let master = make_master tn 0 in
+  let make_config () = Node_cfg.Node_cfg.make_test_config 
+    ~base ~cluster_id    
+    ~node_name:(_node_name tn)
+    3 master lease_period 
+  in
+  let t0 = Node_main.test_t make_config (_node_name tn 0) >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t make_config (_node_name tn 1) >>= fun _ -> Lwt.return () in
+  let t2 = Node_main.test_t make_config (_node_name tn 2) >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
   Lwt.return (make_config (), all_t)
 
 let teardown (_, all_t) = Lwt.return ()
 
 let make_suite base name w =
+  let make_el tn b f = tn >:: w tn b f in
   name >:::
     [
-      "all_same_master" >:: w base all_same_master;
+      make_el "all_same_master" base all_same_master;
       (* "nothing_on_slave">:: w nothing_on_slave; *)
-      "dirty_on_slave"   >:: w (base +200) dirty_on_slave; 
-      "trivial_master"  >:: w  (base +300) trivial_master; 
-      "trivial_master2" >:: w  (base +400) trivial_master2;
-      "trivial_master3" >:: w  (base +500) trivial_master3;
-      "trivial_master4" >:: w  (base +600) trivial_master4;
-      "trivial_master5" >:: w  (base +700) trivial_master5; 
-      "assert1" >:: w (base + 800) assert1; 
-      "assert2" >:: w (base + 900) assert2;
-      "assert3" >:: w (base + 1000) assert3;
-      "assert_exists1" >:: w (base + 800) assert_exists1; 
-      "assert_exists2" >:: w (base + 900) assert_exists2;
-      "assert_exists3" >:: w (base + 1000) assert_exists3; 
+      make_el "dirty_on_slave"  (base +200) dirty_on_slave; 
+      make_el "trivial_master"  (base +300) trivial_master; 
+      make_el "trivial_master2" (base +400) trivial_master2;
+      make_el "trivial_master3" (base +500) trivial_master3;
+      make_el "trivial_master4" (base +600) trivial_master4;
+      make_el "trivial_master5" (base +700) trivial_master5; 
+      make_el "assert1"         (base + 800) assert1; 
+      make_el "assert2"         (base + 900) assert2;
+      make_el "assert3"         (base + 1000) assert3;
+      make_el "assert_exists1"  (base + 1100) assert_exists1; 
+      make_el "assert_exists2"  (base + 1200) assert_exists2;
+      make_el "assert_exists3"  (base + 1300) assert_exists3; 
     ]
 
 let force_master =
-  let w base f = Extra.lwt_bracket (setup (Forced "t_arakoon_0") base) f teardown in
+  let make_master tn n = Forced (_node_name tn  n) in
+  let w tn base f = Extra.lwt_bracket (setup make_master tn base) f teardown in
   make_suite 4000 "force_master" w
 
 
 let elect_master =
-  let w base f = Extra.lwt_bracket (setup Elected base) f teardown in
+  let make_master tn _ = Elected in
+  let w tn base f = Extra.lwt_bracket (setup make_master tn base) f teardown in
   make_suite 6000 "elect_master" w
