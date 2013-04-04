@@ -1,11 +1,6 @@
 open Core
 
 module MULTI = struct
-  type state_name = 
-    | S_CLUELESS
-    | S_RUNNING_FOR_MASTER
-    | S_MASTER
-    | S_SLAVE
   
   let option2s (x : 'a option)  = 
     match x with
@@ -189,7 +184,19 @@ module MULTI = struct
     nnones : node_id list;
     nsomes : (update * node_id list) list;
   }
-  
+
+  type state_name =
+    | S_CLUELESS
+    | S_RUNNING_FOR_MASTER
+    | S_MASTER
+    | S_SLAVE
+
+  let state_n2s = function
+    | S_CLUELESS           -> "S_CLUELESS"
+    | S_RUNNING_FOR_MASTER -> "S_RUNNING_FOR_MASTER"
+    | S_MASTER             -> "S_MASTER"
+    | S_SLAVE              -> "S_SLAVE"
+
   type state =
   {
     round             : NTick.t;
@@ -224,12 +231,6 @@ module MULTI = struct
       valid_inputs = ch_all;
     }
 
-  let state_n2s = function 
-    | S_CLUELESS           -> "S_CLUELESS"
-    | S_RUNNING_FOR_MASTER -> "S_RUNNING_FOR_MASTER"
-    | S_MASTER             -> "S_MASTER"
-    | S_SLAVE              -> "S_SLAVE"
-  
   let state2s s =
     let m = so2s s.master_id in
     Printf.sprintf "id: %s, n: %s, m: %s, p: %s, a: %s, state: %s, master: %s, votes: %d"
@@ -252,8 +253,6 @@ module MULTI = struct
     | A_BEHIND
     | A_AHEAD
 
-  type state_diff = round_diff * proposed_diff * accepted_diff 
-  
   type client_reply = request_awakener * result
   
   let client_reply2s (_,r) = match r with
@@ -345,7 +344,7 @@ module MULTI = struct
     let n' = n' + node_cnt - modulo in
     NTick.from_int64 (n' + node_ix) 
   
-  let prev_n n node_cnt node_ix =
+(*  let prev_n n node_cnt node_ix =
     let (+) = Int64.add in
     let (-) = Int64.sub in
     let n' = NTick.to_int64 n in
@@ -357,7 +356,7 @@ module MULTI = struct
     then 
       NTick.from_int64 (n'' + node_ix)
     else 
-      NTick.from_int64 (n'' - node_cnt + node_ix) 
+      NTick.from_int64 (n'' - node_cnt + node_ix)*)
   
   let is_node_master node_id state = 
     begin
@@ -543,8 +542,10 @@ module MULTI = struct
                   end 
               end
             | S_SLAVE    -> StepFailure "I'm a slave and did not send prepare for this n"
-            | S_CLUELESS -> StepFailure "I'm clueless so I did not send prepare for this n"
-        end 
+            | S_CLUELESS ->
+                (* this message was unexpected, but maybe our state got wiped, so just ignore it *)
+                StepSuccess([], state)
+        end
       | (N_EQUAL, _, _) ->  StepSuccess([], state)
   
   let handle_nack n m i src state =

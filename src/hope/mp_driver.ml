@@ -17,8 +17,8 @@ module MPDriver (A:MP_ACTION_DISPATCHER) = struct
     action_dispatcher : A.t 
   }
   
-  let dispatch t a s =
-    A.dispatch t.action_dispatcher a s
+  let dispatch t s a =
+    A.dispatch t.action_dispatcher s a
       
   let create dispatcher msg_q reqs_q = { 
     msgs = msg_q; 

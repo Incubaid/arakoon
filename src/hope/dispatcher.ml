@@ -104,7 +104,7 @@ module ADispatcher (S:STORE) = struct
     
   let dispatch t s = function
     | A_BROADCAST_MSG msg ->
-      let tgts = s.constants.me :: s.constants.others in
+      let tgts = s.constants.others in
       do_send_msg t s msg tgts >>= fun () ->
       Lwt.return s  
     | A_SEND_MSG (msg, tgt) ->

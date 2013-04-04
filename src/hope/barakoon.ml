@@ -232,7 +232,7 @@ type action_type =
   | WhoMaster
   | GetRouting
   | GetInterval
-
+  | Caulking
   | Statistics
 
 let split_cfgs cfg myname =
@@ -455,6 +455,8 @@ let run_tests () =
   let _ = OUnit.run_test_tt Test.suite in
   ()
 
+let caulking () =
+  Caulking.run ()
 
 let main () =
   let node_id = ref "" 
@@ -541,6 +543,7 @@ let main () =
      " : returns the interval this cluster is responsible for (Nursery context)");
 
     ("--statistics", set_action Statistics, "returns some master statistics");
+    ("--caulking", set_action Caulking, "runs the caulking tests")
   ] in
   
   Arg.parse actions  
@@ -571,8 +574,9 @@ let main () =
       | WhoMaster      -> Lwt_main.run (who_master !config_file)
       | GetRouting     -> Lwt_main.run (Nursery_main.get_routing !config_file)
       | GetInterval    -> Lwt_main.run (get_interval !config_file)
-
+      | Caulking       -> caulking ();
       | Statistics     -> Lwt_main.run (statistics !config_file)
   end
 
 let () = main ()
+
