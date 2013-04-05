@@ -53,7 +53,7 @@ let replace_agent agent agents = List.map (fun x -> if x.id = agent.id then agen
 let generate_moves state =
   let deliver = List.map (fun x -> (DeliverMsg x:move)) state.net
   and wipe = List.map (fun a -> Wipe a.id) state.ags in
-  wipe @ deliver
+  List.fold_left (fun acc m -> m::acc) wipe deliver
 
 
 let constants = Mp.MULTI.build_mp_constants 2 "node_id" ["node0"; "node1"; "node2"] 8.0 1 3
@@ -100,27 +100,22 @@ module Simulator(A:ALGO)(V:VALUE) = struct
   type value = V.t
   type path = (move * state) list
 
-  exception Bad of (path * state * string)
-
   module TSet = Set.Make(struct
     type t = (string * move * string)
     let compare = Pervasives.compare
   end)
+
+  exception Bad of (path * state * move option * string)
 
   let remove x net  = List.filter (fun m -> m <> x) net
 
   let execute_move move state path observed =
 
     let deliver m ag =
-      try
-        let agent = find_agent ag m.t in
-        let agent', extra = A.handle_message agent m in
-        let ag' = replace_agent agent' ag in
-        ag', extra
-      with Failure msg ->
-        print_endline m.t;
-        print_endline (move2s move);
-        raise (Bad (path, state, msg))
+      let agent = find_agent ag m.t in
+      let agent', extra = A.handle_message agent m in
+      let ag' = replace_agent agent' ag in
+      ag', extra
     in
 
     let state' =
@@ -161,27 +156,10 @@ what is consistent?
 
   let limit = 10
 
-  let rec check_all level state path observed =
-    if not (is_consistent state) then raise (Bad (path,state, "not consistent"));
-    if level = limit
-    then observed
-    else
-      let rec loop observed = function
-        | [] -> observed
-        | move :: rest ->
-            let state', path', observed' = execute_move move state path observed in
-            let observed'' = check_all (level + 1) state' path' observed' in
-            loop observed'' rest
-      in
-      let moves = generate_moves state in
-      loop observed moves
-
-  let run state0 = check_all 0 state0 [] TSet.empty
-
-  let dottify oc state0 observed =
-    Printf.fprintf oc "digraph \"basic paxos\" {\n\trankdir=LR\n";
+  let dottify oc states observed =
+    Printf.fprintf oc "digraph \"paxos\" {\n\trankdir=LR\n";
     Printf.fprintf oc "\tnode [shape = \"box\"]\n";
-    Printf.fprintf oc "\t%s\n" (state_label state0);
+    List.iter (fun (s, attrs) -> Printf.fprintf oc "\t%s [%s]\n" (state_label s) attrs) states;
     TSet.iter (fun (l0,m,l1) ->
       let ms, extra = match m with
         | Wipe _ ->
@@ -190,11 +168,32 @@ what is consistent?
         | DeliverMsg m   -> Printf.sprintf"{%s;%s->%s;n=%s}" (kind2s m.k)
           (id2s m.s) (id2s m.t) (n2s m.n), ""
       in
-      if l0 <> l1 then
         let s = Printf.sprintf "\t%s -> %s [label=\"%s\" %s]\n" l0 l1 ms extra in
         output_string oc s)
       observed;
     Printf.fprintf oc "}\n"
+
+  let rec check_all level state path observed =
+    if not (is_consistent state) then raise (Bad (path,state, None, "not consistent"));
+    if level = limit
+    then observed
+    else
+      let rec loop observed = function
+        | [] -> observed
+        | move :: rest ->
+            try
+              let state', path', observed' = execute_move move state path observed in
+              let observed'' = check_all (level + 1) state' path' observed' in
+              loop observed'' rest
+            with
+              | Failure msg -> raise (Bad (path, state, Some move, msg))
+      in
+      let moves = generate_moves state in
+      loop observed moves
+
+  let run state0 =
+    check_all 0 state0 [] TSet.empty
+
 end
 
 let others agent = List.filter ((<>) agent.id) agent.pop
@@ -257,11 +256,21 @@ let run () =
   let state0 = {net = a1_out @ a2_out @ a3_out; ags = world} in
   try
     let observed = M.run state0 in
-    M.dottify (Unix.out_channel_of_descr Unix.stdout) state0 observed
-  with (M.Bad (path, state, m)) ->
+    M.dottify (Unix.out_channel_of_descr Unix.stdout) [(state0, "color=green")] observed
+  with (M.Bad (path, state, move_o, m)) ->
+    let observed = ref M.TSet.empty in
+    let _ = List.fold_left
+      (fun next_state (mv, state) ->
+        observed := M.TSet.add ((state_label state), mv, (state_label next_state)) !observed; state)
+      state
+      path in
+    let () = match move_o with
+      | Some move -> observed := M.TSet.add (state_label state, move, "KAPUT") !observed
+      | None -> () in
     Printf.eprintf "bad path:\n";
     M.dump_path path;
     Printf.eprintf "%s\n" (state_label state);
-    Printf.eprintf "message: %s" m
-
+    Printf.eprintf "message: %s\n" m;
+    Printf.eprintf "dumped graphviz file to caulk.err.\n run 'dot -O -Tsvg caulk.err' to produce the corresponding svg";
+    M.dottify (Unix.out_channel_of_descr (Unix.openfile "caulk.err" [Unix.O_WRONLY;Unix.O_CREAT;Unix.O_TRUNC] 0o640)) [(state0,"fontcolor=green");(state,"color=red")] !observed
 
