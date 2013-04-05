@@ -5,7 +5,7 @@ let test_compatibility_int64() =
     let s = String.create 8 in
     let () = Cllio.int64_to_buffer s 0 v in
     let v',_ = Llio.int64_from s 0 in
-    Printf.printf "%Li:%S\n" v s;
+    Printf.eprintf "%Li:%S\n" v s;
     assert_equal ~msg: "phase1" v v';
     ()
       (*

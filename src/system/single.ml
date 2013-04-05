@@ -480,11 +480,11 @@ let _multi_get (client: client) =
   begin
     match values with
       | [v1;v2] -> 
-	Lwt_io.printlf "v1=%S;v2=%S" v1 v2
-	>>= fun () ->
-	OUnit.assert_equal v1 key1;
-	OUnit.assert_equal v2 key2;
-	Lwt.return ()
+	    Lwt_log.debug_f "v1=%S;v2=%S" v1 v2
+	    >>= fun () ->
+	    OUnit.assert_equal v1 key1;
+	    OUnit.assert_equal v2 key2;
+	    Lwt.return ()
 	  | _ -> Lwt.fail (Failure "2 values expected")
   end >>= fun () ->
   Lwt.catch
