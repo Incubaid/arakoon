@@ -56,9 +56,9 @@ let test_echo () =
     let conversation (ic,oc) = 
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word = 
-	Lwt_io.write_line oc word >>= fun () ->
-	Lwt_io.read_line ic >>= fun word' ->
-        Lwt_io.printlf "%s ? %s" word word'
+	    Lwt_io.write_line oc word >>= fun () ->
+	    Lwt_io.read_line ic >>= fun word' ->
+        Lwt_log.info_f "%s ? %s" word word'
       in Lwt_list.iter_s test_one words 
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
@@ -100,18 +100,18 @@ let test_max_connections () =
       debug_f "start_of_conversation client %i" i >>= fun () ->
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word = 
-	Lwt_io.write_line oc word >>= fun () ->
-	Lwt_io.read_line ic >>= fun word' ->
-        Lwt_io.printlf "%s ? %s" word word'
+	    Lwt_io.write_line oc word >>= fun () ->
+	    Lwt_io.read_line ic >>= fun word' ->
+        Lwt_log.info_f "%s ? %s" word word'
       in 
       Lwt.catch
-	(fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
-	(function 
-	  | Canceled as e -> Lwt.fail e
-	  | exn -> incr n_problems;Lwt_log.info_f ~exn "client %i had problems" i)
+	    (fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
+	    (function 
+	      | Canceled as e -> Lwt.fail e
+	      | exn -> incr n_problems;Lwt_log.info_f ~exn "client %i had problems" i)
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
-(*    Lwt_io.with_connection address conversation  >>= fun () -> *)
+    (*    Lwt_io.with_connection address conversation  >>= fun () -> *)
     Lwt_io.open_connection address >>= fun conn ->
     conversation conn >>= fun () ->
     info "end of conversation." 
@@ -121,7 +121,7 @@ let test_max_connections () =
 	      client 1;
 	      client 2;
 	      server();
-              Lwt_unix.sleep 0.3
+          Lwt_unix.sleep 0.3
              ] 
     >>= fun () -> Lwt_mvar.take td_var >>= fun () ->
     Lwt_log.debug_f "n_problems = %i" !n_problems >>= fun () ->
