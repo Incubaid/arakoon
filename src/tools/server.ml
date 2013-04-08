@@ -32,28 +32,28 @@ let no_callback = Lwt.return
 exception FOOBAR
 
 
-let deny (ic,oc) = 
+let deny (ic,oc,cid) =
   Lwt_log.warning "max connections reached, denying this one" >>= fun () ->
   Llio.output_int oc 0xfe >>= fun () ->
   Llio.output_string oc "too many clients"
    
 
-let session_thread (sid:string) protocol fd = 
+let session_thread (sid:string) cid protocol fd =
   Lwt.catch
     (fun () ->
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
       and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd
-      in protocol (ic,oc) 
+      in protocol (ic,oc,cid)
     )
     (function
       | FOOBAR as foobar-> 
           Lwt_log.fatal "propagating FOOBAR" >>= fun () ->
           Lwt.fail foobar
-      | exn -> info_f ~exn "exiting session (%s)" sid)
+      | exn -> info_f ~exn "exiting session (%s) connection=%Lu" sid cid)
   >>= fun () -> 
   Lwt.catch 
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Lwt_log.debug "Exception on closing of socket" )
+    ( fun exn -> Lwt_log.debug_f "Exception on closing of socket (connection=%Lu)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
@@ -66,6 +66,17 @@ let create_connection_allocation_scheme max =
   in maybe_take, release
     
 let make_default_scheme () = create_connection_allocation_scheme 10
+
+let connection_counter =
+  let c = ref 0L in
+  let next () =
+    c := Int64.succ !c;
+    !c in
+  next
+
+let socket_address_to_string = function
+  | Unix.ADDR_UNIX s -> Printf.sprintf "ADDR_UNIX %s" s
+  | Unix.ADDR_INET (inet_addr, port) -> Printf.sprintf "ADDR_INET %s,%i" (Unix.string_of_inet_addr inet_addr) port
 
 let make_server_thread 
     ?(name = "socket server")
@@ -84,18 +95,23 @@ let make_server_thread
     let rec server_loop () =
       Lwt.catch
 	(fun () ->
-	  Lwt_unix.accept listening_socket >>= fun (fd, _) ->
+	  Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
+      let cid = connection_counter () in
           begin
             match maybe_take () with
-              | None    -> Lwt.ignore_result (session_thread "--" deny fd)
+              | None    -> Lwt.ignore_result (session_thread "--" cid deny fd)
               | Some id ->
-	        Lwt.ignore_result 
+	        Lwt.ignore_result
 		  (
-                    Lwt_log.info_f "%s:session (%i)" name id >>= fun () ->
-                    let sid = string_of_int id in
-                    session_thread sid protocol fd >>= fun () ->
-                    release();
-                    Lwt.return()
+            Lwt_unix.fstat fd >>= fun fstat ->
+            Lwt_log.info_f
+              "%s:session=%i connection=%Lu socket_address=%s file_descriptor_inode=%i"
+              name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
+            >>= fun () ->
+            let sid = string_of_int id in
+            session_thread sid cid protocol fd >>= fun () ->
+            release();
+            Lwt.return()
 		  )
           end;
           Lwt.return ()

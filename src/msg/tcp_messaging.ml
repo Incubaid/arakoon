@@ -304,7 +304,7 @@ object(self : # messaging )
       then Llio.lwt_failfmt "COOKIE %s mismatch" cookie
       else Lwt.return ()
     in
-    let protocol (ic,oc) =
+    let protocol (ic,oc,cid) =
       Llio.input_int64 ic >>= fun magic ->
       Llio.input_int ic >>= fun version ->
       _check_mv magic version >>= fun () ->

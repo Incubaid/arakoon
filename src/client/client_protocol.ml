@@ -32,6 +32,12 @@ open Statistics
 open Ncfg
 open Client_cfg
 
+
+let section =
+  let s = Lwt_log.Section.make "CLIENT_PROTOCOL" in
+  let () = Lwt_log.Section.set_level s Lwt_log.Debug in
+  s
+
 let read_command (ic,oc) =
   Llio.input_int32 ic >>= fun masked ->
   let magic = Int32.logand masked _MAGIC in
@@ -128,20 +134,20 @@ let handle_sequence ~sync ic oc backend =
 
   end
 
-let one_command (ic,oc) (backend:Backend.backend) log_commands =
+let one_command (ic,oc,id) (backend:Backend.backend) log_commands =
   let log_command_f =
     begin
       if log_commands then
-        Lwt_log.info_f
+        Lwt_log.info_f ~section
       else
-        Lwt_log.debug_f
+        Lwt_log.debug_f ~section
     end in
   read_command (ic,oc) >>= function
     | PING ->
         begin
           Llio.input_string ic >>= fun client_id ->
 	      Llio.input_string ic >>= fun cluster_id ->
-          log_command_f "PING: client_id=%S cluster_id=%S" client_id cluster_id >>= fun () ->
+          log_command_f "connection=%Lu PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
           backend # hello client_id cluster_id >>= fun (rc,msg) ->
           response_rc_string oc rc msg
         end
@@ -149,7 +155,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
 	  Llio.input_bool ic   >>= fun allow_dirty ->
 	  Llio.input_string ic >>= fun key ->
-          log_command_f "EXISTS: allow_dirty=%B key=%S" allow_dirty key >>= fun () ->
+          log_command_f "connection=%Lu EXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
 	      response_rc_bool oc 0l exists)
@@ -159,7 +165,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
 	  Llio.input_bool   ic >>= fun allow_dirty ->
           Llio.input_string ic >>= fun  key ->
-          log_command_f "GET: allow_dirty=%B key=%S" allow_dirty key >>= fun () ->
+          log_command_f "connection=%Lu GET: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # get ~allow_dirty key >>= fun value ->
 	      response_rc_string oc 0l value)
@@ -170,7 +176,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_bool ic          >>= fun allow_dirty ->
 	  Llio.input_string ic        >>= fun key ->
 	  Llio.input_string_option ic >>= fun vo ->
-          log_command_f "ASSERT: allow_dirty=%B key=%S" allow_dirty key >>= fun () ->
+          log_command_f "connection=%Lu ASSERT: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # aSSert ~allow_dirty key vo >>= fun () ->
 	      response_ok_unit oc
@@ -181,7 +187,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
 	  Llio.input_bool ic          >>= fun allow_dirty ->
 	  Llio.input_string ic        >>= fun key ->
-          log_command_f "ASSERTEXISTS: allow_dirty=%B key=%S" allow_dirty key >>= fun () ->
+          log_command_f "connection=%Lu ASSERTEXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # aSSert_exists ~allow_dirty key>>= fun () ->
 	      response_ok_unit oc
@@ -192,7 +198,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	begin
           Llio.input_string ic >>= fun key ->
           Llio.input_string ic >>= fun value ->
-          log_command_f "SET: key=%S" key >>= fun () ->
+          log_command_f "connection=%Lu SET: key=%S" id key >>= fun () ->
 	  Lwt.catch
 	    (fun () -> backend # set key value >>= fun () ->
 	      response_ok_unit oc
@@ -202,7 +208,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
     | DELETE ->
 	begin
           Llio.input_string ic >>= fun key ->
-          log_command_f "DELETE: key=%S" key >>= fun () ->
+          log_command_f "connection=%Lu DELETE: key=%S" id key >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # delete key >>= fun () ->
@@ -217,8 +223,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
           Llio.input_string_option ic >>= fun (last:string option)  ->
           Llio.input_bool          ic >>= fun linc  ->
           Llio.input_int           ic >>= fun max   ->
-          log_command_f "RANGE: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+          log_command_f "connection=%Lu RANGE: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # range ~allow_dirty first finc last linc max >>= fun list ->
@@ -236,8 +242,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_string_option ic >>= fun last  ->
 	  Llio.input_bool          ic >>= fun linc  ->
 	  Llio.input_int           ic >>= fun max   ->
-          log_command_f "RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+          log_command_f "connection=%Lu RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # range_entries ~allow_dirty first finc last linc max
@@ -258,8 +264,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_string_option ic >>= fun last  ->
 	  Llio.input_bool          ic >>= fun linc  ->
 	  Llio.input_int           ic >>= fun max   ->
-          log_command_f "REV_RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-            allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+          log_command_f "connection=%Lu REV_RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
+            id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      backend # rev_range_entries ~allow_dirty first finc last linc max
@@ -275,14 +281,14 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
     | LAST_ENTRIES ->
         begin
 	  Sn.input_sn ic >>= fun i ->
-          log_command_f "LAST_ENTRIES: i=%Li" i >>= fun () ->
+          log_command_f "connection=%Lu LAST_ENTRIES: i=%Li" id i >>= fun () ->
 	  Llio.output_int32 oc 0l >>= fun () ->
 	  backend # last_entries i oc >>= fun () ->
           Lwt.return false
         end
     | WHO_MASTER ->
         begin
-          log_command_f "WHO_MASTER" >>= fun () ->
+          log_command_f "connection=%Lu WHO_MASTER" id >>= fun () ->
           backend # who_master () >>= fun m ->
 	  Llio.output_int32 oc 0l >>= fun () ->
 	  Llio.output_string_option oc m >>= fun () ->
@@ -290,7 +296,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         end
     | EXPECT_PROGRESS_POSSIBLE ->
         begin
-          log_command_f "EXPECT_PROGRESS_POSSIBLE" >>= fun () ->
+          log_command_f "connection=%Lu EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
 	  backend # expect_progress_possible () >>= fun poss ->
 	  Llio.output_int32 oc 0l >>= fun () ->
 	  Llio.output_bool oc poss >>= fun () ->
@@ -301,7 +307,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_string ic >>= fun key ->
 	  Llio.input_string_option ic >>= fun expected ->
           Llio.input_string_option ic >>= fun wanted ->
-          log_command_f "TEST_AND_SET: key=%S" key >>= fun () ->
+          log_command_f "connection=%Lu TEST_AND_SET: key=%S" id key >>= fun () ->
 	  backend # test_and_set key expected wanted >>= fun vo ->
 	  Llio.output_int oc 0 >>= fun () ->
           Llio.output_string_option oc vo >>= fun () ->
@@ -311,7 +317,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
 	  Llio.input_string ic >>= fun name ->
 	  Llio.input_string_option ic >>= fun po ->
-          log_command_f "USER_FUNCTION: name=%S" name
+          log_command_f "connection=%Lu USER_FUNCTION: name=%S" id name
           >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
@@ -329,7 +335,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	  Llio.input_bool   ic >>= fun allow_dirty ->
 	  Llio.input_string ic >>= fun key ->
 	  Llio.input_int    ic >>= fun max ->
-          log_command_f "PREFIX_KEYS: allow_dirty=%B key=%S max=%i" allow_dirty key max
+          log_command_f "connection=%Lu PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
           >>= fun () ->
 	  backend # prefix_keys ~allow_dirty key max >>= fun keys ->
           let size = List.length keys in
@@ -353,7 +359,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	      end
 	  in
 	  loop [] length >>= fun keys ->
-          log_command_f "MULTI_GET: allow_dirty=%B length=%i keys=%S" allow_dirty length (String.concat ";" keys) >>= fun () ->
+          log_command_f "connection=%Lu MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length (String.concat ";" keys) >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
 	      backend # multi_get ~allow_dirty keys >>= fun values ->
@@ -365,17 +371,17 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	    (handle_exception oc)
         end
     | SEQUENCE ->
-        log_command_f "SEQUENCE" >>= fun () ->
+        log_command_f "connection=%Lu SEQUENCE" id >>= fun () ->
         handle_sequence ~sync:false ic oc backend
     | SYNCED_SEQUENCE ->
-        log_command_f "SYNCED_SEQUENCE" >>= fun () ->
+        log_command_f "connection=%Lu SYNCED_SEQUENCE" id >>= fun () ->
         handle_sequence ~sync:true ic oc backend
     | MIGRATE_RANGE ->
         begin
           Lwt.catch(
             fun () ->
               Interval.input_interval ic >>= fun interval ->
-              log_command_f "MIGRATE_RANGE"
+              log_command_f "connection=%Lu MIGRATE_RANGE" id
               >>= fun () ->
               decode_sequence ic >>= fun updates ->
               let interval_update = Update.SetInterval interval in
@@ -386,7 +392,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         end
     | STATISTICS ->
         begin
-          log_command_f "STATISTICS"
+          log_command_f "connection=%Lu STATISTICS" id
           >>= fun () ->
 	  let s = backend # get_statistics () in
 	  let b = Buffer.create 100 in
@@ -418,7 +424,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
 	      Lwt_io.flush oc
 	  in
 	  Llio.input_int ic >>= fun n ->
-          log_command_f "COLLAPSE_TLOGS: n=%i" n >>= fun () ->
+          log_command_f "connection=%Lu COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
           Lwt.catch
 	    (fun () ->
 	      Lwt_log.info_f "... Start collapsing ... (n=%i)" n >>= fun () ->
@@ -433,7 +439,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
           Lwt.catch
 	    (fun () ->
               Interval.input_interval ic >>= fun interval ->
-              log_command_f "SET_INTERVAL: interval %S" (Interval.to_string interval) >>= fun () ->
+              log_command_f "connection=%Lu SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
               backend # set_interval interval >>= fun () ->
               response_ok_unit oc
             )
@@ -443,7 +449,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch(
             fun() ->
-              log_command_f "GET_INTERVAL" >>= fun () ->
+              log_command_f "connection=%Lu GET_INTERVAL" id >>= fun () ->
               backend # get_interval () >>= fun interval ->
               Llio.output_int oc 0 >>= fun () ->
               Interval.output_interval oc interval >>= fun () ->
@@ -454,7 +460,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
     | GET_ROUTING ->
         Lwt.catch
 	  (fun () ->
-            log_command_f "GET_ROUTING" >>= fun () ->
+            log_command_f "connection=%Lu GET_ROUTING" id >>= fun () ->
             backend # get_routing () >>= fun routing ->
 	    Llio.output_int oc 0 >>= fun () ->
 	    Routing.output_routing oc routing >>= fun () ->
@@ -464,7 +470,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
     | SET_ROUTING ->
         begin
 	  Routing.input_routing ic >>= fun routing ->
-          log_command_f "SET_ROUTING" >>= fun () ->
+          log_command_f "connection=%Lu SET_ROUTING" id >>= fun () ->
 	  Lwt.catch
 	    (fun () ->
 	      backend # set_routing routing >>= fun () ->
@@ -478,7 +484,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
               Llio.input_string ic >>= fun left ->
               Llio.input_string ic >>= fun sep ->
               Llio.input_string ic >>= fun right ->
-              log_command_f "SET_ROUTING_DELTA: left=%S sep=%S right=%S" left sep right >>= fun () ->
+              log_command_f "connection=%Lu SET_ROUTING_DELTA: left=%S sep=%S right=%S" id left sep right >>= fun () ->
               backend # set_routing_delta left sep right >>= fun () ->
               response_ok_unit oc )
             (handle_exception oc)
@@ -487,7 +493,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch
             (fun() ->
-              log_command_f "GET_KEY_COUNT" >>= fun () ->
+              log_command_f "connection=%Lu GET_KEY_COUNT" id >>= fun () ->
               backend # get_key_count () >>= fun kc ->
               response_ok_int64 oc kc)
             (handle_exception oc)
@@ -496,7 +502,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch
             (fun() ->
-              log_command_f "GET_DB" >>= fun () ->
+              log_command_f "connection=%Lu GET_DB" id >>= fun () ->
               backend # get_db (Some oc) >>= fun () ->
               Lwt.return false
             )
@@ -506,7 +512,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch
             ( fun () ->
-              log_command_f "OPT_DB" >>= fun () ->
+              log_command_f "connection=%Lu OPT_DB" id >>= fun () ->
               backend # optimize_db () >>= fun () ->
               response_ok_unit oc
             )
@@ -516,7 +522,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch
             (fun () ->
-              log_command_f "DEFRAG_DB" >>= fun () ->
+              log_command_f "connection=%Lu DEFRAG_DB" id >>= fun () ->
               backend # defrag_db () >>= fun () ->
               response_ok_unit oc)
             (handle_exception oc)
@@ -527,7 +533,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
           Llio.input_string ic >>= fun value ->
 	  Lwt.catch
 	    (fun () ->
-              log_command_f "CONFIRM: key=%S" key >>= fun () ->
+              log_command_f "connection=%Lu CONFIRM: key=%S" id key >>= fun () ->
               backend # confirm key value >>= fun () ->
 	      response_ok_unit oc
 	    )
@@ -537,7 +543,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         begin
           Lwt.catch (
             fun () ->
-              log_command_f "GET_NURSERY_CFG" >>= fun () ->
+              log_command_f "connection=%Lu GET_NURSERY_CFG" id >>= fun () ->
               backend # get_routing () >>= fun routing ->
               backend # get_cluster_cfgs () >>= fun cfgs ->
               let buf = Buffer.create 32 in
@@ -554,7 +560,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
             fun () ->
               Llio.input_string ic >>= fun cluster_id ->
               ClientCfg.input_cfg ic >>= fun cfg ->
-              log_command_f "SET_NURSERY_CFG: cluster_id=%S" cluster_id >>= fun () ->
+              log_command_f "connection=%Lu SET_NURSERY_CFG: cluster_id=%S" id cluster_id >>= fun () ->
               backend # set_cluster_cfg cluster_id cfg >>= fun () ->
               response_ok_unit oc
           )
@@ -573,7 +579,8 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
                 else
                   Routing.LOWER_BOUND
               in
-              log_command_f "GET_FRINGE: boundary=%s dir=%s"
+              log_command_f "connection=%Lu GET_FRINGE: boundary=%s dir=%s"
+                id
                 (p_option boundary)
                 (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
               >>= fun () ->
@@ -591,7 +598,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
           Lwt.catch
             ( fun () ->
               Llio.input_string ic >>= fun prefix ->
-              log_command_f "DELETE_PREFIX %S" prefix >>= fun () ->
+              log_command_f "connection=%Lu DELETE_PREFIX %S" id prefix >>= fun () ->
               backend # delete_prefix prefix >>= fun n_deleted ->
               Llio.output_int oc 0 >>= fun () ->
               Llio.output_int oc n_deleted >>= fun () ->
@@ -600,7 +607,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
             (handle_exception oc)
         end
     | VERSION ->
-        log_command_f "VERSION" >>= fun () ->
+        log_command_f "connection=%Lu VERSION" id >>= fun () ->
         Llio.output_int oc 0 >>= fun () ->
         Llio.output_int oc Version.major >>= fun () ->
         Llio.output_int oc Version.minor >>= fun () ->
@@ -613,8 +620,9 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         Llio.output_string oc rest >>= fun () ->
         Lwt.return false
 
+
 let protocol backend log_commands connection =
-  let ic,oc = connection in
+  let ic,oc,cid = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
