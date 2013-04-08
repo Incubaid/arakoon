@@ -70,6 +70,7 @@ let system = "system" >::: [
   Single.force_master;
   Single.elect_master;(*
   Startup.suite;*)
+  Drop_master.suite;
 ]
 
 let lwt_socket_tests = "lwt" >::: [Lwt_socket_test.suite]

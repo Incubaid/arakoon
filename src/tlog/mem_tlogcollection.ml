@@ -71,11 +71,11 @@ object (self: #tlog_collection)
     Lwt_list.iter_s f (List.rev data')
 
       
-  method get_tlog_count() = failwith "not supported"
+  method get_tlog_count() = failwith "get_tlog_count not supported"
 
-  method dump_tlog_file start_i oc = failwith "not supported"
+  method dump_tlog_file start_i oc = failwith "dump_flog_file not supported"
 
-  method save_tlog_file name length ic = failwith "not supported"
+  method save_tlog_file name length ic = failwith "save_tlog_file not supported"
 
 
   method log_value_explicit i (v:Value.t) sync marker =
@@ -87,14 +87,14 @@ object (self: #tlog_collection)
   method log_value i v = self #log_value_explicit i v false None
 
           
-  method dump_head oc = Llio.lwt_failfmt "not implemented"
-  method save_head ic = Llio.lwt_failfmt "not implemented"
+  method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
+  method save_head ic = Llio.lwt_failfmt "save_head not implemented"
 
-  method get_head_name () = failwith "not implemented"
+  method get_head_name () = failwith "get_head_name not implemented"
 
   method get_tlog_from_name n = failwith "not implemented"
   
-  method get_tlog_from_i = failwith "not implemented"   
+  method get_tlog_from_i i = Sn.start
   
   method close () = Lwt.return ()
   
