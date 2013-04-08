@@ -110,7 +110,7 @@ let setup_default_logger file_log_level file_log_path crash_log_prefix =
   Lwt.catch
     (fun () ->
       Lwt_log.file
-        ~template:"$(date) $(milliseconds): $(section): $(level): $(message)"
+        ~template:"$(date) $(milliseconds): ($(section)|$(level)): $(message)"
         ~mode:`Append ~file_name:file_log_path ()
     )
     (fun exn -> 

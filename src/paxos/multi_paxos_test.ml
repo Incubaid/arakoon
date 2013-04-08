@@ -53,11 +53,11 @@ let test_generic network_factory n_nodes () =
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
-  let on_accept me (v,n,i) = log ~me "on_accept(%s,%s)" (sn2s n) (sn2s i) 
+  let on_accept me (v,n,i) = log "on_accept(%s,%s)" (sn2s n) (sn2s i) 
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
-    log ~me "on_consensus(%s,%s)" (sn2s n) (sn2s i) >>= fun () -> 
+    log "on_consensus(%s,%s)" (sn2s n) (sn2s i) >>= fun () -> 
     Lwt.return [Store.Ok None]
   in
   let last_witnessed who = Sn.of_int (-1000) in
@@ -104,7 +104,7 @@ let test_generic network_factory n_nodes () =
 	     } in
 	     let t =
 	       let expected prev_key key =
-		     log ~me "node from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+		     log "node from %s to %s" (Multi_paxos_type.show_transition prev_key) 
 		       (Multi_paxos_type.show_transition key) >>= fun () ->
 		     match key with
 		       | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
@@ -119,7 +119,7 @@ let test_generic network_factory n_nodes () =
 	       Multi_paxos_fsm.expect_run_forced_slave 
 		     constants buffers expected steps (current_i,Sn.start)
 		   >>= fun result ->
-	       log ~me "node done." >>= fun () ->
+	       log "node done." >>= fun () ->
 	       Lwt.return ()
 	     in
 	     _loop (t :: ts) (i-1)
@@ -127,7 +127,7 @@ let test_generic network_factory n_nodes () =
   in
   let ts = build_n (n_nodes -1) in
   let me = "c0" in
-  log ~me "%d other nodes started" (List.length ts) >>= fun () ->
+  log "%d other nodes started" (List.length ts) >>= fun () ->
   let constants = { base with 
       me = me;
       others = all_happy;
@@ -137,7 +137,7 @@ let test_generic network_factory n_nodes () =
   } in
   let c0_t () =
     let expected prev_key key =
-      log ~me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      log "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
@@ -255,7 +255,7 @@ let test_master_loop network_factory ()  =
   let continue = ref 2 in
   let c0_t () =
     let expected prev_key key =
-      log ~me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      log "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	    | (Multi_paxos_type.Stable_master x) ->
@@ -292,10 +292,10 @@ let build_perfect () =
       q
   in
   let send msg source (target:string) =
-    log ~me:source "%s --- %s ----->? %s" source (string_of msg) target >>= fun () ->
+    log "%s --- %s ----->? %s" source (string_of msg) target >>= fun () ->
     let q = get_q target in
     Lwt_buffer.add (Mp_msg.MPMessage.generic_of msg,source) q >>= fun () ->
-    log ~me:source "added to buffer of %s" target
+    log "added to buffer of %s" target
   in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
@@ -319,9 +319,9 @@ let test_simulation filters () =
    let me = "c0" in
   let current_n = 42L in
   let current_i = 0L in
-  let on_accept me (v,n,i) = log ~me "on_accept: (%s,%s)" (sn2s n) (sn2s i) in
+  let on_accept me (v,n,i) = log "on_accept: (%s,%s)" (sn2s n) (sn2s i) in
   let on_consensus me (v,n,i) =
-    log ~me "on_consensus: (%s,%s) " (sn2s n) (sn2s i)
+    log "on_consensus: (%s,%s) " (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return [Store.Ok None]
   in
@@ -337,7 +337,7 @@ let test_simulation filters () =
   let inject_event e = Lwt_buffer.add e inject_buffer in
   let send msg source target =
     let msg_s = string_of msg in
-    log ~me:source "sends %s to %s" msg_s  target >>= fun () ->
+    log "sends %s to %s" msg_s  target >>= fun () ->
     let ok = List.fold_left (fun acc f -> acc && f (msg,source,target)) true filters in
     if ok then
       begin
@@ -374,7 +374,7 @@ let test_simulation filters () =
   } in
   let c0_t () =
     let expected prev_key key =
-      log ~me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      log "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
@@ -388,7 +388,7 @@ let test_simulation filters () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected 50 current_n current_i
     >>= fun (v', n, i) ->
-    log ~me "consensus reached: (%s,%s)" (sn2s n) (sn2s i)
+    log "consensus reached: (%s,%s)" (sn2s n) (sn2s i)
   in
   let cx_t me other =
     let inject_buffer = Lwt_buffer.create () in
@@ -403,7 +403,7 @@ let test_simulation filters () =
       }
     in
     let expected prev_key key =
-      log ~me "node from %s to %s" 
+      log "node from %s to %s" 
 	    (Multi_paxos_type.show_transition prev_key) 
 	    (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
@@ -417,7 +417,7 @@ let test_simulation filters () =
        election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 (current_i,Sn.start)
     >>= fun result ->
-    log ~me "node done." >>= fun () ->
+    log "node done." >>= fun () ->
     Lwt.return ()
   in
   Lwt.pick [c0_t (); 

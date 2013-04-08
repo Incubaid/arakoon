@@ -34,7 +34,7 @@ open Client_cfg
 
 
 let section =
-  let s = Lwt_log.Section.make "CLIENT_PROTOCOL" in
+  let s = Lwt_log.Section.make "client_protocol" in
   let () = Lwt_log.Section.set_level s Lwt_log.Debug in
   s
 
@@ -135,13 +135,9 @@ let handle_sequence ~sync ic oc backend =
   end
 
 let one_command (ic,oc,id) (backend:Backend.backend) log_commands =
-  let log_command_f =
-    begin
-      if log_commands then
-        Lwt_log.info_f ~section
-      else
-        Lwt_log.debug_f ~section
-    end in
+  let log_command_f x =
+    let k s = Lwt_log.log ~section ~level:(if log_commands then Lwt_log.Info else Lwt_log.Debug) (*Lwt_log.Section.level section*) s in
+    Printf.ksprintf k x in
   read_command (ic,oc) >>= function
     | PING ->
         begin
