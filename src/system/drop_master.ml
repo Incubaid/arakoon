@@ -54,4 +54,4 @@ let make_suite base name w =
 
 let suite =
  let w tn base f = Extra.lwt_bracket (setup tn Elected base) f teardown in
-  make_suite 7000 "drop_master" w
+  make_suite 8000 "drop_master" w
