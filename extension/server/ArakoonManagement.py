@@ -35,6 +35,7 @@ import types
 import string
 import logging
 
+from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
@@ -539,6 +540,10 @@ class ArakoonCluster:
 
         return clientconfig
 
+    def getClient(self):
+        config = self.getClientConfig()
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
+        return client
    
     def listNodes(self):
         """
@@ -922,7 +927,21 @@ class ArakoonCluster:
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.defragDb(ip,port,self._clusterId)
- 
+
+
+    def dropMaster(self, nodeName):
+        """
+        Request a node to drop its master role
+        @param nodeName The name of the node you want to drop its master role
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
+        port = int(config['client_port'])
+        ArakoonRemoteControl.dropMaster(ip,port,self._clusterId)
+
+
     def restartOne(self, nodeName):
         """
         Restart the node with a given name in the supplied cluster

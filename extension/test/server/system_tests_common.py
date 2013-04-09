@@ -350,6 +350,10 @@ def startOne(name):
     cluster = _getCluster()
     cluster.startOne(name)
 
+def dropMaster(name):
+    cluster = _getCluster()
+    cluster.dropMaster(name)
+
 def optimizeDb(name):
     cluster = _getCluster()
     cluster.optimizeDb(name)

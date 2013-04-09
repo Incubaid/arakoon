@@ -30,18 +30,21 @@ open Update
 (* a (possibly potential) master has found consensus on a value
    first potentially finish of a client request and then on to
    being a stable master *)
-let master_consensus constants ((finished_funs : master_option),v,n,i) () =
+let master_consensus constants ((finished_funs : master_option),v,n,i, lease_expire_waiters) () =
   let gen_e = EConsensus(finished_funs, v,n,i) in
   let log_e = ELog (fun () ->
     Printf.sprintf "on_consensus for : %s => %i finished_fs " 
       (Value.value2s v) (List.length finished_funs) )
   in
-  let state = (v,n,(Sn.succ i)) in
+  let state = (v,n,(Sn.succ i), lease_expire_waiters) in
   Fsm.return ~sides:[gen_e;log_e] (Stable_master state)
     
 
+let null = function
+  | [] -> true
+  | _ -> false
 
-let stable_master constants ((v',n,new_i) as current_state) = function
+let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state) = function
   | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
@@ -55,13 +58,21 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 	    end
       else
 	    begin
-	      let extend () = 
-            let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
-            let v = Value.create_master_value (me,0L) in
-            let ff = fun _ -> Lwt.return () in
+	      let extend () =
+                if not (null lease_expire_waiters)
+                then
+                  let log_e = ELog (fun () ->
+                    "stable_master: half-lease_expired, but not renewing lease")
+                  in
+                  (* TODO Is this correct, to initiate handover? *)
+                  Fsm.return ~sides:[log_e] (Stable_master current_state)
+                else
+                  let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
+                  let v = Value.create_master_value (me,0L) in
+                  let ff = fun _ -> Lwt.return () in
 		    (* TODO: we need election timeout as well here *)
-	        Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i))
-	      in
+                  Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i, lease_expire_waiters))
+              in
 	      match constants.master with
 	        | Preferred ps when not (List.mem me ps) ->
                   let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
@@ -84,7 +95,7 @@ let stable_master constants ((v',n,new_i) as current_state) = function
           let updates, finished_funs = List.split ufs in
           let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
           let value = Value.create_client_value updates synced in
-	      Fsm.return (Master_dictate (finished_funs, value, n, new_i))
+	      Fsm.return (Master_dictate (finished_funs, value, n, new_i, lease_expire_waiters))
         end
     | FromNode (msg,source) ->
       begin
@@ -112,10 +123,12 @@ let stable_master constants ((v',n,new_i) as current_state) = function
 		            | Promise_sent_up2date ->
 		              begin
                         let l_val = constants.tlog_coll # get_last () in
+                        Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
 			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
                       let i = Store.get_catchup_start_i constants.store in
+                      Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                       Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
@@ -126,6 +139,27 @@ let stable_master constants ((v',n,new_i) as current_state) = function
               *)
               let () = constants.on_witness source i in
               Fsm.return (Stable_master current_state)
+          | Accept(n',i',v) when n' > n && i' > new_i ->
+            (* 
+               somehow the others decided upon a master and I got no event my lease expired.
+               Let's see what's going on, and maybe go back to elections
+            *)
+            begin
+              Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+              let run_elections, why = Slave.time_for_elections constants n (Some v') in
+              let log_e = 
+                ELog (fun () -> 
+                  Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s" 
+                    (Sn.string_of n') (Sn.string_of i')
+                    run_elections why)
+              in
+              let sides = [log_e] in
+              if run_elections 
+              then 
+                Fsm.return ~sides (Election_suggest (n,new_i,Some v'))
+              else
+                Fsm.return ~sides (Stable_master (v',n,new_i, []))
+            end
 	      | _ ->
 	          begin
                 let log_e = ELog (fun () -> 
@@ -148,11 +182,15 @@ let stable_master constants ((v',n,new_i) as current_state) = function
       end
         
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
+
+    | DropMaster (sleep, awake) ->
+        let state' = (v',n,new_i, (sleep, awake) :: lease_expire_waiters) in
+        Fsm.return (Stable_master state')
                 
 (* a master informes the others of a new value by means of Accept
    messages and then waits for Accepted responses *)
 
-let master_dictate constants (mo,v,n,i) () =
+let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
   let accept_e = EAccept (v,n,i) in
   
   let start_e = EStartLeaseExpiration (v,n,false) in
@@ -169,11 +207,18 @@ let master_dictate constants (mo,v,n,i) () =
         (Sn.string_of n) (Sn.string_of i) needed' 
     )
   in
-  let sides = 
-    [accept_e;
-     start_e;
-     mcast_e;
-     log_e;
-    ]
+  let sides =
+    if null lease_expire_waiters
+    then
+      [accept_e;
+       start_e;
+       mcast_e;
+       log_e;
+      ]
+    else
+      [accept_e;
+       mcast_e;
+       log_e;
+      ]
   in
-  Fsm.return ~sides (Accepteds_check_done (mo, n, i, ballot, v))
+  Fsm.return ~sides (Accepteds_check_done (mo, n, i, ballot, v, lease_expire_waiters))

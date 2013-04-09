@@ -29,6 +29,7 @@ type v_limits = int * (Value.t * int) list
         all Some v promises and their frequency *)
 type n = Sn.t
 type i = Sn.t
+type slave_awaiters = (unit Lwt.t * unit Lwt.u) list
 type transitions =
   (* dummy to always have a previous transition *)
   | Start_transition
@@ -51,19 +52,23 @@ type transitions =
   | Promises_check_done of (n * i * 
 			      Messaging.id list * 
 			      v_limits * 
-			      (string * Mp_msg.MPMessage.n) option)
+			      (string * Mp_msg.MPMessage.n) option *
+                              slave_awaiters)
   | Wait_for_promises of (n * i * Messaging.id list * 
 			    v_limits * 
-			    (string * Mp_msg.MPMessage.n) option)
+			    (string * Mp_msg.MPMessage.n) option *
+                            slave_awaiters)
   | Accepteds_check_done of (master_option * n * i * 
-			       (int * Messaging.id list) * Value.t)
+			       (int * Messaging.id list) * Value.t *
+                               slave_awaiters)
   | Wait_for_accepteds of (master_option * n * i * 
-			     (int * Messaging.id list) * Value.t)
+			     (int * Messaging.id list) * Value.t *
+                             slave_awaiters)
 
   (* active master only *)
-  | Master_consensus of (master_option * Value.t * n * i)
-  | Stable_master of (Value.t * n * i)
-  | Master_dictate of (master_option * Value.t * n * i)
+  | Master_consensus of (master_option * Value.t * n * i * slave_awaiters)
+  | Stable_master of (Value.t * n * i * slave_awaiters)
+  | Master_dictate of (master_option * Value.t * n * i * slave_awaiters)
   (* read only *)
   | Read_only of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t option)
 
