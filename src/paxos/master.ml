@@ -123,7 +123,7 @@ let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state
 		            | Promise_sent_up2date ->
 		              begin
                         let l_val = constants.tlog_coll # get_last () in
-                                    Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+                        Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
 			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
@@ -139,6 +139,27 @@ let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state
               *)
               let () = constants.on_witness source i in
               Fsm.return (Stable_master current_state)
+          | Accept(n',i',v) when n' > n && i' > new_i ->
+            (* 
+               somehow the others decided upon a master and I got no event my lease expired.
+               Let's see what's going on, and maybe go back to elections
+            *)
+            begin
+              Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+              let run_elections, why = Slave.time_for_elections constants n (Some v') in
+              let log_e = 
+                ELog (fun () -> 
+                  Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s" 
+                    (Sn.string_of n') (Sn.string_of i')
+                    run_elections why)
+              in
+              let sides = [log_e] in
+              if run_elections 
+              then 
+                Fsm.return ~sides (Election_suggest (n,new_i,Some v'))
+              else
+                Fsm.return ~sides (Stable_master (v',n,new_i, []))
+            end
 	      | _ ->
 	          begin
                 let log_e = ELog (fun () -> 

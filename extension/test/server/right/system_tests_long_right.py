@@ -332,11 +332,13 @@ def drop_master(n):
     cli = Common.get_client()
     previousMaster = cli.whoMaster()
     for i in range(n):
+        logging.info("starting iteration %i", i)
         Common.dropMaster(previousMaster)
         cli._masterId = None
         master = cli.whoMaster()
         assert_not_equals(master, previousMaster, "Master did not change after drop master request.")
         previousMaster = master
+        logging.info("finished iteration %i", i)
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master():
