@@ -33,7 +33,7 @@ let test_old_format () =
       let v = Entry.v_of entry in
       let is = Sn.string_of i in 
       let vs = Value.value2s v in
-      Lwt_io.printlf "%s:%s" is vs >>= fun () ->
+      Lwt_io.eprintlf "%s:%s" is vs >>= fun () ->
       Lwt.return a 
     in
     let f ic = 
