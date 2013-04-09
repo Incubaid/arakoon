@@ -600,6 +600,7 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
             (handle_exception oc)
         end
     | VERSION ->
+      begin
         log_command_f "VERSION" >>= fun () ->
         Llio.output_int oc 0 >>= fun () ->
         Llio.output_int oc Version.major >>= fun () ->
@@ -612,6 +613,15 @@ let one_command (ic,oc) (backend:Backend.backend) log_commands =
         in
         Llio.output_string oc rest >>= fun () ->
         Lwt.return false
+      end
+    | DROP_MASTER ->
+      begin
+        log_command_f "DROP_MASTER" >>= fun () ->
+        Lwt.catch
+          (fun () -> backend # drop_master () >>= fun () ->
+            response_ok_unit oc)
+          (handle_exception oc)
+      end
 
 let protocol backend log_commands connection =
   let ic,oc = connection in
