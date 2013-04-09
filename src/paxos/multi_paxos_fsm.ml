@@ -831,12 +831,9 @@ let rec paxos_produce buffers
 	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
 	            let msg2 = MPMessage.of_generic msg in
                 begin
-                  if Lwt_log.Section.level section <= Lwt_log.Debug
-                  then
                     let t0 = Unix.gettimeofday() in
-                    Lwt_log.debug_f "%f SEQ: %s => %s : %s " t0
-                      source me (Mp_msg.MPMessage.string_of msg2) 
-                  else Lwt.return ()
+                    log "%f SEQ: %s => %s : %s "
+                      t0 source me (Mp_msg.MPMessage.string_of msg2)
                 end >>= fun () ->
 	            Lwt.return (FromNode (msg2,source))
 	          end
@@ -857,13 +854,9 @@ let rec paxos_produce buffers
 let _execute_effects constants e = 
   match e with
     | ELog build ->
-        if Lwt_log.Section.level section <= Lwt_log.Debug 
-        then
           let s = build () in
-          let s' = "PURE:" ^ constants.me ^ " : " ^ s in
-          Lwt_log.debug s' 
-        else
-          Lwt.return ()
+          let s' = "PURE: " ^ s in
+          log s'
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
     | ESend (msg, target) -> constants.send msg constants.me target
