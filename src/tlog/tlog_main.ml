@@ -105,10 +105,15 @@ let make_tlog tlog_name (i:int) =
 
 
 let compress_tlog tlu =
+  let failwith x =
+    Printf.ksprintf failwith x in
+  let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
   let tlf = Tlc2.to_archive_name tlu in
+  let () = if Sys.file_exists tlf then failwith "Can't compress %s as %s already exists" tlu tlf in
   let t = Compression.compress_tlog tlu tlf in
+  Lwt_main.run t;
   Unix.unlink tlu;
-  Lwt_main.run t;0
+  0
 
 let uncompress_tlog tlx =
   let t =
