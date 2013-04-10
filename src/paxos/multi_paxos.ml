@@ -33,11 +33,11 @@ let section =
   let () = Lwt_log.Section.set_level s Lwt_log.Debug in
   s
 
-let log s =
-  Lwt_log.log ~section ~level:(Lwt_log.Section.level section) s
+let log me s =
+  Lwt_log.log ~section ~level:(Lwt_log.Section.level section) (me ^ ": " ^ s)
 
-let log_f x =
-  Printf.ksprintf log x
+let log_f me x =
+  Printf.ksprintf (log me) x
 
 
 let quorum_function = Quorum.quorum_function
@@ -196,9 +196,9 @@ let start_lease_expiration_thread constants n expiration =
   let sleep_sec = float_of_int expiration in
   let t () =
     begin
-      log_f "waiting %2.1f seconds for lease to expire" sleep_sec >>= fun () ->
+      log_f constants.me "waiting %2.1f seconds for lease to expire" sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log_f
+      log_f constants.me
         "lease expired (%2.1f passed)=> injecting LeaseExpired event for %s"
         sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
@@ -210,9 +210,9 @@ let start_election_timeout constants n =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
   let t () = 
     begin
-      log_f "waiting %2.1f seconds for election to finish" sleep_sec >>= fun () ->
+      log_f constants.me "waiting %2.1f seconds for election to finish" sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log_f "election (n=%s) should have finished by now." (Sn.string_of n) >>= fun () ->
+      log_f constants.me "election (n=%s) should have finished by now." (Sn.string_of n) >>= fun () ->
       constants.inject_event (ElectionTimeout n)
     end
   in
@@ -239,7 +239,7 @@ let handle_prepare constants dest n n' i' =
             | Some si -> Sn.succ si
 	end in
       let reply = Nak( n',(n,nak_i)) in
-      log_f "replying with %S to learner %s" (string_of reply) dest
+      log_f me "replying with %S to learner %s" (string_of reply) dest
       >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return Nak_sent 
@@ -250,7 +250,7 @@ let handle_prepare constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
 	    begin 
-          log_f "handle_prepare: Dropping prepare - lease still active" 
+          log_f me "handle_prepare: Dropping prepare - lease still active" 
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
 	        
@@ -272,7 +272,7 @@ let handle_prepare constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            log_f "NAK:other node is behind: i':%s nak_max:%s" 
+            log_f me "NAK:other node is behind: i':%s nak_max:%s" 
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply) 
           else
@@ -280,7 +280,7 @@ let handle_prepare constants dest n n' i' =
               (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
-              log_f "handle_prepare: starting election timer" >>= fun () ->
+              log_f me "handle_prepare: starting election timer" >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
@@ -291,7 +291,7 @@ let handle_prepare constants dest n n' i' =
 		        Lwt.return(Promise_sent_up2date, reply)
             end 
 	    end >>= fun (ret_val, reply) ->
-      log_f "handle_prepare replying with %S" (string_of reply) >>= fun () ->
+      log_f me "handle_prepare replying with %S" (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end
