@@ -331,8 +331,16 @@ let _set_master bdb master (lease_start:int64) =
 let _with_tx (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
   Camltc.Hotc.transaction db
 	(fun db ->
+      let t0 = Unix.gettimeofday() in
 	  f db >>= fun (a:'a) ->
-	  Lwt.return a)
+      let t = ( Unix.gettimeofday() -. t0) in
+      if t > 1.0
+      then begin
+        Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
+        Lwt.return a
+      end
+      else
+	    Lwt.return a)
 
 (* let _tx_with_incr _ _ _ = failwith "_tx_with_incr" *)
 

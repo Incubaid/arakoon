@@ -84,10 +84,16 @@ let _update_rendezvous self ~so_post update update_stats push =
   let t0 = Unix.gettimeofday() in
   sleep >>= fun r ->
   let t1 = Unix.gettimeofday() in
-  Lwt_log.debug_f "rendezvous took :%f" (t1 -. t0) >>= fun () ->
-  match r with 
-  | Store.Stop -> Lwt.fail Forced_stop
-  | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
+  let t = (t1 -. t0) in
+  let f =
+    if t > 1.0
+    then Lwt_log.info_f
+    else Lwt_log.debug_f
+  in
+  f "rendezvous (%s) took %f" (Update.update2s update) t >>= fun () ->
+  match r with
+    | Store.Stop -> Lwt.fail Forced_stop
+    | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
   | Store.Ok so -> Lwt.return (so_post so)
 
 

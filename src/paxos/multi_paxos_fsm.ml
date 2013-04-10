@@ -830,11 +830,8 @@ let rec paxos_produce buffers
 	          begin
 	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
 	            let msg2 = MPMessage.of_generic msg in
-                begin
-                    let t0 = Unix.gettimeofday() in
-                    log_f me "%f SEQ: %s => %s : %s "
-                      t0 source me (Mp_msg.MPMessage.string_of msg2)
-                end >>= fun () ->
+                log_f me "receiving msg from %s: %s" source (Mp_msg.MPMessage.string_of msg2)
+                >>= fun () ->
 	            Lwt.return (FromNode (msg2,source))
 	          end
 	      | Some Election_timeout_ready ->

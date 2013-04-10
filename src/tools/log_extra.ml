@@ -35,7 +35,8 @@ let list2s e_to_s list =
   in "[" ^ inner ^ "]"
 
 let log_o o x =
-  let k s = let os = o # to_string () in
+  let k s =
+    let os = o # to_string () in
     Client_log.debug  (os ^": " ^  s)
   in
   Printf.ksprintf k x
