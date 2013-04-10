@@ -72,6 +72,7 @@ let _config_logging me get_cfgs =
   in
   let () = Lwt_log.Section.set_level Client_protocol.section (to_level log_config.client_protocol) in
   let () = Lwt_log.Section.set_level Multi_paxos.section (to_level log_config.paxos) in
+  let () = Lwt_log.Section.set_level Tcp_messaging.section (to_level log_config.tcp_messaging) in
   let level = to_level cfg.log_level in
   let log_dir = cfg.log_dir in
   let node_name = cfg.node_name in

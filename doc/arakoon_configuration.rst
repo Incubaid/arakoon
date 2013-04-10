@@ -30,6 +30,7 @@ can be freely chosen.
     # available levels are: debug info notice warning error fatal
     client_protocol = debug
     paxos = debug
+    tcp_messaging = debug
 
     [Node_0]
     ip = 192.168.1.1
@@ -180,6 +181,10 @@ client_protocol *(optional)*
   The default value is debug.
 
 paxos *(optional)*
+  The level of logging associated with this section. Same options as log_level.
+  The default value is debug.
+
+tcp_messaging *(optional)*
   The level of logging associated with this section. Same options as log_level.
   The default value is debug.
 

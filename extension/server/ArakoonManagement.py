@@ -208,13 +208,15 @@ class ArakoonCluster:
     def addLogConfig(self,
                      name,
                      client_protocol = "debug",
-                     paxos = "debug"):
+                     paxos = "debug",
+                     tcp_messaging = "debug"):
         """
         Add a log config section to the configuration of the supplied cluster
 
         @param name : the name of the log config section
         @param client_protocol : the log level for the client_protocol log section
         @param paxos : the log level for the paxos log section
+        @param tcp_messaging : the log level for the tcp_messaging log section
         """
         config = self._getConfigFile()
 
@@ -222,6 +224,7 @@ class ArakoonCluster:
 
         config.addParam(name, "client_protocol", client_protocol)
         config.addParam(name, "paxos", paxos)
+        config.addParam(name, "tcp_messaging", tcp_messaging)
 
         config.write()
 

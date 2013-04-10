@@ -82,6 +82,7 @@ module Node_cfg = struct
       {
         client_protocol: string;
         paxos: string;
+        tcp_messaging: string;
       }
 
   type cluster_cfg =
@@ -103,6 +104,7 @@ module Node_cfg = struct
     {
       client_protocol = "debug";
       paxos = "debug";
+      tcp_messaging = "debug";
     }
 
   let make_test_config 
@@ -259,9 +261,11 @@ module Node_cfg = struct
     let get_string x default = Ini.get inifile log_name x Ini.p_string (Ini.default default) in
     let client_protocol = String.lowercase (get_string "client_protocol" "debug")  in
     let paxos = String.lowercase (get_string "paxos" "debug")  in
+    let tcp_messaging = String.lowercase (get_string "tcp_messaging" "debug")  in
     {
       client_protocol;
       paxos;
+      tcp_messaging;
     }
 
   let _node_config inifile node_name master =

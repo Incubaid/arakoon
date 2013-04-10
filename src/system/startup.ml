@@ -33,6 +33,7 @@ let _make_log_cfg () =
    {
      client_protocol = "debug";
      paxos = "debug";
+     tcp_messaging = "debug";
    })
 
 let _make_cfg name n lease_period =
