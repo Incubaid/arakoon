@@ -26,6 +26,10 @@ can be freely chosen.
 
     #quorum = 1
 
+    [default_log_config]
+    # available levels are: debug info notice warning error fatal
+    client_protocol = debug
+    paxos = debug
 
     [Node_0]
     ip = 192.168.1.1
@@ -34,6 +38,7 @@ can be freely chosen.
     home = /tmp/Node_0
     log_dir = /tmp/Node_0
     log_level = debug
+    log_config = default_log_config
     #disable_tlog_compression = true
 
     [Node_1]
@@ -45,6 +50,7 @@ can be freely chosen.
     #tlog_dir = /tmp/Node_1_tlog
     log_dir = /tmp/Node_1
     log_level = debug
+    log_config = default_log_config
     #disable_tlog_compression = true
 
     [Node_2]
@@ -56,6 +62,7 @@ can be freely chosen.
     #tlog_dir = /tmp/Node_2_tlog
     log_dir = /tmp/Node_2
     log_level = debug
+    log_config = default_log_config
     #disable_tlog_compression = true
 
 Content of a Configuration File
@@ -64,6 +71,8 @@ An Arakoon configuration file consists of at least two sections:
 
 - global
 - node
+
+Optionally one or more log config sections can be added.
 
 Global Section
 --------------
@@ -139,6 +148,9 @@ log_dir *(optional)*
   Location of the node's log files on the file system. By default this is the
   same directory as the home location but you may choose another location.
 
+log_config *(optional)*
+  The log config to be used for this node.
+
 log_level
   The level of logging on the node, possible options are:
 
@@ -155,6 +167,21 @@ disable_tlog_compression *(optional)*
   A transaction log is by default compressed when it has reached its maximum
   of entries (100.000). If you don't want to compress these log, set the
   parameter to true.
+
+Log Config Section
+-----------
+
+The log config section specifies the log level for the different 'log sections'
+Arakoon logs to. In combination with the specified log_level of the node this
+allows controlling which messages get logged.
+
+client_protocol *(optional)*
+  The level of logging associated with this section. Same options as log_level.
+  The default value is debug.
+
+paxos *(optional)*
+  The level of logging associated with this section. Same options as log_level.
+  The default value is debug.
 
 Forced vs Preferred Master
 ==========================

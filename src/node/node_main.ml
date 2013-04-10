@@ -52,8 +52,17 @@ let _config_logging me get_cfgs =
     try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
     with Not_found -> failwith ("Could not find config for node " ^ me ) 
   in
-  let level =
-    match cfg.log_level with
+  let log_config =
+    match cfg.log_config with
+      | None -> Node_cfg.Node_cfg.get_default_log_config ()
+      | Some log_config' ->
+          try
+            let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
+            lc
+          with Not_found ->
+            failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
+  in
+  let to_level = function
       | "info"    -> Lwt_log.Info
       | "notice"  -> Lwt_log.Notice
       | "warning" -> Lwt_log.Warning
@@ -61,6 +70,9 @@ let _config_logging me get_cfgs =
       | "fatal"   -> Lwt_log.Fatal
       | _         -> Lwt_log.Debug
   in
+  let () = Lwt_log.Section.set_level Client_protocol.section (to_level log_config.client_protocol) in
+  let () = Lwt_log.Section.set_level Multi_paxos.section (to_level log_config.paxos) in
+  let level = to_level cfg.log_level in
   let log_dir = cfg.log_dir in
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in
@@ -109,7 +121,6 @@ open Mp_msg
 let _config_service cfg backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
-  let log_commands = cfg.log_commands in
   let max_connections = 
     let soft = Limits.get_rlimit Limits.NOFILE Limits.Soft in
     max (soft -200) 200
@@ -119,7 +130,7 @@ let _config_service cfg backend=
     (fun host ->
       let name = Printf.sprintf "%s:client_service" host in
       Server.make_server_thread ~name host port
-        (Client_protocol.protocol backend log_commands)
+        (Client_protocol.protocol backend)
         ~scheme
     )
     hosts

@@ -204,7 +204,27 @@ class ArakoonCluster:
     def _getConfigFile(self):
         path = self._getConfigFilePath()
         return q.config.getInifile(path)
-    
+
+    def addLogConfig(self,
+                     name,
+                     client_protocol = "debug",
+                     paxos = "debug"):
+        """
+        Add a log config section to the configuration of the supplied cluster
+
+        @param name : the name of the log config section
+        @param client_protocol : the log level for the client_protocol log section
+        @param paxos : the log level for the paxos log section
+        """
+        config = self._getConfigFile()
+
+        config.addSection(name)
+
+        config.addParam(name, "client_protocol", client_protocol)
+        config.addParam(name, "paxos", paxos)
+
+        config.write()
+
     def addNode(self,
                 name,
                 ip = "127.0.0.1",
@@ -218,22 +238,22 @@ class ArakoonCluster:
                 isLearner = False,
                 targets = None,
                 isLocal = True,
-                logCommands = False):
+                logConfig = None):
         """
         Add a node to the configuration of the supplied cluster
 
-        @param name :the name of the node, should be unique across the environment
+        @param name : the name of the node, should be unique across the environment
         @param ip : the ip(s) this node should be contacted on (string or string list)
         @param clientPort : the port the clients should use to contact this node
         @param messagingPort : the port the other nodes should use to contact this node
         @param logLevel : the loglevel (debug info notice warning error fatal)
-        @param logCommands : specifies whether this node should log all incoming commands
-        @param logDir :  the directory used for logging
+        @param logDir : the directory used for logging
         @param home : the directory used for the nodes data
+        @param tlogDir : the directory used for tlogs (if none, home will be used)
         @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
-        @param tlogDir :  the directory used for tlogs (if none, home will be used)
         @param isLearner : whether this node is a learner node or not
         @param targets : for a learner node the targets (string list) it learns from
+        @param logConfig : specifies the log config to be used for this node
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -264,9 +284,9 @@ class ArakoonCluster:
         config.addParam(name, "messaging_port", messagingPort)
         config.addParam(name, "log_level", logLevel)
 
-        if logCommands:
-            config.addParam(name, "log_commands", "true")
-        
+        if logConfig is not None:
+            config.addParam(name, "log_config", logConfig)
+
         if wrapper is not None:
             config.addParam(name, "wrapper", wrapper)
         
@@ -428,7 +448,7 @@ class ArakoonCluster:
 
         config.write()
 
-    def setLogCommands(self, logCommands, nodes=None):
+    def setLogConfig(self, logConfig, nodes=None):
         if nodes is None:
             nodes = self.listNodes()
         else:
@@ -437,10 +457,7 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
         for n in nodes:
-            if logCommands:
-                config.addParam(n, "log_commands", "true")
-            else:
-                config.removeParam(n, "log_commands")
+            config.addParam(n, "log_config", logConfig)
 
         config.write()
 

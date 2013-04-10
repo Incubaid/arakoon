@@ -207,6 +207,7 @@ Arakoon first logs an update into a tlog. If the cluster reaches consensus over 
 it's entered into the store. The tlogs are also used to allow other nodes in the cluster to catchup.
 The downside to it is that it consumes a lot of diskspace. 
 Therefore arakoon allows you to collapse the oldes tlogs into a head database. This reduces space and speeds up catchup as the other nodes can start from the head database if needed. To execute a collapse operation, run the following::
+
     # arakoon --collapse-remote <cluster_id> <ip> <port> <n> 
     # e.g.
     # arakoon --collapse-remote ricky 127.0.0.1 7080 5

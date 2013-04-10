@@ -134,9 +134,9 @@ let handle_sequence ~sync ic oc backend =
 
   end
 
-let one_command (ic,oc,id) (backend:Backend.backend) log_commands =
+let one_command (ic,oc,id) (backend:Backend.backend) =
   let log_command_f x =
-    let k s = Lwt_log.log ~section ~level:(if log_commands then Lwt_log.Info else Lwt_log.Debug) (*Lwt_log.Section.level section*) s in
+    let k s = Lwt_log.log ~section ~level:(Lwt_log.Section.level section) s in
     Printf.ksprintf k x in
   read_command (ic,oc) >>= function
     | PING ->
@@ -617,7 +617,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) log_commands =
         Lwt.return false
 
 
-let protocol backend log_commands connection =
+let protocol backend connection =
   let ic,oc,cid = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
@@ -638,7 +638,7 @@ let protocol backend log_commands connection =
   in
   let rec loop () =
     begin
-	  one_command connection backend log_commands >>= fun closed ->
+	  one_command connection backend >>= fun closed ->
 	  Lwt_io.flush oc >>= fun() ->
 	  if closed
 	  then Lwt_log.debug "leaving client loop"

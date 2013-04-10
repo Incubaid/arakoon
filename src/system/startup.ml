@@ -28,6 +28,13 @@ open Update
 open Master_type
 open Tlogcommon
 
+let _make_log_cfg () =
+  ("log_cfg",
+   {
+     client_protocol = "debug";
+     paxos = "debug";
+   })
+
 let _make_cfg name n lease_period =
   {
     node_name = name;
@@ -38,7 +45,7 @@ let _make_cfg name n lease_period =
     tlog_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
-    log_commands = false;
+    log_config = Some "log_cfg";
     lease_period = lease_period;
     master = Elected;
     is_laggy = false;
@@ -104,6 +111,7 @@ let post_failure () =
   let node2_cfg = _make_cfg node2 2 lease_period in
   let cluster_cfg = {
     cfgs = [node0_cfg;node1_cfg;node2_cfg] ;
+    log_cfgs = [_make_log_cfg ()];
     _master = Elected;
     quorum_function = Quorum.quorum_function;
     _lease_period = 2;
@@ -159,6 +167,7 @@ let restart_slaves () =
   let node2_cfg = _make_cfg node2 2 lease_period in
   let cluster_cfg = 
     {cfgs = [node0_cfg;node1_cfg;node2_cfg];
+     log_cfgs = [_make_log_cfg ()];
      _master = Elected;
      quorum_function = Quorum.quorum_function;
      _lease_period = 2;

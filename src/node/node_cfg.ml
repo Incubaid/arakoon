@@ -45,7 +45,7 @@ module Node_cfg = struct
         tlog_dir:string;
         log_dir:string;
         log_level:string;
-        log_commands: bool;
+        log_config:string option;
         lease_period:int;
         master: master;
         is_laggy : bool;
@@ -61,7 +61,7 @@ module Node_cfg = struct
       let template =
 	"{node_name=%S; ips=%s; client_port=%d; " ^^
 	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
-	  "log_dir=%S; log_level=%S; log_commands=%b; lease_period=%i; " ^^
+	  "log_dir=%S; log_level:%S; log_config=%s; lease_period=%i; " ^^
 	  "master=%S; is_laggy=%b; is_learner=%b; " ^^
 	  "targets=%s; use_compression=%b; is_test=%b; " ^^
 	  "reporting=%i; " ^^
@@ -72,14 +72,21 @@ module Node_cfg = struct
         (list2s (fun s -> s) t.ips)
         t.client_port 
 	t.messaging_port t.home t.tlog_dir
-	t.log_dir t.log_level t.log_commands t.lease_period
+	t.log_dir t.log_level (Log_extra.string_option2s t.log_config) t.lease_period
 	(master2s t.master) t.is_laggy t.is_learner
 	(list2s (fun s -> s) t.targets) t.use_compression t.is_test
 	t.reporting
     end
-      
-  type cluster_cfg = 
+
+  type log_cfg =
+      {
+        client_protocol: string;
+        paxos: string;
+      }
+
+  type cluster_cfg =
     { cfgs: t list;
+      log_cfgs: (string * log_cfg) list;
       _master: master;
       quorum_function: int -> int;
       _lease_period: int;
@@ -90,6 +97,12 @@ module Node_cfg = struct
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
+    }
+
+  let get_default_log_config () =
+    {
+      client_protocol = "debug";
+      paxos = "debug";
     }
 
   let make_test_config 
@@ -107,7 +120,7 @@ module Node_cfg = struct
 	    tlog_dir = home;
 	    log_dir = ":None";
 	    log_level = "DEBUG";
-        log_commands = false;
+        log_config = Some "default_log_config";
 	    lease_period = lease_period;
 	    master = master;
 	    is_laggy = false;
@@ -123,14 +136,16 @@ module Node_cfg = struct
       | n -> let o = make_one (n-1) in
 	     loop (o::acc) (n-1)
     in
+    let log_cfgs = [("default_log_config", get_default_log_config ())] in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
     let overwrite_tlog_entries = None in
     let cluster_cfg = { 
-      cfgs= cfgs; 
+      cfgs;
+      log_cfgs;
       nursery_cfg = None;
       _master = master;
-      quorum_function = quorum_function;
+      quorum_function;
       _lease_period = default_lease_period;
       cluster_id;
       plugins = [];
@@ -240,6 +255,15 @@ module Node_cfg = struct
 	failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
+  let _log_config inifile log_name =
+    let get_string x default = Ini.get inifile log_name x Ini.p_string (Ini.default default) in
+    let client_protocol = String.lowercase (get_string "client_protocol" "debug")  in
+    let paxos = String.lowercase (get_string "paxos" "debug")  in
+    {
+      client_protocol;
+      paxos;
+    }
+
   let _node_config inifile node_name master =
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
@@ -253,7 +277,7 @@ module Node_cfg = struct
       with _ -> home 
     in
     let log_level = String.lowercase (get_string "log_level")  in
-    let log_commands = get_bool "log_commands" in
+    let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
@@ -276,7 +300,7 @@ module Node_cfg = struct
      tlog_dir;
      log_dir;
      log_level;
-     log_commands;
+     log_config;
      lease_period;
      master;
      is_laggy;
@@ -295,13 +319,23 @@ module Node_cfg = struct
     let plugin_names = _plugins inifile in
     let cfgs, remaining = List.fold_left
       (fun (a,remaining) section ->
-	if List.mem section nodes || _get_bool inifile section "learner"
-	then
-	  let cfg = _node_config inifile section fm in
-	  let new_remaining = List.filter (fun x -> x <> section) remaining in
-	  (cfg::a, new_remaining)
-	else (a,remaining))
+	    if List.mem section nodes || _get_bool inifile section "learner"
+	    then
+	      let cfg = _node_config inifile section fm in
+	      let new_remaining = List.filter (fun x -> x <> section) remaining in
+	      (cfg::a, new_remaining)
+	    else (a,remaining))
       ([],nodes) (inifile # sects) in
+    let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
+    let log_cfgs = List.fold_left
+      (fun a section ->
+        if List.mem (Some section) log_cfg_names
+        then
+          let log_cfg = _log_config inifile section in
+          (section, log_cfg)::a
+        else
+          a)
+      [] (inifile # sects) in
     let () = if List.length remaining > 0 then
 	failwith ("Can't find config section for: " ^ (String.concat "," remaining))
     in  
@@ -315,10 +349,11 @@ module Node_cfg = struct
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
     let cluster_cfg = 
-      { cfgs = cfgs;
+      { cfgs;
+        log_cfgs;
         nursery_cfg = m_n_cfg;
 	    _master = fm;
-	    quorum_function = quorum_function;
+	    quorum_function;
 	    _lease_period = lease_period;
 	    cluster_id = cluster_id;
 	    plugins = plugin_names;
