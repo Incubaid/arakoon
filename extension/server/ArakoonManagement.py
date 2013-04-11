@@ -235,7 +235,7 @@ class ArakoonCluster:
         @param tlogDir :  the directory used for tlogs (if none, home will be used)
         @param isLearner : whether this node is a learner node or not
         @param targets : for a learner node the targets (string list) it learns from
-        @param isLocal : wether this node is a local node and should be added to the local nodes list
+        @param isLocal : whether this node is a local node and should be added to the local nodes list
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
