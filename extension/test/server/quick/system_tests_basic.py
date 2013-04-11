@@ -103,6 +103,7 @@ def test_marker_presence_required ():
     
     # this will fail
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes(0)
 
     #check the exit code:
