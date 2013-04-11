@@ -236,10 +236,10 @@ let main () =
      "<filename> : dump a store");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
 				                  Arg.Set_string filename],
-     "compress a tlog file");
+     "<filename> : compress a tlog file");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
 				                    Arg.Set_string filename],
-     "uncompress a tlog file");
+     "<filename> : uncompress a tlog file");
     ("--set", Arg.Tuple [set_laction SET;
 			             Arg.Set_string key;
 			             Arg.Set_string value;
