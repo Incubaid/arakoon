@@ -218,7 +218,7 @@ class ArakoonCluster:
                 wrapper = None,
                 isLearner = False,
                 targets = None,
-                isLocal = True,
+                isLocal = False,
                 logCommands = False):
         """
         Add a node to the configuration of the supplied cluster
@@ -235,6 +235,7 @@ class ArakoonCluster:
         @param tlogDir :  the directory used for tlogs (if none, home will be used)
         @param isLearner : whether this node is a learner node or not
         @param targets : for a learner node the targets (string list) it learns from
+        @param isLocal : whether this node is a local node and should be added to the local nodes list
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -294,6 +295,9 @@ class ArakoonCluster:
         config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
+
+        if isLocal:
+            self.addLocalNode(name)
 
     def removeNode(self, name):
         """
