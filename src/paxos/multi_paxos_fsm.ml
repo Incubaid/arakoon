@@ -830,7 +830,7 @@ let rec paxos_produce buffers
 	          begin
 	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
 	            let msg2 = MPMessage.of_generic msg in
-                log_f me "receiving msg from %s: %s" source (Mp_msg.MPMessage.string_of msg2)
+                log_f me "%f SEQ: %s => %s : %s" (Unix.gettimeofday()) source me (Mp_msg.MPMessage.string_of msg2)
                 >>= fun () ->
 	            Lwt.return (FromNode (msg2,source))
 	          end
