@@ -114,6 +114,7 @@ type paxos_event =
   | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
   | Unquiesce
   | ElectionTimeout of Sn.t
+  | DropMaster of (unit Lwt.t * unit Lwt.u)
 
 let paxos_event2s = function
   | FromClient _ -> "FromClient _"
@@ -122,6 +123,7 @@ let paxos_event2s = function
   | Quiesce _ -> "Quiesce _"
   | Unquiesce -> "Unquiesce _"
   | ElectionTimeout _ -> "ElectionTimeout _"
+  | DropMaster _ -> "DropMaster _"
 
 type constants =
     {me:id;
@@ -312,6 +314,11 @@ let safe_wakeup sleeper awake value =
         end
       | _ -> Lwt.fail e
    ) 
+
+let safe_wakeup_all v l =
+  Lwt_list.iter_s
+    (fun (s, a) -> safe_wakeup s a v)
+    l
 
 let fail_quiesce_request store sleeper awake reason =
   safe_wakeup sleeper awake reason

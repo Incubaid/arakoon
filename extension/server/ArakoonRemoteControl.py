@@ -80,11 +80,13 @@ def _simple_cmd(ip,port,clusterId, code):
 
 def optimizeDb(ip, port, clusterId):
     _simple_cmd(ip,port,clusterId, RCP._OPTIMIZE_DB)
-    
 
 def defragDb(ip,port,clusterId):
     _simple_cmd(ip,port,clusterId, RCP._DEFRAG_DB)
-    
+
+def dropMaster(ip,port,clusterId):
+    _simple_cmd(ip,port,clusterId, RCP._DROP_MASTER)
+
 def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
     s = RCP.make_socket(ip,port)    
     try:

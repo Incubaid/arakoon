@@ -53,7 +53,7 @@ let forced_master_suggest constants (n,i) () =
   let who_voted = [me] in
   
   let i_lim = Some (me,i) in
-  let state = (n', i, who_voted, v_lims, i_lim) in
+  let state = (n', i, who_voted, v_lims, i_lim, []) in
   Fsm.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
@@ -77,7 +77,7 @@ let election_suggest constants (n,i,vo) () =
     (Lwt_unix.sleep df >>= fun () -> mcast constants (Prepare (n,i)));
   let who_voted = [me] in
   let i_lim = Some (me,i) in
-  let state = (n, i, who_voted, v_lims, i_lim) in
+  let state = (n, i, who_voted, v_lims, i_lim, []) in
   Fsm.return (Promises_check_done state)
 
 let read_only constants state () =
@@ -163,12 +163,15 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
     | Unquiesce ->
         handle_unquiesce_request constants current_n >>= fun (store_i, vo) ->
         Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
+    | DropMaster (sleep, awake) ->
+        Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
+        Fsm.return (Slave_waiting_for_prepare (current_i, current_n))
 
 
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
-  let n, i, who_voted, (v_lims:v_limits), i_lim = state in
+  let n, i, who_voted, (v_lims:v_limits), i_lim, lease_expire_waiters = state in
   (* 
      3 cases:
      -) too early to decide
@@ -202,7 +205,7 @@ let promises_check_done constants state () =
       mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
       let ff = fun _ -> Lwt.return () in
-      Fsm.return (Accepteds_check_done ([ff], n, i, new_ballot, bv))
+      Fsm.return (Accepteds_check_done ([ff], n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
     if nvoted < nnodes 
@@ -225,7 +228,7 @@ let promises_check_done constants state () =
 (* a potential master is waiting for promises and receives a msg *)
 let wait_for_promises constants state event =
   let me = constants.me in
-  let (n, i, who_voted, v_lims, i_lim) = state in
+  let (n, i, who_voted, v_lims, i_lim, lease_expire_waiters) = state in
   match event with
     | FromNode (msg,source) ->
       begin
@@ -281,7 +284,7 @@ let wait_for_promises constants state event =
                     | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
                     | None -> Some (source,new_i)
 		          in
-                  let state' = (n, i, who_voted', v_lims', new_ilim) in
+                  let state' = (n, i, who_voted', v_lims', new_ilim, lease_expire_waiters) in
                   Fsm.return (Promises_check_done state')
             | Promise (n' ,i', limit) -> (* n ' > n *)
                 begin
@@ -408,7 +411,7 @@ let wait_for_promises constants state event =
         end
       end
     | ElectionTimeout n' ->
-      let (n,i,who_voted, v_lims, i_lim) = state in
+      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters) = state in
       let wanted =
         begin
           let nnones, nsomes = v_lims in
@@ -443,6 +446,9 @@ let wait_for_promises constants state event =
     | Unquiesce ->
         handle_unquiesce_request constants n >>= fun (store_i, vo) ->
         Fsm.return (Wait_for_promises state)
+    | DropMaster (sleep, awake) ->
+        Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
+        Fsm.return (Wait_for_promises state)
       
   
   
@@ -461,7 +467,7 @@ let lost_master_role finished_funs =
   end
 
 let accepteds_check_done constants state () =
-  let (mo,n,i,ballot,v) = state in
+  let (mo,n,i,ballot,v, lease_expire_waiters) = state in
   let needed, already_voted = ballot in
   if needed = 0 
   then
@@ -473,11 +479,12 @@ let accepteds_check_done constants state () =
         )
       in
       let sides = [log_e] in
-      Fsm.return ~sides (Master_consensus (mo,v,n,i))
+      Fsm.return ~sides (Master_consensus (mo,v,n,i, lease_expire_waiters))
     end
   else
     Fsm.return (Wait_for_accepteds state)
-      
+
+
 (* a (potential or full) master is waiting for accepteds and receives a msg *)
 let wait_for_accepteds constants state (event:paxos_event) =
   let me = constants.me in
@@ -486,7 +493,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
       begin
         (* TODO: what happens with the client request
            when I fall back to a state without mo ? *)
-	    let (mo,n,i,ballot,v) = state in
+	    let (mo,n,i,ballot,v, lease_expire_waiters) = state in
 	    let drop msg reason =
           let log_e = ELog 
             (fun () ->
@@ -508,7 +515,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 		            drop msg reason
 	              else
 		            let ballot' = needed -1, source :: already_voted in
-		            Fsm.return (Accepteds_check_done (mo,n,i,ballot',v))
+		            Fsm.return (Accepteds_check_done (mo,n,i,ballot',v, lease_expire_waiters))
 	            end
 	        | Accepted (n',i') when n' = n && i' < i ->
 	            begin
@@ -559,6 +566,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                     else
                       begin
                         lost_master_role mo >>= fun () ->
+                        Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                         Fsm.return (Forced_master_suggest (n',i))
                       end
 	              else 
@@ -572,12 +580,15 @@ let wait_for_accepteds constants state (event:paxos_event) =
                               begin
                                 let last = constants.tlog_coll # get_last () in
                                 lost_master_role mo >>= fun () ->
-				                Fsm.return (Slave_wait_for_accept (n', i, None, last))
+                                Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+				Fsm.return
+                                  (Slave_wait_for_accept (n', i, None, last))
                               end
                           | Promise_sent_needs_catchup ->
                               begin
                                 let i = Store.get_catchup_start_i constants.store in
                                 lost_master_role mo >>= fun () ->
+                                Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                                 Fsm.return (Slave_discovered_other_master (source, i, n', i'))
                               end
                     end
@@ -600,6 +611,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	            end
 	        | Accept (n',i',v') when n' > n ->
                 lost_master_role mo >>= fun () ->
+                Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                 begin 
                   (* Become slave, goto catchup *)
                   log_f me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
@@ -617,6 +629,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	            begin
                   log_f me "wait_for_accepteds: got accept with n = %s and higher i = %s" 
                     (Sn.string_of n) (Sn.string_of i') >>= fun () ->
+                  Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                   let cu_pred = Store.get_catchup_start_i constants.store in
                   let new_state = (source,cu_pred,n,i') in
                   Fsm.return(Slave_discovered_other_master new_state)
@@ -627,7 +640,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
     | LeaseExpired n'    -> paxos_fatal me "no LeaseExpired should get here"
     | ElectionTimeout n' -> 
       begin
-	    let (_,n,i,ballot,v) = state in
+	    let (_,n,i,ballot,v, lease_expire_waiters) = state in
         let here = "wait_for_accepteds : election timeout " in
 	    if n' < n then
 	      begin
@@ -677,7 +690,10 @@ let wait_for_accepteds constants state (event:paxos_event) =
     | Unquiesce ->
       Lwt.fail (Failure "Unexpected unquiesce request while running as master")
       
-
+    | DropMaster (sleep, awake) ->
+      let (mo, n, i, ballot, v, lease_expire_waiters) = state in
+      let state' = (mo, n, i, ballot, v, (sleep, awake) :: lease_expire_waiters) in
+      Fsm.return (Wait_for_accepteds state')
 
 
 (* the state machine translator *)

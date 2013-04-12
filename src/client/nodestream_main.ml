@@ -60,3 +60,15 @@ let get_db ip port cluster_id location =
     Lwt.return 0
   in
   Lwt_main.run( t()) 
+
+let drop_master ip port cluster_id =
+  let do_it connection =
+    make_remote_nodestream cluster_id connection >>= fun client ->
+    client # drop_master ()
+  in
+  let address = make_address ip port in
+  let t () =
+    Lwt_io.with_connection address do_it >>= fun () ->
+    Lwt.return 0
+  in
+  Lwt_main.run(t ())

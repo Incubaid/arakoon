@@ -305,5 +305,7 @@ class test_backend my_name = object(self:#backend)
      in
     _kv <- kv';
     Lwt.return n_deleted
-    
+
+  method drop_master () =
+    Lwt.return ()
 end

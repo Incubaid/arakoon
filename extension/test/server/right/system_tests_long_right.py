@@ -328,6 +328,26 @@ def test_is_progress_possible():
     cli.set('k','v')
 
 
+def drop_master(n):
+    cli = Common.get_client()
+    previousMaster = cli.whoMaster()
+    for i in range(n):
+        logging.info("starting iteration %i", i)
+        Common.dropMaster(previousMaster)
+        cli._masterId = None
+        master = cli.whoMaster()
+        assert_not_equals(master, previousMaster, "Master did not change after drop master request.")
+        previousMaster = master
+        logging.info("finished iteration %i", i)
+
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+def test_drop_master():
+    n = 10
+    drop_master(n)
+"""    drop_masters = lambda : drop_master(n)
+    Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
+
+
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
     """ the scaling scenario from 1 node to 3 nodes the way A-server does it (eta : 2200 s) """

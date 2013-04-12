@@ -27,6 +27,8 @@ class type nodestream = object
   method store_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
   
   method get_nursery_cfg: unit -> NCFG.t Lwt.t
+
+  method drop_master: unit -> unit Lwt.t
   
 end
 

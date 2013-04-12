@@ -141,7 +141,7 @@ let test_delete () =
 	Lwt.return ())
       (function
 	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) -> 
-	  Lwt_io.printlf "ok!"
+	  Lwt_io.eprintlf "ok!"
 	| exn ->
 	  Lwt_log.fatal ~exn "wrong exception">>= fun () ->
 	  OUnit.assert_failure 

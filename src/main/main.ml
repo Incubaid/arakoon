@@ -64,6 +64,7 @@ type local_action =
   | PING
   | InjectAsHead
   | NODE_VERSION
+  | Drop_master
 
 type server_action =
   | Node
@@ -235,10 +236,10 @@ let main () =
      "<filename> : dump a store");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
 				                  Arg.Set_string filename],
-     "compress a tlog file");
+     "<filename> : compress a tlog file");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
 				                    Arg.Set_string filename],
-     "uncompress a tlog file");
+     "<filename> : uncompress a tlog file");
     ("--set", Arg.Tuple [set_laction SET;
 			             Arg.Set_string key;
 			             Arg.Set_string value;
@@ -332,8 +333,13 @@ let main () =
                                     Arg.Set_string filename;
                                     Arg.Set_string node_id],
      "<head.db> <node_id>"
-    )
-                                    
+    );
+    ("--drop-master", Arg.Tuple [set_laction Drop_master;
+                                             Arg.Set_string cluster_id;
+                                             Arg.Set_string ip;
+                                             Arg.Set_int port;
+                                            ],
+     "<cluster_id> <ip> <port> requests the node to drop its master role")
 
   ] in
 
@@ -381,6 +387,7 @@ let main () =
     | PING -> Client_main.ping !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version !node_id !config_file
     | InjectAsHead -> inject_as_head !filename !node_id !config_file
+    | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
 
   in
   let do_server node =

@@ -76,6 +76,7 @@ type client_command =
   | DEFRAG_DB
   | DELETE_PREFIX
   | VERSION
+  | DROP_MASTER
 
 
 let code2int = [
@@ -116,6 +117,7 @@ let code2int = [
   DELETE_PREFIX           , 0x27l;
   VERSION                 , 0x28l;
   ASSERTEXISTS            , 0x29l;
+  DROP_MASTER             , 0x30l;
 ]
 
 let int2code =
@@ -453,5 +455,10 @@ let version (ic,oc) =
       Llio.input_string ic >>= fun info ->
       Lwt.return (major,minor,patch,info)
     )
+
+let drop_master (ic, oc) =
+  let outgoing buf = command_to buf DROP_MASTER in
+  request oc outgoing >>= fun () ->
+  response ic nothing
 
 exception XException of Arakoon_exc.rc * string

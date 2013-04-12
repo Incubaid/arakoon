@@ -35,6 +35,7 @@ import types
 import string
 import logging
 
+from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
@@ -240,7 +241,7 @@ class ArakoonCluster:
                 wrapper = None,
                 isLearner = False,
                 targets = None,
-                isLocal = True,
+                isLocal = False,
                 logConfig = None):
         """
         Add a node to the configuration of the supplied cluster
@@ -256,6 +257,7 @@ class ArakoonCluster:
         @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
         @param isLearner : whether this node is a learner node or not
         @param targets : for a learner node the targets (string list) it learns from
+        @param isLocal : whether this node is a local node and should be added to the local nodes list
         @param logConfig : specifies the log config to be used for this node
         """
         self.__validateName(name)
@@ -316,6 +318,9 @@ class ArakoonCluster:
         config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
+
+        if isLocal:
+            self.addLocalNode(name)
 
     def removeNode(self, name):
         """
@@ -559,6 +564,10 @@ class ArakoonCluster:
 
         return clientconfig
 
+    def getClient(self):
+        config = self.getClientConfig()
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
+        return client
    
     def listNodes(self):
         """
@@ -942,7 +951,21 @@ class ArakoonCluster:
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
         ArakoonRemoteControl.defragDb(ip,port,self._clusterId)
- 
+
+
+    def dropMaster(self, nodeName):
+        """
+        Request a node to drop its master role
+        @param nodeName The name of the node you want to drop its master role
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
+        port = int(config['client_port'])
+        ArakoonRemoteControl.dropMaster(ip,port,self._clusterId)
+
+
     def restartOne(self, nodeName):
         """
         Restart the node with a given name in the supplied cluster

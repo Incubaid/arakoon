@@ -682,4 +682,24 @@ object(self: #backend)
   method get_fringe boundary direction =
     Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
     store # get_fringe boundary direction
+
+  method drop_master () =
+    self # who_master () >>= function
+    | None -> Lwt.return ()
+    | Some m ->
+        if m <> my_name
+        then Lwt.return ()
+        else 
+          begin
+            let (sleep, awake) = Lwt.wait () in
+            let update = Multi_paxos.DropMaster (sleep, awake) in
+            Lwt_log.debug "drop_master: pushing update" >>= fun () ->
+            push_node_msg update >>= fun () ->
+            Lwt_log.debug "drop_master: waiting for completion" >>= fun () ->
+            sleep >>= fun () ->
+            let delay = (float lease_expiration) +. 0.5 in
+            Lwt_log.debug_f "drop_master: waiting another %1.1fs" delay >>= fun () ->
+            Lwt_unix.sleep delay >>= fun () ->
+            Lwt_log.debug "drop_master: completed"
+          end
 end
