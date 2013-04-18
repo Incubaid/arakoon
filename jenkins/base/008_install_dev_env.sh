@@ -6,6 +6,6 @@ which opam > /dev/null || { echo 'opam not found!'; exit 1; }
 opam switch 4.00.1
 eval `opam config env`
 
-opam update
+opam update -y
 opam install conf-libev
 opam install lwt camlbz2 camltc.0.5.1 bisect
