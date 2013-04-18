@@ -7,4 +7,4 @@ opam switch 4.00.1
 eval `opam config env`
 
 opam install conf-libev
-opam install lwt camlbz2 camltc bisect
+opam install lwt camlbz2 camltc.0.5.1 bisect
