@@ -7,5 +7,7 @@ opam switch 4.00.1
 eval `opam config env`
 
 opam update -y
+opam pin camltc none
+opam remove camltc
 opam install conf-libev
 opam install lwt camlbz2 camltc.0.5.1 bisect
