@@ -90,8 +90,8 @@ let get_tlog_names tlog_dir =
       match acc with
 	| [] -> name :: acc
 	| prev :: rest ->
-	  if get_number prev = get_number name (* x.tlf = x.tlog *)
-	  then name :: rest (* skip prev: .tlf might not be ready yet *)
+	  if get_number prev = get_number name (* both x.tlf and x.tlog present *)
+	  then prev :: rest (* prefer .tlf over .tlog *)
 	  else name :: acc
     ) [] sorted 
   in
@@ -604,6 +604,7 @@ object(self: # tlog_collection)
                   (Log_extra.string_option2s marker) (Sn.string_of i) node_id  
               end
       end >>= fun () ->
+      F.fsync file >>= fun () ->
       F.close file 
     end
 
@@ -645,8 +646,10 @@ object(self: # tlog_collection)
   method save_tlog_file name length ic =
     (* what with rotation, open streams, ...*)
     let canon = Filename.concat tlog_dir name in
-    Lwt_log.debug_f "save_tlog_file: %s" canon >>= fun () ->
-    Lwt_io.with_file ~mode:Lwt_io.output canon (fun oc -> Llio.copy_stream ~length ~ic ~oc)
+    let tmp = canon ^ ".tmp" in
+    Lwt_log.debug_f "save_tlog_file: %s" tmp >>= fun () ->
+    Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
+    File_system.rename tmp canon
     
 
   method remove_oldest_tlogs count =
