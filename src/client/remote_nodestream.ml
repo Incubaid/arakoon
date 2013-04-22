@@ -92,7 +92,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	  | 1 -> Lwt_log.debug "loop_entries" >>= fun () -> loop_entries ()
 	  | 2 -> 
 	    begin 
-	      Lwt_log.debug "save_head" >>= fun ()->
+	      Lwt_log.info "save_head" >>= fun ()->
 	      save_head () >>= fun () -> 
 	      let hf_name = tlog_coll # get_head_name () in
 	      head_saved_cb hf_name >>= fun () ->
@@ -103,7 +103,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	      Lwt_log.debug "save_file" >>= fun () ->
 	      Llio.input_string ic >>= fun name ->
 	      Llio.input_int64 ic >>= fun length ->
-	      Lwt_log.debug_f "got %s (%Li bytes)" name length >>= fun () ->
+	      Lwt_log.info_f "got %s (%Li bytes)" name length >>= fun () ->
 	      tlog_coll # save_tlog_file name length ic >>= fun () ->
 	      loop_parts ()
 	    end
