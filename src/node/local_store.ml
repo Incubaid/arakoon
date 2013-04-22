@@ -586,8 +586,7 @@ object(self: #store)
 
   method close () =
     _closed <- true;
-    Camltc.Hotc.sync db >>= fun () ->
-    Camltc.Hotc.close db >>= fun () ->
+    Camltc.Hotc.close db >>= fun () ->  
     Lwt_log.info_f "local_store %S :: closed  () " db_location >>= fun () ->
     Lwt.return ()
 
