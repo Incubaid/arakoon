@@ -173,8 +173,7 @@ Log Config Section
 -----------
 
 The log config section specifies the log level for the different 'log sections'
-Arakoon logs to. In combination with the specified log_level of the node this
-allows controlling which messages get logged.
+Arakoon logs to.
 
 client_protocol *(optional)*
   The level of logging associated with this section. Same options as log_level.

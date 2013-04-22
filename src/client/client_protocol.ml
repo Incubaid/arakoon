@@ -136,7 +136,7 @@ let handle_sequence ~sync ic oc backend =
 
 let one_command (ic,oc,id) (backend:Backend.backend) =
   let log_command_f x =
-    let k s = Lwt_log.log ~section ~level:(Lwt_log.Section.level section) s in
+    let k s = Lwt_log.log ~section ~level:Lwt_log.Debug s in
     Printf.ksprintf k x in
   read_command (ic,oc) >>= function
     | PING ->
