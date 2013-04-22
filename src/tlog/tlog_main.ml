@@ -113,10 +113,10 @@ let compress_tlog tlu =
   let t = 
     let tmp = tlf ^ ".tmp" in
     Compression.compress_tlog tlu tmp >>= fun () ->
-    File_system.rename tmp tlf
+    File_system.rename tmp tlf >>= fun () ->
+    File_system.unlink tlu
   in
   Lwt_main.run t;
-  Unix.unlink tlu;
   0
 
 let uncompress_tlog tlx =
