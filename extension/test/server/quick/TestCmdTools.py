@@ -68,6 +68,20 @@ class TestCmdTools:
         for key in status.keys():
             if status[key] == q.enumerators.AppStatusType.RUNNING:
                 c = c + 1
+        if c != n:
+            for key in status.keys():
+                if status[key] == q.enumerators.AppStatusType.HALTED:
+                    cfg = cluster._getConfigFile()
+                    logDir = cfg.getValue(key, "log_dir")
+                    fn = "%s/%s.log" % (logDir, key)
+                    logging.info("fn=%s",fn)
+                    with open(fn,'r') as f:
+                        lines = f.readlines()
+                        logging.info("log file for %s", key)
+                        for l in lines:
+                            ls = l.strip()
+                            logging.info(ls)
+
         assert_equals(c, n)
 
     def testStart(self):
