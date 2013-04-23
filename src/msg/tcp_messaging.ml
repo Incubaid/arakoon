@@ -35,7 +35,7 @@ let section =
   s
 
 let log =
-  Lwt_log.log ~section ~level:(Lwt_log.Section.level section)
+  Lwt_log.log ~section ~level:Lwt_log.Debug
 
 let log_f ?exn x =
   match exn with

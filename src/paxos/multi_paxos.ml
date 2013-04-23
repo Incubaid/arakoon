@@ -34,7 +34,7 @@ let section =
   s
 
 let log me s =
-  Lwt_log.log ~section ~level:(Lwt_log.Section.level section) (me ^ ": " ^ s)
+  Lwt_log.log ~section ~level:Lwt_log.Debug (me ^ ": " ^ s)
 
 let log_f me x =
   Printf.ksprintf (log me) x
