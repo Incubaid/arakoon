@@ -615,7 +615,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                     (Sn.string_of n) (Sn.string_of i') >>= fun () ->
                   Fsm.return (Wait_for_accepteds state)
                 end
-	        | Accept (n',i',v') (* n' >= n || i' > i *)->
+	        | Accept (n',i',v') (* n' >= n && i' > i *)->
               (* check lease, if we're inside, drop (how could this have happened?) 
                  otherwise, we've lost master role
               *)
