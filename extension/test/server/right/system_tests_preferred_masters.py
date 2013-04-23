@@ -152,7 +152,7 @@ def test_prefered_masters():
         assert master in preferred_masters_2
 
         logging.info('Killing master')
-        cluster.stopNode(master)
+        cluster.stopOne(master)
         preferred_masters_2.remove(master)
 
         logging.debug('Waiting for things to settle')
