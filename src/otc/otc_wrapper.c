@@ -463,3 +463,13 @@ value bdb_key_count(value bdb)
   uint64_t count = tcbdbrnum( Bdb_val(bdb) );
   CAMLreturn ( copy_int64(count) );
 }
+
+void bdb_tune(value bdb, /* value lmemb, value nmemb, value bnum, value apow, value fpow, */ value opts) {
+  CAMLparam1(bdb);
+
+  if(!tcbdbtune(Bdb_val(bdb), -1, -1, -1, -1, -1, Int_val(opts))) {
+    bdb_handle_error(Bdb_val(bdb));
+  }
+
+  CAMLreturn0;
+}

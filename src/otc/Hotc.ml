@@ -71,13 +71,16 @@ module Hotc = struct
 
   let _sync_lwt t = Lwt.return (_sync t)
 
-  let create ?(mode=Bdb.default_mode) filename =
+  let create ?(mode=Bdb.default_mode) filename opts =
     let res = {
       filename = filename;
       bdb = Bdb._make ();
       mutex = Lwt_mutex.create ();
     } in
-    _do_locked res (fun () ->_open_lwt res mode) >>= fun () ->
+    _do_locked res (fun () ->
+      Bdb.tune res.bdb opts;
+      _open res mode;
+      Lwt.return ()) >>= fun () ->
     Lwt.return res
 
   let close t =
