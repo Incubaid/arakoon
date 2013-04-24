@@ -4,7 +4,7 @@ open Unix
 
 let pdflatex = A"pdflatex"
 let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
-let tc_home ="3rd-party/tokyocabinet-1.4.47"
+let tc_home ="3rd-party/tokyocabinet"
 (* ocamlfind command *)
 let ocamlfind x = S[A"ocamlfind"; x]
 
@@ -117,29 +117,13 @@ let _ = dispatch & function
        "doc/states.eps";
        "doc/nursery.tex";
       ];
-    rule "Extract .tar.gz"
-      ~dep:"3rd-party/%(f).tar.gz"
-      ~stamp:"3rd-party/%(f).extracted"
-      begin fun env _build ->
-	let archive = env "3rd-party/%(f).tar.gz" in
-	let () = Log.dprintf 0 "extracting %s" archive in
-	let cmd =
-	  Cmd (S[(*A"echo";*)
-	    A"tar";
-	    A"zxvf";
-	    A archive;
-	    A"--directory";A"3rd-party";
-	  ]) in
-	Seq[cmd;]
-      end;
     rule "configure 3rd-party"
-      ~dep:"3rd-party/%(dir).extracted"
       ~stamp:"3rd-party/%(dir).configured"
       begin fun env _build ->
 	let dir =  env "%(dir)" in
 	let () = Log.dprintf 0 "configuring %s" dir in
 	let evil_cmd =
-	  Printf.sprintf "cd 3rd-party/%s && ./configure " dir in
+	  Printf.sprintf "mkdir -p 3rd-party/%s && cd 3rd-party/%s && ../../../3rd-party/tokyocabinet/configure " dir dir in
 	let configure = Cmd (S[Sh evil_cmd;
 			       A"--disable-bzip";
 			       A"--disable-zlib";
@@ -162,7 +146,7 @@ let _ = dispatch & function
       (* how to compile C stuff that needs tc *)
     flag ["compile"; "c";]
       (S[
-	A"-ccopt";A( "-I" ^ tc_home);
+	A"-ccopt";A"-I../3rd-party/tokyocabinet";
 	A"-ccopt";A"-I../src/tools";
       ]);
     flag ["compile";"c";]
