@@ -351,6 +351,7 @@ object(self: # tlog_collection)
   val mutable _previous_entry = last
   val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5 
   val mutable _compressing = false
+  val mutable _closed = false
   val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
   initializer self # start_compression_loop ()
 
@@ -407,28 +408,36 @@ object(self: # tlog_collection)
 
       
   method log_value_explicit i value sync marker =
-    self # _prelude i >>= fun file ->
-    let p = F.file_pos file in
-    let oc = F.oc_of file in
-    Tlogcommon.write_entry oc i value >>= fun () -> 
-    Lwt_io.flush oc >>= fun () ->
-    begin
-      if sync 
-      then F.fsync file >>= fun () -> Lwt_log.info "FSYNC tlog"
-      else Lwt.return ()
-    end
-    >>= fun () ->
-    let () = match _previous_entry with
-      | None -> _inner <- _inner +1
-      | Some pe-> 
-        let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
-    in
-    let entry = Entry.make i value p marker in
-    _previous_entry <- Some entry;
-    Index.note entry _index;
-    Lwt.return ()
-    
-  method log_value i value = self # log_value_explicit i value false None
+    if _closed 
+    then 
+      Lwt_log.debug_f "logging when closed" >>= fun () ->
+      Lwt.fail (Failure "CLOSING TLOG")
+    else 
+      begin
+        self # _prelude i >>= fun file ->
+        let p = F.file_pos file in
+        let oc = F.oc_of file in
+        Tlogcommon.write_entry oc i value >>= fun () -> 
+        Lwt_io.flush oc >>= fun () ->
+        begin
+          if sync 
+          then F.fsync file >>= fun () -> Lwt_log.info "FSYNC tlog"
+          else Lwt.return ()
+        end
+        >>= fun () ->
+        let () = match _previous_entry with
+          | None -> _inner <- _inner +1
+          | Some pe-> 
+            let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1 
+        in
+        let entry = Entry.make i value p marker in
+        _previous_entry <- Some entry;
+        Index.note entry _index;
+        Lwt.return ()
+      end
+
+  method log_value i value = 
+    self # log_value_explicit i value false None
 
   method private _prelude i =
     let ( *: ) = Sn.mul in
@@ -577,6 +586,7 @@ object(self: # tlog_collection)
 
   method close () =
     begin
+      _closed <- true;
       Lwt_log.debug "tlc2::close()" >>= fun () ->
       Lwt_buffer.wait_until_empty _compression_q >>= fun () ->
       begin
