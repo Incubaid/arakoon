@@ -34,6 +34,7 @@ let output_cmd cmd =
 let git_revision = run_cmd "git describe --all --long --always --dirty"
 let tag_version = run_cmd "git describe --tags --exact-match"
 let branch_version = run_cmd "git describe --all"
+let tc_revision = run_cmd "git --git-dir=3rd-party/tokyocabinet/.git describe --all --long --always --dirty"
 
 let machine = run_cmd "uname -mnrpio"
 
@@ -63,7 +64,8 @@ let make_version _ _ =
       "let machine = %S\n" ^^
       "let major = %i\n" ^^
       "let minor = %i\n" ^^
-      "let patch = %i\n" 
+      "let patch = %i\n" ^^
+      "let tc_revision = %S\n"
     in
     let major,minor,patch = 
       try
@@ -75,7 +77,7 @@ let make_version _ _ =
           try Scanf.sscanf branch_version "remotes/origin/%i.%i" (fun ma mi -> (ma, mi, -1))
           with _ -> (-1,-1,-1)
     in
-    Printf.sprintf template git_revision time machine major minor patch
+    Printf.sprintf template git_revision time machine major minor patch tc_revision
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 
