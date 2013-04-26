@@ -37,7 +37,7 @@ let log me s =
   Lwt_log.log ~section ~level:Lwt_log.Debug (me ^ ": " ^ s)
 
 let log_f me x =
-  Printf.ksprintf (log me) x
+  Printf.ksprintf (fun s -> Lwt_log.log ~section ~level:Lwt_log.Debug (me ^ ": " ^ s)) x
 
 
 let quorum_function = Quorum.quorum_function

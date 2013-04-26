@@ -201,6 +201,7 @@ let _ = dispatch & function
 
     flag ["link";"use_bisect"] (S[A"-ccopt";A"--coverage";]);
 
+    flag ["pp";"ocaml";"use_log_macro"] (S[A"camlp4of";A"log_macro.cmo"]);
     flag ["pp";"ocaml";"use_macro"] (S[A"camlp4of";A"pa_macro.cmo"]);
     flag ["pp";"ocaml";"use_bisect"]
       (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
