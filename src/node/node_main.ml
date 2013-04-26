@@ -70,10 +70,15 @@ let _config_logging me get_cfgs =
       | "fatal"   -> Lwt_log.Fatal
       | _         -> Lwt_log.Debug
   in
-  let () = Lwt_log.Section.set_level Client_protocol.section (to_level log_config.client_protocol) in
-  let () = Lwt_log.Section.set_level Multi_paxos.section (to_level log_config.paxos) in
-  let () = Lwt_log.Section.set_level Tcp_messaging.section (to_level log_config.tcp_messaging) in
   let level = to_level cfg.log_level in
+  let set_level section l =
+    let l = match l with
+      | None -> level
+      | Some l -> to_level l in
+    Lwt_log.Section.set_level section l in
+  let () = set_level Client_protocol.section log_config.client_protocol in
+  let () = set_level Multi_paxos.section log_config.paxos in
+  let () = set_level Tcp_messaging.section log_config.tcp_messaging in
   let log_dir = cfg.log_dir in
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in

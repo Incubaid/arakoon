@@ -80,9 +80,9 @@ module Node_cfg = struct
 
   type log_cfg =
       {
-        client_protocol: string;
-        paxos: string;
-        tcp_messaging: string;
+        client_protocol: string option;
+        paxos: string option;
+        tcp_messaging: string option;
       }
 
   type cluster_cfg =
@@ -102,9 +102,9 @@ module Node_cfg = struct
 
   let get_default_log_config () =
     {
-      client_protocol = "debug";
-      paxos = "debug";
-      tcp_messaging = "debug";
+      client_protocol = None;
+      paxos = None;
+      tcp_messaging = None;
     }
 
   let make_test_config 
@@ -258,10 +258,14 @@ module Node_cfg = struct
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
   let _log_config inifile log_name =
-    let get_string x default = Ini.get inifile log_name x Ini.p_string (Ini.default default) in
-    let client_protocol = String.lowercase (get_string "client_protocol" "debug")  in
-    let paxos = String.lowercase (get_string "paxos" "debug")  in
-    let tcp_messaging = String.lowercase (get_string "tcp_messaging" "debug")  in
+    let get_log_level x =
+      let v = Ini.get inifile log_name x (Ini.p_option Ini.p_string) (Ini.default None) in
+      match v with
+        | None -> None
+        | Some v -> Some (String.lowercase v) in
+    let client_protocol = get_log_level "client_protocol" in
+    let paxos = get_log_level "paxos" in
+    let tcp_messaging = get_log_level "tcp_messaging" in
     {
       client_protocol;
       paxos;
