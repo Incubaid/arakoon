@@ -28,9 +28,9 @@ can be freely chosen.
 
     [default_log_config]
     # available levels are: debug info notice warning error fatal
-    client_protocol = debug
-    paxos = debug
-    tcp_messaging = debug
+    client_protocol = info
+    paxos = info
+    tcp_messaging = info
 
     [Node_0]
     ip = 192.168.1.1
@@ -177,15 +177,15 @@ Arakoon logs to.
 
 client_protocol *(optional)*
   The level of logging associated with this section. Same options as log_level.
-  The default value is debug.
+  The default value is what is specified in the node's log_level.
 
 paxos *(optional)*
   The level of logging associated with this section. Same options as log_level.
-  The default value is debug.
+  The default value is what is specified in the node's log_level.
 
 tcp_messaging *(optional)*
   The level of logging associated with this section. Same options as log_level.
-  The default value is debug.
+  The default value is what is specified in the node's log_level.
 
 Forced vs Preferred Master
 ==========================

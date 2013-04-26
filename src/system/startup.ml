@@ -31,9 +31,9 @@ open Tlogcommon
 let _make_log_cfg () =
   ("log_cfg",
    {
-     client_protocol = "debug";
-     paxos = "debug";
-     tcp_messaging = "debug";
+     client_protocol = None;
+     paxos = None;
+     tcp_messaging = None;
    })
 
 let _make_cfg name n lease_period =
