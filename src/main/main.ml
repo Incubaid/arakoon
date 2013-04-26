@@ -240,7 +240,7 @@ let main () =
   and left_cluster = ref ""
   and separator = ref ""
   and right_cluster = ref ""
-  and tlog_dir = ref "."
+  and tlog_dir = ref ""
   and end_i = ref None
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
