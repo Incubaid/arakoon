@@ -686,7 +686,7 @@ object(self: #backend)
   method drop_master () =
     if n_nodes = 1 
     then 
-      let e = XException(Arakoon_exc.E_WRONG_CLUSTER, "drop master not supported for singletons")in
+      let e = XException(Arakoon_exc.E_NOT_SUPPORTED, "drop master not supported for singletons")in
       Lwt.fail e
     else
       begin

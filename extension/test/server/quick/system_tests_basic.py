@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
-from arakoon.ArakoonProtocol import ArakoonClientConfig
+from arakoon.ArakoonProtocol import ArakoonClientConfig, ARA_ERR_NOT_SUPPORTED
 from arakoon.Arakoon import ArakoonClient
 import arakoon
 import time
@@ -312,7 +312,7 @@ def test_drop_master_singleton():
         raise Error
     except Exception, e:
         rc = e.args[0]
-        assert_equals (rc,6, "wrong rc %i" % rc)
+        assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
     
     
         
