@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
-from arakoon.ArakoonProtocol import ArakoonClientConfig
+from arakoon.ArakoonProtocol import ArakoonClientConfig, ARA_ERR_NOT_SUPPORTED
 from arakoon.Arakoon import ArakoonClient
 import arakoon
 import time
@@ -300,6 +300,22 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
     
     client.dropConnections()
 
+
+@C.with_custom_setup (C.setup_1_node, C.basic_teardown)
+def test_drop_master_singleton():
+    client = C.get_client()
+    master = client.whoMaster()
+    cluster = C._getCluster()
+    #assert_raises(Exception, cluster.dropMaster, master) # want to see assert rc too
+    try:
+        cluster.dropMaster(master)
+        raise Error
+    except Exception, e:
+        rc = e.args[0]
+        assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
+    
+    
+        
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_test_and_set() :
