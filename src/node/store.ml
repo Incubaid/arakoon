@@ -27,6 +27,7 @@ open Lwt
 open Log_extra
 
 let __i_key = "*i"
+let __j_key = "*j"
 let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
@@ -72,6 +73,7 @@ class type store = object
   *)
   method consensus_i: unit -> Sn.t option
   method incr_i: unit -> unit Lwt.t
+  method get_j: unit -> int Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
 
@@ -283,11 +285,17 @@ let _insert_updates (store:store) (us: Update.t list) =
 
 let _insert_value (store:store) (value:Value.t) =  
   let updates = Value.updates_from_value value in
-  Lwt.finalize
-    (fun () ->
-      _insert_updates store updates >>= fun (urs:update_result list) ->
-      Lwt.return urs)
-    (fun () -> store # incr_i ())
+  store # get_j () >>= fun j ->
+  let skip n l =
+    let rec inner = function
+      | 0, l -> l
+      | n, [] -> failwith "need to skip more updates than present in this paxos value"
+      | n, hd::tl -> inner ((n - 1), tl) in
+    inner (n, l) in
+  let updates' = skip j updates in
+  _insert_updates store updates' >>= fun (urs:update_result list) ->
+  store # incr_i () >>= fun () ->
+  Lwt.return urs
 
 let safe_insert_value (store:store) (i:Sn.t) value =
   (* TODO: race condition:

@@ -38,6 +38,7 @@ class mem_store db_name =
 object (self: #store)
 
   val mutable i = None
+  val mutable j = 0
   val mutable kv = StringMap.empty
   val mutable master = None
   val mutable _interval = Interval.max
@@ -52,7 +53,14 @@ object (self: #store)
     | Some i' -> Some ( Sn.succ i' )
     in
     let () = i <- i2 in
+    let () = j <- 0 in
     ()
+
+  method get_j () =
+    Lwt.return j
+
+  method _incr_j () =
+    j <- j + 1
 
   method _set_i x =
     i <- Some x
@@ -93,7 +101,9 @@ object (self: #store)
     in Lwt.return keys
 
   method set ?(_pf=__prefix) key value =
-    self # set_no_incr key value
+    let r = self # set_no_incr key value in
+    let () = self # _incr_j () in
+    r
 
   method private set_no_incr ?(_pf=__prefix) key value =
     let () = kv <- StringMap.add key value kv in
@@ -149,7 +159,9 @@ object (self: #store)
 
   method delete ?(_pf=__prefix) key =
     Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
-    self # delete_no_incr key
+    let r = self # delete_no_incr key in
+    let () = self # _incr_j () in
+    r
 
   method test_and_set ?(_pf=__prefix) key expected wanted =
     Lwt.catch
@@ -160,7 +172,11 @@ object (self: #store)
 	    | exn -> Lwt.fail exn)
     >>= fun existing ->
     if existing <> expected
-    then Lwt.return existing
+    then
+      begin
+        self # _incr_j ();
+        Lwt.return existing
+      end
     else
       begin
 	    (match wanted with
@@ -202,7 +218,9 @@ object (self: #store)
     let old_kv = kv in
     Lwt.catch
       (fun () ->
-	Lwt_list.iter_s do_one updates)
+        let r = Lwt_list.iter_s do_one updates in
+        let () = self # _incr_j () in
+        r)
       (fun exn -> kv <- old_kv;
 	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
 	Lwt.fail exn)

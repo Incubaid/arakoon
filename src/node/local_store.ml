@@ -327,12 +327,22 @@ let _set_master bdb master (lease_start:int64) =
   let lease = Buffer.contents buffer in
   B.put bdb __lease_key lease
 
+let _get_j bdb =
+  try
+    let j_string = B.get bdb __j_key in
+    int_of_string j_string
+  with _ -> 0
+
+let _set_j bdb j =
+  B.put bdb __j_key (string_of_int j)
 
 let _with_tx (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
   Camltc.Hotc.transaction db
 	(fun db ->
       let t0 = Unix.gettimeofday() in
+      let j = _get_j db in
 	  f db >>= fun (a:'a) ->
+      let () = _set_j db (j + 1) in
       let t = ( Unix.gettimeofday() -. t0) in
       if t > 1.0
       then begin
@@ -442,6 +452,15 @@ object(self: #store)
 				                 Printf.sprintf "%s not in interval" key)
       in raise ex
 
+  method get_j () =
+    let j =
+      try
+        let bdb = Camltc.Hotc.get_bdb db in
+        let j_string = B.get bdb __j_key in
+        int_of_string j_string
+      with _ -> 0 in
+    Lwt.return j
+
   method exists ?(_pf = __prefix) key =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.exists bdb (_pf ^ key) in
@@ -494,7 +513,9 @@ object(self: #store)
     begin
       if _quiesced 
       then Lwt.return ()
-      else Camltc.Hotc.transaction db (_save_i new_i)
+      else Camltc.Hotc.transaction db (fun bdb ->
+        (_save_i new_i bdb) >>= fun () ->
+        Lwt.return (_set_j bdb 0))
     end
 
 
