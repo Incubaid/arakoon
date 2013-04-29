@@ -357,6 +357,8 @@ object(self: #store)
   val mutable _store_i = store_i
   val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
+  val mutable _tx_lock = None
+  val _tx_lock_mutex = Lwt_mutex.create ()
 
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
@@ -366,14 +368,14 @@ object(self: #store)
     Lwt.catch
       f 
       (function
-	    | Failure s -> 
+        | Failure s -> 
           begin
             Lwt_log.debug_f "%s Failure %s: => FOOBAR? %b" name s _closed >>= fun () ->
             if _closed 
             then Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
             else Lwt.fail Server.FOOBAR
           end
-	    | exn -> Lwt.fail exn)    
+        | exn -> Lwt.fail exn)    
 
   method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> (int -> int) -> 'a Lwt.t =
     fun tx f new_j ->
@@ -393,11 +395,26 @@ object(self: #store)
     fun tx f ->
       self # _with_tx tx f ((+) 1)
 
-  method with_transaction f =
+  method with_transaction_lock f =
+    Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
+      Lwt.finalize
+        (fun () ->
+          let txl = new transaction_lock in
+          _tx_lock <- Some txl;
+          f txl)
+        (fun () -> _tx_lock <- None; Lwt.return ()))
+
+  method with_transaction ?(key=None) f =
+    let matched_locks = match _tx_lock, key with
+      | None, None -> true
+      | Some txl, Some txl' -> txl == txl'
+      | _ -> false in
+    if not matched_locks
+    then failwith "transaction locks do not match";
     Lwt.finalize
       (fun () ->
         Camltc.Hotc.transaction db
-	      (fun db ->
+          (fun db ->
             let tx = new transaction in
             _tx <- Some (tx, db);
 
@@ -410,7 +427,7 @@ object(self: #store)
               Lwt.return a
             end
             else
-	          Lwt.return a))
+              Lwt.return a))
       (fun () -> _tx <- None; Lwt.return ())
 
   method quiesce () =

@@ -44,8 +44,25 @@ object (self: #store)
   val mutable _interval = Interval.max
   val mutable _routing = None
   val mutable _tx = None
+  val mutable _tx_lock = None
+  val _tx_lock_mutex = Lwt_mutex.create ()
 
-  method with_transaction f =
+  method with_transaction_lock f =
+    Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
+      Lwt.finalize
+        (fun () ->
+          let txl = new transaction_lock in
+          _tx_lock <- Some txl;
+          f txl)
+        (fun () -> _tx_lock <- None; Lwt.return ()))
+
+  method with_transaction ?(key=None) f =
+    let matched_locks = match _tx_lock, key with
+      | None, None -> true
+      | Some txl, Some txl' -> txl == txl'
+      | _ -> false in
+    if not matched_locks
+    then failwith "transaction locks do not match";
     let tx = new transaction in
     _tx <- Some tx;
     Lwt.finalize

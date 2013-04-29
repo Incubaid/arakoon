@@ -50,10 +50,12 @@ let _filter pf =
     key'::acc) []
 
 class transaction = object end
+class transaction_lock = object end
 
 (** common interface for stores *)
 class type store = object
-  method with_transaction: (transaction -> 'a Lwt.t) -> 'a Lwt.t
+  method with_transaction_lock: (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
+  method with_transaction: ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
   method exists: ?_pf: string -> string -> bool Lwt.t
   method get: ?_pf: string -> string -> string Lwt.t
@@ -113,23 +115,23 @@ type update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-let _insert_update (store:store) (update:Update.t) =
-  let with_transaction f = store # with_transaction f in
+let _insert_update (store:store) (update:Update.t) key =
+  let with_transaction f = store # with_transaction ~key f in
   let with_error_and_tx notfound_msg f =
     Lwt.catch
       (fun () ->
         with_transaction (fun tx ->
           f tx >>= fun () -> Lwt.return (Ok None)))
       (function
-	    | Not_found ->
-	        let rc = Arakoon_exc.E_NOT_FOUND
-	        and msg = notfound_msg in
-	        Lwt.return (Update_fail(rc, msg))
+        | Not_found ->
+            let rc = Arakoon_exc.E_NOT_FOUND
+            and msg = notfound_msg in
+            Lwt.return (Update_fail(rc, msg))
         | Arakoon_exc.Exception(rc,msg) -> Lwt.return (Update_fail(rc,msg))
-	    | e ->
-	        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	        and msg = Printexc.to_string e in
-	        Lwt.return (Update_fail(rc, msg))
+        | e ->
+            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+            and msg = Printexc.to_string e in
+            Lwt.return (Update_fail(rc, msg))
       )
   in
   let catch_with_tx f g = Lwt.catch (fun () -> with_transaction f) g in
@@ -159,34 +161,34 @@ let _insert_update (store:store) (update:Update.t) =
         begin
           catch_with_tx
             (fun tx ->
-	          store # test_and_set tx key expected wanted >>= fun res ->
-	          Lwt.return (Ok res))
-	        (function
-	          | Not_found ->
-	              let rc = Arakoon_exc.E_NOT_FOUND
-	              and msg = key in
-	              Lwt.return (Update_fail (rc,msg))
-	          | e ->
-	              let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	              and msg = Printexc.to_string e
-	              in
-	              Lwt.return (Update_fail (rc,msg))
-	        )
-      end
+              store # test_and_set tx key expected wanted >>= fun res ->
+              Lwt.return (Ok res))
+            (function
+              | Not_found ->
+                  let rc = Arakoon_exc.E_NOT_FOUND
+                  and msg = key in
+                  Lwt.return (Update_fail (rc,msg))
+              | e ->
+                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                  and msg = Printexc.to_string e
+                  in
+                  Lwt.return (Update_fail (rc,msg))
+            )
+        end
     | Update.UserFunction(name,po) ->
         catch_with_tx
-	      (fun tx ->
-	        store # user_function tx name po >>= fun ro ->
-	        Lwt.return (Ok ro)
-	      )
-	      (function
-	        | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
-	        | e ->
-	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	            and msg = Printexc.to_string e
-	            in
-	            Lwt.return (Update_fail(rc,msg))
-	    )
+          (fun tx ->
+            store # user_function tx name po >>= fun ro ->
+            Lwt.return (Ok ro)
+          )
+          (function
+            | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
+            | e ->
+                let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                and msg = Printexc.to_string e
+                in
+                Lwt.return (Update_fail(rc,msg))
+          )
     | Update.Sequence updates 
     | Update.SyncedSequence updates ->
         catch_with_tx
@@ -202,8 +204,8 @@ let _insert_update (store:store) (update:Update.t) =
                 let rc = Arakoon_exc.E_NOT_FOUND
                 and msg = "Not_found" in
                 Lwt.return (Update_fail (rc,msg))
-	        | Arakoon_exc.Exception(rc,msg) ->
-	            Lwt.return (Update_fail(rc,msg))
+            | Arakoon_exc.Exception(rc,msg) ->
+                Lwt.return (Update_fail(rc,msg))
             | e ->
                 let rc = Arakoon_exc.E_UNKNOWN_FAILURE
                 and msg = Printexc.to_string e
@@ -212,29 +214,29 @@ let _insert_update (store:store) (update:Update.t) =
           )
     | Update.SetInterval interval ->
         catch_with_tx
-	      (fun tx ->
-	        store # set_interval tx interval >>= fun () ->
-	        Lwt.return (Ok None))
-	      (function
-	        | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
-	        | e ->
-	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	            and msg = Printexc.to_string e
-	            in
-	            Lwt.return (Update_fail (rc,msg)))
+          (fun tx ->
+            store # set_interval tx interval >>= fun () ->
+            Lwt.return (Ok None))
+          (function
+            | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
+            | e ->
+                let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                and msg = Printexc.to_string e
+                in
+                Lwt.return (Update_fail (rc,msg)))
     | Update.SetRouting routing ->
         catch_with_tx
-	      (fun tx ->
-	        store # set_routing tx routing >>= fun () ->
-	        Lwt.return (Ok None))
-	      (function
-	        | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
-	        | e ->
-	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	            and msg = Printexc.to_string e
-	            in
-	            Lwt.return (Update_fail (rc,msg))
-	      )
+          (fun tx ->
+            store # set_routing tx routing >>= fun () ->
+            Lwt.return (Ok None))
+          (function
+            | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+            | e ->
+                let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                and msg = Printexc.to_string e
+                in
+                Lwt.return (Update_fail (rc,msg))
+          )
     | Update.SetRoutingDelta (left, sep, right) ->
         catch_with_tx
           (fun tx ->
@@ -286,11 +288,11 @@ let _insert_update (store:store) (update:Update.t) =
             in Lwt.return (Update_fail(rc,msg))
           )
           
-let _insert_updates (store:store) (us: Update.t list) = 
-  let f u = _insert_update store u in
+let _insert_updates (store:store) (us: Update.t list) key =
+  let f u = _insert_update store u key in
   Lwt_list.map_s f us
 
-let _insert_value (store:store) (value:Value.t) =  
+let _insert_value (store:store) (value:Value.t) key =
   let updates = Value.updates_from_value value in
   store # get_j () >>= fun j ->
   let skip n l =
@@ -300,39 +302,33 @@ let _insert_value (store:store) (value:Value.t) =
       | n, hd::tl -> inner ((n - 1), tl) in
     inner (n, l) in
   let updates' = skip j updates in
-  _insert_updates store updates' >>= fun (urs:update_result list) ->
-  store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
+  _insert_updates store updates' key >>= fun (urs:update_result list) ->
+  store # with_transaction ~key (fun tx -> store # incr_i tx) >>= fun () ->
   Lwt.return urs
 
 let safe_insert_value (store:store) (i:Sn.t) value =
-  (* TODO: race condition:
-     change between lookup of i and insert...
-     rethink transaction wrapping strategy
-  *)
-  let store_i = store # consensus_i () in
-  begin
-    match i, store_i with
-      | 0L , None -> Lwt.return ()
-      | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
-      | n, Some m ->
-	if n = Sn.succ m
-	then Lwt.return ()
-	else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
-  end
-  >>= fun () ->
-  if store # quiesced ()
-  then
+  store # with_transaction_lock (fun key ->
+    let store_i = store # consensus_i () in
     begin
-      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
-      Lwt.return [Ok None]
+      match i, store_i with
+        | 0L , None -> Lwt.return ()
+        | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
+        | n, Some m ->
+            if n = Sn.succ m
+            then Lwt.return ()
+            else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
     end
-  else
-    begin
-      _insert_value store value
-    end
-
-let _insert (store:store) (v:Value.t) i = 
-  _insert_value store v
+    >>= fun () ->
+    if store # quiesced ()
+    then
+      begin
+        store # with_transaction ~key:(Some key) (fun tx -> store # incr_i tx) >>= fun () ->
+        Lwt.return [Ok None]
+      end
+    else
+      begin
+        _insert_value store value (Some key)
+      end)
 
 
 let on_consensus (store:store) (v,n,i) =
@@ -354,7 +350,7 @@ let on_consensus (store:store) (v,n,i) =
             Lwt.return()
           else
             Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
-	          (Sn.string_of i) (Sn.string_of store_i)
+              (Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
   if store # quiesced () 
   then
@@ -363,7 +359,7 @@ let on_consensus (store:store) (v,n,i) =
       Lwt.return [Ok None]
     end
   else
-    _insert store v i 
+    store # with_transaction_lock (fun key -> _insert_value store v (Some key))
       
 let get_succ_store_i (store:store) =
   let m_si = store # consensus_i () in
