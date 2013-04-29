@@ -43,8 +43,16 @@ object (self: #store)
   val mutable master = None
   val mutable _interval = Interval.max
   val mutable _routing = None
+  val mutable _tx = None
 
-  method incr_i () =
+  method with_transaction f =
+    let tx = new transaction in
+    _tx <- Some tx;
+    Lwt.finalize
+      (fun () -> f tx)
+      (fun () -> _tx <- None; Lwt.return ())
+
+  method incr_i tx =
     Lwt.return (self # _incr_i ())
 
   method _incr_i () =
@@ -100,7 +108,7 @@ object (self: #store)
       ) kv []
     in Lwt.return keys
 
-  method set ?(_pf=__prefix) key value =
+  method set tx ?(_pf=__prefix) key value =
     let r = self # set_no_incr key value in
     let () = self # _incr_j () in
     r
@@ -109,7 +117,7 @@ object (self: #store)
     let () = kv <- StringMap.add key value kv in
     Lwt.return ()
 
-  method set_master master' l =
+  method set_master tx master' l =
     let () = master <- Some (master', now64()) in
     Lwt.return ()
 
@@ -127,7 +135,7 @@ object (self: #store)
   method optimize () = Lwt.return ()
   method defrag () = Lwt.return ()
 
-  method aSSert ?(_pf=__prefix) key vo =
+  method aSSert tx ?(_pf=__prefix) key vo =
     let r =
       match vo with
 	| None -> not (StringMap.mem key kv)
@@ -138,7 +146,7 @@ object (self: #store)
 	  end
     in Lwt.return r
 
-  method aSSert_exists ?(_pf=__prefix) key =
+  method aSSert_exists tx ?(_pf=__prefix) key =
     let r = (StringMap.mem key kv)
     in Lwt.return r
 
@@ -157,13 +165,13 @@ object (self: #store)
 	Lwt.fail (Key_not_found key)
       end
 
-  method delete ?(_pf=__prefix) key =
+  method delete tx ?(_pf=__prefix) key =
     Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
     let r = self # delete_no_incr key in
     let () = self # _incr_j () in
     r
 
-  method test_and_set ?(_pf=__prefix) key expected wanted =
+  method test_and_set tx ?(_pf=__prefix) key expected wanted =
     Lwt.catch
       (fun () ->
 	    self # get key >>= fun res -> Lwt.return (Some res))
@@ -180,14 +188,14 @@ object (self: #store)
     else
       begin
 	    (match wanted with
-	      | None -> self # delete key
-	      | Some wanted_s -> self # set key wanted_s)
+	      | None -> self # delete tx key
+	      | Some wanted_s -> self # set tx key wanted_s)
 	    >>= fun () -> 
         Lwt.return wanted
       end
 
 
-  method sequence ?(_pf=__prefix) updates =
+  method sequence tx ?(_pf=__prefix) updates =
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let do_one u =
       let u_s = Update.update2s u in
@@ -197,7 +205,7 @@ object (self: #store)
 	| Update.Delete k  -> self # delete_no_incr k
 	| Update.Assert(k,vo) ->
 	  begin
-	    self # aSSert k vo >>= function
+	    self # aSSert tx k vo >>= function
 	      | true -> Lwt.return ()
 	      | false ->
 		let ex =
@@ -206,7 +214,7 @@ object (self: #store)
 	  end
 	| Update.Assert_exists(k) ->
 	  begin
-	    self # aSSert_exists k >>= function
+	    self # aSSert_exists tx k >>= function
 	      | true -> Lwt.return ()
 	      | false ->
 		let ex =
@@ -233,11 +241,11 @@ object (self: #store)
 
   method get_location () = failwith "not supported"
 
-  method user_function name po =
+  method user_function tx name po =
     Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
     Lwt.return None
 
-  method set_interval iv =
+  method set_interval tx iv =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
     _interval <- iv;
     Lwt.return ()
@@ -251,11 +259,11 @@ object (self: #store)
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
-  method set_routing r =
+  method set_routing tx r =
     _routing <- Some r;
     Lwt.return ()
 
-  method set_routing_delta left sep right =
+  method set_routing_delta tx left sep right =
     match _routing with
       | None -> failwith "Cannot update non-existing routing"
       | Some r ->
@@ -293,7 +301,7 @@ object (self: #store)
     in
     Lwt.return all
 
-  method delete_prefix ?(_pf=__prefix) prefix = Lwt.return 0
+  method delete_prefix tx ?(_pf=__prefix) prefix = Lwt.return 0
     
 end
 

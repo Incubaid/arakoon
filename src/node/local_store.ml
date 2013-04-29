@@ -336,23 +336,6 @@ let _get_j bdb =
 let _set_j bdb j =
   B.put bdb __j_key (string_of_int j)
 
-let _with_tx (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
-  Camltc.Hotc.transaction db
-	(fun db ->
-      let t0 = Unix.gettimeofday() in
-      let j = _get_j db in
-	  f db >>= fun (a:'a) ->
-      let () = _set_j db (j + 1) in
-      let t = ( Unix.gettimeofday() -. t0) in
-      if t > 1.0
-      then begin
-        Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
-        Lwt.return a
-      end
-      else
-	    Lwt.return a)
-
-(* let _tx_with_incr _ _ _ = failwith "_tx_with_incr" *)
 
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
@@ -373,6 +356,7 @@ object(self: #store)
   val mutable _quiesced = false
   val mutable _store_i = store_i
   val mutable _closed = false (* set when close method is called *)
+  val mutable _tx = None
 
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
@@ -391,6 +375,43 @@ object(self: #store)
           end
 	    | exn -> Lwt.fail exn)    
 
+  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> (int -> int) -> 'a Lwt.t =
+    fun tx f new_j ->
+      match _tx with
+        | None -> failwith "not in a transaction"
+        | Some (tx', db) ->
+            if tx != tx'
+            then
+              failwith "the provided transaction is not the current transaction of the store"
+            else
+              let j = _get_j db in
+              f db >>= fun a ->
+              let () = _set_j db (new_j j) in
+              Lwt.return a
+
+  method private _update_in_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
+    fun tx f ->
+      self # _with_tx tx f ((+) 1)
+
+  method with_transaction f =
+    Lwt.finalize
+      (fun () ->
+        Camltc.Hotc.transaction db
+	      (fun db ->
+            let tx = new transaction in
+            _tx <- Some (tx, db);
+
+            let t0 = Unix.gettimeofday() in
+            f tx >>= fun a ->
+            let t = ( Unix.gettimeofday() -. t0) in
+            if t > 1.0
+            then begin
+              Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
+              Lwt.return a
+            end
+            else
+	          Lwt.return a))
+      (fun () -> _tx <- None; Lwt.return ())
 
   method quiesce () =
     begin
@@ -508,14 +529,12 @@ object(self: #store)
     _store_i <- Some incr ;
     incr
 
-  method incr_i () =
+  method incr_i tx =
     let new_i = self # _incr_i_cached () in
     begin
       if _quiesced 
       then Lwt.return ()
-      else Camltc.Hotc.transaction db (fun bdb ->
-        (_save_i new_i bdb) >>= fun () ->
-        Lwt.return (_set_j bdb 0))
+      else self # _with_tx tx (_save_i new_i) (fun _ -> 0)
     end
 
 
@@ -540,24 +559,24 @@ object(self: #store)
 	let keys_list = _filter _pf keys_array in
 	Lwt.return keys_list
 
-  method set ?(_pf=__prefix) key value =
+  method set tx ?(_pf=__prefix) key value =
     self # _wrap_exception "set"
-      (fun () -> _with_tx db 
+      (fun () -> self # _update_in_tx tx
         (fun db -> _set _pf db key value; Lwt.return ()))
 
-  method delete ?(_pf=__prefix) key =
+  method delete tx ?(_pf=__prefix) key =
     self # _wrap_exception "delete"
-      (fun () -> _with_tx db 
+      (fun () -> self # _update_in_tx tx
         (fun db -> _delete _pf db key; Lwt.return ()) )
 
-  method test_and_set ?(_pf=__prefix) key expected wanted =
-    _with_tx db
+  method test_and_set tx ?(_pf=__prefix) key expected wanted =
+    self # _update_in_tx tx
       (fun db ->
 	    let r = _test_and_set _pf db key expected wanted in
 	    Lwt.return r)
       
-  method set_master master lease =
-    _with_tx db
+  method set_master tx master lease =
+    self # _update_in_tx tx
       (fun db ->
 	    _set_master db master lease ;
 	    _mlo <- Some (master,lease);
@@ -577,28 +596,28 @@ object(self: #store)
   method who_master () = _mlo
 
 
-  method delete_prefix ?(_pf=__prefix) prefix = 
+  method delete_prefix tx ?(_pf=__prefix) prefix = 
     Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
-    _with_tx db 
+    self # _update_in_tx tx
       (fun db -> 
         let c = _delete_prefix _pf db prefix in 
         Lwt.return c)
 
-  method sequence ?(_pf=__prefix) updates =
-    _with_tx db
+  method sequence tx ?(_pf=__prefix) updates =
+    self # _update_in_tx tx
       (fun db -> _sequence _pf db _interval updates; Lwt.return ())
 
-  method aSSert ?(_pf=__prefix) key (vo:string option) =
-    _with_tx db  
+  method aSSert tx ?(_pf=__prefix) key (vo:string option) =
+    self # _update_in_tx tx
       (fun db -> let r = _assert _pf db key vo in Lwt.return r)
 
-  method aSSert_exists ?(_pf=__prefix) key =
-    _with_tx db  
+  method aSSert_exists tx ?(_pf=__prefix) key =
+    self # _update_in_tx tx
       (fun db -> let r = _assert_exists _pf db key in Lwt.return r)
 
-  method user_function name (po:string option) =
+  method user_function tx name (po:string option) =
     Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    _with_tx db
+    self # _update_in_tx tx
       (fun db ->
 	    let (ro:string option) = _user_function db _interval name po in
 	    Lwt.return ro)
@@ -630,10 +649,10 @@ object(self: #store)
     _store_i <- store_i ;
     Lwt.return ()
 
-  method set_interval interval =
+  method set_interval tx interval =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string interval)
     >>= fun () ->
-    _with_tx db
+    self # _update_in_tx tx
       (fun db ->
 	    _set_interval db interval;
 	    _interval <- interval;
@@ -648,14 +667,14 @@ object(self: #store)
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
-  method set_routing r =
+  method set_routing tx r =
     Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
     _routing <- Some r;
-    _with_tx db (fun db -> _set_routing db r; Lwt.return ())
+    self # _update_in_tx tx (fun db -> _set_routing db r; Lwt.return ())
 
-  method set_routing_delta left sep right =
+  method set_routing_delta tx left sep right =
     Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    _with_tx db
+    self # _update_in_tx tx
       (fun db ->
         let r = _set_routing_delta db left sep right in
         _routing <- Some r ;

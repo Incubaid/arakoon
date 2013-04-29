@@ -49,9 +49,12 @@ let _filter pf =
     let key' = String.sub key pl (kl-pl) in
     key'::acc) []
 
+class transaction = object end
 
 (** common interface for stores *)
 class type store = object
+  method with_transaction: (transaction -> 'a Lwt.t) -> 'a Lwt.t
+
   method exists: ?_pf: string -> string -> bool Lwt.t
   method get: ?_pf: string -> string -> string Lwt.t
   method multi_get: ?_pf: string -> string list -> string list Lwt.t
@@ -59,12 +62,12 @@ class type store = object
   method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
-  method set: ?_pf: string -> string -> string -> unit Lwt.t
-  method test_and_set: ?_pf: string -> string -> string option -> string option -> string option Lwt.t
-  method delete: ?_pf: string -> string -> unit Lwt.t
-  method delete_prefix: ?_pf: string -> string -> int Lwt.t
-  method sequence : ?_pf: string -> Update.t list -> unit Lwt.t
-  method set_master: string -> int64 -> unit Lwt.t
+  method set: transaction -> ?_pf: string -> string -> string -> unit Lwt.t
+  method test_and_set: transaction -> ?_pf: string -> string -> string option -> string option -> string option Lwt.t
+  method delete: transaction -> ?_pf: string -> string -> unit Lwt.t
+  method delete_prefix: transaction -> ?_pf: string -> string -> int Lwt.t
+  method sequence : transaction -> ?_pf: string -> Update.t list -> unit Lwt.t
+  method set_master: transaction -> string -> int64 -> unit Lwt.t
   method set_master_no_inc: string -> int64 -> unit Lwt.t
   method who_master: unit -> (string*int64) option
 
@@ -72,7 +75,7 @@ class type store = object
       For an empty store, This is None
   *)
   method consensus_i: unit -> Sn.t option
-  method incr_i: unit -> unit Lwt.t
+  method incr_i: transaction -> unit Lwt.t
   method get_j: unit -> int Lwt.t
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
@@ -80,15 +83,15 @@ class type store = object
   method get_location: unit -> string
   method relocate: string -> unit Lwt.t
 
-  method aSSert: ?_pf: string -> string -> string option -> bool Lwt.t
-  method aSSert_exists: ?_pf: string -> string           -> bool Lwt.t
+  method aSSert: transaction -> ?_pf: string -> string -> string option -> bool Lwt.t
+  method aSSert_exists: transaction -> ?_pf: string -> string           -> bool Lwt.t
 
-  method user_function : string -> string option -> (string option) Lwt.t
+  method user_function : transaction -> string -> string option -> (string option) Lwt.t
   method get_interval: unit -> Interval.t Lwt.t
-  method set_interval: Interval.t -> unit Lwt.t
+  method set_interval: transaction -> Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
-  method set_routing : Routing.t -> unit Lwt.t
-  method set_routing_delta: string -> string -> string -> unit Lwt.t
+  method set_routing : transaction -> Routing.t -> unit Lwt.t
+  method set_routing_delta: transaction -> string -> string -> string -> unit Lwt.t
 
   method get_key_count : ?_pf: string -> unit -> int64 Lwt.t
 
@@ -110,10 +113,13 @@ type update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-let _insert_update (store:store) (update:Update.t) = 
-  let with_error notfound_msg f =
+let _insert_update (store:store) (update:Update.t) =
+  let with_transaction f = store # with_transaction f in
+  let with_error_and_tx notfound_msg f =
     Lwt.catch
-      (fun () -> f () >>= fun () -> Lwt.return (Ok None))
+      (fun () ->
+        with_transaction (fun tx ->
+          f tx >>= fun () -> Lwt.return (Ok None)))
       (function
 	    | Not_found ->
 	        let rc = Arakoon_exc.E_NOT_FOUND
@@ -125,19 +131,20 @@ let _insert_update (store:store) (update:Update.t) =
 	        and msg = Printexc.to_string e in
 	        Lwt.return (Update_fail(rc, msg))
       )
-  in  
+  in
+  let catch_with_tx f g = Lwt.catch (fun () -> with_transaction f) g in
   match update with
     | Update.Set(key,value) ->
-        with_error key (fun () -> store # set key value)
+        with_error_and_tx key (fun tx -> store # set tx key value)
     | Update.MasterSet (m, lease) ->
-        with_error "Not_found" (fun () -> store # set_master m lease)
+        with_error_and_tx "Not_found" (fun tx -> store # set_master tx m lease)
     | Update.Delete(key) ->
-        with_error key (fun () -> store # delete key)
+        with_error_and_tx key (fun tx -> store # delete tx key)
     | Update.DeletePrefix prefix ->
       begin
-        Lwt.catch
-          (fun () ->
-            store # delete_prefix prefix >>= fun n_deleted ->
+        catch_with_tx
+          (fun tx ->
+            store # delete_prefix tx prefix >>= fun n_deleted ->
             let sb = Buffer.create 8 in
             let () = Llio.int_to sb n_deleted in
             let ser = Buffer.contents sb in
@@ -150,9 +157,9 @@ let _insert_update (store:store) (update:Update.t) =
       end
     | Update.TestAndSet(key,expected,wanted)->
         begin
-          Lwt.catch
-	        (fun () ->
-	          store # test_and_set key expected wanted >>= fun res ->
+          catch_with_tx
+            (fun tx ->
+	          store # test_and_set tx key expected wanted >>= fun res ->
 	          Lwt.return (Ok res))
 	        (function
 	          | Not_found ->
@@ -167,9 +174,9 @@ let _insert_update (store:store) (update:Update.t) =
 	        )
       end
     | Update.UserFunction(name,po) ->
-        Lwt.catch
-	      (fun () ->
-	        store # user_function name po >>= fun ro ->
+        catch_with_tx
+	      (fun tx ->
+	        store # user_function tx name po >>= fun ro ->
 	        Lwt.return (Ok ro)
 	      )
 	      (function
@@ -182,9 +189,9 @@ let _insert_update (store:store) (update:Update.t) =
 	    )
     | Update.Sequence updates 
     | Update.SyncedSequence updates ->
-        Lwt.catch
-          (fun () ->
-            store # sequence updates >>= fun () ->
+        catch_with_tx
+          (fun tx ->
+            store # sequence tx updates >>= fun () ->
             Lwt.return (Ok None))
           (function
             | Key_not_found key ->
@@ -204,9 +211,9 @@ let _insert_update (store:store) (update:Update.t) =
                 Lwt.return (Update_fail (rc,msg))
           )
     | Update.SetInterval interval ->
-        Lwt.catch
-	      (fun () ->
-	        store # set_interval interval >>= fun () ->
+        catch_with_tx
+	      (fun tx ->
+	        store # set_interval tx interval >>= fun () ->
 	        Lwt.return (Ok None))
 	      (function
 	        | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -216,9 +223,9 @@ let _insert_update (store:store) (update:Update.t) =
 	            in
 	            Lwt.return (Update_fail (rc,msg)))
     | Update.SetRouting routing ->
-        Lwt.catch
-	      (fun () ->
-	        store # set_routing routing >>= fun () ->
+        catch_with_tx
+	      (fun tx ->
+	        store # set_routing tx routing >>= fun () ->
 	        Lwt.return (Ok None))
 	      (function
 	        | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -229,9 +236,9 @@ let _insert_update (store:store) (update:Update.t) =
 	            Lwt.return (Update_fail (rc,msg))
 	      )
     | Update.SetRoutingDelta (left, sep, right) ->
-        Lwt.catch
-          (fun () ->
-            store # set_routing_delta left sep right >>= fun () ->
+        catch_with_tx
+          (fun tx ->
+            store # set_routing_delta tx left sep right >>= fun () ->
             Lwt.return (Ok None))
           (function
             | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -243,8 +250,8 @@ let _insert_update (store:store) (update:Update.t) =
           )
     | Update.Nop -> Lwt.return (Ok None)
     | Update.Assert(k,vo) ->
-        Lwt.catch
-	      (fun () -> store # aSSert k vo >>= function
+        catch_with_tx
+	      (fun tx -> store # aSSert tx k vo >>= function
 	        | true -> Lwt.return (Ok None)
 	        | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
 	      )
@@ -253,8 +260,8 @@ let _insert_update (store:store) (update:Update.t) =
 	        and msg = Printexc.to_string e
 	        in Lwt.return (Update_fail(rc, msg)))
     | Update.Assert_exists(k) ->
-        Lwt.catch
-	      (fun () -> store # aSSert_exists k >>= function
+        catch_with_tx
+	      (fun tx -> store # aSSert_exists tx k >>= function
 	        | true -> Lwt.return (Ok None)
 	        | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
 	      )
@@ -263,12 +270,12 @@ let _insert_update (store:store) (update:Update.t) =
 	        and msg = Printexc.to_string e
 	        in Lwt.return (Update_fail(rc, msg)))
     | Update.AdminSet(k,vo) ->
-        Lwt.catch
-          (fun () ->
+        catch_with_tx
+          (fun tx ->
             begin
               match vo with
-                | None   -> store # delete ~_pf:__adminprefix k
-                | Some v -> store # set    ~_pf:__adminprefix k v
+                | None   -> store # delete tx ~_pf:__adminprefix k
+                | Some v -> store # set    tx ~_pf:__adminprefix k v
             end
             >>= fun () ->
             Lwt.return (Ok None)
@@ -294,7 +301,7 @@ let _insert_value (store:store) (value:Value.t) =
     inner (n, l) in
   let updates' = skip j updates in
   _insert_updates store updates' >>= fun (urs:update_result list) ->
-  store # incr_i () >>= fun () ->
+  store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
   Lwt.return urs
 
 let safe_insert_value (store:store) (i:Sn.t) value =
@@ -316,7 +323,7 @@ let safe_insert_value (store:store) (i:Sn.t) value =
   if store # quiesced ()
   then
     begin
-      store # incr_i () >>= fun () ->
+      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
       Lwt.return [Ok None]
     end
   else
@@ -352,7 +359,7 @@ let on_consensus (store:store) (v,n,i) =
   if store # quiesced () 
   then
     begin
-      store # incr_i () >>= fun () ->
+      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
       Lwt.return [Ok None]
     end
   else
