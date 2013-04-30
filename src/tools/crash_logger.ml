@@ -102,11 +102,7 @@ let setup_crash_log crash_file_gen =
   (add_to_crash_log, fake_close, dump_crash_log) 
 
 
-let setup_default_logger file_log_level file_log_path crash_log_prefix =
-  
-  let file_section = Lwt_log.Section.make "file_section" in
-  Lwt_log.Section.set_level file_section file_log_level;
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+let setup_default_logger file_log_path crash_log_prefix =
   Lwt.catch
     (fun () ->
       Lwt_log.file
