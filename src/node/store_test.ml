@@ -87,6 +87,8 @@ let test_safe_insert_value () =
     Lwt_list.iter_s
       (fun (value, asserts) ->
         Store.safe_insert_value store (get_next_i store) value >>= fun _ ->
+        store # get_j () >>= fun j ->
+        if j <> 0 then failwith "j is not 0";
         Lwt_list.iter_s
           (fun assert' -> assert' store)
           asserts)
@@ -94,6 +96,32 @@ let test_safe_insert_value () =
   Lwt_log.info "applying updates without surrounding transaction" >>= fun () ->
   with_store "tsiv" (fun store ->
     do_asserts store)
+
+let test_safe_insert_value_with_partial_value_update () =
+  with_store "tsivwpvu" (fun store ->
+    let k = "key" in
+    let u1 = Update.TestAndSet(k, Some "value1", Some "illegal")
+    and u2 = Update.TestAndSet(k, None, Some "value1")
+    and u3 = Update.Set("key2", "bla") in
+    let paxos_value = Value.create_client_value [u1;u2;u3] false in
+    store # with_transaction_lock (fun k -> Store._insert_update store u1 (Store.Key k)) >>= fun _ ->
+    store # with_transaction_lock (fun k -> Store._insert_update store u2 (Store.Key k)) >>= fun _ ->
+
+    store # get_j () >>= fun j ->
+    if j = 0 then failwith "j is 0";
+
+    store # get k >>= fun value ->
+    if value <> "value1" then failwith "key should have value1 as value";
+
+    Store.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
+
+    store # get_j () >>= fun j ->
+    if j <> 0 then failwith "j is not 0";
+
+    store # get k >>= fun value ->
+    if value <> "value1" then failwith "illegal value in store";
+    Lwt.return ()
+  )
 
 let test_safe_insert_value_with_tx () =
   with_store "tsivwt" (fun store ->
@@ -112,17 +140,6 @@ let suite =
   "store" >:::[
     "safe_insert_value" >:: w test_safe_insert_value;
     "safe_insert_value_with_tx" >:: w test_safe_insert_value_with_tx;
+    "safe_insert_value_with_partial_value_update" >:: w test_safe_insert_value_with_partial_value_update;
   ]
-
-
-
-
-
-
-
-
-
-
-
-
 
