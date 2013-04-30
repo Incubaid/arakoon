@@ -411,24 +411,31 @@ object(self: #store)
       | _ -> false in
     if not matched_locks
     then failwith "transaction locks do not match";
-    Lwt.finalize
+    let current_i = _store_i in
+    Lwt.catch
       (fun () ->
-        Camltc.Hotc.transaction db
-          (fun db ->
-            let tx = new transaction in
-            _tx <- Some (tx, db);
+        Lwt.finalize
+          (fun () ->
+            Camltc.Hotc.transaction db
+              (fun db ->
+                let tx = new transaction in
+                _tx <- Some (tx, db);
 
-            let t0 = Unix.gettimeofday() in
-            f tx >>= fun a ->
-            let t = ( Unix.gettimeofday() -. t0) in
-            if t > 1.0
-            then begin
-              Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
-              Lwt.return a
-            end
-            else
-              Lwt.return a))
-      (fun () -> _tx <- None; Lwt.return ())
+                let t0 = Unix.gettimeofday() in
+                f tx >>= fun a ->
+                let t = ( Unix.gettimeofday() -. t0) in
+                if t > 1.0
+                then begin
+                  Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
+                  Lwt.return a
+                end
+                else
+                  Lwt.return a))
+          (fun () -> _tx <- None; Lwt.return ()))
+      (fun exn ->
+        (* restore i when transaction failed *)
+        _store_i <- current_i;
+        Lwt.fail exn)
 
   method quiesce () =
     begin

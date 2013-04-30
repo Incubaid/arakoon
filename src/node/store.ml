@@ -115,8 +115,17 @@ type update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-let _insert_update (store:store) (update:Update.t) key =
-  let with_transaction f = store # with_transaction ~key f in
+type key_or_transaction =
+  | Key of transaction_lock
+  | Transaction of transaction
+
+let with_transaction : store -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
+  fun store kt f -> match kt with
+    | Key key -> store # with_transaction ~key:(Some key) f
+    | Transaction tx -> f tx
+
+let _insert_update (store:store) (update:Update.t) kt =
+  let with_transaction f = with_transaction store kt f in
   let with_error_and_tx notfound_msg f =
     Lwt.catch
       (fun () ->
@@ -288,11 +297,11 @@ let _insert_update (store:store) (update:Update.t) key =
             in Lwt.return (Update_fail(rc,msg))
           )
           
-let _insert_updates (store:store) (us: Update.t list) key =
-  let f u = _insert_update store u key in
+let _insert_updates (store:store) (us: Update.t list) kt =
+  let f u = _insert_update store u kt in
   Lwt_list.map_s f us
 
-let _insert_value (store:store) (value:Value.t) key =
+let _insert_value (store:store) (value:Value.t) kt =
   let updates = Value.updates_from_value value in
   store # get_j () >>= fun j ->
   let skip n l =
@@ -302,12 +311,17 @@ let _insert_value (store:store) (value:Value.t) key =
       | n, hd::tl -> inner ((n - 1), tl) in
     inner (n, l) in
   let updates' = skip j updates in
-  _insert_updates store updates' key >>= fun (urs:update_result list) ->
-  store # with_transaction ~key (fun tx -> store # incr_i tx) >>= fun () ->
+  _insert_updates store updates' kt >>= fun (urs:update_result list) ->
+  with_transaction store kt (fun tx -> store # incr_i tx) >>= fun () ->
   Lwt.return urs
 
-let safe_insert_value (store:store) (i:Sn.t) value =
-  store # with_transaction_lock (fun key ->
+
+let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
+  let inner f =
+    match tx with
+      | None ->   store # with_transaction_lock (fun key -> f (Key key))
+      | Some tx -> f (Transaction tx) in
+  let t kt =
     let store_i = store # consensus_i () in
     begin
       match i, store_i with
@@ -322,13 +336,24 @@ let safe_insert_value (store:store) (i:Sn.t) value =
     if store # quiesced ()
     then
       begin
-        store # with_transaction ~key:(Some key) (fun tx -> store # incr_i tx) >>= fun () ->
+        with_transaction store kt (fun tx -> store # incr_i tx) >>= fun () ->
         Lwt.return [Ok None]
       end
     else
       begin
-        _insert_value store value (Some key)
-      end)
+        let results = _insert_value store value kt in
+        match tx with
+          | None -> results
+          | Some _ ->
+              results >>= fun results ->
+              List.iter (fun result -> match result with
+                | Ok _ -> ()
+                | _ -> failwith "some updates failed to apply to the store") results;
+              Lwt.return results
+      end
+  in
+  inner t
+
 
 
 let on_consensus (store:store) (v,n,i) =
@@ -359,7 +384,7 @@ let on_consensus (store:store) (v,n,i) =
       Lwt.return [Ok None]
     end
   else
-    store # with_transaction_lock (fun key -> _insert_value store v (Some key))
+    store # with_transaction_lock (fun key -> _insert_value store v (Key key))
       
 let get_succ_store_i (store:store) =
   let m_si = store # consensus_i () in

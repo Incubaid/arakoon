@@ -65,9 +65,15 @@ object (self: #store)
     then failwith "transaction locks do not match";
     let tx = new transaction in
     _tx <- Some tx;
-    Lwt.finalize
-      (fun () -> f tx)
-      (fun () -> _tx <- None; Lwt.return ())
+    let current_i = i in
+    Lwt.catch
+      (fun () ->
+        Lwt.finalize
+          (fun () -> f tx)
+          (fun () -> _tx <- None; Lwt.return ()))
+      (fun exn ->
+        i <- current_i;
+        Lwt.fail exn)
 
   method incr_i tx =
     Lwt.return (self # _incr_i ())
