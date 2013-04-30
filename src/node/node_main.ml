@@ -71,6 +71,7 @@ let _config_logging me get_cfgs =
       | _         -> Lwt_log.Debug
   in
   let level = to_level cfg.log_level in
+  let () = Lwt_log.Section.set_level Lwt_log.Section.main level in
   let set_level section l =
     let l = match l with
       | None -> level
@@ -88,7 +89,7 @@ let _config_logging me get_cfgs =
   if not cfg.is_test 
   then
     begin 
-      Crash_logger.setup_default_logger level log_file_name get_crash_file_name 
+      Crash_logger.setup_default_logger log_file_name get_crash_file_name 
       >>= fun logger -> Lwt.return (Some logger)
     end
   else
