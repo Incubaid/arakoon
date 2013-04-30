@@ -222,21 +222,19 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
           acc := current_acc;
           inner ()) in
     let batched_f tlogentry =
-      let r =
-        if !batch_i < 1000
-        then
-          begin
-            batch_i := !batch_i + 1;
-            Lwt.return ()
-          end
-        else
-          begin
-            let r = iter_batch () in
-            batch_i := 0;
-            r
-          end in
       Queue.add tlogentry batch;
-      r
+      batch_i := !batch_i + 1;
+      if !batch_i < 1000 (* magic batch size *)
+      then
+        begin
+          Lwt.return ()
+        end
+      else
+        begin
+          let r = iter_batch () in
+          batch_i := 0;
+          r
+        end
     in
     tlog_coll # iterate start_i too_far_i batched_f >>= fun () ->
     iter_batch () >>= fun () ->

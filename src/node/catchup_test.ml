@@ -172,7 +172,9 @@ let test_batched_with_failures () =
       assert_not_exists "_3a_key2530" >>= fun () ->
       assert_not_exists "_3b_key2530")
 
-
+let test_large_tlog_catchup () =
+  _tic _fill 100_000 "tcs"
+    (fun store new_i -> Lwt.return ())
 
 let suite =
   let w f = lwt_bracket setup f teardown in
@@ -181,5 +183,6 @@ let suite =
     "with_doubles" >:: w test_with_doubles;
     "interrupted_catchup" >:: w test_interrupted_catchup;
     "batched_with_failures" >:: w test_batched_with_failures;
+    "large_tlog_catchup" >:: w test_large_tlog_catchup;
   ]
 
