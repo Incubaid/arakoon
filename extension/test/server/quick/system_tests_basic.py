@@ -68,6 +68,19 @@ def test_start_stop_wrapper():
     C.assert_running_nodes(0)
     cluster.tearDown()
 
+def test_start_arakoon383():
+    cluster = C._getCluster()
+    wrapper = 'false'
+    name = 'wrapper'
+    cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
+    cluster.addLocalNode(name)
+    C.assert_running_nodes(0)
+    assert_equals(cluster.startOne(name), 1)
+    C.assert_running_nodes(0)
+    assert_equals(cluster.restartOne(name), 1)
+    C.assert_running_nodes(0)
+    cluster.tearDown()
+
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_max_value_size_tinkering ():
     cluster = C._getCluster()
