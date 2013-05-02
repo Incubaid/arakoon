@@ -869,7 +869,7 @@ class ArakoonCluster:
 
         """
         self._requireLocal(nodeName)
-        self._startOne(nodeName)
+        return self._startOne(nodeName)
 
     
     def catchupOnly(self, nodeName):
@@ -885,7 +885,7 @@ class ArakoonCluster:
                '--node',
                nodeName,
                '-catchup-only']
-        subprocess.call(cmd)
+        return subprocess.call(cmd)
         
     def stopOne(self, nodeName):
         """
@@ -973,7 +973,7 @@ class ArakoonCluster:
 
         """
         self._requireLocal( nodeName)
-        self._restartOne(nodeName)
+        return self._restartOne(nodeName)
 
     def getStatusOne(self, nodeName):
         """
@@ -1022,7 +1022,7 @@ class ArakoonCluster:
         command = self._cmd(name)
         cmd.extend(command)
         logging.debug('calling: %s', str(cmd))
-        subprocess.call(cmd, close_fds = True)
+        return subprocess.call(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
         t_mess = type(ip_mess)
@@ -1069,7 +1069,7 @@ class ArakoonCluster:
     
     def _restartOne(self, name):
         self._stopOne(name)
-        self._startOne(name)
+        return self._startOne(name)
 
 
     def _getPid(self, name):
