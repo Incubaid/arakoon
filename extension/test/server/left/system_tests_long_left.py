@@ -153,3 +153,5 @@ def test_catchup_only():
     logging.info("done with catchup-only")
     C.stopOne(n0)
     C.compare_stores(n1,n0)
+    C.start_all()
+    C.assert_running_nodes(2)
