@@ -198,7 +198,9 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
   let future_n = Sn.start in
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
-    (store,tlc)  current_i mr_name (future_n,future_i) 
+    (store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+  tlc # close () 
+  
     
     
 module X = struct 
@@ -317,6 +319,7 @@ let _main_2
     begin
       only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll 
       >>= fun _ -> (* we don't need that here as there is no continuation *)
+      
       Lwt.return 0
     end
   else
