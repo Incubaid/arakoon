@@ -494,6 +494,20 @@ let _multi_get (client: client) =
       Lwt.return ())
     (fun exn -> Lwt_log.debug ~exn "is this ok?")
   
+let _multi_get_option (client:client) = 
+  let k1 = "_multi_get_option:key1"
+  and k2 = "_multi_get_option:key2"
+  in
+  client # set k1 k1 >>= fun () ->
+  client # set k2 k2 >>= fun () ->
+  client # multi_get_option [k1;k2;"?"] >>= fun vos ->
+  match vos with
+    | [Some v1;Some v2;None] ->
+      OUnit.assert_equal v1 k1;
+      OUnit.assert_equal v2 k2;
+      Lwt.return ()
+    | _ -> Lwt.fail (Failure "arity mismatch")
+        
 
 let _with_master ((tn:string), cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.5 in
@@ -542,6 +556,8 @@ let trivial_master3 tpl =
 let trivial_master4 tpl = _with_master tpl _multi_get 
 
 let trivial_master5 tpl = _with_master tpl _progress_possible
+
+let trivial_master6 tpl = _with_master tpl _multi_get_option
 
 let assert1 tpl = _with_master tpl _assert1
 
@@ -598,7 +614,8 @@ let make_suite base name w =
       make_el "assert3"         (base + 1000) assert3;
       make_el "assert_exists1"  (base + 1100) assert_exists1; 
       make_el "assert_exists2"  (base + 1200) assert_exists2;
-      make_el "assert_exists3"  (base + 1300) assert_exists3; 
+      make_el "assert_exists3"  (base + 1300) assert_exists3;
+      make_el "trivial_master6" (base + 1400) trivial_master6;
     ]
 
 let force_master =

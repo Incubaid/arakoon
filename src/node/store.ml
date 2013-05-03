@@ -54,6 +54,8 @@ class type store = object
   method exists: ?_pf: string -> string -> bool Lwt.t
   method get: ?_pf: string -> string -> string Lwt.t
   method multi_get: ?_pf: string -> string list -> string list Lwt.t
+  method multi_get_option: ?_pf:string -> string list -> string option list Lwt.t
+
   method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t

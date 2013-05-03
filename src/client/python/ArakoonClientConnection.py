@@ -94,6 +94,9 @@ class ArakoonClientConnection :
     def decodeStringListResult(self) :
         return ArakoonProtocol.decodeStringListResult ( self )
 
+    def decodeStringOptionListResult(self):
+        return ArakoonProtocol.decodeStringOptionListResult(self)
+
     def decodeStringPairListResult(self) :
         return ArakoonProtocol.decodeStringPairListResult ( self )
 

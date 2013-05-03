@@ -242,6 +242,7 @@ ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
 ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
 ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
+ARA_CMD_MULTI_GET_OPTION         = 0x00000031 | ARA_CMD_MAG
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -612,6 +613,14 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
+    def encodeMultiGetOption(keys,allowDirty):
+        retVal = _packInt(ARA_CMD_MULTI_GET_OPTION) + _packBool(allowDirty)
+        retVal += _packInt(len(keys))
+        for key in keys:
+            retVal += _packString(key)
+        return retVal
+
+    @staticmethod
     def encodeExpectProgressPossible():
         retVal = _packInt(ARA_CMD_EXPECT_PROGRESS_POSSIBLE)
         return retVal
@@ -697,6 +706,18 @@ class ArakoonProtocol :
         for i in range( arraySize ) :
             retVal[:0] = [ _recvString( con ) ]
         return retVal
+
+    @staticmethod
+    def decodeStringOptionListResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        retVal = []
+        arraySize = _recvInt(con)
+        for i in range(arraySize):
+            s = _recvStringOption(con)
+            retVal.append(s)
+        retVal.reverse()
+        return retVal
+
 
     @staticmethod
     def decodeNurseryCfgResult( con ):

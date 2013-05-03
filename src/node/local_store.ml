@@ -478,6 +478,19 @@ object(self: #store)
 	in
 	Lwt.return (List.rev vs)
 
+  method multi_get_option ?(_pf = __prefix) keys = 
+    let bdb = Camltc.Hotc.get_bdb db in
+    let vos = List.fold_left
+      (fun acc key ->
+        let vo = 
+          try Some (B.get bdb (_pf ^ key)) 
+          with Not_found -> None
+        in
+        (vo :: acc)) [] keys
+    in
+    Lwt.return (List.rev vos)
+      
+        
   method private _incr_i_cached () =
     let incr =
     begin

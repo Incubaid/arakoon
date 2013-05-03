@@ -54,6 +54,9 @@ method rev_range_entries:
 
   method multi_get: ?allow_dirty:bool -> key list -> (value list) Lwt.t
 
+  (** retuns the list of value options for the keys *)
+  method multi_get_option: ?allow_dirty:bool -> key list -> (value option list) Lwt.t
+
   method set: key -> value -> unit Lwt.t
 
   method confirm: key -> value -> unit Lwt.t
