@@ -70,6 +70,14 @@ object (self: #store)
     in
     Lwt.return (List.rev values)
 
+  method multi_get_option ?(_pf = __prefix) keys = 
+    let vos = List.fold_left
+      (fun acc key -> 
+        let vo = try Some (StringMap.find key kv) with Not_found -> None in
+        vo :: acc) [] keys
+    in
+    Lwt.return (List.rev vos)
+
   method range ?(_pf=__prefix) first finc last linc max =
     let keys = Test_backend.range_ kv first finc last linc max in
     Lwt.return keys

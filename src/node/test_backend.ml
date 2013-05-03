@@ -176,6 +176,19 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt.return values
 
+
+  method multi_get_option ~allow_dirty (keys: string list) =
+    let vos = List.fold_left
+      (fun acc k ->
+        let vo = 
+          try Some (StringMap.find k _kv )
+          with Not_found -> None
+        in
+        (vo :: acc))
+      [] keys
+    in
+    Lwt.return vos
+
   method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in

@@ -408,11 +408,17 @@ object(self: #backend)
 
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
-    log_o self "multi_get" >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     store # multi_get keys >>= fun values ->
     Statistics.new_multiget _stats start;
     Lwt.return values
+
+  method multi_get_option ~allow_dirty (keys:string list) = 
+    let start = Unix.gettimeofday() in
+    self # _read_allowed allow_dirty >>= fun () ->
+    store # multi_get_option keys >>= fun vos ->
+    Statistics.new_multiget_option _stats start;
+    Lwt.return vos
 
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
 

@@ -343,28 +343,32 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         end
     | MULTI_GET ->
         begin
-	  Llio.input_bool ic >>= fun allow_dirty ->
-	  Llio.input_int  ic >>= fun length ->
-	  let rec loop keys i =
-	    if i = 0
-	    then Lwt.return keys
-	    else
-	      begin
-	        Llio.input_string ic >>= fun key ->
-	        loop (key :: keys) (i-1)
-	      end
-	  in
-	  loop [] length >>= fun keys ->
-          log_command_f "connection=%Lu MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length (String.concat ";" keys) >>= fun () ->
-	  Lwt.catch
-	    (fun () ->
-	      backend # multi_get ~allow_dirty keys >>= fun values ->
-	      Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_int oc length >>= fun () ->
-	      Lwt_list.iter_s (Llio.output_string oc) values >>= fun () ->
-	      Lwt.return false
-	    )
-	    (handle_exception oc)
+          Llio.input_bool ic >>= fun allow_dirty ->
+          Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+          log_command_f "connection=%Lu MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length 
+            (String.concat ";" keys) >>= fun () ->
+	      Lwt.catch
+	        (fun () ->
+	          backend # multi_get ~allow_dirty keys >>= fun values ->
+	          Llio.output_int oc 0 >>= fun () ->
+              Llio.output_list Llio.output_string oc values >>= fun () ->
+	          Lwt.return false
+	        )
+	        (handle_exception oc)
+        end
+    | MULTI_GET_OPTION ->
+        begin
+          Llio.input_bool ic >>= fun allow_dirty ->
+          Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+          log_command_f "connection=%Lu MULTI_GET_OPTION: allow_dirty=%B length=%i keys=%S" 
+            id allow_dirty length (String.concat ";" keys) >>= fun () ->
+          Lwt.catch
+            (fun () ->
+              backend # multi_get_option ~allow_dirty keys >>= fun vos ->
+              Llio.output_int oc 0 >>= fun () ->
+              Llio.output_list Llio.output_string_option oc vos >>= fun () ->
+              Lwt.return false)
+            (handle_exception oc)
         end
     | SEQUENCE ->
         log_command_f "connection=%Lu SEQUENCE" id >>= fun () ->
