@@ -503,10 +503,14 @@ let _multi_get_option (client:client) =
   client # multi_get_option [k1;k2;"?"] >>= fun vos ->
   match vos with
     | [Some v1;Some v2;None] ->
-      OUnit.assert_equal v1 k1;
-      OUnit.assert_equal v2 k2;
+      let id s = s in
+      Lwt_io.printlf "v1=%s; v1=%s%!" v1 v2 >>= fun () ->
+      OUnit.assert_equal ~printer:id v1 k1;
+      OUnit.assert_equal ~printer:id v2 k2;
       Lwt.return ()
-    | _ -> Lwt.fail (Failure "arity mismatch")
+    | _ -> 
+      Lwt_list.iter_s (fun so -> Lwt_io.printlf "vos.... %S" (Log_extra.string_option2s so)) vos >>= fun () ->
+      Lwt.fail (Failure "bad order or arity")
         
 
 let _with_master ((tn:string), cluster_cfg, _) f =

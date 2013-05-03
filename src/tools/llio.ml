@@ -237,6 +237,8 @@ let output_list output_element oc list =
   Client_log.debug_f "Outputting list with %d elements" (List.length list) >>= fun () ->
   Lwt_list.iter_s (output_element oc) list
 
+let output_string_list oc list = output_list output_string oc list
+
 let output_kv_list oc = output_list output_string_pair oc
 
 let list_to buf e_to list =

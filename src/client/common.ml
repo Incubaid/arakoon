@@ -262,12 +262,12 @@ let user_function_to b name po =
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
   Llio.bool_to b allow_dirty;
-  Llio.list_to b Llio.string_to keys
+  Llio.string_list_to b keys
 
 let multiget_option_to b ~allow_dirty keys = 
   command_to b MULTI_GET_OPTION;
   Llio.bool_to b allow_dirty;
-  Llio.list_to b Llio.string_to keys
+  Llio.string_list_to b keys
 
 let who_master_to b =
   command_to b WHO_MASTER

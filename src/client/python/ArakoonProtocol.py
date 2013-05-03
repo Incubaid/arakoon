@@ -715,7 +715,6 @@ class ArakoonProtocol :
         for i in range(arraySize):
             s = _recvStringOption(con)
             retVal.append(s)
-        retVal.reverse()
         return retVal
 
 

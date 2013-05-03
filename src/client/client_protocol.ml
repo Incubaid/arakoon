@@ -269,26 +269,26 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
 	      Llio.output_int32 oc 0l >>= fun () ->
 	      let size = List.length list in
 	      Lwt_log.debug_f "size = %i" size >>= fun () ->
-	      Llio.output_list Llio.output_string_pair oc list >>= fun () ->
-              Lwt.return false
+          Llio.output_kv_list oc list >>= fun () ->
+          Lwt.return false
 	    )
 	    (handle_exception oc)
         end
     | LAST_ENTRIES ->
         begin
-	  Sn.input_sn ic >>= fun i ->
+          Sn.input_sn ic >>= fun i ->
           log_command_f "connection=%Lu LAST_ENTRIES: i=%Li" id i >>= fun () ->
-	  Llio.output_int32 oc 0l >>= fun () ->
-	  backend # last_entries i oc >>= fun () ->
+          Llio.output_int32 oc 0l >>= fun () ->
+          backend # last_entries i oc >>= fun () ->
           Lwt.return false
         end
     | WHO_MASTER ->
         begin
           log_command_f "connection=%Lu WHO_MASTER" id >>= fun () ->
           backend # who_master () >>= fun m ->
-	  Llio.output_int32 oc 0l >>= fun () ->
-	  Llio.output_string_option oc m >>= fun () ->
-	  Lwt.return false
+          Llio.output_int32 oc 0l >>= fun () ->
+          Llio.output_string_option oc m >>= fun () ->
+          Lwt.return false
         end
     | EXPECT_PROGRESS_POSSIBLE ->
         begin
@@ -327,19 +327,19 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
 	    (handle_exception oc)
         end
     | PREFIX_KEYS ->
-        begin
-	  Llio.input_bool   ic >>= fun allow_dirty ->
-	  Llio.input_string ic >>= fun key ->
-	  Llio.input_int    ic >>= fun max ->
-          log_command_f "connection=%Lu PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
-          >>= fun () ->
-	  backend # prefix_keys ~allow_dirty key max >>= fun keys ->
-          let size = List.length keys in
-	  Llio.output_int oc 0 >>= fun () ->
-          Lwt_log.debug_f "size = %i" size >>= fun () ->
-	  Llio.output_int oc size >>= fun () ->
-	  Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
-	  Lwt.return false
+      begin
+        Llio.input_bool   ic >>= fun allow_dirty ->
+        Llio.input_string ic >>= fun key ->
+        Llio.input_int    ic >>= fun max ->
+        log_command_f "connection=%Lu PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
+        >>= fun () ->
+        backend # prefix_keys ~allow_dirty key max >>= fun keys ->
+        let size = List.length keys in
+        Llio.output_int oc 0 >>= fun () ->
+        Lwt_log.debug_f "size = %i" size >>= fun () ->
+        Llio.output_int oc size >>= fun () ->
+        Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
+        Lwt.return false
         end
     | MULTI_GET ->
         begin
@@ -347,14 +347,14 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
           log_command_f "connection=%Lu MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length 
             (String.concat ";" keys) >>= fun () ->
-	      Lwt.catch
-	        (fun () ->
-	          backend # multi_get ~allow_dirty keys >>= fun values ->
-	          Llio.output_int oc 0 >>= fun () ->
-              Llio.output_list Llio.output_string oc values >>= fun () ->
-	          Lwt.return false
-	        )
-	        (handle_exception oc)
+          Lwt.catch
+            (fun () ->
+              backend # multi_get ~allow_dirty keys >>= fun values ->
+              Llio.output_int oc 0 >>= fun () ->
+              Llio.output_string_list oc (List.rev values) >>= fun () ->
+              Lwt.return false
+            )
+            (handle_exception oc)
         end
     | MULTI_GET_OPTION ->
         begin
@@ -365,8 +365,9 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Lwt.catch
             (fun () ->
               backend # multi_get_option ~allow_dirty keys >>= fun vos ->
+              Lwt_list.iter_s (fun v ->Lwt_log.debug_f "\t%s" (Log_extra.string_option2s v)) vos >>= fun () ->
               Llio.output_int oc 0 >>= fun () ->
-              Llio.output_list Llio.output_string_option oc vos >>= fun () ->
+              Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
               Lwt.return false)
             (handle_exception oc)
         end

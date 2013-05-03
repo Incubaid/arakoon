@@ -73,6 +73,8 @@ val output_string:        lwtoc -> string        -> unit Lwt.t
 val output_list:        
   (lwtoc -> 'a -> unit Lwt.t) ->
    lwtoc -> 'a list -> unit Lwt.t
+
+val output_string_list:   lwtoc -> string list   -> unit Lwt.t
 val output_hashtbl: 
   (lwtoc -> 'a -> 'b -> unit Lwt.t) -> 
   lwtoc -> ('a, 'b) Hashtbl.t -> unit Lwt.t
