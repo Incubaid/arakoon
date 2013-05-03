@@ -392,6 +392,11 @@ object(self: #store)
                 (fun () -> _set_j db (new_j j); Lwt.return ())) >>= fun a ->
               Lwt.return a
 
+  method private _do_locked : 'a. (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t = fun f ->
+    match _tx with
+      | None -> self # with_transaction ~key:_tx_lock (fun tx -> self # _with_tx tx f (fun j -> j))
+      | Some (tx, bdb) -> f bdb
+
   method private _update_in_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
     fun tx f ->
       self # _with_tx tx f ((+) 1)
@@ -418,9 +423,9 @@ object(self: #store)
         Lwt.finalize
           (fun () ->
             Camltc.Hotc.transaction db
-              (fun db ->
+              (fun bdb ->
                 let tx = new transaction in
-                _tx <- Some (tx, db);
+                _tx <- Some (tx, bdb);
 
                 let t0 = Unix.gettimeofday() in
                 f tx >>= fun a ->
@@ -525,19 +530,19 @@ object(self: #store)
 	| exn -> Lwt.fail exn)
 
   method multi_get ?(_pf = __prefix) keys =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let vs = List.fold_left
-	  (fun acc key ->
-	    try
-	      let v = B.get bdb (_pf ^ key) in
-	      v::acc
-	    with Not_found ->
-	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in
-	      raise exn
-	  )
-	  [] keys
-	in
-	Lwt.return (List.rev vs)
+    self # _do_locked (fun bdb ->
+      let vs = List.fold_left
+	    (fun acc key ->
+	      try
+	        let v = B.get bdb (_pf ^ key) in
+	        v::acc
+	      with Not_found ->
+	        let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in
+	        raise exn
+	    )
+	    [] keys
+	  in
+	  Lwt.return (List.rev vs))
 
   method private _incr_i_cached () =
     let incr =
@@ -560,25 +565,28 @@ object(self: #store)
 
 
   method range ?(_pf=__prefix) first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    Lwt.return (B.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
-    Lwt.return (_filter _pf r)
+    self # _do_locked (fun bdb ->
+      Lwt.return (B.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
+      Lwt.return (_filter _pf r))
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let r = _range_entries _pf bdb first finc last linc max in
-    Lwt.return r
+    self # _do_locked (fun bdb ->
+      let r = _range_entries _pf bdb first finc last linc max in
+      Lwt.return r)
 
   method rev_range_entries ?(_pf=__prefix) first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.rev_range_entries _pf bdb first finc last linc max in
-    Lwt.return r
+    self # _do_locked (fun bdb ->
+      let r = B.rev_range_entries _pf bdb first finc last linc max in
+      Lwt.return r)
+
+  method private _prefix_keys bdb _pf prefix max =
+      let keys_array = B.prefix_keys bdb (_pf ^ prefix) max in
+	  let keys_list = _filter _pf keys_array in
+	  Lwt.return keys_list
 
   method prefix_keys ?(_pf=__prefix) prefix max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let keys_array = B.prefix_keys bdb (_pf ^ prefix) max in
-	let keys_list = _filter _pf keys_array in
-	Lwt.return keys_list
+    self # _do_locked (fun bdb ->
+      self # _prefix_keys bdb _pf prefix max)
 
   method set tx ?(_pf=__prefix) key value =
     self # _wrap_exception "set"
@@ -705,11 +713,12 @@ object(self: #store)
 
   method get_key_count ?(_pf=__prefix) () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
-    Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) ) >>= fun raw_count ->
-    (* Leave out administrative keys *)
-    self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys ->
-    let admin_key_count = List.length admin_keys in
-    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+    self # _do_locked (fun bdb ->
+      let raw_count = B.get_key_count bdb in
+      (* Leave out administrative keys *)
+      self # _prefix_keys bdb __adminprefix "" (-1) >>= fun admin_keys ->
+      let admin_key_count = List.length admin_keys in
+      Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
   method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
     if _quiesced 
