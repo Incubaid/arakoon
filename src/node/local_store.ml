@@ -331,7 +331,7 @@ let _get_j bdb =
   try
     let j_string = B.get bdb __j_key in
     int_of_string j_string
-  with _ -> 0
+  with Not_found -> 0
 
 let _set_j bdb j =
   B.put bdb __j_key (string_of_int j)
@@ -387,8 +387,9 @@ object(self: #store)
               failwith "the provided transaction is not the current transaction of the store"
             else
               let j = _get_j db in
-              f db >>= fun a ->
-              let () = _set_j db (new_j j) in
+              (Lwt.finalize
+                (fun () -> f db)
+                (fun () -> _set_j db (new_j j); Lwt.return ())) >>= fun a ->
               Lwt.return a
 
   method private _update_in_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
@@ -498,12 +499,8 @@ object(self: #store)
       in raise ex
 
   method get_j () =
-    let j =
-      try
-        let bdb = Camltc.Hotc.get_bdb db in
-        let j_string = B.get bdb __j_key in
-        int_of_string j_string
-      with _ -> 0 in
+    let bdb = Camltc.Hotc.get_bdb db in
+    let j = _get_j bdb in
     Lwt.return j
 
   method exists ?(_pf = __prefix) key =
