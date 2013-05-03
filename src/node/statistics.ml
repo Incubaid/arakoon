@@ -110,6 +110,7 @@ module Statistics = struct
     mutable del_time_stats:           x_stats;
     mutable seq_time_stats:           x_stats;
     mutable mget_time_stats:          x_stats;
+    mutable mget_option_time_stats:   x_stats;
     mutable tas_time_stats:           x_stats;
     mutable range_time_stats:         x_stats;
     mutable prefix_time_stats:        x_stats;
@@ -134,6 +135,7 @@ module Statistics = struct
      del_time_stats=  create_x_stats();
      seq_time_stats=  create_x_stats();
      mget_time_stats= create_x_stats();
+     mget_option_time_stats = create_x_stats();
      tas_time_stats=  create_x_stats();
      range_time_stats = create_x_stats();
      prefix_time_stats = create_x_stats();
@@ -205,6 +207,10 @@ module Statistics = struct
     let x = new_op t start in
     update_x_stats t.mget_time_stats x 
 
+  let new_multiget_option t (start:float) = 
+    let x = new_op t start in
+    update_x_stats t.mget_option_time_stats x
+
   let new_testandset t (start:float)=
     let x = new_op t start in
     update_x_stats t.tas_time_stats x
@@ -265,6 +271,7 @@ module Statistics = struct
       x_stats_to_value_list t.del_time_stats "del_info";
       x_stats_to_value_list t.seq_time_stats "seq_info";
       x_stats_to_value_list t.mget_time_stats "mget_info";
+      x_stats_to_value_list t.mget_option_time_stats "mget_option_info";
       x_stats_to_value_list t.tas_time_stats "tas_info";
 
       x_stats_to_value_list t.range_time_stats "range_info";
@@ -350,14 +357,21 @@ module Statistics = struct
  
     let value, v_list = extract_next v_list in
     let set_stats   = extract_x_stats value in
+
     let value, v_list = extract_next v_list in
     let get_stats   = extract_x_stats value in
+
     let value, v_list = extract_next v_list in
     let del_stats   = extract_x_stats value in
+
     let value, v_list = extract_next v_list in
     let seq_stats   = extract_x_stats value in
+
     let value, v_list = extract_next v_list in
     let mget_stats  = extract_x_stats value in
+
+    let value, v_list = extract_next v_list in
+    let mget_option_stats = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
     let tas_stats   = extract_x_stats value in
@@ -399,6 +413,7 @@ module Statistics = struct
       del_time_stats = del_stats;
       seq_time_stats = seq_stats;
       mget_time_stats = mget_stats;
+      mget_option_time_stats = mget_option_stats;
       tas_time_stats = tas_stats;
       range_time_stats = range_stats;
       prefix_time_stats = prefix_stats;
@@ -422,6 +437,7 @@ module Statistics = struct
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
 	    "mget_info: %s,\n" ^^
+        "mget_option_info: %s\n" ^^
 	    "seq_info: %s,\n" ^^
         "tas_info: %s,\n" ^^
         "range_info: %s,\n" ^^
@@ -449,6 +465,7 @@ module Statistics = struct
       (x_stats_to_string t.get_time_stats)
       (x_stats_to_string t.del_time_stats)
       (x_stats_to_string t.mget_time_stats)
+      (x_stats_to_string t.mget_option_time_stats)
       (x_stats_to_string t.seq_time_stats)
       (x_stats_to_string t.tas_time_stats)
       (x_stats_to_string t.range_time_stats)

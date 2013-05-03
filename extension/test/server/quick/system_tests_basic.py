@@ -622,6 +622,24 @@ def test_delete_prefix():
 
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_multi_get_option():
+    cli = C.get_client()
+    keys = []
+    for i in xrange(10):
+        k = "key_%04i" % i
+        keys.append(k)
+        cli.set(k,k)
+    keys.append('not_present')
+    vos = cli.multiGetOption(keys)
+    for i in xrange(11):
+        v = vos[i]
+        if i < 10:
+            assert_true(v == keys[i])
+        else:
+            assert_true(v is None)
+    logging.debug("done")
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_rev_range_entries_arakoon368():
     """ assert ARAKOON-368 bugfix """
     cli = C.get_client()

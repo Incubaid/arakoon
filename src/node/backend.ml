@@ -55,6 +55,11 @@ class type backend = object
   method multi_get:
     allow_dirty:bool ->
       string list -> string list Lwt.t
+
+  method multi_get_option:
+    allow_dirty:bool ->
+      string list -> string option list Lwt.t
+
   method hello: string -> string -> (int32 * string) Lwt.t
 
   method who_master: unit -> string option Lwt.t
