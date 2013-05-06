@@ -49,11 +49,11 @@ let session_thread (sid:string) cid protocol fd =
       | FOOBAR as foobar-> 
           Lwt_log.fatal "propagating FOOBAR" >>= fun () ->
           Lwt.fail foobar
-      | exn -> info_f ~exn "exiting session (%s) connection=%Lu" sid cid)
+      | exn -> info_f ~exn "exiting session (%s) connection=%s" sid cid)
   >>= fun () -> 
   Lwt.catch 
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Lwt_log.debug_f "Exception on closing of socket (connection=%Lu)" cid)
+    ( fun exn -> Lwt_log.debug_f "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
@@ -67,7 +67,7 @@ let create_connection_allocation_scheme max =
     
 let make_default_scheme () = create_connection_allocation_scheme 10
 
-let connection_counter =
+let make_counter () =
   let c = ref 0L in
   let next () =
     c := Int64.succ !c;
@@ -92,11 +92,12 @@ let make_server_thread
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
     let maybe_take,release = scheme in
+    let connection_counter = make_counter () in
     let rec server_loop () =
       Lwt.catch
 	(fun () ->
 	  Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
-      let cid = connection_counter () in
+      let cid = name ^ Int64.to_string (connection_counter ()) in
           begin
             match maybe_take () with
               | None    -> Lwt.ignore_result (session_thread "--" cid deny fd)
@@ -105,7 +106,7 @@ let make_server_thread
 		  (
             Lwt_unix.fstat fd >>= fun fstat ->
             Lwt_log.info_f
-              "%s:session=%i connection=%Lu socket_address=%s file_descriptor_inode=%i"
+              "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
               name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
             >>= fun () ->
             let sid = string_of_int id in
