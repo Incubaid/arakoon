@@ -97,7 +97,7 @@ let make_server_thread
       Lwt.catch
 	(fun () ->
 	  Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
-      let cid = name ^ Int64.to_string (connection_counter ()) in
+      let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
           begin
             match maybe_take () with
               | None    -> Lwt.ignore_result (session_thread "--" cid deny fd)
