@@ -99,15 +99,15 @@ object (self: #store)
 
   method range ?(_pf=__prefix) first finc last linc max =
     let keys = Test_backend.range_ kv first finc last linc max in
-    Lwt.return keys
+    keys
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
     let entries = Test_backend.range_entries_ kv first finc last linc max in
-    Lwt.return entries
+    entries
 
   method rev_range_entries ?(_pf=__prefix) first finc last linc max =
     let entries = Test_backend.rev_range_entries_ kv first finc last linc max in
-    Lwt.return entries
+    entries
 
   method prefix_keys ?(_pf=__prefix) prefix max =
     let reg = "^" ^ prefix in
@@ -181,18 +181,14 @@ object (self: #store)
 
   method get_location () = failwith "not supported"
 
-  method user_function tx name po =
-    Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
-    Lwt.return None
-
   method set_interval tx iv =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
     _interval <- iv;
     Lwt.return ()
 
   method get_interval () =
-    Lwt_log.debug "get_interval" >>= fun () ->
-    Lwt.return _interval
+    Lwt_log.ign_debug "get_interval";
+    _interval
 
   method get_routing () =
     match _routing with

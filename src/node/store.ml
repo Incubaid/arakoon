@@ -60,9 +60,9 @@ class type store = object
   method exists: string -> bool Lwt.t
   method get: string -> string
 
-  method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
-  method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
-  method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+  method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list
+  method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
   method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
   method set: transaction -> string -> string -> unit
   method delete: transaction -> string -> unit
@@ -86,8 +86,7 @@ class type store = object
   method aSSert: transaction -> ?_pf: string -> string -> string option -> bool Lwt.t
   method aSSert_exists: transaction -> ?_pf: string -> string           -> bool Lwt.t
 
-  method user_function : transaction -> string -> string option -> (string option) Lwt.t
-  method get_interval: unit -> Interval.t Lwt.t
+  method get_interval: unit -> Interval.t
   method set_interval: transaction -> Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : transaction -> Routing.t -> unit Lwt.t
@@ -105,12 +104,20 @@ class type store = object
 
 end
 
-exception Key_not_found of string 
+type update_result =
+  | Stop
+  | Ok of string option
+  | Update_fail of Arakoon_exc.rc * string
+
+exception Key_not_found of string
 exception CorruptStore
+
+let _get (store:store) key =
+  store # get (__prefix ^ key)
 
 let get (store:store) key =
   try
-    Lwt.return (store # get (__prefix ^ key))
+    Lwt.return (_get store key)
   with
     | Failure msg ->
         let _closed = store # is_closed () in
@@ -123,6 +130,9 @@ let get (store:store) key =
           Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn
 
+let _set (store:store) tx key value =
+  store # set tx (__prefix ^ key) value
+
 let get_option (store:store) key =
   try
     Some (store # get (__prefix ^ key))
@@ -134,7 +144,7 @@ let exists (store:store) key =
 let multi_get (store:store) keys =
   let vs = List.fold_left (fun acc key ->
     try
-      let v = store # get key in
+      let v = store # get (__prefix ^ key) in
       v::acc
     with Not_found ->
       let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
@@ -146,12 +156,15 @@ let multi_get (store:store) keys =
 let multi_get_option (store:store) keys =
   let vs = List.fold_left (fun acc key ->
     try
-      let v = store # get key in
+      let v = store # get (__prefix ^ key) in
       (Some v)::acc
     with Not_found -> None::acc)
     [] keys
   in
   Lwt.return (List.rev vs)
+
+let _delete (store:store) tx key =
+  store # delete tx (__prefix ^ key)
 
 let get_j (store:store) =
   try
@@ -162,10 +175,66 @@ let get_j (store:store) =
 let set_j (store:store) tx j =
   store # set tx __j_key (string_of_int j)
 
-type update_result =
-  | Stop 
-  | Ok of string option
-  | Update_fail of Arakoon_exc.rc * string
+let _test_and_set (store:store) tx key expected wanted =
+  let existing = get_option store key in
+  if existing <> expected
+  then
+    existing
+  else
+    begin
+      let () = match wanted with
+        | None -> store # delete tx (__prefix ^ key)
+        | Some wanted_s -> store # set tx (__prefix ^ key) wanted_s in
+      wanted
+    end
+
+let _range_entries (store:store) first finc last linc max =
+  store # range_entries ~_pf:__prefix first finc last linc max
+
+let range_entries (store:store) ?(_pf=__prefix) first finc last linc max =
+  Lwt.return (store # range_entries ~_pf first finc last linc max)
+
+let rev_range_entries (store:store) first finc last linc max =
+  Lwt.return (store # rev_range_entries first finc last linc max)
+
+let range (store:store) first finc last linc max =
+  Lwt.return (store # range first finc last linc max)
+
+let get_interval store =
+  Lwt.return (store # get_interval ())
+
+class store_user_db interval store tx =
+  let test k =
+    if not (Interval.is_ok interval k) then
+      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+  in
+  let test_option = function
+    | None -> ()
+    | Some k -> test k
+  in
+  let test_range first last = test_option first; test_option last
+  in
+
+object (self : # Registry.user_db)
+
+  method set k v = test k ; _set store tx k v
+  method get k   = test k ; _get store k
+
+  method delete k = test k ; _delete store tx k
+
+  method test_and_set k e w = test k; _test_and_set store tx k e w
+
+  method range_entries first finc last linc max =
+    test_range first last;
+    _range_entries store first finc last linc max
+end
+
+let _user_function (store:store) (interval:Interval.t) (name:string) (po:string option) tx =
+  let f = Registry.Registry.lookup name in
+  let user_db = new store_user_db interval store tx in
+  let ro = f user_db po in
+  Lwt.return ro
+
 
 type key_or_transaction =
   | Key of transaction_lock
@@ -204,11 +273,11 @@ let _insert_update (store:store) (update:Update.t) kt =
   let rec do_one update tx =
     match update with
       | Update.Set(key,value) ->
-          with_error tx key (fun tx -> Lwt.return (store # set tx (__prefix ^ key) value))
+          with_error tx key (fun tx -> Lwt.return (_set store tx key value))
       | Update.MasterSet (m, lease) ->
           with_error tx "Not_found" (fun tx -> store # set_master tx m lease)
       | Update.Delete(key) ->
-          with_error tx key (fun tx -> Lwt.return (store # delete tx (__prefix ^ key)))
+          with_error tx key (fun tx -> Lwt.return (_delete store tx key))
       | Update.DeletePrefix prefix ->
           begin
             catch_with_tx tx
@@ -254,9 +323,8 @@ let _insert_update (store:store) (update:Update.t) kt =
       | Update.UserFunction(name,po) ->
           catch_with_tx tx
             (fun tx ->
-              store # user_function tx name po >>= fun ro ->
-              Lwt.return (Ok ro)
-            )
+              _user_function store (store # get_interval ()) name po tx >>= fun ro ->
+              Lwt.return (Ok ro))
             (function
               | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->

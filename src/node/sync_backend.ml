@@ -159,7 +159,7 @@ object(self: #backend)
 
   method get_interval () =
     self # _read_allowed false >>= fun () ->
-    store # get_interval ()
+    Store.get_interval store
 
 
   method private block_collapser (i: Sn.t) =
@@ -192,7 +192,7 @@ object(self: #backend)
     log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range first finc last linc max >>= fun keys ->
+    Store.range store first finc last linc max >>= fun keys ->
     let n_keys = List.length keys in
     Statistics.new_range _stats start n_keys;
     Lwt.return keys
@@ -214,14 +214,14 @@ object(self: #backend)
     log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range_entries first finc last linc max 
+    Store.range_entries store first finc last linc max
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
     log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range last first >>= fun () ->
-    store # rev_range_entries first finc last linc max
+    Store.rev_range_entries store first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let start = Unix.gettimeofday() in
@@ -481,7 +481,7 @@ object(self: #backend)
     else self # _write_allowed ()
 
   method private _check_interval keys =
-    store # get_interval () >>= fun iv ->
+    Store.get_interval store >>= fun iv ->
     let rec loop = function
       | [] -> Lwt.return ()
      (* | [k] ->
@@ -495,7 +495,7 @@ object(self: #backend)
     loop keys
 
   method private _check_interval_range first last =
-    store # get_interval () >>= fun iv ->
+    Store.get_interval store >>= fun iv ->
     let check_option = function
       | None -> Lwt.return ()
       | Some k ->
@@ -647,7 +647,7 @@ object(self: #backend)
     begin
       match client_cfgs with
         | None ->
-          store # range_entries ~_pf:__adminprefix
+          Store.range_entries store ~_pf:__adminprefix
             ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
           >>= fun cfgs ->
           let result = Hashtbl.create 5 in

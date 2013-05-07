@@ -215,42 +215,6 @@ let copy_store old_location new_location overwrite =
         File_system.copy_file old_location new_location
     end
   end
-open Registry
-
-class bdb_user_db interval bdb =
-  let test k =
-    if not (Interval.is_ok interval k) then
-      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
-  in
-  let test_option = function
-    | None -> ()
-    | Some k -> test k
-  in
-  let test_range first last = test_option first; test_option last
-  in
-
-object (self : # user_db)
-
-  method set k v = test k ; _set bdb (__prefix ^ k) v
-  method get k   = test k ; _get bdb (__prefix ^ k)
-
-  method delete k = test k ; _delete bdb (__prefix ^ k)
-
-  method test_and_set k e w = test k; _test_and_set __prefix bdb k e w
-
-  method range_entries first finc last linc max =
-    test_range first last;
-    _range_entries __prefix bdb first finc last linc max
-end
-
-
-let _user_function bdb (interval:Interval.t) (name:string) (po:string option) =
-  let f = Registry.lookup name in
-  let bdb_inner = new bdb_user_db interval bdb in
-  let inner = (bdb_inner :> user_db) in
-  let ro = f inner po in
-  ro
-
 
 let _set_master bdb master (lease_start:int64) =
   B.put bdb __master_key master;
@@ -483,18 +447,18 @@ object(self: #store)
 
   method range ?(_pf=__prefix) first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    Lwt.return (B.range bdb (_f _pf first) finc (_l _pf last) linc max) >>= fun r ->
-    Lwt.return (_filter _pf r)
+    let r = B.range bdb (_f _pf first) finc (_l _pf last) linc max in
+    _filter _pf r
 
   method range_entries ?(_pf=__prefix) first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = _range_entries _pf bdb first finc last linc max in
-    Lwt.return r
+    r
 
   method rev_range_entries ?(_pf=__prefix) first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.rev_range_entries _pf bdb first finc last linc max in
-    Lwt.return r
+    r
 
   method prefix_keys ?(_pf=__prefix) prefix max =
     let bdb = Camltc.Hotc.get_bdb db in
@@ -554,13 +518,6 @@ object(self: #store)
     self # _update_in_tx tx
       (fun db -> let r = _assert_exists _pf db key in Lwt.return r)
 
-  method user_function tx name (po:string option) =
-    Lwt_log.debug_f "user_function :%s" name >>= fun () ->
-    self # _update_in_tx tx
-      (fun db ->
-	    let (ro:string option) = _user_function db _interval name po in
-	    Lwt.return ro)
-
   method consensus_i () = _store_i
 
   method close () =
@@ -598,7 +555,7 @@ object(self: #store)
 	    Lwt.return ()
       )
 
-  method get_interval () = Lwt.return _interval
+  method get_interval () = _interval
 
   method get_routing () =
     Lwt_log.debug "get_routing " >>= fun () ->

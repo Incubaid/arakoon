@@ -18,7 +18,7 @@ let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
 
 let _dump_routing store =  try_fetch "routing" (store # get_routing) Routing.to_s
 
-let _dump_interval store = try_fetch "interval" (store # get_interval) Interval.to_string
+let _dump_interval store = try_fetch "interval" (fun () -> Store.get_interval store) Interval.to_string
 
 let summary store =
   let consensus_i = store # consensus_i () 
