@@ -134,7 +134,7 @@ object(self: #backend)
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
-    store # exists key
+    Store.exists store key
 
   method get ~allow_dirty key =
     let start = Unix.gettimeofday () in

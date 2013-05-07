@@ -125,15 +125,14 @@ let _who_master db =
     Lwt.return None
 
 
-let _get _pf bdb key = B.get bdb (_pf ^ key)
+let _get bdb key = B.get bdb key
 
-let _set _pf bdb key value = B.put bdb (_pf ^ key) value
+let _set bdb key value = B.put bdb key value
 
-let _delete _pf bdb key    = B.out bdb (_pf ^ key)
+let _delete bdb key    = B.out bdb key
 
-let _delete_prefix _pf bdb prefix = 
-  let xprefix = _pf ^ prefix in
-  B.delete_prefix bdb xprefix
+let _delete_prefix bdb prefix =
+  B.delete_prefix bdb prefix
 
 let _test_and_set _pf bdb key expected wanted =
   let key' = _pf ^ key in
@@ -232,10 +231,10 @@ class bdb_user_db interval bdb =
 
 object (self : # user_db)
 
-  method set k v = test k ; _set __prefix bdb k v
-  method get k   = test k ; _get __prefix bdb k
+  method set k v = test k ; _set bdb (__prefix ^ k) v
+  method get k   = test k ; _get bdb (__prefix ^ k)
 
-  method delete k = test k ; _delete __prefix bdb k
+  method delete k = test k ; _delete bdb (__prefix ^ k)
 
   method test_and_set k e w = test k; _test_and_set __prefix bdb k e w
 
@@ -260,65 +259,6 @@ let _set_master bdb master (lease_start:int64) =
   let lease = Buffer.contents buffer in
   B.put bdb __lease_key lease
 
-let rec _sequence _pf bdb interval updates =
-  let do_one = function
-    | Update.Set (key,value) -> _set _pf bdb key value
-    | Update.Delete key -> _delete _pf bdb key
-    | Update.TestAndSet(key,expected, wanted) ->
-      let _ = _test_and_set _pf bdb key expected wanted in () (* TODO: do we want this? *)
-    | Update.Assert(k,vo) ->
-      begin
-	    match _assert _pf bdb k vo with
-	      | true -> ()
-	      | false ->
-	        raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
-      end
-    | Update.Assert_exists(k) ->
-      begin
-	    match _assert_exists _pf bdb k with
-	      | true -> ()
-	      | false ->
-	        raise (Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED,k))
-      end
-    | Update.UserFunction(name,po) ->
-      let _ = _user_function bdb interval name po in ()
-    | Update.MasterSet (m,ls) -> _set_master bdb m ls
-    | Update.Sequence us 
-    | Update.SyncedSequence us -> _sequence _pf bdb interval us
-    | Update.SetInterval interval -> _set_interval bdb interval
-    | Update.SetRouting r   -> _set_routing bdb r
-    | Update.SetRoutingDelta (l, s, r) -> let _ = _set_routing_delta bdb l s r in ()
-    | Update.AdminSet(k,vo) ->
-    begin
-      match _pf with
-        | pf when pf = __adminprefix ->
-          begin
-          match vo with
-            | None -> _delete _pf bdb k
-            | Some v -> _set _pf bdb k v
-          end
-        | _ -> raise  (Arakoon_exc.Exception(Arakoon_exc.E_UNKNOWN_FAILURE, "Cannot modify admin keys in user sequence"))
-    end
-    | Update.Nop -> ()
-    | Update.DeletePrefix prefix -> let _ = _delete_prefix _pf bdb prefix in ()
-  in 
-  let get_key = function
-    | Update.Set (key,value) -> Some key
-    | Update.Delete key -> Some key
-    | Update.TestAndSet (key, expected, wanted) -> Some key
-    | _ -> None
-  in 
-  let helper update =
-    try
-      do_one update
-    with
-      | Not_found ->
-          let key = get_key update
-          in match key with
-            | Some key -> raise (Key_not_found key)
-            | None -> raise Not_found
-  in List.iter helper updates
-  
 
 let _set_master bdb master (lease_start:int64) =
   B.put bdb __master_key master;
@@ -371,7 +311,31 @@ object(self: #store)
           end
         | exn -> Lwt.fail exn)    
 
+  method private _wrap_exception2 name (f:unit -> 'a) =
+    try
+      f ()
+    with
+        | Failure s ->
+          begin
+            Lwt_log.ign_debug_f "%s Failure %s: => FOOBAR? %b" name s _closed;
+            if _closed
+            then raise (Common.XException (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+            else raise Server.FOOBAR
+          end
+        | exn -> raise exn
+
   method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
+    fun tx f ->
+      match _tx with
+        | None -> failwith "not in a transaction"
+        | Some (tx', db) ->
+            if tx != tx'
+            then
+              failwith "the provided transaction is not the current transaction of the store"
+            else
+              f db
+
+  method private _with_tx2 : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
     fun tx f ->
       match _tx with
         | None -> failwith "not in a transaction"
@@ -488,9 +452,9 @@ object(self: #store)
 				                 Printf.sprintf "%s not in interval" key)
       in raise ex
 
-  method exists ?(_pf = __prefix) key =
+  method exists key =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.exists bdb (_pf ^ key) in
+    let r = B.exists bdb key in
     Lwt.return r
 
   method get key =
@@ -538,15 +502,15 @@ object(self: #store)
 	let keys_list = _filter _pf keys_array in
 	Lwt.return keys_list
 
-  method set tx ?(_pf=__prefix) key value =
-    self # _wrap_exception "set"
-      (fun () -> self # _update_in_tx tx
-        (fun db -> _set _pf db key value; Lwt.return ()))
+  method set tx key value =
+    self # _wrap_exception2 "set"
+      (fun () -> self # _with_tx2 tx
+        (fun db -> _set db key value))
 
-  method delete tx ?(_pf=__prefix) key =
-    self # _wrap_exception "delete"
-      (fun () -> self # _update_in_tx tx
-        (fun db -> _delete _pf db key; Lwt.return ()) )
+  method delete tx key =
+    self # _wrap_exception2 "delete"
+      (fun () -> self # _with_tx2 tx
+        (fun db -> _delete db key) )
 
   method test_and_set tx ?(_pf=__prefix) key expected wanted =
     self # _update_in_tx tx
@@ -579,12 +543,8 @@ object(self: #store)
     Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
     self # _update_in_tx tx
       (fun db -> 
-        let c = _delete_prefix _pf db prefix in 
+        let c = _delete_prefix db prefix in 
         Lwt.return c)
-
-  method sequence tx ?(_pf=__prefix) updates =
-    self # _update_in_tx tx
-      (fun db -> _sequence _pf db _interval updates; Lwt.return ())
 
   method aSSert tx ?(_pf=__prefix) key (vo:string option) =
     self # _update_in_tx tx

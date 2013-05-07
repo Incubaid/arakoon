@@ -91,7 +91,7 @@ object (self: #store)
   method _set_i x =
     i <- Some x
 
-  method exists ?(_pf=__prefix) key =
+  method exists key =
     try_lwt_ (fun () -> StringMap.mem key kv)
 
   method get key =
@@ -119,12 +119,8 @@ object (self: #store)
       ) kv []
     in Lwt.return keys
 
-  method set tx ?(_pf=__prefix) key value =
-    self # set_no_incr key value
-
-  method private set_no_incr ?(_pf=__prefix) key value =
-    let () = kv <- StringMap.add key value kv in
-    Lwt.return ()
+  method set tx key value =
+    kv <- StringMap.add key value kv
 
   method set_master tx master' l =
     let () = master <- Some (master', now64()) in
@@ -164,77 +160,18 @@ object (self: #store)
   method private delete_no_incr ?(_pf=__prefix) key =
     if StringMap.mem key kv then
       begin
-	Lwt_log.debug_f "%S exists" key >>= fun () ->
-	let () = kv <- StringMap.remove key kv in
-	Lwt.return ()
+	    Lwt_log.ign_debug_f "%S exists" key;
+	    kv <- StringMap.remove key kv
       end
     else
       begin
-	Lwt_log.debug "going to fail" >>= fun () ->
-	Lwt.fail (Key_not_found key)
+	    Lwt_log.ign_debug "going to fail";
+	    raise (Key_not_found key)
       end
 
-  method delete tx ?(_pf=__prefix) key =
-    Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
+  method delete tx key =
+    Lwt_log.ign_debug_f "mem_store # delete %S" key;
     self # delete_no_incr key
-
-  method test_and_set tx ?(_pf=__prefix) key expected wanted =
-    Lwt.catch
-      (fun () ->
-	    let res = self # get key in Lwt.return (Some res))
-      (function
-	    | Not_found -> Lwt.return None
-	    | exn -> Lwt.fail exn)
-    >>= fun existing ->
-    if existing <> expected
-    then
-      begin
-        Lwt.return existing
-      end
-    else
-      begin
-	    (match wanted with
-	      | None -> self # delete tx key
-	      | Some wanted_s -> self # set tx key wanted_s)
-	    >>= fun () -> 
-        Lwt.return wanted
-      end
-
-
-  method sequence tx ?(_pf=__prefix) updates =
-    Lwt_log.info "mem_store :: sequence" >>= fun () ->
-    let do_one u =
-      let u_s = Update.update2s u in
-      Lwt_log.debug_f "u=%s" u_s >>= fun () ->
-      match u with
-	| Update.Set (k,v) -> self # set_no_incr k v
-	| Update.Delete k  -> self # delete_no_incr k
-	| Update.Assert(k,vo) ->
-	  begin
-	    self # aSSert tx k vo >>= function
-	      | true -> Lwt.return ()
-	      | false ->
-		let ex =
-		  Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, k) in
-		Lwt.fail ex
-	  end
-	| Update.Assert_exists(k) ->
-	  begin
-	    self # aSSert_exists tx k >>= function
-	      | true -> Lwt.return ()
-	      | false ->
-		let ex =
-		  Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, k) in
-		Lwt.fail ex
-	  end
-	| _ -> Llio.lwt_failfmt "Sequence does not support %s" u_s
-    in
-    let old_kv = kv in
-    Lwt.catch
-      (fun () -> Lwt_list.iter_s do_one updates)
-      (fun exn -> kv <- old_kv;
-	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
-	Lwt.fail exn)
 
   method consensus_i () = i
 
