@@ -365,7 +365,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Lwt.catch
             (fun () ->
               backend # multi_get_option ~allow_dirty keys >>= fun vos ->
-              Lwt_list.iter_s (fun v ->Lwt_log.debug_f "\t%s" (Log_extra.string_option2s v)) vos >>= fun () ->
+              
               Llio.output_int oc 0 >>= fun () ->
               Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
               Lwt.return false)
