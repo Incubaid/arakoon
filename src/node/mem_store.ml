@@ -38,12 +38,44 @@ class mem_store db_name =
 object (self: #store)
 
   val mutable i = None
+  val mutable j = 0
   val mutable kv = StringMap.empty
   val mutable master = None
   val mutable _interval = Interval.max
   val mutable _routing = None
+  val mutable _tx = None
+  val mutable _tx_lock = None
+  val _tx_lock_mutex = Lwt_mutex.create ()
 
-  method incr_i () =
+  method with_transaction_lock f =
+    Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
+      Lwt.finalize
+        (fun () ->
+          let txl = new transaction_lock in
+          _tx_lock <- Some txl;
+          f txl)
+        (fun () -> _tx_lock <- None; Lwt.return ()))
+
+  method with_transaction ?(key=None) f =
+    let matched_locks = match _tx_lock, key with
+      | None, None -> true
+      | Some txl, Some txl' -> txl == txl'
+      | _ -> false in
+    if not matched_locks
+    then failwith "transaction locks do not match";
+    let tx = new transaction in
+    _tx <- Some tx;
+    let current_i = i in
+    Lwt.catch
+      (fun () ->
+        Lwt.finalize
+          (fun () -> f tx)
+          (fun () -> _tx <- None; Lwt.return ()))
+      (fun exn ->
+        i <- current_i;
+        Lwt.fail exn)
+
+  method incr_i tx =
     Lwt.return (self # _incr_i ())
 
   method _incr_i () =
@@ -52,7 +84,14 @@ object (self: #store)
     | Some i' -> Some ( Sn.succ i' )
     in
     let () = i <- i2 in
+    let () = j <- 0 in
     ()
+
+  method get_j () =
+    Lwt.return j
+
+  method _incr_j () =
+    j <- j + 1
 
   method _set_i x =
     i <- Some x
@@ -100,14 +139,16 @@ object (self: #store)
       ) kv []
     in Lwt.return keys
 
-  method set ?(_pf=__prefix) key value =
-    self # set_no_incr key value
+  method set tx ?(_pf=__prefix) key value =
+    let r = self # set_no_incr key value in
+    let () = self # _incr_j () in
+    r
 
   method private set_no_incr ?(_pf=__prefix) key value =
     let () = kv <- StringMap.add key value kv in
     Lwt.return ()
 
-  method set_master master' l =
+  method set_master tx master' l =
     let () = master <- Some (master', now64()) in
     Lwt.return ()
 
@@ -125,7 +166,7 @@ object (self: #store)
   method optimize () = Lwt.return ()
   method defrag () = Lwt.return ()
 
-  method aSSert ?(_pf=__prefix) key vo =
+  method aSSert tx ?(_pf=__prefix) key vo =
     let r =
       match vo with
 	| None -> not (StringMap.mem key kv)
@@ -136,7 +177,7 @@ object (self: #store)
 	  end
     in Lwt.return r
 
-  method aSSert_exists ?(_pf=__prefix) key =
+  method aSSert_exists tx ?(_pf=__prefix) key =
     let r = (StringMap.mem key kv)
     in Lwt.return r
 
@@ -155,11 +196,13 @@ object (self: #store)
 	Lwt.fail (Key_not_found key)
       end
 
-  method delete ?(_pf=__prefix) key =
+  method delete tx ?(_pf=__prefix) key =
     Lwt_log.debug_f "mem_store # delete %S" key >>= fun () ->
-    self # delete_no_incr key
+    let r = self # delete_no_incr key in
+    let () = self # _incr_j () in
+    r
 
-  method test_and_set ?(_pf=__prefix) key expected wanted =
+  method test_and_set tx ?(_pf=__prefix) key expected wanted =
     Lwt.catch
       (fun () ->
 	    self # get key >>= fun res -> Lwt.return (Some res))
@@ -168,18 +211,22 @@ object (self: #store)
 	    | exn -> Lwt.fail exn)
     >>= fun existing ->
     if existing <> expected
-    then Lwt.return existing
+    then
+      begin
+        self # _incr_j ();
+        Lwt.return existing
+      end
     else
       begin
 	    (match wanted with
-	      | None -> self # delete key
-	      | Some wanted_s -> self # set key wanted_s)
+	      | None -> self # delete tx key
+	      | Some wanted_s -> self # set tx key wanted_s)
 	    >>= fun () -> 
         Lwt.return wanted
       end
 
 
-  method sequence ?(_pf=__prefix) updates =
+  method sequence tx ?(_pf=__prefix) updates =
     Lwt_log.info "mem_store :: sequence" >>= fun () ->
     let do_one u =
       let u_s = Update.update2s u in
@@ -189,7 +236,7 @@ object (self: #store)
 	| Update.Delete k  -> self # delete_no_incr k
 	| Update.Assert(k,vo) ->
 	  begin
-	    self # aSSert k vo >>= function
+	    self # aSSert tx k vo >>= function
 	      | true -> Lwt.return ()
 	      | false ->
 		let ex =
@@ -198,7 +245,7 @@ object (self: #store)
 	  end
 	| Update.Assert_exists(k) ->
 	  begin
-	    self # aSSert_exists k >>= function
+	    self # aSSert_exists tx k >>= function
 	      | true -> Lwt.return ()
 	      | false ->
 		let ex =
@@ -210,7 +257,9 @@ object (self: #store)
     let old_kv = kv in
     Lwt.catch
       (fun () ->
-	Lwt_list.iter_s do_one updates)
+        let r = Lwt_list.iter_s do_one updates in
+        let () = self # _incr_j () in
+        r)
       (fun exn -> kv <- old_kv;
 	Lwt_log.debug ~exn "mem_store :: sequence failed" >>= fun () ->
 	Lwt.fail exn)
@@ -223,11 +272,11 @@ object (self: #store)
 
   method get_location () = failwith "not supported"
 
-  method user_function name po =
+  method user_function tx name po =
     Lwt_log.debug_f "mem_store :: user_function %s" name >>= fun () ->
     Lwt.return None
 
-  method set_interval iv =
+  method set_interval tx iv =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
     _interval <- iv;
     Lwt.return ()
@@ -241,11 +290,11 @@ object (self: #store)
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
 
-  method set_routing r =
+  method set_routing tx r =
     _routing <- Some r;
     Lwt.return ()
 
-  method set_routing_delta left sep right =
+  method set_routing_delta tx left sep right =
     match _routing with
       | None -> failwith "Cannot update non-existing routing"
       | Some r ->
@@ -283,7 +332,7 @@ object (self: #store)
     in
     Lwt.return all
 
-  method delete_prefix ?(_pf=__prefix) prefix = Lwt.return 0
+  method delete_prefix tx ?(_pf=__prefix) prefix = Lwt.return 0
     
 end
 

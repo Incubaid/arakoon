@@ -73,7 +73,7 @@ let _make_tlog_coll tlcs values tlc_name use_compression node_id =
 
 let _make_store ?(read_only=false) stores now node_name (db_name:string) =
   Mem_store.make_mem_store db_name >>= fun store ->
-  store # set_master node_name now >>= fun () -> 
+  store # with_transaction (fun tx -> store # set_master tx node_name now) >>= fun () -> 
   Hashtbl.add stores db_name store;
   Lwt.return store
 

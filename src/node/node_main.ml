@@ -208,13 +208,13 @@ module X = struct
 	 the idea is to lift stuff out of _main_2 
       *)
   
-  let on_consensus store vni =
+  let on_consensus (store:Store.store) vni =
     let (v,n,i) = vni in
     begin
       if Value.is_master_set v
-      then 
+      then
 	    begin
-	      store # incr_i () >>= fun () -> 
+	      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
           Lwt.return [Store.Ok None]
 	    end
       else
