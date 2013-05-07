@@ -327,15 +327,6 @@ let _set_master bdb master (lease_start:int64) =
   let lease = Buffer.contents buffer in
   B.put bdb __lease_key lease
 
-let _get_j bdb =
-  try
-    let j_string = B.get bdb __j_key in
-    int_of_string j_string
-  with Not_found -> 0
-
-let _set_j bdb j =
-  B.put bdb __j_key (string_of_int j)
-
 
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
@@ -380,8 +371,8 @@ object(self: #store)
           end
         | exn -> Lwt.fail exn)    
 
-  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> (int -> int) -> 'a Lwt.t =
-    fun tx f new_j ->
+  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
+    fun tx f ->
       match _tx with
         | None -> failwith "not in a transaction"
         | Some (tx', db) ->
@@ -389,15 +380,11 @@ object(self: #store)
             then
               failwith "the provided transaction is not the current transaction of the store"
             else
-              let j = _get_j db in
-              (Lwt.finalize
-                (fun () -> f db)
-                (fun () -> _set_j db (new_j j); Lwt.return ())) >>= fun a ->
-              Lwt.return a
+              f db
 
   method private _update_in_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
     fun tx f ->
-      self # _with_tx tx f ((+) 1)
+      self # _with_tx tx f
 
   method with_transaction_lock f =
     Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
@@ -501,11 +488,6 @@ object(self: #store)
 				                 Printf.sprintf "%s not in interval" key)
       in raise ex
 
-  method get_j () =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let j = _get_j bdb in
-    Lwt.return j
-
   method exists ?(_pf = __prefix) key =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.exists bdb (_pf ^ key) in
@@ -531,7 +513,7 @@ object(self: #store)
     begin
       if _quiesced 
       then Lwt.return ()
-      else self # _with_tx tx (_save_i new_i) (fun _ -> 0)
+      else self # _with_tx tx (_save_i new_i)
     end
 
 

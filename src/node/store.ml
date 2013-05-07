@@ -65,7 +65,6 @@ class type store = object
   method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
   method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
   method set: transaction -> ?_pf: string -> string -> string -> unit Lwt.t
-  method test_and_set: transaction -> ?_pf: string -> string -> string option -> string option -> string option Lwt.t
   method delete: transaction -> ?_pf: string -> string -> unit Lwt.t
   method delete_prefix: transaction -> ?_pf: string -> string -> int Lwt.t
   method sequence : transaction -> ?_pf: string -> Update.t list -> unit Lwt.t
@@ -78,7 +77,6 @@ class type store = object
   *)
   method consensus_i: unit -> Sn.t option
   method incr_i: transaction -> unit Lwt.t
-  method get_j: unit -> int Lwt.t
   method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
@@ -126,6 +124,11 @@ let get (store:store) key =
           Lwt.fail CorruptStore
 	| exn -> Lwt.fail exn
 
+let get_option (store:store) key =
+  try
+    Some (store # get (__prefix ^ key))
+  with Not_found -> None
+
 let multi_get (store:store) keys =
   let vs = List.fold_left (fun acc key ->
     try
@@ -148,6 +151,15 @@ let multi_get_option (store:store) keys =
   in
   Lwt.return (List.rev vs)
 
+let get_j (store:store) =
+  try
+    let jstring = store # get __j_key in
+    int_of_string jstring
+  with Not_found -> 0
+
+let set_j (store:store) tx j =
+  store # set tx __j_key (string_of_int j)
+
 type update_result =
   | Stop 
   | Ok of string option
@@ -167,8 +179,12 @@ let _insert_update (store:store) (update:Update.t) kt =
   let with_error_and_tx notfound_msg f =
     Lwt.catch
       (fun () ->
-        with_transaction (fun tx ->
-          f tx >>= fun () -> Lwt.return (Ok None)))
+        with_transaction
+          (fun tx ->
+            let j = get_j store in
+            Lwt.finalize
+              (fun () -> f tx >>= fun () -> Lwt.return (Ok None))
+              (fun () -> set_j store tx (j + 1))))
       (function
         | Not_found ->
             let rc = Arakoon_exc.E_NOT_FOUND
@@ -208,8 +224,17 @@ let _insert_update (store:store) (update:Update.t) kt =
         begin
           catch_with_tx
             (fun tx ->
-              store # test_and_set tx key expected wanted >>= fun res ->
-              Lwt.return (Ok res))
+              let existing = get_option store key in
+              if existing <> expected
+              then
+                Lwt.return (Ok existing)
+              else
+                begin
+                  (match wanted with
+                    | None -> store # delete tx key
+                    | Some wanted_s -> store # set tx key wanted_s) >>= fun () ->
+                  Lwt.return (Ok wanted)
+                end)
             (function
               | Not_found ->
                   let rc = Arakoon_exc.E_NOT_FOUND
@@ -341,7 +366,7 @@ let _insert_updates (store:store) (us: Update.t list) kt =
 
 let _insert_value (store:store) (value:Value.t) kt =
   let updates = Value.updates_from_value value in
-  store # get_j () >>= fun j ->
+  let j = get_j store in
   let skip n l =
     let rec inner = function
       | 0, l -> l
