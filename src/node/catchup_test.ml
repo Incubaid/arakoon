@@ -67,6 +67,32 @@ let _fill2 tlog_coll n =
   in
   _loop 0
 
+let _fill3 tlog_coll n =
+  let sync = false in
+  let rec _loop i =
+    if i = n then Lwt.return ()
+    else
+      begin
+        let k = Printf.sprintf "_3a_key%i" i
+        and v = Printf.sprintf "_3a_value%i" i
+        and k2 = Printf.sprintf "key%i" i
+        and v2 = Printf.sprintf "value%i" i
+        and k3 = Printf.sprintf "_3b_key%i" i
+        and v3 = Printf.sprintf "_3b_value%i" i
+        in
+        let u = Update.Set(k,v) in
+        let u2 = Update.Set(k2,v2) in
+        let u3 = Update.Sequence [Update.Set(k3,v3); Update.Assert_exists("nonExistingKey")] in
+        let value = Value.create_client_value [u; u3] sync in
+        let value2 = Value.create_client_value [u2; u3] sync in
+        let sni = Sn.of_int i in
+        tlog_coll # log_value sni value  >>= fun () ->
+        tlog_coll # log_value sni value2 >>= fun () ->
+        _loop (i+1)
+      end
+  in
+  _loop 0
+
 let setup () = 
   Lwt_log.info "Catchup_test.setup" >>= fun () ->
   let ignore_ex f = 
@@ -104,16 +130,17 @@ let teardown () =
     >>= fun () ->
   Lwt_log.debug "end of teardown"
 
-let _tic filler_function name =
-  Tlogcommon.tlogEntriesPerFile := 101; 
+let _tic filler_function n name verify_store =
+  Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 _dir_name true "node_name" >>= fun tlog_coll ->
-  filler_function tlog_coll 1000 >>= fun () ->
-  let tlog_i = Sn.of_int 1000 in 
+  filler_function tlog_coll n >>= fun () ->
+  let tlog_i = Sn.of_int n in
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   Local_store.make_local_store db_name >>= fun store ->
   let me = "??me??" in
   Catchup.verify_n_catchup_store me (store, tlog_coll, Some tlog_i) tlog_i None
   >>= fun (new_i,vo) ->
+  verify_store store new_i >>= fun () ->
   Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
   store # close () 
@@ -122,18 +149,40 @@ let _tic filler_function name =
 
 let test_interrupted_catchup () =
   Lwt_log.info "test_interrupted_catchup" >>= fun () ->
-  _tic _fill "tic"
+  _tic _fill 1000 "tic" (fun store new_i -> Lwt.return ())
 
 
 let test_with_doubles () =
   Lwt_log.info "test_with_doubles" >>= fun () ->
-  _tic _fill2 "twd"
+  _tic _fill2 1000 "twd" (fun store new_i -> Lwt.return ())
 
-let suite = 
+
+let test_batched_with_failures () =
+  Lwt_log.info "test_batched_with_failures" >>= fun () ->
+  _tic _fill3 3000 "tbwf"
+    (fun store new_i ->
+      let assert_not_exists k = store # exists k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
+      let assert_exists k = store # exists k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
+      assert_exists "key2" >>= fun () ->
+      assert_exists "key2590" >>= fun () ->
+      assert_not_exists "_3a_key2" >>= fun () ->
+      assert_not_exists "_3b_key2" >>= fun () ->
+      assert_not_exists "_3a_key200" >>= fun () ->
+      assert_not_exists "_3b_key200" >>= fun () ->
+      assert_not_exists "_3a_key2530" >>= fun () ->
+      assert_not_exists "_3b_key2530")
+
+let test_large_tlog_catchup () =
+  _tic _fill 100_000 "tcs"
+    (fun store new_i -> Lwt.return ())
+
+let suite =
   let w f = lwt_bracket setup f teardown in
   "catchup" >:::[
     "common" >:: w test_common;
-    "with_doubles" >:: w test_with_doubles; 
+    "with_doubles" >:: w test_with_doubles;
     "interrupted_catchup" >:: w test_interrupted_catchup;
-
+    "batched_with_failures" >:: w test_batched_with_failures;
+    "large_tlog_catchup" >:: w test_large_tlog_catchup;
   ]
+

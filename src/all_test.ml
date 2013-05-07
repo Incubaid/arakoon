@@ -56,6 +56,7 @@ let tlog_tests = "tlogs" >::: [
   Tlogreader2_test.suite;
 ]
 let small_catchup = "small_catchup" >:::[Catchup_test.suite;]
+let store = "store" >:::[Store_test.suite;]
 let compression = "compression" >::: [Compression_test.suite;]
 let collapser   = "collapser" >::: [Collapser_test.suite]
 let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]
@@ -89,6 +90,6 @@ let suite = "universe" >::: [
   collapser;
   system;
   nursery; 
-
+  store;
 ]
 
