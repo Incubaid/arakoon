@@ -47,6 +47,9 @@ object (self: #store)
   val mutable _tx_lock = None
   val _tx_lock_mutex = Lwt_mutex.create ()
 
+  method is_closed () =
+    false
+
   method with_transaction_lock f =
     Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
       Lwt.finalize
@@ -99,23 +102,8 @@ object (self: #store)
   method exists ?(_pf=__prefix) key =
     try_lwt_ (fun () -> StringMap.mem key kv)
 
-  method get ?(_pf=__prefix) key =
-    try_lwt_ (fun () -> StringMap.find key kv)
-
-  method multi_get ?(_pf=__prefix) keys =
-    let values = List.fold_left
-      (fun acc key -> let value = StringMap.find key kv in value :: acc)
-      [] keys
-    in
-    Lwt.return (List.rev values)
-
-  method multi_get_option ?(_pf = __prefix) keys = 
-    let vos = List.fold_left
-      (fun acc key -> 
-        let vo = try Some (StringMap.find key kv) with Not_found -> None in
-        vo :: acc) [] keys
-    in
-    Lwt.return (List.rev vos)
+  method get key =
+    StringMap.find key kv
 
   method range ?(_pf=__prefix) first finc last linc max =
     let keys = Test_backend.range_ kv first finc last linc max in
@@ -205,7 +193,7 @@ object (self: #store)
   method test_and_set tx ?(_pf=__prefix) key expected wanted =
     Lwt.catch
       (fun () ->
-	    self # get key >>= fun res -> Lwt.return (Some res))
+	    let res = self # get key in Lwt.return (Some res))
       (function
 	    | Not_found -> Lwt.return None
 	    | exn -> Lwt.fail exn)

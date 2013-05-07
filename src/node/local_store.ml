@@ -363,6 +363,9 @@ object(self: #store)
   val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
        "Invalid operation on quiesced store")
 
+  method is_closed () =
+    _closed
+
   method private _wrap_exception name (f:unit -> 'a Lwt.t) = 
     (* this should not be a method as it hinders polymorphism *)
     Lwt.catch
@@ -507,51 +510,11 @@ object(self: #store)
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.exists bdb (_pf ^ key) in
     Lwt.return r
-    
-  method get ?(_pf = __prefix) key =
-    Lwt.catch
-      (fun () ->
-        let bdb = Camltc.Hotc.get_bdb db in
-        Lwt.return (B.get bdb (_pf ^ key)))
-      (function
-	| Failure msg -> 
-        Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
-        if _closed 
-        then
-          Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN, 
-                                       Printf.sprintf "GET %S database already closed" key))
-        else
-          Lwt.fail CorruptStore
-	| exn -> Lwt.fail exn)
 
-  method multi_get ?(_pf = __prefix) keys =
+  method get key =
     let bdb = Camltc.Hotc.get_bdb db in
-    let vs = List.fold_left
-	  (fun acc key ->
-	    try
-	      let v = B.get bdb (_pf ^ key) in
-	      v::acc
-	    with Not_found ->
-	      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND,key) in
-	      raise exn
-	  )
-	  [] keys
-	in
-	Lwt.return (List.rev vs)
+    B.get bdb key
 
-  method multi_get_option ?(_pf = __prefix) keys = 
-    let bdb = Camltc.Hotc.get_bdb db in
-    let vos = List.fold_left
-      (fun acc key ->
-        let vo = 
-          try Some (B.get bdb (_pf ^ key)) 
-          with Not_found -> None
-        in
-        (vo :: acc)) [] keys
-    in
-    Lwt.return (List.rev vos)
-      
-        
   method private _incr_i_cached () =
     let incr =
     begin

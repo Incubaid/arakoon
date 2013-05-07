@@ -143,7 +143,7 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     Lwt.catch
       (fun () ->
-	store # get key >>= fun v ->
+	Store.get store key >>= fun v ->
 	Statistics.new_get _stats key v start;
 	Lwt.return v)
       (fun exc ->
@@ -251,7 +251,7 @@ object(self: #backend)
     self # exists ~allow_dirty:false key >>= function
       | true ->
 	    begin
-	      store # get key >>= fun old_value ->
+	      Store.get store key >>= fun old_value ->
 	      if old_value = value
 	      then Lwt.return ()
 	      else self # set key value
@@ -409,14 +409,14 @@ object(self: #backend)
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
     self # _read_allowed allow_dirty >>= fun () ->
-    store # multi_get keys >>= fun values ->
+    Store.multi_get store keys >>= fun values ->
     Statistics.new_multiget _stats start;
     Lwt.return values
 
   method multi_get_option ~allow_dirty (keys:string list) = 
     let start = Unix.gettimeofday() in
     self # _read_allowed allow_dirty >>= fun () ->
-    store # multi_get_option keys >>= fun vos ->
+    Store.multi_get_option store keys >>= fun vos ->
     Statistics.new_multiget_option _stats start;
     Lwt.return vos
 

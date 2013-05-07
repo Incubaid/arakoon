@@ -58,9 +58,7 @@ class type store = object
   method with_transaction: ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
   method exists: ?_pf: string -> string -> bool Lwt.t
-  method get: ?_pf: string -> string -> string Lwt.t
-  method multi_get: ?_pf: string -> string list -> string list Lwt.t
-  method multi_get_option: ?_pf:string -> string list -> string option list Lwt.t
+  method get: string -> string
 
   method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
   method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
@@ -81,6 +79,7 @@ class type store = object
   method consensus_i: unit -> Sn.t option
   method incr_i: transaction -> unit Lwt.t
   method get_j: unit -> int Lwt.t
+  method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
 
@@ -111,6 +110,43 @@ end
 
 exception Key_not_found of string 
 exception CorruptStore
+
+let get (store:store) key =
+  try
+    Lwt.return (store # get (__prefix ^ key))
+  with
+    | Failure msg ->
+        let _closed = store # is_closed () in
+        Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
+        if _closed
+        then
+          Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN,
+                                       Printf.sprintf "GET %S database already closed" key))
+        else
+          Lwt.fail CorruptStore
+	| exn -> Lwt.fail exn
+
+let multi_get (store:store) keys =
+  let vs = List.fold_left (fun acc key ->
+    try
+      let v = store # get key in
+      v::acc
+    with Not_found ->
+      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
+      raise exn)
+    [] keys
+  in
+  Lwt.return (List.rev vs)
+
+let multi_get_option (store:store) keys =
+  let vs = List.fold_left (fun acc key ->
+    try
+      let v = store # get key in
+      (Some v)::acc
+    with Not_found -> None::acc)
+    [] keys
+  in
+  Lwt.return (List.rev vs)
 
 type update_result =
   | Stop 
