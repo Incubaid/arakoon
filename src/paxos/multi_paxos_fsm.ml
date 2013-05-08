@@ -459,6 +459,17 @@ let accepteds_check_done constants state () =
     end
   else
     Lwt.return (Wait_for_accepteds (mo,n,i,ballot,v))
+
+
+let lost_master_role = function
+  | None -> Lwt.return ()
+  | Some finished -> 
+	let msg = "lost master role during wait_for_accepteds while handling client request" in
+	let rc = Arakoon_exc.E_NOT_MASTER in
+	let result = Store.Update_fail (rc, msg) in
+	finished result
+
+
       
 (* a (potential or full) master is waiting for accepteds and receives a msg *)
 let wait_for_accepteds constants state (event:paxos_event) =
@@ -482,11 +493,11 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    begin
 	      constants.on_witness source i' >>= fun () ->
 	      if List.mem source already_voted then
-		let reason = Printf.sprintf "%s already voted" source in
-		drop msg reason
+		    let reason = Printf.sprintf "%s already voted" source in
+		    drop msg reason
 	      else
-		let ballot' = needed -1, source :: already_voted in
-		Lwt.return (Accepteds_check_done (mo,n,i,ballot',v))
+		    let ballot' = needed -1, source :: already_voted in
+		    Lwt.return (Accepteds_check_done (mo,n,i,ballot',v))
 	    end
 	  | Accepted (n',i') when n' = n && i' < i ->
 	    begin
@@ -499,82 +510,79 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	    begin
 	      constants.on_witness source i' >>= fun () ->
 	      let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
-		(Sn.string_of n) (Sn.string_of i) in
+		    (Sn.string_of n) (Sn.string_of i) in
 	      drop msg reason
 	    end
 	  | Accepted (n',i') -> (* n' > n *)
-	    paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
+	    paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" 
+          (string_of msg) (Sn.string_of n') (Sn.string_of n)
 	      
 	  | Promise(n',i', limit) ->
 	    begin
 	      constants.on_witness source i' >>= fun () ->
-	      if n' <= n then
-          begin
-					  let reason = Printf.sprintf
-					    "already reached consensus on (%s,%s)" 
-					    (Sn.string_of n) (Sn.string_of i) 
-					  in
-					  drop msg reason
-					end
+	      if n' <= n 
+          then
+            begin
+			  let reason = Printf.sprintf
+			    "already reached consensus on (%s,%s)" 
+			    (Sn.string_of n) (Sn.string_of i) 
+			  in
+			  drop msg reason
+		    end
 	      else
-		      begin
-		        let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
-			        (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
-			      drop msg reason
-			    end
+		    begin
+		      let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
+			    (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
+			  drop msg reason
+			end
 	    end
 	  | Prepare (n',i') -> (* n' > n *)
 	    begin
-	      let lost_master_role () =
-			      begin
-			        match mo with
-			        | None -> Lwt.return ()
-			        | Some finished -> 
-			          let msg = "lost master role during wait_for_accepteds while handling client request" in
-			          let rc = Arakoon_exc.E_NOT_MASTER in
-			          let result = Store.Update_fail (rc, msg) in
-	              finished result
-	          end
-	      in
 	      if am_forced_master constants me
 	      then
-          if n' <= n
-          then
-            let reply = Nak( n', (n,i) ) in
-            constants.send reply me source >>= fun () ->
-            let followup = Accept( n, i, v) in
-            constants.send followup me source >>= fun () ->
-            Lwt.return (Wait_for_accepteds state)
-          else
-            lost_master_role() >>= fun () ->
-            Lwt.return (Forced_master_suggest (n',i))
+            if n' <= n
+            then
+              let reply = Nak( n', (n,i) ) in
+              constants.send reply me source >>= fun () ->
+              let followup = Accept( n, i, v) in
+              constants.send followup me source >>= fun () ->
+              Lwt.return (Wait_for_accepteds state)
+            else
+              begin
+                lost_master_role mo >>= fun () ->
+                Lwt.return (Forced_master_suggest (n',i))
+              end
 	      else 
-          begin
-            handle_prepare constants source n n' i' >>= function
-              | Prepare_dropped
-              | Nak_sent -> 
-                Lwt.return( Wait_for_accepteds state )
-              | Promise_sent_up2date ->
-                let tlog_coll = constants.tlog_coll in
-				        tlog_coll # get_last_i () >>= fun tlc_i ->
-				        tlog_coll # get_last_update tlc_i >>= fun l_update ->
-				        let l_uval = 
-				        begin
-				          match l_update with 
-				            | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
-				            | None -> None
-				        end in
-                lost_master_role () >>= fun () ->
-					      Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
-              | Promise_sent_needs_catchup ->
-                Store.get_catchup_start_i constants.store >>= fun i ->
-                lost_master_role () >>= fun () ->
-                Lwt.return (Slave_discovered_other_master (source, i, n', i'))
-          end
+            begin
+              handle_prepare constants source n n' i' >>= function
+                | Prepare_dropped
+                | Nak_sent -> 
+                  Lwt.return( Wait_for_accepteds state )
+                | Promise_sent_up2date ->
+                  begin
+                    let tlog_coll = constants.tlog_coll in
+				    tlog_coll # get_last_i () >>= fun tlc_i ->
+				    tlog_coll # get_last_update tlc_i >>= fun l_update ->
+				    let l_uval = 
+				      begin
+				        match l_update with 
+				          | Some u -> Some( ( Update.make_update_value u ), tlc_i ) 
+				          | None -> None
+				      end 
+                    in
+                    lost_master_role mo >>= fun () ->
+				    Lwt.return (Slave_wait_for_accept (n', i, None, l_uval))
+                  end
+                | Promise_sent_needs_catchup ->
+                  Store.get_catchup_start_i constants.store >>= fun i ->
+                  lost_master_role mo >>= fun () ->
+                  Lwt.return (Slave_discovered_other_master (source, i, n', i'))
+            end
       end 
 	  | Nak (n',i) ->
 	    begin
-	      log ~me "wait_for_accepted: ignoring %S from %s when collecting accepteds" (MPMessage.string_of msg) source >>= fun () ->
+	      log ~me "wait_for_accepted: ignoring %S from %s when collecting accepteds" 
+            (MPMessage.string_of msg) source >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
 	  | Accept (n',_i,_v) when n' < n ->
@@ -587,80 +595,86 @@ let wait_for_accepteds constants state (event:paxos_event) =
 	      log ~me "wait_for_accepted: ignoring extra Accept %S" (string_of msg) >>= fun () ->
 	      Lwt.return (Wait_for_accepteds state)
 	    end
-	  | Accept (n',i',v') when n' > n ->
-      begin
-      match mo with
-        | None -> Lwt.return ()
-        | Some finished -> 
-		      let msg = "lost master role during wait_for_accepteds while handling client request" in
-		      let rc = Arakoon_exc.E_NOT_MASTER in
-		      let result = Store.Update_fail (rc, msg) in
-		      finished result
-      end >>= fun () ->
-      begin 
-        (* Become slave, goto catchup *)
-        log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let new_state = (source,cu_pred,n,i') in 
-        Lwt.return (Slave_discovered_other_master new_state)
+	  | Accept (n',i',v') (* n'>n || i'>i *)  ->
+        (* check lease, if we're inside, drop (how could this have happened?)
+           otherwise, we've lost master rol 
+        *)
+        begin
+          let is_still_master() = 
+            constants.store # who_master () >>= function
+              | None -> Lwt.return false (* ???? *)
+              | Some (_,al) -> 
+                let now  = Int64.of_float(Unix.time()) in
+                let diff = abs (Int64.to_int (Int64.sub now al)) in
+                Lwt.return (diff < constants.lease_expiration)
+          in
+          is_still_master () >>= fun it_is ->
+          if it_is
+          then 
+            begin
+              log ~me "wait_for_accepteds: drop %S (it's still me)" (string_of msg) >>= fun () ->
+              Lwt.return (Wait_for_accepteds state)
+            end
+          else
+            begin
+              lost_master_role mo >>= fun () ->
+              begin
+                (* Become slave, goto catchup *)
+                log ~me "wait_for_accepteds: received Accept from new master %S" (string_of msg) 
+                >>= fun () ->
+                Store.get_catchup_start_i constants.store >>= fun cu_pred ->
+                let new_state = (source,cu_pred,n,i') in 
+                Lwt.return (Slave_discovered_other_master new_state)
+              end
+            end
+        end
       end
-	  | Accept (n',i',v') when i' <= i -> (* n' = n *)
-      begin
-        log ~me "wait_for_accepteds: dropping accept with n = %s and i = %s" (Sn.string_of n) (Sn.string_of i') >>= fun () ->
-        Lwt.return (Wait_for_accepteds state)
-      end
-    | Accept (n',i',v') -> (* n' = n *)
-	    begin
-        log ~me "wait_for_accepteds: got accept with n = %s and higher i = %s" (Sn.string_of n) (Sn.string_of i') >>= fun () ->
-        Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-        let new_state = (source,cu_pred,n,i') in
-        Lwt.return(Slave_discovered_other_master new_state)
-      end
-      end
-    | FromClient (vo, cb) -> paxos_fatal me "no FromClient should get here"
-    | LeaseExpired n' -> paxos_fatal me "no LeaseExpired should get here"
-    | ElectionTimeout n' -> 
-      begin
-	let (_,n,i,ballot,v) = state in
-	log ~me "wait_for_accepteds : election timeout " >>= fun () ->
-	if n' < n then
-	  begin
-	    log ~me "ignoring old timeout %s<%s" (Sn.string_of n') (Sn.string_of n) 
-	    >>= fun () ->
-	  Lwt.return (Wait_for_accepteds state)
-	  end
-	else if n' = n then
-	  begin
-	    if (am_forced_master constants me) then
-	      begin
-		log ~me "going to RESEND Accept messages" >>= fun () ->
-		let needed, already_voted = ballot in
-		let msg = Accept(n,i,v) in
-		let silent_others = List.filter (fun o -> not (List.mem o already_voted)) 
-		  constants.others in
-		Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
-		mcast constants msg >>= fun () ->
-    Lwt.return (Wait_for_accepteds state)
-	      end
-	    else
-	      begin
-		log ~me "TODO: election part of election timeout" >>= fun () ->
-		Lwt.return (Wait_for_accepteds state)
-	      end
-		
-	  end
-	else
-	  begin
-	    Lwt.return (Wait_for_accepteds state)
-	  end
-      end
-	  
-    | Quiesce (sleep,awake) ->
-      fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
-      Lwt.return (Wait_for_accepteds state)
-      
-    | Unquiesce ->
-      Lwt.fail (Failure "Unexpected unquiesce request while running as master")
+      | FromClient (vo, cb) -> paxos_fatal me "no FromClient should get here"
+      | LeaseExpired n' -> paxos_fatal me "no LeaseExpired should get here"
+      | ElectionTimeout n' -> 
+        begin
+	      let (_,n,i,ballot,v) = state in
+	      log ~me "wait_for_accepteds : election timeout " >>= fun () ->
+	      if n' < n 
+          then
+	        begin
+	          log ~me "ignoring old timeout %s<%s" (Sn.string_of n') (Sn.string_of n) 
+	          >>= fun () ->
+	          Lwt.return (Wait_for_accepteds state)
+	        end
+	      else if n' = n 
+          then
+	        begin
+	          if (am_forced_master constants me) 
+              then
+	            begin
+		          log ~me "going to RESEND Accept messages" >>= fun () ->
+		          let needed, already_voted = ballot in
+		          let msg = Accept(n,i,v) in
+		          let silent_others = List.filter (fun o -> not (List.mem o already_voted)) 
+		            constants.others in
+		          Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
+		          mcast constants msg >>= fun () ->
+                  Lwt.return (Wait_for_accepteds state)
+	            end
+	          else
+	            begin
+		          log ~me "TODO: election part of election timeout" >>= fun () ->
+		          Lwt.return (Wait_for_accepteds state)
+	            end
+	        end
+	      else
+	        begin
+	          Lwt.return (Wait_for_accepteds state)
+	        end
+        end
+      | Quiesce (sleep,awake) ->
+        begin
+          fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+          Lwt.return (Wait_for_accepteds state)
+        end
+      | Unquiesce ->
+        Lwt.fail (Failure "Unexpected unquiesce request while running as master")
       
 
 
