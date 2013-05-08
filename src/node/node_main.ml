@@ -214,7 +214,7 @@ module X = struct
       if Value.is_master_set v
       then
 	    begin
-	      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
+	      Store.with_transaction store (fun tx -> Store.incr_i store tx) >>= fun () ->
           Lwt.return [Store.Ok None]
 	    end
       else
@@ -246,8 +246,8 @@ module X = struct
 	        begin
               let logit () =
                 let now = Int64.of_float (Unix.gettimeofday ()) in
-                let m_old_master = store # who_master () in
-	            store # set_master_no_inc m now >>= fun _ ->
+                let m_old_master = Store.who_master store in
+	            Store.set_master_no_inc store m now >>= fun _ ->
                 begin
                   let new_master =
                     begin
@@ -430,7 +430,7 @@ let _main_2
             )
           >>= fun () ->
           make_store db_name >>= fun (store:Store.store) ->
-          let store_i = store # consensus_i () in
+          let store_i = Store.consensus_i store in
           let s_i = 
             begin
 		      match store_i with
@@ -442,7 +442,7 @@ let _main_2
 	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression name ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                let store_i = store # consensus_i () in
+                let store_i = Store.consensus_i store in
                 Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
                 let tlog_i = 
                   begin
@@ -604,10 +604,10 @@ let _main_2
                          let msg = "got TERM | INT" in
 			             Lwt_log.info msg >>= fun () ->
 			             Lwt_io.printl msg >>= fun () ->
-                         store # close () >>= fun () ->
+                         Store.close store >>= fun () ->
                          Lwt_log.fatal_f 
                            ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                           (store # get_location ())
+                           (Store.get_location store)
                          >>= fun () ->
                          let open Multi_paxos in constants.tlog_coll # close () 
                              

@@ -35,7 +35,7 @@ class mem_store db_name =
   let now64 () = Int64.of_float (Unix.gettimeofday ())
   in
 
-object (self: #store)
+object (self: #simple_store)
 
   val mutable i = None
   val mutable kv = StringMap.empty
@@ -68,6 +68,7 @@ object (self: #store)
     let tx = new transaction in
     _tx <- Some tx;
     let current_i = i in
+    let current_kv = kv in
     Lwt.catch
       (fun () ->
         Lwt.finalize
@@ -75,6 +76,7 @@ object (self: #store)
           (fun () -> _tx <- None; Lwt.return ()))
       (fun exn ->
         i <- current_i;
+        kv <- current_kv;
         Lwt.fail exn)
 
   method incr_i tx =
@@ -97,27 +99,28 @@ object (self: #store)
   method get key =
     StringMap.find key kv
 
-  method range ?(_pf=__prefix) first finc last linc max =
-    let keys = Test_backend.range_ kv first finc last linc max in
-    keys
+  method range prefix first finc last linc max =
+    let keys = Test_backend.range_ kv (_f prefix first) finc (_l prefix last) linc max in
+    filter_keys_list keys
 
-  method range_entries ?(_pf=__prefix) first finc last linc max =
-    let entries = Test_backend.range_entries_ kv first finc last linc max in
-    entries
+  method range_entries prefix first finc last linc max =
+    let entries = Test_backend.range_entries_ kv (_f prefix first) finc (_l prefix last) linc max in
+    filter_entries_list entries
 
-  method rev_range_entries ?(_pf=__prefix) first finc last linc max =
-    let entries = Test_backend.rev_range_entries_ kv first finc last linc max in
-    entries
+  method rev_range_entries prefix first finc last linc max =
+    let entries = Test_backend.rev_range_entries_ kv (_f prefix first) finc (_l prefix last) linc max in
+    filter_entries_list entries
 
-  method prefix_keys ?(_pf=__prefix) prefix max =
+  method prefix_keys prefix max =
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
       (fun k v a ->
+(* TODO this is buggy -> what if prefix contains special regex chars? *)
 	if (Str.string_match (Str.regexp reg) k 0)
 	then k::a
 	else a
       ) kv []
-    in Lwt.return keys
+    in Lwt.return (filter_keys_list keys)
 
   method set tx key value =
     kv <- StringMap.add key value kv
@@ -208,7 +211,7 @@ object (self: #store)
           Lwt.return ( _routing <- Some new_r )
         end
 
-  method get_key_count ?(_pf=__prefix) () =
+  method get_key_count () =
     let inc key value size =
       Int64.succ size
     in
@@ -243,8 +246,8 @@ end
 
 let make_mem_store ?(read_only=false) db_name =
   let store = new mem_store db_name in
-  let store2 = (store :> store) in
-  Lwt.return store2
+  let store2 = (store :> simple_store) in
+  Lwt.return { s = store2 }
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()

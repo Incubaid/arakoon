@@ -56,7 +56,7 @@ let paxos_fatal me fmt =
   Printf.ksprintf k fmt
 
 let can_promise store lease_expiration requester =
-  match store # who_master() with
+  match Store.who_master store with
     | Some (m, ml) ->
       let l64 = Int64.of_int lease_expiration in
       if (
@@ -234,7 +234,7 @@ let handle_prepare constants dest n n' i' =
   if not ( List.mem dest constants.others) then
     begin
       let store = constants.store in
-      let s_i = store # consensus_i () in
+      let s_i = Store.consensus_i store in
       let nak_i = 
         begin
           match s_i with
@@ -261,7 +261,7 @@ let handle_prepare constants dest n n' i' =
       else 
 	    begin
           let store = constants.store in
-          let s_i = store # consensus_i () in
+          let s_i = Store.consensus_i store in
           let nak_max = 
             begin
               match s_i with
@@ -324,14 +324,14 @@ let fail_quiesce_request store sleeper awake reason =
   safe_wakeup sleeper awake reason
   
 let handle_quiesce_request store sleeper (awake: quiesce_result Lwt.u) =
-  store # quiesce () >>= fun () ->
+  Store.quiesce store >>= fun () ->
   safe_wakeup sleeper awake Quiesced_ok
 
 let handle_unquiesce_request constants n =
   let store = constants.store in
   let tlog_coll = constants.tlog_coll in
   let too_far_i = Store.get_succ_store_i store in
-  store # unquiesce () >>= fun () ->
+  Store.unquiesce store >>= fun () ->
   Catchup.catchup_store "handle_unquiesce" (store,tlog_coll) too_far_i >>= fun (i,vo) ->
   start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
   Lwt.return (i,vo)

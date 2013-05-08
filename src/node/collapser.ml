@@ -46,7 +46,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
     fun () ->
 	  tlog_coll # get_infimum_i () >>= fun min_i ->
       let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
-	  let store_i = new_store # consensus_i () in
+	  let store_i = Store.consensus_i new_store in
 	  let tfs = Sn.string_of too_far_i in
 	  let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 	  let processed = ref 0 in
@@ -120,7 +120,7 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		              >>= fun () ->
 		  tlog_coll # iterate start_i too_far_i add_to_store 
 		              >>= fun () ->
-		  let m_si = new_store # consensus_i () in
+		  let m_si = Store.consensus_i new_store in
 		  let si = 
 		    begin
 		      match m_si with
@@ -136,17 +136,17 @@ let collapse_until (tlog_coll:Tlogcollection.tlog_collection)
 		    else
 		      let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
 		      Lwt_log.debug msg >>= fun () ->
-		      new_store # close () >>= fun () ->
+		      Store.close new_store >>= fun () ->
 		      Lwt.fail (Failure msg)
 		  end
 		    
 	  end
 	  >>= fun () ->
 	  Lwt_log.debug_f "Relocating store to %s" head_location >>= fun () ->
-	  new_store # relocate head_location
+	  Store.relocate new_store head_location
   ) 
     ( 
-      fun () -> new_store # close ()
+      fun () -> Store.close new_store
     )
 
 let _head_i (create_store:store_maker) head_location =
@@ -154,8 +154,8 @@ let _head_i (create_store:store_maker) head_location =
     (fun () ->
       let read_only=true in
       create_store ~read_only head_location >>= fun head ->
-      let head_io = head # consensus_i () in
-      head # close () >>= fun () ->
+      let head_io = Store.consensus_i head in
+      Store.close head >>= fun () ->
       Lwt.return head_io
     )
     (fun exn -> 

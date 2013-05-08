@@ -54,14 +54,14 @@ let with_store name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   Local_store.make_local_store db_name >>= fun store ->
   f store >>= fun () ->
-  store # close ()
+  Store.close store
 
 let assert_k_v k v (store:Store.store) =
   Store.get store k >>= fun av ->
   if v <> av then failwith "not as expected" else Lwt.return ()
 
 let assert_not_exists k (store:Store.store) =
-  store # exists k >>= fun exists ->
+  Store.exists store k >>= fun exists ->
   if exists then failwith "key should not exist" else Lwt.return ()
 
 let failing_value =
@@ -80,7 +80,7 @@ let value_asserts =
     [assert_not_exists "key2"]);]
 
 let test_safe_insert_value () =
-  let get_next_i store = match store # consensus_i () with
+  let get_next_i store = match Store.consensus_i store with
     | None -> Sn.of_int 0
     | Some i -> Sn.succ i in
   let do_asserts store =
@@ -104,8 +104,8 @@ let test_safe_insert_value_with_partial_value_update () =
     and u2 = Update.TestAndSet(k, None, Some "value1")
     and u3 = Update.Set("key2", "bla") in
     let paxos_value = Value.create_client_value [u1;u2;u3] false in
-    store # with_transaction_lock (fun k -> Store._insert_update store u1 (Store.Key k)) >>= fun _ ->
-    store # with_transaction_lock (fun k -> Store._insert_update store u2 (Store.Key k)) >>= fun _ ->
+    Store.with_transaction_lock store (fun k -> Store._insert_update store u1 (Store.Key k)) >>= fun _ ->
+    Store.with_transaction_lock store (fun k -> Store._insert_update store u2 (Store.Key k)) >>= fun _ ->
 
     let j = Store.get_j store in
     if j = 0 then failwith "j is 0";
@@ -125,7 +125,7 @@ let test_safe_insert_value_with_partial_value_update () =
 
 let test_safe_insert_value_with_tx () =
   with_store "tsivwt" (fun store ->
-    store # with_transaction (fun tx ->
+    Store.with_transaction store (fun tx ->
       (Lwt.catch
          (fun () -> Store.safe_insert_value store ~tx:(Some tx) (Sn.of_int 0) failing_value
                     >>= fun _ -> Lwt.return 0)

@@ -42,28 +42,39 @@ let _l _pf = function
   | Some x -> (Some (_pf ^ x))
   | None -> None
 
-let _filter pf =
+let _filter get_key make_entry fold coll pf =
   let pl = String.length pf in
-  Array.fold_left (fun acc key ->
+  fold (fun acc entry ->
+    let key = get_key entry in
     let kl = String.length key in
     let key' = String.sub key pl (kl-pl) in
-    key'::acc) []
+    (make_entry entry key')::acc) [] coll
+
+let filter_keys_list keys =
+  _filter (fun i -> i) (fun e k -> k) List.fold_left keys __prefix
+
+let filter_entries_list entries =
+  _filter (fun (k,v) -> k) (fun (k,v) k' -> (k',v)) List.fold_left entries __prefix
+
+let filter_keys_array entries =
+  _filter (fun i -> i) (fun e k -> k) Array.fold_left entries __prefix
+
 
 class transaction = object end
 class transaction_lock = object end
 
 (** common interface for stores *)
-class type store = object
+class type simple_store = object
   method with_transaction_lock: (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
   method with_transaction: ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
   method exists: string -> bool Lwt.t
   method get: string -> string
 
-  method range: ?_pf: string -> string option -> bool -> string option -> bool -> int -> string list
-  method range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  method rev_range_entries: ?_pf: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  method prefix_keys: ?_pf: string -> string -> int -> string list Lwt.t
+  method range: string -> string option -> bool -> string option -> bool -> int -> string list
+  method range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  method rev_range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  method prefix_keys: string -> int -> string list Lwt.t
   method set: transaction -> string -> string -> unit
   method delete: transaction -> string -> unit
   method delete_prefix: transaction -> ?_pf: string -> string -> int Lwt.t
@@ -92,7 +103,7 @@ class type store = object
   method set_routing : transaction -> Routing.t -> unit Lwt.t
   method set_routing_delta: transaction -> string -> string -> string -> unit Lwt.t
 
-  method get_key_count : ?_pf: string -> unit -> int64 Lwt.t
+  method get_key_count : unit -> int64 Lwt.t
 
   method quiesce : unit -> unit Lwt.t
   method unquiesce : unit -> unit Lwt.t
@@ -104,6 +115,8 @@ class type store = object
 
 end
 
+type store = { s : simple_store }
+
 type update_result =
   | Stop
   | Ok of string option
@@ -113,14 +126,14 @@ exception Key_not_found of string
 exception CorruptStore
 
 let _get (store:store) key =
-  store # get (__prefix ^ key)
+  store.s # get (__prefix ^ key)
 
 let get (store:store) key =
   try
     Lwt.return (_get store key)
   with
     | Failure msg ->
-        let _closed = store # is_closed () in
+        let _closed = store.s # is_closed () in
         Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
         if _closed
         then
@@ -131,20 +144,20 @@ let get (store:store) key =
 	| exn -> Lwt.fail exn
 
 let _set (store:store) tx key value =
-  store # set tx (__prefix ^ key) value
+  store.s # set tx (__prefix ^ key) value
 
 let get_option (store:store) key =
   try
-    Some (store # get (__prefix ^ key))
+    Some (store.s # get (__prefix ^ key))
   with Not_found -> None
 
 let exists (store:store) key =
-  store # exists (__prefix ^ key)
+  store.s # exists (__prefix ^ key)
 
 let multi_get (store:store) keys =
   let vs = List.fold_left (fun acc key ->
     try
-      let v = store # get (__prefix ^ key) in
+      let v = store.s # get (__prefix ^ key) in
       v::acc
     with Not_found ->
       let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
@@ -153,10 +166,75 @@ let multi_get (store:store) keys =
   in
   Lwt.return (List.rev vs)
 
+let consensus_i (store:store) =
+  store.s # consensus_i ()
+
+let get_location (store:store) =
+  store.s # get_location ()
+
+let reopen (store:store) f =
+  store.s # reopen f
+
+let close (store:store) =
+  store.s # close ()
+
+let relocate (store:store) loc =
+  store.s # relocate loc
+
+let quiesced (store:store) =
+  store.s # quiesced ()
+
+let quiesce (store:store) =
+  store.s # quiesce ()
+
+let unquiesce (store:store) =
+  store.s # unquiesce ()
+
+let optimize (store:store) =
+  store.s # optimize ()
+
+let set_master_no_inc (store:store) m now =
+  store.s # set_master_no_inc m now
+
+let incr_i (store:store) tx =
+  store.s # incr_i tx
+
+let with_transaction_lock (store:store) f =
+  store.s # with_transaction_lock f
+
+let get_fringe (store:store) b d =
+  store.s # get_fringe b d
+
+let copy_store (store:store) oc =
+  store.s # copy_store oc
+
+let set_master (store:store) =
+  store.s # set_master
+
+let defrag (store:store) =
+  store.s # defrag ()
+
+let get_key_count (store:store) =
+  store.s # get_key_count () >>= fun raw_count ->
+  (* Leave out administrative keys *)
+  store.s # prefix_keys __adminprefix (-1) >>= fun admin_keys ->
+  let admin_key_count = List.length admin_keys in
+  Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+
+let get_routing (store:store) =
+  store.s # get_routing ()
+
+let who_master (store:store) =
+  store.s # who_master ()
+
+let with_transaction (store:store) ?(key=None) f =
+  store.s # with_transaction ~key f
+
+
 let multi_get_option (store:store) keys =
   let vs = List.fold_left (fun acc key ->
     try
-      let v = store # get (__prefix ^ key) in
+      let v = store.s # get (__prefix ^ key) in
       (Some v)::acc
     with Not_found -> None::acc)
     [] keys
@@ -164,16 +242,16 @@ let multi_get_option (store:store) keys =
   Lwt.return (List.rev vs)
 
 let _delete (store:store) tx key =
-  store # delete tx (__prefix ^ key)
+  store.s # delete tx (__prefix ^ key)
 
 let get_j (store:store) =
   try
-    let jstring = store # get __j_key in
+    let jstring = store.s # get __j_key in
     int_of_string jstring
   with Not_found -> 0
 
 let set_j (store:store) tx j =
-  store # set tx __j_key (string_of_int j)
+  store.s # set tx __j_key (string_of_int j)
 
 let _test_and_set (store:store) tx key expected wanted =
   let existing = get_option store key in
@@ -183,25 +261,29 @@ let _test_and_set (store:store) tx key expected wanted =
   else
     begin
       let () = match wanted with
-        | None -> store # delete tx (__prefix ^ key)
-        | Some wanted_s -> store # set tx (__prefix ^ key) wanted_s in
+        | None -> store.s # delete tx (__prefix ^ key)
+        | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
       wanted
     end
 
 let _range_entries (store:store) first finc last linc max =
-  store # range_entries ~_pf:__prefix first finc last linc max
+  store.s # range_entries __prefix first finc last linc max
 
 let range_entries (store:store) ?(_pf=__prefix) first finc last linc max =
-  Lwt.return (store # range_entries ~_pf first finc last linc max)
+  Lwt.return (store.s # range_entries _pf first finc last linc max)
 
 let rev_range_entries (store:store) first finc last linc max =
-  Lwt.return (store # rev_range_entries first finc last linc max)
+  Lwt.return (store.s # rev_range_entries __prefix first finc last linc max)
 
 let range (store:store) first finc last linc max =
-  Lwt.return (store # range first finc last linc max)
+  Lwt_log.debug_f "%s %s %s" __prefix (string_option2s first) (string_option2s last) >>= fun () ->
+  Lwt.return (store.s # range __prefix None finc last linc max)
+
+let prefix_keys (store:store) prefix =
+  store.s # prefix_keys (__prefix ^ prefix)
 
 let get_interval store =
-  Lwt.return (store # get_interval ())
+  Lwt.return (store.s # get_interval ())
 
 class store_user_db interval store tx =
   let test k =
@@ -240,23 +322,25 @@ type key_or_transaction =
   | Key of transaction_lock
   | Transaction of transaction
 
-let with_transaction : store -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
+let _with_transaction : store -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
   fun store kt f -> match kt with
-    | Key key -> store # with_transaction ~key:(Some key) f
-    | Transaction tx -> f tx
+    | Key key ->
+        store.s # with_transaction ~key:(Some key) f
+    | Transaction tx ->
+        f tx
 
 let _insert_update (store:store) (update:Update.t) kt =
-  let with_transaction f = with_transaction store kt f in
-  let catch_with_tx tx f g =
+  let with_transaction' f = _with_transaction store kt f in
+  let catch_with_tx f g =
     Lwt.catch
       (fun () ->
         let j = get_j store in
         Lwt.finalize
-          (fun () -> f tx)
-          (fun () -> Lwt.return (set_j store tx (j + 1))))
+          (fun () -> with_transaction' (fun tx -> f tx))
+          (fun () -> with_transaction' (fun tx -> Lwt.return (set_j store tx (j + 1)))))
       g in
-  let with_error tx notfound_msg f =
-    catch_with_tx tx
+  let with_error notfound_msg f =
+    catch_with_tx
       (fun tx -> f tx >>= fun () -> Lwt.return (Ok None))
       (function
         | Not_found ->
@@ -270,19 +354,83 @@ let _insert_update (store:store) (update:Update.t) kt =
             Lwt.return (Update_fail(rc, msg))
       )
   in
-  let rec do_one update tx =
+  let rec _do_one update tx =
+    let return () = Lwt.return (Ok None) in
+    match update with
+      | Update.Set(key,value) -> return (_set store tx key value)
+      | Update.MasterSet (m, lease) -> store.s # set_master tx m lease >>= return
+      | Update.Delete(key) -> return (_delete store tx key)
+      | Update.DeletePrefix prefix ->
+          store.s # delete_prefix tx prefix >>= fun n_deleted ->
+          let sb = Buffer.create 8 in
+          let () = Llio.int_to sb n_deleted in
+          let ser = Buffer.contents sb in
+          Lwt.return (Ok (Some ser))
+      | Update.TestAndSet(key,expected,wanted)->
+                let existing = get_option store key in
+                if existing <> expected
+                then
+                  Lwt.return (Ok existing)
+                else
+                  begin
+                    let () = match wanted with
+                      | None -> store.s # delete tx (__prefix ^ key)
+                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
+                    Lwt.return (Ok wanted)
+                  end
+      | Update.UserFunction(name,po) ->
+              _user_function store (store.s # get_interval ()) name po tx >>= fun ro ->
+              Lwt.return (Ok ro)
+      | Update.Sequence updates 
+      | Update.SyncedSequence updates ->
+              Lwt_list.iter_s (fun update ->
+                _do_one update tx >>= function
+                  | Update_fail (rc, msg) -> raise (Arakoon_exc.Exception(rc, msg))
+                  | Stop -> raise Exit
+                  | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+      | Update.SetInterval interval ->
+              store.s # set_interval tx interval >>= fun () ->
+              Lwt.return (Ok None)
+      | Update.SetRouting routing ->
+              store.s # set_routing tx routing >>= fun () ->
+              Lwt.return (Ok None)
+      | Update.SetRoutingDelta (left, sep, right) ->
+              store.s # set_routing_delta tx left sep right >>= fun () ->
+              Lwt.return (Ok None)
+      | Update.Nop -> Lwt.return (Ok None)
+      | Update.Assert(k,vo) ->
+          begin
+            store.s # aSSert tx k vo >>= function
+	          | true -> Lwt.return (Ok None)
+	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+          end
+      | Update.Assert_exists(k) ->
+          begin
+            store.s # aSSert_exists tx k >>= function
+	          | true -> Lwt.return (Ok None)
+	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+          end
+      | Update.AdminSet(k,vo) ->
+              let () =
+                match vo with
+                  | None   -> store.s # delete tx (__adminprefix ^ k)
+                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
+              in
+              Lwt.return (Ok None)
+in
+  let do_one update =
     match update with
       | Update.Set(key,value) ->
-          with_error tx key (fun tx -> Lwt.return (_set store tx key value))
+          with_error key (fun tx -> Lwt.return (_set store tx key value))
       | Update.MasterSet (m, lease) ->
-          with_error tx "Not_found" (fun tx -> store # set_master tx m lease)
+          with_error "Not_found" (fun tx -> store.s # set_master tx m lease)
       | Update.Delete(key) ->
-          with_error tx key (fun tx -> Lwt.return (_delete store tx key))
+          with_error key (fun tx -> Lwt.return (_delete store tx key))
       | Update.DeletePrefix prefix ->
           begin
-            catch_with_tx tx
+            catch_with_tx
               (fun tx ->
-                store # delete_prefix tx prefix >>= fun n_deleted ->
+                store.s # delete_prefix tx prefix >>= fun n_deleted ->
                 let sb = Buffer.create 8 in
                 let () = Llio.int_to sb n_deleted in
                 let ser = Buffer.contents sb in
@@ -295,7 +443,7 @@ let _insert_update (store:store) (update:Update.t) kt =
           end
       | Update.TestAndSet(key,expected,wanted)->
           begin
-            catch_with_tx tx
+            catch_with_tx
               (fun tx ->
                 let existing = get_option store key in
                 if existing <> expected
@@ -304,8 +452,8 @@ let _insert_update (store:store) (update:Update.t) kt =
                 else
                   begin
                     let () = match wanted with
-                      | None -> store # delete tx (__prefix ^ key)
-                      | Some wanted_s -> store # set tx (__prefix ^ key) wanted_s in
+                      | None -> store.s # delete tx (__prefix ^ key)
+                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
                     Lwt.return (Ok wanted)
                   end)
               (function
@@ -321,9 +469,9 @@ let _insert_update (store:store) (update:Update.t) kt =
               )
           end
       | Update.UserFunction(name,po) ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
-              _user_function store (store # get_interval ()) name po tx >>= fun ro ->
+              _user_function store (store.s # get_interval ()) name po tx >>= fun ro ->
               Lwt.return (Ok ro))
             (function
               | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -335,13 +483,13 @@ let _insert_update (store:store) (update:Update.t) kt =
             )
       | Update.Sequence updates 
       | Update.SyncedSequence updates ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
-              Lwt_list.iter_s (fun update -> do_one update tx >>=
+              Lwt_list.iter_s (fun update -> _do_one update tx >>=
                 fun r -> match r with
                   | Ok _ -> Lwt.return ()
-                      (* TODO correct exception, match Stop *)
-                  | Update_fail (rc, msg) -> failwith msg) updates >>= fun () ->
+                  | Stop -> raise Exit
+                  | Update_fail (rc, msg) -> raise (Arakoon_exc.Exception(rc, msg))) updates >>= fun () ->
               Lwt.return (Ok None))
             (function
               | Key_not_found key ->
@@ -361,9 +509,9 @@ let _insert_update (store:store) (update:Update.t) kt =
                   Lwt.return (Update_fail (rc,msg))
             )
       | Update.SetInterval interval ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
-              store # set_interval tx interval >>= fun () ->
+              store.s # set_interval tx interval >>= fun () ->
               Lwt.return (Ok None))
             (function
               | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -373,9 +521,9 @@ let _insert_update (store:store) (update:Update.t) kt =
                   in
                   Lwt.return (Update_fail (rc,msg)))
       | Update.SetRouting routing ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
-              store # set_routing tx routing >>= fun () ->
+              store.s # set_routing tx routing >>= fun () ->
               Lwt.return (Ok None))
             (function
               | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -386,9 +534,9 @@ let _insert_update (store:store) (update:Update.t) kt =
                   Lwt.return (Update_fail (rc,msg))
             )
       | Update.SetRoutingDelta (left, sep, right) ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
-              store # set_routing_delta tx left sep right >>= fun () ->
+              store.s # set_routing_delta tx left sep right >>= fun () ->
               Lwt.return (Ok None))
             (function
               | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -400,8 +548,8 @@ let _insert_update (store:store) (update:Update.t) kt =
             )
       | Update.Nop -> Lwt.return (Ok None)
       | Update.Assert(k,vo) ->
-          catch_with_tx tx
-	        (fun tx -> store # aSSert tx k vo >>= function
+          catch_with_tx
+	        (fun tx -> store.s # aSSert tx k vo >>= function
 	          | true -> Lwt.return (Ok None)
 	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
 	        )
@@ -410,8 +558,8 @@ let _insert_update (store:store) (update:Update.t) kt =
 	          and msg = Printexc.to_string e
 	          in Lwt.return (Update_fail(rc, msg)))
       | Update.Assert_exists(k) ->
-          catch_with_tx tx
-	        (fun tx -> store # aSSert_exists tx k >>= function
+          catch_with_tx
+	        (fun tx -> store.s # aSSert_exists tx k >>= function
 	          | true -> Lwt.return (Ok None)
 	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
 	        )
@@ -420,12 +568,12 @@ let _insert_update (store:store) (update:Update.t) kt =
 	          and msg = Printexc.to_string e
 	          in Lwt.return (Update_fail(rc, msg)))
       | Update.AdminSet(k,vo) ->
-          catch_with_tx tx
+          catch_with_tx
             (fun tx ->
               let () =
                 match vo with
-                  | None   -> store # delete tx (__adminprefix ^ k)
-                  | Some v -> store # set    tx (__adminprefix ^ k) v
+                  | None   -> store.s # delete tx (__adminprefix ^ k)
+                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
               in
               Lwt.return (Ok None)
             )
@@ -442,7 +590,7 @@ let _insert_update (store:store) (update:Update.t) kt =
     | _ -> None
   in
   try
-    with_transaction (do_one update)
+    do_one update
   with
     | Not_found ->
         let key = get_key update
@@ -464,9 +612,10 @@ let _insert_value (store:store) (value:Value.t) kt =
       | n, hd::tl -> inner ((n - 1), tl) in
     inner (n, l) in
   let updates' = skip j updates in
+  Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
   _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-  with_transaction store kt (fun tx ->
-    store # incr_i tx >>= fun () ->
+  _with_transaction store kt (fun tx ->
+    store.s # incr_i tx >>= fun () ->
     Lwt.return (set_j store tx 0)) >>= fun () ->
   Lwt.return urs
 
@@ -474,10 +623,10 @@ let _insert_value (store:store) (value:Value.t) kt =
 let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
   let inner f =
     match tx with
-      | None ->   store # with_transaction_lock (fun key -> f (Key key))
+      | None ->   store.s # with_transaction_lock (fun key -> f (Key key))
       | Some tx -> f (Transaction tx) in
   let t kt =
-    let store_i = store # consensus_i () in
+    let store_i = store.s # consensus_i () in
     begin
       match i, store_i with
         | 0L , None -> Lwt.return ()
@@ -488,10 +637,10 @@ let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
             else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
     end
     >>= fun () ->
-    if store # quiesced ()
+    if store.s # quiesced ()
     then
       begin
-        with_transaction store kt (fun tx -> store # incr_i tx) >>= fun () ->
+        _with_transaction store kt (fun tx -> store.s # incr_i tx) >>= fun () ->
         Lwt.return [Ok None]
       end
     else
@@ -515,7 +664,7 @@ let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
-  let m_store_i = store # consensus_i () in
+  let m_store_i = store.s # consensus_i () in
   begin
     match m_store_i with
       | None ->
@@ -532,17 +681,17 @@ let on_consensus (store:store) (v,n,i) =
             Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
               (Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
-  if store # quiesced () 
+  if store.s # quiesced () 
   then
     begin
-      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
+      store.s # with_transaction (fun tx -> store.s # incr_i tx) >>= fun () ->
       Lwt.return [Ok None]
     end
   else
-    store # with_transaction_lock (fun key -> _insert_value store v (Key key))
+    store.s # with_transaction_lock (fun key -> _insert_value store v (Key key))
       
 let get_succ_store_i (store:store) =
-  let m_si = store # consensus_i () in
+  let m_si = store.s # consensus_i () in
   match m_si with
     | None -> Sn.start
     | Some si -> Sn.succ si

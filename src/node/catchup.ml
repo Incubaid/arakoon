@@ -80,8 +80,8 @@ let head_saved_epilogue hfn tlog_coll =
   let create_store hfn = Local_store.make_local_store ~read_only:true hfn 
   in
   create_store hfn >>= fun head ->
-  let hio = head # consensus_i () in
-  head # close () >>= fun () ->
+  let hio = Store.consensus_i head in
+  Store.close head >>= fun () ->
   Lwt_log.info "closed head" >>= fun () ->
   begin
     match hio with 
@@ -108,10 +108,10 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
     head_saved_epilogue hfn tlog_coll >>= fun () -> 
     let when_closed () = 
       Lwt_log.debug "when_closed" >>= fun () ->
-      let target_name = store # get_location () in
+      let target_name = Store.get_location store in
       File_system.copy_file hfn target_name 
     in
-    store # reopen when_closed >>= fun () ->
+    Store.reopen store when_closed >>= fun () ->
     Lwt.return ()
   in
 
@@ -139,7 +139,7 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
 let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
-  let store_i = store # consensus_i () in
+  let store_i = Store.consensus_i store in
   let start_i =
     match store_i with
       | None -> Sn.start
@@ -207,7 +207,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
       Lwt.catch
         (fun () ->
           Lwt_log.info "trying batched transactions" >>= fun () ->
-          store # with_transaction (fun tx ->
+          Store.with_transaction store (fun tx ->
             Queue.fold (fun acc tlogentry -> acc >>= (fun () -> f (Some tx) tlogentry)) (Lwt.return ()) batch)
           >>= fun () ->
           Queue.clear batch;
@@ -245,7 +245,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
             Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
             Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
-    let store_i' = store # consensus_i () in
+    let store_i' = Store.consensus_i store in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
       ( option2s Sn.string_of store_i')
   >>= fun () ->
@@ -287,7 +287,7 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_
 
 let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
-  let si_o = store # consensus_i () in
+  let si_o = Store.consensus_i store in
   Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match ti_o, si_o with

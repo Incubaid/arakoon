@@ -28,12 +28,12 @@ open Update
 
 let time_for_elections constants n' maybe_previous =
   begin
-    if constants.store # quiesced () 
+    if Store.quiesced constants.store
     then false, "quiesced"
     else
       begin
 	    let origine,(am,al) = 
-          match constants.store # who_master() with
+          match Store.who_master constants.store with
 		    | None         -> "not_in_store", ("None", Sn.start) 
 		    | Some (sm,sd) -> "stored", (sm,sd) 
 	    in
@@ -75,7 +75,7 @@ let slave_steady_state constants state event =
 	            begin
 	              let reply = Accepted(n,i) in
 	              begin
-		            let m_store_i = store # consensus_i () in
+		            let m_store_i = Store.consensus_i store in
 		            begin
 		              match m_store_i with
 		                | None -> constants.on_consensus (previous, n, Sn.pred i)
@@ -281,7 +281,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                       match maybe_previous with
 		                | None -> begin log_f me "No previous" >>= fun () -> Lwt.return() end
 		                | Some( pv, pi ) -> 
-                          let store_i = constants.store # consensus_i () in
+                          let store_i = Store.consensus_i constants.store in
                           begin
 		                    match store_i with
 		                      | Some s_i ->

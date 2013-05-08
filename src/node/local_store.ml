@@ -243,7 +243,7 @@ let get_construct_params db_name ~mode=
 class local_store (db_location:string) (db:Camltc.Hotc.t)
   (interval:Interval.t) (routing:Routing.t option) mlo store_i =
 
-object(self: #store)
+object(self: #simple_store)
   val mutable my_location = db_location
   val mutable _interval = interval
   val mutable _routing = routing
@@ -333,24 +333,23 @@ object(self: #store)
     let current_i = _store_i in
     Lwt.catch
       (fun () ->
+        let t0 = Unix.gettimeofday() in
         Lwt.finalize
           (fun () ->
             Camltc.Hotc.transaction db
               (fun db ->
                 let tx = new transaction in
                 _tx <- Some (tx, db);
-
-                let t0 = Unix.gettimeofday() in
                 f tx >>= fun a ->
-                let t = ( Unix.gettimeofday() -. t0) in
-                if t > 1.0
-                then begin
-                  Lwt_log.info_f "Tokyo cabinet transaction took %fs" t >>= fun () ->
-                  Lwt.return a
-                end
-                else
-                  Lwt.return a))
-          (fun () -> _tx <- None; Lwt.return ()))
+                Lwt.return a))
+          (fun () ->
+            let t = ( Unix.gettimeofday() -. t0) in
+            if t > 1.0
+            then
+              Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
+            else
+              Lwt.return (); >>= fun () ->
+            _tx <- None; Lwt.return ()))
       (fun exn ->
         (* restore i when transaction failed *)
         _store_i <- current_i;
@@ -445,25 +444,25 @@ object(self: #store)
     end
 
 
-  method range ?(_pf=__prefix) first finc last linc max =
+  method range prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.range bdb (_f _pf first) finc (_l _pf last) linc max in
-    _filter _pf r
+    let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
+    filter_keys_array r
 
-  method range_entries ?(_pf=__prefix) first finc last linc max =
+  method range_entries prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = _range_entries _pf bdb first finc last linc max in
+    let r = _range_entries prefix bdb (_f prefix first) finc (_l prefix last) linc max in
     r
 
-  method rev_range_entries ?(_pf=__prefix) first finc last linc max =
+  method rev_range_entries prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.rev_range_entries _pf bdb first finc last linc max in
+    let r = B.rev_range_entries prefix bdb (_f prefix first) finc (_l prefix last) linc max in
     r
 
-  method prefix_keys ?(_pf=__prefix) prefix max =
+  method prefix_keys prefix max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let keys_array = B.prefix_keys bdb (_pf ^ prefix) max in
-	let keys_list = _filter _pf keys_array in
+    let keys_array = B.prefix_keys bdb prefix max in
+	let keys_list = filter_keys_array keys_array in
 	Lwt.return keys_list
 
   method set tx key value =
@@ -476,12 +475,6 @@ object(self: #store)
       (fun () -> self # _with_tx2 tx
         (fun db -> _delete db key) )
 
-  method test_and_set tx ?(_pf=__prefix) key expected wanted =
-    self # _update_in_tx tx
-      (fun db ->
-	    let r = _test_and_set _pf db key expected wanted in
-	    Lwt.return r)
-      
   method set_master tx master lease =
     self # _update_in_tx tx
       (fun db ->
@@ -578,13 +571,9 @@ object(self: #store)
         Lwt.return ()
       )
 
-  method get_key_count ?(_pf=__prefix) () =
+  method get_key_count () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
-    Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) ) >>= fun raw_count ->
-    (* Leave out administrative keys *)
-    self # prefix_keys ~_pf:__adminprefix "" (-1) >>= fun admin_keys ->
-    let admin_key_count = List.length admin_keys in
-    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+    Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) )
 
   method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
     if _quiesced 
@@ -728,6 +717,5 @@ let make_local_store ?(read_only=false) db_name =
   get_construct_params db_name ~mode
   >>= fun (db, interval, routing_o, mlo, store_i) ->
   let store = new local_store db_name db interval routing_o mlo store_i in
-  let store2 = (store :> store) in
-  Lwt.return store2
+  Lwt.return { s = (store :> simple_store)}
 

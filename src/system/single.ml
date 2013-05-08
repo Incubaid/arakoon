@@ -381,11 +381,11 @@ let _range_entries_1 (client: client) =
       and value = (string_of_int i) in
       client # set key value >>= fun () -> fill (i+1)
   in fill 0 >>= fun () ->
-  client # range_entries (Some "range_entries") true (Some "rs") true 10 >>= fun keys ->
-  let size = List.length keys in
+  client # range_entries (Some "range_entries") true (Some "rs") true 10 >>= fun entries ->
+  let size = List.length entries in
   Lwt_log.info_f "size = %i" size >>= fun () ->
   if size <> 10
-  then Llio.lwt_failfmt "size should be 10 and is %i" size
+  then Llio.lwt_failfmt "_range_entries_1: size should be 10 and is %i" size
   else Lwt.return ()
 
 let _detailed_range client =

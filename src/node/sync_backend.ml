@@ -228,7 +228,7 @@ object(self: #backend)
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [prefix]  >>= fun () ->
-    store # prefix_keys prefix max   >>= fun key_list ->
+    Store.prefix_keys store prefix max   >>= fun key_list ->
     let n_keys = List.length key_list in
     Lwt_log.debug_f "prefix_keys found %d matching keys" n_keys >>= fun () ->
     Statistics.new_prefix_keys _stats start n_keys;
@@ -338,7 +338,7 @@ object(self: #backend)
 
   method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-    let consensus_i = store # consensus_i () in
+    let consensus_i = Store.consensus_i store in
     begin
       match consensus_i with
 	| None -> Lwt.return ()
@@ -423,7 +423,7 @@ object(self: #backend)
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
 
   method private _who_master () =
-    store # who_master ()
+    Store.who_master store
 
   method who_master () =
     let mo = self # _who_master () in
@@ -508,7 +508,7 @@ object(self: #backend)
 
   method witness name i =
     Statistics.witness _stats name i;    
-    let cio = store # consensus_i () in
+    let cio = Store.consensus_i store in
     begin
       match cio with
 	    | None -> ()
@@ -519,7 +519,7 @@ object(self: #backend)
   method last_witnessed name = Statistics.last_witnessed _stats name
 
   method expect_progress_possible () =
-    match store # consensus_i () with
+    match Store.consensus_i store with
       | None -> Lwt.return false
       | Some i ->
 	let q = quorum_function n_nodes in
@@ -572,7 +572,7 @@ object(self: #backend)
     self # _read_allowed false >>= fun () ->
     Lwt.catch
       (fun () ->
-        store # get_routing ()
+        Store.get_routing store
       )
       (fun exc ->
         match exc with
@@ -586,7 +586,7 @@ object(self: #backend)
 
   method get_key_count () =
     self # _read_allowed false >>= fun () -> 
-    store # get_key_count ()
+    Store.get_key_count store
 
   method private quiesce_db () =
     self # _not_if_master () >>= fun () ->
@@ -621,13 +621,13 @@ object(self: #backend)
 
   method optimize_db () =
     Lwt_log.debug "optimize_db: enter" >>= fun () ->
-    self # try_quiesced( store # optimize ) >>= fun () ->
+    self # try_quiesced(fun () -> Store.optimize store) >>= fun () ->
     Lwt_log.debug "optimize_db: All done"
  
   method defrag_db () = 
     self # _not_if_master() >>= fun () ->
     Lwt_log.debug "defrag_db: enter" >>= fun () ->
-    store # defrag() >>= fun () ->
+    Store.defrag store >>= fun () ->
     Lwt_log.debug "defrag_db: exit"
 
 
@@ -640,7 +640,7 @@ object(self: #backend)
           Lwt.fail ex
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
-    self # try_quiesced ( fun () -> store # copy_store oc ) >>= fun () ->
+    self # try_quiesced ( fun () -> Store.copy_store store oc ) >>= fun () ->
     Lwt_log.debug "get_db: All done"
 
   method get_cluster_cfgs () =
@@ -687,7 +687,7 @@ object(self: #backend)
 
   method get_fringe boundary direction =
     Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
-    store # get_fringe boundary direction
+    Store.get_fringe store boundary direction
 
   method drop_master () =
     if n_nodes = 1 

@@ -422,7 +422,7 @@ let wait_for_promises constants state event =
               Some bv
         end
         in
-      if n' = n && not ( constants.store # quiesced () ) 
+      if n' = n && not ( Store.quiesced constants.store )
       then
 	    begin
           log_f me "wait_for_promises: election timeout, restart from scratch"	  
@@ -620,7 +620,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                  otherwise, we've lost master role
               *)
               let is_still_master () =
-                match constants.store # who_master() with
+                match Store.who_master constants.store with
                   | None -> false (* ???? *)
                   | Some (_,al) -> let now = Int64.of_float(Unix.time()) in
                                    let diff = abs (Int64.to_int (Int64.sub now al)) in

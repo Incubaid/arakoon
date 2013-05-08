@@ -73,7 +73,7 @@ let _make_tlog_coll tlcs values tlc_name use_compression node_id =
 
 let _make_store ?(read_only=false) stores now node_name (db_name:string) =
   Mem_store.make_mem_store db_name >>= fun store ->
-  store # with_transaction (fun tx -> store # set_master tx node_name now) >>= fun () -> 
+  Store.with_transaction store (fun tx -> Store.set_master store tx node_name now) >>= fun () -> 
   Hashtbl.add stores db_name store;
   Lwt.return store
 
@@ -149,7 +149,7 @@ let post_failure () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
-    store0 # exists key >>= fun b ->
+    Store.exists store0 key >>= fun b ->
     Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
@@ -204,7 +204,7 @@ let restart_slaves () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "xxx" in
-    store0 # exists key >>= fun b ->
+    Store.exists store0 key >>= fun b ->
     Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()

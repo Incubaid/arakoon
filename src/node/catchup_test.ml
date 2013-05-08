@@ -114,7 +114,7 @@ let test_common () =
   Catchup.catchup_store me (store,tlog_coll) 500L >>= fun(end_i,vo) ->
   Lwt_log.info "TODO: validate store after this" >>= fun ()->
   tlog_coll # close () >>= fun () ->
-  store # close () 
+  Store.close store
 
 
 let teardown () = 
@@ -143,7 +143,7 @@ let _tic filler_function n name verify_store =
   verify_store store new_i >>= fun () ->
   Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
-  store # close () 
+  Store.close store
 
 
 
@@ -161,8 +161,8 @@ let test_batched_with_failures () =
   Lwt_log.info "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
     (fun store new_i ->
-      let assert_not_exists k = store # exists k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
-      let assert_exists k = store # exists k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
+      let assert_not_exists k = Store.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
+      let assert_exists k = Store.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
       assert_exists "key2" >>= fun () ->
       assert_exists "key2590" >>= fun () ->
       assert_not_exists "_3a_key2" >>= fun () ->
