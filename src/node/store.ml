@@ -68,7 +68,7 @@ class type simple_store = object
   method with_transaction_lock: (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
   method with_transaction: ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
-  method exists: string -> bool Lwt.t
+  method exists: string -> bool
   method get: string -> string
 
   method range: string -> string option -> bool -> string option -> bool -> int -> string list
@@ -188,7 +188,7 @@ let get_option (store:store) key =
   with Not_found -> None
 
 let exists (store:store) key =
-  store.s # exists (__prefix ^ key)
+  Lwt.return (store.s # exists (__prefix ^ key))
 
 let multi_get (store:store) keys =
   let vs = List.fold_left (fun acc key ->
@@ -512,7 +512,7 @@ let _insert_update (store:store) (update:Update.t) kt =
           end
       | Update.Assert_exists(k) ->
           begin
-            store.s # exists (__prefix ^ k) >>= function
+            match store.s # exists (__prefix ^ k) with
 	          | true -> Lwt.return (Ok None)
 	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
           end

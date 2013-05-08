@@ -28,8 +28,6 @@ open Routing
 
 module StringMap = Map.Make(String);;
 
-let try_lwt_ f = Lwt.catch (fun () -> Lwt.return (f ())) (fun exn -> Lwt.fail exn)
-
 class mem_store db_name =
 
 object (self: #simple_store)
@@ -71,7 +69,7 @@ object (self: #simple_store)
         Lwt.fail exn)
 
   method exists key =
-    try_lwt_ (fun () -> StringMap.mem key kv)
+    StringMap.mem key kv
 
   method get key =
     StringMap.find key kv

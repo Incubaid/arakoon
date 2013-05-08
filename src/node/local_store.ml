@@ -40,31 +40,6 @@ let _delete bdb key    = B.out bdb key
 let _delete_prefix bdb prefix =
   B.delete_prefix bdb prefix
 
-let _test_and_set _pf bdb key expected wanted =
-  let key' = _pf ^ key in
-  try
-    let g = B.get bdb key' in
-    match expected with
-      | Some e when e = g ->
-	begin
-	  match wanted with
-	    | Some wanted_s ->
-	      let () = B.put bdb key' wanted_s in Some g
-	    | None ->
-	      let () = B.out bdb key' in Some g
-	end
-      | _ -> Some g
-  with Not_found ->
-    match expected with
-      | None ->
-	begin
-	  match wanted with
-	    | Some wanted_s ->
-	      let () = B.put bdb key' wanted_s in None
-	    | None -> None
-	end
-      | Some v' -> None
-
 let _range_entries _pf bdb first finc last linc max =
   let keys_array = B.range bdb (_f _pf first) finc (_l _pf last) linc max in
   let keys_list = Array.to_list keys_array in
@@ -76,26 +51,6 @@ let _range_entries _pf bdb first finc last linc max =
     []
     keys_list
   in x
-
-let _assert _pf bdb key vo =
-  let pk = _pf ^ key in
-  match vo with
-    | None ->
-      begin
-	try let _ = B.get bdb pk in false
-	with Not_found -> true
-      end
-    | Some v ->
-      begin
-	try let v' = B.get bdb pk in v = v'
-	with Not_found -> false
-      end
-
-let _assert_exists _pf bdb key =
-  let pk = _pf ^ key in
-	try let _ = B.get bdb pk in true
-	with Not_found -> false
-
 
 let copy_store old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
@@ -253,8 +208,7 @@ object(self: #simple_store)
 
   method exists key =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.exists bdb key in
-    Lwt.return r
+    B.exists bdb key
 
   method get key =
     let bdb = Camltc.Hotc.get_bdb db in
