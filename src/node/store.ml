@@ -82,11 +82,6 @@ class type simple_store = object
   method set_master_no_inc: string -> int64 -> unit Lwt.t
   method who_master: unit -> (string*int64) option
 
-  (** last value on which there is consensus.
-      For an empty store, This is None
-  *)
-  method consensus_i: unit -> Sn.t option
-  method incr_i: transaction -> unit Lwt.t
   method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
@@ -112,7 +107,26 @@ class type simple_store = object
 
 end
 
-type store = { s : simple_store }
+
+type store = { s : simple_store;
+               (** last value on which there is consensus.
+                   For an empty store, This is None
+               *)
+               mutable store_i : Sn.t option;
+             }
+
+let _consensus_i (store:simple_store) =
+  try
+    let i_string = store # get __i_key in
+    let i,_ = Sn.sn_from i_string 0 in
+    Some i
+  with Not_found ->
+    None
+
+let make_store simple_store =
+  { s = simple_store;
+    store_i = _consensus_i simple_store
+  }
 
 type update_result =
   | Stop
@@ -164,13 +178,15 @@ let multi_get (store:store) keys =
   Lwt.return (List.rev vs)
 
 let consensus_i (store:store) =
-  store.s # consensus_i ()
+  store.store_i
 
 let get_location (store:store) =
   store.s # get_location ()
 
 let reopen (store:store) f =
-  store.s # reopen f
+  store.s # reopen f >>= fun () ->
+  store.store_i <- _consensus_i store.s;
+  Lwt.return ()
 
 let close (store:store) =
   store.s # close ()
@@ -193,8 +209,26 @@ let optimize (store:store) =
 let set_master_no_inc (store:store) m now =
   store.s # set_master_no_inc m now
 
+let consensus_i (store:store) =
+  store.store_i
+
 let incr_i (store:store) tx =
-  store.s # incr_i tx
+  let old_i = _consensus_i store.s in
+  let new_i =
+    match old_i with
+      | None -> Sn.start
+      | Some i -> Sn.succ i
+  in
+  let new_is =
+    let buf = Buffer.create 10 in
+    let () = Sn.sn_to buf new_i in
+    Buffer.contents buf
+  in
+  let () = store.s # set tx __i_key new_is in
+  (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s"
+     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
+     >>= fun () -> *)
+  Lwt.return ()
 
 let with_transaction_lock (store:store) f =
   store.s # with_transaction_lock f
@@ -570,7 +604,7 @@ let _insert_value (store:store) (value:Value.t) kt =
   Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
   _insert_updates store updates' kt >>= fun (urs:update_result list) ->
   _with_transaction store kt (fun tx ->
-    store.s # incr_i tx >>= fun () ->
+    incr_i store tx >>= fun () ->
     Lwt.return (set_j store tx 0)) >>= fun () ->
   Lwt.return urs
 
@@ -581,7 +615,7 @@ let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
       | None ->   store.s # with_transaction_lock (fun key -> f (Key key))
       | Some tx -> f (Transaction tx) in
   let t kt =
-    let store_i = store.s # consensus_i () in
+    let store_i = consensus_i store in
     begin
       match i, store_i with
         | 0L , None -> Lwt.return ()
@@ -595,7 +629,7 @@ let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
     if store.s # quiesced ()
     then
       begin
-        _with_transaction store kt (fun tx -> store.s # incr_i tx) >>= fun () ->
+        _with_transaction store kt (fun tx -> incr_i store tx) >>= fun () ->
         Lwt.return [Ok None]
       end
     else
@@ -619,7 +653,7 @@ let on_consensus (store:store) (v,n,i) =
   Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
     (Sn.string_of n) (Sn.string_of i)
   >>= fun () ->
-  let m_store_i = store.s # consensus_i () in
+  let m_store_i = consensus_i store in
   begin
     match m_store_i with
       | None ->
@@ -639,14 +673,14 @@ let on_consensus (store:store) (v,n,i) =
   if store.s # quiesced () 
   then
     begin
-      store.s # with_transaction (fun tx -> store.s # incr_i tx) >>= fun () ->
+      store.s # with_transaction (fun tx -> incr_i store tx) >>= fun () ->
       Lwt.return [Ok None]
     end
   else
     store.s # with_transaction_lock (fun key -> _insert_value store v (Key key))
       
 let get_succ_store_i (store:store) =
-  let m_si = store.s # consensus_i () in
+  let m_si = consensus_i store in
   match m_si with
     | None -> Sn.start
     | Some si -> Sn.succ si

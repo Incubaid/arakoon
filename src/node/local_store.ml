@@ -41,14 +41,6 @@ let _save_i i db =
   let () = B.put db __i_key is in
   Lwt.return ()
 
-let _consensus_i db =
-  try
-    let i_string = B.get db __i_key in
-    let i,_ = Sn.sn_from i_string 0 in
-    Lwt.return (Some i)
-  with Not_found ->
-    Lwt.return None
-
 let _get_interval db =
   try
     let interval_s = B.get db __interval_key in
@@ -96,24 +88,6 @@ let _set_routing_delta db left sep right =
   let new_r' = Routing.compact new_r in
   _set_routing db new_r';
   new_r'
-
-let _incr_i db =
-  _consensus_i db >>= fun old_i ->
-  let new_i =
-    match old_i with
-      | None -> Sn.start
-      | Some i -> Sn.succ i
-  in
-  let new_is =
-    let buf = Buffer.create 10 in
-    let () = Sn.sn_to buf new_i in
-    Buffer.contents buf
-  in
-  let () = B.put db __i_key new_is in
-  (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s"
-    (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
-  >>= fun () -> *)
-  Lwt.return ()
 
 let _who_master db =
   try
@@ -237,11 +211,10 @@ let get_construct_params db_name ~mode=
   Camltc.Hotc.read db _get_interval >>= fun interval ->
   Camltc.Hotc.read db _get_routing >>= fun routing_o ->
   Camltc.Hotc.read db _who_master >>= fun mlo ->
-  Camltc.Hotc.read db _consensus_i >>= fun store_i ->
-  Lwt.return (db, interval, routing_o, mlo, store_i)
+  Lwt.return (db, interval, routing_o, mlo)
 
 class local_store (db_location:string) (db:Camltc.Hotc.t)
-  (interval:Interval.t) (routing:Routing.t option) mlo store_i =
+  (interval:Interval.t) (routing:Routing.t option) mlo =
 
 object(self: #simple_store)
   val mutable my_location = db_location
@@ -249,7 +222,6 @@ object(self: #simple_store)
   val mutable _routing = routing
   val mutable _mlo = mlo
   val mutable _quiesced = false
-  val mutable _store_i = store_i
   val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
   val mutable _tx_lock = None
@@ -330,30 +302,23 @@ object(self: #simple_store)
       | _ -> false in
     if not matched_locks
     then failwith "transaction locks do not match";
-    let current_i = _store_i in
-    Lwt.catch
+    let t0 = Unix.gettimeofday() in
+    Lwt.finalize
       (fun () ->
-        let t0 = Unix.gettimeofday() in
-        Lwt.finalize
-          (fun () ->
-            Camltc.Hotc.transaction db
-              (fun db ->
-                let tx = new transaction in
-                _tx <- Some (tx, db);
-                f tx >>= fun a ->
-                Lwt.return a))
-          (fun () ->
-            let t = ( Unix.gettimeofday() -. t0) in
-            if t > 1.0
-            then
-              Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
-            else
-              Lwt.return (); >>= fun () ->
-            _tx <- None; Lwt.return ()))
-      (fun exn ->
-        (* restore i when transaction failed *)
-        _store_i <- current_i;
-        Lwt.fail exn)
+        Camltc.Hotc.transaction db
+          (fun db ->
+            let tx = new transaction in
+            _tx <- Some (tx, db);
+            f tx >>= fun a ->
+            Lwt.return a))
+      (fun () ->
+        let t = ( Unix.gettimeofday() -. t0) in
+        if t > 1.0
+        then
+          Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
+        else
+          Lwt.return (); >>= fun () ->
+        _tx <- None; Lwt.return ())
 
   method quiesce () =
     begin
@@ -424,26 +389,6 @@ object(self: #simple_store)
     let bdb = Camltc.Hotc.get_bdb db in
     B.get bdb key
 
-  method private _incr_i_cached () =
-    let incr =
-    begin
-      match _store_i with
-        | None -> Sn.start
-        | Some i -> (Sn.succ i)
-    end;
-    in
-    _store_i <- Some incr ;
-    incr
-
-  method incr_i tx =
-    let new_i = self # _incr_i_cached () in
-    begin
-      if _quiesced 
-      then Lwt.return ()
-      else self # _with_tx tx (_save_i new_i)
-    end
-
-
   method range prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
@@ -503,8 +448,6 @@ object(self: #simple_store)
         let c = _delete_prefix db prefix in 
         Lwt.return c)
 
-  method consensus_i () = _store_i
-
   method close () =
     _closed <- true;
     Camltc.Hotc.close db >>= fun () ->  
@@ -523,12 +466,7 @@ object(self: #simple_store)
     end in
     Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
     Camltc.Hotc.reopen db f mode >>= fun () ->
-    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
-    (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
-    let bdb = Camltc.Hotc.get_bdb db in
-    _consensus_i bdb >>= fun store_i ->
-    _store_i <- store_i ;
-    Lwt.return ()
+    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
 
   method set_interval tx interval =
     Lwt_log.debug_f "set_interval %s" (Interval.to_string interval)
@@ -707,7 +645,6 @@ let make_local_store ?(read_only=false) db_name =
   in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
-  >>= fun (db, interval, routing_o, mlo, store_i) ->
-  let store = new local_store db_name db interval routing_o mlo store_i in
-  Lwt.return { s = (store :> simple_store)}
-
+  >>= fun (db, interval, routing_o, mlo) ->
+  let store = new local_store db_name db interval routing_o mlo in
+  Lwt.return (make_store (store :> simple_store))

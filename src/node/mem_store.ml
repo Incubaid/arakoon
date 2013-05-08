@@ -37,7 +37,6 @@ class mem_store db_name =
 
 object (self: #simple_store)
 
-  val mutable i = None
   val mutable kv = StringMap.empty
   val mutable master = None
   val mutable _interval = Interval.max
@@ -67,7 +66,6 @@ object (self: #simple_store)
     then failwith "transaction locks do not match";
     let tx = new transaction in
     _tx <- Some tx;
-    let current_i = i in
     let current_kv = kv in
     Lwt.catch
       (fun () ->
@@ -75,23 +73,8 @@ object (self: #simple_store)
           (fun () -> f tx)
           (fun () -> _tx <- None; Lwt.return ()))
       (fun exn ->
-        i <- current_i;
         kv <- current_kv;
         Lwt.fail exn)
-
-  method incr_i tx =
-    Lwt.return (self # _incr_i ())
-
-  method _incr_i () =
-    let i2 = match i with
-    | None -> Some 0L
-    | Some i' -> Some ( Sn.succ i' )
-    in
-    let () = i <- i2 in
-    ()
-
-  method _set_i x =
-    i <- Some x
 
   method exists key =
     try_lwt_ (fun () -> StringMap.mem key kv)
@@ -160,8 +143,6 @@ object (self: #simple_store)
   method delete tx key =
     Lwt_log.ign_debug_f "mem_store # delete %S" key;
     self # delete_no_incr key
-
-  method consensus_i () = i
 
   method close () = Lwt.return ()
 
@@ -232,7 +213,7 @@ end
 let make_mem_store ?(read_only=false) db_name =
   let store = new mem_store db_name in
   let store2 = (store :> simple_store) in
-  Lwt.return { s = store2 }
+  Lwt.return (make_store store2)
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
