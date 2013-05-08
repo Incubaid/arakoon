@@ -78,9 +78,6 @@ class type simple_store = object
   method set: transaction -> string -> string -> unit
   method delete: transaction -> string -> unit
   method delete_prefix: transaction -> ?_pf: string -> string -> int Lwt.t
-  method set_master: transaction -> string -> int64 -> unit Lwt.t
-  method set_master_no_inc: string -> int64 -> unit Lwt.t
-  method who_master: unit -> (string*int64) option
 
   method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
@@ -113,6 +110,7 @@ type store = { s : simple_store;
                    For an empty store, This is None
                *)
                mutable store_i : Sn.t option;
+               mutable master : (string * int64) option;
              }
 
 let _consensus_i (store:simple_store) =
@@ -123,9 +121,20 @@ let _consensus_i (store:simple_store) =
   with Not_found ->
     None
 
+let _master (store:simple_store) =
+  try
+    let m = store # get __master_key in
+    let ls_buff = store # get __lease_key in
+    let ls,_ = Llio.int64_from ls_buff 0 in
+    Some (m,ls)
+  with Not_found ->
+    None
+
+
 let make_store simple_store =
   { s = simple_store;
-    store_i = _consensus_i simple_store
+    store_i = _consensus_i simple_store;
+    master = _master simple_store;
   }
 
 type update_result =
@@ -206,8 +215,27 @@ let unquiesce (store:store) =
 let optimize (store:store) =
   store.s # optimize ()
 
-let set_master_no_inc (store:store) m now =
-  store.s # set_master_no_inc m now
+let set_master (store:store) tx master lease_start =
+  store.s # set tx __master_key master;
+  let buffer = Buffer.create 8 in
+  let () = Llio.int64_to buffer lease_start in
+  let lease = Buffer.contents buffer in
+  store.s # set tx __lease_key lease;
+  store.master <- Some (master, lease_start);
+  Lwt.return ()
+
+let set_master_no_inc (store:store) master lease_start =
+  if (store.s # quiesced ())
+  then
+    begin
+      store.master <- Some (master, lease_start);
+      Lwt.return ()
+    end
+  else
+    store.s # with_transaction (fun tx -> set_master store tx master lease_start)
+
+let who_master (store:store) =
+  store.master
 
 let consensus_i (store:store) =
   store.store_i
@@ -225,6 +253,7 @@ let incr_i (store:store) tx =
     Buffer.contents buf
   in
   let () = store.s # set tx __i_key new_is in
+  store.store_i <- Some new_i;
   (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s"
      (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
      >>= fun () -> *)
@@ -239,9 +268,6 @@ let get_fringe (store:store) b d =
 let copy_store (store:store) oc =
   store.s # copy_store oc
 
-let set_master (store:store) =
-  store.s # set_master
-
 let defrag (store:store) =
   store.s # defrag ()
 
@@ -254,9 +280,6 @@ let get_key_count (store:store) =
 
 let get_routing (store:store) =
   store.s # get_routing ()
-
-let who_master (store:store) =
-  store.s # who_master ()
 
 let with_transaction (store:store) ?(key=None) f =
   store.s # with_transaction ~key f
@@ -389,7 +412,7 @@ let _insert_update (store:store) (update:Update.t) kt =
     let return () = Lwt.return (Ok None) in
     match update with
       | Update.Set(key,value) -> return (_set store tx key value)
-      | Update.MasterSet (m, lease) -> store.s # set_master tx m lease >>= return
+      | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
       | Update.Delete(key) -> return (_delete store tx key)
       | Update.DeletePrefix prefix ->
           store.s # delete_prefix tx prefix >>= fun n_deleted ->

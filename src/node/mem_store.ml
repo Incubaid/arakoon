@@ -32,13 +32,10 @@ module StringMap = Map.Make(String);;
 let try_lwt_ f = Lwt.catch (fun () -> Lwt.return (f ())) (fun exn -> Lwt.fail exn)
 
 class mem_store db_name =
-  let now64 () = Int64.of_float (Unix.gettimeofday ())
-  in
 
 object (self: #simple_store)
 
   val mutable kv = StringMap.empty
-  val mutable master = None
   val mutable _interval = Interval.max
   val mutable _routing = None
   val mutable _tx = None
@@ -108,15 +105,6 @@ object (self: #simple_store)
   method set tx key value =
     kv <- StringMap.add key value kv
 
-  method set_master tx master' l =
-    let () = master <- Some (master', now64()) in
-    Lwt.return ()
-
-  method set_master_no_inc master' l =
-    let () = master <- Some (master', now64()) in
-    Lwt.return ()
-
-
   method quiesce () = Lwt.return ()
 
   method unquiesce () = Lwt.return ()
@@ -125,8 +113,6 @@ object (self: #simple_store)
 
   method optimize () = Lwt.return ()
   method defrag () = Lwt.return ()
-
-  method who_master () = master
 
   method private delete_no_incr ?(_pf=__prefix) key =
     if StringMap.mem key kv then

@@ -89,16 +89,6 @@ let _set_routing_delta db left sep right =
   _set_routing db new_r';
   new_r'
 
-let _who_master db =
-  try
-    let m = B.get db __master_key in
-    let ls_buff = B.get db __lease_key in
-    let ls,_ = Llio.int64_from ls_buff 0 in
-    Lwt.return (Some (m,ls))
-  with Not_found ->
-    Lwt.return None
-
-
 let _get bdb key = B.get bdb key
 
 let _set bdb key value = B.put bdb key value
@@ -190,37 +180,19 @@ let copy_store old_location new_location overwrite =
     end
   end
 
-let _set_master bdb master (lease_start:int64) =
-  B.put bdb __master_key master;
-  let buffer =  Buffer.create 8 in
-  let () = Llio.int64_to buffer lease_start in
-  let lease = Buffer.contents buffer in
-  B.put bdb __lease_key lease
-
-
-let _set_master bdb master (lease_start:int64) =
-  B.put bdb __master_key master;
-  let buffer =  Buffer.create 8 in
-  let () = Llio.int64_to buffer lease_start in
-  let lease = Buffer.contents buffer in
-  B.put bdb __lease_key lease
-
-
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
   Camltc.Hotc.read db _get_interval >>= fun interval ->
   Camltc.Hotc.read db _get_routing >>= fun routing_o ->
-  Camltc.Hotc.read db _who_master >>= fun mlo ->
-  Lwt.return (db, interval, routing_o, mlo)
+  Lwt.return (db, interval, routing_o)
 
 class local_store (db_location:string) (db:Camltc.Hotc.t)
-  (interval:Interval.t) (routing:Routing.t option) mlo =
+  (interval:Interval.t) (routing:Routing.t option) =
 
 object(self: #simple_store)
   val mutable my_location = db_location
   val mutable _interval = interval
   val mutable _routing = routing
-  val mutable _mlo = mlo
   val mutable _quiesced = false
   val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
@@ -419,27 +391,6 @@ object(self: #simple_store)
     self # _wrap_exception2 "delete"
       (fun () -> self # _with_tx2 tx
         (fun db -> _delete db key) )
-
-  method set_master tx master lease =
-    self # _update_in_tx tx
-      (fun db ->
-	    _set_master db master lease ;
-	    _mlo <- Some (master,lease);
-	    Lwt.return ()
-      )
-
-  method set_master_no_inc master lease =
-    _mlo <- Some (master,lease);
-    if _quiesced 
-    then Lwt.return ()
-    else
-      Camltc.Hotc.transaction db
-        (fun db -> _set_master db master lease;
-	      Lwt.return ()
-        )
-
-  method who_master () = _mlo
-
 
   method delete_prefix tx ?(_pf=__prefix) prefix = 
     Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
@@ -645,6 +596,6 @@ let make_local_store ?(read_only=false) db_name =
   in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
-  >>= fun (db, interval, routing_o, mlo) ->
-  let store = new local_store db_name db interval routing_o mlo in
+  >>= fun (db, interval, routing_o) ->
+  let store = new local_store db_name db interval routing_o in
   Lwt.return (make_store (store :> simple_store))
