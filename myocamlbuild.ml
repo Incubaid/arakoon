@@ -4,7 +4,7 @@ open Unix
 
 let pdflatex = A"pdflatex"
 let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
-let tc_home ="3rd-party/tokyocabinet-1.4.47"
+let tc_home ="3rd-party/tokyocabinet"
 (* ocamlfind command *)
 let ocamlfind x = S[A"ocamlfind"; x]
 
@@ -34,6 +34,7 @@ let output_cmd cmd =
 let git_revision = run_cmd "git describe --all --long --always --dirty"
 let tag_version = run_cmd "git describe --tags --exact-match"
 let branch_version = run_cmd "git describe --all"
+let tc_revision = run_cmd "git --git-dir=3rd-party/tokyocabinet/.git describe --all --long --always --dirty"
 
 let machine = run_cmd "uname -mnrpio"
 
@@ -63,7 +64,8 @@ let make_version _ _ =
       "let machine = %S\n" ^^
       "let major = %i\n" ^^
       "let minor = %i\n" ^^
-      "let patch = %i\n" 
+      "let patch = %i\n" ^^
+      "let tc_revision = %S\n"
     in
     let major,minor,patch = 
       try
@@ -75,7 +77,7 @@ let make_version _ _ =
           try Scanf.sscanf branch_version "remotes/origin/%i.%i" (fun ma mi -> (ma, mi, -1))
           with _ -> (-1,-1,-1)
     in
-    Printf.sprintf template git_revision time machine major minor patch
+    Printf.sprintf template git_revision time machine major minor patch tc_revision
   in
   Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
 
@@ -117,29 +119,13 @@ let _ = dispatch & function
        "doc/states.eps";
        "doc/nursery.tex";
       ];
-    rule "Extract .tar.gz"
-      ~dep:"3rd-party/%(f).tar.gz"
-      ~stamp:"3rd-party/%(f).extracted"
-      begin fun env _build ->
-	let archive = env "3rd-party/%(f).tar.gz" in
-	let () = Log.dprintf 0 "extracting %s" archive in
-	let cmd =
-	  Cmd (S[(*A"echo";*)
-	    A"tar";
-	    A"zxvf";
-	    A archive;
-	    A"--directory";A"3rd-party";
-	  ]) in
-	Seq[cmd;]
-      end;
     rule "configure 3rd-party"
-      ~dep:"3rd-party/%(dir).extracted"
       ~stamp:"3rd-party/%(dir).configured"
       begin fun env _build ->
 	let dir =  env "%(dir)" in
 	let () = Log.dprintf 0 "configuring %s" dir in
 	let evil_cmd =
-	  Printf.sprintf "cd 3rd-party/%s && ./configure " dir in
+	  Printf.sprintf "mkdir -p 3rd-party/%s && cd 3rd-party/%s && ../../../3rd-party/tokyocabinet/configure " dir dir in
 	let configure = Cmd (S[Sh evil_cmd;
 			       A"--disable-bzip";
 			       A"--disable-zlib";
@@ -162,7 +148,7 @@ let _ = dispatch & function
       (* how to compile C stuff that needs tc *)
     flag ["compile"; "c";]
       (S[
-	A"-ccopt";A( "-I" ^ tc_home);
+	A"-ccopt";A"-I../3rd-party/tokyocabinet";
 	A"-ccopt";A"-I../src/tools";
       ]);
     flag ["compile";"c";]

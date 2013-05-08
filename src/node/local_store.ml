@@ -328,7 +328,7 @@ let _tx_with_incr (incr: unit -> Sn.t ) (db: Hotc.t) (f:Otc.Bdb.bdb -> 'a Lwt.t)
       Lwt.fail ex)
 
 let get_construct_params db_name ~mode=
-  Hotc.create db_name ~mode >>= fun db ->
+  Hotc.create db_name ~mode [Bdb.BDBTLARGE] >>= fun db ->
   Hotc.read db _get_interval >>= fun interval ->
   Hotc.read db _get_routing >>= fun routing_o ->
   Hotc.read db _who_master >>= fun mlo ->
@@ -392,7 +392,7 @@ object(self: #store)
     >>= fun () ->
     begin 
       Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
-      Hotc.create db_optimal >>= fun db_opt ->
+      Hotc.create db_optimal [Bdb.BDBTLARGE] >>= fun db_opt ->
       Lwt.finalize
       ( fun () ->
         Lwt_log.info "Optimizing db copy" >>= fun () ->

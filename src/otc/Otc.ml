@@ -88,4 +88,13 @@ module Bdb = struct
 
   external bdb_defrag: bdb -> int = "bdb_defrag"
   external get_key_count: bdb -> int64 = "bdb_key_count"
+
+  type opt = BDBTLARGE
+  external _tune : bdb -> (* int -> int -> int -> int -> int -> *) int -> unit = "bdb_tune"
+  let tune bdb opts =
+    let int_of_opt = function
+      BDBTLARGE -> 1 lsl 0
+    in
+    let int_of_opts = List.fold_left (fun a b -> a lor int_of_opt b) 0 in
+    _tune bdb (int_of_opts opts)
 end

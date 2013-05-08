@@ -300,7 +300,7 @@ let test_delete_prefix db =
   my_test 89 g89;
   Lwt.return ()
 
-let setup () = Hotc.create "/tmp/foo.tc"
+let setup () = Hotc.create "/tmp/foo.tc" [Bdb.BDBTLARGE]
 
 let teardown db =
   Hotc.delete db >>= fun () ->
