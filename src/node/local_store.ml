@@ -32,15 +32,6 @@ open Unix.LargeFile
 
 module B = Camltc.Bdb
 
-let _save_i i db =
-  let is =
-    let buf = Buffer.create 10 in
-    let () = Sn.sn_to buf i in
-    Buffer.contents buf
-  in
-  let () = B.put db __i_key is in
-  Lwt.return ()
-
 let _get_interval db =
   try
     let interval_s = B.get db __interval_key in

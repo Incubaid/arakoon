@@ -132,9 +132,11 @@ let _master (store:simple_store) =
 
 
 let make_store simple_store =
+  let store_i = _consensus_i simple_store
+  and master = _master simple_store in
   { s = simple_store;
-    store_i = _consensus_i simple_store;
-    master = _master simple_store;
+    store_i;
+    master;
   }
 
 type update_result =
@@ -254,10 +256,8 @@ let incr_i (store:store) tx =
   in
   let () = store.s # set tx __i_key new_is in
   store.store_i <- Some new_i;
-  (* Lwt_log.debug_f "Local_store._incr_i old_i:%s -> new_i:%s"
-     (Log_extra.option_to_string Sn.string_of old_i) (Sn.string_of new_i)
-     >>= fun () -> *)
-  Lwt.return ()
+  Lwt_log.debug_f "Store.incr_i old_i:%s -> new_i:%s"
+     (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
 
 let with_transaction_lock (store:store) f =
   store.s # with_transaction_lock f
@@ -282,7 +282,10 @@ let get_routing (store:store) =
   store.s # get_routing ()
 
 let with_transaction (store:store) ?(key=None) f =
-  store.s # with_transaction ~key f
+  let current_i = store.store_i in
+  Lwt.catch
+    (fun () -> store.s # with_transaction ~key f)
+    (fun exn -> store.store_i <- current_i; Lwt.fail exn)
 
 
 let multi_get_option (store:store) keys =
