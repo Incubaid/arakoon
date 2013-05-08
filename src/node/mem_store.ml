@@ -35,7 +35,6 @@ class mem_store db_name =
 object (self: #simple_store)
 
   val mutable kv = StringMap.empty
-  val mutable _routing = None
   val mutable _tx = None
   val mutable _tx_lock = None
   val _tx_lock_mutex = Lwt_mutex.create ()
@@ -133,24 +132,6 @@ object (self: #simple_store)
   method reopen when_closed = Lwt.return ()
 
   method get_location () = failwith "not supported"
-
-  method get_routing () =
-    match _routing with
-      | None -> Lwt.fail Not_found
-      | Some r -> Lwt.return r
-
-  method set_routing tx r =
-    _routing <- Some r;
-    Lwt.return ()
-
-  method set_routing_delta tx left sep right =
-    match _routing with
-      | None -> failwith "Cannot update non-existing routing"
-      | Some r ->
-        begin
-          let new_r = Routing.change r left sep right in
-          Lwt.return ( _routing <- Some new_r )
-        end
 
   method get_key_count () =
     let inc key value size =

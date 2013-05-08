@@ -31,41 +31,6 @@ open Unix.LargeFile
 
 module B = Camltc.Bdb
 
-let _set_routing db routing =
-  let buf = Buffer.create 80 in
-  let () = Routing.routing_to buf routing in
-  let routing_s = Buffer.contents buf in
-  B.put db __routing_key routing_s
-
-let _get_routing_non_lwt db =
-  try
-    let routing_s = B.get db __routing_key in
-    let routing,_ = Routing.routing_from routing_s 0 in
-    Some routing
-  with Not_found -> None
-
-let _get_routing db =
-    Lwt.return (_get_routing_non_lwt db)
-
-let _set_routing_delta db left sep right =
-  let m_r = _get_routing_non_lwt db in
-  let new_r =
-    begin
-      match m_r with
-        | None ->
-          begin
-            Routing.build ([(left, sep)], right)
-          end
-        | Some r ->
-          begin
-            Routing.change r left sep right
-          end
-      end
-  in
-  let new_r' = Routing.compact new_r in
-  _set_routing db new_r';
-  new_r'
-
 let _get bdb key = B.get bdb key
 
 let _set bdb key value = B.put bdb key value
@@ -159,14 +124,12 @@ let copy_store old_location new_location overwrite =
 
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
-  Camltc.Hotc.read db _get_routing >>= fun routing_o ->
-  Lwt.return (db, routing_o)
+  Lwt.return db
 
-class local_store (db_location:string) (db:Camltc.Hotc.t) (routing:Routing.t option) =
+class local_store (db_location:string) (db:Camltc.Hotc.t) =
 
 object(self: #simple_store)
   val mutable my_location = db_location
-  val mutable _routing = routing
   val mutable _quiesced = false
   val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
@@ -384,27 +347,6 @@ object(self: #simple_store)
     Camltc.Hotc.reopen db f mode >>= fun () ->
     Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
 
-  method get_routing () =
-    Lwt_log.debug "get_routing " >>= fun () ->
-    match _routing with
-      | None -> Lwt.fail Not_found
-      | Some r -> Lwt.return r
-
-  method set_routing tx r =
-    Lwt_log.debug_f "set_routing %s" (Routing.to_s r) >>= fun () ->
-    _routing <- Some r;
-    self # _update_in_tx tx (fun db -> _set_routing db r; Lwt.return ())
-
-  method set_routing_delta tx left sep right =
-    Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-    self # _update_in_tx tx
-      (fun db ->
-        let r = _set_routing_delta db left sep right in
-        _routing <- Some r ;
-        Lwt_log.debug_f "set_routing to %s" (Routing.to_s r) >>= fun () ->
-        Lwt.return ()
-      )
-
   method get_key_count () =
     Lwt_log.debug "local_store::get_key_count" >>= fun () ->
     Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) )
@@ -549,6 +491,6 @@ let make_local_store ?(read_only=false) db_name =
   in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
-  >>= fun (db, routing_o) ->
-  let store = new local_store db_name db routing_o in
+  >>= fun db ->
+  let store = new local_store db_name db in
   Lwt.return (make_store (store :> simple_store))

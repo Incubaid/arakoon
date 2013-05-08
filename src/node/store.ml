@@ -86,10 +86,6 @@ class type simple_store = object
   method get_location: unit -> string
   method relocate: string -> unit Lwt.t
 
-  method get_routing : unit -> Routing.t Lwt.t
-  method set_routing : transaction -> Routing.t -> unit Lwt.t
-  method set_routing_delta: transaction -> string -> string -> string -> unit Lwt.t
-
   method get_key_count : unit -> int64 Lwt.t
 
   method quiesce : unit -> unit Lwt.t
@@ -109,7 +105,8 @@ type store = { s : simple_store;
                *)
                mutable store_i : Sn.t option;
                mutable master : (string * int64) option;
-               mutable interval : Interval.t
+               mutable interval : Interval.t;
+               mutable routing : Routing.t option;
              }
 
 let _get_interval (store:simple_store) =
@@ -136,15 +133,24 @@ let _master (store:simple_store) =
   with Not_found ->
     None
 
+let _get_routing (store:simple_store) =
+  try
+    let routing_s = store # get __routing_key in
+    let routing,_ = Routing.routing_from routing_s 0 in
+    Some routing
+  with Not_found -> None
+
 
 let make_store simple_store =
   let store_i = _consensus_i simple_store
   and master = _master simple_store
-  and interval = _get_interval simple_store in
+  and interval = _get_interval simple_store
+  and routing = _get_routing simple_store in
   { s = simple_store;
     store_i;
     master;
     interval;
+    routing;
   }
 
 type update_result =
@@ -287,7 +293,35 @@ let get_key_count (store:store) =
   Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
 
 let get_routing (store:store) =
-  store.s # get_routing ()
+  Lwt_log.debug "get_routing " >>= fun () ->
+  match store.routing with
+    | None -> Lwt.fail Not_found
+    | Some r -> Lwt.return r
+
+let _set_routing store tx routing =
+  let buf = Buffer.create 80 in
+  let () = Routing.routing_to buf routing in
+  let routing_s = Buffer.contents buf in
+  store.s # set tx __routing_key routing_s;
+  store.routing <- Some routing
+
+let _set_routing_delta store tx left sep right =
+  let new_r =
+    begin
+      match store.routing with
+        | None ->
+          begin
+            Routing.build ([(left, sep)], right)
+          end
+        | Some r ->
+          begin
+            Routing.change r left sep right
+          end
+      end
+  in
+  let new_r' = Routing.compact new_r in
+  _set_routing store tx new_r'
+
 
 let with_transaction (store:store) ?(key=None) f =
   let current_i = store.store_i in
@@ -462,11 +496,11 @@ let _insert_update (store:store) (update:Update.t) kt =
       | Update.SetInterval interval ->
               return (_set_interval store tx interval)
       | Update.SetRouting routing ->
-              store.s # set_routing tx routing >>= fun () ->
-              Lwt.return (Ok None)
+          Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
+          return (_set_routing store tx routing)
       | Update.SetRoutingDelta (left, sep, right) ->
-              store.s # set_routing_delta tx left sep right >>= fun () ->
-              Lwt.return (Ok None)
+          Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
+          return (_set_routing_delta store tx left sep right)
       | Update.Nop -> Lwt.return (Ok None)
       | Update.Assert(k,vo) ->
           begin
