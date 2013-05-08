@@ -336,11 +336,19 @@ let _set_routing_delta store tx left sep right =
 
 
 let with_transaction (store:store) ?(key=None) f =
-  let current_i = store.store_i in
-  Lwt.catch
-    (fun () -> store.s # with_transaction ~key f)
-    (fun exn -> store.store_i <- current_i; Lwt.fail exn)
-
+  if store.s # is_closed ()
+  then
+    raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
+  else
+    let current_i = store.store_i in
+    Lwt.catch
+      (fun () -> store.s # with_transaction ~key f)
+      (fun exn ->
+        store.store_i <- current_i;
+        match exn with
+          | Failure s -> Lwt_log.debug_f "Failure %s" s >>= fun () ->
+              Lwt.fail Server.FOOBAR
+          | exn -> Lwt.fail exn)
 
 let multi_get_option (store:store) keys =
   let vs = List.fold_left (fun acc key ->
@@ -476,7 +484,9 @@ let _insert_update (store:store) (update:Update.t) kt =
     match update with
       | Update.Set(key,value) -> return (_set store tx key value)
       | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
-      | Update.Delete(key) -> return (_delete store tx key)
+      | Update.Delete(key) ->
+          Lwt_log.debug_f "store # delete %S" key >>= fun () ->
+          return (_delete store tx key)
       | Update.DeletePrefix prefix ->
           Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
           let n_deleted = store.s # delete_prefix tx prefix in

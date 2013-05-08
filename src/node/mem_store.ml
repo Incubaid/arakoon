@@ -103,21 +103,11 @@ object (self: #simple_store)
   method optimize quiesced = Lwt.return ()
   method defrag () = Lwt.return ()
 
-  method private delete_no_incr ?(_pf=__prefix) key =
-    if StringMap.mem key kv then
-      begin
-	    Lwt_log.ign_debug_f "%S exists" key;
-	    kv <- StringMap.remove key kv
-      end
-    else
-      begin
-	    Lwt_log.ign_debug "going to fail";
-	    raise (Key_not_found key)
-      end
-
   method delete tx key =
-    Lwt_log.ign_debug_f "mem_store # delete %S" key;
-    self # delete_no_incr key
+    if StringMap.mem key kv then
+	  kv <- StringMap.remove key kv
+    else
+	  raise (Key_not_found key)
 
   method close () = Lwt.return ()
 

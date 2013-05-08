@@ -93,19 +93,6 @@ object(self: #simple_store)
   method is_closed () =
     _closed
 
-  method private _wrap_exception name (f:unit -> 'a) =
-    try
-      f ()
-    with
-        | Failure s ->
-          begin
-            Lwt_log.ign_debug_f "%s Failure %s: => FOOBAR? %b" name s _closed;
-            if _closed
-            then raise (Common.XException (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
-            else raise Server.FOOBAR
-          end
-        | exn -> raise exn
-
   method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
     fun tx f ->
       match _tx with
@@ -214,14 +201,10 @@ object(self: #simple_store)
 	Lwt.return keys_list
 
   method set tx key value =
-    self # _wrap_exception "set"
-      (fun () -> self # _with_tx tx
-        (fun db -> _set db key value))
+    self # _with_tx tx (fun db -> _set db key value)
 
   method delete tx key =
-    self # _wrap_exception "delete"
-      (fun () -> self # _with_tx tx
-        (fun db -> _delete db key) )
+    self # _with_tx tx (fun db -> _delete db key)
 
   method delete_prefix tx ?(_pf=__prefix) prefix =
     self # _with_tx tx
