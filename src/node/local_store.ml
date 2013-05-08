@@ -23,7 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 open Mp_msg
 open Lwt
 open Update
-open Interval
 open Routing
 open Log_extra
 open Store
@@ -31,19 +30,6 @@ open Unix.LargeFile
 
 
 module B = Camltc.Bdb
-
-let _get_interval db =
-  try
-    let interval_s = B.get db __interval_key in
-    let interval,_ = Interval.interval_from interval_s 0 in
-    Lwt.return interval
-  with Not_found -> Lwt.return Interval.max
-
-let _set_interval db range =
-  let buf = Buffer.create 80 in
-  let () = Interval.interval_to buf range in
-  let range_s = Buffer.contents buf in
-  B.put db __interval_key range_s
 
 let _set_routing db routing =
   let buf = Buffer.create 80 in
@@ -173,16 +159,13 @@ let copy_store old_location new_location overwrite =
 
 let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode >>= fun db ->
-  Camltc.Hotc.read db _get_interval >>= fun interval ->
   Camltc.Hotc.read db _get_routing >>= fun routing_o ->
-  Lwt.return (db, interval, routing_o)
+  Lwt.return (db, routing_o)
 
-class local_store (db_location:string) (db:Camltc.Hotc.t)
-  (interval:Interval.t) (routing:Routing.t option) =
+class local_store (db_location:string) (db:Camltc.Hotc.t) (routing:Routing.t option) =
 
 object(self: #simple_store)
   val mutable my_location = db_location
-  val mutable _interval = interval
   val mutable _routing = routing
   val mutable _quiesced = false
   val mutable _closed = false (* set when close method is called *)
@@ -334,15 +317,6 @@ object(self: #simple_store)
   (*method private open_db () =
     Hotc._open_lwt db *)
 
-  method _interval_ok key =
-    let ok = Interval.is_ok _interval key in
-    if ok
-    then ()
-    else
-      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
-				                 Printf.sprintf "%s not in interval" key)
-      in raise ex
-
   method exists key =
     let bdb = Camltc.Hotc.get_bdb db in
     let r = B.exists bdb key in
@@ -409,18 +383,6 @@ object(self: #simple_store)
     Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
     Camltc.Hotc.reopen db f mode >>= fun () ->
     Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
-
-  method set_interval tx interval =
-    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval)
-    >>= fun () ->
-    self # _update_in_tx tx
-      (fun db ->
-	    _set_interval db interval;
-	    _interval <- interval;
-	    Lwt.return ()
-      )
-
-  method get_interval () = _interval
 
   method get_routing () =
     Lwt_log.debug "get_routing " >>= fun () ->
@@ -587,6 +549,6 @@ let make_local_store ?(read_only=false) db_name =
   in
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
-  >>= fun (db, interval, routing_o) ->
-  let store = new local_store db_name db interval routing_o in
+  >>= fun (db, routing_o) ->
+  let store = new local_store db_name db routing_o in
   Lwt.return (make_store (store :> simple_store))

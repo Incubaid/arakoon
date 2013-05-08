@@ -86,8 +86,6 @@ class type simple_store = object
   method get_location: unit -> string
   method relocate: string -> unit Lwt.t
 
-  method get_interval: unit -> Interval.t
-  method set_interval: transaction -> Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
   method set_routing : transaction -> Routing.t -> unit Lwt.t
   method set_routing_delta: transaction -> string -> string -> string -> unit Lwt.t
@@ -111,7 +109,15 @@ type store = { s : simple_store;
                *)
                mutable store_i : Sn.t option;
                mutable master : (string * int64) option;
+               mutable interval : Interval.t
              }
+
+let _get_interval (store:simple_store) =
+  try
+    let interval_s = store # get __interval_key in
+    let interval,_ = Interval.interval_from interval_s 0 in
+    interval
+  with Not_found -> Interval.max
 
 let _consensus_i (store:simple_store) =
   try
@@ -133,10 +139,12 @@ let _master (store:simple_store) =
 
 let make_store simple_store =
   let store_i = _consensus_i simple_store
-  and master = _master simple_store in
+  and master = _master simple_store
+  and interval = _get_interval simple_store in
   { s = simple_store;
     store_i;
     master;
+    interval;
   }
 
 type update_result =
@@ -340,11 +348,17 @@ let prefix_keys (store:store) prefix =
   store.s # prefix_keys (__prefix ^ prefix)
 
 let get_interval store =
-  Lwt.return (store.s # get_interval ())
+  Lwt.return (store.interval)
 
-class store_user_db interval store tx =
+let _set_interval store tx range =
+  let buf = Buffer.create 80 in
+  let () = Interval.interval_to buf range in
+  let range_s = Buffer.contents buf in
+  store.s # set tx __interval_key range_s
+
+class store_user_db store tx =
   let test k =
-    if not (Interval.is_ok interval k) then
+    if not (Interval.is_ok store.interval k) then
       raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
   in
   let test_option = function
@@ -368,9 +382,9 @@ object (self : # Registry.user_db)
     _range_entries store first finc last linc max
 end
 
-let _user_function (store:store) (interval:Interval.t) (name:string) (po:string option) tx =
+let _user_function (store:store) (name:string) (po:string option) tx =
   let f = Registry.Registry.lookup name in
-  let user_db = new store_user_db interval store tx in
+  let user_db = new store_user_db store tx in
   let ro = f user_db po in
   Lwt.return ro
 
@@ -436,7 +450,7 @@ let _insert_update (store:store) (update:Update.t) kt =
                     Lwt.return (Ok wanted)
                   end
       | Update.UserFunction(name,po) ->
-              _user_function store (store.s # get_interval ()) name po tx >>= fun ro ->
+              _user_function store name po tx >>= fun ro ->
               Lwt.return (Ok ro)
       | Update.Sequence updates 
       | Update.SyncedSequence updates ->
@@ -446,8 +460,7 @@ let _insert_update (store:store) (update:Update.t) kt =
                   | Stop -> raise Exit
                   | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
       | Update.SetInterval interval ->
-              store.s # set_interval tx interval >>= fun () ->
-              Lwt.return (Ok None)
+              return (_set_interval store tx interval)
       | Update.SetRouting routing ->
               store.s # set_routing tx routing >>= fun () ->
               Lwt.return (Ok None)

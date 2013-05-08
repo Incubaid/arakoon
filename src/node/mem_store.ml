@@ -24,7 +24,6 @@ open Store
 open Lwt
 open Log_extra
 open Update
-open Interval
 open Routing
 
 module StringMap = Map.Make(String);;
@@ -36,7 +35,6 @@ class mem_store db_name =
 object (self: #simple_store)
 
   val mutable kv = StringMap.empty
-  val mutable _interval = Interval.max
   val mutable _routing = None
   val mutable _tx = None
   val mutable _tx_lock = None
@@ -135,15 +133,6 @@ object (self: #simple_store)
   method reopen when_closed = Lwt.return ()
 
   method get_location () = failwith "not supported"
-
-  method set_interval tx iv =
-    Lwt_log.debug_f "set_interval %s" (Interval.to_string iv) >>= fun () ->
-    _interval <- iv;
-    Lwt.return ()
-
-  method get_interval () =
-    Lwt_log.ign_debug "get_interval";
-    _interval
 
   method get_routing () =
     match _routing with
