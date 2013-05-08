@@ -503,14 +503,6 @@ object(self: #simple_store)
         let c = _delete_prefix db prefix in 
         Lwt.return c)
 
-  method aSSert tx ?(_pf=__prefix) key (vo:string option) =
-    self # _update_in_tx tx
-      (fun db -> let r = _assert _pf db key vo in Lwt.return r)
-
-  method aSSert_exists tx ?(_pf=__prefix) key =
-    self # _update_in_tx tx
-      (fun db -> let r = _assert_exists _pf db key in Lwt.return r)
-
   method consensus_i () = _store_i
 
   method close () =

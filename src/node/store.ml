@@ -94,9 +94,6 @@ class type simple_store = object
   method get_location: unit -> string
   method relocate: string -> unit Lwt.t
 
-  method aSSert: transaction -> ?_pf: string -> string -> string option -> bool Lwt.t
-  method aSSert_exists: transaction -> ?_pf: string -> string           -> bool Lwt.t
-
   method get_interval: unit -> Interval.t
   method set_interval: transaction -> Interval.t -> unit Lwt.t
   method get_routing : unit -> Routing.t Lwt.t
@@ -341,7 +338,7 @@ let _insert_update (store:store) (update:Update.t) kt =
       g in
   let with_error notfound_msg f =
     catch_with_tx
-      (fun tx -> f tx >>= fun () -> Lwt.return (Ok None))
+      (fun tx -> f tx)
       (function
         | Not_found ->
             let rc = Arakoon_exc.E_NOT_FOUND
@@ -400,13 +397,14 @@ let _insert_update (store:store) (update:Update.t) kt =
       | Update.Nop -> Lwt.return (Ok None)
       | Update.Assert(k,vo) ->
           begin
-            store.s # aSSert tx k vo >>= function
-	          | true -> Lwt.return (Ok None)
-	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+            match vo, get_option store k with
+              | None, None -> Lwt.return (Ok None)
+              | Some v, Some v' when v = v' -> Lwt.return (Ok None)
+              | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
           end
       | Update.Assert_exists(k) ->
           begin
-            store.s # aSSert_exists tx k >>= function
+            store.s # exists (__prefix ^ k) >>= function
 	          | true -> Lwt.return (Ok None)
 	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
           end
@@ -421,20 +419,15 @@ in
   let do_one update =
     match update with
       | Update.Set(key,value) ->
-          with_error key (fun tx -> Lwt.return (_set store tx key value))
+          with_error key (fun tx -> _do_one update tx)
       | Update.MasterSet (m, lease) ->
-          with_error "Not_found" (fun tx -> store.s # set_master tx m lease)
+          with_error "Not_found" (fun tx -> _do_one update tx)
       | Update.Delete(key) ->
-          with_error key (fun tx -> Lwt.return (_delete store tx key))
+          with_error key (fun tx -> _do_one update tx)
       | Update.DeletePrefix prefix ->
           begin
             catch_with_tx
-              (fun tx ->
-                store.s # delete_prefix tx prefix >>= fun n_deleted ->
-                let sb = Buffer.create 8 in
-                let () = Llio.int_to sb n_deleted in
-                let ser = Buffer.contents sb in
-                Lwt.return (Ok (Some ser)))
+              (fun tx -> _do_one update tx)
               (fun e -> 
                 let rc = Arakoon_exc.E_UNKNOWN_FAILURE
                 and msg = Printexc.to_string e
@@ -444,18 +437,7 @@ in
       | Update.TestAndSet(key,expected,wanted)->
           begin
             catch_with_tx
-              (fun tx ->
-                let existing = get_option store key in
-                if existing <> expected
-                then
-                  Lwt.return (Ok existing)
-                else
-                  begin
-                    let () = match wanted with
-                      | None -> store.s # delete tx (__prefix ^ key)
-                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
-                    Lwt.return (Ok wanted)
-                  end)
+              (fun tx -> _do_one update tx)
               (function
                 | Not_found ->
                     let rc = Arakoon_exc.E_NOT_FOUND
@@ -470,9 +452,7 @@ in
           end
       | Update.UserFunction(name,po) ->
           catch_with_tx
-            (fun tx ->
-              _user_function store (store.s # get_interval ()) name po tx >>= fun ro ->
-              Lwt.return (Ok ro))
+            (fun tx -> _do_one update tx)
             (function
               | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->
@@ -484,13 +464,7 @@ in
       | Update.Sequence updates 
       | Update.SyncedSequence updates ->
           catch_with_tx
-            (fun tx ->
-              Lwt_list.iter_s (fun update -> _do_one update tx >>=
-                fun r -> match r with
-                  | Ok _ -> Lwt.return ()
-                  | Stop -> raise Exit
-                  | Update_fail (rc, msg) -> raise (Arakoon_exc.Exception(rc, msg))) updates >>= fun () ->
-              Lwt.return (Ok None))
+            (fun tx -> _do_one update tx)
             (function
               | Key_not_found key ->
                   let rc = Arakoon_exc.E_NOT_FOUND
@@ -510,9 +484,7 @@ in
             )
       | Update.SetInterval interval ->
           catch_with_tx
-            (fun tx ->
-              store.s # set_interval tx interval >>= fun () ->
-              Lwt.return (Ok None))
+            (fun tx -> _do_one update tx)
             (function
               | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->
@@ -522,9 +494,7 @@ in
                   Lwt.return (Update_fail (rc,msg)))
       | Update.SetRouting routing ->
           catch_with_tx
-            (fun tx ->
-              store.s # set_routing tx routing >>= fun () ->
-              Lwt.return (Ok None))
+            (fun tx -> _do_one update tx)
             (function
               | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->
@@ -535,9 +505,7 @@ in
             )
       | Update.SetRoutingDelta (left, sep, right) ->
           catch_with_tx
-            (fun tx ->
-              store.s # set_routing_delta tx left sep right >>= fun () ->
-              Lwt.return (Ok None))
+            (fun tx -> _do_one update tx)
             (function
               | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->
@@ -549,34 +517,21 @@ in
       | Update.Nop -> Lwt.return (Ok None)
       | Update.Assert(k,vo) ->
           catch_with_tx
-	        (fun tx -> store.s # aSSert tx k vo >>= function
-	          | true -> Lwt.return (Ok None)
-	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-	        )
+            (fun tx -> _do_one update tx)
 	        (fun e ->
 	          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	          and msg = Printexc.to_string e
 	          in Lwt.return (Update_fail(rc, msg)))
       | Update.Assert_exists(k) ->
           catch_with_tx
-	        (fun tx -> store.s # aSSert_exists tx k >>= function
-	          | true -> Lwt.return (Ok None)
-	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-	        )
+            (fun tx -> _do_one update tx)
 	        (fun e ->
 	          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	          and msg = Printexc.to_string e
 	          in Lwt.return (Update_fail(rc, msg)))
       | Update.AdminSet(k,vo) ->
           catch_with_tx
-            (fun tx ->
-              let () =
-                match vo with
-                  | None   -> store.s # delete tx (__adminprefix ^ k)
-                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
-              in
-              Lwt.return (Ok None)
-            )
+            (fun tx -> _do_one update tx)
             (fun e ->
               let rc = Arakoon_exc.E_UNKNOWN_FAILURE
               and msg = Printexc.to_string e

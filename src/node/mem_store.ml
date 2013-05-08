@@ -143,21 +143,6 @@ object (self: #simple_store)
   method optimize () = Lwt.return ()
   method defrag () = Lwt.return ()
 
-  method aSSert tx ?(_pf=__prefix) key vo =
-    let r =
-      match vo with
-	| None -> not (StringMap.mem key kv)
-	| Some v ->
-	  begin
-	    try StringMap.find key kv = v
-	    with Not_found -> false
-	  end
-    in Lwt.return r
-
-  method aSSert_exists tx ?(_pf=__prefix) key =
-    let r = (StringMap.mem key kv)
-    in Lwt.return r
-
   method who_master () = master
 
   method private delete_no_incr ?(_pf=__prefix) key =
