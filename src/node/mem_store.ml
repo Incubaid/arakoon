@@ -37,9 +37,6 @@ object (self: #simple_store)
   val mutable _tx_lock = None
   val _tx_lock_mutex = Lwt_mutex.create ()
 
-  method is_closed () =
-    false
-
   method with_transaction_lock f =
     Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
       Lwt.finalize
@@ -150,8 +147,7 @@ end
 
 let make_mem_store ?(read_only=false) db_name =
   let store = new mem_store db_name in
-  let store2 = (store :> simple_store) in
-  Lwt.return (make_store store2)
+  Lwt.return (make_store store)
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()

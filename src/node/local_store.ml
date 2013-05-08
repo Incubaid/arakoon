@@ -85,13 +85,9 @@ class local_store (db_location:string) (db:Camltc.Hotc.t) =
 
 object(self: #simple_store)
   val mutable my_location = db_location
-  val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
   val mutable _tx_lock = None
   val _tx_lock_mutex = Lwt_mutex.create ()
-
-  method is_closed () =
-    _closed
 
   method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
     fun tx f ->
@@ -211,8 +207,7 @@ object(self: #simple_store)
       (fun db -> _delete_prefix db prefix)
 
   method close () =
-    _closed <- true;
-    Camltc.Hotc.close db >>= fun () ->  
+    Camltc.Hotc.close db >>= fun () ->
     Lwt_log.info_f "local_store %S :: closed  () " db_location >>= fun () ->
     Lwt.return ()
 
@@ -367,4 +362,4 @@ let make_local_store ?(read_only=false) db_name =
   get_construct_params db_name ~mode
   >>= fun db ->
   let store = new local_store db_name db in
-  Lwt.return (make_store (store :> simple_store))
+  Lwt.return (make_store store)

@@ -79,7 +79,6 @@ class type simple_store = object
   method delete: transaction -> string -> unit
   method delete_prefix: transaction -> ?_pf: string -> string -> int
 
-  method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> bool -> unit Lwt.t
 
@@ -105,6 +104,7 @@ type store = { s : simple_store;
                mutable interval : Interval.t;
                mutable routing : Routing.t option;
                mutable quiesced : bool;
+               mutable closed : bool;
              }
 
 let _get_interval (store:simple_store) =
@@ -150,6 +150,7 @@ let make_store simple_store =
     interval;
     routing;
     quiesced = false;
+    closed = false;
   }
 
 type update_result =
@@ -168,7 +169,7 @@ let get (store:store) key =
     Lwt.return (_get store key)
   with
     | Failure msg ->
-        let _closed = store.s # is_closed () in
+        let _closed = store.closed in
         Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
         if _closed
         then
@@ -210,9 +211,11 @@ let get_location (store:store) =
 let reopen (store:store) f =
   store.s # reopen f store.quiesced >>= fun () ->
   store.store_i <- _consensus_i store.s;
+  store.closed <- false;
   Lwt.return ()
 
 let close (store:store) =
+  store.closed <- true;
   store.s # close ()
 
 let relocate (store:store) loc =
@@ -336,7 +339,7 @@ let _set_routing_delta store tx left sep right =
 
 
 let with_transaction (store:store) ?(key=None) f =
-  if store.s # is_closed ()
+  if store.closed
   then
     raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
   else
