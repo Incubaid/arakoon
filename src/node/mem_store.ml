@@ -162,7 +162,7 @@ object (self: #simple_store)
     in
     Lwt.return all
 
-  method delete_prefix tx ?(_pf=__prefix) prefix = Lwt.return 0
+  method delete_prefix tx ?(_pf=__prefix) prefix = 0
     
 end
 

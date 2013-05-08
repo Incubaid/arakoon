@@ -77,7 +77,7 @@ class type simple_store = object
   method prefix_keys: string -> int -> string list Lwt.t
   method set: transaction -> string -> string -> unit
   method delete: transaction -> string -> unit
-  method delete_prefix: transaction -> ?_pf: string -> string -> int Lwt.t
+  method delete_prefix: transaction -> ?_pf: string -> string -> int
 
   method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
@@ -466,7 +466,8 @@ let _insert_update (store:store) (update:Update.t) kt =
       | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
       | Update.Delete(key) -> return (_delete store tx key)
       | Update.DeletePrefix prefix ->
-          store.s # delete_prefix tx prefix >>= fun n_deleted ->
+          Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
+          let n_deleted = store.s # delete_prefix tx prefix in
           let sb = Buffer.create 8 in
           let () = Llio.int_to sb n_deleted in
           let ser = Buffer.contents sb in

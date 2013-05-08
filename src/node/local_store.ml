@@ -142,21 +142,7 @@ object(self: #simple_store)
   method is_closed () =
     _closed
 
-  method private _wrap_exception name (f:unit -> 'a Lwt.t) = 
-    (* this should not be a method as it hinders polymorphism *)
-    Lwt.catch
-      f 
-      (function
-        | Failure s -> 
-          begin
-            Lwt_log.debug_f "%s Failure %s: => FOOBAR? %b" name s _closed >>= fun () ->
-            if _closed 
-            then Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
-            else Lwt.fail Server.FOOBAR
-          end
-        | exn -> Lwt.fail exn)    
-
-  method private _wrap_exception2 name (f:unit -> 'a) =
+  method private _wrap_exception name (f:unit -> 'a) =
     try
       f ()
     with
@@ -169,7 +155,7 @@ object(self: #simple_store)
           end
         | exn -> raise exn
 
-  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
+  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
     fun tx f ->
       match _tx with
         | None -> failwith "not in a transaction"
@@ -179,21 +165,6 @@ object(self: #simple_store)
               failwith "the provided transaction is not the current transaction of the store"
             else
               f db
-
-  method private _with_tx2 : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
-    fun tx f ->
-      match _tx with
-        | None -> failwith "not in a transaction"
-        | Some (tx', db) ->
-            if tx != tx'
-            then
-              failwith "the provided transaction is not the current transaction of the store"
-            else
-              f db
-
-  method private _update_in_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a Lwt.t) -> 'a Lwt.t =
-    fun tx f ->
-      self # _with_tx tx f
 
   method with_transaction_lock f =
     Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
@@ -311,21 +282,18 @@ object(self: #simple_store)
 	Lwt.return keys_list
 
   method set tx key value =
-    self # _wrap_exception2 "set"
-      (fun () -> self # _with_tx2 tx
+    self # _wrap_exception "set"
+      (fun () -> self # _with_tx tx
         (fun db -> _set db key value))
 
   method delete tx key =
-    self # _wrap_exception2 "delete"
-      (fun () -> self # _with_tx2 tx
+    self # _wrap_exception "delete"
+      (fun () -> self # _with_tx tx
         (fun db -> _delete db key) )
 
-  method delete_prefix tx ?(_pf=__prefix) prefix = 
-    Lwt_log.debug_f "local_store :: delete_prefix %S" prefix >>= fun () ->
-    self # _update_in_tx tx
-      (fun db -> 
-        let c = _delete_prefix db prefix in 
-        Lwt.return c)
+  method delete_prefix tx ?(_pf=__prefix) prefix =
+    self # _with_tx tx
+      (fun db -> _delete_prefix db prefix)
 
   method close () =
     _closed <- true;
