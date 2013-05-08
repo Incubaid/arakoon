@@ -100,13 +100,7 @@ object (self: #simple_store)
   method set tx key value =
     kv <- StringMap.add key value kv
 
-  method quiesce () = Lwt.return ()
-
-  method unquiesce () = Lwt.return ()
-
-  method quiesced () = false
-
-  method optimize () = Lwt.return ()
+  method optimize quiesced = Lwt.return ()
   method defrag () = Lwt.return ()
 
   method private delete_no_incr ?(_pf=__prefix) key =
@@ -127,7 +121,7 @@ object (self: #simple_store)
 
   method close () = Lwt.return ()
 
-  method reopen when_closed = Lwt.return ()
+  method reopen when_closed quiesced = Lwt.return ()
 
   method get_location () = failwith "not supported"
 

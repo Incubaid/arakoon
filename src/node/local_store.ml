@@ -85,14 +85,10 @@ class local_store (db_location:string) (db:Camltc.Hotc.t) =
 
 object(self: #simple_store)
   val mutable my_location = db_location
-  val mutable _quiesced = false
   val mutable _closed = false (* set when close method is called *)
   val mutable _tx = None
   val mutable _tx_lock = None
   val _tx_lock_mutex = Lwt_mutex.create ()
-
-  val _quiescedEx = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE,
-       "Invalid operation on quiesced store")
 
   method is_closed () =
     _closed
@@ -155,25 +151,7 @@ object(self: #simple_store)
           Lwt.return (); >>= fun () ->
         _tx <- None; Lwt.return ())
 
-  method quiesce () =
-    begin
-      if _quiesced 
-      then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
-      else
-        begin
-          _quiesced <- true;
-	      self # reopen (fun () -> Lwt.return ()) >>= fun () ->
-	      Lwt.return ()
-        end
-    end
-
-  method unquiesce () =
-    _quiesced <- false;
-    self # reopen (fun () -> Lwt.return ())
-
-  method quiesced () = _quiesced
-
-  method optimize () = 
+  method optimize quiesced =
     let db_optimal = my_location ^ ".opt" in
     Lwt_log.debug "Copying over db file" >>= fun () ->
     Lwt_io.with_file
@@ -195,7 +173,7 @@ object(self: #simple_store)
       )
     end >>= fun () ->
     File_system.rename db_optimal my_location >>= fun () ->
-    self # reopen (fun () -> Lwt.return ())
+    self # reopen (fun () -> Lwt.return ()) quiesced
 
   method defrag() = 
     Lwt_log.debug "local_store :: defrag" >>= fun () ->
@@ -257,10 +235,10 @@ object(self: #simple_store)
 
   method get_location () = Camltc.Hotc.filename db
 
-  method reopen f =
+  method reopen f quiesced =
     let mode =
     begin
-      if _quiesced then
+      if quiesced then
         B.readonly_mode
       else
         B.default_mode
@@ -274,33 +252,24 @@ object(self: #simple_store)
     Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) )
 
   method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
-    if _quiesced 
-    then
-      begin
-        let db_name = my_location in
-        let stat = Unix.LargeFile.stat db_name in
-        let length = stat.st_size in
-        Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
-        begin
-          if _networkClient 
-          then
-            Llio.output_int oc 0 >>= fun () ->
-          Llio.output_int64 oc length 
-          else Lwt.return ()
-        end
-        >>= fun () ->
-        Lwt_io.with_file
-          ~flags:[Unix.O_RDONLY]
-          ~mode:Lwt_io.input
-          db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
-        >>= fun () ->
-        Lwt_io.flush oc
-      end
-    else
-      begin
-        let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
-        raise ex
-      end
+    let db_name = my_location in
+    let stat = Unix.LargeFile.stat db_name in
+    let length = stat.st_size in
+    Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+    begin
+      if _networkClient 
+      then
+        Llio.output_int oc 0 >>= fun () ->
+      Llio.output_int64 oc length 
+      else Lwt.return ()
+    end
+    >>= fun () ->
+    Lwt_io.with_file
+      ~flags:[Unix.O_RDONLY]
+      ~mode:Lwt_io.input
+      db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+    >>= fun () ->
+    Lwt_io.flush oc
 
   method relocate new_location =
     copy_store my_location new_location true >>= fun () ->

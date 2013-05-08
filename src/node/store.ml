@@ -81,17 +81,14 @@ class type simple_store = object
 
   method is_closed : unit -> bool
   method close: unit -> unit Lwt.t
-  method reopen: (unit -> unit Lwt.t) -> unit Lwt.t
+  method reopen: (unit -> unit Lwt.t) -> bool -> unit Lwt.t
 
   method get_location: unit -> string
   method relocate: string -> unit Lwt.t
 
   method get_key_count : unit -> int64 Lwt.t
 
-  method quiesce : unit -> unit Lwt.t
-  method unquiesce : unit -> unit Lwt.t
-  method quiesced : unit -> bool
-  method optimize : unit -> unit Lwt.t
+  method optimize : bool -> unit Lwt.t
   method defrag : unit -> unit Lwt.t
   method copy_store : ?_networkClient: bool -> Lwt_io.output_channel -> unit Lwt.t
   method get_fringe : string option -> Routing.range_direction -> (string * string) list Lwt.t
@@ -107,6 +104,7 @@ type store = { s : simple_store;
                mutable master : (string * int64) option;
                mutable interval : Interval.t;
                mutable routing : Routing.t option;
+               mutable quiesced : bool;
              }
 
 let _get_interval (store:simple_store) =
@@ -151,6 +149,7 @@ let make_store simple_store =
     master;
     interval;
     routing;
+    quiesced = false;
   }
 
 type update_result =
@@ -209,7 +208,7 @@ let get_location (store:store) =
   store.s # get_location ()
 
 let reopen (store:store) f =
-  store.s # reopen f >>= fun () ->
+  store.s # reopen f store.quiesced >>= fun () ->
   store.store_i <- _consensus_i store.s;
   Lwt.return ()
 
@@ -220,16 +219,24 @@ let relocate (store:store) loc =
   store.s # relocate loc
 
 let quiesced (store:store) =
-  store.s # quiesced ()
+  store.quiesced
 
 let quiesce (store:store) =
-  store.s # quiesce ()
+  if store.quiesced
+  then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+  else
+    begin
+      store.quiesced <- true;
+	  reopen store (fun () -> Lwt.return ()) >>= fun () ->
+	  Lwt.return ()
+    end
 
 let unquiesce (store:store) =
-  store.s # unquiesce ()
+  store.quiesced <- false;
+  reopen store (fun () -> Lwt.return ())
 
 let optimize (store:store) =
-  store.s # optimize ()
+  store.s # optimize store.quiesced
 
 let set_master (store:store) tx master lease_start =
   store.s # set tx __master_key master;
@@ -241,7 +248,7 @@ let set_master (store:store) tx master lease_start =
   Lwt.return ()
 
 let set_master_no_inc (store:store) master lease_start =
-  if (store.s # quiesced ())
+  if store.quiesced
   then
     begin
       store.master <- Some (master, lease_start);
@@ -280,7 +287,12 @@ let get_fringe (store:store) b d =
   store.s # get_fringe b d
 
 let copy_store (store:store) oc =
-  store.s # copy_store oc
+  if store.quiesced
+  then
+    store.s # copy_store oc
+  else
+    let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+    raise ex
 
 let defrag (store:store) =
   store.s # defrag ()
@@ -700,7 +712,7 @@ let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
             else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
     end
     >>= fun () ->
-    if store.s # quiesced ()
+    if store.quiesced
     then
       begin
         _with_transaction store kt (fun tx -> incr_i store tx) >>= fun () ->
@@ -744,7 +756,7 @@ let on_consensus (store:store) (v,n,i) =
             Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
               (Sn.string_of i) (Sn.string_of store_i)
   end >>= fun () ->
-  if store.s # quiesced () 
+  if store.quiesced
   then
     begin
       store.s # with_transaction (fun tx -> incr_i store tx) >>= fun () ->
