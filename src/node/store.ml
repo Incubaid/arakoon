@@ -154,7 +154,6 @@ let make_store simple_store =
   }
 
 type update_result =
-  | Stop
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
@@ -440,10 +439,11 @@ object (self : # Registry.user_db)
 end
 
 let _user_function (store:store) (name:string) (po:string option) tx =
-  let f = Registry.Registry.lookup name in
-  let user_db = new store_user_db store tx in
-  let ro = f user_db po in
-  Lwt.return ro
+  Lwt.wrap (fun () ->
+    let f = Registry.Registry.lookup name in
+    let user_db = new store_user_db store tx in
+    let ro = f user_db po in
+    ro)
 
 
 type key_or_transaction =
@@ -458,6 +458,71 @@ let _with_transaction : store -> key_or_transaction -> (transaction -> 'a Lwt.t)
         f tx
 
 let _insert_update (store:store) (update:Update.t) kt =
+  let rec _do_one update tx =
+    let return () = Lwt.return (Ok None) in
+    let wrap f = (Lwt.wrap f) >>= return in
+    match update with
+      | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
+      | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
+      | Update.Delete(key) ->
+          Lwt_log.debug_f "store # delete %S" key >>= fun () ->
+          wrap (fun () -> _delete store tx key)
+      | Update.DeletePrefix prefix ->
+          Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
+          let n_deleted = store.s # delete_prefix tx (__prefix ^ prefix) in
+          let sb = Buffer.create 8 in
+          let () = Llio.int_to sb n_deleted in
+          let ser = Buffer.contents sb in
+          Lwt.return (Ok (Some ser))
+      | Update.TestAndSet(key,expected,wanted)->
+                let existing = get_option store key in
+                if existing = expected
+                then
+                  begin
+                    match wanted with
+                      | None -> store.s # delete tx (__prefix ^ key)
+                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s
+                  end;
+                Lwt.return (Ok existing)
+      | Update.UserFunction(name,po) ->
+              _user_function store name po tx >>= fun ro ->
+              Lwt.return (Ok ro)
+      | Update.Sequence updates
+      | Update.SyncedSequence updates ->
+              Lwt_list.iter_s (fun update ->
+                _do_one update tx >>= function
+                  | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
+                  | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+      | Update.SetInterval interval ->
+              wrap (fun () -> _set_interval store tx interval)
+      | Update.SetRouting routing ->
+          Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
+          wrap (fun () -> _set_routing store tx routing)
+      | Update.SetRoutingDelta (left, sep, right) ->
+          Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
+          wrap (fun () -> _set_routing_delta store tx left sep right)
+      | Update.Nop -> Lwt.return (Ok None)
+      | Update.Assert(k,vo) ->
+          begin
+            match vo, get_option store k with
+              | None, None -> Lwt.return (Ok None)
+              | Some v, Some v' when v = v' -> Lwt.return (Ok None)
+              | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+          end
+      | Update.Assert_exists(k) ->
+          begin
+            match store.s # exists (__prefix ^ k) with
+	          | true -> Lwt.return (Ok None)
+	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+          end
+      | Update.AdminSet(k,vo) ->
+              let () =
+                match vo with
+                  | None   -> store.s # delete tx (__adminprefix ^ k)
+                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
+              in
+              Lwt.return (Ok None)
+  in
   let with_transaction' f = _with_transaction store kt f in
   let catch_with_tx f g =
     Lwt.catch
@@ -482,73 +547,6 @@ let _insert_update (store:store) (update:Update.t) kt =
             Lwt.return (Update_fail(rc, msg))
       )
   in
-  let rec _do_one update tx =
-    let return () = Lwt.return (Ok None) in
-    match update with
-      | Update.Set(key,value) -> return (_set store tx key value)
-      | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
-      | Update.Delete(key) ->
-          Lwt_log.debug_f "store # delete %S" key >>= fun () ->
-          return (_delete store tx key)
-      | Update.DeletePrefix prefix ->
-          Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = store.s # delete_prefix tx (__prefix ^ prefix) in
-          let sb = Buffer.create 8 in
-          let () = Llio.int_to sb n_deleted in
-          let ser = Buffer.contents sb in
-          Lwt.return (Ok (Some ser))
-      | Update.TestAndSet(key,expected,wanted)->
-                let existing = get_option store key in
-                if existing <> expected
-                then
-                  Lwt.return (Ok existing)
-                else
-                  begin
-                    let () = match wanted with
-                      | None -> store.s # delete tx (__prefix ^ key)
-                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
-                    Lwt.return (Ok wanted)
-                  end
-      | Update.UserFunction(name,po) ->
-              _user_function store name po tx >>= fun ro ->
-              Lwt.return (Ok ro)
-      | Update.Sequence updates 
-      | Update.SyncedSequence updates ->
-              Lwt_list.iter_s (fun update ->
-                _do_one update tx >>= function
-                  | Update_fail (rc, msg) -> raise (Arakoon_exc.Exception(rc, msg))
-                  | Stop -> raise Exit
-                  | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
-      | Update.SetInterval interval ->
-              return (_set_interval store tx interval)
-      | Update.SetRouting routing ->
-          Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
-          return (_set_routing store tx routing)
-      | Update.SetRoutingDelta (left, sep, right) ->
-          Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-          return (_set_routing_delta store tx left sep right)
-      | Update.Nop -> Lwt.return (Ok None)
-      | Update.Assert(k,vo) ->
-          begin
-            match vo, get_option store k with
-              | None, None -> Lwt.return (Ok None)
-              | Some v, Some v' when v = v' -> Lwt.return (Ok None)
-              | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-          end
-      | Update.Assert_exists(k) ->
-          begin
-            match store.s # exists (__prefix ^ k) with
-	          | true -> Lwt.return (Ok None)
-	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-          end
-      | Update.AdminSet(k,vo) ->
-              let () =
-                match vo with
-                  | None   -> store.s # delete tx (__adminprefix ^ k)
-                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
-              in
-              Lwt.return (Ok None)
-in
   let do_one update =
     match update with
       | Update.Set(key,value) ->
@@ -594,7 +592,7 @@ in
                   in
                   Lwt.return (Update_fail(rc,msg))
             )
-      | Update.Sequence updates 
+      | Update.Sequence updates
       | Update.SyncedSequence updates ->
           catch_with_tx
             (fun tx -> _do_one update tx)
@@ -609,6 +607,7 @@ in
                   Lwt.return (Update_fail (rc,msg))
               | Arakoon_exc.Exception(rc,msg) ->
                   Lwt.return (Update_fail(rc,msg))
+              | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
               | e ->
                   let rc = Arakoon_exc.E_UNKNOWN_FAILURE
                   and msg = Printexc.to_string e

@@ -92,9 +92,8 @@ let _update_rendezvous self ~so_post update update_stats push =
   in
   f "rendezvous (%s) took %f" (Update.update2s update) t >>= fun () ->
   match r with
-    | Store.Stop -> Lwt.fail Forced_stop
     | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
-  | Store.Ok so -> Lwt.return (so_post so)
+    | Store.Ok so -> Lwt.return (so_post so)
 
 
 class sync_backend cfg 

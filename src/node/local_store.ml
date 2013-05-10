@@ -182,12 +182,12 @@ object(self: #simple_store)
 
   method range_entries prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = _range_entries prefix bdb (_f prefix first) finc (_l prefix last) linc max in
+    let r = _range_entries prefix bdb first finc last linc max in
     r
 
   method rev_range_entries prefix first finc last linc max =
     let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.rev_range_entries prefix bdb (_f prefix first) finc (_l prefix last) linc max in
+    let r = B.rev_range_entries prefix bdb first finc last linc max in
     r
 
   method prefix_keys prefix max =
