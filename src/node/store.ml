@@ -366,13 +366,13 @@ let multi_get_option (store:store) keys =
 let _delete (store:store) tx key =
   store.s # delete tx (__prefix ^ key)
 
-let get_j (store:store) =
+let _get_j (store:store) =
   try
     let jstring = store.s # get __j_key in
     int_of_string jstring
   with Not_found -> 0
 
-let set_j (store:store) tx j =
+let _set_j (store:store) tx j =
   store.s # set tx __j_key (string_of_int j)
 
 let _test_and_set (store:store) tx key expected wanted =
@@ -462,10 +462,10 @@ let _insert_update (store:store) (update:Update.t) kt =
   let catch_with_tx f g =
     Lwt.catch
       (fun () ->
-        let j = get_j store in
+        let j = _get_j store in
         Lwt.finalize
           (fun () -> with_transaction' (fun tx -> f tx))
-          (fun () -> with_transaction' (fun tx -> Lwt.return (set_j store tx (j + 1)))))
+          (fun () -> with_transaction' (fun tx -> Lwt.return (_set_j store tx (j + 1)))))
       g in
   let with_error notfound_msg f =
     catch_with_tx
@@ -692,7 +692,7 @@ let _insert_updates (store:store) (us: Update.t list) kt =
 
 let _insert_value (store:store) (value:Value.t) kt =
   let updates = Value.updates_from_value value in
-  let j = get_j store in
+  let j = _get_j store in
   let skip n l =
     let rec inner = function
       | 0, l -> l
@@ -704,7 +704,7 @@ let _insert_value (store:store) (value:Value.t) kt =
   _insert_updates store updates' kt >>= fun (urs:update_result list) ->
   _with_transaction store kt (fun tx ->
     incr_i store tx >>= fun () ->
-    Lwt.return (set_j store tx 0)) >>= fun () ->
+    Lwt.return (_set_j store tx 0)) >>= fun () ->
   Lwt.return urs
 
 

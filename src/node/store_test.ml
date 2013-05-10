@@ -87,7 +87,7 @@ let test_safe_insert_value () =
     Lwt_list.iter_s
       (fun (value, asserts) ->
         Store.safe_insert_value store (get_next_i store) value >>= fun _ ->
-        let j = Store.get_j store in
+        let j = Store._get_j store in
         if j <> 0 then failwith "j is not 0";
         Lwt_list.iter_s
           (fun assert' -> assert' store)
@@ -107,7 +107,7 @@ let test_safe_insert_value_with_partial_value_update () =
     Store.with_transaction_lock store (fun k -> Store._insert_update store u1 (Store.Key k)) >>= fun _ ->
     Store.with_transaction_lock store (fun k -> Store._insert_update store u2 (Store.Key k)) >>= fun _ ->
 
-    let j = Store.get_j store in
+    let j = Store._get_j store in
     if j = 0 then failwith "j is 0";
 
     Store.get store k >>= fun value ->
@@ -115,7 +115,7 @@ let test_safe_insert_value_with_partial_value_update () =
 
     Store.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
 
-    let j = Store.get_j store in
+    let j = Store._get_j store in
     if j <> 0 then failwith "j is not 0";
 
     Store.get store k >>= fun value ->
