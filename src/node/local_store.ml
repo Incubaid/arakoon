@@ -194,7 +194,7 @@ object(self: #simple_store)
     let bdb = Camltc.Hotc.get_bdb db in
     let keys_array = B.prefix_keys bdb prefix max in
 	let keys_list = filter_keys_array keys_array in
-	Lwt.return keys_list
+	keys_list
 
   method set tx key value =
     self # _with_tx tx (fun db -> _set db key value)
@@ -202,7 +202,7 @@ object(self: #simple_store)
   method delete tx key =
     self # _with_tx tx (fun db -> _delete db key)
 
-  method delete_prefix tx ?(_pf=__prefix) prefix =
+  method delete_prefix tx prefix =
     self # _with_tx tx
       (fun db -> _delete_prefix db prefix)
 

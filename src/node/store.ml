@@ -74,10 +74,10 @@ class type simple_store = object
   method range: string -> string option -> bool -> string option -> bool -> int -> string list
   method range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
   method rev_range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  method prefix_keys: string -> int -> string list Lwt.t
+  method prefix_keys: string -> int -> string list
   method set: transaction -> string -> string -> unit
   method delete: transaction -> string -> unit
-  method delete_prefix: transaction -> ?_pf: string -> string -> int
+  method delete_prefix: transaction -> string -> int
 
   method close: unit -> unit Lwt.t
   method reopen: (unit -> unit Lwt.t) -> bool -> unit Lwt.t
@@ -303,7 +303,7 @@ let defrag (store:store) =
 let get_key_count (store:store) =
   store.s # get_key_count () >>= fun raw_count ->
   (* Leave out administrative keys *)
-  store.s # prefix_keys __adminprefix (-1) >>= fun admin_keys ->
+  let admin_keys = store.s # prefix_keys __adminprefix (-1) in
   let admin_key_count = List.length admin_keys in
   Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
 
@@ -401,8 +401,8 @@ let range (store:store) first finc last linc max =
   Lwt_log.debug_f "%s %s %s" __prefix (string_option2s first) (string_option2s last) >>= fun () ->
   Lwt.return (store.s # range __prefix None finc last linc max)
 
-let prefix_keys (store:store) prefix =
-  store.s # prefix_keys (__prefix ^ prefix)
+let prefix_keys (store:store) prefix max =
+  Lwt.return (store.s # prefix_keys (__prefix ^ prefix) max)
 
 let get_interval store =
   Lwt.return (store.interval)
@@ -492,7 +492,7 @@ let _insert_update (store:store) (update:Update.t) kt =
           return (_delete store tx key)
       | Update.DeletePrefix prefix ->
           Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = store.s # delete_prefix tx prefix in
+          let n_deleted = store.s # delete_prefix tx (__prefix ^ prefix) in
           let sb = Buffer.create 8 in
           let () = Llio.int_to sb n_deleted in
           let ser = Buffer.contents sb in

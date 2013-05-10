@@ -92,7 +92,12 @@ object (self: #simple_store)
 	then k::a
 	else a
       ) kv []
-    in Lwt.return (filter_keys_list keys)
+    in filter_keys_list keys
+
+  method delete_prefix tx prefix =
+    let keys = self # prefix_keys prefix (-1) in
+    let () = List.iter (fun k -> self # delete tx k) keys in
+    List.length keys
 
   method set tx key value =
     kv <- StringMap.add key value kv
@@ -140,8 +145,6 @@ object (self: #simple_store)
       kv []
     in
     Lwt.return all
-
-  method delete_prefix tx ?(_pf=__prefix) prefix = 0
     
 end
 
