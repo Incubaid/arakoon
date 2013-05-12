@@ -73,6 +73,8 @@ val output_string:        lwtoc -> string        -> unit Lwt.t
 val output_list:        
   (lwtoc -> 'a -> unit Lwt.t) ->
    lwtoc -> 'a list -> unit Lwt.t
+
+val output_string_list:   lwtoc -> string list   -> unit Lwt.t
 val output_hashtbl: 
   (lwtoc -> 'a -> 'b -> unit Lwt.t) -> 
   lwtoc -> ('a, 'b) Hashtbl.t -> unit Lwt.t
@@ -87,7 +89,8 @@ val input_int64: lwtic  -> int64 Lwt.t
 val input_string: lwtic -> string Lwt.t
 val input_string_option: lwtic -> (string option) Lwt.t
 val input_string_pair: lwtic -> (string * string) Lwt.t
-val input_list:(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
+val input_list  :(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
+val input_listl :(lwtic -> 'a Lwt.t) -> lwtic -> (int * 'a list) Lwt.t
 val input_string_list: lwtic -> string list Lwt.t
 val input_kv_list: lwtic -> ((string * string) list) Lwt.t
 val input_hashtbl: (lwtic-> 'a Lwt.t) -> (lwtic -> 'b Lwt.t) -> 

@@ -242,6 +242,7 @@ ARA_CMD_SYNCED_SEQUENCE          = 0x00000024 | ARA_CMD_MAG
 ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
 ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
 ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
+ARA_CMD_MULTI_GET_OPTION         = 0x00000031 | ARA_CMD_MAG
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -252,11 +253,12 @@ ARA_ERR_NOT_MASTER = 4
 # not found
 ARA_ERR_NOT_FOUND = 5
 # wrong cluster
-ARA_ERR_WRONG_CLUSTER = 6
-ARA_ERR_ASSERTION_FAILED = 7
-ARA_ERR_RANGE_ERROR = 9
-ARA_ERR_GOING_DOWN = 16
+ARA_ERR_WRONG_CLUSTER       = 6
+ARA_ERR_ASSERTION_FAILED    = 7
+ARA_ERR_RANGE_ERROR         = 9
+ARA_ERR_GOING_DOWN          = 16
 ARA_ERR_ASSERTEXISTS_FAILED = 17
+ARA_ERR_NOT_SUPPORTED       = 0x20
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -611,6 +613,14 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
+    def encodeMultiGetOption(keys,allowDirty):
+        retVal = _packInt(ARA_CMD_MULTI_GET_OPTION) + _packBool(allowDirty)
+        retVal += _packInt(len(keys))
+        for key in keys:
+            retVal += _packString(key)
+        return retVal
+
+    @staticmethod
     def encodeExpectProgressPossible():
         retVal = _packInt(ARA_CMD_EXPECT_PROGRESS_POSSIBLE)
         return retVal
@@ -696,6 +706,17 @@ class ArakoonProtocol :
         for i in range( arraySize ) :
             retVal[:0] = [ _recvString( con ) ]
         return retVal
+
+    @staticmethod
+    def decodeStringOptionListResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        retVal = []
+        arraySize = _recvInt(con)
+        for i in range(arraySize):
+            s = _recvStringOption(con)
+            retVal.append(s)
+        return retVal
+
 
     @staticmethod
     def decodeNurseryCfgResult( con ):

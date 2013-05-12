@@ -171,7 +171,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
         else
           Lwt.return ()
     in
-    let f entry =
+    let f tx entry =
       let i = Entry.i_of entry 
       and value = Entry.v_of entry 
       in
@@ -188,7 +188,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		             a node in catchup thinks it's master due to 
 		             some lease starting in the past *)
 		          let pv' = Value.clear_master_set pv in
-		          Store.safe_insert_value store pi pv' >>= fun _ ->
+		          Store.safe_insert_value ~tx store pi pv' >>= fun _ ->
 		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
@@ -199,13 +199,51 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		          Lwt.return ()
 		        end
     in
-    tlog_coll # iterate start_i too_far_i f >>= fun () ->
+    (* try to batch transactions to speedup the process *)
+    let batch = Queue.create ()
+    and batch_i = ref 0 in
+    let iter_batch () =
+      let current_acc = !acc in
+      Lwt.catch
+        (fun () ->
+          Lwt_log.info "trying batched transactions" >>= fun () ->
+          store # with_transaction (fun tx ->
+            Queue.fold (fun acc tlogentry -> acc >>= (fun () -> f (Some tx) tlogentry)) (Lwt.return ()) batch)
+          >>= fun () ->
+          Queue.clear batch;
+          Lwt.return ())
+        (fun _ ->
+          let rec inner () =
+            if Queue.is_empty batch
+            then Lwt.return ()
+            else
+              f None (Queue.take batch) >>= (fun () -> inner ()) in
+          Lwt_log.info "batching transactions failed; going back to not batched mode" >>= fun () ->
+          acc := current_acc;
+          inner ()) in
+    let batched_f tlogentry =
+      Queue.add tlogentry batch;
+      batch_i := !batch_i + 1;
+      if !batch_i < 1000 (* magic batch size *)
+      then
+        begin
+          Lwt.return ()
+        end
+      else
+        begin
+          let r = iter_batch () in
+          batch_i := 0;
+          r
+        end
+    in
+    tlog_coll # iterate start_i too_far_i batched_f >>= fun () ->
+    iter_batch () >>= fun () ->
     begin
       match !acc with 
         | None -> Lwt.return ()
         | Some(i,value) -> 
-          Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
-          Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
+            Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
+            Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
     let store_i' = store # consensus_i () in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 

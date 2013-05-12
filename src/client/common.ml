@@ -77,6 +77,7 @@ type client_command =
   | DELETE_PREFIX
   | VERSION
   | DROP_MASTER
+  | MULTI_GET_OPTION
 
 
 let code2int = [
@@ -118,6 +119,7 @@ let code2int = [
   VERSION                 , 0x28l;
   ASSERTEXISTS            , 0x29l;
   DROP_MASTER             , 0x30l;
+  MULTI_GET_OPTION        , 0x31l;
 ]
 
 let int2code =
@@ -260,8 +262,12 @@ let user_function_to b name po =
 let multiget_to b ~allow_dirty keys =
   command_to b MULTI_GET;
   Llio.bool_to b allow_dirty;
-  Llio.int_to b (List.length keys);
-  List.iter (Llio.string_to b) keys
+  Llio.string_list_to b keys
+
+let multiget_option_to b ~allow_dirty keys = 
+  command_to b MULTI_GET_OPTION;
+  Llio.bool_to b allow_dirty;
+  Llio.string_list_to b keys
 
 let who_master_to b =
   command_to b WHO_MASTER

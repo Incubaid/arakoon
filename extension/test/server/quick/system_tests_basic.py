@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as C
 from arakoon.ArakoonExceptions import *
-from arakoon.ArakoonProtocol import ArakoonClientConfig
+from arakoon.ArakoonProtocol import ArakoonClientConfig, ARA_ERR_NOT_SUPPORTED
 from arakoon.Arakoon import ArakoonClient
 import arakoon
 import time
@@ -65,6 +65,19 @@ def test_start_stop_wrapper():
     cluster.start()
     C.assert_running_nodes(1)
     cluster.stop()
+    C.assert_running_nodes(0)
+    cluster.tearDown()
+
+def test_start_arakoon383():
+    cluster = C._getCluster()
+    wrapper = 'false'
+    name = 'wrapper'
+    cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
+    cluster.addLocalNode(name)
+    C.assert_running_nodes(0)
+    assert_equals(cluster.startOne(name), 1)
+    C.assert_running_nodes(0)
+    assert_equals(cluster.restartOne(name), 1)
     C.assert_running_nodes(0)
     cluster.tearDown()
 
@@ -300,6 +313,22 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
     
     client.dropConnections()
 
+
+@C.with_custom_setup (C.setup_1_node, C.basic_teardown)
+def test_drop_master_singleton():
+    client = C.get_client()
+    master = client.whoMaster()
+    cluster = C._getCluster()
+    #assert_raises(Exception, cluster.dropMaster, master) # want to see assert rc too
+    try:
+        cluster.dropMaster(master)
+        raise Error
+    except Exception, e:
+        rc = e.args[0]
+        assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
+    
+    
+        
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_test_and_set() :
@@ -591,6 +620,24 @@ def test_delete_prefix():
     assert_equals(l3,0)
     logging.debug("done")
 
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_multi_get_option():
+    cli = C.get_client()
+    keys = []
+    for i in xrange(10):
+        k = "key_%04i" % i
+        keys.append(k)
+        cli.set(k,k)
+    keys.append('not_present')
+    vos = cli.multiGetOption(keys)
+    for i in xrange(11):
+        v = vos[i]
+        if i < 10:
+            assert_true(v == keys[i])
+        else:
+            assert_true(v is None)
+    logging.debug("done")
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_rev_range_entries_arakoon368():

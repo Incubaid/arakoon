@@ -215,15 +215,18 @@ let input_string_pair ic =
   input_string ic >>= fun s1 ->
   Lwt.return (s0,s1)
 
-let input_list input_element ic =
+let input_listl input_element ic = 
   input_int ic >>= fun size ->
-  Client_log.debug_f "Received a list of %d elemements" size >>= fun () ->
-  let rec loop i acc =
-    if i = 0
-    then Lwt.return acc
-    else input_element ic >>= fun s -> loop (i-1) (s:: acc)
+  let rec loop acc = function
+    | 0 -> Lwt.return (size, acc)
+    | i -> input_element ic >>= fun a -> loop (a :: acc) (i -1)
   in
-  loop size []
+  loop [] size
+
+let input_list input_element ic =
+  input_listl input_element ic >>= fun (size,list) ->
+  Client_log.debug_f "Received a list of %d elemements" size >>= fun () ->
+  Lwt.return list
 
 let input_string_list ic = input_list input_string ic
 
@@ -233,6 +236,8 @@ let output_list output_element oc list =
   output_int oc (List.length list)  >>= fun () ->
   Client_log.debug_f "Outputting list with %d elements" (List.length list) >>= fun () ->
   Lwt_list.iter_s (output_element oc) list
+
+let output_string_list oc list = output_list output_string oc list
 
 let output_kv_list oc = output_list output_string_pair oc
 

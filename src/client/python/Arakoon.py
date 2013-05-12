@@ -249,7 +249,7 @@ class ArakoonClient :
     def multiGet(self,keys):
         """
         Retrieve the values for the keys in the given list.
-
+        if for a particular key, there is no value, an ArakoonNotFound exception is thrown
         @type key: string list
         @rtype: string list
         @return: the values associated with the respective keys
@@ -261,7 +261,27 @@ class ArakoonClient :
             conn = self._sendToMaster (msg)
         result = conn.decodeStringListResult()
         return result
-    
+
+    @utils.update_argspec('self','keys')
+    @retryDuringMasterReelection
+    def multiGetOption(self,keys):
+        """
+        Retrieve the values for the keys in the given list. 
+        if there is no value for a particular key, a None is returned for that key.
+        
+        @type key: string list
+        @rtype: string (option) list
+        @return: the values associated with the respective keys
+        """
+
+        msg = ArakoonProtocol.encodeMultiGetOption(keys, self._allowDirty)
+        if self._allowDirty:
+            conn = self._sendMessage(self._dirtyReadNode, msg)
+        else:
+            conn = self._sendToMaster(msg)
+        result = conn.decodeStringOptionListResult()
+        return result
+
     @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'string' )

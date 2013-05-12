@@ -88,6 +88,9 @@ class ArakoonGoingDown(ArakoonException):
 class ArakoonSocketException ( ArakoonException ):
     pass
 
+class ArakoonNotSupportedException(ArakoonException):
+    pass
+
 class ArakoonSockReadNoBytes( ArakoonSocketException ):
     _msg = "Could not read a single byte from the socket. Aborting."
 

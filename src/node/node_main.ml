@@ -71,6 +71,7 @@ let _config_logging me get_cfgs =
       | _         -> Lwt_log.Debug
   in
   let level = to_level cfg.log_level in
+  let () = Lwt_log.Section.set_level Lwt_log.Section.main level in
   let set_level section l =
     let l = match l with
       | None -> level
@@ -88,7 +89,7 @@ let _config_logging me get_cfgs =
   if not cfg.is_test 
   then
     begin 
-      Crash_logger.setup_default_logger level log_file_name get_crash_file_name 
+      Crash_logger.setup_default_logger log_file_name get_crash_file_name 
       >>= fun logger -> Lwt.return (Some logger)
     end
   else
@@ -197,7 +198,9 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
   let future_n = Sn.start in
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
-    (store,tlc)  current_i mr_name (future_n,future_i) 
+    (store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+  tlc # close () 
+  
     
     
 module X = struct 
@@ -205,13 +208,13 @@ module X = struct
 	 the idea is to lift stuff out of _main_2 
       *)
   
-  let on_consensus store vni =
+  let on_consensus (store:Store.store) vni =
     let (v,n,i) = vni in
     begin
       if Value.is_master_set v
-      then 
+      then
 	    begin
-	      store # incr_i () >>= fun () -> 
+	      store # with_transaction (fun tx -> store # incr_i tx) >>= fun () ->
           Lwt.return [Store.Ok None]
 	    end
       else
@@ -276,15 +279,6 @@ module X = struct
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.string_of stats) 
       >>= fun () ->
-      let maxrss = Limits.get_maxrss() in
-      let stat = Gc.stat () in
-      let factor = float (Sys.word_size / 8) in
-      let allocated = (stat.minor_words +.
-			             stat.major_words -. stat.promoted_words) *. 
-	    (factor /. 1024.0) 
-      in
-      Lwt_log.info_f "nallocated=%f KB; maxrss=%i KB" allocated maxrss
-      >>= fun () ->
       backend # clear_most_statistics();
       _inner ()
     in
@@ -316,6 +310,7 @@ let _main_2
     begin
       only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll 
       >>= fun _ -> (* we don't need that here as there is no continuation *)
+      
       Lwt.return 0
     end
   else
