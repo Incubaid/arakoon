@@ -63,39 +63,105 @@ let filter_keys_array entries =
 class transaction = object end
 class transaction_lock = object end
 
-(** common interface for stores *)
-class type simple_store = object
-  method with_transaction_lock: (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
-  method with_transaction: ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
-  method exists: string -> bool
-  method get: string -> string
+type update_result =
+  | Ok of string option
+  | Update_fail of Arakoon_exc.rc * string
 
-  method range: string -> string option -> bool -> string option -> bool -> int -> string list
-  method range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  method rev_range_entries: string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  method prefix_keys: string -> int -> string list
-  method set: transaction -> string -> string -> unit
-  method delete: transaction -> string -> unit
-  method delete_prefix: transaction -> string -> int
+exception Key_not_found of string
+exception CorruptStore
 
-  method close: unit -> unit Lwt.t
-  method reopen: (unit -> unit Lwt.t) -> bool -> unit Lwt.t
+module type Simple_store = sig
+  type t
+  val with_transaction_lock: t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
+  val with_transaction: t -> ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
-  method get_location: unit -> string
-  method relocate: string -> unit Lwt.t
+  val exists: t -> string -> bool
+  val get: t -> string -> string
 
-  method get_key_count : unit -> int64 Lwt.t
+  val range: t -> string -> string option -> bool -> string option -> bool -> int -> string list
+  val range_entries: t -> string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  val rev_range_entries: t -> string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  val prefix_keys: t -> string -> int -> string list
+  val set: t -> transaction -> string -> string -> unit
+  val delete: t -> transaction -> string -> unit
+  val delete_prefix: t -> transaction -> string -> int
 
-  method optimize : bool -> unit Lwt.t
-  method defrag : unit -> unit Lwt.t
-  method copy_store : ?_networkClient: bool -> Lwt_io.output_channel -> unit Lwt.t
-  method get_fringe : string option -> Routing.range_direction -> (string * string) list Lwt.t
+  val close: t -> unit Lwt.t
+  val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
+  val make_store: bool -> string -> t Lwt.t
 
+  val get_location: t -> string
+  val relocate: t -> string -> unit Lwt.t
+
+  val get_key_count : t -> int64 Lwt.t
+
+  val optimize : t -> bool -> unit Lwt.t
+  val defrag : t -> unit Lwt.t
+  val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
+  val copy_store2 : string -> string -> bool -> unit Lwt.t
+  val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
 end
 
+type key_or_transaction =
+  | Key of transaction_lock
+  | Transaction of transaction
 
-type store = { s : simple_store;
+module type STORE =
+  sig
+    type ss
+    type t
+    val make_store : ?read_only:bool -> string -> t Lwt.t
+    val consensus_i : t -> Sn.t option
+    val close : t -> unit Lwt.t
+    val get_location : t -> string
+    val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
+    val safe_insert_value : t -> ?tx:transaction option -> Sn.t -> Value.t -> update_result list Lwt.t
+    val with_transaction : t -> ?key:transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
+    val with_transaction_lock : t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
+    val relocate : t -> string -> unit Lwt.t
+    val who_master : t -> (string * int64) option
+
+    val quiesced : t -> bool
+    val quiesce : t -> unit Lwt.t
+    val unquiesce : t -> unit Lwt.t
+    val optimize : t -> unit Lwt.t
+    val defrag : t -> unit Lwt.t
+    val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
+    val copy_store2 : string -> string -> bool -> unit Lwt.t
+
+    val get_succ_store_i : t -> int64
+    val get_catchup_start_i : t -> int64
+
+    val incr_i : t -> transaction -> unit Lwt.t
+    val set_master_no_inc : t -> string -> int64 -> unit Lwt.t
+    val set_master : t -> transaction -> string -> int64 -> unit Lwt.t
+
+    val get : t -> string -> string Lwt.t
+    val exists : t -> string -> bool Lwt.t
+    val range :  t -> string option -> bool -> string option -> bool -> int -> string list Lwt.t
+    val range_entries :  t -> ?_pf:string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+    val rev_range_entries :  t -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+    val prefix_keys : t -> string -> int -> string list Lwt.t
+    val multi_get : t -> string list -> string list Lwt.t
+    val multi_get_option : t -> string list -> string option list Lwt.t
+    val get_key_count : t -> int64 Lwt.t
+
+    val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
+
+    val get_interval : t -> Interval.t Lwt.t
+    val get_routing : t -> Routing.t Lwt.t
+
+    val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
+
+    val _get_j : t -> int
+    val _insert_update : t -> Update.t -> key_or_transaction -> update_result Lwt.t
+  end
+
+module Make(S : Simple_store) =
+struct
+  type ss = S.t
+  type t = { s : ss;
                (** last value on which there is consensus.
                    For an empty store, This is None
                *)
@@ -107,680 +173,728 @@ type store = { s : simple_store;
                mutable closed : bool;
              }
 
-let _get_interval (store:simple_store) =
-  try
-    let interval_s = store # get __interval_key in
-    let interval,_ = Interval.interval_from interval_s 0 in
-    interval
-  with Not_found -> Interval.max
-
-let _consensus_i (store:simple_store) =
-  try
-    let i_string = store # get __i_key in
-    let i,_ = Sn.sn_from i_string 0 in
-    Some i
-  with Not_found ->
-    None
-
-let _master (store:simple_store) =
-  try
-    let m = store # get __master_key in
-    let ls_buff = store # get __lease_key in
-    let ls,_ = Llio.int64_from ls_buff 0 in
-    Some (m,ls)
-  with Not_found ->
-    None
-
-let _get_routing (store:simple_store) =
-  try
-    let routing_s = store # get __routing_key in
-    let routing,_ = Routing.routing_from routing_s 0 in
-    Some routing
-  with Not_found -> None
-
-
-let make_store simple_store =
-  let store_i = _consensus_i simple_store
-  and master = _master simple_store
-  and interval = _get_interval simple_store
-  and routing = _get_routing simple_store in
-  { s = simple_store;
-    store_i;
-    master;
-    interval;
-    routing;
-    quiesced = false;
-    closed = false;
-  }
-
-type update_result =
-  | Ok of string option
-  | Update_fail of Arakoon_exc.rc * string
-
-exception Key_not_found of string
-exception CorruptStore
-
-let _get (store:store) key =
-  store.s # get (__prefix ^ key)
-
-let get (store:store) key =
-  try
-    Lwt.return (_get store key)
-  with
-    | Failure msg ->
-        let _closed = store.closed in
-        Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
-        if _closed
-        then
-          Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN,
-                                       Printf.sprintf "GET %S database already closed" key))
-        else
-          Lwt.fail CorruptStore
-	| exn -> Lwt.fail exn
-
-let _set (store:store) tx key value =
-  store.s # set tx (__prefix ^ key) value
-
-let get_option (store:store) key =
-  try
-    Some (store.s # get (__prefix ^ key))
-  with Not_found -> None
-
-let exists (store:store) key =
-  Lwt.return (store.s # exists (__prefix ^ key))
-
-let multi_get (store:store) keys =
-  let vs = List.fold_left (fun acc key ->
+  let _get_interval store =
     try
-      let v = store.s # get (__prefix ^ key) in
-      v::acc
+      let interval_s = S.get store __interval_key in
+      let interval,_ = Interval.interval_from interval_s 0 in
+      interval
+    with Not_found -> Interval.max
+
+  let _consensus_i store =
+    try
+      let i_string = S.get store __i_key in
+      let i,_ = Sn.sn_from i_string 0 in
+      Some i
     with Not_found ->
-      let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
-      raise exn)
-    [] keys
-  in
-  Lwt.return (List.rev vs)
+      None
 
-let consensus_i (store:store) =
-  store.store_i
-
-let get_location (store:store) =
-  store.s # get_location ()
-
-let reopen (store:store) f =
-  store.s # reopen f store.quiesced >>= fun () ->
-  store.store_i <- _consensus_i store.s;
-  store.closed <- false;
-  Lwt.return ()
-
-let close (store:store) =
-  store.closed <- true;
-  store.s # close ()
-
-let relocate (store:store) loc =
-  store.s # relocate loc
-
-let quiesced (store:store) =
-  store.quiesced
-
-let quiesce (store:store) =
-  if store.quiesced
-  then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
-  else
-    begin
-      store.quiesced <- true;
-	  reopen store (fun () -> Lwt.return ()) >>= fun () ->
-	  Lwt.return ()
-    end
-
-let unquiesce (store:store) =
-  store.quiesced <- false;
-  reopen store (fun () -> Lwt.return ())
-
-let optimize (store:store) =
-  store.s # optimize store.quiesced
-
-let set_master (store:store) tx master lease_start =
-  store.s # set tx __master_key master;
-  let buffer = Buffer.create 8 in
-  let () = Llio.int64_to buffer lease_start in
-  let lease = Buffer.contents buffer in
-  store.s # set tx __lease_key lease;
-  store.master <- Some (master, lease_start);
-  Lwt.return ()
-
-let set_master_no_inc (store:store) master lease_start =
-  if store.quiesced
-  then
-    begin
-      store.master <- Some (master, lease_start);
-      Lwt.return ()
-    end
-  else
-    store.s # with_transaction (fun tx -> set_master store tx master lease_start)
-
-let who_master (store:store) =
-  store.master
-
-let consensus_i (store:store) =
-  store.store_i
-
-let incr_i (store:store) tx =
-  let old_i = _consensus_i store.s in
-  let new_i =
-    match old_i with
-      | None -> Sn.start
-      | Some i -> Sn.succ i
-  in
-  let new_is =
-    let buf = Buffer.create 10 in
-    let () = Sn.sn_to buf new_i in
-    Buffer.contents buf
-  in
-  let () = store.s # set tx __i_key new_is in
-  store.store_i <- Some new_i;
-  Lwt_log.debug_f "Store.incr_i old_i:%s -> new_i:%s"
-     (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
-
-let with_transaction_lock (store:store) f =
-  store.s # with_transaction_lock f
-
-let get_fringe (store:store) b d =
-  store.s # get_fringe b d
-
-let copy_store (store:store) oc =
-  if store.quiesced
-  then
-    store.s # copy_store oc
-  else
-    let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
-    raise ex
-
-let defrag (store:store) =
-  store.s # defrag ()
-
-let get_key_count (store:store) =
-  store.s # get_key_count () >>= fun raw_count ->
-  (* Leave out administrative keys *)
-  let admin_keys = store.s # prefix_keys __adminprefix (-1) in
-  let admin_key_count = List.length admin_keys in
-  Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
-
-let get_routing (store:store) =
-  Lwt_log.debug "get_routing " >>= fun () ->
-  match store.routing with
-    | None -> Lwt.fail Not_found
-    | Some r -> Lwt.return r
-
-let _set_routing store tx routing =
-  let buf = Buffer.create 80 in
-  let () = Routing.routing_to buf routing in
-  let routing_s = Buffer.contents buf in
-  store.s # set tx __routing_key routing_s;
-  store.routing <- Some routing
-
-let _set_routing_delta store tx left sep right =
-  let new_r =
-    begin
-      match store.routing with
-        | None ->
-          begin
-            Routing.build ([(left, sep)], right)
-          end
-        | Some r ->
-          begin
-            Routing.change r left sep right
-          end
-      end
-  in
-  let new_r' = Routing.compact new_r in
-  _set_routing store tx new_r'
-
-
-let with_transaction (store:store) ?(key=None) f =
-  if store.closed
-  then
-    raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
-  else
-    let current_i = store.store_i in
-    Lwt.catch
-      (fun () -> store.s # with_transaction ~key f)
-      (fun exn ->
-        store.store_i <- current_i;
-        match exn with
-          | Failure s -> Lwt_log.debug_f "Failure %s" s >>= fun () ->
-              Lwt.fail Server.FOOBAR
-          | exn -> Lwt.fail exn)
-
-let multi_get_option (store:store) keys =
-  let vs = List.fold_left (fun acc key ->
+  let _master store =
     try
-      let v = store.s # get (__prefix ^ key) in
-      (Some v)::acc
-    with Not_found -> None::acc)
-    [] keys
-  in
-  Lwt.return (List.rev vs)
+      let m = S.get store __master_key in
+      let ls_buff = S.get store __lease_key in
+      let ls,_ = Llio.int64_from ls_buff 0 in
+      Some (m,ls)
+    with Not_found ->
+      None
 
-let _delete (store:store) tx key =
-  store.s # delete tx (__prefix ^ key)
-
-let _get_j (store:store) =
-  try
-    let jstring = store.s # get __j_key in
-    int_of_string jstring
-  with Not_found -> 0
-
-let _set_j (store:store) tx j =
-  store.s # set tx __j_key (string_of_int j)
-
-let _test_and_set (store:store) tx key expected wanted =
-  let existing = get_option store key in
-  if existing <> expected
-  then
-    existing
-  else
-    begin
-      let () = match wanted with
-        | None -> store.s # delete tx (__prefix ^ key)
-        | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s in
-      wanted
-    end
-
-let _range_entries (store:store) first finc last linc max =
-  store.s # range_entries __prefix first finc last linc max
-
-let range_entries (store:store) ?(_pf=__prefix) first finc last linc max =
-  Lwt.return (store.s # range_entries _pf first finc last linc max)
-
-let rev_range_entries (store:store) first finc last linc max =
-  Lwt.return (store.s # rev_range_entries __prefix first finc last linc max)
-
-let range (store:store) first finc last linc max =
-  Lwt_log.debug_f "%s %s %s" __prefix (string_option2s first) (string_option2s last) >>= fun () ->
-  Lwt.return (store.s # range __prefix None finc last linc max)
-
-let prefix_keys (store:store) prefix max =
-  Lwt.return (store.s # prefix_keys (__prefix ^ prefix) max)
-
-let get_interval store =
-  Lwt.return (store.interval)
-
-let _set_interval store tx range =
-  let buf = Buffer.create 80 in
-  let () = Interval.interval_to buf range in
-  let range_s = Buffer.contents buf in
-  store.s # set tx __interval_key range_s
-
-class store_user_db store tx =
-  let test k =
-    if not (Interval.is_ok store.interval k) then
-      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
-  in
-  let test_option = function
-    | None -> ()
-    | Some k -> test k
-  in
-  let test_range first last = test_option first; test_option last
-  in
-
-object (self : # Registry.user_db)
-
-  method set k v = test k ; _set store tx k v
-  method get k   = test k ; _get store k
-
-  method delete k = test k ; _delete store tx k
-
-  method test_and_set k e w = test k; _test_and_set store tx k e w
-
-  method range_entries first finc last linc max =
-    test_range first last;
-    _range_entries store first finc last linc max
-end
-
-let _user_function (store:store) (name:string) (po:string option) tx =
-  Lwt.wrap (fun () ->
-    let f = Registry.Registry.lookup name in
-    let user_db = new store_user_db store tx in
-    let ro = f user_db po in
-    ro)
+  let _get_routing store =
+    try
+      let routing_s = S.get store __routing_key in
+      let routing,_ = Routing.routing_from routing_s 0 in
+      Some routing
+    with Not_found -> None
 
 
-type key_or_transaction =
-  | Key of transaction_lock
-  | Transaction of transaction
+  let make_store ?(read_only=false) db_name =
+    S.make_store read_only db_name >>= fun simple_store ->
+    let store_i = _consensus_i simple_store
+    and master = _master simple_store
+    and interval = _get_interval simple_store
+    and routing = _get_routing simple_store in
+    Lwt.return
+      { s = simple_store;
+        store_i;
+        master;
+        interval;
+        routing;
+        quiesced = false;
+        closed = false;
+      }
 
-let _with_transaction : store -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
-  fun store kt f -> match kt with
-    | Key key ->
-        store.s # with_transaction ~key:(Some key) f
-    | Transaction tx ->
-        f tx
+  let _get store key =
+    S.get store.s (__prefix ^ key)
 
-let _insert_update (store:store) (update:Update.t) kt =
-  let rec _do_one update tx =
-    let return () = Lwt.return (Ok None) in
-    let wrap f = (Lwt.wrap f) >>= return in
-    match update with
-      | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
-      | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
-      | Update.Delete(key) ->
-          Lwt_log.debug_f "store # delete %S" key >>= fun () ->
-          wrap (fun () -> _delete store tx key)
-      | Update.DeletePrefix prefix ->
-          Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = store.s # delete_prefix tx (__prefix ^ prefix) in
-          let sb = Buffer.create 8 in
-          let () = Llio.int_to sb n_deleted in
-          let ser = Buffer.contents sb in
-          Lwt.return (Ok (Some ser))
-      | Update.TestAndSet(key,expected,wanted)->
-                let existing = get_option store key in
-                if existing = expected
-                then
-                  begin
-                    match wanted with
-                      | None -> store.s # delete tx (__prefix ^ key)
-                      | Some wanted_s -> store.s # set tx (__prefix ^ key) wanted_s
-                  end;
-                Lwt.return (Ok existing)
-      | Update.UserFunction(name,po) ->
-              _user_function store name po tx >>= fun ro ->
-              Lwt.return (Ok ro)
-      | Update.Sequence updates
-      | Update.SyncedSequence updates ->
-              Lwt_list.iter_s (fun update ->
-                _do_one update tx >>= function
-                  | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
-                  | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
-      | Update.SetInterval interval ->
-              wrap (fun () -> _set_interval store tx interval)
-      | Update.SetRouting routing ->
-          Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
-          wrap (fun () -> _set_routing store tx routing)
-      | Update.SetRoutingDelta (left, sep, right) ->
-          Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
-          wrap (fun () -> _set_routing_delta store tx left sep right)
-      | Update.Nop -> Lwt.return (Ok None)
-      | Update.Assert(k,vo) ->
-          begin
-            match vo, get_option store k with
-              | None, None -> Lwt.return (Ok None)
-              | Some v, Some v' when v = v' -> Lwt.return (Ok None)
-              | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-          end
-      | Update.Assert_exists(k) ->
-          begin
-            match store.s # exists (__prefix ^ k) with
-	          | true -> Lwt.return (Ok None)
-	          | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
-          end
-      | Update.AdminSet(k,vo) ->
-              let () =
-                match vo with
-                  | None   -> store.s # delete tx (__adminprefix ^ k)
-                  | Some v -> store.s # set    tx (__adminprefix ^ k) v
-              in
-              Lwt.return (Ok None)
-  in
-  let with_transaction' f = _with_transaction store kt f in
-  let catch_with_tx f g =
-    Lwt.catch
-      (fun () ->
-        let j = _get_j store in
-        Lwt.finalize
-          (fun () -> with_transaction' (fun tx -> f tx))
-          (fun () -> with_transaction' (fun tx -> Lwt.return (_set_j store tx (j + 1)))))
-      g in
-  let with_error notfound_msg f =
-    catch_with_tx
-      (fun tx -> f tx)
-      (function
-        | Not_found ->
-            let rc = Arakoon_exc.E_NOT_FOUND
-            and msg = notfound_msg in
-            Lwt.return (Update_fail(rc, msg))
-        | Arakoon_exc.Exception(rc,msg) -> Lwt.return (Update_fail(rc,msg))
-        | e ->
-            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-            and msg = Printexc.to_string e in
-            Lwt.return (Update_fail(rc, msg))
-      )
-  in
-  let do_one update =
-    match update with
-      | Update.Set(key,value) ->
-          with_error key (fun tx -> _do_one update tx)
-      | Update.MasterSet (m, lease) ->
-          with_error "Not_found" (fun tx -> _do_one update tx)
-      | Update.Delete(key) ->
-          with_error key (fun tx -> _do_one update tx)
-      | Update.DeletePrefix prefix ->
-          begin
-            catch_with_tx
-              (fun tx -> _do_one update tx)
-              (fun e -> 
-                let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                and msg = Printexc.to_string e
-                in
-                Lwt.return (Update_fail (rc,msg)))
-          end
-      | Update.TestAndSet(key,expected,wanted)->
-          begin
+  let get store key =
+    try
+      Lwt.return (_get store key)
+    with
+      | Failure msg ->
+          let _closed = store.closed in
+          Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
+          if _closed
+          then
+            Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN,
+                                         Printf.sprintf "GET %S database already closed" key))
+          else
+            Lwt.fail CorruptStore
+	  | exn -> Lwt.fail exn
+
+  let _set store tx key value =
+    S.set store.s tx (__prefix ^ key) value
+
+  let get_option store key =
+    try
+      Some (_get store key)
+    with Not_found -> None
+
+  let exists store key =
+    Lwt.return (S.exists store.s (__prefix ^ key))
+
+  let multi_get store keys =
+    let vs = List.fold_left (fun acc key ->
+      try
+        let v = _get store key in
+        v::acc
+      with Not_found ->
+        let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
+        raise exn)
+      [] keys
+    in
+    Lwt.return (List.rev vs)
+
+  let consensus_i store =
+    store.store_i
+
+  let get_location store =
+    S.get_location store.s
+
+  let reopen store f =
+    S.reopen store.s f store.quiesced >>= fun () ->
+    store.store_i <- _consensus_i store.s;
+    store.closed <- false;
+    Lwt.return ()
+
+  let close store =
+    store.closed <- true;
+    S.close store.s
+
+  let relocate store loc =
+    S.relocate store.s loc
+
+  let quiesced store =
+    store.quiesced
+
+  let quiesce store =
+    if store.quiesced
+    then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
+    else
+      begin
+        store.quiesced <- true;
+	    reopen store (fun () -> Lwt.return ()) >>= fun () ->
+	    Lwt.return ()
+      end
+
+  let unquiesce store =
+    store.quiesced <- false;
+    reopen store (fun () -> Lwt.return ())
+
+  let optimize store =
+    S.optimize store.s store.quiesced
+
+  let set_master store tx master lease_start =
+    S.set store.s tx __master_key master;
+    let buffer = Buffer.create 8 in
+    let () = Llio.int64_to buffer lease_start in
+    let lease = Buffer.contents buffer in
+    S.set store.s tx __lease_key lease;
+    store.master <- Some (master, lease_start);
+    Lwt.return ()
+
+  let set_master_no_inc store master lease_start =
+    if store.quiesced
+    then
+      begin
+        store.master <- Some (master, lease_start);
+        Lwt.return ()
+      end
+    else
+      S.with_transaction store.s (fun tx -> set_master store tx master lease_start)
+
+  let who_master store =
+    store.master
+
+  let consensus_i store =
+    store.store_i
+
+  let incr_i store tx =
+    let old_i = _consensus_i store.s in
+    let new_i =
+      match old_i with
+        | None -> Sn.start
+        | Some i -> Sn.succ i
+    in
+    let new_is =
+      let buf = Buffer.create 10 in
+      let () = Sn.sn_to buf new_i in
+      Buffer.contents buf
+    in
+    let () = S.set store.s tx __i_key new_is in
+    store.store_i <- Some new_i;
+    Lwt_log.debug_f "Store.incr_i old_i:%s -> new_i:%s"
+      (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
+
+  let with_transaction_lock store f =
+    S.with_transaction_lock store.s f
+
+  let get_fringe store b d =
+    S.get_fringe store.s b d
+
+  let copy_store store oc =
+    if store.quiesced
+    then
+      S.copy_store store.s true oc
+    else
+      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+      raise ex
+
+  let copy_store2 old_location new_location overwrite =
+    (* TODO quiesced checking *)
+    S.copy_store2 old_location new_location overwrite
+
+  let defrag store =
+    S.defrag store.s
+
+  let get_key_count store =
+    S.get_key_count store.s >>= fun raw_count ->
+  (* Leave out administrative keys *)
+    let admin_keys = S.prefix_keys store.s __adminprefix (-1) in
+    let admin_key_count = List.length admin_keys in
+    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+
+  let get_routing store =
+    Lwt_log.debug "get_routing " >>= fun () ->
+    match store.routing with
+      | None -> Lwt.fail Not_found
+      | Some r -> Lwt.return r
+
+  let _set_routing store tx routing =
+    let buf = Buffer.create 80 in
+    let () = Routing.routing_to buf routing in
+    let routing_s = Buffer.contents buf in
+    S.set store.s tx __routing_key routing_s;
+    store.routing <- Some routing
+
+  let _set_routing_delta store tx left sep right =
+    let new_r =
+      begin
+        match store.routing with
+          | None ->
+              begin
+                Routing.build ([(left, sep)], right)
+              end
+          | Some r ->
+              begin
+                Routing.change r left sep right
+              end
+      end
+    in
+    let new_r' = Routing.compact new_r in
+    _set_routing store tx new_r'
+
+
+  let with_transaction store ?(key=None) f =
+    if store.closed
+    then
+      raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
+    else
+      let current_i = store.store_i in
+      Lwt.catch
+        (fun () -> S.with_transaction store.s ~key f)
+        (fun exn ->
+          store.store_i <- current_i;
+          match exn with
+            | Failure s -> Lwt_log.debug_f "Failure %s" s >>= fun () ->
+                Lwt.fail Server.FOOBAR
+            | exn -> Lwt.fail exn)
+
+  let multi_get_option store keys =
+    let vs = List.fold_left (fun acc key ->
+      try
+        let v = _get store key in
+        (Some v)::acc
+      with Not_found -> None::acc)
+      [] keys
+    in
+    Lwt.return (List.rev vs)
+
+  let _delete store tx key =
+    S.delete store.s tx (__prefix ^ key)
+
+  let _get_j store =
+    try
+      let jstring = S.get store.s __j_key in
+      int_of_string jstring
+    with Not_found -> 0
+
+  let _set_j store tx j =
+    S.set store.s tx __j_key (string_of_int j)
+
+  let _test_and_set store tx key expected wanted =
+    let existing = get_option store key in
+    if existing <> expected
+    then
+      existing
+    else
+      begin
+        let () = match wanted with
+          | None -> _delete store tx key
+          | Some wanted_s -> _set store tx key wanted_s in
+        wanted
+      end
+
+  let _range_entries store first finc last linc max =
+    S.range_entries store.s __prefix first finc last linc max
+
+  let range_entries store ?(_pf=__prefix) first finc last linc max =
+    Lwt_log.debug_f "%s %s %s" _pf (string_option2s first) (string_option2s last) >>= fun () ->
+    Lwt.return (S.range_entries store.s _pf first finc last linc max)
+
+  let rev_range_entries store first finc last linc max =
+    Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max)
+
+  let range store first finc last linc max =
+    Lwt_log.debug_f "%s %s %s" __prefix (string_option2s first) (string_option2s last) >>= fun () ->
+    Lwt.return (S.range store.s __prefix None finc last linc max)
+
+  let prefix_keys store prefix max =
+    Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max)
+
+  let get_interval store =
+    Lwt.return (store.interval)
+
+  let _set_interval store tx range =
+    let buf = Buffer.create 80 in
+    let () = Interval.interval_to buf range in
+    let range_s = Buffer.contents buf in
+    S.set store.s tx __interval_key range_s
+
+  class store_user_db store tx =
+    let test k =
+      if not (Interval.is_ok store.interval k) then
+        raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+    in
+    let test_option = function
+      | None -> ()
+      | Some k -> test k
+    in
+    let test_range first last = test_option first; test_option last
+    in
+
+  object (self : # Registry.user_db)
+
+    method set k v = test k ; _set store tx k v
+    method get k   = test k ; _get store k
+
+    method delete k = test k ; _delete store tx k
+
+    method test_and_set k e w = test k; _test_and_set store tx k e w
+
+    method range_entries first finc last linc max =
+      test_range first last;
+      _range_entries store first finc last linc max
+  end
+
+  let _user_function store (name:string) (po:string option) tx =
+    Lwt.wrap (fun () ->
+      let f = Registry.Registry.lookup name in
+      let user_db = new store_user_db store tx in
+      let ro = f user_db po in
+      ro)
+
+
+  let _with_transaction : S.t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
+    fun store kt f -> match kt with
+      | Key key ->
+          S.with_transaction store ~key:(Some key) f
+      | Transaction tx ->
+          f tx
+
+  let _insert_update store (update:Update.t) kt =
+    let rec _do_one update tx =
+      let return () = Lwt.return (Ok None) in
+      let wrap f = (Lwt.wrap f) >>= return in
+      match update with
+        | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
+        | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
+        | Update.Delete(key) ->
+            Lwt_log.debug_f "store # delete %S" key >>= fun () ->
+            wrap (fun () -> _delete store tx key)
+        | Update.DeletePrefix prefix ->
+            Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
+            let n_deleted = S.delete_prefix store.s tx (__prefix ^ prefix) in
+            let sb = Buffer.create 8 in
+            let () = Llio.int_to sb n_deleted in
+            let ser = Buffer.contents sb in
+            Lwt.return (Ok (Some ser))
+        | Update.TestAndSet(key,expected,wanted)->
+            let existing = get_option store key in
+            if existing = expected
+            then
+              begin
+                match wanted with
+                  | None -> _delete store tx key
+                  | Some wanted_s -> _set store tx key wanted_s
+              end;
+            Lwt.return (Ok existing)
+        | Update.UserFunction(name,po) ->
+            _user_function store name po tx >>= fun ro ->
+            Lwt.return (Ok ro)
+        | Update.Sequence updates
+        | Update.SyncedSequence updates ->
+            Lwt_list.iter_s (fun update ->
+              _do_one update tx >>= function
+                | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
+                | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+        | Update.SetInterval interval ->
+            wrap (fun () -> _set_interval store tx interval)
+        | Update.SetRouting routing ->
+            Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
+            wrap (fun () -> _set_routing store tx routing)
+        | Update.SetRoutingDelta (left, sep, right) ->
+            Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
+            wrap (fun () -> _set_routing_delta store tx left sep right)
+        | Update.Nop -> Lwt.return (Ok None)
+        | Update.Assert(k,vo) ->
+            begin
+              match vo, get_option store k with
+                | None, None -> Lwt.return (Ok None)
+                | Some v, Some v' when v = v' -> Lwt.return (Ok None)
+                | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+            end
+        | Update.Assert_exists(k) ->
+            begin
+              match S.exists store.s k with
+	            | true -> Lwt.return (Ok None)
+	            | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+            end
+        | Update.AdminSet(k,vo) ->
+            let () =
+              match vo with
+                | None   -> S.delete store.s tx (__adminprefix ^ k)
+                | Some v -> S.set    store.s tx (__adminprefix ^ k) v
+            in
+            Lwt.return (Ok None)
+    in
+    let with_transaction' f = _with_transaction store.s kt f in
+    let catch_with_tx f g =
+      Lwt.catch
+        (fun () ->
+          let j = _get_j store in
+          Lwt.finalize
+            (fun () -> with_transaction' (fun tx -> f tx))
+            (fun () -> with_transaction' (fun tx -> Lwt.return (_set_j store tx (j + 1)))))
+        g in
+    let with_error notfound_msg f =
+      catch_with_tx
+        (fun tx -> f tx)
+        (function
+          | Not_found ->
+              let rc = Arakoon_exc.E_NOT_FOUND
+              and msg = notfound_msg in
+              Lwt.return (Update_fail(rc, msg))
+          | Arakoon_exc.Exception(rc,msg) -> Lwt.return (Update_fail(rc,msg))
+          | e ->
+              let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+              and msg = Printexc.to_string e in
+              Lwt.return (Update_fail(rc, msg))
+        )
+    in
+    let do_one update =
+      match update with
+        | Update.Set(key,value) ->
+            with_error key (fun tx -> _do_one update tx)
+        | Update.MasterSet (m, lease) ->
+            with_error "Not_found" (fun tx -> _do_one update tx)
+        | Update.Delete(key) ->
+            with_error key (fun tx -> _do_one update tx)
+        | Update.DeletePrefix prefix ->
+            begin
+              catch_with_tx
+                (fun tx -> _do_one update tx)
+                (fun e -> 
+                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                  and msg = Printexc.to_string e
+                  in
+                  Lwt.return (Update_fail (rc,msg)))
+            end
+        | Update.TestAndSet(key,expected,wanted)->
+            begin
+              catch_with_tx
+                (fun tx -> _do_one update tx)
+                (function
+                  | Not_found ->
+                      let rc = Arakoon_exc.E_NOT_FOUND
+                      and msg = key in
+                      Lwt.return (Update_fail (rc,msg))
+                  | e ->
+                      let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                      and msg = Printexc.to_string e
+                      in
+                      Lwt.return (Update_fail (rc,msg))
+                )
+            end
+        | Update.UserFunction(name,po) ->
             catch_with_tx
               (fun tx -> _do_one update tx)
               (function
-                | Not_found ->
+                | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
+                | e ->
+                    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                    and msg = Printexc.to_string e
+                    in
+                    Lwt.return (Update_fail(rc,msg))
+              )
+        | Update.Sequence updates
+        | Update.SyncedSequence updates ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+              (function
+                | Key_not_found key ->
                     let rc = Arakoon_exc.E_NOT_FOUND
                     and msg = key in
                     Lwt.return (Update_fail (rc,msg))
+                | Not_found ->
+                    let rc = Arakoon_exc.E_NOT_FOUND
+                    and msg = "Not_found" in
+                    Lwt.return (Update_fail (rc,msg))
+                | Arakoon_exc.Exception(rc,msg) ->
+                    Lwt.return (Update_fail(rc,msg))
+                | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
                 | e ->
                     let rc = Arakoon_exc.E_UNKNOWN_FAILURE
                     and msg = Printexc.to_string e
                     in
                     Lwt.return (Update_fail (rc,msg))
               )
-          end
-      | Update.UserFunction(name,po) ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (function
-              | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
-              | e ->
-                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                  and msg = Printexc.to_string e
-                  in
-                  Lwt.return (Update_fail(rc,msg))
-            )
-      | Update.Sequence updates
-      | Update.SyncedSequence updates ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (function
-              | Key_not_found key ->
-                  let rc = Arakoon_exc.E_NOT_FOUND
-                  and msg = key in
-                  Lwt.return (Update_fail (rc,msg))
-              | Not_found ->
-                  let rc = Arakoon_exc.E_NOT_FOUND
-                  and msg = "Not_found" in
-                  Lwt.return (Update_fail (rc,msg))
-              | Arakoon_exc.Exception(rc,msg) ->
-                  Lwt.return (Update_fail(rc,msg))
-              | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
-              | e ->
-                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                  and msg = Printexc.to_string e
-                  in
-                  Lwt.return (Update_fail (rc,msg))
-            )
-      | Update.SetInterval interval ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (function
-              | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
-              | e ->
-                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                  and msg = Printexc.to_string e
-                  in
-                  Lwt.return (Update_fail (rc,msg)))
-      | Update.SetRouting routing ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (function
-              | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
-              | e ->
-                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                  and msg = Printexc.to_string e
-                  in
-                  Lwt.return (Update_fail (rc,msg))
-            )
-      | Update.SetRoutingDelta (left, sep, right) ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (function
-              | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
-              | e ->
-                  let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-                  and msg = Printexc.to_string e
-                  in
-                  Lwt.return (Update_fail (rc,msg))
-            )
-      | Update.Nop -> Lwt.return (Ok None)
-      | Update.Assert(k,vo) ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-	        (fun e ->
-	          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	          and msg = Printexc.to_string e
-	          in Lwt.return (Update_fail(rc, msg)))
-      | Update.Assert_exists(k) ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-	        (fun e ->
-	          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	          and msg = Printexc.to_string e
-	          in Lwt.return (Update_fail(rc, msg)))
-      | Update.AdminSet(k,vo) ->
-          catch_with_tx
-            (fun tx -> _do_one update tx)
-            (fun e ->
-              let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-              and msg = Printexc.to_string e
-              in Lwt.return (Update_fail(rc,msg))
-            )
-  in
-  let get_key = function
-    | Update.Set (key,value) -> Some key
-    | Update.Delete key -> Some key
-    | Update.TestAndSet (key, expected, wanted) -> Some key
-    | _ -> None
-  in
-  try
-    do_one update
-  with
-    | Not_found ->
-        let key = get_key update
-        in match key with
-          | Some key -> raise (Key_not_found key)
-          | None -> raise Not_found
+        | Update.SetInterval interval ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+              (function
+                | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
+                | e ->
+                    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                    and msg = Printexc.to_string e
+                    in
+                    Lwt.return (Update_fail (rc,msg)))
+        | Update.SetRouting routing ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+              (function
+                | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+                | e ->
+                    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                    and msg = Printexc.to_string e
+                    in
+                    Lwt.return (Update_fail (rc,msg))
+              )
+        | Update.SetRoutingDelta (left, sep, right) ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+              (function
+                | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
+                | e ->
+                    let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                    and msg = Printexc.to_string e
+                    in
+                    Lwt.return (Update_fail (rc,msg))
+              )
+        | Update.Nop -> Lwt.return (Ok None)
+        | Update.Assert(k,vo) ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+	          (fun e ->
+	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	            and msg = Printexc.to_string e
+	            in Lwt.return (Update_fail(rc, msg)))
+        | Update.Assert_exists(k) ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+	          (fun e ->
+	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+	            and msg = Printexc.to_string e
+	            in Lwt.return (Update_fail(rc, msg)))
+        | Update.AdminSet(k,vo) ->
+            catch_with_tx
+              (fun tx -> _do_one update tx)
+              (fun e ->
+                let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+                and msg = Printexc.to_string e
+                in Lwt.return (Update_fail(rc,msg))
+              )
+    in
+    let get_key = function
+      | Update.Set (key,value) -> Some key
+      | Update.Delete key -> Some key
+      | Update.TestAndSet (key, expected, wanted) -> Some key
+      | _ -> None
+    in
+    try
+      do_one update
+    with
+      | Not_found ->
+          let key = get_key update
+          in match key with
+            | Some key -> raise (Key_not_found key)
+            | None -> raise Not_found
 
-let _insert_updates (store:store) (us: Update.t list) kt =
-  let f u = _insert_update store u kt in
-  Lwt_list.map_s f us
+  let _insert_updates store (us: Update.t list) kt =
+    let f u = _insert_update store u kt in
+    Lwt_list.map_s f us
 
-let _insert_value (store:store) (value:Value.t) kt =
-  let updates = Value.updates_from_value value in
-  let j = _get_j store in
-  let skip n l =
-    let rec inner = function
-      | 0, l -> l
-      | n, [] -> failwith "need to skip more updates than present in this paxos value"
-      | n, hd::tl -> inner ((n - 1), tl) in
-    inner (n, l) in
-  let updates' = skip j updates in
-  Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
-  _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-  _with_transaction store kt (fun tx ->
-    incr_i store tx >>= fun () ->
-    Lwt.return (_set_j store tx 0)) >>= fun () ->
-  Lwt.return urs
+  let _insert_value store (value:Value.t) kt =
+    let updates = Value.updates_from_value value in
+    let j = _get_j store in
+    let skip n l =
+      let rec inner = function
+        | 0, l -> l
+        | n, [] -> failwith "need to skip more updates than present in this paxos value"
+        | n, hd::tl -> inner ((n - 1), tl) in
+      inner (n, l) in
+    let updates' = skip j updates in
+    Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
+    _insert_updates store updates' kt >>= fun (urs:update_result list) ->
+    _with_transaction store.s kt (fun tx ->
+      incr_i store tx >>= fun () ->
+      Lwt.return (_set_j store tx 0)) >>= fun () ->
+    Lwt.return urs
 
 
-let safe_insert_value (store:store) ?(tx=None) (i:Sn.t) value =
-  let inner f =
-    match tx with
-      | None ->   store.s # with_transaction_lock (fun key -> f (Key key))
-      | Some tx -> f (Transaction tx) in
-  let t kt =
-    let store_i = consensus_i store in
-    begin
-      match i, store_i with
-        | 0L , None -> Lwt.return ()
-        | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
-        | n, Some m ->
-            if n = Sn.succ m
-            then Lwt.return ()
-            else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
-    end
+  let safe_insert_value store ?(tx=None) (i:Sn.t) value =
+    let inner f =
+      match tx with
+        | None ->   with_transaction_lock store (fun key -> f (Key key))
+        | Some tx -> f (Transaction tx) in
+    let t kt =
+      let store_i = consensus_i store in
+      begin
+        match i, store_i with
+          | 0L , None -> Lwt.return ()
+          | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
+          | n, Some m ->
+              if n = Sn.succ m
+              then Lwt.return ()
+              else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
+      end
+      >>= fun () ->
+      if store.quiesced
+      then
+        begin
+          _with_transaction store.s kt (fun tx -> incr_i store tx) >>= fun () ->
+          Lwt.return [Ok None]
+        end
+      else
+        begin
+          let results = _insert_value store value kt in
+          match tx with
+            | None -> results
+            | Some _ ->
+                results >>= fun results ->
+                List.iter (fun result -> match result with
+                  | Ok _ -> ()
+                  | _ -> failwith "some updates failed to apply to the store") results;
+                Lwt.return results
+        end
+    in
+    inner t
+
+
+
+  let on_consensus store (v,n,i) =
+    Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
+      (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
+    let m_store_i = consensus_i store in
+    begin
+      match m_store_i with
+        | None ->
+            if Sn.compare i Sn.start == 0
+            then
+              Lwt.return()
+            else
+              Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
+        | Some store_i ->
+            if (Sn.compare (Sn.pred i) store_i) == 0
+            then
+              Lwt.return()
+            else
+              Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
+                (Sn.string_of i) (Sn.string_of store_i)
+    end >>= fun () ->
     if store.quiesced
     then
       begin
-        _with_transaction store kt (fun tx -> incr_i store tx) >>= fun () ->
+        with_transaction store (fun tx -> incr_i store tx) >>= fun () ->
         Lwt.return [Ok None]
       end
     else
-      begin
-        let results = _insert_value store value kt in
-        match tx with
-          | None -> results
-          | Some _ ->
-              results >>= fun results ->
-              List.iter (fun result -> match result with
-                | Ok _ -> ()
-                | _ -> failwith "some updates failed to apply to the store") results;
-              Lwt.return results
-      end
-  in
-  inner t
+      with_transaction_lock store (fun key -> _insert_value store v (Key key))
+        
+  let get_succ_store_i store =
+    let m_si = consensus_i store in
+    match m_si with
+      | None -> Sn.start
+      | Some si -> Sn.succ si
+
+  let get_catchup_start_i = get_succ_store_i
+
+
+end
+
+(*
+module Local_Store1 =
+struct
+  type t = Camltc.Hotc.t
+  let get s k =
+    let bdb = Camltc.Hotc.get_bdb s in
+    try
+      Some (Camltc.Bdb.get bdb k)
+    with Not_found -> None
+
+end
+
+let myassert (type s) (module MyStore : STORE1 with type t = s) store key =
+  MyStore.aSSert store key
+
+let make_store_module (type st) (module NeSStore : SSTORE1 with type t = st) =
+  (module Make(NeSStore) : STORE1 with type st = st)
+
+let a =
+  Camltc.Hotc.create "dbname" ~mode:Camltc.Bdb.default_mode [] >>= fun db ->
+  let module Bla = (val (make_store_module (module Local_Store1))) in
+  let store = Bla.make_store db in
+  Lwt.return (myassert (module Bla) store "nekey")
+*)
+(*  Lwt.return (myassert (make_store_module (module Local_Store1)) db "nekey")*)
+
+let make_store_module (type ss) (module S : Simple_store with type t = ss) =
+  (module Make(S) : STORE with type ss = ss)
+
+(*
+So far so good
+Nu in constants bijsteken?? of hoe moet het doorgegeven worden?
+*)
 
 
 
-let on_consensus (store:store) (v,n,i) =
-  Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
-    (Sn.string_of n) (Sn.string_of i)
-  >>= fun () ->
-  let m_store_i = consensus_i store in
-  begin
-    match m_store_i with
-      | None ->
-          if Sn.compare i Sn.start == 0
-          then
-            Lwt.return()
-          else
-            Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
-      | Some store_i ->
-          if (Sn.compare (Sn.pred i) store_i) == 0
-          then
-            Lwt.return()
-          else
-            Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
-              (Sn.string_of i) (Sn.string_of store_i)
-  end >>= fun () ->
-  if store.quiesced
-  then
-    begin
-      store.s # with_transaction (fun tx -> incr_i store tx) >>= fun () ->
-      Lwt.return [Ok None]
-    end
-  else
-    store.s # with_transaction_lock (fun key -> _insert_value store v (Key key))
-      
-let get_succ_store_i (store:store) =
-  let m_si = consensus_i store in
-  match m_si with
-    | None -> Sn.start
-    | Some si -> Sn.succ si
 
-let get_catchup_start_i = get_succ_store_i
+
+
+
+
+
+
+
+
+
+
+

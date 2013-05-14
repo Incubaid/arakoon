@@ -26,14 +26,15 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
-let time_for_elections constants n' maybe_previous =
+let time_for_elections (type s) constants n' maybe_previous =
   begin
-    if Store.quiesced constants.store
+    let module S = (val constants.store_module : Store.STORE with type t = s) in
+    if S.quiesced constants.store
     then false, "quiesced"
     else
       begin
 	    let origine,(am,al) = 
-          match Store.who_master constants.store with
+          match S.who_master constants.store with
 		    | None         -> "not_in_store", ("None", Sn.start) 
 		    | Some (sm,sd) -> "stored", (sm,sd) 
 	    in
@@ -59,9 +60,10 @@ let slave_fake_prepare constants (current_i,current_n) () =
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
-let slave_steady_state constants state event =
+let slave_steady_state (type s) constants state event =
   let (n,i,previous) = state in
   let store = constants.store in
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   match event with
     | FromNode (msg,source) ->
         begin
@@ -75,7 +77,7 @@ let slave_steady_state constants state event =
 	            begin
 	              let reply = Accepted(n,i) in
 	              begin
-		            let m_store_i = Store.consensus_i store in
+		            let m_store_i = S.consensus_i store in
 		            begin
 		              match m_store_i with
 		                | None -> constants.on_consensus (previous, n, Sn.pred i)
@@ -124,7 +126,7 @@ let slave_steady_state constants state event =
 		            (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
                 )
                 in
-                let cu_pred = Store.get_catchup_start_i constants.store in
+                let cu_pred = S.get_catchup_start_i constants.store in
                 let new_state = (source,cu_pred,n',i') in 
                 Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) ) 
 	          end
@@ -135,10 +137,10 @@ let slave_steady_state constants state event =
 		          | Nak_sent ->
 		              Fsm.return ~sides:[log_e0] (Slave_steady_state state)
 		          | Promise_sent_up2date ->
-		              let next_i = Store.get_succ_store_i constants.store in
+		              let next_i = S.get_succ_store_i constants.store in
 		              Fsm.return (Slave_wait_for_accept (n', next_i, None, None))
 		          | Promise_sent_needs_catchup ->
-		              let i = Store.get_catchup_start_i constants.store in
+		              let i = S.get_catchup_start_i constants.store in
 		              let new_state = (source, i, n', i') in 
 		              Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) ) 
 	          end
@@ -174,7 +176,7 @@ let slave_steady_state constants state event =
 	        if elections_needed then
 	          begin
 	            let new_n = update_n constants n in
-                let el_i = Store.get_succ_store_i constants.store in
+                let el_i = S.get_succ_store_i constants.store in
                 let el_up =
 		          begin
 		            if el_i = (Sn.pred i) 
@@ -213,7 +215,7 @@ let slave_steady_state constants state event =
         end
     | Quiesce (sleep,awake) ->
         begin
-          handle_quiesce_request constants.store sleep awake >>= fun () ->
+          handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
           Fsm.return (Slave_steady_state state)
         end
           
@@ -228,7 +230,8 @@ let slave_steady_state constants state event =
 
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
-let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
+let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -246,7 +249,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                 | Nak_sent -> Fsm.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
                 | Promise_sent_up2date -> Fsm.return( Slave_wait_for_accept (n',i,vo, maybe_previous) )
                 | Promise_sent_needs_catchup -> 
-                  let i = Store.get_catchup_start_i constants.store in
+                  let i = S.get_catchup_start_i constants.store in
                   let state = (source, i, n', i') in 
                   Fsm.return( Slave_discovered_other_master state )
             end
@@ -268,7 +271,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                 begin
 	              if i' > i 
                   then 
-                    let cu_pred = Store.get_catchup_start_i constants.store in
+                    let cu_pred = S.get_catchup_start_i constants.store in
                     Fsm.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
                   else
                     begin
@@ -281,7 +284,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                       match maybe_previous with
 		                | None -> begin log_f me "No previous" >>= fun () -> Lwt.return() end
 		                | Some( pv, pi ) -> 
-                          let store_i = Store.consensus_i constants.store in
+                          let store_i = S.consensus_i constants.store in
                           begin
 		                    match store_i with
 		                      | Some s_i ->
@@ -315,7 +318,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
                       (Sn.string_of i) (Sn.string_of i')  
                   )
                 in
-                let cu_pred = Store.get_catchup_start_i constants.store in
+                let cu_pred = S.get_catchup_start_i constants.store in
                 let new_state = (source, cu_pred, n', i') in 
                 Fsm.return ~sides:[log_e] (Slave_discovered_other_master(new_state) ) 
               else
@@ -361,7 +364,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           begin
             let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
             (* begin *)
-            let el_i = Store.get_succ_store_i constants.store in
+            let el_i = S.get_succ_store_i constants.store in
             let el_up = constants.get_value el_i in
             (*
               begin
@@ -392,7 +395,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
       
     | Quiesce (sleep,awake) ->
         begin
-          handle_quiesce_request constants.store sleep awake >>= fun () ->
+          handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
           Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
         end
     | Unquiesce ->
@@ -408,13 +411,14 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
    catchup and then go to steady state or wait_for_accept
    depending on if there was an existing value or not *)
 
-let slave_discovered_other_master constants state () =
+let slave_discovered_other_master (type s) constants state () =
   let (master, current_i, future_n, future_i) = state in
   let me = constants.me
   and other_cfgs = constants.other_cfgs
   and store = constants.store
   and tlog_coll = constants.tlog_coll
   in
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   if current_i < future_i then
     begin
       log_f me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
@@ -422,7 +426,7 @@ let slave_discovered_other_master constants state () =
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
+      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
       begin
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
@@ -461,7 +465,7 @@ let slave_discovered_other_master constants state () =
     end
   else
     begin
-      let next_i = Store.get_succ_store_i constants.store in
+      let next_i = S.get_succ_store_i constants.store in
       let s, m =
         if is_election constants
         then 

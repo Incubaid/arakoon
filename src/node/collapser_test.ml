@@ -24,6 +24,8 @@ open Lwt
 open OUnit
 open Update
 
+module S = (val (Store.make_store_module (module Local_store)))
+
 let _should_fail x error_msg success_msg =
   Lwt.catch 
     (fun ()  -> 
@@ -70,19 +72,18 @@ let test_collapse_until dn =
         Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = 
-    (Local_store.make_local_store, Local_store.copy_store, storename) 
+  let store_methods = (Local_store.copy_store2, storename)
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun s -> Lwt.return () in
-  Collapser.collapse_until tlc store_methods future_i cb >>= fun () ->
+  Collapser.collapse_until tlc (module S) store_methods future_i cb >>= fun () ->
   (* some verification ? *)
   
   (* try to do it a second time, it should *)
   let future_i2 = Sn.of_int 1000 in
     _should_fail 
     (fun () ->
-      Collapser.collapse_until tlc store_methods future_i2 cb) 
+      Collapser.collapse_until tlc (module S) store_methods future_i2 cb) 
     "this should fail" 
     "great, it indeed refuses to do this" 
   >>= fun ()->
@@ -110,12 +111,12 @@ let test_collapse_many dn =
 	    Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Local_store.make_local_store, Local_store.copy_store, storename) in
-  Collapser.collapse_many tlc store_methods 5 cb' cb >>= fun () ->
+  let store_methods = (Local_store.copy_store2, storename) in
+  Collapser.collapse_many tlc (module S) store_methods 5 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 000" >>= fun () ->
-  Collapser.collapse_many tlc store_methods 3 cb' cb >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 3 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many tlc store_methods 1 cb' cb >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb >>= fun () ->
   Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 

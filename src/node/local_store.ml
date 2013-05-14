@@ -31,6 +31,12 @@ open Unix.LargeFile
 
 module B = Camltc.Bdb
 
+type t = { db : Camltc.Hotc.t;
+           mutable location : string;
+           mutable _tx : (transaction * Camltc.Hotc.bdb) option;
+           mutable _tx_lock : transaction_lock option;
+           _tx_lock_mutex : Lwt_mutex.t }
+
 let _get bdb key = B.get bdb key
 
 let _set bdb key value = B.put bdb key value
@@ -52,7 +58,7 @@ let _range_entries _pf bdb first finc last linc max =
     keys_list
   in x
 
-let copy_store old_location new_location overwrite =
+let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
   then
@@ -78,239 +84,228 @@ let copy_store old_location new_location overwrite =
   end
 
 let get_construct_params db_name ~mode=
-  Camltc.Hotc.create db_name ~mode >>= fun db ->
+  Camltc.Hotc.create db_name ~mode [] >>= fun db ->
   Lwt.return db
 
-class local_store (db_location:string) (db:Camltc.Hotc.t) =
+let _with_tx : 'a. t -> transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
+  fun ls tx f ->
+    match ls._tx with
+      | None -> failwith "not in a transaction"
+      | Some (tx', db) ->
+          if tx != tx'
+          then
+            failwith "the provided transaction is not the current transaction of the store"
+          else
+            f db
 
-object(self: #simple_store)
-  val mutable my_location = db_location
-  val mutable _tx = None
-  val mutable _tx_lock = None
-  val _tx_lock_mutex = Lwt_mutex.create ()
-
-  method private _with_tx : 'a. transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
-    fun tx f ->
-      match _tx with
-        | None -> failwith "not in a transaction"
-        | Some (tx', db) ->
-            if tx != tx'
-            then
-              failwith "the provided transaction is not the current transaction of the store"
-            else
-              f db
-
-  method with_transaction_lock f =
-    Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
-      Lwt.finalize
-        (fun () ->
-          let txl = new transaction_lock in
-          _tx_lock <- Some txl;
-          f txl)
-        (fun () -> _tx_lock <- None; Lwt.return ()))
-
-  method with_transaction ?(key=None) f =
-    let matched_locks = match _tx_lock, key with
-      | None, None -> true
-      | Some txl, Some txl' -> txl == txl'
-      | _ -> false in
-    if not matched_locks
-    then failwith "transaction locks do not match";
-    let t0 = Unix.gettimeofday() in
+let with_transaction_lock ls f =
+  Lwt_mutex.with_lock ls._tx_lock_mutex (fun () ->
     Lwt.finalize
       (fun () ->
-        Camltc.Hotc.transaction db
-          (fun db ->
-            let tx = new transaction in
-            _tx <- Some (tx, db);
-            f tx >>= fun a ->
-            Lwt.return a))
-      (fun () ->
-        let t = ( Unix.gettimeofday() -. t0) in
-        if t > 1.0
-        then
-          Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
-        else
-          Lwt.return (); >>= fun () ->
-        _tx <- None; Lwt.return ())
+        let txl = new transaction_lock in
+        ls._tx_lock <- Some txl;
+        f txl)
+      (fun () -> ls._tx_lock <- None; Lwt.return ()))
 
-  method optimize quiesced =
-    let db_optimal = my_location ^ ".opt" in
-    Lwt_log.debug "Copying over db file" >>= fun () ->
-    Lwt_io.with_file
-        ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
-        ~mode:Lwt_io.output
-        db_optimal (fun oc -> self # copy_store ~_networkClient:false oc )
-    >>= fun () ->
-    begin 
-      Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
-      Camltc.Hotc.create db_optimal >>= fun db_opt ->
-      Lwt.finalize
-      ( fun () ->
-        Lwt_log.info "Optimizing db copy" >>= fun () ->
-        Camltc.Hotc.optimize db_opt >>= fun () ->
-        Lwt_log.info "Optimize db copy complete"
-      ) 
-      ( fun () ->
-        Camltc.Hotc.close db_opt
-      )
-    end >>= fun () ->
-    File_system.rename db_optimal my_location >>= fun () ->
-    self # reopen (fun () -> Lwt.return ()) quiesced
+let with_transaction ls ?(key=None) f =
+  let matched_locks = match ls._tx_lock, key with
+    | None, None -> true
+    | Some txl, Some txl' -> txl == txl'
+    | _ -> false in
+  if not matched_locks
+  then failwith "transaction locks do not match";
+  let t0 = Unix.gettimeofday() in
+  Lwt.finalize
+    (fun () ->
+      Camltc.Hotc.transaction ls.db
+        (fun db ->
+          let tx = new transaction in
+          ls._tx <- Some (tx, db);
+          f tx >>= fun a ->
+          Lwt.return a))
+    (fun () ->
+      let t = ( Unix.gettimeofday() -. t0) in
+      if t > 1.0
+      then
+        Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
+      else
+        Lwt.return (); >>= fun () ->
+      ls._tx <- None; Lwt.return ())
 
-  method defrag() = 
-    Lwt_log.debug "local_store :: defrag" >>= fun () ->
-    Camltc.Hotc.defrag db >>= fun rc ->
-    Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" db_location rc>>= fun () ->
-    Lwt.return ()
+let defrag ls =
+  Lwt_log.debug "local_store :: defrag" >>= fun () ->
+  Camltc.Hotc.defrag ls.db >>= fun rc ->
+  Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
+  Lwt.return ()
 
-  (*method private open_db () =
-    Hotc._open_lwt db *)
+let exists ls key =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.exists bdb key
 
-  method exists key =
-    let bdb = Camltc.Hotc.get_bdb db in
-    B.exists bdb key
+let get ls key =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.get bdb key
 
-  method get key =
-    let bdb = Camltc.Hotc.get_bdb db in
-    B.get bdb key
+let range ls prefix first finc last linc max =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
+  filter_keys_array r
 
-  method range prefix first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
-    filter_keys_array r
+let range_entries ls prefix first finc last linc max =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  let r = _range_entries prefix bdb first finc last linc max in
+  r
 
-  method range_entries prefix first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let r = _range_entries prefix bdb first finc last linc max in
-    r
+let rev_range_entries ls prefix first finc last linc max =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  let r = B.rev_range_entries prefix bdb first finc last linc max in
+  r
 
-  method rev_range_entries prefix first finc last linc max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let r = B.rev_range_entries prefix bdb first finc last linc max in
-    r
+let prefix_keys ls prefix max =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  let keys_array = B.prefix_keys bdb prefix max in
+  let keys_list = filter_keys_array keys_array in
+  keys_list
 
-  method prefix_keys prefix max =
-    let bdb = Camltc.Hotc.get_bdb db in
-    let keys_array = B.prefix_keys bdb prefix max in
-	let keys_list = filter_keys_array keys_array in
-	keys_list
+let set ls tx key value =
+  _with_tx ls tx (fun db -> _set db key value)
 
-  method set tx key value =
-    self # _with_tx tx (fun db -> _set db key value)
+let delete ls tx key =
+  _with_tx ls tx (fun db -> _delete db key)
 
-  method delete tx key =
-    self # _with_tx tx (fun db -> _delete db key)
+let delete_prefix ls tx prefix =
+  _with_tx ls tx
+    (fun db -> _delete_prefix db prefix)
 
-  method delete_prefix tx prefix =
-    self # _with_tx tx
-      (fun db -> _delete_prefix db prefix)
+let close ls =
+  Camltc.Hotc.close ls.db >>= fun () ->
+  Lwt_log.info_f "local_store %S :: closed  () " ls.location >>= fun () ->
+  Lwt.return ()
 
-  method close () =
-    Camltc.Hotc.close db >>= fun () ->
-    Lwt_log.info_f "local_store %S :: closed  () " db_location >>= fun () ->
-    Lwt.return ()
+let get_location ls = Camltc.Hotc.filename ls.db
 
-  method get_location () = Camltc.Hotc.filename db
-
-  method reopen f quiesced =
-    let mode =
+let reopen ls f quiesced =
+  let mode =
     begin
       if quiesced then
         B.readonly_mode
       else
         B.default_mode
     end in
-    Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
-    Camltc.Hotc.reopen db f mode >>= fun () ->
-    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
+  Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
+  Camltc.Hotc.reopen ls.db f mode >>= fun () ->
+  Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
 
-  method get_key_count () =
-    Lwt_log.debug "local_store::get_key_count" >>= fun () ->
-    Camltc.Hotc.transaction db (fun db -> Lwt.return ( B.get_key_count db ) )
+let get_key_count ls =
+  Lwt_log.debug "local_store::get_key_count" >>= fun () ->
+  Camltc.Hotc.transaction ls.db (fun db -> Lwt.return ( B.get_key_count db ) )
 
-  method copy_store ?(_networkClient=true) (oc: Lwt_io.output_channel) =
-    let db_name = my_location in
-    let stat = Unix.LargeFile.stat db_name in
-    let length = stat.st_size in
-    Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+let copy_store ls networkClient (oc: Lwt_io.output_channel) =
+  let db_name = ls.location in
+  let stat = Unix.LargeFile.stat db_name in
+  let length = stat.st_size in
+  Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+  begin
+    if networkClient
+    then
+      Llio.output_int oc 0 >>= fun () ->
+    Llio.output_int64 oc length
+    else Lwt.return ()
+  end
+  >>= fun () ->
+  Lwt_io.with_file
+    ~flags:[Unix.O_RDONLY]
+    ~mode:Lwt_io.input
+    db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+  >>= fun () ->
+  Lwt_io.flush oc
+
+let optimize ls quiesced =
+  let db_optimal = ls.location ^ ".opt" in
+  Lwt_log.debug "Copying over db file" >>= fun () ->
+  Lwt_io.with_file
+    ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
+    ~mode:Lwt_io.output
+    db_optimal (fun oc -> copy_store ls false oc )
+  >>= fun () ->
+  begin
+    Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
+    Camltc.Hotc.create db_optimal [] >>= fun db_opt ->
+    Lwt.finalize
+      ( fun () ->
+        Lwt_log.info "Optimizing db copy" >>= fun () ->
+        Camltc.Hotc.optimize db_opt >>= fun () ->
+        Lwt_log.info "Optimize db copy complete"
+      )
+      ( fun () ->
+        Camltc.Hotc.close db_opt
+      )
+  end >>= fun () ->
+  File_system.rename db_optimal ls.location >>= fun () ->
+  reopen ls (fun () -> Lwt.return ()) quiesced
+
+let relocate ls new_location =
+  copy_store2 ls.location new_location true >>= fun () ->
+  let old_location = ls.location in
+  let () = ls.location <- new_location in
+  Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
+  File_system.unlink old_location >>= fun () ->
+  Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location
+
+
+let get_fringe ls border direction =
+  let cursor_init, get_next, key_cmp =
     begin
-      if _networkClient 
-      then
-        Llio.output_int oc 0 >>= fun () ->
-      Llio.output_int64 oc length 
-      else Lwt.return ()
-    end
-    >>= fun () ->
-    Lwt_io.with_file
-      ~flags:[Unix.O_RDONLY]
-      ~mode:Lwt_io.input
-      db_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
-    >>= fun () ->
-    Lwt_io.flush oc
-
-  method relocate new_location =
-    copy_store my_location new_location true >>= fun () ->
-    let old_location = my_location in
-    let () = my_location <- new_location in
-    Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
-    File_system.unlink old_location >>= fun () ->
-    Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location
-
-
-  method get_fringe border direction =
-    let cursor_init, get_next, key_cmp =
-      begin
-        match direction with
+      match direction with
         | Routing.UPPER_BOUND ->
-          let skip_keys lcdb cursor =
-            let () = B.first lcdb cursor in
-            let rec skip_admin_key () =
-              begin
-                let k = B.key lcdb cursor in
-                if k.[0] <> __adminprefix.[0]
-                then
-                  Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
-                else
-                  begin
-                    Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
+            let skip_keys lcdb cursor =
+              let () = B.first lcdb cursor in
+              let rec skip_admin_key () =
+                begin
+                  let k = B.key lcdb cursor in
+                  if k.[0] <> __adminprefix.[0]
+                  then
+                    Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
+                  else
                     begin
-                      try
-                        B.next lcdb cursor;
-                        skip_admin_key ()
-                      with Not_found -> ()
+                      Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
+                      begin
+                        try
+                          B.next lcdb cursor;
+                          skip_admin_key ()
+                        with Not_found -> ()
+                      end
                     end
-                  end
+                end
+              in
+              skip_admin_key ()
+            in
+            let cmp =
+              begin
+                match border with
+                  | Some b ->  (fun k -> k >= (__prefix ^ b))
+                  | None -> (fun k -> false)
               end
             in
-            skip_admin_key ()
-          in
-          let cmp =
-            begin
-              match border with
-                | Some b ->  (fun k -> k >= (__prefix ^ b))
-                | None -> (fun k -> false)
-            end
-          in
-          skip_keys, B.next, cmp
+            skip_keys, B.next, cmp
         | Routing.LOWER_BOUND ->
-          let cmp =
-            begin
-              match border with
-                | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
-                | None -> (fun k -> k.[0] <> __prefix.[0])
-            end
-          in
-          B.last, B.prev, cmp
-      end
-    in
-    Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
-    let buf = Buffer.create 128 in
-    Lwt.finalize
-      (fun () ->
-        Camltc.Hotc.transaction db
-          (fun txdb ->
-            Camltc.Hotc.with_cursor txdb
+            let cmp =
+              begin
+                match border with
+                  | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
+                  | None -> (fun k -> k.[0] <> __prefix.[0])
+              end
+            in
+            B.last, B.prev, cmp
+    end
+  in
+  Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
+  let buf = Buffer.create 128 in
+  Lwt.finalize
+    (fun () ->
+      Camltc.Hotc.transaction ls.db
+        (fun txdb ->
+          Camltc.Hotc.with_cursor txdb
             (fun lcdb cursor ->
               Buffer.add_string buf "1\n";
               let limit = 1024 * 1024 in
@@ -340,19 +335,18 @@ object(self: #simple_store)
                       acc
                   end
 
-              in
-              loop [] 0
+                in
+                loop [] 0
               in
               Lwt.return r
             )
-          )
-      )
-      (fun () ->
-        Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
+        )
     )
-end
+    (fun () ->
+      Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
+    )
 
-let make_local_store ?(read_only=false) db_name =
+let make_store read_only db_name =
   let mode =
     if read_only
     then B.readonly_mode
@@ -361,5 +355,9 @@ let make_local_store ?(read_only=false) db_name =
   Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
   >>= fun db ->
-  let store = new local_store db_name db in
-  Lwt.return (make_store store)
+  Lwt.return { db = db;
+               location = db_name;
+               _tx = None;
+               _tx_lock = None;
+               _tx_lock_mutex = Lwt_mutex.create () }
+

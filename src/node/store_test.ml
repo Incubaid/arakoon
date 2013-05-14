@@ -25,6 +25,8 @@ open Lwt
 open Extra
 open Update
 
+module S = (val (Store.make_store_module (module Local_store)))
+
 let _dir_name = "/tmp/store_test"
 
 let setup () = 
@@ -52,16 +54,16 @@ let teardown () =
 
 let with_store name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  Local_store.make_local_store db_name >>= fun store ->
+  S.make_store db_name >>= fun store ->
   f store >>= fun () ->
-  Store.close store
+  S.close store
 
-let assert_k_v k v (store:Store.store) =
-  Store.get store k >>= fun av ->
+let assert_k_v k v (store:S.t) =
+  S.get store k >>= fun av ->
   if v <> av then failwith "not as expected" else Lwt.return ()
 
-let assert_not_exists k (store:Store.store) =
-  Store.exists store k >>= fun exists ->
+let assert_not_exists k (store:S.t) =
+  S.exists store k >>= fun exists ->
   if exists then failwith "key should not exist" else Lwt.return ()
 
 let failing_value =
@@ -80,14 +82,14 @@ let value_asserts =
     [assert_not_exists "key2"]);]
 
 let test_safe_insert_value () =
-  let get_next_i store = match Store.consensus_i store with
+  let get_next_i store = match S.consensus_i store with
     | None -> Sn.of_int 0
     | Some i -> Sn.succ i in
   let do_asserts store =
     Lwt_list.iter_s
       (fun (value, asserts) ->
-        Store.safe_insert_value store (get_next_i store) value >>= fun _ ->
-        let j = Store._get_j store in
+        S.safe_insert_value store (get_next_i store) value >>= fun _ ->
+        let j = S._get_j store in
         if j <> 0 then failwith "j is not 0";
         Lwt_list.iter_s
           (fun assert' -> assert' store)
@@ -104,30 +106,30 @@ let test_safe_insert_value_with_partial_value_update () =
     and u2 = Update.TestAndSet(k, None, Some "value1")
     and u3 = Update.Set("key2", "bla") in
     let paxos_value = Value.create_client_value [u1;u2;u3] false in
-    Store.with_transaction_lock store (fun k -> Store._insert_update store u1 (Store.Key k)) >>= fun _ ->
-    Store.with_transaction_lock store (fun k -> Store._insert_update store u2 (Store.Key k)) >>= fun _ ->
+    S.with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
+    S.with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
 
-    let j = Store._get_j store in
+    let j = S._get_j store in
     if j = 0 then failwith "j is 0";
 
-    Store.get store k >>= fun value ->
+    S.get store k >>= fun value ->
     if value <> "value1" then failwith "key should have value1 as value";
 
-    Store.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
+    S.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
 
-    let j = Store._get_j store in
+    let j = S._get_j store in
     if j <> 0 then failwith "j is not 0";
 
-    Store.get store k >>= fun value ->
+    S.get store k >>= fun value ->
     if value <> "value1" then failwith "illegal value in store";
     Lwt.return ()
   )
 
 let test_safe_insert_value_with_tx () =
   with_store "tsivwt" (fun store ->
-    Store.with_transaction store (fun tx ->
+    S.with_transaction store (fun tx ->
       (Lwt.catch
-         (fun () -> Store.safe_insert_value store ~tx:(Some tx) (Sn.of_int 0) failing_value
+         (fun () -> S.safe_insert_value store ~tx:(Some tx) (Sn.of_int 0) failing_value
                     >>= fun _ -> Lwt.return 0)
          (fun _ -> Lwt.return 1)) >>= fun r ->
       if r = 0

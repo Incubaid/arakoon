@@ -171,7 +171,7 @@ let log_prelude cluster_cfg =
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
 
-let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll = 
+let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll = 
   Lwt_log.info "ONLY CATCHUP" >>= fun () ->
   let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
@@ -192,13 +192,13 @@ let only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll =
           fo.node_name
     end
   in
-  make_store db_name >>= fun (store:Store.store) ->
+  S.make_store db_name >>= fun store ->
   make_tlog_coll me.tlog_dir me.use_compression name >>= fun tlc ->
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
-    (store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+    ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
   tlc # close () 
   
     
@@ -208,18 +208,18 @@ module X = struct
 	 the idea is to lift stuff out of _main_2 
       *)
   
-  let on_consensus (store:Store.store) vni =
+  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       if Value.is_master_set v
       then
 	    begin
-	      Store.with_transaction store (fun tx -> Store.incr_i store tx) >>= fun () ->
+	      S.with_transaction store (fun tx -> S.incr_i store tx) >>= fun () ->
           Lwt.return [Store.Ok None]
 	    end
       else
         let t0 = Unix.gettimeofday() in
-	    Store.on_consensus store vni >>= fun r ->
+	    S.on_consensus store vni >>= fun r ->
         let t1 = Unix.gettimeofday () in
         let d = t1 -. t0 in
         Lwt_log.debug_f "T:on_consensus took: %f" d  >>= fun () ->
@@ -229,7 +229,7 @@ module X = struct
   
   let last_master_log_stmt = ref 0L  
     
-  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) store (v,n,i) =
+  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
@@ -246,8 +246,8 @@ module X = struct
 	        begin
               let logit () =
                 let now = Int64.of_float (Unix.gettimeofday ()) in
-                let m_old_master = Store.who_master store in
-	            Store.set_master_no_inc store m now >>= fun _ ->
+                let m_old_master = S.who_master store in
+	            S.set_master_no_inc store m now >>= fun _ ->
                 begin
                   let new_master =
                     begin
@@ -294,9 +294,9 @@ module X = struct
     _inner ()
 end
   
-let _main_2 
-    (make_store: ?read_only:bool -> string -> Store.store Lwt.t) 
-    make_tlog_coll make_config get_snapshot_name copy_store ~name 
+let _main_2 (type s)
+    (module S : Store.STORE with type t = s)
+    make_tlog_coll make_config get_snapshot_name ~name
     ~daemonize ~catchup_only : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
@@ -317,7 +317,7 @@ let _main_2
   if catchup_only 
   then 
     begin
-      only_catchup ~name ~cluster_cfg ~make_store ~make_tlog_coll 
+      only_catchup (module S) ~name ~cluster_cfg ~make_tlog_coll 
       >>= fun _ -> (* we don't need that here as there is no continuation *)
       
       Lwt.return 0
@@ -422,15 +422,15 @@ let _main_2
           let full_snapshot_path = Filename.concat me.tlog_dir snapshot_name in
           Lwt.catch 
             (fun () ->
-              copy_store full_snapshot_path db_name false 
+              S.copy_store2 full_snapshot_path db_name false 
             ) 
             (function
               | Not_found -> Lwt.return ()
               | e -> raise e
             )
           >>= fun () ->
-          make_store db_name >>= fun (store:Store.store) ->
-          let store_i = Store.consensus_i store in
+          S.make_store db_name >>= fun (store:S.t) ->
+          let store_i = S.consensus_i store in
           let s_i = 
             begin
 		      match store_i with
@@ -442,7 +442,7 @@ let _main_2
 	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression name ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                let store_i = Store.consensus_i store in
+                let store_i = S.consensus_i store in
                 Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
                 let tlog_i = 
                   begin
@@ -479,7 +479,7 @@ let _main_2
           let ti_o = Some last_i in
           let current_i = last_i in (* ?? *)
 	      Catchup.verify_n_catchup_store me.node_name 
-	        (store, tlog_coll, ti_o) 
+	        ((module S), store, tlog_coll, ti_o)
 	        ~current_i master 
 	      >>= fun (new_i, vo) ->
 	      
@@ -492,12 +492,13 @@ let _main_2
 	      let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	      let inject_push v = Lwt_buffer.add v inject_buffer in
 	      let read_only = master = ReadOnly in
+          let module SB = Sync_backend.Sync_backend(S) in
 	      let sb =
 	        let test = Node_cfg.Node_cfg.test cluster_cfg in
-	        new Sync_backend.sync_backend me 
+            new SB.sync_backend me 
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-	          store (make_store, copy_store, full_snapshot_path) 
+	          store (S.copy_store2, full_snapshot_path) 
               tlog_coll lease_period
 	          ~quorum_function n_nodes
 	          ~expect_reachable
@@ -512,11 +513,11 @@ let _main_2
 	      let send, receive, run, register =
 	        Multi_paxos.network_of_messaging messaging in
 	      
-	      let on_consensus = X.on_consensus store in
+	      let on_consensus = X.on_consensus (module S) store in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	      let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
-	      let on_accept = X.on_accept statistics tlog_coll store in
+	      let on_accept = X.on_accept statistics tlog_coll (module S) store in
 	      
 	      let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
 	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -549,7 +550,8 @@ let _main_2
 	          last_witnessed
 	          (quorum_function: int -> int)
 	          (master : master)
-	          store 
+              (module S)
+	          store
               tlog_coll 
               others 
               lease_period 
@@ -604,10 +606,10 @@ let _main_2
                          let msg = "got TERM | INT" in
 			             Lwt_log.info msg >>= fun () ->
 			             Lwt_io.printl msg >>= fun () ->
-                         Store.close store >>= fun () ->
+                         S.close store >>= fun () ->
                          Lwt_log.fatal_f 
                            ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                           (Store.get_location store)
+                           (S.get_location store)
                          >>= fun () ->
                          let open Multi_paxos in constants.tlog_coll # close () 
                              
@@ -658,18 +660,16 @@ let _main_2
       
       
 let main_t make_config name daemonize catchup_only : int Lwt.t =
-  let make_store = Local_store.make_local_store in
+  let module S = (val (Store.make_store_module (module Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  let copy_store = Local_store.copy_store in
-  _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
     
 let test_t make_config name =
-  let make_store = Mem_store.make_mem_store in
+  let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll = Mem_tlogcollection.make_mem_tlog_collection in
   let get_snapshot_name = fun () -> "DUMMY" in
-  let copy_store = Mem_store.copy_store in
   let daemonize = false 
   and catchup_only = false in
-  _main_2 make_store make_tlog_coll make_config get_snapshot_name copy_store ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
 

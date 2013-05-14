@@ -55,8 +55,8 @@ let paxos_fatal me fmt =
   in
   Printf.ksprintf k fmt
 
-let can_promise store lease_expiration requester =
-  match Store.who_master store with
+let can_promise (type s) (module S : Store.STORE with type t = s) store lease_expiration requester =
+  match S.who_master store with
     | Some (m, ml) ->
       let l64 = Int64.of_int lease_expiration in
       if (
@@ -125,7 +125,7 @@ let paxos_event2s = function
   | ElectionTimeout _ -> "ElectionTimeout _"
   | DropMaster _ -> "DropMaster _"
 
-type constants =
+type 'a constants =
     {me:id;
      others: id list;
      send: MPMessage.t -> id -> id -> unit Lwt.t;
@@ -138,7 +138,8 @@ type constants =
      last_witnessed: id -> Sn.t;
      quorum_function: int -> int;
      master: master;
-     store:Store.store;
+     store: 'a;
+     store_module: (module Store.STORE with type t = 'a);
      tlog_coll:Tlogcollection.tlog_collection;
      other_cfgs:Node_cfg.Node_cfg.t list;
      lease_expiration: int;
@@ -158,9 +159,9 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | _ -> false
 
-let make me is_learner others send receive get_value 
+let make (type s) me is_learner others send receive get_value 
     on_accept on_consensus on_witness 
-    last_witnessed quorum_function (master:master) store tlog_coll 
+    last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll 
     other_cfgs lease_expiration inject_event ~cluster_id 
     quiesced =
   {
@@ -176,6 +177,7 @@ let make me is_learner others send receive get_value
     quorum_function = quorum_function;
     master = master;
     store = store;
+    store_module = (module S);
     tlog_coll = tlog_coll;
     other_cfgs = other_cfgs;
     lease_expiration = lease_expiration;
@@ -228,13 +230,14 @@ type prepare_repsonse =
   | Promise_sent_needs_catchup
   | Nak_sent
 
-let handle_prepare constants dest n n' i' =
+let handle_prepare (type s) constants dest n n' i' =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   let me = constants.me in
   let () = constants.on_witness dest i' in 
   if not ( List.mem dest constants.others) then
     begin
       let store = constants.store in
-      let s_i = Store.consensus_i store in
+      let s_i = S.consensus_i store in
       let nak_i = 
         begin
           match s_i with
@@ -249,7 +252,7 @@ let handle_prepare constants dest n n' i' =
     end
   else
     begin
-      let can_pr = can_promise constants.store constants.lease_expiration dest in
+      let can_pr = can_promise constants.store_module constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
 	    begin 
@@ -261,7 +264,7 @@ let handle_prepare constants dest n n' i' =
       else 
 	    begin
           let store = constants.store in
-          let s_i = Store.consensus_i store in
+          let s_i = S.consensus_i store in
           let nak_max = 
             begin
               match s_i with
@@ -323,16 +326,17 @@ let safe_wakeup_all v l =
 let fail_quiesce_request store sleeper awake reason =
   safe_wakeup sleeper awake reason
   
-let handle_quiesce_request store sleeper (awake: quiesce_result Lwt.u) =
-  Store.quiesce store >>= fun () ->
+let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store sleeper (awake: quiesce_result Lwt.u) =
+  S.quiesce store >>= fun () ->
   safe_wakeup sleeper awake Quiesced_ok
 
-let handle_unquiesce_request constants n =
+let handle_unquiesce_request (type s) constants n =
   let store = constants.store in
   let tlog_coll = constants.tlog_coll in
-  let too_far_i = Store.get_succ_store_i store in
-  Store.unquiesce store >>= fun () ->
-  Catchup.catchup_store "handle_unquiesce" (store,tlog_coll) too_far_i >>= fun (i,vo) ->
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let too_far_i = S.get_succ_store_i store in
+  S.unquiesce store >>= fun () ->
+  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun (i,vo) ->
   start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
   Lwt.return (i,vo)
   

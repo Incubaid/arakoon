@@ -28,62 +28,58 @@ open Routing
 
 module StringMap = Map.Make(String);;
 
-class mem_store db_name =
+type t = { mutable kv : string StringMap.t;
+           mutable _tx : transaction option;
+           mutable _tx_lock : transaction_lock option;
+           _tx_lock_mutex : Lwt_mutex.t }
 
-object (self: #simple_store)
-
-  val mutable kv = StringMap.empty
-  val mutable _tx = None
-  val mutable _tx_lock = None
-  val _tx_lock_mutex = Lwt_mutex.create ()
-
-  method with_transaction_lock f =
-    Lwt_mutex.with_lock _tx_lock_mutex (fun () ->
+let with_transaction_lock ms f =
+    Lwt_mutex.with_lock ms._tx_lock_mutex (fun () ->
       Lwt.finalize
         (fun () ->
           let txl = new transaction_lock in
-          _tx_lock <- Some txl;
+          ms._tx_lock <- Some txl;
           f txl)
-        (fun () -> _tx_lock <- None; Lwt.return ()))
+        (fun () -> ms._tx_lock <- None; Lwt.return ()))
 
-  method with_transaction ?(key=None) f =
-    let matched_locks = match _tx_lock, key with
+let with_transaction ms ?(key=None) f =
+    let matched_locks = match ms._tx_lock, key with
       | None, None -> true
       | Some txl, Some txl' -> txl == txl'
       | _ -> false in
     if not matched_locks
     then failwith "transaction locks do not match";
     let tx = new transaction in
-    _tx <- Some tx;
-    let current_kv = kv in
+    ms._tx <- Some tx;
+    let current_kv = ms.kv in
     Lwt.catch
       (fun () ->
         Lwt.finalize
           (fun () -> f tx)
-          (fun () -> _tx <- None; Lwt.return ()))
+          (fun () -> ms._tx <- None; Lwt.return ()))
       (fun exn ->
-        kv <- current_kv;
+        ms.kv <- current_kv;
         Lwt.fail exn)
 
-  method exists key =
-    StringMap.mem key kv
+let exists ms key =
+    StringMap.mem key ms.kv
 
-  method get key =
-    StringMap.find key kv
+let get ms key =
+    StringMap.find key ms.kv
 
-  method range prefix first finc last linc max =
-    let keys = Test_backend.range_ kv (_f prefix first) finc (_l prefix last) linc max in
+let range ms prefix first finc last linc max =
+    let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
     filter_keys_list keys
 
-  method range_entries prefix first finc last linc max =
-    let entries = Test_backend.range_entries_ kv (_f prefix first) finc (_l prefix last) linc max in
+let range_entries ms prefix first finc last linc max =
+    let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
     filter_entries_list entries
 
-  method rev_range_entries prefix first finc last linc max =
-    let entries = Test_backend.rev_range_entries_ kv (_f prefix first) finc (_l prefix last) linc max in
+let rev_range_entries ms prefix first finc last linc max =
+    let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
     filter_entries_list entries
 
-  method prefix_keys prefix max =
+let prefix_keys ms prefix max =
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
       (fun k v a ->
@@ -91,43 +87,44 @@ object (self: #simple_store)
 	if (Str.string_match (Str.regexp reg) k 0)
 	then k::a
 	else a
-      ) kv []
+      ) ms.kv []
     in filter_keys_list keys
 
-  method delete_prefix tx prefix =
-    let keys = self # prefix_keys prefix (-1) in
-    let () = List.iter (fun k -> self # delete tx k) keys in
-    List.length keys
-
-  method set tx key value =
-    kv <- StringMap.add key value kv
-
-  method optimize quiesced = Lwt.return ()
-  method defrag () = Lwt.return ()
-
-  method delete tx key =
-    if StringMap.mem key kv then
-	  kv <- StringMap.remove key kv
+let delete ms tx key =
+    if StringMap.mem key ms.kv then
+	  ms.kv <- StringMap.remove key ms.kv
     else
 	  raise (Key_not_found key)
 
-  method close () = Lwt.return ()
+let delete_prefix ms tx prefix =
+    let keys = prefix_keys ms prefix (-1) in
+    let () = List.iter (fun k -> delete ms tx k) keys in
+    List.length keys
 
-  method reopen when_closed quiesced = Lwt.return ()
+let set ms tx key value =
+    ms.kv <- StringMap.add key value ms.kv
 
-  method get_location () = failwith "not supported"
+let optimize ms quiesced = Lwt.return ()
+let defrag ms = Lwt.return ()
 
-  method get_key_count () =
+let close ms = Lwt.return ()
+
+let reopen ms when_closed quiesced = Lwt.return ()
+
+let get_location ms = failwith "not supported"
+
+let get_key_count ms =
     let inc key value size =
       Int64.succ size
     in
-    Lwt.return (StringMap.fold inc kv 0L)
+    Lwt.return (StringMap.fold inc ms.kv 0L)
 
-  method copy_store ?(_networkClient=true) oc = failwith "copy_store not supported"
+let copy_store ms networkClient oc = failwith "copy_store not supported"
+let copy_store2 old_location new_location overwrite = Lwt.return ()
 
-  method relocate new_location = failwith "Memstore.relocation not implemented"
+let relocate new_location = failwith "Memstore.relocation not implemented"
 
-  method get_fringe boundary direction =
+let get_fringe ms boundary direction =
     Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
     let cmp =
       begin
@@ -142,15 +139,15 @@ object (self: #simple_store)
 	if cmp k
 	then (k,v)::acc
 	else acc)
-      kv []
+      ms.kv []
     in
     Lwt.return all
-    
-end
 
-let make_mem_store ?(read_only=false) db_name =
-  let store = new mem_store db_name in
-  Lwt.return (make_store store)
+let make_store read_only db_name =
+  Lwt.return { kv = StringMap.empty;
+               _tx = None;
+               _tx_lock = None;
+               _tx_lock_mutex = Lwt_mutex.create () }
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()

@@ -31,6 +31,8 @@ open Update
 open Lwt_buffer
 open Master_type
 
+module S = (val (Store.make_store_module (module Mem_store)))
+
 let sn2s = Sn.string_of 
 
 let test_take () = Lwt.return (None, (fun s -> Lwt.return ()))
@@ -63,7 +65,7 @@ let test_generic network_factory n_nodes () =
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
-  Mem_store.make_mem_store "MEM#store" >>= fun store ->
+  S.make_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true "???">>= fun tlog_coll ->
   let base = {me = "???";
 	          others = [] ;
@@ -77,6 +79,7 @@ let test_generic network_factory n_nodes () =
 	          quorum_function = Multi_paxos.quorum_function;
 	          master=Elected;
 	          store = store;
+              store_module = (module S);
 	          tlog_coll = tlog_coll;
 	          other_cfgs = [];
 	          lease_expiration = 60;
@@ -231,7 +234,7 @@ let test_master_loop network_factory ()  =
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
-  Mem_store.make_mem_store "MEM#store" >>= fun store ->
+  S.make_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true me >>= fun tlog_coll ->
   let constants = {me = me; 
 		   is_learner = false;
@@ -245,6 +248,7 @@ let test_master_loop network_factory ()  =
 		   quorum_function = Multi_paxos.quorum_function;
 		   master = Elected;
 		   store = store;
+           store_module = (module S);
 		   tlog_coll = tlog_coll;
 		   other_cfgs = [];
 		   lease_expiration = 60;
@@ -350,7 +354,7 @@ let test_simulation filters () =
       Lwt_log.debug_f "got (%s,%s,%s) => dropping" msg_s source target
   in
   
-  Mem_store.make_mem_store "MEM#store"  >>= fun store ->
+  S.make_store "MEM#store"  >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" true me >>= fun tlog_coll ->
   let constants = {
     me = me;
@@ -365,6 +369,7 @@ let test_simulation filters () =
 	quorum_function = Multi_paxos.quorum_function;
 	master = Elected;
 	store = store;
+    store_module = (module S);
 	tlog_coll = tlog_coll;
 	other_cfgs = [];
 	lease_expiration = 60;
