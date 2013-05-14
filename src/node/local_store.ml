@@ -84,7 +84,7 @@ let copy_store2 old_location new_location overwrite =
   end
 
 let get_construct_params db_name ~mode=
-  Camltc.Hotc.create db_name ~mode [] >>= fun db ->
+  Camltc.Hotc.create db_name ~mode [B.BDBTLARGE] >>= fun db ->
   Lwt.return db
 
 let _with_tx : 'a. t -> transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
@@ -230,7 +230,7 @@ let optimize ls quiesced =
   >>= fun () ->
   begin
     Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
-    Camltc.Hotc.create db_optimal [] >>= fun db_opt ->
+    Camltc.Hotc.create db_optimal [B.BDBTLARGE] >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
         Lwt_log.info "Optimizing db copy" >>= fun () ->
