@@ -214,7 +214,7 @@ module X = struct
       if Value.is_master_set v
       then
 	    begin
-	      S.with_transaction store (fun tx -> S.incr_i store tx) >>= fun () ->
+	      S.incr_i store >>= fun () ->
           Lwt.return [Store.Ok None]
 	    end
       else

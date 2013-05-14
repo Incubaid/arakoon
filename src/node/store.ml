@@ -133,7 +133,7 @@ module type STORE =
     val get_succ_store_i : t -> int64
     val get_catchup_start_i : t -> int64
 
-    val incr_i : t -> transaction -> unit Lwt.t
+    val incr_i : t -> unit Lwt.t
     val set_master_no_inc : t -> string -> int64 -> unit Lwt.t
     val set_master : t -> transaction -> string -> int64 -> unit Lwt.t
 
@@ -326,22 +326,45 @@ struct
   let consensus_i store =
     store.store_i
 
-  let incr_i store tx =
+  let _get_j store =
+    try
+      let jstring = S.get store.s __j_key in
+      int_of_string jstring
+    with Not_found -> 0
+
+  let _set_j store tx j =
+    S.set store.s tx __j_key (string_of_int j)
+
+  let _get_new_i store =
     let old_i = _consensus_i store.s in
-    let new_i =
-      match old_i with
-        | None -> Sn.start
-        | Some i -> Sn.succ i
-    in
+    let new_i = match old_i with
+      | None -> Sn.start
+      | Some i -> Sn.succ i in
+    (new_i, old_i)
+
+  let _incr_i store tx =
+    let (new_i, old_i) = _get_new_i store in
     let new_is =
       let buf = Buffer.create 10 in
       let () = Sn.sn_to buf new_i in
       Buffer.contents buf
     in
     let () = S.set store.s tx __i_key new_is in
+    let () = _set_j store tx 0 in
     store.store_i <- Some new_i;
     Lwt_log.debug_f "Store.incr_i old_i:%s -> new_i:%s"
       (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
+
+  let incr_i store =
+    if store.quiesced
+    then
+      begin
+        let new_i, old_i = _get_new_i store in
+        store.store_i <- Some new_i;
+        Lwt.return ()
+      end
+    else
+      S.with_transaction store.s (fun tx -> _incr_i store tx)
 
   let with_transaction_lock store f =
     S.with_transaction_lock store.s f
@@ -430,27 +453,18 @@ struct
   let _delete store tx key =
     S.delete store.s tx (__prefix ^ key)
 
-  let _get_j store =
-    try
-      let jstring = S.get store.s __j_key in
-      int_of_string jstring
-    with Not_found -> 0
-
-  let _set_j store tx j =
-    S.set store.s tx __j_key (string_of_int j)
-
   let _test_and_set store tx key expected wanted =
     let existing = get_option store key in
-    if existing <> expected
+    if existing = expected
     then
-      existing
-    else
       begin
         let () = match wanted with
           | None -> _delete store tx key
           | Some wanted_s -> _set store tx key wanted_s in
         wanted
       end
+    else
+      existing
 
   let _range_entries store first finc last linc max =
     S.range_entries store.s __prefix first finc last linc max
@@ -537,15 +551,7 @@ struct
             let ser = Buffer.contents sb in
             Lwt.return (Ok (Some ser))
         | Update.TestAndSet(key,expected,wanted)->
-            let existing = get_option store key in
-            if existing = expected
-            then
-              begin
-                match wanted with
-                  | None -> _delete store tx key
-                  | Some wanted_s -> _set store tx key wanted_s
-              end;
-            Lwt.return (Ok existing)
+            Lwt.return (Ok (_test_and_set store tx key expected wanted))
         | Update.UserFunction(name,po) ->
             _user_function store name po tx >>= fun ro ->
             Lwt.return (Ok ro)
@@ -573,7 +579,7 @@ struct
             end
         | Update.Assert_exists(k) ->
             begin
-              match S.exists store.s k with
+              match S.exists store.s (__prefix ^ k) with
 	            | true -> Lwt.return (Ok None)
 	            | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
             end
@@ -763,9 +769,7 @@ struct
     let updates' = skip j updates in
     Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-    _with_transaction store.s kt (fun tx ->
-      incr_i store tx >>= fun () ->
-      Lwt.return (_set_j store tx 0)) >>= fun () ->
+    _with_transaction store.s kt (fun tx -> _incr_i store tx) >>= fun () ->
     Lwt.return urs
 
 
@@ -789,7 +793,7 @@ struct
       if store.quiesced
       then
         begin
-          _with_transaction store.s kt (fun tx -> incr_i store tx) >>= fun () ->
+          incr_i store >>= fun () ->
           Lwt.return [Ok None]
         end
       else
@@ -833,7 +837,7 @@ struct
     if store.quiesced
     then
       begin
-        with_transaction store (fun tx -> incr_i store tx) >>= fun () ->
+        incr_i store >>= fun () ->
         Lwt.return [Ok None]
       end
     else
@@ -850,51 +854,6 @@ struct
 
 end
 
-(*
-module Local_Store1 =
-struct
-  type t = Camltc.Hotc.t
-  let get s k =
-    let bdb = Camltc.Hotc.get_bdb s in
-    try
-      Some (Camltc.Bdb.get bdb k)
-    with Not_found -> None
-
-end
-
-let myassert (type s) (module MyStore : STORE1 with type t = s) store key =
-  MyStore.aSSert store key
-
-let make_store_module (type st) (module NeSStore : SSTORE1 with type t = st) =
-  (module Make(NeSStore) : STORE1 with type st = st)
-
-let a =
-  Camltc.Hotc.create "dbname" ~mode:Camltc.Bdb.default_mode [] >>= fun db ->
-  let module Bla = (val (make_store_module (module Local_Store1))) in
-  let store = Bla.make_store db in
-  Lwt.return (myassert (module Bla) store "nekey")
-*)
-(*  Lwt.return (myassert (make_store_module (module Local_Store1)) db "nekey")*)
-
 let make_store_module (type ss) (module S : Simple_store with type t = ss) =
   (module Make(S) : STORE with type ss = ss)
-
-(*
-So far so good
-Nu in constants bijsteken?? of hoe moet het doorgegeven worden?
-*)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
