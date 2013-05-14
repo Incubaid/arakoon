@@ -279,15 +279,6 @@ module X = struct
       let stats = backend # get_statistics () in
       Lwt_log.info_f "stats: %s" (Statistics.string_of stats) 
       >>= fun () ->
-      let maxrss = Limits.get_maxrss() in
-      let stat = Gc.stat () in
-      let factor = float (Sys.word_size / 8) in
-      let allocated = (stat.minor_words +.
-			             stat.major_words -. stat.promoted_words) *. 
-	    (factor /. 1024.0) 
-      in
-      Lwt_log.info_f "nallocated=%f KB; maxrss=%i KB" allocated maxrss
-      >>= fun () ->
       backend # clear_most_statistics();
       _inner ()
     in

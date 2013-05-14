@@ -876,10 +876,7 @@ let rec paxos_produce buffers
 
 let _execute_effects constants e = 
   match e with
-    | ELog build ->
-          let s = build () in
-          let s' = "PURE: " ^ s in
-          log constants.me s'
+    | ELog build          -> log constants.me ("PURE: " ^ build ())
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i) 
     | ESend (msg, target) -> constants.send msg constants.me target

@@ -39,8 +39,8 @@ let log =
 
 let log_f ?exn x =
   match exn with
-    | None -> Printf.ksprintf log x
-    | Some exn -> Printf.ksprintf (log ~exn) x
+    | None -> Printf.ksprintf (Lwt_log.log ~section ~level:Lwt_log.Debug) x
+    | Some exn -> Printf.ksprintf (Lwt_log.log ~section ~level:Lwt_log.Debug ~exn) x
 
 let never () = Lwt.return false 
 let no_callback () = Lwt.return ()

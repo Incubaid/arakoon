@@ -32,3 +32,11 @@ true: package(dynlink)
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
 <src/plugins/*.{cma,cmxa}>: use_thread
+
+"src/client/client_protocol.ml" : use_log_macro
+"src/msg/tcp_messaging.ml" : use_log_macro
+"src/paxos/master.ml" : use_log_macro
+"src/paxos/slave.ml" : use_log_macro
+"src/paxos/multi_paxos.ml" : use_log_macro
+"src/paxos/multi_paxos_fsm.ml" : use_log_macro
+"src/paxos/multi_paxos_test.ml" : use_log_macro
