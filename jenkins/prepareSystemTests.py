@@ -37,3 +37,5 @@ q.system.fs.createDir( coDir )
 
 run_it(["git","clone","git://github.com/Incubaid/arakoon", coDir])
 run_it(["git","checkout", rev], cwd = coDir)
+run_it(["git","submodule","update","--init","--recursive"], cwd = coDir)
+
