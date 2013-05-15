@@ -557,8 +557,24 @@ struct
             Lwt.return (Ok ro)
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
+            let get_key = function
+              | Update.Set (key,value) -> Some key
+              | Update.Delete key -> Some key
+              | Update.TestAndSet (key, expected, wanted) -> Some key
+              | _ -> None in
+            
             Lwt_list.iter_s (fun update ->
-              _do_one update tx >>= function
+              (Lwt.catch
+                 (fun () -> _do_one update tx)
+                 (function
+                   | Not_found ->
+                       begin
+                         match get_key update with
+                           | Some key -> Lwt.fail (Key_not_found key)
+                           | None -> Lwt.fail Not_found
+                       end
+                   | exn -> Lwt.fail exn))
+              >>= function
                 | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
                 | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
         | Update.SetInterval interval ->
@@ -604,6 +620,10 @@ struct
       catch_with_tx
         (fun tx -> f tx)
         (function
+          | Key_not_found key ->
+              let rc = Arakoon_exc.E_NOT_FOUND
+              and msg = key in
+              Lwt.return (Update_fail (rc,msg))
           | Not_found ->
               let rc = Arakoon_exc.E_NOT_FOUND
               and msg = notfound_msg in
