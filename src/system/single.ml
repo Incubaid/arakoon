@@ -223,18 +223,15 @@ let _test_and_set_1 (client:client) =
   Lwt_log.info_f "_test_and_set_1" >>= fun () ->
   let wanted_s = "value!" in
   let wanted = Some wanted_s in
-  client # test_and_set "test_and_set" None wanted >>= fun result ->
-    begin
-      match result with
-	| None -> Llio.lwt_failfmt "result should not be None"
-	| Some v ->
-	  if v <> wanted_s
-	  then
-	    Lwt_log.info_f "value=%S, and should be '%s'" v wanted_s
-	     >>= fun () ->
-	  Llio.lwt_failfmt "different value"
-	  else Lwt_log.info_f "value=%S, is what we expected" v
-    end >>= fun () -> (* clean up *)
+  let key = "_test_and_set_1__" in
+  client # test_and_set key None wanted >>= fun result ->
+  begin
+    match result with
+	  | Some v -> Llio.lwt_failfmt "result should be None, got %S" v
+	  | None -> Lwt_log.info_f "result is None, as expected"
+  end >>= fun () ->
+  client # get key >>= fun result ->
+  OUnit.assert_equal result wanted_s;
   client # delete "test_and_set" >>= fun () ->
   Lwt.return ()
 
@@ -251,23 +248,22 @@ let _test_and_set_2 (client: client) =
   end >>= fun () ->
   Lwt.return ()
 
-let _test_and_set_3 (client: client) = 
+let _test_and_set_3 (client: client) =
   Lwt_log.info_f "_test_and_set_3" >>= fun () ->
-  let key = "_test_and_set_3" in
+  let key = "_test_and_set_3__" in
   let value = "bla bla" in
   client # set key value >>= fun () ->
   client # test_and_set key (Some value) None >>= fun result ->
-  begin 
-    if result <> None then Llio.lwt_failfmt "should have been None" 
-    else 
-      begin
-	client # exists key >>= fun b -> 
-	if b then
-	  Llio.lwt_failfmt "we should have deleted this"
-	else Lwt.return ()
-      end
-  end
-  
+  begin
+    match result with
+      | Some v' when v' = value -> Lwt_log.info_f "value=%S, which is what we expected" value
+      | _ -> Llio.lwt_failfmt "expected %s but got %s" (Log_extra.string_option2s (Some value)) (Log_extra.string_option2s result)
+  end >>= fun () ->
+  client # exists key >>= fun b ->
+  if b then
+	Llio.lwt_failfmt "we should have deleted this"
+  else Lwt.return ()
+
 let _assert1 (client: client) =
   Lwt_log.info "_assert1" >>= fun () ->
   client # set "my_value" "my_value" >>= fun () ->
