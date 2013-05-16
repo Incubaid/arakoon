@@ -61,8 +61,6 @@ let filter_keys_array entries =
 
 
 class transaction = object end
-class transaction_lock = object end
-
 
 type update_result =
   | Ok of string option
@@ -73,8 +71,7 @@ exception CorruptStore
 
 module type Simple_store = sig
   type t
-  val with_transaction_lock: t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
-  val with_transaction: t -> ?key: transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
+  val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
   val exists: t -> string -> bool
   val get: t -> string -> string
@@ -102,6 +99,8 @@ module type Simple_store = sig
   val copy_store2 : string -> string -> bool -> unit Lwt.t
   val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
 end
+
+class transaction_lock = object end
 
 type key_or_transaction =
   | Key of transaction_lock
@@ -171,7 +170,9 @@ struct
                mutable routing : Routing.t option;
                mutable quiesced : bool;
                mutable closed : bool;
-             }
+               mutable _tx_lock : transaction_lock option;
+               _tx_lock_mutex : Lwt_mutex.t
+         }
 
   let _get_interval store =
     try
@@ -219,6 +220,8 @@ struct
         routing;
         quiesced = false;
         closed = false;
+        _tx_lock = None;
+        _tx_lock_mutex = Lwt_mutex.create ()
       }
 
   let _get store key =
@@ -366,8 +369,15 @@ struct
     else
       S.with_transaction store.s (fun tx -> _incr_i store tx)
 
+
   let with_transaction_lock store f =
-    S.with_transaction_lock store.s f
+    Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
+      Lwt.finalize
+        (fun () ->
+          let txl = new transaction_lock in
+          store._tx_lock <- Some txl;
+          f txl)
+        (fun () -> store._tx_lock <- None; Lwt.return ()))
 
   let get_fringe store b d =
     S.get_fringe store.s b d
@@ -426,13 +436,20 @@ struct
 
 
   let with_transaction store ?(key=None) f =
+    let matched_locks = match store._tx_lock, key with
+      | None, None -> true
+      | Some txl, Some txl' -> txl == txl'
+      | _ -> false in
+    if not matched_locks
+    then failwith "transaction locks do not match";
+
     if store.closed
     then
       raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
     else
       let current_i = store.store_i in
       Lwt.catch
-        (fun () -> S.with_transaction store.s ~key f)
+        (fun () -> S.with_transaction store.s f)
         (fun exn ->
           store.store_i <- current_i;
           match exn with
@@ -524,10 +541,10 @@ struct
       ro)
 
 
-  let _with_transaction : S.t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
+  let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with
       | Key key ->
-          S.with_transaction store ~key:(Some key) f
+          with_transaction store ~key:(Some key) f
       | Transaction tx ->
           f tx
 
@@ -605,7 +622,7 @@ struct
             in
             Lwt.return (Ok None)
     in
-    let with_transaction' f = _with_transaction store.s kt f in
+    let with_transaction' f = _with_transaction store kt f in
     let catch_with_tx f g =
       Lwt.catch
         (fun () ->
@@ -787,7 +804,7 @@ struct
     let updates' = skip j updates in
     Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-    _with_transaction store.s kt (fun tx -> _incr_i store tx) >>= fun () ->
+    _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
     Lwt.return urs
 
 

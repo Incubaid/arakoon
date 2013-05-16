@@ -30,25 +30,9 @@ module StringMap = Map.Make(String);;
 
 type t = { mutable kv : string StringMap.t;
            mutable _tx : transaction option;
-           mutable _tx_lock : transaction_lock option;
-           _tx_lock_mutex : Lwt_mutex.t }
+         }
 
-let with_transaction_lock ms f =
-    Lwt_mutex.with_lock ms._tx_lock_mutex (fun () ->
-      Lwt.finalize
-        (fun () ->
-          let txl = new transaction_lock in
-          ms._tx_lock <- Some txl;
-          f txl)
-        (fun () -> ms._tx_lock <- None; Lwt.return ()))
-
-let with_transaction ms ?(key=None) f =
-    let matched_locks = match ms._tx_lock, key with
-      | None, None -> true
-      | Some txl, Some txl' -> txl == txl'
-      | _ -> false in
-    if not matched_locks
-    then failwith "transaction locks do not match";
+let with_transaction ms f =
     let tx = new transaction in
     ms._tx <- Some tx;
     let current_kv = ms.kv in
@@ -145,9 +129,7 @@ let get_fringe ms boundary direction =
 
 let make_store read_only db_name =
   Lwt.return { kv = StringMap.empty;
-               _tx = None;
-               _tx_lock = None;
-               _tx_lock_mutex = Lwt_mutex.create () }
+               _tx = None; }
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()

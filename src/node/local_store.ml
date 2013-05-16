@@ -34,8 +34,7 @@ module B = Camltc.Bdb
 type t = { db : Camltc.Hotc.t;
            mutable location : string;
            mutable _tx : (transaction * Camltc.Hotc.bdb) option;
-           mutable _tx_lock : transaction_lock option;
-           _tx_lock_mutex : Lwt_mutex.t }
+         }
 
 let _get bdb key = B.get bdb key
 
@@ -98,22 +97,7 @@ let _with_tx : 'a. t -> transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
           else
             f db
 
-let with_transaction_lock ls f =
-  Lwt_mutex.with_lock ls._tx_lock_mutex (fun () ->
-    Lwt.finalize
-      (fun () ->
-        let txl = new transaction_lock in
-        ls._tx_lock <- Some txl;
-        f txl)
-      (fun () -> ls._tx_lock <- None; Lwt.return ()))
-
-let with_transaction ls ?(key=None) f =
-  let matched_locks = match ls._tx_lock, key with
-    | None, None -> true
-    | Some txl, Some txl' -> txl == txl'
-    | _ -> false in
-  if not matched_locks
-  then failwith "transaction locks do not match";
+let with_transaction ls f =
   let t0 = Unix.gettimeofday() in
   Lwt.finalize
     (fun () ->
@@ -357,7 +341,5 @@ let make_store read_only db_name =
   >>= fun db ->
   Lwt.return { db = db;
                location = db_name;
-               _tx = None;
-               _tx_lock = None;
-               _tx_lock_mutex = Lwt_mutex.create () }
+               _tx = None; }
 
