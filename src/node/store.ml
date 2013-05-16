@@ -490,15 +490,13 @@ struct
     S.range_entries store.s __prefix first finc last linc max
 
   let range_entries store ?(_pf=__prefix) first finc last linc max =
-    Lwt_log.debug_f "%s %s %s" _pf (string_option2s first) (string_option2s last) >>= fun () ->
     Lwt.return (S.range_entries store.s _pf first finc last linc max)
 
   let rev_range_entries store first finc last linc max =
     Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max)
 
   let range store first finc last linc max =
-    Lwt_log.debug_f "%s %s %s" __prefix (string_option2s first) (string_option2s last) >>= fun () ->
-    Lwt.return (S.range store.s __prefix None finc last linc max)
+    Lwt.return (S.range store.s __prefix first finc last linc max)
 
   let prefix_keys store prefix max =
     Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max)
