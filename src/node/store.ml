@@ -458,13 +458,11 @@ struct
     if existing = expected
     then
       begin
-        let () = match wanted with
+        match wanted with
           | None -> _delete store tx key
-          | Some wanted_s -> _set store tx key wanted_s in
-        wanted
-      end
-    else
-      existing
+          | Some wanted_s -> _set store tx key wanted_s
+      end;
+    existing
 
   let _range_entries store first finc last linc max =
     S.range_entries store.s __prefix first finc last linc max
