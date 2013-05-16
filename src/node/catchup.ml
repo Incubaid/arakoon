@@ -133,6 +133,46 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
+let make_f log_i acc store entry =
+  let i = Entry.i_of entry 
+  and value = Entry.v_of entry 
+  in
+  match !acc with
+	| None ->
+	  let () = acc := Some(i,value) in
+	  Lwt_log.debug_f "value %s has no previous" (Sn.string_of i) >>= fun () ->
+	  Lwt.return ()
+	    | Some (pi,pv) ->
+	      if pi < i 
+          then
+		    begin
+              log_i pi >>= fun () ->
+		        (* not happy with this, but we need to avoid that 
+		           a node in catchup thinks it's master due to 
+		           some lease starting in the past *)
+              let pv' = Value.clear_master_set pv in
+		      Store.safe_insert_value store pi pv' >>= fun _ ->
+              let () = acc := Some(i, value) in
+              Lwt.return ()
+		    end
+	      else
+		    begin
+		      Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+		      let () = acc := Some(i,value) in
+		      Lwt.return ()
+		    end
+
+
+let epilogue log_i acc store =
+  match !acc with 
+    | None -> Lwt.return ()
+    | Some(i,value) -> 
+      begin
+        Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
+        Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
+      end
+      
+
 let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
@@ -153,42 +193,10 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
     (Sn.string_of start_i) (Sn.string_of too_far_i)
   >>= fun () ->
     let acc = ref None in
-    let f entry =
-      let i = Entry.i_of entry 
-      and value = Entry.v_of entry 
-      in
-      match !acc with
-	    | None ->
-	      let () = acc := Some(i,value) in
-	      Lwt_log.debug_f "value %s has no previous" (Sn.string_of i) >>= fun () ->
-	      Lwt.return ()
-	        | Some (pi,pv) ->
-	          if pi < i then
-		        begin
-		          Lwt_log.debug_f "%s => store" (Sn.string_of pi) >>= fun () ->
-		          (* not happy with this, but we need to avoid that 
-		             a node in catchup thinks it's master due to 
-		             some lease starting in the past *)
-		          let pv' = Value.clear_master_set pv in
-		          Store.safe_insert_value store pi pv' >>= fun _ ->
-		          let () = acc := Some(i,value) in
-		          Lwt.return ()
-		        end
-	          else
-		        begin
-		          Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
-		          let () = acc := Some(i,value) in
-		          Lwt.return ()
-		        end
-    in
+    let log_i pi = Lwt_log.debug_f "%s => store" (Sn.string_of pi) in
+    let f = make_f log_i acc store in
     tlog_coll # iterate start_i too_far_i f >>= fun () ->
-    begin
-      match !acc with 
-        | None -> Lwt.return ()
-        | Some(i,value) -> 
-          Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
-          Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
-    end >>= fun () -> 
+    epilogue log_i acc store >>= fun () ->
     let store_i' = store # consensus_i () in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
       ( option2s Sn.string_of store_i')
