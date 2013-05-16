@@ -28,6 +28,8 @@ open Update
 open Master_type
 open Tlogcommon
 
+module LS = (val (Store.make_store_module (module Local_store)))
+
 let _make_log_cfg () =
   ("log_cfg",
    {
@@ -71,20 +73,21 @@ let _make_tlog_coll tlcs values tlc_name use_compression node_id =
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let _make_store ?(read_only=false) stores now node_name (db_name:string) =
-  Mem_store.make_mem_store db_name >>= fun store ->
-  store # with_transaction (fun tx -> store # set_master tx node_name now) >>= fun () -> 
-  Hashtbl.add stores db_name store;
-  Lwt.return store
-
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () = 
-  let sm ?(read_only=false) db_name = _make_store stores now name db_name in
+  let module S =
+      struct
+        include LS
+        let make_store ?(read_only=false) (db_name:string) =
+          LS.make_store db_name >>= fun store ->
+          LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () -> 
+          Hashtbl.add stores db_name store;
+          Lwt.return store
+      end in
   Node_main._main_2 
-    sm
+    (module S)
     (_make_tlog_coll tlcs values)
     get_cfgs
     (fun () -> "DUMMY")
-    (fun s d o -> Lwt.return () )
     ~name
     ~daemonize:false
     ~catchup_only:false
@@ -149,7 +152,7 @@ let post_failure () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
-    store0 # exists key >>= fun b ->
+    LS.exists store0 key >>= fun b ->
     Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
@@ -204,7 +207,7 @@ let restart_slaves () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "xxx" in
-    store0 # exists key >>= fun b ->
+    LS.exists store0 key >>= fun b ->
     Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
