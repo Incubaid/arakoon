@@ -36,6 +36,7 @@ type local_action =
   | SystemTests
   | ShowVersion
   | DumpTlog
+  | ReplayTlogs
   | DumpStore
   | MakeTlog
   | TruncateTlog
@@ -135,8 +136,6 @@ let dump_tlog filename ~values=
     end
   in
   Lwt_main.run t
-
-
 
 
 
@@ -244,6 +243,8 @@ let main () =
   and left_cluster = ref ""
   and separator = ref ""
   and right_cluster = ref ""
+  and tlog_dir = ref ""
+  and end_i = ref None
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -273,6 +274,14 @@ let main () =
     ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
 			                   Arg.Set_string filename],
      "<filename> : dump a tlog file in readable format");
+    ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
+                                 Arg.Set_string tlog_dir;
+                                 Arg.Set_string filename;
+                                 Arg.Rest (fun is -> 
+                                   if String.length is > 0 
+                                   then end_i := (Some (Scanf.sscanf is "%Li" (fun i -> i))))
+                               ],
+     "<tlog_dir> <path-to-db> [<end-i>]");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
@@ -397,6 +406,7 @@ let main () =
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
     | DumpTlog -> dump_tlog !filename !dump_values
+    | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !filename !end_i
     | MakeTlog -> make_tlog !filename !counter
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename

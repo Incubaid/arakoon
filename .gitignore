@@ -24,3 +24,5 @@ debian/arakoon/*
 .settings/*
 /_build/
 /_virtualenv/
+arakoon.byte
+arakoon.native

@@ -337,7 +337,7 @@ let _with_tx (db: Camltc.Hotc.t) (f:B.bdb -> 'a Lwt.t) =
 (* let _tx_with_incr _ _ _ = failwith "_tx_with_incr" *)
 
 let get_construct_params db_name ~mode=
-  Camltc.Hotc.create db_name ~mode >>= fun db ->
+  Camltc.Hotc.create db_name ~mode [B.BDBTLARGE] >>= fun db ->
   Camltc.Hotc.read db _get_interval >>= fun interval ->
   Camltc.Hotc.read db _get_routing >>= fun routing_o ->
   Camltc.Hotc.read db _who_master >>= fun mlo ->
@@ -402,7 +402,7 @@ object(self: #store)
     >>= fun () ->
     begin 
       Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
-      Camltc.Hotc.create db_optimal >>= fun db_opt ->
+      Camltc.Hotc.create db_optimal [B.BDBTLARGE] >>= fun db_opt ->
       Lwt.finalize
       ( fun () ->
         Lwt_log.info "Optimizing db copy" >>= fun () ->
