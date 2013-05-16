@@ -232,7 +232,7 @@ let _test_and_set_1 (client:client) =
   end >>= fun () ->
   client # get key >>= fun result ->
   OUnit.assert_equal result wanted_s;
-  client # delete "test_and_set" >>= fun () ->
+  client # delete key >>= fun () ->
   Lwt.return ()
 
 

@@ -476,7 +476,12 @@ struct
     then
       begin
         match wanted with
-          | None -> _delete store tx key
+          | None ->
+              begin
+                match existing with
+                  | None -> ()
+                  | Some _ -> _delete store tx key
+              end
           | Some wanted_s -> _set store tx key wanted_s
       end;
     existing
