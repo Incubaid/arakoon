@@ -20,6 +20,9 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module Sync_backend = functor(S : Store.STORE) ->
+struct
+
 open Backend
 open Statistics
 open Client_cfg
@@ -92,26 +95,22 @@ let _update_rendezvous self ~so_post update update_stats push =
   in
   f "rendezvous (%s) took %f" (Update.update2s update) t >>= fun () ->
   match r with
-    | Store.Stop -> Lwt.fail Forced_stop
     | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
-  | Store.Ok so -> Lwt.return (so_post so)
+    | Store.Ok so -> Lwt.return (so_post so)
 
 
-class sync_backend cfg 
+class sync_backend = fun cfg
   (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t) 
   (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
-  (store:Store.store)
-  (store_methods:
-     (?read_only:bool -> string -> Store.store Lwt.t) *
-     (string -> string -> bool -> unit Lwt.t) * string )
+  (store: 'a)
+  (store_methods: (string -> string -> bool -> unit Lwt.t) * string )
   (tlog_collection:Tlogcollection.tlog_collection)
   (lease_expiration:int)
   ~quorum_function n_nodes
   ~expect_reachable
   ~test
   ~(read_only:bool)
-  ~max_value_size
-  =
+  ~max_value_size ->
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
   let blockers_cond = Lwt_condition.create() in
@@ -130,11 +129,10 @@ object(self: #backend)
 
 
 
-
   method exists ~allow_dirty key =
     log_o self "exists %s" key >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
-    store # exists key
+    S.exists store key
 
   method get ~allow_dirty key =
     let start = Unix.gettimeofday () in
@@ -143,7 +141,7 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     Lwt.catch
       (fun () ->
-	store # get key >>= fun v ->
+	S.get store key >>= fun v ->
 	Statistics.new_get _stats key v start;
 	Lwt.return v)
       (fun exc ->
@@ -159,7 +157,7 @@ object(self: #backend)
 
   method get_interval () =
     self # _read_allowed false >>= fun () ->
-    store # get_interval ()
+    S.get_interval store
 
 
   method private block_collapser (i: Sn.t) =
@@ -192,7 +190,7 @@ object(self: #backend)
     log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range first finc last linc max >>= fun keys ->
+    S.range store first finc last linc max >>= fun keys ->
     let n_keys = List.length keys in
     Statistics.new_range _stats start n_keys;
     Lwt.return keys
@@ -214,21 +212,21 @@ object(self: #backend)
     log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    store # range_entries first finc last linc max 
+    S.range_entries store first finc last linc max
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
     log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range last first >>= fun () ->
-    store # rev_range_entries first finc last linc max
+    S.rev_range_entries store first finc last linc max
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let start = Unix.gettimeofday() in
     log_o self "prefix_keys %s %d" prefix max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval [prefix]  >>= fun () ->
-    store # prefix_keys prefix max   >>= fun key_list ->
+    S.prefix_keys store prefix max   >>= fun key_list ->
     let n_keys = List.length key_list in
     Lwt_log.debug_f "prefix_keys found %d matching keys" n_keys >>= fun () ->
     Statistics.new_prefix_keys _stats start n_keys;
@@ -251,7 +249,7 @@ object(self: #backend)
     self # exists ~allow_dirty:false key >>= function
       | true ->
 	    begin
-	      store # get key >>= fun old_value ->
+	      S.get store key >>= fun old_value ->
 	      if old_value = value
 	      then Lwt.return ()
 	      else self # set key value
@@ -338,7 +336,7 @@ object(self: #backend)
 
   method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-    let consensus_i = store # consensus_i () in
+    let consensus_i = S.consensus_i store in
     begin
       match consensus_i with
 	| None -> Lwt.return ()
@@ -409,21 +407,21 @@ object(self: #backend)
   method multi_get ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
     self # _read_allowed allow_dirty >>= fun () ->
-    store # multi_get keys >>= fun values ->
+    S.multi_get store keys >>= fun values ->
     Statistics.new_multiget _stats start;
     Lwt.return values
 
   method multi_get_option ~allow_dirty (keys:string list) = 
     let start = Unix.gettimeofday() in
     self # _read_allowed allow_dirty >>= fun () ->
-    store # multi_get_option keys >>= fun vos ->
+    S.multi_get_option store keys >>= fun vos ->
     Statistics.new_multiget_option _stats start;
     Lwt.return vos
 
   method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
 
   method private _who_master () =
-    store # who_master ()
+    S.who_master store
 
   method who_master () =
     let mo = self # _who_master () in
@@ -481,7 +479,7 @@ object(self: #backend)
     else self # _write_allowed ()
 
   method private _check_interval keys =
-    store # get_interval () >>= fun iv ->
+    S.get_interval store >>= fun iv ->
     let rec loop = function
       | [] -> Lwt.return ()
      (* | [k] ->
@@ -495,7 +493,7 @@ object(self: #backend)
     loop keys
 
   method private _check_interval_range first last =
-    store # get_interval () >>= fun iv ->
+    S.get_interval store >>= fun iv ->
     let check_option = function
       | None -> Lwt.return ()
       | Some k ->
@@ -508,7 +506,7 @@ object(self: #backend)
 
   method witness name i =
     Statistics.witness _stats name i;    
-    let cio = store # consensus_i () in
+    let cio = S.consensus_i store in
     begin
       match cio with
 	    | None -> ()
@@ -519,7 +517,7 @@ object(self: #backend)
   method last_witnessed name = Statistics.last_witnessed _stats name
 
   method expect_progress_possible () =
-    match store # consensus_i () with
+    match S.consensus_i store with
       | None -> Lwt.return false
       | Some i ->
 	let q = quorum_function n_nodes in
@@ -565,14 +563,14 @@ object(self: #backend)
         cb() >>= fun () ->
         self # wait_for_tlog_release tlog_num
       in
-      Collapser.collapse_many tlog_collection store_methods n cb' new_cb
+      Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb
     )
 
   method get_routing () =
     self # _read_allowed false >>= fun () ->
     Lwt.catch
       (fun () ->
-        store # get_routing ()
+        S.get_routing store
       )
       (fun exc ->
         match exc with
@@ -586,7 +584,7 @@ object(self: #backend)
 
   method get_key_count () =
     self # _read_allowed false >>= fun () -> 
-    store # get_key_count ()
+    S.get_key_count store
 
   method private quiesce_db () =
     self # _not_if_master () >>= fun () ->
@@ -621,13 +619,13 @@ object(self: #backend)
 
   method optimize_db () =
     Lwt_log.debug "optimize_db: enter" >>= fun () ->
-    self # try_quiesced( store # optimize ) >>= fun () ->
+    self # try_quiesced(fun () -> S.optimize store) >>= fun () ->
     Lwt_log.debug "optimize_db: All done"
  
   method defrag_db () = 
     self # _not_if_master() >>= fun () ->
     Lwt_log.debug "defrag_db: enter" >>= fun () ->
-    store # defrag() >>= fun () ->
+    S.defrag store >>= fun () ->
     Lwt_log.debug "defrag_db: exit"
 
 
@@ -640,14 +638,14 @@ object(self: #backend)
           Lwt.fail ex
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
-    self # try_quiesced ( fun () -> store # copy_store oc ) >>= fun () ->
+    self # try_quiesced ( fun () -> S.copy_store store oc ) >>= fun () ->
     Lwt_log.debug "get_db: All done"
 
   method get_cluster_cfgs () =
     begin
       match client_cfgs with
         | None ->
-          store # range_entries ~_pf:__adminprefix
+          S.range_entries store ~_pf:__adminprefix
             ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
           >>= fun cfgs ->
           let result = Hashtbl.create 5 in
@@ -687,7 +685,7 @@ object(self: #backend)
 
   method get_fringe boundary direction =
     Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
-    store # get_fringe boundary direction
+    S.get_fringe store boundary direction
 
   method drop_master () =
     if n_nodes = 1 
@@ -715,4 +713,6 @@ object(self: #backend)
                 Lwt_log.debug "drop_master: completed"
               end
       end
+end
+
 end

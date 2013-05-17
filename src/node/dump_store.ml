@@ -3,6 +3,8 @@ open Routing
 open Node_cfg.Node_cfg
 open Interval
 
+module S = (val (Store.make_store_module (module Local_store)))
+
 let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
   Lwt.catch
     (fun () -> 
@@ -16,13 +18,13 @@ let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
     )
 
 
-let _dump_routing store =  try_fetch "routing" (store # get_routing) Routing.to_s
+let _dump_routing store =  try_fetch "routing" (fun () -> S.get_routing store) Routing.to_s
 
-let _dump_interval store = try_fetch "interval" (store # get_interval) Interval.to_string
+let _dump_interval store = try_fetch "interval" (fun () -> S.get_interval store) Interval.to_string
 
 let summary store =
-  let consensus_i = store # consensus_i () 
-  and mdo = store # who_master ()  
+  let consensus_i = S.consensus_i store
+  and mdo = S.who_master store
   in
   Lwt_io.printlf "i: %s" (Log_extra.option2s Sn.string_of consensus_i) >>= fun () ->
     let s = 
@@ -37,9 +39,9 @@ let summary store =
 
 let dump_store filename = 
   let t () = 
-    Local_store.make_local_store filename >>= fun store ->
+    S.make_store filename >>= fun store ->
     summary store >>= fun () ->
-    store # close () 
+    S.close store
   in
   Lwt_main.run (t());
   0
@@ -62,13 +64,13 @@ let inject_as_head fn node_id cfg_fn =
   let t () = 
     let tlog_dir = node_cfg.tlog_dir in
     let old_head_name = Filename.concat tlog_dir Tlc2.head_fname  in
-    Local_store.make_local_store old_head_name >>= fun old_head ->
-    let old_head_i = old_head # consensus_i () in
-    old_head # close ()       >>= fun () ->
+    S.make_store old_head_name >>= fun old_head ->
+    let old_head_i = S.consensus_i old_head in
+    S.close old_head      >>= fun () ->
 
-    Local_store.make_local_store fn >>= fun new_head ->
-    let new_head_i = new_head # consensus_i () in
-    new_head # close ()       >>= fun () ->
+    S.make_store fn >>= fun new_head ->
+    let new_head_i = S.consensus_i new_head in
+    S.close new_head      >>= fun () ->
 
     Lwt_io.printlf "# %s @ %s" old_head_name (Log_extra.option2s Sn.string_of old_head_i) >>= fun () ->
     Lwt_io.printlf "# %s @ %s" fn (Log_extra.option2s Sn.string_of new_head_i) >>= fun () ->

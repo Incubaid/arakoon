@@ -87,7 +87,8 @@ let read_only constants state () =
 
 (* a pending slave that is waiting for a prepare or a nak
    in order to discover a master *)
-let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) event =
+let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:Sn.t)) event =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -106,20 +107,20 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 		          Fsm.return (Slave_wait_for_accept (n', current_i, None, last))
                 end
 		    | Promise_sent_needs_catchup ->
-		        let i = Store.get_catchup_start_i constants.store in
+		        let i = S.get_catchup_start_i constants.store in
 		        let state = (source, i, n',i') in 
 		        Fsm.return (Slave_discovered_other_master state)
 	    end
 	  | Nak(n',(n2, i2)) when n' = -1L ->
 	      begin
 	        log_f constants.me "fake prepare response: discovered master" >>= fun () ->
-            let cu_pred = Store.get_catchup_start_i constants.store in
+            let cu_pred = S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	      end
 	  | Nak(n',(n2, i2)) when i2 > current_i ->
 	      begin
 	        log_f constants.me "got %s => go to catchup" (string_of msg) >>= fun () ->
-            let cu_pred =  Store.get_catchup_start_i constants.store in
+            let cu_pred =  S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
 	      end
 	  | Nak(n',(n2, i2)) when i2 = current_i ->
@@ -143,7 +144,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
 	      end
       | Accept(n', i', v) when current_n = n' && i' > current_i ->
           begin
-            let cu_pred = Store.get_catchup_start_i constants.store in
+            let cu_pred = S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n', i'))
           end
 	  | _ -> log_f constants.me "dropping unexpected %s" (string_of msg) >>= fun () ->
@@ -157,7 +158,7 @@ let slave_waiting_for_prepare constants ( (current_i:Sn.t),(current_n:Sn.t)) eve
     | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
     
     | Quiesce (sleep,awake) ->
-        handle_quiesce_request constants.store sleep awake >>= fun () ->
+        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
         Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
           
     | Unquiesce ->
@@ -226,8 +227,9 @@ let promises_check_done constants state () =
 	
 
 (* a potential master is waiting for promises and receives a msg *)
-let wait_for_promises constants state event =
+let wait_for_promises (type s) constants state event =
   let me = constants.me in
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   let (n, i, who_voted, v_lims, i_lim, lease_expire_waiters) = state in
   match event with
     | FromNode (msg,source) ->
@@ -329,7 +331,7 @@ let wait_for_promises constants state event =
                       >>= fun () ->
                       if i' > i 
                       then
-                        let cu_pred = Store.get_catchup_start_i constants.store in
+                        let cu_pred = S.get_catchup_start_i constants.store in
                         Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
                       else
 			            let new_n = update_n constants (max n n'') in
@@ -368,7 +370,7 @@ let wait_for_promises constants state event =
 			              Fsm.return (Slave_wait_for_accept (n', i, None, last))
 		                end
 		            | Promise_sent_needs_catchup ->
-		              let i = Store.get_catchup_start_i constants.store in
+		              let i = S.get_catchup_start_i constants.store in
 		              Fsm.return (Slave_discovered_other_master (source, i, n', i'))
               end
             | Accept (n',_i,_v) when n' < n ->
@@ -422,7 +424,7 @@ let wait_for_promises constants state event =
               Some bv
         end
         in
-      if n' = n && not ( constants.store # quiesced () ) 
+      if n' = n && not ( S.quiesced constants.store )
       then
 	    begin
           log_f me "wait_for_promises: election timeout, restart from scratch"	  
@@ -440,7 +442,7 @@ let wait_for_promises constants state event =
         paxos_fatal me "wait_for_promises: don't want FromClient"
           
     | Quiesce (sleep,awake) ->
-        handle_quiesce_request constants.store sleep awake >>= fun () ->
+        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
         Fsm.return (Wait_for_promises state)
       
     | Unquiesce ->
@@ -486,8 +488,9 @@ let accepteds_check_done constants state () =
 
 
 (* a (potential or full) master is waiting for accepteds and receives a msg *)
-let wait_for_accepteds constants state (event:paxos_event) =
+let wait_for_accepteds (type s) constants state (event:paxos_event) =
   let me = constants.me in
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   match event with
     | FromNode(msg,source) ->
       begin
@@ -586,7 +589,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                               end
                           | Promise_sent_needs_catchup ->
                               begin
-                                let i = Store.get_catchup_start_i constants.store in
+                                let i = S.get_catchup_start_i constants.store in
                                 lost_master_role mo >>= fun () ->
                                 Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                                 Fsm.return (Slave_discovered_other_master (source, i, n', i'))
@@ -620,7 +623,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                  otherwise, we've lost master role
               *)
               let is_still_master () =
-                match constants.store # who_master() with
+                match S.who_master constants.store with
                   | None -> false (* ???? *)
                   | Some (_,al) -> let now = Int64.of_float(Unix.time()) in
                                    let diff = abs (Int64.to_int (Int64.sub now al)) in
@@ -639,7 +642,7 @@ let wait_for_accepteds constants state (event:paxos_event) =
                   begin 
                   (* Become slave, goto catchup *)
                     log_f me "wait_for_accepteds: received Accept from new master %S" (string_of msg) >>= fun () ->
-                    let cu_pred = Store.get_catchup_start_i constants.store in
+                    let cu_pred = S.get_catchup_start_i constants.store in
                     let new_state = (source,cu_pred,n,i') in 
                     Fsm.return (Slave_discovered_other_master new_state)
                   end

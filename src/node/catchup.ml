@@ -77,11 +77,10 @@ let head_saved_epilogue hfn tlog_coll =
      the received head 
   *)
   Lwt_log.debug_f "head_saved_epilogue %s" hfn >>= fun () ->
-  let create_store hfn = Local_store.make_local_store ~read_only:true hfn 
-  in
-  create_store hfn >>= fun head ->
-  let hio = head # consensus_i () in
-  head # close () >>= fun () ->
+  let module S = (val (Store.make_store_module (module Local_store))) in
+  S.make_store ~read_only:true hfn >>= fun store ->
+  let hio = S.consensus_i store in
+  S.close store >>= fun () ->
   Lwt_log.info "closed head" >>= fun () ->
   begin
     match hio with 
@@ -95,7 +94,7 @@ let head_saved_epilogue hfn tlog_coll =
 
 
 
-let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,tlog_coll)
+let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
     =
   Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
@@ -108,10 +107,10 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
     head_saved_epilogue hfn tlog_coll >>= fun () -> 
     let when_closed () = 
       Lwt_log.debug "when_closed" >>= fun () ->
-      let target_name = store # get_location () in
+      let target_name = S.get_location store in
       File_system.copy_file hfn target_name 
     in
-    store # reopen when_closed >>= fun () ->
+    S.reopen store when_closed >>= fun () ->
     Lwt.return ()
   in
 
@@ -136,10 +135,10 @@ let catchup_tlog me other_configs ~cluster_id (current_i: Sn.t) mr_name (store,t
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
-let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
+let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
   Lwt_log.info "replaying log to store"
   >>= fun () ->
-  let store_i = store # consensus_i () in
+  let store_i = S.consensus_i store in
   let start_i =
     match store_i with
       | None -> Sn.start
@@ -188,7 +187,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
 		             a node in catchup thinks it's master due to 
 		             some lease starting in the past *)
 		          let pv' = Value.clear_master_set pv in
-		          Store.safe_insert_value ~tx store pi pv' >>= fun _ ->
+		          S.safe_insert_value ~tx store pi pv' >>= fun _ ->
 		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
@@ -207,7 +206,7 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
       Lwt.catch
         (fun () ->
           Lwt_log.info "trying batched transactions" >>= fun () ->
-          store # with_transaction (fun tx ->
+          S.with_transaction store (fun tx ->
             Queue.fold (fun acc tlogentry -> acc >>= (fun () -> f (Some tx) tlogentry)) (Lwt.return ()) batch)
           >>= fun () ->
           Queue.clear batch;
@@ -243,9 +242,9 @@ let catchup_store me (store,tlog_coll) (too_far_i:Sn.t) =
         | None -> Lwt.return ()
         | Some(i,value) -> 
             Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
-            Store.safe_insert_value store i value >>= fun _ -> Lwt.return ()
+            S.safe_insert_value store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
-    let store_i' = store # consensus_i () in
+    let store_i' = S.consensus_i store in
     Lwt_log.info_f "catchup_store completed, store is @ %s" 
       ( option2s Sn.string_of store_i')
   >>= fun () ->
@@ -285,9 +284,9 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_
   Lwt.return (future_n, end_i,vo)
 
 
-let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master =
+let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
-  let si_o = store # consensus_i () in
+  let si_o = S.consensus_i store in
   Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match ti_o, si_o with
@@ -301,12 +300,12 @@ let verify_n_catchup_store me (store, tlog_coll, ti_o) ~current_i forced_master 
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
     | Some i, Some j when i > j -> 
       begin
-	    catchup_store me (store,tlog_coll) current_i >>= fun (end_i, vo) ->
+	    catchup_store me ((module S),store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	    Lwt.return (end_i,vo)
       end
     | Some i, None ->
       begin
-	    catchup_store me (store,tlog_coll) current_i >>= fun (end_i, vo) ->
+	    catchup_store me ((module S),store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	    Lwt.return (end_i,vo)
       end
     | _,_ ->

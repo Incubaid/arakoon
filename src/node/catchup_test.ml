@@ -25,6 +25,8 @@ open Lwt
 open Extra
 open Update
 
+module S = (val (Store.make_store_module (module Local_store)))
+
 let _dir_name = "/tmp/catchup_test"
   
 let _fill tlog_coll n = 
@@ -110,11 +112,11 @@ let test_common () =
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
-  Local_store.make_local_store db_name >>= fun store ->
-  Catchup.catchup_store me (store,tlog_coll) 500L >>= fun(end_i,vo) ->
+  S.make_store db_name >>= fun store ->
+  Catchup.catchup_store me ((module S),store,tlog_coll) 500L >>= fun(end_i,vo) ->
   Lwt_log.info "TODO: validate store after this" >>= fun ()->
   tlog_coll # close () >>= fun () ->
-  store # close () 
+  S.close store
 
 
 let teardown () = 
@@ -130,20 +132,20 @@ let teardown () =
     >>= fun () ->
   Lwt_log.debug "end of teardown"
 
-let _tic filler_function n name verify_store =
+let _tic (type s) filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 _dir_name true "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let tlog_i = Sn.of_int n in
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  Local_store.make_local_store db_name >>= fun store ->
+  S.make_store db_name >>= fun store ->
   let me = "??me??" in
-  Catchup.verify_n_catchup_store me (store, tlog_coll, Some tlog_i) tlog_i None
+  Catchup.verify_n_catchup_store me ((module S), store, tlog_coll, Some tlog_i) tlog_i None
   >>= fun (new_i,vo) ->
   verify_store store new_i >>= fun () ->
   Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
-  store # close () 
+  S.close store
 
 
 
@@ -161,8 +163,8 @@ let test_batched_with_failures () =
   Lwt_log.info "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
     (fun store new_i ->
-      let assert_not_exists k = store # exists k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
-      let assert_exists k = store # exists k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
+      let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
+      let assert_exists k = S.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
       assert_exists "key2" >>= fun () ->
       assert_exists "key2590" >>= fun () ->
       assert_not_exists "_3a_key2" >>= fun () ->

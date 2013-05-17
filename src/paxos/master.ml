@@ -44,7 +44,7 @@ let null = function
   | [] -> true
   | _ -> false
 
-let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state) = function
+let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) = function
   | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 
@@ -117,6 +117,7 @@ let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state
 		        end
 	          else
 		        begin
+                  let module S = (val constants.store_module : Store.STORE with type t = s) in
 		          handle_prepare constants source n n' i' >>= function
 		            | Nak_sent 
 		            | Prepare_dropped -> Fsm.return  (Stable_master current_state )
@@ -127,7 +128,7 @@ let stable_master constants ((v',n,new_i, lease_expire_waiters) as current_state
 			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
-                      let i = Store.get_catchup_start_i constants.store in
+                      let i = S.get_catchup_start_i constants.store in
                       Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                       Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
