@@ -534,7 +534,10 @@ object(self: #backend)
 	>>= fun () ->
 	Lwt.return v
 
-  method get_statistics () = _stats
+  method get_statistics () =
+    Statistics.apply_latest _stats;
+    _stats
+
   method clear_most_statistics () = Statistics.clear_most _stats
   method check ~cluster_id =
     let r = test ~cluster_id in
