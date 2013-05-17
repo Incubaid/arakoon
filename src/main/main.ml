@@ -272,6 +272,8 @@ let main () =
      "will only do a catchup of the node, without actually starting it (option to --node)");
     ("-daemonize", Arg.Set daemonize,
      "add if you want the process to daemonize (only for --node)");
+    ("-start", Arg.Unit (fun () -> ()),
+     "no-op for process-matching purposes");
     ("-value_size", Arg.Set_int size, "size of the values (only for --benchmark)");
     ("-tx_size", Arg.Set_int tx_size, "size of transactions (only for --benchmark)");
     ("-max_n", Arg.Set_int max_n,     "<benchmark size> (only for --benchmark)");
