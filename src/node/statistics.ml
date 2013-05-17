@@ -116,6 +116,11 @@ module Statistics = struct
     mutable prefix_time_stats:        x_stats;
     mutable delete_prefix_time_stats: x_stats;
     mutable op_time_stats:            x_stats;
+    mutable mem_allocated:            float;
+    mutable mem_maxrss:                int;
+    mutable mem_minor_collections :    int;
+    mutable mem_major_collections :    int;
+    mutable mem_compactions :          int;
     mutable node_is:          (string , Sn.t) Hashtbl.t;
   }
  
@@ -140,7 +145,12 @@ module Statistics = struct
      range_time_stats = create_x_stats();
      prefix_time_stats = create_x_stats();
      delete_prefix_time_stats = create_x_stats();
-     op_time_stats=create_x_stats();
+     op_time_stats= create_x_stats();
+     mem_allocated= 0.0;
+     mem_maxrss= 0;
+     mem_minor_collections= 0;
+     mem_major_collections= 0;
+     mem_compactions= 0;
      node_is = Hashtbl.create 5;
      harvest_stats = create_x_stats ();
     }
@@ -186,6 +196,18 @@ module Statistics = struct
     t.avg_set_size <- t.avg_set_size +.  ((size -. t.avg_set_size) /. nf')
 
   let new_harvest t n = update_x_stats t.harvest_stats (float n)
+
+  let apply_latest t =
+    let maxrss = Limits.get_maxrss() in
+    let stat = Gc.quick_stat () in
+    let factor = float (Sys.word_size / 8) in
+    let allocated = (stat.Gc.minor_words +. stat.Gc.major_words -. stat.Gc.promoted_words)
+	  *. (factor /. 1024.0) in
+    t.mem_allocated <- allocated;
+    t.mem_maxrss <- maxrss;
+    t.mem_minor_collections <- stat.Gc.minor_collections;
+    t.mem_major_collections <- stat.Gc.major_collections;
+    t.mem_compactions <- stat.Gc.compactions
 
   let new_get t (key:string) (value:string) (start:float) = 
     let x = new_op t start in
@@ -279,6 +301,11 @@ module Statistics = struct
       x_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
 
       x_stats_to_value_list t.op_time_stats "op_info";
+      Llio.NAMED_FLOAT ("mem_allocated", t.mem_allocated);
+      Llio.NAMED_INT ("mem_maxrss", t.mem_maxrss);
+      Llio.NAMED_INT ("mem_minor_collections", t.mem_minor_collections);
+      Llio.NAMED_INT ("mem_major_collections", t.mem_major_collections);
+      Llio.NAMED_INT ("mem_compactions", t.mem_compactions);
       Llio.NAMED_VALUELIST ("node_is", node_is);
     ] in
     
@@ -390,6 +417,21 @@ module Statistics = struct
     let op_stats    = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
+    let mem_allocated = extract_float value in
+
+    let value, v_list = extract_next v_list in
+    let mem_maxrss  = extract_int value in
+
+    let value, v_list = extract_next v_list in
+    let mem_minor_collections  = extract_int value in
+
+    let value, v_list = extract_next v_list in
+    let mem_major_collections  = extract_int value in
+
+    let value, v_list = extract_next v_list in
+    let mem_compactions  = extract_int value in
+
+    let value, v_list = extract_next v_list in
     let node_list = extract_list value in
 
     let node_is = Hashtbl.create 5 in
@@ -419,6 +461,11 @@ module Statistics = struct
       prefix_time_stats = prefix_stats;
       delete_prefix_time_stats = delete_prefix_stats;
       op_time_stats = op_stats;
+      mem_allocated;
+      mem_maxrss;
+      mem_minor_collections;
+      mem_major_collections;
+      mem_compactions;
       node_is = node_is;
     } in
     t, pos 
@@ -444,6 +491,11 @@ module Statistics = struct
         "prefix_info: %s,\n" ^^
         "delete_prefix_info: %s,\n" ^^
         "ops_info: %s,\n" ^^
+        "mem_allocated: %f KB,\n" ^^
+        "mem_maxrss: %i KB,\n" ^^
+        "mem_minor_collections: %i,\n" ^^
+        "mem_major_collections: %i,\n" ^^
+        "mem_compactions: %i,\n" ^^
         "node_is: %s" ^^
 	"}\n"
     in
@@ -472,5 +524,10 @@ module Statistics = struct
       (x_stats_to_string t.prefix_time_stats)
       (x_stats_to_string t.delete_prefix_time_stats)
       (x_stats_to_string t.op_time_stats)
+      t.mem_allocated
+      t.mem_maxrss
+      t.mem_minor_collections
+      t.mem_major_collections
+      t.mem_compactions
       (Buffer.contents node_iss)
 end
