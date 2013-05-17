@@ -1001,7 +1001,7 @@ class ArakoonCluster:
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
-              '-daemonize']
+              '-start']
         return r
     
     def _cmdLine(self, name):
@@ -1021,6 +1021,7 @@ class ArakoonCluster:
 
         command = self._cmd(name)
         cmd.extend(command)
+        cmd.append('-daemonize')
         logging.debug('calling: %s', str(cmd))
         return subprocess.call(cmd, close_fds = True)
 
@@ -1037,7 +1038,7 @@ class ArakoonCluster:
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
-        cmd = ['pkill', '-fx',  line]
+        cmd = ['pkill', '-f',  line]
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
         rc = subprocess.call(cmd, close_fds = True)
         q.logger.log("%s=>rc=%i" % (cmd,rc), level = 3)
@@ -1053,7 +1054,7 @@ class ArakoonCluster:
             if i == 10:
                 logging.debug("stopping '%s' with kill -9" % name)
                 q.logger.log("stopping '%s' with kill -9" % name, level = 3)
-                subprocess.call(['pkill', '-9', '-fx', line], close_fds = True)
+                subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
                 cnt = 0
                 while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
                     logging.debug("'%s' is STILL running... waiting" % name)
@@ -1076,7 +1077,7 @@ class ArakoonCluster:
         if self._getStatusOne(name) == q.enumerators.AppStatusType.HALTED:
             return None
         line = self._cmdLine(name)
-        cmd = 'pgrep -o -fx "%s"' % line
+        cmd = 'pgrep -o -f "%s"' % line
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
@@ -1085,7 +1086,7 @@ class ArakoonCluster:
                 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
-        cmd = ['pgrep','-fx', line]
+        cmd = ['pgrep','-f', line]
         proc = subprocess.Popen(cmd,
                                 close_fds = True,
                                 stdout=subprocess.PIPE)
