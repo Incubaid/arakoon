@@ -29,6 +29,8 @@ import subprocess
 from nose.tools import *
 import os
 import random
+from threading import Thread
+
 
 def _getCluster():
     q = Common.q # resistance is futile
@@ -346,6 +348,98 @@ def test_drop_master():
     drop_master(n)
 """    drop_masters = lambda : drop_master(n)
     Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
+
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+def test_drop_master_with_load():
+    n = 10
+
+    busy = True
+    last_ex = None
+
+    def client(n):
+        try :
+            while busy:
+                Common.iterate_n_times( 100, Common.simple_set, startSuffix = n * 100 )
+        except Exception, ex:
+            last_ex = ex
+            raise ex
+
+    t0 = Thread(target = lambda : client(0))
+    t0.start()
+    t1 = Thread(target = lambda : client(1))
+    t1.start()
+    t2 = Thread(target = lambda : client(2))
+    t2.start()
+    t3 = Thread(target = lambda : client(3))
+    t3.start()
+
+    def inner_drop_master():
+        try :
+            drop_master(n)
+        except Exception, ex:
+            last_ex = ex
+            raise ex
+        busy = False
+
+    t_drop = Thread(target = lambda : inner_drop_master())
+    t_drop.start()
+
+    time.sleep(400)
+
+    assert_false( busy ) # test should be finished by now and is probably hanging
+    if busy:
+        busy = False
+        time.sleep(10) # give the client threads some time to finish
+        assert_false( True ) # test should be finished by now and is probably hanging
+
+    if last_ex is not None:
+        raise last_ex
+
+@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+def test_drop_master_with_load_and_verify():
+    n = 10
+
+    busy = True
+    last_ex = None
+
+    def client(n):
+        try :
+            while busy:
+                Common.iterate_n_times( 100, Common.retrying_set_get_and_delete, startSuffix = n * 100 )
+        except Exception, ex:
+            last_ex = ex
+            raise ex
+
+    t0 = Thread(target = lambda : client(0))
+    t0.start()
+    t1 = Thread(target = lambda : client(1))
+    t1.start()
+    t2 = Thread(target = lambda : client(2))
+    t2.start()
+    t3 = Thread(target = lambda : client(3))
+    t3.start()
+
+    def inner_drop_master():
+        try :
+            drop_master(n)
+        except Exception, ex:
+            last_ex = ex
+            raise ex
+        busy = False
+
+    t_drop = Thread(target = lambda : inner_drop_master())
+    t_drop.start()
+
+    time.sleep(500)
+
+    assert_false( busy ) # test should be finished by now and is probably hanging
+    if busy:
+        busy = False
+        time.sleep(10) # give the client threads some time to finish
+        assert_false( True ) # test should be finished by now and is probably hanging
+
+    if last_ex is not None:
+        raise last_ex
 
 
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
