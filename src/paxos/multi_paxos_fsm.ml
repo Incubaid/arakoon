@@ -180,15 +180,15 @@ let promises_check_done constants state () =
   *)
   let me = constants.me in
   let nnones, v_s = v_lims in 
-  let bv,bf =
+  let bv,bf,number_of_updates =
   begin 
     match v_s with 
-      | [] ->  (Value.create_master_value (me, 0L), 0)
+      | [] ->  (Value.create_master_value (me, 0L), 0, 1)
       | hd::tl -> 
         let bv, bf = hd in
         if Value.is_master_set bv 
-        then (Value.create_master_value (me, 0L), bf)
-        else bv, bf
+        then (Value.create_master_value (me, 0L), bf, 1)
+        else bv, bf , List.length (Value.updates_from_value bv)
          
   end in 
   let nnodes = List.length constants.others + 1 in
@@ -205,7 +205,12 @@ let promises_check_done constants state () =
       mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
       let ff = fun _ -> Lwt.return () in
-      Fsm.return (Accepteds_check_done ([ff], n, i, new_ballot, bv, lease_expire_waiters))
+      let ffs =
+        let rec repeat = function
+          | 0 -> []
+          | n -> ff :: repeat (n - 1) in
+        repeat number_of_updates in
+      Fsm.return (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
     if nvoted < nnodes 
