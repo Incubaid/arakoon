@@ -844,10 +844,7 @@ def assert_get( client, key, value):
 def set_get_and_delete( client, key, value):
     client.set( key, value )
     assert_equals( client.get(key), value )
-    try:
-        client.delete( key )
-    except ArakoonNotFound as ex:
-        logging.debug( "Caught ArakoonNotFound on delete. Ignoring" )
+    client.delete( key )
     assert_raises ( ArakoonNotFound, client.get, key )
 
 def mindless_retrying_set_get_and_delete( client, key, value ):
@@ -855,9 +852,8 @@ def mindless_retrying_set_get_and_delete( client, key, value ):
         return True
     
     generic_retrying_set_get_and_delete( client, key, value, validate_ex )
-    
-    
-def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
+
+def generic_retrying_ ( f, is_valid_ex ) :
     start = time.time()
     failed = True
     tryCnt = 0
@@ -865,17 +861,11 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
     global test_failed
     
     last_ex = None 
-    
+
     while ( failed and time.time() < start + 5.0 ) :
         try :
             tryCnt += 1
-            client.set( key,value )
-            assert_equals( client.get(key), value )
-            try:
-                client.delete( key )
-            except ArakoonNotFound:
-                logging.debug("Master switch while deleting key")
-            # assert_raises ( ArakoonNotFound, client.get, key )
+            f ()
             failed = False
             last_ex = None
         except Exception, ex:
@@ -895,7 +885,11 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
     if last_ex is not None:
         raise last_ex
 
-    
+def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
+    generic_retrying_ ((lambda : client.set( key,value ) ), is_valid_ex )
+    generic_retrying_ ((lambda : assert_equals( client.get(key), value ) ) , is_valid_ex )
+    generic_retrying_ ((lambda : client.delete( key ) ) , is_valid_ex )
+
 def retrying_set_get_and_delete( client, key, value ):
     def validate_ex ( ex, tryCnt ):
         ex_msg = "%s" % ex
