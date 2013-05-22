@@ -106,8 +106,8 @@ let test_safe_insert_value_with_partial_value_update () =
     and u2 = Update.TestAndSet(k, None, Some "value1")
     and u3 = Update.Set("key2", "bla") in
     let paxos_value = Value.create_client_value [u1;u2;u3] false in
-    S.with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
-    S.with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
+    S._with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
+    S._with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
 
     let j = S._get_j store in
     if j = 0 then failwith "j is 0";
@@ -125,23 +125,11 @@ let test_safe_insert_value_with_partial_value_update () =
     Lwt.return ()
   )
 
-let test_safe_insert_value_with_tx () =
-  with_store "tsivwt" (fun store ->
-    S.with_transaction store (fun tx ->
-      (Lwt.catch
-         (fun () -> S.safe_insert_value store ~tx:(Some tx) (Sn.of_int 0) failing_value
-                    >>= fun _ -> Lwt.return 0)
-         (fun _ -> Lwt.return 1)) >>= fun r ->
-      if r = 0
-      then failwith "safe_insert_value did not fail while in a transaction"
-      else Lwt.return ()))
-
 
 let suite =
   let w f = lwt_bracket setup f teardown in
   "store" >:::[
     "safe_insert_value" >:: w test_safe_insert_value;
-    "safe_insert_value_with_tx" >:: w test_safe_insert_value_with_tx;
     "safe_insert_value_with_partial_value_update" >:: w test_safe_insert_value_with_partial_value_update;
   ]
 

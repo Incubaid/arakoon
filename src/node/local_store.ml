@@ -97,6 +97,25 @@ let _with_tx : 'a. t -> transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
           else
             f db
 
+let _tranbegin ls =
+  let tx = new transaction in
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  ls._tx <- Some (tx, bdb);
+  Camltc.Bdb._tranbegin bdb;
+  tx
+
+let _tranfinish ls =
+  match ls._tx with
+    | None -> failwith "not in a transaction"
+    | Some (tx, bdb) ->
+        try
+          Camltc.Bdb._trancommit bdb;
+          ls._tx <- None;
+        with exn ->
+          Camltc.Bdb._tranabort bdb;
+          ls._tx <- None;
+          raise exn
+
 let with_transaction ls f =
   let t0 = Unix.gettimeofday() in
   Lwt.finalize
