@@ -534,7 +534,7 @@ object(self: # tlog_collection)
       head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
     >>= fun () ->
     Lwt_io.flush oc >>= fun () ->
-    let module S = (val (Store.make_store_module (module Local_store))) in
+    let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
     S.make_store head_name >>= fun store ->
     let io = S.consensus_i store in
     S.close store >>= fun () ->

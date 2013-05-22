@@ -77,7 +77,7 @@ let head_saved_epilogue hfn tlog_coll =
      the received head 
   *)
   Lwt_log.debug_f "head_saved_epilogue %s" hfn >>= fun () ->
-  let module S = (val (Store.make_store_module (module Local_store))) in
+  let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
   S.close store >>= fun () ->

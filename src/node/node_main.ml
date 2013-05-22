@@ -651,7 +651,7 @@ let _main_2 (type s)
       
       
 let main_t make_config name daemonize catchup_only : int Lwt.t =
-  let module S = (val (Store.make_store_module (module Local_store))) in
+  let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only

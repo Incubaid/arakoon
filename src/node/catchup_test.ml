@@ -25,7 +25,7 @@ open Lwt
 open Extra
 open Update
 
-module S = (val (Store.make_store_module (module Local_store)))
+module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _dir_name = "/tmp/catchup_test"
   
