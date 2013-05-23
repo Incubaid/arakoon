@@ -39,11 +39,12 @@ let time_for_elections constants n' maybe_previous =
 		    | Some (sm,sd) -> Lwt.return( "stored", (sm,sd) )
 		  in
 		  last_accepted_lease () >>= fun (origine,(am,al)) ->
-		  let now = Int64.of_float (Unix.time()) in
-		  Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
-		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
-		  let diff = abs (Int64.to_int (Int64.sub now al)) in
-		  Lwt.return ( diff >= constants.lease_expiration )
+		  let now = Unix.gettimeofday() in
+		  Lwt_log.debug_f "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%f"
+		  ns' origine am (Sn.string_of al) now >>= fun () ->
+          let alf = Int64.to_float al in
+		  let diff = now -. alf in
+		  Lwt.return ( diff >= (float constants.lease_expiration) )
     end
   end
 
@@ -54,6 +55,12 @@ let slave_fake_prepare constants (current_i,current_n) () =
   let me = constants.me in
   log ~me "slave_fake_prepare: sending Prepare(-1)" >>= fun () ->
   let fake = Prepare( Sn.of_int (-1), current_i) in
+
+  begin
+    if is_election constants
+    then start_election_timeout constants current_n
+    else Lwt.return ()
+  end >>= fun () ->
   Multi_paxos.mcast constants fake >>= fun () ->
   Lwt.return (Slave_waiting_for_prepare (current_i,current_n))
 
@@ -67,8 +74,8 @@ let slave_steady_state constants state event =
     | FromNode (msg,source) ->
       begin
 	let send = constants.send in
-	log ~me "slave_steady_state n:%s i:%s got %S from %s" 
-	  (Sn.string_of n) (Sn.string_of i) (string_of msg) source 
+	log ~me "slave_steady_state n:%s i:%s got %S from %s"
+	  (Sn.string_of n) (Sn.string_of i) (string_of msg) source
 	>>= fun () ->
 	match msg with
 	  | Accept (n',i',v) when (n',i') = (n,i) ->
@@ -83,31 +90,31 @@ let slave_steady_state constants state event =
                       let prev_i = Sn.pred i in
                       if (Sn.compare store_i (Sn.pred prev_i) ) == 0
                       then
-			constants.on_consensus (previous, n,prev_i) 
+			constants.on_consensus (previous, n,prev_i)
                       else
 			if Sn.compare store_i prev_i == 0
-			then 
-			  Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
+			then
+			  Lwt_log.debug_f "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () ->
                       Lwt.return (Store.Ok None)
 			else
-			  Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)      
-	        end 
+			  Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)
+	        end
               end >>= fun _ ->
 	      constants.on_accept(v,n,i) >>= fun v ->
               begin
-		if Update.is_master_set v 
+		if Update.is_master_set v
 		then start_lease_expiration_thread constants n constants.lease_expiration
-		else Lwt.return () 
+		else Lwt.return ()
               end >>= fun () ->
-              log ~me "steady_state :: replying with %S" (string_of reply) 
+              log ~me "steady_state :: replying with %S" (string_of reply)
 	      >>= fun () ->
 	      send reply me source >>= fun () ->
 	      Lwt.return (Slave_steady_state (n, Sn.succ i, v))
 	    end
-	  | Accept (n',i',v) when 
+	  | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
 	    begin
-	      log ~me "slave_steady_state received old %S for my n, ignoring" 
+	      log ~me "slave_steady_state received old %S for my n, ignoring"
 		(string_of msg) >>= fun () ->
 	      Lwt.return (Slave_steady_state state)
 	    end
@@ -117,13 +124,13 @@ let slave_steady_state constants state event =
 		(Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
 	      >>= fun () ->
               Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-              let new_state = (source,cu_pred,n',i') in 
-              Lwt.return (Slave_discovered_other_master(new_state) ) 
+              let new_state = (source,cu_pred,n',i') in
+              Lwt.return (Slave_discovered_other_master(new_state) )
 	    end
 	  | Prepare(n',i') ->
 	    begin
               handle_prepare constants source n n' i' >>= function
-		| Prepare_dropped 
+		| Prepare_dropped
 		| Nak_sent ->
 		  Lwt.return (Slave_steady_state state)
 		| Promise_sent_up2date ->
@@ -131,8 +138,8 @@ let slave_steady_state constants state event =
 		  Lwt.return (Slave_wait_for_accept (n', next_i, None, None))
 		    | Promise_sent_needs_catchup ->
 		      Store.get_catchup_start_i constants.store >>= fun i ->
-		      let new_state = (source, i, n', i') in 
-		      Lwt.return (Slave_discovered_other_master(new_state) ) 
+		      let new_state = (source, i, n', i') in
+		      Lwt.return (Slave_discovered_other_master(new_state) )
 	    end
 	  | Nak (n',(n'',i'')) ->
 	    begin
@@ -143,7 +150,7 @@ let slave_steady_state constants state event =
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
 	      Lwt.return (Slave_steady_state state)
-	    end  
+	    end
 	  | Accepted(n',i') ->
 	    begin
 	      log ~me "steady state :: dropping %s" (string_of msg) >>= fun () ->
@@ -153,18 +160,18 @@ let slave_steady_state constants state event =
     | ElectionTimeout n' ->
       log ~me "steady state :: ignoring election timeout" >>= fun () ->
       Lwt.return (Slave_steady_state state)
-    | LeaseExpired n' -> 
-      let ns  = (Sn.string_of n) 
+    | LeaseExpired n' ->
+      let ns  = (Sn.string_of n)
       and ns' = (Sn.string_of n') in
       if (not (is_election constants || constants.is_learner)) || n' < n
-      then 
+      then
 	begin
-	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns 
+	  log ~me "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns
 	  >>= fun () ->
 	  Lwt.return (Slave_steady_state (n,i,previous))
 	end
       else
-	begin 
+	begin
 	  time_for_elections constants n' (Some (previous,Sn.pred i)) >>= fun elections_needed ->
 	  if elections_needed then
 	    begin
@@ -173,7 +180,7 @@ let slave_steady_state constants state event =
               Store.get_succ_store_i constants.store >>= fun el_i ->
               let el_up =
 		begin
-		  if el_i = (Sn.pred i) 
+		  if el_i = (Sn.pred i)
 		  then Some previous
 		  else None
 		end
@@ -185,33 +192,33 @@ let slave_steady_state constants state event =
 	      Lwt.return (Slave_steady_state(n,i,previous))
 	    end
 	end
-    | FromClient (vo,cb) -> 
-      (* there is a window in election 
+    | FromClient (vo,cb) ->
+      (* there is a window in election
 	 that allows clients to get through before the node became a slave
 	 but I know I'm a slave now, so I let the update fail.
-      *)      
+      *)
       let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
       cb result >>= fun () ->
       Lwt.return (Slave_steady_state(n,i,previous))
-      
+
     | Quiesce (sleep,awake) ->
       handle_quiesce_request constants.store sleep awake >>= fun () ->
       Lwt.return (Slave_steady_state state)
-      
+
     | Unquiesce ->
       handle_unquiesce_request constants n >>= fun (store_i, vo) ->
       Lwt.return (Slave_steady_state state)
-      
+
 (* a pending slave that has promised a value to a pending master waits
    for an Accept from the master about this *)
 let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
   let me = constants.me in
-  match event with 
+  match event with
     | FromNode(msg,source) ->
       begin
 	let send = constants.send in
 	let me = constants.me in
-	log ~me "slave_wait_for_accept n=%s:: received %S from %s" 
+	log ~me "slave_wait_for_accept n=%s:: received %S from %s"
 	  (Sn.string_of n) (string_of msg) source
 	>>= fun () ->
 	match msg with
@@ -222,9 +229,9 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           | Prepare_dropped -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
           | Nak_sent -> Lwt.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
           | Promise_sent_up2date -> Lwt.return( Slave_wait_for_accept (n',i,vo, maybe_previous) )
-          | Promise_sent_needs_catchup -> 
+          | Promise_sent_needs_catchup ->
             Store.get_catchup_start_i constants.store >>= fun i ->
-            let state = (source, i, n', i') in 
+            let state = (source, i, n', i') in
             Lwt.return( Slave_discovered_other_master state )
       end
    | Accept (n',i',v) when n'=n ->
@@ -232,35 +239,35 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
        constants.on_witness source i' >>= fun () ->
        let tlog_coll = constants.tlog_coll in
        tlog_coll # get_last_i () >>= fun tlc_i ->
-       if i' < tlc_i 
-       then 
+       if i' < tlc_i
+       then
          log ~me "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)" (Sn.string_of i) (Sn.string_of i') >>= fun () ->
        Lwt.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
        else
          begin
-	   if i' > i then 
+	   if i' > i then
              Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-           Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )   
+           Lwt.return( Slave_discovered_other_master(source, cu_pred, n', i') )
            else
              begin
 	       constants.on_accept (v,n,i') >>= fun v ->
                begin
-		 if Update.is_master_set v 
-		 then start_lease_expiration_thread constants n constants.lease_expiration 
+		 if Update.is_master_set v
+		 then start_lease_expiration_thread constants n constants.lease_expiration
 		 else Lwt.return ()
 	       end >>= fun () ->
                match maybe_previous with
 		 | None -> log ~me "No previous" >>= fun () -> Lwt.return()
-		 | Some( pv, pi ) -> 
+		 | Some( pv, pi ) ->
                    constants.store # consensus_i () >>= fun (store_i) ->
                    begin
 		     match store_i with
 		       | Some s_i ->
-			 if (Sn.compare s_i pi) == 0 
+			 if (Sn.compare s_i pi) == 0
 			 then Lwt_log.debug "slave_wait_for_accept: Not pushing previous"
-			 else 
+			 else
 			   begin
-			     Lwt_log.debug_f "slave_wait_for_accept: Pushing previous (%s %s)" 
+			     Lwt_log.debug_f "slave_wait_for_accept: Pushing previous (%s %s)"
 			       (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
 			     constants.on_consensus(pv,n,pi) >>= fun _ ->
 			     Lwt.return ()
@@ -270,30 +277,30 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
              end >>= fun _ ->
 	   let reply = Accepted(n,i') in
 	   log ~me "replying with %S" (string_of reply) >>= fun () ->
-	   send reply me source >>= fun () -> 
+	   send reply me source >>= fun () ->
 	      (* TODO: should assert we really have a MasterSet here *)
 	   Lwt.return (Slave_steady_state (n, Sn.succ i', v))
 	 end
      end
    | Accept (n',i',v) when n' < n ->
      begin
-       if i' > i 
+       if i' > i
        then
          log ~me "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
-            (Sn.string_of i) (Sn.string_of i')  
-          >>= fun () -> 
+            (Sn.string_of i) (Sn.string_of i')
+          >>= fun () ->
           Store.get_catchup_start_i constants.store >>= fun cu_pred ->
-          let new_state = (source, cu_pred, n', i') in 
-          Lwt.return (Slave_discovered_other_master(new_state) ) 
+          let new_state = (source, cu_pred, n', i') in
+          Lwt.return (Slave_discovered_other_master(new_state) )
         else
-	        log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg) 
+	        log ~me "slave_wait_for_accept: dropping old accept: %s " (string_of msg)
 	        >>= fun () ->
 	        Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
 	  | Accept (n',i',v) ->
 	    begin
-	      log ~me "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare" 
-		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) 
+	      log ~me "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare"
+		(Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
 	      >>= fun () ->
 	      Lwt.return (Slave_fake_prepare (i,n'))
 	    end
@@ -313,10 +320,10 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
 	      Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	    end
       end
-    | ElectionTimeout n' 
+    | ElectionTimeout n'
     | LeaseExpired n' ->
       if (not (is_election constants || constants.is_learner)) || n' < n
-      then 
+      then
         begin
         let ns = (Sn.string_of n) and
         ns' = (Sn.string_of n') in
@@ -333,17 +340,17 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
             constants.get_value( el_i ) >>= fun el_up ->
             (*
             begin
-              if el_i = (Sn.pred i) 
-              then 
+              if el_i = (Sn.pred i)
+              then
                 begin
                   match maybe_previous with
                   | None -> None
-                  | Some ( pup, prev_i )  -> Some pup 
+                  | Some ( pup, prev_i )  -> Some pup
                 end
               else None
             end
             in
-            
+
             Lwt.return (el_i,el_up)
             end
             >>= fun (el_i, el_up) ->
@@ -353,6 +360,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
           end
         else
           begin
+            start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
             Lwt.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
           end
 
@@ -361,7 +369,7 @@ let slave_wait_for_accept constants (n,i, vo, maybe_previous) event =
     | Quiesce (sleep,awake) ->
       handle_quiesce_request constants.store sleep awake >>= fun () ->
       Lwt.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
-      
+
     | Unquiesce ->
       handle_unquiesce_request constants n >>= fun (store_i, store_vo) ->
       Lwt.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
@@ -389,19 +397,19 @@ let slave_discovered_other_master constants state () =
       let reply = Promise(future_n, current_i,m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i) 
+      Catchup.catchup me other_cfgs ~cluster_id (store, tlog_coll) current_i master (future_n, future_i)
       >>= fun (future_n', current_i', vo') ->
       begin
 	      let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
 			    Sn.pred current_i') (* pred =  consensus_i *)
 	      in
 	      Multi_paxos.mcast constants fake >>= fun () ->
-	
+
 	      match vo' with
 	      | Some v ->
-          start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () -> 
+          start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () ->
           Lwt.return (Slave_steady_state (future_n', current_i', v))
-	      | None -> 
+	      | None ->
           let vo =
             begin
               match vo' with
@@ -418,15 +426,15 @@ let slave_discovered_other_master constants state () =
       tlog_coll # get_last_i () >>= fun f_i ->
       tlog_coll # get_last_update f_i >>= fun vo ->
       begin
-      match vo with 
-      | None -> Lwt_log.debug "slave_discovered_other_master: no previous" 
+      match vo with
+      | None -> Lwt_log.debug "slave_discovered_other_master: no previous"
 		>>= fun () -> Lwt.return None
-      | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s" 
+      | Some u -> Lwt_log.debug_f "slave_discovered_other_master: setting previous to %s"
 	(Sn.string_of f_i) >>= fun () ->
         Lwt.return (Some ( Update.make_update_value u , f_i ))
       end >>= fun vo' ->
       log ~me "Resending Promise" >>= fun () ->
-      constants.get_value future_i >>= fun prom_val -> 
+      constants.get_value future_i >>= fun prom_val ->
       let reply = Promise(future_n, future_i, prom_val ) in
       constants.send reply me master >>= fun () ->
       start_election_timeout constants future_n >>= fun () ->
@@ -435,7 +443,7 @@ let slave_discovered_other_master constants state () =
   else
     begin
       if is_election constants
-      then 
+      then
 	      log ~me "slave_discovered_other_master: my i is bigger then theirs ; back to election"
 	      >>= fun () ->
 	      (* we have to go to election here or we can get in a situation where
@@ -443,7 +451,7 @@ let slave_discovered_other_master constants state () =
 	      let new_n = update_n constants future_n in
 	      let store = constants.store in
 	      store # consensus_i () >>= fun store_i ->
-	      let suc_store = 
+	      let suc_store =
 	      begin
 	        match store_i with
 	          | None -> Sn.start
@@ -452,11 +460,11 @@ let slave_discovered_other_master constants state () =
 	      let tlog_coll = constants.tlog_coll in
 	      tlog_coll # get_last_update( suc_store ) >>= fun l_up ->
 	      let l_up_v =
-	      begin 
+	      begin
 	        match l_up with
 	          | None -> None
 	          | Some up -> Some ( Update.make_update_value up )
-	      end in 
+	      end in
 	      Lwt.return (Election_suggest (new_n, suc_store, l_up_v))
       else
         log ~me "slave_discovered_other_master: forced slave, back to slave mode" >>= fun () ->
