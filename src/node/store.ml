@@ -152,9 +152,6 @@ module type STORE =
 
     val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
-    val _get_j : t -> int
-    val _with_transaction_lock : t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
-    val _insert_update : t -> Update.t -> key_or_transaction -> update_result Lwt.t
   end
 
 module Make(S : Simple_store) =

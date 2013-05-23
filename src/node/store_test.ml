@@ -24,8 +24,18 @@ open OUnit
 open Lwt
 open Extra
 open Update
+open Store
 
-module S = (val (Store.make_store_module (module Batched_store.Local_store)))
+module type Test_STORE =
+sig
+  include STORE
+
+  val _get_j : t -> int
+  val _with_transaction_lock : t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
+  val _insert_update : t -> Update.t -> key_or_transaction -> update_result Lwt.t
+end
+
+module S = (val (module Make(Batched_store.Local_store) : Test_STORE with type ss = Batched_store.Local_store.t))
 
 let _dir_name = "/tmp/store_test"
 
