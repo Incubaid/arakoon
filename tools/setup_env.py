@@ -236,7 +236,7 @@ package "syntax" (
     f.close()
 
 def install_libev():
-    lib = Lib('libev-4.11','.tar.gz',
+    lib = Lib('libev-4.15','.tar.gz',
               'http://dist.schmorp.de/libev/%s')
     lib.download()
     lib.extract()
