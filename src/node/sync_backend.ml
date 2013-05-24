@@ -100,7 +100,7 @@ let _update_rendezvous self ~so_post update update_stats push =
 
 
 class sync_backend = fun cfg
-  (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t) 
+  (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
   (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
   (store: 'a)
   (store_methods: (string -> string -> bool -> unit Lwt.t) * string )
@@ -203,7 +203,7 @@ object(self: #backend)
           self # block_collapser start_i ;
           self # _last_entries start_i oc
         end
-    ) 
+    )
       (fun () -> Lwt.return ( self # unblock_collapser start_i )
     )
 
@@ -302,14 +302,14 @@ object(self: #backend)
     let so_post so = so in
     _update_rendezvous self update update_stats push_update ~so_post
 
-  method delete_prefix prefix = 
+  method delete_prefix prefix =
     let start = Unix.gettimeofday () in
     log_o self "delete_prefix %S" prefix >>= fun () ->
     (* do we need to test the prefix on the interval ? *)
     let update = Update.DeletePrefix prefix in
-    let update_stats ur = 
-      let n_keys = 
-        match ur with 
+    let update_stats ur =
+      let n_keys =
+        match ur with
           | Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
           | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
       in
@@ -318,7 +318,7 @@ object(self: #backend)
     let so_post = function
       | None -> 0
       | Some s -> let r', _ = Llio.int_from s 0 in
-                  r' 
+                  r'
     in
     _update_rendezvous self update update_stats push_update ~so_post
 
@@ -380,7 +380,7 @@ object(self: #backend)
 	    loop_parts start_i2
 	    >>= fun start_i3 ->
 	    Llio.output_int oc 1 >>= fun () ->
-	    let f entry = 
+	    let f entry =
           let i = Entry.i_of entry
           and v = Entry.v_of entry
           in
@@ -396,8 +396,8 @@ object(self: #backend)
   method sequence ~sync (updates:Update.t list) =
     let start = Unix.gettimeofday() in
     log_o self "sequence ~sync:%b" sync >>= fun () ->
-    let update = if sync 
-      then Update.SyncedSequence updates 
+    let update = if sync
+      then Update.SyncedSequence updates
       else Update.Sequence updates
     in
     let update_stats ur = Statistics.new_sequence _stats start in
@@ -411,7 +411,7 @@ object(self: #backend)
     Statistics.new_multiget _stats start;
     Lwt.return values
 
-  method multi_get_option ~allow_dirty (keys:string list) = 
+  method multi_get_option ~allow_dirty (keys:string list) =
     let start = Unix.gettimeofday() in
     self # _read_allowed allow_dirty >>= fun () ->
     S.multi_get_option store keys >>= fun vos ->
@@ -505,7 +505,7 @@ object(self: #backend)
     check_option last
 
   method witness name i =
-    Statistics.witness _stats name i;    
+    Statistics.witness _stats name i;
     let cio = S.consensus_i store in
     begin
       match cio with
@@ -513,7 +513,7 @@ object(self: #backend)
 	    | Some ci -> Statistics.witness _stats my_name  ci
     end;
     ()
-      
+
   method last_witnessed name = Statistics.last_witnessed _stats name
 
   method expect_progress_possible () =
@@ -535,7 +535,23 @@ object(self: #backend)
 	Lwt.return v
 
   method get_statistics () =
-    Statistics.apply_latest _stats;
+    (* It's here and not in Statistics as we use statistics in the
+       client library, and we don't want to depend on things like Limits
+    *)
+    let apply_latest t =
+      let open Statistics in
+      let maxrss = Limits.get_maxrss() in
+      let stat = Gc.quick_stat () in
+      let factor = float (Sys.word_size / 8) in
+      let allocated = (stat.Gc.minor_words +. stat.Gc.major_words -. stat.Gc.promoted_words)
+	    *. (factor /. 1024.0) in
+      t.mem_allocated <- allocated;
+      t.mem_maxrss <- maxrss;
+      t.mem_minor_collections <- stat.Gc.minor_collections;
+      t.mem_major_collections <- stat.Gc.major_collections;
+      t.mem_compactions <- stat.Gc.compactions
+    in
+    apply_latest _stats;
     _stats
 
   method clear_most_statistics () = Statistics.clear_most _stats
@@ -586,7 +602,7 @@ object(self: #backend)
 
 
   method get_key_count () =
-    self # _read_allowed false >>= fun () -> 
+    self # _read_allowed false >>= fun () ->
     S.get_key_count store
 
   method private quiesce_db () =
@@ -601,22 +617,22 @@ object(self: #backend)
     result := res;
     Lwt_log.debug "quiesce_db: db is now completed" >>= fun () ->
     match res with
-      | Multi_paxos.Quiesced_ok -> Lwt.return () 
+      | Multi_paxos.Quiesced_ok -> Lwt.return ()
       | Multi_paxos.Quiesced_fail_master ->
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
       | Multi_paxos.Quiesced_fail ->
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
-  
+
   method private unquiesce_db () =
     Lwt_log.debug "unquiesce_db: Leaving quisced state" >>= fun () ->
     let update = Multi_paxos.Unquiesce in
-    push_node_msg update 
-      
+    push_node_msg update
+
   method try_quiesced f =
     self # quiesce_db () >>= fun () ->
-    begin 
+    begin
       Lwt.finalize
-      ( f ) 
+      ( f )
       ( self # unquiesce_db )
     end
 
@@ -624,8 +640,8 @@ object(self: #backend)
     Lwt_log.debug "optimize_db: enter" >>= fun () ->
     self # try_quiesced(fun () -> S.optimize store) >>= fun () ->
     Lwt_log.debug "optimize_db: All done"
- 
-  method defrag_db () = 
+
+  method defrag_db () =
     self # _not_if_master() >>= fun () ->
     Lwt_log.debug "defrag_db: enter" >>= fun () ->
     S.defrag store >>= fun () ->
@@ -691,8 +707,8 @@ object(self: #backend)
     S.get_fringe store boundary direction
 
   method drop_master () =
-    if n_nodes = 1 
-    then 
+    if n_nodes = 1
+    then
       let e = XException(Arakoon_exc.E_NOT_SUPPORTED, "drop master not supported for singletons")in
       Lwt.fail e
     else
@@ -702,7 +718,7 @@ object(self: #backend)
           | Some m ->
             if m <> my_name
             then Lwt.return ()
-            else 
+            else
               begin
                 let (sleep, awake) = Lwt.wait () in
                 let update = Multi_paxos.DropMaster (sleep, awake) in
