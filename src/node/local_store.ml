@@ -88,11 +88,11 @@ let get_construct_params db_name ~mode=
 
 let _with_tx ls tx f =
   match ls._tx with
-    | None -> failwith "not in a transaction"
+    | None -> failwith "not in a local store transaction, _with_tx"
     | Some (tx', db) ->
         if tx != tx'
         then
-          failwith "the provided transaction is not the current transaction of the store"
+          failwith "the provided transaction is not the current transaction of the local store"
         else
           f db
 
@@ -103,17 +103,19 @@ let _tranbegin ls =
   Camltc.Bdb._tranbegin bdb;
   tx
 
-let _tranfinish ls =
+let _trancommit ls =
   match ls._tx with
-    | None -> failwith "not in a transaction"
+    | None -> failwith "not in a local store transaction, _trancommit"
     | Some (tx, bdb) ->
-        try
-          Camltc.Bdb._trancommit bdb;
-          ls._tx <- None;
-        with exn ->
-          Camltc.Bdb._tranabort bdb;
-          ls._tx <- None;
-          raise exn
+        Camltc.Bdb._trancommit bdb
+
+
+let _tranabort ls =
+  match ls._tx with
+    | None -> failwith "not in a local store transaction, _tranabort"
+    | Some (tx, bdb) ->
+        Camltc.Bdb._tranabort bdb;
+        ls._tx <- None
 
 let with_transaction ls f =
   let t0 = Unix.gettimeofday() in
