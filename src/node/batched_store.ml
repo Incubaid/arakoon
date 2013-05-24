@@ -138,6 +138,12 @@ struct
           s._current_tx_cache <- StringMap.empty;
           Lwt.return ()))
 
+  let _verify_tx s tx =
+    match s._tx with
+      | None -> failwith "not in a transaction"
+      | Some tx' ->
+          if tx != tx'
+          then failwith "the provided transaction is not the current transaction of the store"
 
   let exists s k =
     if StringMap.mem k s._current_tx_cache
@@ -167,10 +173,12 @@ struct
     else
       S.get s.s k
 
-  let set s t k v =
+  let set s tx k v =
+    _verify_tx s tx;
     _apply_value s k (Some v)
 
-  let delete s t k =
+  let delete s tx k =
+    _verify_tx s tx;
     if exists s k
     then
       _apply_value s k None
@@ -193,9 +201,10 @@ struct
     _sync_and_start_transaction_if_needed s;
     S.prefix_keys s.s prefix max
 
-  let delete_prefix s t prefix =
+  let delete_prefix s tx prefix =
+    _verify_tx s tx;
     _sync_and_start_transaction_if_needed s;
-    S.delete_prefix s.s t prefix
+    S.delete_prefix s.s tx prefix
 
   let close s =
     _sync_and_start_transaction_if_needed s;
