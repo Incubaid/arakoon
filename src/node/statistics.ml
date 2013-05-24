@@ -32,19 +32,19 @@ type x_stats ={
 let x_stats_to_string (stats:x_stats) :string =
     let to_str_init_max = function
       | x when x = max_float -> "n/a"
-      | x -> string_of_float x 
+      | x -> string_of_float x
     in
     let to_str_init_zero = function
       | 0.0 -> "n/a"
-      | x -> string_of_float x 
+      | x -> string_of_float x
     in
     Printf.sprintf "(n:%i min: %s, max: %s, avg: %s, dev: %s)"
       stats.n
       (to_str_init_max stats.min)
-      (to_str_init_zero stats.max) 
+      (to_str_init_zero stats.max)
       (to_str_init_zero stats.avg)
       (to_str_init_zero (sqrt stats.var))
-      
+
 let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
   let n,  o1 = Llio.int_from buffer offset in
   let min,o2 = Llio.float_from buffer o1 in
@@ -52,10 +52,10 @@ let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
   let m2 ,o4 = Llio.float_from buffer o3 in
   let avg,o5 = Llio.float_from buffer o4 in
   let var,o6 = Llio.float_from buffer o5 in
-  ( {n;min;max;m2;avg;var;}, o6)  
+  ( {n;min;max;m2;avg;var;}, o6)
 
 let x_stats_to_value_list (stats:x_stats) (list_name:string) : Llio.namedValue =
-    let l = [ 
+    let l = [
       Llio.NAMED_INT ("n", stats.n);
       Llio.NAMED_FLOAT ("min", stats.min);
       Llio.NAMED_FLOAT ("max", stats.max);
@@ -63,8 +63,8 @@ let x_stats_to_value_list (stats:x_stats) (list_name:string) : Llio.namedValue =
       Llio.NAMED_FLOAT ("avg", stats.avg);
       Llio.NAMED_FLOAT ("var", stats.var)
     ] in
-    Llio.NAMED_VALUELIST (list_name, l) 
-    
+    Llio.NAMED_VALUELIST (list_name, l)
+
 let create_x_stats () = {
     n = 0;
     min = max_float;
@@ -92,13 +92,13 @@ let update_x_stats (t:x_stats) x =
     end;
   let nf = float n in (* old size ! *)
   t.var <- t.m2 /. nf;
-  
+
 module Statistics = struct
 
-  type t ={ 
+  type t ={
     mutable start: float (* start of operations (timestamp) *);
     mutable last:  float (* last operation (timestamp)      *);
-    
+
     mutable avg_set_size:float (* size of values *);
     mutable avg_get_size:float;
     mutable avg_range_size:float;
@@ -123,11 +123,11 @@ module Statistics = struct
     mutable mem_compactions :          int;
     mutable node_is:          (string , Sn.t) Hashtbl.t;
   }
- 
+
   let get_witnessed t =
       t.node_is
- 
-  let create () = 
+
+  let create () =
     {start = Unix.gettimeofday();
      last  = Unix.gettimeofday();
      avg_set_size=0.0;
@@ -155,7 +155,7 @@ module Statistics = struct
      harvest_stats = create_x_stats ();
     }
 
-  let clear_most t = 
+  let clear_most t =
     begin
       t.start <- Unix.gettimeofday();
       t.last  <- Unix.gettimeofday();
@@ -177,7 +177,7 @@ module Statistics = struct
       t.harvest_stats     <- create_x_stats ();
     end
 
-  let _clock t start = 
+  let _clock t start =
     t.last <- Unix.gettimeofday();
     t.last -. start
 
@@ -185,9 +185,9 @@ module Statistics = struct
     let x = _clock t start in
     update_x_stats t.op_time_stats x ;
     x
-    
-  
-  let new_set t (key:string) (value:string) (start:float)= 
+
+
+  let new_set t (key:string) (value:string) (start:float)=
     let x = new_op t start in
     update_x_stats t.set_time_stats x;
     let size = float(String.length value) in
@@ -197,19 +197,9 @@ module Statistics = struct
 
   let new_harvest t n = update_x_stats t.harvest_stats (float n)
 
-  let apply_latest t =
-    let maxrss = Limits.get_maxrss() in
-    let stat = Gc.quick_stat () in
-    let factor = float (Sys.word_size / 8) in
-    let allocated = (stat.Gc.minor_words +. stat.Gc.major_words -. stat.Gc.promoted_words)
-	  *. (factor /. 1024.0) in
-    t.mem_allocated <- allocated;
-    t.mem_maxrss <- maxrss;
-    t.mem_minor_collections <- stat.Gc.minor_collections;
-    t.mem_major_collections <- stat.Gc.major_collections;
-    t.mem_compactions <- stat.Gc.compactions
 
-  let new_get t (key:string) (value:string) (start:float) = 
+
+  let new_get t (key:string) (value:string) (start:float) =
     let x = new_op t start in
     update_x_stats t.get_time_stats x;
     let size = float(String.length value) in
@@ -221,15 +211,15 @@ module Statistics = struct
     let x = new_op t start in
     update_x_stats t.del_time_stats x
 
-  let new_sequence t (start:float)= 
+  let new_sequence t (start:float)=
     let x = new_op t start in
     update_x_stats t.seq_time_stats x
-    
-  let new_multiget t (start:float)= 
-    let x = new_op t start in
-    update_x_stats t.mget_time_stats x 
 
-  let new_multiget_option t (start:float) = 
+  let new_multiget t (start:float)=
+    let x = new_op t start in
+    update_x_stats t.mget_time_stats x
+
+  let new_multiget_option t (start:float) =
     let x = new_op t start in
     update_x_stats t.mget_option_time_stats x
 
@@ -237,7 +227,7 @@ module Statistics = struct
     let x = new_op t start in
     update_x_stats t.tas_time_stats x
 
-  let new_range t (start:float) = 
+  let new_range t (start:float) =
     let x = new_op t start in
     update_x_stats t.range_time_stats x
 
@@ -248,7 +238,7 @@ module Statistics = struct
     let nf = float n in
     t.avg_prefix_size <- t.avg_prefix_size +. ((float n_keys -. t.avg_prefix_size) /. nf)
 
-  let new_range t (start:float) n_keys = 
+  let new_range t (start:float) n_keys =
     let x = new_op t start in
     update_x_stats t.range_time_stats x;
     let n = t.range_time_stats.n in
@@ -256,7 +246,7 @@ module Statistics = struct
     t.avg_range_size <- t.avg_range_size +. ((float n_keys -. t.avg_range_size) /. nf)
 
 
-  let new_delete_prefix t (start:float) n_keys = 
+  let new_delete_prefix t (start:float) n_keys =
     let x = new_op t start in
     update_x_stats t.delete_prefix_time_stats x;
     let n = t.delete_prefix_time_stats.n in
@@ -266,19 +256,19 @@ module Statistics = struct
   let witness t name i =
     Hashtbl.replace t.node_is name i
 
-  let last_witnessed t name = 
-    if Hashtbl.mem t.node_is name 
+  let last_witnessed t name =
+    if Hashtbl.mem t.node_is name
     then Hashtbl.find t.node_is name
     else Sn.of_int (-1000)
-      
+
   let to_buffer b t =
-    
-    let node_is = 
+
+    let node_is =
       Hashtbl.fold
-        (fun n i l -> (Llio.NAMED_INT64 (n, i)) :: l )  
-        t.node_is [] 
+        (fun n i l -> (Llio.NAMED_INT64 (n, i)) :: l )
+        t.node_is []
     in
-    
+
     let value_list = [
       Llio.NAMED_FLOAT ("start", t.start);
       Llio.NAMED_FLOAT ("last", t.last);
@@ -308,39 +298,39 @@ module Statistics = struct
       Llio.NAMED_INT ("mem_compactions", t.mem_compactions);
       Llio.NAMED_VALUELIST ("node_is", node_is);
     ] in
-    
+
     Llio.named_field_to b (Llio.NAMED_VALUELIST ("arakoon_stats", value_list))
-    
-      
+
+
   let from_buffer buffer pos =
     let n_value_list,pos = Llio.named_field_from buffer pos in
-    
-    let extract_next (l :Llio.namedValue list) : (Llio.namedValue * Llio.namedValue list) = 
-      match l with 
+
+    let extract_next (l :Llio.namedValue list) : (Llio.namedValue * Llio.namedValue list) =
+      match l with
         | [] -> failwith "Not enough elements in named value list"
-        | hd :: tl -> 
+        | hd :: tl ->
           hd, tl
     in
-    
+
     let extract_list = function
-      | Llio.NAMED_VALUELIST (_,l) -> l 
+      | Llio.NAMED_VALUELIST (_,l) -> l
       | _ -> failwith "Wrong value type (expected list)"
     in
-    let extract_float (value:Llio.namedValue) : float = 
-      begin 
+    let extract_float (value:Llio.namedValue) : float =
+      begin
       match value with
-        | Llio.NAMED_FLOAT (_,f) -> f 
+        | Llio.NAMED_FLOAT (_,f) -> f
         | _ -> failwith "Wrong value type (expected float)"
       end
     in
     let extract_int = function
-      | Llio.NAMED_INT (_,i) -> i 
+      | Llio.NAMED_INT (_,i) -> i
       | _ -> failwith "Wrong value type (expected int)"
     in
-    let extract_x_stats (value:Llio.namedValue) : x_stats = 
-      begin 
+    let extract_x_stats (value:Llio.namedValue) : x_stats =
+      begin
       match value with
-	    | Llio.NAMED_VALUELIST (_,l) -> 
+	    | Llio.NAMED_VALUELIST (_,l) ->
             let v, l = extract_next l in
             let n    = extract_int v in
             let v, l = extract_next l in
@@ -353,11 +343,11 @@ module Statistics = struct
             let avg = extract_float v in
             let v, l = extract_next l in
             let var = extract_float v in
-	        {n; min; max; m2; avg; var;} 
+	        {n; min; max; m2; avg; var;}
 	    | _ -> failwith "Wrong value type (expected list)"
       end
     in
-      
+
     let v_list = extract_list n_value_list in
     let value, v_list = extract_next v_list in
     let start = extract_float value in
@@ -377,11 +367,11 @@ module Statistics = struct
 
     let value, v_list = extract_next v_list in
     let avg_del_prefix_size = extract_float value in
-    
+
     let value, v_list = extract_next v_list in
     let harvest_stats = extract_x_stats value in
 
- 
+
     let value, v_list = extract_next v_list in
     let set_stats   = extract_x_stats value in
 
@@ -440,7 +430,7 @@ module Statistics = struct
         | Llio.NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
         | _ -> failwith "Wrong value type (expected int64)."
     in
-    List.iter insert_node node_list; 
+    List.iter insert_node node_list;
     let t =  {
       start = start;
       last = last;
@@ -468,10 +458,10 @@ module Statistics = struct
       mem_compactions;
       node_is = node_is;
     } in
-    t, pos 
+    t, pos
 
   let string_of t =
-    let template = 
+    let template =
       "{start: %f, " ^^
 	    "last: %f, " ^^
         "avg_set_size: %f, " ^^
@@ -480,7 +470,7 @@ module Statistics = struct
         "avg_prefix_size: %f, " ^^
         "avg_del_prefix_size: %f,\n" ^^
         "harvest_stats: %s,\n" ^^
-        "set_info: %s,\n" ^^	
+        "set_info: %s,\n" ^^
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
 	    "mget_info: %s,\n" ^^
@@ -504,15 +494,15 @@ module Statistics = struct
       Buffer.add_string node_iss (Printf.sprintf "(%s,%s)" n (Sn.string_of i)))
       t.node_is ()
     in
-    Printf.sprintf template 
-      t.start 
-      t.last 
-      t.avg_set_size 
+    Printf.sprintf template
+      t.start
+      t.last
+      t.avg_set_size
       t.avg_get_size
       t.avg_range_size
       t.avg_prefix_size
       t.avg_del_prefix_size
-      (x_stats_to_string t.harvest_stats)         
+      (x_stats_to_string t.harvest_stats)
       (x_stats_to_string t.set_time_stats)
       (x_stats_to_string t.get_time_stats)
       (x_stats_to_string t.del_time_stats)
