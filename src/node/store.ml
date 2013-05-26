@@ -621,16 +621,26 @@ struct
             Lwt.return (Ok None)
     in
     let with_transaction' f = _with_transaction store kt f in
-    let catch_with_tx f g =
+    let update_in_tx f =
+      let j = _get_j store in
       Lwt.catch
         (fun () ->
-          let j = _get_j store in
-          Lwt.finalize
-            (fun () -> with_transaction' (fun tx -> f tx))
-            (fun () -> with_transaction' (fun tx -> Lwt.return (_set_j store tx (j + 1)))))
+          with_transaction'
+            (fun tx ->
+              f tx >>= fun a ->
+              _set_j store tx (j + 1);
+              Lwt.return a))
+        (fun exn ->
+          with_transaction'
+            (fun tx ->
+              Lwt.return (_set_j store tx (j + 1))) >>= fun () ->
+          Lwt.fail exn) in
+    let catch_update_in_tx f g =
+      Lwt.catch
+        (fun () -> update_in_tx f)
         g in
-    let with_error notfound_msg f =
-      catch_with_tx
+    let with_error_update_in_tx notfound_msg f =
+      catch_update_in_tx
         (fun tx -> f tx)
         (function
           | Key_not_found key ->
@@ -651,14 +661,14 @@ struct
     let do_one update =
       match update with
         | Update.Set(key,value) ->
-            with_error key (fun tx -> _do_one update tx)
+            with_error_update_in_tx key (fun tx -> _do_one update tx)
         | Update.MasterSet (m, lease) ->
-            with_error "Not_found" (fun tx -> _do_one update tx)
+            with_error_update_in_tx "Not_found" (fun tx -> _do_one update tx)
         | Update.Delete(key) ->
-            with_error key (fun tx -> _do_one update tx)
+            with_error_update_in_tx key (fun tx -> _do_one update tx)
         | Update.DeletePrefix prefix ->
             begin
-              catch_with_tx
+              catch_update_in_tx
                 (fun tx -> _do_one update tx)
                 (fun e -> 
                   let rc = Arakoon_exc.E_UNKNOWN_FAILURE
@@ -668,7 +678,7 @@ struct
             end
         | Update.TestAndSet(key,expected,wanted)->
             begin
-              catch_with_tx
+              catch_update_in_tx
                 (fun tx -> _do_one update tx)
                 (function
                   | Not_found ->
@@ -683,7 +693,7 @@ struct
                 )
             end
         | Update.UserFunction(name,po) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -695,7 +705,7 @@ struct
               )
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Key_not_found key ->
@@ -716,7 +726,7 @@ struct
                     Lwt.return (Update_fail (rc,msg))
               )
         | Update.SetInterval interval ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -726,7 +736,7 @@ struct
                     in
                     Lwt.return (Update_fail (rc,msg)))
         | Update.SetRouting routing ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -737,7 +747,7 @@ struct
                     Lwt.return (Update_fail (rc,msg))
               )
         | Update.SetRoutingDelta (left, sep, right) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -749,21 +759,21 @@ struct
               )
         | Update.Nop -> Lwt.return (Ok None)
         | Update.Assert(k,vo) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
 	          (fun e ->
 	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	            and msg = Printexc.to_string e
 	            in Lwt.return (Update_fail(rc, msg)))
         | Update.Assert_exists(k) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
 	          (fun e ->
 	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	            and msg = Printexc.to_string e
 	            in Lwt.return (Update_fail(rc, msg)))
         | Update.AdminSet(k,vo) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (fun e ->
                 let rc = Arakoon_exc.E_UNKNOWN_FAILURE
