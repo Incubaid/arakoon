@@ -553,7 +553,9 @@ object(self: #backend)
         cb() >>= fun () ->
         self # wait_for_tlog_release tlog_num
       in
-      Collapser.collapse_many tlog_collection store_methods n cb' new_cb
+      Lwt_log.info "Starting collapse" >>= fun () ->
+      Collapser.collapse_many tlog_collection store_methods n cb' new_cb >>= fun () ->
+      Lwt_log.info "Collapse completed"
     )
 
   method get_routing () =
@@ -580,12 +582,12 @@ object(self: #backend)
     let result = ref Multi_paxos.Quiesced_fail in
     let sleep, awake = Lwt.wait() in
     let update = Multi_paxos.Quiesce (sleep, awake) in
-    Lwt_log.debug "quiesce_db: Pushing quiesce request" >>= fun () ->
+    Lwt_log.info "quiesce_db: Pushing quiesce request" >>= fun () ->
     push_node_msg update >>= fun () ->
-    Lwt_log.debug "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
+    Lwt_log.info "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
     sleep >>= fun res ->
     result := res;
-    Lwt_log.debug "quiesce_db: db is now completed" >>= fun () ->
+    Lwt_log.info "quiesce_db: db is now completed" >>= fun () ->
     match res with
       | Multi_paxos.Quiesced_ok -> Lwt.return () 
       | Multi_paxos.Quiesced_fail_master ->
@@ -594,7 +596,7 @@ object(self: #backend)
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
   
   method private unquiesce_db () =
-    Lwt_log.debug "unquiesce_db: Leaving quisced state" >>= fun () ->
+    Lwt_log.info "unquiesce_db: Leaving quisced state" >>= fun () ->
     let update = Multi_paxos.Unquiesce in
     push_node_msg update 
       
@@ -607,19 +609,19 @@ object(self: #backend)
     end
 
   method optimize_db () =
-    Lwt_log.debug "optimize_db: enter" >>= fun () ->
+    Lwt_log.info "optimize_db: enter" >>= fun () ->
     self # try_quiesced( store # optimize ) >>= fun () ->
-    Lwt_log.debug "optimize_db: All done"
+    Lwt_log.info "optimize_db: All done"
  
   method defrag_db () = 
     self # _not_if_master() >>= fun () ->
-    Lwt_log.debug "defrag_db: enter" >>= fun () ->
+    Lwt_log.info "defrag_db: enter" >>= fun () ->
     store # defrag() >>= fun () ->
-    Lwt_log.debug "defrag_db: exit"
+    Lwt_log.info "defrag_db: exit"
 
 
   method get_db m_oc =
-    Lwt_log.debug "get_db: enter" >>= fun () ->
+    Lwt_log.info "get_db: enter" >>= fun () ->
     begin
       match m_oc with
         | None ->
@@ -628,7 +630,7 @@ object(self: #backend)
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
     self # try_quiesced ( fun () -> store # copy_store oc ) >>= fun () ->
-    Lwt_log.debug "get_db: All done"
+    Lwt_log.info "get_db: All done"
 
   method get_cluster_cfgs () =
     begin
