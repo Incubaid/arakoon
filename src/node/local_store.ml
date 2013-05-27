@@ -190,7 +190,7 @@ let copy_store old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
   then
-    Lwt_log.debug_f "File at %s does not exist" old_location >>= fun () ->
+    Lwt_log.info_f "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
   begin
@@ -205,7 +205,7 @@ let copy_store old_location new_location overwrite =
     begin
       if dest_exists && not overwrite
       then
-        Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" old_location new_location
+        Lwt_log.info_f "Not relocating store from %s to %s, destination exists" old_location new_location
       else
         File_system.copy_file old_location new_location
     end
@@ -384,14 +384,14 @@ object(self: #store)
 
   method optimize () = 
     let db_optimal = my_location ^ ".opt" in
-    Lwt_log.debug "Copying over db file" >>= fun () ->
+    Lwt_log.info "Copying over db file" >>= fun () ->
     Lwt_io.with_file
         ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
         ~mode:Lwt_io.output
         db_optimal (fun oc -> self # copy_store ~_networkClient:false oc )
     >>= fun () ->
     begin 
-      Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
+      Lwt_log.info_f "Creating new db object at location %s" db_optimal >>= fun () ->
       Hotc.create db_optimal [Bdb.BDBTLARGE] >>= fun db_opt ->
       Lwt.finalize
       ( fun () ->
@@ -407,9 +407,9 @@ object(self: #store)
     self # reopen (fun () -> Lwt.return ())
 
   method defrag() = 
-    Lwt_log.debug "local_store :: defrag" >>= fun () ->
+    Lwt_log.info "local_store :: defrag" >>= fun () ->
     Hotc.defrag db >>= fun rc ->
-    Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" db_location rc>>= fun () ->
+    Lwt_log.info_f "local_store %s :: defrag done: rc=%i" db_location rc>>= fun () ->
     Lwt.return ()
 
   method private open_db () =
@@ -575,9 +575,9 @@ object(self: #store)
       else
         Bdb.default_mode
     end in
-    Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
+    Lwt_log.info_f "local_store %S::reopen calling Hotc::reopen" db_location >>= fun () ->
     Hotc.reopen db f mode >>= fun () ->
-    Lwt_log.debug "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
+    Lwt_log.info "local_store::reopen Hotc::reopen succeeded" >>= fun () ->
     (* Hotc.transaction db _consensus_i >>= fun store_i -> *)
     let bdb = Hotc.get_bdb db in
     _consensus_i bdb >>= fun store_i ->
@@ -631,7 +631,7 @@ object(self: #store)
       let db_name = my_location in
       let stat = Unix.LargeFile.stat db_name in
       let length = stat.st_size in
-      Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+      Lwt_log.info_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
       begin
         if _networkClient 
         then
@@ -657,9 +657,9 @@ object(self: #store)
     copy_store my_location new_location true >>= fun () ->
     let old_location = my_location in
     let () = my_location <- new_location in
-    Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
+    Lwt_log.info_f "Attempting to unlink file '%s'" old_location >>= fun () ->
     File_system.unlink old_location >>= fun () ->
-    Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location
+    Lwt_log.info_f "Successfully unlinked file at '%s'" old_location
 
 
   method get_fringe border direction =
@@ -762,7 +762,7 @@ let make_local_store ?(read_only=false) db_name =
     then Bdb.readonly_mode
     else Bdb.default_mode
   in
-  Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
+  Lwt_log.info_f "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
   >>= fun (db, interval, routing_o, mlo, store_i) ->
   let store = new local_store db_name db interval routing_o mlo store_i in
