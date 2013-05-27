@@ -119,7 +119,7 @@ let with_transaction ls f =
 let defrag ls =
   Lwt_log.debug "local_store :: defrag" >>= fun () ->
   Camltc.Hotc.defrag ls.db >>= fun rc ->
-  Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
+  Lwt_log.info_f "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
   Lwt.return ()
 
 let exists ls key =

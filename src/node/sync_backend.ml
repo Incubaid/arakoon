@@ -643,9 +643,9 @@ object(self: #backend)
 
   method defrag_db () =
     self # _not_if_master() >>= fun () ->
-    Lwt_log.debug "defrag_db: enter" >>= fun () ->
+    Lwt_log.info "defrag_db: enter" >>= fun () ->
     S.defrag store >>= fun () ->
-    Lwt_log.debug "defrag_db: exit"
+    Lwt_log.info "defrag_db: exit"
 
 
   method get_db m_oc =
