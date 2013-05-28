@@ -538,7 +538,7 @@ struct
     fun store kt f -> match kt with
       | Key key ->
           let matched_locks = match store._tx_lock with
-            | Some txl -> txl == key
+            | Some txl -> txl == key (* txl should be the same instance (physical equality) *)
             | _ -> false in
           if not matched_locks
           then failwith "transaction locks do not match";

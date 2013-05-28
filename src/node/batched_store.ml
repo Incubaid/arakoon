@@ -82,12 +82,6 @@ struct
       | Some ls_tx ->
           _apply_vo_to_local_store s.s ls_tx k vo
 
-  let _finalize f g =
-    try
-      f ();
-      g ();
-    with exn -> g (); raise exn
-
   let _sync_cache_to_local_store s =
     if not (StringMap.is_empty s._cache)
     then
@@ -173,33 +167,29 @@ struct
           if tx != tx'
           then failwith "the provided transaction is not the current transaction of the batched store"
 
-  let exists s k =
+  let _with_key_in_caches s k match' else' =
     if StringMap.mem k s._current_tx_cache
     then
-      match StringMap.find k s._current_tx_cache with
-        | None -> false
-        | Some _ -> true
+      match' (StringMap.find k s._current_tx_cache)
     else if StringMap.mem k s._cache
     then
-      match StringMap.find k s._cache with
-        | None -> false
-        | Some _ -> true
+      match' (StringMap.find k s._current_tx_cache)
     else
-      S.exists s.s k
+      else' ()
+
+  let exists s k =
+    _with_key_in_caches s k
+      (function
+        | None -> false
+        | Some _ -> true)
+      (fun () -> S.exists s.s k)
 
   let get s k =
-    if StringMap.mem k s._current_tx_cache
-    then
-      match StringMap.find k s._current_tx_cache with
+    _with_key_in_caches s k
+      (function
         | None -> raise Not_found
-        | Some v -> v
-    else if StringMap.mem k s._cache
-    then
-      match StringMap.find k s._cache with
-        | None -> raise Not_found
-        | Some v -> v
-    else
-      S.get s.s k
+        | Some v -> v)
+      (fun () -> S.get s.s k)
 
   let set s tx k v =
     _verify_tx s tx;
