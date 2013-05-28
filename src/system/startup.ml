@@ -28,7 +28,7 @@ open Update
 open Master_type
 open Tlogcommon
 
-module LS = (val (Store.make_store_module (module Local_store)))
+module LS = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _make_log_cfg () =
   ("log_cfg",

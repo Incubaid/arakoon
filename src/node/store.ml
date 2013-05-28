@@ -115,9 +115,8 @@ module type STORE =
     val close : t -> unit Lwt.t
     val get_location : t -> string
     val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
-    val safe_insert_value : t -> ?tx:transaction option -> Sn.t -> Value.t -> update_result list Lwt.t
-    val with_transaction : t -> ?key:transaction_lock option -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
-    val with_transaction_lock : t -> (transaction_lock -> 'a Lwt.t) -> 'a Lwt.t
+    val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
+    val with_transaction : t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
     val relocate : t -> string -> unit Lwt.t
     val who_master : t -> (string * int64) option
 
@@ -153,8 +152,6 @@ module type STORE =
 
     val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
-    val _get_j : t -> int
-    val _insert_update : t -> Update.t -> key_or_transaction -> update_result Lwt.t
   end
 
 module Make(S : Simple_store) =
@@ -370,7 +367,7 @@ struct
       S.with_transaction store.s (fun tx -> _incr_i store tx)
 
 
-  let with_transaction_lock store f =
+  let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
       Lwt.finalize
         (fun () ->
@@ -435,14 +432,7 @@ struct
     _set_routing store tx new_r'
 
 
-  let with_transaction store ?(key=None) f =
-    let matched_locks = match store._tx_lock, key with
-      | None, None -> true
-      | Some txl, Some txl' -> txl == txl'
-      | _ -> false in
-    if not matched_locks
-    then failwith "transaction locks do not match";
-
+  let with_transaction store f =
     if store.closed
     then
       raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
@@ -547,7 +537,12 @@ struct
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with
       | Key key ->
-          with_transaction store ~key:(Some key) f
+          let matched_locks = match store._tx_lock with
+            | Some txl -> txl == key (* txl should be the same instance (physical equality) *)
+            | _ -> false in
+          if not matched_locks
+          then failwith "transaction locks do not match";
+          with_transaction store f
       | Transaction tx ->
           f tx
 
@@ -626,16 +621,26 @@ struct
             Lwt.return (Ok None)
     in
     let with_transaction' f = _with_transaction store kt f in
-    let catch_with_tx f g =
+    let update_in_tx f =
+      let j = _get_j store in
       Lwt.catch
         (fun () ->
-          let j = _get_j store in
-          Lwt.finalize
-            (fun () -> with_transaction' (fun tx -> f tx))
-            (fun () -> with_transaction' (fun tx -> Lwt.return (_set_j store tx (j + 1)))))
+          with_transaction'
+            (fun tx ->
+              f tx >>= fun a ->
+              _set_j store tx (j + 1);
+              Lwt.return a))
+        (fun exn ->
+          with_transaction'
+            (fun tx ->
+              Lwt.return (_set_j store tx (j + 1))) >>= fun () ->
+          Lwt.fail exn) in
+    let catch_update_in_tx f g =
+      Lwt.catch
+        (fun () -> update_in_tx f)
         g in
-    let with_error notfound_msg f =
-      catch_with_tx
+    let with_error_update_in_tx notfound_msg f =
+      catch_update_in_tx
         (fun tx -> f tx)
         (function
           | Key_not_found key ->
@@ -656,14 +661,14 @@ struct
     let do_one update =
       match update with
         | Update.Set(key,value) ->
-            with_error key (fun tx -> _do_one update tx)
+            with_error_update_in_tx key (fun tx -> _do_one update tx)
         | Update.MasterSet (m, lease) ->
-            with_error "Not_found" (fun tx -> _do_one update tx)
+            with_error_update_in_tx "Not_found" (fun tx -> _do_one update tx)
         | Update.Delete(key) ->
-            with_error key (fun tx -> _do_one update tx)
+            with_error_update_in_tx key (fun tx -> _do_one update tx)
         | Update.DeletePrefix prefix ->
             begin
-              catch_with_tx
+              catch_update_in_tx
                 (fun tx -> _do_one update tx)
                 (fun e -> 
                   let rc = Arakoon_exc.E_UNKNOWN_FAILURE
@@ -673,7 +678,7 @@ struct
             end
         | Update.TestAndSet(key,expected,wanted)->
             begin
-              catch_with_tx
+              catch_update_in_tx
                 (fun tx -> _do_one update tx)
                 (function
                   | Not_found ->
@@ -688,7 +693,7 @@ struct
                 )
             end
         | Update.UserFunction(name,po) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException(rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -700,7 +705,7 @@ struct
               )
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Key_not_found key ->
@@ -721,7 +726,7 @@ struct
                     Lwt.return (Update_fail (rc,msg))
               )
         | Update.SetInterval interval ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc,msg) -> Lwt.return (Update_fail(rc,msg))
@@ -731,7 +736,7 @@ struct
                     in
                     Lwt.return (Update_fail (rc,msg)))
         | Update.SetRouting routing ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -742,7 +747,7 @@ struct
                     Lwt.return (Update_fail (rc,msg))
               )
         | Update.SetRoutingDelta (left, sep, right) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (function
                 | Common.XException (rc, msg) -> Lwt.return (Update_fail(rc,msg))
@@ -754,21 +759,21 @@ struct
               )
         | Update.Nop -> Lwt.return (Ok None)
         | Update.Assert(k,vo) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
 	          (fun e ->
 	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	            and msg = Printexc.to_string e
 	            in Lwt.return (Update_fail(rc, msg)))
         | Update.Assert_exists(k) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
 	          (fun e ->
 	            let rc = Arakoon_exc.E_UNKNOWN_FAILURE
 	            and msg = Printexc.to_string e
 	            in Lwt.return (Update_fail(rc, msg)))
         | Update.AdminSet(k,vo) ->
-            catch_with_tx
+            catch_update_in_tx
               (fun tx -> _do_one update tx)
               (fun e ->
                 let rc = Arakoon_exc.E_UNKNOWN_FAILURE
@@ -811,11 +816,8 @@ struct
     Lwt.return urs
 
 
-  let safe_insert_value store ?(tx=None) (i:Sn.t) value =
-    let inner f =
-      match tx with
-        | None ->   with_transaction_lock store (fun key -> f (Key key))
-        | Some tx -> f (Transaction tx) in
+  let safe_insert_value store (i:Sn.t) value =
+    let inner f = _with_transaction_lock store (fun key -> f (Key key)) in
     let t kt =
       let store_i = consensus_i store in
       begin
@@ -836,15 +838,7 @@ struct
         end
       else
         begin
-          let results = _insert_value store value kt in
-          match tx with
-            | None -> results
-            | Some _ ->
-                results >>= fun results ->
-                List.iter (fun result -> match result with
-                  | Ok _ -> ()
-                  | _ -> failwith "some updates failed to apply to the store") results;
-                Lwt.return results
+          _insert_value store value kt
         end
     in
     inner t
@@ -879,7 +873,7 @@ struct
         Lwt.return [Ok None]
       end
     else
-      with_transaction_lock store (fun key -> _insert_value store v (Key key))
+      _with_transaction_lock store (fun key -> _insert_value store v (Key key))
         
   let get_succ_store_i store =
     let m_si = consensus_i store in

@@ -3,7 +3,7 @@ open Routing
 open Node_cfg.Node_cfg
 open Interval
 
-module S = (val (Store.make_store_module (module Local_store)))
+module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
   Lwt.catch
