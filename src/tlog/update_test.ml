@@ -76,16 +76,16 @@ let test_delete_prefix () =
   _cmp u u' 
 
 let test_assert ()=
-  let u1= Update.Set ("keyi", "valuei") in
-  let u2 = Update.Assert ("key", Some "value") in
-  let u' = _b2b u2 in
-  _cmp u2 u'
+  let _ = Update.Set ("keyi", "valuei") in
+  let u = Update.Assert ("key", Some "value") in
+  let u' = _b2b u in
+  _cmp u u'
 
 let test_assert_exists () =
-  let ui= Update.Set ("keyi", "valuei") in
-  let ua = Update.Assert_exists ("keyi") in
-  let u' = _b2b ua in
-  _cmp ua u'
+  let _= Update.Set ("keyi", "valuei") in
+  let u = Update.Assert_exists ("keyi") in
+  let u' = _b2b u in
+  _cmp u u'
 (*
   let u = Update.Set ("key2", "value")in
   let u2 = Update.Assert_exists ("mkey")in

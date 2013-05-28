@@ -122,7 +122,7 @@ let test_restart (dn, factory) =
   _log_repeat tlc_one value 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
   factory dn "node_name" >>= fun tlc_two ->
-  let uo = tlc_two # get_last_value (Sn.of_int 99) in
+  let _ = tlc_two # get_last_value (Sn.of_int 99) in
   tlc_two # close () >>= fun () ->
   Lwt.return ()
 
