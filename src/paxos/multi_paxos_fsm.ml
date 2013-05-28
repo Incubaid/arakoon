@@ -938,7 +938,7 @@ let enter_forced_slave constants buffers new_i vo=
 	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
     ) 
     (fun exn ->
-      Lwt_log.warning ~exn "FSM BAILED due to uncaught exception" 
+      Logger.warning_ ~exn "FSM BAILED due to uncaught exception" 
       >>= fun () -> Lwt.fail exn
     )
 
@@ -996,7 +996,7 @@ let enter_read_only constants buffers current_i vo =
 	    (read_only constants (current_n, current_i, vo))
     )
     (fun exn ->
-      Lwt_log.warning ~exn "READ ONLY BAILS OUT" >>= fun () ->
+      Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
       Lwt.fail exn
     )
 

@@ -9,6 +9,7 @@ true: package(bz2)
 true: package(str)
 true: package(camltc)
 true: package(dynlink)
+true: pp(camlp4of)
 "doc": include
 "src":include
 "src/tools":include
@@ -17,7 +18,6 @@ true: package(dynlink)
 "src/msg":include
 "src/paxos": include
 "src/tlog": include
-"src/tlog/tlogcommon.ml": use_macro
 "src/node": include
 "src/system": include
 "src/inifiles": include
@@ -33,3 +33,5 @@ true: package(dynlink)
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
 <src/plugins/*.{cma,cmxa}>: use_thread
+"logger_macro.cmo" : use_camlp4, camlp4orf
+<src/**/*.ml> : camlp4of, use_log_macro

@@ -21,7 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Lwt_log
+
+let section = Logger.Section.main
 
 let backoff ?(min=0.125) ?(max=8.0) (f:unit -> 'a Lwt.t) =
   let rec loop t = 
@@ -32,7 +33,7 @@ let backoff ?(min=0.125) ?(max=8.0) (f:unit -> 'a Lwt.t) =
        begin 
          let t' = t *. 2.0 in 
      if t' < max then
-       info_f "retrying with timeout of %f" t' >>= fun () ->
+       Logger.info_f_ "retrying with timeout of %f" t' >>= fun () ->
          loop t'
      else Lwt.fail (Failure "max timeout exceeded")
        end

@@ -26,6 +26,8 @@ open Routing
 open Lwt
 open Log_extra
 
+let section = Logger.Section.main
+
 let __i_key = "*i"
 let __j_key = "*j"
 let __interval_key = "*interval"
@@ -233,7 +235,7 @@ struct
     with
       | Failure msg ->
           let _closed = store.closed in
-          Lwt_log.debug_f "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
+          Logger.debug_f_ "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
           if _closed
           then
             Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN,
@@ -355,7 +357,7 @@ struct
     let () = S.set store.s tx __i_key new_is in
     let () = _set_j store tx 0 in
     store.store_i <- Some new_i;
-    Lwt_log.debug_f "Store.incr_i old_i:%s -> new_i:%s"
+    Logger.debug_f_ "Store.incr_i old_i:%s -> new_i:%s"
       (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
 
   let incr_i store =
@@ -405,7 +407,7 @@ struct
     Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
 
   let get_routing store =
-    Lwt_log.debug "get_routing " >>= fun () ->
+    Logger.debug_ "get_routing " >>= fun () ->
     match store.routing with
       | None -> Lwt.fail Not_found
       | Some r -> Lwt.return r
@@ -453,7 +455,7 @@ struct
         (fun exn ->
           store.store_i <- current_i;
           match exn with
-            | Failure s -> Lwt_log.debug_f "Failure %s" s >>= fun () ->
+            | Failure s -> Logger.debug_f_ "Failure %s" s >>= fun () ->
                 Lwt.fail Server.FOOBAR
             | exn -> Lwt.fail exn)
 
@@ -559,10 +561,10 @@ struct
         | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
         | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
         | Update.Delete(key) ->
-            Lwt_log.debug_f "store # delete %S" key >>= fun () ->
+            Logger.debug_f_ "store # delete %S" key >>= fun () ->
             wrap (fun () -> _delete store tx key)
         | Update.DeletePrefix prefix ->
-            Lwt_log.debug_f "store :: delete_prefix %S" prefix >>= fun () ->
+            Logger.debug_f_ "store :: delete_prefix %S" prefix >>= fun () ->
             let n_deleted = S.delete_prefix store.s tx (__prefix ^ prefix) in
             let sb = Buffer.create 8 in
             let () = Llio.int_to sb n_deleted in
@@ -598,10 +600,10 @@ struct
         | Update.SetInterval interval ->
             wrap (fun () -> _set_interval store tx interval)
         | Update.SetRouting routing ->
-            Lwt_log.debug_f "set_routing %s" (Routing.to_s routing) >>= fun () ->
+            Logger.debug_f_ "set_routing %s" (Routing.to_s routing) >>= fun () ->
             wrap (fun () -> _set_routing store tx routing)
         | Update.SetRoutingDelta (left, sep, right) ->
-            Lwt_log.debug "local_store::set_routing_delta" >>= fun () ->
+            Logger.debug_ "local_store::set_routing_delta" >>= fun () ->
             wrap (fun () -> _set_routing_delta store tx left sep right)
         | Update.Nop -> Lwt.return (Ok None)
         | Update.Assert(k,vo) ->
@@ -805,7 +807,7 @@ struct
         | n, hd::tl -> inner ((n - 1), tl) in
       inner (n, l) in
     let updates' = skip j updates in
-    Lwt_log.debug_f "skipped %i updates" j >>= fun () ->
+    Logger.debug_f_ "skipped %i updates" j >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
     _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
     Lwt.return urs
@@ -852,7 +854,7 @@ struct
 
 
   let on_consensus store (v,n,i) =
-    Lwt_log.debug_f "on_consensus=> local_store n=%s i=%s"
+    Logger.debug_f_ "on_consensus=> local_store n=%s i=%s"
       (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
     let m_store_i = consensus_i store in

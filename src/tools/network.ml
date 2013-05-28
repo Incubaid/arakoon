@@ -19,8 +19,10 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
+
 open Lwt
 
+let section = Logger.Section.main
 
 let make_address host port =
   let ha = Unix.inet_addr_of_string host in
@@ -47,14 +49,14 @@ let __open_connection socket_address =
       >>= fun () ->
       let fd_field = Obj.field (Obj.repr socket) 0 in
       let (fdi:int) = Obj.magic (fd_field) in
-      Lwt_log.info_f "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
+      Logger.info_f_ "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
 	    (a2s a2) (a2s peer)
       >>= fun () ->
       let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
       Lwt.return (ic,oc))
     (fun exn -> 
-      Lwt_log.info_f ~exn "__open_connection to %s failed" (a2s socket_address)
+      Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
       >>= fun () ->
       Lwt_unix.close socket >>= fun () ->
       Lwt.fail exn)

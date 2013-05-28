@@ -49,7 +49,7 @@ let _with_client_connection (ips,port) f =
           Lwt_io.with_connection address f
         )
         (fun exn -> 
-          Lwt_log.info_f ~exn "ip = %s " ip >>= fun () ->
+          Logger.info_f_ ~exn "ip = %s " ip >>= fun () ->
           loop rest
         )
   in
@@ -76,18 +76,18 @@ let head_saved_epilogue hfn tlog_coll =
      they were already collapsed into 
      the received head 
   *)
-  Lwt_log.debug_f "head_saved_epilogue %s" hfn >>= fun () ->
+  Logger.debug_f_ "head_saved_epilogue %s" hfn >>= fun () ->
   let module S = (val (Store.make_store_module (module Local_store))) in
   S.make_store ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
   S.close store >>= fun () ->
-  Lwt_log.info "closed head" >>= fun () ->
+  Logger.info_ "closed head" >>= fun () ->
   begin
     match hio with 
       | None -> Lwt.return () 
       | Some head_i -> 
 	begin
-	  Lwt_log.debug_f "head_i = %s" (Sn.string_of head_i) >>= fun () ->	    
+	  Logger.debug_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->	    
 	  tlog_coll # remove_below head_i 
 	end
   end
@@ -96,17 +96,17 @@ let head_saved_epilogue hfn tlog_coll =
 
 let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
     =
-  Lwt_log.debug_f "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
+  Logger.debug_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in
   let mr_addresses = Node_cfg.client_addresses mr_cfg 
   and mr_name = Node_cfg.node_name mr_cfg in
-  Lwt_log.debug_f "getting last_entries from %s" mr_name >>= fun () ->
+  Logger.debug_f_ "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn = 
-    Lwt_log.debug_f "head_saved_cb %s" hfn >>= fun () -> 
+    Logger.debug_f_ "head_saved_cb %s" hfn >>= fun () -> 
     head_saved_epilogue hfn tlog_coll >>= fun () -> 
     let when_closed () = 
-      Lwt_log.debug "when_closed" >>= fun () ->
+      Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
       File_system.copy_file hfn target_name 
     in
@@ -127,16 +127,16 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   Lwt.catch
     (fun () ->
       _with_client_connection mr_addresses copy_tlog >>= fun () ->
-      Lwt_log.debug_f "catchup_tlog completed" 
+      Logger.debug_f_ "catchup_tlog completed" 
     )
-    (fun exn -> Lwt_log.warning ~exn "catchup_tlog failed") 
+    (fun exn -> Logger.warning_ ~exn "catchup_tlog failed") 
   >>= fun () ->
   let tlc_i = tlog_coll # get_last_i () in
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
 let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
-  Lwt_log.info "replaying log to store"
+  Logger.info_ "replaying log to store"
   >>= fun () ->
   let store_i = S.consensus_i store in
   let start_i =
@@ -148,11 +148,11 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
   then 
     let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting."
       (Sn.string_of start_i) (Sn.string_of too_far_i) in
-    Lwt_log.error msg >>= fun () ->
+    Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
   else
   begin 
-  Lwt_log.debug_f "will replay starting from %s into store, too_far_i:%s" 
+  Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s" 
     (Sn.string_of start_i) (Sn.string_of too_far_i)
   >>= fun () ->
     let acc = ref None in
@@ -162,11 +162,11 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       if pi < start_i +: border ||
          pi +: border > too_far_i 
       then
-	    Lwt_log.debug_f "%s => store" (Sn.string_of pi) 
+	    Logger.debug_f_ "%s => store" (Sn.string_of pi) 
       else 
         if Sn.rem pi border = Sn.zero 
         then
-          Lwt_log.debug_f "... %s ..." (Sn.string_of pi) 
+          Logger.debug_f_ "... %s ..." (Sn.string_of pi) 
         else
           Lwt.return ()
     in
@@ -177,7 +177,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       match !acc with
 	    | None ->
 	      let () = acc := Some(i,value) in
-	      Lwt_log.debug_f "value %s has no previous" (Sn.string_of i) >>= fun () ->
+	      Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
 	      Lwt.return ()
 	        | Some (pi,pv) ->
 	          if pi < i then
@@ -193,7 +193,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
 		        end
 	          else
 		        begin
-		          Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+		          Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
 		          let () = acc := Some(i,value) in
 		          Lwt.return ()
 		        end
@@ -205,7 +205,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       let current_acc = !acc in
       Lwt.catch
         (fun () ->
-          Lwt_log.info "trying batched transactions" >>= fun () ->
+          Logger.info_ "trying batched transactions" >>= fun () ->
           S.with_transaction store (fun tx ->
             Queue.fold (fun acc tlogentry -> acc >>= (fun () -> f (Some tx) tlogentry)) (Lwt.return ()) batch)
           >>= fun () ->
@@ -217,7 +217,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
             then Lwt.return ()
             else
               f None (Queue.take batch) >>= (fun () -> inner ()) in
-          Lwt_log.info "batching transactions failed; going back to not batched mode" >>= fun () ->
+          Logger.info_ "batching transactions failed; going back to not batched mode" >>= fun () ->
           acc := current_acc;
           inner ()) in
     let batched_f tlogentry =
@@ -241,11 +241,11 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       match !acc with 
         | None -> Lwt.return ()
         | Some(i,value) -> 
-            Lwt_log.debug_f "%s => store" (Sn.string_of i) >>= fun () ->
+            Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
             S.safe_insert_value store i value >>= fun _ -> Lwt.return ()
     end >>= fun () -> 
     let store_i' = S.consensus_i store in
-    Lwt_log.info_f "catchup_store completed, store is @ %s" 
+    Logger.info_f_ "catchup_store completed, store is @ %s" 
       ( option2s Sn.string_of store_i')
   >>= fun () ->
     begin
@@ -274,20 +274,20 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
   end
 
 let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_i) =
-  Lwt_log.info_f "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
+  Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
     (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
     (Sn.string_of future_i)
   >>= fun () ->
   catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
   catchup_store me dbt too_far_i >>= fun (end_i,vo) ->
-  Lwt_log.info_f "CATCHUP end" >>= fun () ->
+  Logger.info_f_ "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
 
 
 let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
-  Lwt_log.info_f "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
+  Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match ti_o, si_o with
     | None, None -> Lwt.return (0L,None)
@@ -313,7 +313,7 @@ let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s)
 	    "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"
 	    (io_s ti_o) (io_s si_o)
       in
-      Lwt_log.fatal msg >>= fun () ->
+      Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, maybe (-1L) ti_o))
 
@@ -330,14 +330,14 @@ let get_db db_name cluster_id cfgs =
         | None ->
           Lwt.catch 
           ( fun () ->
-            Lwt_log.info_f "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
+            Logger.info_f_ "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
             let mr_addresses = Node_cfg.client_addresses cfg in
             _with_client_connection mr_addresses get_db_from_stream >>= fun () -> 
-            Lwt_log.info "get_db: Download succeeded" >>= fun () ->
+            Logger.info_ "get_db: Download succeeded" >>= fun () ->
             Lwt.return (Some (Node_cfg.node_name cfg))
           ) 
           ( fun e ->
-            Lwt_log.error_f "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () -> 
+            Logger.error_f_ "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () -> 
             Lwt.return None
           )
     end

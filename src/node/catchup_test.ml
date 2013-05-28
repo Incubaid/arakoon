@@ -25,6 +25,8 @@ open Lwt
 open Extra
 open Update
 
+let section = Logger.Section.main
+
 module S = (val (Store.make_store_module (module Local_store)))
 
 let _dir_name = "/tmp/catchup_test"
@@ -96,31 +98,31 @@ let _fill3 tlog_coll n =
   _loop 0
 
 let setup () = 
-  Lwt_log.info "Catchup_test.setup" >>= fun () ->
+  Logger.info_ "Catchup_test.setup" >>= fun () ->
   let ignore_ex f = 
     Lwt.catch 
       f
-      (fun exn -> Lwt_log.warning ~exn "ignoring")
+      (fun exn -> Logger.warning_ ~exn "ignoring")
   in
   ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 )
 
     
 let test_common () =
-  Lwt_log.info "test_common" >>= fun () ->
+  Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 _dir_name true "node_name" >>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
   S.make_store db_name >>= fun store ->
   Catchup.catchup_store me ((module S),store,tlog_coll) 500L >>= fun(end_i,vo) ->
-  Lwt_log.info "TODO: validate store after this" >>= fun ()->
+  Logger.info_ "TODO: validate store after this" >>= fun ()->
   tlog_coll # close () >>= fun () ->
   S.close store
 
 
 let teardown () = 
-  Lwt_log.info "Catchup_test.teardown" >>= fun () ->
+  Logger.info_ "Catchup_test.teardown" >>= fun () ->
   Lwt.catch
     (fun () ->
       File_system.lwt_directory_list _dir_name >>= fun entries ->
@@ -128,9 +130,9 @@ let teardown () =
 	let fn = _dir_name ^ "/" ^ i in
         Lwt_unix.unlink fn) entries 
     )
-    (fun exn -> Lwt_log.debug ~exn "ignoring" )
+    (fun exn -> Logger.debug_ ~exn "ignoring" )
     >>= fun () ->
-  Lwt_log.debug "end of teardown"
+  Logger.debug_ "end of teardown"
 
 let _tic (type s) filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
@@ -143,24 +145,24 @@ let _tic (type s) filler_function n name verify_store =
   Catchup.verify_n_catchup_store me ((module S), store, tlog_coll, Some tlog_i) tlog_i None
   >>= fun (new_i,vo) ->
   verify_store store new_i >>= fun () ->
-  Lwt_log.info_f "new_i=%s" (Sn.string_of new_i) >>= fun () ->
+  Logger.info_f_ "new_i=%s" (Sn.string_of new_i) >>= fun () ->
   tlog_coll # close () >>= fun () -> 
   S.close store
 
 
 
 let test_interrupted_catchup () =
-  Lwt_log.info "test_interrupted_catchup" >>= fun () ->
+  Logger.info_ "test_interrupted_catchup" >>= fun () ->
   _tic _fill 1000 "tic" (fun store new_i -> Lwt.return ())
 
 
 let test_with_doubles () =
-  Lwt_log.info "test_with_doubles" >>= fun () ->
+  Logger.info_ "test_with_doubles" >>= fun () ->
   _tic _fill2 1000 "twd" (fun store new_i -> Lwt.return ())
 
 
 let test_batched_with_failures () =
-  Lwt_log.info "test_batched_with_failures" >>= fun () ->
+  Logger.info_ "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
     (fun store new_i ->
       let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in

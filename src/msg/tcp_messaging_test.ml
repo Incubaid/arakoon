@@ -34,7 +34,7 @@ object(self)
   val mutable _lowest = None
 
   method _send target msg =
-    Lwt_log.debug_f "%s sending message %s to %s" 
+    Logger.debug_f_ "%s sending message %s to %s" 
       id (string_of msg) target >>= fun () ->
     m # send_message msg id target 
       
@@ -51,7 +51,7 @@ object(self)
   method wait_for_response n  targets=
     m # recv_message id >>= fun (msg, source) ->
     let n' = int_of_string ( msg.payload ) in 
-    Lwt_log.debug_f "n=%d n'=%d" n n' >>= fun () -> 
+    Logger.debug_f_ "n=%d n'=%d" n n' >>= fun () -> 
     if n' == n  
     then
       begin
@@ -126,12 +126,12 @@ let test_pingpong_1x1 () =
     Lwt.pick [ transport # run ~setup_callback ~teardown_callback (); 
 	       begin 
 		 Lwt_condition.wait cvar >>= fun () ->
-		 Lwt_log.debug "going to serve" >>= fun () ->
+		 Logger.debug_ "going to serve" >>= fun () ->
 			     player_a # serve "a"
 	       end;
 	       eventually_die ()
 	     ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
-    Lwt_log.info "end of scenario"
+    Logger.info_ "end of scenario"
   in
   Lwt_main.run (main_t());;
     
@@ -163,7 +163,7 @@ let test_pingpong_2x2 () =
 	     ] >>= fun () ->
     Lwt_mvar.take m_tda >>= fun () ->
     Lwt_mvar.take m_tdb >>= fun () ->
-    Lwt_log.info "end of scenario"
+    Logger.info_ "end of scenario"
   in
   Lwt_main.run (main_t())
     
@@ -208,7 +208,7 @@ let test_pingpong_multi_server () =
     Lwt_mvar.take m_tda >>= fun () ->
     Lwt_mvar.take m_tdb >>= fun () ->
     Lwt_mvar.take m_tdc >>= fun () ->
-    Lwt_log.info "end of scenario"
+    Logger.info_ "end of scenario"
   in
   Lwt_main.run (main_t());;
 
@@ -232,17 +232,17 @@ let test_pingpong_restart () =
     Lwt.pick [ 
       begin 
 	Lwt.pick [ t_a # run ();
-		   player_a # run 50 () >>= fun () -> Lwt_log.debug "a done" 
+		   player_a # run 50 () >>= fun () -> Logger.debug_ "a done" 
 		 ]
 	>>= fun () ->
 	let t_a' = make_transport address_a in
 	let () = t_a' # register_receivers mapping in
 	let player_a' = new player "a" t_a' in
 	Lwt.pick [
-	  (Lwt_log.info "new network" >>= fun () -> 
+	  (Logger.info_ "new network" >>= fun () -> 
 	   t_a' # run ()); 
 	  begin 
-	    Lwt_log.debug "a' will be serving momentarily" >>= fun () ->
+	    Logger.debug_ "a' will be serving momentarily" >>= fun () ->
 	    player_a' # serve ~n:200 "b" 
 	  end
 	]
@@ -251,7 +251,7 @@ let test_pingpong_restart () =
       player_a # serve "b";
       player_b # run 0 ();
       eventually_die () ]
-    >>= fun () -> Lwt_log.info "main_t: after pick"
+    >>= fun () -> Logger.info_ "main_t: after pick"
   in
   Lwt_main.run main_t
 

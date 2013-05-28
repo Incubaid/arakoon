@@ -22,11 +22,12 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open OUnit
 open Lwt
-open Lwt_log
 open Log_extra
 open Arakoon_remote_client
 open Test_backend
 open Update
+
+let section = Logger.Section.main
 
 let cucu s =
   Lwt_io.eprintlf "cucu: %s" s >>= fun () ->
@@ -47,7 +48,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   let sleep, notifier = wait () in
   let td_var = Lwt_mvar.create_empty () in
   let setup_callback () =
-    info "callback" >>= fun () ->
+    Logger.info_ "callback" >>= fun () ->
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
@@ -66,7 +67,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
     Lwt_io.open_connection address >>= function (ic,oc) ->
     conversation (ic,oc) >>= fun () ->
-    debug "end_of_senario" >>= fun () ->
+    Logger.debug_ "end_of_senario" >>= fun () ->
     Lwt_io.close ic >>= fun () ->
     Lwt_io.close oc >>= fun () ->
     Lwt.return ()
@@ -75,7 +76,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     Lwt.pick [client_t ();
 	      server ();] >>= fun () -> 
     Lwt_mvar.take td_var  >>= fun () ->
-    Lwt_log.info "server down"
+    Logger.info_ "server down"
   in
   Lwt_main.run (main());;
 
@@ -94,7 +95,7 @@ let test_wrong_cluster () =
 	client # ping "boba fet" wrong_cluster >>= fun result ->
 	OUnit.assert_bool "we should not be able to connect to this cluster" false;
 	Lwt.return ())
-      (fun exn -> Lwt_log.debug_f ~exn "ok, this cluster is not %s" wrong_cluster
+      (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
 	>>= fun () -> Lwt.return ()) 
       >>= fun () ->
     Lwt.return () 
@@ -143,21 +144,21 @@ let test_delete () =
 	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) -> 
 	  Lwt_io.eprintlf "ok!"
 	| exn ->
-	  Lwt_log.fatal ~exn "wrong exception">>= fun () ->
+	  Logger.fatal_ ~exn "wrong exception" >>= fun () ->
 	  OUnit.assert_failure 
 	    "get of non_existing key does not throw correct exception"
       ) 
     >>= fun () ->
-    Lwt_log.info "part-2" >>= fun () ->
+    Logger.info_ "part-2" >>= fun () ->
     Lwt.catch
       (fun () ->
 	client # delete "key" >>= fun () -> 
-	Lwt_log.info "should not get here"
+	Logger.info_ "should not get here"
       )
       (function
 	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) -> 
 	  Lwt.return ()
-	| exn -> Lwt_log.fatal ~exn "should not be" >>= fun () ->
+	| exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
 	  OUnit.assert_failure "XXX"
       )
       
@@ -188,7 +189,7 @@ let test_sequence () =
 
 let _test_user_function (client:Arakoon_client.client) = 
   client # user_function "reverse" (Some "echo") >>= fun ro ->
-  Lwt_log.debug_f "we got %s" (string_option2s ro) >>= fun () ->
+  Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");
   Lwt.return ()
 
@@ -214,17 +215,17 @@ let _test_range (client:Arakoon_client.client) =
   _fill client 100 >>= fun () ->
   client # range (Some "xey") true (Some "xey009") true 3 >>= fun xn ->
   let length = List.length xn in
-  Lwt_log.debug_f "received a list of size %i" length >>= fun () ->
+  Logger.debug_f_ "received a list of size %i" length >>= fun () ->
   let msg = Printf.sprintf "expecting length: 3, actual: %d" length in
   let () = OUnit.assert_equal ~msg 3 length in
-  Lwt_list.iter_s (fun x -> Lwt_log.debug_f "key %s" x) xn >>= fun () ->
+  Lwt_list.iter_s (fun x -> Logger.debug_f_ "key %s" x) xn >>= fun () ->
   let () = OUnit.assert_bool "0" (List.mem "xey000" xn) in
   let () = OUnit.assert_bool "1" (List.mem "xey001" xn) in
   let () = OUnit.assert_bool "2" (List.mem "xey002" xn) in
   client # range None true (Some "xey009") true 11 >>= fun xn ->
   (* let xn = List.filter (fun x -> x.[0] <> '@' && x.[1] <> '@') xn in *)
   let length = List.length xn in
-  Lwt_list.iter_s (fun x -> Lwt_log.debug_f "key %s" x) xn >>= fun () ->
+  Lwt_list.iter_s (fun x -> Logger.debug_f_ "key %s" x) xn >>= fun () ->
   let msg = Printf.sprintf "expecting length: 10, actual: %d" length in
   let () = OUnit.assert_equal ~msg 10 length in
   let () = OUnit.assert_bool "x0" (List.mem "xey000" xn) in
@@ -240,7 +241,7 @@ let _test_range (client:Arakoon_client.client) =
   client # range None true (Some "xey001") false 11 >>= fun xn ->
   (* let xn = List.filter (fun x -> x.[0] <> '@' && x.[1] <> '@') xn in *)
   let length = List.length xn in
-  Lwt_list.iter_s (fun x -> Lwt_log.debug_f "key %s" x) xn >>= fun () ->
+  Lwt_list.iter_s (fun x -> Logger.debug_f_ "key %s" x) xn >>= fun () ->
   let msg = Printf.sprintf "expecting length: 1, actual: %d" length in
   let () = OUnit.assert_equal ~msg 1 length in
   let () = OUnit.assert_bool "x0" (List.mem "xey000" xn) in
@@ -250,7 +251,7 @@ let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
   client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
-  Lwt_list.iter_s (fun (k,v) -> Lwt_log.debug_f "key %s" k) xn >>= fun () ->
+  Lwt_list.iter_s (fun (k,v) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in 
   let () = OUnit.assert_bool "hd" (k  = "xey099") in
   Lwt.return ()
@@ -272,7 +273,7 @@ let _prefix_keys_test (client:Arakoon_client.client) =
   fill 0 >>= fun () ->
   client # prefix_keys "ke" 1000 >>= fun list ->
   let length = List.length list in
-  Lwt_log.debug_f "received a list of size %i" length >>= fun () ->
+  Logger.debug_f_ "received a list of size %i" length >>= fun () ->
   let () = OUnit.assert_equal 100 length in
   let () = OUnit.assert_bool "0" (List.mem "key0" list) in
   let () = OUnit.assert_bool "99" (List.mem "key99" list) in

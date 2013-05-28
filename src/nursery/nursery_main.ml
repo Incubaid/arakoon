@@ -42,7 +42,7 @@ let with_remote_stream (cluster:string) cfg f =
 let find_master cluster_id (cli_cfg:lookup) =
   let check_node node_name (node_cfg:ClientCfg.node_address) acc = 
     begin
-      Lwt_log.info_f "node=%s" node_name >>= fun () ->
+      Logger.info_f_ "node=%s" node_name >>= fun () ->
       let (ips,port) = node_cfg in
       let ip0 = List.hd ips in
       let sa = Network.make_address ip0 port in
@@ -55,11 +55,11 @@ let find_master cluster_id (cli_cfg:lookup) =
             client # who_master ())
             >>= function
               | None -> acc
-              | Some m -> Lwt_log.info_f "master=%s" m >>= fun () ->
+              | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
                 Lwt.return (Some m) )
         (function 
           | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -> 
-            Lwt_log.info_f "node %s is down, trying others" node_name >>= fun () ->
+            Logger.info_f_ "node %s is down, trying others" node_name >>= fun () ->
             acc
           | exn -> Lwt.fail exn
         )
@@ -75,13 +75,13 @@ let with_master_remote_stream cluster_id (cfg:lookup) f =
   with_remote_stream cluster_id master_cfg f
 
 let setup_logger file_name =
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+  Logger.Section.set_level Logger.Section.main Logger.Debug;
   Lwt_log.file
     ~template:"$(date): $(level): $(message)"
     ~mode:`Append ~file_name () >>= fun file_logger ->
   Lwt_log.default := file_logger;
   Lwt.return ()
-  
+
 let get_keeper_config config =
   let inifile = new Inifiles.inifile config in
   let m_cfg = Node_cfg.get_nursery_cfg inifile config in
@@ -101,13 +101,13 @@ let get_nursery_client keeper_id cli_cfg =
 
 
 let __migrate_nursery_range config left sep right =
-  Lwt_log.debug "=== STARTING MIGRATE ===" >>= fun () ->
+  Logger.debug_ "=== STARTING MIGRATE ===" >>= fun () ->
   let keeper_id, cli_cfg = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
   NC.migrate nc left sep right 
     
 let __init_nursery config cluster_id = 
-  Lwt_log.info "=== STARTING INIT ===" >>= fun () ->
+  Logger.info_ "=== STARTING INIT ===" >>= fun () ->
   let (keeper_id, cli_cfg) = get_keeper_config config in
   let set_routing client =
     Lwt.catch( fun () ->
@@ -124,7 +124,7 @@ let __init_nursery config cluster_id =
   
   
 let __delete_from_nursery config cluster_id sep = 
-  Lwt_log.info "=== STARTING DELETE ===" >>= fun () ->
+  Logger.info_ "=== STARTING DELETE ===" >>= fun () ->
   let m_sep =
   begin
     if sep = ""
@@ -146,7 +146,7 @@ let __main_run log_file f =
       )
       ( fun e -> 
         let msg = Printexc.to_string e in 
-        Lwt_log.fatal msg >>= fun () ->
+        Logger.fatal_ msg >>= fun () ->
         Lwt.fail e)
     ) ; 0
     

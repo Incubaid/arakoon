@@ -22,8 +22,10 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
+let section = Logger.Section.main
+
 let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
-  Lwt_log.debug_f "copy_file %s %s" source target >>= fun () ->
+  Logger.debug_f_ "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
   let copy_all ic oc = 
@@ -38,7 +40,7 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
 	Lwt.return ()    
     in
     loop () >>= fun () ->
-    Lwt_log.debug "done: copy_file" 
+    Logger.debug_ "done: copy_file" 
   in
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
@@ -67,11 +69,11 @@ let lwt_directory_list dn =
         (fun () -> loop [])
         (fun () -> Lwt_unix.closedir h)
     )
-    (fun exn -> Lwt_log.debug_f ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
+    (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
 
 let rename source target = 
-  Lwt_log.debug_f "rename %s -> %s" source target >>= fun () ->
+  Logger.debug_f_ "rename %s -> %s" source target >>= fun () ->
   Lwt_unix.rename source target
 
 let mkdir name = Lwt_unix.mkdir name
@@ -80,7 +82,7 @@ let unlink name = Lwt_unix.unlink name
 let rmdir name = Lwt_unix.rmdir name
 
 let stat filename = 
-  Lwt_log.debug_f "stat %s" filename >>= fun () ->
+  Logger.debug_f_ "stat %s" filename >>= fun () ->
   Lwt_unix.stat filename
 
 let exists filename = 

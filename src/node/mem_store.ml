@@ -109,7 +109,7 @@ let copy_store2 old_location new_location overwrite = Lwt.return ()
 let relocate new_location = failwith "Memstore.relocation not implemented"
 
 let get_fringe ms boundary direction =
-    Lwt_log.debug_f "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
+    Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
     let cmp =
       begin
         match direction, boundary with

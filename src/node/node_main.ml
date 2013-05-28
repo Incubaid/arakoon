@@ -31,6 +31,8 @@ open Master_type
 open Client_cfg
 open Statistics
 
+let section = Logger.Section.main
+
 let rec _split node_name cfgs =
   let rec loop me_o others = function
     | [] -> me_o, others
@@ -63,20 +65,20 @@ let _config_logging me get_cfgs =
             failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
   in
   let to_level = function
-      | "info"    -> Lwt_log.Info
-      | "notice"  -> Lwt_log.Notice
-      | "warning" -> Lwt_log.Warning
-      | "error"   -> Lwt_log.Error
-      | "fatal"   -> Lwt_log.Fatal
-      | _         -> Lwt_log.Debug
+      | "info"    -> Logger.Info
+      | "notice"  -> Logger.Notice
+      | "warning" -> Logger.Warning
+      | "error"   -> Logger.Error
+      | "fatal"   -> Logger.Fatal
+      | _         -> Logger.Debug
   in
   let level = to_level cfg.log_level in
-  let () = Lwt_log.Section.set_level Lwt_log.Section.main level in
+  let () = Logger.Section.set_level Logger.Section.main level in
   let set_level section l =
     let l = match l with
       | None -> level
       | Some l -> to_level l in
-    Lwt_log.Section.set_level section l in
+    Logger.Section.set_level section l in
   let () = set_level Client_protocol.section log_config.client_protocol in
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
@@ -146,7 +148,7 @@ let _config_service cfg backend=
   uber_service
     
 let _log_rotate cfg i get_cfgs =
-  Lwt_log.warning_f "received USR1 (%i) going to close/reopen log file" i
+  Logger.warning_f_ "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->
   let logger = !Lwt_log.default in
   _config_logging cfg get_cfgs >>= fun _ ->
@@ -154,25 +156,25 @@ let _log_rotate cfg i get_cfgs =
   Lwt.return ()
     
 let log_prelude cluster_cfg =
-  Lwt_log.info "--- NODE STARTED ---" >>= fun () ->
-  Lwt_log.info_f "git_revision: %s " Version.git_revision >>= fun () ->
-  Lwt_log.info_f "compile_time: %s " Version.compile_time >>= fun () ->
-  Lwt_log.info_f "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
-  Lwt_log.info_f "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
-  Lwt_log.info_f "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
-  Lwt_log.info_f "max_value_size: %i" cluster_cfg.max_value_size                 >>= fun () ->
-  Lwt_log.info_f "max_buffer_size: %i" cluster_cfg.max_buffer_size               >>= fun () ->
-  Lwt_log.info_f "client_buffer_capacity: %i" cluster_cfg.client_buffer_capacity >>= fun () -> 
+  Logger.info_ "--- NODE STARTED ---" >>= fun () ->
+  Logger.info_f_ "git_revision: %s " Version.git_revision >>= fun () ->
+  Logger.info_f_ "compile_time: %s " Version.compile_time >>= fun () ->
+  Logger.info_f_ "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
+  Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
+  Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
+  Logger.info_f_ "max_value_size: %i" cluster_cfg.max_value_size                 >>= fun () ->
+  Logger.info_f_ "max_buffer_size: %i" cluster_cfg.max_buffer_size               >>= fun () ->
+  Logger.info_f_ "client_buffer_capacity: %i" cluster_cfg.client_buffer_capacity >>= fun () -> 
   let ncfgo = cluster_cfg.nursery_cfg in
   let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
   let ccfg_s = Log_extra.option2s p2s ncfgo in
-  Lwt_log.info_f "client_cfg=%s" ccfg_s
+  Logger.info_f_ "client_cfg=%s" ccfg_s
     
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
 
 let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll = 
-  Lwt_log.info "ONLY CATCHUP" >>= fun () ->
+  Logger.info_ "ONLY CATCHUP" >>= fun () ->
   let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
@@ -222,7 +224,7 @@ module X = struct
 	    S.on_consensus store vni >>= fun r ->
         let t1 = Unix.gettimeofday () in
         let d = t1 -. t0 in
-        Lwt_log.debug_f "T:on_consensus took: %f" d  >>= fun () ->
+        Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
         Lwt.return r
 
     end
@@ -231,7 +233,7 @@ module X = struct
     
   let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
-    Lwt_log.debug_f "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
+    Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
@@ -259,7 +261,7 @@ module X = struct
                   if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
                     begin
                       last_master_log_stmt := now;
-                      Lwt_log.info_f "%s is master"  m
+                      Logger.info_f_ "%s is master"  m
                     end 
                   else 
                     Lwt.return ()
@@ -270,14 +272,14 @@ module X = struct
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
-    Lwt_log.debug_f "T:on_accept took: %f" d 
+    Logger.debug_f_ "T:on_accept took: %f" d 
       
   let reporting period backend () = 
     let fp = float period in
     let rec _inner () =
       Lwt_unix.sleep fp >>= fun () ->
       let stats = backend # get_statistics () in
-      Lwt_log.info_f "stats: %s" (Statistics.string_of stats) 
+      Logger.info_f_ "stats: %s" (Statistics.string_of stats) 
       >>= fun () ->
       backend # clear_most_statistics();
       _inner ()
@@ -354,7 +356,7 @@ let _main_2 (type s)
       let rec upload_cfg_to_keeper () =
         begin
           match cluster_cfg.nursery_cfg with
-            | None -> Lwt_log.info "Cluster not part of nursery."
+            | None -> Logger.info_ "Cluster not part of nursery."
             | Some (n_cluster_id, cfg) ->
               begin 
                 let attempt_send success node_id = 
@@ -364,7 +366,7 @@ let _main_2 (type s)
                       begin
                         let (ips, port) = ClientCfg.get cfg node_id in
                         let ipss = Log_extra.list2s (fun s -> s) ips in
-                        Lwt_log.debug_f "upload_cfg_to_keeper (%s,%i)" ipss port >>= fun () ->
+                        Logger.debug_f_ "upload_cfg_to_keeper (%s,%i)" ipss port >>= fun () ->
                         Lwt.catch
                           (fun () ->
                             let ip0 = List.hd ips in
@@ -374,12 +376,12 @@ let _main_2 (type s)
                               client # store_cluster_cfg cluster_id my_clicfg
                             in 
                             Lwt_io.with_connection address upload >>= fun () ->
-                            Lwt_log.info_f "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
+                            Logger.info_f_ "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
                             Lwt.return true
                           ) 
                           (fun e ->
                             let exc_msg = Printexc.to_string e in
-                            Lwt_log.warning_f "Attempt to upload config to %s failed (%s)" node_id exc_msg 
+                            Logger.warning_f_ "Attempt to upload config to %s failed (%s)" node_id exc_msg 
                             >>= fun () -> 
                             Lwt.return false
                           )
@@ -398,12 +400,12 @@ let _main_2 (type s)
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
       let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
-      Lwt_log.info_f "cfg = %s" (string_of me) >>= fun () ->
-      Lwt_list.iter_s (Lwt_log.info_f "other: %s")
+      Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
+      Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
 	    other_names >>= fun () ->
-      Lwt_log.info_f "quorum_function gives %i for %i" 
+      Logger.info_f_ "quorum_function gives %i for %i" 
 	    (quorum_function n_nodes) n_nodes >>= fun () ->
-      Lwt_log.info_f "DAEMONIZATION=%b" daemonize >>= fun () ->
+      Logger.info_f_ "DAEMONIZATION=%b" daemonize >>= fun () ->
       
       let build_startup_state () = 
 	    begin
@@ -443,21 +445,21 @@ let _main_2 (type s)
                   end 
                 in
                 begin
-                  Lwt_log.debug_f "store_i: '%s' tlog_i: '%s' Diff: %d" 
+                  Logger.debug_f_ "store_i: '%s' tlog_i: '%s' Diff: %d" 
 		            (Sn.string_of s_i) 
 		            (Sn.string_of tlog_i)  
 		            (Sn.compare s_i tlog_i)  >>= fun() ->
                   if (Sn.compare s_i tlog_i)  <= 0
                   then
 		            begin
-                      Lwt_log.warning_f "Invalid tlog file found. Auto-truncating tlog %s" 
+                      Logger.warning_f_ "Invalid tlog file found. Auto-truncating tlog %s" 
 			            last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
                       make_tlog_coll me.tlog_dir me.use_compression name
 		            end
                   else 
 		            begin
-                      Lwt_log.error_f "Store counter (%s) ahead of tlogs (%s). Aborting" 
+                      Logger.error_f_ "Store counter (%s) ahead of tlogs (%s). Aborting" 
 			            (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
                       Lwt.fail(Catchup.StoreAheadOfTlogs(pos,tlog_i))
 		            end
@@ -517,7 +519,7 @@ let _main_2 (type s)
 		        | Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
 		        | _ -> inject_buffer, "inject"
 	        in
-	        Lwt_log.debug_f ~section:Multi_paxos.section "XXX injecting event %s into '%s'" 
+	        Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'" 
               (Multi_paxos.paxos_event2s e)
               name 
             >>= fun () ->
@@ -594,10 +596,10 @@ let _main_2 (type s)
 			            rapporting ();
                         (listen_for_signal () >>= fun () ->
                          let msg = "got TERM | INT" in
-			             Lwt_log.info msg >>= fun () ->
+			             Logger.info_ msg >>= fun () ->
 			             Lwt_io.printl msg >>= fun () ->
                          S.close store >>= fun () ->
-                         Lwt_log.fatal_f 
+                         Logger.fatal_f_
                            ">>> Closing the store @ %S succeeded: everything seems OK <<<"
                            (S.get_location store)
                          >>= fun () ->
@@ -608,39 +610,39 @@ let _main_2 (type s)
 		              ]
 	        end
 	      ] >>= fun () ->
-          Lwt_log.info "Completed shutdown" 
+          Logger.info_ "Completed shutdown" 
           >>= fun () ->
           Lwt.return 0
         )
 	    (function
           | Catchup.StoreAheadOfTlogs(s_i, tlog_i) ->
               let rc = 40 in
-              Lwt_log.fatal_f "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
+              Logger.fatal_f_ "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
                 rc (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
               Lwt.return rc
           | Catchup.StoreCounterTooLow msg ->
               let rc = 41 in
-              Lwt_log.fatal_f "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
+              Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
               Lwt.return rc
           | Tlc2.TLCNotProperlyClosed msg -> 
               let rc = 42 in
-              Lwt_log.fatal_f "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+              Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
               Lwt.return rc
           | Node_cfg.InvalidTlogDir dir ->
               let rc = 43 in
-              Lwt_log.fatal_f "[rc=%i] Missing or inaccessible tlog directory: %s" rc dir >>= fun () ->
+              Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlog directory: %s" rc dir >>= fun () ->
               Lwt.return rc
           | Node_cfg.InvalidHomeDir dir ->
               let rc = 44 in
-              Lwt_log.fatal_f "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
+              Logger.fatal_f_ "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
               Lwt.return rc
           | exn -> 
               begin
-	            Lwt_log.fatal ~exn "going down" >>= fun () ->
-	            Lwt_log.fatal "after pick" >>= fun() ->
+	            Logger.fatal_ ~exn "going down" >>= fun () ->
+	            Logger.fatal_ "after pick" >>= fun() ->
 	            begin
                   match dump_crash_log with
-	                | None -> Lwt_log.info "Not dumping state"
+	                | None -> Logger.info_ "Not dumping state"
 	                | Some f -> f() 
                 end >>= fun () ->
                 Lwt.return 1

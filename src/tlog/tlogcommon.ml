@@ -95,8 +95,8 @@ let read_entry ic =
       | End_of_file ->
         begin
           let new_pos = Lwt_io.position ic in 
-          Lwt_log.debug_f "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos) 
-            (Int64.to_int last_valid_pos) >>= fun () ->
+          Logger.log_ Logger.Section.main Logger.Debug (fun () -> Printf.sprintf "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos) 
+            (Int64.to_int last_valid_pos)) >>= fun () ->
           begin 
             if ( Int64.compare new_pos last_valid_pos ) = 0 
             then Lwt.fail End_of_file

@@ -50,7 +50,7 @@ let on_witness who i = ()
 let get_value tlog_coll i = tlog_coll # get_last_value i 
 
 let test_generic network_factory n_nodes () =
-  Lwt_log.info "START:TEST_GENERIC" >>= fun () ->
+  Logger.info_ "START:TEST_GENERIC" >>= fun () ->
   let get_buffer, send, nw_run, nw_register = network_factory () in
   let current_n = 42L
   and current_i = 0L in
@@ -178,7 +178,7 @@ let test_generic network_factory n_nodes () =
   in
   Lwt_list.iter_s 
     (fun (name, update_string) -> 
-      Lwt_log.debug_f "%s:%s"  name update_string) 
+      Logger.debug_f_ "%s:%s"  name update_string) 
     all_consensusses
   >>= fun () ->
   let _ = 
@@ -351,7 +351,7 @@ let test_simulation filters () =
 	Lwt.return ()
       end
     else
-      Lwt_log.debug_f "got (%s,%s,%s) => dropping" msg_s source target
+      Logger.debug_f_ "got (%s,%s,%s) => dropping" msg_s source target
   in
   
   S.make_store "MEM#store"  >>= fun store ->

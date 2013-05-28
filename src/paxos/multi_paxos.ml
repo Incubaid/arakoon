@@ -29,12 +29,12 @@ open Master_type
 
 
 let section =
-  let s = Lwt_log.Section.make "paxos" in
-  let () = Lwt_log.Section.set_level s Lwt_log.Debug in
+  let s = Logger.Section.make "paxos" in
+  let () = Logger.Section.set_level s Logger.Debug in
   s
 
 let log me s =
-  Lwt_log.log ~section ~level:Lwt_log.Debug (me ^ ": " ^ s)
+  Logger.log_ section Logger.Debug (fun () -> (me ^ ": " ^ s))
 
 let log_f me x =
   Printf.ksprintf (log me) x
@@ -50,7 +50,7 @@ exception PaxosFatal of string
 
 let paxos_fatal me fmt =
   let k x =
-    Lwt_log.fatal (me^": "^x) >>= fun () ->
+    Logger.fatal_ (me^": "^x) >>= fun () ->
     Lwt.fail (PaxosFatal x)
   in
   Printf.ksprintf k fmt

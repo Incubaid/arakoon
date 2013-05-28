@@ -27,15 +27,15 @@ open Update
 open Tlogcollection
 open Tlogcommon
 
-
+let section = Logger.Section.main
 
 let setup factory test_name () =
   let dn = Printf.sprintf "/tmp/%s" test_name in
-  Lwt_log.info_f "setup %s" dn >>= fun () ->
+  Logger.info_f_ "setup %s" dn >>= fun () ->
   File_system.exists dn >>= (function
     | true -> 
       begin
-        Lwt_log.info_f "%s exists cleaning" dn >>= fun () ->
+        Logger.info_f_ "%s exists cleaning" dn >>= fun () ->
         let cmd = Lwt_process.shell (Printf.sprintf "rm -rf %s" dn) in
         Lwt_process.exec cmd
         >>= fun status ->
@@ -53,7 +53,7 @@ let setup factory test_name () =
   
 
 
-let teardown (dn, factory) = Lwt_log.info_f "teardown %s" dn 
+let teardown (dn, factory) = Logger.info_f_ "teardown %s" dn 
 
 let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
 
@@ -68,7 +68,7 @@ let _log_repeat tlc (value:Value.t) n =
   in loop Sn.start 
 
 let test_rollover (dn, factory) =
-  Lwt_log.info "test_rollover" >>= fun () ->
+  Logger.info_ "test_rollover" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
   factory dn "node_name" >>= fun c ->
   let value = _make_set_v "x" "y" in
@@ -78,7 +78,7 @@ let test_rollover (dn, factory) =
 
 
 let test_rollover_1002 (dn, factory) =
-  Lwt_log.info "test_rollover_1002" >>= fun () ->
+  Logger.info_ "test_rollover_1002" >>= fun () ->
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
   factory dn "node_name" >>= fun c ->
@@ -89,13 +89,13 @@ let test_rollover_1002 (dn, factory) =
   factory dn "node_name" >>= fun tlc_two ->
   let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
   let vos = Log_extra.option2s Value.value2s vo in
-  Lwt_log.info_f "last_value = %s" vos >>= fun () -> 
+  Logger.info_f_ "last_value = %s" vos >>= fun () -> 
   tlc_two # close() >>= fun () ->
   Lwt.return ()
 
 
 let test_get_value_bug (dn, factory) = 
-  Lwt_log.info "test_get_value_bug" >>= fun () ->
+  Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun c0 ->
   let v0 = Value.create_master_value ("XXXX",0L) in
   c0 # log_value 0L v0 >>= fun wr_result ->
@@ -107,7 +107,7 @@ let test_get_value_bug (dn, factory) =
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
 let test_regexp (dn,factory) = 
-  Lwt_log.info "test_get_regexp_bug" >>= fun () ->
+  Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let fns = ["001.tlog";
 	     "000" ^ Tlc2.archive_extension;
 	     "000" ^ Tlc2.archive_extension ^ ".part"] in
@@ -138,11 +138,11 @@ let test_iterate (dn, factory) =
     (fun entry -> 
       let i = Entry.i_of entry in
       sum := !sum + (Int64.to_int i); 
-      Lwt_log.debug_f"i=%s" (Sn.string_of i) >>= fun () ->
+      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
       Lwt.return ())
   >>= fun () ->
   tlc # close () >>= fun () ->
-  Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
+  Logger.debug_f_ "sum =%i " !sum >>= fun () ->
   OUnit.assert_equal ~printer:string_of_int !sum 38306;
   Lwt.return ()
 
@@ -157,7 +157,7 @@ let test_iterate2 (dn, factory) =
     (fun entry -> 
       let i = Entry.i_of entry in
       result := i :: ! result; 
-      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
       Lwt.return ())
   >>= fun () -> 
   OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
@@ -174,7 +174,7 @@ let test_iterate3 (dn,factory) =
   tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
     (fun entry -> 
       let i = Entry.i_of entry in
-      Lwt_log.debug_f "i=%s" (Sn.string_of i) >>= fun () ->
+      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
       let () = result := i :: !result in
       Lwt.return ()
     )
@@ -192,7 +192,7 @@ let test_validate_normal (dn, factory) =
   let value = _make_set_v "XXX" "X" in
   _log_repeat tlc value 123 >>= fun () ->
   tlc # close () >>= fun () ->
-  Lwt_log.debug_f "reopening %s" dn >>= fun () ->
+  Logger.debug_f_ "reopening %s" dn >>= fun () ->
   factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
   tlc_two # validate_last_tlog () >>= fun result ->
   let validity, eo, _ = result in
@@ -200,7 +200,7 @@ let test_validate_normal (dn, factory) =
   let wanted = (Some wsn) in
   let io = match eo with None -> None | Some e -> Some (Entry.i_of e) in
   let tos x= Log_extra.option2s Sn.string_of x in
-  Lwt_log.info_f "wanted:%s, got:%s" (tos wanted) (tos io)
+  Logger.info_f_ "wanted:%s, got:%s" (tos wanted) (tos io)
   >>= fun() ->
   OUnit.assert_equal io wanted ;
   Lwt.return ()
@@ -216,7 +216,7 @@ let test_validate_corrupt_1 (dn,factory) =
   Lwt_unix.lseek fd 666 Unix.SEEK_SET >>= fun _ ->
   Lwt_unix.write fd "\x00\x00\x00\x00\x00\x00" 0 6 >>= fun _ ->
   Lwt_unix.close fd >>= fun () ->
-  Lwt_log.info_f "corrupted 6 bytes" >>= fun () ->
+  Logger.info_f_ "corrupted 6 bytes" >>= fun () ->
   Lwt.catch
     (fun () -> 
       factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->

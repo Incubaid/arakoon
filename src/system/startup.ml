@@ -28,6 +28,8 @@ open Update
 open Master_type
 open Tlogcommon
 
+let section = Logger.Section.main
+
 module LS = (val (Store.make_store_module (module Local_store)))
 
 let _make_log_cfg () =
@@ -98,9 +100,9 @@ let _dump_tlc ~tlcs node =
   let printer entry = 
     let i = Entry.i_of entry in
     let v = Entry.v_of entry in
-    Lwt_log.debug_f "%s:%s" (Sn.string_of i) (Value.value2s v) 
+    Logger.debug_f_ "%s:%s" (Sn.string_of i) (Value.value2s v) 
   in
-  Lwt_log.debug_f "--- %s ---" node >>= fun () ->
+  Logger.debug_f_ "--- %s ---" node >>= fun () ->
   tlc0 # iterate Sn.start 20L printer >>= fun () ->
   Lwt.return ()
 
@@ -141,19 +143,19 @@ let post_failure () =
   let eventually_stop () = Lwt_unix.sleep 10.0 
 
   in
-  Lwt_log.debug "start of scenario" >>= fun () ->
+  Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
 	    begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
 	    run_node2 ();
 	    eventually_stop ()] 
   >>= fun () ->
-  Lwt_log.debug "end of scenario" >>= fun () ->
+  Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node = 
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
     LS.exists store0 key >>= fun b ->
-    Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
+    Logger.debug_f_ "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
   in
@@ -195,20 +197,20 @@ let restart_slaves () =
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
   let eventually_stop() = Lwt_unix.sleep 10.0 in
-  Lwt_log.debug "start of scenario" >>= fun () ->
+  Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
 	    run_node1 ();
 	    (* run_node2 () *)
 	   eventually_stop();
 	   ]
   >>= fun () ->
-  Lwt_log.debug "end of scenario" >>= fun () ->
+  Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node = 
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "xxx" in
     LS.exists store0 key >>= fun b ->
-    Lwt_log.debug_f "%s: '%s' exists? -> %b" node key b >>= fun () ->
+    Logger.debug_f_ "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
   in
@@ -217,7 +219,7 @@ let restart_slaves () =
     
 
 let setup () = Lwt.return ()
-let teardown () = Lwt_log.debug "teardown"
+let teardown () = Logger.debug_ "teardown"
 
 let w f = Extra.lwt_bracket setup f teardown 
 
