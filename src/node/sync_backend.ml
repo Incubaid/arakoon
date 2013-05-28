@@ -61,13 +61,12 @@ let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
 		match t with
 		  | Fail ex ->
 		    begin
-		      Lwt_log.error
-			"Lwt.wakeup error: Sleeper already failed before. Re-raising"
+		      Logger.error_	"Lwt.wakeup error: Sleeper already failed before. Re-raising"
 		      >>= fun () ->
 		      Lwt.fail ex
 		    end
 		  | Return v ->
-		    Lwt_log.error "Lwt.wakeup error: Sleeper already returned"
+		    Logger.error_ "Lwt.wakeup error: Sleeper already returned"
 		  | Sleep ->
 		    Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
 	      end
@@ -88,12 +87,12 @@ let _update_rendezvous self ~so_post update update_stats push =
   sleep >>= fun r ->
   let t1 = Unix.gettimeofday() in
   let t = (t1 -. t0) in
-  let f =
+  let lvl =
     if t > 1.0
-    then Lwt_log.info_f
-    else Lwt_log.debug_f
+    then Logger.Info
+    else Logger.Debug
   in
-  f "rendezvous (%s) took %f" (Update.update2s update) t >>= fun () ->
+  Logger.log_ section lvl (fun () -> Printf.sprintf "rendezvous (%s) took %f" (Update.update2s update) t) >>= fun () ->
   match r with
     | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
     | Store.Ok so -> Lwt.return (so_post so)
@@ -150,7 +149,7 @@ object(self: #backend)
 	    Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
 	  | Store.CorruptStore ->
 	    begin
-	      Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
+	      Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
 	      Lwt.fail Server.FOOBAR
 	    end
 	  | ext -> Lwt.fail ext)
@@ -228,7 +227,7 @@ object(self: #backend)
     self # _check_interval [prefix]  >>= fun () ->
     S.prefix_keys store prefix max   >>= fun key_list ->
     let n_keys = List.length key_list in
-    Lwt_log.debug_f "prefix_keys found %d matching keys" n_keys >>= fun () ->
+    Logger.debug_f_ "prefix_keys found %d matching keys" n_keys >>= fun () ->
     Statistics.new_prefix_keys _stats start n_keys;
     Lwt.return key_list
 
@@ -367,7 +366,7 @@ object(self: #backend)
 		 Sn.add start_i2 step < too_far_i
 	      then
 		begin
-		  Lwt_log.debug_f "start_i2=%Li < %Li" start_i2 too_far_i
+		  Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
 		  >>= fun () ->
 		  Llio.output_int oc 3 >>= fun () ->
 		  tlog_collection # dump_tlog_file start_i2 oc
@@ -530,7 +529,7 @@ object(self: #backend)
 	    else  count,s')
 	  ( Statistics.get_witnessed _stats ) (1,"") in
 	let v = count >= q in
-	Lwt_log.debug_f "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
+	Logger.debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
 	>>= fun () ->
 	Lwt.return v
 
@@ -551,7 +550,7 @@ object(self: #backend)
         in
         Lwt.fail (XException(rc,msg))
       else
-        Lwt_log.debug_f "collapsing_lock locked: %s"
+        Logger.debug_f_ "collapsing_lock locked: %s"
           (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
         if Lwt_mutex.is_locked collapsing_lock then
 	        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
@@ -579,7 +578,7 @@ object(self: #backend)
         match exc with
           | Store.CorruptStore ->
             begin
-              Lwt_log.fatal "CORRUPT_STORE" >>= fun () ->
+              Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
               Lwt.fail Server.FOOBAR
             end
           | ext -> Lwt.fail ext)
@@ -594,12 +593,12 @@ object(self: #backend)
     let result = ref Multi_paxos.Quiesced_fail in
     let sleep, awake = Lwt.wait() in
     let update = Multi_paxos.Quiesce (sleep, awake) in
-    Lwt_log.debug "quiesce_db: Pushing quiesce request" >>= fun () ->
+    Logger.debug_ "quiesce_db: Pushing quiesce request" >>= fun () ->
     push_node_msg update >>= fun () ->
-    Lwt_log.debug "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
+    Logger.debug_ "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
     sleep >>= fun res ->
     result := res;
-    Lwt_log.debug "quiesce_db: db is now completed" >>= fun () ->
+    Logger.debug_ "quiesce_db: db is now completed" >>= fun () ->
     match res with
       | Multi_paxos.Quiesced_ok -> Lwt.return () 
       | Multi_paxos.Quiesced_fail_master ->
@@ -608,7 +607,7 @@ object(self: #backend)
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
   
   method private unquiesce_db () =
-    Lwt_log.debug "unquiesce_db: Leaving quisced state" >>= fun () ->
+    Logger.debug_ "unquiesce_db: Leaving quisced state" >>= fun () ->
     let update = Multi_paxos.Unquiesce in
     push_node_msg update 
       
@@ -621,19 +620,19 @@ object(self: #backend)
     end
 
   method optimize_db () =
-    Lwt_log.debug "optimize_db: enter" >>= fun () ->
+    Logger.debug_ "optimize_db: enter" >>= fun () ->
     self # try_quiesced(fun () -> S.optimize store) >>= fun () ->
-    Lwt_log.debug "optimize_db: All done"
+    Logger.debug_ "optimize_db: All done"
  
   method defrag_db () = 
     self # _not_if_master() >>= fun () ->
-    Lwt_log.debug "defrag_db: enter" >>= fun () ->
+    Logger.debug_ "defrag_db: enter" >>= fun () ->
     S.defrag store >>= fun () ->
-    Lwt_log.debug "defrag_db: exit"
+    Logger.debug_ "defrag_db: exit"
 
 
   method get_db m_oc =
-    Lwt_log.debug "get_db: enter" >>= fun () ->
+    Logger.debug_ "get_db: enter" >>= fun () ->
     begin
       match m_oc with
         | None ->
@@ -642,7 +641,7 @@ object(self: #backend)
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
     self # try_quiesced ( fun () -> S.copy_store store oc ) >>= fun () ->
-    Lwt_log.debug "get_db: All done"
+    Logger.debug_ "get_db: All done"
 
   method get_cluster_cfgs () =
     begin
@@ -679,15 +678,15 @@ object(self: #backend)
         | None ->
           let res = Hashtbl.create 5 in
           Hashtbl.replace res cluster_id cfg;
-          Lwt_log.debug "set_cluster_cfg creating new cached hashtbl" >>= fun () ->
+          Logger.debug_ "set_cluster_cfg creating new cached hashtbl" >>= fun () ->
           Lwt.return ( client_cfgs <- (Some res) )
         | Some res ->
-          Lwt_log.debug "set_cluster_cfg updating cached hashtbl" >>= fun () ->
+          Logger.debug_ "set_cluster_cfg updating cached hashtbl" >>= fun () ->
           Lwt.return ( Hashtbl.replace res cluster_id cfg )
     end
 
   method get_fringe boundary direction =
-    Lwt_log.debug_f "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
+    Logger.debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
     S.get_fringe store boundary direction
 
   method drop_master () =
@@ -706,14 +705,14 @@ object(self: #backend)
               begin
                 let (sleep, awake) = Lwt.wait () in
                 let update = Multi_paxos.DropMaster (sleep, awake) in
-                Lwt_log.debug "drop_master: pushing update" >>= fun () ->
+                Logger.debug_ "drop_master: pushing update" >>= fun () ->
                 push_node_msg update >>= fun () ->
-                Lwt_log.debug "drop_master: waiting for completion" >>= fun () ->
+                Logger.debug_ "drop_master: waiting for completion" >>= fun () ->
                 sleep >>= fun () ->
                 let delay = (float lease_expiration) +. 0.5 in
-                Lwt_log.debug_f "drop_master: waiting another %1.1fs" delay >>= fun () ->
+                Logger.debug_f_ "drop_master: waiting another %1.1fs" delay >>= fun () ->
                 Lwt_unix.sleep delay >>= fun () ->
-                Lwt_log.debug "drop_master: completed"
+                Logger.debug_ "drop_master: completed"
               end
       end
 end

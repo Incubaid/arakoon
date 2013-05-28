@@ -28,6 +28,8 @@ open Extra
 open Tlogcollection
 open Tlogcommon
 
+let section = Logger.Section.main
+
 let create_test_tlc dn = Tlc2.make_tlc2 dn true
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc 
 
@@ -62,7 +64,7 @@ let test_interrupted_rollover (dn,factory) =
 let test_validate_at_rollover_boundary (dn,factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
-  Lwt_log.debug "1" >>= fun () ->
+  Logger.debug_ "1" >>= fun () ->
   val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
   let lasti, lasti_str = 
     begin
@@ -92,7 +94,7 @@ let test_validate_at_rollover_boundary (dn,factory) =
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
 let test_iterate4 (dn, factory) =
-  Lwt_log.debug "test_iterate4" >>= fun () ->
+  Logger.debug_ "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun tlc ->
   let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
@@ -102,10 +104,10 @@ let test_iterate4 (dn, factory) =
   Unix.unlink fnc;
   (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
-  Lwt_log.debug_f "inf=%s" (Sn.string_of inf) >>= fun () ->
+  Logger.debug_f_ "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
   tlc # close () >>= fun () ->
-  Lwt_log.debug_f "end of test_iterate4" >>= fun () -> 
+  Logger.debug_f_ "end of test_iterate4" >>= fun () -> 
   Lwt.return ()
 
 
@@ -140,7 +142,7 @@ let test_iterate5 (dn,factory) =
   let f entry = 
     let i = Entry.i_of entry in
     let v = Entry.v_of entry in
-    Lwt_log.debug_f "test_iterate5: %s %s" (Sn.string_of i) 
+    Logger.debug_f_ "test_iterate5: %s %s" (Sn.string_of i) 
     (Value.value2s v) 
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
@@ -181,22 +183,22 @@ let test_iterate6 (dn,factory) =
       let i = Entry.i_of entry in
       let v = Entry.v_of entry in
       sum := !sum + (Int64.to_int i); 
-      Lwt_log.debug_f "i=%s : %s" (Sn.string_of i) (Value.value2s v)
+      Logger.debug_f_ "i=%s : %s" (Sn.string_of i) (Value.value2s v)
       >>= fun () ->
       Lwt.return ())
   >>= fun () ->
   tlc # close () >>= fun () ->
-  Lwt_log.debug_f "sum =%i " !sum >>= fun () ->
+  Logger.debug_f_ "sum =%i " !sum >>= fun () ->
   (* OUnit.assert_equal ~printer:string_of_int 19 !sum; *)
   Lwt.return () 
 
 
 let test_compression_bug (dn, factory) =
-  Lwt_log.info "test_compression_bug" >>= fun () ->
+  Logger.info_ "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
   factory dn "node_name" >>= fun tlc ->
-  Lwt_log.info "have tlc" >>= fun () ->
+  Logger.info_ "have tlc" >>= fun () ->
   let sync = false in
   let n = 12 in
   let rec loop i = 
@@ -219,7 +221,7 @@ let test_compression_bug (dn, factory) =
     (fun entry -> 
       let i = Entry.i_of entry in
       entries := i :: !entries;
-      Lwt_log.debug_f "ENTRY: i=%Li" i) 
+      Logger.debug_f_ "ENTRY: i=%Li" i) 
   >>= fun () ->
   OUnit.assert_equal 
     ~printer:string_of_int 

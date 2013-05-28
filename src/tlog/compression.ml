@@ -70,12 +70,12 @@ let compress_tlog tlog_name archive_name =
             let cl = String.length contents in
             let ol = String.length output in 
             let factor = (float cl) /. (float ol) in
-	        Lwt_log.debug_f "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor 
+	        Logger.debug_f Logger.Section.main "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor 
 	        >>= fun () ->
 	        Llio.output_int64 oc last_i >>= fun () ->
 	        Llio.output_string oc output >>= fun () ->
             let sleep = 2.0 *. d in
-            Lwt_log.debug_f "compression: sleeping %f" sleep >>= fun () ->
+            Logger.debug_f Logger.Section.main "compression: sleeping %f" sleep >>= fun () ->
             Lwt_unix.sleep sleep
 	      in
 	      let buffer = Buffer.create buffer_size in

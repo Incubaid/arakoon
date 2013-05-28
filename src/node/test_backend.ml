@@ -21,7 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Lwt_log
 open Backend
 open Statistics
 open Update
@@ -29,8 +28,9 @@ open Routing
 open Common
 open Interval
 
-module StringMap = Map.Make(String);;
+let section = Logger.Section.main
 
+module StringMap = Map.Make(String);;
 
 let one_ f first finc last linc max (k:string) (v:string) acc =
   let count = fst acc and a = snd acc in
@@ -115,7 +115,7 @@ class test_backend my_name = object(self:#backend)
     else self # set key value
 
   method aSSert ~allow_dirty (key:string) (vo: string option) =
-    Lwt_log.debug_f "test_backend :: aSSert %s" key >>= fun () ->
+    Logger.debug_f_ "test_backend :: aSSert %s" key >>= fun () ->
     let ok = match vo with
       | None -> StringMap.mem key _kv = false
       | Some v -> StringMap.find key _kv = v
@@ -128,7 +128,7 @@ class test_backend my_name = object(self:#backend)
     else Lwt.return ()
 
   method aSSert_exists ~allow_dirty (key:string)=
-    Lwt_log.debug_f "test_backend :: aSSert_exists %s" key >>= fun () ->
+    Logger.debug_f_ "test_backend :: aSSert_exists %s" key >>= fun () ->
     let ok =
       StringMap.mem key _kv
     in
@@ -192,19 +192,19 @@ class test_backend my_name = object(self:#backend)
   method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
-    info_f "range_entries: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = rev_range_entries_ _kv first finc last linc max in
-    info_f "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method range ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_ _kv first finc last linc max in
-    info_f "range: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "range: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
@@ -220,7 +220,7 @@ class test_backend my_name = object(self:#backend)
   method who_master () = Lwt.return (Some my_name)
 
   method sequence ~sync:bool (updates:Update.t list) =
-    info_f "test_backend::sequence" >>= fun () ->
+    Logger.info_f_ "test_backend::sequence" >>= fun () ->
     let do_one = function
       | Update.Set (k,v) -> self # set k v
       | Update.Delete k  -> self # delete k
@@ -252,7 +252,7 @@ class test_backend my_name = object(self:#backend)
     loop n
 
   method set_interval interval =
-    Lwt_log.debug_f "set_interval %s" (Interval.to_string interval) >>= fun () ->
+    Logger.debug_f_ "set_interval %s" (Interval.to_string interval) >>= fun () ->
     _interval <- interval; Lwt.return ()
   method get_interval () = Lwt.return _interval
 

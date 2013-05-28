@@ -30,7 +30,7 @@ let configure_logging () =
     ()
   in
   Lwt_log.default := logger;
-  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug
+  Logger.Section.set_level Logger.Section.main Logger.Debug
 
 let tools_tests = "tools" >::: [
   Server_test.suite;

@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+let section = Logger.Section.main
 
 let config_file = ref "cfg/arakoon.ini"
 
@@ -387,7 +388,7 @@ module Node_cfg = struct
 
   open Lwt
   let validate_dirs t = 
-    Lwt_log.debug "Node_cfg.validate_dirs" >>= fun () ->
+    Logger.debug_ "Node_cfg.validate_dirs" >>= fun () ->
     if t.is_test then Lwt.return ()
     else
       begin
@@ -398,14 +399,14 @@ module Node_cfg = struct
 	in
         if not (is_ok t.home)
         then
-          Lwt_log.fatal_f
+          Logger.fatal_f_
             "Home dir '%s' doesn't exist, or insufficient permissions"
             t.home >>= fun () ->
           Lwt.fail (InvalidHomeDir t.home)
         else
         if not (is_ok t.tlog_dir)
         then
-          Lwt_log.fatal_f
+          Logger.fatal_f_
             "Tlog dir '%s' doesn't exist, or insufficient permissions"
             t.tlog_dir >>= fun () ->
           Lwt.fail (InvalidTlogDir t.tlog_dir)

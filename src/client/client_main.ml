@@ -57,27 +57,28 @@ let find_master cluster_cfg =
   let rec loop = function
     | [] -> Lwt.fail (Failure "too many nodes down")
     | cfg :: rest ->
-      begin
-	Lwt_log.info_f "cfg=%s" cfg.node_name >>= fun () ->
-	let sa = _address_to_use cfg.ips cfg.client_port in
-	Lwt.catch
-	  (fun () ->
-	    Lwt_io.with_connection sa
-	      (fun connection ->
-		Arakoon_remote_client.make_remote_client 
-		  cluster_cfg.cluster_id connection 
-		>>= fun client ->
-		client # who_master ())
-	    >>= function
-	      | None -> Lwt.fail (Failure "No Master")
-	      | Some m -> Lwt_log.info_f "master=%s" m >>= fun () ->
-		Lwt.return m)
-	  (function 
-	    | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -> 
-	      Lwt_log.info_f "node %s is down, trying others" cfg.node_name >>= fun () ->
-	      loop rest
-	    | exn -> Lwt.fail exn
-	  )
+        begin
+          let section = Logger.Section.main in
+          Logger.info_f_ "cfg=%s" cfg.node_name >>= fun () ->
+          let sa = _address_to_use cfg.ips cfg.client_port in
+          Lwt.catch
+            (fun () ->
+              Lwt_io.with_connection sa
+                (fun connection ->
+                  Arakoon_remote_client.make_remote_client
+                    cluster_cfg.cluster_id connection
+                  >>= fun client ->
+                  client # who_master ())
+              >>= function
+                | None -> Lwt.fail (Failure "No Master")
+                | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
+                    Lwt.return m)
+            (function
+              | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) ->
+                  Logger.info_f_ "node %s is down, trying others" cfg.node_name >>= fun () ->
+                  loop rest
+              | exn -> Lwt.fail exn
+            )
       end
   in loop cfgs
 

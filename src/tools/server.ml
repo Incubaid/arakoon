@@ -21,7 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Lwt_log
+
+let section = Logger.Section.main
 
 let mv_waiter = Lwt_mvar.create_empty
 let mv_callback = Lwt_mvar.put
@@ -33,7 +34,7 @@ exception FOOBAR
 
 
 let deny (ic,oc,cid) =
-  Lwt_log.warning "max connections reached, denying this one" >>= fun () ->
+  Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int oc 0xfe >>= fun () ->
   Llio.output_string oc "too many clients"
    
@@ -47,13 +48,13 @@ let session_thread (sid:string) cid protocol fd =
     )
     (function
       | FOOBAR as foobar-> 
-          Lwt_log.fatal "propagating FOOBAR" >>= fun () ->
+          Logger.fatal_ "propagating FOOBAR" >>= fun () ->
           Lwt.fail foobar
-      | exn -> info_f ~exn "exiting session (%s) connection=%s" sid cid)
+      | exn -> Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
   >>= fun () -> 
   Lwt.catch 
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Lwt_log.debug_f "Exception on closing of socket (connection=%s)" cid)
+    ( fun exn -> Logger.debug_f_ "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
@@ -105,7 +106,7 @@ let make_server_thread
 	        Lwt.ignore_result
 		  (
             Lwt_unix.fstat fd >>= fun fstat ->
-            Lwt_log.info_f
+            Logger.info_f_
               "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
               name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
             >>= fun () ->
@@ -125,7 +126,7 @@ let make_server_thread
 	       we want to block until an fd is available,
 	       but alas, I found no such API.
 	    *)
-	    Lwt_log.warning_f 
+	    Logger.warning_f_
 	      "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs" 
 	      s0 s1 port timeout
 	    >>= fun () ->
@@ -138,7 +139,7 @@ let make_server_thread
     let r  = fun () ->
       Lwt.catch
 	(fun ()  -> setup_callback () >>= fun () -> server_loop ())
-	(fun exn -> info_f ~exn "shutting down server on port %i" port)
+	(fun exn -> Logger.info_f_ ~exn "shutting down server on port %i" port)
       >>= fun () ->
       Lwt_unix.close listening_socket >>= fun () ->
       teardown_callback()

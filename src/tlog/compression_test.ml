@@ -27,7 +27,7 @@ open OUnit
 open Tlogwriter
 open Update
 let test_compress_file () =
-  Lwt_log.info "test_compress_file" >>= fun () ->
+  Logger.info Logger.Section.main "test_compress_file" >>= fun () ->
   let tlog_name = "/tmp/test_compress_file.tlog" in
   Lwt_io.with_file tlog_name ~mode:Lwt_io.output 
     (fun oc -> 

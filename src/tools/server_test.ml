@@ -22,7 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open OUnit
 open Lwt
-open Lwt_log
+
+let section = Lwt_log.Section.main
 
 let echo_protocol (ic,oc,cid) = 
   let size = 1024 in
@@ -50,26 +51,26 @@ let test_echo () =
     ~scheme
   in
   let client () = 
-    debug "sleeping until server socket started" >>= fun () -> 
+    Logger.debug_ "sleeping until server socket started" >>= fun () -> 
     sleep >>= fun () ->
-    debug "server is up & running" >>= fun () ->
+    Logger.debug_ "server is up & running" >>= fun () ->
     let conversation (ic,oc) = 
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word = 
 	    Lwt_io.write_line oc word >>= fun () ->
 	    Lwt_io.read_line ic >>= fun word' ->
-        Lwt_log.info_f "%s ? %s" word word'
+        Logger.info_f_ "%s ? %s" word word'
       in Lwt_list.iter_s test_one words 
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
     Lwt_io.open_connection address >>= fun connection ->
     conversation connection >>= fun () ->
-    info "end of conversation" 
+    Logger.info_ "end of conversation" 
   in 
   let main () = 
     Lwt.pick [client (); server()] >>= fun () -> 
     Lwt_mvar.take td_var  >>= fun () ->
-    Lwt_log.info "end_of_main" 
+    Logger.info_ "end_of_main" 
   in
   Lwt_main.run (main())
 
@@ -93,28 +94,28 @@ let test_max_connections () =
   in
   let n_problems = ref 0 in
   let client i = 
-    debug_f "client %i sleeping until server socket started" i >>= fun () -> 
+    Logger.debug_f_ "client %i sleeping until server socket started" i >>= fun () -> 
     sleep >>= fun () ->
-    debug "server is up & running" >>= fun () ->
+    Logger.debug_ "server is up & running" >>= fun () ->
     let conversation (ic,oc) = 
-      debug_f "start_of_conversation client %i" i >>= fun () ->
+      Logger.debug_f_ "start_of_conversation client %i" i >>= fun () ->
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word = 
 	    Lwt_io.write_line oc word >>= fun () ->
 	    Lwt_io.read_line ic >>= fun word' ->
-        Lwt_log.info_f "%s ? %s" word word'
+        Logger.info_f_ "%s ? %s" word word'
       in 
       Lwt.catch
 	    (fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
 	    (function 
 	      | Canceled as e -> Lwt.fail e
-	      | exn -> incr n_problems;Lwt_log.info_f ~exn "client %i had problems" i)
+	      | exn -> incr n_problems;Logger.info_f_ ~exn "client %i had problems" i)
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
     (*    Lwt_io.with_connection address conversation  >>= fun () -> *)
     Lwt_io.open_connection address >>= fun conn ->
     conversation conn >>= fun () ->
-    info "end of conversation." 
+    Logger.info_ "end of conversation." 
   in 
   let main_t = 
     Lwt.pick [client 0;
@@ -124,7 +125,7 @@ let test_max_connections () =
           Lwt_unix.sleep 0.3
              ] 
     >>= fun () -> Lwt_mvar.take td_var >>= fun () ->
-    Lwt_log.debug_f "n_problems = %i" !n_problems >>= fun () ->
+    Logger.debug_f_ "n_problems = %i" !n_problems >>= fun () ->
     OUnit.assert_equal !n_problems 1;
     Lwt.return () 
   in

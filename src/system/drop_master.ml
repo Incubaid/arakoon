@@ -3,6 +3,7 @@ open OUnit
 open Master_type
 open Node_cfg.Node_cfg
 
+let section = Logger.Section.main
 
 let setup tn master base () = 
   let lease_period = 10 in
@@ -19,7 +20,7 @@ let _with_master_admin (tn, cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *) 
   Client_main.find_master cluster_cfg >>= fun master_name ->
-  Lwt_log.info_f "master=%S" master_name >>= fun () ->
+  Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
     List.hd 
       (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
@@ -34,10 +35,10 @@ let _with_master_admin (tn, cluster_cfg, _) f =
     )
 
 let _drop_master cluster_cfg master_name admin = 
-  Lwt_log.info "drop_master scenario" >>= fun () ->
+  Logger.info_ "drop_master scenario" >>= fun () ->
   admin # drop_master () >>= fun () ->
   Client_main.find_master cluster_cfg >>= fun new_master ->
-  Lwt_log.info_f "new? master = %s" new_master >>= fun () ->
+  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
   OUnit.assert_bool "master should have been changed" (new_master <> master_name);
   Lwt.return ()
 

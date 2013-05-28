@@ -12,6 +12,7 @@ let setup port = Lwt.return port
 
 let teardown () = Lwt.return ()
 
+let section = Logger.Section.main
 
 let _cluster = "baby1"
 
@@ -20,7 +21,7 @@ let __wrap__ port conversation =
   let tb = new test_backend _cluster in
   let backend = (tb :> Backend.backend) in
   let setup_callback ()  = 
-    Lwt_log.info "callback" >>= fun () ->
+    Logger.info_ "callback" >>= fun () ->
     Lwt.wakeup notifier ();
     Lwt.return ()
   in
@@ -33,7 +34,7 @@ let __wrap__ port conversation =
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
     Lwt_io.open_connection address >>= function (ic,oc) ->
       conversation (ic,oc) >>= fun () ->
-      Lwt_log.debug "end_of_senario" >>= fun () ->
+      Logger.debug section "end_of_senario" >>= fun () ->
       Lwt_io.close ic >>= fun () ->
       Lwt_io.close oc >>= fun () ->
       Lwt.return ()
@@ -43,10 +44,10 @@ let __wrap__ port conversation =
 
 let set_interval port () = 
   let conversation conn =
-    Lwt_log.debug "starting set_interval ..." >>= fun () ->
+    Logger.debug_ "starting set_interval ..." >>= fun () ->
     Common.prologue _cluster conn >>= fun () ->
     let i0 = Interval.make (Some "a") None None None in
-    Lwt_log.debug_f "i0=%S" (Interval.to_string i0) >>= fun () ->
+    Logger.debug_f_ "i0=%S" (Interval.to_string i0) >>= fun () ->
     Common.set_interval conn i0 >>= fun () -> 
     Common.get_interval conn >>= fun i1 ->
     OUnit.assert_equal ~printer:Interval.to_string i0 i1;
@@ -67,7 +68,7 @@ let get_fringe port ()=
 	 ("a" , "va");
 	] >>= fun () ->
       client # get "k1" >>= fun v ->
-      Lwt_log.debug_f "a[%s] = %s" "k1" v >>= fun () ->
+      Logger.debug_f_ "a[%s] = %s" "k1" v >>= fun () ->
       Lwt.return ()     
     )
   in
@@ -75,10 +76,10 @@ let get_fringe port ()=
     fill_it_a_bit ()  >>= fun () ->
     let (ic,oc) = conn in 
     make_remote_nodestream _cluster conn >>= fun ns ->
-    Lwt_log.debug "starting get_fringe" >>= fun () ->
+    Logger.debug_ "starting get_fringe" >>= fun () ->
     ns # get_fringe (Some "k") Routing.LOWER_BOUND >>= fun kvs -> 
     let got = List.length kvs in
-    Lwt_log.debug_f "got: %i" got >>= fun () ->
+    Logger.debug_f_ "got: %i" got >>= fun () ->
     Lwt_io.close ic >>= fun () ->
     Lwt_io.close oc >>= fun () ->
     OUnit.assert_equal 3 got ~msg:"fringe size does not match";
@@ -97,18 +98,18 @@ let set_route_delta port () =
   Routing.routing_to old_ser r_target ;
   let conversation conn =
     make_remote_nodestream _cluster conn >>= fun ns ->
-    Lwt_log.debug "starting set_routing" >>= fun () ->
+    Logger.debug_ "starting set_routing" >>= fun () ->
     ns # set_routing r >>= fun () ->
-    Lwt_log.debug "starting set_routing_delta" >>= fun () -> 
+    Logger.debug_ "starting set_routing_delta" >>= fun () -> 
     ns # set_routing_delta "left" "l" "right" >>= fun () ->
-    Lwt_log.debug "starting get_routing" >>= fun () -> 
+    Logger.debug_ "starting get_routing" >>= fun () -> 
     ns # get_routing () >>= fun new_r ->
     let new_ser = Buffer.create 15 in
     Routing.routing_to new_ser new_r;
     let old_str = Buffer.contents old_ser in
     let new_str = Buffer.contents new_ser in
-    Lwt_log.debug_f "old_str: %s " old_str >>= fun () ->
-    Lwt_log.debug_f "new_str: %s" new_str  >>= fun () ->
+    Logger.debug_f_ "old_str: %s " old_str >>= fun () ->
+    Logger.debug_f_ "new_str: %s" new_str  >>= fun () ->
     OUnit.assert_equal old_str new_str;
     Lwt.return ()  
   in

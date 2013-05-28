@@ -28,6 +28,8 @@ open Lwt
 open Client_cfg
 open Ncfg
 
+let section = Logger.Section.main
+
 class type nodestream = object
   method iterate: 
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
@@ -73,7 +75,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	  if i2 = (-1L) 
 	  then
 	    begin
-	    Lwt_log.info_f "remote_nodestream :: last_seen = %s" 
+	    Logger.info_f_ "remote_nodestream :: last_seen = %s" 
 	      (Log_extra.option2s Sn.string_of !last_seen)
 	    end
 	  else
@@ -89,10 +91,10 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
       in 
       let rec loop_parts () = 
 	Llio.input_int ic >>= function
-	  | 1 -> Lwt_log.debug "loop_entries" >>= fun () -> loop_entries ()
+	  | 1 -> Logger.debug_f_ "loop_entries" >>= fun () -> loop_entries ()
 	  | 2 -> 
 	    begin 
-	      Lwt_log.info "save_head" >>= fun ()->
+	      Logger.info_f_ "save_head" >>= fun ()->
 	      save_head () >>= fun () -> 
 	      let hf_name = tlog_coll # get_head_name () in
 	      head_saved_cb hf_name >>= fun () ->
@@ -100,10 +102,10 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 	    end
 	  | 3 ->
 	    begin
-	      Lwt_log.debug "save_file" >>= fun () ->
+	      Logger.debug_f_ "save_file" >>= fun () ->
 	      Llio.input_string ic >>= fun name ->
 	      Llio.input_int64 ic >>= fun length ->
-	      Lwt_log.info_f "got %s (%Li bytes)" name length >>= fun () ->
+	      Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
 	      tlog_coll # save_tlog_file name length ic >>= fun () ->
 	      loop_parts ()
 	    end
@@ -130,7 +132,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
             Llio.input_int ic >>= function
               | 0 ->
 	              Llio.input_int64 ic >>= fun took ->
-	              Lwt_log.debug_f "collapsing one file took %Li" took >>= fun () ->
+	              Logger.debug_f_ "collapsing one file took %Li" took >>= fun () ->
 	              loop (i-1)
               | e ->
                 Llio.input_string ic >>= fun msg ->

@@ -24,15 +24,17 @@ open Lwt
 open OUnit
 open Update
 
+let section = Logger.Section.main
+
 module S = (val (Store.make_store_module (module Local_store)))
 
 let _should_fail x error_msg success_msg =
   Lwt.catch 
     (fun ()  -> 
       x () >>= fun () -> 
-      Lwt_log.debug "should fail...doesn't" >>= fun () ->
+      Logger.debug_ "should fail...doesn't" >>= fun () ->
       Lwt.return true) 
-    (fun exn -> Lwt_log.debug ~exn success_msg >>= fun () -> Lwt.return false)
+    (fun exn -> Logger.debug_ ~exn success_msg >>= fun () -> Lwt.return false)
   >>= fun bad -> 
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
@@ -56,7 +58,7 @@ let _make_values tlc n =
 
 let test_collapse_until dn = 
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
-  Lwt_log.debug_f "dn=%s" dn >>= fun () ->
+  Logger.debug_f_ "dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn true "node_name" >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
@@ -94,13 +96,13 @@ let test_dn = "/tmp/collapser"
 
 let test_collapse_many dn =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  Lwt_log.debug_f "test_collapse_many_regime dn=%s" dn >>= fun () ->
+  Logger.debug_f_ "test_collapse_many_regime dn=%s" dn >>= fun () ->
   Tlc2.make_tlc2 dn true "node_name" >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
   let storename = Filename.concat test_dn "head.db" in
-  let cb fn = Lwt_log.debug_f "collapsed %s" (Sn.string_of fn) in
+  let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
   let cb' = fun n -> Lwt.return () in
   begin
     File_system.exists storename >>= fun head_exists ->
@@ -113,16 +115,16 @@ let test_collapse_many dn =
   >>= fun () ->
   let store_methods = (Local_store.copy_store2, storename) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 000" >>= fun () ->
+  Logger.debug_ "collapsed 000" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 3 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 001 & 002" >>= fun () ->
+  Logger.debug_ "collapsed 001 & 002" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 1 cb' cb >>= fun () ->
-  Lwt_log.debug "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
+  Logger.debug_ "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 
 
 let setup () = 
-  Lwt_log.info "Collapser_test.setup" >>= fun () ->
+  Logger.info_ "Collapser_test.setup" >>= fun () ->
   
   let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
   File_system.mkdir test_dn 0o755 >>= fun () -> 
@@ -130,7 +132,7 @@ let setup () =
 
 
 let teardown dn =
-  Lwt_log.debug_f "teardown %s" dn
+  Logger.debug_f_ "teardown %s" dn
 
   
 let suite =

@@ -25,22 +25,24 @@ open Lwt
 open Extra
 open Update
 
+let section = Logger.Section.main
+
 module S = (val (Store.make_store_module (module Local_store)))
 
 let _dir_name = "/tmp/store_test"
 
 let setup () = 
-  Lwt_log.info "Store_test.setup" >>= fun () ->
+  Logger.info_ "Store_test.setup" >>= fun () ->
   let ignore_ex f = 
     Lwt.catch 
       f
-      (fun exn -> Lwt_log.warning ~exn "ignoring")
+      (fun exn -> Logger.warning_ ~exn "ignoring")
   in
   ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 )
 
 let teardown () = 
-  Lwt_log.info "Store_test.teardown" >>= fun () ->
+  Logger.info_ "Store_test.teardown" >>= fun () ->
   Lwt.catch
     (fun () ->
       File_system.lwt_directory_list _dir_name >>= fun entries ->
@@ -48,9 +50,9 @@ let teardown () =
 	let fn = _dir_name ^ "/" ^ i in
         Lwt_unix.unlink fn) entries 
     )
-    (fun exn -> Lwt_log.debug ~exn "ignoring" )
+    (fun exn -> Logger.debug_ ~exn "ignoring" )
     >>= fun () ->
-  Lwt_log.debug "end of teardown"
+  Logger.debug_ "end of teardown"
 
 let with_store name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
@@ -95,7 +97,7 @@ let test_safe_insert_value () =
           (fun assert' -> assert' store)
           asserts)
       value_asserts in
-  Lwt_log.info "applying updates without surrounding transaction" >>= fun () ->
+  Logger.info_ "applying updates without surrounding transaction" >>= fun () ->
   with_store "tsiv" (fun store ->
     do_asserts store)
 

@@ -62,7 +62,7 @@ module Lwt_buffer = struct
         if _is_full t 
         then 
 	      if t.leaky
-	      then Lwt.return () (* Lwt_log.debug "leaky buffer reached capacity: dropping" *)
+	      then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
 	      else
 	        begin
 	          Lwt_condition.wait (* ~mutex:t.full_m *) t.full >>= fun () ->

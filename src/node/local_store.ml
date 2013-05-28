@@ -61,7 +61,7 @@ let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
   then
-    Lwt_log.debug_f "File at %s does not exist" old_location >>= fun () ->
+    Logger.debug_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
   begin
@@ -76,7 +76,7 @@ let copy_store2 old_location new_location overwrite =
     begin
       if dest_exists && not overwrite
       then
-        Lwt_log.debug_f "Not relocating store from %s to %s, destination exists" old_location new_location
+        Logger.debug_f_ "Not relocating store from %s to %s, destination exists" old_location new_location
       else
         File_system.copy_file old_location new_location
     end
@@ -111,15 +111,15 @@ let with_transaction ls f =
       let t = ( Unix.gettimeofday() -. t0) in
       if t > 1.0
       then
-        Lwt_log.info_f "Tokyo cabinet transaction took %fs" t
+        Logger.info_f_ "Tokyo cabinet transaction took %fs" t
       else
         Lwt.return (); >>= fun () ->
       ls._tx <- None; Lwt.return ())
 
 let defrag ls =
-  Lwt_log.debug "local_store :: defrag" >>= fun () ->
+  Logger.debug_ "local_store :: defrag" >>= fun () ->
   Camltc.Hotc.defrag ls.db >>= fun rc ->
-  Lwt_log.debug_f "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
+  Logger.debug_f_ "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
   Lwt.return ()
 
 let exists ls key =
@@ -163,7 +163,7 @@ let delete_prefix ls tx prefix =
 
 let close ls =
   Camltc.Hotc.close ls.db >>= fun () ->
-  Lwt_log.info_f "local_store %S :: closed  () " ls.location >>= fun () ->
+  Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
   Lwt.return ()
 
 let get_location ls = Camltc.Hotc.filename ls.db
@@ -176,19 +176,19 @@ let reopen ls f quiesced =
       else
         B.default_mode
     end in
-  Lwt_log.debug_f "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
+  Logger.debug_f_ "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
   Camltc.Hotc.reopen ls.db f mode >>= fun () ->
-  Lwt_log.debug "local_store::reopen Hotc::reopen succeeded"
+  Logger.debug_ "local_store::reopen Hotc::reopen succeeded"
 
 let get_key_count ls =
-  Lwt_log.debug "local_store::get_key_count" >>= fun () ->
+  Logger.debug_ "local_store::get_key_count" >>= fun () ->
   Camltc.Hotc.transaction ls.db (fun db -> Lwt.return ( B.get_key_count db ) )
 
 let copy_store ls networkClient (oc: Lwt_io.output_channel) =
   let db_name = ls.location in
   let stat = Unix.LargeFile.stat db_name in
   let length = stat.st_size in
-  Lwt_log.debug_f "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
+  Logger.debug_f_ "store:: copy_store (filesize is %Li bytes)" length >>= fun ()->
   begin
     if networkClient
     then
@@ -206,20 +206,20 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
 
 let optimize ls quiesced =
   let db_optimal = ls.location ^ ".opt" in
-  Lwt_log.debug "Copying over db file" >>= fun () ->
+  Logger.debug_ "Copying over db file" >>= fun () ->
   Lwt_io.with_file
     ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
     ~mode:Lwt_io.output
     db_optimal (fun oc -> copy_store ls false oc )
   >>= fun () ->
   begin
-    Lwt_log.debug_f "Creating new db object at location %s" db_optimal >>= fun () ->
+    Logger.debug_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
     Camltc.Hotc.create db_optimal [B.BDBTLARGE] >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
-        Lwt_log.info "Optimizing db copy" >>= fun () ->
+        Logger.info_ "Optimizing db copy" >>= fun () ->
         Camltc.Hotc.optimize db_opt >>= fun () ->
-        Lwt_log.info "Optimize db copy complete"
+        Logger.info_ "Optimize db copy complete"
       )
       ( fun () ->
         Camltc.Hotc.close db_opt
@@ -232,9 +232,9 @@ let relocate ls new_location =
   copy_store2 ls.location new_location true >>= fun () ->
   let old_location = ls.location in
   let () = ls.location <- new_location in
-  Lwt_log.debug_f "Attempting to unlink file '%s'" old_location >>= fun () ->
+  Logger.debug_f_ "Attempting to unlink file '%s'" old_location >>= fun () ->
   File_system.unlink old_location >>= fun () ->
-  Lwt_log.debug_f "Successfully unlinked file at '%s'" old_location
+  Logger.debug_f_ "Successfully unlinked file at '%s'" old_location
 
 
 let get_fringe ls border direction =
@@ -249,10 +249,10 @@ let get_fringe ls border direction =
                   let k = B.key lcdb cursor in
                   if k.[0] <> __adminprefix.[0]
                   then
-                    Lwt.ignore_result ( Lwt_log.debug_f "Not skipping key: %s" k )
+                    Lwt.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
                   else
                     begin
-                      Lwt.ignore_result ( Lwt_log.debug_f "Skipping key: %s" k );
+                      Lwt.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
                       begin
                         try
                           B.next lcdb cursor;
@@ -283,7 +283,7 @@ let get_fringe ls border direction =
             B.last, B.prev, cmp
     end
   in
-  Lwt_log.debug_f "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
+  Logger.debug_f_ "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
   let buf = Buffer.create 128 in
   Lwt.finalize
     (fun () ->
@@ -327,7 +327,7 @@ let get_fringe ls border direction =
         )
     )
     (fun () ->
-      Lwt_log.debug_f "buf:%s" (Buffer.contents buf)
+      Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
 let make_store read_only db_name =
@@ -336,7 +336,7 @@ let make_store read_only db_name =
     then B.readonly_mode
     else B.default_mode
   in
-  Lwt_log.debug_f "Creating local store at %s" db_name >>= fun () ->
+  Logger.debug_f_ "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
   >>= fun db ->
   Lwt.return { db = db;

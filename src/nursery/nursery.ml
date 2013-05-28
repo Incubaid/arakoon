@@ -19,11 +19,14 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
+
 open Lwt
 open Routing
 open Client_cfg
 open Ncfg
 open Interval
+
+let section = Logger.Section.main
 
 let so2s = Log_extra.string_option2s
 
@@ -85,7 +88,7 @@ module NC = struct
   let _find_master_remote t cn = 
     let ccfg = NCFG.get_cluster t.rc cn in
     let node_names = ClientCfg.node_names ccfg in
-    Lwt_log.debug_f "names:%s" (Log_extra.list2s (fun s->s) node_names) 
+    Logger.debug_f_ "names:%s" (Log_extra.list2s (fun s->s) node_names) 
     >>= fun () ->
     Lwt_list.map_s 
       (fun n -> 
@@ -104,10 +107,10 @@ module NC = struct
     in
     Lwt_list.fold_left_s get_master None connections >>= function 
       | None -> 
-        Lwt_log.error_f "Could not find master for cluster %s" cn >>= fun () ->
+        Logger.error_f_ "Could not find master for cluster %s" cn >>= fun () ->
         Lwt.fail (Failure "Could not find master.")
       | Some m ->
-        Lwt_log.debug_f "Found master %s" m >>= fun () ->
+        Logger.debug_f_ "Found master %s" m >>= fun () ->
         Lwt.return m
    
     
@@ -119,7 +122,7 @@ module NC = struct
       | Some master -> Lwt.return master 	  
 
   let _with_master_connection t cn (todo: connection -> 'c Lwt.t) =
-    Lwt_log.debug_f "_with_master_connection %s" cn >>= fun () ->
+    Logger.debug_f_ "_with_master_connection %s" cn >>= fun () ->
     _find_master t cn >>= fun master ->
     let nn = cn, master in
     _get_connection t nn >>= fun connection ->
@@ -127,7 +130,7 @@ module NC = struct
     
   let set t key value = 
     let cn = NCFG.find_cluster t.rc key in
-    Lwt_log.debug_f "set %S => %s" key cn >>= fun () ->
+    Logger.debug_f_ "set %S => %s" key cn >>= fun () ->
     let todo conn = Common.set conn key value in
     _with_master_connection t cn todo
 
@@ -137,7 +140,7 @@ module NC = struct
     _with_master_connection t cn todo
 
   let force_interval t cn i = 
-    Lwt_log.debug_f "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
+    Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
     _with_master_connection t cn 
     (fun conn -> Common.set_interval conn i)
 
@@ -146,23 +149,23 @@ module NC = struct
 
  
   let __migrate t clu_left sep clu_right finalize publish migration = 
-    Lwt_log.debug_f "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
+    Logger.debug_f_ "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
-    Lwt_log.debug_f "from:%s to:%s" from_cn to_cn >>= fun () ->
+    Logger.debug_f_ "from:%s to:%s" from_cn to_cn >>= fun () ->
     let pull () = 
-      Lwt_log.debug "pull">>= fun () ->
+      Logger.debug_ "pull">>= fun () ->
       _with_master_connection t from_cn 
         (fun conn -> Common.get_fringe conn sep direction )
     in
     let push fringe i = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
-      Lwt_log.debug "push" >>= fun () ->
+      Logger.debug_ "push" >>= fun () ->
       _with_master_connection t to_cn 
         (fun conn -> Common.migrate_range conn i seq)
     in
     let delete fringe = 
       let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
-      Lwt_log.debug "delete" >>= fun () ->
+      Logger.debug_ "delete" >>= fun () ->
       _with_master_connection t from_cn 
         (fun conn -> Common.sequence conn seq)
     in
@@ -172,9 +175,9 @@ module NC = struct
     let get_interval cn = _with_master_connection t cn Common.get_interval in
     let set_interval cn i = force_interval t cn i in
     let i2s i = Interval.to_string i in
-    Lwt_log.debug_f "Getting initial interval from %s" from_cn >>= fun () ->
+    Logger.debug_f_ "Getting initial interval from %s" from_cn >>= fun () ->
     get_interval from_cn >>= fun from_i -> 
-    Lwt_log.debug_f "Getting initial interval from %s" to_cn >>= fun () ->
+    Logger.debug_f_ "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
     let open Interval in
     let rec loop (from_i:Interval.t) (to_i:Interval.t) =
@@ -186,7 +189,7 @@ module NC = struct
           end 
         | fringe -> 
           let size = List.length fringe in
-          Lwt_log.debug_f "Length = %i" size >>= fun () ->
+          Logger.debug_f_ "Length = %i" size >>= fun () ->
 	        (* 
 	         - change public interval on 'from'
 	         - push fringe & change private interval on 'to'
@@ -210,13 +213,13 @@ module NC = struct
                 let b, _ = List.hd fringe in
                 let e, _ = List.hd( List.rev fringe ) in
                 let e = get_next_key  e in
-                Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+                Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
                 let from_i' = Interval.make (Some e) fpu_e fpr_b fpr_e in
                 set_interval from_cn from_i' >>= fun () ->
                 let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in
                 push fringe to_i1 >>= fun () ->
                 delete fringe >>= fun () ->
-                Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
+                Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in
                 set_interval to_cn to_i2 >>= fun () ->
                 let from_i2 = Interval.make (Some e) fpu_e (Some e) fpr_e in
@@ -226,13 +229,13 @@ module NC = struct
               | Routing.LOWER_BOUND ->
                 let b, _ = List.hd( List.rev fringe ) in
                 let e, _ = List.hd fringe in
-                Lwt_log.debug_f "b:%S e:%S" b e >>= fun () ->
+                Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
                 let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
                 set_interval from_cn from_i' >>= fun () ->
                 let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
                 push fringe to_i1 >>= fun () ->
                 delete fringe >>= fun () ->
-                Lwt_log.debug "Fringe now is deleted. Time to change intervals" >>= fun () ->
+                Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
                 set_interval to_cn to_i2 >>= fun () ->
                 let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
@@ -241,8 +244,8 @@ module NC = struct
           end
           >>= fun (pub, from_i2, to_i2, left, right) ->
           (* set_interval to_cn to_i1 >>= fun () -> *)
-          Lwt_log.debug_f "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
-          Lwt_log.debug_f "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
+          Logger.debug_f_ "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
+          Logger.debug_f_ "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
           publish (Some pub) left right >>= fun () ->
           loop from_i2 to_i2
     in 
@@ -254,14 +257,14 @@ module NC = struct
     let from_cn, to_cn, direction = Routing.get_diff r clu_left sep clu_right in
     let publish sep left right = 
       let route = NCFG.get_routing t.rc in 
-      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
-      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
+      Logger.debug_f_ "old_route:%S" (Routing.to_s route) >>= fun () ->
+      Logger.debug_f_ "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
       begin
         match sep with
           | Some sep ->
             let new_route = Routing.change route left sep right in
             let () = NCFG.set_routing t.rc new_route in
-            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () -> 
             _with_master_connection t t.keeper_cn
               (fun conn -> Common.set_routing_delta conn left sep right)
           | None -> failwith "Cannot end up with an empty separator during regular migration"
@@ -270,7 +273,7 @@ module NC = struct
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
     let open Interval in
     let finalize (from_i: Interval.t) (to_i: Interval.t) = 
-      Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
+      Logger.debug_ "Setting final intervals en routing" >>= fun () ->
 
       let fpu_b = from_i.pu_b
       and fpu_e = from_i.pu_e
@@ -296,8 +299,8 @@ module NC = struct
               from_i', to_i', from_cn, to_cn
         end 
       in
-      Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
-      Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
+      Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
+      Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
       set_interval from_cn from_i' >>= fun () ->
       set_interval to_cn to_i' >>= fun () ->
       publish (Some sep) left right
@@ -305,26 +308,26 @@ module NC = struct
     __migrate t clu_left (Some sep) clu_right finalize publish (from_cn, to_cn, direction)
   
   let delete t (cluster_id: string) (sep: string option) =
-    Lwt_log.debug_f "Nursery.delete %s %s" cluster_id (so2s sep) >>= fun () -> 
+    Logger.debug_f_ "Nursery.delete %s %s" cluster_id (so2s sep) >>= fun () -> 
     let r = NCFG.get_routing t.rc in
     let lower = Routing.get_lower_sep None cluster_id r in
     let upper = Routing.get_upper_sep None cluster_id r in
     let publish sep left right = 
       let route = NCFG.get_routing t.rc in 
-      Lwt_log.debug_f "old_route:%S" (Routing.to_s route) >>= fun () ->
-      Lwt_log.debug_f "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
+      Logger.debug_f_ "old_route:%S" (Routing.to_s route) >>= fun () ->
+      Logger.debug_f_ "left: %s - sep: %s - right: %s" left (Log_extra.string_option2s sep) right >>= fun () ->
       begin
         match sep with
           | Some sep ->
             let new_route = Routing.change route left sep right in
             let () = NCFG.set_routing t.rc new_route in
-            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () -> 
             _with_master_connection t t.keeper_cn
               (fun conn -> Common.set_routing_delta conn left sep right)
           | None -> 
             let new_route = Routing.remove route cluster_id in
             let () = NCFG.set_routing t.rc new_route in
-            Lwt_log.debug_f "new route:%S" (Routing.to_s new_route) >>= fun () -> 
+            Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () -> 
             _with_master_connection t t.keeper_cn
               (fun conn -> Common.set_routing conn new_route)
       end 
@@ -332,7 +335,7 @@ module NC = struct
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
     let open Interval in
     let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) = 
-      Lwt_log.debug "Setting final intervals en routing" >>= fun () ->
+      Logger.debug_ "Setting final intervals en routing" >>= fun () ->
       let fpu_b = from_i.pu_b
       and fpu_e = from_i.pu_e
       and fpr_b = from_i.pr_b
@@ -357,14 +360,14 @@ module NC = struct
               from_i', to_i', from_cn, to_cn
         end 
       in
-      Lwt_log.debug_f "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
-      Lwt_log.debug_f "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
+      Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
+      Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
       set_interval from_cn from_i' >>= fun () ->
       set_interval to_cn to_i' >>= fun () ->
       publish sep left right
     in
     begin
-      Lwt_log.debug_f "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
+      Logger.debug_f_ "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
 	    match lower, upper with
 	      | None, None -> failwith "Cannot remove last cluster from nursery"
 	      | Some x, None ->
@@ -441,15 +444,15 @@ let nursery_test_main () =
   let test k v = 
     NC.set client k v >>= fun () ->
     NC.get client k >>= fun v' ->
-    Lwt_log.debug_f "get '%s' yields %s" k v' >>= fun () ->
-    Lwt_log.debug "done"
+    Logger.debug_f_ "get '%s' yields %s" k v' >>= fun () ->
+    Logger.debug_ "done"
   in
   let t () = 
     test "a" "A" >>= fun () ->
     test "z" "Z" 
   *)
   let t () = 
-    Lwt_log.info "pre-fill" >>= fun () ->
+    Logger.info_ "pre-fill" >>= fun () ->
     let rec fill i = 
       if i = 64 
       then Lwt.return () 

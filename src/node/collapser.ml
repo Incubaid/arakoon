@@ -24,23 +24,25 @@ open Lwt
 type 'a store_maker= ?read_only:bool -> string -> 'a Lwt.t
 open Tlogcommon
 
+let section = Logger.Section.main
+
 let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     (module S : Store.STORE with type t = s) (copy_store, head_location)
     (too_far_i:Sn.t)
     (cb: Sn.t -> unit Lwt.t) =
   
   let new_location = head_location ^ ".clone" in
-  Lwt_log.debug_f "Creating db clone at %s" new_location >>= fun () ->
+  Logger.debug_f_ "Creating db clone at %s" new_location >>= fun () ->
   Lwt.catch (
     fun () ->
       copy_store head_location new_location true 
     ) (
      function 
-      | Not_found -> Lwt_log.debug_f "head db at '%s' does not exist" head_location
+      | Not_found -> Logger.debug_f_ "head db at '%s' does not exist" head_location
       | e -> fail e
     )
   >>= fun () ->
-  Lwt_log.debug_f "Creating store at %s" new_location >>= fun () ->
+  Logger.debug_f_ "Creating store at %s" new_location >>= fun () ->
   S.make_store new_location >>= fun new_store ->
   Lwt.finalize (
     fun () ->
@@ -72,8 +74,8 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		      let lo = Sn.add start_i   (Sn.of_int 10) in
 		      let hi = Sn.sub too_far_i (Sn.of_int 10) in
 		      function 
-		        | b when b < lo || b > hi ->  Lwt_log.debug_f "%s => store" (Sn.string_of b)
-		        | b when b = lo -> Lwt_log.debug " ... => store"
+		        | b when b < lo || b > hi ->  Logger.debug_f_ "%s => store" (Sn.string_of b)
+		        | b when b = lo -> Logger.debug_ " ... => store"
 		        | _ -> Lwt.return ()
 		    end 
 		  in
@@ -86,7 +88,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		        | None ->
 		          begin
 		            let () = acc := Some(i,value) in
-		            Lwt_log.debug_f "update %s has no previous" (Sn.string_of i) 
+		            Logger.debug_f_ "update %s has no previous" (Sn.string_of i) 
 		            >>= fun () ->
 		            Lwt.return ()
 		          end
@@ -110,13 +112,13 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		            end
 		          else
 		            begin
-		              Lwt_log.debug_f "%s => skip" (Sn.string_of pi) >>= fun () ->
+		              Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
 		              let () = acc := Some(i,value) in
 		              Lwt.return ()
 		            end
 		    end
 		  in
-		  Lwt_log.debug_f "collapse_until: start_i=%s" (Sn.string_of start_i) 
+		  Logger.debug_f_ "collapse_until: start_i=%s" (Sn.string_of start_i) 
 		              >>= fun () ->
 		  tlog_coll # iterate start_i too_far_i add_to_store 
 		              >>= fun () ->
@@ -129,20 +131,20 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		    end
 		  in
 		  
-		  Lwt_log.debug_f "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
+		  Logger.debug_f_ "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
 		  begin
 		    if si = Sn.pred (Sn.pred too_far_i) then
 		      Lwt.return ()
 		    else
 		      let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
-		      Lwt_log.debug msg >>= fun () ->
+		      Logger.debug_ msg >>= fun () ->
 		      S.close new_store >>= fun () ->
 		      Lwt.fail (Failure msg)
 		  end
 		    
 	  end
 	  >>= fun () ->
-	  Lwt_log.debug_f "Relocating store to %s" head_location >>= fun () ->
+	  Logger.debug_f_ "Relocating store to %s" head_location >>= fun () ->
 	  S.relocate new_store head_location
   ) 
     ( 
@@ -159,7 +161,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
       Lwt.return head_io
     )
     (fun exn -> 
-      Lwt_log.info_f ~exn "returning assuming no I %S" head_location >>= fun () ->
+      Logger.info_f_ ~exn "returning assuming no I %S" head_location >>= fun () ->
       Lwt.return None
     )
 
@@ -168,32 +170,32 @@ let collapse_many (type s) tlog_coll
     store_fs
     tlogs_to_keep cb' cb =
   
-  Lwt_log.debug_f "collapse_many" >>= fun () ->
+  Logger.debug_f_ "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
-  Lwt_log.debug_f "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
+  Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let (_,(head_location:string)) = store_fs in
   _head_i (module S) head_location >>= fun head_io ->
   let last_i = tlog_coll # get_last_i () in
-  Lwt_log.debug_f "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
+  Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
   >>= fun () ->
   let head_i = match head_io with None -> Sn.start | Some i -> i in
   let lag = Sn.to_int (Sn.sub last_i head_i) in
   let npt = !Tlogcommon.tlogEntriesPerFile in
   let tlog_lag = (lag +npt - 1)/ npt in
   let tlogs_to_collapse = tlog_lag - tlogs_to_keep - 1 in
-  Lwt_log.debug_f "tlog_lag = %i; tlogs_to_collapse = %i" tlog_lag tlogs_to_collapse >>= fun () ->
+  Logger.debug_f_ "tlog_lag = %i; tlogs_to_collapse = %i" tlog_lag tlogs_to_collapse >>= fun () ->
   if tlogs_to_collapse <= 0
   then
-    Lwt_log.info_f "Nothing to collapse..." >>= fun () -> 
+    Logger.info_f_ "Nothing to collapse..." >>= fun () -> 
     cb' 0
   else
     begin
-      Lwt_log.info_f "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
+      Logger.info_f_ "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
       cb' (tlogs_to_collapse+1) >>= fun () ->
       tlog_coll # get_infimum_i() >>= fun tlc_min ->
       let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
-      Lwt_log.debug_f "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
+      Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
       collapse_until tlog_coll (module S) store_fs g_too_far_i cb >>= fun () ->
       tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
       cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) 
