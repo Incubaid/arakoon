@@ -38,6 +38,13 @@ let _make_log_cfg () =
      tcp_messaging = None;
    })
 
+let _make_batched_transaction_cfg () =
+  ("batched_transaction_config",
+   {
+     max_entries = None;
+     max_size = None;
+   })
+
 let _make_cfg name n lease_period =
   {
     node_name = name;
@@ -49,6 +56,7 @@ let _make_cfg name n lease_period =
     log_dir = "none";
     log_level = "DEBUG";
     log_config = Some "log_cfg";
+    batched_transaction_config = Some "batched_transaction_config";
     lease_period = lease_period;
     master = Elected;
     is_laggy = false;
@@ -116,6 +124,7 @@ let post_failure () =
   let cluster_cfg = {
     cfgs = [node0_cfg;node1_cfg;node2_cfg] ;
     log_cfgs = [_make_log_cfg ()];
+    batched_transaction_cfgs = [_make_batched_transaction_cfg ()];
     _master = Elected;
     quorum_function = Quorum.quorum_function;
     _lease_period = 2;
@@ -172,6 +181,7 @@ let restart_slaves () =
   let cluster_cfg = 
     {cfgs = [node0_cfg;node1_cfg;node2_cfg];
      log_cfgs = [_make_log_cfg ()];
+     batched_transaction_cfgs = [_make_batched_transaction_cfg ()];
      _master = Elected;
      quorum_function = Quorum.quorum_function;
      _lease_period = 2;

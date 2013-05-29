@@ -46,6 +46,7 @@ module Node_cfg = struct
         log_dir:string;
         log_level:string;
         log_config:string option;
+        batched_transaction_config:string option;
         lease_period:int;
         master: master;
         is_laggy : bool;
@@ -56,27 +57,29 @@ module Node_cfg = struct
         reporting: int;
        }
 
+  let _so2s = Log_extra.string_option2s
+
   let string_of (t:t) =
-    begin
-      let template =
-	"{node_name=%S; ips=%s; client_port=%d; " ^^
-	  "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
-	  "log_dir=%S; log_level:%S; log_config=%s; lease_period=%i; " ^^
-	  "master=%S; is_laggy=%b; is_learner=%b; " ^^
-	  "targets=%s; use_compression=%b; is_test=%b; " ^^
-	  "reporting=%i; " ^^
-	  "}"
-      in
-      Printf.sprintf template
-	t.node_name 
-        (list2s (fun s -> s) t.ips)
-        t.client_port 
-	t.messaging_port t.home t.tlog_dir
-	t.log_dir t.log_level (Log_extra.string_option2s t.log_config) t.lease_period
-	(master2s t.master) t.is_laggy t.is_learner
-	(list2s (fun s -> s) t.targets) t.use_compression t.is_test
-	t.reporting
-    end
+    let template =
+      "{node_name=%S; ips=%s; client_port=%d; " ^^
+        "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
+        "log_dir=%S; log_level:%S; log_config=%s; " ^^
+        "batched_transaction_config=%s; lease_period=%i; " ^^
+        "master=%S; is_laggy=%b; is_learner=%b; " ^^
+        "targets=%s; use_compression=%b; is_test=%b; " ^^
+        "reporting=%i; " ^^
+        "}"
+    in
+    Printf.sprintf template
+      t.node_name
+      (list2s (fun s -> s) t.ips)
+      t.client_port
+      t.messaging_port t.home t.tlog_dir
+      t.log_dir t.log_level (_so2s t.log_config)
+      (_so2s t.batched_transaction_config) t.lease_period
+      (master2s t.master) t.is_laggy t.is_learner
+      (list2s (fun s -> s) t.targets) t.use_compression t.is_test
+      t.reporting
 
   type log_cfg =
       {
@@ -85,9 +88,39 @@ module Node_cfg = struct
         tcp_messaging: string option;
       }
 
+  let string_of_log_cfg lcfg =
+    Printf.sprintf "{ client_protocol=%s; paxos=%s; tcp_messaging=%s }"
+      (_so2s lcfg.client_protocol) (_so2s lcfg.paxos) (_so2s lcfg.tcp_messaging)
+
+  let get_default_log_config () =
+    {
+      client_protocol = None;
+      paxos = None;
+      tcp_messaging = None;
+    }
+
+  type batched_transaction_cfg =
+      {
+        max_entries : int option;
+        max_size : int option;
+      }
+
+  let string_of_btc (btc:batched_transaction_cfg) =
+    Printf.sprintf "{ max_entries=%s; max_size=%s }"
+      (Log_extra.int_option2s btc.max_entries)
+      (Log_extra.int_option2s btc.max_size)
+
+  let get_default_batched_transaction_config () =
+    {
+      max_entries = None;
+      max_size = None;
+    }
+
   type cluster_cfg =
-    { cfgs: t list;
+    {
+      cfgs: t list;
       log_cfgs: (string * log_cfg) list;
+      batched_transaction_cfgs : (string * batched_transaction_cfg) list;
       _master: master;
       quorum_function: int -> int;
       _lease_period: int;
@@ -100,12 +133,29 @@ module Node_cfg = struct
       client_buffer_capacity: int;
     }
 
-  let get_default_log_config () =
-    {
-      client_protocol = None;
-      paxos = None;
-      tcp_messaging = None;
-    }
+  let string_of_cluster_cfg cluster_cfg =
+    let buffer = Buffer.create 200 in
+    Buffer.add_string buffer "{ node_cfgs=[ ";
+    List.iter (fun cfg -> Buffer.add_string buffer (string_of cfg); Buffer.add_string buffer ",") cluster_cfg.cfgs;
+    List.iter (fun (name,lcfg) ->
+      Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
+      Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
+    List.iter (fun (name,btcfg) ->
+      Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
+      Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
+    Buffer.add_string buffer "; nursery_cfg=";
+    Buffer.add_string buffer (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg) cluster_cfg.nursery_cfg);
+    Buffer.add_string buffer
+      (Printf.sprintf
+         ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
+          ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
+          ^^ "client_buffer_capacity=%i }")
+         (master2s cluster_cfg._master) cluster_cfg._lease_period cluster_cfg.cluster_id
+         (List.fold_left (^) "" cluster_cfg.plugins)
+         (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
+         cluster_cfg.max_value_size cluster_cfg.max_buffer_size
+         cluster_cfg.client_buffer_capacity);
+    Buffer.contents buffer
 
   let make_test_config 
       ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
@@ -114,23 +164,24 @@ module Node_cfg = struct
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
       {
-	    node_name = node_name n;
-	    ips = ["127.0.0.1"];
-	    client_port = (base + n);
-	    messaging_port = (base + 10 + n);
-	    home = home;
-	    tlog_dir = home;
-	    log_dir = ":None";
-	    log_level = "DEBUG";
+        node_name = node_name n;
+        ips = ["127.0.0.1"];
+        client_port = (base + n);
+        messaging_port = (base + 10 + n);
+        home = home;
+        tlog_dir = home;
+        log_dir = ":None";
+        log_level = "DEBUG";
         log_config = Some "default_log_config";
-	    lease_period = lease_period;
-	    master = master;
-	    is_laggy = false;
-	    is_learner = false;
-	    targets = [];
+        batched_transaction_config = Some "default_batched_transaction_config";
+        lease_period = lease_period;
+        master = master;
+        is_laggy = false;
+        is_learner = false;
+        targets = [];
         use_compression = true;
-	    is_test = true;
-	    reporting = 300;
+        is_test = true;
+        reporting = 300;
       }
     in
     let rec loop acc = function
@@ -139,12 +190,14 @@ module Node_cfg = struct
 	     loop (o::acc) (n-1)
     in
     let log_cfgs = [("default_log_config", get_default_log_config ())] in
+    let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
     let overwrite_tlog_entries = None in
     let cluster_cfg = { 
       cfgs;
       log_cfgs;
+      batched_transaction_cfgs;
       nursery_cfg = None;
       _master = master;
       quorum_function;
@@ -272,6 +325,15 @@ module Node_cfg = struct
       tcp_messaging;
     }
 
+  let _batched_transaction_config inifile section_name =
+    let get_option_int x = Ini.get inifile section_name x (Ini.p_option Ini.p_int) (Ini.default None) in
+    let max_entries = get_option_int "max_entries" in
+    let max_size = get_option_int "max_size" in
+    {
+      max_entries;
+      max_size;
+    }
+
   let _node_config inifile node_name master =
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
@@ -286,6 +348,7 @@ module Node_cfg = struct
     in
     let log_level = String.lowercase (get_string "log_level")  in
     let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
+    let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
@@ -309,6 +372,7 @@ module Node_cfg = struct
      log_dir;
      log_level;
      log_config;
+     batched_transaction_config;
      lease_period;
      master;
      is_laggy;
@@ -344,10 +408,19 @@ module Node_cfg = struct
         else
           a)
       [] (inifile # sects) in
+    let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
+    let batched_transaction_cfgs = List.fold_left
+      (fun a section ->
+        if List.mem (Some section) batched_transaction_cfg_names
+        then
+          let batched_transaction_cfg = _batched_transaction_config inifile section in
+          (section, batched_transaction_cfg)::a
+        else
+          a)
+      [] (inifile # sects) in
     let () = if List.length remaining > 0 then
 	failwith ("Can't find config section for: " ^ (String.concat "," remaining))
-    in  
-    
+    in
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
     let cluster_id = _get_cluster_id inifile in
@@ -359,6 +432,7 @@ module Node_cfg = struct
     let cluster_cfg = 
       { cfgs;
         log_cfgs;
+        batched_transaction_cfgs;
         nursery_cfg = m_n_cfg;
 	    _master = fm;
 	    quorum_function;

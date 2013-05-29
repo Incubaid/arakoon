@@ -33,6 +33,9 @@ sig
   val _tranabort : t -> unit
 end
 
+let max_entries = ref 0
+let max_size = ref 0
+
 module Batched_store = functor (S : Extended_simple_store) ->
 struct
   type t = {
@@ -45,11 +48,13 @@ struct
 
     mutable _ls_tx : transaction option;
 
-    mutable _counter : int;
+    mutable _entries : int;
+    mutable _size : int;
   }
 
   let make_store b s =
-    S.make_store b s >>= fun s -> Lwt.return {
+    S.make_store b s >>= fun s ->
+    Lwt.return {
       s;
       _cache = StringMap.empty;
       _current_tx_cache = StringMap.empty;
@@ -59,7 +64,8 @@ struct
 
       _ls_tx = None;
 
-      _counter = 0;
+      _entries = 0;
+      _size = 0;
     }
 
   let _apply_vo_to_local_store s ls_tx k vo =
@@ -95,7 +101,8 @@ struct
 
         s._cache <- StringMap.empty;
         s._ls_tx <- None;
-        s._counter <- 0
+        s._entries <- 0;
+        s._size <- 0
       end
 
   let _sync_and_start_transaction_if_needed s =
@@ -129,7 +136,11 @@ struct
                   s._cache <-
                     StringMap.fold
                     (fun k vo acc ->
-                      s._counter <- s._counter + 1;
+                      s._entries <- s._entries + 1;
+                      (match vo with
+                        | None -> ()
+                        | Some v -> s._size <- s._size + String.length v);
+                      s._size <- s._size + String.length k;
                       StringMap.add k vo acc)
                     s._current_tx_cache
                     s._cache
@@ -140,9 +151,7 @@ struct
                   s._ls_tx <- None
           in
 
-
-          (* TODO maybe a more intelligent check to see _push_to_store if desired? *)
-          if s._counter = 200
+          if (s._entries >= !max_entries) or (s._size >= !max_size)
           then _sync_cache_to_local_store s;
 
           Lwt.return r)
@@ -173,7 +182,7 @@ struct
       match' (StringMap.find k s._current_tx_cache)
     else if StringMap.mem k s._cache
     then
-      match' (StringMap.find k s._current_tx_cache)
+      match' (StringMap.find k s._cache)
     else
       else' ()
 
