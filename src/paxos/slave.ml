@@ -90,7 +90,7 @@ let slave_steady_state (type s) constants state event =
 			                  if Sn.compare store_i prev_i == 0
 			                  then 
                                 begin
-			                      log_f constants.me "Preventing re-push of : %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
+			                      Logger.debug_f_ "%s: Preventing re-push of : %s. Store at %s" constants.me (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () -> 
                                   Lwt.return [Store.Ok None]
                                 end
 			                  else
@@ -237,7 +237,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
       begin
 	    let send = constants.send in
 	    let me = constants.me in
-	    log_f me "slave_wait_for_accept n=%s:: received %S from %s" 
+	    Logger.debug_f_ "%s: slave_wait_for_accept n=%s:: received %S from %s" me 
 	      (Sn.string_of n) (string_of msg) source
 	    >>= fun () ->
 	    match msg with
@@ -282,17 +282,17 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 		                else Lwt.return ()
 	                  end >>= fun () ->
                       match maybe_previous with
-		                | None -> begin log_f me "No previous" >>= fun () -> Lwt.return() end
+		                | None -> begin Logger.debug_f_ "%s: No previous" me >>= fun () -> Lwt.return() end
 		                | Some( pv, pi ) -> 
                           let store_i = S.consensus_i constants.store in
                           begin
 		                    match store_i with
 		                      | Some s_i ->
 			                    if (Sn.compare s_i pi) == 0 
-			                    then log_f me "slave_wait_for_accept: Not pushing previous"
+			                    then Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
 			                    else 
 			                      begin
-			                        log_f me "slave_wait_for_accept: Pushing previous (%s %s)" 
+			                        Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me 
 			                          (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
 			                        constants.on_consensus(pv,n,pi) >>= fun _ ->
 			                        Lwt.return ()
@@ -301,7 +301,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
                           end
                     end >>= fun _ ->
 	              let reply = Accepted(n,i') in
-	              log_f me "replying with %S" (string_of reply) >>= fun () ->
+	              Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
 	              send reply me source >>= fun () -> 
 	              (* TODO: should assert we really have a MasterSet here *)
 	              Fsm.return (Slave_steady_state (n, Sn.succ i', v))
@@ -421,7 +421,7 @@ let slave_discovered_other_master (type s) constants state () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   if current_i < future_i then
     begin
-      log_f me "slave_discovered_other_master: catching up from %s" master >>= fun() ->
+      Logger.debug_f_ "%s: slave_discovered_other_master: catching up from %s" me master >>= fun() ->
       let m_val = tlog_coll # get_last_value current_i in
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
