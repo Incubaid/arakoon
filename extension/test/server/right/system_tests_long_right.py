@@ -350,7 +350,7 @@ def test_drop_master():
     Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
 
 
-def test_drop_master_with_load_(client):
+def _test_drop_master_with_load_(client):
     global busy, excs
 
     n = 10
@@ -411,7 +411,7 @@ def test_drop_master_with_load():
             excs.append(ex)
             raise ex
 
-    test_drop_master_with_load_(client)
+    _test_drop_master_with_load_(client)
 
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
@@ -425,7 +425,7 @@ def test_drop_master_with_load_and_verify():
             excs.append(ex)
             raise ex
 
-    test_drop_master_with_load_(client)
+    _test_drop_master_with_load_(client)
 
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
