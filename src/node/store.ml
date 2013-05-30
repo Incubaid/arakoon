@@ -340,15 +340,15 @@ struct
   let _set_j store tx j =
     S.set store.s tx __j_key (string_of_int j)
 
-  let _get_new_i store =
-    let old_i = _consensus_i store.s in
+  let _new_i old_i =
     let new_i = match old_i with
       | None -> Sn.start
       | Some i -> Sn.succ i in
-    (new_i, old_i)
+    new_i
 
   let _incr_i store tx =
-    let (new_i, old_i) = _get_new_i store in
+    let old_i = _consensus_i store.s in
+    let new_i = _new_i old_i in
     let new_is =
       let buf = Buffer.create 10 in
       let () = Sn.sn_to buf new_i in
@@ -364,7 +364,7 @@ struct
     if store.quiesced
     then
       begin
-        let new_i, old_i = _get_new_i store in
+        let new_i = _new_i store.store_i in
         store.store_i <- Some new_i;
         Lwt.return ()
       end
