@@ -78,17 +78,17 @@ let response_rc_bool oc rc b =
   Lwt.return false
 
 let handle_exception oc exn=
-  let rc, msg, is_fatal, close_socket = match exn with
-  | XException(Arakoon_exc.E_NOT_FOUND, msg) -> Arakoon_exc.E_NOT_FOUND,msg, false, false
-  | XException(Arakoon_exc.E_GOING_DOWN, msg) ->Arakoon_exc.E_GOING_DOWN, msg, true, true
+  let rc, msg, is_fatal, close_socket, level = match exn with
+  | XException(Arakoon_exc.E_NOT_FOUND, msg) -> Arakoon_exc.E_NOT_FOUND,msg, false, false, Lwt_log.Debug
+  | XException(Arakoon_exc.E_GOING_DOWN, msg) ->Arakoon_exc.E_GOING_DOWN, msg, true, true, Lwt_log.Error
   | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
-    Arakoon_exc.E_ASSERTION_FAILED, msg, false, false
-  | XException(rc, msg) -> rc,msg, false, true
-  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false
-  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true
-  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true
+    Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Lwt_log.Debug
+  | XException(rc, msg) -> rc,msg, false, true, Lwt_log.Error
+  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false, Lwt_log.Debug
+  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true, Lwt_log.Error
+  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true, Lwt_log.Error
   in
-  Lwt_log.error_f "Exception during client request (%s) => rc:%lx msg:%s" 
+  Lwt_log.log_f ~level "Exception during client request (%s) => rc:%lx msg:%s" 
     (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg
   >>= fun () ->
   
