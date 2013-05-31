@@ -26,7 +26,7 @@ open Update
 
 let section = Logger.Section.main
 
-module S = (val (Store.make_store_module (module Local_store)))
+module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _should_fail x error_msg success_msg =
   Lwt.catch 
@@ -74,7 +74,7 @@ let test_collapse_until dn =
         Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Local_store.copy_store2, storename)
+  let store_methods = (Batched_store.Local_store.copy_store2, storename)
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun s -> Lwt.return () in
@@ -113,7 +113,7 @@ let test_collapse_many dn =
 	    Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Local_store.copy_store2, storename) in
+  let store_methods = (Batched_store.Local_store.copy_store2, storename) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 3 cb' cb >>= fun () ->

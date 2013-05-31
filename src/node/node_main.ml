@@ -98,7 +98,25 @@ let _config_logging me get_cfgs =
     begin
       Lwt.return None
     end
-      
+
+let _config_batched_transactions node_cfg cluster_cfg =
+  let get_optional o default = match o with
+    | None -> default
+    | Some v -> v in
+  let set_max e s =
+    Batched_store.max_entries := get_optional e 200;
+    Batched_store.max_size := get_optional s 100_000;
+  in
+  match node_cfg.batched_transaction_config with
+    | None ->
+        set_max None None;
+    | Some btc ->
+        let (_, btc') =
+          try
+            List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
+          with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
+        set_max btc'.max_entries btc'.max_size
+
 let _config_messaging me others cookie laggy lease_period max_buffer_size =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
@@ -162,14 +180,7 @@ let log_prelude cluster_cfg =
   Logger.info_f_ "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
   Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
   Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
-  Logger.info_f_ "max_value_size: %i" cluster_cfg.max_value_size                 >>= fun () ->
-  Logger.info_f_ "max_buffer_size: %i" cluster_cfg.max_buffer_size               >>= fun () ->
-  Logger.info_f_ "client_buffer_capacity: %i" cluster_cfg.client_buffer_capacity >>= fun () -> 
-  let ncfgo = cluster_cfg.nursery_cfg in
-  let p2s (nc,cfg) =  Printf.sprintf "(%s,%s)" nc (ClientCfg.to_string cfg) in
-  let ccfg_s = Log_extra.option2s p2s ncfgo in
-  Logger.info_f_ "client_cfg=%s" ccfg_s
-    
+  Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
 
@@ -201,7 +212,8 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
     ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-  tlc # close () 
+  tlc # close () >>= fun () ->
+  S.close store
   
     
     
@@ -306,6 +318,7 @@ let _main_2 (type s)
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
+  _config_batched_transactions me cluster_cfg;
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
   if catchup_only 
   then 
@@ -652,7 +665,7 @@ let _main_2 (type s)
       
       
 let main_t make_config name daemonize catchup_only : int Lwt.t =
-  let module S = (val (Store.make_store_module (module Local_store))) in
+  let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only

@@ -86,16 +86,36 @@ let get_construct_params db_name ~mode=
   Camltc.Hotc.create db_name ~mode [B.BDBTLARGE] >>= fun db ->
   Lwt.return db
 
-let _with_tx : 'a. t -> transaction -> (Camltc.Hotc.bdb -> 'a) -> 'a =
-  fun ls tx f ->
-    match ls._tx with
-      | None -> failwith "not in a transaction"
-      | Some (tx', db) ->
-          if tx != tx'
-          then
-            failwith "the provided transaction is not the current transaction of the store"
-          else
-            f db
+let _with_tx ls tx f =
+  match ls._tx with
+    | None -> failwith "not in a local store transaction, _with_tx"
+    | Some (tx', db) ->
+        if tx != tx'
+        then
+          failwith "the provided transaction is not the current transaction of the local store"
+        else
+          f db
+
+let _tranbegin ls =
+  let tx = new transaction in
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  ls._tx <- Some (tx, bdb);
+  Camltc.Bdb._tranbegin bdb;
+  tx
+
+let _trancommit ls =
+  match ls._tx with
+    | None -> failwith "not in a local store transaction, _trancommit"
+    | Some (tx, bdb) ->
+        Camltc.Bdb._trancommit bdb
+
+
+let _tranabort ls =
+  match ls._tx with
+    | None -> failwith "not in a local store transaction, _tranabort"
+    | Some (tx, bdb) ->
+        Camltc.Bdb._tranabort bdb;
+        ls._tx <- None
 
 let with_transaction ls f =
   let t0 = Unix.gettimeofday() in

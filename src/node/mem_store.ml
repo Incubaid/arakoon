@@ -45,6 +45,13 @@ let with_transaction ms f =
         ms.kv <- current_kv;
         Lwt.fail exn)
 
+let _verify_tx ms tx =
+  match ms._tx with
+    | None -> failwith "not in a transaction"
+    | Some tx' ->
+        if tx != tx'
+        then failwith "the provided transaction is not the current transaction of the store"
+
 let exists ms key =
     StringMap.mem key ms.kv
 
@@ -75,18 +82,21 @@ let prefix_keys ms prefix max =
     in filter_keys_list keys
 
 let delete ms tx key =
-    if StringMap.mem key ms.kv then
-	  ms.kv <- StringMap.remove key ms.kv
-    else
-	  raise (Key_not_found key)
+  _verify_tx ms tx;
+  if StringMap.mem key ms.kv then
+	ms.kv <- StringMap.remove key ms.kv
+  else
+	raise (Key_not_found key)
 
 let delete_prefix ms tx prefix =
-    let keys = prefix_keys ms prefix (-1) in
-    let () = List.iter (fun k -> delete ms tx k) keys in
-    List.length keys
+  _verify_tx ms tx;
+  let keys = prefix_keys ms prefix (-1) in
+  let () = List.iter (fun k -> delete ms tx k) keys in
+  List.length keys
 
 let set ms tx key value =
-    ms.kv <- StringMap.add key value ms.kv
+  _verify_tx ms tx;
+  ms.kv <- StringMap.add key value ms.kv
 
 let optimize ms quiesced = Lwt.return ()
 let defrag ms = Lwt.return ()
