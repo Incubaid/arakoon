@@ -55,11 +55,11 @@ let test_generic network_factory n_nodes () =
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
-  let on_accept me (v,n,i) = log_f me "on_accept(%s,%s)" (sn2s n) (sn2s i) 
+  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept(%s,%s)" me (sn2s n) (sn2s i) 
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
-    log_f me "on_consensus(%s,%s)" (sn2s n) (sn2s i) >>= fun () -> 
+    Logger.debug_f_ "%s: on_consensus(%s,%s)" me (sn2s n) (sn2s i) >>= fun () -> 
     Lwt.return [Store.Ok None]
   in
   let last_witnessed who = Sn.of_int (-1000) in
@@ -107,7 +107,7 @@ let test_generic network_factory n_nodes () =
 	     } in
 	     let t =
 	       let expected prev_key key =
-		     log_f me "node from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+		     Logger.debug_f_ "%s: node from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
 		       (Multi_paxos_type.show_transition key) >>= fun () ->
 		     match key with
 		       | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
@@ -122,7 +122,7 @@ let test_generic network_factory n_nodes () =
 	       Multi_paxos_fsm.expect_run_forced_slave 
 		     constants buffers expected steps (current_i,Sn.start)
 		   >>= fun result ->
-	       log_f me "node done." >>= fun () ->
+	       Logger.debug_f_ "%s: node done." me >>= fun () ->
 	       Lwt.return ()
 	     in
 	     _loop (t :: ts) (i-1)
@@ -130,7 +130,7 @@ let test_generic network_factory n_nodes () =
   in
   let ts = build_n (n_nodes -1) in
   let me = "c0" in
-  log_f me "%d other nodes started" (List.length ts) >>= fun () ->
+  Logger.debug_f_ "%s: %d other nodes started" me (List.length ts) >>= fun () ->
   let constants = { base with 
       me = me;
       others = all_happy;
@@ -140,7 +140,7 @@ let test_generic network_factory n_nodes () =
   } in
   let c0_t () =
     let expected prev_key key =
-      log_f me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
@@ -157,7 +157,7 @@ let test_generic network_factory n_nodes () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected steps current_n current_i
     >>= fun (v', n, i,_) ->
-    log_f me "consensus reached on n:%s" (Sn.string_of n)
+    Logger.debug_f_ "%s: consensus reached on n:%s" me (Sn.string_of n)
   in
   let addresses = List.map (fun name -> name , ("127.0.0.1", 7777)) 
     ("c0"::all_happy) in
@@ -167,10 +167,10 @@ let test_generic network_factory n_nodes () =
   *)
   let nw_run_wrap () = Lwt_unix.yield () >>= nw_run in
   Lwt.pick [
-    (Lwt.join ( (c0_t ()) :: ts) >>= fun () -> log_f me "after join");
+    (Lwt.join ( (c0_t ()) :: ts) >>= fun () -> Logger.debug_f_ "%s: after join" me);
     (nw_run_wrap () )] >>= fun () ->
   let len = Hashtbl.length values in
-  log_f me "end of main... validating len = %d" len >>= fun () ->
+  Logger.debug_f_ "%s: end of main... validating len = %d" me len >>= fun () ->
   let all_consensusses = Hashtbl.fold 
     (fun a b acc -> 
       let bs = Value.value2s b in
@@ -212,7 +212,7 @@ let test_master_loop network_factory ()  =
   in
   let updates = create_updates [] 5 in
   let finished = fun (a:Store.update_result) ->
-    log_f me "finished" >>= fun () ->
+    Logger.debug_f_ "%s: finished" me >>= fun () ->
     Lwt.return ()
   in
   let client_buffer = Lwt_buffer.create () in
@@ -224,10 +224,10 @@ let test_master_loop network_factory ()  =
       ) updates
   ) in
   let on_consensus (_,n,i) =
-    log_f me "consensus: n:%s i:%s" (sn2s n) (sn2s i) >>= fun () ->
+    Logger.debug_f_ "%s: consensus: n:%s i:%s" me (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let on_accept (v,n,i) = log_f me "accepted n:%s i:%s" (sn2s n) (sn2s i) 
+  let on_accept (v,n,i) = Logger.debug_f_ "%s: accepted n:%s i:%s" me (sn2s n) (sn2s i) 
   in
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
@@ -259,7 +259,7 @@ let test_master_loop network_factory ()  =
   let continue = ref 2 in
   let c0_t () =
     let expected prev_key key =
-      log_f me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	    | (Multi_paxos_type.Stable_master x) ->
@@ -278,7 +278,7 @@ let test_master_loop network_factory ()  =
 	     inject_buffer, 
 	     election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers expected 20 current_n i0
-    >>= fun result -> log_f me "after loop"
+    >>= fun result -> Logger.debug_f_ "%s: after loop" me
   in
   Lwt.pick [ c0_t ();]
 
@@ -296,10 +296,10 @@ let build_perfect () =
       q
   in
   let send msg source (target:string) =
-    log_f source "%s --- %s ----->? %s" source (string_of msg) target >>= fun () ->
+    Logger.debug_f_ "%s: %s --- %s ----->? %s" source source (string_of msg) target >>= fun () ->
     let q = get_q target in
     Lwt_buffer.add (Mp_msg.MPMessage.generic_of msg,source) q >>= fun () ->
-    log_f source "added to buffer of %s" target
+    Logger.debug_f_ "%s: added to buffer of %s" source target
   in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
@@ -323,9 +323,9 @@ let test_simulation filters () =
    let me = "c0" in
   let current_n = 42L in
   let current_i = 0L in
-  let on_accept me (v,n,i) = log_f me "on_accept: (%s,%s)" (sn2s n) (sn2s i) in
+  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept: (%s,%s)" me (sn2s n) (sn2s i) in
   let on_consensus me (v,n,i) =
-    log_f me "on_consensus: (%s,%s) " (sn2s n) (sn2s i)
+    Logger.debug_f_ "%s: on_consensus: (%s,%s) " me (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return [Store.Ok None]
   in
@@ -341,7 +341,7 @@ let test_simulation filters () =
   let inject_event e = Lwt_buffer.add e inject_buffer in
   let send msg source target =
     let msg_s = string_of msg in
-    log_f me "sends %s to %s" msg_s  target >>= fun () ->
+    Logger.debug_f_ "%s: sends %s to %s" me msg_s  target >>= fun () ->
     let ok = List.fold_left (fun acc f -> acc && f (msg,source,target)) true filters in
     if ok then
       begin
@@ -379,7 +379,7 @@ let test_simulation filters () =
   } in
   let c0_t () =
     let expected prev_key key =
-      log_f me "c0 from %s to %s" (Multi_paxos_type.show_transition prev_key) 
+      Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
 	(Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
 	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
@@ -393,7 +393,7 @@ let test_simulation filters () =
     Multi_paxos_fsm.expect_run_forced_master constants buffers 
       expected 50 current_n current_i
     >>= fun (v', n, i, _) ->
-    log_f me "consensus reached: (%s,%s)" (sn2s n) (sn2s i)
+    Logger.debug_f_ "%s: consensus reached: (%s,%s)" me (sn2s n) (sn2s i)
   in
   let cx_t me other =
     let inject_buffer = Lwt_buffer.create () in
@@ -408,7 +408,7 @@ let test_simulation filters () =
       }
     in
     let expected prev_key key =
-      log_f me "node from %s to %s" 
+      Logger.debug_f_ "%s: node from %s to %s" me 
 	    (Multi_paxos_type.show_transition prev_key) 
 	    (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
@@ -422,7 +422,7 @@ let test_simulation filters () =
        election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 (current_i,Sn.start)
     >>= fun result ->
-    log_f me "node done." >>= fun () ->
+    Logger.debug_f_ "%s: node done." me >>= fun () ->
     Lwt.return ()
   in
   Lwt.pick [c0_t (); 
@@ -433,7 +433,7 @@ let test_simulation filters () =
 	          Llio.lwt_failfmt "test: should have finished successfully by now";
 	        end
 	       ] >>= fun () ->
-  log_f me "after pick"
+  Logger.debug_f_ "%s: after pick" me
 
 
 let ideal    = [ (fun (msg,s,t) -> true) ]

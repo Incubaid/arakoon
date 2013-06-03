@@ -29,6 +29,16 @@ Logger.debug_f section "format%s string" "bla"
 Logger.debug_f_ "format%s string" "bla"
 => Logger.log_ section Logger.Debug (fun () -> Printf.sprintf "format%s string" "bla")
 
+
+!!!! Important note !!!
+
+Most of the time it's good when the arguments for a format string are captured in a closure, because when the arguments themselves are expensive to compute this cost might be avoided.
+The catch however is that when the computation of the arguments depends on a variable that might be changed at a later time or for example a call to Unix.gettimeofday this will also be evaluated at a later time, possibly resulting in another log message than intended.
+
+Bad examples (don't do this):
+Logger.debug_f_ "Event bla happened at time %f" (Unix.gettimeofday ())
+Logger.debug_f_ "bla bla %s" (string_of !counter)
+
 *)
 
 let rec apply e = function

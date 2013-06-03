@@ -33,13 +33,6 @@ let section =
   let () = Logger.Section.set_level s Logger.Debug in
   s
 
-let log me s =
-  Logger.log_ section Logger.Debug (fun () -> (me ^ ": " ^ s))
-
-let log_f me x =
-  Printf.ksprintf (log me) x
-
-
 let quorum_function = Quorum.quorum_function
 
 exception ConflictException of (Value.t * Value.t list)
@@ -73,7 +66,7 @@ type ballot = int * string list (* still needed, & who voted *)
 let network_of_messaging (m:messaging) =
   (* conversion since not all code is 'networked' *)
   let send msg source target =
-    log_f source "sending msg to %s: %s" target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
+    Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
     let g = MPMessage.generic_of msg in
     m # send_message g ~source ~target
   in
@@ -201,11 +194,11 @@ let start_lease_expiration_thread constants n expiration =
   let sleep_sec = float_of_int expiration in
   let t () =
     begin
-      log_f constants.me "waiting %2.1f seconds for lease to expire" sleep_sec >>= fun () ->
+      Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
+        constants.me sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log_f constants.me
-        "lease expired (%2.1f passed)=> injecting LeaseExpired event for %s"
-        sleep_sec (Sn.string_of n) >>= fun () ->
+      Logger.debug_f_ "%s: lease expired (%2.1f passed)=> injecting LeaseExpired event for %s"
+        constants.me sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
     end in
   let () = Lwt.ignore_result (t ()) in
@@ -215,9 +208,9 @@ let start_election_timeout constants n =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
   let t () = 
     begin
-      log_f constants.me "waiting %2.1f seconds for election to finish" sleep_sec >>= fun () ->
+      Logger.debug_f_ "%s: waiting %2.1f seconds for election to finish" constants.me sleep_sec >>= fun () ->
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      log_f constants.me "election (n=%s) should have finished by now." (Sn.string_of n) >>= fun () ->
+      Logger.debug_f_ "%s: election (n=%s) should have finished by now." constants.me (Sn.string_of n) >>= fun () ->
       constants.inject_event (ElectionTimeout n)
     end
   in
@@ -245,7 +238,7 @@ let handle_prepare (type s) constants dest n n' i' =
             | Some si -> Sn.succ si
 	end in
       let reply = Nak( n',(n,nak_i)) in
-      log_f me "replying with %S to learner %s" (string_of reply) dest
+      Logger.debug_f_ "%s: replying with %S to learner %s" me (string_of reply) dest
       >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return Nak_sent 
@@ -256,7 +249,7 @@ let handle_prepare (type s) constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
 	    begin 
-          log_f me "handle_prepare: Dropping prepare - lease still active" 
+          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me 
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
 	        
@@ -277,7 +270,7 @@ let handle_prepare (type s) constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            log_f me "NAK:other node is behind: i':%s nak_max:%s" 
+            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me 
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply) 
           else
@@ -285,7 +278,7 @@ let handle_prepare (type s) constants dest n n' i' =
               (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
-              log_f me "handle_prepare: starting election timer" >>= fun () ->
+              Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
@@ -296,7 +289,7 @@ let handle_prepare (type s) constants dest n n' i' =
 		        Lwt.return(Promise_sent_up2date, reply)
             end 
 	    end >>= fun (ret_val, reply) ->
-      log_f me "handle_prepare replying with %S" (string_of reply) >>= fun () ->
+      Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end
