@@ -161,6 +161,45 @@ import RemoteControlProtocol as RCP
 from threading import Thread
 import os
 
+def fake_download(sn):
+    config = C.getConfig(sn)
+    sn_ip = config['ip']
+    sn_port = int(config['client_port'])
+    s = RCP.make_socket(sn_ip,sn_port)
+    RCP._prologue(C.cluster_id,s)
+    cmd = RCP._int_to(RCP._DOWNLOAD_DB | RCP._MAGIC)
+    s.send(cmd)
+    RCP.check_error_code(s)
+    db_size = RCP._receive_int64(s)
+    logging.debug("%s:db_size=%i", sn, db_size)
+    fn = '/tmp/%s.txt' % sn
+
+    try:
+        os.unlink(fn)
+    except:
+        pass
+
+    tmpf = file(fn,'w')
+    i = 0
+    n = 60
+    buf = db_size / n
+    total = 0
+    while i < n:
+        data = s.recv(buf)
+        ldata = len(data)
+        total += ldata
+        tmpf.write("%s read %i\t%i: (%i/%i)\n" % (sn, ldata, i,total, db_size))
+        tmpf.flush()
+        if ldata == 0:
+            tmpf.write("stopping")
+            break
+        time.sleep(1.0)
+        i = i + 1
+    tmpf.close()
+
+    logging.debug("done")
+    s.close()
+
 @with_custom_setup(C.default_setup, C.basic_teardown)
 def test_download_db_dead_master():
 
@@ -173,51 +212,13 @@ def test_download_db_dead_master():
     cluster = C._getCluster()
     slaves = filter(lambda node: node !=master, C.node_names)[:2]
     logging.debug("slaves = %s", slaves)
-    # connect to 1 slave, do a fake download db 
+    # connect to 1 slave, do a fake download db
     #(send command and read slowly)
     # then kill master, wait and see if another surfaces
     #
-    def fake_download(sn):
-        config = C.getConfig(sn)
-        sn_ip = config['ip']
-        sn_port = int(config['client_port'])
-        s = RCP.make_socket(sn_ip,sn_port)
-        RCP._prologue(C.cluster_id,s)
-        cmd = RCP._int_to(RCP._DOWNLOAD_DB | RCP._MAGIC)
-        s.send(cmd)
-        RCP.check_error_code(s)
-        db_size = RCP._receive_int64(s)
-        logging.debug("%s:db_size=%i", sn, db_size)
-        fn = '/tmp/%s.txt' % sn
-
-        try:
-            os.unlink(fn)
-        except: 
-            pass
-
-        tmpf = file(fn,'w')
-        i = 0
-        n = 60
-        buf = db_size / n
-        total = 0
-        while i < n:
-            data = s.recv(buf)
-            ldata = len(data)
-            total += ldata
-            tmpf.write("%s read %i\t%i: (%i/%i)\n" % (sn, ldata, i,total, db_size))
-            tmpf.flush()
-            if ldata == 0:
-                tmpf.write("stopping")
-                break
-            time.sleep(1.0)
-            i = i + 1
-        tmpf.close()
-
-        logging.debug("done")
-        s.close()
 
     s0 = slaves[0]
-    s1 = slaves[1]    
+    s1 = slaves[1]
     t0 = Thread(target = fake_download,args=[s0])
     t1 = Thread(target = fake_download,args=[s1])
 
@@ -231,5 +232,36 @@ def test_download_db_dead_master():
     m2 = cl2.whoMaster()
     logging.debug("master2 = %s", m2)
 
+@with_custom_setup(C.default_setup, C.basic_teardown)
+def test_download_db_with_load():
+    "NOTE: this test has never failed."
+    global exn
+    exn = None
 
+    n = 43210
+    C.iterate_n_times(n, C.simple_set)
+    logging.debug("%s sets", n)
+    client = C.get_client()
+    master = client.whoMaster()
+    logging.debug("master=%s", master)
+    cluster = C._getCluster()
+    slaves = filter(lambda node: node !=master, C.node_names)[:2]
+    logging.debug("slaves = %s", slaves)
 
+    # download db from slave, slowly
+    s0 = slaves[0]
+    t0 = Thread(target = fake_download,args=[s0])
+
+    # and put some load on the system too
+    def load():
+        C.iterate_n_times(200, C.simple_set)
+    t1 = Thread(target = load)
+    t2 = Thread(target = load)
+
+    t0.start()
+    t1.start()
+    t2.start()
+
+    t0.join()
+    t1.join()
+    t2.join()
