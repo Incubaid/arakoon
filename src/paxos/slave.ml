@@ -38,14 +38,15 @@ let time_for_elections (type s) constants n' maybe_previous =
 		    | None         -> "not_in_store", ("None", Sn.start) 
 		    | Some (sm,sd) -> "stored", (sm,sd) 
 	    in
-	    let now = Int64.of_float (Unix.time()) in
+	    let now = Unix.gettimeofday () in
 	    (* 
            let ns' = Sn.string_of n' in
            log "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
 		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () -> 
         *)
-	    let diff = abs (Int64.to_int (Int64.sub now al)) in
-	    diff >= constants.lease_expiration, Printf.sprintf "diff=%i" diff
+            let alf = Int64.to_float al in
+	    let diff = now -. alf in
+	    diff >= (float constants.lease_expiration), Printf.sprintf "diff=%f" diff
       end
   end
 
@@ -55,8 +56,15 @@ let slave_fake_prepare constants (current_i,current_n) () =
   (* fake a prepare, and hopefully wake up a dormant master *)
   let log_e = ELog (fun () -> "slave_fake_prepare: sending Prepare(-1)") in
   let fake = Prepare( Sn.of_int (-1), current_i) in
+
+  let s = begin
+    if is_election constants
+    then [EStartElectionTimeout current_n]
+    else []
+  end in
   let mcast_e = EMCast fake in
-  Fsm.return ~sides:[log_e;mcast_e] (Slave_waiting_for_prepare (current_i,current_n))
+  let sides = s @ [log_e;mcast_e] in
+  Fsm.return ~sides:sides (Slave_waiting_for_prepare (current_i,current_n))
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
@@ -388,6 +396,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
           end
         else
           begin
+            start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
             Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
           end
             
