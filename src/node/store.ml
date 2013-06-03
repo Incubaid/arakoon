@@ -278,7 +278,9 @@ struct
 
   let close store =
     store.closed <- true;
-    S.close store.s
+    Logger.debug_ "closing store..." >>= fun () ->
+    S.close store.s >>= fun () ->
+    Logger.debug_ "closed store"
 
   let relocate store loc =
     S.relocate store.s loc

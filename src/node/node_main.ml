@@ -212,8 +212,9 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
     ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-  tlc # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlc # close ()
+
   
     
     
