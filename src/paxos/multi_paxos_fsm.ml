@@ -630,9 +630,10 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
               let is_still_master () =
                 match S.who_master constants.store with
                   | None -> false (* ???? *)
-                  | Some (_,al) -> let now = Int64.of_float(Unix.time()) in
-                                   let diff = abs (Int64.to_int (Int64.sub now al)) in
-                                   diff < constants.lease_expiration
+                  | Some (_,al) -> let now = Unix.gettimeofday () in
+                                   let alf = Int64.to_float al in
+                                   let diff = now -. alf in
+                                   diff < (float constants.lease_expiration)
               in
               if is_still_master () 
               then
@@ -649,6 +650,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                     Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
                     let cu_pred = S.get_catchup_start_i constants.store in
                     let new_state = (source,cu_pred,n,i') in 
+                    Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
                 end
@@ -674,8 +676,6 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
 	      end
 	    else if n' = n then
 	      begin
-	        if (am_forced_master constants me) then
-	          begin
 		        Logger.debug_f_ "%s: going to RESEND Accept messages" me >>= fun () ->
 		        let needed, already_voted = ballot in
 		        let msg = Accept(n,i,v) in
@@ -683,20 +683,11 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
 		          constants.others in
 		        Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
 		        mcast constants msg >>= fun () ->
+                start_election_timeout constants n >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
 	          end
 	        else
 	          begin
-                let log_e = 
-                  ELog (fun ()->
-		            Printf.sprintf "%s TODO: election part of election timeout" here) 
-                in
-		        Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
-	          end
-		        
-	      end
-	    else
-	      begin
 	        Fsm.return (Wait_for_accepteds state)
 	      end
       end

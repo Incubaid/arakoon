@@ -135,6 +135,46 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
+let make_f (type s) (module S : Store.STORE with type t = s) log_i acc store entry =
+  let i = Entry.i_of entry 
+  and value = Entry.v_of entry 
+  in
+  match !acc with
+    | None ->
+        let () = acc := Some(i,value) in
+        Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
+        Lwt.return ()
+    | Some (pi,pv) ->
+        if pi < i 
+        then
+          begin
+            log_i pi >>= fun () ->
+            (* not happy with this, but we need to avoid that 
+               a node in catchup thinks it's master due to 
+               some lease starting in the past *)
+            let pv' = Value.clear_master_set pv in
+            S.safe_insert_value store pi pv' >>= fun _ ->
+            let () = acc := Some(i,value) in
+            Lwt.return ()
+          end
+        else
+          begin
+            Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
+            let () = acc := Some(i,value) in
+            Lwt.return ()
+          end
+
+
+let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
+  match !acc with 
+    | None -> Lwt.return ()
+    | Some(i,value) ->
+      begin
+        Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
+        S.safe_insert_value store i value >>= fun _ -> Lwt.return ()
+      end
+
+
 let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
   Logger.info_ "replaying log to store"
   >>= fun () ->
@@ -146,7 +186,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
   in
   if Sn.compare start_i too_far_i > 0 
   then 
-    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting."
+    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting." 
       (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
@@ -157,55 +197,22 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
   >>= fun () ->
     let acc = ref None in
     let maybe_log_progress pi =
-      let (+:) = Sn.add 
+      let (+:) = Sn.add
       and border = Sn.of_int 100 in
       if pi < start_i +: border ||
-         pi +: border > too_far_i 
+         pi +: border > too_far_i
       then
-	    Logger.debug_f_ "%s => store" (Sn.string_of pi) 
-      else 
-        if Sn.rem pi border = Sn.zero 
+            Logger.debug_f_ "%s => store" (Sn.string_of pi)
+      else
+        if Sn.rem pi border = Sn.zero
         then
-          Logger.debug_f_ "... %s ..." (Sn.string_of pi) 
+          Logger.debug_f_ "... %s ..." (Sn.string_of pi)
         else
           Lwt.return ()
     in
-    let f entry =
-      let i = Entry.i_of entry 
-      and value = Entry.v_of entry 
-      in
-      match !acc with
-	    | None ->
-	      let () = acc := Some(i,value) in
-	      Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
-	      Lwt.return ()
-	        | Some (pi,pv) ->
-	          if pi < i then
-		        begin
-                  maybe_log_progress pi >>= fun () ->
-		          (* not happy with this, but we need to avoid that 
-		             a node in catchup thinks it's master due to 
-		             some lease starting in the past *)
-		          let pv' = Value.clear_master_set pv in
-		          S.safe_insert_value store pi pv' >>= fun _ ->
-		          let () = acc := Some(i,value) in
-		          Lwt.return ()
-		        end
-	          else
-		        begin
-		          Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
-		          let () = acc := Some(i,value) in
-		          Lwt.return ()
-		        end
-    in
+    let f = make_f (module S) maybe_log_progress acc store in
     tlog_coll # iterate start_i too_far_i f >>= fun () ->
-    begin
-      match !acc with 
-        | None -> Lwt.return ()
-        | Some(i,value) -> 
-            Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
-            S.safe_insert_value store i value >>= fun _ -> Lwt.return ()
-    end >>= fun () -> 
+    epilogue (module S) acc store >>= fun () ->
     let store_i' = S.consensus_i store in
     Logger.info_f_ "catchup_store completed, store is @ %s" 
       ( option2s Sn.string_of store_i')
