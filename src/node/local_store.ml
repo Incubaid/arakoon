@@ -28,6 +28,7 @@ open Log_extra
 open Store
 open Unix.LargeFile
 
+exception BdbFFatal of string
 
 module B = Camltc.Bdb
 
@@ -82,9 +83,15 @@ let copy_store2 old_location new_location overwrite =
     end
   end
 
-let get_construct_params db_name ~mode=
-  Camltc.Hotc.create db_name ~mode [B.BDBTLARGE] >>= fun db ->
-  Lwt.return db
+let safe_create db_path mode =
+  Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
+  let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
+  if List.mem Camltc.Bdb.BDBFFATAL flags
+    then Lwt.fail (BdbFFatal db_path)
+    else Lwt.return db
+
+let get_construct_params db_name ~mode =
+  safe_create db_name mode
 
 let _with_tx ls tx f =
   match ls._tx with
@@ -234,7 +241,7 @@ let optimize ls quiesced =
   >>= fun () ->
   begin
     Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
-    Camltc.Hotc.create db_optimal [B.BDBTLARGE] >>= fun db_opt ->
+    safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
         Logger.info_ "Optimizing db copy" >>= fun () ->
