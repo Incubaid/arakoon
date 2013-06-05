@@ -31,29 +31,37 @@ let section = Logger.Section.main
 
 let setup factory test_name () =
   let dn = Printf.sprintf "/tmp/%s" test_name in
+  let tlf_dir = Printf.sprintf "%s_tlf" dn in
   Logger.info_f_ "setup %s" dn >>= fun () ->
-  File_system.exists dn >>= (function
-    | true -> 
-      begin
-        Logger.info_f_ "%s exists cleaning" dn >>= fun () ->
-        let cmd = Lwt_process.shell (Printf.sprintf "rm -rf %s" dn) in
-        Lwt_process.exec cmd
-        >>= fun status ->
-        begin
-          match status with
-            | Unix.WEXITED rc when rc = 0 -> File_system.mkdir dn 0o755
-            | Unix.WEXITED rc             -> Llio.lwt_failfmt "rm -rf '%s' gave rc %i" dn rc
-            | _                           -> Llio.lwt_failfmt "rm -rf '%s' failed" dn
-        end
+  let make_dir dir =
+    File_system.mkdir dir 0o755 >>= fun () ->
+    Logger.info_f_ "created %s" dir in
+  let prepare_dir dir =
+    File_system.exists dir >>= (function
+      | true ->
+          begin
+            Logger.info_f_ "%s exists cleaning" dir >>= fun () ->
+            let cmd = Lwt_process.shell (Printf.sprintf "rm -rf %s" dir) in
+            Lwt_process.exec cmd
+            >>= fun status ->
+            begin
+              match status with
+                | Unix.WEXITED rc when rc = 0 -> make_dir dir
+                | Unix.WEXITED rc             -> Llio.lwt_failfmt "rm -rf '%s' gave rc %i" dir rc
+                | _                           -> Llio.lwt_failfmt "rm -rf '%s' failed" dir
+            end
 
-      end
-    | false -> File_system.mkdir dn 0o755
-  ) >>= fun () ->
-  Lwt.return (dn, factory)      
-  
+          end
+      | false -> make_dir dir
+    ) in
+  prepare_dir dn >>= fun () ->
+  prepare_dir tlf_dir >>= fun () ->
+  Lwt.return (dn, tlf_dir, factory)
 
 
-let teardown (dn, factory) = Logger.info_f_ "teardown %s" dn 
+
+let teardown (dn, tlf_dir, factory) =
+  Logger.info_f_ "teardown %s,%s" dn tlf_dir
 
 let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
 
@@ -67,7 +75,7 @@ let _log_repeat tlc (value:Value.t) n =
       end
   in loop Sn.start 
 
-let test_rollover (dn, factory) =
+let test_rollover (dn, tlf_dir, factory) =
   Logger.info_ "test_rollover" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
   factory dn "node_name" >>= fun c ->
@@ -77,7 +85,7 @@ let test_rollover (dn, factory) =
   Lwt.return ()
 
 
-let test_rollover_1002 (dn, factory) =
+let test_rollover_1002 (dn, tlf_dir, factory) =
   Logger.info_ "test_rollover_1002" >>= fun () ->
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
@@ -94,7 +102,7 @@ let test_rollover_1002 (dn, factory) =
   Lwt.return ()
 
 
-let test_get_value_bug (dn, factory) = 
+let test_get_value_bug (dn, tlf_dir, factory) = 
   Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun c0 ->
   let v0 = Value.create_master_value ("XXXX",0L) in
@@ -106,7 +114,7 @@ let test_get_value_bug (dn, factory) =
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
-let test_regexp (dn,factory) = 
+let test_regexp (dn, tlf_dir, factory) = 
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let fns = ["001.tlog";
 	     "000" ^ Tlc2.archive_extension;
@@ -116,7 +124,7 @@ let test_regexp (dn,factory) =
   List.iter2 (fun cr er -> OUnit.assert_equal cr er) results [true;true;false];
   Lwt.return ()
 
-let test_restart (dn, factory) =
+let test_restart (dn, tlf_dir, factory) =
   factory dn "node_name" >>= fun tlc_one ->
   let value = _make_set_v "x" "y" in
   _log_repeat tlc_one value 100 >>= fun () ->
@@ -128,7 +136,7 @@ let test_restart (dn, factory) =
 
 
 
-let test_iterate (dn, factory) =
+let test_iterate (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun  tlc ->
   let value = _make_set_v "xxx" "y" in
@@ -147,7 +155,7 @@ let test_iterate (dn, factory) =
   Lwt.return ()
 
 
-let test_iterate2 (dn, factory) = 
+let test_iterate2 (dn, tlf_dir, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun tlc ->
   let value = _make_set_v "test_iterate0" "xxx" in
@@ -165,7 +173,7 @@ let test_iterate2 (dn, factory) =
   Lwt.return ()
 
 
-let test_iterate3 (dn,factory) = 
+let test_iterate3 (dn, tlf_dir, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun tlc ->
   let value = _make_set_v "test_iterate3" "xxx" in
@@ -186,7 +194,7 @@ let test_iterate3 (dn,factory) =
 
 
 
-let test_validate_normal (dn, factory) = 
+let test_validate_normal (dn, tlf_dir, factory) = 
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "XXX" "X" in
@@ -205,13 +213,13 @@ let test_validate_normal (dn, factory) =
   OUnit.assert_equal io wanted ;
   Lwt.return ()
 
-let test_validate_corrupt_1 (dn,factory) =
+let test_validate_corrupt_1 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) -> 
   let value = _make_set_v "Incompetent" "Politicians" in
   _log_repeat tlc value 42 >>= fun () ->
   tlc # close () >>= fun () ->
-  let fn = Filename.concat dn "000.tlog" in
+  let fn = Tlc2.get_full_path dn tlf_dir "000.tlog" in
   Lwt_unix.openfile fn [Unix.O_RDWR] 0o640 >>= fun fd ->
   Lwt_unix.lseek fd 666 Unix.SEEK_SET >>= fun _ ->
   Lwt_unix.write fd "\x00\x00\x00\x00\x00\x00" 0 6 >>= fun _ ->
@@ -237,7 +245,7 @@ let test_validate_corrupt_1 (dn,factory) =
 
 let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
 
-let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn true 
+let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None true
 
 let wrap_memory name = wrap create_test_tlc name
 

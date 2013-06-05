@@ -63,7 +63,8 @@ let inject_as_head fn node_id cfg_fn =
   in
   let t () = 
     let tlog_dir = node_cfg.tlog_dir in
-    let old_head_name = Filename.concat tlog_dir Tlc2.head_fname  in
+    let tlf_dir = node_cfg.tlf_dir in
+    let old_head_name = Tlc2.get_full_path tlog_dir tlf_dir Tlc2.head_fname  in
     S.make_store old_head_name >>= fun old_head ->
     let old_head_i = S.consensus_i old_head in
     S.close old_head      >>= fun () ->
@@ -92,11 +93,11 @@ let inject_as_head fn node_id cfg_fn =
     File_system.copy_file fn old_head_name >>= fun () -> 
     Lwt_io.printlf "# [OK]">>= fun () ->
     Lwt_io.printlf "# remove superfluous .tlf files" >>= fun () ->
-    Tlc2.get_tlog_names tlog_dir >>= fun tlns ->
+    Tlc2.get_tlog_names tlog_dir tlf_dir >>= fun tlns ->
     let old_tlns = List.filter (fun tln -> let n = Tlc2.get_number tln in n < bottom_n) tlns in
     Lwt_list.iter_s 
       (fun old_tln -> 
-        let canonical = Filename.concat tlog_dir old_tln in
+        let canonical = Tlc2.get_full_path tlog_dir tlf_dir old_tln in
         Lwt_io.printlf "rm %s" canonical >>= fun () ->
         File_system.unlink canonical
       ) old_tlns >>= fun () ->

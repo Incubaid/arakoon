@@ -35,6 +35,7 @@ open Log_extra
 
 exception InvalidHomeDir of string
 exception InvalidTlogDir of string
+exception InvalidTlfDir of string
 
 module Node_cfg = struct
 
@@ -44,6 +45,7 @@ module Node_cfg = struct
         messaging_port:int;
         home:string;
         tlog_dir:string;
+        tlf_dir:string;
         log_dir:string;
         log_level:string;
         log_config:string option;
@@ -171,6 +173,7 @@ module Node_cfg = struct
         messaging_port = (base + 10 + n);
         home = home;
         tlog_dir = home;
+        tlf_dir = home;
         log_dir = ":None";
         log_level = "DEBUG";
         log_config = Some "default_log_config";
@@ -347,6 +350,9 @@ module Node_cfg = struct
       try get_string "tlog_dir" 
       with _ -> home 
     in
+    let tlf_dir =
+      try get_string "tlf_dir"
+      with _ -> tlog_dir in
     let log_level = String.lowercase (get_string "log_level")  in
     let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
@@ -370,6 +376,7 @@ module Node_cfg = struct
      messaging_port;
      home;
      tlog_dir;
+     tlf_dir;
      log_dir;
      log_level;
      log_config;

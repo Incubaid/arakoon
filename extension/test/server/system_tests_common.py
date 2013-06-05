@@ -471,7 +471,7 @@ def collapse(name, n = 1):
 def add_node ( i ):
     ni = node_names[i]
     logging.info( "Adding node %s to config", ni )
-    (db_dir,log_dir) = build_node_dir_names(ni)
+    (db_dir,log_dir,tlf_dir) = build_node_dir_names(ni)
     cluster = _getCluster()
     cluster.addNode (
         ni,
@@ -480,7 +480,8 @@ def add_node ( i ):
         messagingPort= node_msg_base_port + i, 
         logDir = log_dir,
         logLevel = 'debug',
-        home = db_dir)
+        home = db_dir,
+        tlfDir = tlf_dir)
     cluster.addLocalNode (ni )
     cluster.createDirs(ni)
 
@@ -565,7 +566,8 @@ def build_node_dir_names ( nodeName, base_dir = None ):
     data_dir = q.system.fs.joinPaths( base_dir, nodeName)
     db_dir = q.system.fs.joinPaths( data_dir, "db")
     log_dir = q.system.fs.joinPaths( data_dir, "log")
-    return (db_dir,log_dir)
+    tlf_dir = q.system.fs.joinPaths( data_dir, "tlf")
+    return (db_dir,log_dir,tlf_dir)
 
 def setup_n_nodes_base(c_id, node_names, force_master, 
                        base_dir, base_msg_port, base_client_port, 
@@ -584,12 +586,13 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     
     for i in range (n) :
         nodeName = node_names[ i ]
-        (db_dir,log_dir) = build_node_dir_names( nodeName )
+        (db_dir,log_dir,tlf_dir) = build_node_dir_names( nodeName )
         cluster.addNode(name=nodeName,
                         clientPort = base_client_port+i,
                         messagingPort = base_msg_port+i,
                         logDir = log_dir,
-                        home = db_dir )
+                        home = db_dir,
+                        tlfDir = tlf_dir)
         
         cluster.addLocalNode(nodeName)
         cluster.createDirs(nodeName)
@@ -986,7 +989,7 @@ def dir_to_fs_file_name (dir_name):
     return dir_name.replace( "/", "_")
 
 def destroy_ram_fs( node_index ) :
-    (mount_target,log_dir) = build_node_dir_names( node_names[node_index] ) 
+    (mount_target,log_dir,tlf_dir) = build_node_dir_names( node_names[node_index] ) 
     
     try :
         cmd = "umount %s" % mount_target

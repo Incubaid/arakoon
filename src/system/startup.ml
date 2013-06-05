@@ -55,6 +55,7 @@ let _make_cfg name n lease_period =
     messaging_port = 4010 + n;
     home = name;
     tlog_dir = name;
+    tlf_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
     log_config = Some "log_cfg";
@@ -69,8 +70,8 @@ let _make_cfg name n lease_period =
     reporting = 300;
   }
 
-let _make_tlog_coll tlcs values tlc_name use_compression node_id = 
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression node_id >>= fun tlc ->
+let _make_tlog_coll tlcs values tlc_name tlf_dir use_compression node_id = 
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir use_compression node_id >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 
     | v :: vs -> 
@@ -93,7 +94,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
           Hashtbl.add stores db_name store;
           Lwt.return store
       end in
-  Node_main._main_2 
+  Node_main._main_2
     (module S)
     (_make_tlog_coll tlcs values)
     get_cfgs

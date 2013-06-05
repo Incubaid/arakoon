@@ -30,8 +30,8 @@ open Tlogcommon
 
 let section = Logger.Section.main
 
-let create_test_tlc dn = Tlc2.make_tlc2 dn true
-let wrap_tlc = Tlogcollection_test.wrap create_test_tlc 
+let create_test_tlc dn = Tlc2.make_tlc2 dn (dn ^ "_tlf") true
+let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
 let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
@@ -46,22 +46,22 @@ let prepare_tlog_scenarios (dn,factory) =
   tlog_coll # close () >>= fun _ ->
   Lwt.return old_tlog_entries_value
 
-let test_interrupted_rollover (dn,factory) =
+let test_interrupted_rollover (dn, tlf_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
-  (*let fn = Filename.concat dn "001.tlog" in
+  (*let fn = Tlc2.get_full_path dn tlf_dir "001.tlog" in
   Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
   let value = Value.create_master_value ("me", 0L) in
   tlog_coll # log_value 5L value >>= fun () ->
   tlog_coll # close () >>= fun _ ->
-  Tlc2.get_tlog_names dn >>= fun tlog_names ->
+  Tlc2.get_tlog_names dn tlf_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
   Lwt.return (OUnit.assert_equal ~msg n 2) 
   
 
-let test_validate_at_rollover_boundary (dn,factory) =
+let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
   Logger.debug_ "1" >>= fun () ->
@@ -87,20 +87,20 @@ let test_validate_at_rollover_boundary (dn,factory) =
   tlog_coll # log_value 7L value >>= fun _ ->
   tlog_coll # log_value 8L value >>= fun _ ->
   tlog_coll # log_value 9L value >>= fun _ ->    
-  Tlc2.get_tlog_names dn >>= fun tlog_names ->
+  Tlc2.get_tlog_names dn tlf_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
-let test_iterate4 (dn, factory) =
+let test_iterate4 (dn, tlf_dir, factory) =
   Logger.debug_ "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun tlc ->
   let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
-  let fnc = Filename.concat dn ("000" ^ Tlc2.archive_extension) in
+  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ Tlc2.archive_extension) in
   Unix.unlink fnc;
   (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
@@ -111,7 +111,7 @@ let test_iterate4 (dn, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn,factory) = 
+let test_iterate5 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun tlc ->
   let rec loop tlc i = 
@@ -148,7 +148,7 @@ let test_iterate5 (dn,factory) =
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return () 
 
-let test_iterate6 (dn,factory) = 
+let test_iterate6 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
   factory dn "node_name" >>= fun tlc ->
@@ -193,7 +193,7 @@ let test_iterate6 (dn,factory) =
   Lwt.return () 
 
 
-let test_compression_bug (dn, factory) =
+let test_compression_bug (dn, tlf_dir, factory) =
   Logger.info_ "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
@@ -213,7 +213,7 @@ let test_compression_bug (dn, factory) =
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close () >>= fun () ->
-  File_system.stat (dn ^ "/000.tlf") >>= fun stat ->
+  File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn "node_name" >>= fun tlc2 ->
@@ -239,7 +239,7 @@ let suite = "tlc2" >:::
     ("test_restart", Tlogcollection_test.test_restart);
     ("test_iterate", Tlogcollection_test.test_iterate);
     ("test_iterate2", Tlogcollection_test.test_iterate2);
-    ("test_iterate3", Tlogcollection_test.test_iterate3);    
+    ("test_iterate3", Tlogcollection_test.test_iterate3);
     ("test_iterate4", test_iterate4);
     ("test_iterate5", test_iterate5);
     ("test_iterate6", test_iterate6);

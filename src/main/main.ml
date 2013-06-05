@@ -189,6 +189,7 @@ let main () =
   and separator = ref ""
   and right_cluster = ref ""
   and tlog_dir = ref ""
+  and tlf_dir = ref ""
   and end_i = ref None
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
@@ -229,12 +230,13 @@ let main () =
      "<filename> <key>: add a marker to a tlog");
     ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
                                  Arg.Set_string tlog_dir;
+                                 Arg.Set_string tlf_dir;
                                  Arg.Set_string filename;
                                  Arg.Rest (fun is -> 
                                    if String.length is > 0 
                                    then end_i := (Some (Scanf.sscanf is "%Li" (fun i -> i))))
                                ],
-     "<tlog_dir> <path-to-db> [<end-i>]");
+     "<tlog_dir> <tlf_dir> <path-to-db> [<end-i>]");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
 			       Arg.Set_string filename;
@@ -369,7 +371,7 @@ let main () =
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
-    | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !filename !end_i
+    | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename
