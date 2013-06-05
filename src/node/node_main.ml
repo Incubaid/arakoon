@@ -649,6 +649,10 @@ let _main_2 (type s)
               let rc = 44 in
               Logger.fatal_f_ "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
               Lwt.return rc
+          | Local_store.BdbFFatal db ->
+              let rc = 45 in
+              Logger.fatal_f_ "[rc=%i] BDBFFATAL flag set on database %s" rc db >>= fun () ->
+              Lwt.return rc
           | exn -> 
               begin
 	            Logger.fatal_ ~exn "going down" >>= fun () ->
