@@ -542,7 +542,9 @@ def test_sabotage():
     time.sleep(10)
     clu.stop()
     node_id = Common.node_names[0]
-    node_home_dir = clu.getNodeConfig(node_id) ['home']
+    node_cfg = clu.getNodeConfig(node_id)
+    node_home_dir = node_cfg ['home']
+    node_tlf_dir = node_cfg ['tlf_dir']
     q = Common.q
     files = map(lambda x : "%s/%s" % (node_home_dir, x),
                 [ "002.tlog",
@@ -561,7 +563,7 @@ def test_sabotage():
     logging.info("sleeping fo 10s")
     time.sleep(10)
     
-    size = q.system.fs.fileSize("%s/001.tlf" % node_home_dir)
+    size = q.system.fs.fileSize("%s/001.tlf" % node_tlf_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
 

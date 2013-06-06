@@ -206,7 +206,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     end
   in
   S.make_store db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.use_compression name >>= fun tlc ->
+  make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression name >>= fun tlc ->
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -445,10 +445,10 @@ let _main_2 (type s)
             end
           in
 	      Lwt.catch
-	        (fun () -> make_tlog_coll me.tlog_dir me.use_compression name ) 
+	        (fun () -> make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression name ) 
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                Tlc2.get_last_tlog me.tlog_dir >>= fun (last_c, last_tlog) ->
+                Tlc2.get_last_tlog me.tlog_dir me.tlf_dir >>= fun (last_c, last_tlog) ->
                 let tlog_i = 
                   begin
 		            match tlog_i with
@@ -468,7 +468,7 @@ let _main_2 (type s)
                       Logger.warning_f_ "Invalid tlog file found. Auto-truncating tlog %s" 
 			            last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.use_compression name
+                      make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression name
 		            end
                   else 
 		            begin
