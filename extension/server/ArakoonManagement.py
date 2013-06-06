@@ -206,26 +206,51 @@ class ArakoonCluster:
         path = self._getConfigFilePath()
         return q.config.getInifile(path)
 
-    def addLogConfig(self,
-                     name,
-                     client_protocol = "debug",
-                     paxos = "debug",
-                     tcp_messaging = "debug"):
+    def addBatchedTransactionConfig(self,
+                                    name,
+                                    max_entries = None,
+                                    max_size = None):
         """
-        Add a log config section to the configuration of the supplied cluster
+        Add a batched transaction config section to the configuration of the supplied cluster
 
-        @param name : the name of the log config section
-        @param client_protocol : the log level for the client_protocol log section
-        @param paxos : the log level for the paxos log section
-        @param tcp_messaging : the log level for the tcp_messaging log section
+        @param name the name of the batched transaction config section
+        @param max_entries the maximum amount of entries before the batched store will persist the changes to tokyo cabinet; default is None, which results in 200.
+        @param max_size the maximum combined size of the entries (in bytes) before the batched store will persist the changes to tokyo cabinet; default is None, which results in 100_000.
         """
         config = self._getConfigFile()
 
         config.addSection(name)
 
-        config.addParam(name, "client_protocol", client_protocol)
-        config.addParam(name, "paxos", paxos)
-        config.addParam(name, "tcp_messaging", tcp_messaging)
+        if max_entries is not None:
+            config.addParam(name, "max_entries", max_entries)
+        if max_size is not None:
+            config.addParam(name, "max_size", max_size)
+
+        config.write()
+
+    def addLogConfig(self,
+                     name,
+                     client_protocol = None,
+                     paxos = None,
+                     tcp_messaging = None):
+        """
+        Add a log config section to the configuration of the supplied cluster
+
+        @param name the name of the log config section
+        @param client_protocol the log level for the client_protocol log section
+        @param paxos the log level for the paxos log section
+        @param tcp_messaging the log level for the tcp_messaging log section
+        """
+        config = self._getConfigFile()
+
+        config.addSection(name)
+
+        if client_protocol is not None:
+            config.addParam(name, "client_protocol", client_protocol)
+        if paxos is not None:
+            config.addParam(name, "paxos", paxos)
+        if tcp_messaging is not None:
+            config.addParam(name, "tcp_messaging", tcp_messaging)
 
         config.write()
 
@@ -242,7 +267,8 @@ class ArakoonCluster:
                 isLearner = False,
                 targets = None,
                 isLocal = False,
-                logConfig = None):
+                logConfig = None,
+                batchedTransactionConfig = None):
         """
         Add a node to the configuration of the supplied cluster
 
@@ -259,6 +285,7 @@ class ArakoonCluster:
         @param targets : for a learner node the targets (string list) it learns from
         @param isLocal : whether this node is a local node and should be added to the local nodes list
         @param logConfig : specifies the log config to be used for this node
+        @param batchedTransactionConfig : specifies the batched transaction config to be used for this node
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -271,10 +298,10 @@ class ArakoonCluster:
             raise Exception("node %s already present" % name )
         if not isLearner:
             nodes.append(name)
-        
+
         config.addSection(name)
         config.addParam(name, "name", name)
-        
+
         if type(ip) == types.StringType:
             config.addParam(name, "ip", ip)
         elif type(ip) == types.ListType:
@@ -292,12 +319,15 @@ class ArakoonCluster:
         if logConfig is not None:
             config.addParam(name, "log_config", logConfig)
 
+        if batchedTransactionConfig is not None:
+            config.addParam(name, "batched_transaction_config", batchedTransactionConfig)
+
         if wrapper is not None:
             config.addParam(name, "wrapper", wrapper)
-        
+
         if logDir is None:
             logDir = q.system.fs.joinPaths(q.dirs.logDir, self._clusterId, name)
-        config.addParam(name, "log_dir", logDir) 
+        config.addParam(name, "log_dir", logDir)
 
         if home is None:
             home = q.system.fs.joinPaths(q.dirs.varDir, "db", self._clusterId, name)
