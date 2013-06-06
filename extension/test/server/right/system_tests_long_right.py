@@ -527,7 +527,16 @@ def test_disable_tlog_compression():
     tlog_len = len(tlogs)
     assert_equals(tlog_len, expected, 
                   "Wrong number of uncompressed tlogs (%d != %d)" % (expected, tlog_len)) 
- 
+
+@Common.with_custom_setup(Common.default_setup, Common.basic_teardown)
+def test_fsync():
+    c = _getCluster()
+    c.enableFsync()
+    c.restart()
+    time.sleep(2)
+    c.disableFsync()
+    c.restart()
+    time.sleep(2)
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
