@@ -1086,7 +1086,7 @@ class ArakoonCluster:
                 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
-        cmd = ['pgrep','-f', line]
+        cmd = ['pgrep','-fn', line]
         proc = subprocess.Popen(cmd,
                                 close_fds = True,
                                 stdout=subprocess.PIPE)
