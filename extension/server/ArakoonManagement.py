@@ -535,6 +535,28 @@ class ArakoonCluster:
         """
         self._changeTlogCompression(nodes, 'true')
 
+
+    def _changeFsync(self, nodes, value):
+        if nodes is None:
+            nodes = self.listNodes()
+        else:
+            for n in nodes:
+                self.__validateName(n)
+
+        config = self._getConfigFile()
+
+        for node in nodes:
+            config.addParam(node, 'fsync', value)
+
+    def enableFsync(self, nodes=None):
+        '''Enable fsync'ing of tlogs after every operation'''
+        self._changeFsync(nodes, 'true')
+
+    def disableFsync(self, nodes=None):
+        '''Disable fsync'ing of tlogs after every operation'''
+        self._changeFsync(nodes, 'false')
+
+
     def setReadOnly(self, flag = True):
         config = self._getConfigFile()
         if flag and len(self.listNodes()) <> 1:

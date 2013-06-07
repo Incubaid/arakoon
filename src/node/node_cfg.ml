@@ -54,6 +54,7 @@ module Node_cfg = struct
         is_learner : bool;
         targets : string list;
         use_compression : bool;
+        fsync : bool;
         is_test : bool;
         reporting: int;
        }
@@ -67,7 +68,7 @@ module Node_cfg = struct
         "log_dir=%S; log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; " ^^
-        "targets=%s; use_compression=%b; is_test=%b; " ^^
+        "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
         "}"
     in
@@ -79,7 +80,7 @@ module Node_cfg = struct
       t.log_dir t.log_level (_so2s t.log_config)
       (_so2s t.batched_transaction_config) t.lease_period
       (master2s t.master) t.is_laggy t.is_learner
-      (list2s (fun s -> s) t.targets) t.use_compression t.is_test
+      (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
       t.reporting
 
   type log_cfg =
@@ -181,6 +182,7 @@ module Node_cfg = struct
         is_learner = false;
         targets = [];
         use_compression = true;
+        fsync = false;
         is_test = true;
         reporting = 300;
       }
@@ -353,6 +355,7 @@ module Node_cfg = struct
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
+    let fsync = get_bool "fsync" in
     let targets = 
       if is_learner 
       then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required 
@@ -380,6 +383,7 @@ module Node_cfg = struct
      is_learner;
      targets;
      use_compression;
+     fsync;
      is_test = false;
      reporting;
     }

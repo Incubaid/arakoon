@@ -65,11 +65,12 @@ let _make_cfg name n lease_period =
     is_learner = false;
     targets = [];
     use_compression = true;
+    fsync = false;
     is_test = true;
     reporting = 300;
   }
 
-let _make_tlog_coll tlcs values tlc_name use_compression node_id = 
+let _make_tlog_coll tlcs values tlc_name use_compression fsync node_id =
   Mem_tlogcollection.make_mem_tlog_collection tlc_name use_compression node_id >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 

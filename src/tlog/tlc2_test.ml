@@ -30,7 +30,7 @@ open Tlogcommon
 
 let section = Logger.Section.main
 
-let create_test_tlc dn = Tlc2.make_tlc2 dn true
+let create_test_tlc dn = Tlc2.make_tlc2 dn true false
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc 
 
 let prepare_tlog_scenarios (dn,factory) =
