@@ -59,7 +59,7 @@ let _make_values tlc n =
 let test_collapse_until dn = 
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Logger.debug_f_ "dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn true "node_name" >>= fun tlc ->
+  Tlc2.make_tlc2 dn true false "node_name" >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -97,7 +97,7 @@ let test_dn = "/tmp/collapser"
 let test_collapse_many dn =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   Logger.debug_f_ "test_collapse_many_regime dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn true "node_name" >>= fun tlc ->
+  Tlc2.make_tlc2 dn true false "node_name" >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
