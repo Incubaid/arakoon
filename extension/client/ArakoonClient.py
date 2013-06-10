@@ -178,25 +178,25 @@ class ArakoonClient:
     Arakoon client management
     """
     @staticmethod
-    def _getClientConfig(clusterId, configName = None):
+    def _getClientConfig(clusterName, configName = None):
         """
         Gets an Arakoon client object for an existing cluster
-        @type clusterId: string
-        @param clusterId: the name of the cluster for which you want to get a client
+        @type clusterName: string
+        @param clusterName: the name of the cluster for which you want to get a client
         @return arakoon client object
         """
         clientConfig = q.config.getInifile("arakoonclients")
-        if not clientConfig.checkSection(clusterId):
-            q.errorconditionhandler.raiseError("No such client configured for cluster [%s]." %clusterId)
+        if not clientConfig.checkSection(clusterName):
+            q.errorconditionhandler.raiseError("No such client configured for cluster [%s]." % clusterName)
         else:
             node_dict = {}
-            clientCfg = ArakoonClient._getConfig(clusterId, configName)
+            clientCfg = ArakoonClient._getConfig(clusterName, configName)
             cfgFile = q.config.getInifile( clientCfg )
             if not cfgFile.checkSection("global") :
                 if configName is not None:
-                    msg = "Named client '%s' for cluster '%s' does not exist" % (configName, clusterId)
+                    msg = "Named client '%s' for cluster '%s' does not exist" % (configName, clusterName)
                 else :
-                    msg = "No client available for cluster '%s'" % clusterId 
+                    msg = "No client available for cluster '%s'" % clusterName
                 q.errorconditionhandler.raiseError(msg )
             clusterParam = cfgFile.getValue("global", "cluster")
             for node in clusterParam.split(",") :
@@ -205,7 +205,8 @@ class ArakoonClient:
                 ip_list = ips.split(",")
                 port = cfgFile.getValue(node, "client_port") 
                 node_dict.update({node: (ip_list,port)})
-            config = ArakoonClientConfig(clusterId, node_dict)
+            cluster_id = cfgFile.getValue("global", "cluster_id")
+            config = ArakoonClientConfig(cluster_id, node_dict)
             return config
             
     def getClient(self, clusterId, configName=None):
