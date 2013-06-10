@@ -888,7 +888,10 @@ def generic_retrying_ ( f, is_valid_ex ) :
 def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
     generic_retrying_ ((lambda : client.set( key,value ) ), is_valid_ex )
     generic_retrying_ ((lambda : assert_equals( client.get(key), value ) ) , is_valid_ex )
-    generic_retrying_ ((lambda : client.delete( key ) ) , is_valid_ex )
+    try:
+        generic_retrying_ ((lambda : client.delete( key ) ) , is_valid_ex )
+    except ArakoonNotFound:
+        pass
 
 def retrying_set_get_and_delete( client, key, value ):
     def validate_ex ( ex, tryCnt ):
