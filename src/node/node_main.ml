@@ -603,39 +603,36 @@ let _main_2 (type s)
 	    (fun () ->
           let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
           let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
-	      Lwt.pick [
-	        messaging # run ();
-	        begin
-	          build_startup_state () >>= fun (start_state,
-					                          service,
-					                          rapporting) ->
-              let (_,constants,_,_,_,store) = start_state in
-              let fsm () = start_backend start_state in
-              Lwt.finalize
-                (fun () ->
-	              Lwt.pick[ fsm ();
-			                service ();
-			                rapporting ();
-                            (listen_for_signal () >>= fun () ->
-                             let msg = "got TERM | INT" in
-			                 Logger.info_ msg >>= fun () ->
-			                 Lwt_io.printl msg
-                            )
-			                ;
-		                  ])
-                (fun () ->
-                  Logger.debug_ "waiting for fsm thread to finish" >>= fun () ->
-                  Lwt.pick[ (Lwt_unix.sleep 2.0 >>= fun () ->
-                            Logger.debug_ "sleeping 2.0 seconds while waiting for mvar finished");
-                            (Lwt_mvar.take mvar >>= fun () ->
-                            Logger.debug_ "taking mvar finished")] >>= fun () ->
-                  S.close store >>= fun () ->
-                  Logger.fatal_f_
-                    ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                    (S.get_location store) >>= fun () ->
-                  constants.Multi_paxos.tlog_coll # close ())
-	        end
-	      ] >>= fun () ->
+	      build_startup_state () >>= fun (start_state,
+					                      service,
+					                      rapporting) ->
+          let (_,constants,_,_,_,store) = start_state in
+          let fsm () = start_backend start_state in
+          Lwt.finalize
+            (fun () ->
+	          Lwt.pick[ fsm ();
+	                    messaging # run ();
+			            service ();
+			            rapporting ();
+                        (listen_for_signal () >>= fun () ->
+                         let msg = "got TERM | INT" in
+			             Logger.info_ msg >>= fun () ->
+			             Lwt_io.printl msg
+                        )
+			            ;
+		              ])
+            (fun () ->
+              Logger.debug_ "waiting for fsm thread to finish" >>= fun () ->
+              Lwt.pick [ (Lwt_mvar.take mvar >>= fun () ->
+                         Logger.debug_ "taking mvar succeeded");
+                         (Lwt_unix.sleep 2.0 >>= fun () ->
+                         Logger.debug_ "timeout (2.0s) while waiting for fsm thread to finish") ] >>= fun () ->
+              S.close store >>= fun () ->
+              Logger.fatal_f_
+                ">>> Closing the store @ %S succeeded: everything seems OK <<<"
+                (S.get_location store) >>= fun () ->
+              constants.Multi_paxos.tlog_coll # close ())
+	      >>= fun () ->
           Logger.info_ "Completed shutdown"
           >>= fun () ->
           Lwt.return 0
