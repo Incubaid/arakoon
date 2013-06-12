@@ -385,23 +385,32 @@ object(self: # tlog_collection)
       Lwt_buffer.take _compression_q >>= fun job ->
       let () = _compressing <- true in
       let (tlu, tlc_temp, tlc) = job in
-      Lwt.catch
-	    (fun () ->
-	      Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-	      Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-	      File_system.rename tlc_temp tlc >>= fun () ->
-	      Logger.debug_f_ "unlink of %s" tlu >>= fun () ->
-	      Lwt.catch
-	        (fun () ->
-	          Lwt_unix.unlink tlu >>= fun () ->
-	          Lwt.return ("ok: unlinked " ^ tlu)
-	        )
-	        (fun e -> Lwt.return (Printf.sprintf "warning: unlinking of %s failed" tlu))
-	      >>= fun msg ->
-	      Logger.debug_f_ "end of compress : %s" msg
-	    )
-	    (function exn -> Logger.warning_ "exception inside compression, continuing anyway")
-      >>= fun () ->
+      let try_unlink_tlu () =
+        Lwt.catch
+          (fun () ->
+            Logger.debug_f_ "unlink of %s" tlu >>= fun () ->
+            Lwt_unix.unlink tlu >>= fun () ->
+            Logger.debug_f_ "ok: unlinked %s" tlu
+          )
+          (fun exn -> Logger.warning_f_ ~exn "unlinking of %s failed" tlu) in
+      File_system.exists tlc >>= fun tlc_exists ->
+      if tlc_exists
+      then
+        begin
+          Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
+          try_unlink_tlu ()
+        end
+      else
+        Lwt.catch
+          (fun () ->
+            Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+            Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+            File_system.rename tlc_temp tlc >>= fun () ->
+            try_unlink_tlu () >>= fun () ->
+            Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+          )
+          (function exn -> Logger.warning_ "exception inside compression, continuing anyway")
+         >>= fun () ->
       let () = _compressing <- false in
       let () = Lwt_condition.signal _jc () in
       loop ()
