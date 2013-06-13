@@ -151,8 +151,17 @@ struct
                   s._ls_tx <- None
           in
 
-          if (s._entries >= !max_entries) or (s._size >= !max_size)
-          then _sync_cache_to_local_store s;
+          begin
+            if (s._entries >= !max_entries) or (s._size >= !max_size)
+            then
+              begin
+                Logger.debug_f_ "Batched_store, synching cache to local_store (_entries=%i, _size=%i)" s._entries s._size >>= fun () ->
+                _sync_cache_to_local_store s;
+                Lwt.return ()
+              end
+            else
+              Lwt.return ()
+          end >>= fun () ->
 
           Lwt.return r)
         (fun () ->
