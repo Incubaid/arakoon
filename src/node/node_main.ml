@@ -180,7 +180,10 @@ let log_prelude cluster_cfg =
   Logger.info_f_ "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
   Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
   Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
-  Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)
+  Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)            >>= fun () ->
+  Logger.info_f_ "Batched_store.max_entries = %i" !Batched_store.max_entries    >>= fun () ->
+  Logger.info_f_ "Batched_store.max_size = %i" !Batched_store.max_size
+
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
 
@@ -318,8 +321,8 @@ let _main_2 (type s)
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
-  _config_batched_transactions me cluster_cfg;
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
+  _config_batched_transactions me cluster_cfg;
   if catchup_only 
   then 
     begin
