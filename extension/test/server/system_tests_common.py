@@ -829,12 +829,6 @@ def create_and_wait_for_threads ( thr_cnt, iter_cnt, f, timeout=None ):
     
     create_and_wait_for_thread_list( f_list, timeout)    
     
-def mindless_simple_set( client, key, value):
-    try:
-        client.set( key, value)
-    except Exception, ex:
-        logging.info( "Error while setting => %s: %s" , ex.__class__.__name__, ex)
-
 def simple_set(client, key, value):
     client.set( key, value )
 
@@ -846,12 +840,6 @@ def set_get_and_delete( client, key, value):
     assert_equals( client.get(key), value )
     client.delete( key )
     assert_raises ( ArakoonNotFound, client.get, key )
-
-def mindless_retrying_set_get_and_delete( client, key, value ):
-    def validate_ex ( ex, tryCnt ):
-        return True
-    
-    generic_retrying_set_get_and_delete( client, key, value, validate_ex )
 
 def generic_retrying_ ( f, is_valid_ex ) :
     start = time.time()
