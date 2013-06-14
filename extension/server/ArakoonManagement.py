@@ -876,8 +876,12 @@ class ArakoonCluster:
         """
         start all nodes in the cluster
         """
+        rcs = {}
+
         for name in self.listLocalNodes():
-            self._startOne(name)
+            rcs[name] = self._startOne(name)
+
+        return rcs
 
     def stop(self):
         """
@@ -895,8 +899,12 @@ class ArakoonCluster:
         
         @param clusterId the arakoon cluster name
         """
+        rcs = {}
+
         for name in self.listLocalNodes():
-            self._restartOne(name)
+            rcs[name] = self._restartOne(name)
+
+        return rcs
 
     def getStatus(self):
         """
