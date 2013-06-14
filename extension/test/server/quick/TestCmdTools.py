@@ -86,7 +86,10 @@ class TestCmdTools:
 
     def testStart(self):
         cluster = self._getCluster()
-        cluster.start()
+        rcs = cluster.start()
+
+        assert set(rcs.iterkeys()) == set(cluster.listNodes())
+
         self._assert_n_running(3)
 
         #starting twice should not throw anything
@@ -109,7 +112,10 @@ class TestCmdTools:
 
     def testRestart(self):
         cluster = self._getCluster()
-        cluster.start()
+        rcs = cluster.start()
+
+        assert set(rcs.iterkeys()) == set(cluster.listNodes())
+
         self._assert_n_running(3)
 
         cluster.restart()
