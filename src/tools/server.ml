@@ -54,7 +54,7 @@ let session_thread (sid:string) cid protocol fd =
   >>= fun () -> 
   Lwt.catch 
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Logger.debug_f_ "Exception on closing of socket (connection=%s)" cid)
+    ( fun exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
@@ -94,53 +94,61 @@ let make_server_thread
     Lwt_unix.listen listening_socket 1024;
     let maybe_take,release = scheme in
     let connection_counter = make_counter () in
+    let client_threads = Hashtbl.create 10 in
     let rec server_loop () =
       Lwt.catch
-	(fun () ->
-	  Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
-      let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
-          begin
+        (fun () ->
+          Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
+          let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
+          let client_thread () =
             match maybe_take () with
-              | None    -> Lwt.ignore_result (session_thread "--" cid deny fd)
+              | None ->
+                  session_thread "--" cid deny fd
               | Some id ->
-	        Lwt.ignore_result
-		  (
-            Lwt_unix.fstat fd >>= fun fstat ->
-            Logger.info_f_
-              "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
-              name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
-            >>= fun () ->
-            let sid = string_of_int id in
-            session_thread sid cid protocol fd >>= fun () ->
-            release();
-            Lwt.return()
-		  )
-          end;
-          Lwt.return ()
-	)
-	(function 
-	  | Unix.Unix_error (Unix.EMFILE,s0,s1) -> 
-	    let timeout = 4.0 in
-	    (* if we don't sleep, this will go into a spinning loop of
-	       failfasts; 
-	       we want to block until an fd is available,
-	       but alas, I found no such API.
-	    *)
-	    Logger.warning_f_
-	      "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs" 
-	      s0 s1 port timeout
-	    >>= fun () ->
-	    Lwt_unix.sleep timeout
-	  | e -> Lwt.fail e
-	)
-      >>= fun () ->
-      server_loop ()
+                  Lwt_unix.fstat fd >>= fun fstat ->
+                  Logger.info_f_
+                    "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
+                    name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
+                  >>= fun () ->
+                  let sid = string_of_int id in
+                  session_thread sid cid protocol fd >>= fun () ->
+                  release();
+                  Lwt.return()
+          in
+          let t = client_thread () in
+          Hashtbl.add client_threads cid t;
+          Lwt.ignore_result
+            (Lwt.catch
+               (fun () -> t)
+               (fun exn ->
+                 Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+                 Hashtbl.remove client_threads cid;
+                 Lwt.return ()));
+          server_loop ()
+        )
+        (function
+          | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
+              let timeout = 4.0 in
+              (* if we don't sleep, this will go into a spinning loop of
+                 failfasts;
+                 we want to block until an fd is available,
+                 but alas, I found no such API.
+              *)
+              Logger.warning_f_
+                "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
+                s0 s1 port timeout >>= fun () ->
+              Lwt_unix.sleep timeout >>= fun () ->
+              server_loop ()
+          | e -> Lwt.fail e
+        )
     in
     let r  = fun () ->
       Lwt.catch
-	(fun ()  -> setup_callback () >>= fun () -> server_loop ())
-	(fun exn -> Logger.info_f_ ~exn "shutting down server on port %i" port)
-      >>= fun () ->
+        (fun ()  -> setup_callback () >>= fun () -> server_loop ())
+        (fun exn ->
+          Hashtbl.iter (fun cid t -> Lwt.cancel t) client_threads;
+          Logger.info_f_ ~exn "shutting down server on port %i" port)
+             >>= fun () ->
       Lwt_unix.close listening_socket >>= fun () ->
       teardown_callback()
     in r
