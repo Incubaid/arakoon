@@ -184,15 +184,19 @@ struct
           if tx != tx'
           then failwith "the provided transaction is not the current transaction of the batched store"
 
+  let _find c k =
+    try Some (Hashtbl.find c k)
+    with Not_found -> None
+
   let _with_key_in_caches s k match' else' =
-    if Hashtbl.mem s._current_tx_cache k
-    then
-      match' (Hashtbl.find s._current_tx_cache k)
-    else if Hashtbl.mem s._cache k
-    then
-      match' (Hashtbl.find s._cache k)
-    else
-      else' ()
+    match _find s._current_tx_cache k with
+      | Some v -> match' v
+      | None ->
+          begin
+            match _find s._cache k with
+              | Some v -> match' v
+              | None -> else' ()
+          end
 
   let exists s k =
     _with_key_in_caches s k
