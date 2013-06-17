@@ -417,7 +417,7 @@ let main () =
 			                !node_id !daemonize !catchup_only)
             in
 	        (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-	        Lwt_main.run main_t 
+	        Lwt_extra.run main_t 
           end
       | TestNode ->
           begin
@@ -425,7 +425,7 @@ let main () =
 	        let node = Master_type.Forced "t_arakoon_0" in
 	        let make_config () = Node_cfg.make_test_config 3 node lease_period in
 	        let main_t = (Node_main.test_t make_config !node_id) in
-	        Lwt_main.run main_t
+	        Lwt_extra.run main_t
 	      end
   in
   Arg.parse

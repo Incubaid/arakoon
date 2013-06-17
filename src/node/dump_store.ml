@@ -43,7 +43,7 @@ let dump_store filename =
     summary store >>= fun () ->
     S.close store
   in
-  Lwt_main.run (t());
+  Lwt_extra.run (t());
   0
 
 let inject_as_head fn node_id cfg_fn = 
@@ -104,6 +104,6 @@ let inject_as_head fn node_id cfg_fn =
     Lwt.return ()
       
   in
-  Lwt_main.run (t());
+  Lwt_extra.run (t());
   0
   

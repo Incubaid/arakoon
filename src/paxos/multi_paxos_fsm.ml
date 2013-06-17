@@ -73,7 +73,7 @@ let election_suggest constants (n,i,vo) () =
       | _ -> 0
   in
   let df = float delay in
-  Lwt.ignore_result 
+  Lwt_extra.ignore_result 
     (Lwt_unix.sleep df >>= fun () -> mcast constants (Prepare (n,i)));
   let who_voted = [me] in
   let i_lim = Some (me,i) in

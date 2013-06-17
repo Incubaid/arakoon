@@ -201,7 +201,7 @@ let start_lease_expiration_thread constants n expiration =
         constants.me sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
     end in
-  let () = Lwt.ignore_result (t ()) in
+  let () = Lwt_extra.ignore_result (t ()) in
   Lwt.return ()
 
 let start_election_timeout constants n =
@@ -214,7 +214,7 @@ let start_election_timeout constants n =
       constants.inject_event (ElectionTimeout n)
     end
   in
-  let () = Lwt.ignore_result (t ()) in
+  let () = Lwt_extra.ignore_result (t ()) in
   Lwt.return ()
 
 type prepare_repsonse =

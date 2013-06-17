@@ -29,6 +29,6 @@ let load_scenario cfg_name x =
   in
   Lwt_list.iter_p f cnis
 
-let main cfg_name n = Lwt_main.run (load_scenario cfg_name n);0
+let main cfg_name n = Lwt_extra.run (load_scenario cfg_name n);0
 
   

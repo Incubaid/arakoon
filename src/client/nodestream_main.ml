@@ -34,7 +34,7 @@ let optimize_db ip port cluster_id =
     Lwt_io.with_connection address do_it  >>= fun () ->
     Lwt.return 0
   in
-  Lwt_main.run( t()) 
+  Lwt_extra.run( t()) 
 
 
 let defrag_db ip port cluster_id = 
@@ -47,7 +47,7 @@ let defrag_db ip port cluster_id =
     Lwt_io.with_connection address do_it >>= fun () ->
     Lwt.return 0
   in
-  Lwt_main.run (t ())
+  Lwt_extra.run (t ())
 
 let get_db ip port cluster_id location =
   let do_it connection =
@@ -59,7 +59,7 @@ let get_db ip port cluster_id location =
     Lwt_io.with_connection address do_it  >>= fun () ->
     Lwt.return 0
   in
-  Lwt_main.run( t()) 
+  Lwt_extra.run( t()) 
 
 let drop_master ip port cluster_id =
   let do_it connection =
@@ -71,4 +71,4 @@ let drop_master ip port cluster_id =
     Lwt_io.with_connection address do_it >>= fun () ->
     Lwt.return 0
   in
-  Lwt_main.run(t ())
+  Lwt_extra.run(t ())

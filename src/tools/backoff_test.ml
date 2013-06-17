@@ -33,6 +33,6 @@ let test_exception () =
    | x -> Lwt.fail x
       )
   in
-  let _ = Lwt_main.run t in () 
+  let _ = Lwt_extra.run t in () 
 
 let suite = "backoff" >::: [ "exception" >:: test_exception]

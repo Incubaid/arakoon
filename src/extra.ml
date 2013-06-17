@@ -39,7 +39,7 @@ let lwt_bracket setup testcase teardown () =
   let try_lwt_ f =
     Lwt.catch f (fun exn -> Lwt.fail exn)
   in
-  Lwt_main.run
+  Lwt_extra.run
     begin
     try_lwt_ setup >>= fun x ->
     try_lwt_ (fun () ->
@@ -60,5 +60,5 @@ let timeout_thread timeout_sec f =
       Lwt_unix.sleep sleep_sec >>= fun () ->
       f ()
     end in
-  let () = Lwt.ignore_result t in
+  let () = Lwt_extra.ignore_result t in
   t

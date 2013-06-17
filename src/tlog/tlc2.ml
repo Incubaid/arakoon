@@ -415,7 +415,7 @@ object(self: # tlog_collection)
       let () = Lwt_condition.signal _jc () in
       loop ()
     in
-    Lwt.ignore_result (loop ())
+    Lwt_extra.ignore_result (loop ())
 
 
   method log_value_explicit i value sync marker =
@@ -800,6 +800,6 @@ let truncate_tlog filename =
         Lwt_io.with_file ~mode:Lwt_io.input filename do_it
         end
     end
-  in Lwt_main.run t
+  in Lwt_extra.run t
 
 

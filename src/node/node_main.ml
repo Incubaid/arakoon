@@ -363,7 +363,7 @@ let _main_2 (type s)
 	    else List.filter ((<>) name) in_cluster_names 
       in
       let _ = Lwt_unix.on_signal 10
-	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
+	    (fun i -> Lwt_extra.ignore_result (_log_rotate me.node_name i make_config ))
       in
       log_prelude cluster_cfg >>= fun () ->
       Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
@@ -414,7 +414,7 @@ let _main_2 (type s)
               end
         end
       in
-      Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
+      Lwt_extra.ignore_result ( upload_cfg_to_keeper () ) ;
       let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)

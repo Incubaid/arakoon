@@ -78,7 +78,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     Lwt_mvar.take td_var  >>= fun () ->
     Logger.info_ "server down"
   in
-  Lwt_main.run (main());;
+  Lwt_extra.run (main());;
 
 let test_ping () =
   let real_test client =

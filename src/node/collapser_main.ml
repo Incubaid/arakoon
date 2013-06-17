@@ -43,4 +43,4 @@ let collapse_remote ip port cluster_id n =
 	>>= fun () -> Lwt.return (-1)
       )
   in
-  Lwt_main.run (t () )
+  Lwt_extra.run (t () )

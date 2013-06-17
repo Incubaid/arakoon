@@ -47,7 +47,7 @@ let test_old_format () =
     in
     Lwt_io.with_file ~mode:Lwt_io.input fn f
   in
-  Lwt_main.run (do_it ())
+  Lwt_extra.run (do_it ())
 
 
 let suite = "tlogreader2" >::: ["old_format" >:: test_old_format]
