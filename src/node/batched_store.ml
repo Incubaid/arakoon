@@ -40,8 +40,8 @@ module Batched_store = functor (S : Extended_simple_store) ->
 struct
   type t = {
     s : S.t;
-    mutable _cache : string option StringMap.t;
-    mutable _current_tx_cache : string option StringMap.t;
+    _cache : (string, string option) Hashtbl.t;
+    _current_tx_cache : (string, string option) Hashtbl.t;
 
     _tx_lock : Lwt_mutex.t;
     mutable _tx : transaction option;
@@ -56,8 +56,8 @@ struct
     S.make_store b s >>= fun s ->
     Lwt.return {
       s;
-      _cache = StringMap.empty;
-      _current_tx_cache = StringMap.empty;
+      _cache = Hashtbl.create !max_entries;
+      _current_tx_cache = Hashtbl.create 10;
 
       _tx_lock = Lwt_mutex.create ();
       _tx = None;
@@ -77,19 +77,19 @@ struct
             S.delete s ls_tx k
 
   let _apply_vos_to_local_store s ls_tx m =
-    StringMap.iter
+    Hashtbl.iter
       (fun k vo -> _apply_vo_to_local_store s ls_tx k vo)
       m
 
   let _track_or_apply_vo s k vo =
     match s._ls_tx with
       | None ->
-          s._current_tx_cache <- StringMap.add k vo s._current_tx_cache
+          Hashtbl.replace s._current_tx_cache k vo
       | Some ls_tx ->
           _apply_vo_to_local_store s.s ls_tx k vo
 
   let _sync_cache_to_local_store s =
-    if not (StringMap.is_empty s._cache)
+    if Hashtbl.length s._cache <> 0
     then
       begin
         let ls_tx = S._tranbegin s.s in
@@ -99,7 +99,7 @@ struct
         _apply_vos_to_local_store s.s ls_tx s._cache;
         S._trancommit s.s;
 
-        s._cache <- StringMap.empty;
+        Hashtbl.reset s._cache;
         s._ls_tx <- None;
         s._entries <- 0;
         s._size <- 0
@@ -133,17 +133,16 @@ struct
                   (* transaction succeeded and no new transaction was started
                      (to handle the more difficult cases),
                      so let's apply the changes accumulated in _current_tx_cache to _cache *)
-                  s._cache <-
-                    StringMap.fold
-                    (fun k vo acc ->
+                  Hashtbl.iter
+                    (fun k vo ->
+                      Hashtbl.replace s._cache k vo;
+
                       s._entries <- s._entries + 1;
                       (match vo with
                         | None -> ()
                         | Some v -> s._size <- s._size + String.length v);
-                      s._size <- s._size + String.length k;
-                      StringMap.add k vo acc)
+                      s._size <- s._size + String.length k)
                     s._current_tx_cache
-                    s._cache
               | Some ls_tx ->
                   (* a ls_transaction was started while in this batched_store transaction,
                      now is the time to finish that transaction *)
@@ -175,7 +174,7 @@ struct
           in
 
           s._tx <- None;
-          s._current_tx_cache <- StringMap.empty;
+          Hashtbl.reset s._current_tx_cache;
           Lwt.return ()))
 
   let _verify_tx s tx =
@@ -185,15 +184,19 @@ struct
           if tx != tx'
           then failwith "the provided transaction is not the current transaction of the batched store"
 
+  let _find c k =
+    try Some (Hashtbl.find c k)
+    with Not_found -> None
+
   let _with_key_in_caches s k match' else' =
-    if StringMap.mem k s._current_tx_cache
-    then
-      match' (StringMap.find k s._current_tx_cache)
-    else if StringMap.mem k s._cache
-    then
-      match' (StringMap.find k s._cache)
-    else
-      else' ()
+    match _find s._current_tx_cache k with
+      | Some v -> match' v
+      | None ->
+          begin
+            match _find s._cache k with
+              | Some v -> match' v
+              | None -> else' ()
+          end
 
   let exists s k =
     _with_key_in_caches s k
