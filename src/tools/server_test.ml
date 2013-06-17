@@ -123,10 +123,11 @@ let test_max_connections () =
 	      client 2;
 	      server();
           Lwt_unix.sleep 0.3
-             ] 
-    >>= fun () -> Lwt_mvar.take td_var >>= fun () ->
-    Logger.debug_f_ "n_problems = %i" !n_problems >>= fun () ->
-    OUnit.assert_equal !n_problems 1;
+             ] >>= fun () ->
+    let n_problems' = !n_problems in
+    Lwt_mvar.take td_var >>= fun () ->
+    Logger.debug_f_ "n_problems = %i" n_problems' >>= fun () ->
+    OUnit.assert_equal n_problems' 1;
     Lwt.return () 
   in
   Lwt_main.run main_t

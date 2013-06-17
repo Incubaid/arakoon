@@ -226,43 +226,47 @@ struct
   let _get store key =
     S.get store.s (__prefix ^ key)
 
+  let _wrap_exception store name not_closed_failure_exn f =
+    Lwt.catch
+      f
+      (function
+        | Failure s ->
+            begin
+              Logger.debug_f_ "store: %s Failure %s: => FOOBAR? (_closed:%b)" name s store.closed >>= fun () ->
+              if store.closed
+              then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+              else Lwt.fail not_closed_failure_exn
+            end
+        | exn -> Lwt.fail exn)
+
   let get store key =
-    try
-      Lwt.return (_get store key)
-    with
-      | Failure msg ->
-          let _closed = store.closed in
-          Logger.debug_f_ "local_store: Failure %Swhile GET (_closed:%b)" msg _closed >>= fun () ->
-          if _closed
-          then
-            Lwt.fail (Common.XException (Arakoon_exc.E_GOING_DOWN,
-                                         Printf.sprintf "GET %S database already closed" key))
-          else
-            Lwt.fail CorruptStore
-	  | exn -> Lwt.fail exn
+    _wrap_exception store "GET" CorruptStore (fun () ->
+      Lwt.return (_get store key))
 
   let _set store tx key value =
     S.set store.s tx (__prefix ^ key) value
 
-  let get_option store key =
+  let _get_option store key =
     try
       Some (_get store key)
     with Not_found -> None
 
   let exists store key =
-    Lwt.return (S.exists store.s (__prefix ^ key))
+    _wrap_exception store "EXISTS" CorruptStore (fun () ->
+      Lwt.return (S.exists store.s (__prefix ^ key)))
 
   let multi_get store keys =
-    let vs = List.fold_left (fun acc key ->
-      try
-        let v = _get store key in
-        v::acc
-      with Not_found ->
-        let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
-        raise exn)
-      [] keys
-    in
-    Lwt.return (List.rev vs)
+    _wrap_exception store "MULTI_GET" CorruptStore (fun () ->
+      let vs = List.fold_left (fun acc key ->
+        try
+          let v = _get store key in
+          v::acc
+        with Not_found ->
+          let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
+          raise exn)
+        [] keys
+      in
+      Lwt.return (List.rev vs))
 
   let consensus_i store =
     store.store_i
@@ -278,7 +282,9 @@ struct
 
   let close store =
     store.closed <- true;
-    S.close store.s
+    Logger.debug_ "closing store..." >>= fun () ->
+    S.close store.s >>= fun () ->
+    Logger.debug_ "closed store"
 
   let relocate store loc =
     S.relocate store.s loc
@@ -304,13 +310,14 @@ struct
     S.optimize store.s store.quiesced
 
   let set_master store tx master lease_start =
-    S.set store.s tx __master_key master;
-    let buffer = Buffer.create 8 in
-    let () = Llio.int64_to buffer lease_start in
-    let lease = Buffer.contents buffer in
-    S.set store.s tx __lease_key lease;
-    store.master <- Some (master, lease_start);
-    Lwt.return ()
+    _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
+      S.set store.s tx __master_key master;
+      let buffer = Buffer.create 8 in
+      let () = Llio.int64_to buffer lease_start in
+      let lease = Buffer.contents buffer in
+      S.set store.s tx __lease_key lease;
+      store.master <- Some (master, lease_start);
+      Lwt.return ())
 
   let set_master_no_inc store master lease_start =
     if store.quiesced
@@ -397,11 +404,12 @@ struct
     S.defrag store.s
 
   let get_key_count store =
-    S.get_key_count store.s >>= fun raw_count ->
-  (* Leave out administrative keys *)
-    let admin_keys = S.prefix_keys store.s __adminprefix (-1) in
-    let admin_key_count = List.length admin_keys in
-    Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) )
+    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
+      S.get_key_count store.s >>= fun raw_count ->
+      (* Leave out administrative keys *)
+      let admin_keys = S.prefix_keys store.s __adminprefix (-1) in
+      let admin_key_count = List.length admin_keys in
+      Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
   let get_routing store =
     Logger.debug_ "get_routing " >>= fun () ->
@@ -450,20 +458,21 @@ struct
             | exn -> Lwt.fail exn)
 
   let multi_get_option store keys =
-    let vs = List.fold_left (fun acc key ->
-      try
-        let v = _get store key in
-        (Some v)::acc
-      with Not_found -> None::acc)
-      [] keys
-    in
-    Lwt.return (List.rev vs)
+    _wrap_exception store "MULTI_GET_OPTION" CorruptStore (fun () ->
+      let vs = List.fold_left (fun acc key ->
+        try
+          let v = _get store key in
+          (Some v)::acc
+        with Not_found -> None::acc)
+        [] keys
+      in
+      Lwt.return (List.rev vs))
 
   let _delete store tx key =
     S.delete store.s tx (__prefix ^ key)
 
   let _test_and_set store tx key expected wanted =
-    let existing = get_option store key in
+    let existing = _get_option store key in
     if existing = expected
     then
       begin
@@ -482,16 +491,20 @@ struct
     S.range_entries store.s __prefix first finc last linc max
 
   let range_entries store ?(_pf=__prefix) first finc last linc max =
-    Lwt.return (S.range_entries store.s _pf first finc last linc max)
+    _wrap_exception store "RANGE_ENTRIES" CorruptStore (fun () ->
+      Lwt.return (S.range_entries store.s _pf first finc last linc max))
 
   let rev_range_entries store first finc last linc max =
-    Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max)
+    _wrap_exception store "REV_RANGE_ENTRIES" CorruptStore (fun () ->
+    Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max))
 
   let range store first finc last linc max =
-    Lwt.return (S.range store.s __prefix first finc last linc max)
+    _wrap_exception store "RANGE" CorruptStore (fun () ->
+    Lwt.return (S.range store.s __prefix first finc last linc max))
 
   let prefix_keys store prefix max =
-    Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max)
+    _wrap_exception store "PREFIX_KEYS" CorruptStore (fun () ->
+      Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max))
 
   let get_interval store =
     Lwt.return (store.interval)
@@ -551,7 +564,9 @@ struct
   let _insert_update store (update:Update.t) kt =
     let rec _do_one update tx =
       let return () = Lwt.return (Ok None) in
-      let wrap f = (Lwt.wrap f) >>= return in
+      let wrap f =
+        _wrap_exception store "_insert_update" Server.FOOBAR (fun () ->
+          (Lwt.wrap f) >>= return) in
       match update with
         | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
         | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
@@ -602,7 +617,7 @@ struct
         | Update.Nop -> Lwt.return (Ok None)
         | Update.Assert(k,vo) ->
             begin
-              match vo, get_option store k with
+              match vo, _get_option store k with
                 | None, None -> Lwt.return (Ok None)
                 | Some v, Some v' when v = v' -> Lwt.return (Ok None)
                 | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
@@ -724,19 +739,56 @@ struct
 
 
   let safe_insert_value store (i:Sn.t) value =
-    let inner f = _with_transaction_lock store (fun key -> f (Key key)) in
-    let t kt =
-      let store_i = consensus_i store in
-      begin
-        match i, store_i with
-          | 0L , None -> Lwt.return ()
-          | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
-          | n, Some m ->
-              if n = Sn.succ m
-              then Lwt.return ()
-              else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
-      end
+    _wrap_exception store "safe_insert_value" Server.FOOBAR (fun () ->
+      let inner f = _with_transaction_lock store (fun key -> f (Key key)) in
+      let t kt =
+        let store_i = consensus_i store in
+        begin
+          match i, store_i with
+            | 0L , None -> Lwt.return ()
+            | n, None -> Llio.lwt_failfmt "store is empty, update @ %s" (Sn.string_of n)
+            | n, Some m ->
+                if n = Sn.succ m
+                then Lwt.return ()
+                else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
+        end
+        >>= fun () ->
+        if store.quiesced
+        then
+          begin
+            incr_i store >>= fun () ->
+            Lwt.return [Ok None]
+          end
+        else
+          begin
+            _insert_value store value kt
+          end
+      in
+      inner t)
+
+
+  let on_consensus store (v,n,i) =
+    _wrap_exception store "on_consensus" Server.FOOBAR (fun () ->
+      Logger.debug_f_ "on_consensus=> local_store n=%s i=%s"
+        (Sn.string_of n) (Sn.string_of i)
       >>= fun () ->
+      let m_store_i = consensus_i store in
+      begin
+        match m_store_i with
+          | None ->
+              if Sn.compare i Sn.start == 0
+              then
+                Lwt.return()
+              else
+                Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
+          | Some store_i ->
+              if (Sn.compare (Sn.pred i) store_i) == 0
+              then
+                Lwt.return()
+              else
+                Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
+                  (Sn.string_of i) (Sn.string_of store_i)
+      end >>= fun () ->
       if store.quiesced
       then
         begin
@@ -744,43 +796,7 @@ struct
           Lwt.return [Ok None]
         end
       else
-        begin
-          _insert_value store value kt
-        end
-    in
-    inner t
-
-
-
-  let on_consensus store (v,n,i) =
-    Logger.debug_f_ "on_consensus=> local_store n=%s i=%s"
-      (Sn.string_of n) (Sn.string_of i)
-    >>= fun () ->
-    let m_store_i = consensus_i store in
-    begin
-      match m_store_i with
-        | None ->
-            if Sn.compare i Sn.start == 0
-            then
-              Lwt.return()
-            else
-              Llio.lwt_failfmt "Invalid update to empty store requested (%s)" (Sn.string_of i)
-        | Some store_i ->
-            if (Sn.compare (Sn.pred i) store_i) == 0
-            then
-              Lwt.return()
-            else
-              Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
-                (Sn.string_of i) (Sn.string_of store_i)
-    end >>= fun () ->
-    if store.quiesced
-    then
-      begin
-        incr_i store >>= fun () ->
-        Lwt.return [Ok None]
-      end
-    else
-      _with_transaction_lock store (fun key -> _insert_value store v (Key key))
+        _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
         
   let get_succ_store_i store =
     let m_si = consensus_i store in

@@ -215,8 +215,9 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   let future_i = Sn.start in
   Catchup.catchup me other_configs ~cluster_id 
     ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-  tlc # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlc # close ()
+
   
     
     
@@ -578,7 +579,8 @@ let _main_2 (type s)
       Lwt_mutex.lock killswitch >>= fun () ->
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
-      
+
+      let mvar = Lwt_mvar.create_empty () in
       let start_backend (master, constants, buffers, new_i, vo, store) =
 	    let to_run = 
 	      match master with
@@ -592,41 +594,49 @@ let _main_2 (type s)
 		          else Multi_paxos_fsm.enter_forced_slave 
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
-	    in 
-        to_run constants buffers new_i vo
+	    in
+        Lwt.finalize
+          (fun () -> to_run constants buffers new_i vo)
+          (fun () ->
+            Logger.debug_ "finalizing start_backend; put mvar" >>= fun () ->
+            Lwt_mvar.put mvar ())
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
 	    (fun () ->
           let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
           let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
-	      Lwt.pick [ 
-	        messaging # run ();
-	        begin
-	          build_startup_state () >>= fun (start_state,
-					                          service, 
-					                          rapporting) -> 
-              let (_,constants,_,_,_,store) = start_state in
-	          Lwt.pick[ start_backend start_state;
+	      build_startup_state () >>= fun (start_state,
+					                      service,
+					                      rapporting) ->
+          let (_,constants,_,_,_,store) = start_state in
+          let fsm () = start_backend start_state in
+          Lwt.finalize
+            (fun () ->
+	          Lwt.pick[ fsm ();
+	                    messaging # run ();
 			            service ();
 			            rapporting ();
                         (listen_for_signal () >>= fun () ->
                          let msg = "got TERM | INT" in
 			             Logger.info_ msg >>= fun () ->
-			             Lwt_io.printl msg >>= fun () ->
-                         S.close store >>= fun () ->
-                         Logger.fatal_f_
-                           ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                           (S.get_location store)
-                         >>= fun () ->
-                         let open Multi_paxos in constants.tlog_coll # close () 
-                             
+			             Lwt_io.printl msg
                         )
 			            ;
-		              ]
-	        end
-	      ] >>= fun () ->
-          Logger.info_ "Completed shutdown" 
+		              ])
+            (fun () ->
+              Logger.debug_ "waiting for fsm thread to finish" >>= fun () ->
+              Lwt.pick [ (Lwt_mvar.take mvar >>= fun () ->
+                         Logger.debug_ "taking mvar succeeded");
+                         (Lwt_unix.sleep 2.0 >>= fun () ->
+                         Logger.debug_ "timeout (2.0s) while waiting for fsm thread to finish") ] >>= fun () ->
+              S.close store >>= fun () ->
+              Logger.fatal_f_
+                ">>> Closing the store @ %S succeeded: everything seems OK <<<"
+                (S.get_location store) >>= fun () ->
+              constants.Multi_paxos.tlog_coll # close ())
+	      >>= fun () ->
+          Logger.info_ "Completed shutdown"
           >>= fun () ->
           Lwt.return 0
         )
@@ -666,7 +676,7 @@ let _main_2 (type s)
 	                | Some f -> f() 
                 end >>= fun () ->
                 Lwt.return 1
-                end
+              end
         )
     end
       
