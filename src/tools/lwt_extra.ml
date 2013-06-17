@@ -23,8 +23,8 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 
-let igns = Hashtbl.create 10;;
-
+let igns = Hashtbl.create 10
+let detacheds = Hashtbl.create 10
 
 let rec get_key () =
   let candidate = Random.int 1073741823 in
@@ -45,6 +45,29 @@ let ignore_result (t:'a Lwt.t) =
   Hashtbl.add igns key t;
   Lwt.ignore_result (t' ())
 
+let detach (t: unit -> string) =
+  let t' = Lwt_preemptive.detach t () in
+  let key = get_key () in
+  Hashtbl.add detacheds key t';
+  Lwt.finalize
+    (fun () -> t')
+    (fun () ->
+      Hashtbl.remove detacheds key;
+      Lwt.return ())
+
+let async_exception_hook : (exn -> unit) ref =
+  ref (fun exn ->
+    prerr_string "Fatal error: exception ";
+    prerr_string (Printexc.to_string exn);
+    prerr_char '\n';
+    Printexc.print_backtrace stderr;
+    flush stderr;
+    exit 2)
+let () =
+  Lwt.async_exception_hook :=
+    (function
+      | Lwt.Canceled -> ()
+      | exn -> !async_exception_hook exn)
 
 let run t =
   let act () =
@@ -53,16 +76,15 @@ let run t =
       (fun () ->
         Lwt.catch
           (fun () ->
-            let async_exc_hook = !Lwt.async_exception_hook in
-            Lwt.async_exception_hook :=
-              (function
-                | Lwt.Canceled -> ()
-                | exn -> async_exc_hook exn);
             let ignored_threads = Hashtbl.fold (fun k t acc -> t :: acc) igns [] in
             Hashtbl.reset igns;
             Lwt.finalize
-              (fun () -> Lwt.pick (Lwt.return () :: ignored_threads))
-              (fun () -> Lwt.async_exception_hook := async_exc_hook; Lwt.return ()))
+              (fun () ->
+                Lwt.pick (Lwt.return () :: ignored_threads))
+              (fun () ->
+                let detached_threads = Hashtbl.fold (fun k t acc -> t :: acc) detacheds [] in
+                Hashtbl.reset detacheds;
+                Lwt.pick (Lwt.return "" :: detached_threads) >>= fun _ -> Lwt.return ()))
           (fun exn ->
             Logger.info Logger.Section.main ~exn "Exception while cleaning up ignored threads"))
   in

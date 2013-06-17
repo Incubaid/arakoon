@@ -59,11 +59,11 @@ let compress_tlog tlog_name archive_name =
 	      let compress_and_write last_i buffer = 
 	        let contents = Buffer.contents buffer in
 	        let t0 = Unix.gettimeofday () in
-	        Lwt_preemptive.detach 
+	        Lwt_extra.detach
 	          (fun () ->
-		        let output = Bz2.compress ~block:9 contents 0 (String.length contents) 
+		        let output = Bz2.compress ~block:9 contents 0 (String.length contents)
 		        in
-		        output) () 
+		        output)
 	        >>= fun output ->
             let t1 = Unix.gettimeofday() in
 	        let d = t1 -. t0 in
