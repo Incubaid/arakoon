@@ -133,7 +133,7 @@ let test_pingpong_1x1 () =
 	     ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
     Logger.info_ "end of scenario"
   in
-  Lwt_main.run (main_t());;
+  Lwt_extra.run (main_t());;
     
 let test_pingpong_2x2 () = 
   let port_a = 40010 
@@ -165,7 +165,7 @@ let test_pingpong_2x2 () =
     Lwt_mvar.take m_tdb >>= fun () ->
     Logger.info_ "end of scenario"
   in
-  Lwt_main.run (main_t())
+  Lwt_extra.run (main_t())
     
 let test_pingpong_multi_server () =
   let port_a = 40010
@@ -210,7 +210,7 @@ let test_pingpong_multi_server () =
     Lwt_mvar.take m_tdc >>= fun () ->
     Logger.info_ "end of scenario"
   in
-  Lwt_main.run (main_t());;
+  Lwt_extra.run (main_t());;
 
 
 let test_pingpong_restart () = 
@@ -253,7 +253,7 @@ let test_pingpong_restart () =
       eventually_die () ]
     >>= fun () -> Logger.info_ "main_t: after pick"
   in
-  Lwt_main.run main_t
+  Lwt_extra.run main_t
 
 let suite = "tcp" >::: [
   "pingpong_1x1" >:: test_pingpong_1x1;

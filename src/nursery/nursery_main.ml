@@ -137,7 +137,7 @@ let __delete_from_nursery config cluster_id sep =
   NC.delete nc cluster_id m_sep 
   
 let __main_run log_file f =
-  Lwt_main.run( 
+  Lwt_extra.run( 
     Lwt.catch
       ( fun () ->
         setup_logger log_file >>= fun () ->

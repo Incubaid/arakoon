@@ -68,7 +68,7 @@ let test_interval2() =
       OUnit.assert_equal ~printer:Interval.to_string i0 i1;
       Lwt.return ())
   in
-  Lwt_main.run (t())
+  Lwt_extra.run (t())
 
 let test_delete_prefix () =
   let u = Update.DeletePrefix "whatever" in

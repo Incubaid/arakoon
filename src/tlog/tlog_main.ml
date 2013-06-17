@@ -27,7 +27,7 @@ let dump_tlog filename ~values=
 	  Lwt_io.with_file ~mode:Lwt_io.input filename do_it
     end
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let _last_entry filename = 
   let last = ref None in
@@ -73,7 +73,7 @@ let strip_tlog filename =
     _last_entry filename >>= fun last ->
     maybe_truncate last 
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let mark_tlog file_name node_name = 
   let t = 
@@ -91,7 +91,7 @@ let mark_tlog file_name node_name =
             file_name f
             >>= fun () -> Lwt.return 0
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
@@ -101,7 +101,7 @@ let make_tlog tlog_name (i:int) =
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in
-  Lwt_main.run t;0
+  Lwt_extra.run t;0
 
 
 let compress_tlog tlu =
@@ -116,7 +116,7 @@ let compress_tlog tlu =
     File_system.rename tmp tlf >>= fun () ->
     File_system.unlink tlu
   in
-  Lwt_main.run t;
+  Lwt_extra.run t;
   0
 
 let uncompress_tlog tlx =
@@ -138,6 +138,6 @@ let uncompress_tlog tlx =
       end
     else Lwt.fail (Failure "unknown file format")
   in
-  Lwt_main.run t;0
+  Lwt_extra.run t;0
 
 

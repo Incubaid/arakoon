@@ -276,10 +276,10 @@ let get_fringe ls border direction =
                   let k = B.key lcdb cursor in
                   if k.[0] <> __adminprefix.[0]
                   then
-                    Lwt.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
+                    Lwt_extra.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
                   else
                     begin
-                      Lwt.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
+                      Lwt_extra.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
                       begin
                         try
                           B.next lcdb cursor;

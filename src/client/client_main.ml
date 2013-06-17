@@ -48,7 +48,7 @@ let ping ip port cluster_id =
   in
   let sa = make_address ip port in
   let t = Lwt_io.with_connection sa do_it in
-  Lwt_main.run t; 0
+  Lwt_extra.run t; 0
 
 
 
@@ -82,7 +82,7 @@ let find_master cluster_cfg =
       end
   in loop cfgs
 
-let run f = Lwt_main.run (f ()); 0
+let run f = Lwt_extra.run (f ()); 0
 
 let with_master_client cfg_name f =
   let ccfg = read_config cfg_name in

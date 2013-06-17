@@ -72,7 +72,7 @@ let test_echo () =
     Lwt_mvar.take td_var  >>= fun () ->
     Logger.info_ "end_of_main" 
   in
-  Lwt_main.run (main())
+  Lwt_extra.run (main())
 
 
 
@@ -129,7 +129,7 @@ let test_max_connections () =
     OUnit.assert_equal !n_problems 1;
     Lwt.return () 
   in
-  Lwt_main.run main_t
+  Lwt_extra.run main_t
 
 
 let suite = "server" >::: [

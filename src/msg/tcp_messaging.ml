@@ -109,7 +109,7 @@ object(self : # messaging )
       let leaky = true in
       let fresh = Lwt_buffer.create ~capacity ~leaky () in
       let loop = self # _make_sender_loop target fresh in
-      Lwt.ignore_result (loop ());
+      Lwt_extra.ignore_result (loop ());
       let () = Hashtbl.add _outgoing target fresh in
       fresh
 	

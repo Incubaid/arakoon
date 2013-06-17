@@ -216,7 +216,7 @@ let test_master_loop network_factory ()  =
     Lwt.return ()
   in
   let client_buffer = Lwt_buffer.create () in
-  let () = Lwt.ignore_result (
+  let () = Lwt_extra.ignore_result (
     Lwt_list.iter_s
       (fun x -> 
         Lwt_buffer.add (x, finished) client_buffer >>= fun () ->
@@ -443,7 +443,7 @@ let c2_fails = [ (fun (msg,s,t) -> s <> "c2")]
 let xtodo () =
   OUnit.todo "re-enable"
 
-(* Lwt_main.run (test ideal);; *)
+(* Lwt_extra.run (test ideal);; *)
 open OUnit
 let w = lwt_test_wrap
 let suite = "basic" >::: [
