@@ -25,12 +25,6 @@ open Lwt
 
 let igns = Hashtbl.create 10;;
 
-let () =
-  Random.self_init ();
-  Lwt.async_exception_hook :=
-    (function
-      | Lwt.Canceled -> ()
-      | exn -> raise exn)
 
 let rec get_key () =
   let candidate = Random.int 1073741823 in
@@ -42,28 +36,35 @@ let rec get_key () =
 
 let ignore_result (t:'a Lwt.t) =
   let key = get_key () in
-  let t' =
+  let t' () =
     Lwt.finalize
       (fun () -> t)
       (fun () ->
         Hashtbl.remove igns key;
         Lwt.return ()) in
   Hashtbl.add igns key t;
-  Lwt.ignore_result t';;
-
+  Lwt.ignore_result (t' ())
 
 
 let run t =
-  let act =
+  let act () =
     Lwt.finalize
       (fun () -> t)
       (fun () ->
         Lwt.catch
           (fun () ->
+            let async_exc_hook = !Lwt.async_exception_hook in
+            Lwt.async_exception_hook :=
+              (function
+                | Lwt.Canceled -> ()
+                | exn -> async_exc_hook exn);
             let ignored_threads = Hashtbl.fold (fun k t acc -> t :: acc) igns [] in
             Hashtbl.reset igns;
-            Lwt.pick (Lwt.return () :: ignored_threads) >>= fun a ->
-            Lwt.return ())
-          (fun exn -> Lwt.return ()))
+            Lwt.finalize
+              (fun () -> Lwt.pick (Lwt.return () :: ignored_threads))
+              (fun () -> Lwt.async_exception_hook := async_exc_hook; Lwt.return ()))
+          (fun exn ->
+            Logger.info Logger.Section.main ~exn "Exception while cleaning up ignored threads"))
   in
-  Lwt_main.run act
+  Lwt_main.run (act ())
+
