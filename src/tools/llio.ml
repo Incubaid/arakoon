@@ -206,6 +206,14 @@ let input_list input_element ic =
   in
   loop size []
 
+let input_listl input_element ic =
+  input_int ic >>= fun size ->
+  let rec loop acc = function
+    | 0 -> Lwt.return (size, acc)
+    | i -> input_element ic >>= fun a -> loop (a :: acc) (i -1)
+  in
+  loop [] size
+
 let input_string_list ic = input_list input_string ic
 
 let input_kv_list ic = input_list input_string_pair ic

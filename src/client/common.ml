@@ -74,6 +74,7 @@ type client_command =
   | DELETE_PREFIX
   | VERSION
   | ADMIN_SEQUENCE
+  | MULTI_GET_OPTION
 
 
 let code2int = [
@@ -113,6 +114,7 @@ let code2int = [
   VERSION                 , 0x28l;
   ASSERT_EXISTS           , 0x29l;
   ADMIN_SEQUENCE          , 0x2al;
+  MULTI_GET_OPTION        , 0x31l;
 ]
 
 let int2code =

@@ -308,6 +308,29 @@ module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
     in
     _only_if_master (ic,oc) me store allow_dirty _inner
 
+  let _do_multi_get_option (ic,oc) me store stats =
+    begin
+      Llio.input_bool ic >>= fun allow_dirty ->
+      Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+      Lwtc.log "MULTI_GET_OPTION: allow_dirty=%B length=%i keys=%S"
+        allow_dirty length (String.concat ";" keys) >>= fun () ->
+      let _inner () =
+        let rec loop acc = function
+          | [] ->
+            begin
+              Llio.output_int oc 0 >>= fun () ->
+              Llio.output_list Llio.output_string_option oc acc >>= fun () ->
+              Lwt.return false
+            end
+          | k :: ks ->
+            S.get store k >>= fun vo ->
+            loop (vo :: acc) ks
+        in
+        loop [] keys
+      in
+      _only_if_master (ic,oc) me store allow_dirty _inner
+    end
+
   let _do_expect_pp (ic,oc) store = 
     _get_meta store >>= fun ms ->
     let mo = Core.extract_master_info ms in    
@@ -336,27 +359,28 @@ module V1(S:Core.STORE)(A:MP_ACTION_DISPATCHER) = struct
     _read_command conn >>= fun c -> 
     let fail () = failwith (Printf.sprintf "%li not backward compatible yet" (List.assoc c Common.code2int)) in
     match c with
-      | Common.PING                      -> _do_ping          conn
-      | Common.WHO_MASTER                -> _do_who_master    conn    store
-      | Common.EXISTS                    -> _do_exists        conn me store stats
-      | Common.GET                       -> _do_get           conn me store stats
-      | Common.SET                       -> _do_set           conn me store stats driver
-      | Common.DELETE                    -> _do_delete        conn me store stats driver 
-      | Common.RANGE                     -> _do_range         conn me store stats
-      | Common.PREFIX_KEYS               -> _do_prefix_keys   conn me store stats
-      | Common.TEST_AND_SET              -> _do_test_and_set  conn me store stats driver
+      | Common.PING                      -> _do_ping             conn
+      | Common.WHO_MASTER                -> _do_who_master       conn    store
+      | Common.EXISTS                    -> _do_exists           conn me store stats
+      | Common.GET                       -> _do_get              conn me store stats
+      | Common.SET                       -> _do_set              conn me store stats driver
+      | Common.DELETE                    -> _do_delete           conn me store stats driver 
+      | Common.RANGE                     -> _do_range            conn me store stats
+      | Common.PREFIX_KEYS               -> _do_prefix_keys      conn me store stats
+      | Common.TEST_AND_SET              -> _do_test_and_set     conn me store stats driver
       | Common.LAST_ENTRIES              -> fail ()
-      | Common.RANGE_ENTRIES             -> _do_range_entries conn me store stats
-      | Common.SEQUENCE                  -> _do_sequence      conn me store stats driver
-      | Common.MULTI_GET                 -> _do_multi_get     conn me store stats
-      | Common.EXPECT_PROGRESS_POSSIBLE  -> _do_expect_pp     conn    store
-      | Common.STATISTICS                -> _do_statistics    conn          stats
+      | Common.RANGE_ENTRIES             -> _do_range_entries    conn me store stats
+      | Common.SEQUENCE                  -> _do_sequence         conn me store stats driver
+      | Common.MULTI_GET                 -> _do_multi_get        conn me store stats
+      | Common.EXPECT_PROGRESS_POSSIBLE  -> _do_expect_pp        conn    store
+      | Common.STATISTICS                -> _do_statistics       conn          stats
       | Common.USER_FUNCTION             -> fail ()
-      | Common.ASSERT                    -> _do_assert        conn me store stats
-      | Common.ASSERT_EXISTS             -> _do_assert_exists conn me store stats
+      | Common.ASSERT                    -> _do_assert           conn me store stats
+      | Common.ASSERT_EXISTS             -> _do_assert_exists    conn me store stats
       | Common.SET_INTERVAL              -> fail ()
-      | Common.DELETE_PREFIX             -> _do_delete_prefix conn me store stats driver
-      | Common.VERSION                   -> _do_version       conn
+      | Common.DELETE_PREFIX             -> _do_delete_prefix    conn me store stats driver
+      | Common.VERSION                   -> _do_version          conn
+      | Common.MULTI_GET_OPTION          -> _do_multi_get_option conn me store stats
         
       | c -> fail ()
 end
