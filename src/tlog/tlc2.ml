@@ -99,9 +99,14 @@ let get_tlog_names tlog_dir tlf_dir =
     entries
   in
   let my_compare fn1 fn2 =
-    compare (get_number fn1) (get_number fn2)
+    let n1 = get_number fn1
+    and n2 = get_number fn2 in
+    if n1 = n2
+      then compare fn1 fn2
+      else compare n1 n2
   in
   let sorted = List.sort my_compare filtered in
+  (* This code is based on ordering of the list, and 'tlf' being 'less than' 'tlog' *)
   let filtered2 = List.fold_left
     (fun acc name ->
       match acc with
