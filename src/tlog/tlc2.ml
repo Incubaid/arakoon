@@ -39,6 +39,13 @@ let archive_extension = ".tlf"
 let archive_name c = Printf.sprintf "%03i.tlf" c
 let head_fname = "head.db"
 
+let get_full_path tlog_dir tlf_dir name =
+  if Filename.check_suffix name ".tlf" || Filename.check_suffix name ".tlf.part"
+  then
+    Filename.concat tlf_dir name
+  else
+    Filename.concat tlog_dir name
+
 let head_name () = head_fname
 
 let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
@@ -67,18 +74,26 @@ let get_number fn =
   let pre = String.sub fn 0 dot_pos in
   int_of_string pre
 
-let get_tlog_names tlog_dir =
-  Lwt.catch
-    (fun () ->
-      File_system.lwt_directory_list tlog_dir
-    )
-    (function
-      | Unix.Unix_error(Unix.EIO, fn, _) as exn ->
-          if fn = "readdir"
-          then Lwt.fail (Node_cfg.InvalidTlogDir tlog_dir)
-          else Lwt.fail exn
-      | exn -> Lwt.fail exn
-    ) >>= fun entries ->
+let get_tlog_names tlog_dir tlf_dir =
+  let get_entries dir invalid_dir_exn =
+    Lwt.catch
+      (fun () ->
+        File_system.lwt_directory_list dir
+      )
+      (function
+        | Unix.Unix_error(Unix.EIO, fn, _) as exn ->
+            if fn = "readdir"
+            then Lwt.fail invalid_dir_exn
+            else Lwt.fail exn
+        | exn -> Lwt.fail exn
+      ) in
+  get_entries tlog_dir (Node_cfg.InvalidTlogDir tlog_dir) >>= fun tlog_entries ->
+  (if tlog_dir = tlf_dir
+  then
+    Lwt.return []
+  else
+    get_entries tlf_dir (Node_cfg.InvalidTlfDir tlf_dir)) >>= fun tlf_entries ->
+  let entries = List.rev_append tlf_entries tlog_entries in
   let filtered = List.filter
     (fun e -> Str.string_match file_regexp e 0)
     entries
@@ -117,14 +132,14 @@ let folder_for filename index =
   else failwith (Printf.sprintf "no folder for '%s'" extension)
 
 
-let fold_read tlog_dir file_name
+let fold_read tlog_dir tlf_dir file_name
     ~index
     (lowerI:Sn.t)
     (too_far_i:Sn.t option)
     ~first
     (a0:'a)
     (f:'a -> Entry.t -> 'a Lwt.t) =
-  let full_name = Filename.concat tlog_dir file_name in
+  let full_name = get_full_path tlog_dir tlf_dir file_name in
   let folder, extension, index' = folder_for file_name index in
   Logger.debug_f_ "fold_read extension=%s => index':%s" extension (Index.to_string index') >>= fun () ->
   let ic_f ic = folder ic ~index:index' lowerI too_far_i ~first a0 f in
@@ -138,7 +153,7 @@ let fold_read tlog_dir file_name
 	        Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
 	        >>= fun () ->
 	        let an = to_archive_name file_name in
-	        let full_an = Filename.concat tlog_dir an in
+	        let full_an = get_full_path tlog_dir tlf_dir an in
 	        Logger.debug_f_ "folding compressed %s" an >>= fun () ->
 	        Lwt_io.with_file ~mode:Lwt_io.input full_an
 	          (fun ic ->
@@ -214,15 +229,15 @@ let _validate_list tlog_names node_id ~check_marker=
 
 
 
-let validate_last tlog_dir node_id ~check_marker=
+let validate_last tlog_dir tlf_dir node_id ~check_marker=
   Logger.debug_f_ "validate_last ~check_marker:%b" check_marker >>= fun () ->
-  get_tlog_names tlog_dir >>= fun tlog_names ->
+  get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
   match tlog_names with
     | [] -> _validate_list [] node_id ~check_marker
     | _ ->
       let n = List.length tlog_names in
       let last = List.nth tlog_names (n-1) in
-      let fn = Filename.concat tlog_dir last in
+      let fn = get_full_path tlog_dir tlf_dir last in
       _validate_list [fn] node_id ~check_marker>>= fun r ->
       let (validity, last_eo, index) = r in
       match last_eo with
@@ -231,7 +246,7 @@ let validate_last tlog_dir node_id ~check_marker=
             if n > 1
             then
               let prev_last = List.nth tlog_names (n-2) in
-              let last_non_empty = Filename.concat tlog_dir prev_last in
+              let last_non_empty = get_full_path tlog_dir tlf_dir prev_last in
               _validate_list [last_non_empty] node_id ~check_marker
             else
               Lwt.return r
@@ -269,9 +284,9 @@ module F = struct
 end
 
 
-let _init_file tlog_dir c =
+let _init_file tlog_dir tlf_dir c =
   let fn = file_name c in
-  let full_name = Filename.concat tlog_dir fn in
+  let full_name = get_full_path tlog_dir tlf_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
   Lwt_unix.LargeFile.fstat fd >>= fun stats ->
   let pos0 = stats.st_size in
@@ -281,12 +296,12 @@ let _init_file tlog_dir c =
   Lwt.return f
 
 
-let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
+let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
   let tfs = Sn.string_of too_far_i in
   Logger.debug_f_ "Tlc2.iterate_tlog_dir tlog_dir:%s start_i:%s too_far_i:%s ~index:%s"
     tlog_dir (Sn.string_of start_i) tfs (Index.to_string index)
   >>= fun () ->
-  get_tlog_names tlog_dir >>= fun tlog_names ->
+  get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
   let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
   in
   let num_tlogs = List.length tlog_names in
@@ -319,7 +334,7 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
         let first = test0 in
         Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
         let t1 = Sys.time () in
-        fold_read tlog_dir fn ~index low (Some too_far_i) ~first low acc_entry >>= fun x ->
+        fold_read tlog_dir tlf_dir fn ~index low (Some too_far_i) ~first low acc_entry >>= fun x ->
         Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go" fn (Sys.time () -. t1) (num_tlogs - cnt) >>= fun () ->
         Lwt.return (cnt+1,x)
       end
@@ -333,7 +348,7 @@ let iterate_tlog_dir tlog_dir ~index start_i too_far_i f =
 
 
 
-class tlc2 (tlog_dir:string) (new_c:int)
+class tlc2 (tlog_dir:string) (tlf_dir:string) (new_c:int)
   (last:Entry.t option) (index:Index.index) (use_compression:bool)
   (node_id:string) (fsync:bool)
   =
@@ -359,9 +374,9 @@ object(self: # tlog_collection)
 
 
   method validate_last_tlog () =
-    validate_last tlog_dir node_id ~check_marker:false >>= fun r ->
+    validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
     let (validity, entry, new_index) = r in
-    let tlu = Filename.concat tlog_dir (file_name _outer) in
+    let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
     let matches = Index.match_filename tlu new_index in
     Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
       tlu
@@ -458,7 +473,7 @@ object(self: # tlog_collection)
           Logger.debug_f_ "prelude %s" (Sn.string_of i) >>= fun () ->
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
-	      _init_file tlog_dir _outer >>= fun file ->
+	      _init_file tlog_dir tlf_dir _outer >>= fun file ->
 	      _file <- Some file;
           _index <- Index.make (F.fn_of file);
 	      Lwt.return file
@@ -487,17 +502,17 @@ object(self: # tlog_collection)
     let old_outer = _outer in
     _inner <- 0;
     _outer <- new_outer;
-    _init_file tlog_dir new_outer >>= fun new_file ->
+    _init_file tlog_dir tlf_dir new_outer >>= fun new_file ->
     _file <- Some new_file;
     let index =
       let fn = file_name _outer in
-      let full_name = Filename.concat tlog_dir fn in
+      let full_name = get_full_path tlog_dir tlf_dir fn in
       Index.make full_name
     in
     _index <- index;
     (* make compression job *)
-    let tlu = Filename.concat tlog_dir (file_name old_outer) in
-    let tlc = Filename.concat tlog_dir (archive_name old_outer) in
+    let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
+    let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
     let tlc_temp = tlc ^ ".part" in
     begin
       if use_compression
@@ -515,11 +530,11 @@ object(self: # tlog_collection)
   method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
     let index = _index in
     Logger.debug_f_ "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
-    iterate_tlog_dir tlog_dir ~index start_i too_far_i f
+    iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f
 
 
   method get_infimum_i () =
-    get_tlog_names tlog_dir >>= fun names ->
+    get_tlog_names tlog_dir tlf_dir >>= fun names ->
     let f = !Tlogcommon.tlogEntriesPerFile in
     let v =
     match names with
@@ -531,7 +546,7 @@ object(self: # tlog_collection)
     Lwt.return v
 
   method get_head_name () =
-    Filename.concat tlog_dir (head_name())
+    get_full_path tlog_dir tlf_dir (head_name())
 
   method dump_head oc =
     let head_name = self # get_head_name () in
@@ -610,7 +625,7 @@ object(self: # tlog_collection)
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
       let last_file () =
         match _file with
-          | None -> _init_file tlog_dir _outer
+          | None -> _init_file tlog_dir tlf_dir _outer
           | Some file -> Lwt.return file
       in
       last_file () >>= fun file ->
@@ -635,7 +650,7 @@ object(self: # tlog_collection)
   method get_tlog_from_i = get_file_number
 
   method get_tlog_count () =
-    get_tlog_names tlog_dir >>= fun tlogs ->
+    get_tlog_names tlog_dir tlf_dir >>= fun tlogs ->
     Lwt.return (List.length tlogs)
 
   method dump_tlog_file start_i oc =
@@ -643,12 +658,12 @@ object(self: # tlog_collection)
     let an = archive_name n in
     let fn = file_name n  in
     begin
-      File_system.exists (Filename.concat tlog_dir an) >>= function
+      File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
 	| true -> Lwt.return an
 	| false -> Lwt.return fn
     end
     >>= fun name ->
-    let canonical = Filename.concat tlog_dir name in
+    let canonical = get_full_path tlog_dir tlf_dir name in
     Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
     Llio.output_string oc name >>= fun () ->
     File_system.stat canonical >>= fun stats ->
@@ -666,7 +681,7 @@ object(self: # tlog_collection)
 
   method save_tlog_file name length ic =
     (* what with rotation, open streams, ...*)
-    let canon = Filename.concat tlog_dir name in
+    let canon = get_full_path tlog_dir tlf_dir name in
     let tmp = canon ^ ".tmp" in
     Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
@@ -674,24 +689,24 @@ object(self: # tlog_collection)
 
 
   method remove_oldest_tlogs count =
-    get_tlog_names tlog_dir >>= fun existing ->
+    get_tlog_names tlog_dir tlf_dir >>= fun existing ->
     let rec remove_one l = function
       | 0 -> Lwt.return ()
       | n ->
-        let oldest = Filename.concat tlog_dir (List.hd l) in
+        let oldest = get_full_path tlog_dir tlf_dir (List.hd l) in
         Logger.debug_f_ "Unlinking %s" oldest >>= fun () ->
         File_system.unlink (oldest) >>= fun () ->
         remove_one (List.tl l) (n-1)
     in remove_one existing count
 
   method remove_below i =
-    get_tlog_names tlog_dir >>= fun existing ->
+    get_tlog_names tlog_dir tlf_dir >>= fun existing ->
     let maybe_remove fn =
       let n = get_number fn in
       let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
       if fn_stop < i then
 	begin
-	  let canonical = Filename.concat tlog_dir fn in
+	  let canonical = get_full_path tlog_dir tlf_dir fn in
 	  Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
 	  File_system.unlink canonical
 	end
@@ -701,14 +716,14 @@ object(self: # tlog_collection)
     Lwt_list.iter_s maybe_remove existing
 end
 
-let get_last_tlog tlog_dir =
+let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_ "get_last_tlog" >>= fun () ->
-  get_tlog_names tlog_dir >>= fun tlog_names ->
+  get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
   let new_c = get_count tlog_names in
   Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
-  Lwt.return (new_c, Filename.concat tlog_dir (file_name new_c))
+  Lwt.return (new_c, get_full_path tlog_dir tlf_dir (file_name new_c))
 
-let maybe_correct tlog_dir new_c last index node_id =
+let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   if new_c > 0 && last = None
   then
     begin
@@ -719,8 +734,8 @@ let maybe_correct tlog_dir new_c last index node_id =
 	uncompress the .tlf into .tlog and remove it.
      *)
       let pc = new_c - 1 in
-      let tlc_name = Filename.concat tlog_dir (archive_name pc) in
-      let tlu_name = Filename.concat tlog_dir (file_name pc)  in
+      let tlc_name = get_full_path tlog_dir tlf_dir (archive_name pc) in
+      let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
 	    tlc_name tlu_name
@@ -736,11 +751,11 @@ let maybe_correct tlog_dir new_c last index node_id =
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 tlog_dir use_compression fsync node_id =
+let make_tlc2 tlog_dir tlf_dir use_compression fsync node_id =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
-  get_last_tlog tlog_dir >>= fun (new_c, fn) ->
+  get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
-  maybe_correct tlog_dir new_c last index node_id >>= fun (new_c,last,new_index) ->
+  maybe_correct tlog_dir tlf_dir new_c last index node_id >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
     match last with
@@ -748,7 +763,7 @@ let make_tlc2 tlog_dir use_compression fsync node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir new_c last new_index use_compression node_id fsync in
+  let col = new tlc2 tlog_dir tlf_dir new_c last new_index use_compression node_id fsync in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
@@ -760,7 +775,7 @@ let make_tlc2 tlog_dir use_compression fsync node_id =
           let i = Entry.i_of e in
           let v = Entry.v_of e in
           let marker = _make_open_marker node_id in
-          _init_file tlog_dir new_c >>= fun file ->
+          _init_file tlog_dir tlf_dir new_c >>= fun file ->
           let oc = F.oc_of file in
           Tlogcommon.write_marker oc i v marker >>= fun () ->
           F.close file >>= fun () ->

@@ -56,10 +56,10 @@ let _make_values tlc n =
   in
   loop 0
 
-let test_collapse_until dn = 
+let test_collapse_until (dn, tlf_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
-  Logger.debug_f_ "dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn true false "node_name" >>= fun tlc ->
+  Logger.debug_f_ "dn=%s, tlf_dir=%s" dn tlf_dir >>= fun () ->
+  Tlc2.make_tlc2 dn tlf_dir true false "node_name" >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -92,12 +92,13 @@ let test_collapse_until dn =
   Lwt.return ()
 
 
-let test_dn = "/tmp/collapser" 
+let test_dn = "/tmp/collapser"
+let _tlf_dir = "/tmp/collapser_tlf"
 
-let test_collapse_many dn =
+let test_collapse_many (dn, tlf_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  Logger.debug_f_ "test_collapse_many_regime dn=%s" dn >>= fun () ->
-  Tlc2.make_tlc2 dn true false "node_name" >>= fun tlc ->
+  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s" dn tlf_dir >>= fun () ->
+  Tlc2.make_tlc2 dn tlf_dir true false "node_name" >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
@@ -127,12 +128,14 @@ let setup () =
   Logger.info_ "Collapser_test.setup" >>= fun () ->
   
   let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
+  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlf_dir) in
   File_system.mkdir test_dn 0o755 >>= fun () -> 
-  Lwt.return test_dn
+  File_system.mkdir _tlf_dir 0o755 >>= fun () -> 
+  Lwt.return (test_dn, _tlf_dir)
 
 
-let teardown dn =
-  Logger.debug_f_ "teardown %s" dn
+let teardown (dn, tlf_dir) =
+  Logger.debug_f_ "teardown %s, %s" dn tlf_dir
 
   
 let suite =
@@ -142,3 +145,4 @@ let suite =
     "collapse_until" >:: wrapTest test_collapse_until;
     "collapse_many" >:: wrapTest test_collapse_many;
   ]
+

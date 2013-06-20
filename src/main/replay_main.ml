@@ -2,7 +2,7 @@ open Lwt
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
-let replay_tlogs tlog_dir db_name end_i = 
+let replay_tlogs tlog_dir tlf_dir db_name end_i =
   let console x = Lwt_io.eprintlf x in
   let maybe_log_i start_i too_far_i pi = 
     let (+:) = Sn.add 
@@ -32,7 +32,7 @@ let replay_tlogs tlog_dir db_name end_i =
             end_i with
               | None ->
                 begin
-                  Tlc2.get_last_tlog tlog_dir >>= fun (new_c,fn) ->
+                  Tlc2.get_last_tlog tlog_dir tlf_dir >>= fun (new_c,fn) ->
                   Tlc2._validate_one fn "" false >>= fun (last, index) -> 
                   let i = 
                     match last with
@@ -56,7 +56,7 @@ let replay_tlogs tlog_dir db_name end_i =
             let acc = ref None in
             let log_i pi = maybe_log_i start_i too_far_i pi in
             let f = Catchup.make_f (module S) log_i acc store in
-            Tlc2.iterate_tlog_dir tlog_dir ~index:None 
+            Tlc2.iterate_tlog_dir tlog_dir tlf_dir ~index:None 
               start_i 
               too_far_i
               f

@@ -268,7 +268,8 @@ class ArakoonCluster:
                 targets = None,
                 isLocal = False,
                 logConfig = None,
-                batchedTransactionConfig = None):
+                batchedTransactionConfig = None
+                tlfDir = None):
         """
         Add a node to the configuration of the supplied cluster
 
@@ -286,6 +287,7 @@ class ArakoonCluster:
         @param isLocal : whether this node is a local node and should be added to the local nodes list
         @param logConfig : specifies the log config to be used for this node
         @param batchedTransactionConfig : specifies the batched transaction config to be used for this node
+        @param tlfDir : the directory used for tlfs (in none, tlogDir will be used)
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -336,6 +338,9 @@ class ArakoonCluster:
         if tlogDir:
             config.addParam(name,"tlog_dir", tlogDir)
 
+        if tlfDir:
+            config.addParam(name,"tlf_dir", tlfDir)
+
         if isLearner:
             config.addParam(name, "learner", "true")
             if targets is None:
@@ -343,7 +348,7 @@ class ArakoonCluster:
             config.addParam(name, "targets", string.join(targets,","))
 
         if not config.checkSection("global") :
-            config.addSection("global")        
+            config.addSection("global")
             config.addParam("global", "cluster_id", self._clusterId)
         config.setParam("global","cluster", ",".join(nodes))
 
@@ -665,6 +670,10 @@ class ArakoonCluster:
             if config.checkParam(name, "tlog_dir"):
                 tlogDir = config.getValue(name, "tlog_dir")
                 q.system.fs.createDir(tlogDir)
+
+            if config.checkParam(name, "tlf_dir"):
+                tlfDir = config.getValue(name, "tlf_dir")
+                q.system.fs.createDir(tlfDir)
 
             logDir = config.getValue(name, "log_dir")
             q.system.fs.createDir(logDir)
