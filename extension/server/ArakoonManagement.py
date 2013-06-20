@@ -268,7 +268,7 @@ class ArakoonCluster:
                 targets = None,
                 isLocal = False,
                 logConfig = None,
-                batchedTransactionConfig = None
+                batchedTransactionConfig = None,
                 tlfDir = None):
         """
         Add a node to the configuration of the supplied cluster
