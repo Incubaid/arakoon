@@ -492,6 +492,13 @@ module Node_cfg = struct
             t.tlog_dir >>= fun () ->
           Lwt.fail (InvalidTlogDir t.tlog_dir)
         else
+        if not (is_ok t.tlf_dir)
+        then
+          Logger.fatal_f_
+            "Tlf dir '%s' doesn't exist, or insufficient permissions"
+            t.tlf_dir >>= fun () ->
+          Lwt.fail (InvalidTlfDir t.tlf_dir)
+        else
         Lwt.return ()
       end 
 end
