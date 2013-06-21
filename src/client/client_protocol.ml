@@ -85,22 +85,30 @@ let response_rc_bool oc rc b =
   Lwt.return false
 
 let handle_exception oc exn=
-  let rc, msg, is_fatal, close_socket, level = match exn with
-  | XException(Arakoon_exc.E_NOT_FOUND, msg) -> Arakoon_exc.E_NOT_FOUND,msg, false, false, Logger.Debug
-  | XException(Arakoon_exc.E_GOING_DOWN, msg) ->Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error
-  | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
-    Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Logger.Debug
-  | XException(rc, msg) -> rc,msg, false, true, Logger.Error
-  | Not_found -> Arakoon_exc.E_NOT_FOUND, "Not_found", false, false, Logger.Debug
-  | Server.FOOBAR -> Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true, Logger.Error
-  | _ -> Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true, Logger.Error
-  in
+  begin
+    match exn with
+      | XException(Arakoon_exc.E_NOT_FOUND, msg) ->
+          Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, false, Logger.Debug)
+      | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
+          Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error)
+      | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
+          Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Logger.Debug)
+      | XException(rc, msg) ->
+          Lwt.return (rc,msg, false, true, Logger.Error)
+      | Not_found ->
+          Lwt.return (Arakoon_exc.E_NOT_FOUND, "Not_found", false, false, Logger.Debug)
+      | Server.FOOBAR ->
+          Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true, Logger.Error)
+      | Canceled ->
+          Lwt.fail Canceled
+      | _ ->
+          Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true, Logger.Error)
+  end
+  >>= fun (rc, msg, is_fatal, close_socket, level) ->
   Logger.log_ section level
     (fun () -> Printf.sprintf
-      "Exception during client request (%s) => rc:%lx msg:%s" 
-      (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg)
-  >>= fun () ->
-  
+      "Exception during client request (%s) => rc:%lx msg:%s"
+      (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg) >>= fun () ->
   Arakoon_exc.output_exception oc rc msg >>= fun () ->
   begin
 	  if close_socket

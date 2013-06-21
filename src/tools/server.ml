@@ -47,14 +47,19 @@ let session_thread (sid:string) cid protocol fd =
       in protocol (ic,oc,cid)
     )
     (function
-      | FOOBAR as foobar-> 
+      | FOOBAR as foobar->
           Logger.fatal_ "propagating FOOBAR" >>= fun () ->
           Lwt.fail foobar
-      | exn -> Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
-  >>= fun () -> 
-  Lwt.catch 
+      | Canceled ->
+          Lwt.fail Canceled
+      | exn ->
+          Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
+  >>= fun () ->
+  Lwt.catch
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
+    ( function
+      | Canceled -> Lwt.fail Canceled
+      | exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
