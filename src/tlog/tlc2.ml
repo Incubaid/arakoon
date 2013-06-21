@@ -492,11 +492,7 @@ object(self: # tlog_collection)
             >>= fun () ->
             self # _rotate file new_outer
           in
-          begin
-            match _previous_entry with
-              | Some pe when (Entry.i_of pe) = i -> Lwt.return file
-              | _ -> do_rotate ()
-          end
+          do_rotate ()
 	    else
 	      Lwt.return file
 
