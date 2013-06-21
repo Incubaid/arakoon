@@ -22,16 +22,12 @@ let log ?exn section level msg =
   then
     Crash_logger.add_to_crash_log section level [Crash_logger.Immediate (msg, exn)]
   else
-    match exn with
-      | Some exn -> Lwt_log.log ~exn ~section ~level msg
-      | None -> Lwt_log.log ~section ~level msg
+    Lwt_log.log ?exn ~section ~level msg
 
 let log_ ?exn section level dmsg =
   if level < Lwt_log.Section.level section
   then
     Crash_logger.add_to_crash_log section level [Crash_logger.Delayed (dmsg, exn)]
   else
-    match exn with
-      | Some exn -> Lwt_log.log ~exn ~section ~level (dmsg ())
-      | None -> Lwt_log.log ~section ~level (dmsg ())
+    Lwt_log.log ?exn ~section ~level (dmsg ())
 
