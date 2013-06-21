@@ -580,7 +580,6 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let mvar = Lwt_mvar.create_empty () in
       let start_backend (master, constants, buffers, new_i, vo, store) =
 	    let to_run = 
 	      match master with
@@ -595,11 +594,7 @@ let _main_2 (type s)
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in
-        Lwt.finalize
-          (fun () -> to_run constants buffers new_i vo)
-          (fun () ->
-            Logger.debug_ "finalizing start_backend; put mvar" >>= fun () ->
-            Lwt_mvar.put mvar ())
+        to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -611,10 +606,14 @@ let _main_2 (type s)
 					                      rapporting) ->
           let (_,constants,_,_,_,store) = start_state in
           let fsm () = start_backend start_state in
+          let fsm_mutex = Lwt_mutex.create () in
+          let fsm_t = Lwt_mutex.with_lock fsm_mutex fsm in
+          let msg_mutex = Lwt_mutex.create () in
+          let msg_t = Lwt_mutex.with_lock msg_mutex (messaging # run) in
           Lwt.finalize
             (fun () ->
-	          Lwt.pick[ fsm ();
-	                    messaging # run ();
+	          Lwt.pick[ fsm_t;
+	                    msg_t;
 			            service ();
 			            rapporting ();
                         (listen_for_signal () >>= fun () ->
@@ -625,11 +624,14 @@ let _main_2 (type s)
 			            ;
 		              ])
             (fun () ->
-              Logger.debug_ "waiting for fsm thread to finish" >>= fun () ->
-              Lwt.pick [ (Lwt_mvar.take mvar >>= fun () ->
-                         Logger.debug_ "taking mvar succeeded");
-                         (Lwt_unix.sleep 2.0 >>= fun () ->
-                         Logger.debug_ "timeout (2.0s) while waiting for fsm thread to finish") ] >>= fun () ->
+              Logger.debug_ "waiting for fsm and messaging thread to finish" >>= fun () ->
+              Lwt.pick [
+                Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
+                           Logger.debug_ "fsm thread finished");
+                          (Lwt_mutex.lock msg_mutex >>= fun () ->
+                           Logger.debug_ "messaging thread finished")] ;
+                (Lwt_unix.sleep 2.0 >>= fun () ->
+                 Logger.debug_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
               S.close store >>= fun () ->
               Logger.fatal_f_
                 ">>> Closing the store @ %S succeeded: everything seems OK <<<"
