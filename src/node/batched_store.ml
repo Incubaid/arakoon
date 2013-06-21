@@ -33,8 +33,11 @@ sig
   val _tranabort : t -> unit
 end
 
-let max_entries = ref 0
-let max_size = ref 0
+let default_max_entries = 200
+let default_max_size = 100_000
+
+let max_entries = ref default_max_entries
+let max_size = ref default_max_size
 
 module Batched_store = functor (S : Extended_simple_store) ->
 struct
