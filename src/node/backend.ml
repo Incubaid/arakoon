@@ -99,4 +99,5 @@ class type backend = object
   method delete_prefix: string -> int Lwt.t
 
   method drop_master: unit -> unit Lwt.t
+  method get_current_state : unit -> string Lwt.t
 end

@@ -363,6 +363,14 @@ def test_get_version():
     logging.debug("tuple = %s", str(vt2))
     client.dropConnections() # needed?
     
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_current_state():
+    client = C.get_client()
+    for nn in C.node_names[:3]:
+        s = client.getCurrentState(nn)
+        logging.debug("node %s => %s", nn, s)
+    client.dropConnections()
     
 @C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
 def test_restart_single_slave_short ():

@@ -630,6 +630,14 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
             response_ok_unit oc)
           (handle_exception oc)
       end
+    | CURRENT_STATE ->
+      begin
+        Logger.debug_f_ "connection=%s CURRENT_STATE" id >>= fun () ->
+        Llio.output_int oc 0 >>= fun () ->
+        backend # get_current_state () >>= fun state ->
+        Llio.output_string oc state >>= fun () ->
+        Lwt.return false
+      end
 
 
 let protocol backend connection =

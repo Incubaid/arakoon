@@ -243,6 +243,8 @@ ARA_CMD_DELETE_PREFIX            = 0x00000027 | ARA_CMD_MAG
 ARA_CMD_VERSION                  = 0x00000028 | ARA_CMD_MAG
 ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
 ARA_CMD_MULTI_GET_OPTION         = 0x00000031 | ARA_CMD_MAG
+ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
+
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -511,6 +513,11 @@ class ArakoonProtocol :
         r = _packInt(ARA_CMD_VERSION)
         return r
     
+    @staticmethod
+    def encodeGetCurrentState():
+        r = _packInt(ARA_CMD_CURRENT_STATE)
+        return r
+
     @staticmethod
     def encodeWhoMaster():
         return _packInt( ARA_CMD_WHO )

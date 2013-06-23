@@ -78,6 +78,7 @@ type client_command =
   | VERSION
   | DROP_MASTER
   | MULTI_GET_OPTION
+  | CURRENT_STATE
 
 
 let code2int = [
@@ -120,6 +121,7 @@ let code2int = [
   ASSERTEXISTS            , 0x29l;
   DROP_MASTER             , 0x30l;
   MULTI_GET_OPTION        , 0x31l;
+  CURRENT_STATE           , 0x32l;
 ]
 
 let int2code =
@@ -461,6 +463,11 @@ let version (ic,oc) =
       Llio.input_string ic >>= fun info ->
       Lwt.return (major,minor,patch,info)
     )
+
+let current_state (ic,oc) = 
+  let outgoing buf = command_to buf CURRENT_STATE in
+  request oc outgoing >>= fun () ->
+  response ic (fun ic -> Llio.input_string ic)
 
 let drop_master (ic, oc) =
   let outgoing buf = command_to buf DROP_MASTER in

@@ -757,13 +757,16 @@ let machine constants =
     (Unit_arg (read_only constants state), nop)
   | Start_transition -> failwith "Start_transition?"
 
-let __tracing = ref false
 
-let trace_transition me key =
-  if !__tracing 
-  then Logger.debug_f_ "%s: new transition: %s" me (show_transition key)
-  else Lwt.return ()
+(* Warning: This currently means we have only 1 fsm / executable. *)
+let __state = ref Start_transition
 
+let rec trace_transition me key =
+  __state := key;
+  Lwt.return ()
+and pull_state () = (show_transition !__state)
+
+  
 type ready_result =
   | Inject_ready
   | Client_ready

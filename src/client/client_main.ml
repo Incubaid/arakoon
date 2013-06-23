@@ -171,9 +171,8 @@ let who_master cfg_name () =
   in
   run t 
 
-
-let node_version node_name cfg_name = 
-  let cluster_cfg = read_config cfg_name in
+let _cluster_and_node_cfg node_name cfg_name =
+ let cluster_cfg = read_config cfg_name in
   let rec _find cfgs = 
     let rec loop = function
       | [] -> failwith (node_name ^ " is not known in config " ^ cfg_name) 
@@ -184,6 +183,22 @@ let node_version node_name cfg_name =
     loop cfgs
   in
   let node_cfg = _find cluster_cfg.cfgs in
+  cluster_cfg, node_cfg
+
+let node_state node_name cfg_name = 
+  let cluster_cfg,node_cfg = _cluster_and_node_cfg node_name cfg_name in
+  let cluster = cluster_cfg.cluster_id in
+  let f client = 
+    client # current_state () >>= fun state ->
+    Lwt_io.printl state
+  in
+  let t () = with_client node_cfg cluster f in
+  run t
+
+      
+
+let node_version node_name cfg_name = 
+  let cluster_cfg, node_cfg = _cluster_and_node_cfg node_name cfg_name in
   let cluster = cluster_cfg.cluster_id in
   let t () = 
     with_client node_cfg cluster

@@ -106,4 +106,6 @@ method rev_range_entries:
 
   method version : unit -> (int * int * int * string) Lwt.t
     (** returns [(major,minor,patch, info)] *)
+
+  method current_state : unit -> string Lwt.t
 end

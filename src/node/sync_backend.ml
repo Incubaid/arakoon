@@ -733,6 +733,10 @@ object(self: #backend)
                 Logger.debug_ "drop_master: completed"
               end
       end
+        
+  method get_current_state () =
+    let s = Multi_paxos_fsm.pull_state () in
+    Lwt.return s
 end
 
 end

@@ -204,7 +204,23 @@ class ArakoonClient :
         result = conn.decodeVersionResult()
         
         return result
-    
+
+    def getCurrentState(self,nodeId = None):
+        """
+        will return a string denoting the current state of the node.
+        @type nodeId : String
+        @return : String
+        """
+        msg = ArakoonProtocol.encodeGetCurrentState()
+        conn = None
+        if nodeId is None:
+            conn = self._sendToMaster(msg)
+        else:
+            conn = self._sendMessage(nodeId,msg)
+        
+        result = conn.decodeStringResult()
+        return result
+
 
     @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection

@@ -66,6 +66,7 @@ type local_action =
   | InjectAsHead
   | NODE_VERSION
   | Drop_master
+  | NODE_STATE
 
 type server_action =
   | Node
@@ -268,7 +269,8 @@ let main () =
                            Arg.Set_string key;
                           ], "<prefix>: all starting with <prefix>");
     ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
-    ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients], "<n> clients that generate load on a cluster");
+    ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients], 
+     "<n> clients that generate load on a cluster");
     ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
     ("--expect-progress-possible", Arg.Tuple[set_laction EXPECT_PROGRESS_POSSIBLE;],
      "tells you if the master thinks progress is possible");
@@ -342,6 +344,9 @@ let main () =
     ("--node-version", Arg.Tuple[set_laction NODE_VERSION;
                                  Arg.Set_string node_id], 
      "<node> : returns the version of <node>");
+    ("--node-state", Arg.Tuple [set_laction NODE_STATE;
+                                Arg.Set_string node_id],
+     "<node> : returns the state of <node>");
     ("--inject-as-head", Arg.Tuple [set_laction InjectAsHead;
                                     Arg.Set_string filename;
                                     Arg.Set_string node_id],
@@ -400,6 +405,7 @@ let main () =
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version !node_id !config_file
+    | NODE_STATE   -> Client_main.node_state !node_id !config_file
     | InjectAsHead -> inject_as_head !filename !node_id !config_file
     | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
 

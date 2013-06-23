@@ -321,4 +321,6 @@ class test_backend my_name = object(self:#backend)
 
   method drop_master () =
     Lwt.return ()
+
+  method get_current_state () = Lwt.return "test_backend"
 end
