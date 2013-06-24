@@ -47,14 +47,19 @@ let session_thread (sid:string) cid protocol fd =
       in protocol (ic,oc,cid)
     )
     (function
-      | FOOBAR as foobar-> 
+      | FOOBAR as foobar->
           Logger.fatal_ "propagating FOOBAR" >>= fun () ->
           Lwt.fail foobar
-      | exn -> Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
-  >>= fun () -> 
-  Lwt.catch 
+      | Canceled ->
+          Lwt.fail Canceled
+      | exn ->
+          Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
+  >>= fun () ->
+  Lwt.catch
     ( fun () -> Lwt_unix.close fd )
-    ( fun exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
+    ( function
+      | Canceled -> Lwt.fail Canceled
+      | exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max = 
   let counter = ref 0 in
@@ -95,6 +100,7 @@ let make_server_thread
     let maybe_take,release = scheme in
     let connection_counter = make_counter () in
     let client_threads = Hashtbl.create 10 in
+    let _condition = Lwt_condition.create () in
     let rec server_loop () =
       Lwt.catch
         (fun () ->
@@ -118,11 +124,18 @@ let make_server_thread
           let t = client_thread () in
           Hashtbl.add client_threads cid t;
           Lwt.ignore_result
-            (Lwt.catch
-               (fun () -> t)
-               (fun exn ->
-                 Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+            (Lwt.finalize
+               (fun () ->
+                 Lwt.catch
+                   (fun () -> t)
+                   (fun exn ->
+                     Logger.info_f_ ~exn "Exception in client thread %s" cid))
+               (fun () ->
+                 Lwt.catch
+                   (fun () -> Lwt_unix.close fd)
+                   (fun exn -> Logger.info_f_ ~exn "Exception while closing client fd %s" cid) >>= fun () ->
                  Hashtbl.remove client_threads cid;
+                 Lwt_condition.signal _condition ();
                  Lwt.return ()));
           server_loop ()
         )
@@ -143,13 +156,33 @@ let make_server_thread
         )
     in
     let r  = fun () ->
-      Lwt.catch
-        (fun ()  -> setup_callback () >>= fun () -> server_loop ())
-        (fun exn ->
-          Hashtbl.iter (fun cid t -> Lwt.cancel t) client_threads;
-          Logger.info_f_ ~exn "shutting down server on port %i" port)
-             >>= fun () ->
-      Lwt_unix.close listening_socket >>= fun () ->
-      teardown_callback()
+      Lwt.finalize
+        (fun ()  ->
+          setup_callback () >>= fun () ->
+          server_loop ())
+        (fun () ->
+          let cancel t =
+            try
+              Lwt.cancel t
+            with exn -> () in
+          Hashtbl.iter (fun k t -> cancel t) client_threads;
+
+          let rec wait () =
+            Logger.debug_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
+            if Hashtbl.length client_threads > 0
+            then
+              begin
+                Lwt_condition.wait _condition >>= fun () ->
+                wait ()
+              end
+            else
+              Lwt.return () in
+          wait () >>= fun () ->
+
+          Logger.info_f_ "shutting down server on port %i" port >>= fun () ->
+          Logger.debug_ "closing listening socket" >>= fun () ->
+          Lwt_unix.close listening_socket >>= fun () ->
+          Logger.debug_ "closed listening socket" >>= fun () ->
+          teardown_callback())
     in r
   end
