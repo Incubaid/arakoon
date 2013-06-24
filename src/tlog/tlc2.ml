@@ -492,7 +492,7 @@ object(self: # tlog_collection)
 	    if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
 	    then
           let do_rotate() =
-            let new_outer = _outer + 1 in
+            let new_outer = Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) in
             Logger.info_f_ "i= %s & outer = %i => rotate to %i" (Sn.string_of i) _outer new_outer
             >>= fun () ->
             self # _rotate file new_outer
