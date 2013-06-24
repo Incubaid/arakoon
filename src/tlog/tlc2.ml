@@ -402,15 +402,16 @@ object(self: # tlog_collection)
 
   method private start_compression_loop () =
     let rec loop () =
+      Logger.debug_ "Taking job from compression queue..." >>= fun () ->
       Lwt_buffer.take _compression_q >>= fun job ->
       let () = _compressing <- true in
       let (tlu, tlc_temp, tlc) = job in
       let try_unlink_tlu () =
         Lwt.catch
           (fun () ->
-            Logger.debug_f_ "unlink of %s" tlu >>= fun () ->
+            Logger.debug_f_ "Compression: unlink of %s" tlu >>= fun () ->
             Lwt_unix.unlink tlu >>= fun () ->
-            Logger.debug_f_ "ok: unlinked %s" tlu
+            Logger.debug_f_ "Compression: ok: unlinked %s" tlu
           )
           (function
             | Canceled -> Lwt.fail Canceled
@@ -523,6 +524,7 @@ object(self: # tlog_collection)
       if use_compression
       then
         let job = (tlu,tlc_temp,tlc) in
+        Logger.debug_ "adding new task to compression queue" >>= fun () ->
         Lwt_buffer.add job _compression_q
       else
         Lwt.return ()
