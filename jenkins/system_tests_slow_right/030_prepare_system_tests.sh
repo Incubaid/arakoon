@@ -1,5 +1,1 @@
-#!/bin/bash -xue
-
-/opt/qbase3/qshell ./jenkins/prepareSystemTests.py
-
-mkdir -p ${WORKSPACE}/testresults
+../030_prepare_system_tests.sh
