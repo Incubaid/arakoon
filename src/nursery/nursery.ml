@@ -38,7 +38,10 @@ let try_connect (ips, port) =
       let r = Some (ic,oc) in
       Lwt.return r
     )
-    (fun exn -> Lwt.return None)
+    (function
+      | Canceled -> Lwt.fail Canceled
+      | exn -> Lwt.return None)
+
 
 
 
