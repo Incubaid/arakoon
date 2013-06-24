@@ -233,8 +233,8 @@ let test_pingpong_restart () =
       begin 
 	Lwt.pick [ t_a # run ();
 		   player_a # run 50 () >>= fun () -> Logger.debug_ "a done" 
-		 ]
-	>>= fun () ->
+		 ] >>= fun () ->
+    Lwt_unix.sleep 1.0 >>= fun () ->
 	let t_a' = make_transport address_a in
 	let () = t_a' # register_receivers mapping in
 	let player_a' = new player "a" t_a' in
