@@ -104,8 +104,8 @@ let _config_batched_transactions node_cfg cluster_cfg =
     | None -> default
     | Some v -> v in
   let set_max e s =
-    Batched_store.max_entries := get_optional e 200;
-    Batched_store.max_size := get_optional s 100_000;
+    Batched_store.max_entries := get_optional e Batched_store.default_max_entries;
+    Batched_store.max_size := get_optional s Batched_store.default_max_size;
   in
   match node_cfg.batched_transaction_config with
     | None ->
