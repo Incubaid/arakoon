@@ -898,8 +898,11 @@ class ArakoonCluster:
         
         @param cluster the arakoon cluster name
         """
+        rcs = {}
         for name in self.listLocalNodes():
-            self._stopOne(name)
+            rcs[name] = self._stopOne(name)
+
+        return rcs
 
 
     def restart(self):
@@ -963,7 +966,7 @@ class ArakoonCluster:
 
         """
         self._requireLocal(nodeName)
-        self._stopOne(nodeName)
+        return self._stopOne(nodeName)
 
     def remoteCollapse(self, nodeName, n):
         """
@@ -1123,7 +1126,9 @@ class ArakoonCluster:
             if i == 10:
                 logging.debug("stopping '%s' with kill -9" % name)
                 q.logger.log("stopping '%s' with kill -9" % name, level = 3)
-                subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
+                rc = subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
+                if rc == 0:
+                    rc = 9
                 cnt = 0
                 while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
                     logging.debug("'%s' is STILL running... waiting" % name)
@@ -1136,6 +1141,9 @@ class ArakoonCluster:
                 break
             else:
                 subprocess.call(cmd, close_fds=True)
+        if rc < 9:
+            rc = 0 # might be we looped one time too many.
+        return rc
     
     def _restartOne(self, name):
         self._stopOne(name)
