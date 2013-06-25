@@ -605,24 +605,34 @@ let _main_2 (type s)
 					                      service,
 					                      rapporting) ->
           let (_,constants,_,_,_,store) = start_state in
+          let log_exception m t =
+            Lwt.catch
+              t
+              (fun exn -> Logger.warning_ ~exn m) in
           let fsm () = start_backend start_state in
           let fsm_mutex = Lwt_mutex.create () in
-          let fsm_t = Lwt_mutex.with_lock fsm_mutex fsm in
+          let fsm_t =
+            log_exception
+              "Exception in fsm thread"
+              (fun () -> Lwt_mutex.with_lock fsm_mutex fsm) in
           let msg_mutex = Lwt_mutex.create () in
-          let msg_t = Lwt_mutex.with_lock msg_mutex (messaging # run) in
+          let msg_t =
+            log_exception
+              "Exception in messaging thread"
+              (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run)) in
           Lwt.finalize
             (fun () ->
-	          Lwt.pick[ fsm_t;
-	                    msg_t;
-			            service ();
-			            rapporting ();
+              Lwt.pick[ fsm_t;
+                        msg_t;
+                        service ();
+                        rapporting ();
                         (listen_for_signal () >>= fun () ->
                          let msg = "got TERM | INT" in
-			             Logger.info_ msg >>= fun () ->
-			             Lwt_io.printl msg
+                         Logger.info_ msg >>= fun () ->
+                         Lwt_io.printl msg
                         )
-			            ;
-		              ])
+                        ;
+                      ])
             (fun () ->
               Logger.debug_ "waiting for fsm and messaging thread to finish" >>= fun () ->
               Lwt.pick [
