@@ -196,9 +196,11 @@ let start_lease_expiration_thread constants n expiration =
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
         constants.me sleep_sec >>= fun () ->
+      let t0 = Unix.gettimeofday () in
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      Logger.debug_f_ "%s: lease expired (%2.1f passed)=> injecting LeaseExpired event for %s"
-        constants.me sleep_sec (Sn.string_of n) >>= fun () ->
+      let t1 = Unix.gettimeofday () in
+      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %s"
+        constants.me (t1 -. t0) sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
     end in
   let () = Lwt.ignore_result (t ()) in
@@ -209,8 +211,10 @@ let start_election_timeout constants n =
   let t () = 
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for election to finish" constants.me sleep_sec >>= fun () ->
+      let t0 = Unix.gettimeofday () in
       Lwt_unix.sleep sleep_sec >>= fun () ->
-      Logger.debug_f_ "%s: election (n=%s) should have finished by now." constants.me (Sn.string_of n) >>= fun () ->
+      let t1 = Unix.gettimeofday () in
+      Logger.debug_f_ "%s: election (n=%s) should have finished by now (%2.1f passed, intended %2.1f)." constants.me (Sn.string_of n) (t1 -. t0) sleep_sec >>= fun () ->
       constants.inject_event (ElectionTimeout n)
     end
   in
