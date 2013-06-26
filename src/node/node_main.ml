@@ -634,14 +634,14 @@ let _main_2 (type s)
                         ;
                       ])
             (fun () ->
-              Logger.debug_ "waiting for fsm and messaging thread to finish" >>= fun () ->
+              Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
               Lwt.pick [
                 Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
-                           Logger.debug_ "fsm thread finished");
+                           Logger.info_ "fsm thread finished");
                           (Lwt_mutex.lock msg_mutex >>= fun () ->
-                           Logger.debug_ "messaging thread finished")] ;
+                           Logger.info_ "messaging thread finished")] ;
                 (Lwt_unix.sleep 2.0 >>= fun () ->
-                 Logger.debug_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
+                 Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
               S.close store >>= fun () ->
               Logger.fatal_f_
                 ">>> Closing the store @ %S succeeded: everything seems OK <<<"
