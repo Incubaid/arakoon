@@ -634,6 +634,11 @@ let _main_2 (type s)
                         ;
                       ])
             (fun () ->
+              let cancel t =
+                try
+                  Lwt.cancel t
+                with exn -> () in
+              List.iter cancel [fsm_t; msg_t];
               Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
               Lwt.pick [
                 Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
