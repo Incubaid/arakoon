@@ -417,25 +417,27 @@ object(self: # tlog_collection)
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" tlu) in
       File_system.exists tlc >>= fun tlc_exists ->
-      if tlc_exists
-      then
-        begin
-          Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
-          try_unlink_tlu ()
-        end
-      else
-        Lwt.catch
-          (fun () ->
-            Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-            File_system.rename tlc_temp tlc >>= fun () ->
-            try_unlink_tlu () >>= fun () ->
-            Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
-          )
-          (function
-            | Canceled -> Lwt.fail Canceled
-            | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
-         >>= fun () ->
+      begin
+        if tlc_exists
+        then
+          begin
+            Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
+            try_unlink_tlu ()
+          end
+        else
+          Lwt.catch
+            (fun () ->
+              Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+              Compression.compress_tlog tlu tlc_temp  >>= fun () ->
+              File_system.rename tlc_temp tlc >>= fun () ->
+              try_unlink_tlu () >>= fun () ->
+              Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+            )
+            (function
+              | Canceled -> Lwt.fail Canceled
+              | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
+      end >>= fun () ->
+      Logger.debug_ "Finished compression task, send signal and loop" >>= fun () ->
       let () = _compressing <- false in
       let () = Lwt_condition.signal _jc () in
       loop ()
