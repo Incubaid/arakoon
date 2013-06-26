@@ -344,7 +344,8 @@ def get_last_i_tlog ( node_id ):
 
 def stopOne(name):
     cluster = _getCluster()
-    cluster.stopOne(name)
+    rc = cluster.stopOne(name)
+    assert (rc == 0)
 
 def startOne(name):
     cluster = _getCluster()
@@ -499,7 +500,11 @@ def start_nursery( nursery_size ):
 def stop_all(clusterId = None ):
     logging.info("stop_all")
     cluster = _getCluster( clusterId )
-    cluster.stop()
+    rcs = cluster.stop()
+    for nn in rcs.keys():
+        v = rcs[nn]
+        logging.info("rcs[%s] = %i", nn, v)
+        assert (v == 0)
 
 def stop_nursery( nursery_size ):
     for i in range(nursery_size):
