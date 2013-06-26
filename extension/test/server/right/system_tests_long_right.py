@@ -84,10 +84,6 @@ def test_expect_progress_fixed_master ():
     time.sleep(1.0)
     assert_true( cli.expectProgressPossible(),
                  "Master store counter is ahead of slave" )
-    
-@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
-def test_restart_single_slave_long ():
-    Common.restart_single_slave_scenario( 100, 10000 )
 
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_20_clients_1000_sets() :
