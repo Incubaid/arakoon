@@ -50,7 +50,7 @@ class with_custom_setup ():
             fatal_ex = None
             home_dir = data_base_dir
             if q.system.fs.exists( data_base_dir):
-                q.system.fs.removeDirTree( data_base_dir )
+                remove_dirs ()
             self.__setup( home_dir )
             try:
                 func(*args,**kwargs)
@@ -709,14 +709,18 @@ def common_teardown( removeDirs, cluster_ids):
         cluster.remove() 
 
     if removeDirs:
-        q.system.fs.removeDirTree( data_base_dir )
+        remove_dirs ()
 
-        
+def remove_dirs():
+    q.system.fs.removeDirTree( data_base_dir )
+
 def basic_teardown( removeDirs ):
     logging.info("basic_teardown(%s)" % removeDirs)
+    common_teardown( False, [cluster_id])
     for i in range( len(node_names) ):
         destroy_ram_fs( i )
-    common_teardown( removeDirs, [cluster_id])
+    if removeDirs:
+        remove_dirs ()
     logging.info( "Teardown complete" )
 
 def nursery_teardown( removeDirs ):
