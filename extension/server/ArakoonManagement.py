@@ -46,12 +46,12 @@ def which_arakoon():
         return "arakoon"
 
 class ArakoonManagement:
-    def getCluster(self, clusterId):
+    def getCluster(self, clusterName):
         """
-        @type clusterId: string
+        @type clusterName: string
         @return a helper to config that cluster
         """
-        return ArakoonCluster(clusterId)
+        return ArakoonCluster(clusterName)
 
     def upgrade(self):
         """
@@ -169,18 +169,18 @@ class ArakoonManagement:
 
 class ArakoonCluster:
 
-    def __init__(self, clusterId):
-        self.__validateName(clusterId)
-        self._clusterId = clusterId
+    def __init__(self, clusterName):
+        self.__validateName(clusterName)
+        self._clusterName = clusterName
         self._binary = which_arakoon()
         self._arakoonDir = q.system.fs.joinPaths(q.dirs.cfgDir, "arakoon")
         
         clusterConfig = q.config.getInifile("arakoonclusters")
-        if not clusterConfig.checkSection(self._clusterId):
+        if not clusterConfig.checkSection(self._clusterName):
             
-            clusterPath = q.system.fs.joinPaths(q.dirs.cfgDir,"qconfig", "arakoon", clusterId)
-            clusterConfig.addSection(self._clusterId)
-            clusterConfig.addParam(self._clusterId, "path", clusterPath)
+            clusterPath = q.system.fs.joinPaths(q.dirs.cfgDir,"qconfig", "arakoon", clusterName)
+            clusterConfig.addSection(clusterName)
+            clusterConfig.addParam(clusterName, "path", clusterPath)
 
             if not q.system.fs.exists(self._arakoonDir):
                 q.system.fs.createDir(self._arakoonDir)
@@ -188,23 +188,33 @@ class ArakoonCluster:
             if not q.system.fs.exists(clusterPath):
                 q.system.fs.createDir(clusterPath)
 
-        self._clusterPath = clusterConfig.getValue( self._clusterId, "path" )
+        self._clusterPath = clusterConfig.getValue( clusterName, "path" )
         
     def _servernodes(self):
-        return '%s_local_nodes' % self._clusterId
+        return '%s_local_nodes' % self._clusterName
 
     def __repr__(self):
-        return "<ArakoonCluster:%s>" % self._clusterId
+        return "<ArakoonCluster:%s>" % self._clusterName
 
     def _getConfigFilePath(self):
         clusterConfig = q.config.getInifile("arakoonclusters")
-        cfgDir = clusterConfig.getValue( self._clusterId, "path")
-        path = q.system.fs.joinPaths( cfgDir, self._clusterId )
+        cfgDir = clusterConfig.getValue( self._clusterName, "path")
+        path = q.system.fs.joinPaths( cfgDir, self._clusterName )
         return path
 
     def _getConfigFile(self):
         path = self._getConfigFilePath()
         return q.config.getInifile(path)
+
+    def _getClusterId(self):
+        clusterId = self._clusterName
+        try:
+            config = self._getConfigFile()
+            clusterId = config.getValue("global", "cluster_id")
+        except:
+            logging.info("setting cluster_id to %s", clusterId)
+            config.addParam("global","cluster_id",clusterId)
+        return clusterId
 
     def addBatchedTransactionConfig(self,
                                     name,
@@ -328,11 +338,11 @@ class ArakoonCluster:
             config.addParam(name, "wrapper", wrapper)
 
         if logDir is None:
-            logDir = q.system.fs.joinPaths(q.dirs.logDir, self._clusterId, name)
+            logDir = q.system.fs.joinPaths(q.dirs.logDir, self._clusterName, name)
         config.addParam(name, "log_dir", logDir)
 
         if home is None:
-            home = q.system.fs.joinPaths(q.dirs.varDir, "db", self._clusterId, name)
+            home = q.system.fs.joinPaths(q.dirs.varDir, "db", self._clusterName, name)
         config.addParam(name, "home", home)
 
         if tlogDir:
@@ -349,7 +359,7 @@ class ArakoonCluster:
 
         if not config.checkSection("global") :
             config.addSection("global")
-            config.addParam("global", "cluster_id", self._clusterId)
+            config.addParam("global", "cluster_id", self._clusterName)
         config.setParam("global","cluster", ",".join(nodes))
 
         config.write()
@@ -421,7 +431,7 @@ class ArakoonCluster:
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId) )
+                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterName) )
             _set(g,m,name)
             if preferred:
                 _set(g,pm,'true')
@@ -623,7 +633,7 @@ class ArakoonCluster:
 
     def getClient(self):
         config = self.getClientConfig()
-        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterName, config))
         return client
    
     def listNodes(self):
@@ -784,7 +794,7 @@ class ArakoonCluster:
         @param numberOfNodes the number of nodes in the environment
         @return the dict that can be used as a param for the ArakoonConfig object
         """
-        cid = self._clusterId
+        cid = self._clusterName
         clientPort = basePort
         messagingPort = basePort + 1
         for i in range(0, numberOfNodes):
@@ -827,11 +837,11 @@ class ArakoonCluster:
     def remove(self):
         
         clientConf = q.config.getInifile("arakoonclients")
-        clientConf.removeSection(self._clusterId)
+        clientConf.removeSection(self._clusterName)
         clientConf.write()
 
         clusterConf = q.config.getInifile("arakoonclusters")
-        clusterConf.removeSection(self._clusterId)
+        clusterConf.removeSection(self._clusterName)
         clusterConf.write()
 
         q.system.fs.removeDirTree(self._clusterPath)
@@ -870,7 +880,7 @@ class ArakoonCluster:
             raise Exception("A name should be passed.  An empty name is not an option")
 
         if not type(name) == type(str()):
-            raise Exception("Name should be of type strinq.config.getInifile(clusterId)g")
+            raise Exception("Name should be of type string")
 
         for char in [' ', ',', '#']:
             if char in name:
@@ -953,7 +963,7 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         cmd = [self._binary,
                '-config',
-               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+               '%s/%s.cfg' % (self._clusterPath, self._clusterName),
                '--node',
                nodeName,
                '-catchup-only']
@@ -978,7 +988,8 @@ class ArakoonCluster:
         ip_mess = config['ip']
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
-        ArakoonRemoteControl.collapse(ip,port,self._clusterId, n)
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.collapse(ip,port,clusterId, n)
 
     def optimizeDb(self, nodeName):
         """
@@ -991,7 +1002,8 @@ class ArakoonCluster:
         ip_mess = config['ip']
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
-        ArakoonRemoteControl.optimizeDb(ip,port,self._clusterId)
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.optimizeDb(ip,port, clusterId)
 
 
     def injectAsHead(self, nodeName, newHead):
@@ -1003,7 +1015,7 @@ class ArakoonCluster:
         """
         self._requireLocal(nodeName)
         r =  [self._binary,'--inject-as-head', newHead, nodeName, '-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterId) ]
+              '%s/%s.cfg' % (self._clusterPath, self._clusterName) ]
         #output = subprocess.check_output(r, shell= True) # starting from python 2.7
         rs = ' '.join(r)
         p = subprocess.Popen(rs, shell= True, stdout = subprocess.PIPE)
@@ -1022,7 +1034,8 @@ class ArakoonCluster:
         ip_mess = config['ip']
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
-        ArakoonRemoteControl.defragDb(ip,port,self._clusterId)
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.defragDb(ip,port, clusterId)
 
 
     def dropMaster(self, nodeName):
@@ -1035,7 +1048,8 @@ class ArakoonCluster:
         ip_mess = config['ip']
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
-        ArakoonRemoteControl.dropMaster(ip,port,self._clusterId)
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.dropMaster(ip,port, clusterId)
 
 
     def restartOne(self, nodeName):
@@ -1067,12 +1081,13 @@ class ArakoonCluster:
         ip_mess = config['ip']
         ip = self._getIp(ip_mess)
         port = int(config['client_port'])
-        ArakoonRemoteControl.downloadDb(ip,port,self._clusterId, location)
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.downloadDb(ip,port,clusterId, location)
         
 
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+              '%s/%s.cfg' % (self._clusterPath, self._clusterName),
               '-start']
         return r
     
@@ -1361,7 +1376,7 @@ class ArakoonCluster:
         folder and places a copy at the destination provided at the beginning
         """
         nodes_list = self.listNodes()
-        archive_name = self._clusterId + "_cluster_details"
+        archive_name = self._clusterName + "_cluster_details"
         archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , archive_name)
         
         cfs = q.cloud.system.fs 
@@ -1409,8 +1424,8 @@ class ArakoonCluster:
                         cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
 
             
-            clusterName = self._clusterId + '.cfg'
-            clusterNodes = self._clusterId + '_local_nodes.cfg'
+            clusterName = self._clusterName + '.cfg'
+            clusterNodes = self._clusterName + '_local_nodes.cfg'
 
             clusterPath = q.system.fs.joinPaths(self._clusterPath, clusterName)
             q.cloud.system.fs.copyFile(source_path + clusterPath, 'file://' + node_folder)
@@ -1420,7 +1435,7 @@ class ArakoonCluster:
                 q.cloud.system.fs.copyFile(source_path +  clusterNodesPath, 'file://' + node_folder)
             
             
-        archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterId + '_cluster_evidence.tgz')
+        archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterName + '_cluster_evidence.tgz')
         q.system.fs.targzCompress( archive_folder,  archive_file)
         cfs.copyFile('file://' + archive_file , destination)
         q.system.fs.removeDirTree( archive_folder )
