@@ -58,7 +58,7 @@ def test_concurrent_collapse_fails():
             if rc == 255:
                 self.exception_received = True
 
-    s = SecondCollapseThread(8)
+    s = SecondCollapseThread(4)
     assert not s.exception_received
 
     logging.info('Launching second collapser thread')
