@@ -34,7 +34,7 @@ module B = Camltc.Bdb
 
 type t = { db : Camltc.Hotc.t;
            mutable location : string;
-           mutable _tx : (transaction * Camltc.Hotc.bdb) option;
+           mutable _tx : (transaction * Camltc.Hotc.bdb * float) option;
          }
 
 let _get bdb key = B.get bdb key
@@ -96,7 +96,7 @@ let get_construct_params db_name ~mode =
 let _with_tx ls tx f =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _with_tx"
-    | Some (tx', db) ->
+    | Some (tx', db, t0) ->
         if tx != tx'
         then
           failwith "the provided transaction is not the current transaction of the local store"
@@ -106,21 +106,26 @@ let _with_tx ls tx f =
 let _tranbegin ls =
   let tx = new transaction in
   let bdb = Camltc.Hotc.get_bdb ls.db in
-  ls._tx <- Some (tx, bdb);
+  let t0 = Unix.gettimeofday () in
+  ls._tx <- Some (tx, bdb, t0);
   Camltc.Bdb._tranbegin bdb;
   tx
 
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
-    | Some (tx, bdb) ->
-        Camltc.Bdb._trancommit bdb
+    | Some (tx, bdb, t0) ->
+        Camltc.Bdb._trancommit bdb;
+        let t = ( Unix.gettimeofday() -. t0) in
+        if t > 1.0
+        then
+          Lwt.ignore_result ( Logger.info_f_ "Tokyo cabinet transaction took %fs" t )
 
 
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
-    | Some (tx, bdb) ->
+    | Some (tx, bdb, t0) ->
         Camltc.Bdb._tranabort bdb;
         ls._tx <- None
 
@@ -131,7 +136,7 @@ let with_transaction ls f =
       Camltc.Hotc.transaction ls.db
         (fun db ->
           let tx = new transaction in
-          ls._tx <- Some (tx, db);
+          ls._tx <- Some (tx, db, t0);
           f tx >>= fun a ->
           Lwt.return a))
     (fun () ->
