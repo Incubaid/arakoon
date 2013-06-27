@@ -40,6 +40,11 @@ let is_synced = function
 let clear_master_set = function
   | Vm (m,l) -> Vm(m, 0L) 
   | v        -> v
+
+let fill_if_master_set = function
+  | Vm (m,_) -> let now = Int64.of_float (Unix.gettimeofday ()) in
+                Vm(m,now)
+  | v -> v
       
 let updates_from_value = function
   | Vc (us,s)     -> us
