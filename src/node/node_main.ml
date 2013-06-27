@@ -230,7 +230,9 @@ module X = struct
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-	  S.on_consensus store vni >>= fun r ->
+      let v' = Value.fill_if_master_set v in
+      let vni' = v',n,i in
+	  S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in
       Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
