@@ -31,20 +31,29 @@ open Update
    first potentially finish of a client request and then on to
    being a stable master *)
 let master_consensus constants ((finished_funs : master_option),v,n,i, lease_expire_waiters) () =
-  let gen_e = EConsensus(finished_funs, v,n,i) in
+  let con_e = EConsensus(finished_funs, v,n,i) in
   let log_e = ELog (fun () ->
-    Printf.sprintf "on_consensus for : %s => %i finished_fs " 
+    Printf.sprintf "on_consensus for : %s => %i finished_fs (in master_consensus)"
       (Value.value2s v) (List.length finished_funs) )
   in
+  let inject_e = EGen (fun () ->
+    match v with
+    | Value.Vm _ ->
+      let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
+      constants.inject_event event
+    | _ -> Lwt.return ()
+  )
+  in
   let state = (v,n,(Sn.succ i), lease_expire_waiters) in
-  Fsm.return ~sides:[gen_e;log_e] (Stable_master state)
+  Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
     
 
 let null = function
   | [] -> true
   | _ -> false
 
-let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) = function
+let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev = 
+  match ev with
   | LeaseExpired n' ->
       let me = constants.me in
       if n' < n 

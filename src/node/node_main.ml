@@ -229,20 +229,14 @@ module X = struct
   let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
-      if Value.is_master_set v
-      then
-	    begin
-	      S.incr_i store >>= fun () ->
-          Lwt.return [Store.Ok None]
-	    end
-      else
-        let t0 = Unix.gettimeofday() in
-	    S.on_consensus store vni >>= fun r ->
-        let t1 = Unix.gettimeofday () in
-        let d = t1 -. t0 in
-        Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
-        Lwt.return r
-
+      let t0 = Unix.gettimeofday() in
+      let v' = Value.fill_if_master_set v in
+      let vni' = v',n,i in
+	  S.on_consensus store vni' >>= fun r ->
+      let t1 = Unix.gettimeofday () in
+      let d = t1 -. t0 in
+      Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
+      Lwt.return r
     end
   
   let last_master_log_stmt = ref 0L  
@@ -260,31 +254,7 @@ module X = struct
             let size = List.length us in
             let () = Statistics.new_harvest statistics size in
             Lwt.return () 
-        | Value.Vm (m,l) ->
-	        begin
-              let logit () =
-                let now = Int64.of_float (Unix.gettimeofday ()) in
-                let m_old_master = S.who_master store in
-	            S.set_master_no_inc store m now >>= fun _ ->
-                begin
-                  let new_master =
-                    begin
-                      match m_old_master with
-                        | Some(m_old,_) -> m <> m_old
-                        | None -> true
-                    end 
-                  in
-                  if (Int64.sub now !last_master_log_stmt >= 60L)  or new_master then
-                    begin
-                      last_master_log_stmt := now;
-                      Logger.info_f_ "%s is master"  m
-                    end 
-                  else 
-                    Lwt.return ()
-                end
-              in 
-              logit ()
-	        end
+        | _ -> Lwt.return () 
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in

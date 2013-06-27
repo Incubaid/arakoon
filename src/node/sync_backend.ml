@@ -444,6 +444,9 @@ object(self: #backend)
 	    | ReadOnly -> Some my_name, "readonly"
 
     in
+    Logger.debug_f_ "who_master: returning %s because %s" 
+      (Log_extra.string_option2s result) argumentation 
+    >>= fun () ->
     Lwt.return result
 
   method private _not_if_master() =
