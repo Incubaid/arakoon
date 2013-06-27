@@ -305,7 +305,11 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 			                        constants.on_consensus(pv,n,pi) >>= fun _ ->
 			                        Lwt.return ()
 			                      end
-                              | None -> constants.on_consensus(pv,n,pi) >>= fun _ -> Lwt.return()
+                              | None ->
+                                (* store is empty, so a previous entry will
+                                   have the same i as the current one: don't push *)
+                                Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
+                                  me (Sn.string_of pi) (Sn.string_of i)
                           end
                     end >>= fun _ ->
 	              let reply = Accepted(n,i') in
