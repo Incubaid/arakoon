@@ -853,7 +853,7 @@ def set_get_and_delete( client, key, value):
     client.delete( key )
     assert_raises ( ArakoonNotFound, client.get, key )
 
-def generic_retrying_ ( f, is_valid_ex ) :
+def generic_retrying_ ( client, f, is_valid_ex ) :
     start = time.time()
     failed = True
     tryCnt = 0
@@ -886,10 +886,10 @@ def generic_retrying_ ( f, is_valid_ex ) :
         raise last_ex
 
 def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
-    generic_retrying_ ((lambda : client.set( key,value ) ), is_valid_ex )
-    generic_retrying_ ((lambda : assert_equals( client.get(key), value ) ) , is_valid_ex )
+    generic_retrying_ (client, (lambda : client.set( key,value ) ), is_valid_ex )
+    generic_retrying_ (client, (lambda : assert_equals( client.get(key), value ) ) , is_valid_ex )
     try:
-        generic_retrying_ ((lambda : client.delete( key ) ) , is_valid_ex )
+        generic_retrying_ (client, (lambda : client.delete( key ) ) , is_valid_ex )
     except ArakoonNotFound:
         pass
 
