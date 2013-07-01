@@ -133,7 +133,11 @@ let make_server_thread
                (fun () ->
                  Lwt.catch
                    (fun () -> Lwt_unix.close fd)
-                   (fun exn -> Logger.info_f_ ~exn "Exception while closing client fd %s" cid) >>= fun () ->
+                   (fun exn ->
+                     let level = match exn with
+                       | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+                       | _ -> Logger.Info in
+                     Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid)) >>= fun () ->
                  Hashtbl.remove client_threads cid;
                  Lwt_condition.signal _condition ();
                  Lwt.return ()));
