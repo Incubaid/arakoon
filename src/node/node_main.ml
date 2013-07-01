@@ -225,22 +225,43 @@ module X = struct
       (* Need to find a name for this: 
 	 the idea is to lift stuff out of _main_2 
       *)
-  
+
+  let last_master_log_stmt = ref 0L
+
   let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
       let v' = Value.fill_if_master_set v in
       let vni' = v',n,i in
+      begin
+        match v' with
+          | Value.Vm (m, _) ->
+              let now = Int64.of_float (Unix.gettimeofday ()) in
+              let m_old_master = S.who_master store in
+              let new_master =
+                begin
+                  match m_old_master with
+                    | Some(m_old,_) -> m <> m_old
+                    | None -> true
+                end
+              in
+              if (Int64.sub now !last_master_log_stmt >= 60L) or new_master then
+                begin
+                  last_master_log_stmt := now;
+                  Logger.info_f_ "%s is master"  m
+                end
+              else
+                Lwt.return ()
+          | _ -> Lwt.return ()
+      end >>= fun () ->
 	  S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in
       Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
       Lwt.return r
     end
-  
-  let last_master_log_stmt = ref 0L  
-    
+
   let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
