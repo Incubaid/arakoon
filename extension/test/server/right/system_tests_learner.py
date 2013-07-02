@@ -32,12 +32,13 @@ def test_learner():
     cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
     logging.info("adding learner")
     name = Common.node_names[2]
-    (db_dir, log_dir) = Common.build_node_dir_names(name)
+    (db_dir, log_dir, tlf_dir) = Common.build_node_dir_names(name)
     cluster.addNode(name,
                     Common.node_ips[2],
                     clientPort = Common.node_client_base_port + 2,
                     messagingPort = Common.node_msg_base_port + 2,
                     logDir = log_dir,
+                    tlfDir = tlf_dir,
                     logLevel = 'debug',
                     home = db_dir,
                     isLearner = True,
