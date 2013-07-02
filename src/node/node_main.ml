@@ -531,7 +531,8 @@ let _main_2 (type s)
               (Multi_paxos.paxos_event2s e)
               name 
             >>= fun () ->
-	        Lwt_buffer.add e buffer
+	        Lwt_buffer.add e buffer >>= fun () ->
+            Logger.debug_f Multi_paxos.section "XXX injected event into '%s'" name
 	      in
 	      let buffers = Multi_paxos_fsm.make_buffers
 	        (client_buffer,

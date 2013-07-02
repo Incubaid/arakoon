@@ -40,7 +40,8 @@ let master_consensus constants ((finished_funs : master_option),v,n,i, lease_exp
     match v with
     | Value.Vm _ ->
       let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
-      constants.inject_event event
+      Lwt.ignore_result (constants.inject_event event);
+      Lwt.return ()
     | _ -> Lwt.return ()
   )
   in
