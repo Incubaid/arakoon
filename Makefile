@@ -1,6 +1,6 @@
 # This makefile wrapper makes DEBIAN packaging easier. 
 
-OCAML_VERSION ?= 3.12.1
+OCAML_VERSION ?= 4.00.1
 OCAML_LIBDIR ?= $(DESTDIR)/usr/lib/ocaml/
 OCAML_FIND ?= ocamlfind
 
@@ -10,7 +10,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a
+	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a
 
 test:
 	./arakoon.native --run-all-tests
