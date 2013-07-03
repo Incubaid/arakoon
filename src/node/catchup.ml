@@ -146,7 +146,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   let too_far_i = Sn.succ ( tlc_i ) in 
   Lwt.return too_far_i
 
-let make_f (type s) (module S : Store.STORE with type t = s) log_i acc store entry =
+let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
   let i = Entry.i_of entry 
   and value = Entry.v_of entry 
   in
@@ -160,11 +160,13 @@ let make_f (type s) (module S : Store.STORE with type t = s) log_i acc store ent
         then
           begin
             log_i pi >>= fun () ->
-            (* not happy with this, but we need to avoid that 
-               a node in catchup thinks it's master due to 
-               some lease starting in the past *)
-            let pv' = Value.clear_master_set pv in
-            S.safe_insert_value store pi pv' >>= fun _ ->
+            (* assume consensus for the masterset has only now been reached,
+               this is playing it safe *)
+            let pv' = Value.fill_if_master_set pv in
+            (* but do clear the master set if it's about the node itself,
+               so the node can't erronously think it's master while it's not *)
+            let pv'' = Value.clear_self_master_set me pv' in
+            S.safe_insert_value store pi pv'' >>= fun _ ->
             let () = acc := Some(i,value) in
             Lwt.return ()
           end
@@ -221,7 +223,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
         else
           Lwt.return ()
     in
-    let f = make_f (module S) maybe_log_progress acc store in
+    let f = make_f (module S) me maybe_log_progress acc store in
     tlog_coll # iterate start_i too_far_i f >>= fun () ->
     epilogue (module S) acc store >>= fun () ->
     let store_i' = S.consensus_i store in

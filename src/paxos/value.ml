@@ -37,8 +37,8 @@ let is_synced = function
   | Vm _ -> false
   | Vc (_,s) -> s
 
-let clear_master_set = function
-  | Vm (m,l) -> Vm(m, 0L) 
+let clear_self_master_set me = function
+  | Vm (m,l) when m = me -> Vm(m, 0L)
   | v        -> v
 
 let fill_if_master_set = function
