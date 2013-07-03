@@ -5,7 +5,7 @@ Maintainer: Romain Slootmaekers <romain@incubaid.com>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.2
 Homepage: http://www.arakoon.org
-Vcs-Hg: https://bitbucket.org/despiegk/arakoon
+Vcs-Git: https://github.com/Incubaid/arakoon
 
 Package: arakoon
 Architecture: any

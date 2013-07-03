@@ -34,18 +34,19 @@ module MPMessage = struct
   let string_of = function
     | Prepare (n,i) -> 
       "Prepare(" ^ (Sn.string_of n) ^", " ^ (Sn.string_of i) ^ ")"
-    | Promise (n,i,v) ->
+    | Promise (n,i,vo) ->
       let ns = Sn.string_of n
       and is = Sn.string_of i
-      and vs = match v with
+      and vs = match vo with
 	    | None -> "None"
-	    | Some s -> "Some ..."
+	    | Some v -> Printf.sprintf "Some %s" (Value.value2s v)
       in
       "Promise(" ^ ns ^ "," ^ is ^ "," ^ vs ^ ")"
     | Accept (n,i, v) ->
       let ns = Sn.string_of n
-      and is = Sn.string_of i in
-      Printf.sprintf "Accept(%s,%s, ...)" ns is
+      and is = Sn.string_of i 
+      and vs = Value.value2s v in
+      Printf.sprintf "Accept(%s,%s, %s)" ns is vs
     | Accepted (n,i) ->
       let ns = Sn.string_of n
       and is = Sn.string_of i in
