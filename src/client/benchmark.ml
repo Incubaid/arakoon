@@ -138,7 +138,8 @@ let _time
     (fun () -> x t0 oc)
     (fun ex ->
       Lwt_io.fprintlf oc "Exception occured: %S"
-        (Printexc.to_string ex)
+        (Printexc.to_string ex) >>=fun () ->
+      Lwt.fail ex
     )
   >>= fun () ->
   let t1 = Unix.gettimeofday () in
