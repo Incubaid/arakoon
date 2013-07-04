@@ -134,7 +134,14 @@ let _time
     (x:(float -> Lwt_io.output_channel-> unit Lwt.t))
     (oc:Lwt_io.output_channel)=
   let t0 = Unix.gettimeofday() in
-  x t0 oc >>= fun () ->
+  Lwt.catch
+    (fun () -> x t0 oc)
+    (fun ex ->
+      Lwt_io.fprintlf oc "Exception occured: %S"
+        (Printexc.to_string ex) >>=fun () ->
+      Lwt.fail ex
+    )
+  >>= fun () ->
   let t1 = Unix.gettimeofday () in
   Lwt.return (t1 -. t0)
 

@@ -464,6 +464,7 @@ object(self: #backend)
   method (* private *) _write_allowed () =
     if read_only
     then Lwt.fail (XException(Arakoon_exc.E_READ_ONLY, my_name))
+    else if n_nodes = 1 then Lwt.return ()
     else
       begin
 	    self # who_master () >>= function
