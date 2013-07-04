@@ -90,12 +90,6 @@ def test_20_clients_1000_sets() :
     arakoon.ArakoonProtocol.ARA_CFG_TIMEOUT = 60.0
     Common.create_and_wait_for_threads ( 20, 1000, Common.simple_set, 200.0 )
 
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
-def test_tlog_rollover():
-    Common.iterate_n_times( 150000, Common.simple_set )
-    Common.stop_all()
-    Common.start_all()
-    Common.iterate_n_times( 150000, Common.simple_set )
 
 @Common.with_custom_setup( Common.setup_2_nodes, Common.basic_teardown)
 def test_catchup_while_collapsing():
@@ -284,104 +278,6 @@ def test_is_progress_possible():
         raise Exception ("Node did not catchup in a timely fashion")
     
     cli.set('k','v')
-
-
-def drop_master(n):
-    cli = Common.get_client()
-    previousMaster = cli.whoMaster()
-    for i in range(n):
-        logging.info("starting iteration %i", i)
-        Common.dropMaster(previousMaster)
-        cli._masterId = None
-        master = cli.whoMaster()
-        assert_not_equals(master, previousMaster, "Master did not change after drop master request.")
-        previousMaster = master
-        logging.info("finished iteration %i", i)
-
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
-def test_drop_master():
-    n = 10
-    drop_master(n)
-"""    drop_masters = lambda : drop_master(n)
-    Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
-
-
-def _test_drop_master_with_load_(client):
-    global busy, excs
-
-    n = 10
-
-    busy = True
-    excs = []
-    cv = Condition()
-
-    t0 = Thread(target = lambda : client(0))
-    t0.start()
-    t1 = Thread(target = lambda : client(1))
-    t1.start()
-    t2 = Thread(target = lambda : client(2))
-    t2.start()
-    t3 = Thread(target = lambda : client(3))
-    t3.start()
-
-    def inner_drop_master():
-        global busy
-        try :
-            drop_master(n)
-            cv.acquire()
-            busy = False
-            cv.notify()
-            cv.release()
-        except Exception, ex:
-            excs.append(ex)
-            cv.acquire()
-            busy = False
-            cv.notify()
-            cv.release()
-            raise ex
-
-
-    t_drop = Thread(target = inner_drop_master)
-    t_drop.start()
-
-    cv.acquire()
-    cv.wait(400.0)
-
-    assert_false( busy ) # test should be finished by now and is probably hanging
-    if busy:
-        busy = False
-        time.sleep(10) # give the client threads some time to finish
-        assert_false( True ) # test should be finished by now and is probably hanging
-
-    if len(excs) <> 0:
-        raise excs[0]
-
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
-def test_drop_master_with_load():
-    def client(n):
-        global excs, busy
-        try :
-            while busy:
-                Common.iterate_n_times( 100, Common.simple_set, startSuffix = n * 100 )
-        except Exception, ex:
-            excs.append(ex)
-            raise ex
-
-    _test_drop_master_with_load_(client)
-
-
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
-def test_drop_master_with_load_and_verify():
-    def client(n):
-        global excs, busy
-        try :
-            while busy:
-                Common.iterate_n_times( 100, Common.retrying_set_get_and_delete, startSuffix = n * 100 )
-        except Exception, ex:
-            excs.append(ex)
-            raise ex
-
-    _test_drop_master_with_load_(client)
 
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
