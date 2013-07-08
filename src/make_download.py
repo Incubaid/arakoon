@@ -30,20 +30,8 @@ Server
 +-------------------------+------------------+----------------------+------------------------------------------+
 | Debian Package x86_64   | {version:>13}__  | {deb_size:>17.0f} KB | MD5: {deb_md5:>32}    |
 +-------------------------+------------------+----------------------+------------------------------------------+
-| Ubuntu x86_64 Q-Package | {version:>13}    | name: arakoon        | domain: pylabs.org                       |
-+-------------------------+------------------+----------------------+------------------------------------------+
 
 .. __: {deb_url}
-
-Python Client
--------------
-+-------------------------+------------------+----------------------+------------------------------------------+
-| Python 2.7 egg          | {version:>13}__  | {egg_size:>17.1f} KB | MD5: {egg_md5:>32}    |
-+-------------------------+------------------+----------------------+------------------------------------------+
-| Ubuntu x86_64 Q-Package | {version:>13}    | name: arakoon_client | domain: pylabs.org                       |
-+-------------------------+------------------+----------------------+------------------------------------------+
-
-.. __: {egg_url}
 
 OCaml client
 ------------
@@ -65,22 +53,31 @@ Download Archives
 =================
 Older releases of Arakoon can be found on the `Archives page`_.
 
-.. _Archives page: http://...
+.. _Archives page: archives.html
 
 """
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--version', required= True)
 parser.add_argument('--rev', required= True)
+
+# python make_download.py 
+# --version 1.6.0 
+# --rev 918ad2c920ae08e1d1536011a6af8e38131c179f
+
 options = parser.parse_args()
 version = options.version
 revision = options.rev
 
-base_url = "https://bitbucket.org/despiegk/arakoon"
-deb_url = "%s/downloads/arakoon_%s_amd64.deb" % (base_url, version)
-egg_url = "%s/downloads/arakoon-%s-py2.7.egg" % (base_url, version)
-source_url = "%s/get/%s.tar.bz2" % (base_url,revision)
-lib_url = "%s/downloads/libarakoon-ocaml-dev_%s_amd64.deb" % (base_url, version)
+base_url = "https://github.com/Incubaid/arakoon"
+#https://github.com/Incubaid/arakoon/releases/1.6.0/2444/arakoon_1.6.0_amd64.deb
+deb_url = "%s/releases/%s/2444/arakoon_%s_amd64.deb" % (base_url, version,version)
+egg_url = "%s/releases/%s/.../arakoon-%s-py2.7.egg" % (base_url, version,version)
+#https://github.com/Incubaid/arakoon/archive/1.6.0.tar.gz
+source_url = "%s/archive/%s.tar.gz" % (base_url, version)
+lib_url = "%s/releases/%s/2445/libarakoon-ocaml-dev_%s_amd64.deb" % (base_url, 
+                                                                     version,
+                                                                     version)
 
 def check_download(url):
     f = urllib.urlopen(url)
@@ -97,7 +94,7 @@ def check_download(url):
 
 
 deb_size, deb_md5 = check_download(deb_url)
-egg_size, egg_md5 = check_download(egg_url)
+#egg_size, egg_md5 = check_download(egg_url)
 source_size, source_md5 = check_download(source_url)
 lib_size, lib_md5 = check_download(lib_url)
 
@@ -107,9 +104,9 @@ params = {
     'deb_url': deb_url,
     'deb_size': deb_size,
     'deb_md5': deb_md5,
-    'egg_url': egg_url,
-    'egg_size': egg_size,
-    'egg_md5': egg_md5,
+#    'egg_url': egg_url,
+#    'egg_size': egg_size,
+#    'egg_md5': egg_md5,
     'source_url': source_url,
     'source_size': source_size,
     'source_md5': source_md5,

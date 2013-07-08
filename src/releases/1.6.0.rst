@@ -1,0 +1,16 @@
+
+==============
+Arakoon 1.6.0
+==============
+
+Published on: 2013-08-03
+
+
+What has changed
+================
+The roundup from jira_.
+
+
+
+
+.. _jira: http://jira.incubaid.com/secure/IssueNavigator.jspa?reset=true&jqlQuery=project+%3D+ARAKOON+AND+fixVersion+%3D+11075+ORDER+BY+key+ASC
