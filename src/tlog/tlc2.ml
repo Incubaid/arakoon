@@ -353,7 +353,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 
 
 
-class tlc2 (tlog_dir:string) (tlf_dir:string) (new_c:int)
+class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
   (last:Entry.t option) (index:Index.index) (use_compression:bool)
   (node_id:string) (fsync:bool)
   =
@@ -552,7 +552,7 @@ object(self: # tlog_collection)
     Lwt.return v
 
   method get_head_name () =
-    get_full_path tlog_dir tlf_dir (head_name())
+    Filename.concat head_dir (head_name())
 
   method dump_head oc =
     let head_name = self # get_head_name () in
@@ -757,7 +757,7 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 tlog_dir tlf_dir use_compression fsync node_id =
+let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
@@ -769,7 +769,7 @@ let make_tlc2 tlog_dir tlf_dir use_compression fsync node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir new_c last new_index use_compression node_id fsync in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index use_compression node_id fsync in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with

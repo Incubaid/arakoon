@@ -209,7 +209,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     end
   in
   S.make_store db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression me.fsync name >>= fun tlc ->
+  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name >>= fun tlc ->
   let current_i = Sn.start in
   let future_n = Sn.start in
   let future_i = Sn.start in
@@ -420,7 +420,7 @@ let _main_2 (type s)
 	      Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
           let db_name = full_db_name me in
           let snapshot_name = get_snapshot_name() in
-          let full_snapshot_path = Filename.concat me.tlog_dir snapshot_name in
+          let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch 
             (fun () ->
               S.copy_store2 full_snapshot_path db_name false 
@@ -440,7 +440,7 @@ let _main_2 (type s)
             end
           in
 	      Lwt.catch
-	        (fun () -> make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression me.fsync name )
+	        (fun () -> make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name )
 	        (function 
               | Tlc2.TLCCorrupt (pos,tlog_i) ->
                 Tlc2.get_last_tlog me.tlog_dir me.tlf_dir >>= fun (last_c, last_tlog) ->
@@ -463,7 +463,7 @@ let _main_2 (type s)
                       Logger.warning_f_ "Invalid tlog file found. Auto-truncating tlog %s" 
 			            last_tlog >>= fun () ->
                       let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.tlf_dir me.use_compression me.fsync name
+                      make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
 		            end
                   else 
 		            begin
@@ -681,6 +681,10 @@ let _main_2 (type s)
           | Node_cfg.InvalidTlfDir dir ->
               let rc = 46 in
               Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlf directory: %s" rc dir >>= fun () ->
+              Lwt.return rc
+          | Node_cfg.InvalidHeadDir dir ->
+              let rc = 47 in
+              Logger.fatal_f_ "[rc=%i] Missing or inaccessible head directory: %s" rc dir >>= fun () ->
               Lwt.return rc
           | exn -> 
               begin

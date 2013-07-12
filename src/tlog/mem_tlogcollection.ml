@@ -103,7 +103,7 @@ object (self: #tlog_collection)
   method remove_below i = Lwt.return ()
 end
 
-let make_mem_tlog_collection tlog_dir tlf_dir use_compression name =
+let make_mem_tlog_collection tlog_dir tlf_dir head_dir use_compression name =
   let x = new mem_tlog_collection use_compression name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

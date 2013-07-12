@@ -36,6 +36,7 @@ open Log_extra
 exception InvalidHomeDir of string
 exception InvalidTlogDir of string
 exception InvalidTlfDir of string
+exception InvalidHeadDir of string
 
 module Node_cfg = struct
 
@@ -46,6 +47,7 @@ module Node_cfg = struct
         home:string;
         tlog_dir:string;
         tlf_dir:string;
+        head_dir:string;
         log_dir:string;
         log_level:string;
         log_config:string option;
@@ -67,7 +69,8 @@ module Node_cfg = struct
     let template =
       "{node_name=%S; ips=%s; client_port=%d; " ^^
         "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
-        "log_dir=%S; log_level:%S; log_config=%s; " ^^
+        "log_dir=%S; tlf_dir=%S; head_dir=%s; " ^^
+        "log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; " ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
@@ -79,7 +82,8 @@ module Node_cfg = struct
       (list2s (fun s -> s) t.ips)
       t.client_port
       t.messaging_port t.home t.tlog_dir
-      t.log_dir t.log_level (_so2s t.log_config)
+      t.log_dir t.tlf_dir t.head_dir
+      t.log_level (_so2s t.log_config)
       (_so2s t.batched_transaction_config) t.lease_period
       (master2s t.master) t.is_laggy t.is_learner
       (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
@@ -175,6 +179,7 @@ module Node_cfg = struct
         home = home;
         tlog_dir = home;
         tlf_dir = home;
+        head_dir = home;
         log_dir = ":None";
         log_level = "DEBUG";
         log_config = Some "default_log_config";
@@ -355,6 +360,9 @@ module Node_cfg = struct
     let tlf_dir =
       try get_string "tlf_dir"
       with _ -> tlog_dir in
+    let head_dir =
+      try get_string "head_dir"
+      with _ -> tlf_dir in
     let log_level = String.lowercase (get_string "log_level")  in
     let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
@@ -380,6 +388,7 @@ module Node_cfg = struct
      home;
      tlog_dir;
      tlf_dir;
+     head_dir;
      log_dir;
      log_level;
      log_config;
@@ -477,32 +486,25 @@ module Node_cfg = struct
     if t.is_test then Lwt.return ()
     else
       begin
-	let is_ok name = 
-	  try
-	    let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
-	  with _ -> false
-	in
-        if not (is_ok t.home)
-        then
-          Logger.fatal_f_
-            "Home dir '%s' doesn't exist, or insufficient permissions"
-            t.home >>= fun () ->
-          Lwt.fail (InvalidHomeDir t.home)
-        else
-        if not (is_ok t.tlog_dir)
-        then
-          Logger.fatal_f_
-            "Tlog dir '%s' doesn't exist, or insufficient permissions"
-            t.tlog_dir >>= fun () ->
-          Lwt.fail (InvalidTlogDir t.tlog_dir)
-        else
-        if not (is_ok t.tlf_dir)
-        then
-          Logger.fatal_f_
-            "Tlf dir '%s' doesn't exist, or insufficient permissions"
-            t.tlf_dir >>= fun () ->
-          Lwt.fail (InvalidTlfDir t.tlf_dir)
-        else
-        Lwt.return ()
-      end 
+        let is_ok name =
+          try
+            let s = Unix.stat name in s.Unix.st_kind = Unix.S_DIR
+          with _ -> false
+        in
+        let verify_exists dir msg exn =
+          if not (is_ok dir)
+          then
+            begin
+              Logger.fatal_f_ "%s '%s' doesn't exist, or insufficient permissions" msg dir >>= fun () ->
+              Lwt.fail exn
+            end
+          else
+            Lwt.return () in
+
+        verify_exists t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
+        verify_exists t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
+        verify_exists t.tlf_dir "Tlf dir" (InvalidTlfDir t.tlf_dir) >>= fun () ->
+        verify_exists t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
+
+      end
 end

@@ -56,6 +56,7 @@ let _make_cfg name n lease_period =
     home = name;
     tlog_dir = name;
     tlf_dir = name;
+    head_dir = name;
     log_dir = "none";
     log_level = "DEBUG";
     log_config = Some "log_cfg";
@@ -71,8 +72,8 @@ let _make_cfg name n lease_period =
     reporting = 300;
   }
 
-let _make_tlog_coll tlcs values tlc_name tlf_dir use_compression fsync node_id =
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir use_compression node_id >>= fun tlc ->
+let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync node_id =
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir use_compression node_id >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return () 
     | v :: vs -> 
