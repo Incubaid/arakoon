@@ -436,9 +436,14 @@ let _main_2 (type s)
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = last_i in (* ?? *)
-	      Catchup.verify_n_catchup_store me.node_name 
-	        ((module S), store, tlog_coll, ti_o)
-	        ~current_i master 
+          Lwt.catch
+            (fun () ->
+	          Catchup.verify_n_catchup_store me.node_name
+	            ((module S), store, tlog_coll, ti_o)
+	            ~current_i master)
+            (fun ex ->
+              tlog_coll # close () >>= fun () ->
+              Lwt.fail ex)
 	      >>= fun (new_i, vo) ->
 	      
 	      let client_buffer =
