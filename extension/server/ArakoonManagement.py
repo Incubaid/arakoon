@@ -1241,9 +1241,19 @@ class ArakoonCluster:
             home = config['home']
             log_dir = config['log_dir']
             real_tlog_dir = config.get('tlog_dir', home)
+            tlf_dir = config.get('tlf_dir', real_tlog_dir)
+            head_dir = config.get('head_dir', real_tlog_dir)
+
+            tlog_dirs = set([real_tlog_dir, tlf_dir])
+            # 'head_dir' might have a place in here, but head.db wasn't counted
+            # before (in most cases), so...
+            db_dirs = set([home])
+            log_dirs = set([log_dir])
 
             files_in_dir = lambda dir_: itertools.ifilter(os.path.isfile,
                 (os.path.join(dir_, name) for name in os.listdir(dir_)))
+            files_in_dirs = lambda dirs: itertools.chain(*(files_in_dir(dir_)
+                for dir_ in dirs))
             matching_files = lambda *exts: lambda files: \
                 (file_ for file_ in files
                     if any(file_.endswith(ext) for ext in exts))
@@ -1256,9 +1266,9 @@ class ArakoonCluster:
                 for file_ in files)
 
             return {
-                'tlog': sum_size(tlog_files(files_in_dir(real_tlog_dir))),
-                'db': sum_size(db_files(files_in_dir(home))),
-                'log': sum_size(log_files(files_in_dir(log_dir)))
+                'tlog': sum_size(tlog_files(files_in_dirs(tlog_dirs))),
+                'db': sum_size(db_files(files_in_dirs(db_dirs))),
+                'log': sum_size(log_files(files_in_dirs(log_dirs)))
             }
 
         nodes = (node, ) if node is not None else local_nodes
