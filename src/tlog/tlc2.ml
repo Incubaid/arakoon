@@ -216,7 +216,8 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
-      | Tlogcommon.TLogCheckSumError pos ->
+      | Tlogcommon.TLogCheckSumError pos
+      | Tlogcommon.TLogUnexpectedEndOfFile pos ->
         begin
           match !prev_entry with
             | Some entry -> let i = Entry.i_of entry in Lwt.fail (TLCCorrupt (pos,i))
@@ -811,7 +812,8 @@ let truncate_tlog filename =
           Lwt.catch
             (fun() -> folder ic ~index lowerI higherI ~first () skipper)
             (function
-              | Tlogcommon.TLogCheckSumError pos ->
+              | Tlogcommon.TLogCheckSumError pos
+              | Tlogcommon.TLogUnexpectedEndOfFile pos ->
                 let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
                 Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
               | ex -> Lwt.fail ex
