@@ -384,7 +384,11 @@ object(self: #backend)
           and v = Entry.v_of entry
           in
           Tlogcommon.write_entry oc i v in
-	    tlog_collection # iterate start_i3 too_far_i f >>= fun () ->
+        Lwt.catch
+          (fun () -> tlog_collection # iterate start_i3 too_far_i f)
+          (function
+            | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
+            | ex -> Lwt.fail ex) >>= fun () ->
 	    Sn.output_sn oc (-1L)
 	  end
     end

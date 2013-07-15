@@ -40,6 +40,7 @@ module Entry = struct
 end
 
 exception TLogCheckSumError of Int64.t
+exception TLogUnexpectedEndOfFile of Int64.t
 
 let tlogEntriesPerFile = 
   ref (IFDEF SMALLTLOG THEN 1000 ELSE (100 * 1000) END)
@@ -67,27 +68,41 @@ let validateTlogEntry buffer checkSum =
 
 let read_entry ic =
   let last_valid_pos = Lwt_io.position ic in
-  Sn.input_sn    ic >>= fun  i     ->
-  Llio.input_int32 ic >>= fun chkSum ->
-  Llio.input_string ic >>= fun cmd  ->
-  (* if you want to do validation, do it here *)
-  let cmdl = String.length cmd in
-  let chksum2 = Crc32c.calculate_crc32c cmd 0 cmdl in
-  begin
-    if chkSum <> chksum2
-    then Lwt.fail (TLogCheckSumError last_valid_pos )
-    else Lwt.return ()
-  end >>= fun () ->
-  let value,off = Value.value_from cmd 0 in
-  let marker =
-    if off = cmdl
-    then None
-    else
-      let m,_ = Llio.string_option_from cmd off in
-      m
-  in
-  let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
-  Lwt.return entry
+  Lwt.catch
+    (fun () ->
+      Sn.input_sn    ic >>= fun  i     ->
+      Llio.input_int32 ic >>= fun chkSum ->
+      Llio.input_string ic >>= fun cmd  ->
+      let cmdl = String.length cmd in
+      let chksum2 = Crc32c.calculate_crc32c cmd 0 cmdl in
+      begin
+        if chkSum <> chksum2
+        then Lwt.fail (TLogCheckSumError last_valid_pos )
+        else Lwt.return ()
+      end >>= fun () ->
+      let value,off = Value.value_from cmd 0 in
+      let marker =
+        if off = cmdl
+        then None
+        else
+          let m,_ = Llio.string_option_from cmd off in
+          m
+      in
+      let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
+      Lwt.return entry)
+    (function
+      | End_of_file ->
+          begin
+            let new_pos = Lwt_io.position ic in
+            Logger.log_ Logger.Section.main Logger.Debug (fun () -> Printf.sprintf "Last valid pos: %d, new pos: %d" (Int64.to_int new_pos)
+              (Int64.to_int last_valid_pos)) >>= fun () ->
+            begin
+              if ( Int64.compare new_pos last_valid_pos ) = 0
+              then Lwt.fail End_of_file
+              else Lwt.fail (TLogUnexpectedEndOfFile last_valid_pos)
+            end
+          end
+      | ex -> Lwt.fail ex)
 
 
 let entry_from buff pos = 
