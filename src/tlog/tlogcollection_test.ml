@@ -245,7 +245,7 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
 
 let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
 
-let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None true
+let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None None true
 
 let wrap_memory name = wrap create_test_tlc name
 

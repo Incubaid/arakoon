@@ -56,10 +56,10 @@ let _make_values tlc n =
   in
   loop 0
 
-let test_collapse_until (dn, tlf_dir) =
+let test_collapse_until (dn, tlf_dir, head_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
-  Logger.debug_f_ "dn=%s, tlf_dir=%s" dn tlf_dir >>= fun () ->
-  Tlc2.make_tlc2 dn tlf_dir true false "node_name" >>= fun tlc ->
+  Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
+  Tlc2.make_tlc2 dn tlf_dir head_dir true false "node_name" >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -94,11 +94,12 @@ let test_collapse_until (dn, tlf_dir) =
 
 let test_dn = "/tmp/collapser"
 let _tlf_dir = "/tmp/collapser_tlf"
+let _head_dir = "/tmp/collapser_head"
 
-let test_collapse_many (dn, tlf_dir) =
+let test_collapse_many (dn, tlf_dir, head_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s" dn tlf_dir >>= fun () ->
-  Tlc2.make_tlc2 dn tlf_dir true false "node_name" >>= fun tlc ->
+  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
+  Tlc2.make_tlc2 dn tlf_dir head_dir true false "node_name" >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *) 
@@ -129,13 +130,15 @@ let setup () =
   
   let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
   let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlf_dir) in
+  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in
   File_system.mkdir test_dn 0o755 >>= fun () -> 
   File_system.mkdir _tlf_dir 0o755 >>= fun () -> 
-  Lwt.return (test_dn, _tlf_dir)
+  File_system.mkdir _head_dir 0o755 >>= fun () -> 
+  Lwt.return (test_dn, _tlf_dir, _head_dir)
 
 
-let teardown (dn, tlf_dir) =
-  Logger.debug_f_ "teardown %s, %s" dn tlf_dir
+let teardown (dn, tlf_dir, head_dir) =
+  Logger.debug_f_ "teardown %s, %s, %s" dn tlf_dir head_dir
 
   
 let suite =

@@ -38,7 +38,7 @@ if __name__ == '__main__' :
     
 def mount_ram_fs ( node_index ) :
     
-    (mount_target,log_dir,tlf_dir) = Common.build_node_dir_names( Common.node_names[node_index] )
+    (mount_target,log_dir,tlf_dir,head_dir) = Common.build_node_dir_names( Common.node_names[node_index] )
     fs = q.system.fs
     if fs.exists( mount_target ) :
         try:
@@ -85,14 +85,15 @@ def setup_3_nodes_ram_fs ( home_dir ):
         for i in range( len(Common.node_names) ):
             mount_ram_fs ( i )
             nodeName = Common.node_names[i]
-            (db_dir,log_dir,tlf_dir) = Common.build_node_dir_names( Common.node_names[ i ] )
+            (db_dir,log_dir,tlf_dir,head_dir) = Common.build_node_dir_names( Common.node_names[ i ] )
             cluster.addNode (
                 nodeName, Common.node_ips[i], 
                 clientPort = Common.node_client_base_port + i,
                 messagingPort = Common.node_msg_base_port + i, 
                 logDir = log_dir,
                 tlfDir = tlf_dir,
-                home = db_dir)
+                home = db_dir,
+                headDir = head_dir)
             cluster.addLocalNode(nodeName)
             cluster.createDirs(nodeName)
 
