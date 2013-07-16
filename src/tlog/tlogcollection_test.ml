@@ -234,11 +234,13 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
       Lwt.return ()
     )
     (function
-      | Tlc2.TLCCorrupt (pos,i) -> Lwt.return ()
-      | exn -> 
-	let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
-	OUnit.assert_bool msg false;
-	Lwt.return ()
+      | TLogCheckSumError pos
+      | TLogUnexpectedEndOfFile pos ->
+          Lwt.return ()
+      | exn ->
+          let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
+          OUnit.assert_bool msg false;
+          Lwt.return ()
     )
   >>= fun () -> 
   Lwt.return ()
