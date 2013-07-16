@@ -431,56 +431,19 @@ let _main_2 (type s)
             )
           >>= fun () ->
           S.make_store db_name >>= fun (store:S.t) ->
-          let store_i = S.consensus_i store in
-          let s_i = 
-            begin
-		      match store_i with
-		        | Some i -> i
-		        | None -> Sn.start
-            end
-          in
-	      Lwt.catch
-	        (fun () -> make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name )
-	        (function 
-              | Tlc2.TLCCorrupt (pos,tlog_i) ->
-                Tlc2.get_last_tlog me.tlog_dir me.tlf_dir >>= fun (last_c, last_tlog) ->
-                let tlog_i = 
-                  begin
-		            match tlog_i with
-		              | i when i = Sn.start -> (Sn.mul (Sn.of_int !Tlogcommon.tlogEntriesPerFile) 
-                                                  (Sn.of_int last_c) )
-		              | _ -> tlog_i 
-                  end 
-                in
-                begin
-                  Logger.debug_f_ "store_i: '%s' tlog_i: '%s' Diff: %d" 
-		            (Sn.string_of s_i) 
-		            (Sn.string_of tlog_i)  
-		            (Sn.compare s_i tlog_i)  >>= fun() ->
-                  if (Sn.compare s_i tlog_i)  <= 0
-                  then
-		            begin
-                      Logger.warning_f_ "Invalid tlog file found. Auto-truncating tlog %s" 
-			            last_tlog >>= fun () ->
-                      let _ = Tlc2.truncate_tlog last_tlog in
-                      make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
-		            end
-                  else 
-		            begin
-                      Logger.error_f_ "Store counter (%s) ahead of tlogs (%s). Aborting" 
-			            (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
-                      Lwt.fail(Catchup.StoreAheadOfTlogs(pos,tlog_i))
-		            end
-                end
-                  | ex -> Lwt.fail ex 
-	        )
+          make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = last_i in (* ?? *)
-	      Catchup.verify_n_catchup_store me.node_name 
-	        ((module S), store, tlog_coll, ti_o)
-	        ~current_i master 
+          Lwt.catch
+            (fun () ->
+	          Catchup.verify_n_catchup_store me.node_name
+	            ((module S), store, tlog_coll, ti_o)
+	            ~current_i master)
+            (fun ex ->
+              tlog_coll # close () >>= fun () ->
+              Lwt.fail ex)
 	      >>= fun (new_i, vo) ->
 	      
 	      let client_buffer =
@@ -685,6 +648,14 @@ let _main_2 (type s)
           | Node_cfg.InvalidHeadDir dir ->
               let rc = 47 in
               Logger.fatal_f_ "[rc=%i] Missing or inaccessible head directory: %s" rc dir >>= fun () ->
+              Lwt.return rc
+          | Tlogcommon.TLogUnexpectedEndOfFile pos ->
+              let rc = 48 in
+              Logger.fatal_f_ "[rc=%i] Unexpectedly reached the end of the tlog, last valid pos = %Li" rc pos >>= fun () ->
+              Lwt.return rc
+          | Tlogcommon.TLogCheckSumError pos ->
+              let rc = 49 in
+              Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
               Lwt.return rc
           | exn -> 
               begin

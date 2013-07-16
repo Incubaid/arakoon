@@ -28,7 +28,6 @@ open Unix.LargeFile
 open Lwt_buffer
 open Tlogreader2
 
-exception TLCCorrupt of (Int64.t * Sn.t)
 exception TLCNotProperlyClosed of string
 
 let section = Logger.Section.main
@@ -216,13 +215,6 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
-      | Tlogcommon.TLogCheckSumError pos
-      | Tlogcommon.TLogUnexpectedEndOfFile pos ->
-        begin
-          match !prev_entry with
-            | Some entry -> let i = Entry.i_of entry in Lwt.fail (TLCCorrupt (pos,i))
-            | None -> Lwt.fail (TLCCorrupt(pos, Sn.start))
-        end
       | exn -> Lwt.fail exn
     )
 
