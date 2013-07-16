@@ -649,6 +649,14 @@ let _main_2 (type s)
               let rc = 47 in
               Logger.fatal_f_ "[rc=%i] Missing or inaccessible head directory: %s" rc dir >>= fun () ->
               Lwt.return rc
+          | Tlogcommon.TLogUnexpectedEndOfFile pos ->
+              let rc = 48 in
+              Logger.fatal_f_ "[rc=%i] Unexpectedly reached the end of the tlog, last valid pos = %Li" rc pos >>= fun () ->
+              Lwt.return rc
+          | Tlogcommon.TLogCheckSumError pos ->
+              let rc = 49 in
+              Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
+              Lwt.return rc
           | exn -> 
               begin
 	            Logger.fatal_ ~exn "going down" >>= fun () ->
