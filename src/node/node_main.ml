@@ -603,7 +603,7 @@ let _main_2 (type s)
                   Lwt_unix.sleep 1.0 >>= fun () ->
                   inner (succ i) in
                 inner 0 in
-              Lwt.pick [ S.close store ;
+              Lwt.pick [ S.close ~flush:false store ;
                          count_thread "Closing store (%is)" ] >>= fun () ->
               Logger.fatal_f_
                 ">>> Closing the store @ %S succeeded: everything seems OK <<<"

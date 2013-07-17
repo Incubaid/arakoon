@@ -178,11 +178,11 @@ let make_server_thread
               Logger.info_f_ "closed client thread fd %s" k)
             !fds >>= fun () ->
 
-          let cancel =
+          let cancel t =
             try
               Lwt.cancel t
             with exn -> () in
-          Lwt_list.iter_p cancel !ts >>= fun () ->
+          List.iter cancel !ts;
 
           let rec wait () =
             Logger.info_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
