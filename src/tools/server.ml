@@ -122,10 +122,10 @@ let make_server_thread
                   Lwt.return()
           in
           let t = client_thread () in
-          Hashtbl.add client_threads cid (t, fd);
           Lwt.ignore_result
             (Lwt.finalize
                (fun () ->
+                 Hashtbl.add client_threads cid (t, fd);
                  Lwt.catch
                    (fun () -> t)
                    (fun exn ->
@@ -165,6 +165,13 @@ let make_server_thread
           setup_callback () >>= fun () ->
           server_loop ())
         (fun () ->
+          Lwt.catch
+            (fun () ->
+              Logger.debug_ "closing listening socket" >>= fun () ->
+              Lwt_unix.close listening_socket >>= fun () ->
+              Logger.debug_ "closed listening socket")
+            (fun exn -> Lwt.return ()) >>= fun () ->
+
           let fds = ref [] in
           let ts = ref [] in
           let collect k (t, fd) =
@@ -197,9 +204,6 @@ let make_server_thread
           wait () >>= fun () ->
 
           Logger.info_f_ "shutting down server on port %i" port >>= fun () ->
-          Logger.debug_ "closing listening socket" >>= fun () ->
-          Lwt_unix.close listening_socket >>= fun () ->
-          Logger.debug_ "closed listening socket" >>= fun () ->
           teardown_callback())
     in r
   end
