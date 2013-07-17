@@ -435,7 +435,13 @@ let _main_2 (type s)
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
-          let current_i = last_i in (* ?? *)
+          let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
+            if n_nodes = 1
+            then
+              (* this is the only node, so accepting a value equals reaching consensus on it *)
+              Sn.succ last_i
+            else
+              last_i in
           Lwt.catch
             (fun () ->
 	          Catchup.verify_n_catchup_store me.node_name
