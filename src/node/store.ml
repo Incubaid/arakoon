@@ -86,6 +86,7 @@ module type Simple_store = sig
   val delete: t -> transaction -> string -> unit
   val delete_prefix: t -> transaction -> string -> int
 
+  val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
   val make_store: bool -> string -> t Lwt.t
@@ -114,6 +115,7 @@ module type STORE =
     type t
     val make_store : ?read_only:bool -> string -> t Lwt.t
     val consensus_i : t -> Sn.t option
+    val flush : t -> unit Lwt.t
     val close : ?flush : bool -> t -> unit Lwt.t
     val get_location : t -> string
     val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
@@ -279,6 +281,9 @@ struct
     store.store_i <- _consensus_i store.s;
     store.closed <- false;
     Lwt.return ()
+
+  let flush store =
+    S.flush store.s
 
   let close ?(flush = true) store =
     store.closed <- true;

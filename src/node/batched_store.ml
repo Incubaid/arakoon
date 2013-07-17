@@ -250,6 +250,10 @@ struct
       | None -> failwith "batched_store s._ls_tx is None"
       | Some ls_tx -> S.delete_prefix s.s ls_tx  prefix
 
+  let flush s =
+    _sync_and_start_transaction_if_needed s;
+    Lwt.return ()
+
   let close s flush =
     if flush
     then

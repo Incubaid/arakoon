@@ -193,6 +193,9 @@ let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> _delete_prefix db prefix)
 
+let flush ls =
+  Lwt.return ()
+
 let close ls flush =
   Camltc.Hotc.close ls.db >>= fun () ->
   Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
