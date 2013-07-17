@@ -173,23 +173,23 @@ let make_server_thread
             (fun exn -> Lwt.return ()) >>= fun () ->
 
           let fds = ref [] in
-          let ts = ref [] in
-          let collect k (t, fd) =
-            fds := (k, fd) :: !fds;
-            ts := t :: !ts in
+          let collect k (_, fd) =
+            fds := (k, fd) :: !fds in
           Hashtbl.iter collect client_threads;
           Lwt_list.iter_p
             (fun (k, fd) ->
               Logger.info_f_ "closing client thread fd %s" k >>= fun () ->
-              Lwt_unix.close fd >>= fun () ->
+              Lwt.catch
+                (fun () -> Lwt_unix.close fd)
+                (fun exn -> Lwt.return ()) >>= fun () ->
               Logger.info_f_ "closed client thread fd %s" k)
             !fds >>= fun () ->
 
-          let cancel t =
+          let cancel _ (t, _) =
             try
               Lwt.cancel t
             with exn -> () in
-          List.iter cancel !ts;
+          Hashtbl.iter cancel client_threads;
 
           let rec wait () =
             Logger.info_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
