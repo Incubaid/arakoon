@@ -122,7 +122,7 @@ let make_server_thread
                   Lwt.return()
           in
           let t = client_thread () in
-          Hashtbl.add client_threads cid t;
+          Hashtbl.add client_threads cid (t, fd);
           Lwt.ignore_result
             (Lwt.finalize
                (fun () ->
@@ -165,14 +165,27 @@ let make_server_thread
           setup_callback () >>= fun () ->
           server_loop ())
         (fun () ->
-          let cancel t =
+          let fds = ref [] in
+          let ts = ref [] in
+          let collect k (t, fd) =
+            fds := (k, fd) :: !fds;
+            ts := t :: !ts in
+          Hashtbl.iter collect client_threads;
+          Lwt_list.iter_p
+            (fun (k, fd) ->
+              Logger.info_f_ "closing client thread fd %s" k >>= fun () ->
+              Lwt_unix.close fd >>= fun () ->
+              Logger.info_f_ "closed client thread fd %s" k)
+            !fds >>= fun () ->
+
+          let cancel =
             try
               Lwt.cancel t
             with exn -> () in
-          Hashtbl.iter (fun k t -> cancel t) client_threads;
+          Lwt_list.iter_p cancel !ts >>= fun () ->
 
           let rec wait () =
-            Logger.debug_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
+            Logger.info_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
             if Hashtbl.length client_threads > 0
             then
               begin
