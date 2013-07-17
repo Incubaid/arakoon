@@ -172,18 +172,17 @@ let make_server_thread
               Logger.debug_ "closed listening socket")
             (fun exn -> Lwt.return ()) >>= fun () ->
 
-          let fds = ref [] in
-          let collect k (_, fd) =
-            fds := (k, fd) :: !fds in
-          Hashtbl.iter collect client_threads;
+          let fds = Hashtbl.fold (fun k (_, fd) acc -> (k, fd) :: acc) client_threads [] in
           Lwt_list.iter_p
             (fun (k, fd) ->
               Logger.info_f_ "closing client thread fd %s" k >>= fun () ->
               Lwt.catch
-                (fun () -> Lwt_unix.close fd)
-                (fun exn -> Lwt.return ()) >>= fun () ->
-              Logger.info_f_ "closed client thread fd %s" k)
-            !fds >>= fun () ->
+                (fun () ->
+                  Lwt_unix.close fd >>= fun () ->
+                  Logger.info_f_ "closed client thread fd %s" k)
+                (fun exn ->
+                  Logger.info_f_ ~exn "exception while closing fd %s" k))
+            fds >>= fun () ->
 
           let cancel _ (t, _) =
             try
