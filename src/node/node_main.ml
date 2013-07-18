@@ -430,9 +430,9 @@ let _main_2 (type s)
               | e -> raise e
             )
           >>= fun () ->
-          S.make_store db_name >>= fun (store:S.t) ->
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
+          S.make_store db_name >>= fun (store:S.t) ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = last_i in (* ?? *)
