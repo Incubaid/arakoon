@@ -32,6 +32,7 @@ import itertools
 import subprocess
 import time
 import types
+import signal
 import string
 import logging
 
@@ -1148,6 +1149,12 @@ class ArakoonCluster:
             q.logger.log("'%s' is still running... waiting" % name, level = 3)
 
             if i == 10:
+                msg = "Requesting '%s' to dump crash log information" % name
+                logging.debug(msg)
+                q.logger.log(msg, level=3)
+                subprocess.call(['pkill', '-%d' % signal.SIGUSR2, '-f', line], close_fds=True)
+                time.sleep(1)
+
                 logging.debug("stopping '%s' with kill -9" % name)
                 q.logger.log("stopping '%s' with kill -9" % name, level = 3)
                 rc = subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
