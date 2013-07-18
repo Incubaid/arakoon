@@ -314,6 +314,15 @@ let _main_2 (type s)
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
+  let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
+      let handle () =
+          Lwt_unix.sleep 0.001 >>= fun () ->
+          Logger.info_ "Received USR2, dumping crash_log" >>= fun () ->
+          match dump_crash_log with
+            | None -> Logger.info_ "No crash_log defined"
+            | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped"
+      in
+      Lwt.ignore_result (handle ())) in
   _config_batched_transactions me cluster_cfg;
   if catchup_only 
   then 
