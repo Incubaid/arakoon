@@ -444,7 +444,13 @@ let _main_2 (type s)
           S.make_store db_name >>= fun (store:S.t) ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
-          let current_i = last_i in (* ?? *)
+          let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
+            if n_nodes = 1
+            then
+              (* this is the only node, so accepting a value equals reaching consensus on it *)
+              Sn.succ last_i
+            else
+              last_i in
           Lwt.catch
             (fun () ->
 	          Catchup.verify_n_catchup_store me.node_name
@@ -619,7 +625,7 @@ let _main_2 (type s)
                   Lwt_unix.sleep 1.0 >>= fun () ->
                   inner (succ i) in
                 inner 0 in
-              Lwt.pick [ S.close store ;
+              Lwt.pick [ S.close ~flush:false store ;
                          count_thread "Closing store (%is)" ] >>= fun () ->
               Logger.fatal_f_
                 ">>> Closing the store @ %S succeeded: everything seems OK <<<"

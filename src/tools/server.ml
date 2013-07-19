@@ -122,10 +122,10 @@ let make_server_thread
                   Lwt.return()
           in
           let t = client_thread () in
-          Hashtbl.add client_threads cid t;
           Lwt.ignore_result
             (Lwt.finalize
                (fun () ->
+                 Hashtbl.add client_threads cid (t, fd);
                  Lwt.catch
                    (fun () -> t)
                    (fun exn ->
@@ -165,14 +165,34 @@ let make_server_thread
           setup_callback () >>= fun () ->
           server_loop ())
         (fun () ->
-          let cancel t =
+          Lwt.catch
+            (fun () ->
+              Logger.debug_ "closing listening socket" >>= fun () ->
+              Lwt_unix.close listening_socket >>= fun () ->
+              Logger.debug_ "closed listening socket")
+            (fun exn ->
+              Logger.info_f_ ~exn "exception while closing listening socket") >>= fun () ->
+
+          let fds = Hashtbl.fold (fun k (_, fd) acc -> (k, fd) :: acc) client_threads [] in
+          Lwt_list.iter_p
+            (fun (k, fd) ->
+              Logger.info_f_ "closing client thread fd %s" k >>= fun () ->
+              Lwt.catch
+                (fun () ->
+                  Lwt_unix.close fd >>= fun () ->
+                  Logger.info_f_ "closed client thread fd %s" k)
+                (fun exn ->
+                  Logger.info_f_ ~exn "exception while closing fd %s" k))
+            fds >>= fun () ->
+
+          let cancel _ (t, _) =
             try
               Lwt.cancel t
             with exn -> () in
-          Hashtbl.iter (fun k t -> cancel t) client_threads;
+          Hashtbl.iter cancel client_threads;
 
           let rec wait () =
-            Logger.debug_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
+            Logger.info_f_ "waiting for %i client_threads" (Hashtbl.length client_threads) >>= fun () ->
             if Hashtbl.length client_threads > 0
             then
               begin
@@ -184,9 +204,6 @@ let make_server_thread
           wait () >>= fun () ->
 
           Logger.info_f_ "shutting down server on port %i" port >>= fun () ->
-          Logger.debug_ "closing listening socket" >>= fun () ->
-          Lwt_unix.close listening_socket >>= fun () ->
-          Logger.debug_ "closed listening socket" >>= fun () ->
           teardown_callback())
     in r
   end

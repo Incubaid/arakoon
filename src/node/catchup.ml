@@ -253,7 +253,9 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       | Some (i,v) -> Some v
     in
     Lwt.return (too_far_i, vo)
-  end
+  end >>= fun r ->
+  S.flush store >>= fun () ->
+  Lwt.return r
 
 let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_i) =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
