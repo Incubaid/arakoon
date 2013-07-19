@@ -214,6 +214,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
+  Lwt_unix.sleep 1.0 >>= fun () ->
   tlc # close () >>= fun () ->
   File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
@@ -229,6 +230,60 @@ let test_compression_bug (dn, tlf_dir, factory) =
     ~printer:string_of_int 
     ~msg:"tlc has a hole" (n+2) (List.length !entries);
   Lwt.return ()
+
+let test_compression_previous (dn, tlf_dir, factory) =
+  Logger.info_ "test_compression_previous_tlogs" >>= fun () ->
+  let () = Tlogcommon.tlogEntriesPerFile := 10 in
+  let v = String.create (1024 * 1024) in
+  factory dn "node_name" >>= fun tlc ->
+  Logger.info_ "have tlc" >>= fun () ->
+  let sync = false in
+  let n = 42 in
+  let rec loop i = 
+    if i = n then Lwt.return () 
+    else
+      let key = Printf.sprintf "test_compression_bug_%i" i in
+      let value = Value.create_client_value [Update.Set(key, v)] sync in
+      let sni = Sn.of_int i in
+      tlc # log_value sni value >>= fun () ->
+      loop (i+1) 
+  in
+  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
+  loop 1 >>= fun () ->
+  Lwt_unix.sleep 6.0 >>= fun () ->
+  tlc # close () >>= fun () ->
+
+  (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
+  let uncompress tlf =
+    let tlfpath =  (tlf_dir ^ "/" ^ tlf ^ ".tlf") in
+    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlf ^ ".tlog") >>= fun () ->
+    File_system.unlink tlfpath
+  in
+  let compresseds = ["000"; "001"; "002"; "003"] in
+  Lwt_list.iter_s uncompress compresseds >>= fun () ->
+  File_system.lwt_directory_list dn >>= fun tlog_entries ->
+  assert ((List.length tlog_entries) = 5);
+
+  let touch fn =
+    let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
+  touch (tlf_dir ^ "/000.tlf.part");
+
+  (* open tlog again *)
+  factory dn "node_name" >>= fun tlc2 ->
+  (* give it some time to do it's thing *)
+  Lwt_unix.sleep 6.0 >>= fun () ->
+  tlc2 # close () >>= fun () ->
+
+  let verify_exists tlf =
+    File_system.exists (tlf_dir ^ "/" ^ tlf ^ ".tlf") >>= fun exists ->
+    assert exists;
+    Lwt.return () in
+  Lwt_list.iter_s verify_exists compresseds >>= fun () ->
+  File_system.lwt_directory_list dn >>= fun tlog_entries ->
+  assert ((List.length tlog_entries) = 1);
+  Lwt.return ()
+
+
 
 let make_test_tlc (x, y) = x >:: wrap_tlc y x
 
@@ -251,4 +306,5 @@ let suite = "tlc2" >:::
     ("test_rollover_boundary", test_validate_at_rollover_boundary);
     ("test_interrupted_rollover", test_interrupted_rollover);
     ("test_compression_bug", test_compression_bug);
+    ("test_compression_previous", test_compression_previous);
   ]
