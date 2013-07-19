@@ -453,19 +453,16 @@ object(self: # tlog_collection)
         (fun e -> Str.string_match tlog_regexp e 0)
         entries
       in
-      let my_compare fn1 fn2 =
-        let n1 = get_number fn1
-        and n2 = get_number fn2 in
-        compare n2 n1
+
+      (* Sort oldest-to-newest *)
+      let sorted = List.sort (fun a b -> compare (get_number a) (get_number b)) filtered in
+
+      let rec add_jobs = function
+        | [] -> return ()
+        | [_] -> return () (* Skip last *)
+        | (hd :: tl) -> self # _add_compression_job (get_number hd) >>= fun () -> add_jobs tl
       in
-      let sorted = List.sort my_compare filtered in
-      match sorted with
-        | [] -> Lwt.return ()
-        | hd :: tl ->
-            Lwt_list.iter_s
-              (fun old_tlog ->
-                self # _add_compression_job (get_number old_tlog))
-              (List.rev tl)
+      add_jobs sorted
     in
     Lwt.ignore_result (add_previous_compression_jobs ());
 
@@ -661,8 +658,9 @@ object(self: # tlog_collection)
             Logger.debug_f_ "Cancelling compression thread" >>= fun () ->
             (try
               Lwt.cancel t;
-            with exn -> ());
-            Lwt.return ()
+              Lwt.return ()
+            with exn ->
+              Logger.info_ ~exn "Exception while canceling compression thread")
     end >>= fun () ->
     Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
     let last_file () =

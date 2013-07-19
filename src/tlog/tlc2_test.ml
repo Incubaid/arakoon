@@ -250,7 +250,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
-  Lwt_unix.sleep 3.0 >>= fun () ->
+  Lwt_unix.sleep 6.0 >>= fun () ->
   tlc # close () >>= fun () ->
 
   (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
@@ -265,14 +265,13 @@ let test_compression_previous (dn, tlf_dir, factory) =
   assert ((List.length tlog_entries) = 5);
 
   let touch fn =
-    Lwt_unix.system (Printf.sprintf "touch %s" fn) >>= fun _ ->
-    Lwt.return () in
-  touch (tlf_dir ^ "/000.tlf.part") >>= fun () ->
+    let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
+  touch (tlf_dir ^ "/000.tlf.part");
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
   (* give it some time to do it's thing *)
-  Lwt_unix.sleep 2.0 >>= fun () ->
+  Lwt_unix.sleep 6.0 >>= fun () ->
   tlc2 # close () >>= fun () ->
 
   let verify_exists tlf =
