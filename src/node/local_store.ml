@@ -79,7 +79,26 @@ let copy_store2 old_location new_location overwrite =
       then
         Logger.info_f_ "Not relocating store from %s to %s, destination exists" old_location new_location
       else
-        File_system.copy_file old_location new_location
+        begin
+          begin
+            if dest_exists
+            then
+              File_system.unlink new_location
+            else
+              Lwt.return ()
+          end >>= fun () ->
+          let tmp_file = new_location ^ ".tmp" in
+          File_system.exists tmp_file >>= fun tmp_exists ->
+          begin
+            if tmp_exists
+            then
+              File_system.unlink tmp_file
+            else
+              Lwt.return ()
+          end >>= fun () ->
+          File_system.copy_file old_location tmp_file >>= fun () ->
+          File_system.rename tmp_file new_location
+        end
     end
   end
 
