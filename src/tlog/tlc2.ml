@@ -420,8 +420,8 @@ object(self: # tlog_collection)
             if tlc_temp_exists
             then
               begin
-                Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc >>= fun () ->
-                try_unlink tlc
+                Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc_temp >>= fun () ->
+                try_unlink tlc_temp
               end
             else
               Lwt.return ()
@@ -465,7 +465,7 @@ object(self: # tlog_collection)
             Lwt_list.iter_s
               (fun old_tlog ->
                 self # _add_compression_job (get_number old_tlog))
-              tl
+              (List.rev tl)
     in
     Lwt.ignore_result (add_previous_compression_jobs ());
 
