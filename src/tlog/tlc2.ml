@@ -33,6 +33,7 @@ exception TLCNotProperlyClosed of string
 let section = Logger.Section.main
 
 let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
+let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
 let archive_extension = ".tlf"
 let archive_name c = Printf.sprintf "%03i.tlf" c
@@ -365,9 +366,9 @@ object(self: # tlog_collection)
   val mutable _outer = new_c (* ~ pos in dir *)
   val mutable _previous_entry = last
   val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
-  val mutable _compressing = false
+  val mutable _compression_thread = None
+  val _closing = ref false
   val _write_lock = Lwt_mutex.create ()
-  val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
   initializer self # start_compression_loop ()
 
 
@@ -394,48 +395,83 @@ object(self: # tlog_collection)
 
 
   method private start_compression_loop () =
-    let rec loop () =
-      Logger.debug_ "Taking job from compression queue..." >>= fun () ->
-      Lwt_buffer.take _compression_q >>= fun job ->
-      let () = _compressing <- true in
-      let (tlu, tlc_temp, tlc) = job in
-      let try_unlink_tlu () =
+    let compress_one tlu tlc_temp tlc =
+      let try_unlink fn =
         Lwt.catch
           (fun () ->
-            Logger.debug_f_ "Compression: unlink of %s" tlu >>= fun () ->
-            Lwt_unix.unlink tlu >>= fun () ->
-            Logger.debug_f_ "Compression: ok: unlinked %s" tlu
+            Logger.debug_f_ "Compression: unlink of %s" fn >>= fun () ->
+            Lwt_unix.unlink fn >>= fun () ->
+            Logger.debug_f_ "Compression: ok: unlinked %s" fn
           )
           (function
             | Canceled -> Lwt.fail Canceled
-            | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" tlu) in
+            | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" fn) in
       File_system.exists tlc >>= fun tlc_exists ->
-      begin
-        if tlc_exists
-        then
+      if tlc_exists
+      then
+        begin
+          Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
+          try_unlink tlu
+        end
+      else
+        begin
+          File_system.exists tlc_temp >>= fun tlc_temp_exists ->
           begin
-            Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
-            try_unlink_tlu ()
-          end
-        else
-          Lwt.catch
-            (fun () ->
-              Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-              Compression.compress_tlog tlu tlc_temp  >>= fun () ->
-              File_system.rename tlc_temp tlc >>= fun () ->
-              try_unlink_tlu () >>= fun () ->
-              Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
-            )
-            (function
-              | Canceled -> Lwt.fail Canceled
-              | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
-      end >>= fun () ->
-      Logger.debug_ "Finished compression task, send signal and loop" >>= fun () ->
-      let () = _compressing <- false in
-      let () = Lwt_condition.signal _jc () in
+            if tlc_temp_exists
+            then
+              begin
+                Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc_temp >>= fun () ->
+                try_unlink tlc_temp
+              end
+            else
+              Lwt.return ()
+          end >>= fun () ->
+          Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+          Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
+          File_system.rename tlc_temp tlc >>= fun () ->
+          try_unlink tlu >>= fun () ->
+          Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+        end
+    in
+
+    let rec loop () =
+      Logger.debug_ "Taking job from compression queue..." >>= fun () ->
+      Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
+      Lwt.catch
+        (fun () -> compress_one tlu tlc_temp tlc)
+        (function
+          | Canceled -> Lwt.fail Canceled
+          | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
+      >>= fun () ->
+      Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
       loop ()
     in
-    Lwt.ignore_result (loop ())
+
+    let add_previous_compression_jobs () =
+      File_system.lwt_directory_list tlog_dir >>= fun entries ->
+      let filtered = List.filter
+        (fun e -> Str.string_match tlog_regexp e 0)
+        entries
+      in
+
+      (* Sort oldest-to-newest *)
+      let sorted = List.sort (fun a b -> compare (get_number a) (get_number b)) filtered in
+
+      let rec add_jobs = function
+        | [] -> return ()
+        | [_] -> return () (* Skip last *)
+        | (hd :: tl) -> self # _add_compression_job (get_number hd) >>= fun () -> add_jobs tl
+      in
+      add_jobs sorted
+    in
+    Lwt.ignore_result (add_previous_compression_jobs ());
+
+    let t =
+      Lwt.catch
+        loop
+        (fun exn -> Logger.info_f_ ~exn "compression thread was terminated") in
+    _compression_thread <- Some t;
+    Lwt.ignore_result t
 
 
   method log_value_explicit i value sync marker =
@@ -493,6 +529,20 @@ object(self: # tlog_collection)
 	    else
 	      Lwt.return file
 
+  method private _add_compression_job old_outer =
+    let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
+    let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
+    let tlc_temp = tlc ^ ".part" in
+    begin
+      if use_compression
+      then
+        let job = (tlu,tlc_temp,tlc) in
+        Logger.debug_ "adding new task to compression queue" >>= fun () ->
+        Lwt_buffer.add job _compression_q
+      else
+        Lwt.return ()
+    end
+
 
   method private _rotate file new_outer =
     assert (new_outer = _outer + 1);
@@ -508,20 +558,7 @@ object(self: # tlog_collection)
       Index.make full_name
     in
     _index <- index;
-    (* make compression job *)
-    let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
-    let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
-    let tlc_temp = tlc ^ ".part" in
-    begin
-      if use_compression
-      then
-        let job = (tlu,tlc_temp,tlc) in
-        Logger.debug_ "adding new task to compression queue" >>= fun () ->
-        Lwt_buffer.add job _compression_q
-      else
-        Lwt.return ()
-    end
-    >>= fun () ->
+    self # _add_compression_job old_outer >>= fun () ->
     Lwt.return new_file
 
 
@@ -612,36 +649,39 @@ object(self: # tlog_collection)
 
   method close () =
     Lwt_mutex.lock _write_lock >>= fun () ->
+    _closing := true;
+    Logger.debug_ "tlc2::close()" >>= fun () ->
     begin
-      Logger.debug_ "tlc2::close()" >>= fun () ->
-      Lwt_buffer.wait_until_empty _compression_q >>= fun () ->
-      begin
-        if _compressing
-        then Lwt_condition.wait _jc
-        else Lwt.return ()
-      end
-      >>= fun () ->
-      Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
-      let last_file () =
-        match _file with
-          | None -> _init_file tlog_dir tlf_dir _outer
-          | Some file -> Lwt.return file
-      in
-      last_file () >>= fun file ->
-      begin
-        match self # get_last() with
-          | None -> Lwt.return ()
-          | Some(v,i) ->
-              begin
-                let oc = F.oc_of file in
-                let marker = _make_close_marker node_id in
-                Tlogcommon.write_marker oc i v marker >>= fun () ->
-                Logger.debug_f_ "wrote %S marker @i=%s for %S"
-                  (Log_extra.string_option2s marker) (Sn.string_of i) node_id
-              end
-      end >>= fun () ->
-      F.close file
-    end
+      match _compression_thread with
+        | None -> assert false
+        | Some t ->
+            Logger.debug_f_ "Cancelling compression thread" >>= fun () ->
+            (try
+              Lwt.cancel t;
+              Lwt.return ()
+            with exn ->
+              Logger.info_ ~exn "Exception while canceling compression thread")
+    end >>= fun () ->
+    Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
+    let last_file () =
+      match _file with
+        | None -> _init_file tlog_dir tlf_dir _outer
+        | Some file -> Lwt.return file
+    in
+    last_file () >>= fun file ->
+    begin
+      match self # get_last() with
+        | None -> Lwt.return ()
+        | Some(v,i) ->
+            begin
+              let oc = F.oc_of file in
+              let marker = _make_close_marker node_id in
+              Tlogcommon.write_marker oc i v marker >>= fun () ->
+              Logger.debug_f_ "wrote %S marker @i=%s for %S"
+                (Log_extra.string_option2s marker) (Sn.string_of i) node_id
+            end
+    end >>= fun () ->
+    F.close file
 
 
   method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
