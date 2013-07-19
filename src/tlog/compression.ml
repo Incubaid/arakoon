@@ -31,7 +31,7 @@ let tlog_name archive_name =
   String.sub archive_name 0 (len-4)
 
 
-let compress_tlog tlog_name archive_name =
+let compress_tlog ?(cancel=(ref false)) tlog_name archive_name =
   let limit = 8 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
@@ -65,6 +65,13 @@ let compress_tlog tlog_name archive_name =
 		        in
 		        output) () 
 	        >>= fun output ->
+            begin
+              if !cancel
+              then
+                Lwt.fail Canceled
+              else
+                Lwt.return ()
+            end >>= fun () ->
             let t1 = Unix.gettimeofday() in
 	        let d = t1 -. t0 in
             let cl = String.length contents in
