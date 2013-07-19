@@ -593,7 +593,14 @@ let _main_2 (type s)
                         (listen_for_signal () >>= fun () ->
                          let msg = "got TERM | INT" in
                          Logger.info_ msg >>= fun () ->
-                         Lwt_io.printl msg
+                         Lwt_io.printl msg >>= fun () ->
+                         Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+                         List.iter
+                           (fun n ->
+                             let s = Lwt_log.Section.make n in
+                             Lwt_log.Section.set_level s Lwt_log.Debug)
+                           ["client_protocol"; "tcp_messaging"; "paxos"];
+                         Logger.info_ "All logging set to debug level after TERM/INT"
                         )
                         ;
                       ])
