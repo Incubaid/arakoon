@@ -170,7 +170,8 @@ let make_server_thread
               Logger.debug_ "closing listening socket" >>= fun () ->
               Lwt_unix.close listening_socket >>= fun () ->
               Logger.debug_ "closed listening socket")
-            (fun exn -> Lwt.return ()) >>= fun () ->
+            (fun exn ->
+              Logger.info_f_ ~exn "exception while closing listening socket") >>= fun () ->
 
           let fds = Hashtbl.fold (fun k (_, fd) acc -> (k, fd) :: acc) client_threads [] in
           Lwt_list.iter_p
