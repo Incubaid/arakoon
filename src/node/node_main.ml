@@ -578,7 +578,9 @@ let _main_2 (type s)
           let log_exception m t =
             Lwt.catch
               t
-              (fun exn -> Logger.warning_ ~exn m) in
+              (fun exn ->
+                Logger.warning_ ~exn m >>= fun () ->
+                Lwt.fail exn) in
           let fsm () = start_backend start_state in
           let fsm_mutex = Lwt_mutex.create () in
           let fsm_t =
