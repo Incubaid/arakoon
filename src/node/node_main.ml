@@ -500,16 +500,24 @@ let _main_2 (type s)
 	      let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
 	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	      let inject_event (e:Multi_paxos.paxos_event) =
-	        let buffer,name = 
-	          match e with
-		        | Multi_paxos.ElectionTimeout _ -> election_timeout_buffer, "election"
-		        | _ -> inject_buffer, "inject"
-	        in
-	        Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'" 
+            let add_to_buffer,name = 
+              match e with
+                | Multi_paxos.ElectionTimeout _ ->
+                    (fun () -> Lwt_buffer.add e election_timeout_buffer), "election"
+                | Multi_paxos.FromClient fc ->
+                    (fun () ->
+                      Lwt_list.iter_s
+                        (fun u -> Lwt_buffer.add u client_buffer)
+                        fc),
+                  "client_buffer"
+                | _ ->
+                    (fun () -> Lwt_buffer.add e inject_buffer), "inject"
+            in
+            Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
               name 
             >>= fun () ->
-	        Lwt_buffer.add e buffer >>= fun () ->
+	        add_to_buffer () >>= fun () ->
             Logger.debug_f Multi_paxos.section "XXX injected event into '%s'" name
 	      in
 	      let buffers = Multi_paxos_fsm.make_buffers
