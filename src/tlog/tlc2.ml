@@ -511,6 +511,15 @@ object(self: # tlog_collection)
           Logger.debug_f_ "prelude %s" (Sn.string_of i) >>= fun () ->
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
+          begin
+            if i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
+            then
+              (* the first thing logged falls exactly into a new tlog,
+                 the compression job for the previous one thus is not yet picked up *)
+              self # _add_compression_job (pred _outer)
+            else
+              Lwt.return ()
+          end >>= fun () ->
 	      _init_file tlog_dir tlf_dir _outer >>= fun file ->
 	      _file <- Some file;
           _index <- Index.make (F.fn_of file);
