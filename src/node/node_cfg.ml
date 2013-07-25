@@ -56,6 +56,7 @@ module Node_cfg = struct
         master: master;
         is_laggy : bool;
         is_learner : bool;
+        is_quiesced : bool;
         targets : string list;
         use_compression : bool;
         fsync : bool;
@@ -72,7 +73,7 @@ module Node_cfg = struct
         "log_dir=%S; tlf_dir=%S; head_dir=%s; " ^^
         "log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
-        "master=%S; is_laggy=%b; is_learner=%b; " ^^
+        "master=%S; is_laggy=%b; is_learner=%b; is_quiesced=%b" ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
         "}"
@@ -85,7 +86,7 @@ module Node_cfg = struct
       t.log_dir t.tlf_dir t.head_dir
       t.log_level (_so2s t.log_config)
       (_so2s t.batched_transaction_config) t.lease_period
-      (master2s t.master) t.is_laggy t.is_learner
+      (master2s t.master) t.is_laggy t.is_learner t.is_quiesced
       (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
       t.reporting
 
@@ -188,6 +189,7 @@ module Node_cfg = struct
         master = master;
         is_laggy = false;
         is_learner = false;
+        is_quiesced = false;
         targets = [];
         use_compression = true;
         fsync = false;
@@ -368,6 +370,7 @@ module Node_cfg = struct
     let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
+    let is_quiesced = get_bool "quiesced" in
     let use_compression = not (get_bool "disable_tlog_compression") in
     let fsync = get_bool "fsync" in
     let targets = 
@@ -397,6 +400,7 @@ module Node_cfg = struct
      master;
      is_laggy;
      is_learner;
+     is_quiesced;
      targets;
      use_compression;
      fsync;

@@ -442,6 +442,13 @@ let _main_2 (type s)
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           S.make_store db_name >>= fun (store:S.t) ->
+          begin
+            if me.is_quiesced
+            then
+              S.quiesce store
+            else
+              Lwt.return ()
+          end >>= fun () ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
@@ -559,19 +566,26 @@ let _main_2 (type s)
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
       let start_backend (master, constants, buffers, new_i, vo, store) =
-	    let to_run = 
-	      match master with
-	        | Forced master  -> 
-              if master = my_name 
-	          then Multi_paxos_fsm.enter_forced_master
-	          else 
-		        begin
-		          if me.is_learner 
-		          then Multi_paxos_fsm.enter_simple_paxos
-		          else Multi_paxos_fsm.enter_forced_slave 
-		        end
-	        | _ -> Multi_paxos_fsm.enter_simple_paxos
-	    in
+        let to_run =
+          match master with
+          | Forced master  ->
+            if master = my_name
+            then Multi_paxos_fsm.enter_forced_master
+            else
+              begin
+                if me.is_learner
+                then Multi_paxos_fsm.enter_simple_paxos
+                else Multi_paxos_fsm.enter_forced_slave
+              end
+          | _ ->
+            begin
+              if me.is_quiesced
+              then
+                Multi_paxos_fsm.enter_forced_slave
+              else
+                Multi_paxos_fsm.enter_simple_paxos
+            end
+        in
         to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)

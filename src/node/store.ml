@@ -797,12 +797,17 @@ struct
       if store.quiesced
       then
         begin
+          begin
+            match v with
+            | Value.Vm (m, ls) -> set_master_no_inc store m ls
+            | _ -> Lwt.return ()
+          end >>= fun () ->
           incr_i store >>= fun () ->
           Lwt.return [Ok None]
         end
       else
         _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
-        
+
   let get_succ_store_i store =
     let m_si = consensus_i store in
     match m_si with
@@ -816,4 +821,3 @@ end
 
 let make_store_module (type ss) (module S : Simple_store with type t = ss) =
   (module Make(S) : STORE with type ss = ss)
-
