@@ -73,7 +73,7 @@ module Node_cfg = struct
         "log_dir=%S; tlf_dir=%S; head_dir=%s; " ^^
         "log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
-        "master=%S; is_laggy=%b; is_learner=%b; is_quiesced=%b" ^^
+        "master=%S; is_laggy=%b; is_learner=%b; is_quiesced=%b; " ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
         "}"

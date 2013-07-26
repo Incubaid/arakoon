@@ -442,13 +442,6 @@ let _main_2 (type s)
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           S.make_store db_name >>= fun (store:S.t) ->
-          begin
-            if me.is_quiesced
-            then
-              S.quiesce store
-            else
-              Lwt.return ()
-          end >>= fun () ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
@@ -458,6 +451,17 @@ let _main_2 (type s)
               Sn.succ last_i
             else
               last_i in
+          begin
+            if me.is_quiesced
+            then
+              begin
+                S.quiesce store >>= fun () ->
+                S._set_i store (Sn.pred last_i);
+                Lwt.return ()
+              end
+            else
+              Lwt.return ()
+          end >>= fun () ->
           Lwt.catch
             (fun () ->
 	          Catchup.verify_n_catchup_store me.node_name

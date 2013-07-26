@@ -156,6 +156,7 @@ module type STORE =
 
     val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
+    val _set_i : t -> Sn.t -> unit
   end
 
 module Make(S : Simple_store) =
@@ -380,6 +381,12 @@ struct
     else
       S.with_transaction store.s (fun tx -> _incr_i store tx)
 
+  let _set_i store i =
+    if store.quiesced
+    then
+      store.store_i <- Some i
+    else
+      failwith "_set_i is only meant to be used on a quiesced store to cheat with tlog replay"
 
   let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
