@@ -526,17 +526,17 @@ object(self: # tlog_collection)
 	      Lwt.return file
 	    end
       | Some (file:F.t) ->
-	    if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
-	    then
-          let do_rotate() =
+        if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
+        then
+          let do_jump () =
             let new_outer = Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) in
-            Logger.info_f_ "i= %s & outer = %i => rotate to %i" (Sn.string_of i) _outer new_outer
+            Logger.info_f_ "i= %s & outer = %i => jump to %i" (Sn.string_of i) _outer new_outer
             >>= fun () ->
-            self # _rotate file new_outer
+            self # _jump_to_tlog file new_outer
           in
-          do_rotate ()
-	    else
-	      Lwt.return file
+          do_jump ()
+        else
+          Lwt.return file
 
   method private _add_compression_job old_outer =
     let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
@@ -553,8 +553,7 @@ object(self: # tlog_collection)
     end
 
 
-  method private _rotate file new_outer =
-    assert (new_outer = _outer + 1);
+  method private _jump_to_tlog file new_outer =
     F.close file >>= fun () ->
     let old_outer = _outer in
     _inner <- 0;
@@ -728,7 +727,7 @@ object(self: # tlog_collection)
     Lwt.return next_i
 
   method save_tlog_file name length ic =
-    (* what with rotation, open streams, ...*)
+    (* what with rotation (jump to new tlog), open streams, ...*)
     let canon = get_full_path tlog_dir tlf_dir name in
     let tmp = canon ^ ".tmp" in
     Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
