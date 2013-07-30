@@ -86,6 +86,7 @@ let test_generic network_factory n_nodes () =
 	          inject_event = inject_ev inject_buffer;
 	          cluster_id = "whatever";
               quiesced = false;
+              stop = ref false;
 	         }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -255,6 +256,7 @@ let test_master_loop network_factory ()  =
 		   inject_event = inject_event;
 		   cluster_id = "whatever";
 		   quiesced = false;
+                   stop = ref false;
 		  } in
   let continue = ref 2 in
   let c0_t () =
@@ -376,6 +378,7 @@ let test_simulation filters () =
 	inject_event = inject_event;
 	cluster_id = "whatever";
     quiesced = false;
+    stop = ref false;
   } in
   let c0_t () =
     let expected prev_key key =

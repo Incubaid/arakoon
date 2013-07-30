@@ -439,7 +439,7 @@ let slave_discovered_other_master (type s) constants state () =
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
       begin
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
