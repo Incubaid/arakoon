@@ -498,12 +498,12 @@ let _main_2 (type s)
 	      let on_accept = X.on_accept statistics tlog_coll (module S) store in
 	      
 	      let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
-	      let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
+	      let timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
 	      let inject_event (e:Multi_paxos.paxos_event) =
             let add_to_buffer,name = 
               match e with
-                | Multi_paxos.ElectionTimeout _ ->
-                    (fun () -> Lwt_buffer.add e election_timeout_buffer), "election"
+                | Multi_paxos.Timeout _ ->
+                    (fun () -> Lwt_buffer.add e timeout_buffer), "timeout"
                 | Multi_paxos.FromClient fc ->
                     (fun () ->
                       Lwt_list.iter_s
@@ -524,7 +524,7 @@ let _main_2 (type s)
 	        (client_buffer,
 	         node_buffer,
 	         inject_buffer,
-	         election_timeout_buffer)
+	         timeout_buffer)
 	      in
               let constants =
                 Multi_paxos.make my_name

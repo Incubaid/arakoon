@@ -59,7 +59,7 @@ let slave_fake_prepare constants (current_i,current_n) () =
 
   let s = begin
     if is_election constants
-    then [EStartElectionTimeout (current_n, current_i)]
+    then [EStartTimeout (current_n, current_i)]
     else []
   end in
   let mcast_e = EMCast fake in
@@ -162,7 +162,7 @@ let slave_steady_state (type s) constants state event =
 	          Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
 	          
       end
-    | ElectionTimeout (n', i') ->
+    | Timeout (n', i') ->
       begin
         let log_e = ELog (fun () -> "steady state :: ignoring election timeout") in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
@@ -403,7 +403,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	          end
       end
-    | ElectionTimeout (n', i') ->
+    | Timeout (n', i') ->
       if i' = i
       then
         handle_timeout n'
@@ -467,7 +467,7 @@ let slave_discovered_other_master (type s) constants state () =
                   | None -> None
                   | Some u -> Some ( u, current_i' )
               end in
-            start_election_timeout constants future_n current_i' >>= fun () ->
+            start_timeout constants future_n current_i' >>= fun () ->
             Fsm.return (Slave_wait_for_accept (future_n', current_i', None, vo))
       end
     end
@@ -477,7 +477,7 @@ let slave_discovered_other_master (type s) constants state () =
       let prom_val = constants.get_value future_i in
       let reply = Promise(future_n, future_i, prom_val ) in
       let send_e = ESend (reply, master) in
-      let start_e = EStartElectionTimeout (future_n, current_i) in
+      let start_e = EStartTimeout (future_n, current_i) in
       let log_e = ELog (fun () ->
         Printf.sprintf "slave_discovered_other_master: no need for catchup %s" master )
       in  
