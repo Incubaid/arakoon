@@ -714,7 +714,10 @@ object(self: # tlog_collection)
     Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
     Llio.output_string oc name >>= fun () ->
     File_system.stat canonical >>= fun stats ->
-    let length = Int64.of_int(stats.Unix.st_size) in (* why don't they use largefile ? *)
+    let length = Int64.of_int(stats.Unix.st_size)
+    (* why don't they use largefile ? *)
+    in
+    Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.input canonical
       (fun ic ->
 	Llio.output_int64 oc length >>= fun () ->
