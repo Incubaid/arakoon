@@ -357,12 +357,12 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
                                   me (Sn.string_of pi) (Sn.string_of i)
                           end
                     end >>= fun _ ->
-	              let reply = Accepted(n,i') in
-	              Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
-	              send reply me source >>= fun () -> 
-	              (* TODO: should assert we really have a MasterSet here *)
-	              Fsm.return (Slave_steady_state (n, Sn.succ i', v))
-	            end
+                  let reply = Accepted(n,i') in
+                  Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
+                  send reply me source >>= fun () ->
+                  start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+                  Fsm.return (Slave_steady_state (n, Sn.succ i', v))
+                end
             end
           | Accept (n',i',v) when n' < n ->
             begin
