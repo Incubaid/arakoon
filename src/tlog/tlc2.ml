@@ -512,7 +512,7 @@ object(self: # tlog_collection)
 	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
 	      _outer <- Sn.to_int outer;
           begin
-            if i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
+            if (_outer <> 0) && (i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
             then
               (* the first thing logged falls exactly into a new tlog,
                  the compression job for the previous one thus is not yet picked up *)
