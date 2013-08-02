@@ -147,9 +147,8 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.remove key _kv;
     Lwt.return ()
 
-  method last_entries (i:Sn.t) f =
-    (* TODO *)
-    Lwt.return ()
+  method last_entries (i:Sn.t) f  = Lwt.return ()
+  method last_entries2 (i:Sn.t) f = Lwt.return ()
 
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
