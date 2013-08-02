@@ -205,14 +205,17 @@ object(self: #backend)
         Lwt.return ()
       )
 
-  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-    
+  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =    
     self # with_blocked_collapser start_i 
-      (fun () -> self # _last_entries start_i oc)
+      (fun () -> 
+        Catchup.last_entries (module S) store tlog_collection start_i oc
+      )
       
   method last_entries2 (start_i:Sn.t) (oc:Lwt_io.output_channel) = 
     self # with_blocked_collapser start_i
-      (fun () -> self # _last_entries start_i oc)
+      (fun () -> 
+        Catchup.last_entries2 (module S) store tlog_collection start_i oc
+      )
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
@@ -341,8 +344,6 @@ object(self: #backend)
     let msg = Printf.sprintf "Arakoon %i.%i.%i" Version.major Version.minor Version.patch in
     Lwt.return (0l, msg)
 
-  method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-    Catchup.last_entries (module S) store tlog_collection start_i oc
 
   method sequence ~sync (updates:Update.t list) =
     let start = Unix.gettimeofday() in

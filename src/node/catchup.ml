@@ -400,3 +400,99 @@ let last_entries
   end
   >>= fun () ->
   Logger.info_f_ "done with_last_entries"
+
+
+let last_entries2
+    (type s) (module S : Store.STORE with type t = s) 
+    store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel) 
+    = 
+  Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
+  let consensus_i = S.consensus_i store in
+
+  begin
+    match consensus_i with
+	| None -> Lwt.return ()
+	| Some ci ->
+
+      let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
+
+      let stream_entries start_i too_far_i = 
+	    let _write_entry entry =
+          let i = Entry.i_of entry
+          and v = Entry.v_of entry
+          in
+          Tlogcommon.write_entry oc i v 
+        in
+	    Llio.output_int oc 1 >>= fun () ->
+        Lwt.catch
+          (fun () -> tlog_collection # iterate start_i too_far_i _write_entry)
+          (function
+          | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
+          | ex -> Lwt.fail ex) 
+        >>= fun () ->
+	    Sn.output_sn oc (-1L)
+      in
+	  let too_far_i = Sn.succ ci in
+      let rec loop_files (start_i2:Sn.t) =
+	    if Sn.rem start_i2 step = Sn.start &&
+	      Sn.add start_i2 step < too_far_i
+	    then
+	      begin
+		    Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
+		    >>= fun () ->
+		    Llio.output_int oc 3 >>= fun () ->
+		    tlog_collection # dump_tlog_file start_i2 oc
+		    >>= fun start_i2' ->
+		    loop_files start_i2'
+	      end
+	    else
+	      Lwt.return start_i2
+      in
+      let maybe_dump_head () = 
+	    tlog_collection # get_infimum_i () >>= fun inf_i ->
+        Logger.debug_f_
+	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
+	      (Sn.string_of too_far_i)
+        >>= fun () ->
+	    begin
+	      if start_i < inf_i
+	      then
+		    begin
+		      Llio.output_int oc 2 >>= fun () ->
+		      tlog_collection # dump_head oc
+		    end
+	      else
+		    Lwt.return start_i
+	    end
+      in
+	  begin
+        maybe_dump_head () >>= fun start_i2->
+
+        (* maybe stream a bit *)
+        begin
+          let (-:) = Sn.sub
+          and (+:) = Sn.add
+          and (%:) = Sn.rem
+          in
+          let next_rotation = start_i2 +: (step -: (start_i2 %: step)) in
+          Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
+          (if next_rotation < too_far_i 
+           then 
+              begin 
+                stream_entries start_i2 next_rotation >>= fun () ->
+                Lwt.return next_rotation
+              end
+           else Lwt.return start_i2
+          )
+        end
+        >>= fun start_i3 ->
+        (* push out files *)
+	    loop_files start_i3
+	    >>= fun start_i4 ->
+        (* epilogue: *)
+        stream_entries start_i4 too_far_i
+	  end
+  end
+  >>= fun () ->
+  Sn.output_sn oc (-2L) >>= fun () ->
+  Logger.info_f_ "done with_last_entries"
