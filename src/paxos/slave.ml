@@ -167,43 +167,51 @@ let slave_steady_state (type s) constants state event =
         let log_e = ELog (fun () -> "steady state :: ignoring election timeout") in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
-    | LeaseExpired n' -> 
-        let ns  = (Sn.string_of n) 
-        and ns' = (Sn.string_of n') in
-        if (not (is_election constants || constants.is_learner)) || n' < n
-        then 
-	      begin
-            let log_e = ELog (fun () ->
-	          Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
-            in
-	        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
-	      end
+    | LeaseExpired n' ->
+      let ns  = (Sn.string_of n)
+      and ns' = (Sn.string_of n') in
+      if n' < n || not (is_election constants)
+      then
+        begin
+          let log_e = ELog (fun () ->
+            Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
+          in
+          Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
+        end
+      else
+        if constants.is_learner
+        then
+          let log_e = ELog (fun () ->
+            Printf.sprintf "steady state: ignoring lease expiration because I am a learner (n=%s)" ns )
+          in
+          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+          Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
         else
-	      begin 
-	        let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
-	        if elections_needed then
-	          begin
-	            let new_n = update_n constants n in
+          begin
+            let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
+            if elections_needed then
+              begin
+                let new_n = update_n constants n in
                 let el_i = S.get_succ_store_i constants.store in
                 let el_up =
-		          begin
-		            if el_i = (Sn.pred i) 
-		            then Some previous
-		            else None
-		          end
+                  begin
+                    if el_i = (Sn.pred i)
+                    then Some previous
+                    else None
+                  end
                 in
                 let log_e = ELog (fun () -> "ELECTIONS NEEDED") in
-	            Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
-	          end
-	        else
-	          begin
-                let log_e = ELog(fun () -> 
-                  Printf.sprintf 
-                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg) 
+                Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
+              end
+            else
+              begin
+                let log_e = ELog(fun () ->
+                  Printf.sprintf
+                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg)
                 in
-	            Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
-	          end
-	      end
+                Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
+              end
+          end
     | FromClient ufs -> 
         begin
           
