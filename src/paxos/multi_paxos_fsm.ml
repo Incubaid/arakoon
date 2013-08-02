@@ -38,7 +38,7 @@ let forced_master_suggest constants (n,i) () =
   let me = constants.me in
   let n' = update_n constants n in
   mcast constants (Prepare (n',i)) >>= fun () ->
-  start_election_timeout constants n >>= fun () ->
+  start_timeout constants n i >>= fun () ->
   Logger.debug_f_ "%s: forced_master_suggest: suggesting n=%s" me (Sn.string_of n') >>= fun () ->
   let tlog_coll = constants.tlog_coll in
   let l_val = tlog_coll # get_last_value i in
@@ -66,7 +66,7 @@ let election_suggest constants (n,i,vo) () =
       | Some x -> (0,[(x,1)]) , "Some _"
   in
   Logger.debug_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
-  start_election_timeout constants n >>= fun () ->
+  start_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
       | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2)
@@ -89,6 +89,11 @@ let read_only constants state () =
    in order to discover a master *)
 let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:Sn.t)) event =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let handle_timeout n' =
+    if n' = current_n
+    then Fsm.return (Slave_fake_prepare(current_i, current_n))
+    else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
+  in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -150,11 +155,14 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
 	  | _ -> Logger.debug_f_ "%s: dropping unexpected %s" constants.me (string_of msg) >>= fun () ->
 	      Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
       end
-    | ElectionTimeout n' 
+    | Timeout (n', i') ->
+      if i' = current_i
+      then
+        handle_timeout n'
+      else
+        Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
     | LeaseExpired n' ->
-        if n' = current_n 
-        then Fsm.return (Slave_fake_prepare(current_i, current_n))
-        else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
+      handle_timeout n'
     | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
     
     | Quiesce (sleep,awake) ->
@@ -417,29 +425,29 @@ let wait_for_promises (type s) constants state event =
               end
         end
       end
-    | ElectionTimeout n' ->
-      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters) = state in
+    | Timeout (n', i') ->
+      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters) = state in      
       let wanted =
         begin
           let nnones, nsomes = v_lims in
           match nsomes with
-            | [] -> None
-            | hd::tl -> 
-              let bv, bf = hd in
-              Some bv
+          | [] -> None
+          | hd::tl -> 
+            let bv, bf = hd in
+            Some bv
         end
-        in
-      if n' = n && not ( S.quiesced constants.store )
+      in
+      if n' = n && not ( S.quiesced constants.store ) && i' = i
       then
-	    begin
+        begin
           Logger.debug_f_ "%s: wait_for_promises: election timeout, restart from scratch" me	  
-	      >>= fun () ->
-	      Fsm.return (Election_suggest (n,i, wanted))
-	    end
+          >>= fun () ->
+          Fsm.return (Election_suggest (n,i, wanted))
+        end
       else
-	    begin
-	      Fsm.return (Wait_for_promises state)
-	    end
+        begin
+          Fsm.return (Wait_for_promises state)
+        end
     | LeaseExpired _ ->
         Logger.debug_f_ "%s: Ignoring lease expiration" me >>= fun () ->
         Fsm.return (Wait_for_promises state)
@@ -658,40 +666,40 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
     | LeaseExpired n'    -> paxos_fatal me "no LeaseExpired should get here"
-    | ElectionTimeout n' -> 
+    | Timeout (n', i') ->
       begin
-	    let (_,n,i,ballot,v, lease_expire_waiters) = state in
+        let (_,n,i,ballot,v, lease_expire_waiters) = state in
         let here = "wait_for_accepteds : election timeout " in
-	    if n' < n then
-	      begin
-            let log_e = 
+        if n' < n || i' < i then
+          begin
+            let log_e =
               ELog (fun () ->
                 Printf.sprintf
-	              "%s ignoring old timeout %s<%s" 
+                  "%s ignoring old timeout %s<%s || %s<%s"
                   here
-                  (Sn.string_of n') (Sn.string_of n) 
+                  (Sn.string_of n') (Sn.string_of n)
+                  (Sn.string_of i') (Sn.string_of i)
               )
             in
-	        Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
-	      end
-	    else if n' = n then
-	      begin
-		        Logger.debug_f_ "%s: going to RESEND Accept messages" me >>= fun () ->
-		        let needed, already_voted = ballot in
-		        let msg = Accept(n,i,v) in
-		        let silent_others = List.filter (fun o -> not (List.mem o already_voted)) 
-		          constants.others in
-		        Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
-		        mcast constants msg >>= fun () ->
-                start_election_timeout constants n >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-	          end
-	        else
-	          begin
-	        Fsm.return (Wait_for_accepteds state)
-	      end
+            Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
+          end
+        else if n' = n && i' = i then
+          begin
+            Logger.debug_f_ "%s: going to RESEND Accept messages" me >>= fun () ->
+            let needed, already_voted = ballot in
+            let msg = Accept(n,i,v) in
+            let silent_others = List.filter (fun o -> not (List.mem o already_voted))
+              constants.others in
+            Lwt_list.iter_s (fun o -> constants.send msg me o) silent_others >>= fun () ->
+            mcast constants msg >>= fun () ->
+            start_timeout constants n i >>= fun () ->
+            Fsm.return (Wait_for_accepteds state)
+          end
+        else
+          begin
+            Fsm.return (Wait_for_accepteds state)
+          end
       end
-	    
     | Quiesce (sleep,awake) ->
       fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
       Fsm.return (Wait_for_accepteds state)
@@ -771,11 +779,11 @@ type ready_result =
   | Inject_ready
   | Client_ready
   | Node_ready
-  | Election_timeout_ready
+  | Timeout_ready
 
 let prio = function
   | Inject_ready -> 0
-  | Election_timeout_ready -> 1
+  | Timeout_ready -> 1
   | Node_ready   -> 2
   | Client_ready -> 3
 
@@ -784,13 +792,13 @@ type ('a,'b,'c) buffers =
     {client_buffer : 'a Lwt_buffer.t; 
      node_buffer   : 'b Lwt_buffer.t;
      inject_buffer : 'c Lwt_buffer.t;
-     election_timeout_buffer: 'c Lwt_buffer.t;
+     timeout_buffer: 'c Lwt_buffer.t;
     } 
 let make_buffers (a,b,c,d) = {
   client_buffer = a;
   node_buffer = b;
   inject_buffer = c;
-  election_timeout_buffer = d;
+  timeout_buffer = d;
 }
 
 let rec paxos_produce buffers
@@ -808,18 +816,18 @@ let rec paxos_produce buffers
     Lwt_buffer.wait_for_item buffers.node_buffer >>= fun () ->
     Lwt.return Node_ready
   in
-  let ready_from_election_timeout () =
-    Lwt_buffer.wait_for_item buffers.election_timeout_buffer >>= fun () ->
-    Lwt.return Election_timeout_ready
+  let ready_from_timeout () =
+    Lwt_buffer.wait_for_item buffers.timeout_buffer >>= fun () ->
+    Lwt.return Timeout_ready
   in
   let wmsg, waiters =
     match product_wanted with
       | Node_only -> "Node_only",[ready_from_node ();]
-      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client ();]
+      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client ();ready_from_timeout ()]
       | Node_and_inject -> "Node_and_inject", [ready_from_inject();ready_from_node ();]
-      | Node_and_timeout -> "Node_and_timeout", [ready_from_election_timeout (); ready_from_node();]
+      | Node_and_timeout -> "Node_and_timeout", [ready_from_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
-	      "Node_and_inject_and_timeout", [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
+	      "Node_and_inject_and_timeout", [ready_from_inject();ready_from_timeout () ;ready_from_node()]
       | Nop -> "Nop", failwith "Nop should not happen here"
   in
   Lwt.catch 
@@ -863,10 +871,10 @@ let rec paxos_produce buffers
                 >>= fun () ->
 	            Lwt.return (FromNode (msg2,source))
 	          end
-	      | Some Election_timeout_ready ->
+	      | Some Timeout_ready ->
 	          begin
 	            Logger.debug_f_ "%s: taking from timeout" me >>= fun () ->
-	            Lwt_buffer.take buffers.election_timeout_buffer 
+	            Lwt_buffer.take buffers.timeout_buffer 
 	          end
           | None -> 
 	          Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
@@ -895,7 +903,7 @@ let _execute_effects constants e =
             start_lease_expiration_thread constants n period
           else Lwt.return ()
         end 
-    | EStartElectionTimeout n -> start_election_timeout constants n
+    | EStartTimeout (n, i) -> start_timeout constants n i
 
     | EConsensus (finished_funs, v,n,i) ->
         constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
@@ -915,7 +923,7 @@ let _execute_effects constants e =
 
 (* the entry methods *)
 
-let enter_forced_slave constants buffers new_i vo=
+let enter_forced_slave ?(stop=ref false) constants buffers new_i vo=
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
   let trace = trace_transition me in
@@ -924,7 +932,7 @@ let enter_forced_slave constants buffers new_i vo=
   
   Lwt.catch 
     (fun () ->
-      Fsm.loop ~trace 
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce 
 	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
@@ -934,7 +942,7 @@ let enter_forced_slave constants buffers new_i vo=
       >>= fun () -> Lwt.fail exn
     )
 
-let enter_forced_master constants buffers current_i vo =
+let enter_forced_master ?(stop=ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
   let current_n = 0L in
@@ -942,7 +950,7 @@ let enter_forced_master constants buffers current_i vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch 
     (fun () ->
-      Fsm.loop ~trace 
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce 
 	    (machine constants) 
@@ -953,7 +961,7 @@ let enter_forced_master constants buffers current_i vo =
       >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos constants buffers current_i vo =
+let enter_simple_paxos ?(stop=ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = Sn.start in
@@ -961,7 +969,7 @@ let enter_simple_paxos constants buffers current_i vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch 
     (fun () ->
-      Fsm.loop ~trace 
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce 
 	(machine constants) 

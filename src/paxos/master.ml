@@ -80,8 +80,8 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                   let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
                   let v = Value.create_master_value (me,0L) in
                   let ff = fun _ -> Lwt.return () in
-		    (* TODO: we need election timeout as well here *)
-                  Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i, lease_expire_waiters))
+                  let start_e = EStartLeaseExpiration (v,n,false) in
+                  Fsm.return ~sides:[log_e; start_e] (Master_dictate ([ff], v,n,new_i, lease_expire_waiters))
               in
 	      match constants.master with
 	        | Preferred ps when not (List.mem me ps) ->
@@ -179,10 +179,10 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
 	            Fsm.return ~sides:[log_e] (Stable_master current_state)
 	          end
       end
-    | ElectionTimeout n' -> 
+    | Timeout (n', i') -> 
         begin
           let log_e = ELog (fun () ->
-            Printf.sprintf "ignoring election timeout (%s)" (Sn.string_of n') )
+            Printf.sprintf "ignoring election timeout (%s, %s)" (Sn.string_of n') (Sn.string_of i') )
           in          
           Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
@@ -204,7 +204,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
 let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
   let accept_e = EAccept (v,n,i) in
   
-  let start_e = EStartLeaseExpiration (v,n,false) in
+  let start_e = EStartTimeout (n,i) in
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in

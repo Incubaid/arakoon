@@ -59,7 +59,7 @@ let slave_fake_prepare constants (current_i,current_n) () =
 
   let s = begin
     if is_election constants
-    then [EStartElectionTimeout current_n]
+    then [EStartTimeout (current_n, current_i)]
     else []
   end in
   let mcast_e = EMCast fake in
@@ -162,48 +162,56 @@ let slave_steady_state (type s) constants state event =
 	          Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
 	          
       end
-    | ElectionTimeout n' ->
+    | Timeout (n', i') ->
       begin
         let log_e = ELog (fun () -> "steady state :: ignoring election timeout") in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
-    | LeaseExpired n' -> 
-        let ns  = (Sn.string_of n) 
-        and ns' = (Sn.string_of n') in
-        if (not (is_election constants || constants.is_learner)) || n' < n
-        then 
-	      begin
-            let log_e = ELog (fun () ->
-	          Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
-            in
-	        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
-	      end
+    | LeaseExpired n' ->
+      let ns  = (Sn.string_of n)
+      and ns' = (Sn.string_of n') in
+      if n' < n || not (is_election constants)
+      then
+        begin
+          let log_e = ELog (fun () ->
+            Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
+          in
+          Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
+        end
+      else
+        if constants.is_learner
+        then
+          let log_e = ELog (fun () ->
+            Printf.sprintf "steady state: ignoring lease expiration because I am a learner (n=%s)" ns )
+          in
+          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+          Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
         else
-	      begin 
-	        let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
-	        if elections_needed then
-	          begin
-	            let new_n = update_n constants n in
+          begin
+            let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
+            if elections_needed then
+              begin
+                let new_n = update_n constants n in
                 let el_i = S.get_succ_store_i constants.store in
                 let el_up =
-		          begin
-		            if el_i = (Sn.pred i) 
-		            then Some previous
-		            else None
-		          end
+                  begin
+                    if el_i = (Sn.pred i)
+                    then Some previous
+                    else None
+                  end
                 in
                 let log_e = ELog (fun () -> "ELECTIONS NEEDED") in
-	            Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
-	          end
-	        else
-	          begin
-                let log_e = ELog(fun () -> 
-                  Printf.sprintf 
-                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg) 
+                Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
+              end
+            else
+              begin
+                let log_e = ELog(fun () ->
+                  Printf.sprintf
+                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg)
                 in
-	            Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
-	          end
-	      end
+                Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
+              end
+          end
     | FromClient ufs -> 
         begin
           
@@ -240,6 +248,51 @@ let slave_steady_state (type s) constants state event =
    for an Accept from the master about this *)
 let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let handle_timeout n' =
+    if (not (is_election constants || constants.is_learner)) || n' < n
+    then
+      begin
+        let ns = (Sn.string_of n) and
+            ns' = (Sn.string_of n') in
+        let log_e = ELog (fun () ->
+          Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s)" ns' ns)
+        in
+        Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
+      end
+    else
+      let elections_needed,_ = time_for_elections constants n' maybe_previous in
+      if elections_needed then
+        begin
+          let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
+            (* begin *)
+          let el_i = S.get_succ_store_i constants.store in
+          let el_up = constants.get_value el_i in
+            (*
+              begin
+              if el_i = (Sn.pred i)
+              then
+              begin
+              match maybe_previous with
+              | None -> None
+              | Some ( pup, prev_i )  -> Some pup
+              end
+              else None
+              end
+              in
+
+              Lwt.return (el_i,el_up)
+              end
+              >>= fun (el_i, el_up) ->
+            *)
+          let new_n = update_n constants n in
+          Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up))
+        end
+      else
+        begin
+          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+          Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
+        end
+  in
   match event with 
     | FromNode(msg,source) ->
       begin
@@ -312,12 +365,12 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
                                   me (Sn.string_of pi) (Sn.string_of i)
                           end
                     end >>= fun _ ->
-	              let reply = Accepted(n,i') in
-	              Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
-	              send reply me source >>= fun () -> 
-	              (* TODO: should assert we really have a MasterSet here *)
-	              Fsm.return (Slave_steady_state (n, Sn.succ i', v))
-	            end
+                  let reply = Accepted(n,i') in
+                  Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
+                  send reply me source >>= fun () ->
+                  start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+                  Fsm.return (Slave_steady_state (n, Sn.succ i', v))
+                end
             end
           | Accept (n',i',v) when n' < n ->
             begin
@@ -358,54 +411,16 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	          end
       end
-    | ElectionTimeout n' 
-    | LeaseExpired n' ->
-      if (not (is_election constants || constants.is_learner)) || n' < n
-      then 
-        begin
-        let ns = (Sn.string_of n) and
-        ns' = (Sn.string_of n') in
-        let log_e = ELog (fun () -> 
-          Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s)" ns' ns) 
-        in
-        Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
-        end
+    | Timeout (n', i') ->
+      if i' = i
+      then
+        handle_timeout n'
       else
-        let elections_needed,_ = time_for_elections constants n' maybe_previous in
-        if elections_needed then
-          begin
-            let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
-            (* begin *)
-            let el_i = S.get_succ_store_i constants.store in
-            let el_up = constants.get_value el_i in
-            (*
-              begin
-              if el_i = (Sn.pred i) 
-              then 
-              begin
-              match maybe_previous with
-              | None -> None
-                  | Some ( pup, prev_i )  -> Some pup 
-                end
-              else None
-            end
-            in
-            
-            Lwt.return (el_i,el_up)
-            end
-            >>= fun (el_i, el_up) ->
-            *)
-            let new_n = update_n constants n in
-            Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up))
-          end
-        else
-          begin
-            start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-            Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-          end
-            
-    | FromClient msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
-      
+        Fsm.return (Slave_wait_for_accept (n,i,vo,maybe_previous))
+    | LeaseExpired n' ->
+      handle_timeout n'
+    | FromClient msg ->
+      paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
     | Quiesce (sleep,awake) ->
         begin
           handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
@@ -439,7 +454,7 @@ let slave_discovered_other_master (type s) constants state () =
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
       >>= fun (future_n', current_i', vo') ->
       begin
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
@@ -460,7 +475,7 @@ let slave_discovered_other_master (type s) constants state () =
                   | None -> None
                   | Some u -> Some ( u, current_i' )
               end in
-            start_election_timeout constants future_n >>= fun () ->
+            start_timeout constants future_n current_i' >>= fun () ->
             Fsm.return (Slave_wait_for_accept (future_n', current_i', None, vo))
       end
     end
@@ -470,7 +485,7 @@ let slave_discovered_other_master (type s) constants state () =
       let prom_val = constants.get_value future_i in
       let reply = Promise(future_n, future_i, prom_val ) in
       let send_e = ESend (reply, master) in
-      let start_e = EStartElectionTimeout future_n in
+      let start_e = EStartTimeout (future_n, current_i) in
       let log_e = ELog (fun () ->
         Printf.sprintf "slave_discovered_other_master: no need for catchup %s" master )
       in  
