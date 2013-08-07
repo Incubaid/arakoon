@@ -83,13 +83,14 @@ let network_of_messaging (m:messaging) =
 
 let update_votes (nones,somes) = function
   | None -> (nones+1, somes)
-  | Some x -> 
+  | Some x ->
+    let is_master_set = Value.is_master_set x in
     let rec build_new acc = function
       | [] -> (x,1)::acc
-      | (a,fa) :: afs -> 
-	if a = x 
-	then ((a,fa+1) :: afs) @ acc 
-	else let acc' = (a,fa) :: acc  in build_new acc' afs
+      | (a,fa) :: afs ->
+        if a = x || (is_master_set && Value.is_master_set a)
+        then ((a,fa+1) :: afs) @ acc
+        else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
     let tmp = build_new [] somes in
     let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in

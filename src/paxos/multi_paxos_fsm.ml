@@ -214,22 +214,28 @@ let promises_check_done constants state () =
       Fsm.return (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
-    if nvoted < nnodes 
+    if nvoted < nnodes
     then Fsm.return (Wait_for_promises state)
     else (* split vote *)
       begin
-    	if am_forced_master constants me
-	    then
-	      Fsm.return (Forced_master_suggest (n,i))
-	    else 
-	      if is_election constants 
-	      then
-	        let n' = update_n constants n in
-	        Fsm.return (Election_suggest (n',i, Some bv))
-	      else
-	        paxos_fatal me "slave checking for promises"
+        if am_forced_master constants me
+        then
+          begin
+            Logger.warning_f_ "%s: promises_check_done: split vote, going to forced_master_suggest" me >>= fun () ->
+            Fsm.return (Forced_master_suggest (n,i))
+          end
+        else
+          if is_election constants
+          then
+            begin
+              Logger.warning_f_ "%s: promises_check_done: split vote, going back to elections" me >>= fun () ->
+              let n' = update_n constants n in
+              Fsm.return (Election_suggest (n',i, Some bv))
+            end
+          else
+            paxos_fatal me "slave checking for promises"
       end
-	
+
 
 (* a potential master is waiting for promises and receives a msg *)
 let wait_for_promises (type s) constants state event =
