@@ -197,72 +197,74 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       | None -> Sn.start
       | Some i -> Sn.succ i
   in
-  if Sn.compare start_i too_far_i > 0 
+  if Sn.compare start_i too_far_i > 0
   then 
-    let msg = Printf.sprintf "Store counter (%s) is ahead of tlog counter (%s). Aborting." 
+    let msg = Printf.sprintf
+      "Store counter (%s) is ahead of tlog counter (%s). Aborting."
       (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
   else
-  begin 
-  Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s" 
-    (Sn.string_of start_i) (Sn.string_of too_far_i)
-  >>= fun () ->
-    let acc = ref None in
-    let maybe_log_progress pi =
-      let (+:) = Sn.add
-      and border = Sn.of_int 100 in
-      if pi < start_i +: border ||
-         pi +: border > too_far_i
-      then
-            Logger.debug_f_ "%s => store" (Sn.string_of pi)
-      else
-        if Sn.rem pi border = Sn.zero
+    begin 
+      Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s"
+        (Sn.string_of start_i) (Sn.string_of too_far_i)
+      >>= fun () ->
+      let acc = ref None in
+      let maybe_log_progress pi =
+        let (+:) = Sn.add
+        and border = Sn.of_int 100 in
+        if pi < start_i +: border ||
+          pi +: border > too_far_i
         then
-          Logger.debug_f_ "... %s ..." (Sn.string_of pi)
+          Logger.debug_f_ "%s => store" (Sn.string_of pi)
+        else
+          if Sn.rem pi border = Sn.zero
+          then
+            Logger.debug_f_ "... %s ..." (Sn.string_of pi)
+          else
+            Lwt.return ()
+      in
+      let f = make_f (module S) me maybe_log_progress acc store in
+      tlog_coll # iterate start_i too_far_i f >>= fun () ->
+      epilogue (module S) acc store >>= fun () ->
+      let store_i' = S.consensus_i store in
+      Logger.info_f_ "catchup_store completed, store is @ %s"
+        ( option2s Sn.string_of store_i')
+      >>= fun () ->
+      begin
+        let si = match store_i' with
+          | Some i -> i
+          | None -> Sn.start
+        in
+        let pred_too_far_i = Sn.pred too_far_i in
+        if si < pred_too_far_i
+        then
+          let msg = Printf.sprintf
+            "Catchup store failed. Store counter is too low: %s < %s"
+            (Sn.string_of si) (Sn.string_of pred_too_far_i)
+          in
+          Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
-    in
-    let f = make_f (module S) me maybe_log_progress acc store in
-    tlog_coll # iterate start_i too_far_i f >>= fun () ->
-    epilogue (module S) acc store >>= fun () ->
-    let store_i' = S.consensus_i store in
-    Logger.info_f_ "catchup_store completed, store is @ %s" 
-      ( option2s Sn.string_of store_i')
-  >>= fun () ->
-    begin
-      
-	  let si = match store_i' with
-        | Some i -> i
-        | None -> Sn.start
-      in
-      let pred_too_far_i = Sn.pred too_far_i in
-      if si < pred_too_far_i 
-      then
-        let msg = Printf.sprintf
-          "Catchup store failed. Store counter is too low: %s < %s"
-          (Sn.string_of si) (Sn.string_of pred_too_far_i)
-        in
-        Lwt.fail (StoreCounterTooLow msg)
-      else
-        Lwt.return ()
       end >>= fun () ->
-    (* TODO: straighten interface *)
-    let vo = match !acc with
-      | None -> None
-      | Some (i,v) -> Some v
-    in
-    Lwt.return (too_far_i, vo)
-  end >>= fun r ->
+      (* TODO: straighten interface *)
+      let vo = match !acc with
+        | None -> None
+        | Some (i,v) -> Some v
+      in
+      Lwt.return (too_far_i, vo)
+    end >>= fun r ->
   S.flush store >>= fun () ->
   Lwt.return r
 
-let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_i) =
-  Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent (%s,%s)"
-    (Sn.string_of current_i) mr_name (Sn.string_of future_n) 
-    (Sn.string_of future_i)
+let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
+  Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent" 
+    (Sn.string_of current_i) mr_name
   >>= fun () ->
   catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
+  Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
+    (Sn.string_of too_far_i)
+  >>= fun () ->
   catchup_store me dbt too_far_i >>= fun (end_i,vo) ->
   Logger.info_f_ "CATCHUP end" >>= fun () ->
   Lwt.return (future_n, end_i,vo)
@@ -271,7 +273,7 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name (future_n,future_
 let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
-  Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s" 
+  Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s"
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match ti_o, si_o with
     | None, None -> Lwt.return (0L,None)

@@ -440,9 +440,17 @@ def regenerateClientConfig( cluster_id ):
 def wipe(name):
     config = getConfig(name)
     data_dir = config['home']
-    q.system.fs.removeDirTree(data_dir)
-    q.system.fs.createDir(data_dir)
-    logging.info("wiped %s" % name)
+    dirs = [data_dir]
+    def wipe_dir(d):
+        q.system.fs.removeDirTree(d)
+        q.system.fs.createDir(d)
+    wipe_dir(data_dir)
+    tlf_dir = config.get('tlf_dir')
+    if tlf_dir:
+        wipe_dir(tlf_dir)
+        dirs.append(data_dir)
+
+    logging.info("wiped %s (dirs=%s)",name, str(dirs))
 
 def get_memory_usage(node_name):
     cluster = _getCluster()
