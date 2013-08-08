@@ -333,7 +333,8 @@ let handle_unquiesce_request (type s) constants n =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let too_far_i = S.get_succ_store_i store in
   S.unquiesce store >>= fun () ->
-  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun (i,vo) ->
+  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
+  let i = S.get_succ_store_i store in
+  let vo = tlog_coll # get_last_value i in
   start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
   Lwt.return (i,vo)
-  

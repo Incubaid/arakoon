@@ -440,8 +440,11 @@ let slave_discovered_other_master (type s) constants state () =
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
-      >>= fun (future_n', current_i', vo') ->
+      >>= fun () ->
       begin
+        let current_i' = S.get_succ_store_i store in
+        let vo' = tlog_coll # get_last_value current_i' in
+
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
 			                Sn.pred current_i') (* pred =  consensus_i *)
 	    in
@@ -450,8 +453,8 @@ let slave_discovered_other_master (type s) constants state () =
 	    match vo' with
 	      | Some v ->
             begin
-              start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () -> 
-              Fsm.return (Slave_steady_state (future_n', current_i', v))
+              start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () -> 
+              Fsm.return (Slave_steady_state (future_n, current_i', v))
             end
 	      | None -> 
             let vo =
@@ -461,7 +464,7 @@ let slave_discovered_other_master (type s) constants state () =
                   | Some u -> Some ( u, current_i' )
               end in
             start_election_timeout constants future_n >>= fun () ->
-            Fsm.return (Slave_wait_for_accept (future_n', current_i', None, vo))
+            Fsm.return (Slave_wait_for_accept (future_n, current_i', None, vo))
       end
     end
   else if current_i = future_i then
