@@ -294,22 +294,23 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 		                | Some( pv, pi ) -> 
                           let store_i = S.consensus_i constants.store in
                           begin
-		                    match store_i with
-		                      | Some s_i ->
-			                    if (Sn.compare s_i pi) == 0 
-			                    then Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
-			                    else 
-			                      begin
-			                        Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me 
-			                          (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
-			                        constants.on_consensus(pv,n,pi) >>= fun _ ->
-			                        Lwt.return ()
-			                      end
-                              | None ->
+                            match store_i with
+                            | Some s_i ->
+                              if (Sn.compare s_i pi) == 0 || not ((Sn.compare i (Sn.succ pi)) == 0)
+                              then
+                                Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
+                              else
+                                begin
+                                  Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me 
+                                    (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
+                                  constants.on_consensus(pv,n,pi) >>= fun _ ->
+                                  Lwt.return ()
+                                end
+                            | None ->
                                 (* store is empty, so a previous entry will
                                    have the same i as the current one: don't push *)
-                                Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
-                                  me (Sn.string_of pi) (Sn.string_of i)
+                              Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
+                                me (Sn.string_of pi) (Sn.string_of i)
                           end
                     end >>= fun _ ->
 	              let reply = Accepted(n,i') in
