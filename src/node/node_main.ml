@@ -209,14 +209,20 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     end
   in
   S.make_store db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name >>= fun tlc ->
-  let current_i = Sn.start in
-  let future_n = Sn.start in
-  let future_i = Sn.start in
-  Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id 
-    ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-  S.close store >>= fun () ->
-  tlc # close ()
+  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir 
+    me.use_compression me.fsync name >>= fun tlc ->
+  Lwt.finalize
+    (fun () ->
+      let current_i = match S.consensus_i store with
+        | None -> Sn.start 
+        | Some i -> i
+      in
+      let future_n = Sn.start in
+      let future_i = Sn.start in
+      Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id 
+        ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+      S.close store)
+    (tlc # close)
 
   
     

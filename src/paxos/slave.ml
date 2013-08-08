@@ -434,12 +434,14 @@ let slave_discovered_other_master (type s) constants state () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   if current_i < future_i then
     begin
-      Logger.debug_f_ "%s: slave_discovered_other_master: catching up from %s" me master >>= fun() ->
+      Logger.debug_f_ 
+        "%s: slave_discovered_other_master: catching up from %s @ %s" 
+        me master (Sn.string_of future_i) >>= fun() ->
       let m_val = tlog_coll # get_last_value current_i in
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i) 
+      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n 
       >>= fun (future_n', current_i', vo') ->
       begin
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)

@@ -283,13 +283,21 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
 	    (handle_exception oc)
         end
     | LAST_ENTRIES ->
-        begin
-          Sn.input_sn ic >>= fun i ->
-          Logger.debug_f_ "connection=%s LAST_ENTRIES: i=%Li" id i >>= fun () ->
-          Llio.output_int32 oc 0l >>= fun () ->
-          backend # last_entries i oc >>= fun () ->
-          Lwt.return false
-        end
+      begin
+        Sn.input_sn ic >>= fun i ->
+        Logger.debug_f_ "connection=%s LAST_ENTRIES: i=%Li" id i >>= fun () ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        backend # last_entries i oc >>= fun () ->
+        Lwt.return false
+      end
+    | LAST_ENTRIES2 ->
+      begin
+        Sn.input_sn ic >>= fun i ->
+        Logger.debug_f_ "connection=%s LAST_ENTRIES2: i=%Li" id i >>= fun () ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        backend # last_entries2 i oc >>= fun () ->
+        Lwt.return false
+      end
     | WHO_MASTER ->
         begin
           Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->

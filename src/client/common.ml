@@ -51,6 +51,7 @@ type client_command =
   | PREFIX_KEYS
   | TEST_AND_SET
   | LAST_ENTRIES
+  | LAST_ENTRIES2
   | RANGE_ENTRIES
   | MIGRATE_RANGE
   | SEQUENCE
@@ -122,6 +123,7 @@ let code2int = [
   DROP_MASTER             , 0x30l;
   MULTI_GET_OPTION        , 0x31l;
   CURRENT_STATE           , 0x32l;
+  LAST_ENTRIES2           , 0x40l;
 ]
 
 let int2code =

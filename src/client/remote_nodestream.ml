@@ -63,53 +63,59 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     ~head_saved_cb
     =
     let outgoing buf =
-      command_to buf LAST_ENTRIES;
+      command_to buf LAST_ENTRIES2;
       Sn.sn_to buf i
     in
     let incoming ic =
       let save_head () = tlog_coll # save_head ic in
       let last_seen = ref None in
       let rec loop_entries () =
-	Sn.input_sn ic >>= fun i2 ->
-	begin
-	  if i2 = (-1L) 
-	  then
+	    Sn.input_sn ic >>= fun i2 ->
 	    begin
-	    Logger.info_f_ "remote_nodestream :: last_seen = %s" 
-	      (Log_extra.option2s Sn.string_of !last_seen)
-	    end
-	  else
-	    begin
-	      last_seen := Some i2;
-	      Llio.input_int32 ic >>= fun chksum ->
-	      Llio.input_string ic >>= fun entry ->	      
-	      let value,_ = Value.value_from entry 0 in
-	      f (i2, value) >>= fun () ->
+	      if i2 = (-1L) 
+	      then
+	        begin
+	          Logger.info_f_ "remote_nodestream :: last_seen = %s" 
+	            (Log_extra.option2s Sn.string_of !last_seen)
+	        end
+	      else
+	        begin
+	          last_seen := Some i2;
+	          Llio.input_int32 ic >>= fun chksum ->
+	          Llio.input_string ic >>= fun entry ->	      
+	          let value,_ = Value.value_from entry 0 in
+	          f (i2, value) >>= fun () ->
               loop_entries ()
+	        end
 	    end
-	end
       in 
-      let rec loop_parts () = 
-	Llio.input_int ic >>= function
-	  | 1 -> Logger.debug_f_ "loop_entries" >>= fun () -> loop_entries ()
-	  | 2 -> 
-	    begin 
-	      Logger.info_f_ "save_head" >>= fun ()->
-	      save_head () >>= fun () -> 
-	      let hf_name = tlog_coll # get_head_name () in
-	      head_saved_cb hf_name >>= fun () ->
-	      loop_parts ()
-	    end
-	  | 3 ->
-	    begin
-	      Logger.debug_f_ "save_file" >>= fun () ->
-	      Llio.input_string ic >>= fun name ->
-	      Llio.input_int64 ic >>= fun length ->
-	      Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
-	      tlog_coll # save_tlog_file name length ic >>= fun () ->
-	      loop_parts ()
-	    end
-	  | x -> Llio.lwt_failfmt "don't know what %i means" x
+      let rec loop_parts () =
+	    Llio.input_int ic >>= function
+	    | (-2) -> Logger.info_f_ "loop_parts done"
+	    | 1 -> 
+          begin
+            Logger.debug_f_ "loop_entries" >>= fun () -> 
+            loop_entries () >>= fun () ->
+            loop_parts ()
+          end
+	    | 2 -> 
+	      begin 
+	        Logger.info_f_ "save_head" >>= fun ()->
+	        save_head () >>= fun () -> 
+	        let hf_name = tlog_coll # get_head_name () in
+	        head_saved_cb hf_name >>= fun () ->
+	        loop_parts ()
+	      end
+	    | 3 ->
+	      begin
+	        Logger.debug_f_ "save_file" >>= fun () ->
+	        Llio.input_string ic >>= fun name ->
+	        Llio.input_int64 ic >>= fun length ->
+	        Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
+	        tlog_coll # save_tlog_file name length ic >>= fun () ->
+	        loop_parts ()
+	      end
+        | x  -> Llio.lwt_failfmt "don't know what %i means" x
       in
       loop_parts()
     in
