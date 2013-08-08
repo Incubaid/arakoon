@@ -194,17 +194,28 @@ object(self: #backend)
     Statistics.new_range _stats start n_keys;
     Lwt.return keys
 
-  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+  method private with_blocked_collapser start_i f =
+    Lwt.finalize
+      (fun () ->
+        self # block_collapser start_i;
+        f ()
+      )
+      (fun () ->
+        let () = self # unblock_collapser start_i in
+        Lwt.return ()
+      )
 
-    Lwt.finalize(
-      fun () ->
-        begin
-          self # block_collapser start_i ;
-          self # _last_entries start_i oc
-        end
-    )
-      (fun () -> Lwt.return ( self # unblock_collapser start_i )
-    )
+  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =    
+    self # with_blocked_collapser start_i 
+      (fun () -> 
+        Catchup.last_entries (module S) store tlog_collection start_i oc
+      )
+      
+  method last_entries2 (start_i:Sn.t) (oc:Lwt_io.output_channel) = 
+    self # with_blocked_collapser start_i
+      (fun () -> 
+        Catchup.last_entries2 (module S) store tlog_collection start_i oc
+      )
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
@@ -332,68 +343,6 @@ object(self: #backend)
     log_o self "hello %S %S" client_id cluster_id >>= fun () ->
     let msg = Printf.sprintf "Arakoon %i.%i.%i" Version.major Version.minor Version.patch in
     Lwt.return (0l, msg)
-
-  method private _last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-    log_o self "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-    let consensus_i = S.consensus_i store in
-    begin
-      match consensus_i with
-	| None -> Lwt.return ()
-	| Some ci ->
-	  begin
-	    tlog_collection # get_infimum_i () >>= fun inf_i ->
-	    let too_far_i = Sn.succ ci in
-	    log_o self
-	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-	      (Sn.string_of too_far_i)
-
-
-	    >>= fun () ->
-	    begin
-	      if start_i < inf_i
-	      then
-		begin
-		  Llio.output_int oc 2 >>= fun () ->
-		  tlog_collection # dump_head oc
-		end
-	      else
-		Lwt.return start_i
-	    end
-	    >>= fun start_i2->
-	    let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-	    let rec loop_parts (start_i2:Sn.t) =
-	      if Sn.rem start_i2 step = Sn.start &&
-		 Sn.add start_i2 step < too_far_i
-	      then
-		begin
-		  Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-		  >>= fun () ->
-		  Llio.output_int oc 3 >>= fun () ->
-		  tlog_collection # dump_tlog_file start_i2 oc
-		  >>= fun start_i2' ->
-		  loop_parts start_i2'
-		end
-	      else
-		Lwt.return start_i2
-	    in
-	    loop_parts start_i2
-	    >>= fun start_i3 ->
-	    Llio.output_int oc 1 >>= fun () ->
-	    let f entry =
-          let i = Entry.i_of entry
-          and v = Entry.v_of entry
-          in
-          Tlogcommon.write_entry oc i v in
-        Lwt.catch
-          (fun () -> tlog_collection # iterate start_i3 too_far_i f)
-          (function
-            | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
-            | ex -> Lwt.fail ex) >>= fun () ->
-	    Sn.output_sn oc (-1L)
-	  end
-    end
-    >>= fun () ->
-    log_o self "done with_last_entries"
 
 
   method sequence ~sync (updates:Update.t list) =
