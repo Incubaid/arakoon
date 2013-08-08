@@ -107,7 +107,7 @@ type paxos_event =
   | LeaseExpired of Sn.t
   | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
   | Unquiesce
-  | ElectionTimeout of Sn.t
+  | ElectionTimeout of Sn.t * Sn.t
   | DropMaster of (unit Lwt.t * unit Lwt.u)
 
 let paxos_event2s = function
@@ -207,7 +207,7 @@ let start_lease_expiration_thread constants n expiration =
   let () = Lwt.ignore_result (t ()) in
   Lwt.return ()
 
-let start_election_timeout constants n =
+let start_election_timeout constants n i =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
   let t () = 
     begin
@@ -216,7 +216,7 @@ let start_election_timeout constants n =
       Lwt_unix.sleep sleep_sec >>= fun () ->
       let t1 = Unix.gettimeofday () in
       Logger.debug_f_ "%s: election (n=%s) should have finished by now (%2.1f passed, intended %2.1f)." constants.me (Sn.string_of n) (t1 -. t0) sleep_sec >>= fun () ->
-      constants.inject_event (ElectionTimeout n)
+      constants.inject_event (ElectionTimeout (n, i))
     end
   in
   let () = Lwt.ignore_result (t ()) in
@@ -284,7 +284,7 @@ let handle_prepare (type s) constants dest n n' i' =
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
               Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
-              start_election_timeout constants n' >>= fun () ->
+              start_election_timeout constants n' i' >>= fun () ->
               if i' > nak_max
               then
                 (* Send Promise, but I need catchup *)
