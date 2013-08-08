@@ -448,7 +448,7 @@ def wipe(name):
     tlf_dir = config.get('tlf_dir')
     if tlf_dir:
         wipe_dir(tlf_dir)
-        dirs.append(data_dir)
+        dirs.append(tlf_dir)
 
     logging.info("wiped %s (dirs=%s)",name, str(dirs))
 
