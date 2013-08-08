@@ -190,6 +190,11 @@ let mcast constants msg =
 let update_n constants n =
   Sn.add n (Sn.of_int (1 + Random.int ( 1 + (List.length constants.others) * 2)))
 
+let push_value constants v n i =
+  constants.on_accept (v,n,i) >>= fun () ->
+  let msg = Accept(n,i,v) in
+  mcast constants msg
+
 
 let start_lease_expiration_thread constants n expiration =
   let sleep_sec = float_of_int expiration in

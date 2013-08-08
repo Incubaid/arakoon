@@ -200,10 +200,8 @@ let promises_check_done constants state () =
     begin
       Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
-      constants.on_accept (bv,n,i) >>= fun () ->
+      push_value constants bv n i >>= fun () ->
       start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
-      let msg = Accept(n,i,bv) in
-      mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
       let ff = fun _ -> Lwt.return () in
       let ffs =
