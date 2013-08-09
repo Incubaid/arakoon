@@ -15,16 +15,16 @@ let dump_tlog filename ~values=
 
   let t =
     begin
-    let do_it ic =
+      let do_it ic =
 
-      let lowerI = Sn.start
-      and higherI = None
-      and first = Sn.of_int 0
-      and a0 = () in
-      folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
-      Lwt.return 0
-    in
-    Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+        let lowerI = Sn.start
+        and higherI = None
+        and first = Sn.of_int 0
+        and a0 = () in
+        folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
+        Lwt.return 0
+      in
+      Lwt_io.with_file ~mode:Lwt_io.input filename do_it
     end
   in
   Lwt_main.run t
@@ -54,20 +54,20 @@ let strip_tlog filename =
     function
       | None -> Lwt.return 0
       | Some e ->
-          if Entry.has_marker e
-          then
-            begin
-              let p = Entry.p_of e in
-              let pi = Int64.to_int p in
-              Lwt_io.printlf "last=%s => truncating to %i" (Entry.entry2s e) pi >>= fun () ->
-              Lwt_unix.truncate filename pi >>= fun () ->
-              Lwt.return 0
-            end
-          else
-            begin
-              Lwt_io.eprintlf "no marker found, not truncating" >>= fun () ->
-              Lwt.return 1
-            end
+        if Entry.has_marker e
+        then
+          begin
+            let p = Entry.p_of e in
+            let pi = Int64.to_int p in
+            Lwt_io.printlf "last=%s => truncating to %i" (Entry.entry2s e) pi >>= fun () ->
+            Lwt_unix.truncate filename pi >>= fun () ->
+            Lwt.return 0
+          end
+        else
+          begin
+            Lwt_io.eprintlf "no marker found, not truncating" >>= fun () ->
+            Lwt.return 1
+          end
   in
   let t =
     _last_entry filename >>= fun last ->
@@ -81,15 +81,15 @@ let mark_tlog file_name node_name =
     match last with
       | None -> Lwt.return 0
       | Some e ->
-          let i     = Entry.i_of e
-          and value = Entry.v_of e
-          in
-          let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
-          Lwt_io.with_file
-            ~mode:Lwt_io.output
-            ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
-            file_name f
-            >>= fun () -> Lwt.return 0
+        let i     = Entry.i_of e
+        and value = Entry.v_of e
+        in
+        let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
+        Lwt_io.with_file
+          ~mode:Lwt_io.output
+          ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
+          file_name f
+        >>= fun () -> Lwt.return 0
   in
   Lwt_main.run t
 
@@ -97,7 +97,7 @@ let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
     let f oc = Tlogcommon.write_entry oc sni
-      (Value.create_client_value [Update.Update.Nop] false)
+                 (Value.create_client_value [Update.Update.Nop] false)
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in
@@ -124,17 +124,17 @@ let uncompress_tlog tlx =
     let extension = Tlc2.extension_of tlx in
     if extension = Tlc2.archive_extension then
       begin
-  let tlu = Tlc2.to_tlog_name tlx in
-  Compression.uncompress_tlog tlx tlu >>= fun () ->
-  Unix.unlink tlx;
-  Lwt.return ()
+        let tlu = Tlc2.to_tlog_name tlx in
+        Compression.uncompress_tlog tlx tlu >>= fun () ->
+        Unix.unlink tlx;
+        Lwt.return ()
       end
     else if extension = ".tlc" then
       begin
-  let tlu = Tlc2.to_tlog_name tlx in
-  Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
-  Unix.unlink tlx;
-  Lwt.return ()
+        let tlu = Tlc2.to_tlog_name tlx in
+        Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
+        Unix.unlink tlx;
+        Lwt.return ()
       end
     else Lwt.fail (Failure "unknown file format")
   in

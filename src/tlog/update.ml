@@ -67,12 +67,12 @@ module Update = struct
         let buf = Buffer.create (64 * List.length updates) in
         let () = Buffer.add_string buf "Sequence([" in
         let rec loop = function
-        | [] -> Buffer.add_string buf "])"
-        | u::us ->
-          let () = Buffer.add_string buf (_inner u) in
-          let () = if (us <> []) then Buffer.add_string buf "; "
-          in
-          loop us
+          | [] -> Buffer.add_string buf "])"
+          | u::us ->
+            let () = Buffer.add_string buf (_inner u) in
+            let () = if (us <> []) then Buffer.add_string buf "; "
+            in
+            loop us
         in
         let () = loop updates in
         Buffer.contents buf
@@ -99,44 +99,44 @@ module Update = struct
     in
     match t with
       | Set(k,v) ->
-      Llio.int_to    b 1;
-      Llio.string_to b k;
-      Llio.string_to b v
+        Llio.int_to    b 1;
+        Llio.string_to b k;
+        Llio.string_to b v
       | Delete k ->
-      Llio.int_to    b 2;
-      Llio.string_to b k
+        Llio.int_to    b 2;
+        Llio.string_to b k
       | TestAndSet (k,e,w) ->
-      Llio.int_to    b 3;
-      Llio.string_to b k;
-      Llio.string_option_to b e;
-      Llio.string_option_to b w
+        Llio.int_to    b 3;
+        Llio.string_to b k;
+        Llio.string_option_to b e;
+        Llio.string_option_to b w
       | MasterSet (m,i) ->
-      Llio.int_to    b 4;
-      Llio.string_to b m;
-      Llio.int64_to b i
+        Llio.int_to    b 4;
+        Llio.string_to b m;
+        Llio.int64_to b i
       | Sequence us ->
-      Llio.int_to b 5;
+        Llio.int_to b 5;
         _us_to b us
       | Nop ->
-      Llio.int_to b 6
+        Llio.int_to b 6
       | UserFunction (name, param) ->
-      Llio.int_to b 7;
-      Llio.string_to b name;
-      Llio.string_option_to b param
+        Llio.int_to b 7;
+        Llio.string_to b name;
+        Llio.string_option_to b param
       | Assert (k,vo) ->
-      Llio.int_to b 8;
-      Llio.string_to b k;
-      Llio.string_option_to b vo
+        Llio.int_to b 8;
+        Llio.string_to b k;
+        Llio.string_option_to b vo
       | AdminSet(k,vo) ->
         Llio.int_to b 9;
         Llio.string_to b k;
         Llio.string_option_to b vo;
       | SetInterval interval ->
-      Llio.int_to b 10;
-      Interval.interval_to b interval
+        Llio.int_to b 10;
+        Interval.interval_to b interval
       | SetRouting r ->
-      Llio.int_to b 11;
-      Routing.routing_to b r
+        Llio.int_to b 11;
+        Routing.routing_to b r
       | SetRoutingDelta (l,s,r) ->
         Llio.int_to b 12;
         Llio.string_to b l;
@@ -149,8 +149,8 @@ module Update = struct
         Llio.int_to b 14;
         Llio.string_to b prefix
       | Assert_exists (k) ->
-      Llio.int_to b 15;
-      Llio.string_to b k
+        Llio.int_to b 15;
+        Llio.string_to b k
 
 
   let rec from_buffer b pos =
@@ -188,24 +188,24 @@ module Update = struct
         Sequence us, pos2
       | 6 -> Nop, pos1
       | 7 ->
-      let n,  pos2 = Llio.string_from b pos1 in
-      let po, pos3 = Llio.string_option_from b pos2 in
-      let r = UserFunction(n,po) in
-      r, pos3
+        let n,  pos2 = Llio.string_from b pos1 in
+        let po, pos3 = Llio.string_option_from b pos2 in
+        let r = UserFunction(n,po) in
+        r, pos3
       | 8 ->
-      let k, pos2 = Llio.string_from b pos1 in
-      let vo,pos3 = Llio.string_option_from b pos2 in
-      Assert (k,vo) , pos3
+        let k, pos2 = Llio.string_from b pos1 in
+        let vo,pos3 = Llio.string_option_from b pos2 in
+        Assert (k,vo) , pos3
       | 9 ->
         let k,pos2 = Llio.string_from b pos1 in
         let vo, pos3 = Llio.string_option_from b pos2 in
         AdminSet(k,vo), pos3
       | 10 ->
-      let interval,pos2 = Interval.interval_from b pos1 in
-      SetInterval interval, pos2
+        let interval,pos2 = Interval.interval_from b pos1 in
+        SetInterval interval, pos2
       | 11 ->
-      let r,pos2 = Routing.routing_from b pos1 in
-      SetRouting r, pos2
+        let r,pos2 = Routing.routing_from b pos1 in
+        SetRouting r, pos2
       | 12 ->
         let l, pos2 = Llio.string_from b pos1 in
         let s, pos3 = Llio.string_from b pos2 in
@@ -218,8 +218,8 @@ module Update = struct
         let p, pos2 = Llio.string_from b pos1 in
         DeletePrefix p, pos2
       | 15 ->
-      let k, pos2 = Llio.string_from b pos1 in
-      Assert_exists (k) , pos2
+        let k, pos2 = Llio.string_from b pos1 in
+        Assert_exists (k) , pos2
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function

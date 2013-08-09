@@ -38,25 +38,25 @@ let __open_connection socket_address =
   let () = Lwt_unix.setsockopt socket Lwt_unix.TCP_NODELAY true in
   Lwt.catch
     (fun () ->
-      Lwt_unix.connect socket socket_address >>= fun () ->
-      let a2 = Lwt_unix.getsockname socket in
-      let peer = Lwt_unix.getpeername socket in
-      begin
-      if (a2 = peer)
-        then Llio.lwt_failfmt "a socket should not connect to itself"
-      else Lwt.return ()
-      end
-      >>= fun () ->
-      let fd_field = Obj.field (Obj.repr socket) 0 in
-      let (fdi:int) = Obj.magic (fd_field) in
-      Logger.info_f_ "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
-      (a2s a2) (a2s peer)
-      >>= fun () ->
-      let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
-      let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
-      Lwt.return (ic,oc))
+       Lwt_unix.connect socket socket_address >>= fun () ->
+       let a2 = Lwt_unix.getsockname socket in
+       let peer = Lwt_unix.getpeername socket in
+       begin
+         if (a2 = peer)
+         then Llio.lwt_failfmt "a socket should not connect to itself"
+         else Lwt.return ()
+       end
+       >>= fun () ->
+       let fd_field = Obj.field (Obj.repr socket) 0 in
+       let (fdi:int) = Obj.magic (fd_field) in
+       Logger.info_f_ "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
+         (a2s a2) (a2s peer)
+       >>= fun () ->
+       let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
+       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
+       Lwt.return (ic,oc))
     (fun exn ->
-      Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
-      >>= fun () ->
-      Lwt_unix.close socket >>= fun () ->
-      Lwt.fail exn)
+       Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
+       >>= fun () ->
+       Lwt_unix.close socket >>= fun () ->
+       Lwt.fail exn)

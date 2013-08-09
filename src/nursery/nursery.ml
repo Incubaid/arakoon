@@ -33,10 +33,10 @@ let so2s = Log_extra.string_option2s
 let try_connect (ips, port) =
   Lwt.catch
     (fun () ->
-      let sa = Network.make_address ips port in
-      Network.__open_connection sa >>= fun (ic,oc) ->
-      let r = Some (ic,oc) in
-      Lwt.return r
+       let sa = Network.make_address ips port in
+       Network.__open_connection sa >>= fun (ic,oc) ->
+       let r = Some (ic,oc) in
+       Lwt.return r
     )
     (function
       | Canceled -> Lwt.fail Canceled
@@ -65,11 +65,11 @@ module NC = struct
     let () = NCFG.iter_cfgs rc (fun k _ -> Hashtbl.add masters k None) in
     let connections = Hashtbl.create 13 in
     let () = NCFG.iter_cfgs rc
-      (fun cluster v ->
-  Hashtbl.iter (fun node (ip,port) ->
-    let nn = (cluster,node) in
-    let a = Address (ip,port) in
-    Hashtbl.add connections nn a) v)
+               (fun cluster v ->
+                  Hashtbl.iter (fun node (ip,port) ->
+                      let nn = (cluster,node) in
+                      let a = Address (ip,port) in
+                      Hashtbl.add connections nn a) v)
     in
     {rc; connections;masters;keeper_cn}
 
@@ -77,15 +77,15 @@ module NC = struct
     let (cn,node) = nn in
     match Hashtbl.find t.connections nn with
       | Address (ips,port) ->
-  begin
+        begin
           let ip = List.hd ips in
-    try_connect (ip,port) >>= function
-      | Some conn ->
-        Common.prologue cn conn >>= fun () ->
-        let () = Hashtbl.add t.connections nn (Connection conn) in
-        Lwt.return conn
-      | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
-  end
+          try_connect (ip,port) >>= function
+          | Some conn ->
+            Common.prologue cn conn >>= fun () ->
+            let () = Hashtbl.add t.connections nn (Connection conn) in
+            Lwt.return conn
+          | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
+        end
       | Connection conn -> Lwt.return conn
 
   let _find_master_remote t cn =
@@ -95,8 +95,8 @@ module NC = struct
     >>= fun () ->
     Lwt_list.map_s
       (fun n ->
-  let nn = (cn,n) in
-  _get_connection t nn
+         let nn = (cn,n) in
+         _get_connection t nn
       )
       node_names
     >>= fun connections ->
@@ -109,12 +109,12 @@ module NC = struct
       end
     in
     Lwt_list.fold_left_s get_master None connections >>= function
-      | None ->
-        Logger.error_f_ "Could not find master for cluster %s" cn >>= fun () ->
-        Lwt.fail (Failure "Could not find master.")
-      | Some m ->
-        Logger.debug_f_ "Found master %s" m >>= fun () ->
-        Lwt.return m
+    | None ->
+      Logger.error_f_ "Could not find master for cluster %s" cn >>= fun () ->
+      Lwt.fail (Failure "Could not find master.")
+    | Some m ->
+      Logger.debug_f_ "Found master %s" m >>= fun () ->
+      Lwt.return m
 
 
 
@@ -145,7 +145,7 @@ module NC = struct
   let force_interval t cn i =
     Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
     _with_master_connection t cn
-    (fun conn -> Common.set_interval conn i)
+      (fun conn -> Common.set_interval conn i)
 
 
   let close t = Llio.lwt_failfmt "close not implemented"
@@ -460,10 +460,10 @@ let nursery_test_main () =
       if i = 64
       then Lwt.return ()
       else
-  let k = Printf.sprintf "%c" (Char.chr i)
-  and v = Printf.sprintf "%c_value" (Char.chr i) in
-  NC.set nc k v >>= fun () ->
-  fill (i-1)
+        let k = Printf.sprintf "%c" (Char.chr i)
+        and v = Printf.sprintf "%c_value" (Char.chr i) in
+        NC.set nc k v >>= fun () ->
+        fill (i-1)
     in
     let left_i  = Interval.max    (* all *)
     and right_i = Interval.max in (* all *)

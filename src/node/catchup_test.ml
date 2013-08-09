@@ -39,12 +39,12 @@ let _fill tlog_coll n =
     then Lwt.return ()
     else
       begin
-      let k = Printf.sprintf "key%i" i
-      and v = Printf.sprintf "value%i" i in
-      let u = Update.Set (k,v) in
+        let k = Printf.sprintf "key%i" i
+        and v = Printf.sprintf "value%i" i in
+        let u = Update.Set (k,v) in
         let value = Value.create_client_value [u] sync in
-      tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
-      _loop (i+1)
+        tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
+        _loop (i+1)
       end
   in
   _loop 0
@@ -55,19 +55,19 @@ let _fill2 tlog_coll n =
     if i = n then Lwt.return ()
     else
       begin
-      let k = Printf.sprintf "_2_key%i" i
-      and v = Printf.sprintf "_2_value%i" i
-      and k2 = Printf.sprintf "key%i" i
-      and v2 = Printf.sprintf "value%i" i
-      in
-      let u = Update.Set(k,v) in
-      let u2 = Update.Set(k2,v2) in
+        let k = Printf.sprintf "_2_key%i" i
+        and v = Printf.sprintf "_2_value%i" i
+        and k2 = Printf.sprintf "key%i" i
+        and v2 = Printf.sprintf "value%i" i
+        in
+        let u = Update.Set(k,v) in
+        let u2 = Update.Set(k2,v2) in
         let value = Value.create_client_value [u] sync in
         let value2 = Value.create_client_value [u2] sync in
         let sni = Sn.of_int i in
-      tlog_coll # log_value  sni value  >>= fun () ->
-      tlog_coll # log_value  sni value2 >>= fun () ->
-      _loop (i+1)
+        tlog_coll # log_value  sni value  >>= fun () ->
+        tlog_coll # log_value  sni value2 >>= fun () ->
+        _loop (i+1)
       end
   in
   _loop 0
@@ -129,10 +129,10 @@ let teardown () =
   let clean_dir dir =
     Lwt.catch
       (fun () ->
-        File_system.lwt_directory_list dir >>= fun entries ->
-        Lwt_list.iter_s (fun i ->
-        let fn = dir ^ "/" ^ i in
-          ignore_ex (fun () -> Lwt_unix.unlink fn)) entries
+         File_system.lwt_directory_list dir >>= fun entries ->
+         Lwt_list.iter_s (fun i ->
+             let fn = dir ^ "/" ^ i in
+             ignore_ex (fun () -> Lwt_unix.unlink fn)) entries
       )
       (fun exn -> Logger.debug_ ~exn "ignoring" ) in
   clean_dir _tlf_dir >>= fun () ->
@@ -171,16 +171,16 @@ let test_batched_with_failures () =
   Logger.info_ "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
     (fun store new_i ->
-      let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
-      let assert_exists k = S.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
-      assert_exists "key2" >>= fun () ->
-      assert_exists "key2590" >>= fun () ->
-      assert_not_exists "_3a_key2" >>= fun () ->
-      assert_not_exists "_3b_key2" >>= fun () ->
-      assert_not_exists "_3a_key200" >>= fun () ->
-      assert_not_exists "_3b_key200" >>= fun () ->
-      assert_not_exists "_3a_key2530" >>= fun () ->
-      assert_not_exists "_3b_key2530")
+       let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
+       let assert_exists k = S.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
+       assert_exists "key2" >>= fun () ->
+       assert_exists "key2590" >>= fun () ->
+       assert_not_exists "_3a_key2" >>= fun () ->
+       assert_not_exists "_3b_key2" >>= fun () ->
+       assert_not_exists "_3a_key200" >>= fun () ->
+       assert_not_exists "_3b_key200" >>= fun () ->
+       assert_not_exists "_3a_key2530" >>= fun () ->
+       assert_not_exists "_3b_key2530")
 
 let test_large_tlog_catchup () =
   _tic _fill 100_000 "tcs"

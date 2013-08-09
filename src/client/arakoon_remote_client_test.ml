@@ -57,24 +57,24 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   let backend = (tb :> Backend.backend) in
   let scheme = Server.make_default_scheme () in
   let server = Server.make_server_thread
-    ~setup_callback
-    ~teardown_callback
-    ~scheme
-    "127.0.0.1" port
-    (Client_protocol.protocol backend) in
+                 ~setup_callback
+                 ~teardown_callback
+                 ~scheme
+                 "127.0.0.1" port
+                 (Client_protocol.protocol backend) in
 
   let client_t () =
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
     Lwt_io.open_connection address >>= function (ic,oc) ->
-    conversation (ic,oc) >>= fun () ->
-    Logger.debug_ "end_of_senario" >>= fun () ->
-    Lwt_io.close ic >>= fun () ->
-    Lwt_io.close oc >>= fun () ->
-    Lwt.return ()
+      conversation (ic,oc) >>= fun () ->
+      Logger.debug_ "end_of_senario" >>= fun () ->
+      Lwt_io.close ic >>= fun () ->
+      Lwt_io.close oc >>= fun () ->
+      Lwt.return ()
   in
   let main () =
     Lwt.pick [client_t ();
-        server ();] >>= fun () ->
+              server ();] >>= fun () ->
     Lwt_mvar.take td_var  >>= fun () ->
     Logger.info_ "server down"
   in
@@ -92,12 +92,12 @@ let test_wrong_cluster () =
   let real_test client =
     Lwt.catch
       (fun () ->
-  client # ping "boba fet" wrong_cluster >>= fun result ->
-  OUnit.assert_bool "we should not be able to connect to this cluster" false;
-  Lwt.return ())
+         client # ping "boba fet" wrong_cluster >>= fun result ->
+         OUnit.assert_bool "we should not be able to connect to this cluster" false;
+         Lwt.return ())
       (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
-  >>= fun () -> Lwt.return ())
-      >>= fun () ->
+        >>= fun () -> Lwt.return ())
+    >>= fun () ->
     Lwt.return ()
   in __client_server_wrapper__ wrong_cluster real_test
 
@@ -138,28 +138,28 @@ let test_delete () =
     client # delete "key" >>= fun () ->
     Lwt.catch
       (fun () ->
-  client # get "key" >>= fun value ->
-  Lwt.return ())
+         client # get "key" >>= fun value ->
+         Lwt.return ())
       (function
-  | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
-    Lwt_io.eprintlf "ok!"
-  | exn ->
-    Logger.fatal_ ~exn "wrong exception" >>= fun () ->
-    OUnit.assert_failure
-      "get of non_existing key does not throw correct exception"
+        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
+          Lwt_io.eprintlf "ok!"
+        | exn ->
+          Logger.fatal_ ~exn "wrong exception" >>= fun () ->
+          OUnit.assert_failure
+            "get of non_existing key does not throw correct exception"
       )
     >>= fun () ->
     Logger.info_ "part-2" >>= fun () ->
     Lwt.catch
       (fun () ->
-  client # delete "key" >>= fun () ->
-  Logger.info_ "should not get here"
+         client # delete "key" >>= fun () ->
+         Logger.info_ "should not get here"
       )
       (function
-  | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) ->
-    Lwt.return ()
-  | exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
-    OUnit.assert_failure "XXX"
+        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) ->
+          Lwt.return ()
+        | exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
+          OUnit.assert_failure "XXX"
       )
 
   in __client_server_wrapper__ _CLUSTER real_test
@@ -168,10 +168,10 @@ let test_sequence () =
   let real_test (client:Arakoon_client.client) =
     client # set "XXX0" "YYY0" >>= fun () ->
     let changes = [Arakoon_client.Set("XXX1","YYY1");
-       Arakoon_client.Set("XXX2","YYY2");
-       Arakoon_client.Set("XXX3","YYY3");
-       Arakoon_client.Delete "XXX0";
-      ]
+                   Arakoon_client.Set("XXX2","YYY2");
+                   Arakoon_client.Set("XXX3","YYY3");
+                   Arakoon_client.Delete "XXX0";
+                  ]
     in
     client # sequence changes >>= fun () ->
     client # get "XXX1" >>= fun v1 ->
@@ -268,7 +268,7 @@ let _prefix_keys_test (client:Arakoon_client.client) =
     if n = 100 then Lwt.return ()
     else
       client # set (cat "key" n) (cat "value" n) >>= fun () ->
-    fill (n+1)
+      fill (n+1)
   in
   fill 0 >>= fun () ->
   client # prefix_keys "ke" 1000 >>= fun list ->
@@ -290,11 +290,11 @@ let test_get_key_count () =
     let msg = "Get key count should be zero but got " ^ (Int64.to_string result) in
     OUnit.assert_equal ~msg result 0L;
     let rec do_set = function
-    | 0 -> Lwt.return ()
-    | i ->
-       let str = Printf.sprintf "%d" i in
-       client # set str str >>= fun () ->
-       do_set (i-1)
+      | 0 -> Lwt.return ()
+      | i ->
+        let str = Printf.sprintf "%d" i in
+        client # set str str >>= fun () ->
+        do_set (i-1)
     in
     do_set 100 >>= fun () ->
     client # get_key_count () >>= fun result ->
@@ -319,17 +319,17 @@ let test_and_set_to_none () =
   in __client_server_wrapper__ _CLUSTER real_test
 
 let suite = "remote_client" >::: [
-  "ping"      >:: test_ping;
-  "wrong_cluster" >:: test_wrong_cluster;
-  "set"        >:: test_set_get;
-  "assert_exists" >:: test_assert_exists;
-  "delete"     >:: test_delete;
-  "range"      >:: test_range;
-  "prefix_keys"  >:: test_prefix_keys;
-  "test_and_set_to_none"  >:: test_and_set_to_none;
-  "sequence"   >:: test_sequence;
-  "user_function" >:: test_user_function;
-  "get_key_count" >:: test_get_key_count;
-  "confirm"    >:: test_confirm;
-  "reverse_range" >:: test_reverse_range;
-]
+    "ping"      >:: test_ping;
+    "wrong_cluster" >:: test_wrong_cluster;
+    "set"        >:: test_set_get;
+    "assert_exists" >:: test_assert_exists;
+    "delete"     >:: test_delete;
+    "range"      >:: test_range;
+    "prefix_keys"  >:: test_prefix_keys;
+    "test_and_set_to_none"  >:: test_and_set_to_none;
+    "sequence"   >:: test_sequence;
+    "user_function" >:: test_user_function;
+    "get_key_count" >:: test_get_key_count;
+    "confirm"    >:: test_confirm;
+    "reverse_range" >:: test_reverse_range;
+  ]

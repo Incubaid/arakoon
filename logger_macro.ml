@@ -48,64 +48,64 @@ let rec apply e = function
 let split e =
   let rec aux acc = function
     | <:expr@_loc< Logger.log_f $section$ $level$ >> ->
-        `Log_f(section, level, acc)
+      `Log_f(section, level, acc)
     | <:expr@_loc< Logger.$lid:func$ ~exn $arg$ >> ->
-        let implicit_section = func.[String.length func - 1] = '_' in
-        let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
-        let is_f = func.[pos] = 'f' in
-        if not is_f
+      let implicit_section = func.[String.length func - 1] = '_' in
+      let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
+      let is_f = func.[pos] = 'f' in
+      if not is_f
+      then
+        let level = String.sub func 0 (pos + 1) in
+        if level = "log"
         then
-          let level = String.sub func 0 (pos + 1) in
-          if level = "log"
-          then
-            `No_match
-          else
-            let level' = String.capitalize level in
-            if implicit_section
-            then
-              `Log_e_l_ (arg::acc, level')
-            else
-              `Log_e_l(acc, level', arg)
+          `No_match
         else
-          let level = String.sub func 0 (pos - 1) in
           let level' = String.capitalize level in
           if implicit_section
           then
-            `Log_e_f_l_ (arg::acc, level')
+            `Log_e_l_ (arg::acc, level')
           else
-            `Log_e_f_l (acc, level', arg)
+            `Log_e_l(acc, level', arg)
+      else
+        let level = String.sub func 0 (pos - 1) in
+        let level' = String.capitalize level in
+        if implicit_section
+        then
+          `Log_e_f_l_ (arg::acc, level')
+        else
+          `Log_e_f_l (acc, level', arg)
     | <:expr@_loc< Logger.$lid:func$ $arg$ >> ->
-        let implicit_section = func.[String.length func - 1] = '_' in
-        let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
-        let is_f = func.[pos] = 'f' in
-        if not is_f
+      let implicit_section = func.[String.length func - 1] = '_' in
+      let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
+      let is_f = func.[pos] = 'f' in
+      if not is_f
+      then
+        let level = String.sub func 0 (pos + 1) in
+        if level = "log"
         then
-          let level = String.sub func 0 (pos + 1) in
-          if level = "log"
-          then
-            `No_match
-          else
-            let level' = String.capitalize level in
-            if implicit_section
-            then
-              `Log_l_(arg::acc, level')
-            else
-              `Log_l (acc, level', arg)
+          `No_match
         else
-          let level = String.sub func 0 (pos - 1) in
           let level' = String.capitalize level in
           if implicit_section
           then
-            `Log_f_l_ (arg::acc, level')
+            `Log_l_(arg::acc, level')
           else
-            `Log_f_l (acc, level', arg)
+            `Log_l (acc, level', arg)
+      else
+        let level = String.sub func 0 (pos - 1) in
+        let level' = String.capitalize level in
+        if implicit_section
+        then
+          `Log_f_l_ (arg::acc, level')
+        else
+          `Log_f_l (acc, level', arg)
     | <:expr@loc< $a$ $b$ >> -> begin
         match b with
           | b ->
-              aux (b :: acc) a
+            aux (b :: acc) a
       end
     | _ ->
-        `No_match
+      `No_match
   in
   aux [] e
 
@@ -117,89 +117,89 @@ let make_loc _loc =
   >>
 
 let map =
-object
-  inherit Ast.map as super
+  object
+    inherit Ast.map as super
 
-  method expr e =
-    let _loc = Ast.loc_of_expr e in
-    match split e with
-      | `Log_f(section, level, args) ->
+    method expr e =
+      let _loc = Ast.loc_of_expr e in
+      match split e with
+        | `Log_f(section, level, args) ->
           let args = List.map super#expr args in
           <:expr<
             Logger.log_
             $section$
             $level$
             (fun () -> $apply <:expr< Printf.sprintf >> args$)
-          >>
-      | `Log_l_(args, level) ->
-          let args = List.map super#expr args in
-          apply
-          <:expr<
-            Logger.log
-            section
-            Lwt_log.$uid:level$
-          >> args
-      | `Log_e_l_(args, level) ->
-          let args = List.map super#expr args in
-          apply
-          <:expr<
-            Logger.log
-            ~exn
-            section
-            Lwt_log.$uid:level$
-          >> args
-      | `Log_l(args, level, section) ->
-          let args = List.map super#expr args in
-          apply
-          <:expr<
-            Logger.log
-            $section$
-            Lwt_log.$uid:level$
-          >> args
-      | `Log_e_l(args, level, section) ->
-          let args = List.map super#expr args in
-          apply <:expr<
-            Logger.log
-            ~exn
-            $section$
-            Lwt_log.$uid:level$
-          >> args
-      | `Log_f_l_(args, level) ->
-          let args = List.map super#expr args in
-            <:expr<
-              Logger.log_
-              section
-              Lwt_log.$uid:level$
-              (fun () -> $apply <:expr< Printf.sprintf >> args$)
-            >>
-      | `Log_e_f_l_(args, level) ->
-          let args = List.map super#expr args in
-            <:expr<
-              Logger.log_
-              ~exn
-              section
-              Lwt_log.$uid:level$
-              (fun () -> $apply <:expr< Printf.sprintf >> args$)
-            >>
-      | `Log_f_l(args, level, section) ->
-          let args = List.map super#expr args in
-          <:expr<
-            Logger.log_
-            $section$
-            Lwt_log.$uid:level$
-            (fun () -> $apply <:expr< Printf.sprintf >> args$)
-          >>
-      | `Log_e_f_l(args, level, section) ->
-          let args = List.map super#expr args in
-          <:expr<
-            Logger.log_
-            ~exn
-            $section$
-            Lwt_log.$uid:level$
-            (fun () -> $apply <:expr< Printf.sprintf >> args$)
-          >>
-      | `No_match ->
-          super#expr e
+>>
+| `Log_l_(args, level) ->
+let args = List.map super#expr args in
+apply
+  <:expr<
+    Logger.log
+    section
+    Lwt_log.$uid:level$
+  >> args
+| `Log_e_l_(args, level) ->
+let args = List.map super#expr args in
+apply
+  <:expr<
+    Logger.log
+    ~exn
+    section
+    Lwt_log.$uid:level$
+  >> args
+| `Log_l(args, level, section) ->
+let args = List.map super#expr args in
+apply
+  <:expr<
+    Logger.log
+    $section$
+    Lwt_log.$uid:level$
+  >> args
+| `Log_e_l(args, level, section) ->
+let args = List.map super#expr args in
+apply <:expr<
+        Logger.log
+        ~exn
+        $section$
+        Lwt_log.$uid:level$
+      >> args
+| `Log_f_l_(args, level) ->
+let args = List.map super#expr args in
+<:expr<
+  Logger.log_
+  section
+  Lwt_log.$uid:level$
+  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+>>
+| `Log_e_f_l_(args, level) ->
+let args = List.map super#expr args in
+<:expr<
+  Logger.log_
+  ~exn
+  section
+  Lwt_log.$uid:level$
+  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+>>
+| `Log_f_l(args, level, section) ->
+let args = List.map super#expr args in
+<:expr<
+  Logger.log_
+  $section$
+  Lwt_log.$uid:level$
+  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+>>
+| `Log_e_f_l(args, level, section) ->
+let args = List.map super#expr args in
+<:expr<
+  Logger.log_
+  ~exn
+  $section$
+  Lwt_log.$uid:level$
+  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+>>
+| `No_match ->
+super#expr e
 end
 
 let () =

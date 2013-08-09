@@ -46,8 +46,8 @@ module ClientCfg = struct
   let to_string t =
     let buffer = Buffer.create 127 in
     Hashtbl.iter (fun s (ips,p) ->
-      let ipss = Printf.sprintf "[%s]" (String.concat ";" ips) in
-      Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ipss p)) t;
+        let ipss = Printf.sprintf "[%s]" (String.concat ";" ips) in
+        Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ipss p)) t;
     Buffer.contents buffer
 
   let input_cfg ic =
@@ -85,11 +85,11 @@ module ClientCfg = struct
     let _get s n p = Ini.get inifile s n p Ini.required in
     let nodes      = _get section "cluster" Ini.p_string_list in
     let () = List.iter
-      (fun n ->
-  let ips = _ips n in
-  let port = _get n "client_port" Ini.p_int in
-  add cfg n (ips,port)
-      ) nodes
+               (fun n ->
+                  let ips = _ips n in
+                  let port = _get n "client_port" Ini.p_int in
+                  add cfg n (ips,port)
+               ) nodes
     in
     cfg
 

@@ -51,11 +51,11 @@ let _range_entries _pf bdb first finc last linc max =
   let keys_list = Array.to_list keys_array in
   let pl = String.length _pf in
   let x = List.fold_left
-    (fun ret_list k ->
-      let l = String.length k in
-      ((String.sub k pl (l-pl)), B.get bdb k) :: ret_list )
-    []
-    keys_list
+            (fun ret_list k ->
+               let l = String.length k in
+               ((String.sub k pl (l-pl)), B.get bdb k) :: ret_list )
+            []
+            keys_list
   in x
 
 let copy_store2 old_location new_location overwrite =
@@ -65,30 +65,30 @@ let copy_store2 old_location new_location overwrite =
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-  begin
-    File_system.exists new_location >>= fun dest_exists ->
     begin
-      if dest_exists && overwrite
-      then
-        Lwt_unix.unlink new_location
-      else
-        Lwt.return ()
-    end >>= fun () ->
-    begin
-      if dest_exists && not overwrite
-      then
-        Logger.info_f_ "Not relocating store from %s to %s, destination exists" old_location new_location
-      else
-        File_system.copy_file old_location new_location
+      File_system.exists new_location >>= fun dest_exists ->
+      begin
+        if dest_exists && overwrite
+        then
+          Lwt_unix.unlink new_location
+        else
+          Lwt.return ()
+      end >>= fun () ->
+      begin
+        if dest_exists && not overwrite
+        then
+          Logger.info_f_ "Not relocating store from %s to %s, destination exists" old_location new_location
+        else
+          File_system.copy_file old_location new_location
+      end
     end
-  end
 
 let safe_create db_path mode =
   Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
   let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
   if List.mem Camltc.Bdb.BDBFFATAL flags
-    then Lwt.fail (BdbFFatal db_path)
-    else Lwt.return db
+  then Lwt.fail (BdbFFatal db_path)
+  else Lwt.return db
 
 let get_construct_params db_name ~mode =
   safe_create db_name mode
@@ -97,11 +97,11 @@ let _with_tx ls tx f =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _with_tx"
     | Some (tx', db, t0) ->
-        if tx != tx'
-        then
-          failwith "the provided transaction is not the current transaction of the local store"
-        else
-          f db
+      if tx != tx'
+      then
+        failwith "the provided transaction is not the current transaction of the local store"
+      else
+        f db
 
 let _tranbegin ls =
   let tx = new transaction in
@@ -115,38 +115,38 @@ let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
     | Some (tx, bdb, t0) ->
-        Camltc.Bdb._trancommit bdb;
-        let t = ( Unix.gettimeofday() -. t0) in
-        if t > 1.0
-        then
-          Lwt.ignore_result ( Logger.info_f_ "Tokyo cabinet transaction took %fs" t )
+      Camltc.Bdb._trancommit bdb;
+      let t = ( Unix.gettimeofday() -. t0) in
+      if t > 1.0
+      then
+        Lwt.ignore_result ( Logger.info_f_ "Tokyo cabinet transaction took %fs" t )
 
 
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
     | Some (tx, bdb, t0) ->
-        Camltc.Bdb._tranabort bdb;
-        ls._tx <- None
+      Camltc.Bdb._tranabort bdb;
+      ls._tx <- None
 
 let with_transaction ls f =
   let t0 = Unix.gettimeofday() in
   Lwt.finalize
     (fun () ->
-      Camltc.Hotc.transaction ls.db
-        (fun db ->
-          let tx = new transaction in
-          ls._tx <- Some (tx, db, t0);
-          f tx >>= fun a ->
-          Lwt.return a))
+       Camltc.Hotc.transaction ls.db
+         (fun db ->
+            let tx = new transaction in
+            ls._tx <- Some (tx, db, t0);
+            f tx >>= fun a ->
+            Lwt.return a))
     (fun () ->
-      let t = ( Unix.gettimeofday() -. t0) in
-      if t > 1.0
-      then
-        Logger.info_f_ "Tokyo cabinet transaction took %fs" t
-      else
-        Lwt.return (); >>= fun () ->
-      ls._tx <- None; Lwt.return ())
+       let t = ( Unix.gettimeofday() -. t0) in
+       if t > 1.0
+       then
+         Logger.info_f_ "Tokyo cabinet transaction took %fs" t
+       else
+         Lwt.return (); >>= fun () ->
+       ls._tx <- None; Lwt.return ())
 
 let defrag ls =
   Logger.info_ "local_store :: defrag" >>= fun () ->
@@ -228,7 +228,7 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
     if networkClient
     then
       Llio.output_int oc 0 >>= fun () ->
-    Llio.output_int64 oc length
+      Llio.output_int64 oc length
     else Lwt.return ()
   end
   >>= fun () ->
@@ -252,12 +252,12 @@ let optimize ls quiesced =
     safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
-        Logger.info_ "Optimizing db copy" >>= fun () ->
-        Camltc.Hotc.optimize db_opt >>= fun () ->
-        Logger.info_ "Optimize db copy complete"
+         Logger.info_ "Optimizing db copy" >>= fun () ->
+         Camltc.Hotc.optimize db_opt >>= fun () ->
+         Logger.info_ "Optimize db copy complete"
       )
       ( fun () ->
-        Camltc.Hotc.close db_opt
+         Camltc.Hotc.close db_opt
       )
   end >>= fun () ->
   File_system.rename db_optimal ls.location >>= fun () ->
@@ -277,92 +277,92 @@ let get_fringe ls border direction =
     begin
       match direction with
         | Routing.UPPER_BOUND ->
-            let skip_keys lcdb cursor =
-              let () = B.first lcdb cursor in
-              let rec skip_admin_key () =
-                begin
-                  let k = B.key lcdb cursor in
-                  if k.[0] <> __adminprefix.[0]
-                  then
-                    Lwt.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
-                  else
+          let skip_keys lcdb cursor =
+            let () = B.first lcdb cursor in
+            let rec skip_admin_key () =
+              begin
+                let k = B.key lcdb cursor in
+                if k.[0] <> __adminprefix.[0]
+                then
+                  Lwt.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
+                else
+                  begin
+                    Lwt.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
                     begin
-                      Lwt.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
-                      begin
-                        try
-                          B.next lcdb cursor;
-                          skip_admin_key ()
-                        with Not_found -> ()
-                      end
+                      try
+                        B.next lcdb cursor;
+                        skip_admin_key ()
+                      with Not_found -> ()
                     end
-                end
-              in
-              skip_admin_key ()
-            in
-            let cmp =
-              begin
-                match border with
-                  | Some b ->  (fun k -> k >= (__prefix ^ b))
-                  | None -> (fun k -> false)
+                  end
               end
             in
-            skip_keys, B.next, cmp
+            skip_admin_key ()
+          in
+          let cmp =
+            begin
+              match border with
+                | Some b ->  (fun k -> k >= (__prefix ^ b))
+                | None -> (fun k -> false)
+            end
+          in
+          skip_keys, B.next, cmp
         | Routing.LOWER_BOUND ->
-            let cmp =
-              begin
-                match border with
-                  | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
-                  | None -> (fun k -> k.[0] <> __prefix.[0])
-              end
-            in
-            B.last, B.prev, cmp
+          let cmp =
+            begin
+              match border with
+                | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
+                | None -> (fun k -> k.[0] <> __prefix.[0])
+            end
+          in
+          B.last, B.prev, cmp
     end
   in
   Logger.debug_f_ "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
   let buf = Buffer.create 128 in
   Lwt.finalize
     (fun () ->
-      Camltc.Hotc.transaction ls.db
-        (fun txdb ->
-          Camltc.Hotc.with_cursor txdb
-            (fun lcdb cursor ->
-              Buffer.add_string buf "1\n";
-              let limit = 1024 * 1024 in
-              let () = cursor_init lcdb cursor in
-              Buffer.add_string buf "2\n";
-              let r =
-                let rec loop acc ts =
-                  begin
-                    try
-                      let k = B.key   lcdb cursor in
-                      let v = B.value lcdb cursor in
-                      if ts >= limit  or (key_cmp k)
-                      then acc
-                      else
-                        let pk = String.sub k 1 (String.length k -1) in
-                        let acc' = (pk,v) :: acc in
-                        Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
-                        let ts' = ts + String.length k + String.length v in
-                        begin
-                          try
-                            get_next lcdb cursor ;
-                            loop acc' ts'
-                          with Not_found ->
-                            acc'
-                        end
-                    with Not_found ->
-                      acc
-                  end
+       Camltc.Hotc.transaction ls.db
+         (fun txdb ->
+            Camltc.Hotc.with_cursor txdb
+              (fun lcdb cursor ->
+                 Buffer.add_string buf "1\n";
+                 let limit = 1024 * 1024 in
+                 let () = cursor_init lcdb cursor in
+                 Buffer.add_string buf "2\n";
+                 let r =
+                   let rec loop acc ts =
+                     begin
+                       try
+                         let k = B.key   lcdb cursor in
+                         let v = B.value lcdb cursor in
+                         if ts >= limit  or (key_cmp k)
+                         then acc
+                         else
+                           let pk = String.sub k 1 (String.length k -1) in
+                           let acc' = (pk,v) :: acc in
+                           Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
+                           let ts' = ts + String.length k + String.length v in
+                           begin
+                             try
+                               get_next lcdb cursor ;
+                               loop acc' ts'
+                             with Not_found ->
+                               acc'
+                           end
+                       with Not_found ->
+                         acc
+                     end
 
-                in
-                loop [] 0
-              in
-              Lwt.return r
-            )
-        )
+                   in
+                   loop [] 0
+                 in
+                 Lwt.return r
+              )
+         )
     )
     (fun () ->
-      Logger.debug_f_ "buf:%s" (Buffer.contents buf)
+       Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
 let make_store read_only db_name =

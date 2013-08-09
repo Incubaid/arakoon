@@ -33,41 +33,41 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
       Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
       if bytes_read > 0
       then
-  begin
-    Lwt_io.write oc buffer >>= fun () -> loop ()
-  end
+        begin
+          Lwt_io.write oc buffer >>= fun () -> loop ()
+        end
       else
-  Lwt.return ()
+        Lwt.return ()
     in
     loop () >>= fun () ->
     Logger.debug_ "done: copy_file"
   in
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
-      Lwt_io.with_file ~mode:Lwt_io.output target
-  (fun oc ->copy_all ic oc)
+       Lwt_io.with_file ~mode:Lwt_io.output target
+         (fun oc ->copy_all ic oc)
     )
 
 let lwt_directory_list dn =
   Lwt.catch
     (fun () ->
-      Lwt_unix.opendir dn >>= fun h ->
-      let rec loop acc  =
-        Lwt.catch
-          (fun () ->
-            Lwt_unix.readdir h >>= fun x ->
-            match x with
-              | "." | ".." -> loop acc
-              | s' -> loop (s' :: acc)
-          )
-          (function
-            | End_of_file -> Lwt.return (List.rev acc)
-            | exn -> Lwt.fail exn
-          )
-      in
-      Lwt.finalize
-        (fun () -> loop [])
-        (fun () -> Lwt_unix.closedir h)
+       Lwt_unix.opendir dn >>= fun h ->
+       let rec loop acc  =
+         Lwt.catch
+           (fun () ->
+              Lwt_unix.readdir h >>= fun x ->
+              match x with
+                | "." | ".." -> loop acc
+                | s' -> loop (s' :: acc)
+           )
+           (function
+             | End_of_file -> Lwt.return (List.rev acc)
+             | exn -> Lwt.fail exn
+           )
+       in
+       Lwt.finalize
+         (fun () -> loop [])
+         (fun () -> Lwt_unix.closedir h)
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 

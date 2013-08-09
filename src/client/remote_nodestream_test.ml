@@ -60,17 +60,17 @@ let get_fringe port ()=
   let fill_it_a_bit () =
     let address = Network.make_address "127.0.0.1" port in
     Lwt_io.with_connection address (fun conn ->
-      make_remote_client _cluster conn >>= fun client ->
-      Lwt_list.iter_s (fun (k,v) -> client # set k v)
-  [("k1", "vk1");
-   ("k2", "vk2");
-   ("p1", "vp1");
-   ("a" , "va");
-  ] >>= fun () ->
-      client # get "k1" >>= fun v ->
-      Logger.debug_f_ "a[%s] = %s" "k1" v >>= fun () ->
-      Lwt.return ()
-    )
+        make_remote_client _cluster conn >>= fun client ->
+        Lwt_list.iter_s (fun (k,v) -> client # set k v)
+          [("k1", "vk1");
+           ("k2", "vk2");
+           ("p1", "vp1");
+           ("a" , "va");
+          ] >>= fun () ->
+        client # get "k1" >>= fun v ->
+        Logger.debug_f_ "a[%s] = %s" "k1" v >>= fun () ->
+        Lwt.return ()
+      )
   in
   let conversation conn =
     fill_it_a_bit ()  >>= fun () ->

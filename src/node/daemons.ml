@@ -25,12 +25,12 @@ let maybe_daemonize daemonize make_config =
   begin
     if daemonize then
       begin
-  Lwt_daemon.daemonize
-    ~syslog:false
-    ~stdin:`Close
-    ~stdout:`Dev_null
-    ~stderr:`Dev_null
-    ();
+        Lwt_daemon.daemonize
+          ~syslog:false
+          ~stdin:`Close
+          ~stdout:`Dev_null
+          ~stderr:`Dev_null
+          ();
       end
     else
       ()

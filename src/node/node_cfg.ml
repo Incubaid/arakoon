@@ -41,27 +41,27 @@ exception InvalidHeadDir of string
 module Node_cfg = struct
 
   type t = {node_name:string;
-        ips: string list;
-        client_port:int;
-        messaging_port:int;
-        home:string;
-        tlog_dir:string;
-        tlf_dir:string;
-        head_dir:string;
-        log_dir:string;
-        log_level:string;
-        log_config:string option;
-        batched_transaction_config:string option;
-        lease_period:int;
-        master: master;
-        is_laggy : bool;
-        is_learner : bool;
-        targets : string list;
-        use_compression : bool;
-        fsync : bool;
-        is_test : bool;
-        reporting: int;
-       }
+            ips: string list;
+            client_port:int;
+            messaging_port:int;
+            home:string;
+            tlog_dir:string;
+            tlf_dir:string;
+            head_dir:string;
+            log_dir:string;
+            log_level:string;
+            log_config:string option;
+            batched_transaction_config:string option;
+            lease_period:int;
+            master: master;
+            is_laggy : bool;
+            is_learner : bool;
+            targets : string list;
+            use_compression : bool;
+            fsync : bool;
+            is_test : bool;
+            reporting: int;
+           }
 
   let _so2s = Log_extra.string_option2s
 
@@ -90,11 +90,11 @@ module Node_cfg = struct
       t.reporting
 
   type log_cfg =
-      {
-        client_protocol: string option;
-        paxos: string option;
-        tcp_messaging: string option;
-      }
+    {
+      client_protocol: string option;
+      paxos: string option;
+      tcp_messaging: string option;
+    }
 
   let string_of_log_cfg lcfg =
     Printf.sprintf "{ client_protocol=%s; paxos=%s; tcp_messaging=%s }"
@@ -108,10 +108,10 @@ module Node_cfg = struct
     }
 
   type batched_transaction_cfg =
-      {
-        max_entries : int option;
-        max_size : int option;
-      }
+    {
+      max_entries : int option;
+      max_size : int option;
+    }
 
   let string_of_btc (btc:batched_transaction_cfg) =
     Printf.sprintf "{ max_entries=%s; max_size=%s }"
@@ -146,11 +146,11 @@ module Node_cfg = struct
     Buffer.add_string buffer "{ node_cfgs=[ ";
     List.iter (fun cfg -> Buffer.add_string buffer (string_of cfg); Buffer.add_string buffer ",") cluster_cfg.cfgs;
     List.iter (fun (name,lcfg) ->
-      Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
-      Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
+        Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
+        Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
     List.iter (fun (name,btcfg) ->
-      Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
-      Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
+        Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
+        Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
     Buffer.add_string buffer "; nursery_cfg=";
     Buffer.add_string buffer (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg) cluster_cfg.nursery_cfg);
     Buffer.add_string buffer
@@ -166,8 +166,8 @@ module Node_cfg = struct
     Buffer.contents buffer
 
   let make_test_config
-      ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
-      n_nodes master lease_period =
+        ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
+        n_nodes master lease_period =
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
@@ -198,7 +198,7 @@ module Node_cfg = struct
     let rec loop acc = function
       | 0 -> acc
       | n -> let o = make_one (n-1) in
-       loop (o::acc) (n-1)
+        loop (o::acc) (n-1)
     in
     let log_cfgs = [("default_log_config", get_default_log_config ())] in
     let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
@@ -264,30 +264,30 @@ module Node_cfg = struct
   let _startup_mode inifile =
     let master =
       try
-  let m_s = (inifile # getval "global" "master") in
+        let m_s = (inifile # getval "global" "master") in
         if Ini.get inifile "global" "preferred_masters" (fun _ -> true) (fun _ _ -> false)
         then
           failwith ("'master' and 'preferred_masters' are incompatible")
         else
-  let m = Scanf.sscanf m_s "%s" (fun s -> s) in
-  let nodes = _node_names inifile in
-  if not (List.mem m nodes)
-  then
-    failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-  else
-    if _get_bool inifile "global" "preferred_master"
+          let m = Scanf.sscanf m_s "%s" (fun s -> s) in
+          let nodes = _node_names inifile in
+          if not (List.mem m nodes)
+          then
+            failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
+          else
+          if _get_bool inifile "global" "preferred_master"
           then (Preferred [m])
-    else (Forced m)
+          else (Forced m)
       with (Inifiles.Invalid_element _) ->
         let pms = Ini.get inifile "global" "preferred_masters" Ini.p_string_list (fun _ _ -> []) in
         if pms <> []
         then
           Preferred pms
         else
-        let read_only = _get_bool inifile "global" "readonly" in
-  if read_only
-  then ReadOnly
-  else Elected
+          let read_only = _get_bool inifile "global" "readonly" in
+          if read_only
+          then ReadOnly
+          else Elected
     in
     master
 
@@ -316,9 +316,9 @@ module Node_cfg = struct
       if 1 <= qi & qi <= n_nodes
       then fun n -> qi
       else
-  let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
-    qi n_nodes in
-  failwith msg
+        let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
+                    qi n_nodes in
+        failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
   let _log_config inifile log_name =
@@ -411,36 +411,36 @@ module Node_cfg = struct
     let nodes = _node_names inifile in
     let plugin_names = _plugins inifile in
     let cfgs, remaining = List.fold_left
-      (fun (a,remaining) section ->
-      if List.mem section nodes || _get_bool inifile section "learner"
-      then
-        let cfg = _node_config inifile section fm in
-        let new_remaining = List.filter (fun x -> x <> section) remaining in
-        (cfg::a, new_remaining)
-      else (a,remaining))
-      ([],nodes) (inifile # sects) in
+                            (fun (a,remaining) section ->
+                               if List.mem section nodes || _get_bool inifile section "learner"
+                               then
+                                 let cfg = _node_config inifile section fm in
+                                 let new_remaining = List.filter (fun x -> x <> section) remaining in
+                                 (cfg::a, new_remaining)
+                               else (a,remaining))
+                            ([],nodes) (inifile # sects) in
     let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
     let log_cfgs = List.fold_left
-      (fun a section ->
-        if List.mem (Some section) log_cfg_names
-        then
-          let log_cfg = _log_config inifile section in
-          (section, log_cfg)::a
-        else
-          a)
-      [] (inifile # sects) in
+                     (fun a section ->
+                        if List.mem (Some section) log_cfg_names
+                        then
+                          let log_cfg = _log_config inifile section in
+                          (section, log_cfg)::a
+                        else
+                          a)
+                     [] (inifile # sects) in
     let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
     let batched_transaction_cfgs = List.fold_left
-      (fun a section ->
-        if List.mem (Some section) batched_transaction_cfg_names
-        then
-          let batched_transaction_cfg = _batched_transaction_config inifile section in
-          (section, batched_transaction_cfg)::a
-        else
-          a)
-      [] (inifile # sects) in
+                                     (fun a section ->
+                                        if List.mem (Some section) batched_transaction_cfg_names
+                                        then
+                                          let batched_transaction_cfg = _batched_transaction_config inifile section in
+                                          (section, batched_transaction_cfg)::a
+                                        else
+                                          a)
+                                     [] (inifile # sects) in
     let () = if List.length remaining > 0 then
-  failwith ("Can't find config section for: " ^ (String.concat "," remaining))
+        failwith ("Can't find config section for: " ^ (String.concat "," remaining))
     in
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
@@ -455,12 +455,12 @@ module Node_cfg = struct
         log_cfgs;
         batched_transaction_cfgs;
         nursery_cfg = m_n_cfg;
-      _master = fm;
-      quorum_function;
-      _lease_period = lease_period;
-      cluster_id = cluster_id;
-      plugins = plugin_names;
-      overwrite_tlog_entries;
+        _master = fm;
+        quorum_function;
+        _lease_period = lease_period;
+        cluster_id = cluster_id;
+        plugins = plugin_names;
+        overwrite_tlog_entries;
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;

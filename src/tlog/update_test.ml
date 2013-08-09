@@ -37,11 +37,11 @@ let _cmp = OUnit.assert_equal ~printer:Update.update2s
 
 let test_sequence () =
   let s = Update.Sequence [
-    Update.make_master_set "Zen" None;
-    Update.Set ("key", "value");
-    Update.Delete "key";
-    Update.TestAndSet ("key",None, Some "X")
-  ] in
+      Update.make_master_set "Zen" None;
+      Update.Set ("key", "value");
+      Update.Delete "key";
+      Update.TestAndSet ("key",None, Some "X")
+    ] in
   let s' = _b2b s in
   _cmp s s'
 
@@ -61,12 +61,12 @@ let test_interval2() =
     let i0 = Interval.make (Some "a") (Some "b") None (Some "c") in
     let fn = "/tmp/test_interval2.bin" in
     Lwt_io.with_file ~mode:Lwt_io.output fn
-    (fun oc -> Interval.output_interval oc i0)
+      (fun oc -> Interval.output_interval oc i0)
     >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.input fn (fun ic ->
-      Interval.input_interval ic >>= fun i1 ->
-      OUnit.assert_equal ~printer:Interval.to_string i0 i1;
-      Lwt.return ())
+        Interval.input_interval ic >>= fun i1 ->
+        OUnit.assert_equal ~printer:Interval.to_string i0 i1;
+        Lwt.return ())
   in
   Lwt_main.run (t())
 
@@ -95,10 +95,10 @@ let test_assert_exists () =
 *)
 
 let suite = "update" >:::[
-  "sequence" >:: test_sequence;
-  "interval" >:: test_interval;
-  "interval2">:: test_interval2;
-  "delete_prefix" >:: test_delete_prefix;
-  "assert_exists" >:: test_assert_exists;
-  "assert"        >:: test_assert;
-]
+    "sequence" >:: test_sequence;
+    "interval" >:: test_interval;
+    "interval2">:: test_interval2;
+    "delete_prefix" >:: test_delete_prefix;
+    "assert_exists" >:: test_assert_exists;
+    "assert"        >:: test_assert;
+  ]

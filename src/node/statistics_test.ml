@@ -29,7 +29,7 @@ let test_serialization () =
   OUnit.assert_equal ~printer:Statistics.string_of s s1
 
 let suite = "statistics" >::: [
-  "correctness0" >:: test_correctness0;
-  "correctness1" >:: test_correctness1;
-  "serialization" >:: test_serialization;
-]
+    "correctness0" >:: test_correctness0;
+    "correctness1" >:: test_correctness1;
+    "serialization" >:: test_serialization;
+  ]

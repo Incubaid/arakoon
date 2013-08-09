@@ -31,9 +31,9 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 let _should_fail x error_msg success_msg =
   Lwt.catch
     (fun ()  ->
-      x () >>= fun () ->
-      Logger.debug_ "should fail...doesn't" >>= fun () ->
-      Lwt.return true)
+       x () >>= fun () ->
+       Logger.debug_ "should fail...doesn't" >>= fun () ->
+       Lwt.return true)
     (fun exn -> Logger.debug_ ~exn success_msg >>= fun () -> Lwt.return false)
   >>= fun bad ->
   if bad then Lwt.fail (Failure error_msg)
@@ -67,11 +67,11 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   let storename = "head.db" in
   begin
     File_system.exists storename >>= fun head_exists ->
-      if head_exists
-      then
-        File_system.unlink storename
-      else
-        Lwt.return ()
+    if head_exists
+    then
+      File_system.unlink storename
+    else
+      Lwt.return ()
   end
   >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename)
@@ -83,9 +83,9 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
 
   (* try to do it a second time, it should *)
   let future_i2 = Sn.of_int 1000 in
-    _should_fail
+  _should_fail
     (fun () ->
-      Collapser.collapse_until tlc (module S) store_methods future_i2 cb)
+       Collapser.collapse_until tlc (module S) store_methods future_i2 cb)
     "this should fail"
     "great, it indeed refuses to do this"
   >>= fun ()->

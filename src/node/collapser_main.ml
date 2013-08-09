@@ -40,7 +40,7 @@ let collapse_remote ip port cluster_id n =
     Lwt.catch
       (fun () -> Lwt_io.with_connection address collapse)
       (fun exn -> Logger.fatal Logger.Section.main ~exn "remote_collapsing_failed"
-  >>= fun () -> Lwt.return (-1)
+        >>= fun () -> Lwt.return (-1)
       )
   in
   Lwt_main.run (t () )

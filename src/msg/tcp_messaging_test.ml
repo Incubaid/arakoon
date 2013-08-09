@@ -30,76 +30,76 @@ open Lwt_buffer
 
 class player id (m:messaging) =
   let make_msg kind i = create kind (string_of_int i) in
-object(self)
-  val mutable _lowest = None
+  object(self)
+    val mutable _lowest = None
 
-  method _send target msg =
-    Logger.debug_f_ "%s sending message %s to %s"
-      id (string_of msg) target >>= fun () ->
-    m # send_message msg id target
+    method _send target msg =
+      Logger.debug_f_ "%s sending message %s to %s"
+        id (string_of msg) target >>= fun () ->
+      m # send_message msg id target
 
-  method serve ?(n=100) ?(lowest=0) opp =
-    let msg = make_msg "ping" n in
-    m # send_message msg "a" opp >>=
-    self # run lowest
+    method serve ?(n=100) ?(lowest=0) opp =
+      let msg = make_msg "ping" n in
+      m # send_message msg "a" opp >>=
+      self # run lowest
 
-  method multi_serve n targets =
-    let msg = make_msg "ping" n in
-    self # mcast_msg targets msg >>= fun () ->
-    self # wait_for_response n targets
+    method multi_serve n targets =
+      let msg = make_msg "ping" n in
+      self # mcast_msg targets msg >>= fun () ->
+      self # wait_for_response n targets
 
-  method wait_for_response n  targets=
-    m # recv_message id >>= fun (msg, source) ->
-    let n' = int_of_string ( msg.payload ) in
-    Logger.debug_f_ "n=%d n'=%d" n n' >>= fun () ->
-    if n' == n
-    then
-      begin
-      if n > 0
+    method wait_for_response n  targets=
+      m # recv_message id >>= fun (msg, source) ->
+      let n' = int_of_string ( msg.payload ) in
+      Logger.debug_f_ "n=%d n'=%d" n n' >>= fun () ->
+      if n' == n
       then
-        self#multi_serve (n-1) targets
+        begin
+          if n > 0
+          then
+            self#multi_serve (n-1) targets
+          else
+            Lwt.return()
+        end
       else
-        Lwt.return()
-      end
-    else
-      self#wait_for_response n targets
+        self#wait_for_response n targets
 
-  method play_dead () =
-    Lwt_unix.sleep 10000000.0
+    method play_dead () =
+      Lwt_unix.sleep 10000000.0
 
 
-  method mcast_msg targets msg =
-    Lwt_list.iter_p (fun t -> self#_send t msg) targets
+    method mcast_msg targets msg =
+      Lwt_list.iter_p (fun t -> self#_send t msg) targets
 
-  method run (lowest:int) ()=
+    method run (lowest:int) ()=
 
-    let rec loop () =
-      begin
-  m # recv_message id  >>= fun (msg, source) ->
-  let reply =
-    match msg.kind with
-      | "ping" ->
-        let i = int_of_string msg.payload in
-        let msg = make_msg "pong" i in
-        Some msg
-      | "pong" ->
-        let i = int_of_string msg.payload in
-        if i > lowest
-        then
-    let msg = make_msg "ping" (i-1) in
-    Some msg
-        else
-    None
-      | _ -> failwith "unknown message"
-  in
-  match reply with
-    | None -> Lwt.return ()
-    | Some msg ->
-      self # _send source msg >>= fun () ->
-      loop ()
-      end
-    in loop ()
-end
+      let rec loop () =
+        begin
+          m # recv_message id  >>= fun (msg, source) ->
+          let reply =
+            match msg.kind with
+              | "ping" ->
+                let i = int_of_string msg.payload in
+                let msg = make_msg "pong" i in
+                Some msg
+              | "pong" ->
+                let i = int_of_string msg.payload in
+                if i > lowest
+                then
+                  let msg = make_msg "ping" (i-1) in
+                  Some msg
+                else
+                  None
+              | _ -> failwith "unknown message"
+          in
+          match reply with
+            | None -> Lwt.return ()
+            | Some msg ->
+              self # _send source msg >>= fun () ->
+              loop ()
+        end
+      in loop ()
+  end
 
 let make_transport addresses =
   let tcp_transport = new tcp_messaging addresses "yummy" (fun _ _ _-> false) Node_cfg.default_max_buffer_size in
@@ -124,13 +124,13 @@ let test_pingpong_1x1 () =
   let teardown_callback () = Lwt_mvar.put td () in
   let main_t () =
     Lwt.pick [ transport # run ~setup_callback ~teardown_callback ();
-         begin
-     Lwt_condition.wait cvar >>= fun () ->
-     Logger.debug_ "going to serve" >>= fun () ->
-           player_a # serve "a"
-         end;
-         eventually_die ()
-       ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
+               begin
+                 Lwt_condition.wait cvar >>= fun () ->
+                 Logger.debug_ "going to serve" >>= fun () ->
+                 player_a # serve "a"
+               end;
+               eventually_die ()
+             ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
     Logger.info_ "end of scenario"
   in
   Lwt_main.run (main_t());;
@@ -149,18 +149,18 @@ let test_pingpong_2x2 () =
   let tda () = Lwt_mvar.put m_tda () in
   let tdb () = Lwt_mvar.put m_tdb () in
   let mapping = [("a", (local,port_a));
-     ("b", (local,port_b));] in
+                 ("b", (local,port_b));] in
   let () = transport_a # register_receivers mapping in
   let () = transport_b # register_receivers mapping in
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
   let main_t () =
     Lwt.pick [ transport_a # run ~teardown_callback:tda ();
-         transport_b # run ~teardown_callback:tdb ();
-         player_a # serve "b";
-         player_b # run 0 ();
-         eventually_die ()
-       ] >>= fun () ->
+               transport_b # run ~teardown_callback:tdb ();
+               player_a # serve "b";
+               player_b # run 0 ();
+               eventually_die ()
+             ] >>= fun () ->
     Lwt_mvar.take m_tda >>= fun () ->
     Lwt_mvar.take m_tdb >>= fun () ->
     Logger.info_ "end of scenario"
@@ -223,7 +223,7 @@ let test_pingpong_restart () =
   let t_a = make_transport address_a in
   let t_b = make_transport address_b in
   let mapping = [("a", (local, port_a));
-     ("b", (local, port_b));] in
+                 ("b", (local, port_b));] in
   let () = t_a # register_receivers mapping in
   let () = t_b # register_receivers mapping in
   let player_a = new player "a" t_a in
@@ -231,21 +231,21 @@ let test_pingpong_restart () =
   let main_t =
     Lwt.pick [
       begin
-  Lwt.pick [ t_a # run ();
-       player_a # run 50 () >>= fun () -> Logger.debug_ "a done"
-     ] >>= fun () ->
-    Lwt_unix.sleep 1.0 >>= fun () ->
-  let t_a' = make_transport address_a in
-  let () = t_a' # register_receivers mapping in
-  let player_a' = new player "a" t_a' in
-  Lwt.pick [
-    (Logger.info_ "new network" >>= fun () ->
-     t_a' # run ());
-    begin
-      Logger.debug_ "a' will be serving momentarily" >>= fun () ->
-      player_a' # serve ~n:200 "b"
-    end
-  ]
+        Lwt.pick [ t_a # run ();
+                   player_a # run 50 () >>= fun () -> Logger.debug_ "a done"
+                 ] >>= fun () ->
+        Lwt_unix.sleep 1.0 >>= fun () ->
+        let t_a' = make_transport address_a in
+        let () = t_a' # register_receivers mapping in
+        let player_a' = new player "a" t_a' in
+        Lwt.pick [
+          (Logger.info_ "new network" >>= fun () ->
+           t_a' # run ());
+          begin
+            Logger.debug_ "a' will be serving momentarily" >>= fun () ->
+            player_a' # serve ~n:200 "b"
+          end
+        ]
       end;
       t_b # run ();
       player_a # serve "b";
@@ -256,8 +256,8 @@ let test_pingpong_restart () =
   Lwt_main.run main_t
 
 let suite = "tcp" >::: [
-  "pingpong_1x1" >:: test_pingpong_1x1;
-  "pingpong_2x2" >:: test_pingpong_2x2;
-  "pingpong_multi_server" >:: test_pingpong_multi_server;
-  "pingpong_restart" >:: test_pingpong_restart;
-]
+    "pingpong_1x1" >:: test_pingpong_1x1;
+    "pingpong_2x2" >:: test_pingpong_2x2;
+    "pingpong_multi_server" >:: test_pingpong_multi_server;
+    "pingpong_restart" >:: test_pingpong_restart;
+  ]

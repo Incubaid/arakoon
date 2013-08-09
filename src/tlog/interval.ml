@@ -26,7 +26,7 @@ module Interval = struct
              pr_b : string option;
              pr_e : string option;
            }
-      (* (string option * string option) * (string option * string option) *)
+  (* (string option * string option) * (string option * string option) *)
 
   let make pu_b pu_e pr_b pr_e = { pu_b;pu_e;pr_b;pr_e}
 
@@ -45,10 +45,10 @@ module Interval = struct
 
   let is_ok t key =
     match t.pu_b,t.pu_e with
-    | None  , None   -> true
-    | Some b, None   -> b <= key
-    | None  , Some e -> key < e
-    | Some b, Some e  -> b <= key && key < e
+      | None  , None   -> true
+      | Some b, None   -> b <= key
+      | None  , Some e -> key < e
+      | Some b, Some e  -> b <= key && key < e
 
   let interval_to buf t =
     let so2 buf x= Llio.string_option_to buf x in

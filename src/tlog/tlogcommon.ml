@@ -70,44 +70,44 @@ let read_entry ic =
   let last_valid_pos = Lwt_io.position ic in
   Lwt.catch
     (fun () ->
-      Sn.input_sn    ic >>= fun  i     ->
-      Llio.input_int32 ic >>= fun chkSum ->
-      Llio.input_string ic >>= fun cmd  ->
-      let cmdl = String.length cmd in
-      let chksum2 = Crc32c.calculate_crc32c cmd 0 cmdl in
-      begin
-        if chkSum <> chksum2
-        then Lwt.fail (TLogCheckSumError last_valid_pos )
-        else Lwt.return ()
-      end >>= fun () ->
-      let value,off = Value.value_from cmd 0 in
-      let marker =
-        if off = cmdl
-        then None
-        else
-          let m,_ = Llio.string_option_from cmd off in
-          m
-      in
-      let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
-      Lwt.return entry)
+       Sn.input_sn    ic >>= fun  i     ->
+       Llio.input_int32 ic >>= fun chkSum ->
+       Llio.input_string ic >>= fun cmd  ->
+       let cmdl = String.length cmd in
+       let chksum2 = Crc32c.calculate_crc32c cmd 0 cmdl in
+       begin
+         if chkSum <> chksum2
+         then Lwt.fail (TLogCheckSumError last_valid_pos )
+         else Lwt.return ()
+       end >>= fun () ->
+       let value,off = Value.value_from cmd 0 in
+       let marker =
+         if off = cmdl
+         then None
+         else
+           let m,_ = Llio.string_option_from cmd off in
+           m
+       in
+       let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
+       Lwt.return entry)
     (function
       | End_of_file ->
+        begin
+          let new_pos = Lwt_io.position ic in
+          Logger.log_ Logger.Section.main Logger.Debug
+            (fun () ->
+               Printf.sprintf "Last valid pos: %d, new pos: %d"
+                 (Int64.to_int last_valid_pos) (Int64.to_int new_pos)) >>= fun () ->
           begin
-            let new_pos = Lwt_io.position ic in
-            Logger.log_ Logger.Section.main Logger.Debug
-              (fun () ->
-                Printf.sprintf "Last valid pos: %d, new pos: %d"
-                  (Int64.to_int last_valid_pos) (Int64.to_int new_pos)) >>= fun () ->
-            begin
-              if ( Int64.compare new_pos last_valid_pos ) = 0
-              then Lwt.fail End_of_file
-              else
-                begin
-                  Logger.log Logger.Section.main Logger.Debug "Failing with TLogUnexpectedEndOfFile" >>= fun () ->
-                  Lwt.fail (TLogUnexpectedEndOfFile last_valid_pos)
-                end
-            end
+            if ( Int64.compare new_pos last_valid_pos ) = 0
+            then Lwt.fail End_of_file
+            else
+              begin
+                Logger.log Logger.Section.main Logger.Debug "Failing with TLogUnexpectedEndOfFile" >>= fun () ->
+                Lwt.fail (TLogUnexpectedEndOfFile last_valid_pos)
+              end
           end
+        end
       | ex -> Lwt.fail ex)
 
 

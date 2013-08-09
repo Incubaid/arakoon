@@ -37,7 +37,7 @@ let with_remote_stream (cluster:string) cfg f =
     >>= fun (client) ->
     f client
   in
-    Lwt_io.with_connection sa do_it
+  Lwt_io.with_connection sa do_it
 
 let find_master cluster_id (cli_cfg:lookup) =
   let check_node node_name (node_cfg:ClientCfg.node_address) acc =
@@ -48,15 +48,15 @@ let find_master cluster_id (cli_cfg:lookup) =
       let sa = Network.make_address ip0 port in
       Lwt.catch
         (fun () ->
-          Lwt_io.with_connection sa
-            (fun connection ->
-              Arakoon_remote_client.make_remote_client cluster_id  connection
-            >>= fun client ->
-            client # who_master ())
-            >>= function
-              | None -> acc
-              | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
-                Lwt.return (Some m) )
+           Lwt_io.with_connection sa
+             (fun connection ->
+                Arakoon_remote_client.make_remote_client cluster_id  connection
+                >>= fun client ->
+                client # who_master ())
+           >>= function
+           | None -> acc
+           | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
+             Lwt.return (Some m) )
         (function
           | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) ->
             Logger.info_f_ "node %s is down, trying others" node_name >>= fun () ->
@@ -66,8 +66,8 @@ let find_master cluster_id (cli_cfg:lookup) =
     end
   in
   Hashtbl.fold check_node (cli_cfg:lookup) (Lwt.return None) >>= function
-    | None -> failwith "No master found"
-    | Some m -> Lwt.return m
+  | None -> failwith "No master found"
+  | Some m -> Lwt.return m
 
 let with_master_remote_stream cluster_id (cfg:lookup) f =
   find_master cluster_id cfg >>= fun master_name ->
@@ -111,14 +111,14 @@ let __init_nursery config cluster_id =
   let (keeper_id, cli_cfg) = get_keeper_config config in
   let set_routing client =
     Lwt.catch( fun () ->
-      client # get_routing () >>= fun cur ->
-      failwith "Cannot initialize nursery. It's already initialized."
-    ) ( function
-      | Arakoon_exc.Exception( Arakoon_exc.E_NOT_FOUND, _ ) ->
-         let r = Routing.build ( [], cluster_id ) in
-         client # set_routing r
-      | e -> Lwt.fail e
-    )
+        client # get_routing () >>= fun cur ->
+        failwith "Cannot initialize nursery. It's already initialized."
+      ) ( function
+        | Arakoon_exc.Exception( Arakoon_exc.E_NOT_FOUND, _ ) ->
+          let r = Routing.build ( [], cluster_id ) in
+          client # set_routing r
+        | e -> Lwt.fail e
+      )
   in
   with_master_remote_stream keeper_id cli_cfg set_routing
 
@@ -126,11 +126,11 @@ let __init_nursery config cluster_id =
 let __delete_from_nursery config cluster_id sep =
   Logger.info_ "=== STARTING DELETE ===" >>= fun () ->
   let m_sep =
-  begin
-    if sep = ""
-    then None
-    else Some sep
-  end
+    begin
+      if sep = ""
+      then None
+      else Some sep
+    end
   in
   let (keeper_id, cli_cfg) = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
@@ -140,15 +140,15 @@ let __main_run log_file f =
   Lwt_main.run(
     Lwt.catch
       ( fun () ->
-        setup_logger log_file >>= fun () ->
-        f () >>= fun () ->
-        File_system.unlink log_file
+         setup_logger log_file >>= fun () ->
+         f () >>= fun () ->
+         File_system.unlink log_file
       )
       ( fun e ->
-        let msg = Printexc.to_string e in
-        Logger.fatal_ msg >>= fun () ->
-        Lwt.fail e)
-    ) ; 0
+         let msg = Printexc.to_string e in
+         Logger.fatal_ msg >>= fun () ->
+         Lwt.fail e)
+  ) ; 0
 
 let migrate_nursery_range config left sep right =
   __main_run "/tmp/nursery_migrate.log" ( fun() -> __migrate_nursery_range config left sep right )

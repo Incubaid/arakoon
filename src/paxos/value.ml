@@ -43,7 +43,7 @@ let clear_self_master_set me = function
 
 let fill_if_master_set = function
   | Vm (m,_) -> let now = Int64.of_float (Unix.gettimeofday ()) in
-                Vm(m,now)
+    Vm(m,now)
   | v -> v
 
 let updates_from_value = function
@@ -54,15 +54,15 @@ let value_to buf v=
   let () = Llio.int_to buf 0xff in
   match v with
     | Vc (us,synced)     ->
-        Llio.char_to buf 'c';
-        Llio.bool_to buf synced;
-        Llio.list_to buf Update.to_buffer us
+      Llio.char_to buf 'c';
+      Llio.bool_to buf synced;
+      Llio.list_to buf Update.to_buffer us
     | Vm (m,l) ->
-        begin
-          Llio.char_to buf 'm';
-          Llio.string_to buf m;
-          Llio.int64_to buf l
-        end
+      begin
+        Llio.char_to buf 'm';
+        Llio.string_to buf m;
+        Llio.int64_to buf l
+      end
 
 let value_from string pos =
   let i0,p1 = Llio.int_from string pos in
@@ -71,13 +71,13 @@ let value_from string pos =
     let c,p2 = Llio.char_from string p1 in
     match c with
       | 'c' ->
-          let synced, p3 = Llio.bool_from string p2 in
-          let us, p4     = Llio.list_from string Update.from_buffer p3 in
-          let r = Vc(us,synced) in
-          r, p4
+        let synced, p3 = Llio.bool_from string p2 in
+        let us, p4     = Llio.list_from string Update.from_buffer p3 in
+        let r = Vc(us,synced) in
+        r, p4
       | 'm' -> let m, p3 = Llio.string_from string p2 in
-               let l, p4 = Llio.int64_from string p3 in
-               (Vm (m,l)), p4
+        let l, p4 = Llio.int64_from string p3 in
+        (Vm (m,l)), p4
       | _ -> failwith "demarshalling error"
   else
     begin
@@ -93,6 +93,6 @@ let value_from string pos =
 
 let value2s ?(values=false) = function
   | Vc (us,synced)  ->
-      let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
-      Printf.sprintf "(Vc (%s,%b)" uss synced
+    let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
+    Printf.sprintf "(Vc (%s,%b)" uss synced
   | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%Li))" m l

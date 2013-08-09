@@ -34,7 +34,7 @@ let with_client cfg (cluster:string) f =
     >>= fun (client: Arakoon_client.client) ->
     f client
   in
-    Lwt_io.with_connection sa do_it
+  Lwt_io.with_connection sa do_it
 
 let ping ip port cluster_id =
   let do_it connection =
@@ -57,28 +57,28 @@ let find_master cluster_cfg =
   let rec loop = function
     | [] -> Lwt.fail (Failure "too many nodes down")
     | cfg :: rest ->
-        begin
-          let section = Logger.Section.main in
-          Logger.info_f_ "cfg=%s" cfg.node_name >>= fun () ->
-          let sa = _address_to_use cfg.ips cfg.client_port in
-          Lwt.catch
-            (fun () ->
-              Lwt_io.with_connection sa
-                (fun connection ->
+      begin
+        let section = Logger.Section.main in
+        Logger.info_f_ "cfg=%s" cfg.node_name >>= fun () ->
+        let sa = _address_to_use cfg.ips cfg.client_port in
+        Lwt.catch
+          (fun () ->
+             Lwt_io.with_connection sa
+               (fun connection ->
                   Arakoon_remote_client.make_remote_client
                     cluster_cfg.cluster_id connection
                   >>= fun client ->
                   client # who_master ())
-              >>= function
-                | None -> Lwt.fail (Failure "No Master")
-                | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
-                    Lwt.return m)
-            (function
-              | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) ->
-                  Logger.info_f_ "node %s is down, trying others" cfg.node_name >>= fun () ->
-                  loop rest
-              | exn -> Lwt.fail exn
-            )
+             >>= function
+             | None -> Lwt.fail (Failure "No Master")
+             | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
+               Lwt.return m)
+          (function
+            | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) ->
+              Logger.info_f_ "node %s is down, trying others" cfg.node_name >>= fun () ->
+              loop rest
+            | exn -> Lwt.fail exn
+          )
       end
   in loop cfgs
 
@@ -119,19 +119,19 @@ let delete cfg_name key =
 
 let delete_prefix cfg_name prefix =
   let t () = with_master_client cfg_name (
-    fun client -> client # delete_prefix prefix >>= fun n_deleted ->
-      Lwt_io.printlf "%i" n_deleted
-  )
+      fun client -> client # delete_prefix prefix >>= fun n_deleted ->
+        Lwt_io.printlf "%i" n_deleted
+    )
   in
   run t
 
 let prefix cfg_name prefix prefix_size =
   let t () = with_master_client cfg_name
-    (fun client ->
-      client # prefix_keys prefix prefix_size >>= fun keys ->
-      Lwt_list.iter_s (fun k -> Lwt_io.printlf "%S" k ) keys >>= fun () ->
-      Lwt.return ()
-    )
+               (fun client ->
+                  client # prefix_keys prefix prefix_size >>= fun keys ->
+                  Lwt_list.iter_s (fun k -> Lwt_io.printlf "%S" k ) keys >>= fun () ->
+                  Lwt.return ()
+               )
   in
   run t
 
@@ -172,7 +172,7 @@ let who_master cfg_name () =
   run t
 
 let _cluster_and_node_cfg node_name cfg_name =
- let cluster_cfg = read_config cfg_name in
+  let cluster_cfg = read_config cfg_name in
   let rec _find cfgs =
     let rec loop = function
       | [] -> failwith (node_name ^ " is not known in config " ^ cfg_name)
@@ -203,9 +203,9 @@ let node_version node_name cfg_name =
   let t () =
     with_client node_cfg cluster
       (fun client ->
-        client # version () >>= fun (major,minor,patch, info) ->
-        Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
-        Lwt_io.printl info
+         client # version () >>= fun (major,minor,patch, info) ->
+         Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
+         Lwt_io.printl info
       )
   in
   run t

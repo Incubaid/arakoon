@@ -39,41 +39,41 @@ type specification = section_specification list
 (** send the name of an ini file to the constructor the file must
     exist, but can be empty *)
 class inifile : ?spec:specification -> string ->
-object
-  (** get a value from the config object raise Invalid_section, or
-      invalid_element on error.  getval section element *)
-  method getval : string -> string -> string
+  object
+    (** get a value from the config object raise Invalid_section, or
+        invalid_element on error.  getval section element *)
+    method getval : string -> string -> string
 
-  (** get a value from the config object. return a list of all the
-      objects bindings. If the key is listed on more than one line it
-      will get n bindings, where n is the number of lines it is
-      mentioned on.  raise Invalid_section, or invalid_element on error.
-      getaval section element *)
-  method getaval : string -> string -> string list
+    (** get a value from the config object. return a list of all the
+        objects bindings. If the key is listed on more than one line it
+        will get n bindings, where n is the number of lines it is
+        mentioned on.  raise Invalid_section, or invalid_element on error.
+        getaval section element *)
+    method getaval : string -> string -> string list
 
-  (** set a value in the config create a new section, and or element
-      if necessary.  setval section element *)
-  method setval : string -> string -> string -> unit
+    (** set a value in the config create a new section, and or element
+        if necessary.  setval section element *)
+    method setval : string -> string -> string -> unit
 
-  (** delete the topmost binding (the one returned by getval) from the
-      section sec. Possibly exposeing another binding.  raise
-      Invalid_section on error.  delval sec elt *)
-  method delval : string -> string -> unit
+    (** delete the topmost binding (the one returned by getval) from the
+        section sec. Possibly exposeing another binding.  raise
+        Invalid_section on error.  delval sec elt *)
+    method delval : string -> string -> unit
 
-  (** save the changes you have made
-      optionally save to a different file *)
-  method save : ?file:string -> unit -> unit
+    (** save the changes you have made
+        optionally save to a different file *)
+    method save : ?file:string -> unit -> unit
 
-  (** iterates across a section. passes all key valu pairs to f
-      exactly once.*)
-  method iter : (string -> string -> unit) -> string -> unit
+    (** iterates across a section. passes all key valu pairs to f
+        exactly once.*)
+    method iter : (string -> string -> unit) -> string -> unit
 
-  (** returns a list of all sections in the file *)
-  method sects : string list
+    (** returns a list of all sections in the file *)
+    method sects : string list
 
-  (** return all the attibutes of a section *)
-  method attrs : string -> string list
-end
+    (** return all the attibutes of a section *)
+    method attrs : string -> string list
+  end
 
 (** Executes a fold left across a directory of ini files
     (skips files which do not end with .ini). fold f path a

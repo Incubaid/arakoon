@@ -78,8 +78,8 @@ let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync 
     | [] -> Lwt.return ()
     | v :: vs ->
       begin
-      tlc # log_value i v >>= fun () ->
-      loop (Sn.succ i) vs
+        tlc # log_value i v >>= fun () ->
+        loop (Sn.succ i) vs
       end
   in
   loop Sn.start values >>= fun () ->
@@ -88,14 +88,14 @@ let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync 
 
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
-      struct
-        include LS
-        let make_store ?(read_only=false) (db_name:string) =
-          LS.make_store db_name >>= fun store ->
-          LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
-          Hashtbl.add stores db_name store;
-          Lwt.return store
-      end in
+  struct
+    include LS
+    let make_store ?(read_only=false) (db_name:string) =
+      LS.make_store db_name >>= fun store ->
+      LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
+      Hashtbl.add stores db_name store;
+      Lwt.return store
+  end in
   Node_main._main_2
     (module S)
     (_make_tlog_coll tlcs values)
@@ -104,7 +104,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    >>= fun _ -> Lwt.return ()
+  >>= fun _ -> Lwt.return ()
 
 let _dump_tlc ~tlcs node =
   let tlc0 = Hashtbl.find tlcs node in
@@ -157,9 +157,9 @@ let post_failure () =
   in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-      begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
-      run_node2 ();
-      eventually_stop ()]
+            begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
+            run_node2 ();
+            eventually_stop ()]
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node =
@@ -212,10 +212,10 @@ let restart_slaves () =
   let eventually_stop() = Lwt_unix.sleep 10.0 in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-      run_node1 ();
-      (* run_node2 () *)
-     eventually_stop();
-     ]
+            run_node1 ();
+            (* run_node2 () *)
+            eventually_stop();
+           ]
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node =
@@ -237,6 +237,6 @@ let teardown () = Logger.debug_ "teardown"
 let w f = Extra.lwt_bracket setup f teardown
 
 let suite = "startup" >:::[
-  "post_failure" >:: w post_failure;
-  "restart_slaves" >:: w restart_slaves;
-]
+    "post_failure" >:: w post_failure;
+    "restart_slaves" >:: w restart_slaves;
+  ]

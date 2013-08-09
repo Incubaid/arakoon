@@ -51,7 +51,7 @@ let prepare_tlog_scenarios (dn,factory) =
 let test_interrupted_rollover (dn, tlf_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   (*let fn = Tlc2.get_full_path dn tlf_dir "001.tlog" in
-  Unix.unlink fn; *)
+    Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
   let value = Value.create_master_value ("me", 0L) in
   tlog_coll # log_value 5L value >>= fun () ->
@@ -125,15 +125,15 @@ let test_iterate5 (dn, tlf_dir, factory) =
         let is = string_of_int i in
         let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
         tlc # log_value (Sn.of_int i) value >>= fun _ ->
-          begin
-            if i mod 3 = 2
-            then
-              begin
-                tlc # close () >>= fun () ->
-                factory dn "node_name"
-              end
-            else Lwt.return tlc
-          end
+        begin
+          if i mod 3 = 2
+          then
+            begin
+              tlc # close () >>= fun () ->
+              factory dn "node_name"
+            end
+          else Lwt.return tlc
+        end
         >>= fun tlc' ->
         loop tlc' (i+1)
       end
@@ -145,7 +145,7 @@ let test_iterate5 (dn, tlf_dir, factory) =
     let i = Entry.i_of entry in
     let v = Entry.v_of entry in
     Logger.debug_f_ "test_iterate5: %s %s" (Sn.string_of i)
-    (Value.value2s v)
+      (Value.value2s v)
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return ()
@@ -160,19 +160,19 @@ let test_iterate6 (dn, tlf_dir, factory) =
     else
       begin
         let is = string_of_int i in
-      let sni = Sn.of_int i in
+        let sni = Sn.of_int i in
         let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
-          begin
-            if i != 19
-            then
-              tlc # log_value sni value
-            else
+        begin
+          if i != 19
+          then
+            tlc # log_value sni value
+          else
             begin
-            tlc # log_value sni value >>= fun _ ->
-            let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
-            tlc # log_value  sni value2
+              tlc # log_value sni value >>= fun _ ->
+              let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
+              tlc # log_value  sni value2
             end
-          end >>= fun _ ->
+        end >>= fun _ ->
         loop (i+1)
       end
   in
@@ -182,12 +182,12 @@ let test_iterate6 (dn, tlf_dir, factory) =
   let too_far_i = Sn.of_int 20 in
   tlc # iterate start_i too_far_i
     (fun entry ->
-      let i = Entry.i_of entry in
-      let v = Entry.v_of entry in
-      sum := !sum + (Int64.to_int i);
-      Logger.debug_f_ "i=%s : %s" (Sn.string_of i) (Value.value2s v)
-      >>= fun () ->
-      Lwt.return ())
+       let i = Entry.i_of entry in
+       let v = Entry.v_of entry in
+       sum := !sum + (Int64.to_int i);
+       Logger.debug_f_ "i=%s : %s" (Sn.string_of i) (Value.value2s v)
+       >>= fun () ->
+       Lwt.return ())
   >>= fun () ->
   tlc # close () >>= fun () ->
   Logger.debug_f_ "sum =%i " !sum >>= fun () ->
@@ -222,9 +222,9 @@ let test_compression_bug (dn, tlf_dir, factory) =
   factory dn "node_name" >>= fun tlc2 ->
   tlc2 # iterate 0L (Sn.of_int n)
     (fun entry ->
-      let i = Entry.i_of entry in
-      entries := i :: !entries;
-      Logger.debug_f_ "ENTRY: i=%Li" i)
+       let i = Entry.i_of entry in
+       entries := i :: !entries;
+       Logger.debug_f_ "ENTRY: i=%Li" i)
   >>= fun () ->
   OUnit.assert_equal
     ~printer:string_of_int
@@ -288,23 +288,23 @@ let test_compression_previous (dn, tlf_dir, factory) =
 let make_test_tlc (x, y) = x >:: wrap_tlc y x
 
 let suite = "tlc2" >:::
-  List.map make_test_tlc
-  [
-    ("regexp", Tlogcollection_test.test_regexp);
-    ("rollover", Tlogcollection_test.test_rollover);
-    ("get_value_bug", Tlogcollection_test.test_get_value_bug);
-    ("test_restart", Tlogcollection_test.test_restart);
-    ("test_iterate", Tlogcollection_test.test_iterate);
-    ("test_iterate2", Tlogcollection_test.test_iterate2);
-    ("test_iterate3", Tlogcollection_test.test_iterate3);
-    ("test_iterate4", test_iterate4);
-    ("test_iterate5", test_iterate5);
-    ("test_iterate6", test_iterate6);
-    ("validate",  Tlogcollection_test.test_validate_normal);
-    ("validate_corrupt", Tlogcollection_test.test_validate_corrupt_1);
-    ("test_rollover_1002", Tlogcollection_test.test_rollover_1002);
-    ("test_rollover_boundary", test_validate_at_rollover_boundary);
-    ("test_interrupted_rollover", test_interrupted_rollover);
-    ("test_compression_bug", test_compression_bug);
-    ("test_compression_previous", test_compression_previous);
-  ]
+              List.map make_test_tlc
+                [
+                  ("regexp", Tlogcollection_test.test_regexp);
+                  ("rollover", Tlogcollection_test.test_rollover);
+                  ("get_value_bug", Tlogcollection_test.test_get_value_bug);
+                  ("test_restart", Tlogcollection_test.test_restart);
+                  ("test_iterate", Tlogcollection_test.test_iterate);
+                  ("test_iterate2", Tlogcollection_test.test_iterate2);
+                  ("test_iterate3", Tlogcollection_test.test_iterate3);
+                  ("test_iterate4", test_iterate4);
+                  ("test_iterate5", test_iterate5);
+                  ("test_iterate6", test_iterate6);
+                  ("validate",  Tlogcollection_test.test_validate_normal);
+                  ("validate_corrupt", Tlogcollection_test.test_validate_corrupt_1);
+                  ("test_rollover_1002", Tlogcollection_test.test_rollover_1002);
+                  ("test_rollover_boundary", test_validate_at_rollover_boundary);
+                  ("test_interrupted_rollover", test_interrupted_rollover);
+                  ("test_compression_bug", test_compression_bug);
+                  ("test_compression_previous", test_compression_previous);
+                ]

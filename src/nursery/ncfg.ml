@@ -25,7 +25,7 @@ open Client_cfg
 
 module NCFG = struct
   type t = {mutable r: Routing.t;
-      cfgs : (string, ClientCfg.t) Hashtbl.t}
+            cfgs : (string, ClientCfg.t) Hashtbl.t}
 
   let ncfg_to buf (r,cs) =
     Routing.routing_to buf r;

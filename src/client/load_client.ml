@@ -5,19 +5,19 @@ let load_scenario cfg_name x =
     Client_main.with_master_client
       cfg_name
       (fun client ->
-        let rec loop i =
-          if i = 1000
-          then Lwt.return ()
-          else
-            begin
-              Lwt_io.printlf "%04i: %i" cn i >>= fun () ->
-              let key = Printf.sprintf "%i:%i_key" cn i in
-              client # set key key >>= fun () ->
-              Lwt_unix.sleep 0.1   >>= fun () ->
-              loop (i + 1)
-            end
-        in
-        loop 0
+         let rec loop i =
+           if i = 1000
+           then Lwt.return ()
+           else
+             begin
+               Lwt_io.printlf "%04i: %i" cn i >>= fun () ->
+               let key = Printf.sprintf "%i:%i_key" cn i in
+               client # set key key >>= fun () ->
+               Lwt_unix.sleep 0.1   >>= fun () ->
+               loop (i + 1)
+             end
+         in
+         loop 0
       )
   in
   let cnis =

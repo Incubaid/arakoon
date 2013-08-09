@@ -148,25 +148,25 @@ let value_array ic =
     then Lwt.return result
     else
       begin
-  Llio.input_string ic >>= fun s ->
-  result.(i) <- s;
-  loop (i+1)
+        Llio.input_string ic >>= fun s ->
+        result.(i) <- s;
+        loop (i+1)
       end
   in loop 0
 
 let kv_array ic =
   Llio.input_int ic >>= fun size ->
-    let result = Array.create size ("","") in
-    let rec loop i =
-      if i = size
-      then Lwt.return result
-      else
-  begin
-    Llio.input_string_pair ic >>= fun p ->
-    result.(i) <- p;
-    loop (i+1)
-  end
-    in loop 0
+  let result = Array.create size ("","") in
+  let rec loop i =
+    if i = size
+    then Lwt.return result
+    else
+      begin
+        Llio.input_string_pair ic >>= fun p ->
+        result.(i) <- p;
+        loop (i+1)
+      end
+  in loop 0
 
 
 let request oc f =
@@ -177,12 +177,12 @@ let request oc f =
 
 let response ic f =
   Llio.input_int32 ic >>= function
-    | 0l -> f ic
-    | rc32 ->
-      Client_log.debug_f "Client operation failed: %ld" rc32 >>= fun () ->
-      Llio.input_string ic >>= fun msg ->
-      let rc = Arakoon_exc.rc_of_int32 rc32 in
-      Lwt.fail (Arakoon_exc.Exception (rc, msg))
+  | 0l -> f ic
+  | rc32 ->
+    Client_log.debug_f "Client operation failed: %ld" rc32 >>= fun () ->
+    Llio.input_string ic >>= fun msg ->
+    let rc = Arakoon_exc.rc_of_int32 rc32 in
+    Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
 let exists_to buffer ~allow_dirty key =
   command_to buffer EXISTS;
@@ -349,8 +349,8 @@ let get_interval (ic,oc) =
 let get_routing (ic,oc) =
   let outgoing buf = command_to buf GET_ROUTING
   in
-    request  oc outgoing >>= fun () ->
-    response ic Routing.input_routing
+  request  oc outgoing >>= fun () ->
+  response ic Routing.input_routing
 
 
 let set_routing (ic,oc) r =
@@ -358,12 +358,12 @@ let set_routing (ic,oc) r =
     command_to buf SET_ROUTING;
     let b' = Buffer.create 100 in
     Routing.routing_to b' r;
-      let size = Buffer.length b' in
-      Llio.int_to buf size;
-      Buffer.add_buffer buf b'
-    in
-    request  oc outgoing >>= fun  () ->
-    response ic nothing
+    let size = Buffer.length b' in
+    Llio.int_to buf size;
+    Buffer.add_buffer buf b'
+  in
+  request  oc outgoing >>= fun  () ->
+  response ic nothing
 
 let set_routing_delta (ic,oc) left sep right =
   let outgoing buf =
@@ -437,17 +437,17 @@ let get_nursery_cfg (ic,oc) =
 
 let set_nursery_cfg (ic,oc) clusterid cfg =
   let outgoing buf =
-     set_nursery_cfg_to buf clusterid cfg
+    set_nursery_cfg_to buf clusterid cfg
   in
   request oc outgoing >>= fun () ->
   response ic nothing
 
 let optimize_db (ic,oc) =
-   let outgoing buf =
-      command_to buf OPT_DB
-   in
-   request oc outgoing >>= fun () ->
-   response ic nothing
+  let outgoing buf =
+    command_to buf OPT_DB
+  in
+  request oc outgoing >>= fun () ->
+  response ic nothing
 
 let defrag_db (ic,oc) =
   let outgoing buf = command_to buf DEFRAG_DB in
@@ -459,11 +459,11 @@ let version (ic,oc) =
   request oc outgoing >>= fun () ->
   response ic
     (fun ic ->
-      Llio.input_int ic >>= fun major ->
-      Llio.input_int ic >>= fun minor ->
-      Llio.input_int ic >>= fun patch ->
-      Llio.input_string ic >>= fun info ->
-      Lwt.return (major,minor,patch,info)
+       Llio.input_int ic >>= fun major ->
+       Llio.input_int ic >>= fun minor ->
+       Llio.input_int ic >>= fun patch ->
+       Llio.input_string ic >>= fun info ->
+       Lwt.return (major,minor,patch,info)
     )
 
 let current_state (ic,oc) =

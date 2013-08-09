@@ -16,25 +16,25 @@ module Node = struct
   let stop name = _node_cmd "pkill -f '%s --node %s -config %s'" name
 
   let start_all () =
-   List.iter (fun n -> ignore (start n)) names
+    List.iter (fun n -> ignore (start n)) names
 
   let stop_all () =
     List.iter (fun n -> ignore (stop n)) names
 
   let monitor_all () =
     let tab x = Printf.sprintf
-      "--tab-with-profile=Default -e 'tail -f %s/%s/%s.log' -t '%s' "
-      root x x x
+                  "--tab-with-profile=Default -e 'tail -f %s/%s/%s.log' -t '%s' "
+                  root x x x
     in
     let tabs = List.map tab names in
     let cmd = List.fold_left (^) "gnome-terminal " tabs in
-      print_endline cmd;
-      Sys.command cmd
+    print_endline cmd;
+    Sys.command cmd
 
   let mkdirs () =
     let mkdir x =
       let dir_name = Printf.sprintf "%s/%s" root x in
-  Unix.mkdir dir_name 0o755
+      Unix.mkdir dir_name 0o755
     in List.map mkdir names
 
   let clean_dirs () =

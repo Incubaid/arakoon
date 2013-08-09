@@ -72,7 +72,7 @@ val output_string_option: lwtoc -> string option -> unit Lwt.t
 val output_string:        lwtoc -> string        -> unit Lwt.t
 val output_list:
   (lwtoc -> 'a -> unit Lwt.t) ->
-   lwtoc -> 'a list -> unit Lwt.t
+  lwtoc -> 'a list -> unit Lwt.t
 
 val output_string_list:   lwtoc -> string list   -> unit Lwt.t
 val output_hashtbl:
@@ -94,6 +94,6 @@ val input_listl :(lwtic -> 'a Lwt.t) -> lwtic -> (int * 'a list) Lwt.t
 val input_string_list: lwtic -> string list Lwt.t
 val input_kv_list: lwtic -> ((string * string) list) Lwt.t
 val input_hashtbl: (lwtic-> 'a Lwt.t) -> (lwtic -> 'b Lwt.t) ->
-   lwtic -> ('a,'b) Hashtbl.t Lwt.t
+  lwtic -> ('a,'b) Hashtbl.t Lwt.t
 
 val copy_stream:  length:int64 -> ic:lwtic -> oc:lwtoc -> unit Lwt.t

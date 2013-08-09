@@ -58,19 +58,19 @@ let _config_logging me get_cfgs =
     match cfg.log_config with
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
       | Some log_config' ->
-          try
-            let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
-            lc
-          with Not_found ->
-            failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
+        try
+          let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
+          lc
+        with Not_found ->
+          failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
   in
   let to_level = function
-      | "info"    -> Logger.Info
-      | "notice"  -> Logger.Notice
-      | "warning" -> Logger.Warning
-      | "error"   -> Logger.Error
-      | "fatal"   -> Logger.Fatal
-      | _         -> Logger.Debug
+    | "info"    -> Logger.Info
+    | "notice"  -> Logger.Notice
+    | "warning" -> Logger.Warning
+    | "error"   -> Logger.Error
+    | "fatal"   -> Logger.Fatal
+    | _         -> Logger.Debug
   in
   let level = to_level cfg.log_level in
   let () = Logger.Section.set_level Logger.Section.main level in
@@ -109,32 +109,32 @@ let _config_batched_transactions node_cfg cluster_cfg =
   in
   match node_cfg.batched_transaction_config with
     | None ->
-        set_max None None;
+      set_max None None;
     | Some btc ->
-        let (_, btc') =
-          try
-            List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-          with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
-        set_max btc'.max_entries btc'.max_size
+      let (_, btc') =
+        try
+          List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
+        with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
+      set_max btc'.max_entries btc'.max_size
 
 let _config_messaging me others cookie laggy lease_period max_buffer_size =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
-            let f msg source target =
-            let () = incr count in
-            match !count with
-              | x when x >= 1000 -> let () = count := 0 in false
-              | x when x >=  980 -> true
-              | _ -> false
-            in
-            f
+      let f msg source target =
+        let () = incr count in
+        match !count with
+          | x when x >= 1000 -> let () = count := 0 in false
+          | x when x >=  980 -> true
+          | _ -> false
+      in
+      f
     | false -> (fun _ _ _ -> false)
   in
   let mapping =
     List.fold_left
       (fun acc cfg ->
-        let a = List.map (fun ip -> (cfg.node_name, (ip, cfg.messaging_port))) cfg.ips in
-        a @ acc)
+         let a = List.map (fun ip -> (cfg.node_name, (ip, cfg.messaging_port))) cfg.ips in
+         a @ acc)
       [] others
   in
   let messaging = new tcp_messaging
@@ -154,13 +154,13 @@ let _config_service cfg backend=
   in
   let scheme = Server.create_connection_allocation_scheme max_connections in
   let services = List.map
-    (fun host ->
-      let name = Printf.sprintf "%s:client_service" host in
-      Server.make_server_thread ~name host port
-        (Client_protocol.protocol backend)
-        ~scheme
-    )
-    hosts
+                   (fun host ->
+                      let name = Printf.sprintf "%s:client_service" host in
+                      Server.make_server_thread ~name host port
+                        (Client_protocol.protocol backend)
+                        ~scheme
+                   )
+                   hosts
   in
   let uber_service () = Lwt_list.iter_p (fun f -> f ()) services in
   uber_service
@@ -194,9 +194,9 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
   begin
-  if node_cnt > 1
+    if node_cnt > 1
     then Catchup.get_db db_name cluster_id other_configs
-  else Lwt.return None
+    else Lwt.return None
   end
   >>= fun m_mr_name ->
   let mr_name =
@@ -213,24 +213,24 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     me.use_compression me.fsync name >>= fun tlc ->
   Lwt.finalize
     (fun () ->
-      let current_i = match S.consensus_i store with
-        | None -> Sn.start
-        | Some i -> i
-      in
-      let future_n = Sn.start in
-      let future_i = Sn.start in
-      Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-        ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-      S.close store)
+       let current_i = match S.consensus_i store with
+         | None -> Sn.start
+         | Some i -> i
+       in
+       let future_n = Sn.start in
+       let future_i = Sn.start in
+       Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+         ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+       S.close store)
     (tlc # close)
 
 
 
 
 module X = struct
-      (* Need to find a name for this:
-   the idea is to lift stuff out of _main_2
-      *)
+  (* Need to find a name for this:
+     the idea is to lift stuff out of _main_2
+  *)
 
   let last_master_log_stmt = ref 0L
 
@@ -243,25 +243,25 @@ module X = struct
       begin
         match v' with
           | Value.Vm (m, _) ->
-              let now = Int64.of_float (Unix.gettimeofday ()) in
-              let m_old_master = S.who_master store in
-              let new_master =
-                begin
-                  match m_old_master with
-                    | Some(m_old,_) -> m <> m_old
-                    | None -> true
-                end
-              in
-              if (Int64.sub now !last_master_log_stmt >= 60L) or new_master then
-                begin
-                  last_master_log_stmt := now;
-                  Logger.info_f_ "%s is master"  m
-                end
-              else
-                Lwt.return ()
+            let now = Int64.of_float (Unix.gettimeofday ()) in
+            let m_old_master = S.who_master store in
+            let new_master =
+              begin
+                match m_old_master with
+                  | Some(m_old,_) -> m <> m_old
+                  | None -> true
+              end
+            in
+            if (Int64.sub now !last_master_log_stmt >= 60L) or new_master then
+              begin
+                last_master_log_stmt := now;
+                Logger.info_f_ "%s is master"  m
+              end
+            else
+              Lwt.return ()
           | _ -> Lwt.return ()
       end >>= fun () ->
-    S.on_consensus store vni' >>= fun r ->
+      S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in
       Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
@@ -278,9 +278,9 @@ module X = struct
     begin
       match v with
         | Value.Vc (us,_)     ->
-            let size = List.length us in
-            let () = Statistics.new_harvest statistics size in
-            Lwt.return ()
+          let size = List.length us in
+          let () = Statistics.new_harvest statistics size in
+          Lwt.return ()
         | _ -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
@@ -301,9 +301,9 @@ module X = struct
 end
 
 let _main_2 (type s)
-    (module S : Store.STORE with type t = s)
-    make_tlog_coll make_config get_snapshot_name ~name
-    ~daemonize ~catchup_only : int Lwt.t =
+      (module S : Store.STORE with type t = s)
+      make_tlog_coll make_config get_snapshot_name ~name
+      ~daemonize ~catchup_only : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -322,11 +322,11 @@ let _main_2 (type s)
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
   let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
       let handle () =
-          Lwt_unix.sleep 0.001 >>= fun () ->
-          Logger.info_ "Received USR2, dumping crash_log" >>= fun () ->
-          match dump_crash_log with
-            | None -> Logger.info_ "No crash_log defined"
-            | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped"
+        Lwt_unix.sleep 0.001 >>= fun () ->
+        Logger.info_ "Received USR2, dumping crash_log" >>= fun () ->
+        match dump_crash_log with
+          | None -> Logger.info_ "No crash_log defined"
+          | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped"
       in
       Lwt.ignore_result (handle ())) in
   _config_batched_transactions me cluster_cfg;
@@ -349,8 +349,8 @@ let _main_2 (type s)
       let n_nodes = List.length in_cluster_names in
 
       let () = match cluster_cfg.overwrite_tlog_entries with
-      | None -> ()
-      | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+        | None -> ()
+        | Some i ->  Tlogcommon.tlogEntriesPerFile := i
       in
 
       let my_clicfg =
@@ -365,12 +365,12 @@ let _main_2 (type s)
         end
       in
       let other_names =
-      if me.is_learner
-      then me.targets
-      else List.filter ((<>) name) in_cluster_names
+        if me.is_learner
+        then me.targets
+        else List.filter ((<>) name) in_cluster_names
       in
       let _ = Lwt_unix.on_signal 10
-      (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
+                (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
       log_prelude cluster_cfg >>= fun () ->
       Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
@@ -392,21 +392,21 @@ let _main_2 (type s)
                         Logger.debug_f_ "upload_cfg_to_keeper (%s,%i)" ipss port >>= fun () ->
                         Lwt.catch
                           (fun () ->
-                            let ip0 = List.hd ips in
-                            let address = Network.make_address ip0 port in
-                            let upload connection =
-                              Remote_nodestream.make_remote_nodestream n_cluster_id connection >>= fun (client) ->
-                              client # store_cluster_cfg cluster_id my_clicfg
-                            in
-                            Lwt_io.with_connection address upload >>= fun () ->
-                            Logger.info_f_ "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
-                            Lwt.return true
+                             let ip0 = List.hd ips in
+                             let address = Network.make_address ip0 port in
+                             let upload connection =
+                               Remote_nodestream.make_remote_nodestream n_cluster_id connection >>= fun (client) ->
+                               client # store_cluster_cfg cluster_id my_clicfg
+                             in
+                             Lwt_io.with_connection address upload >>= fun () ->
+                             Logger.info_f_ "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
+                             Lwt.return true
                           )
                           (fun e ->
-                            let exc_msg = Printexc.to_string e in
-                            Logger.warning_f_ "Attempt to upload config to %s failed (%s)" node_id exc_msg
-                            >>= fun () ->
-                            Lwt.return false
+                             let exc_msg = Printexc.to_string e in
+                             Logger.warning_f_ "Attempt to upload config to %s failed (%s)" node_id exc_msg
+                             >>= fun () ->
+                             Lwt.return false
                           )
                       end
                 in
@@ -425,20 +425,20 @@ let _main_2 (type s)
       let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
-      other_names >>= fun () ->
+        other_names >>= fun () ->
       Logger.info_f_ "quorum_function gives %i for %i"
-      (quorum_function n_nodes) n_nodes >>= fun () ->
+        (quorum_function n_nodes) n_nodes >>= fun () ->
       Logger.info_f_ "DAEMONIZATION=%b" daemonize >>= fun () ->
 
       let build_startup_state () =
-      begin
-        Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
+        begin
+          Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
           let db_name = full_db_name me in
           let snapshot_name = get_snapshot_name() in
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
             (fun () ->
-              S.copy_store2 full_snapshot_path db_name false
+               S.copy_store2 full_snapshot_path db_name false
             )
             (function
               | Not_found -> Lwt.return ()
@@ -459,104 +459,104 @@ let _main_2 (type s)
               last_i in
           Lwt.catch
             (fun () ->
-            Catchup.verify_n_catchup_store me.node_name
-              ((module S), store, tlog_coll, ti_o)
-              ~current_i master)
+               Catchup.verify_n_catchup_store me.node_name
+                 ((module S), store, tlog_coll, ti_o)
+                 ~current_i master)
             (fun ex ->
-              tlog_coll # close () >>= fun () ->
-              Lwt.fail ex)
-              >>= fun () ->
+               tlog_coll # close () >>= fun () ->
+               Lwt.fail ex)
+          >>= fun () ->
           let new_i = S.get_succ_store_i store in
           let vo = tlog_coll # get_last_value new_i in
-        let client_buffer =
-          let capacity = Some (cluster_cfg.client_buffer_capacity) in
-          Lwt_buffer.create ~capacity () in
-        let client_push v = Lwt_buffer.add v client_buffer in
-        let node_buffer = messaging # get_buffer my_name in
-        let expect_reachable = messaging # expect_reachable in
-        let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
-        let inject_push v = Lwt_buffer.add v inject_buffer in
-        let read_only = master = ReadOnly in
+          let client_buffer =
+            let capacity = Some (cluster_cfg.client_buffer_capacity) in
+            Lwt_buffer.create ~capacity () in
+          let client_push v = Lwt_buffer.add v client_buffer in
+          let node_buffer = messaging # get_buffer my_name in
+          let expect_reachable = messaging # expect_reachable in
+          let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+          let inject_push v = Lwt_buffer.add v inject_buffer in
+          let read_only = master = ReadOnly in
           let module SB = Sync_backend.Sync_backend(S) in
-        let sb =
-          let test = Node_cfg.Node_cfg.test cluster_cfg in
+          let sb =
+            let test = Node_cfg.Node_cfg.test cluster_cfg in
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-            store (S.copy_store2, full_snapshot_path)
+              store (S.copy_store2, full_snapshot_path)
               tlog_coll lease_period
-            ~quorum_function n_nodes
-            ~expect_reachable
-            ~test
-            ~read_only
+              ~quorum_function n_nodes
+              ~expect_reachable
+              ~test
+              ~read_only
               ~max_value_size:cluster_cfg.max_value_size
-        in
-        let backend = (sb :> Backend.backend) in
+          in
+          let backend = (sb :> Backend.backend) in
 
-        let service = _config_service me backend in
+          let service = _config_service me backend in
 
-        let send, receive, run, register =
-          Multi_paxos.network_of_messaging messaging in
+          let send, receive, run, register =
+            Multi_paxos.network_of_messaging messaging in
 
-        let on_consensus = X.on_consensus (module S) store in
-        let on_witness (name:string) (i: Sn.t) = backend # witness name i in
-        let last_witnessed (name:string) = backend # last_witnessed name in
+          let on_consensus = X.on_consensus (module S) store in
+          let on_witness (name:string) (i: Sn.t) = backend # witness name i in
+          let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
-        let on_accept = X.on_accept statistics tlog_coll (module S) store in
+          let on_accept = X.on_accept statistics tlog_coll (module S) store in
 
-        let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
-        let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
-        let inject_event (e:Multi_paxos.paxos_event) =
+          let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
+          let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
+          let inject_event (e:Multi_paxos.paxos_event) =
             let add_to_buffer,name =
               match e with
                 | Multi_paxos.ElectionTimeout _ ->
-                    (fun () -> Lwt_buffer.add e election_timeout_buffer), "election"
+                  (fun () -> Lwt_buffer.add e election_timeout_buffer), "election"
                 | Multi_paxos.FromClient fc ->
-                    (fun () ->
-                      Lwt_list.iter_s
-                        (fun u -> Lwt_buffer.add u client_buffer)
-                        fc),
+                  (fun () ->
+                     Lwt_list.iter_s
+                       (fun u -> Lwt_buffer.add u client_buffer)
+                       fc),
                   "client_buffer"
                 | _ ->
-                    (fun () -> Lwt_buffer.add e inject_buffer), "inject"
+                  (fun () -> Lwt_buffer.add e inject_buffer), "inject"
             in
             Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
               name
             >>= fun () ->
-          add_to_buffer () >>= fun () ->
+            add_to_buffer () >>= fun () ->
             Logger.debug_f Multi_paxos.section "XXX injected event into '%s'" name
-        in
-        let buffers = Multi_paxos_fsm.make_buffers
-          (client_buffer,
-           node_buffer,
-           inject_buffer,
-           election_timeout_buffer)
-        in
-        let constants =
-          Multi_paxos.make my_name
-            me.is_learner
-            other_names send receive
-            get_last_value
-            on_accept
+          in
+          let buffers = Multi_paxos_fsm.make_buffers
+                          (client_buffer,
+                           node_buffer,
+                           inject_buffer,
+                           election_timeout_buffer)
+          in
+          let constants =
+            Multi_paxos.make my_name
+              me.is_learner
+              other_names send receive
+              get_last_value
+              on_accept
               on_consensus
               on_witness
-            last_witnessed
-            (quorum_function: int -> int)
-            (master : master)
+              last_witnessed
+              (quorum_function: int -> int)
+              (master : master)
               (module S)
-            store
+              store
               tlog_coll
               others
               lease_period
               inject_event
-            ~cluster_id
+              ~cluster_id
               false
-        in
-        let reporting_period = me.reporting in
-        Lwt.return ((master,constants, buffers, new_i, vo, store),
-                  service, X.reporting reporting_period backend)
-      end
+          in
+          let reporting_period = me.reporting in
+          Lwt.return ((master,constants, buffers, new_i, vo, store),
+                      service, X.reporting reporting_period backend)
+        end
 
       in
 
@@ -566,147 +566,147 @@ let _main_2 (type s)
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
       let start_backend (master, constants, buffers, new_i, vo, store) =
-      let to_run =
-        match master with
-          | Forced master  ->
+        let to_run =
+          match master with
+            | Forced master  ->
               if master = my_name
-            then Multi_paxos_fsm.enter_forced_master
-            else
-            begin
-              if me.is_learner
-              then Multi_paxos_fsm.enter_simple_paxos
-              else Multi_paxos_fsm.enter_forced_slave
-            end
-          | _ -> Multi_paxos_fsm.enter_simple_paxos
-      in
+              then Multi_paxos_fsm.enter_forced_master
+              else
+                begin
+                  if me.is_learner
+                  then Multi_paxos_fsm.enter_simple_paxos
+                  else Multi_paxos_fsm.enter_forced_slave
+                end
+            | _ -> Multi_paxos_fsm.enter_simple_paxos
+        in
         to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
-      (fun () ->
-          let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
-          let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
-        build_startup_state () >>= fun (start_state,
-                                service,
-                                rapporting) ->
-          let (_,constants,_,_,_,store) = start_state in
-          let log_exception m t =
-            Lwt.catch
-              t
-              (fun exn ->
-                Logger.fatal_ ~exn m >>= fun () ->
-                Lwt.fail exn) in
-          let fsm () = start_backend start_state in
-          let fsm_mutex = Lwt_mutex.create () in
-          let fsm_t =
-            log_exception
-              "Exception in fsm thread"
-              (fun () -> Lwt_mutex.with_lock fsm_mutex fsm) in
-          let msg_mutex = Lwt_mutex.create () in
-          let msg_t =
-            log_exception
-              "Exception in messaging thread"
-              (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run)) in
-          Lwt.finalize
-            (fun () ->
-              Lwt.pick[ fsm_t;
-                        msg_t;
-                        service ();
-                        rapporting ();
-                        (listen_for_signal () >>= fun () ->
-                         let msg = "got TERM | INT" in
-                         Logger.info_ msg >>= fun () ->
-                         Lwt_io.printl msg >>= fun () ->
-                         Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
-                         List.iter
-                           (fun n ->
-                             let s = Lwt_log.Section.make n in
-                             Lwt_log.Section.set_level s Lwt_log.Debug)
-                           ["client_protocol"; "tcp_messaging"; "paxos"];
-                         Logger.info_ "All logging set to debug level after TERM/INT"
-                        )
-                        ;
-                      ])
-            (fun () ->
-              Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
-              Lwt.pick [
-                Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
-                           Logger.info_ "fsm thread finished");
-                          (Lwt_mutex.lock msg_mutex >>= fun () ->
-                           Logger.info_ "messaging thread finished")] ;
-                (Lwt_unix.sleep 2.0 >>= fun () ->
-                 Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
-              let count_thread m =
-                let rec inner i =
-                  Logger.info_f_ m i >>= fun () ->
-                  Lwt_unix.sleep 1.0 >>= fun () ->
-                  inner (succ i) in
-                inner 0 in
-              Lwt.pick [ S.close ~flush:false store ;
-                         count_thread "Closing store (%is)" ] >>= fun () ->
-              Logger.fatal_f_
-                ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                (S.get_location store) >>= fun () ->
-              Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
-                         count_thread "Closing tlog (%is)" ])
-          >>= fun () ->
-          Logger.info_ "Completed shutdown"
-          >>= fun () ->
-          Lwt.return 0
+        (fun () ->
+           let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
+           let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
+           build_startup_state () >>= fun (start_state,
+                                           service,
+                                           rapporting) ->
+           let (_,constants,_,_,_,store) = start_state in
+           let log_exception m t =
+             Lwt.catch
+               t
+               (fun exn ->
+                  Logger.fatal_ ~exn m >>= fun () ->
+                  Lwt.fail exn) in
+           let fsm () = start_backend start_state in
+           let fsm_mutex = Lwt_mutex.create () in
+           let fsm_t =
+             log_exception
+               "Exception in fsm thread"
+               (fun () -> Lwt_mutex.with_lock fsm_mutex fsm) in
+           let msg_mutex = Lwt_mutex.create () in
+           let msg_t =
+             log_exception
+               "Exception in messaging thread"
+               (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run)) in
+           Lwt.finalize
+             (fun () ->
+                Lwt.pick[ fsm_t;
+                          msg_t;
+                          service ();
+                          rapporting ();
+                          (listen_for_signal () >>= fun () ->
+                           let msg = "got TERM | INT" in
+                           Logger.info_ msg >>= fun () ->
+                           Lwt_io.printl msg >>= fun () ->
+                           Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+                           List.iter
+                             (fun n ->
+                                let s = Lwt_log.Section.make n in
+                                Lwt_log.Section.set_level s Lwt_log.Debug)
+                             ["client_protocol"; "tcp_messaging"; "paxos"];
+                           Logger.info_ "All logging set to debug level after TERM/INT"
+                          )
+                          ;
+                        ])
+             (fun () ->
+                Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
+                Lwt.pick [
+                  Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
+                             Logger.info_ "fsm thread finished");
+                            (Lwt_mutex.lock msg_mutex >>= fun () ->
+                             Logger.info_ "messaging thread finished")] ;
+                  (Lwt_unix.sleep 2.0 >>= fun () ->
+                   Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
+                let count_thread m =
+                  let rec inner i =
+                    Logger.info_f_ m i >>= fun () ->
+                    Lwt_unix.sleep 1.0 >>= fun () ->
+                    inner (succ i) in
+                  inner 0 in
+                Lwt.pick [ S.close ~flush:false store ;
+                           count_thread "Closing store (%is)" ] >>= fun () ->
+                Logger.fatal_f_
+                  ">>> Closing the store @ %S succeeded: everything seems OK <<<"
+                  (S.get_location store) >>= fun () ->
+                Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
+                           count_thread "Closing tlog (%is)" ])
+           >>= fun () ->
+           Logger.info_ "Completed shutdown"
+           >>= fun () ->
+           Lwt.return 0
         )
-      (function
+        (function
           | Catchup.StoreAheadOfTlogs(s_i, tlog_i) ->
-              let rc = 40 in
-              Logger.fatal_f_ "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
-                rc (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
-              Lwt.return rc
+            let rc = 40 in
+            Logger.fatal_f_ "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
+              rc (Sn.string_of s_i) (Sn.string_of tlog_i) >>= fun () ->
+            Lwt.return rc
           | Catchup.StoreCounterTooLow msg ->
-              let rc = 41 in
-              Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
-              Lwt.return rc
+            let rc = 41 in
+            Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
+            Lwt.return rc
           | Tlc2.TLCNotProperlyClosed msg ->
-              let rc = 42 in
-              Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
-              Lwt.return rc
+            let rc = 42 in
+            Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+            Lwt.return rc
           | Node_cfg.InvalidTlogDir dir ->
-              let rc = 43 in
-              Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlog directory: %s" rc dir >>= fun () ->
-              Lwt.return rc
+            let rc = 43 in
+            Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlog directory: %s" rc dir >>= fun () ->
+            Lwt.return rc
           | Node_cfg.InvalidHomeDir dir ->
-              let rc = 44 in
-              Logger.fatal_f_ "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
-              Lwt.return rc
+            let rc = 44 in
+            Logger.fatal_f_ "[rc=%i] Missing or inaccessible home directory: %s" rc dir >>= fun () ->
+            Lwt.return rc
           | Local_store.BdbFFatal db ->
-              let rc = 45 in
-              Logger.fatal_f_ "[rc=%i] BDBFFATAL flag set on database %s" rc db >>= fun () ->
-              Lwt.return rc
+            let rc = 45 in
+            Logger.fatal_f_ "[rc=%i] BDBFFATAL flag set on database %s" rc db >>= fun () ->
+            Lwt.return rc
           | Node_cfg.InvalidTlfDir dir ->
-              let rc = 46 in
-              Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlf directory: %s" rc dir >>= fun () ->
-              Lwt.return rc
+            let rc = 46 in
+            Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlf directory: %s" rc dir >>= fun () ->
+            Lwt.return rc
           | Node_cfg.InvalidHeadDir dir ->
-              let rc = 47 in
-              Logger.fatal_f_ "[rc=%i] Missing or inaccessible head directory: %s" rc dir >>= fun () ->
-              Lwt.return rc
+            let rc = 47 in
+            Logger.fatal_f_ "[rc=%i] Missing or inaccessible head directory: %s" rc dir >>= fun () ->
+            Lwt.return rc
           | Tlogcommon.TLogUnexpectedEndOfFile pos ->
-              let rc = 48 in
-              Logger.fatal_f_ "[rc=%i] Unexpectedly reached the end of the tlog, last valid pos = %Li" rc pos >>= fun () ->
-              Lwt.return rc
+            let rc = 48 in
+            Logger.fatal_f_ "[rc=%i] Unexpectedly reached the end of the tlog, last valid pos = %Li" rc pos >>= fun () ->
+            Lwt.return rc
           | Tlogcommon.TLogCheckSumError pos ->
-              let rc = 49 in
-              Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
-              Lwt.return rc
+            let rc = 49 in
+            Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
+            Lwt.return rc
           | exn ->
-              begin
+            begin
               Logger.fatal_ ~exn "going down" >>= fun () ->
               Logger.fatal_ "after pick" >>= fun() ->
               begin
-                  match dump_crash_log with
+                match dump_crash_log with
                   | None -> Logger.info_ "Not dumping state"
                   | Some f -> f()
-                end >>= fun () ->
-                Lwt.return 1
-              end
+              end >>= fun () ->
+              Lwt.return 1
+            end
         )
     end
 

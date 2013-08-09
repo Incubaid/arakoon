@@ -30,8 +30,8 @@ let _with_master_admin (tn, cluster_cfg, _) f =
   let cid = cluster_cfg.cluster_id in
   Lwt_io.with_connection sa
     (fun conn ->
-      Remote_nodestream.make_remote_nodestream cid conn >>= fun admin ->
-      f cluster_cfg master_name admin
+       Remote_nodestream.make_remote_nodestream cid conn >>= fun admin ->
+       f cluster_cfg master_name admin
     )
 
 let _drop_master cluster_cfg master_name admin =
@@ -54,5 +54,5 @@ let make_suite base name w =
 
 
 let suite =
- let w tn base f = Extra.lwt_bracket (setup tn Elected base) f teardown in
+  let w tn base f = Extra.lwt_bracket (setup tn Elected base) f teardown in
   make_suite 8000 "drop_master" w

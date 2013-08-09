@@ -29,8 +29,8 @@ let test_exception () =
     Lwt.catch
       (fun () -> Backoff.backoff ~max:1.0 too_slow)
       (function
-   | Failure _ -> Lwt.return "ok"
-   | x -> Lwt.fail x
+        | Failure _ -> Lwt.return "ok"
+        | x -> Lwt.fail x
       )
   in
   let _ = Lwt_main.run t in ()

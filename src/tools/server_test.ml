@@ -46,9 +46,9 @@ let test_echo () =
   let host = "127.0.0.1" in
   let scheme = Server.make_default_scheme () in
   let server = Server.make_server_thread
-    ~setup_callback host port echo_protocol
-    ~teardown_callback
-    ~scheme
+                 ~setup_callback host port echo_protocol
+                 ~teardown_callback
+                 ~scheme
   in
   let client () =
     Logger.debug_ "sleeping until server socket started" >>= fun () ->
@@ -57,8 +57,8 @@ let test_echo () =
     let conversation (ic,oc) =
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word =
-      Lwt_io.write_line oc word >>= fun () ->
-      Lwt_io.read_line ic >>= fun word' ->
+        Lwt_io.write_line oc word >>= fun () ->
+        Lwt_io.read_line ic >>= fun word' ->
         Logger.info_f_ "%s ? %s" word word'
       in Lwt_list.iter_s test_one words
     in
@@ -89,8 +89,8 @@ let test_max_connections () =
   let host = "127.0.0.1" in
   let scheme = Server.create_connection_allocation_scheme 2 in
   let server = Server.make_server_thread ~scheme
-    ~setup_callback ~teardown_callback
-    host port echo_protocol
+                 ~setup_callback ~teardown_callback
+                 host port echo_protocol
   in
   let n_problems = ref 0 in
   let client i =
@@ -101,15 +101,15 @@ let test_max_connections () =
       Logger.debug_f_ "start_of_conversation client %i" i >>= fun () ->
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word =
-      Lwt_io.write_line oc word >>= fun () ->
-      Lwt_io.read_line ic >>= fun word' ->
+        Lwt_io.write_line oc word >>= fun () ->
+        Lwt_io.read_line ic >>= fun word' ->
         Logger.info_f_ "%s ? %s" word word'
       in
       Lwt.catch
-      (fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
-      (function
-        | Canceled as e -> Lwt.fail e
-        | exn -> incr n_problems;Logger.info_f_ ~exn "client %i had problems" i)
+        (fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
+        (function
+          | Canceled as e -> Lwt.fail e
+          | exn -> incr n_problems;Logger.info_f_ ~exn "client %i had problems" i)
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
     (*    Lwt_io.with_connection address conversation  >>= fun () -> *)
@@ -119,10 +119,10 @@ let test_max_connections () =
   in
   let main_t =
     Lwt.pick [client 0;
-        client 1;
-        client 2;
-        server();
-          Lwt_unix.sleep 0.3
+              client 1;
+              client 2;
+              server();
+              Lwt_unix.sleep 0.3
              ] >>= fun () ->
     let n_problems' = !n_problems in
     Lwt_mvar.take td_var >>= fun () ->
@@ -134,6 +134,6 @@ let test_max_connections () =
 
 
 let suite = "server" >::: [
-  "echo" >:: test_echo;
-  "max_connections" >:: test_max_connections;
-]
+    "echo" >:: test_echo;
+    "max_connections" >:: test_max_connections;
+  ]

@@ -37,14 +37,14 @@ class tlogWriter oc lastI =
 
     method log_value i value =
       if isValidSuccessor i lastWrittenI  then
-      begin
+        begin
           write_entry oc i value >>= fun () ->
           Lwt_io.flush oc >>= fun () ->
-        let () = lastWrittenI <- i in
+          let () = lastWrittenI <- i in
           Lwt.return ()
         end
       else
-      Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
+        Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
 
 
- end
+  end

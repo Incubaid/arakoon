@@ -55,13 +55,13 @@ let teardown () =
   Logger.info_ "Store_test.teardown" >>= fun () ->
   Lwt.catch
     (fun () ->
-      File_system.lwt_directory_list _dir_name >>= fun entries ->
-      Lwt_list.iter_s (fun i ->
-  let fn = _dir_name ^ "/" ^ i in
-        Lwt_unix.unlink fn) entries
+       File_system.lwt_directory_list _dir_name >>= fun entries ->
+       Lwt_list.iter_s (fun i ->
+           let fn = _dir_name ^ "/" ^ i in
+           Lwt_unix.unlink fn) entries
     )
     (fun exn -> Logger.debug_ ~exn "ignoring" )
-    >>= fun () ->
+  >>= fun () ->
   Logger.debug_ "end of teardown"
 
 let with_store name f =
@@ -100,42 +100,42 @@ let test_safe_insert_value () =
   let do_asserts store =
     Lwt_list.iter_s
       (fun (value, asserts) ->
-        S.safe_insert_value store (get_next_i store) value >>= fun _ ->
-        let j = S._get_j store in
-        if j <> 0 then failwith "j is not 0";
-        Lwt_list.iter_s
-          (fun assert' -> assert' store)
-          asserts)
+         S.safe_insert_value store (get_next_i store) value >>= fun _ ->
+         let j = S._get_j store in
+         if j <> 0 then failwith "j is not 0";
+         Lwt_list.iter_s
+           (fun assert' -> assert' store)
+           asserts)
       value_asserts in
   Logger.info_ "applying updates without surrounding transaction" >>= fun () ->
   with_store "tsiv" (fun store ->
-    do_asserts store)
+      do_asserts store)
 
 let test_safe_insert_value_with_partial_value_update () =
   with_store "tsivwpvu" (fun store ->
-    let k = "key" in
-    let u1 = Update.TestAndSet(k, Some "value1", Some "illegal")
-    and u2 = Update.TestAndSet(k, None, Some "value1")
-    and u3 = Update.Set("key2", "bla") in
-    let paxos_value = Value.create_client_value [u1;u2;u3] false in
-    S._with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
-    S._with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
+      let k = "key" in
+      let u1 = Update.TestAndSet(k, Some "value1", Some "illegal")
+      and u2 = Update.TestAndSet(k, None, Some "value1")
+      and u3 = Update.Set("key2", "bla") in
+      let paxos_value = Value.create_client_value [u1;u2;u3] false in
+      S._with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
+      S._with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
 
-    let j = S._get_j store in
-    if j = 0 then failwith "j is 0";
+      let j = S._get_j store in
+      if j = 0 then failwith "j is 0";
 
-    S.get store k >>= fun value ->
-    if value <> "value1" then failwith "key should have value1 as value";
+      S.get store k >>= fun value ->
+      if value <> "value1" then failwith "key should have value1 as value";
 
-    S.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
+      S.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
 
-    let j = S._get_j store in
-    if j <> 0 then failwith "j is not 0";
+      let j = S._get_j store in
+      if j <> 0 then failwith "j is not 0";
 
-    S.get store k >>= fun value ->
-    if value <> "value1" then failwith "illegal value in store";
-    Lwt.return ()
-  )
+      S.get store k >>= fun value ->
+      if value <> "value1" then failwith "illegal value in store";
+      Lwt.return ()
+    )
 
 
 let suite =

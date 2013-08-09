@@ -78,44 +78,44 @@ let get_tlog_names tlog_dir tlf_dir =
   let get_entries dir invalid_dir_exn =
     Lwt.catch
       (fun () ->
-        File_system.lwt_directory_list dir
+         File_system.lwt_directory_list dir
       )
       (function
         | Unix.Unix_error(Unix.EIO, fn, _) as exn ->
-            if fn = "readdir"
-            then Lwt.fail invalid_dir_exn
-            else Lwt.fail exn
+          if fn = "readdir"
+          then Lwt.fail invalid_dir_exn
+          else Lwt.fail exn
         | exn -> Lwt.fail exn
       ) in
   get_entries tlog_dir (Node_cfg.InvalidTlogDir tlog_dir) >>= fun tlog_entries ->
   (if tlog_dir = tlf_dir
-  then
-    Lwt.return []
-  else
-    get_entries tlf_dir (Node_cfg.InvalidTlfDir tlf_dir)) >>= fun tlf_entries ->
+   then
+     Lwt.return []
+   else
+     get_entries tlf_dir (Node_cfg.InvalidTlfDir tlf_dir)) >>= fun tlf_entries ->
   let entries = List.rev_append tlf_entries tlog_entries in
   let filtered = List.filter
-    (fun e -> Str.string_match file_regexp e 0)
-    entries
+                   (fun e -> Str.string_match file_regexp e 0)
+                   entries
   in
   let my_compare fn1 fn2 =
     let n1 = get_number fn1
     and n2 = get_number fn2 in
     if n1 = n2
-      then compare fn1 fn2
-      else compare n1 n2
+    then compare fn1 fn2
+    else compare n1 n2
   in
   let sorted = List.sort my_compare filtered in
   (* This code is based on ordering of the list, and 'tlf' being 'less than' 'tlog' *)
   let filtered2 = List.fold_left
-    (fun acc name ->
-      match acc with
-  | [] -> name :: acc
-  | prev :: rest ->
-    if get_number prev = get_number name (* both x.tlf and x.tlog present *)
-    then prev :: rest (* prefer .tlf over .tlog *)
-    else name :: acc
-    ) [] sorted
+                    (fun acc name ->
+                       match acc with
+                         | [] -> name :: acc
+                         | prev :: rest ->
+                           if get_number prev = get_number name (* both x.tlf and x.tlog present *)
+                           then prev :: rest (* prefer .tlf over .tlog *)
+                           else name :: acc
+                    ) [] sorted
   in
   let sorted2 = List.rev filtered2 in
   let log_e e = Logger.debug_f_ "entry %s %i" e (get_number e) in
@@ -138,12 +138,12 @@ let folder_for filename index =
 
 
 let fold_read tlog_dir tlf_dir file_name
-    ~index
-    (lowerI:Sn.t)
-    (too_far_i:Sn.t option)
-    ~first
-    (a0:'a)
-    (f:'a -> Entry.t -> 'a Lwt.t) =
+      ~index
+      (lowerI:Sn.t)
+      (too_far_i:Sn.t option)
+      ~first
+      (a0:'a)
+      (f:'a -> Entry.t -> 'a Lwt.t) =
   let full_name = get_full_path tlog_dir tlf_dir file_name in
   let folder, extension, index' = folder_for file_name index in
   Logger.debug_f_ "fold_read extension=%s => index':%s" extension (Index.to_string index') >>= fun () ->
@@ -152,21 +152,21 @@ let fold_read tlog_dir tlf_dir file_name
     (fun () -> Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
     (function
       | Unix.Unix_error(_,"open",_) as exn ->
-      if extension = ".tlog"
-      then (* file might have moved meanwhile *)
-        begin
-          Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
-          >>= fun () ->
-          let an = to_archive_name file_name in
-          let full_an = get_full_path tlog_dir tlf_dir an in
-          Logger.debug_f_ "folding compressed %s" an >>= fun () ->
-          Lwt_io.with_file ~mode:Lwt_io.input full_an
-            (fun ic ->
-                let index = None in
-                Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
-        end
-      else
-        Lwt.fail exn
+        if extension = ".tlog"
+        then (* file might have moved meanwhile *)
+          begin
+            Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
+            >>= fun () ->
+            let an = to_archive_name file_name in
+            let full_an = get_full_path tlog_dir tlf_dir an in
+            Logger.debug_f_ "folding compressed %s" an >>= fun () ->
+            Lwt_io.with_file ~mode:Lwt_io.input full_an
+              (fun ic ->
+                 let index = None in
+                 Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
+          end
+        else
+          Lwt.fail exn
       | exn -> Lwt.fail exn
     )
 
@@ -182,37 +182,37 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   let new_index = Index.make tlog_name in
   Lwt.catch
     (fun () ->
-      let first = Sn.of_int 0 in
-      let folder, _, index = folder_for tlog_name None in
+       let first = Sn.of_int 0 in
+       let folder, _, index = folder_for tlog_name None in
 
-      let do_it ic = folder ic ~index Sn.start None ~first None
-      (fun a0 entry ->
-          let () = Index.note entry new_index in
-          let r = Some entry in
-          let () = prev_entry := r in
-          Lwt.return r)
-      in
-      Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-      >>= fun eo ->
-      begin
-        if not check_marker
-        then Lwt.return eo
-        else
-          let eo' =
-            match eo with
-              | None -> None
-              | Some e ->
-                  let s = _make_close_marker node_id in
-                  if Entry.check_marker e s
-                  then !prev_entry
-                  else raise (TLCNotProperlyClosed (Entry.entry2s e))
-          in
-          Lwt.return eo'
-      end
-      >>= fun eo' ->
-      Logger.debug_f_ "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
-      Logger.debug_f_ "After validation index=%s" (Index.to_string new_index) >>= fun () ->
-      Lwt.return (eo', new_index)
+       let do_it ic = folder ic ~index Sn.start None ~first None
+                        (fun a0 entry ->
+                           let () = Index.note entry new_index in
+                           let r = Some entry in
+                           let () = prev_entry := r in
+                           Lwt.return r)
+       in
+       Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
+       >>= fun eo ->
+       begin
+         if not check_marker
+         then Lwt.return eo
+         else
+           let eo' =
+             match eo with
+               | None -> None
+               | Some e ->
+                 let s = _make_close_marker node_id in
+                 if Entry.check_marker e s
+                 then !prev_entry
+                 else raise (TLCNotProperlyClosed (Entry.entry2s e))
+           in
+           Lwt.return eo'
+       end
+       >>= fun eo' ->
+       Logger.debug_f_ "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
+       Logger.debug_f_ "After validation index=%s" (Index.to_string new_index) >>= fun () ->
+       Lwt.return (eo', new_index)
     )
     (function
       | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
@@ -258,12 +258,12 @@ let get_count tlog_names =
   match List.length tlog_names with
     | 0 -> 0
     | n -> let last = List.nth tlog_names (n-1) in
-     let length = String.length last in
-     let postfix = String.sub last (length -4) 4 in
-     let number = get_number last in
-     if postfix = "tlog"
-       then number
-     else number + 1
+      let length = String.length last in
+      let postfix = String.sub last (length -4) 4 in
+      let number = get_number last in
+      if postfix = "tlog"
+      then number
+      else number + 1
 
 module F = struct
   type t = {oc:Lwt_io.output Lwt_io.channel;
@@ -275,7 +275,7 @@ module F = struct
 
   let make oc fd fn c oc_start = {oc;fd;fn;c;oc_start}
   let file_pos t = Int64.add (Lwt_io.position t.oc) t.oc_start
-      (* the channel always starts at pos 0, even if it's a file that was opened in append mode *)
+  (* the channel always starts at pos 0, even if it's a file that was opened in append mode *)
   let fn_of t = t.fn
   let oc_of t = t.oc
   let fsync t = Lwt_unix.fsync t.fd
@@ -329,7 +329,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     then
       begin
         Logger.debug_f_ "fold_read over: %s (test0=%s)" fn
-        (Sn.string_of test0) >>= fun () ->
+          (Sn.string_of test0) >>= fun () ->
         let first = test0 in
         Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
         let t1 = Sys.time () in
@@ -348,339 +348,339 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 
 
 class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
-  (last:Entry.t option) (index:Index.index) (use_compression:bool)
-  (node_id:string) (fsync:bool)
+        (last:Entry.t option) (index:Index.index) (use_compression:bool)
+        (node_id:string) (fsync:bool)
   =
   let inner =
     match last with
       | None -> 0
       | Some e ->
         let i = Entry.i_of e in
-      let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-      (Sn.to_int (Sn.rem i step)) + 1
+        let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+        (Sn.to_int (Sn.rem i step)) + 1
   in
-object(self: # tlog_collection)
-  val mutable _file = (None:F.t option)
-  val mutable _index = (None: Index.index)
-  val mutable _inner = inner (* ~ pos in file *)
-  val mutable _outer = new_c (* ~ pos in dir *)
-  val mutable _previous_entry = last
-  val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
-  val mutable _compression_thread = None
-  val _closing = ref false
-  val _write_lock = Lwt_mutex.create ()
-  initializer self # start_compression_loop ()
+  object(self: # tlog_collection)
+    val mutable _file = (None:F.t option)
+    val mutable _index = (None: Index.index)
+    val mutable _inner = inner (* ~ pos in file *)
+    val mutable _outer = new_c (* ~ pos in dir *)
+    val mutable _previous_entry = last
+    val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
+    val mutable _compression_thread = None
+    val _closing = ref false
+    val _write_lock = Lwt_mutex.create ()
+    initializer self # start_compression_loop ()
 
 
-  method validate_last_tlog () =
-    validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
-    let (validity, entry, new_index) = r in
-    let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
-    let matches = Index.match_filename tlu new_index in
-    Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
-      tlu
-      (Index.to_string new_index)
-      (Index.to_string index)
-      matches >>= fun () ->
-    begin
-      if matches
-      then
-        let () = _index <- new_index in
-        Logger.info_ "replaced index"
-      else
-        Lwt.return ()
-    end
-    >>= fun () ->
-    Lwt.return r
+    method validate_last_tlog () =
+      validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
+      let (validity, entry, new_index) = r in
+      let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
+      let matches = Index.match_filename tlu new_index in
+      Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
+        tlu
+        (Index.to_string new_index)
+        (Index.to_string index)
+        matches >>= fun () ->
+      begin
+        if matches
+        then
+          let () = _index <- new_index in
+          Logger.info_ "replaced index"
+        else
+          Lwt.return ()
+      end
+      >>= fun () ->
+      Lwt.return r
 
 
-  method private start_compression_loop () =
-    let compress_one tlu tlc_temp tlc =
-      let try_unlink fn =
+    method private start_compression_loop () =
+      let compress_one tlu tlc_temp tlc =
+        let try_unlink fn =
+          Lwt.catch
+            (fun () ->
+               Logger.debug_f_ "Compression: unlink of %s" fn >>= fun () ->
+               Lwt_unix.unlink fn >>= fun () ->
+               Logger.debug_f_ "Compression: ok: unlinked %s" fn
+            )
+            (function
+              | Canceled -> Lwt.fail Canceled
+              | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" fn) in
+        File_system.exists tlc >>= fun tlc_exists ->
+        if tlc_exists
+        then
+          begin
+            Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
+            try_unlink tlu
+          end
+        else
+          begin
+            File_system.exists tlc_temp >>= fun tlc_temp_exists ->
+            begin
+              if tlc_temp_exists
+              then
+                begin
+                  Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc_temp >>= fun () ->
+                  try_unlink tlc_temp
+                end
+              else
+                Lwt.return ()
+            end >>= fun () ->
+            Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
+            File_system.rename tlc_temp tlc >>= fun () ->
+            try_unlink tlu >>= fun () ->
+            Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+          end
+      in
+
+      let rec loop () =
+        Logger.debug_ "Taking job from compression queue..." >>= fun () ->
+        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
         Lwt.catch
-          (fun () ->
-            Logger.debug_f_ "Compression: unlink of %s" fn >>= fun () ->
-            Lwt_unix.unlink fn >>= fun () ->
-            Logger.debug_f_ "Compression: ok: unlinked %s" fn
-          )
+          (fun () -> compress_one tlu tlc_temp tlc)
           (function
             | Canceled -> Lwt.fail Canceled
-            | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" fn) in
-      File_system.exists tlc >>= fun tlc_exists ->
-      if tlc_exists
-      then
-        begin
-          Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
-          try_unlink tlu
-        end
-      else
-        begin
-          File_system.exists tlc_temp >>= fun tlc_temp_exists ->
-          begin
-            if tlc_temp_exists
-            then
-              begin
-                Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc_temp >>= fun () ->
-                try_unlink tlc_temp
-              end
-            else
-              Lwt.return ()
-          end >>= fun () ->
-          Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-          Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
-          File_system.rename tlc_temp tlc >>= fun () ->
-          try_unlink tlu >>= fun () ->
-          Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
-        end
-    in
-
-    let rec loop () =
-      Logger.debug_ "Taking job from compression queue..." >>= fun () ->
-      Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
-      Lwt.catch
-        (fun () -> compress_one tlu tlc_temp tlc)
-        (function
-          | Canceled -> Lwt.fail Canceled
-          | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
-      >>= fun () ->
-      Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
-      loop ()
-    in
-
-    let add_previous_compression_jobs () =
-      File_system.lwt_directory_list tlog_dir >>= fun entries ->
-      let filtered = List.filter
-        (fun e -> Str.string_match tlog_regexp e 0)
-        entries
+            | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
+        >>= fun () ->
+        Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
+        loop ()
       in
 
-      (* Sort oldest-to-newest *)
-      let sorted = List.sort (fun a b -> compare (get_number a) (get_number b)) filtered in
+      let add_previous_compression_jobs () =
+        File_system.lwt_directory_list tlog_dir >>= fun entries ->
+        let filtered = List.filter
+                         (fun e -> Str.string_match tlog_regexp e 0)
+                         entries
+        in
 
-      let rec add_jobs = function
-        | [] -> return ()
-        | [_] -> return () (* Skip last *)
-        | (hd :: tl) -> self # _add_compression_job (get_number hd) >>= fun () -> add_jobs tl
+        (* Sort oldest-to-newest *)
+        let sorted = List.sort (fun a b -> compare (get_number a) (get_number b)) filtered in
+
+        let rec add_jobs = function
+          | [] -> return ()
+          | [_] -> return () (* Skip last *)
+          | (hd :: tl) -> self # _add_compression_job (get_number hd) >>= fun () -> add_jobs tl
+        in
+        add_jobs sorted
       in
-      add_jobs sorted
-    in
-    Lwt.ignore_result (add_previous_compression_jobs ());
+      Lwt.ignore_result (add_previous_compression_jobs ());
 
-    let t =
-      Lwt.catch
-        loop
-        (fun exn -> Logger.info_f_ ~exn "compression thread was terminated") in
-    _compression_thread <- Some t;
-    Lwt.ignore_result t
+      let t =
+        Lwt.catch
+          loop
+          (fun exn -> Logger.info_f_ ~exn "compression thread was terminated") in
+      _compression_thread <- Some t;
+      Lwt.ignore_result t
 
 
-  method log_value_explicit i value sync marker =
-    Lwt_mutex.with_lock _write_lock
-      (fun () ->
-        begin
-          self # _prelude i >>= fun file ->
-          let p = F.file_pos file in
-          let oc = F.oc_of file in
-          Tlogcommon.write_entry oc i value >>= fun () ->
-          Lwt_io.flush oc >>= fun () ->
+    method log_value_explicit i value sync marker =
+      Lwt_mutex.with_lock _write_lock
+        (fun () ->
+           begin
+             self # _prelude i >>= fun file ->
+             let p = F.file_pos file in
+             let oc = F.oc_of file in
+             Tlogcommon.write_entry oc i value >>= fun () ->
+             Lwt_io.flush oc >>= fun () ->
+             begin
+               if sync || fsync
+               then F.fsync file
+               else Lwt.return ()
+             end
+             >>= fun () ->
+             let () = match _previous_entry with
+               | None -> _inner <- _inner +1
+               | Some pe->
+                 let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
+             in
+             let entry = Entry.make i value p marker in
+             _previous_entry <- Some entry;
+             Index.note entry _index;
+             Lwt.return ()
+           end)
+
+    method log_value i value =
+      self # log_value_explicit i value fsync None
+
+    method private _prelude i =
+      let ( *: ) = Sn.mul in
+      match _file with
+        | None ->
           begin
-            if sync || fsync
-            then F.fsync file
-            else Lwt.return ()
+            Logger.debug_f_ "prelude %s" (Sn.string_of i) >>= fun () ->
+            let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+            _outer <- Sn.to_int outer;
+            begin
+              if (_outer <> 0) && (i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
+              then
+                (* the first thing logged falls exactly into a new tlog,
+                   the compression job for the previous one thus is not yet picked up *)
+                self # _add_compression_job (pred _outer)
+              else
+                Lwt.return ()
+            end >>= fun () ->
+            _init_file tlog_dir tlf_dir _outer >>= fun file ->
+            _file <- Some file;
+            _index <- Index.make (F.fn_of file);
+            Lwt.return file
           end
-          >>= fun () ->
-          let () = match _previous_entry with
-            | None -> _inner <- _inner +1
-            | Some pe->
-                let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
-          in
-          let entry = Entry.make i value p marker in
-          _previous_entry <- Some entry;
-          Index.note entry _index;
-          Lwt.return ()
-        end)
+        | Some (file:F.t) ->
+          if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
+          then
+            let do_jump () =
+              let new_outer = Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) in
+              Logger.info_f_ "i= %s & outer = %i => jump to %i" (Sn.string_of i) _outer new_outer
+              >>= fun () ->
+              self # _jump_to_tlog file new_outer
+            in
+            do_jump ()
+          else
+            Lwt.return file
 
-  method log_value i value =
-    self # log_value_explicit i value fsync None
-
-  method private _prelude i =
-    let ( *: ) = Sn.mul in
-    match _file with
-      | None ->
+    method private _add_compression_job old_outer =
+      let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
+      let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
+      let tlc_temp = tlc ^ ".part" in
       begin
-          Logger.debug_f_ "prelude %s" (Sn.string_of i) >>= fun () ->
-        let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-        _outer <- Sn.to_int outer;
-          begin
-            if (_outer <> 0) && (i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
-            then
-              (* the first thing logged falls exactly into a new tlog,
-                 the compression job for the previous one thus is not yet picked up *)
-              self # _add_compression_job (pred _outer)
-            else
-              Lwt.return ()
-          end >>= fun () ->
-        _init_file tlog_dir tlf_dir _outer >>= fun file ->
-        _file <- Some file;
-          _index <- Index.make (F.fn_of file);
-        Lwt.return file
-      end
-      | Some (file:F.t) ->
-        if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
+        if use_compression
         then
-          let do_jump () =
-            let new_outer = Sn.to_int (Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) in
-            Logger.info_f_ "i= %s & outer = %i => jump to %i" (Sn.string_of i) _outer new_outer
-            >>= fun () ->
-            self # _jump_to_tlog file new_outer
-          in
-          do_jump ()
+          let job = (tlu,tlc_temp,tlc) in
+          Logger.debug_ "adding new task to compression queue" >>= fun () ->
+          Lwt_buffer.add job _compression_q
         else
-          Lwt.return file
-
-  method private _add_compression_job old_outer =
-    let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
-    let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
-    let tlc_temp = tlc ^ ".part" in
-    begin
-      if use_compression
-      then
-        let job = (tlu,tlc_temp,tlc) in
-        Logger.debug_ "adding new task to compression queue" >>= fun () ->
-        Lwt_buffer.add job _compression_q
-      else
-        Lwt.return ()
-    end
+          Lwt.return ()
+      end
 
 
-  method private _jump_to_tlog file new_outer =
-    F.close file >>= fun () ->
-    let old_outer = _outer in
-    _inner <- 0;
-    _outer <- new_outer;
-    _init_file tlog_dir tlf_dir new_outer >>= fun new_file ->
-    _file <- Some new_file;
-    let index =
-      let fn = file_name _outer in
-      let full_name = get_full_path tlog_dir tlf_dir fn in
-      Index.make full_name
-    in
-    _index <- index;
-    self # _add_compression_job old_outer >>= fun () ->
-    Lwt.return new_file
+    method private _jump_to_tlog file new_outer =
+      F.close file >>= fun () ->
+      let old_outer = _outer in
+      _inner <- 0;
+      _outer <- new_outer;
+      _init_file tlog_dir tlf_dir new_outer >>= fun new_file ->
+      _file <- Some new_file;
+      let index =
+        let fn = file_name _outer in
+        let full_name = get_full_path tlog_dir tlf_dir fn in
+        Index.make full_name
+      in
+      _index <- index;
+      self # _add_compression_job old_outer >>= fun () ->
+      Lwt.return new_file
 
 
 
-  method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
-    let index = _index in
-    Logger.debug_f_ "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
-    iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f
+    method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
+      let index = _index in
+      Logger.debug_f_ "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
+      iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f
 
 
-  method get_infimum_i () =
-    get_tlog_names tlog_dir tlf_dir >>= fun names ->
-    let f = !Tlogcommon.tlogEntriesPerFile in
-    let v =
-    match names with
-      | [] -> Sn.of_int (-f)
-      | h :: _ -> let n = Sn.of_int (get_number h) in
-              Sn.mul (Sn.of_int f) n
-    in
-    Logger.debug_f_ "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
-    Lwt.return v
+    method get_infimum_i () =
+      get_tlog_names tlog_dir tlf_dir >>= fun names ->
+      let f = !Tlogcommon.tlogEntriesPerFile in
+      let v =
+        match names with
+          | [] -> Sn.of_int (-f)
+          | h :: _ -> let n = Sn.of_int (get_number h) in
+            Sn.mul (Sn.of_int f) n
+      in
+      Logger.debug_f_ "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
+      Lwt.return v
 
-  method get_head_name () =
-    Filename.concat head_dir (head_name())
+    method get_head_name () =
+      Filename.concat head_dir (head_name())
 
-  method dump_head oc =
-    let head_name = self # get_head_name () in
-    let stat = Unix.LargeFile.stat head_name in
-    let length = stat.st_size in
-    Logger.debug_f_ "tlcs:: dump_head (filesize is %Li bytes)" length >>= fun ()->
-    Llio.output_int64 oc length >>= fun () ->
-    Lwt_io.with_file
-      ~flags:[Unix.O_RDONLY]
-      ~mode:Lwt_io.input
-      head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
-    >>= fun () ->
-    Lwt_io.flush oc >>= fun () ->
-    let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-    S.make_store head_name >>= fun store ->
-    let io = S.consensus_i store in
-    S.close store >>= fun () ->
-    Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
-    >>= fun () ->
-    let next_i = match io with
-      | None -> Sn.start
-      | Some i -> Sn.succ i
-    in
-    Lwt.return next_i
+    method dump_head oc =
+      let head_name = self # get_head_name () in
+      let stat = Unix.LargeFile.stat head_name in
+      let length = stat.st_size in
+      Logger.debug_f_ "tlcs:: dump_head (filesize is %Li bytes)" length >>= fun ()->
+      Llio.output_int64 oc length >>= fun () ->
+      Lwt_io.with_file
+        ~flags:[Unix.O_RDONLY]
+        ~mode:Lwt_io.input
+        head_name (fun ic -> Llio.copy_stream ~length ~ic ~oc)
+      >>= fun () ->
+      Lwt_io.flush oc >>= fun () ->
+      let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
+      S.make_store head_name >>= fun store ->
+      let io = S.consensus_i store in
+      S.close store >>= fun () ->
+      Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
+      >>= fun () ->
+      let next_i = match io with
+        | None -> Sn.start
+        | Some i -> Sn.succ i
+      in
+      Lwt.return next_i
 
-  method save_head ic =
-    Logger.debug_ "save_head()" >>= fun () ->
-    Llio.input_int64 ic >>= fun length ->
-    let hf_name = self # get_head_name () in
-    Lwt_io.with_file
-      ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
-      ~mode:Lwt_io.output
-      hf_name
-      (fun oc -> Llio.copy_stream ~length ~ic ~oc )
-    >>= fun () ->
-    Logger.debug_ "done: save_head"
+    method save_head ic =
+      Logger.debug_ "save_head()" >>= fun () ->
+      Llio.input_int64 ic >>= fun length ->
+      let hf_name = self # get_head_name () in
+      Lwt_io.with_file
+        ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
+        ~mode:Lwt_io.output
+        hf_name
+        (fun oc -> Llio.copy_stream ~length ~ic ~oc )
+      >>= fun () ->
+      Logger.debug_ "done: save_head"
 
 
- method get_last_i () =
-   match _previous_entry with
-     | None -> Sn.start
-     | Some pe -> let pi = Entry.i_of pe in pi
+    method get_last_i () =
+      match _previous_entry with
+        | None -> Sn.start
+        | Some pe -> let pi = Entry.i_of pe in pi
 
-  method get_last_value i =
-    match _previous_entry with
-    | None -> None
-    | Some pe ->
-        let pi = Entry.i_of pe in
-      if pi = i
-        then Some (Entry.v_of pe)
-      else
-        if i > pi
+    method get_last_value i =
+      match _previous_entry with
+        | None -> None
+        | Some pe ->
+          let pi = Entry.i_of pe in
+          if pi = i
+          then Some (Entry.v_of pe)
+          else
+          if i > pi
           then None
-        else (* pi > i *)
-          let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
-          (Sn.string_of pi) (Sn.string_of i)
-          in
-          failwith msg
+          else (* pi > i *)
+            let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
+                        (Sn.string_of pi) (Sn.string_of i)
+            in
+            failwith msg
 
-  method get_last () =
-    match _previous_entry with
-      | None -> None
-      | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
+    method get_last () =
+      match _previous_entry with
+        | None -> None
+        | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
 
-  method close () =
-    Lwt_mutex.lock _write_lock >>= fun () ->
-    _closing := true;
-    Logger.debug_ "tlc2::close()" >>= fun () ->
-    begin
-      match _compression_thread with
-        | None -> assert false
-        | Some t ->
+    method close () =
+      Lwt_mutex.lock _write_lock >>= fun () ->
+      _closing := true;
+      Logger.debug_ "tlc2::close()" >>= fun () ->
+      begin
+        match _compression_thread with
+          | None -> assert false
+          | Some t ->
             Logger.debug_f_ "Cancelling compression thread" >>= fun () ->
             (try
               Lwt.cancel t;
               Lwt.return ()
             with exn ->
               Logger.info_ ~exn "Exception while canceling compression thread")
-    end >>= fun () ->
-    Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
-    let last_file () =
-      match _file with
-        | None -> _init_file tlog_dir tlf_dir _outer
-        | Some file -> Lwt.return file
-    in
-    last_file () >>= fun file ->
-    begin
-      match self # get_last() with
-        | None -> Lwt.return ()
-        | Some(v,i) ->
+      end >>= fun () ->
+      Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
+      let last_file () =
+        match _file with
+          | None -> _init_file tlog_dir tlf_dir _outer
+          | Some file -> Lwt.return file
+      in
+      last_file () >>= fun file ->
+      begin
+        match self # get_last() with
+          | None -> Lwt.return ()
+          | Some(v,i) ->
             begin
               let oc = F.oc_of file in
               let marker = _make_close_marker node_id in
@@ -688,83 +688,83 @@ object(self: # tlog_collection)
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
                 (Log_extra.string_option2s marker) (Sn.string_of i) node_id
             end
-    end >>= fun () ->
-    F.close file
+      end >>= fun () ->
+      F.close file
 
 
-  method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
+    method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
 
-  method get_tlog_from_i = get_file_number
+    method get_tlog_from_i = get_file_number
 
-  method get_tlog_count () =
-    get_tlog_names tlog_dir tlf_dir >>= fun tlogs ->
-    Lwt.return (List.length tlogs)
+    method get_tlog_count () =
+      get_tlog_names tlog_dir tlf_dir >>= fun tlogs ->
+      Lwt.return (List.length tlogs)
 
-  method dump_tlog_file start_i oc =
-    let n = Sn.to_int (get_file_number start_i) in
-    let an = archive_name n in
-    let fn = file_name n  in
-    begin
-      File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
-  | true -> Lwt.return an
-  | false -> Lwt.return fn
-    end
-    >>= fun name ->
-    let canonical = get_full_path tlog_dir tlf_dir name in
-    Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
-    Llio.output_string oc name >>= fun () ->
-    File_system.stat canonical >>= fun stats ->
-    let length = Int64.of_int(stats.Unix.st_size)
-    (* why don't they use largefile ? *)
-    in
-    Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
-    Lwt_io.with_file ~mode:Lwt_io.input canonical
-      (fun ic ->
-  Llio.output_int64 oc length >>= fun () ->
-  Llio.copy_stream ~length ~ic ~oc
-      )
-    >>= fun () ->
-    Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
-    >>= fun () ->
-    let next_i = Sn.add start_i (Sn.of_int !tlogEntriesPerFile) in
-    Lwt.return next_i
+    method dump_tlog_file start_i oc =
+      let n = Sn.to_int (get_file_number start_i) in
+      let an = archive_name n in
+      let fn = file_name n  in
+      begin
+        File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
+        | true -> Lwt.return an
+        | false -> Lwt.return fn
+      end
+      >>= fun name ->
+      let canonical = get_full_path tlog_dir tlf_dir name in
+      Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
+      Llio.output_string oc name >>= fun () ->
+      File_system.stat canonical >>= fun stats ->
+      let length = Int64.of_int(stats.Unix.st_size)
+      (* why don't they use largefile ? *)
+      in
+      Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
+      Lwt_io.with_file ~mode:Lwt_io.input canonical
+        (fun ic ->
+           Llio.output_int64 oc length >>= fun () ->
+           Llio.copy_stream ~length ~ic ~oc
+        )
+      >>= fun () ->
+      Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
+      >>= fun () ->
+      let next_i = Sn.add start_i (Sn.of_int !tlogEntriesPerFile) in
+      Lwt.return next_i
 
-  method save_tlog_file name length ic =
-    (* what with rotation (jump to new tlog), open streams, ...*)
-    let canon = get_full_path tlog_dir tlf_dir name in
-    let tmp = canon ^ ".tmp" in
-    Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
-    Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
-    File_system.rename tmp canon
+    method save_tlog_file name length ic =
+      (* what with rotation (jump to new tlog), open streams, ...*)
+      let canon = get_full_path tlog_dir tlf_dir name in
+      let tmp = canon ^ ".tmp" in
+      Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
+      Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
+      File_system.rename tmp canon
 
 
-  method remove_oldest_tlogs count =
-    get_tlog_names tlog_dir tlf_dir >>= fun existing ->
-    let rec remove_one l = function
-      | 0 -> Lwt.return ()
-      | n ->
-        let oldest = get_full_path tlog_dir tlf_dir (List.hd l) in
-        Logger.debug_f_ "Unlinking %s" oldest >>= fun () ->
-        File_system.unlink (oldest) >>= fun () ->
-        remove_one (List.tl l) (n-1)
-    in remove_one existing count
+    method remove_oldest_tlogs count =
+      get_tlog_names tlog_dir tlf_dir >>= fun existing ->
+      let rec remove_one l = function
+        | 0 -> Lwt.return ()
+        | n ->
+          let oldest = get_full_path tlog_dir tlf_dir (List.hd l) in
+          Logger.debug_f_ "Unlinking %s" oldest >>= fun () ->
+          File_system.unlink (oldest) >>= fun () ->
+          remove_one (List.tl l) (n-1)
+      in remove_one existing count
 
-  method remove_below i =
-    get_tlog_names tlog_dir tlf_dir >>= fun existing ->
-    let maybe_remove fn =
-      let n = get_number fn in
-      let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
-      if fn_stop < i then
-  begin
-    let canonical = get_full_path tlog_dir tlf_dir fn in
-    Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
-    File_system.unlink canonical
+    method remove_below i =
+      get_tlog_names tlog_dir tlf_dir >>= fun existing ->
+      let maybe_remove fn =
+        let n = get_number fn in
+        let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
+        if fn_stop < i then
+          begin
+            let canonical = get_full_path tlog_dir tlf_dir fn in
+            Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
+            File_system.unlink canonical
+          end
+        else
+          Lwt.return ()
+      in
+      Lwt_list.iter_s maybe_remove existing
   end
-      else
-  Lwt.return ()
-    in
-    Lwt_list.iter_s maybe_remove existing
-end
 
 let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_ "get_last_tlog" >>= fun () ->
@@ -777,18 +777,18 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   if new_c > 0 && last = None
   then
     begin
-     (* somebody sabotaged us:
-  (s)he deleted the .tlog file but we have .tlf's
-  meaning rotation happened correctly.
-  We have to take counter measures:
-  uncompress the .tlf into .tlog and remove it.
-     *)
+      (* somebody sabotaged us:
+         (s)he deleted the .tlog file but we have .tlf's
+         meaning rotation happened correctly.
+         We have to take counter measures:
+         uncompress the .tlf into .tlog and remove it.
+      *)
       let pc = new_c - 1 in
       let tlc_name = get_full_path tlog_dir tlf_dir (archive_name pc) in
       let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
-      tlc_name tlu_name
+        tlc_name tlu_name
       >>= fun () ->
       Compression.uncompress_tlog tlc_name tlu_name >>= fun () ->
       Logger.info_f_ "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->
@@ -819,19 +819,19 @@ let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
     match last with
       | None   -> Lwt.return ()
       | Some e ->
-          Logger.debug_f_ "will write marker: new_c:%i \n%s" new_c (Tlogreader2.Index.to_string index)
-          >>= fun() ->
-             (* for some reason this will cause mayhem 'test_243' *)
-          let i = Entry.i_of e in
-          let v = Entry.v_of e in
-          let marker = _make_open_marker node_id in
-          _init_file tlog_dir tlf_dir new_c >>= fun file ->
-          let oc = F.oc_of file in
-          Tlogcommon.write_marker oc i v marker >>= fun () ->
-          F.close file >>= fun () ->
-          Logger.debug_f_ "wrote %S marker @i=%s for %S"
-            (Log_extra.string_option2s marker) (Sn.string_of i) node_id  >>= fun () ->
-          Lwt.return ()
+        Logger.debug_f_ "will write marker: new_c:%i \n%s" new_c (Tlogreader2.Index.to_string index)
+        >>= fun() ->
+        (* for some reason this will cause mayhem 'test_243' *)
+        let i = Entry.i_of e in
+        let v = Entry.v_of e in
+        let marker = _make_open_marker node_id in
+        _init_file tlog_dir tlf_dir new_c >>= fun file ->
+        let oc = F.oc_of file in
+        Tlogcommon.write_marker oc i v marker >>= fun () ->
+        F.close file >>= fun () ->
+        Logger.debug_f_ "wrote %S marker @i=%s for %S"
+          (Log_extra.string_option2s marker) (Sn.string_of i) node_id  >>= fun () ->
+        Lwt.return ()
   end
   >>= fun () ->
   Lwt.return col
@@ -847,23 +847,23 @@ let truncate_tlog filename =
       then Lwt.fail (Failure "Cannot truncate a compressed tlog")
       else
         begin
-        let do_it ic =
-          let lowerI = Sn.start
-          and higherI = None
-          and first = Sn.of_int 0
+          let do_it ic =
+            let lowerI = Sn.start
+            and higherI = None
+            and first = Sn.of_int 0
+            in
+            Lwt.catch
+              (fun() -> folder ic ~index lowerI higherI ~first () skipper)
+              (function
+                | Tlogcommon.TLogCheckSumError pos
+                | Tlogcommon.TLogUnexpectedEndOfFile pos ->
+                  let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
+                  Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
+                | ex -> Lwt.fail ex
+              ) >>= fun () ->
+            Lwt.return 0
           in
-          Lwt.catch
-            (fun() -> folder ic ~index lowerI higherI ~first () skipper)
-            (function
-              | Tlogcommon.TLogCheckSumError pos
-              | Tlogcommon.TLogUnexpectedEndOfFile pos ->
-                let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
-                Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
-              | ex -> Lwt.fail ex
-            ) >>= fun () ->
-          Lwt.return 0
-        in
-        Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+          Lwt_io.with_file ~mode:Lwt_io.input filename do_it
         end
     end
   in Lwt_main.run t

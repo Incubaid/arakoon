@@ -38,7 +38,7 @@ let setup factory test_name () =
     Logger.info_f_ "created %s" dir in
   let prepare_dir dir =
     File_system.exists dir >>= (function
-      | true ->
+        | true ->
           begin
             Logger.info_f_ "%s exists cleaning" dir >>= fun () ->
             let cmd = Lwt_process.shell (Printf.sprintf "rm -rf %s" dir) in
@@ -52,8 +52,8 @@ let setup factory test_name () =
             end
 
           end
-      | false -> make_dir dir
-    ) in
+        | false -> make_dir dir
+      ) in
   prepare_dir dn >>= fun () ->
   prepare_dir tlf_dir >>= fun () ->
   Lwt.return (dn, tlf_dir, factory)
@@ -70,8 +70,8 @@ let _log_repeat tlc (value:Value.t) n =
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-  tlc # log_value i value >>= fun wr_result ->
-  loop (Sn.succ i)
+        tlc # log_value i value >>= fun wr_result ->
+        loop (Sn.succ i)
       end
   in loop Sn.start
 
@@ -117,8 +117,8 @@ let test_get_value_bug (dn, tlf_dir, factory) =
 let test_regexp (dn, tlf_dir, factory) =
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let fns = ["001.tlog";
-       "000" ^ Tlc2.archive_extension;
-       "000" ^ Tlc2.archive_extension ^ ".part"] in
+             "000" ^ Tlc2.archive_extension;
+             "000" ^ Tlc2.archive_extension ^ ".part"] in
   let test fn = Str.string_match Tlc2.file_regexp fn 0 in
   let results = List.map test fns in
   List.iter2 (fun cr er -> OUnit.assert_equal cr er) results [true;true;false];
@@ -144,10 +144,10 @@ let test_iterate (dn, tlf_dir, factory) =
   let sum = ref 0 in
   tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
     (fun entry ->
-      let i = Entry.i_of entry in
-      sum := !sum + (Int64.to_int i);
-      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-      Lwt.return ())
+       let i = Entry.i_of entry in
+       sum := !sum + (Int64.to_int i);
+       Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
+       Lwt.return ())
   >>= fun () ->
   tlc # close () >>= fun () ->
   Logger.debug_f_ "sum =%i " !sum >>= fun () ->
@@ -163,10 +163,10 @@ let test_iterate2 (dn, tlf_dir, factory) =
   let result = ref [] in
   tlc # iterate (Sn.of_int 0) (Sn.of_int 1)
     (fun entry ->
-      let i = Entry.i_of entry in
-      result := i :: ! result;
-      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-      Lwt.return ())
+       let i = Entry.i_of entry in
+       result := i :: ! result;
+       Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
+       Lwt.return ())
   >>= fun () ->
   OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
   tlc # close () >>= fun () ->
@@ -181,10 +181,10 @@ let test_iterate3 (dn, tlf_dir, factory) =
   let result = ref [] in
   tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
     (fun entry ->
-      let i = Entry.i_of entry in
-      Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-      let () = result := i :: !result in
-      Lwt.return ()
+       let i = Entry.i_of entry in
+       Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
+       let () = result := i :: !result in
+       Lwt.return ()
     )
   >>= fun () ->
   OUnit.assert_equal (List.mem (Sn.of_int 99) !result) true;
@@ -227,20 +227,20 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
   Logger.info_f_ "corrupted 6 bytes" >>= fun () ->
   Lwt.catch
     (fun () ->
-      factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
-      tlc_two # validate_last_tlog () >>= fun _ ->
-      tlc_two # close () >>= fun () ->
-      OUnit.assert_bool "this tlog should not be valid" false;
-      Lwt.return ()
+       factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
+       tlc_two # validate_last_tlog () >>= fun _ ->
+       tlc_two # close () >>= fun () ->
+       OUnit.assert_bool "this tlog should not be valid" false;
+       Lwt.return ()
     )
     (function
       | TLogCheckSumError pos
       | TLogUnexpectedEndOfFile pos ->
-          Lwt.return ()
+        Lwt.return ()
       | exn ->
-          let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
-          OUnit.assert_bool msg false;
-          Lwt.return ()
+        let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
+        OUnit.assert_bool msg false;
+        Lwt.return ()
     )
   >>= fun () ->
   Lwt.return ()
@@ -252,8 +252,8 @@ let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None Non
 let wrap_memory name = wrap create_test_tlc name
 
 let suite_mem = "mem_tlogcollection" >::: [
-  "rollover" >:: wrap_memory test_rollover "rollover";
-(* "get_value_bug" >:: wrap_memory test_get_value_bug;
-    (* assumption that different tlog_collections with the same name have the same state *)
-*)
-]
+    "rollover" >:: wrap_memory test_rollover "rollover";
+    (* "get_value_bug" >:: wrap_memory test_get_value_bug;
+        (* assumption that different tlog_collections with the same name have the same state *)
+    *)
+  ]

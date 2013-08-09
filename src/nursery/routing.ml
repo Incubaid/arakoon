@@ -37,27 +37,27 @@ module Routing = struct
     | Cluster a -> Printf.sprintf "{%s}" a
     | Branch (left,b,right) ->
       Printf.sprintf "%s,%s,%s"
-  (to_s left) b (to_s right)
+        (to_s left) b (to_s right)
 
 
   let rec build (sss, last) =
     let  split sss =
       let rec loop head rest = function
-      | 0 -> List.rev head, rest
-      | i -> loop (List.hd rest :: head) (List.tl rest) (i-1)
-    in let len = List.length sss in
-       loop [] sss (len/2)
-  in
-  match sss with
-    | [] -> Cluster last
-    | sss -> let left,right = split sss in
-       let cn,sep = List.hd right in
-       let right' = List.tl right in
-       let lr  = left, cn in
-       let rr  = right', last in
-       let lt = build lr in
-       let rt = build rr in
-       Branch (lt, sep, rt)
+        | 0 -> List.rev head, rest
+        | i -> loop (List.hd rest :: head) (List.tl rest) (i-1)
+      in let len = List.length sss in
+      loop [] sss (len/2)
+    in
+    match sss with
+      | [] -> Cluster last
+      | sss -> let left,right = split sss in
+        let cn,sep = List.hd right in
+        let right' = List.tl right in
+        let lr  = left, cn in
+        let rr  = right', last in
+        let lt = build lr in
+        let rt = build rr in
+        Branch (lt, sep, rt)
 
   let contains t cid =
     let rec _walk = function
@@ -78,32 +78,32 @@ module Routing = struct
       (get_cluster_ids l) @ (get_cluster_ids r)
 
   let rec get_lower_sep parent_sep c_id = function
-      | Branch(l, s, r) when r = (Cluster c_id) ->
-        Some s
-      | Branch(l, s, r) when l = (Cluster c_id) ->
-        parent_sep
-      | Branch (l, s, r) ->
-        let m_l = get_lower_sep None c_id l in
-        begin
-          match m_l with
-            | None -> get_lower_sep (Some s) c_id r
-            | _ -> m_l
-        end
-      | Cluster x -> None
+    | Branch(l, s, r) when r = (Cluster c_id) ->
+      Some s
+    | Branch(l, s, r) when l = (Cluster c_id) ->
+      parent_sep
+    | Branch (l, s, r) ->
+      let m_l = get_lower_sep None c_id l in
+      begin
+        match m_l with
+          | None -> get_lower_sep (Some s) c_id r
+          | _ -> m_l
+      end
+    | Cluster x -> None
 
   let rec get_upper_sep parent_sep c_id = function
-      | Branch(l, s, r) when l = (Cluster c_id) ->
-        Some s
-      | Branch(l, s, r) when r = (Cluster c_id) ->
-        parent_sep
-      | Branch(l, s, r) ->
-        let m_l = get_upper_sep (Some s) c_id l in
-        begin
-          match m_l with
-            | None -> get_upper_sep None c_id r
-            | _ -> m_l
-        end
-      | Cluster x -> None
+    | Branch(l, s, r) when l = (Cluster c_id) ->
+      Some s
+    | Branch(l, s, r) when r = (Cluster c_id) ->
+      parent_sep
+    | Branch(l, s, r) ->
+      let m_l = get_upper_sep (Some s) c_id l in
+      begin
+        match m_l with
+          | None -> get_upper_sep None c_id r
+          | _ -> m_l
+      end
+    | Cluster x -> None
 
 (*
   let rec remove t c_id =
@@ -195,13 +195,13 @@ module Routing = struct
   let routing_to buf cfg =
     let rec walk = function
       | Cluster x ->
-  Llio.bool_to buf true;
-  Llio.string_to buf x
+        Llio.bool_to buf true;
+        Llio.string_to buf x
       | Branch(left,sep,right) ->
-  Llio.bool_to buf false;
-  Llio.string_to buf sep;
-  walk left;
-  walk right
+        Llio.bool_to buf false;
+        Llio.string_to buf sep;
+        walk left;
+        walk right
     in
     walk cfg
 
@@ -209,11 +209,11 @@ module Routing = struct
     let rec _build pos =
       let typ,p1 = Llio.bool_from buf pos in
       let r,p = if typ
-  then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
-  else let sep,p2 = Llio.string_from buf p1 in
-       let left,p3 = _build p2 in
-       let right,p4 = _build p3 in
-       Branch(left,sep,right),p4
+        then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
+        else let sep,p2 = Llio.string_from buf p1 in
+          let left,p3 = _build p2 in
+          let right,p4 = _build p3 in
+          Branch(left,sep,right),p4
       in r,p
     in
     _build pos
@@ -235,9 +235,9 @@ module Routing = struct
     let rec go = function
       | Cluster x -> x
       | Branch (left, sep, right) ->
-  if key < sep
-  then go left
-  else go right
+        if key < sep
+        then go left
+        else go right
     in go cfg
 
 
@@ -288,14 +288,14 @@ module Routing = struct
     let rec go ok = function
       | Cluster x -> x
       | Branch (left, sep, right) ->
-  if ok then
-    if key < sep
-    then go ok left
-    else go ok right
-  else
-    if key > sep
-    then go true right
-    else go ok left
+        if ok then
+          if key < sep
+          then go ok left
+          else go ok right
+        else
+        if key > sep
+        then go true right
+        else go ok left
     in go false cfg
 
   let get_diff t left sep right =
@@ -305,42 +305,42 @@ module Routing = struct
         failwith "Can only add one cluster at the time"
       else
         begin
-            let up_sep = get_upper_sep None left t in
-            let low_sep = get_lower_sep None right t in
-            Lwt.ignore_result (
+          let up_sep = get_upper_sep None left t in
+          let low_sep = get_lower_sep None right t in
+          Lwt.ignore_result (
             Client_log.debug_f "lower,upper = %s,%s"
               (Log_extra.string_option2s low_sep)
               (Log_extra.string_option2s up_sep)
-            );
-            begin
-              match (low_sep, up_sep) with
-                | (Some x, Some y) when x = y ->
-                  if sep > x then
-                    right, left, UPPER_BOUND
-                  else
-                    left, right, LOWER_BOUND
+          );
+          begin
+            match (low_sep, up_sep) with
+              | (Some x, Some y) when x = y ->
+                if sep > x then
+                  right, left, UPPER_BOUND
+                else
+                  left, right, LOWER_BOUND
 
-            | (Some x, None) when not (contains t left) ->
-              if sep > x
-              then right, left, UPPER_BOUND
-              else
-                failwith "Invalid routing diff request"
-                (*let cl = find t sep in
+              | (Some x, None) when not (contains t left) ->
+                if sep > x
+                then right, left, UPPER_BOUND
+                else
+                  failwith "Invalid routing diff request"
+              (*let cl = find t sep in
                 cl, left, LOWER_BOUND *)
 
-            | (None, Some y) when not (contains t right) ->
-              if sep <= y
-              then left, right, LOWER_BOUND
-              else failwith "Invalid routing_diff requested"
+              | (None, Some y) when not (contains t right) ->
+                if sep <= y
+                then left, right, LOWER_BOUND
+                else failwith "Invalid routing_diff requested"
 
-            | (None, None) when not (contains t right) ->
-              left, right, LOWER_BOUND
-            | (None, None) when not (contains t left) ->
-              right, left, UPPER_BOUND
-                | _ ->
-                  failwith "Impossible routing diff requested"
-            end
-      end
+              | (None, None) when not (contains t right) ->
+                left, right, LOWER_BOUND
+              | (None, None) when not (contains t left) ->
+                right, left, UPPER_BOUND
+              | _ ->
+                failwith "Impossible routing diff requested"
+          end
+        end
 
     end
 end
