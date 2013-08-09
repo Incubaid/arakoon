@@ -658,7 +658,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                   (* Become slave, goto catchup *)
                     Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
                     let cu_pred = S.get_catchup_start_i constants.store in
-                    let new_state = (source,cu_pred,n,i') in 
+                    let new_state = (source,cu_pred,n',i') in
                     Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
