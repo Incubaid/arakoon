@@ -162,5 +162,3 @@ type tlogValidity =
   | TlogValidIncomplete
   | TlogValidComplete
   | TlogInvalid
-
-

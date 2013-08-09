@@ -49,4 +49,3 @@ class type tlog_collection = object
   method remove_oldest_tlogs : int -> unit Lwt.t
   method remove_below : Sn.t -> unit Lwt.t
 end
-

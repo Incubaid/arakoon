@@ -44,4 +44,3 @@ module Message = struct
     let p, pos2  = Llio.string_from buffer pos1
     in {kind=k;payload=p}, pos2
 end
-

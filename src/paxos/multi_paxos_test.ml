@@ -464,6 +464,3 @@ let suite = "basic" >::: [
   (* "pair_tcp"      >:: w (test_generic build_tcp 2); *)
   "master_loop_1" >:: w (test_master_loop build_perfect);
 ];;
-
-
-

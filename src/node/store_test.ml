@@ -144,4 +144,3 @@ let suite =
     "safe_insert_value" >:: w test_safe_insert_value;
     "safe_insert_value_with_partial_value_update" >:: w test_safe_insert_value_with_partial_value_update;
   ]
-

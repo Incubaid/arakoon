@@ -51,20 +51,3 @@ let test_old_format () =
 
 
 let suite = "tlogreader2" >::: ["old_format" >:: test_old_format]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

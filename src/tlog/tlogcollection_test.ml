@@ -257,6 +257,3 @@ let suite_mem = "mem_tlogcollection" >::: [
     (* assumption that different tlog_collections with the same name have the same state *)
 *)
 ]
-
-
-

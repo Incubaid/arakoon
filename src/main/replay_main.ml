@@ -76,5 +76,3 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
       )
   in
   Lwt_main.run (t())
-
-

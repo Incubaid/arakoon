@@ -39,4 +39,3 @@ class type messaging = object
     -> unit -> unit Lwt.t
   method get_buffer: id -> (Message.t * id) Lwt_buffer.t
 end
-

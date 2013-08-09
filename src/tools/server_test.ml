@@ -137,4 +137,3 @@ let suite = "server" >::: [
   "echo" >:: test_echo;
   "max_connections" >:: test_max_connections;
 ]
-

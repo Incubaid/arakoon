@@ -724,4 +724,3 @@ let test_t make_config name =
   let daemonize = false
   and catchup_only = false in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
-

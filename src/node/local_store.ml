@@ -377,4 +377,3 @@ let make_store read_only db_name =
   Lwt.return { db = db;
                location = db_name;
                _tx = None; }
-

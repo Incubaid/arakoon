@@ -507,4 +507,3 @@ let slave_discovered_other_master (type s) constants state () =
       let log_e = ELog (fun () -> m) in
       Fsm.return ~sides:[log_e] s
     end
-

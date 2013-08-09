@@ -108,4 +108,3 @@ let inject_as_head fn node_id cfg_fn =
   in
   Lwt_main.run (t());
   0
-

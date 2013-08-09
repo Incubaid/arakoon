@@ -144,5 +144,3 @@ let make_store read_only db_name =
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
-
-

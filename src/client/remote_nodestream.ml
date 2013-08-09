@@ -192,5 +192,3 @@ let make_remote_nodestream cluster connection =
   let rns = new remote_nodestream connection in
   let a = (rns :> nodestream) in
   Lwt.return a
-
-

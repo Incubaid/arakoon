@@ -296,4 +296,3 @@ struct
 end
 
 module Local_store = Batched_store(Local_store)
-

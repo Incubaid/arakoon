@@ -816,4 +816,3 @@ end
 
 let make_store_module (type ss) (module S : Simple_store with type t = ss) =
   (module Make(S) : STORE with type ss = ss)
-

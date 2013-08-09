@@ -195,4 +195,3 @@ let suite =
     "batched_with_failures" >:: w test_batched_with_failures;
     "large_tlog_catchup" >:: w test_large_tlog_catchup;
   ]
-

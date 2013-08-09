@@ -148,4 +148,3 @@ let suite =
     "collapse_until" >:: wrapTest test_collapse_until;
     "collapse_many" >:: wrapTest test_collapse_many;
   ]
-

@@ -205,4 +205,3 @@ end
 let () =
   AstFilters.register_str_item_filter map#str_item;
   AstFilters.register_topphrase_filter map#str_item;
-

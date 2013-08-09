@@ -155,4 +155,3 @@ let setup_default_logger file_log_path crash_log_prefix =
   let default_logger = Lwt_log.make add_log_msg close_default_logger in
   Lwt_log.default := default_logger;
   Lwt.return dump_crash_log
-

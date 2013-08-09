@@ -27,4 +27,3 @@ let startup = Startup.suite
 let suite = "acceptance" >::: [
   startup;
 ]
-

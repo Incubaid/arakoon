@@ -867,5 +867,3 @@ let truncate_tlog filename =
         end
     end
   in Lwt_main.run t
-
-

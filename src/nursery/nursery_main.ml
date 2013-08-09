@@ -158,4 +158,3 @@ let init_nursery config cluster_id =
 
 let delete_nursery_cluster config cluster_id sep =
   __main_run "/tmp/nursery_delete.log" ( fun () -> __delete_from_nursery config cluster_id sep )
-
