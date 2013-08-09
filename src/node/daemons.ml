@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-let maybe_daemonize daemonize make_config = 
+let maybe_daemonize daemonize make_config =
   let _ = make_config () in (* see if we get here *)
   begin
     if daemonize then

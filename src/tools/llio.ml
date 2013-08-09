@@ -215,7 +215,7 @@ let input_string_pair ic =
   input_string ic >>= fun s1 ->
   Lwt.return (s0,s1)
 
-let input_listl input_element ic = 
+let input_listl input_element ic =
   input_int ic >>= fun size ->
   let rec loop acc = function
     | 0 -> Lwt.return (size, acc)

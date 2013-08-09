@@ -47,7 +47,7 @@ class type backend = object
     allow_dirty:bool ->
       string option -> bool ->
   string option -> bool -> int -> ((string * string) list) Lwt.t
-  method prefix_keys: 
+  method prefix_keys:
     allow_dirty:bool -> string -> int -> (string list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t

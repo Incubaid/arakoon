@@ -31,17 +31,17 @@ open Master_type
 let section = Logger.Section.main
 
 let should_fail x error_msg success_msg =
-  Lwt.catch 
-    (fun ()  -> 
-      x () >>= fun () -> 
+  Lwt.catch
+    (fun ()  ->
+      x () >>= fun () ->
       Logger.debug_ "should fail...doesn't" >>= fun () ->
-      Lwt.return true) 
+      Lwt.return true)
     (fun exn -> Logger.debug_ ~exn success_msg >>= fun () -> Lwt.return false)
-  >>= fun bad -> 
+  >>= fun bad ->
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
-let _start tn = 
+let _start tn =
   let d = 5.0 in
   Logger.info_f_ "==================== %s ===================" tn >>= fun () ->
   Logger.info_f_ "(sleep %f)" d >>= fun () ->
@@ -49,14 +49,14 @@ let _start tn =
   Logger.info_f_ "---------------------%s--------------------" tn
 
 let all_same_master (tn, cluster_cfg, all_t) =
-  let scenario () = 
+  let scenario () =
     let q = float (cluster_cfg._lease_period) *. 1.5 in
     Lwt_unix.sleep q >>= fun () ->
     Logger.debug_ "start of scenario" >>= fun () ->
     let set_one client = client # set "key" "value" in
     Client_main.find_master cluster_cfg >>= fun master_name ->
-    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
-        cluster_cfg.cfgs) 
+    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
+        cluster_cfg.cfgs)
     in
     Client_main.with_client master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
     let masters = ref [] in
@@ -66,13 +66,13 @@ let all_same_master (tn, cluster_cfg, all_t) =
       let f client =
       client # who_master () >>= function master ->
         masters := master :: !masters;
-          Logger.info_f_ "Client:%s got: %s" nn (Log_extra.string_option2s master) 
+          Logger.info_f_ "Client:%s got: %s" nn (Log_extra.string_option2s master)
       in
       Client_main.with_client cfg cluster_cfg.cluster_id f
     in
     let cfgs = cluster_cfg.cfgs in
     Lwt_list.iter_s do_one cfgs >>= fun () ->
-    assert_equal ~printer:string_of_int 
+    assert_equal ~printer:string_of_int
       (List.length cfgs)
       (List.length !masters);
     let test = function
@@ -93,7 +93,7 @@ let all_same_master (tn, cluster_cfg, all_t) =
   in
   Lwt.pick [Lwt.join all_t;
           scenario () ]
-  
+
 
 let nothing_on_slave (tn, cluster_cfg, all_t) =
   let cfgs = cluster_cfg.cfgs in
@@ -127,7 +127,7 @@ let nothing_on_slave (tn, cluster_cfg, all_t) =
     let f (client:Arakoon_client.client) =
     set_on_slave client >>= fun () ->
       delete_on_slave client >>= fun () ->
-    test_and_set_on_slave client 
+    test_and_set_on_slave client
     in
   Client_main.with_client cfg cluster_id f
   in
@@ -141,13 +141,13 @@ let nothing_on_slave (tn, cluster_cfg, all_t) =
   in
   Lwt.pick [Lwt.join all_t;
             Lwt_unix.sleep 5.0 >>= fun () -> test_slaves cluster_cfg]
-    
-let dirty_on_slave (tn, cluster_cfg,_) = 
+
+let dirty_on_slave (tn, cluster_cfg,_) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
   Client_main.find_master cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) 
+  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
             cluster_cfg.cfgs)
   in
   Client_main.with_client master_cfg cluster_cfg.cluster_id
@@ -158,16 +158,16 @@ let dirty_on_slave (tn, cluster_cfg,_) =
     let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> master_name) cfgs in
     Lwt.return slave_cfgs
   in
-  let do_slave cluster_id cfg = 
-    let dirty_get (client:Arakoon_client.client) = 
+  let do_slave cluster_id cfg =
+    let dirty_get (client:Arakoon_client.client) =
       Logger.debug_ "dirty_get" >>= fun () ->
       Lwt.catch
       (fun () -> client # get ~allow_dirty:true "xxx" >>= fun v ->
-        Logger.debug_f_ "dirty_get:result = %s" v 
+        Logger.debug_f_ "dirty_get:result = %s" v
       )
-      (function 
-        | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND,"xxx") -> 
-          Logger.debug_ "dirty_get yielded a not_found" 
+      (function
+        | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND,"xxx") ->
+          Logger.debug_ "dirty_get yielded a not_found"
         | e -> Lwt.fail e)
     in
     Client_main.with_client cfg cluster_id dirty_get
@@ -272,15 +272,15 @@ let _assert1 (client: client) =
   client # aSSert "my_value" (Some "my_value") >>= fun () ->
   Lwt.return ()
 
-let _assert2 (client: client) = 
+let _assert2 (client: client) =
   Logger.info_ "_assert2" >>= fun () ->
   client # set "x" "x" >>= fun () ->
-  should_fail 
+  should_fail
     (fun () -> client # aSSert "x" (Some "y"))
     "PROBLEM:_assert2: yielded unit"
     "_assert2: ok, this aSSert should indeed fail"
 
-let _assert3 (client:client) = 
+let _assert3 (client:client) =
   Logger.info_ "_assert3" >>= fun () ->
   let k = "_assert3" in
   client # set k k >>= fun () ->
@@ -316,14 +316,14 @@ let _assert_exists1 (client: client) =
   client # aSSert_exists "my_value_exists" >>= fun () ->
   Lwt.return ()
 
-let _assert_exists2 (client: client) = 
+let _assert_exists2 (client: client) =
   client # set "x_exists" "x_exists" >>= fun () ->
-  should_fail 
+  should_fail
     (fun () -> client # aSSert_exists "x_no_exists")
     "PROBLEM:_assert_exists2: yielded unit"
     "_assert_exists2: ok, this aSSert should indeed fail"
 
-let _assert_exists3 (client:client) = 
+let _assert_exists3 (client:client) =
   let k = "_assert_exists3" in
   client # set k k >>= fun () ->
   Logger.info_ "_assert_exists3: value set" >>= fun () ->
@@ -394,7 +394,7 @@ let _prefix_keys (client:client) =
   Logger.info_f_ "_prefix_keys" >>= fun () ->
   Arakoon_remote_client_test._prefix_keys_test client
 
-(* TODO: nodestream test 
+(* TODO: nodestream test
 let _list_entries (client:Nodestream.nodestream) =
   Logger.info_f_ "_list_entries" >>= fun () ->
   let filename = "/tmp/_list_entries.tlog" in
@@ -423,7 +423,7 @@ let _sequence (client: client) =
   OUnit.assert_bool "XXX0 should not be there" (not exists);
   Lwt.return ()
 
-let _sequence2 (client: client) = 
+let _sequence2 (client: client) =
   Logger.info_f_ "_sequence" >>= fun () ->
   let k1 = "I_DO_NOT_EXIST" in
   let k2 = "I_SHOULD_NOT_EXIST" in
@@ -434,50 +434,50 @@ let _sequence2 (client: client) =
   in
   should_fail
     (fun () -> client # sequence updates)
-    "_sequence2:failing delete in sequence does not produce exception" 
+    "_sequence2:failing delete in sequence does not produce exception"
     "_sequence2:produced exception, which is intended"
   >>= fun ()->
   Logger.debug_ "_sequence2: part 2 of scenario" >>= fun () ->
-  should_fail 
+  should_fail
     (fun () -> client # get k2 >>= fun _ -> Lwt.return ())
-    "PROBLEM:_sequence2: get yielded a value" 
+    "PROBLEM:_sequence2: get yielded a value"
     "_sequence2: ok, this get should indeed fail"
   >>= fun () -> Lwt.return ()
 
-let _sequence3 (client: client) = 
+let _sequence3 (client: client) =
   Logger.info_f_ "_sequence3" >>= fun () ->
-  let k1 = "sequence3:key1" 
-  and k2 = "sequence3:key2" 
+  let k1 = "sequence3:key1"
+  and k2 = "sequence3:key2"
   in
-  let changes = [Arakoon_client.Set (k1,k1 ^ ":value"); 
-     Arakoon_client.Delete k2;] in 
-  should_fail 
-    (fun () -> client # sequence changes) 
-    "PROBLEM: _sequence3: change should fail (exception in change)" 
+  let changes = [Arakoon_client.Set (k1,k1 ^ ":value");
+     Arakoon_client.Delete k2;] in
+  should_fail
+    (fun () -> client # sequence changes)
+    "PROBLEM: _sequence3: change should fail (exception in change)"
     "sequence3 changes indeed failed"
   >>= fun () ->
-  should_fail 
+  should_fail
     (fun () -> client # get k1 >>= fun v1 -> Logger.info_f_ "value=:%s" v1)
-    "PROBLEM: changes should be all or nothing" 
+    "PROBLEM: changes should be all or nothing"
     "ok: all-or-noting changes"
   >>= fun () -> Logger.info_f_ "sequence3.ok"
 
-let _progress_possible (client:client) = 
+let _progress_possible (client:client) =
   Logger.info_f_ "_progress_possible" >>= fun () ->
   client # expect_progress_possible () >>= fun b ->
   OUnit.assert_equal ~msg:"we should have the possibility of progress here" b true;
   Lwt.return ()
 
-let _multi_get (client: client) = 
+let _multi_get (client: client) =
   let key1 = "_multi_get:key1"
-  and key2 = "_multi_get:key2" 
+  and key2 = "_multi_get:key2"
   in
   client # set key1 key1 >>= fun () ->
   client # set key2 key2 >>= fun () ->
   client # multi_get [key1;key2] >>= fun values ->
   begin
     match values with
-      | [v1;v2] -> 
+      | [v1;v2] ->
       Logger.debug_f_ "v1=%S;v2=%S" v1 v2
       >>= fun () ->
       OUnit.assert_equal v1 key1;
@@ -486,13 +486,13 @@ let _multi_get (client: client) =
     | _ -> Lwt.fail (Failure "2 values expected")
   end >>= fun () ->
   Lwt.catch
-    (fun () -> 
-      client # multi_get ["I_DO_NOT_EXIST";key2] 
+    (fun () ->
+      client # multi_get ["I_DO_NOT_EXIST";key2]
       >>= fun values ->
       Lwt.return ())
     (fun exn -> Logger.debug_ ~exn "is this ok?")
-  
-let _multi_get_option (client:client) = 
+
+let _multi_get_option (client:client) =
   let k1 = "_multi_get_option:key1"
   and k2 = "_multi_get_option:key2"
   in
@@ -506,19 +506,19 @@ let _multi_get_option (client:client) =
       OUnit.assert_equal ~printer:id v1 k1;
       OUnit.assert_equal ~printer:id v2 k2;
       Lwt.return ()
-    | _ -> 
+    | _ ->
       Lwt_list.iter_s (fun so -> Lwt_io.printlf "vos.... %S" (Log_extra.string_option2s so)) vos >>= fun () ->
       Lwt.fail (Failure "bad order or arity")
-        
+
 
 let _with_master ((tn:string), cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.5 in
-  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *) 
+  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
   Client_main.find_master cluster_cfg >>= fun master_name ->
   Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd 
+    List.hd
       (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
   Client_main.with_client master_cfg cluster_cfg.cluster_id f
@@ -531,7 +531,7 @@ let trivial_master tpl =
     _exists client >>= fun () ->
     _test_and_set_1 client >>= fun () ->
     _test_and_set_2 client >>= fun () ->
-    _test_and_set_3 client 
+    _test_and_set_3 client
   in
   _with_master tpl f
 
@@ -542,7 +542,7 @@ let trivial_master2 tpl =
     _range_1 client >>= fun () ->
     _range_entries_1 client >>= fun () ->
     _prefix_keys client >>= fun () ->
-    _detailed_range client 
+    _detailed_range client
   in
   _with_master tpl f
 
@@ -551,11 +551,11 @@ let trivial_master3 tpl =
   let f client =
     _sequence client >>= fun () ->
     _sequence2 client >>= fun () ->
-    _sequence3 client 
+    _sequence3 client
   in
   _with_master tpl f
 
-let trivial_master4 tpl = _with_master tpl _multi_get 
+let trivial_master4 tpl = _with_master tpl _multi_get
 
 let trivial_master5 tpl = _with_master tpl _progress_possible
 
@@ -565,7 +565,7 @@ let assert1 tpl = _with_master tpl _assert1
 
 let assert2 tpl = _with_master tpl _assert2
 
-let assert3 tpl = 
+let assert3 tpl =
   _start "assert3" >>= fun () ->
   _with_master tpl _assert3
 
@@ -573,21 +573,21 @@ let assert_exists1 tpl = _with_master tpl _assert_exists1
 
 let assert_exists2 tpl = _with_master tpl _assert_exists2
 
-let assert_exists3 tpl = 
+let assert_exists3 tpl =
   _start "assert_exists3" >>= fun () ->
   _with_master tpl _assert_exists3
 
-let _node_name tn n = Printf.sprintf "%s_%i" tn n 
+let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
 let setup make_master tn base () =
   _start tn >>= fun () ->
   let lease_period = 10 in
   let cluster_id = Printf.sprintf "%s_%i" tn base in
   let master = make_master tn 0 in
-  let make_config () = Node_cfg.Node_cfg.make_test_config 
-    ~base ~cluster_id    
+  let make_config () = Node_cfg.Node_cfg.make_test_config
+    ~base ~cluster_id
     ~node_name:(_node_name tn)
-    3 master lease_period 
+    3 master lease_period
   in
   let t0 = Node_main.test_t make_config (_node_name tn 0) >>= fun _ -> Lwt.return () in
   let t1 = Node_main.test_t make_config (_node_name tn 1) >>= fun _ -> Lwt.return () in
@@ -595,7 +595,7 @@ let setup make_master tn base () =
   let all_t = [t0;t1;t2] in
   Lwt.return (tn, make_config (), all_t)
 
-let teardown (tn, _, all_t) = 
+let teardown (tn, _, all_t) =
   Logger.info_f_ "++++++++++++++++++++ %s +++++++++++++++++++" tn >>= fun () ->
   Lwt.return ()
 
@@ -605,16 +605,16 @@ let make_suite base name w =
     [
       make_el "all_same_master" base all_same_master;
       (* "nothing_on_slave">:: w nothing_on_slave; *)
-      make_el "dirty_on_slave"  (base +200) dirty_on_slave; 
-      make_el "trivial_master"  (base +300) trivial_master; 
+      make_el "dirty_on_slave"  (base +200) dirty_on_slave;
+      make_el "trivial_master"  (base +300) trivial_master;
       make_el "trivial_master2" (base +400) trivial_master2;
       make_el "trivial_master3" (base +500) trivial_master3;
       make_el "trivial_master4" (base +600) trivial_master4;
-      make_el "trivial_master5" (base +700) trivial_master5; 
-      make_el "assert1"         (base + 800) assert1; 
+      make_el "trivial_master5" (base +700) trivial_master5;
+      make_el "assert1"         (base + 800) assert1;
       make_el "assert2"         (base + 900) assert2;
       make_el "assert3"         (base + 1000) assert3;
-      make_el "assert_exists1"  (base + 1100) assert_exists1; 
+      make_el "assert_exists1"  (base + 1100) assert_exists1;
       make_el "assert_exists2"  (base + 1200) assert_exists2;
       make_el "assert_exists3"  (base + 1300) assert_exists3;
       make_el "trivial_master6" (base + 1400) trivial_master6;

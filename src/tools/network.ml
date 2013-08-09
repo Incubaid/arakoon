@@ -26,7 +26,7 @@ let section = Logger.Section.main
 
 let make_address host port =
   let ha = Unix.inet_addr_of_string host in
-  Unix.ADDR_INET (ha, port) 
+  Unix.ADDR_INET (ha, port)
 
 let a2s = function
   | Unix.ADDR_INET (sa,p) -> Printf.sprintf "(%s,%i)" (Unix.string_of_inet_addr sa) p
@@ -42,10 +42,10 @@ let __open_connection socket_address =
       let a2 = Lwt_unix.getsockname socket in
       let peer = Lwt_unix.getpeername socket in
       begin
-      if (a2 = peer) 
+      if (a2 = peer)
         then Llio.lwt_failfmt "a socket should not connect to itself"
       else Lwt.return ()
-      end 
+      end
       >>= fun () ->
       let fd_field = Obj.field (Obj.repr socket) 0 in
       let (fdi:int) = Obj.magic (fd_field) in
@@ -55,7 +55,7 @@ let __open_connection socket_address =
       let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
       Lwt.return (ic,oc))
-    (fun exn -> 
+    (fun exn ->
       Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
       >>= fun () ->
       Lwt_unix.close socket >>= fun () ->

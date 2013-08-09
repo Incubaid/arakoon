@@ -17,17 +17,17 @@ let run_cmd cmd =
   with | End_of_file -> "Not available"
 
 
-let output_cmd cmd = 
+let output_cmd cmd =
   let acc = ref [] in
   let ch = Unix.open_process_in cmd in
   try
-    let rec loop () = 
+    let rec loop () =
       let line = input_line ch in
       let () = acc := line :: !acc in
       loop ()
     in
     loop ()
-  with | End_of_file -> 
+  with | End_of_file ->
     let () = close_in ch in
     List.rev (!acc)
 
@@ -68,10 +68,10 @@ let make_version _ _ =
       "let patch = %i\n" ^^
       "let dependencies = %S\n"
     in
-    let major,minor,patch = 
+    let major,minor,patch =
       try
         Scanf.sscanf tag_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
-      with _ -> 
+      with _ ->
         try Scanf.sscanf branch_version "heads/%i.%i" (fun ma mi -> (ma,mi,-1))
         with _ ->
           (* This one matches what's on Jenkins slaves *)
@@ -165,7 +165,7 @@ let _ = dispatch & function
 
     flag ["pp";"ocaml";"use_bisect"]
       (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
-    
+
     flag ["pp";"use_macro";"small_tlogs";
     "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
     flag ["library";"use_thread"](S[A"-thread"]);

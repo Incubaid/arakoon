@@ -39,7 +39,7 @@ object (self: #tlog_collection)
   method get_last_i () =
     match last_entry with
       | None -> Sn.start
-      | Some entry -> Entry.i_of entry 
+      | Some entry -> Entry.i_of entry
 
   method get_last_value i =
     match last_entry with
@@ -48,13 +48,13 @@ object (self: #tlog_collection)
         let i' = Entry.i_of entry in
       begin
         if i = i'
-        then 
+        then
             let v = Entry.v_of entry in
             Some v
         else
           None
       end
-          
+
   method get_last () =
     match last_entry with
       | None -> None
@@ -62,15 +62,15 @@ object (self: #tlog_collection)
 
 
   method iterate i last_i f =
-    let data' = List.filter 
-      (fun entry -> 
-        let ei = Entry.i_of entry 
+    let data' = List.filter
+      (fun entry ->
+        let ei = Entry.i_of entry
         (*and eu = Entry.u_of entry*)
         in
         ei >= i && ei <= last_i) data in
     Lwt_list.iter_s f (List.rev data')
 
-      
+
   method get_tlog_count() = failwith "get_tlog_count not supported"
 
   method dump_tlog_file start_i oc = failwith "dump_tlog_file not supported"
@@ -86,18 +86,18 @@ object (self: #tlog_collection)
 
   method log_value i v = self #log_value_explicit i v false None
 
-          
+
   method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
   method save_head ic = Llio.lwt_failfmt "save_head not implemented"
 
   method get_head_name () = failwith "get_head_name not implemented"
 
   method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
-  
+
   method get_tlog_from_i _ = Sn.start
-  
+
   method close () = Lwt.return ()
-  
+
   method remove_oldest_tlogs count = Lwt.return ()
 
   method remove_below i = Lwt.return ()

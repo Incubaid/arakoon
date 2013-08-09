@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Client_cfg
 open OUnit
 
-let test_parsing () = 
+let test_parsing () =
   let lines = [
     "[global]";
    "cluster_id = sturdy";

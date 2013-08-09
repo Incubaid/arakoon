@@ -70,15 +70,15 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
       Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
     end
 
-let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev = 
+let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev =
   match ev with
   | LeaseExpired n' ->
       let me = constants.me in
-      if n' < n 
+      if n' < n
       then
       begin
           let log_e = ELog (fun () ->
-          Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s" 
+          Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s"
             (Sn.string_of n') (Sn.string_of n))
           in
         Fsm.return ~sides:[log_e] (Stable_master current_state)
@@ -107,14 +107,14 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                   let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
                   let (p, p_i) = List.hd slws in
             let diff = Sn.diff new_i p_i in
-            if diff < (Sn.of_int 5) 
+            if diff < (Sn.of_int 5)
               then
             begin
                   let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             end
             else
-            extend () 
+            extend ()
           | _ -> extend()
       end
     | FromClient ufs ->
@@ -135,7 +135,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
             begin
               let reply = Nak(n', (n,new_i)) in
               constants.send reply me source >>= fun () ->
-              if n' > 0L 
+              if n' > 0L
               then
                 let new_n = update_n constants n' in
                 Fsm.return (Forced_master_suggest (new_n,new_i))
@@ -146,7 +146,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
             begin
                   let module S = (val constants.store_module : Store.STORE with type t = s) in
               handle_prepare constants source n n' i' >>= function
-                | Nak_sent 
+                | Nak_sent
                 | Prepare_dropped -> Fsm.return  (Stable_master current_state )
                 | Promise_sent_up2date ->
                   begin
@@ -160,7 +160,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                       Fsm.return (Slave_discovered_other_master (source, i, n', i'))
             end
           end
-          | Accepted(n,i) -> 
+          | Accepted(n,i) ->
               (* This one is not relevant anymore, but we're interested
                  to see the slower slaves in the statistics as well :
                  TODO: should not be solved on this level.
@@ -168,39 +168,39 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
               let () = constants.on_witness source i in
               Fsm.return (Stable_master current_state)
           | Accept(n',i',v) when n' > n && i' > new_i ->
-            (* 
+            (*
                somehow the others decided upon a master and I got no event my lease expired.
                Let's see what's going on, and maybe go back to elections
             *)
             begin
               Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
               let run_elections, why = Slave.time_for_elections constants n (Some v') in
-              let log_e = 
-                ELog (fun () -> 
-                  Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s" 
+              let log_e =
+                ELog (fun () ->
+                  Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s"
                     (Sn.string_of n') (Sn.string_of i')
                     run_elections why)
               in
               let sides = [log_e] in
-              if run_elections 
-              then 
+              if run_elections
+              then
                 Fsm.return ~sides (Election_suggest (n,new_i,Some v'))
               else
                 Fsm.return ~sides (Stable_master (v',n,new_i, []))
             end
         | _ ->
             begin
-                let log_e = ELog (fun () -> 
-                  Printf.sprintf "stable_master received %S: dropping" (string_of msg)) 
+                let log_e = ELog (fun () ->
+                  Printf.sprintf "stable_master received %S: dropping" (string_of msg))
                 in
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             end
       end
-    | ElectionTimeout (n', i') -> 
+    | ElectionTimeout (n', i') ->
         begin
           let log_e = ELog (fun () ->
             Printf.sprintf "ignoring election timeout (%s,%s)" (Sn.string_of n') (Sn.string_of i') )
-          in          
+          in
           Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
     | Quiesce (sleep,awake) ->
@@ -208,19 +208,19 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
         fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
         Fsm.return (Stable_master current_state)
       end
-        
+
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
 
     | DropMaster (sleep, awake) ->
         let state' = (v',n,new_i, (sleep, awake) :: lease_expire_waiters) in
         Fsm.return (Stable_master state')
-                
+
 (* a master informes the others of a new value by means of Accept
    messages and then waits for Accepted responses *)
 
 let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
   let accept_e = EAccept (v,n,i) in
-  
+
   let start_e = EStartLeaseExpiration (v,n,false) in
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
@@ -228,11 +228,11 @@ let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
   let needed = constants.quorum_function (List.length others + 1) in
   let needed' = needed - 1 in
   let ballot = (needed' , [me] ) in
-  
-  let log_e = 
+
+  let log_e =
     ELog (fun () ->
-      Printf.sprintf "master_dictate n:%s i:%s needed:%d" 
-        (Sn.string_of n) (Sn.string_of i) needed' 
+      Printf.sprintf "master_dictate n:%s i:%s needed:%d"
+        (Sn.string_of n) (Sn.string_of i) needed'
     )
   in
   let sides =

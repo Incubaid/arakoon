@@ -24,10 +24,10 @@ open Lwt
 open Lwt_buffer
 
 let _ =
-  let rec produce item period q = 
+  let rec produce item period q =
     Lwt_io.printlf "produced: %s" item >>= fun () ->
-    Lwt_buffer.add item q >>= fun () -> 
-    Lwt_unix.sleep period >>= fun () -> 
+    Lwt_buffer.add item q >>= fun () ->
+    Lwt_unix.sleep period >>= fun () ->
     produce item period q
   in
   let capacity = Some 5 in
@@ -38,21 +38,21 @@ let _ =
   let p1 () = produce "p1_stuff" 1.0 q1 in
   let p2 () = produce "p2_stuff" 1.0 q2 in
 
-  let rec c qs = 
+  let rec c qs =
     let consume q  =
       Lwt_unix.sleep 3.0 >>= fun () ->
-      Lwt_buffer.take q >>= fun item -> 
+      Lwt_buffer.take q >>= fun item ->
       Lwt_io.printlf "consumed %S" item
     in
     let ready q = Lwt_buffer.wait_for_item q  >>= fun () -> Lwt.return q
     in
     let waiters = List.map ready qs in
     Lwt.npick waiters >>= fun ready_qs ->
-    
+
     Lwt_list.iter_s consume ready_qs >>= fun () ->
     c qs
-  
-    
+
+
   in
   let qs = [q2;q1;q0] in
   let main () = join [p0();

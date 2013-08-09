@@ -3,20 +3,20 @@ open Lwt
 
 let dump_tlog filename ~values=
   let printer () entry =
-    let i = Entry.i_of entry 
+    let i = Entry.i_of entry
     and v = Entry.v_of entry
     and m = Entry.m_of entry in
     let ms = match m with None -> "" | Some s -> Printf.sprintf ":%S" s
     in
-    Lwt_io.printlf "%s:%s%s" (Sn.string_of i) 
+    Lwt_io.printlf "%s:%s%s" (Sn.string_of i)
       (Value.value2s v ~values) ms
   in
   let folder,_,index = Tlc2.folder_for filename None in
-  
+
   let t =
     begin
     let do_it ic =
-        
+
       let lowerI = Sn.start
       and higherI = None
       and first = Sn.of_int 0
@@ -29,32 +29,32 @@ let dump_tlog filename ~values=
   in
   Lwt_main.run t
 
-let _last_entry filename = 
+let _last_entry filename =
   let last = ref None in
-  let printer () entry = 
+  let printer () entry =
     let i = Entry.i_of entry in
     let p = Entry.p_of entry in
     let () = last := Some entry in
     Lwt_io.printlf "%s:%Li" (Sn.string_of i) p
   in
   let folder,_,index = Tlc2.folder_for filename None in
-  let do_it ic = 
+  let do_it ic =
     let lowerI = Sn.start in
-    let higherI = None 
+    let higherI = None
     and first = Sn.of_int 0
     and a0 = () in
-    folder ic ~index lowerI higherI ~first a0 printer 
+    folder ic ~index lowerI higherI ~first a0 printer
   in
   Lwt_io.with_file ~mode:Lwt_io.input filename do_it >>= fun () ->
   Lwt.return !last
-      
 
-let strip_tlog filename = 
-  let maybe_truncate = 
-    function 
+
+let strip_tlog filename =
+  let maybe_truncate =
+    function
       | None -> Lwt.return 0
-      | Some e -> 
-          if Entry.has_marker e 
+      | Some e ->
+          if Entry.has_marker e
           then
             begin
               let p = Entry.p_of e in
@@ -71,22 +71,22 @@ let strip_tlog filename =
   in
   let t =
     _last_entry filename >>= fun last ->
-    maybe_truncate last 
+    maybe_truncate last
   in
   Lwt_main.run t
 
-let mark_tlog file_name node_name = 
-  let t = 
+let mark_tlog file_name node_name =
+  let t =
     _last_entry file_name >>= fun last ->
     match last with
       | None -> Lwt.return 0
       | Some e ->
-          let i     = Entry.i_of e 
-          and value = Entry.v_of e 
+          let i     = Entry.i_of e
+          and value = Entry.v_of e
           in
           let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
-          Lwt_io.with_file 
-            ~mode:Lwt_io.output 
+          Lwt_io.with_file
+            ~mode:Lwt_io.output
             ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
             file_name f
             >>= fun () -> Lwt.return 0
@@ -96,7 +96,7 @@ let mark_tlog file_name node_name =
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
-    let f oc = Tlogcommon.write_entry oc sni 
+    let f oc = Tlogcommon.write_entry oc sni
       (Value.create_client_value [Update.Update.Nop] false)
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
@@ -110,7 +110,7 @@ let compress_tlog tlu =
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
   let tlf = Tlc2.to_archive_name tlu in
   let () = if Sys.file_exists tlf then failwith "Can't compress %s as %s already exists" tlu tlf in
-  let t = 
+  let t =
     let tmp = tlf ^ ".tmp" in
     Compression.compress_tlog tlu tmp >>= fun () ->
     File_system.rename tmp tlf >>= fun () ->

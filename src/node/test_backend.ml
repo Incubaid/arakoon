@@ -91,7 +91,7 @@ class test_backend my_name = object(self:#backend)
   val mutable _interval = Interval.max
 
   method optimize_db () =
-    Lwt.return () 
+    Lwt.return ()
 
   method defrag_db () = Lwt.return ()
 
@@ -179,7 +179,7 @@ class test_backend my_name = object(self:#backend)
   method multi_get_option ~allow_dirty (keys: string list) =
     let vos = List.fold_left
       (fun acc k ->
-        let vo = 
+        let vo =
           try Some (StringMap.find k _kv )
           with Not_found -> None
         in
@@ -307,13 +307,13 @@ class test_backend my_name = object(self:#backend)
   method set_cluster_cfg cluster_id cfg =
     failwith "set_cluster not implemented in testbackend"
 
-  method delete_prefix prefix = 
-    let kv',n_deleted = 
-      StringMap.fold 
-        (fun k v ((s,c)as acc) -> 
-          if String_extra.prefix_match prefix k 
-          then (StringMap.remove k s,c+1)  
-          else acc) _kv  (_kv,0) 
+  method delete_prefix prefix =
+    let kv',n_deleted =
+      StringMap.fold
+        (fun k v ((s,c)as acc) ->
+          if String_extra.prefix_match prefix k
+          then (StringMap.remove k s,c+1)
+          else acc) _kv  (_kv,0)
      in
     _kv <- kv';
     Lwt.return n_deleted

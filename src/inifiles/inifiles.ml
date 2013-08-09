@@ -3,24 +3,24 @@
    Copyright (C) 2004 Eric Stokes, and The California State University
    at Northridge
 
-   This library is free software; you can redistribute it and/or               
-   modify it under the terms of the GNU Lesser General Public                  
-   License as published by the Free Software Foundation; either                
-   version 2.1 of the License, or (at your option) any later version.          
-   
-   This library is distributed in the hope that it will be useful,             
-   but WITHOUT ANY WARRANTY; without even the implied warranty of              
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU           
-   Lesser General Public License for more details.                             
-   
-   You should have received a copy of the GNU Lesser General Public            
-   License along with this library; if not, write to the Free Software         
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA   
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *)
 
-(* 
-   changes to original (Romain Slootmaekers): 
-   - removed pcre dependency 
+(*
+   changes to original (Romain Slootmaekers):
+   - removed pcre dependency
    - fixed little bug on parsing of empty lines with spaces
    - little change to fold signature to accomodate ocaml 4.0
 *)
@@ -48,27 +48,27 @@ type section_specification = {
 }
 
 type specification = section_specification list
-  
+
 let comment = Str.regexp "^#.*$"
 
-module Ordstr = 
+module Ordstr =
 struct
   type t = string
-  let compare (x:t) (y:t) = 
+  let compare (x:t) (y:t) =
     String.compare (String.lowercase x) (String.lowercase y)
 end
 
 module Strset = Set.Make(Ordstr)
 
 let setOfList list =
-  let rec dosetOfList list set = 
+  let rec dosetOfList list set =
     match list with
   a :: tail -> dosetOfList tail (Strset.add a set)
       | []  -> set
   in
     dosetOfList list Strset.empty
 
-let rec filterfile ?(buf=Buffer.create 500) f fd = 
+let rec filterfile ?(buf=Buffer.create 500) f fd =
   try
     let theline = input_line fd in
       if f theline then begin
@@ -80,7 +80,7 @@ let rec filterfile ?(buf=Buffer.create 500) f fd =
   with End_of_file -> Buffer.contents buf
 
 let rec read_inifile file fd tbl =
-  let lxbuf = 
+  let lxbuf =
     Lexing.from_string
       (filterfile
    (fun line -> not (Str.string_match comment line 0))
@@ -99,7 +99,7 @@ let rec read_inifile file fd tbl =
     with Parsing.Parse_error | Failure "lexing: empty token" ->
       raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, file))
 
-let write_inifile fd tbl = 
+let write_inifile fd tbl =
   Hashtbl.iter
     (fun k v ->
        output_string fd "[";output_string fd k;output_string fd "]\n";
@@ -115,14 +115,14 @@ object (self)
   val file = file
   val data = Hashtbl.create 50
 
-  initializer 
+  initializer
   let inch = open_in file in
     (try read_inifile file inch data
      with exn -> close_in inch;raise exn);
     close_in inch;
     self#validate
 
-  method private validate = 
+  method private validate =
     match spec with
   [] -> ()
       | spec ->
@@ -130,7 +130,7 @@ object (self)
       (fun {sec_name=name;sec_required=required;
       sec_attributes=attrs} ->
          try
-     let sec = 
+     let sec =
        try Hashtbl.find data name
        with Not_found -> raise (Missing_section name)
      in
@@ -138,16 +138,16 @@ object (self)
          (fun {atr_name=name;atr_required=req;
          atr_default=def;atr_validator=validator} ->
       try
-        let attr_val = 
+        let attr_val =
           try Hashtbl.find sec name
           with Not_found -> raise (Missing_element name)
         in
           (match validator with
-         Some rex -> 
-           if not (Str.string_match rex attr_val 0 ) 
+         Some rex ->
+           if not (Str.string_match rex attr_val 0 )
            then
-             raise 
-               (Invalid_element 
+             raise
+               (Invalid_element
             (name ^ ": validation failed"))
              | None -> ())
       with Missing_element elt ->
@@ -156,12 +156,12 @@ object (self)
             Some def -> List.iter (Hashtbl.add sec name) def
           | None -> ())
          attrs
-         with Missing_section s -> 
+         with Missing_section s ->
      if required then raise (Missing_section s))
       spec
 
   method getval sec elt =
-    try Hashtbl.find 
+    try Hashtbl.find
       (try (Hashtbl.find data sec)
        with Not_found -> raise (Invalid_section sec))
       elt
@@ -175,7 +175,7 @@ object (self)
     with Not_found -> raise (Invalid_element elt)
 
   method setval sec elt v =
-    (Hashtbl.add 
+    (Hashtbl.add
        (try Hashtbl.find data sec
   with Not_found ->
     let h = Hashtbl.create 10 in
@@ -185,7 +185,7 @@ object (self)
     with exn -> Hashtbl.remove data elt;raise exn
 
   method delval sec elt =
-    let valu = 
+    let valu =
       try
   Some
     (Hashtbl.find
@@ -201,7 +201,7 @@ object (self)
     with Not_found -> raise (Invalid_section sec))
          elt);
        try self#validate
-       with exn -> 
+       with exn ->
          (Hashtbl.add
       (try Hashtbl.find data sec
        with Not_found -> raise (Invalid_section sec))
@@ -216,11 +216,11 @@ object (self)
        data [])
 
   method iter func sec =
-    (Hashtbl.iter func 
+    (Hashtbl.iter func
        (try Hashtbl.find data sec
   with Not_found -> raise (Invalid_section sec)))
 
-  method attrs sec =    
+  method attrs sec =
     (Strset.elements
        (setOfList
     (Hashtbl.fold
@@ -229,8 +229,8 @@ object (self)
         with Not_found -> raise (Invalid_section sec))
        [])))
 
-  method save ?(file = file) () = 
-    let outch = open_out file in      
+  method save ?(file = file) () =
+    let outch = open_out file in
       write_inifile outch data;
       flush outch;
 end
@@ -248,13 +248,13 @@ let readdir path =
     lst
 
 let fold ?(spec=[]) func path initial =
-  let check_file path = 
-    match 
-      (path, 
-       (try (Unix.stat path).Unix.st_kind 
-  with Unix.Unix_error (_,_,_) -> Unix.S_DIR)) 
+  let check_file path =
+    match
+      (path,
+       (try (Unix.stat path).Unix.st_kind
+  with Unix.Unix_error (_,_,_) -> Unix.S_DIR))
     with
-  (name, Unix.S_REG) when 
+  (name, Unix.S_REG) when
       (Str.string_match (Str.regexp "^.*\\.ini$") path 0) -> true
       | _ -> false
   in

@@ -31,7 +31,7 @@ class tlogWriter oc lastI =
 
     val mutable lastWrittenI = lastI;
 
-    method getLastI () = lastWrittenI 
+    method getLastI () = lastWrittenI
 
     method closeChannel () = Lwt_io.close oc
 

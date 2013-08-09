@@ -205,15 +205,15 @@ object(self: #backend)
         Lwt.return ()
       )
 
-  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =    
-    self # with_blocked_collapser start_i 
-      (fun () -> 
+  method last_entries (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+    self # with_blocked_collapser start_i
+      (fun () ->
         Catchup.last_entries (module S) store tlog_collection start_i oc
       )
-      
-  method last_entries2 (start_i:Sn.t) (oc:Lwt_io.output_channel) = 
+
+  method last_entries2 (start_i:Sn.t) (oc:Lwt_io.output_channel) =
     self # with_blocked_collapser start_i
-      (fun () -> 
+      (fun () ->
         Catchup.last_entries2 (module S) store tlog_collection start_i oc
       )
 
@@ -397,8 +397,8 @@ object(self: #backend)
       | ReadOnly -> Some my_name, "readonly"
 
     in
-    Logger.debug_f_ "who_master: returning %s because %s" 
-      (Log_extra.string_option2s result) argumentation 
+    Logger.debug_f_ "who_master: returning %s because %s"
+      (Log_extra.string_option2s result) argumentation
     >>= fun () ->
     Lwt.return result
 
@@ -598,8 +598,8 @@ object(self: #backend)
     Logger.info_ "optimize_db: enter" >>= fun () ->
     self # try_quiesced(fun () -> S.optimize store) >>= fun () ->
     Logger.info_ "optimize_db: All done"
- 
-  method defrag_db () = 
+
+  method defrag_db () =
     self # _not_if_master() >>= fun () ->
     Logger.info_ "defrag_db: enter" >>= fun () ->
     S.defrag store >>= fun () ->
@@ -690,7 +690,7 @@ object(self: #backend)
                 Logger.debug_ "drop_master: completed"
               end
       end
-        
+
   method get_current_state () =
     let s = Multi_paxos_fsm.pull_state () in
     Lwt.return s

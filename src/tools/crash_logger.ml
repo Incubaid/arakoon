@@ -100,19 +100,19 @@ let setup_crash_log crash_file_gen =
         Lwt_io.write_line oc msg >>= fun () ->
         loop ()
       in
-      Lwt.catch 
+      Lwt.catch
   loop
-  (function 
+  (function
     | Lwt_sequence.Empty -> Lwt.return ()
     | e -> Lwt.fail e)
     in
     let crash_file_path = crash_file_gen () in
     Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs
-  in 
-  
+  in
+
   let fake_close () = Lwt.return () in
-  
-  (add_to_crash_log, fake_close, dump_crash_log) 
+
+  (add_to_crash_log, fake_close, dump_crash_log)
 
 
 let setup_default_logger file_log_path crash_log_prefix =
@@ -122,15 +122,15 @@ let setup_default_logger file_log_path crash_log_prefix =
         ~template:"$(date) $(milliseconds): ($(section)|$(level)): $(message)"
         ~mode:`Append ~file_name:file_log_path ()
     )
-    (fun exn -> 
+    (fun exn ->
       let msg = Printexc.to_string exn in
       let text = Printf.sprintf "could not create file logger %S : %s" file_log_path msg in
       Lwt.fail (Failure text)
     )
   >>= fun file_logger ->
-  let (log_crash_msg, close_crash_log, dump_crash_log) = 
-    setup_crash_log crash_log_prefix in 
-  
+  let (log_crash_msg, close_crash_log, dump_crash_log) =
+    setup_crash_log crash_log_prefix in
+
   let add_log_msg section level msgs =
     let log_file_msg msg = Lwt_log.log
       ~section
@@ -139,19 +139,19 @@ let setup_default_logger file_log_path crash_log_prefix =
     in
     Lwt.catch
       (fun () ->
-        Lwt_list.iter_s log_file_msg msgs >>= fun () -> 
+        Lwt_list.iter_s log_file_msg msgs >>= fun () ->
         log_crash_msg section level (List.map (fun m -> Immediate (m, None)) msgs) )
-      (function 
+      (function
         | Lwt_log.Logger_closed -> Lwt.return ()
         | e -> Lwt.fail e
       )
   in
-    
+
   let close_default_logger () =
     Lwt_log.close file_logger >>= fun () ->
     close_crash_log ()
   in
-  
+
   let default_logger = Lwt_log.make add_log_msg close_default_logger in
   Lwt_log.default := default_logger;
   Lwt.return dump_crash_log

@@ -27,20 +27,20 @@ let succ t = Int64.succ t
 let pred t = Int64.pred t
 let compare = Int64.compare
 let mul = Int64.mul
-let div = Int64.div 
+let div = Int64.div
 let add = Int64.add
-let sub = Int64.sub 
+let sub = Int64.sub
 let rem = Int64.rem
 
-let diff a b = Int64.abs (Int64.sub a b) 
-let of_int = Int64.of_int 
+let diff a b = Int64.abs (Int64.sub a b)
+let of_int = Int64.of_int
 let to_int = Int64.to_int
 
 let string_of = Int64.to_string
 let of_string = Int64.of_string
 let sn_to buf sn=  Llio.int64_to buf sn
 let sn_from string p = Llio.int64_from string p
-  
+
 let output_sn oc t = Llio.output_int64 oc t
 let input_sn ic = Llio.input_int64 ic
 

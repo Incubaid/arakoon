@@ -34,7 +34,7 @@ module Entry = struct
   let has_marker t = t.m <> None
   let check_marker t m = t.m = m
 
-  let entry2s t = 
+  let entry2s t =
     let ms = Log_extra.string_option2s t.m in
     Printf.sprintf "{i=%s;v=%s;m=%s;p=%Li}" (Sn.string_of t.i) (Value.value2s t.v) ms t.p
 end
@@ -42,18 +42,18 @@ end
 exception TLogCheckSumError of Int64.t
 exception TLogUnexpectedEndOfFile of Int64.t
 
-let tlogEntriesPerFile = 
+let tlogEntriesPerFile =
   ref (IFDEF SMALLTLOG THEN 1000 ELSE (100 * 1000) END)
 
 let tlogExtension = ".tlog"
-let tlogFileRegex = 
+let tlogFileRegex =
   let qex = Str.quote tlogExtension in
   Str.regexp ("[0-9]+" ^ qex ^ "$" )
 
 
 
 let isValidSuccessor i prevI =
-  i = prevI || i = Sn.succ prevI 
+  i = prevI || i = Sn.succ prevI
 
 let calculateTlogEntryChecksum dataToChecksum =
   Int32.of_int (Hashtbl.hash dataToChecksum)
@@ -111,13 +111,13 @@ let read_entry ic =
       | ex -> Lwt.fail ex)
 
 
-let entry_from buff pos = 
+let entry_from buff pos =
   let i, pos2  = Sn.sn_from       buff pos  in
   let crc,pos3 = Llio.int32_from  buff pos2 in
   let cmd,pos4 = Llio.string_from buff pos3 in
   let value,_ = Value.value_from cmd 0 in
   let e = Entry.make i value 0L None in
-  e, pos4 
+  e, pos4
 
 
 let read_into ic buf =
@@ -127,7 +127,7 @@ let read_into ic buf =
   Sn.sn_to buf i;
   Llio.int32_to buf crc;
   Llio.string_to buf cmd;
-  Lwt.return () 
+  Lwt.return ()
 
 let entry_to buf i value =
   Sn.sn_to buf i;
@@ -137,7 +137,7 @@ let entry_to buf i value =
   let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.int32_to buf crc;
   Llio.string_to buf cmd
-    
+
 let write_entry oc i value =
   Sn.output_sn oc i >>= fun () ->
   let b = Buffer.create 64 in
@@ -146,8 +146,8 @@ let write_entry oc i value =
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.output_int32 oc chksum >>= fun() ->
   Llio.output_string oc cmd
-    
-let write_marker oc i value m = 
+
+let write_marker oc i value m =
   Sn.output_sn oc i >>= fun () ->
   let b = Buffer.create 64 in
   let () = Value.value_to b value in

@@ -34,7 +34,7 @@ type ('m, 's, 'e) state =
 and  ('m, 's,'e) lookup = 's -> ('m,'s,'e) state
 
 
-let do_side_effects e_execute es  = 
+let do_side_effects e_execute es  =
   Lwt_list.iter_s e_execute es
 
 let return ?(sides=[]) x = Lwt.return (x, sides)
@@ -43,7 +43,7 @@ let return ?(sides=[]) x = Lwt.return (x, sides)
 
 let nop_trace _ = Lwt.return ()
 
-let loop ?(trace=nop_trace) 
+let loop ?(trace=nop_trace)
     (e_execute : 'e e_execute)
     produce lookup (transition: ('s,'e) unit_transition) =
   let rec _interprete key =
@@ -63,7 +63,7 @@ let loop ?(trace=nop_trace)
     _interprete key
   in _step_unit transition
 
-let expect_loop 
+let expect_loop
     (e_execute : 'e e_execute)
     expected step_count trans_init produce lookup (transition: ('s,'e) unit_transition) =
   let rec _step_unit prev_key step_count transition =

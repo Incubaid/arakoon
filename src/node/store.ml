@@ -802,7 +802,7 @@ struct
         end
       else
         _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
-        
+
   let get_succ_store_i store =
     let m_si = consensus_i store in
     match m_si with

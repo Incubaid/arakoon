@@ -41,18 +41,18 @@ let rec _split node_name cfgs =
         loop (Some cfg) others rest
       else
         loop me_o (cfg::others) rest
-  in 
+  in
   let me_o, others = loop None [] cfgs in
   match me_o with
     | None -> failwith (node_name ^ " is not known in config")
     | Some me -> me,others
-      
+
 
 let _config_logging me get_cfgs =
-  let cluster_cfg = get_cfgs () in 
-  let cfg = 
+  let cluster_cfg = get_cfgs () in
+  let cfg =
     try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
-    with Not_found -> failwith ("Could not find config for node " ^ me ) 
+    with Not_found -> failwith ("Could not find config for node " ^ me )
   in
   let log_config =
     match cfg.log_config with
@@ -86,12 +86,12 @@ let _config_logging me get_cfgs =
   let node_name = cfg.node_name in
   let common_prefix = log_dir ^ "/" ^ node_name in
   let log_file_name = common_prefix ^ ".log" in
-  let get_crash_file_name () = 
+  let get_crash_file_name () =
     Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
-  if not cfg.is_test 
+  if not cfg.is_test
   then
-    begin 
-      Crash_logger.setup_default_logger log_file_name get_crash_file_name 
+    begin
+      Crash_logger.setup_default_logger log_file_name get_crash_file_name
       >>= fun logger -> Lwt.return (Some logger)
     end
   else
@@ -120,7 +120,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
 let _config_messaging me others cookie laggy lease_period max_buffer_size =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
-            let f msg source target = 
+            let f msg source target =
             let () = incr count in
             match !count with
               | x when x >= 1000 -> let () = count := 0 in false
@@ -130,25 +130,25 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
             f
     | false -> (fun _ _ _ -> false)
   in
-  let mapping = 
+  let mapping =
     List.fold_left
-      (fun acc cfg -> 
+      (fun acc cfg ->
         let a = List.map (fun ip -> (cfg.node_name, (ip, cfg.messaging_port))) cfg.ips in
         a @ acc)
       [] others
   in
-  let messaging = new tcp_messaging 
+  let messaging = new tcp_messaging
     (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
-    
+
 open Mp_msg
-    
-    
+
+
 let _config_service cfg backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
-  let max_connections = 
+  let max_connections =
     let soft = Limits.get_rlimit Limits.NOFILE Limits.Soft in
     max (soft -200) 200
   in
@@ -164,7 +164,7 @@ let _config_service cfg backend=
   in
   let uber_service () = Lwt_list.iter_p (fun f -> f ()) services in
   uber_service
-    
+
 let _log_rotate cfg i get_cfgs =
   Logger.warning_f_ "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->
@@ -172,7 +172,7 @@ let _log_rotate cfg i get_cfgs =
   _config_logging cfg get_cfgs >>= fun _ ->
   Lwt_log.close logger >>= fun () ->
   Lwt.return ()
-    
+
 let log_prelude cluster_cfg =
   Logger.info_ "--- NODE STARTED ---" >>= fun () ->
   Logger.info_f_ "git_revision: %s " Version.git_revision >>= fun () ->
@@ -185,51 +185,51 @@ let log_prelude cluster_cfg =
   Logger.info_f_ "Batched_store.max_size = %i" !Batched_store.max_size
 
 
-let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db" 
+let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
-let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll = 
+let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
   let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
   begin
-  if node_cnt > 1 
-    then Catchup.get_db db_name cluster_id other_configs 
+  if node_cnt > 1
+    then Catchup.get_db db_name cluster_id other_configs
   else Lwt.return None
-  end 
+  end
   >>= fun m_mr_name ->
-  let mr_name = 
+  let mr_name =
     begin
       match m_mr_name with
         | Some m -> m
-        | None -> 
+        | None ->
           let fo = List.hd other_configs in
           fo.node_name
     end
   in
   S.make_store db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir 
+  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir
     me.use_compression me.fsync name >>= fun tlc ->
   Lwt.finalize
     (fun () ->
       let current_i = match S.consensus_i store with
-        | None -> Sn.start 
+        | None -> Sn.start
         | Some i -> i
       in
       let future_n = Sn.start in
       let future_i = Sn.start in
-      Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id 
+      Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
         ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
       S.close store)
     (tlc # close)
 
-  
-    
-    
-module X = struct 
-      (* Need to find a name for this: 
-   the idea is to lift stuff out of _main_2 
+
+
+
+module X = struct
+      (* Need to find a name for this:
+   the idea is to lift stuff out of _main_2
       *)
 
   let last_master_log_stmt = ref 0L
@@ -270,36 +270,36 @@ module X = struct
 
   let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
     let t0 = Unix.gettimeofday () in
-    Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i) 
+    Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
     tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
     begin
       match v with
-        | Value.Vc (us,_)     -> 
+        | Value.Vc (us,_)     ->
             let size = List.length us in
             let () = Statistics.new_harvest statistics size in
-            Lwt.return () 
-        | _ -> Lwt.return () 
+            Lwt.return ()
+        | _ -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
-    Logger.debug_f_ "T:on_accept took: %f" d 
-      
-  let reporting period backend () = 
+    Logger.debug_f_ "T:on_accept took: %f" d
+
+  let reporting period backend () =
     let fp = float period in
     let rec _inner () =
       Lwt_unix.sleep fp >>= fun () ->
       let stats = backend # get_statistics () in
-      Logger.info_f_ "stats: %s" (Statistics.string_of stats) 
+      Logger.info_f_ "stats: %s" (Statistics.string_of stats)
       >>= fun () ->
       backend # clear_most_statistics();
       _inner ()
     in
     _inner ()
 end
-  
+
 let _main_2 (type s)
     (module S : Store.STORE with type t = s)
     make_tlog_coll make_config get_snapshot_name ~name
@@ -312,8 +312,8 @@ let _main_2 (type s)
     verbose = 0;
     max_overhead = 0;
     stack_limit = 256 * 1024;
-    allocation_policy = 1; 
-  } 
+    allocation_policy = 1;
+  }
   in
   Gc.set control;
   let cluster_cfg = make_config () in
@@ -330,12 +330,12 @@ let _main_2 (type s)
       in
       Lwt.ignore_result (handle ())) in
   _config_batched_transactions me cluster_cfg;
-  if catchup_only 
-  then 
+  if catchup_only
+  then
     begin
-      only_catchup (module S) ~name ~cluster_cfg ~make_tlog_coll 
+      only_catchup (module S) ~name ~cluster_cfg ~make_tlog_coll
       >>= fun _ -> (* we don't need that here as there is no continuation *)
-      
+
       Lwt.return 0
     end
   else
@@ -343,17 +343,17 @@ let _main_2 (type s)
       let cluster_id = cluster_cfg.cluster_id in
       let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
-      let quorum_function = cluster_cfg.quorum_function in 
+      let quorum_function = cluster_cfg.quorum_function in
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-      
+
       let () = match cluster_cfg.overwrite_tlog_entries with
-      | None -> () 
+      | None -> ()
       | Some i ->  Tlogcommon.tlogEntriesPerFile := i
       in
 
-      let my_clicfg = 
+      let my_clicfg =
         begin
           let ccfg = ClientCfg.make () in
           let add_one cfg =
@@ -363,11 +363,11 @@ let _main_2 (type s)
           List.iter add_one in_cluster_cfgs;
           ccfg
         end
-      in 
-      let other_names = 
-      if me.is_learner 
-      then me.targets 
-      else List.filter ((<>) name) in_cluster_names 
+      in
+      let other_names =
+      if me.is_learner
+      then me.targets
+      else List.filter ((<>) name) in_cluster_names
       in
       let _ = Lwt_unix.on_signal 10
       (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
@@ -381,8 +381,8 @@ let _main_2 (type s)
           match cluster_cfg.nursery_cfg with
             | None -> Logger.info_ "Cluster not part of nursery."
             | Some (n_cluster_id, cfg) ->
-              begin 
-                let attempt_send success node_id = 
+              begin
+                let attempt_send success node_id =
                   match success with
                     | true -> Lwt.return true
                     | false ->
@@ -394,22 +394,22 @@ let _main_2 (type s)
                           (fun () ->
                             let ip0 = List.hd ips in
                             let address = Network.make_address ip0 port in
-                            let upload connection = 
+                            let upload connection =
                               Remote_nodestream.make_remote_nodestream n_cluster_id connection >>= fun (client) ->
                               client # store_cluster_cfg cluster_id my_clicfg
-                            in 
+                            in
                             Lwt_io.with_connection address upload >>= fun () ->
                             Logger.info_f_ "Successfully uploaded config to nursery node %s" node_id >>= fun () ->
                             Lwt.return true
-                          ) 
+                          )
                           (fun e ->
                             let exc_msg = Printexc.to_string e in
-                            Logger.warning_f_ "Attempt to upload config to %s failed (%s)" node_id exc_msg 
-                            >>= fun () -> 
+                            Logger.warning_f_ "Attempt to upload config to %s failed (%s)" node_id exc_msg
+                            >>= fun () ->
                             Lwt.return false
                           )
                       end
-                in 
+                in
                 let node_names = ClientCfg.node_names cfg in
                 Lwt_list.fold_left_s attempt_send false node_names >>= fun succeeded ->
                 begin
@@ -417,7 +417,7 @@ let _main_2 (type s)
                     | true -> Lwt.return ()
                     | false -> Lwt_unix.sleep 5.0 >>= fun () -> upload_cfg_to_keeper ()
                 end
-                  
+
               end
         end
       in
@@ -426,20 +426,20 @@ let _main_2 (type s)
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
       other_names >>= fun () ->
-      Logger.info_f_ "quorum_function gives %i for %i" 
+      Logger.info_f_ "quorum_function gives %i for %i"
       (quorum_function n_nodes) n_nodes >>= fun () ->
       Logger.info_f_ "DAEMONIZATION=%b" daemonize >>= fun () ->
-      
-      let build_startup_state () = 
+
+      let build_startup_state () =
       begin
         Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
           let db_name = full_db_name me in
           let snapshot_name = get_snapshot_name() in
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
-          Lwt.catch 
+          Lwt.catch
             (fun () ->
-              S.copy_store2 full_snapshot_path db_name false 
-            ) 
+              S.copy_store2 full_snapshot_path db_name false
+            )
             (function
               | Not_found -> Lwt.return ()
               | e -> raise e
@@ -480,10 +480,10 @@ let _main_2 (type s)
           let module SB = Sync_backend.Sync_backend(S) in
         let sb =
           let test = Node_cfg.Node_cfg.test cluster_cfg in
-            new SB.sync_backend me 
+            new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-            store (S.copy_store2, full_snapshot_path) 
+            store (S.copy_store2, full_snapshot_path)
               tlog_coll lease_period
             ~quorum_function n_nodes
             ~expect_reachable
@@ -492,22 +492,22 @@ let _main_2 (type s)
               ~max_value_size:cluster_cfg.max_value_size
         in
         let backend = (sb :> Backend.backend) in
-        
+
         let service = _config_service me backend in
-        
+
         let send, receive, run, register =
           Multi_paxos.network_of_messaging messaging in
-        
+
         let on_consensus = X.on_consensus (module S) store in
         let on_witness (name:string) (i: Sn.t) = backend # witness name i in
         let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
         let on_accept = X.on_accept statistics tlog_coll (module S) store in
-        
+
         let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
         let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
         let inject_event (e:Multi_paxos.paxos_event) =
-            let add_to_buffer,name = 
+            let add_to_buffer,name =
               match e with
                 | Multi_paxos.ElectionTimeout _ ->
                     (fun () -> Lwt_buffer.add e election_timeout_buffer), "election"
@@ -522,7 +522,7 @@ let _main_2 (type s)
             in
             Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
-              name 
+              name
             >>= fun () ->
           add_to_buffer () >>= fun () ->
             Logger.debug_f Multi_paxos.section "XXX injected event into '%s'" name
@@ -533,12 +533,12 @@ let _main_2 (type s)
            inject_buffer,
            election_timeout_buffer)
         in
-        let constants = 
-          Multi_paxos.make my_name 
-            me.is_learner 
-            other_names send receive 
-            get_last_value 
-            on_accept 
+        let constants =
+          Multi_paxos.make my_name
+            me.is_learner
+            other_names send receive
+            get_last_value
+            on_accept
               on_consensus
               on_witness
             last_witnessed
@@ -546,36 +546,36 @@ let _main_2 (type s)
             (master : master)
               (module S)
             store
-              tlog_coll 
-              others 
-              lease_period 
-              inject_event 
+              tlog_coll
+              others
+              lease_period
+              inject_event
             ~cluster_id
               false
-        in 
+        in
         let reporting_period = me.reporting in
-        Lwt.return ((master,constants, buffers, new_i, vo, store), 
+        Lwt.return ((master,constants, buffers, new_i, vo, store),
                   service, X.reporting reporting_period backend)
       end
-        
+
       in
-      
+
       let killswitch = Lwt_mutex.create () in
       Lwt_mutex.lock killswitch >>= fun () ->
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
       let start_backend (master, constants, buffers, new_i, vo, store) =
-      let to_run = 
+      let to_run =
         match master with
-          | Forced master  -> 
-              if master = my_name 
+          | Forced master  ->
+              if master = my_name
             then Multi_paxos_fsm.enter_forced_master
-            else 
+            else
             begin
-              if me.is_learner 
+              if me.is_learner
               then Multi_paxos_fsm.enter_simple_paxos
-              else Multi_paxos_fsm.enter_forced_slave 
+              else Multi_paxos_fsm.enter_forced_slave
             end
           | _ -> Multi_paxos_fsm.enter_simple_paxos
       in
@@ -664,7 +664,7 @@ let _main_2 (type s)
               let rc = 41 in
               Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
               Lwt.return rc
-          | Tlc2.TLCNotProperlyClosed msg -> 
+          | Tlc2.TLCNotProperlyClosed msg ->
               let rc = 42 in
               Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
               Lwt.return rc
@@ -696,32 +696,32 @@ let _main_2 (type s)
               let rc = 49 in
               Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
               Lwt.return rc
-          | exn -> 
+          | exn ->
               begin
               Logger.fatal_ ~exn "going down" >>= fun () ->
               Logger.fatal_ "after pick" >>= fun() ->
               begin
                   match dump_crash_log with
                   | None -> Logger.info_ "Not dumping state"
-                  | Some f -> f() 
+                  | Some f -> f()
                 end >>= fun () ->
                 Lwt.return 1
               end
         )
     end
-      
-      
+
+
 let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
-    
+
 let test_t make_config name =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll = fun a b _ d -> Mem_tlogcollection.make_mem_tlog_collection a b d in
   let get_snapshot_name = fun () -> "DUMMY" in
-  let daemonize = false 
+  let daemonize = false
   and catchup_only = false in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
 

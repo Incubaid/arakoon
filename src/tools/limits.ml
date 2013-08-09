@@ -21,22 +21,22 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 type resource = (* natural order, ie: CPU = 0 etc. *)
-  | CPU 
-  | SIZE 
-  | EATA 
-  | STACK 
-  | CORE 
-  | SSS 
-  | PROC 
-  | NOFILE 
-  | MEMLOCK 
-  | AS 
-  | LOCKS 
-  | SIGPENDING 
-  | MSGQUEUE 
-  | NICE 
-  | RTPRIO 
-  | NLIMITS 
+  | CPU
+  | SIZE
+  | EATA
+  | STACK
+  | CORE
+  | SSS
+  | PROC
+  | NOFILE
+  | MEMLOCK
+  | AS
+  | LOCKS
+  | SIGPENDING
+  | MSGQUEUE
+  | NICE
+  | RTPRIO
+  | NLIMITS
 
 type soft_or_hard =
   | Soft

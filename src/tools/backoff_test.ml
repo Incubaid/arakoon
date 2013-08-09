@@ -25,14 +25,14 @@ open Lwt
 
 let test_exception () =
   let too_slow () = Lwt_unix.sleep 3.0 >>= fun () -> Lwt.return "too late" in
-  let t = 
-    Lwt.catch 
+  let t =
+    Lwt.catch
       (fun () -> Backoff.backoff ~max:1.0 too_slow)
-      (function 
+      (function
    | Failure _ -> Lwt.return "ok"
    | x -> Lwt.fail x
       )
   in
-  let _ = Lwt_main.run t in () 
+  let _ = Lwt_main.run t in ()
 
 let suite = "backoff" >::: [ "exception" >:: test_exception]

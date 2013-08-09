@@ -26,7 +26,7 @@ open Interval
 
 open Lwt
 
-let _b2b u = 
+let _b2b u =
   let b = Buffer.create 1024 in
   let () = Update.to_buffer b u in
   let flat = Buffer.contents b in
@@ -45,7 +45,7 @@ let test_sequence () =
   let s' = _b2b s in
   _cmp s s'
 
-let test_interval() = 
+let test_interval() =
   let r0 = Interval.max in
   let u0 = Update.SetInterval r0 in
   let u0' = _b2b u0 in
@@ -56,12 +56,12 @@ let test_interval() =
   _cmp u1 u1'
 
 
-let test_interval2() = 
-  let t () = 
+let test_interval2() =
+  let t () =
     let i0 = Interval.make (Some "a") (Some "b") None (Some "c") in
     let fn = "/tmp/test_interval2.bin" in
     Lwt_io.with_file ~mode:Lwt_io.output fn
-    (fun oc -> Interval.output_interval oc i0) 
+    (fun oc -> Interval.output_interval oc i0)
     >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.input fn (fun ic ->
       Interval.input_interval ic >>= fun i1 ->
@@ -73,7 +73,7 @@ let test_interval2() =
 let test_delete_prefix () =
   let u = Update.DeletePrefix "whatever" in
   let u' = _b2b u in
-  _cmp u u' 
+  _cmp u u'
 
 let test_assert ()=
   let _ = Update.Set ("keyi", "valuei") in

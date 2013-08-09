@@ -165,9 +165,9 @@ module Node_cfg = struct
          cluster_cfg.client_buffer_capacity);
     Buffer.contents buffer
 
-  let make_test_config 
+  let make_test_config
       ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
-      n_nodes master lease_period = 
+      n_nodes master lease_period =
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
@@ -205,7 +205,7 @@ module Node_cfg = struct
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
     let overwrite_tlog_entries = None in
-    let cluster_cfg = { 
+    let cluster_cfg = {
       cfgs;
       log_cfgs;
       batched_transaction_cfgs;
@@ -222,20 +222,20 @@ module Node_cfg = struct
     }
     in
     cluster_cfg
-    
 
 
 
-  let tlog_dir t = t.tlog_dir 
-  
-  let _node_names inifile = 
+
+  let tlog_dir t = t.tlog_dir
+
+  let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
-  let _ips inifile node_name = 
+  let _ips inifile node_name =
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
 
   let _tlog_entries_overwrite inifile =
-    Ini.get inifile "global" "__tainted_tlog_entries_per_file" 
+    Ini.get inifile "global" "__tainted_tlog_entries_per_file"
       (Ini.p_option Ini.p_int )
       (Ini.default None)
 
@@ -247,17 +247,17 @@ module Node_cfg = struct
     Ini.get inifile "global" "__tainted_max_buffer_size"
       Ini.p_int (Ini.default default_max_buffer_size)
 
-  let _plugins inifile = 
+  let _plugins inifile =
     Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
 
-  let _get_lease_period inifile = 
-    Ini.get inifile "global" "lease_period" 
+  let _get_lease_period inifile =
+    Ini.get inifile "global" "lease_period"
       Ini.p_int (Ini.default default_lease_period)
 
-  let _get_bool inifile node_section x = 
+  let _get_bool inifile node_section x =
     Ini.get inifile node_section x Ini.p_bool (Ini.default false)
 
-  let _client_buffer_capacity inifile = 
+  let _client_buffer_capacity inifile =
     Ini.get inifile "global" "client_buffer_capacity"
       Ini.p_int (Ini.default default_client_buffer_capacity)
 
@@ -274,8 +274,8 @@ module Node_cfg = struct
   if not (List.mem m nodes)
   then
     failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-  else 
-    if _get_bool inifile "global" "preferred_master" 
+  else
+    if _get_bool inifile "global" "preferred_master"
           then (Preferred [m])
     else (Forced m)
       with (Inifiles.Invalid_element _) ->
@@ -285,21 +285,21 @@ module Node_cfg = struct
           Preferred pms
         else
         let read_only = _get_bool inifile "global" "readonly" in
-  if read_only 
+  if read_only
   then ReadOnly
   else Elected
     in
     master
 
   let get_nursery_cfg inifile filename =
-    try 
+    try
       begin
         let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
         let cfg =  ClientCfg.from_file "nursery" filename in
-        Some (n_cluster_id, cfg) 
+        Some (n_cluster_id, cfg)
       end
-    with ex -> 
-      None 
+    with ex ->
+      None
 
   let _get_cluster_id inifile =
     try
@@ -307,13 +307,13 @@ module Node_cfg = struct
       Scanf.sscanf cids "%s" (fun s -> s)
     with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
 
-  let _get_quorum_function inifile = 
+  let _get_quorum_function inifile =
     let nodes = _node_names inifile in
-    let n_nodes = List.length nodes in    
+    let n_nodes = List.length nodes in
     try
       let qs = (inifile # getval "global" "quorum") in
       let qi = Scanf.sscanf qs "%i" (fun i -> i) in
-      if 1 <= qi & qi <= n_nodes 
+      if 1 <= qi & qi <= n_nodes
       then fun n -> qi
       else
   let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
@@ -353,9 +353,9 @@ module Node_cfg = struct
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
-    let tlog_dir = 
-      try get_string "tlog_dir" 
-      with _ -> home 
+    let tlog_dir =
+      try get_string "tlog_dir"
+      with _ -> home
     in
     let tlf_dir =
       try get_string "tlf_dir"
@@ -370,14 +370,14 @@ module Node_cfg = struct
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
     let fsync = get_bool "fsync" in
-    let targets = 
-      if is_learner 
-      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required 
+    let targets =
+      if is_learner
+      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required
       else []
     in
     let lease_period = _get_lease_period inifile in
-    let log_dir = 
-      try get_string "log_dir" 
+    let log_dir =
+      try get_string "log_dir"
       with _ -> home
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
@@ -450,7 +450,7 @@ module Node_cfg = struct
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
-    let cluster_cfg = 
+    let cluster_cfg =
       { cfgs;
         log_cfgs;
         batched_transaction_cfgs;
@@ -473,15 +473,15 @@ module Node_cfg = struct
   let home t = t.home
 
   let client_addresses t = (t.ips, t.client_port)
-  
+
   let get_master t = t.master
 
-  let get_node_cfgs_from_file () = read_config !config_file 
+  let get_node_cfgs_from_file () = read_config !config_file
 
   let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
 
   open Lwt
-  let validate_dirs t = 
+  let validate_dirs t =
     Logger.debug_ "Node_cfg.validate_dirs" >>= fun () ->
     if t.is_test then Lwt.return ()
     else

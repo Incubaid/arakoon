@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open OUnit
 
-let configure_logging () = 
+let configure_logging () =
   let logger = Lwt_log.channel
     ~close_mode:`Keep
     ~channel:Lwt_io.stderr
@@ -43,9 +43,9 @@ let client_tests = "client" >::: [
   Remote_nodestream_test.suite;
   Statistics_test.suite;
 ]
-  
+
 let tcp_messaging_tests = "messaging" >::: [Tcp_messaging_test.suite]
-  
+
 let paxos_tests = "paxos" >::: [Multi_paxos_test.suite;]
 
 let update_tests = "updates" >::: [Update_test.suite]
@@ -78,18 +78,18 @@ let lwt_socket_tests = "lwt" >::: [Lwt_socket_test.suite]
 
 let suite = "universe" >::: [
   lwt_socket_tests;
-  crc32c_tests; 
-  tools_tests; 
-  client_tests; 
-  tcp_messaging_tests; 
-  paxos_tests; 
-  update_tests; 
+  crc32c_tests;
+  tools_tests;
+  client_tests;
+  tcp_messaging_tests;
+  paxos_tests;
+  update_tests;
   tlog_tests;
   small_catchup;
   compression;
   collapser;
   system;
-  nursery; 
+  nursery;
   store;
 ]
 

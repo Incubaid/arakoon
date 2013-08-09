@@ -81,14 +81,14 @@ let do_path p = Printf.printf "%s\n" (OUnit.string_of_path p)
 let list_tests() =
   List.iter do_path (OUnit.test_case_paths All_test.suite)
 
-let show_version ()= 
+let show_version ()=
   Printf.printf "version: %i.%i.%i\n" Version.major Version.minor Version.patch;
   Printf.printf "git_revision: %S\n" Version.git_revision;
   Printf.printf "compiled: %S\n" Version.compile_time;
   Printf.printf "machine: %S\n" Version.machine;
   Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
   Printf.printf "dependencies:\n%s\n" Version.dependencies
-    
+
 
 let run_all_tests () =
   All_test.configure_logging();
@@ -233,8 +233,8 @@ let main () =
                                  Arg.Set_string tlog_dir;
                                  Arg.Set_string tlf_dir;
                                  Arg.Set_string filename;
-                                 Arg.Rest (fun is -> 
-                                   if String.length is > 0 
+                                 Arg.Rest (fun is ->
+                                   if String.length is > 0
                                    then end_i := (Some (Scanf.sscanf is "%Li" (fun i -> i))))
                                ],
      "<tlog_dir> <tlf_dir> <path-to-db> [<end-i>]");
@@ -269,7 +269,7 @@ let main () =
                            Arg.Set_string key;
                           ], "<prefix>: all starting with <prefix>");
     ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
-    ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients], 
+    ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients],
      "<n> clients that generate load on a cluster");
     ("--who-master", Arg.Tuple[set_laction WHO_MASTER;], "tells you who's the master");
     ("--expect-progress-possible", Arg.Tuple[set_laction EXPECT_PROGRESS_POSSIBLE;],
@@ -342,7 +342,7 @@ let main () =
                         ],
      "<cluster_id> <ip> <port> sends a ping to the node");
     ("--node-version", Arg.Tuple[set_laction NODE_VERSION;
-                                 Arg.Set_string node_id], 
+                                 Arg.Set_string node_id],
      "<node> : returns the version of <node>");
     ("--node-state", Arg.Tuple [set_laction NODE_STATE;
                                 Arg.Set_string node_id],
@@ -385,9 +385,9 @@ let main () =
     | GET -> Client_main.get !config_file !key
     | PREFIX -> Client_main.prefix !config_file !key !max_results
     | DELETE_PREFIX -> Client_main.delete_prefix !config_file !key
-    | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n 
+    | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n
       !n_clients
-    | LOAD -> Load_client.main !config_file 
+    | LOAD -> Load_client.main !config_file
       !n_clients
     | DELETE -> Client_main.delete !config_file !key
     | WHO_MASTER -> Client_main.who_master !config_file ()
@@ -396,11 +396,11 @@ let main () =
     | Collapse_remote -> Collapser_main.collapse_remote
       !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
-    | Optimize_db -> Nodestream_main.optimize_db !ip !port !cluster_id 
+    | Optimize_db -> Nodestream_main.optimize_db !ip !port !cluster_id
     | Defrag_db   -> Nodestream_main.defrag_db !ip !port !cluster_id
     | NumberOfValues -> Client_main.get_key_count !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
-    | MigrateNurseryRange -> Nursery_main.migrate_nursery_range 
+    | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
       !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping !ip !port !cluster_id
@@ -425,7 +425,7 @@ let main () =
                       !node_id !daemonize !catchup_only)
             in
           (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-          Lwt_main.run main_t 
+          Lwt_main.run main_t
           end
       | TestNode ->
           begin

@@ -22,9 +22,9 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 type finished_fun = Store.update_result -> unit Lwt.t
-type master_option = (finished_fun list) 
+type master_option = (finished_fun list)
 
-type v_limits = int * (Value.t * int) list 
+type v_limits = int * (Value.t * int) list
      (* number of times None was chosen;
         all Some v promises and their frequency *)
 type n = Sn.t
@@ -44,24 +44,24 @@ type transitions =
   | Slave_fake_prepare of (n * i)
   | Slave_waiting_for_prepare of (n * i)
   | Slave_steady_state of (n * i * Value.t )
-  | Slave_wait_for_accept of (n * i * 
+  | Slave_wait_for_accept of (n * i *
         Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
-  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * 
+  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n *
           Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
-  | Promises_check_done of (n * i * 
-            Messaging.id list * 
-            v_limits * 
+  | Promises_check_done of (n * i *
+            Messaging.id list *
+            v_limits *
             (string * Mp_msg.MPMessage.n) option *
                               slave_awaiters)
-  | Wait_for_promises of (n * i * Messaging.id list * 
-          v_limits * 
+  | Wait_for_promises of (n * i * Messaging.id list *
+          v_limits *
           (string * Mp_msg.MPMessage.n) option *
                             slave_awaiters)
-  | Accepteds_check_done of (master_option * n * i * 
+  | Accepteds_check_done of (master_option * n * i *
              (int * Messaging.id list) * Value.t *
                                slave_awaiters)
-  | Wait_for_accepteds of (master_option * n * i * 
+  | Wait_for_accepteds of (master_option * n * i *
            (int * Messaging.id list) * Value.t *
                              slave_awaiters)
 
@@ -91,11 +91,11 @@ let show_transition = function
   | Master_dictate _ -> "Master_dictate"
   | Read_only _ -> "Read_only"
 
-type effect = 
+type effect =
   | ELog of (unit -> string)
   | EMCast  of Mp_msg.MPMessage.t
   | ESend of Mp_msg.MPMessage.t * Messaging.id
-  | EAccept of (Value.t * n * i)  
+  | EAccept of (Value.t * n * i)
   | EStartLeaseExpiration of (Value.t * n * bool (* is slave *))
   | EStartElectionTimeout of n * i
   | EConsensus of (master_option * Value.t * n * i)

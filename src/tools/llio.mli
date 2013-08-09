@@ -45,7 +45,7 @@ val string_option_to: Buffer.t -> string option -> unit
 val named_field_to: Buffer.t -> namedValue -> unit
 val list_to  : Buffer.t -> (Buffer.t -> 'a -> unit) -> 'a list -> unit
 val string_list_to : Buffer.t -> string list -> unit
-val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) -> 
+val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
   ('a, 'b) Hashtbl.t -> unit
 
 val bool_from : string -> int -> bool  * int
@@ -61,7 +61,7 @@ val list_from: string -> (string -> int -> 'a * int) -> int -> ('a list) * int
 val string_list_from: string -> int -> string list * int
 val named_field_from: string -> int -> namedValue * int
 
-val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int -> 
+val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int ->
   ('a, 'b) Hashtbl.t * int
 
 val output_bool:          lwtoc -> bool          -> unit Lwt.t
@@ -70,13 +70,13 @@ val output_int32:         lwtoc -> int32         -> unit Lwt.t
 val output_int64:         lwtoc -> int64         -> unit Lwt.t
 val output_string_option: lwtoc -> string option -> unit Lwt.t
 val output_string:        lwtoc -> string        -> unit Lwt.t
-val output_list:        
+val output_list:
   (lwtoc -> 'a -> unit Lwt.t) ->
    lwtoc -> 'a list -> unit Lwt.t
 
 val output_string_list:   lwtoc -> string list   -> unit Lwt.t
-val output_hashtbl: 
-  (lwtoc -> 'a -> 'b -> unit Lwt.t) -> 
+val output_hashtbl:
+  (lwtoc -> 'a -> 'b -> unit Lwt.t) ->
   lwtoc -> ('a, 'b) Hashtbl.t -> unit Lwt.t
 
 val output_kv_list: lwtoc -> ((string*string) list) -> unit Lwt.t
@@ -93,7 +93,7 @@ val input_list  :(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
 val input_listl :(lwtic -> 'a Lwt.t) -> lwtic -> (int * 'a list) Lwt.t
 val input_string_list: lwtic -> string list Lwt.t
 val input_kv_list: lwtic -> ((string * string) list) Lwt.t
-val input_hashtbl: (lwtic-> 'a Lwt.t) -> (lwtic -> 'b Lwt.t) -> 
+val input_hashtbl: (lwtic-> 'a Lwt.t) -> (lwtic -> 'b Lwt.t) ->
    lwtic -> ('a,'b) Hashtbl.t Lwt.t
 
 val copy_stream:  length:int64 -> ic:lwtic -> oc:lwtoc -> unit Lwt.t

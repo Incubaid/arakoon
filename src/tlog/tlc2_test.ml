@@ -60,20 +60,20 @@ let test_interrupted_rollover (dn, tlf_dir, factory) =
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
-  Lwt.return (OUnit.assert_equal ~msg n 2) 
-  
+  Lwt.return (OUnit.assert_equal ~msg n 2)
+
 
 let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
   Logger.debug_ "1" >>= fun () ->
   val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
-  let lasti, lasti_str = 
+  let lasti, lasti_str =
     begin
       match lasteo with
         | None -> Sn.start, "None"
         | Some e -> let i = Entry.i_of e in i, Sn.string_of i
-    end 
+    end
   in
   val_tlog_coll # close () >>= fun () ->
   let msg = Printf.sprintf "Values of is are different 4 <> %s" lasti_str in
@@ -88,7 +88,7 @@ let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
   tlog_coll # log_value 6L value >>= fun _ ->
   tlog_coll # log_value 7L value >>= fun _ ->
   tlog_coll # log_value 8L value >>= fun _ ->
-  tlog_coll # log_value 9L value >>= fun _ ->    
+  tlog_coll # log_value 9L value >>= fun _ ->
   Tlc2.get_tlog_names dn tlf_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
@@ -109,15 +109,15 @@ let test_iterate4 (dn, tlf_dir, factory) =
   Logger.debug_f_ "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
   tlc # close () >>= fun () ->
-  Logger.debug_f_ "end of test_iterate4" >>= fun () -> 
+  Logger.debug_f_ "end of test_iterate4" >>= fun () ->
   Lwt.return ()
 
 
 let test_iterate5 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun tlc ->
-  let rec loop tlc i = 
-    if i = 33 
+  let rec loop tlc i =
+    if i = 33
     then Lwt.return ()
     else
       begin
@@ -126,8 +126,8 @@ let test_iterate5 (dn, tlf_dir, factory) =
         let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
         tlc # log_value (Sn.of_int i) value >>= fun _ ->
           begin
-            if i mod 3 = 2 
-            then 
+            if i mod 3 = 2
+            then
               begin
                 tlc # close () >>= fun () ->
                 factory dn "node_name"
@@ -141,21 +141,21 @@ let test_iterate5 (dn, tlf_dir, factory) =
   loop tlc 0 >>= fun () ->
   let start_i = Sn.of_int 10 in
   let too_far_i = Sn.of_int 11 in
-  let f entry = 
+  let f entry =
     let i = Entry.i_of entry in
     let v = Entry.v_of entry in
-    Logger.debug_f_ "test_iterate5: %s %s" (Sn.string_of i) 
-    (Value.value2s v) 
+    Logger.debug_f_ "test_iterate5: %s %s" (Sn.string_of i)
+    (Value.value2s v)
   in
   tlc # iterate start_i too_far_i f >>= fun () ->
-  Lwt.return () 
+  Lwt.return ()
 
 let test_iterate6 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
   factory dn "node_name" >>= fun tlc ->
-  let rec loop i = 
-    if i = 33 
+  let rec loop i =
+    if i = 33
     then Lwt.return ()
     else
       begin
@@ -164,13 +164,13 @@ let test_iterate6 (dn, tlf_dir, factory) =
         let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
           begin
             if i != 19
-            then 
-              tlc # log_value sni value 
+            then
+              tlc # log_value sni value
             else
             begin
             tlc # log_value sni value >>= fun _ ->
             let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
-            tlc # log_value  sni value2 
+            tlc # log_value  sni value2
             end
           end >>= fun _ ->
         loop (i+1)
@@ -181,10 +181,10 @@ let test_iterate6 (dn, tlf_dir, factory) =
   let start_i = Sn.of_int 19 in
   let too_far_i = Sn.of_int 20 in
   tlc # iterate start_i too_far_i
-    (fun entry -> 
+    (fun entry ->
       let i = Entry.i_of entry in
       let v = Entry.v_of entry in
-      sum := !sum + (Int64.to_int i); 
+      sum := !sum + (Int64.to_int i);
       Logger.debug_f_ "i=%s : %s" (Sn.string_of i) (Value.value2s v)
       >>= fun () ->
       Lwt.return ())
@@ -192,7 +192,7 @@ let test_iterate6 (dn, tlf_dir, factory) =
   tlc # close () >>= fun () ->
   Logger.debug_f_ "sum =%i " !sum >>= fun () ->
   (* OUnit.assert_equal ~printer:string_of_int 19 !sum; *)
-  Lwt.return () 
+  Lwt.return ()
 
 
 let test_compression_bug (dn, tlf_dir, factory) =
@@ -203,14 +203,14 @@ let test_compression_bug (dn, tlf_dir, factory) =
   Logger.info_ "have tlc" >>= fun () ->
   let sync = false in
   let n = 12 in
-  let rec loop i = 
-    if i = n then Lwt.return () 
+  let rec loop i =
+    if i = n then Lwt.return ()
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
       let value = Value.create_client_value [Update.Set(key, v)] sync in
       let sni = Sn.of_int i in
       tlc # log_value sni value >>= fun () ->
-      loop (i+1) 
+      loop (i+1)
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
@@ -220,14 +220,14 @@ let test_compression_bug (dn, tlf_dir, factory) =
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn "node_name" >>= fun tlc2 ->
-  tlc2 # iterate 0L (Sn.of_int n)   
-    (fun entry -> 
+  tlc2 # iterate 0L (Sn.of_int n)
+    (fun entry ->
       let i = Entry.i_of entry in
       entries := i :: !entries;
-      Logger.debug_f_ "ENTRY: i=%Li" i) 
+      Logger.debug_f_ "ENTRY: i=%Li" i)
   >>= fun () ->
-  OUnit.assert_equal 
-    ~printer:string_of_int 
+  OUnit.assert_equal
+    ~printer:string_of_int
     ~msg:"tlc has a hole" (n+2) (List.length !entries);
   Lwt.return ()
 
@@ -239,14 +239,14 @@ let test_compression_previous (dn, tlf_dir, factory) =
   Logger.info_ "have tlc" >>= fun () ->
   let sync = false in
   let n = 42 in
-  let rec loop i = 
-    if i = n then Lwt.return () 
+  let rec loop i =
+    if i = n then Lwt.return ()
     else
       let key = Printf.sprintf "test_compression_bug_%i" i in
       let value = Value.create_client_value [Update.Set(key, v)] sync in
       let sni = Sn.of_int i in
       tlc # log_value sni value >>= fun () ->
-      loop (i+1) 
+      loop (i+1)
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->

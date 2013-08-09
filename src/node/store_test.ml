@@ -41,24 +41,24 @@ module S = (val (module Make(Batched_store.Local_store) : Test_STORE with type s
 
 let _dir_name = "/tmp/store_test"
 
-let setup () = 
+let setup () =
   Logger.info_ "Store_test.setup" >>= fun () ->
-  let ignore_ex f = 
-    Lwt.catch 
+  let ignore_ex f =
+    Lwt.catch
       f
       (fun exn -> Logger.warning_ ~exn "ignoring")
   in
   ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 )
 
-let teardown () = 
+let teardown () =
   Logger.info_ "Store_test.teardown" >>= fun () ->
   Lwt.catch
     (fun () ->
       File_system.lwt_directory_list _dir_name >>= fun entries ->
-      Lwt_list.iter_s (fun i -> 
+      Lwt_list.iter_s (fun i ->
   let fn = _dir_name ^ "/" ^ i in
-        Lwt_unix.unlink fn) entries 
+        Lwt_unix.unlink fn) entries
     )
     (fun exn -> Logger.debug_ ~exn "ignoring" )
     >>= fun () ->

@@ -22,45 +22,45 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 
-let archive_name tlog_name = tlog_name ^ ".tlc" 
+let archive_name tlog_name = tlog_name ^ ".tlc"
 
-let tlog_name archive_name = 
+let tlog_name archive_name =
   let len = String.length archive_name in
   let ext = String.sub archive_name (len-4) 4 in
   assert (ext=".tlc");
   String.sub archive_name 0 (len-4)
-    
+
 
 let tlog2tlc tlog_name archive_name =
   let limit = 1024 * 1024 in
-  Lwt_io.with_file ~mode:Lwt_io.input tlog_name 
+  Lwt_io.with_file ~mode:Lwt_io.input tlog_name
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output archive_name
-  (fun oc ->  
-    let rec fill_buffer buffer i = 
+  (fun oc ->
+    let rec fill_buffer buffer i =
       Lwt.catch
-        (fun () -> 
+        (fun () ->
     Tlogcommon.read_into ic buffer >>= fun () ->
     if Buffer.length buffer < limit then
       fill_buffer buffer (i+1)
     else
       Lwt.return i
         )
-        (function 
+        (function
     | End_of_file -> Lwt.return i
     | exn -> Lwt.fail exn
         )
     in
-    let compress_and_write n_entries buffer = 
+    let compress_and_write n_entries buffer =
       let contents = Buffer.contents buffer in
       let output = Bz2.compress ~block:9 contents 0 (String.length contents) in
       Llio.output_int oc n_entries >>= fun () ->
-      Llio.output_string oc output 
+      Llio.output_string oc output
     in
     let buffer = Buffer.create limit in
-    let rec loop () = 
+    let rec loop () =
       fill_buffer buffer 0 >>= fun n_entries ->
-      if n_entries = 0 
+      if n_entries = 0
       then Lwt.return ()
       else
         begin
@@ -72,24 +72,24 @@ let tlog2tlc tlog_name archive_name =
     loop ()
   )
     )
-    
-let tlc2tlog archive_name tlog_name = 
+
+let tlc2tlog archive_name tlog_name =
   Lwt_io.with_file ~mode:Lwt_io.input archive_name
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output tlog_name
   (fun oc ->
-    let rec loop () = 
+    let rec loop () =
         Lwt.catch
-    (fun () -> 
+    (fun () ->
       Llio.input_int ic >>= fun n_entries ->
-      Llio.input_string ic >>= fun compressed -> 
+      Llio.input_string ic >>= fun compressed ->
       Lwt.return (Some compressed))
-    (function 
+    (function
       | End_of_file -> Lwt.return None
       | exn -> Lwt.fail exn
     )
-        >>= function 
-    | None -> Lwt.return () 
+        >>= function
+    | None -> Lwt.return ()
     | Some compressed ->
       begin
         let lc = String.length compressed in
@@ -99,4 +99,4 @@ let tlc2tlog archive_name tlog_name =
         loop ()
       end
     in loop ()))
-    
+

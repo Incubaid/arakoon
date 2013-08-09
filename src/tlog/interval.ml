@@ -40,7 +40,7 @@ module Interval = struct
       | None -> "_"
       | Some s -> s
     in
-    Printf.sprintf "{(%s,%s),(%s,%s)}" 
+    Printf.sprintf "{(%s,%s),(%s,%s)}"
       (so2s t.pu_b) (so2s t.pu_e) (so2s t.pr_b) (so2s t.pr_e)
 
   let is_ok t key =

@@ -32,7 +32,7 @@ module MPMessage = struct
     | Nak of n * (n *n) (* n,(n',i') *)
 
   let string_of = function
-    | Prepare (n,i) -> 
+    | Prepare (n,i) ->
       "Prepare(" ^ (Sn.string_of n) ^", " ^ (Sn.string_of i) ^ ")"
     | Promise (n,i,vo) ->
       let ns = Sn.string_of n
@@ -44,7 +44,7 @@ module MPMessage = struct
       "Promise(" ^ ns ^ "," ^ is ^ "," ^ vs ^ ")"
     | Accept (n,i, v) ->
       let ns = Sn.string_of n
-      and is = Sn.string_of i 
+      and is = Sn.string_of i
       and vs = Value.value2s v in
       Printf.sprintf "Accept(%s,%s, %s)" ns is vs
     | Accepted (n,i) ->
@@ -88,7 +88,7 @@ module MPMessage = struct
   let of_generic m =
     let kind, payload = Message.kind_of m, Message.payload_of m in
       match kind with
-  | "prepare" -> 
+  | "prepare" ->
     let n, pos1 = Sn.sn_from payload 0 in
     let i, _    = Sn.sn_from payload pos1 in
     Prepare (n,i)

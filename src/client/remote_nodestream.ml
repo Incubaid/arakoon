@@ -31,35 +31,35 @@ open Ncfg
 let section = Logger.Section.main
 
 class type nodestream = object
-  method iterate: 
+  method iterate:
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
     head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
-      
+
   method collapse: int -> unit Lwt.t
 
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
- 
-  method optimize_db: unit -> unit Lwt.t 
+
+  method optimize_db: unit -> unit Lwt.t
   method defrag_db: unit -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
-  
-  method store_cluster_cfg : string -> ClientCfg.t -> unit Lwt.t 
-  
+
+  method store_cluster_cfg : string -> ClientCfg.t -> unit Lwt.t
+
   method get_nursery_cfg: unit -> NCFG.t Lwt.t
 
   method drop_master: unit -> unit Lwt.t
 end
 
 class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
-  method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)  
-    (tlog_coll: Tlogcollection.tlog_collection) 
+  method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)
+    (tlog_coll: Tlogcollection.tlog_collection)
     ~head_saved_cb
     =
     let outgoing buf =
@@ -72,36 +72,36 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
       let rec loop_entries () =
       Sn.input_sn ic >>= fun i2 ->
       begin
-        if i2 = (-1L) 
+        if i2 = (-1L)
         then
           begin
-            Logger.info_f_ "remote_nodestream :: last_seen = %s" 
+            Logger.info_f_ "remote_nodestream :: last_seen = %s"
               (Log_extra.option2s Sn.string_of !last_seen)
           end
         else
           begin
             last_seen := Some i2;
             Llio.input_int32 ic >>= fun chksum ->
-            Llio.input_string ic >>= fun entry ->        
+            Llio.input_string ic >>= fun entry ->
             let value,_ = Value.value_from entry 0 in
             f (i2, value) >>= fun () ->
               loop_entries ()
           end
       end
-      in 
+      in
       let rec loop_parts () =
       Llio.input_int ic >>= function
       | (-2) -> Logger.info_f_ "loop_parts done"
-      | 1 -> 
+      | 1 ->
           begin
-            Logger.debug_f_ "loop_entries" >>= fun () -> 
+            Logger.debug_f_ "loop_entries" >>= fun () ->
             loop_entries () >>= fun () ->
             loop_parts ()
           end
-      | 2 -> 
-        begin 
+      | 2 ->
+        begin
           Logger.info_f_ "save_head" >>= fun ()->
-          save_head () >>= fun () -> 
+          save_head () >>= fun () ->
           let hf_name = tlog_coll # get_head_name () in
           head_saved_cb hf_name >>= fun () ->
           loop_parts ()
@@ -120,7 +120,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
       loop_parts()
     in
     request  oc outgoing >>= fun () ->
-    response ic incoming  
+    response ic incoming
 
 
   method collapse n =
@@ -131,9 +131,9 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     let incoming ic =
       Llio.input_int ic >>= fun collapse_count ->
       let rec loop i =
-        if i = 0 
+        if i = 0
         then Lwt.return ()
-        else 
+        else
           begin
             Llio.input_int ic >>= function
               | 0 ->
@@ -152,45 +152,45 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 
 
   method set_interval iv = Common.set_interval conn iv
-  method get_interval () = Common.get_interval conn 
+  method get_interval () = Common.get_interval conn
 
   method get_routing () = Common.get_routing conn
 
   method set_routing r = Common.set_routing conn r
-   
+
   method set_routing_delta left sep right = Common.set_routing_delta conn left sep right
-   
-  method optimize_db () = Common.optimize_db conn 
+
+  method optimize_db () = Common.optimize_db conn
 
   method defrag_db () = Common.defrag_db conn
   method get_db db_location =
-    
+
     let outgoing buf =
       command_to buf GET_DB;
     in
     let incoming ic =
-      Llio.input_int64 ic >>= fun length -> 
+      Llio.input_int64 ic >>= fun length ->
       Lwt_io.with_file ~mode:Lwt_io.output db_location (fun oc -> Llio.copy_stream ~length ~ic ~oc)
     in
     request  oc outgoing >>= fun () ->
     response ic incoming
 
   method get_fringe (boundary:string option) direction= Common.get_fringe conn boundary direction
-  
+
   method store_cluster_cfg cluster_id cfg =
     Common.set_nursery_cfg (ic,oc) cluster_id cfg
-  
-  method get_nursery_cfg () = 
+
+  method get_nursery_cfg () =
     Common.get_nursery_cfg (ic,oc)
 
   method drop_master () =
     Common.drop_master conn
 end
 
-let make_remote_nodestream cluster connection = 
+let make_remote_nodestream cluster connection =
   prologue cluster connection >>= fun () ->
   let rns = new remote_nodestream connection in
   let a = (rns :> nodestream) in
   Lwt.return a
-  
- 
+
+

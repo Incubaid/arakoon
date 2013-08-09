@@ -86,7 +86,7 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
     response ic Llio.input_string_list
 
-  method multi_get_option ?(allow_dirty=false) keys = 
+  method multi_get_option ?(allow_dirty=false) keys =
     request oc (fun buf -> multiget_option_to buf ~allow_dirty keys) >>= fun () ->
     response ic (Llio.input_list Llio.input_string_option)
 

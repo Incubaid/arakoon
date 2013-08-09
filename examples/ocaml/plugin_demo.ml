@@ -8,7 +8,7 @@ let make_address ip port =
 
 let with_client cluster_id (ip,port) f =
   let sa = make_address ip port in
-  let do_it connection = 
+  let do_it connection =
     make_remote_client cluster_id connection >>= fun client ->
     f client
   in
@@ -25,12 +25,12 @@ let find_master cluster_id cfgs =
     (fun () ->
       Lwt_io.with_connection sa
         (fun connection ->
-    make_remote_client cluster_id connection 
+    make_remote_client cluster_id connection
     >>= fun client ->
     client # who_master ()) >>= function
     | None -> Lwt.fail (Failure "No Master")
     | Some m -> Lwt.return m)
-    (function 
+    (function
       | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -> loop rest
       | exn -> Lwt.fail exn
     )
@@ -55,20 +55,20 @@ let plugin_demo (client:Arakoon_client.client) =
   client # user_function n (Some "5") >>= fun vo ->
   Lwt_io.printl (vo2s vo) >>= fun () ->
   Lwt.catch
-    (fun () -> client # user_function n (Some "x") 
+    (fun () -> client # user_function n (Some "x")
       >>= fun vo -> Lwt_io.printl (vo2s vo)
     )
-    (function e -> 
-      let s = Printexc.to_string e in 
+    (function e ->
+      let s = Printexc.to_string e in
       Lwt_io.printlf "oops %s" s
     )
 
 
-let _ = 
+let _ =
   let cluster_id = "ricky" in
   let cfgs = [
     ("arakoon_0",("127.0.0.1",4000));
-    (* 
+    (*
     ("arakoon_1",("127.0.0.1",4001));
     ("arakoon_2",("127.0.0.1",4002))
     *)

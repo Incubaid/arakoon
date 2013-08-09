@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Update
 
-type t = 
+type t =
   | Vc of (Update.t list * bool) (* is_synced *)
   | Vm of (string * int64)
 
@@ -33,7 +33,7 @@ let is_master_set  = function
   | Vm _ ->  true
   | _    -> false
 
-let is_synced = function 
+let is_synced = function
   | Vm _ -> false
   | Vc (_,s) -> s
 
@@ -45,32 +45,32 @@ let fill_if_master_set = function
   | Vm (m,_) -> let now = Int64.of_float (Unix.gettimeofday ()) in
                 Vm(m,now)
   | v -> v
-      
+
 let updates_from_value = function
   | Vc (us,s)     -> us
   | Vm (m,l)      -> [Update.MasterSet(m,l)]
 
-let value_to buf v= 
+let value_to buf v=
   let () = Llio.int_to buf 0xff in
   match v with
-    | Vc (us,synced)     -> 
-        Llio.char_to buf 'c'; 
+    | Vc (us,synced)     ->
+        Llio.char_to buf 'c';
         Llio.bool_to buf synced;
         Llio.list_to buf Update.to_buffer us
-    | Vm (m,l) -> 
+    | Vm (m,l) ->
         begin
-          Llio.char_to buf 'm'; 
+          Llio.char_to buf 'm';
           Llio.string_to buf m;
           Llio.int64_to buf l
         end
 
-let value_from string pos = 
+let value_from string pos =
   let i0,p1 = Llio.int_from string pos in
-  if i0 = 0xff 
-  then 
+  if i0 = 0xff
+  then
     let c,p2 = Llio.char_from string p1 in
     match c with
-      | 'c' -> 
+      | 'c' ->
           let synced, p3 = Llio.bool_from string p2 in
           let us, p4     = Llio.list_from string Update.from_buffer p3 in
           let r = Vc(us,synced) in
@@ -81,18 +81,18 @@ let value_from string pos =
       | _ -> failwith "demarshalling error"
   else
     begin
-      (* this is for backward compatibility: 
+      (* this is for backward compatibility:
          formerly, we logged updates iso values *)
       let u,p2 = Update.from_buffer string pos in
       let synced = Update.is_synced u in
       let r = Vc ([u], synced) in
       r, p2
     end
-      
+
 
 
 let value2s ?(values=false) = function
-  | Vc (us,synced)  -> 
+  | Vc (us,synced)  ->
       let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
       Printf.sprintf "(Vc (%s,%b)" uss synced
   | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%Li))" m l

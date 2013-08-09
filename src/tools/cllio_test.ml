@@ -1,7 +1,7 @@
 open OUnit
 
-let test_compatibility_int64() = 
-  let do_one v = 
+let test_compatibility_int64() =
+  let do_one v =
     let s = String.create 8 in
     let () = Cllio.int64_to_buffer s 0 v in
     let v',_ = Llio.int64_from s 0 in
@@ -19,7 +19,7 @@ let test_compatibility_int64() =
   List.iter do_one vs
 
 
-let suite = 
+let suite =
   "Cllio" >:::[
     "compatibility_int64" >:: test_compatibility_int64;
   ]

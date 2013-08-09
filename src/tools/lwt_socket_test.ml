@@ -44,12 +44,12 @@ let test_leak () =
   Lwt.finalize
     (fun () ->
             Lwt.catch
-        (fun () -> 
+        (fun () ->
     Lwt_io.write_char oc 'c' >>= fun () ->
     Lwt_unix.sleep 0.1 >>= fun () ->
     Lwt_io.write_char oc 'd' >>= fun () ->
     Lwt.return ())
-        (function 
+        (function
     | End_of_file -> Lwt.return ()
     | e -> Lwt.fail e
         )
@@ -57,14 +57,14 @@ let test_leak () =
     (fun () ->
       Lwt_io.close ic >>= fun () ->
       Lwt_io.close oc
-    (* supposedly connection completely closed, 
-       actually shutdown will fail *) 
+    (* supposedly connection completely closed,
+       actually shutdown will fail *)
     )
       end
     ]
 
 let wrap t =
-  Extra.lwt_bracket 
+  Extra.lwt_bracket
     (fun () -> Lwt.return ())
     t
     (fun () -> Lwt.return ())

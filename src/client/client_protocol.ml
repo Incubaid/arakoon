@@ -361,7 +361,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         begin
           Llio.input_bool ic >>= fun allow_dirty ->
           Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
-          Logger.debug_f_ "connection=%s MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length 
+          Logger.debug_f_ "connection=%s MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length
             (String.concat ";" keys) >>= fun () ->
           Lwt.catch
             (fun () ->
@@ -376,12 +376,12 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         begin
           Llio.input_bool ic >>= fun allow_dirty ->
           Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
-          Logger.debug_f_ "connection=%s MULTI_GET_OPTION: allow_dirty=%B length=%i keys=%S" 
+          Logger.debug_f_ "connection=%s MULTI_GET_OPTION: allow_dirty=%B length=%i keys=%S"
             id allow_dirty length (String.concat ";" keys) >>= fun () ->
           Lwt.catch
             (fun () ->
               backend # multi_get_option ~allow_dirty keys >>= fun vos ->
-              
+
               Llio.output_int oc 0 >>= fun () ->
               Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
               Lwt.return false)

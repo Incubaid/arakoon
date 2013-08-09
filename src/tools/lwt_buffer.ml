@@ -42,7 +42,7 @@ module Lwt_buffer = struct
     capacity = capacity;
     leaky = leaky;
   }
-  let create_fixed_capacity i = 
+  let create_fixed_capacity i =
     let capacity = Some i in
     create ~capacity ()
 
@@ -52,15 +52,15 @@ module Lwt_buffer = struct
       | Some c -> Queue.length t.q = c
 
   let add e t =
-    Lwt_mutex.with_lock t.full_m 
+    Lwt_mutex.with_lock t.full_m
       (fun () ->
-        let _add e = 
+        let _add e =
         let () = Queue.add e t.q in
         let () = Lwt_condition.signal t.empty () in
-        Lwt.return () 
+        Lwt.return ()
         in
-        if _is_full t 
-        then 
+        if _is_full t
+        then
         if t.leaky
         then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
         else
@@ -68,12 +68,12 @@ module Lwt_buffer = struct
             Lwt_condition.wait (* ~mutex:t.full_m *) t.full >>= fun () ->
             _add e
           end
-        else 
+        else
         _add e
-      ) 
-      
+      )
+
   let take t =
-    Lwt_mutex.with_lock t.empty_m 
+    Lwt_mutex.with_lock t.empty_m
       (fun () ->
         if Queue.is_empty t.q
         then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
@@ -82,35 +82,35 @@ module Lwt_buffer = struct
     let e = Queue.take t.q in
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
-      
-  let harvest t = 
-    Lwt_mutex.with_lock t.empty_m 
+
+  let harvest t =
+    Lwt_mutex.with_lock t.empty_m
       (fun () -> if Queue.is_empty t.q
         then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
-        else Lwt.return () 
+        else Lwt.return ()
       ) >>= fun () ->
     let size = Queue.length t.q in
     let rec loop es = function
       | 0 -> List.rev es
-      | i -> 
-          let es' = Queue.take t.q :: es 
+      | i ->
+          let es' = Queue.take t.q :: es
           and i' = i - 1 in
           loop es' i'
     in
     let es = loop [] size in
-    let () = Lwt_condition.signal t.full() in 
+    let () = Lwt_condition.signal t.full() in
     Lwt.return es
 
   let wait_for_item t =
-    Lwt_mutex.with_lock t.empty_m 
+    Lwt_mutex.with_lock t.empty_m
       (fun () ->
         if Queue.is_empty t.q then
         Lwt_condition.wait t.empty
         else Lwt.return ()
       )
 
-  let wait_until_empty t = 
-    if Queue.is_empty t.q 
+  let wait_until_empty t =
+    if Queue.is_empty t.q
     then Lwt.return ()
-    else Lwt_condition.wait (*~mutex:t.full_m *) t.full 
+    else Lwt_condition.wait (*~mutex:t.full_m *) t.full
 end

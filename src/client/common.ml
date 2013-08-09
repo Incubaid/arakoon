@@ -268,7 +268,7 @@ let multiget_to b ~allow_dirty keys =
   Llio.bool_to b allow_dirty;
   Llio.string_list_to b keys
 
-let multiget_option_to b ~allow_dirty keys = 
+let multiget_option_to b ~allow_dirty keys =
   command_to b MULTI_GET_OPTION;
   Llio.bool_to b allow_dirty;
   Llio.string_list_to b keys
@@ -377,8 +377,8 @@ let set_routing_delta (ic,oc) left sep right =
   Client_log.debug "set_routing_delta sent" >>= fun () ->
   response ic nothing
 
-let delete_prefix (ic,oc) prefix = 
-  let outgoing buf = 
+let delete_prefix (ic,oc) prefix =
+  let outgoing buf =
     command_to buf DELETE_PREFIX;
     Llio.string_to buf prefix
   in
@@ -413,7 +413,7 @@ let migrate_range (ic,oc) interval changes =
   response ic nothing
 
 
-let _sequence (ic,oc) changes cmd = 
+let _sequence (ic,oc) changes cmd =
   let outgoing buf =
     command_to buf cmd;
     _build_sequence_request buf changes
@@ -449,16 +449,16 @@ let optimize_db (ic,oc) =
    request oc outgoing >>= fun () ->
    response ic nothing
 
-let defrag_db (ic,oc) = 
+let defrag_db (ic,oc) =
   let outgoing buf = command_to buf DEFRAG_DB in
   request oc outgoing >>= fun () ->
   response ic nothing
 
-let version (ic,oc) = 
+let version (ic,oc) =
   let outgoing buf = command_to buf VERSION in
   request oc outgoing >>= fun () ->
-  response ic 
-    (fun ic -> 
+  response ic
+    (fun ic ->
       Llio.input_int ic >>= fun major ->
       Llio.input_int ic >>= fun minor ->
       Llio.input_int ic >>= fun patch ->
@@ -466,7 +466,7 @@ let version (ic,oc) =
       Lwt.return (major,minor,patch,info)
     )
 
-let current_state (ic,oc) = 
+let current_state (ic,oc) =
   let outgoing buf = command_to buf CURRENT_STATE in
   request oc outgoing >>= fun () ->
   response ic (fun ic -> Llio.input_string ic)
