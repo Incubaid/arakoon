@@ -33,60 +33,60 @@ type t = { mutable kv : string StringMap.t;
          }
 
 let with_transaction ms f =
-    let tx = new transaction in
-    ms._tx <- Some tx;
-    let current_kv = ms.kv in
-    Lwt.catch
-      (fun () ->
-        Lwt.finalize
-          (fun () -> f tx)
-          (fun () -> ms._tx <- None; Lwt.return ()))
-      (fun exn ->
-        ms.kv <- current_kv;
-        Lwt.fail exn)
+  let tx = new transaction in
+  ms._tx <- Some tx;
+  let current_kv = ms.kv in
+  Lwt.catch
+    (fun () ->
+       Lwt.finalize
+         (fun () -> f tx)
+         (fun () -> ms._tx <- None; Lwt.return ()))
+    (fun exn ->
+       ms.kv <- current_kv;
+       Lwt.fail exn)
 
 let _verify_tx ms tx =
   match ms._tx with
     | None -> failwith "not in a transaction"
     | Some tx' ->
-        if tx != tx'
-        then failwith "the provided transaction is not the current transaction of the store"
+      if tx != tx'
+      then failwith "the provided transaction is not the current transaction of the store"
 
 let exists ms key =
-    StringMap.mem key ms.kv
+  StringMap.mem key ms.kv
 
 let get ms key =
-    StringMap.find key ms.kv
+  StringMap.find key ms.kv
 
 let range ms prefix first finc last linc max =
-    let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-    filter_keys_list keys
+  let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
+  filter_keys_list keys
 
 let range_entries ms prefix first finc last linc max =
-    let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-    filter_entries_list entries
+  let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
+  filter_entries_list entries
 
 let rev_range_entries ms prefix first finc last linc max =
-    let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-    filter_entries_list entries
+  let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
+  filter_entries_list entries
 
 let prefix_keys ms prefix max =
-    let reg = "^" ^ prefix in
-    let keys = StringMap.fold
-      (fun k v a ->
-(* TODO this is buggy -> what if prefix contains special regex chars? *)
-	if (Str.string_match (Str.regexp reg) k 0)
-	then k::a
-	else a
-      ) ms.kv []
-    in filter_keys_list keys
+  let reg = "^" ^ prefix in
+  let keys = StringMap.fold
+               (fun k v a ->
+                  (* TODO this is buggy -> what if prefix contains special regex chars? *)
+                  if (Str.string_match (Str.regexp reg) k 0)
+                  then k::a
+                  else a
+               ) ms.kv []
+  in filter_keys_list keys
 
 let delete ms tx key =
   _verify_tx ms tx;
   if StringMap.mem key ms.kv then
-	ms.kv <- StringMap.remove key ms.kv
+    ms.kv <- StringMap.remove key ms.kv
   else
-	raise (Key_not_found key)
+    raise (Key_not_found key)
 
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
@@ -109,10 +109,10 @@ let reopen ms when_closed quiesced = Lwt.return ()
 let get_location ms = failwith "not supported"
 
 let get_key_count ms =
-    let inc key value size =
-      Int64.succ size
-    in
-    Lwt.return (StringMap.fold inc ms.kv 0L)
+  let inc key value size =
+    Int64.succ size
+  in
+  Lwt.return (StringMap.fold inc ms.kv 0L)
 
 let copy_store ms networkClient oc = failwith "copy_store not supported"
 let copy_store2 old_location new_location overwrite = Lwt.return ()
@@ -120,23 +120,23 @@ let copy_store2 old_location new_location overwrite = Lwt.return ()
 let relocate new_location = failwith "Memstore.relocation not implemented"
 
 let get_fringe ms boundary direction =
-    Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
-    let cmp =
-      begin
-        match direction, boundary with
-          | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
-          | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
-          | _ , None -> (fun k -> true)
-      end
-    in
-    let all = StringMap.fold
-      (fun k v acc ->
-	if cmp k
-	then (k,v)::acc
-	else acc)
-      ms.kv []
-    in
-    Lwt.return all
+  Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
+  let cmp =
+    begin
+      match direction, boundary with
+        | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
+        | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
+        | _ , None -> (fun k -> true)
+    end
+  in
+  let all = StringMap.fold
+              (fun k v acc ->
+                 if cmp k
+                 then (k,v)::acc
+                 else acc)
+              ms.kv []
+  in
+  Lwt.return all
 
 let make_store read_only db_name =
   Lwt.return { kv = StringMap.empty;
@@ -144,5 +144,3 @@ let make_store read_only db_name =
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
-
-

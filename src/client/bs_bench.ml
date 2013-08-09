@@ -2,21 +2,21 @@ open Unix
 open Arg
 open Otc
 
-let clock f = 
+let clock f =
   let t0 = Unix.gettimeofday () in
   let () = f() in
   let t1 = Unix.gettimeofday () in
   t1 -. t0
 
-let make_key i = Printf.sprintf "key_%08i" i 
+let make_key i = Printf.sprintf "key_%08i" i
 
 let sync = Bdb._dbsync
 
-let set_loop db vs n = 
+let set_loop db vs n =
   let v = String.make vs 'x' in
   let set k v = Bdb.put db k v in
-  let rec loop i = 
-    if i = n 
+  let rec loop i =
+    if i = n
     then sync db
     else
       let key = make_key i in
@@ -25,10 +25,10 @@ let set_loop db vs n =
   in
   loop 0
 
-let get_loop db n = 
+let get_loop db n =
   let get k = Bdb.get db k in
   let rec loop i =
-    if i = n 
+    if i = n
     then ()
     else
       let key = make_key i in
@@ -37,10 +37,10 @@ let get_loop db n =
   in
   loop 0
 
-let delete_loop db n = 
+let delete_loop db n =
   let delete k = Bdb.out db k in
-  let rec loop i = 
-    if i = n 
+  let rec loop i =
+    if i = n
     then sync db
     else
       let key = make_key i in
@@ -49,17 +49,17 @@ let delete_loop db n =
   in
   loop 0
 
-let () = 
+let () =
   let n  = ref 1_000_000 in
   let vs = ref 2_000 in
   let fn = ref "test.db" in
-  let () = 
+  let () =
     Arg.parse [
       ("--value-size",Set_int vs, Printf.sprintf "size of the values in bytes (%i)" !vs);
       ("--file", Set_string fn, Printf.sprintf "file name for database (%S)" !fn);
       ("--bench-size",Set_int n,  Printf.sprintf "number of sets/gets/deletes (%i)" !n);
     ]
-      (fun _ ->()) 
+      (fun _ ->())
       "simple baardskeerder like benchmark for tc"
   in
   let db = Bdb._make () in

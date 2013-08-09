@@ -20,10 +20,10 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type master = 
-  | Elected 
+type master =
+  | Elected
   | ReadOnly
-  | Forced of string 
+  | Forced of string
   | Preferred of string list
 
 let master2s = function

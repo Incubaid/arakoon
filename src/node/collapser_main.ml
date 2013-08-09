@@ -23,10 +23,10 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 
-let collapse_remote ip port cluster_id n = 
-  let t () = 
+let collapse_remote ip port cluster_id n =
+  let t () =
     begin
-      if n < 1 
+      if n < 1
       then Lwt.fail (Failure ("n should be >= 1"))
       else Lwt.return ()
     end >>= fun () ->
@@ -35,12 +35,12 @@ let collapse_remote ip port cluster_id n =
       Remote_nodestream.make_remote_nodestream cluster_id conn
       >>= fun (client:Remote_nodestream.nodestream) ->
       client # collapse n >>= fun () ->
-      Lwt.return 0 
+      Lwt.return 0
     in
     Lwt.catch
       (fun () -> Lwt_io.with_connection address collapse)
-      (fun exn -> Logger.fatal Logger.Section.main ~exn "remote_collapsing_failed" 
-	>>= fun () -> Lwt.return (-1)
+      (fun exn -> Logger.fatal Logger.Section.main ~exn "remote_collapsing_failed"
+        >>= fun () -> Lwt.return (-1)
       )
   in
   Lwt_main.run (t () )

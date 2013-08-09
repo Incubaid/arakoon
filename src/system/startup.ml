@@ -75,27 +75,27 @@ let _make_cfg name n lease_period =
 let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync node_id =
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir use_compression node_id >>= fun tlc ->
   let rec loop i = function
-    | [] -> Lwt.return () 
-    | v :: vs -> 
+    | [] -> Lwt.return ()
+    | v :: vs ->
       begin
-	    tlc # log_value i v >>= fun () ->
-	    loop (Sn.succ i) vs
+        tlc # log_value i v >>= fun () ->
+        loop (Sn.succ i) vs
       end
   in
   loop Sn.start values >>= fun () ->
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () = 
+let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
-      struct
-        include LS
-        let make_store ?(read_only=false) (db_name:string) =
-          LS.make_store db_name >>= fun store ->
-          LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () -> 
-          Hashtbl.add stores db_name store;
-          Lwt.return store
-      end in
+  struct
+    include LS
+    let make_store ?(read_only=false) (db_name:string) =
+      LS.make_store db_name >>= fun store ->
+      LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
+      Hashtbl.add stores db_name store;
+      Lwt.return store
+  end in
   Node_main._main_2
     (module S)
     (_make_tlog_coll tlcs values)
@@ -104,21 +104,21 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    >>= fun _ -> Lwt.return ()
+  >>= fun _ -> Lwt.return ()
 
-let _dump_tlc ~tlcs node = 
+let _dump_tlc ~tlcs node =
   let tlc0 = Hashtbl.find tlcs node in
-  let printer entry = 
+  let printer entry =
     let i = Entry.i_of entry in
     let v = Entry.v_of entry in
-    Logger.debug_f_ "%s:%s" (Sn.string_of i) (Value.value2s v) 
+    Logger.debug_f_ "%s:%s" (Sn.string_of i) (Value.value2s v)
   in
   Logger.debug_f_ "--- %s ---" node >>= fun () ->
   tlc0 # iterate Sn.start 20L printer >>= fun () ->
   Lwt.return ()
 
 
-let post_failure () = 
+let post_failure () =
   let lease_period = 2 in
   let node0 = "was_master" in
   let node1 = "was_slave1" in
@@ -152,17 +152,17 @@ let post_failure () =
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
   let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0]    node2 in
-  let eventually_stop () = Lwt_unix.sleep 10.0 
+  let eventually_stop () = Lwt_unix.sleep 10.0
 
   in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-	    begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
-	    run_node2 ();
-	    eventually_stop ()] 
+            begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
+            run_node2 ();
+            eventually_stop ()]
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
-  let check_store node = 
+  let check_store node =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
@@ -174,7 +174,7 @@ let post_failure () =
   Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
   Lwt_list.iter_s check_store [node0;node1;node2]
 
-    
+
 let restart_slaves () =
   let lease_period = 2 in
   let node0 = "slave0" in
@@ -183,7 +183,7 @@ let restart_slaves () =
   let node0_cfg = _make_cfg node0 0 lease_period in
   let node1_cfg = _make_cfg node1 1 lease_period in
   let node2_cfg = _make_cfg node2 2 lease_period in
-  let cluster_cfg = 
+  let cluster_cfg =
     {cfgs = [node0_cfg;node1_cfg;node2_cfg];
      log_cfgs = [_make_log_cfg ()];
      batched_transaction_cfgs = [_make_batched_transaction_cfg ()];
@@ -199,26 +199,26 @@ let restart_slaves () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity
     }
   in
-  let get_cfgs () = cluster_cfg in 
+  let get_cfgs () = cluster_cfg in
   let v0 = Value.create_master_value (node0, 0L) in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float(Unix.time()) in
-  
+
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
   let eventually_stop() = Lwt_unix.sleep 10.0 in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-	    run_node1 ();
-	    (* run_node2 () *)
-	   eventually_stop();
-	   ]
+            run_node1 ();
+            (* run_node2 () *)
+            eventually_stop();
+           ]
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
-  let check_store node = 
+  let check_store node =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "xxx" in
@@ -229,14 +229,14 @@ let restart_slaves () =
   in
   Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1]>>= fun () ->
   Lwt_list.iter_s check_store [node0;node1]
-    
+
 
 let setup () = Lwt.return ()
 let teardown () = Logger.debug_ "teardown"
 
-let w f = Extra.lwt_bracket setup f teardown 
+let w f = Extra.lwt_bracket setup f teardown
 
 let suite = "startup" >:::[
-  "post_failure" >:: w post_failure;
-  "restart_slaves" >:: w restart_slaves;
-]
+    "post_failure" >:: w post_failure;
+    "restart_slaves" >:: w restart_slaves;
+  ]

@@ -71,6 +71,6 @@ exception Exception of rc * string
 
 open Lwt
 
-let output_exception oc rc msg = 
+let output_exception oc rc msg =
   Llio.output_int32 oc (int32_of_rc rc) >>= fun () ->
   Llio.output_string oc msg

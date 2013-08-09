@@ -7,10 +7,10 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
   Lwt.catch
-    (fun () -> 
-      f () >>= fun r ->
-      let s = r2s r in 
-      Lwt_io.printlf "%s: %s" name s
+    (fun () ->
+       f () >>= fun r ->
+       let s = r2s r in
+       Lwt_io.printlf "%s: %s" name s
     )
     (function
       | Not_found -> Lwt_io.printlf "%s : --" name
@@ -27,18 +27,18 @@ let summary store =
   and mdo = S.who_master store
   in
   Lwt_io.printlf "i: %s" (Log_extra.option2s Sn.string_of consensus_i) >>= fun () ->
-    let s = 
-      match mdo with
-	| None -> "None"
-	| Some (m,e) -> Printf.sprintf "Some(%s,%s)" m (Sn.string_of e) 
-    in
-    Lwt_io.printlf "master: %s" s
-  >>= fun () -> 
+  let s =
+    match mdo with
+      | None -> "None"
+      | Some (m,e) -> Printf.sprintf "Some(%s,%s)" m (Sn.string_of e)
+  in
+  Lwt_io.printlf "master: %s" s
+  >>= fun () ->
   _dump_routing store >>= fun () ->
   _dump_interval store
 
-let dump_store filename = 
-  let t () = 
+let dump_store filename =
+  let t () =
     S.make_store filename >>= fun store ->
     summary store >>= fun () ->
     S.close store
@@ -46,22 +46,22 @@ let dump_store filename =
   Lwt_main.run (t());
   0
 
-let inject_as_head fn node_id cfg_fn = 
+let inject_as_head fn node_id cfg_fn =
   let canonical =
-	if cfg_fn.[0] = '/'
-	then cfg_fn
-	else Filename.concat (Unix.getcwd()) cfg_fn
+    if cfg_fn.[0] = '/'
+    then cfg_fn
+    else Filename.concat (Unix.getcwd()) cfg_fn
   in
   let cluster_cfg = read_config canonical in
-  let node_cfgs = List.filter 
-    (fun ncfg -> node_name ncfg = node_id) 
-    cluster_cfg.cfgs 
+  let node_cfgs = List.filter
+                    (fun ncfg -> node_name ncfg = node_id)
+                    cluster_cfg.cfgs
   in
-  let node_cfg = match node_cfgs with 
+  let node_cfg = match node_cfgs with
     | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
     | x :: _ -> x
   in
-  let t () = 
+  let t () =
     let tlog_dir = node_cfg.tlog_dir in
     let tlf_dir = node_cfg.tlf_dir in
     let head_dir = node_cfg.head_dir in
@@ -91,21 +91,20 @@ let inject_as_head fn node_id cfg_fn =
       | Some i -> Sn.to_int (Tlc2.get_file_number i)
     in
     Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
-    File_system.copy_file fn old_head_name >>= fun () -> 
+    File_system.copy_file fn old_head_name >>= fun () ->
     Lwt_io.printlf "# [OK]">>= fun () ->
     Lwt_io.printlf "# remove superfluous .tlf files" >>= fun () ->
     Tlc2.get_tlog_names tlog_dir tlf_dir >>= fun tlns ->
     let old_tlns = List.filter (fun tln -> let n = Tlc2.get_number tln in n < bottom_n) tlns in
-    Lwt_list.iter_s 
-      (fun old_tln -> 
-        let canonical = Tlc2.get_full_path tlog_dir tlf_dir old_tln in
-        Lwt_io.printlf "rm %s" canonical >>= fun () ->
-        File_system.unlink canonical
+    Lwt_list.iter_s
+      (fun old_tln ->
+         let canonical = Tlc2.get_full_path tlog_dir tlf_dir old_tln in
+         Lwt_io.printlf "rm %s" canonical >>= fun () ->
+         File_system.unlink canonical
       ) old_tlns >>= fun () ->
     Lwt_io.printlf "# [OK]" >>= fun () ->
     Lwt.return ()
-      
+
   in
   Lwt_main.run (t());
   0
-  

@@ -33,10 +33,9 @@ class type messaging = object
   method send_message: Message.t -> source:id -> target:id -> unit Lwt.t
   method recv_message: target:id -> (Message.t * id) Lwt.t
   method expect_reachable: target: id -> bool
-  method run : 
+  method run :
     ?setup_callback:(unit -> unit Lwt.t) ->
-    ?teardown_callback:(unit -> unit Lwt.t) 
+    ?teardown_callback:(unit -> unit Lwt.t)
     -> unit -> unit Lwt.t
   method get_buffer: id -> (Message.t * id) Lwt_buffer.t
 end
-

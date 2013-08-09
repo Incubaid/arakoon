@@ -25,20 +25,19 @@ open Lwt
 let section = Logger.Section.main
 
 let backoff ?(min=0.125) ?(max=8.0) (f:unit -> 'a Lwt.t) =
-  let rec loop t = 
+  let rec loop t =
     Lwt.catch
       (fun () -> Lwt.pick [Lwt_unix.timeout t;f () ] )
-      (function 
-   | Lwt_unix.Timeout -> 
-       begin 
-         let t' = t *. 2.0 in 
-     if t' < max then
-       Logger.info_f_ "retrying with timeout of %f" t' >>= fun () ->
-         loop t'
-     else Lwt.fail (Failure "max timeout exceeded")
-       end
-   | x -> Lwt.fail x)
-  in 
-    loop min >>= fun result -> 
-    Lwt.return result
-    
+      (function
+        | Lwt_unix.Timeout ->
+          begin
+            let t' = t *. 2.0 in
+            if t' < max then
+              Logger.info_f_ "retrying with timeout of %f" t' >>= fun () ->
+              loop t'
+            else Lwt.fail (Failure "max timeout exceeded")
+          end
+        | x -> Lwt.fail x)
+  in
+  loop min >>= fun result ->
+  Lwt.return result

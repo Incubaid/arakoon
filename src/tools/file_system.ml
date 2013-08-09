@@ -28,51 +28,51 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
   Logger.debug_f_ "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
-  let copy_all ic oc = 
+  let copy_all ic oc =
     let rec loop () =
       Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
-      if bytes_read > 0 
-      then 
-	begin
-	  Lwt_io.write oc buffer >>= fun () -> loop ()
-	end
+      if bytes_read > 0
+      then
+        begin
+          Lwt_io.write oc buffer >>= fun () -> loop ()
+        end
       else
-	Lwt.return ()    
+        Lwt.return ()
     in
     loop () >>= fun () ->
-    Logger.debug_ "done: copy_file" 
+    Logger.debug_ "done: copy_file"
   in
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
-      Lwt_io.with_file ~mode:Lwt_io.output target 
-	(fun oc ->copy_all ic oc)
+       Lwt_io.with_file ~mode:Lwt_io.output target
+         (fun oc ->copy_all ic oc)
     )
 
 let lwt_directory_list dn =
   Lwt.catch
     (fun () ->
-      Lwt_unix.opendir dn >>= fun h ->
-      let rec loop acc  =
-        Lwt.catch
-          (fun () ->
-            Lwt_unix.readdir h >>= fun x ->
-            match x with
-              | "." | ".." -> loop acc
-              | s' -> loop (s' :: acc)
-          )
-          (function
-            | End_of_file -> Lwt.return (List.rev acc)
-            | exn -> Lwt.fail exn
-          )
-      in
-      Lwt.finalize
-        (fun () -> loop [])
-        (fun () -> Lwt_unix.closedir h)
+       Lwt_unix.opendir dn >>= fun h ->
+       let rec loop acc  =
+         Lwt.catch
+           (fun () ->
+              Lwt_unix.readdir h >>= fun x ->
+              match x with
+                | "." | ".." -> loop acc
+                | s' -> loop (s' :: acc)
+           )
+           (function
+             | End_of_file -> Lwt.return (List.rev acc)
+             | exn -> Lwt.fail exn
+           )
+       in
+       Lwt.finalize
+         (fun () -> loop [])
+         (fun () -> Lwt_unix.closedir h)
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
 
-let rename source target = 
+let rename source target =
   Logger.debug_f_ "rename %s -> %s" source target >>= fun () ->
   Lwt_unix.rename source target
 
@@ -81,14 +81,14 @@ let mkdir name = Lwt_unix.mkdir name
 let unlink name = Lwt_unix.unlink name
 let rmdir name = Lwt_unix.rmdir name
 
-let stat filename = 
+let stat filename =
   Logger.debug_f_ "stat %s" filename >>= fun () ->
   Lwt_unix.stat filename
 
-let exists filename = 
-  Lwt.catch 
+let exists filename =
+  Lwt.catch
     (fun () -> stat filename >>= fun _ -> Lwt.return true)
-    (function 
+    (function
       | Unix.Unix_error (Unix.ENOENT,_,_) -> Lwt.return false
       | e -> Lwt.fail e
     )

@@ -75,9 +75,9 @@ struct
     match vo with
       | Some v -> S.set s ls_tx k v
       | None ->
-          if S.exists s k
-          then
-            S.delete s ls_tx k
+        if S.exists s k
+        then
+          S.delete s ls_tx k
 
   let _apply_vos_to_local_store s ls_tx m =
     Hashtbl.iter
@@ -87,9 +87,9 @@ struct
   let _track_or_apply_vo s k vo =
     match s._ls_tx with
       | None ->
-          Hashtbl.replace s._current_tx_cache k vo
+        Hashtbl.replace s._current_tx_cache k vo
       | Some ls_tx ->
-          _apply_vo_to_local_store s.s ls_tx k vo
+        _apply_vo_to_local_store s.s ls_tx k vo
 
   let _sync_cache_to_local_store s =
     if Hashtbl.length s._cache <> 0
@@ -114,78 +114,78 @@ struct
       _sync_cache_to_local_store s
     else
       (* we're asked to sync from within a Batched_store transaction *)
-      if s._ls_tx = None (* start a S transaction should none be initiated so far *)
-      then
-        begin
-          _sync_cache_to_local_store s;
-          let ls_tx = S._tranbegin s.s in
-          s._ls_tx <- Some ls_tx;
-          _apply_vos_to_local_store s.s ls_tx s._current_tx_cache
-        end
+    if s._ls_tx = None (* start a S transaction should none be initiated so far *)
+    then
+      begin
+        _sync_cache_to_local_store s;
+        let ls_tx = S._tranbegin s.s in
+        s._ls_tx <- Some ls_tx;
+        _apply_vos_to_local_store s.s ls_tx s._current_tx_cache
+      end
 
   let with_transaction s f =
     Lwt_mutex.with_lock s._tx_lock (fun () ->
-      let tx = new transaction in
-      s._tx <- Some tx;
-      Lwt.finalize
-        (fun () ->
-          f tx >>= fun r ->
-          let () =
-            match s._ls_tx with
-              | None ->
-                  (* transaction succeeded and no new transaction was started
-                     (to handle the more difficult cases),
-                     so let's apply the changes accumulated in _current_tx_cache to _cache *)
-                  Hashtbl.iter
-                    (fun k vo ->
-                      Hashtbl.replace s._cache k vo;
+        let tx = new transaction in
+        s._tx <- Some tx;
+        Lwt.finalize
+          (fun () ->
+             f tx >>= fun r ->
+             let () =
+               match s._ls_tx with
+                 | None ->
+                   (* transaction succeeded and no new transaction was started
+                      (to handle the more difficult cases),
+                      so let's apply the changes accumulated in _current_tx_cache to _cache *)
+                   Hashtbl.iter
+                     (fun k vo ->
+                        Hashtbl.replace s._cache k vo;
 
-                      s._entries <- s._entries + 1;
-                      (match vo with
-                        | None -> ()
-                        | Some v -> s._size <- s._size + String.length v);
-                      s._size <- s._size + String.length k)
-                    s._current_tx_cache
-              | Some ls_tx ->
-                  (* a ls_transaction was started while in this batched_store transaction,
-                     now is the time to finish that transaction *)
-                  S._trancommit s.s;
-                  s._ls_tx <- None
-          in
+                        s._entries <- s._entries + 1;
+                        (match vo with
+                           | None -> ()
+                           | Some v -> s._size <- s._size + String.length v);
+                        s._size <- s._size + String.length k)
+                     s._current_tx_cache
+                 | Some ls_tx ->
+                   (* a ls_transaction was started while in this batched_store transaction,
+                      now is the time to finish that transaction *)
+                   S._trancommit s.s;
+                   s._ls_tx <- None
+             in
 
-          begin
-            if (s._entries >= !max_entries) or (s._size >= !max_size)
-            then
-              begin
-                Logger.debug_f_ "Batched_store, synching cache to local_store (_entries=%i, _size=%i)" s._entries s._size >>= fun () ->
-                _sync_cache_to_local_store s;
-                Lwt.return ()
-              end
-            else
-              Lwt.return ()
-          end >>= fun () ->
+             begin
+               if (s._entries >= !max_entries) or (s._size >= !max_size)
+               then
+                 begin
+                   Logger.debug_f_ "Batched_store, synching cache to local_store (_entries=%i, _size=%i)" s._entries s._size >>= fun () ->
+                   _sync_cache_to_local_store s;
+                   Lwt.return ()
+                 end
+               else
+                 Lwt.return ()
+             end >>= fun () ->
 
-          Lwt.return r)
-        (fun () ->
-          let () = match s._ls_tx with
-              | None -> ()
-              | Some ls_tx ->
-                  (* a ls_transaction was started while in this batched_store transaction,
-                     got an exception so aborting the transaction *)
-                  S._tranabort s.s;
-                  s._ls_tx <- None
-          in
+             Lwt.return r)
+          (fun () ->
+             let () = match s._ls_tx with
+               | None -> ()
+               | Some ls_tx ->
+                 (* a ls_transaction was started while in this batched_store transaction,
+                    got an exception so aborting the transaction *)
+                 S._tranabort s.s;
+                 s._ls_tx <- None
+             in
 
-          s._tx <- None;
-          Hashtbl.reset s._current_tx_cache;
-          Lwt.return ()))
+             s._tx <- None;
+             Hashtbl.reset s._current_tx_cache;
+             Lwt.return ()))
 
   let _verify_tx s tx =
     match s._tx with
       | None -> failwith "not in a batched store transaction"
       | Some tx' ->
-          if tx != tx'
-          then failwith "the provided transaction is not the current transaction of the batched store"
+        if tx != tx'
+        then failwith "the provided transaction is not the current transaction of the batched store"
 
   let _find c k =
     try Some (Hashtbl.find c k)
@@ -195,11 +195,11 @@ struct
     match _find s._current_tx_cache k with
       | Some v -> match' v
       | None ->
-          begin
-            match _find s._cache k with
-              | Some v -> match' v
-              | None -> else' ()
-          end
+        begin
+          match _find s._cache k with
+            | Some v -> match' v
+            | None -> else' ()
+        end
 
   let exists s k =
     _with_key_in_caches s k
@@ -296,4 +296,3 @@ struct
 end
 
 module Local_store = Batched_store(Local_store)
-
