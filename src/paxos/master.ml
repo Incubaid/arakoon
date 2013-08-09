@@ -179,10 +179,10 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
 	            Fsm.return ~sides:[log_e] (Stable_master current_state)
 	          end
       end
-    | ElectionTimeout n' -> 
+    | ElectionTimeout (n', i') -> 
         begin
           let log_e = ELog (fun () ->
-            Printf.sprintf "ignoring election timeout (%s)" (Sn.string_of n') )
+            Printf.sprintf "ignoring election timeout (%s,%s)" (Sn.string_of n') (Sn.string_of i') )
           in          
           Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
