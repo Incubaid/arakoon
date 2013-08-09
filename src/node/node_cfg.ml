@@ -41,27 +41,27 @@ exception InvalidHeadDir of string
 module Node_cfg = struct
 
   type t = {node_name:string;
-        ips: string list;
-        client_port:int;
-        messaging_port:int;
-        home:string;
-        tlog_dir:string;
-        tlf_dir:string;
-        head_dir:string;
-        log_dir:string;
-        log_level:string;
-        log_config:string option;
-        batched_transaction_config:string option;
-        lease_period:int;
-        master: master;
-        is_laggy : bool;
-        is_learner : bool;
-        targets : string list;
-        use_compression : bool;
-        fsync : bool;
-        is_test : bool;
-        reporting: int;
-       }
+            ips: string list;
+            client_port:int;
+            messaging_port:int;
+            home:string;
+            tlog_dir:string;
+            tlf_dir:string;
+            head_dir:string;
+            log_dir:string;
+            log_level:string;
+            log_config:string option;
+            batched_transaction_config:string option;
+            lease_period:int;
+            master: master;
+            is_laggy : bool;
+            is_learner : bool;
+            targets : string list;
+            use_compression : bool;
+            fsync : bool;
+            is_test : bool;
+            reporting: int;
+           }
 
   let _so2s = Log_extra.string_option2s
 
@@ -90,11 +90,11 @@ module Node_cfg = struct
       t.reporting
 
   type log_cfg =
-      {
-        client_protocol: string option;
-        paxos: string option;
-        tcp_messaging: string option;
-      }
+    {
+      client_protocol: string option;
+      paxos: string option;
+      tcp_messaging: string option;
+    }
 
   let string_of_log_cfg lcfg =
     Printf.sprintf "{ client_protocol=%s; paxos=%s; tcp_messaging=%s }"
@@ -108,10 +108,10 @@ module Node_cfg = struct
     }
 
   type batched_transaction_cfg =
-      {
-        max_entries : int option;
-        max_size : int option;
-      }
+    {
+      max_entries : int option;
+      max_size : int option;
+    }
 
   let string_of_btc (btc:batched_transaction_cfg) =
     Printf.sprintf "{ max_entries=%s; max_size=%s }"
@@ -146,11 +146,11 @@ module Node_cfg = struct
     Buffer.add_string buffer "{ node_cfgs=[ ";
     List.iter (fun cfg -> Buffer.add_string buffer (string_of cfg); Buffer.add_string buffer ",") cluster_cfg.cfgs;
     List.iter (fun (name,lcfg) ->
-      Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
-      Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
+        Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
+        Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
     List.iter (fun (name,btcfg) ->
-      Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
-      Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
+        Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
+        Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
     Buffer.add_string buffer "; nursery_cfg=";
     Buffer.add_string buffer (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg) cluster_cfg.nursery_cfg);
     Buffer.add_string buffer
@@ -165,9 +165,9 @@ module Node_cfg = struct
          cluster_cfg.client_buffer_capacity);
     Buffer.contents buffer
 
-  let make_test_config 
-      ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
-      n_nodes master lease_period = 
+  let make_test_config
+        ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
+        n_nodes master lease_period =
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in
@@ -198,14 +198,14 @@ module Node_cfg = struct
     let rec loop acc = function
       | 0 -> acc
       | n -> let o = make_one (n-1) in
-	     loop (o::acc) (n-1)
+        loop (o::acc) (n-1)
     in
     let log_cfgs = [("default_log_config", get_default_log_config ())] in
     let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
     let overwrite_tlog_entries = None in
-    let cluster_cfg = { 
+    let cluster_cfg = {
       cfgs;
       log_cfgs;
       batched_transaction_cfgs;
@@ -222,20 +222,20 @@ module Node_cfg = struct
     }
     in
     cluster_cfg
-    
 
 
 
-  let tlog_dir t = t.tlog_dir 
-  
-  let _node_names inifile = 
+
+  let tlog_dir t = t.tlog_dir
+
+  let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
-  let _ips inifile node_name = 
+  let _ips inifile node_name =
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
 
   let _tlog_entries_overwrite inifile =
-    Ini.get inifile "global" "__tainted_tlog_entries_per_file" 
+    Ini.get inifile "global" "__tainted_tlog_entries_per_file"
       (Ini.p_option Ini.p_int )
       (Ini.default None)
 
@@ -247,59 +247,59 @@ module Node_cfg = struct
     Ini.get inifile "global" "__tainted_max_buffer_size"
       Ini.p_int (Ini.default default_max_buffer_size)
 
-  let _plugins inifile = 
+  let _plugins inifile =
     Ini.get inifile "global" "plugins" Ini.p_string_list (Ini.default [])
 
-  let _get_lease_period inifile = 
-    Ini.get inifile "global" "lease_period" 
+  let _get_lease_period inifile =
+    Ini.get inifile "global" "lease_period"
       Ini.p_int (Ini.default default_lease_period)
 
-  let _get_bool inifile node_section x = 
+  let _get_bool inifile node_section x =
     Ini.get inifile node_section x Ini.p_bool (Ini.default false)
 
-  let _client_buffer_capacity inifile = 
+  let _client_buffer_capacity inifile =
     Ini.get inifile "global" "client_buffer_capacity"
       Ini.p_int (Ini.default default_client_buffer_capacity)
 
   let _startup_mode inifile =
     let master =
       try
-	let m_s = (inifile # getval "global" "master") in
+        let m_s = (inifile # getval "global" "master") in
         if Ini.get inifile "global" "preferred_masters" (fun _ -> true) (fun _ _ -> false)
         then
           failwith ("'master' and 'preferred_masters' are incompatible")
         else
-	let m = Scanf.sscanf m_s "%s" (fun s -> s) in
-	let nodes = _node_names inifile in
-	if not (List.mem m nodes)
-	then
-	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-	else 
-	  if _get_bool inifile "global" "preferred_master" 
+          let m = Scanf.sscanf m_s "%s" (fun s -> s) in
+          let nodes = _node_names inifile in
+          if not (List.mem m nodes)
+          then
+            failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
+          else
+          if _get_bool inifile "global" "preferred_master"
           then (Preferred [m])
-	  else (Forced m)
+          else (Forced m)
       with (Inifiles.Invalid_element _) ->
         let pms = Ini.get inifile "global" "preferred_masters" Ini.p_string_list (fun _ _ -> []) in
         if pms <> []
         then
           Preferred pms
         else
-        let read_only = _get_bool inifile "global" "readonly" in
-	if read_only 
-	then ReadOnly
-	else Elected
+          let read_only = _get_bool inifile "global" "readonly" in
+          if read_only
+          then ReadOnly
+          else Elected
     in
     master
 
   let get_nursery_cfg inifile filename =
-    try 
+    try
       begin
         let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
         let cfg =  ClientCfg.from_file "nursery" filename in
-        Some (n_cluster_id, cfg) 
+        Some (n_cluster_id, cfg)
       end
-    with ex -> 
-      None 
+    with ex ->
+      None
 
   let _get_cluster_id inifile =
     try
@@ -307,18 +307,18 @@ module Node_cfg = struct
       Scanf.sscanf cids "%s" (fun s -> s)
     with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
 
-  let _get_quorum_function inifile = 
+  let _get_quorum_function inifile =
     let nodes = _node_names inifile in
-    let n_nodes = List.length nodes in    
+    let n_nodes = List.length nodes in
     try
       let qs = (inifile # getval "global" "quorum") in
       let qi = Scanf.sscanf qs "%i" (fun i -> i) in
-      if 1 <= qi & qi <= n_nodes 
+      if 1 <= qi & qi <= n_nodes
       then fun n -> qi
       else
-	let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
-	  qi n_nodes in
-	failwith msg
+        let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
+                    qi n_nodes in
+        failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
   let _log_config inifile log_name =
@@ -353,9 +353,9 @@ module Node_cfg = struct
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
-    let tlog_dir = 
-      try get_string "tlog_dir" 
-      with _ -> home 
+    let tlog_dir =
+      try get_string "tlog_dir"
+      with _ -> home
     in
     let tlf_dir =
       try get_string "tlf_dir"
@@ -370,14 +370,14 @@ module Node_cfg = struct
     let is_learner = get_bool "learner" in
     let use_compression = not (get_bool "disable_tlog_compression") in
     let fsync = get_bool "fsync" in
-    let targets = 
-      if is_learner 
-      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required 
+    let targets =
+      if is_learner
+      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required
       else []
     in
     let lease_period = _get_lease_period inifile in
-    let log_dir = 
-      try get_string "log_dir" 
+    let log_dir =
+      try get_string "log_dir"
       with _ -> home
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
@@ -411,36 +411,36 @@ module Node_cfg = struct
     let nodes = _node_names inifile in
     let plugin_names = _plugins inifile in
     let cfgs, remaining = List.fold_left
-      (fun (a,remaining) section ->
-	    if List.mem section nodes || _get_bool inifile section "learner"
-	    then
-	      let cfg = _node_config inifile section fm in
-	      let new_remaining = List.filter (fun x -> x <> section) remaining in
-	      (cfg::a, new_remaining)
-	    else (a,remaining))
-      ([],nodes) (inifile # sects) in
+                            (fun (a,remaining) section ->
+                               if List.mem section nodes || _get_bool inifile section "learner"
+                               then
+                                 let cfg = _node_config inifile section fm in
+                                 let new_remaining = List.filter (fun x -> x <> section) remaining in
+                                 (cfg::a, new_remaining)
+                               else (a,remaining))
+                            ([],nodes) (inifile # sects) in
     let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
     let log_cfgs = List.fold_left
-      (fun a section ->
-        if List.mem (Some section) log_cfg_names
-        then
-          let log_cfg = _log_config inifile section in
-          (section, log_cfg)::a
-        else
-          a)
-      [] (inifile # sects) in
+                     (fun a section ->
+                        if List.mem (Some section) log_cfg_names
+                        then
+                          let log_cfg = _log_config inifile section in
+                          (section, log_cfg)::a
+                        else
+                          a)
+                     [] (inifile # sects) in
     let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
     let batched_transaction_cfgs = List.fold_left
-      (fun a section ->
-        if List.mem (Some section) batched_transaction_cfg_names
-        then
-          let batched_transaction_cfg = _batched_transaction_config inifile section in
-          (section, batched_transaction_cfg)::a
-        else
-          a)
-      [] (inifile # sects) in
+                                     (fun a section ->
+                                        if List.mem (Some section) batched_transaction_cfg_names
+                                        then
+                                          let batched_transaction_cfg = _batched_transaction_config inifile section in
+                                          (section, batched_transaction_cfg)::a
+                                        else
+                                          a)
+                                     [] (inifile # sects) in
     let () = if List.length remaining > 0 then
-	failwith ("Can't find config section for: " ^ (String.concat "," remaining))
+        failwith ("Can't find config section for: " ^ (String.concat "," remaining))
     in
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
@@ -450,17 +450,17 @@ module Node_cfg = struct
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
-    let cluster_cfg = 
+    let cluster_cfg =
       { cfgs;
         log_cfgs;
         batched_transaction_cfgs;
         nursery_cfg = m_n_cfg;
-	    _master = fm;
-	    quorum_function;
-	    _lease_period = lease_period;
-	    cluster_id = cluster_id;
-	    plugins = plugin_names;
-	    overwrite_tlog_entries;
+        _master = fm;
+        quorum_function;
+        _lease_period = lease_period;
+        cluster_id = cluster_id;
+        plugins = plugin_names;
+        overwrite_tlog_entries;
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;
@@ -473,15 +473,15 @@ module Node_cfg = struct
   let home t = t.home
 
   let client_addresses t = (t.ips, t.client_port)
-  
+
   let get_master t = t.master
 
-  let get_node_cfgs_from_file () = read_config !config_file 
+  let get_node_cfgs_from_file () = read_config !config_file
 
   let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
 
   open Lwt
-  let validate_dirs t = 
+  let validate_dirs t =
     Logger.debug_ "Node_cfg.validate_dirs" >>= fun () ->
     if t.is_test then Lwt.return ()
     else

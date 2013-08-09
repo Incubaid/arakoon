@@ -30,4 +30,3 @@ let log_ ?exn section level dmsg =
     Crash_logger.add_to_crash_log section level [Crash_logger.Delayed (dmsg, exn)]
   else
     Lwt_log.log ?exn ~section ~level (dmsg ())
-

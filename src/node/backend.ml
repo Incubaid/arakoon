@@ -37,28 +37,28 @@ class type backend = object
   method test_and_set: string -> string option -> string option -> (string option) Lwt.t
   method range:
     allow_dirty:bool ->
-      string option -> bool ->
-	string option -> bool -> int -> (string list) Lwt.t
+    string option -> bool ->
+    string option -> bool -> int -> (string list) Lwt.t
   method range_entries:
     allow_dirty:bool ->
-      string option -> bool ->
-	string option -> bool -> int -> ((string * string) list) Lwt.t
+    string option -> bool ->
+    string option -> bool -> int -> ((string * string) list) Lwt.t
   method rev_range_entries:
     allow_dirty:bool ->
-      string option -> bool ->
-	string option -> bool -> int -> ((string * string) list) Lwt.t
-  method prefix_keys: 
+    string option -> bool ->
+    string option -> bool -> int -> ((string * string) list) Lwt.t
+  method prefix_keys:
     allow_dirty:bool -> string -> int -> (string list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get:
     allow_dirty:bool ->
-      string list -> string list Lwt.t
+    string list -> string list Lwt.t
 
   method multi_get_option:
     allow_dirty:bool ->
-      string list -> string option list Lwt.t
+    string list -> string option list Lwt.t
 
   method hello: string -> string -> (int32 * string) Lwt.t
 

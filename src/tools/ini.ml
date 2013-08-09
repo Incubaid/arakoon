@@ -35,7 +35,7 @@ let required section name = failwith  (Printf.sprintf "missing: %s %s" section n
 let default x = fun _ _ -> x
 
 let get inifile section name s2a not_found =
-    try
-      let v_s = inifile # getval section name in
-      s2a v_s
-    with (Inifiles.Invalid_element _) -> not_found section name
+  try
+    let v_s = inifile # getval section name in
+    s2a v_s
+  with (Inifiles.Invalid_element _) -> not_found section name

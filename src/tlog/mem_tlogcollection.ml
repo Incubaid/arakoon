@@ -26,82 +26,82 @@ open Lwt
 
 
 class mem_tlog_collection use_compression name =
-object (self: #tlog_collection)
+  object (self: #tlog_collection)
 
-  val mutable data = []
-  val mutable last_entry = (None: Entry.t option)
+    val mutable data = []
+    val mutable last_entry = (None: Entry.t option)
 
-  method validate_last_tlog () =
-    Lwt.return (TlogValidComplete, last_entry, None)
+    method validate_last_tlog () =
+      Lwt.return (TlogValidComplete, last_entry, None)
 
-  method get_infimum_i () = Lwt.return Sn.start
+    method get_infimum_i () = Lwt.return Sn.start
 
-  method get_last_i () =
-    match last_entry with
-      | None -> Sn.start
-      | Some entry -> Entry.i_of entry 
+    method get_last_i () =
+      match last_entry with
+        | None -> Sn.start
+        | Some entry -> Entry.i_of entry
 
-  method get_last_value i =
-    match last_entry with
-      | None -> None
-      | Some entry ->
-        let i' = Entry.i_of entry in
-	    begin
-	      if i = i'
-	      then 
-            let v = Entry.v_of entry in
-            Some v
-	      else
-	        None
-	    end
-          
-  method get_last () =
-    match last_entry with
-      | None -> None
-      | Some e -> Some (Entry.v_of e, Entry.i_of e)
+    method get_last_value i =
+      match last_entry with
+        | None -> None
+        | Some entry ->
+          let i' = Entry.i_of entry in
+          begin
+            if i = i'
+            then
+              let v = Entry.v_of entry in
+              Some v
+            else
+              None
+          end
 
-
-  method iterate i last_i f =
-    let data' = List.filter 
-      (fun entry -> 
-        let ei = Entry.i_of entry 
-        (*and eu = Entry.u_of entry*)
-        in
-        ei >= i && ei <= last_i) data in
-    Lwt_list.iter_s f (List.rev data')
-
-      
-  method get_tlog_count() = failwith "get_tlog_count not supported"
-
-  method dump_tlog_file start_i oc = failwith "dump_tlog_file not supported"
-
-  method save_tlog_file name length ic = failwith "save_tlog_file not supported"
+    method get_last () =
+      match last_entry with
+        | None -> None
+        | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
 
-  method log_value_explicit i (v:Value.t) sync marker =
-    let entry = Entry.make i v 0L marker in
-    let () = data <- entry::data in
-    let () = last_entry <- (Some entry) in
-    Lwt.return ()
+    method iterate i last_i f =
+      let data' = List.filter
+                    (fun entry ->
+                       let ei = Entry.i_of entry
+                       (*and eu = Entry.u_of entry*)
+                       in
+                       ei >= i && ei <= last_i) data in
+      Lwt_list.iter_s f (List.rev data')
 
-  method log_value i v = self #log_value_explicit i v false None
 
-          
-  method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
-  method save_head ic = Llio.lwt_failfmt "save_head not implemented"
+    method get_tlog_count() = failwith "get_tlog_count not supported"
 
-  method get_head_name () = failwith "get_head_name not implemented"
+    method dump_tlog_file start_i oc = failwith "dump_tlog_file not supported"
 
-  method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
-  
-  method get_tlog_from_i _ = Sn.start
-  
-  method close () = Lwt.return ()
-  
-  method remove_oldest_tlogs count = Lwt.return ()
+    method save_tlog_file name length ic = failwith "save_tlog_file not supported"
 
-  method remove_below i = Lwt.return ()
-end
+
+    method log_value_explicit i (v:Value.t) sync marker =
+      let entry = Entry.make i v 0L marker in
+      let () = data <- entry::data in
+      let () = last_entry <- (Some entry) in
+      Lwt.return ()
+
+    method log_value i v = self #log_value_explicit i v false None
+
+
+    method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
+    method save_head ic = Llio.lwt_failfmt "save_head not implemented"
+
+    method get_head_name () = failwith "get_head_name not implemented"
+
+    method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
+
+    method get_tlog_from_i _ = Sn.start
+
+    method close () = Lwt.return ()
+
+    method remove_oldest_tlogs count = Lwt.return ()
+
+    method remove_below i = Lwt.return ()
+  end
 
 let make_mem_tlog_collection tlog_dir tlf_dir head_dir use_compression name =
   let x = new mem_tlog_collection use_compression name in

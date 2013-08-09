@@ -61,7 +61,7 @@ let int32_from buff pos =
 
 let int_from buff pos =
   let r,pos' = int32_from buff pos in
-    Int32.to_int r ,pos'
+  Int32.to_int r ,pos'
 
 let int32_to buffer i32 =
   let char_at n =
@@ -71,28 +71,28 @@ let int32_to buffer i32 =
     Char.chr (Int32.to_int code)
   in
   let add i = Buffer.add_char buffer (char_at i) in
-    add 0;
-    add 1;
-    add 2;
-    add 3
+  add 0;
+  add 1;
+  add 2;
+  add 3
 
 let int_to buffer i = int32_to buffer (Int32.of_int i)
 
 let int64_from buf pos =
-    let i64 i= Int64.of_int (Char.code buf.[pos + i]) in
-    let b0 = i64 0
-    and b1s = i64 1 <:: 8
-    and b2s = i64 2 <:: 16
-    and b3s = i64 3 <:: 24
-    and b4s = i64 4 <:: 32
-    and b5s = i64 5 <:: 40
-    and b6s = i64 6 <:: 48
-    and b7s = i64 7 <:: 56 in
-    let r =
-      b0 |:: b1s |:: b2s |:: b3s
-      |:: b4s |:: b5s |:: b6s |:: b7s
-    in
-      r,pos + 8
+  let i64 i= Int64.of_int (Char.code buf.[pos + i]) in
+  let b0 = i64 0
+  and b1s = i64 1 <:: 8
+  and b2s = i64 2 <:: 16
+  and b3s = i64 3 <:: 24
+  and b4s = i64 4 <:: 32
+  and b5s = i64 5 <:: 40
+  and b6s = i64 6 <:: 48
+  and b7s = i64 7 <:: 56 in
+  let r =
+    b0 |:: b1s |:: b2s |:: b3s
+    |:: b4s |:: b5s |:: b6s |:: b7s
+  in
+  r,pos + 8
 
 let int64_to buf i64 =
   let char_at n =
@@ -136,8 +136,8 @@ let string_from buffer pos =
 
 let string_to buffer s =
   let size = String.length s in
-    int_to buffer size;
-    Buffer.add_string buffer s
+  int_to buffer size;
+  Buffer.add_string buffer s
 
 let char_to buffer c = Buffer.add_char buffer c
 
@@ -163,7 +163,7 @@ let output_int32 oc (i:int32) =
   let buf = Buffer.create 4 in
   let () = int32_to buf i in
   let cts = Buffer.contents buf in
-    Lwt_io.write oc cts
+  Lwt_io.write oc cts
 
 
 let output_bool oc (b:bool) =
@@ -172,15 +172,15 @@ let output_bool oc (b:bool) =
 
 let input_bool ic =
   Lwt_io.read_char ic >>= function
-    | '\x00' -> Lwt.return false
-    | '\x01' -> Lwt.return true
-    | x -> lwt_failfmt "can't be a bool '%c'" x
+  | '\x00' -> Lwt.return false
+  | '\x01' -> Lwt.return true
+  | x -> lwt_failfmt "can't be a bool '%c'" x
 
 let input_int32 ic =
   let buf = String.create 4 in
-    Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
-      let r,_ = int32_from buf 0 in
-      Lwt.return r
+  Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
+  let r,_ = int32_from buf 0 in
+  Lwt.return r
 
 
 let output_int oc i =
@@ -192,16 +192,16 @@ let input_int ic =
 
 let output_string oc (s:string) =
   let size = String.length s in
-    output_int32 oc (Int32.of_int size) >>= fun () ->
-      Lwt_io.write oc s
+  output_int32 oc (Int32.of_int size) >>= fun () ->
+  Lwt_io.write oc s
 
 
 
 let input_string ic =
   input_int ic >>= fun size ->
-    if size > (4 * 1024 * 1024 * 1024) then
-      lwt_failfmt "Unexpectedly large string size requested:%d" size
-    else Lwt.return size  >>= fun size2 ->
+  if size > (4 * 1024 * 1024 * 1024) then
+    lwt_failfmt "Unexpectedly large string size requested:%d" size
+  else Lwt.return size  >>= fun size2 ->
     let result = String.create size2 in
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
@@ -215,7 +215,7 @@ let input_string_pair ic =
   input_string ic >>= fun s1 ->
   Lwt.return (s0,s1)
 
-let input_listl input_element ic = 
+let input_listl input_element ic =
   input_int ic >>= fun size ->
   let rec loop acc = function
     | 0 -> Lwt.return (size, acc)
@@ -252,7 +252,7 @@ let list_from s e_from pos =
   let rec loop acc p = function
     | 0 -> acc,p
     | i -> let e,p' = e_from s p in
-	   loop (e::acc) p' (i-1)
+      loop (e::acc) p' (i-1)
   in loop [] p0 size
 
 let string_list_from s pos = list_from s string_from pos
@@ -260,21 +260,21 @@ let string_list_from s pos = list_from s string_from pos
 let output_string_option oc = function
   | None -> output_bool oc false
   | Some s ->
-      output_bool oc true >>= fun () ->
-      output_string oc s
+    output_bool oc true >>= fun () ->
+    output_string oc s
 
 let option_to (f:Buffer.t -> 'a -> unit) buff =  function
   | None -> bool_to buff false
   | Some (v:'a) ->
-      bool_to buff true;
-      f buff v
+    bool_to buff true;
+    f buff v
 
 let option_from (f:string -> int -> 'a * int) string pos =
   let b, pos1 = bool_from string pos in
-    match b with
-      | false -> None, pos1
-      | true -> let v, pos2 = f string pos1 in
-	  (Some v), pos2
+  match b with
+    | false -> None, pos1
+    | true -> let v, pos2 = f string pos1 in
+      (Some v), pos2
 
 let string_option_to buff so =  option_to string_to buff so
 
@@ -284,8 +284,8 @@ let string_option_from string pos = option_from string_from string pos
 
 let input_string_option ic =
   input_bool ic >>= function
-    | false -> Lwt.return None
-    | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
+  | false -> Lwt.return None
+  | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
 
 let hashtbl_to buf e2 h =
   let len = Hashtbl.length h in
@@ -298,8 +298,8 @@ let hashtbl_from buf ef pos =
   let rec loop pos = function
     | 0 -> r, pos
     | i -> let (k,v), p2 = ef buf pos in
-	   let () = Hashtbl.add r k v in
-	   loop p2 (i-1)
+      let () = Hashtbl.add r k v in
+      loop p2 (i-1)
   in
   loop p1 len
 
@@ -315,14 +315,14 @@ let copy_stream ~length ~ic ~oc =
     if i = Int64.zero
     then
       begin
-	Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
-	Lwt_io.write_from_exactly oc buffer 0 rest
+        Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
+        Lwt_io.write_from_exactly oc buffer 0 rest
       end
     else
       begin
-	Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
-	Lwt_io.write oc buffer >>= fun () ->
-	loop (Int64.pred i)
+        Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
+        Lwt_io.write oc buffer >>= fun () ->
+        loop (Int64.pred i)
       end
   in
   loop n_bs >>= fun () ->
@@ -333,18 +333,18 @@ let rec named_field_to (buffer: Buffer.t) (field: namedValue) : unit =
   int_to buffer field_type;
   string_to buffer field_name;
   match field with
-  | NAMED_INT (_, i) ->
-    int_to buffer i
-  | NAMED_FLOAT (_, f) ->
-    float_to buffer f
-  | NAMED_INT64 (_, i) ->
-    int64_to buffer i
-  | NAMED_STRING (_, s) ->
-    string_to buffer s
-  | NAMED_VALUELIST (_, l) ->
-    int_to buffer (List.length l);
-    let encode_entry = named_field_to buffer in
-    List.iter encode_entry l
+    | NAMED_INT (_, i) ->
+      int_to buffer i
+    | NAMED_FLOAT (_, f) ->
+      float_to buffer f
+    | NAMED_INT64 (_, i) ->
+      int64_to buffer i
+    | NAMED_STRING (_, s) ->
+      string_to buffer s
+    | NAMED_VALUELIST (_, l) ->
+      int_to buffer (List.length l);
+      let encode_entry = named_field_to buffer in
+      List.iter encode_entry l
 
 let rec named_field_from buffer offset: (namedValue*int) =
   let field_type, offset = int_from buffer offset in
@@ -384,12 +384,12 @@ let input_hashtbl fk fv ic =
   let rec helper = function
     | 0 -> Lwt.return result
     | i ->
-    begin
-      fk ic >>= fun key ->
-      fv ic >>= fun value ->
-      Hashtbl.replace result key value;
-      helper (i-1)
-    end
+      begin
+        fk ic >>= fun key ->
+        fv ic >>= fun value ->
+        Hashtbl.replace result key value;
+        helper (i-1)
+      end
   in
   helper elem_cnt
 

@@ -91,15 +91,15 @@ class test_backend my_name = object(self:#backend)
   val mutable _interval = Interval.max
 
   method optimize_db () =
-    Lwt.return () 
+    Lwt.return ()
 
   method defrag_db () = Lwt.return ()
 
   method hello (client_id:string) (cluster_id:string) =
     let r =
       match cluster_id with
-	| "sweety" -> (0l,    "test_backend.0.0.0")
-	| _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
+        | "sweety" -> (0l,    "test_backend.0.0.0")
+        | _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
     in
     Lwt.return r
 
@@ -156,52 +156,52 @@ class test_backend my_name = object(self:#backend)
   method user_function name po =
     match name with
       | "reverse" ->
-	begin
-	  match po with
-	    | None -> Lwt.return None
-	    | Some s ->
-	      let r = ref "" in
-	      String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
-	      Lwt.return (Some !r)
-	end
+        begin
+          match po with
+            | None -> Lwt.return None
+            | Some s ->
+              let r = ref "" in
+              String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
+              Lwt.return (Some !r)
+        end
       | _ -> Lwt.return None
 
   method multi_get ~allow_dirty (keys: string list) =
     let values = List.fold_left
-      (fun acc k ->
-	let v = StringMap.find k _kv in
-	(v ::acc))
-      [] keys
+                   (fun acc k ->
+                      let v = StringMap.find k _kv in
+                      (v ::acc))
+                   [] keys
     in
     Lwt.return values
 
 
   method multi_get_option ~allow_dirty (keys: string list) =
     let vos = List.fold_left
-      (fun acc k ->
-        let vo = 
-          try Some (StringMap.find k _kv )
-          with Not_found -> None
-        in
-        (vo :: acc))
-      [] keys
+                (fun acc k ->
+                   let vo =
+                     try Some (StringMap.find k _kv )
+                     with Not_found -> None
+                   in
+                   (vo :: acc))
+                [] keys
     in
     Lwt.return vos
 
   method range_entries ~allow_dirty (first:string option) (finc:bool)
-    (last:string option) (linc:bool) (max:int) =
+           (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
     Logger.info_f_ "range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
-    (last:string option) (linc:bool) (max:int) =
+           (last:string option) (linc:bool) (max:int) =
     let x = rev_range_entries_ _kv first finc last linc max in
     Logger.info_f_ "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
 
   method range ~allow_dirty (first:string option) (finc:bool)
-    (last:string option) (linc:bool) (max:int) =
+           (last:string option) (linc:bool) (max:int) =
     let x = range_ _kv first finc last linc max in
     Logger.info_f_ "range: found %d entries" (List.length x) >>= fun () ->
     Lwt.return x
@@ -209,11 +209,11 @@ class test_backend my_name = object(self:#backend)
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
-      (fun k v a ->
-	if (Str.string_match (Str.regexp reg) k 0)
-	then k::a
-	else a
-      ) _kv []
+                 (fun k v a ->
+                    if (Str.string_match (Str.regexp reg) k 0)
+                    then k::a
+                    else a
+                 ) _kv []
     in Lwt.return keys
 
   method who_master () = Lwt.return (Some my_name)
@@ -245,7 +245,7 @@ class test_backend my_name = object(self:#backend)
       if i = 0
       then Lwt.return ()
       else
-	cb () >>= fun () ->
+        cb () >>= fun () ->
         loop (i-1)
     in
     loop n
@@ -293,11 +293,11 @@ class test_backend my_name = object(self:#backend)
       end
     in
     let all = StringMap.fold
-      (fun k v acc ->
-	if cmp k
-	then (k,v)::acc
-	else acc)
-      _kv []
+                (fun k v acc ->
+                   if cmp k
+                   then (k,v)::acc
+                   else acc)
+                _kv []
     in
     Lwt.return all
 
@@ -307,14 +307,14 @@ class test_backend my_name = object(self:#backend)
   method set_cluster_cfg cluster_id cfg =
     failwith "set_cluster not implemented in testbackend"
 
-  method delete_prefix prefix = 
-    let kv',n_deleted = 
-      StringMap.fold 
-        (fun k v ((s,c)as acc) -> 
-          if String_extra.prefix_match prefix k 
-          then (StringMap.remove k s,c+1)  
-          else acc) _kv  (_kv,0) 
-     in
+  method delete_prefix prefix =
+    let kv',n_deleted =
+      StringMap.fold
+        (fun k v ((s,c)as acc) ->
+           if String_extra.prefix_match prefix k
+           then (StringMap.remove k s,c+1)
+           else acc) _kv  (_kv,0)
+    in
     _kv <- kv';
     Lwt.return n_deleted
 

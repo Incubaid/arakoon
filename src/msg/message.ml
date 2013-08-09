@@ -25,23 +25,22 @@ module Message = struct
   type t = {kind:string; payload:string} (* primitive, bug suffices *)
 
 
-  let create kind payload = 
-    {kind = kind; payload = payload} 
-  
+  let create kind payload =
+    {kind = kind; payload = payload}
+
   let kind_of t = t.kind
 
   let payload_of t = t.payload
 
-  let string_of t= 
+  let string_of t=
     Printf.sprintf "{kind=%s;payload=%S}" t.kind t.payload
-      
-  let to_buffer t buffer = 
+
+  let to_buffer t buffer =
     Llio.string_to buffer t.kind;
     Llio.string_to buffer t.payload
-    
-  let from_buffer buffer pos = 
+
+  let from_buffer buffer pos =
     let k, pos1  = Llio.string_from buffer pos in
-    let p, pos2  = Llio.string_from buffer pos1 
+    let p, pos2  = Llio.string_from buffer pos1
     in {kind=k;payload=p}, pos2
 end
-

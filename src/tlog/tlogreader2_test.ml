@@ -26,24 +26,24 @@ open OUnit
 open Tlogcommon
 
 let test_old_format () =
-  let do_it () = 
+  let do_it () =
     let fn = "./data/005.tlc" in
-    let print_entry a entry = 
+    let print_entry a entry =
       let i = Entry.i_of entry in
       let v = Entry.v_of entry in
-      let is = Sn.string_of i in 
+      let is = Sn.string_of i in
       let vs = Value.value2s v in
       Lwt_io.eprintlf "%s:%s" is vs >>= fun () ->
-      Lwt.return a 
+      Lwt.return a
     in
-    let f ic = 
+    let f ic =
       let a0 = () in
       let first = Sn.of_int 500015 in
       let start = Sn.of_int 500015 in
       let stop  = Some (Sn.of_int 500175) in
       Tlogreader2.O.fold ic ~index:None
         start ~first stop a0 print_entry >>= fun () ->
-      Lwt.return () 
+      Lwt.return ()
     in
     Lwt_io.with_file ~mode:Lwt_io.input fn f
   in
@@ -51,20 +51,3 @@ let test_old_format () =
 
 
 let suite = "tlogreader2" >::: ["old_format" >:: test_old_format]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  

@@ -21,29 +21,29 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 type x_stats ={
-    mutable n : int;
-    mutable min:float;
-    mutable max:float;
-    mutable m2: float;
-    mutable avg:float;
-    mutable var:float;
-  }
+  mutable n : int;
+  mutable min:float;
+  mutable max:float;
+  mutable m2: float;
+  mutable avg:float;
+  mutable var:float;
+}
 
 let x_stats_to_string (stats:x_stats) :string =
-    let to_str_init_max = function
-      | x when x = max_float -> "n/a"
-      | x -> string_of_float x
-    in
-    let to_str_init_zero = function
-      | 0.0 -> "n/a"
-      | x -> string_of_float x
-    in
-    Printf.sprintf "(n:%i min: %s, max: %s, avg: %s, dev: %s)"
-      stats.n
-      (to_str_init_max stats.min)
-      (to_str_init_zero stats.max)
-      (to_str_init_zero stats.avg)
-      (to_str_init_zero (sqrt stats.var))
+  let to_str_init_max = function
+    | x when x = max_float -> "n/a"
+    | x -> string_of_float x
+  in
+  let to_str_init_zero = function
+    | 0.0 -> "n/a"
+    | x -> string_of_float x
+  in
+  Printf.sprintf "(n:%i min: %s, max: %s, avg: %s, dev: %s)"
+    stats.n
+    (to_str_init_max stats.min)
+    (to_str_init_zero stats.max)
+    (to_str_init_zero stats.avg)
+    (to_str_init_zero (sqrt stats.var))
 
 let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
   let n,  o1 = Llio.int_from buffer offset in
@@ -55,23 +55,23 @@ let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
   ( {n;min;max;m2;avg;var;}, o6)
 
 let x_stats_to_value_list (stats:x_stats) (list_name:string) : Llio.namedValue =
-    let l = [
-      Llio.NAMED_INT ("n", stats.n);
-      Llio.NAMED_FLOAT ("min", stats.min);
-      Llio.NAMED_FLOAT ("max", stats.max);
-      Llio.NAMED_FLOAT ("m2", stats.m2);
-      Llio.NAMED_FLOAT ("avg", stats.avg);
-      Llio.NAMED_FLOAT ("var", stats.var)
-    ] in
-    Llio.NAMED_VALUELIST (list_name, l)
+  let l = [
+    Llio.NAMED_INT ("n", stats.n);
+    Llio.NAMED_FLOAT ("min", stats.min);
+    Llio.NAMED_FLOAT ("max", stats.max);
+    Llio.NAMED_FLOAT ("m2", stats.m2);
+    Llio.NAMED_FLOAT ("avg", stats.avg);
+    Llio.NAMED_FLOAT ("var", stats.var)
+  ] in
+  Llio.NAMED_VALUELIST (list_name, l)
 
 let create_x_stats () = {
-    n = 0;
-    min = max_float;
-    max = 0.0;
-    m2 = 0.0;
-    avg = 0.0;
-    var = 0.0;
+  n = 0;
+  min = max_float;
+  max = 0.0;
+  m2 = 0.0;
+  avg = 0.0;
+  var = 0.0;
 }
 
 let update_x_stats (t:x_stats) x =
@@ -125,7 +125,7 @@ module Statistics = struct
   }
 
   let get_witnessed t =
-      t.node_is
+    t.node_is
 
   let create () =
     {start = Unix.gettimeofday();
@@ -318,9 +318,9 @@ module Statistics = struct
     in
     let extract_float (value:Llio.namedValue) : float =
       begin
-      match value with
-        | Llio.NAMED_FLOAT (_,f) -> f
-        | _ -> failwith "Wrong value type (expected float)"
+        match value with
+          | Llio.NAMED_FLOAT (_,f) -> f
+          | _ -> failwith "Wrong value type (expected float)"
       end
     in
     let extract_int = function
@@ -329,12 +329,12 @@ module Statistics = struct
     in
     let extract_x_stats (value:Llio.namedValue) : x_stats =
       begin
-      match value with
-	    | Llio.NAMED_VALUELIST (_,l) ->
+        match value with
+          | Llio.NAMED_VALUELIST (_,l) ->
             let v, l = extract_next l in
             let n    = extract_int v in
             let v, l = extract_next l in
-	        let min = extract_float v in
+            let min = extract_float v in
             let v, l = extract_next l in
             let max = extract_float v in
             let v,l = extract_next  l in
@@ -343,8 +343,8 @@ module Statistics = struct
             let avg = extract_float v in
             let v, l = extract_next l in
             let var = extract_float v in
-	        {n; min; max; m2; avg; var;}
-	    | _ -> failwith "Wrong value type (expected list)"
+            {n; min; max; m2; avg; var;}
+          | _ -> failwith "Wrong value type (expected list)"
       end
     in
 
@@ -463,7 +463,7 @@ module Statistics = struct
   let string_of t =
     let template =
       "{start: %f, " ^^
-	    "last: %f, " ^^
+        "last: %f, " ^^
         "avg_set_size: %f, " ^^
         "avg_get_size: %f, " ^^
         "avg_range_size: %f, " ^^
@@ -473,9 +473,9 @@ module Statistics = struct
         "set_info: %s,\n" ^^
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
-	    "mget_info: %s,\n" ^^
+        "mget_info: %s,\n" ^^
         "mget_option_info: %s\n" ^^
-	    "seq_info: %s,\n" ^^
+        "seq_info: %s,\n" ^^
         "tas_info: %s,\n" ^^
         "range_info: %s,\n" ^^
         "prefix_info: %s,\n" ^^
@@ -487,12 +487,12 @@ module Statistics = struct
         "mem_major_collections: %i,\n" ^^
         "mem_compactions: %i,\n" ^^
         "node_is: %s" ^^
-	"}\n"
+        "}\n"
     in
     let node_iss = Buffer.create 100 in
     let () = Hashtbl.fold (fun n i () ->
-      Buffer.add_string node_iss (Printf.sprintf "(%s,%s)" n (Sn.string_of i)))
-      t.node_is ()
+        Buffer.add_string node_iss (Printf.sprintf "(%s,%s)" n (Sn.string_of i)))
+        t.node_is ()
     in
     Printf.sprintf template
       t.start

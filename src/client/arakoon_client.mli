@@ -25,11 +25,11 @@ class type client = object
   method range: ?allow_dirty:bool -> key option -> bool -> key option -> bool -> int -> key list Lwt.t
   (** will yield a list of key value pairs in range. *)
 
-method range_entries:
-  ?allow_dirty:bool ->
+  method range_entries:
+    ?allow_dirty:bool ->
     first:key option -> finc:bool ->
-      last:key option ->  linc:bool -> max:int ->
-	(key * value) list Lwt.t
+    last:key option ->  linc:bool -> max:int ->
+    (key * value) list Lwt.t
   (** [range_entries ~first ~finc ~last ~linc ~max]
       [max] is the maximum number of keys (if max < 0 then you want them all).
       The keys fall in the range first..last.
@@ -37,11 +37,11 @@ method range_entries:
       in the result
   *)
 
-method rev_range_entries:
-  ?allow_dirty:bool ->
+  method rev_range_entries:
+    ?allow_dirty:bool ->
     first:key option -> finc:bool ->
-      last:key option ->  linc:bool -> max:int ->
-	(key * value) list Lwt.t
+    last:key option ->  linc:bool -> max:int ->
+    (key * value) list Lwt.t
   (** [rev_range_entries ~first ~finc ~last ~linc ~max]
       [max] is the maximum number of keys (if max < 0 then you want them all).
       The keys fall in the range first..last.
@@ -105,7 +105,7 @@ method rev_range_entries:
   method get_cluster_cfgs: unit -> NCFG.t Lwt.t
 
   method version : unit -> (int * int * int * string) Lwt.t
-    (** returns [(major,minor,patch, info)] *)
+  (** returns [(major,minor,patch, info)] *)
 
   method current_state : unit -> string Lwt.t
 end
