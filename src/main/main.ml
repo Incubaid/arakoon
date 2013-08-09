@@ -99,14 +99,14 @@ let run_all_tests_xml filename =
   All_test.configure_logging();
   let tests = All_test.suite in
   let result = { result_list = [];
-		 total_time = 0.0;
-		 total_success = 0;
-		 total_failures = 0;
-		 total_errors = 0;
-		 total_disabled = 0;
-		 tmp_start = 0.0;
-		 tmp_result = RSuccess []
-	       } in
+     total_time = 0.0;
+     total_success = 0;
+     total_failures = 0;
+     total_errors = 0;
+     total_disabled = 0;
+     tmp_start = 0.0;
+     tmp_result = RSuccess []
+         } in
   let (_:test_result list) = perform_timed_tests result tests in
   let () = print_xml result filename in
   0
@@ -143,9 +143,9 @@ let run_some_tests repeat_count filter =
   match OUnit.test_filter parts All_test.suite  with
     | Some test ->
       begin
-	List.iter do_path (OUnit.test_case_paths test);
-	let () = do_n_times (fun () -> OUnit.run_test_tt_main test) repeat_count in
-	0
+  List.iter do_path (OUnit.test_case_paths test);
+  let () = do_n_times (fun () -> OUnit.run_test_tt_main test) repeat_count in
+  0
       end
 
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
@@ -197,29 +197,29 @@ let main () =
   let set_laction a = set_action (LocalAction a) in
   let actions = [
     ("--node", Arg.Tuple [set_action (ServerAction Node);
-			  Arg.Set_string node_id;
-			 ],
+        Arg.Set_string node_id;
+       ],
      "runs a node");
   (* tempory test node, TODO: remove later *)
     ("--test-node", Arg.Tuple [set_action (ServerAction TestNode);
-			       Arg.Set_string node_id;
-			      ],
+             Arg.Set_string node_id;
+            ],
      "runs a node");
     ("--list-tests", set_laction ListTests, "lists all possible tests");
     ("--run-all-tests", set_laction RunAllTests, "runs all tests");
 
     ("--run-all-tests-xml", Arg.Tuple [set_laction RunAllTestsXML;
-				       Arg.Set_string xml_filename],
+               Arg.Set_string xml_filename],
      "<filename> : runs all tests with XML output to file");
 
     ("--run-some-tests", Arg.Tuple [set_laction RunSomeTests;
-				  Arg.Set_string filter],
+          Arg.Set_string filter],
      "run tests matching filter");
     ("--truncate-tlog", Arg.Tuple[ set_laction TruncateTlog;
-				   Arg.Set_string filename],
+           Arg.Set_string filename],
      "<filename> : truncate a tlog after the last valid entry");
     ("--dump-tlog", Arg.Tuple[ set_laction DumpTlog;
-			                   Arg.Set_string filename],
+                         Arg.Set_string filename],
      "<filename> : dump a tlog file in readable format");
     ("--strip-tlog", Arg.Tuple[ set_laction StripTlog;
                                Arg.Set_string filename],
@@ -240,28 +240,28 @@ let main () =
      "<tlog_dir> <tlf_dir> <path-to-db> [<end-i>]");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
-			       Arg.Set_string filename;
-			       Arg.Set_int counter;],
+             Arg.Set_string filename;
+             Arg.Set_int counter;],
      "<filename> <counter> : make a tlog file with 1 NOP entry @ <counter>");
     ("--dump-store", Arg.Tuple [ set_laction DumpStore;
-				 Arg.Set_string filename],
+         Arg.Set_string filename],
      "<filename> : dump a store");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
-				                  Arg.Set_string filename],
+                          Arg.Set_string filename],
      "<filename> : compress a tlog file");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
-				                    Arg.Set_string filename],
+                            Arg.Set_string filename],
      "<filename> : uncompress a tlog file");
     ("--set", Arg.Tuple [set_laction SET;
-			             Arg.Set_string key;
-			             Arg.Set_string value;
-			            ], "<key> <value> : arakoon[<key>] = <value>");
+                   Arg.Set_string key;
+                   Arg.Set_string value;
+                  ], "<key> <value> : arakoon[<key>] = <value>");
     ("--get", Arg.Tuple [set_laction GET;
-			             Arg.Set_string key
-			            ],"<key> : arakoon[<key>]");
+                   Arg.Set_string key
+                  ],"<key> : arakoon[<key>]");
     ("--delete", Arg.Tuple[set_laction DELETE;
-			               Arg.Set_string key;
-			              ], "<key> : delete arakoon[<key>]");
+                     Arg.Set_string key;
+                    ], "<key> : delete arakoon[<key>]");
     ("--delete-prefix", Arg.Tuple[set_laction DELETE_PREFIX;
                                   Arg.Set_string key;
                                  ], "<prefix> : delete all entries where the key matches <prefix>");
@@ -294,11 +294,11 @@ let main () =
     ("-max_results", Arg.Set_int max_results, "max size of the result (for --prefix)");
     ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
     ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
-				    Arg.Set_string cluster_id;
-				    Arg.Set_string ip;
-				    Arg.Set_int port;
-				    Arg.Set_int n_tlogs;
-				   ],
+            Arg.Set_string cluster_id;
+            Arg.Set_string ip;
+            Arg.Set_int port;
+            Arg.Set_int n_tlogs;
+           ],
      "<cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database");
     ("--nursery-init", Arg.Tuple[set_laction InitNursery;
                   Arg.Set_string cluster_id;
@@ -315,17 +315,17 @@ let main () =
                                   ],
         "<cluster_id> <separator> removes <cluster_id> from the nursery, if the cluster is a boundary cluster no separator is required");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
-			                  Arg.Set_string cluster_id;
-			                  Arg.Set_string ip;
-			                  Arg.Set_int port;
-			                  Arg.Set_string location;
-			                 ],
+                        Arg.Set_string cluster_id;
+                        Arg.Set_string ip;
+                        Arg.Set_int port;
+                        Arg.Set_string location;
+                       ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
     ("--optimize-db", Arg.Tuple[set_laction Optimize_db;
-			                    Arg.Set_string cluster_id;
-			                    Arg.Set_string ip;
-			                    Arg.Set_int port;
-			                   ],
+                          Arg.Set_string cluster_id;
+                          Arg.Set_string ip;
+                          Arg.Set_int port;
+                         ],
      "<cluster_id> <ip> <port> requests the node to optimize its database (only works on slaves)");
     ("--defrag-db", Arg.Tuple[set_laction Defrag_db;
                               Arg.Set_string cluster_id;
@@ -414,27 +414,27 @@ let main () =
     match node with
       | Node ->
           begin
-	        let canonical =
-	          if !config_file.[0] = '/'
-	          then !config_file
-	          else Filename.concat (Unix.getcwd()) !config_file
-	        in
-	        let make_config () = Node_cfg.read_config canonical in
-	        Daemons.maybe_daemonize !daemonize make_config;
-	        let main_t = (Node_main.main_t make_config
-			                !node_id !daemonize !catchup_only)
+          let canonical =
+            if !config_file.[0] = '/'
+            then !config_file
+            else Filename.concat (Unix.getcwd()) !config_file
+          in
+          let make_config () = Node_cfg.read_config canonical in
+          Daemons.maybe_daemonize !daemonize make_config;
+          let main_t = (Node_main.main_t make_config
+                      !node_id !daemonize !catchup_only)
             in
-	        (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-	        Lwt_main.run main_t 
+          (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
+          Lwt_main.run main_t 
           end
       | TestNode ->
           begin
-	        let lease_period = 60 in
-	        let node = Master_type.Forced "t_arakoon_0" in
-	        let make_config () = Node_cfg.make_test_config 3 node lease_period in
-	        let main_t = (Node_main.test_t make_config !node_id) in
-	        Lwt_main.run main_t
-	      end
+          let lease_period = 60 in
+          let node = Master_type.Forced "t_arakoon_0" in
+          let make_config () = Node_cfg.make_test_config 3 node lease_period in
+          let main_t = (Node_main.test_t make_config !node_id) in
+          Lwt_main.run main_t
+        end
   in
   Arg.parse
     interface

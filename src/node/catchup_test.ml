@@ -39,12 +39,12 @@ let _fill tlog_coll n =
     then Lwt.return ()
     else
       begin
-	    let k = Printf.sprintf "key%i" i
-	    and v = Printf.sprintf "value%i" i in
-	    let u = Update.Set (k,v) in
+      let k = Printf.sprintf "key%i" i
+      and v = Printf.sprintf "value%i" i in
+      let u = Update.Set (k,v) in
         let value = Value.create_client_value [u] sync in
-	    tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
-	    _loop (i+1)
+      tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
+      _loop (i+1)
       end
   in
   _loop 0
@@ -55,19 +55,19 @@ let _fill2 tlog_coll n =
     if i = n then Lwt.return ()
     else
       begin 
-	    let k = Printf.sprintf "_2_key%i" i
-	    and v = Printf.sprintf "_2_value%i" i 
-	    and k2 = Printf.sprintf "key%i" i 
-	    and v2 = Printf.sprintf "value%i" i 
-	    in
-	    let u = Update.Set(k,v) in
-	    let u2 = Update.Set(k2,v2) in
+      let k = Printf.sprintf "_2_key%i" i
+      and v = Printf.sprintf "_2_value%i" i 
+      and k2 = Printf.sprintf "key%i" i 
+      and v2 = Printf.sprintf "value%i" i 
+      in
+      let u = Update.Set(k,v) in
+      let u2 = Update.Set(k2,v2) in
         let value = Value.create_client_value [u] sync in
         let value2 = Value.create_client_value [u2] sync in
         let sni = Sn.of_int i in
-	    tlog_coll # log_value  sni value  >>= fun () ->
-	    tlog_coll # log_value  sni value2 >>= fun () ->
-	    _loop (i+1)
+      tlog_coll # log_value  sni value  >>= fun () ->
+      tlog_coll # log_value  sni value2 >>= fun () ->
+      _loop (i+1)
       end
   in
   _loop 0
@@ -131,7 +131,7 @@ let teardown () =
       (fun () ->
         File_system.lwt_directory_list dir >>= fun entries ->
         Lwt_list.iter_s (fun i ->
-	      let fn = dir ^ "/" ^ i in
+        let fn = dir ^ "/" ^ i in
           ignore_ex (fun () -> Lwt_unix.unlink fn)) entries
       )
       (fun exn -> Logger.debug_ ~exn "ignoring" ) in

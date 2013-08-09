@@ -75,28 +75,28 @@ object(self)
 
     let rec loop () =
       begin
-	m # recv_message id  >>= fun (msg, source) ->
-	let reply =
-	  match msg.kind with
-	    | "ping" ->
-	      let i = int_of_string msg.payload in
-	      let msg = make_msg "pong" i in
-	      Some msg
-	    | "pong" ->
-	      let i = int_of_string msg.payload in
-	      if i > lowest
-	      then 
-		let msg = make_msg "ping" (i-1) in
-		Some msg
-	      else 
-		None 
-	    | _ -> failwith "unknown message"
-	in
-	match reply with
-	  | None -> Lwt.return ()
-	  | Some msg -> 
-	    self # _send source msg >>= fun () -> 
-	    loop ()
+  m # recv_message id  >>= fun (msg, source) ->
+  let reply =
+    match msg.kind with
+      | "ping" ->
+        let i = int_of_string msg.payload in
+        let msg = make_msg "pong" i in
+        Some msg
+      | "pong" ->
+        let i = int_of_string msg.payload in
+        if i > lowest
+        then 
+    let msg = make_msg "ping" (i-1) in
+    Some msg
+        else 
+    None 
+      | _ -> failwith "unknown message"
+  in
+  match reply with
+    | None -> Lwt.return ()
+    | Some msg -> 
+      self # _send source msg >>= fun () -> 
+      loop ()
       end
     in loop ()
 end 
@@ -124,13 +124,13 @@ let test_pingpong_1x1 () =
   let teardown_callback () = Lwt_mvar.put td () in
   let main_t () = 
     Lwt.pick [ transport # run ~setup_callback ~teardown_callback (); 
-	       begin 
-		 Lwt_condition.wait cvar >>= fun () ->
-		 Logger.debug_ "going to serve" >>= fun () ->
-			     player_a # serve "a"
-	       end;
-	       eventually_die ()
-	     ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
+         begin 
+     Lwt_condition.wait cvar >>= fun () ->
+     Logger.debug_ "going to serve" >>= fun () ->
+           player_a # serve "a"
+         end;
+         eventually_die ()
+       ] >>= fun () -> Lwt_mvar.take td >>= fun () ->
     Logger.info_ "end of scenario"
   in
   Lwt_main.run (main_t());;
@@ -149,18 +149,18 @@ let test_pingpong_2x2 () =
   let tda () = Lwt_mvar.put m_tda () in
   let tdb () = Lwt_mvar.put m_tdb () in
   let mapping = [("a", (local,port_a));
-		 ("b", (local,port_b));] in
+     ("b", (local,port_b));] in
   let () = transport_a # register_receivers mapping in
   let () = transport_b # register_receivers mapping in
   let player_a = new player "a" transport_a in
   let player_b = new player "b" transport_b in
   let main_t () = 
     Lwt.pick [ transport_a # run ~teardown_callback:tda ();
-	       transport_b # run ~teardown_callback:tdb ();
-	       player_a # serve "b";
-	       player_b # run 0 ();
-	       eventually_die ()
-	     ] >>= fun () ->
+         transport_b # run ~teardown_callback:tdb ();
+         player_a # serve "b";
+         player_b # run 0 ();
+         eventually_die ()
+       ] >>= fun () ->
     Lwt_mvar.take m_tda >>= fun () ->
     Lwt_mvar.take m_tdb >>= fun () ->
     Logger.info_ "end of scenario"
@@ -223,7 +223,7 @@ let test_pingpong_restart () =
   let t_a = make_transport address_a in
   let t_b = make_transport address_b in
   let mapping = [("a", (local, port_a));
-		 ("b", (local, port_b));] in
+     ("b", (local, port_b));] in
   let () = t_a # register_receivers mapping in
   let () = t_b # register_receivers mapping in
   let player_a = new player "a" t_a in
@@ -231,21 +231,21 @@ let test_pingpong_restart () =
   let main_t = 
     Lwt.pick [ 
       begin 
-	Lwt.pick [ t_a # run ();
-		   player_a # run 50 () >>= fun () -> Logger.debug_ "a done" 
-		 ] >>= fun () ->
+  Lwt.pick [ t_a # run ();
+       player_a # run 50 () >>= fun () -> Logger.debug_ "a done" 
+     ] >>= fun () ->
     Lwt_unix.sleep 1.0 >>= fun () ->
-	let t_a' = make_transport address_a in
-	let () = t_a' # register_receivers mapping in
-	let player_a' = new player "a" t_a' in
-	Lwt.pick [
-	  (Logger.info_ "new network" >>= fun () -> 
-	   t_a' # run ()); 
-	  begin 
-	    Logger.debug_ "a' will be serving momentarily" >>= fun () ->
-	    player_a' # serve ~n:200 "b" 
-	  end
-	]
+  let t_a' = make_transport address_a in
+  let () = t_a' # register_receivers mapping in
+  let player_a' = new player "a" t_a' in
+  Lwt.pick [
+    (Logger.info_ "new network" >>= fun () -> 
+     t_a' # run ()); 
+    begin 
+      Logger.debug_ "a' will be serving momentarily" >>= fun () ->
+      player_a' # serve ~n:200 "b" 
+    end
+  ]
       end;
       t_b # run ();
       player_a # serve "b";

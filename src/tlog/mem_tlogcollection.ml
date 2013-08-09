@@ -46,14 +46,14 @@ object (self: #tlog_collection)
       | None -> None
       | Some entry ->
         let i' = Entry.i_of entry in
-	    begin
-	      if i = i'
-	      then 
+      begin
+        if i = i'
+        then 
             let v = Entry.v_of entry in
             Some v
-	      else
-	        None
-	    end
+        else
+          None
+      end
           
   method get_last () =
     match last_entry with

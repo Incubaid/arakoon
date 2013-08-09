@@ -78,8 +78,8 @@ let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync 
     | [] -> Lwt.return () 
     | v :: vs -> 
       begin
-	    tlc # log_value i v >>= fun () ->
-	    loop (Sn.succ i) vs
+      tlc # log_value i v >>= fun () ->
+      loop (Sn.succ i) vs
       end
   in
   loop Sn.start values >>= fun () ->
@@ -157,9 +157,9 @@ let post_failure () =
   in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-	    begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
-	    run_node2 ();
-	    eventually_stop ()] 
+      begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
+      run_node2 ();
+      eventually_stop ()] 
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node = 
@@ -212,10 +212,10 @@ let restart_slaves () =
   let eventually_stop() = Lwt_unix.sleep 10.0 in
   Logger.debug_ "start of scenario" >>= fun () ->
   Lwt.pick [run_node0 ();
-	    run_node1 ();
-	    (* run_node2 () *)
-	   eventually_stop();
-	   ]
+      run_node1 ();
+      (* run_node2 () *)
+     eventually_stop();
+     ]
   >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node = 

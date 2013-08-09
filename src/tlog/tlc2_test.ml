@@ -160,18 +160,18 @@ let test_iterate6 (dn, tlf_dir, factory) =
     else
       begin
         let is = string_of_int i in
-	    let sni = Sn.of_int i in
+      let sni = Sn.of_int i in
         let value = Value.create_client_value [Update.Set("test_iterate_" ^ is ,is)] sync in
           begin
             if i != 19
             then 
               tlc # log_value sni value 
             else
-	          begin
-		        tlc # log_value sni value >>= fun _ ->
-		        let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
-		        tlc # log_value  sni value2 
-	          end
+            begin
+            tlc # log_value sni value >>= fun _ ->
+            let value2 = Value.create_client_value [Update.Set("something_else","gotcha")] sync in
+            tlc # log_value  sni value2 
+            end
           end >>= fun _ ->
         loop (i+1)
       end

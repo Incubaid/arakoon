@@ -67,12 +67,12 @@ let add_to_crash_log section level msgs =
   let total_msgs = !msg_cnt + new_msg_cnt in
   let () =
     if  total_msgs > 2 * max_crash_log_size then
-	  begin
-	    let to_delete = total_msgs - max_crash_log_size in
-	      (* let () = Printf.printf "removing %i%!\n" to_delete in *)
-	    remove_n_elements to_delete;
-	    (* Gc.compact() *)
-	  end
+    begin
+      let to_delete = total_msgs - max_crash_log_size in
+        (* let () = Printf.printf "removing %i%!\n" to_delete in *)
+      remove_n_elements to_delete;
+      (* Gc.compact() *)
+    end
   in
   let lvls = level_to_string level in
   let () = List.iter (add_msg lvls) msgs  in
@@ -101,10 +101,10 @@ let setup_crash_log crash_file_gen =
         loop ()
       in
       Lwt.catch 
-	loop
-	(function 
-	  | Lwt_sequence.Empty -> Lwt.return ()
-	  | e -> Lwt.fail e)
+  loop
+  (function 
+    | Lwt_sequence.Empty -> Lwt.return ()
+    | e -> Lwt.fail e)
     in
     let crash_file_path = crash_file_gen () in
     Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs

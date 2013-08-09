@@ -62,11 +62,11 @@ let get_fringe port ()=
     Lwt_io.with_connection address (fun conn ->
       make_remote_client _cluster conn >>= fun client ->
       Lwt_list.iter_s (fun (k,v) -> client # set k v) 
-	[("k1", "vk1");
-	 ("k2", "vk2");
-	 ("p1", "vp1");
-	 ("a" , "va");
-	] >>= fun () ->
+  [("k1", "vk1");
+   ("k2", "vk2");
+   ("p1", "vp1");
+   ("a" , "va");
+  ] >>= fun () ->
       client # get "k1" >>= fun v ->
       Logger.debug_f_ "a[%s] = %s" "k1" v >>= fun () ->
       Lwt.return ()     

@@ -98,8 +98,8 @@ class test_backend my_name = object(self:#backend)
   method hello (client_id:string) (cluster_id:string) =
     let r =
       match cluster_id with
-	| "sweety" -> (0l,    "test_backend.0.0.0")
-	| _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
+  | "sweety" -> (0l,    "test_backend.0.0.0")
+  | _ ->        (0x06l, Printf.sprintf "I'm not your %s" cluster_id)
     in
     Lwt.return r
 
@@ -156,21 +156,21 @@ class test_backend my_name = object(self:#backend)
   method user_function name po =
     match name with
       | "reverse" ->
-	begin
-	  match po with
-	    | None -> Lwt.return None
-	    | Some s ->
-	      let r = ref "" in
-	      String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
-	      Lwt.return (Some !r)
-	end
+  begin
+    match po with
+      | None -> Lwt.return None
+      | Some s ->
+        let r = ref "" in
+        String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
+        Lwt.return (Some !r)
+  end
       | _ -> Lwt.return None
 
   method multi_get ~allow_dirty (keys: string list) =
     let values = List.fold_left
       (fun acc k ->
-	let v = StringMap.find k _kv in
-	(v ::acc))
+  let v = StringMap.find k _kv in
+  (v ::acc))
       [] keys
     in
     Lwt.return values
@@ -210,9 +210,9 @@ class test_backend my_name = object(self:#backend)
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
       (fun k v a ->
-	if (Str.string_match (Str.regexp reg) k 0)
-	then k::a
-	else a
+  if (Str.string_match (Str.regexp reg) k 0)
+  then k::a
+  else a
       ) _kv []
     in Lwt.return keys
 
@@ -245,7 +245,7 @@ class test_backend my_name = object(self:#backend)
       if i = 0
       then Lwt.return ()
       else
-	cb () >>= fun () ->
+  cb () >>= fun () ->
         loop (i-1)
     in
     loop n
@@ -294,9 +294,9 @@ class test_backend my_name = object(self:#backend)
     in
     let all = StringMap.fold
       (fun k v acc ->
-	if cmp k
-	then (k,v)::acc
-	else acc)
+  if cmp k
+  then (k,v)::acc
+  else acc)
       _kv []
     in
     Lwt.return all

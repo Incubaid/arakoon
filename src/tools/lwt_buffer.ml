@@ -55,21 +55,21 @@ module Lwt_buffer = struct
     Lwt_mutex.with_lock t.full_m 
       (fun () ->
         let _add e = 
-	      let () = Queue.add e t.q in
-	      let () = Lwt_condition.signal t.empty () in
-	      Lwt.return () 
+        let () = Queue.add e t.q in
+        let () = Lwt_condition.signal t.empty () in
+        Lwt.return () 
         in
         if _is_full t 
         then 
-	      if t.leaky
-	      then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
-	      else
-	        begin
-	          Lwt_condition.wait (* ~mutex:t.full_m *) t.full >>= fun () ->
-	          _add e
-	        end
+        if t.leaky
+        then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
+        else
+          begin
+            Lwt_condition.wait (* ~mutex:t.full_m *) t.full >>= fun () ->
+            _add e
+          end
         else 
-	      _add e
+        _add e
       ) 
       
   let take t =
@@ -105,7 +105,7 @@ module Lwt_buffer = struct
     Lwt_mutex.with_lock t.empty_m 
       (fun () ->
         if Queue.is_empty t.q then
-	      Lwt_condition.wait t.empty
+        Lwt_condition.wait t.empty
         else Lwt.return ()
       )
 

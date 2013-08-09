@@ -103,11 +103,11 @@ let _ = dispatch & function
       ~prod:"%.pdf"
       ~dep:"%.tex"
       begin fun env _build ->
-	let tex = env "%.tex" in
-	(* let pdf = env "%.pdf" in *)
-	let tags = tags_of_pathname tex ++ "compile" ++ "LaTeX" ++ "pdf" in
-	let cmd = Cmd(S[pdflatex;A"-shell-escape";T tags;P tex;A"-halt-on-error"]) in
-	Seq[cmd;]
+  let tex = env "%.tex" in
+  (* let pdf = env "%.pdf" in *)
+  let tags = tags_of_pathname tex ++ "compile" ++ "LaTeX" ++ "pdf" in
+  let cmd = Cmd(S[pdflatex;A"-shell-escape";T tags;P tex;A"-halt-on-error"]) in
+  Seq[cmd;]
       end;
     dep ["compile";"LaTeX";"pdf";]
       ["doc/introduction.tex";
@@ -125,19 +125,19 @@ let _ = dispatch & function
       (* how to compile C stuff that needs tc *)
     flag ["compile"; "c";]
       (S[
-	A"-ccopt";A"-I../src/tools";
+  A"-ccopt";A"-I../src/tools";
       ]);
     flag ["compile";"c";]
       (S[
-	A"-ccopt";A"-msse4.2";
+  A"-ccopt";A"-msse4.2";
       ]);
 
     dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
     flag ["ocaml";"link";"is_main"](
       S[A"-thread";
-	A"-linkpkg";
-	A"src/libcutil.a";
+  A"-linkpkg";
+  A"src/libcutil.a";
        ]);
     flag ["ocaml";"compile";] (S[A"-thread"]);
 
@@ -167,6 +167,6 @@ let _ = dispatch & function
       (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
     
     flag ["pp";"use_macro";"small_tlogs";
-	  "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
+    "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
     flag ["library";"use_thread"](S[A"-thread"]);
   | _ -> ()

@@ -148,9 +148,9 @@ let value_array ic =
     then Lwt.return result
     else
       begin
-	Llio.input_string ic >>= fun s ->
-	result.(i) <- s;
-	loop (i+1)
+  Llio.input_string ic >>= fun s ->
+  result.(i) <- s;
+  loop (i+1)
       end
   in loop 0
 
@@ -161,11 +161,11 @@ let kv_array ic =
       if i = size
       then Lwt.return result
       else
-	begin
-	  Llio.input_string_pair ic >>= fun p ->
-	  result.(i) <- p;
-	  loop (i+1)
-	end
+  begin
+    Llio.input_string_pair ic >>= fun p ->
+    result.(i) <- p;
+    loop (i+1)
+  end
     in loop 0
 
 

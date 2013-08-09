@@ -303,8 +303,8 @@ struct
     else
       begin
         store.quiesced <- true;
-	    reopen store (fun () -> Lwt.return ()) >>= fun () ->
-	    Lwt.return ()
+      reopen store (fun () -> Lwt.return ()) >>= fun () ->
+      Lwt.return ()
       end
 
   let unquiesce store =
@@ -630,8 +630,8 @@ struct
         | Update.Assert_exists(k) ->
             begin
               match S.exists store.s (__prefix ^ k) with
-	            | true -> Lwt.return (Ok None)
-	            | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+              | true -> Lwt.return (Ok None)
+              | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
             end
         | Update.AdminSet(k,vo) ->
             let () =

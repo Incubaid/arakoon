@@ -75,18 +75,18 @@ let prefix_keys ms prefix max =
     let keys = StringMap.fold
       (fun k v a ->
 (* TODO this is buggy -> what if prefix contains special regex chars? *)
-	if (Str.string_match (Str.regexp reg) k 0)
-	then k::a
-	else a
+  if (Str.string_match (Str.regexp reg) k 0)
+  then k::a
+  else a
       ) ms.kv []
     in filter_keys_list keys
 
 let delete ms tx key =
   _verify_tx ms tx;
   if StringMap.mem key ms.kv then
-	ms.kv <- StringMap.remove key ms.kv
+  ms.kv <- StringMap.remove key ms.kv
   else
-	raise (Key_not_found key)
+  raise (Key_not_found key)
 
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
@@ -131,9 +131,9 @@ let get_fringe ms boundary direction =
     in
     let all = StringMap.fold
       (fun k v acc ->
-	if cmp k
-	then (k,v)::acc
-	else acc)
+  if cmp k
+  then (k,v)::acc
+  else acc)
       ms.kv []
     in
     Lwt.return all

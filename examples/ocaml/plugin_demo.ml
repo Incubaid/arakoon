@@ -19,21 +19,21 @@ let find_master cluster_id cfgs =
     | [] -> Lwt.fail (Failure "too many nodes down")
     | cfg :: rest ->
       begin
-	let _,(ip, port) = cfg in
-	let sa = make_address ip port in
-	Lwt.catch
-	  (fun () ->
-	    Lwt_io.with_connection sa
-	      (fun connection ->
-		make_remote_client cluster_id connection 
-		>>= fun client ->
-		client # who_master ()) >>= function
-		| None -> Lwt.fail (Failure "No Master")
-		| Some m -> Lwt.return m)
-	  (function 
-	    | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -> loop rest
-	    | exn -> Lwt.fail exn
-	  )
+  let _,(ip, port) = cfg in
+  let sa = make_address ip port in
+  Lwt.catch
+    (fun () ->
+      Lwt_io.with_connection sa
+        (fun connection ->
+    make_remote_client cluster_id connection 
+    >>= fun client ->
+    client # who_master ()) >>= function
+    | None -> Lwt.fail (Failure "No Master")
+    | Some m -> Lwt.return m)
+    (function 
+      | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) -> loop rest
+      | exn -> Lwt.fail exn
+    )
       end
   in loop cfgs
 

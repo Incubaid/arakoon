@@ -56,9 +56,9 @@ let _ =
   in
   let qs = [q2;q1;q0] in
   let main () = join [p0();
-		      p1();
-		      p2();
-		      c qs;
-		     ]
+          p1();
+          p2();
+          c qs;
+         ]
   in
   Lwt_main.run (main());;

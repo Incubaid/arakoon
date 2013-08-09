@@ -57,7 +57,7 @@ let teardown () =
     (fun () ->
       File_system.lwt_directory_list _dir_name >>= fun entries ->
       Lwt_list.iter_s (fun i -> 
-	let fn = _dir_name ^ "/" ^ i in
+  let fn = _dir_name ^ "/" ^ i in
         Lwt_unix.unlink fn) entries 
     )
     (fun exn -> Logger.debug_ ~exn "ignoring" )

@@ -330,11 +330,11 @@ module Statistics = struct
     let extract_x_stats (value:Llio.namedValue) : x_stats =
       begin
       match value with
-	    | Llio.NAMED_VALUELIST (_,l) ->
+      | Llio.NAMED_VALUELIST (_,l) ->
             let v, l = extract_next l in
             let n    = extract_int v in
             let v, l = extract_next l in
-	        let min = extract_float v in
+          let min = extract_float v in
             let v, l = extract_next l in
             let max = extract_float v in
             let v,l = extract_next  l in
@@ -343,8 +343,8 @@ module Statistics = struct
             let avg = extract_float v in
             let v, l = extract_next l in
             let var = extract_float v in
-	        {n; min; max; m2; avg; var;}
-	    | _ -> failwith "Wrong value type (expected list)"
+          {n; min; max; m2; avg; var;}
+      | _ -> failwith "Wrong value type (expected list)"
       end
     in
 
@@ -463,7 +463,7 @@ module Statistics = struct
   let string_of t =
     let template =
       "{start: %f, " ^^
-	    "last: %f, " ^^
+      "last: %f, " ^^
         "avg_set_size: %f, " ^^
         "avg_get_size: %f, " ^^
         "avg_range_size: %f, " ^^
@@ -473,9 +473,9 @@ module Statistics = struct
         "set_info: %s,\n" ^^
         "get_info: %s,\n" ^^
         "del_info: %s,\n" ^^
-	    "mget_info: %s,\n" ^^
+      "mget_info: %s,\n" ^^
         "mget_option_info: %s\n" ^^
-	    "seq_info: %s,\n" ^^
+      "seq_info: %s,\n" ^^
         "tas_info: %s,\n" ^^
         "range_info: %s,\n" ^^
         "prefix_info: %s,\n" ^^
@@ -487,7 +487,7 @@ module Statistics = struct
         "mem_major_collections: %i,\n" ^^
         "mem_compactions: %i,\n" ^^
         "node_is: %s" ^^
-	"}\n"
+  "}\n"
     in
     let node_iss = Buffer.create 100 in
     let () = Hashtbl.fold (fun n i () ->

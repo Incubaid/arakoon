@@ -44,19 +44,19 @@ let read_command (ic,oc) =
     if magic <> _MAGIC
     then
       begin
-	Llio.output_int32 oc 1l >>= fun () ->
-	Llio.lwt_failfmt "%lx has no magic" masked
+  Llio.output_int32 oc 1l >>= fun () ->
+  Llio.lwt_failfmt "%lx has no magic" masked
       end
     else
       begin
-	let as_int32 = Int32.logand masked _MASK in
-	try
-	  let c = lookup_code as_int32 in
+  let as_int32 = Int32.logand masked _MASK in
+  try
+    let c = lookup_code as_int32 in
           Lwt.return c
-	with Not_found ->
+  with Not_found ->
           Llio.output_int32 oc 5l >>= fun () ->
-	  let msg = Printf.sprintf "%lx: command not found" as_int32 in
-	  Llio.output_string oc msg >>= fun () ->
+    let msg = Printf.sprintf "%lx: command not found" as_int32 in
+    Llio.output_string oc msg >>= fun () ->
           Lwt.fail (Failure msg)
       end
   end
@@ -111,9 +111,9 @@ let handle_exception oc exn=
       (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg) >>= fun () ->
   Arakoon_exc.output_exception oc rc msg >>= fun () ->
   begin
-	  if close_socket
-	  then log_debug "Closing client socket" >>= fun () -> Lwt_io.close oc
-	  else Lwt.return ()
+    if close_socket
+    then log_debug "Closing client socket" >>= fun () -> Lwt_io.close oc
+    else Lwt.return ()
   end >>= fun () ->
   if is_fatal
   then Lwt.fail exn
@@ -150,78 +150,78 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     | PING ->
         begin
           Llio.input_string ic >>= fun client_id ->
-	      Llio.input_string ic >>= fun cluster_id ->
+        Llio.input_string ic >>= fun cluster_id ->
           Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
           backend # hello client_id cluster_id >>= fun (rc,msg) ->
           response_rc_string oc rc msg
         end
     | EXISTS ->
         begin
-	  Llio.input_bool ic   >>= fun allow_dirty ->
-	  Llio.input_string ic >>= fun key ->
+    Llio.input_bool ic   >>= fun allow_dirty ->
+    Llio.input_string ic >>= fun key ->
           Logger.debug_f_ "connection=%s EXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
-	  Lwt.catch
-	    (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
-	      response_rc_bool oc 0l exists)
-	    (handle_exception oc)
+    Lwt.catch
+      (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
+        response_rc_bool oc 0l exists)
+      (handle_exception oc)
         end
     | GET ->
         begin
-	  Llio.input_bool   ic >>= fun allow_dirty ->
+    Llio.input_bool   ic >>= fun allow_dirty ->
           Llio.input_string ic >>= fun  key ->
           Logger.debug_f_ "connection=%s GET: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
-	  Lwt.catch
-	    (fun () -> backend # get ~allow_dirty key >>= fun value ->
-	      response_rc_string oc 0l value)
-	    (handle_exception oc)
+    Lwt.catch
+      (fun () -> backend # get ~allow_dirty key >>= fun value ->
+        response_rc_string oc 0l value)
+      (handle_exception oc)
         end
     | ASSERT ->
         begin
-	  Llio.input_bool ic          >>= fun allow_dirty ->
-	  Llio.input_string ic        >>= fun key ->
-	  Llio.input_string_option ic >>= fun vo ->
+    Llio.input_bool ic          >>= fun allow_dirty ->
+    Llio.input_string ic        >>= fun key ->
+    Llio.input_string_option ic >>= fun vo ->
           Logger.debug_f_ "connection=%s ASSERT: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
-	  Lwt.catch
-	    (fun () -> backend # aSSert ~allow_dirty key vo >>= fun () ->
-	      response_ok_unit oc
-	    )
-	    (handle_exception oc)
+    Lwt.catch
+      (fun () -> backend # aSSert ~allow_dirty key vo >>= fun () ->
+        response_ok_unit oc
+      )
+      (handle_exception oc)
         end
     | ASSERTEXISTS ->
         begin
-	  Llio.input_bool ic          >>= fun allow_dirty ->
-	  Llio.input_string ic        >>= fun key ->
+    Llio.input_bool ic          >>= fun allow_dirty ->
+    Llio.input_string ic        >>= fun key ->
           Logger.debug_f_ "connection=%s ASSERTEXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
-	  Lwt.catch
-	    (fun () -> backend # aSSert_exists ~allow_dirty key>>= fun () ->
-	      response_ok_unit oc
-	    )
-	    (handle_exception oc)
+    Lwt.catch
+      (fun () -> backend # aSSert_exists ~allow_dirty key>>= fun () ->
+        response_ok_unit oc
+      )
+      (handle_exception oc)
         end
     | SET ->
-	begin
+  begin
           Llio.input_string ic >>= fun key ->
           Llio.input_string ic >>= fun value ->
           Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
-	  Lwt.catch
-	    (fun () -> backend # set key value >>= fun () ->
-	      response_ok_unit oc
-	    )
-	    (handle_exception oc)
-	end
+    Lwt.catch
+      (fun () -> backend # set key value >>= fun () ->
+        response_ok_unit oc
+      )
+      (handle_exception oc)
+  end
     | DELETE ->
-	begin
+  begin
           Llio.input_string ic >>= fun key ->
           Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
           Lwt.catch
-	    (fun () ->
-	      backend # delete key >>= fun () ->
-	      response_ok_unit oc)
-	    (handle_exception oc)
-	end
+      (fun () ->
+        backend # delete key >>= fun () ->
+        response_ok_unit oc)
+      (handle_exception oc)
+  end
     | RANGE ->
         begin
-	  Llio.input_bool ic >>= fun allow_dirty ->
+    Llio.input_bool ic >>= fun allow_dirty ->
           Llio.input_string_option ic >>= fun (first:string option) ->
           Llio.input_bool          ic >>= fun finc  ->
           Llio.input_string_option ic >>= fun (last:string option)  ->
@@ -230,57 +230,57 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Logger.debug_f_ "connection=%s RANGE: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
             id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
-	    (fun () ->
-	      backend # range ~allow_dirty first finc last linc max >>= fun list ->
-	      Llio.output_int32 oc 0l >>= fun () ->
-	      Llio.output_list Llio.output_string oc list >>= fun () ->
+      (fun () ->
+        backend # range ~allow_dirty first finc last linc max >>= fun list ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        Llio.output_list Llio.output_string oc list >>= fun () ->
               Lwt.return false
-	    )
-	    (handle_exception oc )
-	end
+      )
+      (handle_exception oc )
+  end
     | RANGE_ENTRIES ->
         begin
-	  Llio.input_bool          ic >>= fun allow_dirty ->
-	  Llio.input_string_option ic >>= fun first ->
-	  Llio.input_bool          ic >>= fun finc  ->
-	  Llio.input_string_option ic >>= fun last  ->
-	  Llio.input_bool          ic >>= fun linc  ->
-	  Llio.input_int           ic >>= fun max   ->
+    Llio.input_bool          ic >>= fun allow_dirty ->
+    Llio.input_string_option ic >>= fun first ->
+    Llio.input_bool          ic >>= fun finc  ->
+    Llio.input_string_option ic >>= fun last  ->
+    Llio.input_bool          ic >>= fun linc  ->
+    Llio.input_int           ic >>= fun max   ->
           Logger.debug_f_ "connection=%s RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
             id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
-	    (fun () ->
-	      backend # range_entries ~allow_dirty first finc last linc max
-	      >>= fun (list:(string*string) list) ->
-	      Llio.output_int32 oc 0l >>= fun () ->
-	      let size = List.length list in
-	      Logger.debug_f_ "size = %i" size >>= fun () ->
-	      Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+      (fun () ->
+        backend # range_entries ~allow_dirty first finc last linc max
+        >>= fun (list:(string*string) list) ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        let size = List.length list in
+        Logger.debug_f_ "size = %i" size >>= fun () ->
+        Llio.output_list Llio.output_string_pair oc list >>= fun () ->
               Lwt.return false
-	    )
-	    (handle_exception oc)
+      )
+      (handle_exception oc)
         end
     | REV_RANGE_ENTRIES ->
         begin
-	  Llio.input_bool          ic >>= fun allow_dirty ->
-	  Llio.input_string_option ic >>= fun first ->
-	  Llio.input_bool          ic >>= fun finc  ->
-	  Llio.input_string_option ic >>= fun last  ->
-	  Llio.input_bool          ic >>= fun linc  ->
-	  Llio.input_int           ic >>= fun max   ->
+    Llio.input_bool          ic >>= fun allow_dirty ->
+    Llio.input_string_option ic >>= fun first ->
+    Llio.input_bool          ic >>= fun finc  ->
+    Llio.input_string_option ic >>= fun last  ->
+    Llio.input_bool          ic >>= fun linc  ->
+    Llio.input_int           ic >>= fun max   ->
           Logger.debug_f_ "connection=%s REV_RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
             id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
-	    (fun () ->
-	      backend # rev_range_entries ~allow_dirty first finc last linc max
-	      >>= fun (list:(string*string) list) ->
-	      Llio.output_int32 oc 0l >>= fun () ->
-	      let size = List.length list in
-	      Logger.debug_f_ "size = %i" size >>= fun () ->
+      (fun () ->
+        backend # rev_range_entries ~allow_dirty first finc last linc max
+        >>= fun (list:(string*string) list) ->
+        Llio.output_int32 oc 0l >>= fun () ->
+        let size = List.length list in
+        Logger.debug_f_ "size = %i" size >>= fun () ->
           Llio.output_kv_list oc list >>= fun () ->
           Lwt.return false
-	    )
-	    (handle_exception oc)
+      )
+      (handle_exception oc)
         end
     | LAST_ENTRIES ->
       begin
@@ -309,38 +309,38 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     | EXPECT_PROGRESS_POSSIBLE ->
         begin
           Logger.debug_f_ "connection=%s EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
-	  backend # expect_progress_possible () >>= fun poss ->
-	  Llio.output_int32 oc 0l >>= fun () ->
-	  Llio.output_bool oc poss >>= fun () ->
-	  Lwt.return false
+    backend # expect_progress_possible () >>= fun poss ->
+    Llio.output_int32 oc 0l >>= fun () ->
+    Llio.output_bool oc poss >>= fun () ->
+    Lwt.return false
         end
     | TEST_AND_SET ->
         begin
-	  Llio.input_string ic >>= fun key ->
-	  Llio.input_string_option ic >>= fun expected ->
+    Llio.input_string ic >>= fun key ->
+    Llio.input_string_option ic >>= fun expected ->
           Llio.input_string_option ic >>= fun wanted ->
           Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
-	  backend # test_and_set key expected wanted >>= fun vo ->
-	  Llio.output_int oc 0 >>= fun () ->
+    backend # test_and_set key expected wanted >>= fun vo ->
+    Llio.output_int oc 0 >>= fun () ->
           Llio.output_string_option oc vo >>= fun () ->
           Lwt.return false
         end
     | USER_FUNCTION ->
         begin
-	  Llio.input_string ic >>= fun name ->
-	  Llio.input_string_option ic >>= fun po ->
+    Llio.input_string ic >>= fun name ->
+    Llio.input_string_option ic >>= fun po ->
           Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name
           >>= fun () ->
-	  Lwt.catch
-	    (fun () ->
-	      begin
-	        backend # user_function name po >>= fun ro ->
-	        Llio.output_int oc 0 >>= fun () ->
-	        Llio.output_string_option oc ro >>= fun () ->
+    Lwt.catch
+      (fun () ->
+        begin
+          backend # user_function name po >>= fun ro ->
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_string_option oc ro >>= fun () ->
                 Lwt.return false
-	      end
-	    )
-	    (handle_exception oc)
+        end
+      )
+      (handle_exception oc)
         end
     | PREFIX_KEYS ->
       begin
@@ -411,57 +411,57 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         begin
           Logger.debug_f_ "connection=%s STATISTICS" id
           >>= fun () ->
-	  let s = backend # get_statistics () in
-	  let b = Buffer.create 100 in
-	  Statistics.to_buffer b s;
-	  let bs = Buffer.contents b in
-	  Llio.output_int oc 0 >>= fun () ->
-	  Llio.output_string oc bs >>= fun () ->
+    let s = backend # get_statistics () in
+    let b = Buffer.create 100 in
+    Statistics.to_buffer b s;
+    let bs = Buffer.contents b in
+    Llio.output_int oc 0 >>= fun () ->
+    Llio.output_string oc bs >>= fun () ->
           Lwt.return false
         end
     | COLLAPSE_TLOGS ->
         begin
-	  let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
-	  let t0 = sw() in
-	  let cb' n =
-	    Logger.debug_f_ "CB' %i" n >>= fun () ->
-	    Llio.output_int oc 0 >>= fun () -> (* ok *)
-	    Llio.output_int oc n >>= fun () ->
+    let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
+    let t0 = sw() in
+    let cb' n =
+      Logger.debug_f_ "CB' %i" n >>= fun () ->
+      Llio.output_int oc 0 >>= fun () -> (* ok *)
+      Llio.output_int oc n >>= fun () ->
             Lwt_io.flush oc
-	  in
-	  let cb  =
+    in
+    let cb  =
             let count = ref 0 in
             fun () ->
-	      Logger.debug_f_ "CB %i" !count >>= fun () ->
+        Logger.debug_f_ "CB %i" !count >>= fun () ->
               let () = incr count in
-	      let ts = sw() in
-	      let d = Int64.sub ts t0 in
-	      Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_int64 oc d >>= fun () ->
-	      Lwt_io.flush oc
-	  in
-	  Llio.input_int ic >>= fun n ->
+        let ts = sw() in
+        let d = Int64.sub ts t0 in
+        Llio.output_int oc 0 >>= fun () ->
+        Llio.output_int64 oc d >>= fun () ->
+        Lwt_io.flush oc
+    in
+    Llio.input_int ic >>= fun n ->
           Logger.debug_f_ "connection=%s COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
           Lwt.catch
-	    (fun () ->
-	      Logger.info_f_ "... Start collapsing ... (n=%i)" n >>= fun () ->
-	      backend # collapse n cb' cb >>= fun () ->
-	      Logger.info_ "... Finished collapsing ..." >>= fun () ->
-	      Lwt.return false
-	    )
-	    (handle_exception oc)
+      (fun () ->
+        Logger.info_f_ "... Start collapsing ... (n=%i)" n >>= fun () ->
+        backend # collapse n cb' cb >>= fun () ->
+        Logger.info_ "... Finished collapsing ..." >>= fun () ->
+        Lwt.return false
+      )
+      (handle_exception oc)
         end
     | SET_INTERVAL ->
         begin
           Lwt.catch
-	    (fun () ->
+      (fun () ->
               Interval.input_interval ic >>= fun interval ->
               Logger.debug_f_ "connection=%s SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
               backend # set_interval interval >>= fun () ->
               response_ok_unit oc
             )
             (handle_exception oc)
-	end
+  end
     | GET_INTERVAL ->
         begin
           Lwt.catch(
@@ -476,23 +476,23 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         end
     | GET_ROUTING ->
         Lwt.catch
-	  (fun () ->
+    (fun () ->
             Logger.debug_f_ "connection=%s GET_ROUTING" id >>= fun () ->
             backend # get_routing () >>= fun routing ->
-	    Llio.output_int oc 0 >>= fun () ->
-	    Routing.output_routing oc routing >>= fun () ->
-	    Lwt.return false
-	  )
-	  (handle_exception oc)
+      Llio.output_int oc 0 >>= fun () ->
+      Routing.output_routing oc routing >>= fun () ->
+      Lwt.return false
+    )
+    (handle_exception oc)
     | SET_ROUTING ->
         begin
-	  Routing.input_routing ic >>= fun routing ->
+    Routing.input_routing ic >>= fun routing ->
           Logger.debug_f_ "connection=%s SET_ROUTING" id >>= fun () ->
-	  Lwt.catch
-	    (fun () ->
-	      backend # set_routing routing >>= fun () ->
-	      response_ok_unit oc)
-	    (handle_exception oc)
+    Lwt.catch
+      (fun () ->
+        backend # set_routing routing >>= fun () ->
+        response_ok_unit oc)
+      (handle_exception oc)
         end
     | SET_ROUTING_DELTA ->
         begin
@@ -545,17 +545,17 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
             (handle_exception oc)
         end
     | CONFIRM ->
-	begin
+  begin
           Llio.input_string ic >>= fun key ->
           Llio.input_string ic >>= fun value ->
-	  Lwt.catch
-	    (fun () ->
+    Lwt.catch
+      (fun () ->
               Logger.debug_f_ "connection=%s CONFIRM: key=%S" id key >>= fun () ->
               backend # confirm key value >>= fun () ->
-	      response_ok_unit oc
-	    )
-	    (handle_exception oc)
-	end
+        response_ok_unit oc
+      )
+      (handle_exception oc)
+  end
     | GET_NURSERY_CFG ->
         begin
           Lwt.catch (
@@ -585,8 +585,8 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         end
     | GET_FRINGE ->
         begin
-	  Lwt.catch
-	    (fun () ->
+    Lwt.catch
+      (fun () ->
               Llio.input_string_option ic >>= fun boundary ->
               Llio.input_int ic >>= fun dir_as_int ->
               let direction =
@@ -601,14 +601,14 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
                 (p_option boundary)
                 (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
               >>= fun () ->
-	      backend # get_fringe boundary direction >>= fun kvs ->
+        backend # get_fringe boundary direction >>= fun kvs ->
               Logger.debug_ "get_fringe backend op complete" >>= fun () ->
               Llio.output_int oc 0 >>= fun () ->
-	      Llio.output_kv_list oc kvs >>= fun () ->
+        Llio.output_kv_list oc kvs >>= fun () ->
               Logger.debug_ "get_fringe all done" >>= fun () ->
-	      Lwt.return false
-	    )
-	    (handle_exception oc)
+        Lwt.return false
+      )
+      (handle_exception oc)
         end
     | DELETE_PREFIX ->
         begin
@@ -677,11 +677,11 @@ let protocol backend connection =
   in
   let rec loop () =
     begin
-	  one_command connection backend >>= fun closed ->
-	  Lwt_io.flush oc >>= fun() ->
-	  if closed
-	  then Logger.debug_ "leaving client loop"
-	  else loop ()
+    one_command connection backend >>= fun closed ->
+    Lwt_io.flush oc >>= fun() ->
+    if closed
+    then Logger.debug_ "leaving client loop"
+    else loop ()
     end
   in
   prologue () >>= fun () ->

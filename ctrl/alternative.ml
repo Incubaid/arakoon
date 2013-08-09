@@ -12,13 +12,13 @@ let test_large_tlog_collection_restart () =
       if i = 100000 
       then Lwt.return () 
       else
-	begin
-	  Lwt_io.printlf "%i" i >>= fun () ->
-	  let key = Printf.sprintf "key%i" i in
-	  let value = Printf.sprintf "value%i" i in
-	  client # set key value >>= fun () ->
+  begin
+    Lwt_io.printlf "%i" i >>= fun () ->
+    let key = Printf.sprintf "key%i" i in
+    let value = Printf.sprintf "value%i" i in
+    client # set key value >>= fun () ->
           loop (i+1)
-	end
+  end
     in
     loop 0
   in
@@ -59,9 +59,9 @@ let test_sequence_is_transaction () =
   Unix.sleep 1; 
   let _ = Client_main.with_master_client "cfg/arakoon.ini"
     (fun c -> let seq = [Set ("key1","value1"); 
-			 Delete ("key2");]
-	      in 
-	      c # sequence seq
+       Delete ("key2");]
+        in 
+        c # sequence seq
     )
   in ();;
 
@@ -74,13 +74,13 @@ let put_10e6 () =
   let _ = Client_main.with_master_client "cfg/arakoon.ini"
     (fun c ->
       let rec loop i = 
-	if i = 0 
-	then Lwt.return () 
-	else
-	  let key = Printf.sprintf "put_X_%08i" i in
-	  c # set key value >>= fun () ->
-	  Lwt_io.printlf "%i" i >>= fun () ->
-	  loop (i-1)
+  if i = 0 
+  then Lwt.return () 
+  else
+    let key = Printf.sprintf "put_X_%08i" i in
+    c # set key value >>= fun () ->
+    Lwt_io.printlf "%i" i >>= fun () ->
+    loop (i-1)
       in
       loop 10000000
     )
@@ -92,12 +92,12 @@ let put_50000 () =
   let _ = Client_main.with_master_client "cfg/arakoon.ini"
     (fun c ->
       let rec loop n = 
-	if n = 0 then Lwt.return ()
-	else
-	  let key = Printf.sprintf "put_X_%06i" n in
-	  c # set key key >>= fun () ->
-	  Lwt_io.printlf "%i" n >>= fun () ->
-	  loop (n-1)
+  if n = 0 then Lwt.return ()
+  else
+    let key = Printf.sprintf "put_X_%06i" n in
+    c # set key key >>= fun () ->
+    Lwt_io.printlf "%i" n >>= fun () ->
+    loop (n-1)
       in
       loop (50 * 1000)
     )

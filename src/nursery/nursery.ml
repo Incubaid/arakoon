@@ -66,10 +66,10 @@ module NC = struct
     let connections = Hashtbl.create 13 in
     let () = NCFG.iter_cfgs rc
       (fun cluster v -> 
-	Hashtbl.iter (fun node (ip,port) ->
-	  let nn = (cluster,node) in
-	  let a = Address (ip,port) in
-	  Hashtbl.add connections nn a) v)
+  Hashtbl.iter (fun node (ip,port) ->
+    let nn = (cluster,node) in
+    let a = Address (ip,port) in
+    Hashtbl.add connections nn a) v)
     in
     {rc; connections;masters;keeper_cn}
 
@@ -77,15 +77,15 @@ module NC = struct
     let (cn,node) = nn in
     match Hashtbl.find t.connections nn with
       | Address (ips,port) -> 
-	begin
+  begin
           let ip = List.hd ips in
-	  try_connect (ip,port) >>= function
-	    | Some conn -> 
-	      Common.prologue cn conn >>= fun () ->
-	      let () = Hashtbl.add t.connections nn (Connection conn) in
-	      Lwt.return conn
-	    | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
-	end
+    try_connect (ip,port) >>= function
+      | Some conn -> 
+        Common.prologue cn conn >>= fun () ->
+        let () = Hashtbl.add t.connections nn (Connection conn) in
+        Lwt.return conn
+      | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
+  end
       | Connection conn -> Lwt.return conn
   
   let _find_master_remote t cn = 
@@ -95,8 +95,8 @@ module NC = struct
     >>= fun () ->
     Lwt_list.map_s 
       (fun n -> 
-	let nn = (cn,n) in 
-	_get_connection t nn
+  let nn = (cn,n) in 
+  _get_connection t nn
       ) 
       node_names 
     >>= fun connections ->
@@ -117,12 +117,12 @@ module NC = struct
         Lwt.return m
    
     
-	
+  
   let _find_master t cn = 
     let m = Hashtbl.find t.masters cn in
     match m with
       | None -> _find_master_remote t cn 
-      | Some master -> Lwt.return master 	  
+      | Some master -> Lwt.return master     
 
   let _with_master_connection t cn (todo: connection -> 'c Lwt.t) =
     Logger.debug_f_ "_with_master_connection %s" cn >>= fun () ->
@@ -193,12 +193,12 @@ module NC = struct
         | fringe -> 
           let size = List.length fringe in
           Logger.debug_f_ "Length = %i" size >>= fun () ->
-	        (* 
-	         - change public interval on 'from'
-	         - push fringe & change private interval on 'to'
-	         - delete fringe & change private interval on 'from'
-	         - change public interval 'to'
-	         - publish new route.
+          (* 
+           - change public interval on 'from'
+           - push fringe & change private interval on 'to'
+           - delete fringe & change private interval on 'from'
+           - change public interval 'to'
+           - publish new route.
           *)
           let fpu_b = from_i.pu_b
           and fpu_e = from_i.pu_e
@@ -371,41 +371,41 @@ module NC = struct
     in
     begin
       Logger.debug_f_ "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
-	    match lower, upper with
-	      | None, None -> failwith "Cannot remove last cluster from nursery"
-	      | Some x, None ->
-	        begin
-	          match sep with
-	            | None ->
-	              let m_prev = Routing.prev_cluster r cluster_id in
+      match lower, upper with
+        | None, None -> failwith "Cannot remove last cluster from nursery"
+        | Some x, None ->
+          begin
+            match sep with
+              | None ->
+                let m_prev = Routing.prev_cluster r cluster_id in
                 begin
                   match m_prev with 
                     | None -> failwith "Invalid routing request. No previous??"
                     | Some prev ->
-	                    __migrate t cluster_id sep prev 
+                      __migrate t cluster_id sep prev 
                         (finalize cluster_id prev Routing.UPPER_BOUND) 
                         publish (cluster_id, prev, Routing.UPPER_BOUND)
                 end
-	            | Some y ->
-	              failwith "Cannot set separator when removing a boundary cluster from the nursery"
-	        end
-	      | None, Some x ->
-	        begin
-	          match sep with
-	            | None ->
-	              let m_next = Routing.next_cluster r cluster_id in
+              | Some y ->
+                failwith "Cannot set separator when removing a boundary cluster from the nursery"
+          end
+        | None, Some x ->
+          begin
+            match sep with
+              | None ->
+                let m_next = Routing.next_cluster r cluster_id in
                 begin
                   match m_next with
                     | None -> failwith "Invalid routing request. No next??"
                     | Some next ->
-    	                __migrate t cluster_id sep next 
+                      __migrate t cluster_id sep next 
                         (finalize cluster_id next Routing.LOWER_BOUND)
                         publish (cluster_id, next, Routing.LOWER_BOUND)
                 end
-	            | Some y ->
-	              failwith "Cannot set separator when removing a boundary cluster from a nursery"
-	        end
-	      | Some x, Some y ->
+              | Some y ->
+                failwith "Cannot set separator when removing a boundary cluster from a nursery"
+          end
+        | Some x, Some y ->
           begin
             match sep with
               | None -> 
@@ -460,10 +460,10 @@ let nursery_test_main () =
       if i = 64 
       then Lwt.return () 
       else 
-	let k = Printf.sprintf "%c" (Char.chr i) 
-	and v = Printf.sprintf "%c_value" (Char.chr i) in
-	NC.set nc k v >>= fun () -> 
-	fill (i-1)
+  let k = Printf.sprintf "%c" (Char.chr i) 
+  and v = Printf.sprintf "%c_value" (Char.chr i) in
+  NC.set nc k v >>= fun () -> 
+  fill (i-1)
     in
     let left_i  = Interval.max    (* all *)
     and right_i = Interval.max in (* all *)

@@ -52,26 +52,26 @@ let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
   fun b ->
     begin
       Lwt.catch
-	( fun () ->Lwt.return (Lwt.wakeup awake b))
-	( fun e ->
-	  match e with
-	    | Invalid_argument s ->
-	      let t = state sleeper in
-	      begin
-		match t with
-		  | Fail ex ->
-		    begin
-		      Logger.error_	"Lwt.wakeup error: Sleeper already failed before. Re-raising"
-		      >>= fun () ->
-		      Lwt.fail ex
-		    end
-		  | Return v ->
-		    Logger.error_ "Lwt.wakeup error: Sleeper already returned"
-		  | Sleep ->
-		    Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
-	      end
-	    | _ -> Lwt.fail e
-	) >>= fun () ->
+  ( fun () ->Lwt.return (Lwt.wakeup awake b))
+  ( fun e ->
+    match e with
+      | Invalid_argument s ->
+        let t = state sleeper in
+        begin
+    match t with
+      | Fail ex ->
+        begin
+          Logger.error_  "Lwt.wakeup error: Sleeper already failed before. Re-raising"
+          >>= fun () ->
+          Lwt.fail ex
+        end
+      | Return v ->
+        Logger.error_ "Lwt.wakeup error: Sleeper already returned"
+      | Sleep ->
+        Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
+        end
+      | _ -> Lwt.fail e
+  ) >>= fun () ->
       stats_cb b;
       Lwt.return ()
     end
@@ -118,7 +118,7 @@ class sync_backend = fun cfg
     let length = String.length value in
     if length >= max_value_size then
       raise (Arakoon_exc.Exception (Arakoon_exc.E_UNKNOWN_FAILURE,
-				    "value too large"))
+            "value too large"))
   in
 object(self: #backend)
   val instantiation_time = Int64.of_float (Unix.time())
@@ -140,19 +140,19 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     Lwt.catch
       (fun () ->
-	S.get store key >>= fun v ->
-	Statistics.new_get _stats key v start;
-	Lwt.return v)
+  S.get store key >>= fun v ->
+  Statistics.new_get _stats key v start;
+  Lwt.return v)
       (fun exc ->
-	match exc with
-	  | Not_found ->
-	    Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
-	  | Store.CorruptStore ->
-	    begin
-	      Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
-	      Lwt.fail Server.FOOBAR
-	    end
-	  | ext -> Lwt.fail ext)
+  match exc with
+    | Not_found ->
+      Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
+    | Store.CorruptStore ->
+      begin
+        Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
+        Lwt.fail Server.FOOBAR
+      end
+    | ext -> Lwt.fail ext)
 
   method get_interval () =
     self # _read_allowed false >>= fun () ->
@@ -258,12 +258,12 @@ object(self: #backend)
     let () = assert_value_size value in
     self # exists ~allow_dirty:false key >>= function
       | true ->
-	    begin
-	      S.get store key >>= fun old_value ->
-	      if old_value = value
-	      then Lwt.return ()
-	      else self # set key value
-	    end
+      begin
+        S.get store key >>= fun old_value ->
+        if old_value = value
+        then Lwt.return ()
+        else self # set key value
+      end
       | false -> self # set key value
 
   method set_routing r =
@@ -379,22 +379,22 @@ object(self: #backend)
     let mo = self # _who_master () in
     let result,argumentation =
       match mo with
-	| None -> None,"young cluster"
-	| Some (m,ls) ->
-	  match Node_cfg.get_master cfg with
-	    | Elected | Preferred _ ->
-	      begin
-	      if (m = my_name ) && (ls < instantiation_time)
-	      then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
-	      else
-		let now = Int64.of_float (Unix.time()) in
-		let diff = Int64.sub now ls in
-		if diff < Int64.of_int lease_expiration then
-		  (Some m,"inside lease")
-		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
-	      end
-	    | Forced x -> Some x,"forced master"
-	    | ReadOnly -> Some my_name, "readonly"
+  | None -> None,"young cluster"
+  | Some (m,ls) ->
+    match Node_cfg.get_master cfg with
+      | Elected | Preferred _ ->
+        begin
+        if (m = my_name ) && (ls < instantiation_time)
+        then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
+        else
+    let now = Int64.of_float (Unix.time()) in
+    let diff = Int64.sub now ls in
+    if diff < Int64.of_int lease_expiration then
+      (Some m,"inside lease")
+    else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
+        end
+      | Forced x -> Some x,"forced master"
+      | ReadOnly -> Some my_name, "readonly"
 
     in
     Logger.debug_f_ "who_master: returning %s because %s" 
@@ -420,13 +420,13 @@ object(self: #backend)
     else if n_nodes = 1 then Lwt.return ()
     else
       begin
-	    self # who_master () >>= function
-	    | None ->
-	      Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
-	    | Some m ->
-	      if m <> my_name
-	      then Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
-	      else Lwt.return ()
+      self # who_master () >>= function
+      | None ->
+        Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
+      | Some m ->
+        if m <> my_name
+        then Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
+        else Lwt.return ()
       end
 
   method private _read_allowed (allow_dirty:bool) =
@@ -439,12 +439,12 @@ object(self: #backend)
     let rec loop = function
       | [] -> Lwt.return ()
      (* | [k] ->
-	if Interval.is_ok iv k then Lwt.return ()
-	else Lwt.fail (XException(Arakoon_ex.E_OUTSIDE_INTERVAL, k)) *)
+  if Interval.is_ok iv k then Lwt.return ()
+  else Lwt.fail (XException(Arakoon_ex.E_OUTSIDE_INTERVAL, k)) *)
       | k :: keys ->
-	if Interval.is_ok iv k
-	then loop keys
-	else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+  if Interval.is_ok iv k
+  then loop keys
+  else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
     in
     loop keys
 
@@ -453,9 +453,9 @@ object(self: #backend)
     let check_option = function
       | None -> Lwt.return ()
       | Some k ->
-	if Interval.is_ok iv k
-	then Lwt.return ()
-	else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+  if Interval.is_ok iv k
+  then Lwt.return ()
+  else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
     in
     check_option first >>= fun () ->
     check_option last
@@ -465,8 +465,8 @@ object(self: #backend)
     let cio = S.consensus_i store in
     begin
       match cio with
-	    | None -> ()
-	    | Some ci -> Statistics.witness _stats my_name  ci
+      | None -> ()
+      | Some ci -> Statistics.witness _stats my_name  ci
     end;
     ()
 
@@ -476,19 +476,19 @@ object(self: #backend)
     match S.consensus_i store with
       | None -> Lwt.return false
       | Some i ->
-	let q = quorum_function n_nodes in
-	let count,s = Hashtbl.fold
-	  (fun name ci (count,s) ->
-	    let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
-	    if (expect_reachable ~target:name) &&
-	      (ci = i || (Sn.pred ci) = i )
-	    then  count+1,s'
-	    else  count,s')
-	  ( Statistics.get_witnessed _stats ) (1,"") in
-	let v = count >= q in
-	Logger.debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
-	>>= fun () ->
-	Lwt.return v
+  let q = quorum_function n_nodes in
+  let count,s = Hashtbl.fold
+    (fun name ci (count,s) ->
+      let s' = s ^ Printf.sprintf " (%s,%s) " name (Sn.string_of ci) in
+      if (expect_reachable ~target:name) &&
+        (ci = i || (Sn.pred ci) = i )
+      then  count+1,s'
+      else  count,s')
+    ( Statistics.get_witnessed _stats ) (1,"") in
+  let v = count >= q in
+  Logger.debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
+  >>= fun () ->
+  Lwt.return v
 
   method get_statistics () =
     (* It's here and not in Statistics as we use statistics in the
@@ -500,7 +500,7 @@ object(self: #backend)
       let stat = Gc.quick_stat () in
       let factor = float (Sys.word_size / 8) in
       let allocated = (stat.Gc.minor_words +. stat.Gc.major_words -. stat.Gc.promoted_words)
-	    *. (factor /. 1024.0) in
+      *. (factor /. 1024.0) in
       t.mem_allocated <- allocated;
       t.mem_maxrss <- maxrss;
       t.mem_minor_collections <- stat.Gc.minor_collections;
@@ -526,8 +526,8 @@ object(self: #backend)
         Logger.debug_f_ "collapsing_lock locked: %s"
           (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
         if Lwt_mutex.is_locked collapsing_lock then
-	        let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-	        and msg = "Collapsing already in progress"
+          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+          and msg = "Collapsing already in progress"
           in
           Lwt.fail (XException(rc,msg))
         else

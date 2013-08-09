@@ -29,8 +29,8 @@ let summary store =
   Lwt_io.printlf "i: %s" (Log_extra.option2s Sn.string_of consensus_i) >>= fun () ->
     let s = 
       match mdo with
-	| None -> "None"
-	| Some (m,e) -> Printf.sprintf "Some(%s,%s)" m (Sn.string_of e) 
+  | None -> "None"
+  | Some (m,e) -> Printf.sprintf "Some(%s,%s)" m (Sn.string_of e) 
     in
     Lwt_io.printlf "master: %s" s
   >>= fun () -> 
@@ -48,9 +48,9 @@ let dump_store filename =
 
 let inject_as_head fn node_id cfg_fn = 
   let canonical =
-	if cfg_fn.[0] = '/'
-	then cfg_fn
-	else Filename.concat (Unix.getcwd()) cfg_fn
+  if cfg_fn.[0] = '/'
+  then cfg_fn
+  else Filename.concat (Unix.getcwd()) cfg_fn
   in
   let cluster_cfg = read_config canonical in
   let node_cfgs = List.filter 

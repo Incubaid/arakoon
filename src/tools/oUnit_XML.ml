@@ -48,13 +48,13 @@ let timed_result_fun unit_result = function
   | EResult result -> unit_result.tmp_result <- result
   | EEnd path ->
       let time_diff = Unix.gettimeofday() -. unit_result.tmp_start in
-	unit_result.result_list <- (time_diff , unit_result.tmp_result)::(unit_result.result_list);
-	unit_result.total_time <- unit_result.total_time +. time_diff;
-	match unit_result.tmp_result with
-	  | RSuccess path -> unit_result.total_success <- unit_result.total_success + 1
-	  | RFailure (path, result) -> unit_result.total_failures <- unit_result.total_failures + 1
-	  | RError (path, result) -> unit_result.total_errors <- unit_result.total_errors + 1
-	  | RSkip (path, result) | RTodo (path, result)
+  unit_result.result_list <- (time_diff , unit_result.tmp_result)::(unit_result.result_list);
+  unit_result.total_time <- unit_result.total_time +. time_diff;
+  match unit_result.tmp_result with
+    | RSuccess path -> unit_result.total_success <- unit_result.total_success + 1
+    | RFailure (path, result) -> unit_result.total_failures <- unit_result.total_failures + 1
+    | RError (path, result) -> unit_result.total_errors <- unit_result.total_errors + 1
+    | RSkip (path, result) | RTodo (path, result)
               -> unit_result.total_disabled <- unit_result.total_disabled + 1;;
 
 (* let result = { result_list = [];
@@ -74,23 +74,23 @@ let print_xml unit_result filename =
     let rec string_map2 (f:char -> 'a) (s:string) (n:int) (size:int) (acc:'a list) =
       if n = size then acc
       else
-	let x = f (s.[n]) in
-	string_map2 f s (n+1) size (x::acc)
+  let x = f (s.[n]) in
+  string_map2 f s (n+1) size (x::acc)
     in
     string_map2 f s 0 (String.length s) [] in
 
   let xml_escape s =
     let list = string_map
       (function
-	| '"' -> "&quot;"
-	| '&' -> "&amp;"
-	| '\'' -> "&apos;"
-	| '<' -> "&lt;"
-	| '>' -> "&gt;"
-	| c ->
-	  let i = int_of_char c in
-	  if i < 32 then (Printf.sprintf "&#x%04x;" i)
-	  else (Printf.sprintf "%c" c)
+  | '"' -> "&quot;"
+  | '&' -> "&amp;"
+  | '\'' -> "&apos;"
+  | '<' -> "&lt;"
+  | '>' -> "&gt;"
+  | c ->
+    let i = int_of_char c in
+    if i < 32 then (Printf.sprintf "&#x%04x;" i)
+    else (Printf.sprintf "%c" c)
       ) s in
     String.concat "" (List.rev list) in
 
@@ -126,8 +126,8 @@ let print_xml unit_result filename =
   let xml_print_head result oc =
     let total_tests = result.total_success + result.total_disabled + result.total_errors + result.total_failures in
       Printf.fprintf oc
-	"<testsuite disabled=\"%i\" errors=\"%i\" failures=\"%i\" name=\"unittest.TestSuite\" tests=\"%i\" time=\"%f\">\n"
-	result.total_disabled result.total_errors result.total_failures total_tests result.total_time in
+  "<testsuite disabled=\"%i\" errors=\"%i\" failures=\"%i\" name=\"unittest.TestSuite\" tests=\"%i\" time=\"%f\">\n"
+  result.total_disabled result.total_errors result.total_failures total_tests result.total_time in
 
   let xml_print_tail oc = Printf.fprintf oc "</testsuite>\n" in
 

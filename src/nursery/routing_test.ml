@@ -23,9 +23,9 @@ let test_change1 () =
 
 let test_change2 () = 
   let repr = ["one","d";
-	      "two","k";
-	      "three","t";
-	     ], "four" in
+        "two","k";
+        "three","t";
+       ], "four" in
   let r  = Routing.build repr in
   let r2 = Routing.change r "three" "s" "four" in
   let () = Printf.eprintf "r =%s\n" (Routing.to_s r) in 

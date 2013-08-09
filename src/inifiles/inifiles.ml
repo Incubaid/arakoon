@@ -63,7 +63,7 @@ module Strset = Set.Make(Ordstr)
 let setOfList list =
   let rec dosetOfList list set = 
     match list with
-	a :: tail -> dosetOfList tail (Strset.add a set)
+  a :: tail -> dosetOfList tail (Strset.add a set)
       | []  -> set
   in
     dosetOfList list Strset.empty
@@ -72,30 +72,30 @@ let rec filterfile ?(buf=Buffer.create 500) f fd =
   try
     let theline = input_line fd in
       if f theline then begin
-	Buffer.add_string buf (theline ^ "\n");
-	filterfile ~buf f fd
+  Buffer.add_string buf (theline ^ "\n");
+  filterfile ~buf f fd
       end
       else
-	filterfile ~buf f fd
+  filterfile ~buf f fd
   with End_of_file -> Buffer.contents buf
 
 let rec read_inifile file fd tbl =
   let lxbuf = 
     Lexing.from_string
       (filterfile
-	 (fun line -> not (Str.string_match comment line 0))
-	 fd)
+   (fun line -> not (Str.string_match comment line 0))
+   fd)
   in
     try
       let parsed_file = inifile lexini lxbuf in
-	List.iter
-	  (fun (section, values) ->
-	     Hashtbl.add tbl section
-	       (List.fold_left
-		  (fun tbl (key, value) -> Hashtbl.add tbl key value;tbl)
-		  (Hashtbl.create 10)
-		  values))
-	  parsed_file
+  List.iter
+    (fun (section, values) ->
+       Hashtbl.add tbl section
+         (List.fold_left
+      (fun tbl (key, value) -> Hashtbl.add tbl key value;tbl)
+      (Hashtbl.create 10)
+      values))
+    parsed_file
     with Parsing.Parse_error | Failure "lexing: empty token" ->
       raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, file))
 
@@ -104,9 +104,9 @@ let write_inifile fd tbl =
     (fun k v ->
        output_string fd "[";output_string fd k;output_string fd "]\n";
        (Hashtbl.iter
-	  (fun k v ->
-	     output_string fd k;output_string fd " = ";output_string fd v;
-	     output_string fd "\n") v);
+    (fun k v ->
+       output_string fd k;output_string fd " = ";output_string fd v;
+       output_string fd "\n") v);
        output_string fd "\n")
     tbl
 
@@ -124,41 +124,41 @@ object (self)
 
   method private validate = 
     match spec with
-	[] -> ()
+  [] -> ()
       | spec ->
-	  List.iter
-	    (fun {sec_name=name;sec_required=required;
-		  sec_attributes=attrs} ->
-	       try
-		 let sec = 
-		   try Hashtbl.find data name
-		   with Not_found -> raise (Missing_section name)
-		 in
-		   List.iter
-		     (fun {atr_name=name;atr_required=req;
-			   atr_default=def;atr_validator=validator} ->
-			try
-			  let attr_val = 
-			    try Hashtbl.find sec name
-			    with Not_found -> raise (Missing_element name)
-			  in
-			    (match validator with
-				 Some rex -> 
-				   if not (Str.string_match rex attr_val 0 ) 
-				   then
-				     raise 
-				       (Invalid_element 
-					  (name ^ ": validation failed"))
-			       | None -> ())
-			with Missing_element elt ->
-			  if req then raise (Missing_element elt)
-			  else match def with
-			      Some def -> List.iter (Hashtbl.add sec name) def
-			    | None -> ())
-		     attrs
-	       with Missing_section s -> 
-		 if required then raise (Missing_section s))
-	    spec
+    List.iter
+      (fun {sec_name=name;sec_required=required;
+      sec_attributes=attrs} ->
+         try
+     let sec = 
+       try Hashtbl.find data name
+       with Not_found -> raise (Missing_section name)
+     in
+       List.iter
+         (fun {atr_name=name;atr_required=req;
+         atr_default=def;atr_validator=validator} ->
+      try
+        let attr_val = 
+          try Hashtbl.find sec name
+          with Not_found -> raise (Missing_element name)
+        in
+          (match validator with
+         Some rex -> 
+           if not (Str.string_match rex attr_val 0 ) 
+           then
+             raise 
+               (Invalid_element 
+            (name ^ ": validation failed"))
+             | None -> ())
+      with Missing_element elt ->
+        if req then raise (Missing_element elt)
+        else match def with
+            Some def -> List.iter (Hashtbl.add sec name) def
+          | None -> ())
+         attrs
+         with Missing_section s -> 
+     if required then raise (Missing_section s))
+      spec
 
   method getval sec elt =
     try Hashtbl.find 
@@ -177,9 +177,9 @@ object (self)
   method setval sec elt v =
     (Hashtbl.add 
        (try Hashtbl.find data sec
-	with Not_found ->
-	  let h = Hashtbl.create 10 in
-	    Hashtbl.add data sec h;h)
+  with Not_found ->
+    let h = Hashtbl.create 10 in
+      Hashtbl.add data sec h;h)
        elt v);
     try self#validate
     with exn -> Hashtbl.remove data elt;raise exn
@@ -187,27 +187,27 @@ object (self)
   method delval sec elt =
     let valu = 
       try
-	Some
-	  (Hashtbl.find
-	     (try Hashtbl.find data sec
-	      with Not_found -> raise (Invalid_section sec))
-	     elt)
+  Some
+    (Hashtbl.find
+       (try Hashtbl.find data sec
+        with Not_found -> raise (Invalid_section sec))
+       elt)
       with Not_found -> None
     in
       match valu with
-	  Some v ->
-	    ((Hashtbl.remove
-	       (try Hashtbl.find data sec
-		with Not_found -> raise (Invalid_section sec))
-	       elt);
-	     try self#validate
-	     with exn -> 
-	       (Hashtbl.add
-		  (try Hashtbl.find data sec
-		   with Not_found -> raise (Invalid_section sec))
-		 elt v);
-	       raise exn)
-	| None -> ()
+    Some v ->
+      ((Hashtbl.remove
+         (try Hashtbl.find data sec
+    with Not_found -> raise (Invalid_section sec))
+         elt);
+       try self#validate
+       with exn -> 
+         (Hashtbl.add
+      (try Hashtbl.find data sec
+       with Not_found -> raise (Invalid_section sec))
+     elt v);
+         raise exn)
+  | None -> ()
 
 
   method sects =
@@ -218,16 +218,16 @@ object (self)
   method iter func sec =
     (Hashtbl.iter func 
        (try Hashtbl.find data sec
-	with Not_found -> raise (Invalid_section sec)))
+  with Not_found -> raise (Invalid_section sec)))
 
   method attrs sec =    
     (Strset.elements
        (setOfList
-	  (Hashtbl.fold
-	     (fun k v attrs -> k :: attrs)
-	     (try Hashtbl.find data sec
-	      with Not_found -> raise (Invalid_section sec))
-	     [])))
+    (Hashtbl.fold
+       (fun k v attrs -> k :: attrs)
+       (try Hashtbl.find data sec
+        with Not_found -> raise (Invalid_section sec))
+       [])))
 
   method save ?(file = file) () = 
     let outch = open_out file in      
@@ -240,7 +240,7 @@ let readdir path =
   let rec do_read dir =
     try
       let current = Unix.readdir dir in
-	current :: (do_read dir)
+  current :: (do_read dir)
     with End_of_file -> []
   in
   let lst = do_read dir in
@@ -252,19 +252,19 @@ let fold ?(spec=[]) func path initial =
     match 
       (path, 
        (try (Unix.stat path).Unix.st_kind 
-	with Unix.Unix_error (_,_,_) -> Unix.S_DIR)) 
+  with Unix.Unix_error (_,_,_) -> Unix.S_DIR)) 
     with
-	(name, Unix.S_REG) when 
-	    (Str.string_match (Str.regexp "^.*\\.ini$") path 0) -> true
+  (name, Unix.S_REG) when 
+      (Str.string_match (Str.regexp "^.*\\.ini$") path 0) -> true
       | _ -> false
   in
     (List.fold_left
        func
        initial
        (List.rev_map
-	      (new inifile ~spec)
-	      (List.filter
-	         check_file
-	         (List.rev_map
-		        (fun p -> (path ^ "/" ^ p))
-		        (readdir path)))))
+        (new inifile ~spec)
+        (List.filter
+           check_file
+           (List.rev_map
+            (fun p -> (path ^ "/" ^ p))
+            (readdir path)))))

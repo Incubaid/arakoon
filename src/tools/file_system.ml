@@ -33,11 +33,11 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
       Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
       if bytes_read > 0 
       then 
-	begin
-	  Lwt_io.write oc buffer >>= fun () -> loop ()
-	end
+  begin
+    Lwt_io.write oc buffer >>= fun () -> loop ()
+  end
       else
-	Lwt.return ()    
+  Lwt.return ()    
     in
     loop () >>= fun () ->
     Logger.debug_ "done: copy_file" 
@@ -45,7 +45,7 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
       Lwt_io.with_file ~mode:Lwt_io.output target 
-	(fun oc ->copy_all ic oc)
+  (fun oc ->copy_all ic oc)
     )
 
 let lwt_directory_list dn =

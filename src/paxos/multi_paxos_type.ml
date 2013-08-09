@@ -45,24 +45,24 @@ type transitions =
   | Slave_waiting_for_prepare of (n * i)
   | Slave_steady_state of (n * i * Value.t )
   | Slave_wait_for_accept of (n * i * 
-				Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
+        Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
   | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * 
-					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
+          Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
   | Promises_check_done of (n * i * 
-			      Messaging.id list * 
-			      v_limits * 
-			      (string * Mp_msg.MPMessage.n) option *
+            Messaging.id list * 
+            v_limits * 
+            (string * Mp_msg.MPMessage.n) option *
                               slave_awaiters)
   | Wait_for_promises of (n * i * Messaging.id list * 
-			    v_limits * 
-			    (string * Mp_msg.MPMessage.n) option *
+          v_limits * 
+          (string * Mp_msg.MPMessage.n) option *
                             slave_awaiters)
   | Accepteds_check_done of (master_option * n * i * 
-			       (int * Messaging.id list) * Value.t *
+             (int * Messaging.id list) * Value.t *
                                slave_awaiters)
   | Wait_for_accepteds of (master_option * n * i * 
-			     (int * Messaging.id list) * Value.t *
+           (int * Messaging.id list) * Value.t *
                              slave_awaiters)
 
   (* active master only *)

@@ -92,63 +92,63 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
   match event with 
     | FromNode(msg,source) ->
       begin
-	Logger.debug_f_ "%s: slave_waiting_for_prepare: %S" constants.me (MPMessage.string_of msg) 
-	>>= fun () ->
-	match msg with
-	  | Prepare(n',i') ->
-	    begin
+  Logger.debug_f_ "%s: slave_waiting_for_prepare: %S" constants.me (MPMessage.string_of msg) 
+  >>= fun () ->
+  match msg with
+    | Prepare(n',i') ->
+      begin
           handle_prepare constants source current_n n' i' >>= function
-		    | Nak_sent
-		    | Prepare_dropped ->
-		        Fsm.return ( Slave_waiting_for_prepare(current_i, current_n ) )
-		    | Promise_sent_up2date ->
+        | Nak_sent
+        | Prepare_dropped ->
+            Fsm.return ( Slave_waiting_for_prepare(current_i, current_n ) )
+        | Promise_sent_up2date ->
                 begin
-		          let last = constants.tlog_coll # get_last () in
-		          Fsm.return (Slave_wait_for_accept (n', current_i, None, last))
+              let last = constants.tlog_coll # get_last () in
+              Fsm.return (Slave_wait_for_accept (n', current_i, None, last))
                 end
-		    | Promise_sent_needs_catchup ->
-		        let i = S.get_catchup_start_i constants.store in
-		        let state = (source, i, n',i') in 
-		        Fsm.return (Slave_discovered_other_master state)
-	    end
-	  | Nak(n',(n2, i2)) when n' = -1L ->
-	      begin
-	        Logger.debug_f_ "%s: fake prepare response: discovered master" constants.me >>= fun () ->
+        | Promise_sent_needs_catchup ->
+            let i = S.get_catchup_start_i constants.store in
+            let state = (source, i, n',i') in 
+            Fsm.return (Slave_discovered_other_master state)
+      end
+    | Nak(n',(n2, i2)) when n' = -1L ->
+        begin
+          Logger.debug_f_ "%s: fake prepare response: discovered master" constants.me >>= fun () ->
             let cu_pred = S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-	      end
-	  | Nak(n',(n2, i2)) when i2 > current_i ->
-	      begin
-	        Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
+        end
+    | Nak(n',(n2, i2)) when i2 > current_i ->
+        begin
+          Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
             let cu_pred =  S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-	      end
-	  | Nak(n',(n2, i2)) when i2 = current_i ->
-	      begin
-	        Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
+        end
+    | Nak(n',(n2, i2)) when i2 = current_i ->
+        begin
+          Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
           (* pick in @ steady state *)
-	        let p = constants.get_value i2 in
-	        match p with
+          let p = constants.get_value i2 in
+          match p with
               | None ->
                   begin
-	                Fsm.return (Slave_waiting_for_prepare (i2,current_n) )
+                  Fsm.return (Slave_waiting_for_prepare (i2,current_n) )
                   end
               | Some v ->
                   begin
                     Logger.debug_f_ "%s: reentering steady state @(%s,%s)" constants.me 
-		              (Sn.string_of n2) (Sn.string_of i2) 
+                  (Sn.string_of n2) (Sn.string_of i2) 
                     >>= fun () ->
                     start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
                     Fsm.return (Slave_steady_state (n2, i2, v))
-	              end
-	      end
+                end
+        end
       | Accept(n', i', v) when current_n = n' && i' > current_i ->
           begin
             let cu_pred = S.get_catchup_start_i constants.store in
             Fsm.return (Slave_discovered_other_master (source, cu_pred, n', i'))
           end
-	  | _ -> Logger.debug_f_ "%s: dropping unexpected %s" constants.me (string_of msg) >>= fun () ->
-	      Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
+    | _ -> Logger.debug_f_ "%s: dropping unexpected %s" constants.me (string_of msg) >>= fun () ->
+        Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
       end
     | ElectionTimeout (n', i') ->
       if n' = current_n && i' = current_i
@@ -256,7 +256,7 @@ let wait_for_promises (type s) constants state event =
               Some bv
         end
         in
-	    let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
+      let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
 
         let log_e0 = 
           ELog(fun () ->
@@ -297,45 +297,45 @@ let wait_for_promises (type s) constants state event =
                   let new_ilim = match i_lim with
                     | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
                     | None -> Some (source,new_i)
-		          in
+              in
                   let state' = (n, i, who_voted', v_lims', new_ilim, lease_expire_waiters) in
                   Fsm.return (Promises_check_done state')
             | Promise (n' ,i', limit) -> (* n ' > n *)
                 begin
-		          Logger.debug_f_ "%s: Received Promise from previous incarnation. Bumping n from %s over %s." me 
+              Logger.debug_f_ "%s: Received Promise from previous incarnation. Bumping n from %s over %s." me 
                     (Sn.string_of n) (Sn.string_of n') 
-		          >>= fun () ->
-		          let new_n = update_n constants n' in
-		          Fsm.return (Election_suggest (new_n,i, wanted))
+              >>= fun () ->
+              let new_n = update_n constants n' in
+              Fsm.return (Election_suggest (new_n,i, wanted))
                 end
             | Nak (n',(n'',i')) when n' < n ->
                 begin
-		          Logger.debug_f_ "%s: wait_for_promises:: received old %S (ignoring)" me (string_of msg) 
-		          >>= fun () ->
-		          Fsm.return (Wait_for_promises state)
+              Logger.debug_f_ "%s: wait_for_promises:: received old %S (ignoring)" me (string_of msg) 
+              >>= fun () ->
+              Fsm.return (Wait_for_promises state)
                 end
             | Nak (n',(n'',i')) when n' > n ->
                 begin
-		          Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me 
+              Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me 
                     (Sn.string_of n) (Sn.string_of n') 
-		          >>= fun () ->
-		          let new_n = update_n constants n' in
-		          Fsm.return (Election_suggest (new_n,i, wanted))
+              >>= fun () ->
+              let new_n = update_n constants n' in
+              Fsm.return (Election_suggest (new_n,i, wanted))
                 end
             | Nak (n',(n'',i')) -> (* n' = n *)
                 begin
-		          Logger.debug_f_ "%s: wait_for_promises:: received %S for my Prep(i=%s, _) " me 
+              Logger.debug_f_ "%s: wait_for_promises:: received %S for my Prep(i=%s, _) " me 
                     (string_of msg) 
                     (Sn.string_of i)
-		          >>= fun () ->
-		          if am_forced_master constants me
-		          then
-		            begin
+              >>= fun () ->
+              if am_forced_master constants me
+              then
+                begin
                       Logger.debug_f_ "%s: wait_for_promises; forcing new master suggest" me >>= fun () ->
                       let n3 = update_n constants (max n n'') in
                       Fsm.return (Forced_master_suggest (n3,i))
-		            end
-		          else 
+                end
+              else 
                     (* if is_election constants 
                        then *)
                     begin
@@ -346,8 +346,8 @@ let wait_for_promises (type s) constants state event =
                         let cu_pred = S.get_catchup_start_i constants.store in
                         Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
                       else
-			            let new_n = update_n constants (max n n'') in
-			            Fsm.return (Election_suggest (new_n,i, wanted))
+                  let new_n = update_n constants (max n n'') in
+                  Fsm.return (Election_suggest (new_n,i, wanted))
                     end
                  (* else (* forced_slave *) (* this state is impossible?! *)
                     begin
@@ -358,15 +358,15 @@ let wait_for_promises (type s) constants state event =
             | Prepare (n',i') ->
               begin
                 if (am_forced_master constants me) && n' > 0L
-	              then
-		              begin
-		                Logger.debug_f_ "%s: wait_for_promises:dueling; forcing new master suggest" me >>= fun () ->
-		                let reply = Nak (n', (n,i))  in
-				        constants.send reply me source >>= fun () ->
-				        let new_n = update_n constants n' in
-				        Fsm.return (Forced_master_suggest (new_n, i))
-				      end
-		        else
+                then
+                  begin
+                    Logger.debug_f_ "%s: wait_for_promises:dueling; forcing new master suggest" me >>= fun () ->
+                    let reply = Nak (n', (n,i))  in
+                constants.send reply me source >>= fun () ->
+                let new_n = update_n constants n' in
+                Fsm.return (Forced_master_suggest (new_n, i))
+              end
+            else
                   
                   handle_prepare constants source n n' i' >>= function
                     | Nak_sent ->
@@ -377,13 +377,13 @@ let wait_for_promises (type s) constants state event =
                     | Prepare_dropped -> 
                       Fsm.return (Wait_for_promises state)
                     | Promise_sent_up2date ->
-		                begin
+                    begin
                           let last = constants.tlog_coll # get_last () in
-			              Fsm.return (Slave_wait_for_accept (n', i, None, last))
-		                end
-		            | Promise_sent_needs_catchup ->
-		              let i = S.get_catchup_start_i constants.store in
-		              Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                    Fsm.return (Slave_wait_for_accept (n', i, None, last))
+                    end
+                | Promise_sent_needs_catchup ->
+                  let i = S.get_catchup_start_i constants.store in
+                  Fsm.return (Slave_discovered_other_master (source, i, n', i'))
               end
             | Accept (n',_i,_v) when n' < n ->
                 begin
@@ -392,35 +392,35 @@ let wait_for_promises (type s) constants state event =
                     begin
                       Logger.debug_f_ "%s: wait_for_promises: still have an active master (received %s) -> catching up from master" me  (string_of msg) >>= fun () ->
                       Fsm.return (Slave_discovered_other_master (source, i, n', _i))
-		            end
+                end
                 else
-		            Logger.debug_f_ "%s: wait_for_promises: ignoring old Accept %s" me (Sn.string_of n') 
-		             >>= fun () ->
-		          Fsm.return (Wait_for_promises state)
+                Logger.debug_f_ "%s: wait_for_promises: ignoring old Accept %s" me (Sn.string_of n') 
+                 >>= fun () ->
+              Fsm.return (Wait_for_promises state)
               end
             | Accept (n',_i,_v) ->
               if n' = n && _i < i 
               then
-		        begin
+            begin
                   Logger.debug_f_ "%s: wait_for_promises: ignoring %s (my i is %s)" me (string_of msg) (Sn.string_of i) >>= fun () ->
                   Fsm.return (Wait_for_promises state)
-		        end
+            end
               else
-		        begin
+            begin
                   Logger.debug_f_ "%s: wait_for_promises: received %S -> back to fake prepare" me  (string_of msg) >>= fun () ->
                   Fsm.return (Slave_fake_prepare (i,n))
-		        end
+            end
             | Accepted (n',_i) when n' < n ->
               begin
-		        Logger.debug_f_ "%s: wait_for_promises: ignoring old Accepted %s" me (Sn.string_of n') >>= fun () ->
-		        Fsm.return (Wait_for_promises state)
+            Logger.debug_f_ "%s: wait_for_promises: ignoring old Accepted %s" me (Sn.string_of n') >>= fun () ->
+            Fsm.return (Wait_for_promises state)
               end
             | Accepted (n',_i) -> (* n' >= n *)
               begin 
-		        Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me (Sn.string_of n) (Sn.string_of n') 
-		        >>= fun () ->
-		        let new_n = update_n constants n' in
-		        Fsm.return (Election_suggest (new_n,i, wanted))
+            Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me (Sn.string_of n) (Sn.string_of n') 
+            >>= fun () ->
+            let new_n = update_n constants n' in
+            Fsm.return (Election_suggest (new_n,i, wanted))
               end
         end
       end
@@ -438,15 +438,15 @@ let wait_for_promises (type s) constants state event =
         in
       if n' = n && i' = i && not ( S.quiesced constants.store )
       then
-	    begin
-          Logger.debug_f_ "%s: wait_for_promises: election timeout, restart from scratch" me	  
-	      >>= fun () ->
-	      Fsm.return (Election_suggest (n,i, wanted))
-	    end
+      begin
+          Logger.debug_f_ "%s: wait_for_promises: election timeout, restart from scratch" me    
+        >>= fun () ->
+        Fsm.return (Election_suggest (n,i, wanted))
+      end
       else
-	    begin
-	      Fsm.return (Wait_for_promises state)
-	    end
+      begin
+        Fsm.return (Wait_for_promises state)
+      end
     | LeaseExpired _ ->
         Logger.debug_f_ "%s: Ignoring lease expiration" me >>= fun () ->
         Fsm.return (Wait_for_promises state)
@@ -470,14 +470,14 @@ let wait_for_promises (type s) constants state event =
    enough, consensus is reached and he becomes a full master *)
 let lost_master_role finished_funs =
   begin
-	let msg = "lost master role during wait_for_accepteds while handling client request" in
-	let rc = Arakoon_exc.E_NOT_MASTER in
-	let result = Store.Update_fail (rc, msg) in
+  let msg = "lost master role during wait_for_accepteds while handling client request" in
+  let rc = Arakoon_exc.E_NOT_MASTER in
+  let result = Store.Update_fail (rc, msg) in
     let rec loop = function
       | [] -> Lwt.return ()
       | f::ffs -> f result >>= fun () -> loop ffs
     in
-	loop finished_funs
+  loop finished_funs
   end
 
 let accepteds_check_done constants state () =
@@ -489,7 +489,7 @@ let accepteds_check_done constants state () =
       let log_e = 
         ELog (fun () ->
           Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
-	        (Sn.string_of n) ( Sn.string_of i )
+          (Sn.string_of n) ( Sn.string_of i )
         )
       in
       let sides = [log_e] in
@@ -508,69 +508,69 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
       begin
         (* TODO: what happens with the client request
            when I fall back to a state without mo ? *)
-	    let (mo,n,i,ballot,v, lease_expire_waiters) = state in
-	    let drop msg reason =
+      let (mo,n,i,ballot,v, lease_expire_waiters) = state in
+      let drop msg reason =
           let log_e = ELog 
             (fun () ->
-	          Printf.sprintf "dropping %s because : '%s'" (MPMessage.string_of msg) reason
+            Printf.sprintf "dropping %s because : '%s'" (MPMessage.string_of msg) reason
             )
-          in	      
-	      Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
-	    in
-	    let needed, already_voted = ballot in
-	    Logger.debug_f_ "%s: wait_for_accepteds(%i to go) got %S from %s" me needed 
-	      (MPMessage.string_of msg) source >>= fun () ->
+          in        
+        Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
+      in
+      let needed, already_voted = ballot in
+      Logger.debug_f_ "%s: wait_for_accepteds(%i to go) got %S from %s" me needed 
+        (MPMessage.string_of msg) source >>= fun () ->
         begin
-	      match msg with
-	        | Accepted (n',i') when (n',i')=(n,i)  ->
-	            begin
-	              let () = constants.on_witness source i' in 
-	              if List.mem source already_voted then
-		            let reason = Printf.sprintf "%s already voted" source in
-		            drop msg reason
-	              else
-		            let ballot' = needed -1, source :: already_voted in
-		            Fsm.return (Accepteds_check_done (mo,n,i,ballot',v, lease_expire_waiters))
-	            end
-	        | Accepted (n',i') when n' = n && i' < i ->
-	            begin
-	              let () = constants.on_witness source i' in
-	              Logger.debug_f_ "%s: wait_for_accepteds: received older Accepted for my n: ignoring" me 
-	              >>= fun () ->
-	              Fsm.return (Wait_for_accepteds state)
-	            end
-	        | Accepted (n',i') when n' < n ->
-	            begin
-	              let () = constants.on_witness source i' in
-	              let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
-		            (Sn.string_of n) (Sn.string_of i) in
-	              drop msg reason
-	            end
-	        | Accepted (n',i') -> (* n' > n *)
-	            paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
-	              
-	        | Promise(n',i', limit) ->
-	            begin
-	              let () = constants.on_witness source i' in
-	              if n' <= n then
+        match msg with
+          | Accepted (n',i') when (n',i')=(n,i)  ->
+              begin
+                let () = constants.on_witness source i' in 
+                if List.mem source already_voted then
+                let reason = Printf.sprintf "%s already voted" source in
+                drop msg reason
+                else
+                let ballot' = needed -1, source :: already_voted in
+                Fsm.return (Accepteds_check_done (mo,n,i,ballot',v, lease_expire_waiters))
+              end
+          | Accepted (n',i') when n' = n && i' < i ->
+              begin
+                let () = constants.on_witness source i' in
+                Logger.debug_f_ "%s: wait_for_accepteds: received older Accepted for my n: ignoring" me 
+                >>= fun () ->
+                Fsm.return (Wait_for_accepteds state)
+              end
+          | Accepted (n',i') when n' < n ->
+              begin
+                let () = constants.on_witness source i' in
+                let reason = Printf.sprintf "dropping old %S we're @ (%s,%s)" (string_of msg)
+                (Sn.string_of n) (Sn.string_of i) in
+                drop msg reason
+              end
+          | Accepted (n',i') -> (* n' > n *)
+              paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
+                
+          | Promise(n',i', limit) ->
+              begin
+                let () = constants.on_witness source i' in
+                if n' <= n then
                     begin
-			          let reason = Printf.sprintf
-				        "already reached consensus on (%s,%s)" 
-				        (Sn.string_of n) (Sn.string_of i) 
-			          in
-			          drop msg reason
-			        end
-	              else
-		            begin
-		              let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
-			            (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
-			          drop msg reason
-			        end
-	            end
-	        | Prepare (n',i') -> (* n' > n *)
-	            begin
-	              if am_forced_master constants me
-	              then
+                let reason = Printf.sprintf
+                "already reached consensus on (%s,%s)" 
+                (Sn.string_of n) (Sn.string_of i) 
+                in
+                drop msg reason
+              end
+                else
+                begin
+                  let reason = Printf.sprintf "future Promise(%s,%s), local (%s,%s)"
+                  (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i) in
+                drop msg reason
+              end
+              end
+          | Prepare (n',i') -> (* n' > n *)
+              begin
+                if am_forced_master constants me
+                then
                     if n' <= n
                     then
                       let reply = Nak( n', (n,i) ) in
@@ -584,7 +584,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                         Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                         Fsm.return (Forced_master_suggest (n',i))
                       end
-	              else 
+                else 
                     begin
                       handle_prepare constants source n n' i' >>= 
                         function
@@ -596,7 +596,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                                 let last = constants.tlog_coll # get_last () in
                                 lost_master_role mo >>= fun () ->
                                 Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-				Fsm.return
+        Fsm.return
                                   (Slave_wait_for_accept (n', i, None, last))
                               end
                           | Promise_sent_needs_catchup ->
@@ -608,29 +608,29 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                               end
                     end
                 end 
-	        | Nak (n',i) ->
-	            begin
-	              Logger.debug_f_ "%s: wait_for_accepted: ignoring %S from %s when collecting accepteds" me 
+          | Nak (n',i) ->
+              begin
+                Logger.debug_f_ "%s: wait_for_accepted: ignoring %S from %s when collecting accepteds" me 
                     (MPMessage.string_of msg) source >>= fun () ->
-	              Fsm.return (Wait_for_accepteds state)
-	            end
-	        | Accept (n',_i,_v) when n' < n ->
-	            begin
-	              Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-	              Fsm.return (Wait_for_accepteds state)
-	            end
-	        | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
-	            begin
-	              Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
-	              Fsm.return (Wait_for_accepteds state)
-	            end
-	        | Accept (n',i',v') when i' <= i -> (* n' = n *)
+                Fsm.return (Wait_for_accepteds state)
+              end
+          | Accept (n',_i,_v) when n' < n ->
+              begin
+                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+                Fsm.return (Wait_for_accepteds state)
+              end
+          | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
+              begin
+                Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
+                Fsm.return (Wait_for_accepteds state)
+              end
+          | Accept (n',i',v') when i' <= i -> (* n' = n *)
                 begin
                   Logger.debug_f_ "%s: wait_for_accepteds: dropping accept with n = %s and i = %s" me 
                     (Sn.string_of n) (Sn.string_of i') >>= fun () ->
                   Fsm.return (Wait_for_accepteds state)
                 end
-	        | Accept (n',i',v') (* n' >= n && i' > i *)->
+          | Accept (n',i',v') (* n' >= n && i' > i *)->
               (* check lease, if we're inside, drop (how could this have happened?) 
                  otherwise, we've lost master role
               *)
@@ -822,7 +822,7 @@ let rec paxos_produce buffers
       | Node_and_inject -> "Node_and_inject", [ready_from_inject();ready_from_node ();]
       | Node_and_timeout -> "Node_and_timeout", [ready_from_election_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
-	      "Node_and_inject_and_timeout", [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
+        "Node_and_inject_and_timeout", [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
       | Nop -> "Nop", failwith "Nop should not happen here"
   in
   Lwt.catch 
@@ -847,32 +847,32 @@ let rec paxos_produce buffers
         let best = List.fold_left f None r_list in
         match best with
           | Some Inject_ready ->
-	          begin
-	            Logger.debug_f_ "%s: taking from inject" me >>= fun () ->
-	            Lwt_buffer.take buffers.inject_buffer
-	          end
-	      | Some Client_ready ->
-	          begin
-	            Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
+            begin
+              Logger.debug_f_ "%s: taking from inject" me >>= fun () ->
+              Lwt_buffer.take buffers.inject_buffer
+            end
+        | Some Client_ready ->
+            begin
+              Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
                 let event = FromClient reqs in
-	            Lwt.return event
-	          end
-	      | Some Node_ready ->
-	          begin
-	            Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
-	            let msg2 = MPMessage.of_generic msg in
+              Lwt.return event
+            end
+        | Some Node_ready ->
+            begin
+              Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
+              let msg2 = MPMessage.of_generic msg in
                 let t = Unix.gettimeofday () in
                 Logger.debug_f_ "%s: %f SEQ: %s => %s : %s" me t source me (Mp_msg.MPMessage.string_of msg2)
                 >>= fun () ->
-	            Lwt.return (FromNode (msg2,source))
-	          end
-	      | Some Election_timeout_ready ->
-	          begin
-	            Logger.debug_f_ "%s: taking from timeout" me >>= fun () ->
-	            Lwt_buffer.take buffers.election_timeout_buffer 
-	          end
+              Lwt.return (FromNode (msg2,source))
+            end
+        | Some Election_timeout_ready ->
+            begin
+              Logger.debug_f_ "%s: taking from timeout" me >>= fun () ->
+              Lwt_buffer.take buffers.election_timeout_buffer 
+            end
           | None -> 
-	          Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
+            Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
       in get_highest_prio_evt ( [ ready_list ] ) 
     ) 
     (fun e -> Logger.debug_f_ "%s: ZYX %s" me (Printexc.to_string e) >>= fun () -> Lwt.fail e)
@@ -930,7 +930,7 @@ let enter_forced_slave constants buffers new_i vo=
       Fsm.loop ~trace 
         (_execute_effects constants)
         produce 
-	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
+  (machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
     ) 
     (fun exn ->
       Logger.warning_ ~exn "FSM BAILED due to uncaught exception" 
@@ -948,8 +948,8 @@ let enter_forced_master constants buffers current_i vo =
       Fsm.loop ~trace 
         (_execute_effects constants)
         produce 
-	    (machine constants) 
-	    (forced_master_suggest constants (current_n,current_i))
+      (machine constants) 
+      (forced_master_suggest constants (current_n,current_i))
     ) 
     (fun e ->
       Logger.debug_f_ "%s: FSM BAILED due to uncaught exception %s" me (Printexc.to_string e)
@@ -967,12 +967,12 @@ let enter_simple_paxos constants buffers current_i vo =
       Fsm.loop ~trace 
         (_execute_effects constants)
         produce 
-	(machine constants) 
-	(election_suggest constants (current_n, current_i, vo))
+  (machine constants) 
+  (election_suggest constants (current_n, current_i, vo))
     ) 
     (fun e ->
       Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me 
-	(Printexc.to_string e) 
+  (Printexc.to_string e) 
       >>= fun () -> Lwt.fail e
     )
 
@@ -987,8 +987,8 @@ let enter_read_only constants buffers current_i vo =
       Fsm.loop ~trace 
         (_execute_effects constants)
         produce
-	    (machine constants)
-	    (read_only constants (current_n, current_i, vo))
+      (machine constants)
+      (read_only constants (current_n, current_i, vo))
     )
     (fun exn ->
       Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
@@ -1003,7 +1003,7 @@ let expect_run_forced_slave constants buffers expected step_count new_i =
       Fsm.expect_loop 
         (_execute_effects constants)
         expected step_count Start_transition produce 
-	(machine constants) (Slave.slave_fake_prepare constants new_i)
+  (machine constants) (Slave.slave_fake_prepare constants new_i)
     ) 
     (fun e ->
       Logger.debug_f_ "%s: FSM BAILED due to uncaught exception %s" constants.me (Printexc.to_string e) 
@@ -1018,8 +1018,8 @@ let expect_run_forced_master constants buffers expected step_count current_n cur
         Fsm.expect_loop 
           (_execute_effects constants)
           expected step_count Start_transition produce 
-	    (machine constants) 
-	    (forced_master_suggest constants (current_n,current_i))
+      (machine constants) 
+      (forced_master_suggest constants (current_n,current_i))
     ) 
     (fun e ->
       Logger.debug_f_ "%s: FSM BAILED due to uncaught exception %s" constants.me (Printexc.to_string e)

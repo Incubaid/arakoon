@@ -94,8 +94,8 @@ object(self : # messaging )
       | None -> false
       | Some rr -> RR.fold (fun acc a -> acc || Hashtbl.mem _connections a) false rr
 
-	
-	
+  
+  
   method private __die__ () = 
     Logger.debug_f_ "tcp_messaging %s: cancelling my threads" me >>= fun () ->
     List.iter (fun w -> Lwt.cancel w) _my_threads;
@@ -112,7 +112,7 @@ object(self : # messaging )
       Lwt.ignore_result (loop ());
       let () = Hashtbl.add _outgoing target fresh in
       fresh
-	
+  
   method send_message m ~source ~target =
     let tq = self # _get_send_q ~target in
     Lwt_buffer.add (source, target, m) tq 
@@ -123,11 +123,11 @@ object(self : # messaging )
     try Hashtbl.find _qs target
     with | Not_found ->
       begin
-	let tq = 
-	  let capacity = Some 1000
-	  and leaky = true in 
-	  Lwt_buffer.create ~capacity ~leaky () in
-	let () = Hashtbl.add _qs target tq in
+  let tq = 
+    let capacity = Some 1000
+    and leaky = true in 
+    Lwt_buffer.create ~capacity ~leaky () in
+  let () = Hashtbl.add _qs target tq in
         tq
       end
 
@@ -143,7 +143,7 @@ object(self : # messaging )
     >>= fun () ->
     Lwt.pick[ 
       Lwt_unix.timeout timeout;
-	  __open_connection socket_address
+    __open_connection socket_address
     ] 
     >>= fun (ic,oc) ->    
     Llio.output_int64 oc _MAGIC >>= fun () ->
@@ -170,72 +170,72 @@ object(self : # messaging )
       Lwt_buffer.take target_q >>= fun (source, target, msg) ->
       let rr_o = self # _get_target_addresses ~target in
       begin
-	match rr_o with
-	  | Some (addresses:RR.t) ->
+  match rr_o with
+    | Some (addresses:RR.t) ->
             let address = RR.current addresses in
-	    let drop exn reason =
-	      Logger.log ~exn section Logger.Debug reason >>= fun () ->
-	      self # _drop_connection address
-	    in
-	    let try_send () =
-	      self # _get_connection addresses >>= fun connection ->
-	      let ic,oc = connection in
-	      let pickled = self # _pickle source target msg in
-	      Llio.output_string oc pickled >>= fun () ->
-	      Lwt_io.flush oc
-	    in
-	    Lwt.catch
-	      (fun () -> try_send ())
-	      (fun exn ->
+      let drop exn reason =
+        Logger.log ~exn section Logger.Debug reason >>= fun () ->
+        self # _drop_connection address
+      in
+      let try_send () =
+        self # _get_connection addresses >>= fun connection ->
+        let ic,oc = connection in
+        let pickled = self # _pickle source target msg in
+        Llio.output_string oc pickled >>= fun () ->
+        Lwt_io.flush oc
+      in
+      Lwt.catch
+        (fun () -> try_send ())
+        (fun exn ->
             let () = RR.rotate addresses in
             match exn with
-		      | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
-		          begin
-		            Logger.debug_ "stale connection" >>= fun () ->
-		            self # _drop_connection address >>= fun () ->
-		            Lwt.catch
-		              (fun () -> try_send ())
-		              (fun exn -> Logger.debug_f_ ~exn "dropped message for %s" target)
-		          end
+          | Unix.Unix_error(Unix.EPIPE,_,_) -> (* stale connection *)
+              begin
+                Logger.debug_ "stale connection" >>= fun () ->
+                self # _drop_connection address >>= fun () ->
+                Lwt.catch
+                  (fun () -> try_send ())
+                  (fun exn -> Logger.debug_f_ ~exn "dropped message for %s" target)
+              end
               | Lwt.Canceled -> Lwt.fail Lwt.Canceled
-		      | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
-		          begin 
-		            let reason = 
-		              Printf.sprintf "machine with %s up, server down => dropping %s"
-			            target (Message.string_of msg ) 
-		            in 
-		            drop exn reason >>= fun () ->
-		            Lwt_unix.sleep 1.0 (* not to hammer machine *)
-		          end
-		      | Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
-		          begin
-		            let reason = 
-		              Printf.sprintf "machine with %s unreachable => dropping %s"
-			            target (Message.string_of msg) 
-		            in
-		            drop exn reason >>= fun () ->
-		            Lwt_unix.sleep 2.0
-		          end
-		      | Lwt_unix.Timeout as exn ->
-		          begin
-		            let reason =
-		              Printf.sprintf "machine with %s (probably) down => dropping %s"
-			            target (Message.string_of msg) 
-		            in
-		            drop exn reason >>= fun () ->
-		            Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
-		          end
-		      | exn -> 
-		          begin
-		            let reason = 
-		              Printf.sprintf "dropping message %s with destination '%s' because of"
-			            (Message.string_of msg) target 
-		            in
-		            drop exn reason
-		          end
-	      )
-	  | None -> (* we don't talk to strangers *)
-	      Logger.warning_f_ "we don't send messages to %s (we don't know her)" target
+          | Unix.Unix_error(Unix.ECONNREFUSED,_,_) as exn -> 
+              begin 
+                let reason = 
+                  Printf.sprintf "machine with %s up, server down => dropping %s"
+                  target (Message.string_of msg ) 
+                in 
+                drop exn reason >>= fun () ->
+                Lwt_unix.sleep 1.0 (* not to hammer machine *)
+              end
+          | Unix.Unix_error(Unix.EHOSTUNREACH,_,_) as exn ->
+              begin
+                let reason = 
+                  Printf.sprintf "machine with %s unreachable => dropping %s"
+                  target (Message.string_of msg) 
+                in
+                drop exn reason >>= fun () ->
+                Lwt_unix.sleep 2.0
+              end
+          | Lwt_unix.Timeout as exn ->
+              begin
+                let reason =
+                  Printf.sprintf "machine with %s (probably) down => dropping %s"
+                  target (Message.string_of msg) 
+                in
+                drop exn reason >>= fun () ->
+                Lwt_unix.sleep 2.0 (* takes at least 2.0s to get up ;) *)
+              end
+          | exn -> 
+              begin
+                let reason = 
+                  Printf.sprintf "dropping message %s with destination '%s' because of"
+                  (Message.string_of msg) target 
+                in
+                drop exn reason
+              end
+        )
+    | None -> (* we don't talk to strangers *)
+        Logger.warning_f_ "we don't send messages to %s (we don't know her)" target
       end
       >>= fun () -> _loop_for_q ()
     in
@@ -244,15 +244,15 @@ object(self : # messaging )
       w >>= fun () ->
       Logger.debug_ "wait until tcp_messaging is running" >>= fun () ->
       begin
-	    if _running 
-	    then Lwt.return () 
-	    else Lwt_condition.wait _running_c 
+      if _running 
+      then Lwt.return () 
+      else Lwt_condition.wait _running_c 
       end 
       >>= fun () ->
       Logger.debug_f_ "sender_loop for '%s' running" target >>= fun () ->
       Lwt.finalize 
-	_loop_for_q 
-	    (fun () -> Logger.debug_f_ "end of sender_q for '%s'" target)
+  _loop_for_q 
+      (fun () -> Logger.debug_f_ "end of sender_q for '%s'" target)
     in 
     let () = _my_threads <- w :: _my_threads in
     Lwt.wakeup u ();
@@ -266,20 +266,20 @@ object(self : # messaging )
     Logger.debug_ "_drop_connection" >>= fun () ->
     if Hashtbl.mem _connections address then
       begin
-	let conn = Hashtbl.find _connections address in
-	Logger.debug_ "found connection, closing it" >>= fun () ->
-	let ic,oc = conn in
+  let conn = Hashtbl.find _connections address in
+  Logger.debug_ "found connection, closing it" >>= fun () ->
+  let ic,oc = conn in
       (* something with conn *)
-	Lwt.catch
-	  (fun () ->
-	    Lwt_io.close ic >>= fun () ->
-	    Lwt_io.close oc >>= fun () ->
-	    Logger.debug_ "closed connection"
-	  )
-	  (fun exn -> Logger.warning_ ~exn "exception while closing, too little too late" )
-	>>= fun () ->
-	let () = Hashtbl.remove _connections address in
-	Lwt.return ()
+  Lwt.catch
+    (fun () ->
+      Lwt_io.close ic >>= fun () ->
+      Lwt_io.close oc >>= fun () ->
+      Logger.debug_ "closed connection"
+    )
+    (fun exn -> Logger.warning_ ~exn "exception while closing, too little too late" )
+  >>= fun () ->
+  let () = Hashtbl.remove _connections address in
+  Lwt.return ()
       end
     else Lwt.return ()
 
@@ -301,8 +301,8 @@ object(self : # messaging )
   method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback)  () =
     Logger.info_f_ "tcp_messaging %s: run" me >>= fun () ->
     let _check_mv magic version = 
-	if magic = _MAGIC && version = _VERSION then Lwt.return () 
-	else Llio.lwt_failfmt "MAGIC %Lx or VERSION %x mismatch" magic version
+  if magic = _MAGIC && version = _VERSION then Lwt.return () 
+  else Llio.lwt_failfmt "MAGIC %Lx or VERSION %x mismatch" magic version
     in
     let _check_cookie cookie =
       if cookie <> my_cookie 
@@ -319,13 +319,13 @@ object(self : # messaging )
       Llio.input_int ic    >>= fun port ->
       self # _maybe_insert_connection (ip,port) >>= fun () ->
       begin
-	let rec loop b0 =
-	  begin
+  let rec loop b0 =
+    begin
         Lwt.pick [
           (Lwt_unix.sleep timeout >>= fun () -> 
            Llio.lwt_failfmt "connection from (%s,%i) was idle too long (> %f)" ip port timeout
           );
-	      Llio.input_int ic] 
+        Llio.input_int ic] 
         >>= fun msg_size ->                      
         begin
           if msg_size > max_buffer_size
@@ -335,39 +335,39 @@ object(self : # messaging )
           else Lwt.return ()
         end
         >>= fun () ->
-	    let b1 = 
-	      if msg_size > String.length b0 
-	      then String.create msg_size
-	      else b0
-	    in
-	    Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
-	    let (source:id), pos1 = Llio.string_from b1 0 in
-	    let target, pos2 = Llio.string_from b1 pos1 in
-	    let msg, _   = Message.from_buffer b1 pos2 in
-	    (*log_f "message from %s for %s" source target >>= fun () ->*)
-	    if drop_it msg source target then loop b1
-	    else
-	      begin
-		begin
-		  if not (Hashtbl.mem _id2address source)
-		  then 
+      let b1 = 
+        if msg_size > String.length b0 
+        then String.create msg_size
+        else b0
+      in
+      Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
+      let (source:id), pos1 = Llio.string_from b1 0 in
+      let target, pos2 = Llio.string_from b1 pos1 in
+      let msg, _   = Message.from_buffer b1 pos2 in
+      (*log_f "message from %s for %s" source target >>= fun () ->*)
+      if drop_it msg source target then loop b1
+      else
+        begin
+    begin
+      if not (Hashtbl.mem _id2address source)
+      then 
                     let () = self # _register_receiver source (ip,port) in
-		    Logger.debug_f_ "registered %s => (%s,%i)" source ip port 
-		  else Lwt.return () 
-		end >>= fun () ->
-		let q = self # get_buffer target in
-		Lwt_buffer.add (msg, source) q >>=  fun () ->
-		loop b1
-	      end
-	  end
-	in
-	catch
-	  (fun () -> loop (String.create 1024))
-	  (fun exn ->
-	    Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
-	    let address = (ip,port) in
-	    self # _drop_connection address >>= fun () ->
-	    Lwt.fail exn)
+        Logger.debug_f_ "registered %s => (%s,%i)" source ip port 
+      else Lwt.return () 
+    end >>= fun () ->
+    let q = self # get_buffer target in
+    Lwt_buffer.add (msg, source) q >>=  fun () ->
+    loop b1
+        end
+    end
+  in
+  catch
+    (fun () -> loop (String.create 1024))
+    (fun exn ->
+      Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
+      let address = (ip,port) in
+      self # _drop_connection address >>= fun () ->
+      Lwt.fail exn)
 
       end
     in
@@ -389,5 +389,5 @@ object(self : # messaging )
     servers_t () >>= fun () ->
     Logger.info_f_ "tcp_messaging %s: end of run" me >>= fun () ->
     Lwt.return ()
-    	
+      
 end

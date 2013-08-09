@@ -100,7 +100,7 @@ type quiesce_result =
   | Quiesced_ok
   | Quiesced_fail_master
   | Quiesced_fail
- 				      
+               
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
@@ -246,7 +246,7 @@ let handle_prepare (type s) constants dest n n' i' =
           match s_i with
             | None -> Sn.start
             | Some si -> Sn.succ si
-	end in
+  end in
       let reply = Nak( n',(n,nak_i)) in
       Logger.debug_f_ "%s: replying with %S to learner %s" me (string_of reply) dest
       >>= fun () ->
@@ -258,22 +258,22 @@ let handle_prepare (type s) constants dest n n' i' =
       let can_pr = can_promise constants.store_module constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
-	    begin 
+      begin 
           Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me 
-	      >>= fun () ->
-	      Lwt.return Prepare_dropped
-	        
-	    end
+        >>= fun () ->
+        Lwt.return Prepare_dropped
+          
+      end
       else 
-	    begin
+      begin
           let store = constants.store in
           let s_i = S.consensus_i store in
           let nak_max = 
             begin
               match s_i with
-		        | None -> Sn.start
-		        | Some si -> Sn.succ si
-	        end 
+            | None -> Sn.start
+            | Some si -> Sn.succ si
+          end 
           in
 
           if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 
@@ -293,12 +293,12 @@ let handle_prepare (type s) constants dest n n' i' =
               if i' > nak_max
               then
                 (* Send Promise, but I need catchup *)
-		        Lwt.return(Promise_sent_needs_catchup, reply)
+            Lwt.return(Promise_sent_needs_catchup, reply)
               else (* i' = i *)
                 (* Send Promise, we are in sync *)
-		        Lwt.return(Promise_sent_up2date, reply)
+            Lwt.return(Promise_sent_up2date, reply)
             end 
-	    end >>= fun (ret_val, reply) ->
+      end >>= fun (ret_val, reply) ->
       Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val

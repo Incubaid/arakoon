@@ -34,7 +34,7 @@ module Node = struct
   let mkdirs () =
     let mkdir x = 
       let dir_name = Printf.sprintf "%s/%s" root x in
-	Unix.mkdir dir_name 0o755
+  Unix.mkdir dir_name 0o755
     in List.map mkdir names
 
   let clean_dirs () = 

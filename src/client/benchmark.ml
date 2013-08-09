@@ -33,8 +33,8 @@ let _progress t0 n step (oc:Lwt_io.output_channel) =
       let ti = Unix.gettimeofday() in
       let delta = ti -. t0 in
       let f = if n mod (step * 5) = 0 
-	then Lwt_io.fprintlf oc
-	else Lwt_io.fprintf oc
+  then Lwt_io.fprintlf oc
+  else Lwt_io.fprintf oc
       in
       f "%9i (% 4.0fs)%!" n delta
     end
@@ -47,11 +47,11 @@ let _get (client:Arakoon_client.client) max_n t0 oc =
     then Lwt.return ()
     else
       begin
-	_progress t0 n 10000 oc >>= fun () ->
-	let i = Random.int max_n in
-	let key = _cat "key" i
-	in client # get key >>= fun _ ->
-	loop (n+1)
+  _progress t0 n 10000 oc >>= fun () ->
+  let i = Random.int max_n in
+  let key = _cat "key" i
+  in client # get key >>= fun _ ->
+  loop (n+1)
       end
   in
   loop 0
@@ -63,18 +63,18 @@ let _get_transactions (client:Arakoon_client.client) max_n t size (t0:float) oc=
     then Lwt.return ()
     else
       begin
-	let rec build acc j =
-	  if j = t 
-	  then acc
-	  else
-	    let i = Random.int max_n in
-	    let key = _cat "key" i in
-	    build (key::acc) (j+1)
-	in 
-	let keys = build [] 0 in
-	_progress t0 i 1000 oc >>= fun () ->
-	client # multi_get keys >>= fun values ->
-	loop_t (i+1)
+  let rec build acc j =
+    if j = t 
+    then acc
+    else
+      let i = Random.int max_n in
+      let key = _cat "key" i in
+      build (key::acc) (j+1)
+  in 
+  let keys = build [] 0 in
+  _progress t0 i 1000 oc >>= fun () ->
+  client # multi_get keys >>= fun values ->
+  loop_t (i+1)
       end
   in
   loop_t 0
@@ -88,11 +88,11 @@ let _fill client max_n size (t0:float) (oc:Lwt_io.output_channel) =
     then Lwt.return ()
     else
       begin
-	_progress t0 n 10000 oc >>= fun () ->
-	let key = _cat "key" n
-	and value = _cat v0 n in
-	client # set key value >>= fun () ->
-	loop (n+1)
+  _progress t0 n 10000 oc >>= fun () ->
+  let key = _cat "key" n
+  and value = _cat v0 n in
+  client # set key value >>= fun () ->
+  loop (n+1)
       end
   in
   loop 0
@@ -105,18 +105,18 @@ let _fill_transactions client max_n tx_size size (t0:float) oc =
     if i = n_transactions then Lwt.return ()
     else
       begin
-	let rec build acc j = 
-	  if j = tx_size then acc
-	  else 
-	    let c = i * tx_size + j in
-	    let value = _cat v0 c in
-	    let u = Set (_cat "key" c, value) in
-	    build (u::acc) (j+1)
-	in
-	_progress t0 i 1000 oc >>= fun () -> 
-	let s = build [] 0 in
-	client # sequence s >>= fun () ->
-	loop_t (i+1)
+  let rec build acc j = 
+    if j = tx_size then acc
+    else 
+      let c = i * tx_size + j in
+      let value = _cat v0 c in
+      let u = Set (_cat "key" c, value) in
+      build (u::acc) (j+1)
+  in
+  _progress t0 i 1000 oc >>= fun () -> 
+  let s = build [] 0 in
+  client # sequence s >>= fun () ->
+  loop_t (i+1)
       end
   in
   loop_t 0
@@ -198,7 +198,7 @@ let benchmark
       ~mode:Lwt_io.output
       fn
       (fun oc ->
-	    with_c (fun (client:Arakoon_client.client) -> phase client oc) 
+      with_c (fun (client:Arakoon_client.client) -> phase client oc) 
       )
     >>= fun () ->
     Lwt.return ()

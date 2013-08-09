@@ -70,8 +70,8 @@ let _log_repeat tlc (value:Value.t) n =
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-	tlc # log_value i value >>= fun wr_result ->
-	loop (Sn.succ i)
+  tlc # log_value i value >>= fun wr_result ->
+  loop (Sn.succ i)
       end
   in loop Sn.start 
 
@@ -117,8 +117,8 @@ let test_get_value_bug (dn, tlf_dir, factory) =
 let test_regexp (dn, tlf_dir, factory) = 
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let fns = ["001.tlog";
-	     "000" ^ Tlc2.archive_extension;
-	     "000" ^ Tlc2.archive_extension ^ ".part"] in
+       "000" ^ Tlc2.archive_extension;
+       "000" ^ Tlc2.archive_extension ^ ".part"] in
   let test fn = Str.string_match Tlc2.file_regexp fn 0 in
   let results = List.map test fns in
   List.iter2 (fun cr er -> OUnit.assert_equal cr er) results [true;true;false];

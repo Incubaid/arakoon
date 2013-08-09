@@ -74,7 +74,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   in
   let main () =
     Lwt.pick [client_t ();
-	      server ();] >>= fun () -> 
+        server ();] >>= fun () -> 
     Lwt_mvar.take td_var  >>= fun () ->
     Logger.info_ "server down"
   in
@@ -92,11 +92,11 @@ let test_wrong_cluster () =
   let real_test client = 
     Lwt.catch 
       (fun () ->
-	client # ping "boba fet" wrong_cluster >>= fun result ->
-	OUnit.assert_bool "we should not be able to connect to this cluster" false;
-	Lwt.return ())
+  client # ping "boba fet" wrong_cluster >>= fun result ->
+  OUnit.assert_bool "we should not be able to connect to this cluster" false;
+  Lwt.return ())
       (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
-	>>= fun () -> Lwt.return ()) 
+  >>= fun () -> Lwt.return ()) 
       >>= fun () ->
     Lwt.return () 
   in __client_server_wrapper__ wrong_cluster real_test
@@ -138,28 +138,28 @@ let test_delete () =
     client # delete "key" >>= fun () ->
     Lwt.catch
       (fun () -> 
-	client # get "key" >>= fun value ->
-	Lwt.return ())
+  client # get "key" >>= fun value ->
+  Lwt.return ())
       (function
-	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) -> 
-	  Lwt_io.eprintlf "ok!"
-	| exn ->
-	  Logger.fatal_ ~exn "wrong exception" >>= fun () ->
-	  OUnit.assert_failure 
-	    "get of non_existing key does not throw correct exception"
+  | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) -> 
+    Lwt_io.eprintlf "ok!"
+  | exn ->
+    Logger.fatal_ ~exn "wrong exception" >>= fun () ->
+    OUnit.assert_failure 
+      "get of non_existing key does not throw correct exception"
       ) 
     >>= fun () ->
     Logger.info_ "part-2" >>= fun () ->
     Lwt.catch
       (fun () ->
-	client # delete "key" >>= fun () -> 
-	Logger.info_ "should not get here"
+  client # delete "key" >>= fun () -> 
+  Logger.info_ "should not get here"
       )
       (function
-	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) -> 
-	  Lwt.return ()
-	| exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
-	  OUnit.assert_failure "XXX"
+  | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) -> 
+    Lwt.return ()
+  | exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
+    OUnit.assert_failure "XXX"
       )
       
   in __client_server_wrapper__ _CLUSTER real_test
@@ -168,10 +168,10 @@ let test_sequence () =
   let real_test (client:Arakoon_client.client) = 
     client # set "XXX0" "YYY0" >>= fun () ->
     let changes = [Arakoon_client.Set("XXX1","YYY1");
-		   Arakoon_client.Set("XXX2","YYY2");
-		   Arakoon_client.Set("XXX3","YYY3");
-		   Arakoon_client.Delete "XXX0";
-		  ]
+       Arakoon_client.Set("XXX2","YYY2");
+       Arakoon_client.Set("XXX3","YYY3");
+       Arakoon_client.Delete "XXX0";
+      ]
     in
     client # sequence changes >>= fun () ->
     client # get "XXX1" >>= fun v1 ->

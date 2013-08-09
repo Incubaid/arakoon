@@ -68,25 +68,25 @@ let test_generic network_factory n_nodes () =
   S.make_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true "???">>= fun tlog_coll ->
   let base = {me = "???";
-	          others = [] ;
-	          is_learner = false;
-	          send = send;
-	          get_value = get_value tlog_coll;
-	          on_accept= on_accept "???";
+            others = [] ;
+            is_learner = false;
+            send = send;
+            get_value = get_value tlog_coll;
+            on_accept= on_accept "???";
               on_consensus = on_consensus "???";
               on_witness = on_witness;
-	          last_witnessed = last_witnessed;
-	          quorum_function = Multi_paxos.quorum_function;
-	          master=Elected;
-	          store = store;
+            last_witnessed = last_witnessed;
+            quorum_function = Multi_paxos.quorum_function;
+            master=Elected;
+            store = store;
               store_module = (module S);
-	          tlog_coll = tlog_coll;
-	          other_cfgs = [];
-	          lease_expiration = 60;
-	          inject_event = inject_ev inject_buffer;
-	          cluster_id = "whatever";
+            tlog_coll = tlog_coll;
+            other_cfgs = [];
+            lease_expiration = 60;
+            inject_event = inject_ev inject_buffer;
+            cluster_id = "whatever";
               quiesced = false;
-	         }
+           }
   in
   let all_happy = build_names (n_nodes -1) in
   let build_others name = List.filter (fun n -> n <> name) all_happy in
@@ -96,36 +96,36 @@ let test_generic network_factory n_nodes () =
       | x when x < 0 -> failwith ">=1"
       | 0 -> ts
       | i -> let me = build_name i in
-	     let others = "c0" :: build_others me in
-	     let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
-	     let constants = { base with
-	       me = me;
-	       others = others;
-	       on_accept = on_accept me;
-	       on_consensus = on_consensus me;
-	       inject_event = inject_ev inject_buffer;
-	     } in
-	     let t =
-	       let expected prev_key key =
-		     Logger.debug_f_ "%s: node from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
-		       (Multi_paxos_type.show_transition key) >>= fun () ->
-		     match key with
-		       | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-		       | _ -> Lwt.return None
-	       in
-	       let client_buffer = Lwt_buffer.create () in
-	       let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
-	       let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
-	       let buffers = Multi_paxos_fsm.make_buffers 
-		     (client_buffer,get_buffer me, 
-		      inject_buffer, election_timeout_buffer) in
-	       Multi_paxos_fsm.expect_run_forced_slave 
-		     constants buffers expected steps (current_i,Sn.start)
-		   >>= fun result ->
-	       Logger.debug_f_ "%s: node done." me >>= fun () ->
-	       Lwt.return ()
-	     in
-	     _loop (t :: ts) (i-1)
+       let others = "c0" :: build_others me in
+       let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+       let constants = { base with
+         me = me;
+         others = others;
+         on_accept = on_accept me;
+         on_consensus = on_consensus me;
+         inject_event = inject_ev inject_buffer;
+       } in
+       let t =
+         let expected prev_key key =
+         Logger.debug_f_ "%s: node from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
+           (Multi_paxos_type.show_transition key) >>= fun () ->
+         match key with
+           | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+           | _ -> Lwt.return None
+         in
+         let client_buffer = Lwt_buffer.create () in
+         let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
+         let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
+         let buffers = Multi_paxos_fsm.make_buffers 
+         (client_buffer,get_buffer me, 
+          inject_buffer, election_timeout_buffer) in
+         Multi_paxos_fsm.expect_run_forced_slave 
+         constants buffers expected steps (current_i,Sn.start)
+       >>= fun result ->
+         Logger.debug_f_ "%s: node done." me >>= fun () ->
+         Lwt.return ()
+       in
+       _loop (t :: ts) (i-1)
     in _loop [] i
   in
   let ts = build_n (n_nodes -1) in
@@ -141,10 +141,10 @@ let test_generic network_factory n_nodes () =
   let c0_t () =
     let expected prev_key key =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
-	(Multi_paxos_type.show_transition key) >>= fun () ->
+  (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-	| _ -> Lwt.return None
+  | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
+  | _ -> Lwt.return None
     in
     let inject_buffer = Lwt_buffer.create () in
     let election_timeout_buffer = Lwt_buffer.create () in
@@ -184,11 +184,11 @@ let test_generic network_factory n_nodes () =
   let _ = 
     List.fold_left (fun maybe_ms (name,us) -> 
       match maybe_ms with 
-	    | None -> Some us 
-	    | Some ms ->
-	        let msg = Printf.sprintf "%s:consensus" name in
-	        Extra.eq_conv (fun s -> s) msg ms us;
-	        maybe_ms
+      | None -> Some us 
+      | Some ms ->
+          let msg = Printf.sprintf "%s:consensus" name in
+          Extra.eq_conv (fun s -> s) msg ms us;
+          maybe_ms
     ) 
       None all_consensusses
   in
@@ -220,7 +220,7 @@ let test_master_loop network_factory ()  =
     Lwt_list.iter_s
       (fun x -> 
         Lwt_buffer.add (x, finished) client_buffer >>= fun () ->
-	    Lwt_unix.sleep 2.0
+      Lwt_unix.sleep 2.0
       ) updates
   ) in
   let on_consensus (_,n,i) =
@@ -237,46 +237,46 @@ let test_master_loop network_factory ()  =
   S.make_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {me = me; 
-		   is_learner = false;
-		   others = others;
-		   send = send;
-		   get_value = get_value tlog_coll;
-		   on_accept = on_accept;
-		   on_consensus = on_consensus;
-		   on_witness = on_witness;
-		   last_witnessed = last_witnessed;
-		   quorum_function = Multi_paxos.quorum_function;
-		   master = Elected;
-		   store = store;
+       is_learner = false;
+       others = others;
+       send = send;
+       get_value = get_value tlog_coll;
+       on_accept = on_accept;
+       on_consensus = on_consensus;
+       on_witness = on_witness;
+       last_witnessed = last_witnessed;
+       quorum_function = Multi_paxos.quorum_function;
+       master = Elected;
+       store = store;
            store_module = (module S);
-		   tlog_coll = tlog_coll;
-		   other_cfgs = [];
-		   lease_expiration = 60;
-		   inject_event = inject_event;
-		   cluster_id = "whatever";
-		   quiesced = false;
-		  } in
+       tlog_coll = tlog_coll;
+       other_cfgs = [];
+       lease_expiration = 60;
+       inject_event = inject_event;
+       cluster_id = "whatever";
+       quiesced = false;
+      } in
   let continue = ref 2 in
   let c0_t () =
     let expected prev_key key =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
-	(Multi_paxos_type.show_transition key) >>= fun () ->
+  (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	    | (Multi_paxos_type.Stable_master x) ->
-	        if !continue = 0 
+      | (Multi_paxos_type.Stable_master x) ->
+          if !continue = 0 
             then Lwt.return (Some x) 
             else
-	          let () = continue := (!continue -1) in 
+            let () = continue := (!continue -1) in 
               Lwt.return None
-	    | _ -> Lwt.return None
+      | _ -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers = 
       Multi_paxos_fsm.make_buffers 
-	    (client_buffer, 
-	     get_buffer me, 
-	     inject_buffer, 
-	     election_timeout_buffer) in
+      (client_buffer, 
+       get_buffer me, 
+       inject_buffer, 
+       election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers expected 20 current_n i0
     >>= fun result -> Logger.debug_f_ "%s: after loop" me
   in
@@ -345,10 +345,10 @@ let test_simulation filters () =
     let ok = List.fold_left (fun acc f -> acc && f (msg,source,target)) true filters in
     if ok then
       begin
-	let b = get_buffer target in
-	let gm = Mp_msg.MPMessage.generic_of msg in
-	Lwt_buffer.add (gm,source) b>>= fun () ->
-	Lwt.return ()
+  let b = get_buffer target in
+  let gm = Mp_msg.MPMessage.generic_of msg in
+  Lwt_buffer.add (gm,source) b>>= fun () ->
+  Lwt.return ()
       end
     else
       Logger.debug_f_ "got (%s,%s,%s) => dropping" msg_s source target
@@ -358,32 +358,32 @@ let test_simulation filters () =
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {
     me = me;
-	is_learner = false;
-	others = ["c1";"c2"];
-	send = send;
-	get_value = get_value tlog_coll;
-	on_accept = on_accept me;
-	on_consensus = on_consensus me;
-	on_witness = on_witness;
-	last_witnessed = last_witnessed;
-	quorum_function = Multi_paxos.quorum_function;
-	master = Elected;
-	store = store;
+  is_learner = false;
+  others = ["c1";"c2"];
+  send = send;
+  get_value = get_value tlog_coll;
+  on_accept = on_accept me;
+  on_consensus = on_consensus me;
+  on_witness = on_witness;
+  last_witnessed = last_witnessed;
+  quorum_function = Multi_paxos.quorum_function;
+  master = Elected;
+  store = store;
     store_module = (module S);
-	tlog_coll = tlog_coll;
-	other_cfgs = [];
-	lease_expiration = 60;
-	inject_event = inject_event;
-	cluster_id = "whatever";
+  tlog_coll = tlog_coll;
+  other_cfgs = [];
+  lease_expiration = 60;
+  inject_event = inject_event;
+  cluster_id = "whatever";
     quiesced = false;
   } in
   let c0_t () =
     let expected prev_key key =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key) 
-	(Multi_paxos_type.show_transition key) >>= fun () ->
+  (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	| (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-	| _ -> Lwt.return None
+  | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
+  | _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
       (client_buffer, 
@@ -401,19 +401,19 @@ let test_simulation filters () =
     let client_buffer = Lwt_buffer.create () in
     let constants =
       {constants with me=me;
-	others = ["c0"; other];
-	on_accept = on_accept me;
-	on_consensus = on_consensus me;
-	inject_event = (fun e -> Lwt_buffer.add e inject_buffer);
+  others = ["c0"; other];
+  on_accept = on_accept me;
+  on_consensus = on_consensus me;
+  inject_event = (fun e -> Lwt_buffer.add e inject_buffer);
       }
     in
     let expected prev_key key =
       Logger.debug_f_ "%s: node from %s to %s" me 
-	    (Multi_paxos_type.show_transition prev_key) 
-	    (Multi_paxos_type.show_transition key) >>= fun () ->
+      (Multi_paxos_type.show_transition prev_key) 
+      (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-	    | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-	    | _ -> Lwt.return None
+      | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+      | _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
       (client_buffer, 
@@ -426,13 +426,13 @@ let test_simulation filters () =
     Lwt.return ()
   in
   Lwt.pick [c0_t (); 
-	        cx_t "c1" "c2"; 
-	        cx_t "c2" "c1"; 
-	        begin
-	          Lwt_unix.sleep 80.0 >>= fun () -> 
-	          Llio.lwt_failfmt "test: should have finished successfully by now";
-	        end
-	       ] >>= fun () ->
+          cx_t "c1" "c2"; 
+          cx_t "c2" "c1"; 
+          begin
+            Lwt_unix.sleep 80.0 >>= fun () -> 
+            Llio.lwt_failfmt "test: should have finished successfully by now";
+          end
+         ] >>= fun () ->
   Logger.debug_f_ "%s: after pick" me
 
 

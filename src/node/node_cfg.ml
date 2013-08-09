@@ -198,7 +198,7 @@ module Node_cfg = struct
     let rec loop acc = function
       | 0 -> acc
       | n -> let o = make_one (n-1) in
-	     loop (o::acc) (n-1)
+       loop (o::acc) (n-1)
     in
     let log_cfgs = [("default_log_config", get_default_log_config ())] in
     let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
@@ -264,20 +264,20 @@ module Node_cfg = struct
   let _startup_mode inifile =
     let master =
       try
-	let m_s = (inifile # getval "global" "master") in
+  let m_s = (inifile # getval "global" "master") in
         if Ini.get inifile "global" "preferred_masters" (fun _ -> true) (fun _ _ -> false)
         then
           failwith ("'master' and 'preferred_masters' are incompatible")
         else
-	let m = Scanf.sscanf m_s "%s" (fun s -> s) in
-	let nodes = _node_names inifile in
-	if not (List.mem m nodes)
-	then
-	  failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
-	else 
-	  if _get_bool inifile "global" "preferred_master" 
+  let m = Scanf.sscanf m_s "%s" (fun s -> s) in
+  let nodes = _node_names inifile in
+  if not (List.mem m nodes)
+  then
+    failwith (Printf.sprintf "'%s' needs to have a config section [%s]" m m)
+  else 
+    if _get_bool inifile "global" "preferred_master" 
           then (Preferred [m])
-	  else (Forced m)
+    else (Forced m)
       with (Inifiles.Invalid_element _) ->
         let pms = Ini.get inifile "global" "preferred_masters" Ini.p_string_list (fun _ _ -> []) in
         if pms <> []
@@ -285,9 +285,9 @@ module Node_cfg = struct
           Preferred pms
         else
         let read_only = _get_bool inifile "global" "readonly" in
-	if read_only 
-	then ReadOnly
-	else Elected
+  if read_only 
+  then ReadOnly
+  else Elected
     in
     master
 
@@ -316,9 +316,9 @@ module Node_cfg = struct
       if 1 <= qi & qi <= n_nodes 
       then fun n -> qi
       else
-	let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
-	  qi n_nodes in
-	failwith msg
+  let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
+    qi n_nodes in
+  failwith msg
     with (Inifiles.Invalid_element _) -> Quorum.quorum_function
 
   let _log_config inifile log_name =
@@ -412,12 +412,12 @@ module Node_cfg = struct
     let plugin_names = _plugins inifile in
     let cfgs, remaining = List.fold_left
       (fun (a,remaining) section ->
-	    if List.mem section nodes || _get_bool inifile section "learner"
-	    then
-	      let cfg = _node_config inifile section fm in
-	      let new_remaining = List.filter (fun x -> x <> section) remaining in
-	      (cfg::a, new_remaining)
-	    else (a,remaining))
+      if List.mem section nodes || _get_bool inifile section "learner"
+      then
+        let cfg = _node_config inifile section fm in
+        let new_remaining = List.filter (fun x -> x <> section) remaining in
+        (cfg::a, new_remaining)
+      else (a,remaining))
       ([],nodes) (inifile # sects) in
     let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
     let log_cfgs = List.fold_left
@@ -440,7 +440,7 @@ module Node_cfg = struct
           a)
       [] (inifile # sects) in
     let () = if List.length remaining > 0 then
-	failwith ("Can't find config section for: " ^ (String.concat "," remaining))
+  failwith ("Can't find config section for: " ^ (String.concat "," remaining))
     in
     let quorum_function = _get_quorum_function inifile in
     let lease_period = _get_lease_period inifile in
@@ -455,12 +455,12 @@ module Node_cfg = struct
         log_cfgs;
         batched_transaction_cfgs;
         nursery_cfg = m_n_cfg;
-	    _master = fm;
-	    quorum_function;
-	    _lease_period = lease_period;
-	    cluster_id = cluster_id;
-	    plugins = plugin_names;
-	    overwrite_tlog_entries;
+      _master = fm;
+      quorum_function;
+      _lease_period = lease_period;
+      cluster_id = cluster_id;
+      plugins = plugin_names;
+      overwrite_tlog_entries;
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;

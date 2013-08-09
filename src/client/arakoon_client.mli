@@ -29,7 +29,7 @@ method range_entries:
   ?allow_dirty:bool ->
     first:key option -> finc:bool ->
       last:key option ->  linc:bool -> max:int ->
-	(key * value) list Lwt.t
+  (key * value) list Lwt.t
   (** [range_entries ~first ~finc ~last ~linc ~max]
       [max] is the maximum number of keys (if max < 0 then you want them all).
       The keys fall in the range first..last.
@@ -41,7 +41,7 @@ method rev_range_entries:
   ?allow_dirty:bool ->
     first:key option -> finc:bool ->
       last:key option ->  linc:bool -> max:int ->
-	(key * value) list Lwt.t
+  (key * value) list Lwt.t
   (** [rev_range_entries ~first ~finc ~last ~linc ~max]
       [max] is the maximum number of keys (if max < 0 then you want them all).
       The keys fall in the range first..last.

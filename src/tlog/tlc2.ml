@@ -110,11 +110,11 @@ let get_tlog_names tlog_dir tlf_dir =
   let filtered2 = List.fold_left
     (fun acc name ->
       match acc with
-	| [] -> name :: acc
-	| prev :: rest ->
-	  if get_number prev = get_number name (* both x.tlf and x.tlog present *)
-	  then prev :: rest (* prefer .tlf over .tlog *)
-	  else name :: acc
+  | [] -> name :: acc
+  | prev :: rest ->
+    if get_number prev = get_number name (* both x.tlf and x.tlog present *)
+    then prev :: rest (* prefer .tlf over .tlog *)
+    else name :: acc
     ) [] sorted
   in
   let sorted2 = List.rev filtered2 in
@@ -152,21 +152,21 @@ let fold_read tlog_dir tlf_dir file_name
     (fun () -> Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
     (function
       | Unix.Unix_error(_,"open",_) as exn ->
-	    if extension = ".tlog"
-	    then (* file might have moved meanwhile *)
-	      begin
-	        Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
-	        >>= fun () ->
-	        let an = to_archive_name file_name in
-	        let full_an = get_full_path tlog_dir tlf_dir an in
-	        Logger.debug_f_ "folding compressed %s" an >>= fun () ->
-	        Lwt_io.with_file ~mode:Lwt_io.input full_an
-	          (fun ic ->
+      if extension = ".tlog"
+      then (* file might have moved meanwhile *)
+        begin
+          Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
+          >>= fun () ->
+          let an = to_archive_name file_name in
+          let full_an = get_full_path tlog_dir tlf_dir an in
+          Logger.debug_f_ "folding compressed %s" an >>= fun () ->
+          Lwt_io.with_file ~mode:Lwt_io.input full_an
+            (fun ic ->
                 let index = None in
                 Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
-	      end
-	    else
-	      Lwt.fail exn
+        end
+      else
+        Lwt.fail exn
       | exn -> Lwt.fail exn
     )
 
@@ -186,7 +186,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
       let folder, _, index = folder_for tlog_name None in
 
       let do_it ic = folder ic ~index Sn.start None ~first None
-	    (fun a0 entry ->
+      (fun a0 entry ->
           let () = Index.note entry new_index in
           let r = Some entry in
           let () = prev_entry := r in
@@ -258,12 +258,12 @@ let get_count tlog_names =
   match List.length tlog_names with
     | 0 -> 0
     | n -> let last = List.nth tlog_names (n-1) in
-	   let length = String.length last in
-	   let postfix = String.sub last (length -4) 4 in
-	   let number = get_number last in
-	   if postfix = "tlog"
+     let length = String.length last in
+     let postfix = String.sub last (length -4) 4 in
+     let number = get_number last in
+     if postfix = "tlog"
        then number
-	   else number + 1
+     else number + 1
 
 module F = struct
   type t = {oc:Lwt_io.output Lwt_io.channel;
@@ -316,8 +316,8 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     let lowp_s = Sn.string_of lowp in
     let test_result =
       (test0 <= lowp) &&
-	    (low   <  test1) &&
-	    low <= too_far_i
+      (low   <  test1) &&
+      low <= too_far_i
     in
     Logger.debug_f_ "%s <?= lowp:%s &&  low:%s <? %s && (low:%s <?= %s) yields:%b"
       (Sn.string_of test0 ) lowp_s
@@ -329,7 +329,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     then
       begin
         Logger.debug_f_ "fold_read over: %s (test0=%s)" fn
-	      (Sn.string_of test0) >>= fun () ->
+        (Sn.string_of test0) >>= fun () ->
         let first = test0 in
         Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
         let t1 = Sys.time () in
@@ -356,8 +356,8 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       | None -> 0
       | Some e ->
         let i = Entry.i_of e in
-	    let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	    (Sn.to_int (Sn.rem i step)) + 1
+      let step = (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+      (Sn.to_int (Sn.rem i step)) + 1
   in
 object(self: # tlog_collection)
   val mutable _file = (None:F.t option)
@@ -507,10 +507,10 @@ object(self: # tlog_collection)
     let ( *: ) = Sn.mul in
     match _file with
       | None ->
-	    begin
+      begin
           Logger.debug_f_ "prelude %s" (Sn.string_of i) >>= fun () ->
-	      let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
-	      _outer <- Sn.to_int outer;
+        let outer = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile) in
+        _outer <- Sn.to_int outer;
           begin
             if (_outer <> 0) && (i = Sn.mul outer (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
             then
@@ -520,11 +520,11 @@ object(self: # tlog_collection)
             else
               Lwt.return ()
           end >>= fun () ->
-	      _init_file tlog_dir tlf_dir _outer >>= fun file ->
-	      _file <- Some file;
+        _init_file tlog_dir tlf_dir _outer >>= fun file ->
+        _file <- Some file;
           _index <- Index.make (F.fn_of file);
-	      Lwt.return file
-	    end
+        Lwt.return file
+      end
       | Some (file:F.t) ->
         if i >= (Sn.of_int !Tlogcommon.tlogEntriesPerFile) *: (Sn.of_int (_outer + 1))
         then
@@ -584,7 +584,7 @@ object(self: # tlog_collection)
     match names with
       | [] -> Sn.of_int (-f)
       | h :: _ -> let n = Sn.of_int (get_number h) in
-		          Sn.mul (Sn.of_int f) n
+              Sn.mul (Sn.of_int f) n
     in
     Logger.debug_f_ "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
@@ -636,19 +636,19 @@ object(self: # tlog_collection)
 
   method get_last_value i =
     match _previous_entry with
-	  | None -> None
-	  | Some pe ->
+    | None -> None
+    | Some pe ->
         let pi = Entry.i_of pe in
-	    if pi = i
+      if pi = i
         then Some (Entry.v_of pe)
-	    else
-	      if i > pi
+      else
+        if i > pi
           then None
-	      else (* pi > i *)
-	        let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
-		      (Sn.string_of pi) (Sn.string_of i)
-	        in
-	        failwith msg
+        else (* pi > i *)
+          let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
+          (Sn.string_of pi) (Sn.string_of i)
+          in
+          failwith msg
 
   method get_last () =
     match _previous_entry with
@@ -706,8 +706,8 @@ object(self: # tlog_collection)
     let fn = file_name n  in
     begin
       File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
-	| true -> Lwt.return an
-	| false -> Lwt.return fn
+  | true -> Lwt.return an
+  | false -> Lwt.return fn
     end
     >>= fun name ->
     let canonical = get_full_path tlog_dir tlf_dir name in
@@ -720,8 +720,8 @@ object(self: # tlog_collection)
     Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.input canonical
       (fun ic ->
-	Llio.output_int64 oc length >>= fun () ->
-	Llio.copy_stream ~length ~ic ~oc
+  Llio.output_int64 oc length >>= fun () ->
+  Llio.copy_stream ~length ~ic ~oc
       )
     >>= fun () ->
     Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
@@ -755,13 +755,13 @@ object(self: # tlog_collection)
       let n = get_number fn in
       let fn_stop = Sn.of_int ((n+1) * !Tlogcommon.tlogEntriesPerFile) in
       if fn_stop < i then
-	begin
-	  let canonical = get_full_path tlog_dir tlf_dir fn in
-	  Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
-	  File_system.unlink canonical
-	end
+  begin
+    let canonical = get_full_path tlog_dir tlf_dir fn in
+    Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
+    File_system.unlink canonical
+  end
       else
-	Lwt.return ()
+  Lwt.return ()
     in
     Lwt_list.iter_s maybe_remove existing
 end
@@ -778,17 +778,17 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   then
     begin
      (* somebody sabotaged us:
-	(s)he deleted the .tlog file but we have .tlf's
-	meaning rotation happened correctly.
-	We have to take counter measures:
-	uncompress the .tlf into .tlog and remove it.
+  (s)he deleted the .tlog file but we have .tlf's
+  meaning rotation happened correctly.
+  We have to take counter measures:
+  uncompress the .tlf into .tlog and remove it.
      *)
       let pc = new_c - 1 in
       let tlc_name = get_full_path tlog_dir tlf_dir (archive_name pc) in
       let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
-	    tlc_name tlu_name
+      tlc_name tlu_name
       >>= fun () ->
       Compression.uncompress_tlog tlc_name tlu_name >>= fun () ->
       Logger.info_f_ "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->

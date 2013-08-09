@@ -70,38 +70,38 @@ let expect_loop
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	    transition () >>= fun (key, es) ->
+      transition () >>= fun (key, es) ->
         do_side_effects e_execute es >>= fun () ->
-	    expected prev_key key >>= function
-	      | Some x ->
-	    (* Printf.printf "XXX finished\n"; *)
-	          Lwt.return x
-	      | None ->
-		(* Printf.printf "XXX continuing %d\n" step_count; *)
-	          let arg,product_type = lookup key in
-	          match arg with
-	            | Unit_arg next -> _step_unit key (step_count-1) next
-	            | Msg_arg next ->
-		            produce product_type >>= fun msg ->
-		            _step_msg key (step_count-1) next msg
+      expected prev_key key >>= function
+        | Some x ->
+      (* Printf.printf "XXX finished\n"; *)
+            Lwt.return x
+        | None ->
+    (* Printf.printf "XXX continuing %d\n" step_count; *)
+            let arg,product_type = lookup key in
+            match arg with
+              | Unit_arg next -> _step_unit key (step_count-1) next
+              | Msg_arg next ->
+                produce product_type >>= fun msg ->
+                _step_msg key (step_count-1) next msg
       end
   and _step_msg prev_key step_count transition msg =
     if step_count = 0 then Lwt.fail (Failure "out of steps!")
     else
       begin
-	    transition msg >>= fun (key, es) ->
+      transition msg >>= fun (key, es) ->
         do_side_effects e_execute es >>= fun () ->
-	    expected prev_key key >>= function
-	      | Some x ->
-	    (* Printf.printf "XXX finished\n"; *)
-	          Lwt.return x
-	      | None ->
-		(* Printf.printf "XXX continuing %d\n" step_count; *)
-	          let arg,product_type = lookup key in
-	          match arg with
-	            | Unit_arg next -> _step_unit key (step_count-1) next
-	            | Msg_arg next ->
-		            produce product_type >>= fun msg ->
-		            _step_msg key (step_count-1) next msg
+      expected prev_key key >>= function
+        | Some x ->
+      (* Printf.printf "XXX finished\n"; *)
+            Lwt.return x
+        | None ->
+    (* Printf.printf "XXX continuing %d\n" step_count; *)
+            let arg,product_type = lookup key in
+            match arg with
+              | Unit_arg next -> _step_unit key (step_count-1) next
+              | Msg_arg next ->
+                produce product_type >>= fun msg ->
+                _step_msg key (step_count-1) next msg
       end
   in _step_unit trans_init step_count transition

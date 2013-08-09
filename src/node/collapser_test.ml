@@ -108,11 +108,11 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   let cb' = fun n -> Lwt.return () in
   begin
     File_system.exists storename >>= fun head_exists ->
-	  if head_exists
-	  then
-	    File_system.unlink storename
-	  else
-	    Lwt.return ()
+    if head_exists
+    then
+      File_system.unlink storename
+    else
+      Lwt.return ()
   end
   >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename) in

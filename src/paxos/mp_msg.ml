@@ -38,8 +38,8 @@ module MPMessage = struct
       let ns = Sn.string_of n
       and is = Sn.string_of i
       and vs = match vo with
-	    | None -> "None"
-	    | Some v -> Printf.sprintf "Some %s" (Value.value2s v)
+      | None -> "None"
+      | Some v -> Printf.sprintf "Some %s" (Value.value2s v)
       in
       "Promise(" ^ ns ^ "," ^ is ^ "," ^ vs ^ ")"
     | Accept (n,i, v) ->
@@ -53,7 +53,7 @@ module MPMessage = struct
       Printf.sprintf "Accepted(%s,%s)" ns is
     | Nak (n,(n',i')) ->
       Printf.sprintf "Nak (%s,(%s,%s))"
-	(Sn.string_of n) (Sn.string_of n') (Sn.string_of i')
+  (Sn.string_of n) (Sn.string_of n') (Sn.string_of i')
 
   let generic_of = function
     | Prepare (n,i) ->
@@ -88,28 +88,28 @@ module MPMessage = struct
   let of_generic m =
     let kind, payload = Message.kind_of m, Message.payload_of m in
       match kind with
-	| "prepare" -> 
-	  let n, pos1 = Sn.sn_from payload 0 in
-	  let i, _    = Sn.sn_from payload pos1 in
-	  Prepare (n,i)
-	| "nak"     ->
-	  let n, pos1 = Sn.sn_from payload 0 in
-	  let n', pos2 = Sn.sn_from payload pos1 in
-	  let i', _ = Sn.sn_from payload pos2 in
-	  Nak (n,(n',i'))
-	| "promise" ->
-	  let n, pos1 = Sn.sn_from payload 0 in
-	  let i, pos2 = Sn.sn_from payload pos1 in
-	  let v, pos3 = Llio.option_from Value.value_from payload pos2
-	  in Promise (n,i, v)
-	| "accept"  ->
-	  let n, pos1 = Sn.sn_from payload 0 in
-	  let i, pos2 = Sn.sn_from payload pos1 in
-	  let s, pos2 = Value.value_from payload pos2 in
+  | "prepare" -> 
+    let n, pos1 = Sn.sn_from payload 0 in
+    let i, _    = Sn.sn_from payload pos1 in
+    Prepare (n,i)
+  | "nak"     ->
+    let n, pos1 = Sn.sn_from payload 0 in
+    let n', pos2 = Sn.sn_from payload pos1 in
+    let i', _ = Sn.sn_from payload pos2 in
+    Nak (n,(n',i'))
+  | "promise" ->
+    let n, pos1 = Sn.sn_from payload 0 in
+    let i, pos2 = Sn.sn_from payload pos1 in
+    let v, pos3 = Llio.option_from Value.value_from payload pos2
+    in Promise (n,i, v)
+  | "accept"  ->
+    let n, pos1 = Sn.sn_from payload 0 in
+    let i, pos2 = Sn.sn_from payload pos1 in
+    let s, pos2 = Value.value_from payload pos2 in
           Accept(n, i,s)
-	| "accepted" ->
-	  let n, pos1 = Sn.sn_from payload 0 in
-	  let i, _ = Sn.sn_from payload pos1 in
+  | "accepted" ->
+    let n, pos1 = Sn.sn_from payload 0 in
+    let i, _ = Sn.sn_from payload pos1 in
           Accepted(n,i)
-	| s -> failwith (s ^":not implemented")
+  | s -> failwith (s ^":not implemented")
 end

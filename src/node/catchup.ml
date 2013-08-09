@@ -97,10 +97,10 @@ let head_saved_epilogue hfn tlog_coll =
     match hio with 
       | None -> Lwt.return () 
       | Some head_i -> 
-	begin
-	  Logger.debug_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->	    
-	  tlog_coll # remove_below head_i 
-	end
+  begin
+    Logger.debug_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->      
+    tlog_coll # remove_below head_i 
+  end
   end
 
 
@@ -327,48 +327,48 @@ let last_entries
   let consensus_i = S.consensus_i store in
   begin
     match consensus_i with
-	| None -> Lwt.return ()
-	| Some ci ->
-	  begin
-	    tlog_collection # get_infimum_i () >>= fun inf_i ->
-	    let too_far_i = Sn.succ ci in
+  | None -> Lwt.return ()
+  | Some ci ->
+    begin
+      tlog_collection # get_infimum_i () >>= fun inf_i ->
+      let too_far_i = Sn.succ ci in
         Logger.debug_f_
-	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-	      (Sn.string_of too_far_i)
+        "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
+        (Sn.string_of too_far_i)
         >>= fun () ->
-	    begin
-	      if start_i < inf_i
-	      then
-		    begin
-		      Llio.output_int oc 2 >>= fun () ->
-		      tlog_collection # dump_head oc
-		    end
-	      else
-		    Lwt.return start_i
-	    end
-	    >>= fun start_i2->
+      begin
+        if start_i < inf_i
+        then
+        begin
+          Llio.output_int oc 2 >>= fun () ->
+          tlog_collection # dump_head oc
+        end
+        else
+        Lwt.return start_i
+      end
+      >>= fun start_i2->
 
         
-	    let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-	    let rec loop_parts (start_i2:Sn.t) =
-	      if Sn.rem start_i2 step = Sn.start &&
-		    Sn.add start_i2 step < too_far_i
-	      then
-		    begin
-		      Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-		      >>= fun () ->
-		      Llio.output_int oc 3 >>= fun () ->
-		      tlog_collection # dump_tlog_file start_i2 oc
-		      >>= fun start_i2' ->
-		      loop_parts start_i2'
-		    end
-	      else
-		    Lwt.return start_i2
-	    in
-	    loop_parts start_i2
-	    >>= fun start_i3 ->
-	    Llio.output_int oc 1 >>= fun () ->
-	    let f entry =
+      let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
+      let rec loop_parts (start_i2:Sn.t) =
+        if Sn.rem start_i2 step = Sn.start &&
+        Sn.add start_i2 step < too_far_i
+        then
+        begin
+          Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
+          >>= fun () ->
+          Llio.output_int oc 3 >>= fun () ->
+          tlog_collection # dump_tlog_file start_i2 oc
+          >>= fun start_i2' ->
+          loop_parts start_i2'
+        end
+        else
+        Lwt.return start_i2
+      in
+      loop_parts start_i2
+      >>= fun start_i3 ->
+      Llio.output_int oc 1 >>= fun () ->
+      let f entry =
           let i = Entry.i_of entry
           and v = Entry.v_of entry
           in
@@ -379,8 +379,8 @@ let last_entries
           (function
           | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
           | ex -> Lwt.fail ex) >>= fun () ->
-	    Sn.output_sn oc (-1L)
-	  end
+      Sn.output_sn oc (-1L)
+    end
   end
   >>= fun () ->
   Logger.info_f_ "done with_last_entries"
@@ -395,61 +395,61 @@ let last_entries2
 
   begin
     match consensus_i with
-	| None -> Lwt.return ()
-	| Some ci ->
+  | None -> Lwt.return ()
+  | Some ci ->
 
       let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 
       let stream_entries start_i too_far_i = 
-	    let _write_entry entry =
+      let _write_entry entry =
           let i = Entry.i_of entry
           and v = Entry.v_of entry
           in
           Tlogcommon.write_entry oc i v 
         in
-	    Llio.output_int oc 1 >>= fun () ->
+      Llio.output_int oc 1 >>= fun () ->
         Lwt.catch
           (fun () -> tlog_collection # iterate start_i too_far_i _write_entry)
           (function
           | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
           | ex -> Lwt.fail ex) 
         >>= fun () ->
-	    Sn.output_sn oc (-1L)
+      Sn.output_sn oc (-1L)
       in
-	  let too_far_i = Sn.succ ci in
+    let too_far_i = Sn.succ ci in
       let rec loop_files (start_i2:Sn.t) =
-	    if Sn.rem start_i2 step = Sn.start &&
-	      Sn.add start_i2 step < too_far_i
-	    then
-	      begin
-		    Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-		    >>= fun () ->
-		    Llio.output_int oc 3 >>= fun () ->
-		    tlog_collection # dump_tlog_file start_i2 oc
-		    >>= fun start_i2' ->
-		    loop_files start_i2'
-	      end
-	    else
-	      Lwt.return start_i2
+      if Sn.rem start_i2 step = Sn.start &&
+        Sn.add start_i2 step < too_far_i
+      then
+        begin
+        Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
+        >>= fun () ->
+        Llio.output_int oc 3 >>= fun () ->
+        tlog_collection # dump_tlog_file start_i2 oc
+        >>= fun start_i2' ->
+        loop_files start_i2'
+        end
+      else
+        Lwt.return start_i2
       in
       let maybe_dump_head () = 
-	    tlog_collection # get_infimum_i () >>= fun inf_i ->
+      tlog_collection # get_infimum_i () >>= fun inf_i ->
         Logger.debug_f_
-	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-	      (Sn.string_of too_far_i)
+        "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
+        (Sn.string_of too_far_i)
         >>= fun () ->
-	    begin
-	      if start_i < inf_i
-	      then
-		    begin
-		      Llio.output_int oc 2 >>= fun () ->
-		      tlog_collection # dump_head oc
-		    end
-	      else
-		    Lwt.return start_i
-	    end
+      begin
+        if start_i < inf_i
+        then
+        begin
+          Llio.output_int oc 2 >>= fun () ->
+          tlog_collection # dump_head oc
+        end
+        else
+        Lwt.return start_i
+      end
       in
-	  begin
+    begin
         maybe_dump_head () >>= fun start_i2->
 
         (* maybe stream a bit *)
@@ -471,11 +471,11 @@ let last_entries2
         end
         >>= fun start_i3 ->
         (* push out files *)
-	    loop_files start_i3
-	    >>= fun start_i4 ->
+      loop_files start_i3
+      >>= fun start_i4 ->
         (* epilogue: *)
         stream_entries start_i4 too_far_i
-	  end
+    end
   end
   >>= fun () ->
   Sn.output_sn oc (-2L) >>= fun () ->

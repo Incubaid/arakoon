@@ -96,8 +96,8 @@ module type TR = sig
     'a ->
     ('a -> Entry.t -> 'a Lwt.t) -> 'a Lwt.t
     (** here this fold does not attempt to eliminate doubles:
-	it makes the code simpler and any state-updates that you need
-	to do this can be done in the acc anyway.
+  it makes the code simpler and any state-updates that you need
+  to do this can be done in the acc anyway.
     **)
 end
 
@@ -119,22 +119,22 @@ module U = struct
 
   let next ic =
     Lwt.catch
-	  (fun () ->
-	    Tlogcommon.read_entry ic >>= fun t ->
-	    Lwt.return (Some t)
-	  )
-	  (function
-	    | End_of_file -> (Lwt_io.close ic >>= fun () -> Lwt.return None )
-	    | exn -> Lwt.fail exn)
+    (fun () ->
+      Tlogcommon.read_entry ic >>= fun t ->
+      Lwt.return (Some t)
+    )
+    (function
+      | End_of_file -> (Lwt_io.close ic >>= fun () -> Lwt.return None )
+      | exn -> Lwt.fail exn)
 
   let rec skip_until ic lowerI =
     next ic >>= function
       | None -> Lwt.return None
       | (Some iu) as siu ->
         let i = Entry.i_of iu in
-	    if i < lowerI
-	    then skip_until ic lowerI
-	    else Lwt.return siu
+      if i < lowerI
+      then skip_until ic lowerI
+      else Lwt.return siu
  
   let fold ic 
       ~index
@@ -150,7 +150,7 @@ module U = struct
     let rec _fold (a:'a) iu =
       match too_far_i with
         | None -> 
-	      begin 
+        begin 
             f a iu >>= fun a' -> 
             next ic >>= function
               | None -> Lwt.return a'
@@ -195,27 +195,27 @@ module C = struct
     let rec _skip_in_block buffer pos =
       let beyond = String.length buffer in 
       let rec _loop (maybe_p:Entry.t option) pos =
-	    if pos = beyond 
+      if pos = beyond 
         then maybe_p, pos
-	    else
-	      begin
-	        let entry1, pos1 = Tlogcommon.entry_from buffer pos in
+      else
+        begin
+          let entry1, pos1 = Tlogcommon.entry_from buffer pos in
             let i1 = Entry.i_of entry1 in
-	        if i1 > lowerI 
-	        then maybe_p, pos
-	        else 
-	          _loop (Some entry1) pos1
-	      end
+          if i1 > lowerI 
+          then maybe_p, pos
+          else 
+            _loop (Some entry1) pos1
+        end
       in
       _loop None pos 
     in
     let rec _fold_block a buffer pos =
       Logger.debug_f_ "_fold_block:pos=%i" pos>>= fun() ->
       let rec _loop a p =
-	    if p = (String.length buffer) 
-	    then Lwt.return a
-	    else
-	      let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
+      if p = (String.length buffer) 
+      then Lwt.return a
+      else
+        let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
           begin 
             match too_far_i with 
               | None -> f a buf_entry
@@ -225,33 +225,33 @@ module C = struct
                 then Lwt.return a
                 else f a buf_entry
           end >>= fun a' ->
-	      _loop a' pos2
+        _loop a' pos2
       in
       _loop a pos
     in
     let maybe_read_buffer () =
       Lwt.catch 
-	    (fun () -> Sn.input_sn ic >>= fun _ (* last i *) ->
-	      Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed))
-	    (function 
-	      | End_of_file -> Lwt.return None
-	      | e -> Lwt.fail e
-	    )
+      (fun () -> Sn.input_sn ic >>= fun _ (* last i *) ->
+        Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed))
+      (function 
+        | End_of_file -> Lwt.return None
+        | e -> Lwt.fail e
+      )
     in
     let rec _fold_blocks a =
       Logger.debug_ "_fold_blocks " >>= fun () ->
       maybe_read_buffer () >>= function
-	    | None -> Lwt.return a
-	    | Some compressed ->
-	      begin
-	        Logger.debug_f_ "uncompressing: %i bytes" 
-	          (String.length compressed) >>= fun () ->
-	        uncompress_block compressed >>= fun buffer ->
-	        Logger.debug_f_ "uncompressed size: %i bytes" 
-	          (String.length buffer) >>= fun () ->
-	        _fold_block a buffer 0 >>= fun a' ->
-	        _fold_blocks a'
-	      end
+      | None -> Lwt.return a
+      | Some compressed ->
+        begin
+          Logger.debug_f_ "uncompressing: %i bytes" 
+            (String.length compressed) >>= fun () ->
+          uncompress_block compressed >>= fun buffer ->
+          Logger.debug_f_ "uncompressed size: %i bytes" 
+            (String.length buffer) >>= fun () ->
+          _fold_block a buffer 0 >>= fun a' ->
+          _fold_blocks a'
+        end
     in
     _skip_blocks () >>= fun compressed -> 
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
@@ -260,8 +260,8 @@ module C = struct
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
       match maybe_first with
-	    | None -> Lwt.return a0
-	    | Some entry-> f a0 entry
+      | None -> Lwt.return a0
+      | Some entry-> f a0 entry
     end >>= fun a' ->
     Logger.debug_ "post_skip_in_block" >>= fun () ->
     _fold_block (a':'a) buffer pos >>= fun a1 -> 
@@ -283,27 +283,27 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
     let rec _skip_in_block buffer pos =
       let beyond = String.length buffer in 
       let rec _loop (maybe_p:Entry.t option) pos =
-	    if pos = beyond 
+      if pos = beyond 
         then maybe_p, pos
-	    else
-	      begin
-	        let entry1, pos1 = Tlogcommon.entry_from buffer pos in
+      else
+        begin
+          let entry1, pos1 = Tlogcommon.entry_from buffer pos in
             let i1 = Entry.i_of entry1 in
-	        if i1 > lowerI 
-	        then maybe_p, pos
-	        else 
-	          _loop (Some entry1) pos1
-	      end
+          if i1 > lowerI 
+          then maybe_p, pos
+          else 
+            _loop (Some entry1) pos1
+        end
       in
       _loop None pos 
     in
     let rec _fold_block a buffer pos =
       Logger.debug_f_ "_fold_block:pos=%i" pos>>= fun() ->
       let rec _loop a p =
-	    if p = (String.length buffer) 
-	    then Lwt.return a
-	    else
-	      let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
+      if p = (String.length buffer) 
+      then Lwt.return a
+      else
+        let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
           begin 
             match too_far_i with 
               | None -> f a buf_entry
@@ -314,31 +314,31 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
                 else 
                   f a buf_entry
           end >>= fun a' ->
-	      _loop a' pos2
+        _loop a' pos2
       in
       _loop a pos
     in
     let maybe_read_buffer () =
       Lwt.catch 
-	    (fun () -> Llio.input_int ic >>= fun _ (* n_entries *) ->
-	      Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed)
+      (fun () -> Llio.input_int ic >>= fun _ (* n_entries *) ->
+        Llio.input_string ic >>= fun compressed -> Lwt.return (Some compressed)
         )
-	    (function 
-	      | End_of_file -> Lwt.return None
-	      | e -> Lwt.fail e
-	    )
+      (function 
+        | End_of_file -> Lwt.return None
+        | e -> Lwt.fail e
+      )
     in
     let rec _fold_blocks a =
       Logger.debug_ "_fold_blocks " >>= fun () ->
       maybe_read_buffer () >>= function
-	    | None -> Lwt.return a
-	    | Some compressed ->
-	      begin
-	        Logger.debug_f_ "compressed: %i" (String.length compressed) >>= fun () ->
-	        uncompress_block compressed >>= fun buffer ->
-	        _fold_block a buffer 0 >>= fun a' ->
-	        _fold_blocks a'
-	      end
+      | None -> Lwt.return a
+      | Some compressed ->
+        begin
+          Logger.debug_f_ "compressed: %i" (String.length compressed) >>= fun () ->
+          uncompress_block compressed >>= fun buffer ->
+          _fold_block a buffer 0 >>= fun a' ->
+          _fold_blocks a'
+        end
     in
     _read_block () >>= fun compressed -> 
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
@@ -347,8 +347,8 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
       match maybe_first with
-	    | None -> Lwt.return a0
-	    | Some entry-> f a0 entry
+      | None -> Lwt.return a0
+      | Some entry-> f a0 entry
     end >>= fun a' ->
     Logger.debug_ "post_skip_in_block" >>= fun () ->
     _fold_block (a':'a) buffer pos >>= fun a1 -> 

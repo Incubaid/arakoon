@@ -252,7 +252,7 @@ let list_from s e_from pos =
   let rec loop acc p = function
     | 0 -> acc,p
     | i -> let e,p' = e_from s p in
-	   loop (e::acc) p' (i-1)
+     loop (e::acc) p' (i-1)
   in loop [] p0 size
 
 let string_list_from s pos = list_from s string_from pos
@@ -274,7 +274,7 @@ let option_from (f:string -> int -> 'a * int) string pos =
     match b with
       | false -> None, pos1
       | true -> let v, pos2 = f string pos1 in
-	  (Some v), pos2
+    (Some v), pos2
 
 let string_option_to buff so =  option_to string_to buff so
 
@@ -298,8 +298,8 @@ let hashtbl_from buf ef pos =
   let rec loop pos = function
     | 0 -> r, pos
     | i -> let (k,v), p2 = ef buf pos in
-	   let () = Hashtbl.add r k v in
-	   loop p2 (i-1)
+     let () = Hashtbl.add r k v in
+     loop p2 (i-1)
   in
   loop p1 len
 
@@ -315,14 +315,14 @@ let copy_stream ~length ~ic ~oc =
     if i = Int64.zero
     then
       begin
-	Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
-	Lwt_io.write_from_exactly oc buffer 0 rest
+  Lwt_io.read_into_exactly ic buffer 0 rest >>= fun () ->
+  Lwt_io.write_from_exactly oc buffer 0 rest
       end
     else
       begin
-	Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
-	Lwt_io.write oc buffer >>= fun () ->
-	loop (Int64.pred i)
+  Lwt_io.read_into_exactly ic buffer 0 bs >>= fun () ->
+  Lwt_io.write oc buffer >>= fun () ->
+  loop (Int64.pred i)
       end
   in
   loop n_bs >>= fun () ->

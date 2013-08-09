@@ -15,16 +15,16 @@ let dump_tlog filename ~values=
   
   let t =
     begin
-	  let do_it ic =
+    let do_it ic =
         
-	    let lowerI = Sn.start
-	    and higherI = None
-	    and first = Sn.of_int 0
-	    and a0 = () in
-	    folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
-	    Lwt.return 0
-	  in
-	  Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+      let lowerI = Sn.start
+      and higherI = None
+      and first = Sn.of_int 0
+      and a0 = () in
+      folder ic ~index lowerI higherI ~first a0 printer >>= fun () ->
+      Lwt.return 0
+    in
+    Lwt_io.with_file ~mode:Lwt_io.input filename do_it
     end
   in
   Lwt_main.run t
@@ -124,17 +124,17 @@ let uncompress_tlog tlx =
     let extension = Tlc2.extension_of tlx in
     if extension = Tlc2.archive_extension then
       begin
-	let tlu = Tlc2.to_tlog_name tlx in
-	Compression.uncompress_tlog tlx tlu >>= fun () ->
-	Unix.unlink tlx;
-	Lwt.return ()
+  let tlu = Tlc2.to_tlog_name tlx in
+  Compression.uncompress_tlog tlx tlu >>= fun () ->
+  Unix.unlink tlx;
+  Lwt.return ()
       end
     else if extension = ".tlc" then
       begin
-	let tlu = Tlc2.to_tlog_name tlx in
-	Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
-	Unix.unlink tlx;
-	Lwt.return ()
+  let tlu = Tlc2.to_tlog_name tlx in
+  Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
+  Unix.unlink tlx;
+  Lwt.return ()
       end
     else Lwt.fail (Failure "unknown file format")
   in
