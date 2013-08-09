@@ -339,22 +339,23 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 		                | Some( pv, pi ) -> 
                           let store_i = S.consensus_i constants.store in
                           begin
-		                    match store_i with
-		                      | Some s_i ->
-			                    if (Sn.compare s_i pi) == 0 
-			                    then Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
-			                    else 
-			                      begin
-			                        Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me 
-			                          (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
-			                        constants.on_consensus(pv,n,pi) >>= fun _ ->
-			                        Lwt.return ()
-			                      end
-                              | None ->
+                            match store_i with
+                            | Some s_i ->
+                              if (Sn.compare s_i pi) == 0 || not ((Sn.compare i (Sn.succ pi)) == 0)
+                              then
+                                Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
+                              else
+                                begin
+                                  Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me 
+                                    (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
+                                  constants.on_consensus(pv,n,pi) >>= fun _ ->
+                                  Lwt.return ()
+                                end
+                            | None ->
                                 (* store is empty, so a previous entry will
                                    have the same i as the current one: don't push *)
-                                Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
-                                  me (Sn.string_of pi) (Sn.string_of i)
+                              Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
+                                me (Sn.string_of pi) (Sn.string_of i)
                           end
                     end >>= fun _ ->
 	              let reply = Accepted(n,i') in
@@ -445,8 +446,11 @@ let slave_discovered_other_master (type s) constants state () =
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n 
-      >>= fun (future_n', current_i', vo') ->
+      >>= fun () ->
       begin
+        let current_i' = S.get_succ_store_i store in
+        let vo' = tlog_coll # get_last_value current_i' in
+
 	    let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
 			                Sn.pred current_i') (* pred =  consensus_i *)
 	    in
@@ -455,8 +459,8 @@ let slave_discovered_other_master (type s) constants state () =
 	    match vo' with
 	      | Some v ->
             begin
-              start_lease_expiration_thread constants future_n' constants.lease_expiration >>= fun () -> 
-              Fsm.return (Slave_steady_state (future_n', current_i', v))
+              start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () -> 
+              Fsm.return (Slave_steady_state (future_n, current_i', v))
             end
 	      | None -> 
             let vo =
@@ -466,7 +470,7 @@ let slave_discovered_other_master (type s) constants state () =
                   | Some u -> Some ( u, current_i' )
               end in
             start_election_timeout constants future_n current_i' >>= fun () ->
-            Fsm.return (Slave_wait_for_accept (future_n', current_i', None, vo))
+            Fsm.return (Slave_wait_for_accept (future_n, current_i', None, vo))
       end
     end
   else if current_i = future_i then

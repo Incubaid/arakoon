@@ -190,6 +190,11 @@ let mcast constants msg =
 let update_n constants n =
   Sn.add n (Sn.of_int (1 + Random.int ( 1 + (List.length constants.others) * 2)))
 
+let push_value constants v n i =
+  constants.on_accept (v,n,i) >>= fun () ->
+  let msg = Accept(n,i,v) in
+  mcast constants msg
+
 
 let start_lease_expiration_thread constants n expiration =
   let sleep_sec = float_of_int expiration in
@@ -333,7 +338,8 @@ let handle_unquiesce_request (type s) constants n =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let too_far_i = S.get_succ_store_i store in
   S.unquiesce store >>= fun () ->
-  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun (i,vo) ->
+  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
+  let i = S.get_succ_store_i store in
+  let vo = tlog_coll # get_last_value i in
   start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
   Lwt.return (i,vo)
-  

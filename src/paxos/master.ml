@@ -27,31 +27,48 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
+let is_empty = function
+  | [] -> true
+  | _ -> false
+
 (* a (possibly potential) master has found consensus on a value
    first potentially finish of a client request and then on to
    being a stable master *)
-let master_consensus constants ((finished_funs : master_option),v,n,i, lease_expire_waiters) () =
+let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, lease_expire_waiters) () =
   let con_e = EConsensus(finished_funs, v,n,i) in
   let log_e = ELog (fun () ->
     Printf.sprintf "on_consensus for : %s => %i finished_fs (in master_consensus)"
       (Value.value2s v) (List.length finished_funs) )
   in
-  let inject_e = EGen (fun () ->
-    match v with
-    | Value.Vm _ ->
-      let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
-      Lwt.ignore_result (constants.inject_event event);
-      Lwt.return ()
-    | _ -> Lwt.return ()
-  )
-  in
-  let state = (v,n,(Sn.succ i), lease_expire_waiters) in
-  Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
-    
-
-let null = function
-  | [] -> true
-  | _ -> false
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  match (Value.is_master_set v, is_empty lease_expire_waiters, S.who_master constants.store) with
+  | false, false, None ->
+    (* there is no master, this ain't a masterset, and there is no drop master going on
+       so let's push MasterSet for myself *)
+    let mv =Value.create_master_value (constants.me, 0L) in
+    let i' = Sn.succ i in
+    push_value constants mv n i' >>= fun () ->
+    let nnodes = List.length constants.others + 1 in
+    let needed = constants.quorum_function nnodes in
+    let new_ballot = (needed-1 , [constants.me] ) in
+    Fsm.return
+      ~sides:[con_e;log_e]
+      (Accepteds_check_done ([(fun _ -> Lwt.return ())], n, i', new_ballot, mv, []))
+  | _ ->
+    begin
+      let inject_e = EGen (fun () ->
+        match v with
+        | Value.Vm _ ->
+          let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
+          Lwt.ignore_result (constants.inject_event event);
+          Lwt.return ()
+        | _ ->
+          Lwt.return ()
+      )
+      in
+      let state = (v,n,(Sn.succ i), lease_expire_waiters) in
+      Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
+    end
 
 let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev = 
   match ev with
@@ -69,7 +86,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
       else
 	    begin
 	      let extend () =
-                if not (null lease_expire_waiters)
+                if not (is_empty lease_expire_waiters)
                 then
                   let log_e = ELog (fun () ->
                     "stable_master: half-lease_expired, but not renewing lease")
@@ -219,7 +236,7 @@ let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
     )
   in
   let sides =
-    if null lease_expire_waiters
+    if is_empty lease_expire_waiters
     then
       [accept_e;
        start_e;
