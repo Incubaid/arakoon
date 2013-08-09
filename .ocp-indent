@@ -1,0 +1,11 @@
+base=2
+type=2
+in=0
+with=2
+match_clause=2
+max_indent=4
+strict_with=always
+strict_else=always
+strict_comments=false
+align_ops=true
+align_params=always
