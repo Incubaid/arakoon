@@ -141,6 +141,7 @@ type 'a constants =
    cluster_id : string;
    is_learner: bool;
    quiesced : bool;
+   mutable election_timeout : (Sn.t * Sn.t * float) option;
   }
 
 let am_forced_master constants me =
@@ -178,6 +179,7 @@ let make (type s) me is_learner others send receive get_value
     inject_event = inject_event;
     cluster_id = cluster_id;
     quiesced = quiesced;
+    election_timeout = None;
   }
 
 let mcast constants msg =
@@ -214,17 +216,31 @@ let start_lease_expiration_thread constants n expiration =
 
 let start_election_timeout constants n i =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
-  let t () =
-    begin
-      Logger.debug_f_ "%s: waiting %2.1f seconds for election to finish" constants.me sleep_sec >>= fun () ->
-      let t0 = Unix.gettimeofday () in
-      Lwt_unix.sleep sleep_sec >>= fun () ->
-      let t1 = Unix.gettimeofday () in
-      Logger.debug_f_ "%s: election (n=%s) should have finished by now (%2.1f passed, intended %2.1f)." constants.me (Sn.string_of n) (t1 -. t0) sleep_sec >>= fun () ->
-      constants.inject_event (ElectionTimeout (n, i))
-    end
-  in
-  let () = Lwt.ignore_result (t ()) in
+  let () = match constants.election_timeout with
+    | None ->
+      begin
+        let rec t sleep_sec =
+          Logger.debug_f_ "%s: waiting %2.1f seconds for timeout" constants.me sleep_sec >>= fun () ->
+          let t0 = Unix.gettimeofday () in
+          Lwt_unix.sleep sleep_sec >>= fun () ->
+          let t1 = Unix.gettimeofday () in
+          Logger.debug_f_ "%s: timeout (n=%s) should have finished by now (%2.1f passed, intended %2.1f)." constants.me (Sn.string_of n) (t1 -. t0) sleep_sec >>= fun () ->
+          match constants.election_timeout with
+            | None -> Logger.warning_f_ "%s: scheduled election timeout thread but no timeout configured!" constants.me
+            | Some (n', i', until) ->
+              if t1 < until
+              then
+                t (until -. t1)
+              else
+                begin
+                  constants.election_timeout <- None;
+                  constants.inject_event (ElectionTimeout (n', i'))
+                end
+        in
+        Lwt.ignore_result (t sleep_sec)
+      end
+    | Some _ -> () in
+  constants.election_timeout <- Some (n, i, Unix.gettimeofday () +. sleep_sec);
   Lwt.return ()
 
 type prepare_repsonse =
