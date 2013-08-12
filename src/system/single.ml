@@ -42,10 +42,6 @@ let should_fail x error_msg success_msg =
   else Lwt.return ()
 
 let _start tn =
-  let d = 5.0 in
-  Logger.info_f_ "==================== %s ===================" tn >>= fun () ->
-  Logger.info_f_ "(sleep %f)" d >>= fun () ->
-  Lwt_unix.sleep d >>= fun () ->
   Logger.info_f_ "---------------------%s--------------------" tn
 
 let all_same_master (tn, cluster_cfg, all_t) =
@@ -512,7 +508,7 @@ let _multi_get_option (client:client) =
 
 
 let _with_master ((tn:string), cluster_cfg, _) f =
-  let sp = float(cluster_cfg._lease_period) *. 1.5 in
+  let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
   Client_main.find_master cluster_cfg >>= fun master_name ->
