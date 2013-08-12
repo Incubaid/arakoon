@@ -560,3 +560,71 @@ def test_db_optimize():
     msg = template % (start_size, opt_size) 
     assert_true( opt_size < 0.1*start_size, msg)
 
+@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
+def test_missing_tlog():
+    Common.iterate_n_times(550000,Common.simple_set)
+    nn = Common.node_names[0]
+    Common.stopOne(nn)
+    fn = Common.get_node_db_file(nn)
+    os.remove(fn)
+    logging.info("removed %s", fn)
+    cluster = _getCluster()
+    fs = Common.q.system.fs
+    cfg = cluster.getNodeConfig(nn)
+    node_tlf_dir  = cfg['tlf_dir']
+    tlf_full_path = fs.joinPaths (node_tlf_dir, "%03d.tlf" % 2)
+    logging.info("removing %s", tlf_full_path)
+    os.remove(tlf_full_path)
+
+    
+    Common.startOne(nn)
+    # it should die some time later.
+    def n_running () :
+        ns = Common.check_output(['pgrep', '-c', Common.daemon_name])
+        n = int(ns)
+        return n
+    
+    t0 = time.time()
+    wait = True
+    n = 0
+    while wait:
+        time.sleep(10)
+        try:
+            n = n_running()
+        except:
+            n = 0
+
+        if n == 0:
+            wait = False
+
+        t1 = time.time()
+        d = t1 - t0
+        logging.info("after d=%fs, the node's still running", d)
+        if d > 120.0:
+            wait = False
+    
+    if n:
+        assert_equals(True,False,"node still running")
+    #now check logging.
+    log_dir = cfg['log_dir']
+    log_file = fs.joinPaths(log_dir, "%s.log" % nn)
+
+
+
+    size = os.path.getsize(log_file)
+    f = open(log_file,'r')
+    f.seek(size - 4096)
+    tail = f.read()
+    f.close()
+    ok = False
+    for line in tail.split('\n'):
+        if line.find("(found neither 002.tlf nor 002.tlog)"):
+            logging.info("line=%s",line)
+            ok = True
+                     
+    assert_equals(True,ok,"line should be present")
+
+    
+    
+    
+    

@@ -188,7 +188,10 @@ let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
       end
 
 
-let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
+let catchup_store (type s) me 
+    ((module S : Store.STORE with type t = s), store, 
+     (tlog_coll: tlog_collection)) 
+    (too_far_i:Sn.t) =
   Logger.info_ "replaying log to store"
   >>= fun () ->
   let store_i = S.consensus_i store in
@@ -239,11 +242,30 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
         let pred_too_far_i = Sn.pred too_far_i in
         if si < pred_too_far_i
         then
-          let msg = Printf.sprintf
-                      "Catchup store failed. Store counter is too low: %s < %s"
-                      (Sn.string_of si) (Sn.string_of pred_too_far_i)
-          in
-          Lwt.fail (StoreCounterTooLow msg)
+	  begin
+	    let msg = 
+	      Printf.sprintf
+		"Catchup store failed. Store counter is too low: %s < %s"
+		(Sn.string_of si) (Sn.string_of pred_too_far_i)
+	    and n_entries = Sn.of_int !Tlogcommon.tlogEntriesPerFile in
+	    if Sn.rem si n_entries = Sn.pred n_entries
+	    then 
+	      let ssi = Sn.succ si in
+	      tlog_coll # which_tlog_file ssi >>= function
+		| None -> 
+		  let n = tlog_coll # get_tlog_from_i ssi in
+		  let ni = Sn.to_int n in
+		  let an = Tlc2.archive_name ni
+		  and fn = Tlc2.file_name ni 
+		  in
+		  Lwt.return 
+		    (Printf.sprintf 
+		       "%s (found neither %s nor %s)" msg  an fn)
+		| Some _ -> Lwt.return msg
+	    else
+	      Lwt.return msg
+	  end 
+	   >>= fun msg -> Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
       end >>= fun () ->
