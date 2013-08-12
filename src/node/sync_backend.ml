@@ -382,7 +382,7 @@ object(self: #backend)
 	| None -> None,"young cluster"
 	| Some (m,ls) ->
 	  match Node_cfg.get_master cfg with
-	    | Elected | Preferred _ ->
+	    | Elected | Preferred _ | Forced _ ->
 	      begin
 	      if (m = my_name ) && (ls < instantiation_time)
 	      then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
@@ -393,7 +393,6 @@ object(self: #backend)
 		  (Some m,"inside lease")
 		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
 	      end
-	    | Forced x -> Some x,"forced master"
 	    | ReadOnly -> Some my_name, "readonly"
 
     in
