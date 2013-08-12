@@ -684,7 +684,7 @@ struct
                   push_node_msg update >>= fun () ->
                   Logger.debug_ "drop_master: waiting for completion" >>= fun () ->
                   sleep >>= fun () ->
-                  let delay = (float lease_expiration) +. 0.5 in
+                  let delay = (float lease_expiration) *. 0.5 in
                   Logger.debug_f_ "drop_master: waiting another %1.1fs" delay >>= fun () ->
                   Lwt_unix.sleep delay >>= fun () ->
                   Logger.debug_ "drop_master: completed"

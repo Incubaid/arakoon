@@ -300,7 +300,7 @@ def drop_master(n):
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master():
-    n = 10
+    n = 20
     drop_master(n)
 """    drop_masters = lambda : drop_master(n)
     Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
@@ -309,7 +309,7 @@ def test_drop_master():
 def _test_drop_master_with_load_(client):
     global busy, excs
 
-    n = 10
+    n = 40
 
     busy = True
     excs = []
@@ -345,7 +345,7 @@ def _test_drop_master_with_load_(client):
     t_drop.start()
 
     cv.acquire()
-    cv.wait(400.0)
+    cv.wait(800.0)
 
     assert_false( busy ) # test should be finished by now and is probably hanging
     if busy:
@@ -353,25 +353,12 @@ def _test_drop_master_with_load_(client):
         time.sleep(10) # give the client threads some time to finish
         assert_false( True ) # test should be finished by now and is probably hanging
 
+    time.sleep(10) # give the client threads some time to finish
     if len(excs) <> 0:
         raise excs[0]
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master_with_load():
-    def client(n):
-        global excs, busy
-        try :
-            while busy:
-                Common.iterate_n_times( 100, Common.simple_set, startSuffix = n * 100 )
-        except Exception, ex:
-            excs.append(ex)
-            raise ex
-
-    _test_drop_master_with_load_(client)
-
-
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
-def test_drop_master_with_load_and_verify():
     def client(n):
         global excs, busy
         try :
