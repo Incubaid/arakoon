@@ -565,7 +565,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend (master, constants, buffers, new_i, vo, store) =
+      let start_backend stop (master, constants, buffers, new_i, vo, store) =
         let to_run =
           match master with
             | Forced master  ->
@@ -579,7 +579,7 @@ let _main_2 (type s)
                 end
             | _ -> Multi_paxos_fsm.enter_simple_paxos
         in
-        to_run constants buffers new_i vo
+        to_run ~stop constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -596,7 +596,8 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let fsm () = start_backend start_state in
+           let stop = ref false in
+           let fsm () = start_backend stop start_state in
            let fsm_mutex = Lwt_mutex.create () in
            let fsm_t =
              log_exception
@@ -628,14 +629,12 @@ let _main_2 (type s)
                           ;
                         ])
              (fun () ->
+                stop := true;
                 Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
-                Lwt.pick [
-                  Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
-                             Logger.info_ "fsm thread finished");
-                            (Lwt_mutex.lock msg_mutex >>= fun () ->
-                             Logger.info_ "messaging thread finished")] ;
-                  (Lwt_unix.sleep 2.0 >>= fun () ->
-                   Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
+                Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
+                           Logger.info_ "fsm thread finished");
+                          (Lwt_mutex.lock msg_mutex >>= fun () ->
+                           Logger.info_ "messaging thread finished")] >>= fun () ->
                 let count_thread m =
                   let rec inner i =
                     Logger.info_f_ m i >>= fun () ->

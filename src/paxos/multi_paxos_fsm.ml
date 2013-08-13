@@ -918,7 +918,7 @@ let _execute_effects constants e =
 
 (* the entry methods *)
 
-let enter_forced_slave constants buffers new_i vo=
+let enter_forced_slave ?(stop = ref false) constants buffers new_i vo=
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
   let trace = trace_transition me in
@@ -927,7 +927,7 @@ let enter_forced_slave constants buffers new_i vo=
 
   Lwt.catch
     (fun () ->
-       Fsm.loop ~trace
+       Fsm.loop ~trace ~stop
          (_execute_effects constants)
          produce
          (machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
@@ -937,7 +937,7 @@ let enter_forced_slave constants buffers new_i vo=
        >>= fun () -> Lwt.fail exn
     )
 
-let enter_forced_master constants buffers current_i vo =
+let enter_forced_master ?(stop = ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
   let current_n = 0L in
@@ -945,7 +945,7 @@ let enter_forced_master constants buffers current_i vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
-       Fsm.loop ~trace
+       Fsm.loop ~trace ~stop
          (_execute_effects constants)
          produce
          (machine constants)
@@ -956,7 +956,7 @@ let enter_forced_master constants buffers current_i vo =
        >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos constants buffers current_i vo =
+let enter_simple_paxos ?(stop = ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = Sn.start in
@@ -964,7 +964,7 @@ let enter_simple_paxos constants buffers current_i vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
-       Fsm.loop ~trace
+       Fsm.loop ~trace ~stop
          (_execute_effects constants)
          produce
          (machine constants)
