@@ -361,7 +361,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
                     let reply = Accepted(n,i') in
                     Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
                     send reply me source >>= fun () ->
-                    (* TODO: should assert we really have a MasterSet here *)
+                    start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
                     Fsm.return (Slave_steady_state (n, Sn.succ i', v))
                 end
             end
