@@ -56,17 +56,17 @@ def test_delete_non_existing_with_catchup ():
     cli.set(key,value)
     cli.set(key,value)
     cli.set(key,value)
-    
+
     slave = Common.node_names[1]
     Common.startOne( slave )
     time.sleep(2.0)
     cluster = _getCluster()
     log_dir = cluster.getNodeConfig(slave ) ['log_dir']
     log_file = "%s/%s.log" % (log_dir, slave)
-    q = Common.q 
+    q = Common.q
     log = q.system.fs.fileGetContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
-    
+
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown )
 def test_expect_progress_fixed_master ():
     """
@@ -102,38 +102,38 @@ def test_catchup_while_collapsing():
     node_names = Common.node_names
     tpet = Common.tlog_entries_per_tlog
     Common.iterate_n_times(2* tpet, Common.simple_set )
-    
+
     Common.stop_all()
     Common.wipe( node_names[0] )
     Common.startOne(node_names[1])
-    
+
     delayed_start = lambda: Common.startOne(node_names[0])
     collapser = lambda: Common.collapse(node_names[1] )
-    
+
     Common.create_and_wait_for_thread_list( [delayed_start, collapser] )
     cli = Common.get_client()
-    
+
     time_out = 120
     iter_cnt = 0
-    
+
     while iter_cnt < time_out :
         Common.assert_running_nodes ( 2 )
         if cli.expectProgressPossible() :
             break
         iter_cnt += 1
         time.sleep(1.0)
-        
+
     Common.stop_all()
     Common.assert_last_i_in_sync( node_names[0], node_names[1])
     Common.compare_stores( node_names[0], node_names[1] )
-    pass   
+    pass
 
-@Common.with_custom_setup( Common.default_setup, Common.basic_teardown ) 
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_master_reelect():
-    cli = Common.get_client() 
+    cli = Common.get_client()
     master_id = cli.whoMaster()
     assert_not_equals ( master_id, None, "No master to begin with. Aborting.")
-    
+
     key = "k"
     value = "v"
     cli.set(key ,value )
@@ -146,9 +146,9 @@ def test_master_reelect():
     time.sleep(delay)
     logging.info("waited %s, for reelection to happen" % delay)
     logging.info("config=%s" % (cli._config))
-    
+
     cli._masterId = None
-    
+
     new_master_id = cli.whoMaster()
     assert_not_equals ( new_master_id,
                         None,
@@ -156,17 +156,17 @@ def test_master_reelect():
     assert_not_equals ( new_master_id,
                         master_id,
                         "No new master elected, same master. Aborting.")
-    
+
     assert_equals( cli.get(key), value)
     Common.startOne( master_id )
-    
+
     # Give old master some time to catch up
     time.sleep( 5.0 )
-    
+
     Common.stopOne ( new_master_id )
-    
+
     time.sleep( 2.0 * ld )
-    
+
     cli = Common.get_client()
     newest_master_id = cli.whoMaster()
     assert_not_equals ( newest_master_id,
@@ -179,16 +179,16 @@ def test_master_reelect():
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_large_tlog_collection_restart():
-    
+
     Common.iterate_n_times( 100002, Common.simple_set )
     Common.stop_all()
     Common.start_all()
     Common.iterate_n_times( 100, Common.set_get_and_delete )
-    
+
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_node_stop_master_slaves_restart():
-    
+
     logging.info( "starting test case")
     Common.iterate_n_times( 1000, Common.simple_set )
     cli = Common.get_client()
@@ -199,43 +199,43 @@ def test_3_node_stop_master_slaves_restart():
     logging.info (ld )
     nap_time = 2 * ld
     logging.info( "Stopped master. Sleeping for %0.2f secs" % nap_time )
-    
+
     print nap_time
-    
+
     time.sleep( nap_time )
     logging.info( "Stopping old slaves")
     for node in slaves:
         print "Stopping %s" % node
         Common.stopOne( node )
-    
+
     logging.info( "Starting old master")
     Common.startOne( master )
     time.sleep(0.2)
-    
+
     logging.info( "Starting old slaves")
     for node in slaves:
         Common.startOne( node )
-    
+
     cli.dropConnections()
     cli = Common.get_client()
-    
+
     logging.info( "Sleeping a while" )
     time.sleep( ld / 2 )
-    
+
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
     cli.dropConnections()
 
 @Common.with_custom_setup( Common.setup_2_nodes_forced_master , Common.basic_teardown )
 def test_missed_accept ():
-    
-    
-    # Give the new node some time to recognize the master 
+
+
+    # Give the new node some time to recognize the master
     time.sleep(0.5)
     node_names = Common.node_names
     zero = node_names[0]
     one = node_names[1]
     Common.stopOne(one)
-    
+
     cli = Common.get_client()
     try:
         cli.set("k","v")
@@ -245,7 +245,7 @@ def test_missed_accept ():
     Common.startOne (one)
     # Give the node some time to catch up
     time.sleep( 1.0 )
-    
+
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
     time.sleep(1.0)
     Common.stop_all()
@@ -255,13 +255,13 @@ def test_missed_accept ():
 @Common.with_custom_setup( Common.setup_2_nodes_forced_master, Common.basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
-    def write_loop (): 
-        Common.iterate_n_times( 48000, 
+    def write_loop ():
+        Common.iterate_n_times( 48000,
                                 Common.retrying_set_get_and_delete  )
     logging.info("before write loop")
     Common.create_and_wait_for_thread_list( [write_loop] )
-   
-    logging.info( "Stored all keys" ) 
+
+    logging.info( "Stored all keys" )
     Common.stop_all()
 
     Common.wipe(Common.node_names[1])
@@ -270,19 +270,19 @@ def test_is_progress_possible():
     Common.start_all()
     logging.info( "nodes started" )
     assert_false( cli.expectProgressPossible() )
-    
+
     counter = 0
     max_wait = 60*5
     up2date = False
-    
+
     while not up2date and counter < max_wait :
         time.sleep( 1.0 )
         counter += 1
         up2date = cli.expectProgressPossible()
-    
+
     if counter >= max_wait :
         raise Exception ("Node did not catchup in a timely fashion")
-    
+
     cli.set('k','v')
 
 
@@ -376,13 +376,13 @@ def test_3_nodes_2_slaves_down ():
     """ make sure the 'set' operation fails when 2 slaves are down, (eta: 63s) """
     cli = Common.get_client()
     master_id = cli.whoMaster()
-    
+
     slaves = filter( lambda n: n != master_id, Common.node_names[:3] )
     for slave in slaves:
         Common.stopOne( slave )
-    
+
     assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
-            
+
     cli.dropConnections()
 
 
@@ -396,13 +396,13 @@ def test_disable_tlog_compression():
     clu.disableTlogCompression()
     clu.restart()
     time.sleep(1.0)
-    
-    tlog_size = Common.get_entries_per_tlog() 
-    
+
+    tlog_size = Common.get_entries_per_tlog()
+
     num_tlogs = 2
     test_size = num_tlogs*tlog_size
     Common.iterate_n_times(test_size, Common.simple_set )
-    
+
     logging.info("Tlog_size: %d", tlog_size)
     node_id = Common.node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
@@ -410,10 +410,10 @@ def test_disable_tlog_compression():
     ls = q.system.fs.listFilesInDir
     time.sleep(2.0)
     tlogs = ls(node_home_dir, filter="*.tlog" )
-    expected = num_tlogs + 1 
+    expected = num_tlogs + 1
     tlog_len = len(tlogs)
-    assert_equals(tlog_len, expected, 
-                  "Wrong number of uncompressed tlogs (%d != %d)" % (expected, tlog_len)) 
+    assert_equals(tlog_len, expected,
+                  "Wrong number of uncompressed tlogs (%d != %d)" % (expected, tlog_len))
 
 @Common.with_custom_setup(Common.default_setup, Common.basic_teardown)
 def test_fsync():
@@ -458,7 +458,7 @@ def test_sabotage():
     Common.iterate_n_times(2000, Common.simple_set)
     logging.info("sleeping fo 10s")
     time.sleep(10)
-    
+
     size = q.system.fs.fileSize("%s/001.tlf" % node_tlf_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
@@ -531,7 +531,7 @@ def test_large_catchup_while_running():
     Common.assert_running_nodes(3)
 
 
-@Common.with_custom_setup( Common.setup_3_nodes_forced_master, 
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master,
                            Common.basic_teardown)
 def test_db_optimize():
     """
@@ -541,10 +541,10 @@ def test_db_optimize():
     Common.iterate_n_times(10000, Common.set_get_and_delete)
     db_file = Common.get_node_db_file( Common.node_names[1] )
     start_size = os.path.getsize( db_file )
-    Common.optimizeDb(Common.node_names[1]) 
+    Common.optimizeDb(Common.node_names[1])
     opt_size = os.path.getsize(db_file)
-    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
-    msg = template % (start_size, opt_size) 
+    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'."
+    msg = template % (start_size, opt_size)
     assert_true( opt_size < 0.1*start_size, msg)
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
@@ -559,18 +559,18 @@ def test_missing_tlog():
     fs = Common.q.system.fs
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlf_full_path = fs.joinPaths (node_tlf_dir, "%002.tlf")
+    tlf_full_path = fs.joinPaths (node_tlf_dir, "002.tlf")
     logging.info("removing %s", tlf_full_path)
     os.remove(tlf_full_path)
 
-    
+
     Common.startOne(nn)
     # it should die some time later.
     def n_running () :
         ns = Common.check_output(['pgrep', '-c', Common.daemon_name])
         n = int(ns)
         return n
-    
+
     t0 = time.time()
     wait = True
     n = 0
@@ -589,7 +589,7 @@ def test_missing_tlog():
         logging.info("after d=%fs, the node's still running", d)
         if d > 120.0:
             wait = False
-    
+
 
     ok_(n == 0,"node still running")
     #now check logging.
@@ -608,10 +608,5 @@ def test_missing_tlog():
         if line.find("(found neither 002.tlf nor 002.tlog)"):
             logging.info("line=%s",line)
             ok = True
-                     
-    ok_(ok, "line should be present")
 
-    
-    
-    
-    
+    ok_(ok, "line should be present")
