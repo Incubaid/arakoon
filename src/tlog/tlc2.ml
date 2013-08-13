@@ -700,22 +700,22 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       get_tlog_names tlog_dir tlf_dir >>= fun tlogs ->
       Lwt.return (List.length tlogs)
 
-    method which_tlog_file (start_i : Sn.t) = 
+    method which_tlog_file (start_i : Sn.t) =
       let n = Sn.to_int (get_file_number start_i) in
-      let an = archive_name n 
-      and fn = file_name n 
+      let an = archive_name n
+      and fn = file_name n
       in
       let an_c = get_full_path tlog_dir tlf_dir an in
-      let fn_c = get_full_path tlog_dir tlf_dir fn 
+      let fn_c = get_full_path tlog_dir tlf_dir fn
       in
       File_system.exists an_c >>= function
-	| true -> Lwt.return (Some an_c)
-	| false -> 
-	  begin
-	   File_system.exists fn_c >>= function
-	     | true -> Lwt.return (Some fn_c)
-	     | false -> Lwt.return None
-	  end
+      | true -> Lwt.return (Some an_c)
+      | false ->
+        begin
+          File_system.exists fn_c >>= function
+          | true -> Lwt.return (Some fn_c)
+          | false -> Lwt.return None
+        end
 
     method dump_tlog_file start_i oc =
       let n = Sn.to_int (get_file_number start_i) in
