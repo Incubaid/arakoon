@@ -142,6 +142,7 @@ type 'a constants =
    is_learner: bool;
    quiesced : bool;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
+   mutable respect_run_master : (string * float) option;
   }
 
 let am_forced_master constants me =
@@ -180,6 +181,7 @@ let make (type s) me is_learner others send receive get_value
     cluster_id = cluster_id;
     quiesced = quiesced;
     election_timeout = None;
+    respect_run_master = None;
   }
 
 let mcast constants msg =
@@ -298,26 +300,57 @@ let handle_prepare (type s) constants dest n n' i' =
             let reply = Nak( n',(n,nak_max)) in
             Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
-            Lwt.return (Nak_sent, reply)
+            Lwt.return (Nak_sent, Some reply)
           else
             begin
-              (* We will send a Promise, start election timer *)
-              let lv = constants.get_value nak_max in
-              let reply = Promise(n',nak_max,lv) in
-              Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
-              start_election_timeout constants n' i' >>= fun () ->
-              if i' > nak_max
-              then
-                (* Send Promise, but I need catchup *)
-                Lwt.return(Promise_sent_needs_catchup, reply)
-              else (* i' = i *)
-                (* Send Promise, we are in sync *)
-                Lwt.return(Promise_sent_up2date, reply)
+              (* Ok, we can make a Promise to the other node, if we want to *)
+              let make_promise () =
+                constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
+                let lv = constants.get_value nak_max in
+                let reply = Promise(n',nak_max,lv) in
+                Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
+                start_election_timeout constants n' i' >>= fun () ->
+                if i' > nak_max
+                then
+                  (* Send Promise, but I need catchup *)
+                  Lwt.return(Promise_sent_needs_catchup, Some reply)
+                else (* i' = i *)
+                  (* Send Promise, we are in sync *)
+                  Lwt.return(Promise_sent_up2date, Some reply) in
+              match constants.respect_run_master with
+                | None ->
+                  make_promise ()
+                | Some (other, until) ->
+                  let now = Unix.gettimeofday () in
+                  if until < now || dest = other
+                  then
+                    begin
+                      (* handle the prepare by making a promise *)
+                      (* old respect_run_master info
+                           (which we can safely ignore, it will be overwritten in make_promise)
+                         or a prepare from the same node again
+                           (this ensures no prepares from the same node queue up here) *)
+                      make_promise ()
+                    end
+                  else
+                    begin
+                      (* for now pretend we dropped the prepare while we give the
+                         other node that is running for master some time
+                      *)
+                      Lwt.ignore_result (
+                        Lwt_unix.sleep (until -. now) >>= fun () ->
+                        constants.inject_event (FromNode (Prepare (n', i'), dest)));
+                      Logger.debug_f_ "%s: handle_prepare: temporary dropping prepare to respect another potential master" me >>= fun () ->
+                      Lwt.return (Prepare_dropped, None)
+                    end
             end
         end >>= fun (ret_val, reply) ->
-        Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
-        constants.send reply me dest >>= fun () ->
-        Lwt.return ret_val
+        match reply with
+          | None -> Lwt.return ret_val
+          | Some reply ->
+            Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
+            constants.send reply me dest >>= fun () ->
+            Lwt.return ret_val
     end
 
 let safe_wakeup sleeper awake value =

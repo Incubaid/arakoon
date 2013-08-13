@@ -87,6 +87,7 @@ let test_generic network_factory n_nodes () =
               cluster_id = "whatever";
               quiesced = false;
               election_timeout = None;
+              respect_run_master = None;
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -257,6 +258,7 @@ let test_master_loop network_factory ()  =
                    cluster_id = "whatever";
                    quiesced = false;
                    election_timeout = None;
+                   respect_run_master = None;
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -379,6 +381,7 @@ let test_simulation filters () =
     cluster_id = "whatever";
     quiesced = false;
     election_timeout = None;
+    respect_run_master = None;
   } in
   let c0_t () =
     let expected prev_key key =
