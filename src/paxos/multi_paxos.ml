@@ -288,16 +288,33 @@ let handle_prepare (type s) constants dest n n' i' =
           else
             begin
               (* Ok, we can make a Promise to the other node, if we want to *)
-              let show_respect = match constants.respect_run_master with
-                | None -> false
+              let make_promise () =
+                constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
+                let lv = constants.get_value nak_max in
+                let reply = Promise(n',nak_max,lv) in
+                Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
+                start_election_timeout constants n' i' >>= fun () ->
+                if i' > nak_max
+                then
+                  (* Send Promise, but I need catchup *)
+                  Lwt.return(Promise_sent_needs_catchup, Some reply)
+                else (* i' = i *)
+                  (* Send Promise, we are in sync *)
+                  Lwt.return(Promise_sent_up2date, Some reply) in
+              match constants.respect_run_master with
+                | None ->
+                  make_promise ()
                 | Some (other, until) ->
                   let now = Unix.gettimeofday () in
-                  if until < now
+                  if until < now || dest = other
                   then
                     begin
-                      (* old respect_run_master info *)
-                      constants.respect_run_master <- None;
-                      false
+                      (* handle the prepare by making a promise *)
+                      (* old respect_run_master info
+                           (which we can safely ignore, it will be overwritten in make_promise)
+                         or a prepare from the same node again
+                           (this ensures no prepares from the same node queue up here) *)
+                      make_promise ()
                     end
                   else
                     begin
@@ -307,27 +324,9 @@ let handle_prepare (type s) constants dest n n' i' =
                       Lwt.ignore_result (
                         Lwt_unix.sleep (until -. now) >>= fun () ->
                         constants.inject_event (FromNode (Prepare (n', i'), dest)));
-                      true
-                    end in
-              if show_respect
-              then
-                Logger.debug_f_ "%s: handle_prepare: temporary dropping prepare to respect another potential master" me >>= fun () ->
-                Lwt.return (Prepare_dropped, None)
-              else
-                begin
-                  constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
-                  let lv = constants.get_value nak_max in
-                  let reply = Promise(n',nak_max,lv) in
-                  Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
-                  start_election_timeout constants n' i' >>= fun () ->
-                  if i' > nak_max
-                  then
-                    (* Send Promise, but I need catchup *)
-                    Lwt.return(Promise_sent_needs_catchup, Some reply)
-                  else (* i' = i *)
-                    (* Send Promise, we are in sync *)
-                    Lwt.return(Promise_sent_up2date, Some reply)
-                end
+                      Logger.debug_f_ "%s: handle_prepare: temporary dropping prepare to respect another potential master" me >>= fun () ->
+                      Lwt.return (Prepare_dropped, None)
+                    end
             end
         end >>= fun (ret_val, reply) ->
         match reply with
