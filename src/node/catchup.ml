@@ -146,7 +146,14 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   let too_far_i = Sn.succ ( tlc_i ) in
   Lwt.return too_far_i
 
-let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
+let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
+  begin
+    if !stop
+    then
+      Lwt.fail Canceled
+    else
+      Lwt.return ()
+  end >>= fun () ->
   let i = Entry.i_of entry
   and value = Entry.v_of entry
   in
@@ -188,7 +195,7 @@ let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
       end
 
 
-let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
+let catchup_store ~stop (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
   Logger.info_ "replaying log to store"
   >>= fun () ->
   let store_i = S.consensus_i store in
@@ -224,7 +231,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
         else
           Lwt.return ()
       in
-      let f = make_f (module S) me maybe_log_progress acc store in
+      let f = make_f ~stop (module S) me maybe_log_progress acc store in
       tlog_coll # iterate start_i too_far_i f >>= fun () ->
       epilogue (module S) acc store >>= fun () ->
       let store_i' = S.consensus_i store in
@@ -250,7 +257,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       S.flush store
     end
 
-let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
+let catchup ~stop me other_configs ~cluster_id dbt current_i mr_name future_n =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of current_i) mr_name
   >>= fun () ->
@@ -258,10 +265,10 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
   Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
     (Sn.string_of too_far_i)
   >>= fun () ->
-  catchup_store me dbt too_far_i >>= fun () ->
+  catchup_store ~stop me dbt too_far_i >>= fun () ->
   Logger.info_ "CATCHUP end"
 
-let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
+let verify_n_catchup_store (type s) ~stop me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
   Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s"
@@ -273,9 +280,9 @@ let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s)
       Lwt.return ()
     | Some i, Some j when i = j -> Lwt.return ()
     | Some i, Some j when i > j ->
-      catchup_store me ((module S),store,tlog_coll) current_i
+      catchup_store ~stop me ((module S),store,tlog_coll) current_i
     | Some i, None ->
-      catchup_store me ((module S),store,tlog_coll) current_i
+      catchup_store ~stop me ((module S),store,tlog_coll) current_i
     | _,_ ->
       let msg = Printf.sprintf
                   "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"

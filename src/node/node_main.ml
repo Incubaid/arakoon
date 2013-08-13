@@ -219,7 +219,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
        in
        let future_n = Sn.start in
        let future_i = Sn.start in
-       Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+       Catchup.catchup ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
          ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
        S.close store)
     (tlc # close)
@@ -459,7 +459,7 @@ let _main_2 (type s)
               last_i in
           Lwt.catch
             (fun () ->
-               Catchup.verify_n_catchup_store me.node_name
+               Catchup.verify_n_catchup_store ~stop:(ref false) me.node_name
                  ((module S), store, tlog_coll, ti_o)
                  ~current_i master)
             (fun ex ->
@@ -552,6 +552,7 @@ let _main_2 (type s)
               inject_event
               ~cluster_id
               false
+              (ref false)
           in
           let reporting_period = me.reporting in
           Lwt.return ((master,constants, buffers, new_i, vo, store),
@@ -596,7 +597,8 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let stop = ref false in
+           let stop = constants.Multi_paxos.stop in
+           let stop_mvar = Lwt_mvar.create_empty () in
            let fsm () = start_backend stop start_state in
            let fsm_mutex = Lwt_mutex.create () in
            let fsm_t =
@@ -610,25 +612,28 @@ let _main_2 (type s)
                (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run)) in
            Lwt.finalize
              (fun () ->
-                Lwt.pick[ fsm_t;
-                          msg_t;
-                          service ();
-                          rapporting ();
-                          (listen_for_signal () >>= fun () ->
-                           let msg = "got TERM | INT" in
-                           Logger.info_ msg >>= fun () ->
-                           Lwt_io.printl msg >>= fun () ->
-                           Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
-                           List.iter
-                             (fun n ->
-                                let s = Lwt_log.Section.make n in
-                                Lwt_log.Section.set_level s Lwt_log.Debug)
-                             ["client_protocol"; "tcp_messaging"; "paxos"];
-                           Logger.info_ "All logging set to debug level after TERM/INT"
-                          )
-                          ;
-                        ])
+                Lwt.choose
+                  [Lwt.pick [
+                      fsm_t;
+                      msg_t;
+                      service ();
+                      rapporting ();
+                      (listen_for_signal () >>= fun () ->
+                       let msg = "got TERM | INT" in
+                       Logger.info_ msg >>= fun () ->
+                       Lwt_io.printl msg >>= fun () ->
+                       Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+                       List.iter
+                         (fun n ->
+                            let s = Lwt_log.Section.make n in
+                            Lwt_log.Section.set_level s Lwt_log.Debug)
+                         ["client_protocol"; "tcp_messaging"; "paxos"];
+                       Logger.info_ "All logging set to debug level after TERM/INT"
+                      );
+                      Lwt_mvar.take stop_mvar];
+                   fsm_t;])
              (fun () ->
+                Lwt_mvar.put stop_mvar () >>= fun () ->
                 stop := true;
                 Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
                 Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->

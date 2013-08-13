@@ -445,7 +445,7 @@ let slave_discovered_other_master (type s) constants state () =
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in
