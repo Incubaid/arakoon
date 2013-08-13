@@ -572,7 +572,7 @@ def test_missing_tlog():
     fs = Common.q.system.fs
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlf_full_path = fs.joinPaths (node_tlf_dir, "%03d.tlf" % 2)
+    tlf_full_path = fs.joinPaths (node_tlf_dir, "%002.tlf")
     logging.info("removing %s", tlf_full_path)
     os.remove(tlf_full_path)
 
@@ -603,8 +603,8 @@ def test_missing_tlog():
         if d > 120.0:
             wait = False
     
-    if n:
-        assert_equals(True,False,"node still running")
+
+    ok_(n == 0,"node still running")
     #now check logging.
     log_dir = cfg['log_dir']
     log_file = fs.joinPaths(log_dir, "%s.log" % nn)
@@ -622,7 +622,7 @@ def test_missing_tlog():
             logging.info("line=%s",line)
             ok = True
                      
-    assert_equals(True,ok,"line should be present")
+    ok_(ok, "line should be present")
 
     
     
