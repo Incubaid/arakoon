@@ -170,7 +170,7 @@ let slave_steady_state (type s) constants state event =
     | LeaseExpired n' ->
       let ns  = (Sn.string_of n)
       and ns' = (Sn.string_of n') in
-      if (not (is_election constants || constants.is_learner)) || n' < n
+      if (not (is_election constants)) || n' < n
       then
         begin
           let log_e = ELog (fun () ->
@@ -178,6 +178,13 @@ let slave_steady_state (type s) constants state event =
           in
           Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
         end
+      else if constants.is_learner
+      then
+        let log_e = ELog (fun () ->
+          Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
+        in
+        start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
       else
         begin
           let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
