@@ -77,6 +77,7 @@ class mem_tlog_collection use_compression name =
 
     method save_tlog_file name length ic = failwith "save_tlog_file not supported"
 
+    method which_tlog_file start_i = failwith "which_tlog_file not supported"
 
     method log_value_explicit i (v:Value.t) sync marker =
       let entry = Entry.make i v 0L marker in
