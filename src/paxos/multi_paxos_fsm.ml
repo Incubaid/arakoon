@@ -818,7 +818,7 @@ let rec paxos_produce buffers
   let wmsg, waiters =
     match product_wanted with
       | Node_only -> "Node_only",[ready_from_node ();]
-      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client ();ready_from_timeout ()]
+      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client (); ready_from_election_timeout ()]
       | Node_and_inject -> "Node_and_inject", [ready_from_inject();ready_from_node ();]
       | Node_and_timeout -> "Node_and_timeout", [ready_from_election_timeout (); ready_from_node();]
       | Node_and_inject_and_timeout ->
