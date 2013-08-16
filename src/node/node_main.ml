@@ -466,6 +466,7 @@ let _main_2 (type s)
                tlog_coll # close () >>= fun () ->
                Lwt.fail ex)
           >>= fun () ->
+          S.clear_self_master store me.node_name;
           let new_i = S.get_succ_store_i store in
           let vo = tlog_coll # get_last_value new_i in
           let client_buffer =
