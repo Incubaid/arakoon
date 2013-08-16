@@ -56,14 +56,12 @@ let slave_fake_prepare constants (current_i,current_n) () =
   (* fake a prepare, and hopefully wake up a dormant master *)
   let log_e = ELog (fun () -> "slave_fake_prepare: sending Prepare(-1)") in
   let fake = Prepare( Sn.of_int (-1), current_i) in
-
-  let s = begin
-    if is_election constants
-    then [EStartElectionTimeout (current_n, current_i)]
-    else []
-  end in
   let mcast_e = EMCast fake in
-  let sides = s @ [log_e;mcast_e] in
+  let sides =
+    if is_election constants
+    then [log_e; EStartElectionTimeout (current_n, current_i); mcast_e]
+    else [log_e; mcast_e]
+  in
   Fsm.return ~sides:sides (Slave_waiting_for_prepare (current_i,current_n))
 
 (* a pending slave that is in sync on i and is ready
@@ -490,7 +488,7 @@ let slave_discovered_other_master (type s) constants state () =
       let log_e = ELog (fun () ->
           Printf.sprintf "slave_discovered_other_master: no need for catchup %s" master )
       in
-      Fsm.return ~sides:[send_e;start_e;log_e] (Slave_wait_for_accept (future_n, current_i, None, last))
+      Fsm.return ~sides:[log_e;send_e;start_e] (Slave_wait_for_accept (future_n, current_i, None, last))
     end
   else
     begin

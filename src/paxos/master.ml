@@ -59,7 +59,7 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
     )
   in
   let state = (v,n,(Sn.succ i), lease_expire_waiters) in
-  Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
+  Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
 let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev =
@@ -229,15 +229,15 @@ let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
   let sides =
     if is_empty lease_expire_waiters
     then
-      [accept_e;
+      [log_e;
+       accept_e;
        start_e;
        mcast_e;
-       log_e;
       ]
     else
-      [accept_e;
+      [log_e;
+       accept_e;
        mcast_e;
-       log_e;
       ]
   in
   start_election_timeout constants n i >>= fun () ->
