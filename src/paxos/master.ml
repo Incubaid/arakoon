@@ -48,12 +48,18 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
           Lwt.return ()
         | _ ->
           begin
+            let inject_lease_expired () =
+              let event = Multi_paxos.LeaseExpired n in
+              Lwt.ignore_result (constants.inject_event event) in
             let module S = (val constants.store_module : Store.STORE with type t = s) in
             let () = match S.who_master constants.store with
               | None ->
-                let event = Multi_paxos.LeaseExpired n in
-                Lwt.ignore_result (constants.inject_event event)
-              | _ -> () in
+                inject_lease_expired ()
+              | Some (_, ls) ->
+                let diff = Sn.sub (Int64.of_float (Unix.gettimeofday ())) ls in
+                if not (diff < Int64.of_int constants.lease_expiration)
+                then
+                  inject_lease_expired () in
             Lwt.return ()
           end
     )
