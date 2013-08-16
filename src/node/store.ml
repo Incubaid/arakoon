@@ -740,7 +740,12 @@ struct
     Logger.debug_f_ "skipped %i updates" j >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
     _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
-    Lwt.return urs
+    let prepend_oks n l =
+      let rec inner l = function
+        | 0 -> l
+        | n -> inner l (n-1) in
+      inner l n in
+    Lwt.return (prepend_oks j urs)
 
 
   let safe_insert_value store (i:Sn.t) value =
