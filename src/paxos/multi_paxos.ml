@@ -141,6 +141,7 @@ type 'a constants =
    cluster_id : string;
    is_learner: bool;
    quiesced : bool;
+   stop : bool ref;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable respect_run_master : (string * float) option;
   }
@@ -159,7 +160,7 @@ let make (type s) me is_learner others send receive get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event ~cluster_id
-      quiesced =
+      quiesced stop =
   {
     me=me;
     is_learner = is_learner;
@@ -180,6 +181,7 @@ let make (type s) me is_learner others send receive get_value
     inject_event = inject_event;
     cluster_id = cluster_id;
     quiesced = quiesced;
+    stop;
     election_timeout = None;
     respect_run_master = None;
   }
@@ -387,7 +389,7 @@ let handle_unquiesce_request (type s) constants n =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let too_far_i = S.get_succ_store_i store in
   S.unquiesce store >>= fun () ->
-  Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
+  Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
   let i = S.get_succ_store_i store in
   let vo = tlog_coll # get_last_value i in
   start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->

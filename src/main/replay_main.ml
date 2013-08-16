@@ -55,7 +55,7 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
            then
              let acc = ref None in
              let log_i pi = maybe_log_i start_i too_far_i pi in
-             let f = Catchup.make_f (module S) db_name log_i acc store in
+             let f = Catchup.make_f ~stop:(ref false) (module S) db_name log_i acc store in
              Tlc2.iterate_tlog_dir tlog_dir tlf_dir ~index:None
                start_i
                too_far_i

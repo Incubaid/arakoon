@@ -170,7 +170,7 @@ let slave_steady_state (type s) constants state event =
     | LeaseExpired n' ->
       let ns  = (Sn.string_of n)
       and ns' = (Sn.string_of n') in
-      if (not (is_election constants || constants.is_learner)) || n' < n
+      if (not (is_election constants)) || n' < n
       then
         begin
           let log_e = ELog (fun () ->
@@ -178,6 +178,13 @@ let slave_steady_state (type s) constants state event =
           in
           Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
         end
+      else if constants.is_learner
+      then
+        let log_e = ELog (fun () ->
+          Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
+        in
+        start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
       else
         begin
           let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
@@ -361,7 +368,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
                     let reply = Accepted(n,i') in
                     Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
                     send reply me source >>= fun () ->
-                    (* TODO: should assert we really have a MasterSet here *)
+                    start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
                     Fsm.return (Slave_steady_state (n, Sn.succ i', v))
                 end
             end
@@ -445,7 +452,7 @@ let slave_discovered_other_master (type s) constants state () =
       let reply = Promise(future_n, current_i, m_val) in
       constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in

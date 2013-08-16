@@ -44,13 +44,20 @@ let return ?(sides=[]) x = Lwt.return (x, sides)
 let nop_trace _ = Lwt.return ()
 
 let loop ?(trace=nop_trace)
+      ?(stop=ref false)
       (e_execute : 'e e_execute)
       produce lookup (transition: ('s,'e) unit_transition) =
   let rec _interprete key =
-    let arg, product_type = lookup key in
-    match arg with
-      | Unit_arg next -> _step_unit next
-      | Msg_arg next -> produce product_type >>= fun msg -> _step_msg next msg
+    if !stop
+    then
+      Logger.debug Logger.Section.main "Stopping fsm"
+    else
+      begin
+        let arg, product_type = lookup key in
+        match arg with
+          | Unit_arg next -> _step_unit next
+          | Msg_arg next -> produce product_type >>= fun msg -> _step_msg next msg
+      end
   and _step_unit transition =
     transition () >>= fun (key, es) ->
     do_side_effects e_execute es >>= fun () ->
