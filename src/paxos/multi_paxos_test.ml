@@ -113,7 +113,7 @@ let test_generic network_factory n_nodes () =
             Logger.debug_f_ "%s: node from %s to %s" me (Multi_paxos_type.show_transition prev_key)
               (Multi_paxos_type.show_transition key) >>= fun () ->
             match key with
-              | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+              | (Multi_paxos_type.Slave_steady_state ((_,i,_) as x)) when i = 1L -> Lwt.return (Some x)
               | _ -> Lwt.return None
           in
           let client_buffer = Lwt_buffer.create () in
