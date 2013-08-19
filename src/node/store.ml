@@ -122,7 +122,6 @@ sig
   val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
   val with_transaction : t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
   val relocate : t -> string -> unit Lwt.t
-  val who_master : t -> (string * int64) option
 
   val quiesced : t -> bool
   val quiesce : t -> unit Lwt.t
@@ -136,8 +135,11 @@ sig
   val get_catchup_start_i : t -> int64
 
   val incr_i : t -> unit Lwt.t
-  val set_master_no_inc : t -> string -> int64 -> unit Lwt.t
+
   val set_master : t -> transaction -> string -> int64 -> unit Lwt.t
+  val set_master_no_inc : t -> string -> int64 -> unit Lwt.t
+  val clear_self_master : t -> string -> unit
+  val who_master : t -> (string * int64) option
 
   val get : t -> string -> string Lwt.t
   val exists : t -> string -> bool Lwt.t
@@ -333,6 +335,11 @@ struct
       end
     else
       S.with_transaction store.s (fun tx -> set_master store tx master lease_start)
+
+  let clear_self_master store me =
+    match store.master with
+      | Some (m, ls) when m = me -> store.master <- None
+      | _ -> ()
 
   let who_master store =
     store.master
