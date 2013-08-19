@@ -161,7 +161,18 @@ let slave_steady_state (type s) constants state event =
               accept_value i' v "steady_state :: replying with %S"
             end
           | Accept (n',i',v) when (n',Sn.succ i') = (n,i) ->
-            accept_value i' v "steady_state :: replying again to previous with %S"
+            let store_i = match S.consensus_i store with
+              | None -> Sn.pred Sn.start
+              | Some store_i -> store_i in
+            if Sn.sub i' store_i = 0L
+            then
+              begin
+                (* already learned this value, so no longer replying with accepted *)
+                Logger.debug_f_ "%s: slave, received old accepted (latest applied to store), ignoring" constants.me >>= fun () ->
+                Fsm.return (Slave_steady_state state)
+              end
+            else
+              accept_value i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
             begin
