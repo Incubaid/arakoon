@@ -303,7 +303,7 @@ end
 let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only : int Lwt.t =
+      ~daemonize ~catchup_only stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -553,7 +553,7 @@ let _main_2 (type s)
               inject_event
               ~cluster_id
               false
-              (ref false)
+              stop
           in
           let reporting_period = me.reporting in
           Lwt.return ((master,constants, buffers, new_i, vo, store),
@@ -598,7 +598,6 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let stop = constants.Multi_paxos.stop in
            let stop_mvar = Lwt_mvar.create_empty () in
            let fsm () = start_backend stop start_state in
            let fsm_mutex = Lwt_mutex.create () in
@@ -720,12 +719,12 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only (ref false)
 
-let test_t make_config name =
+let test_t make_config name stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll = fun a b _ d -> Mem_tlogcollection.make_mem_tlog_collection a b d in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only stop
