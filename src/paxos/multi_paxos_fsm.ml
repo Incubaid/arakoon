@@ -102,10 +102,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
               | Prepare_dropped ->
                 Fsm.return ( Slave_waiting_for_prepare(current_i, current_n ) )
               | Promise_sent_up2date ->
-                begin
-                  let last = constants.tlog_coll # get_last () in
-                  Fsm.return (Slave_wait_for_accept (n', current_i, last))
-                end
+                Fsm.return (Slave_steady_state (n', current_i, None))
               | Promise_sent_needs_catchup ->
                 let i = S.get_catchup_start_i constants.store in
                 let state = (source, i, n',i') in
@@ -127,8 +124,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
             begin
               Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
               (* pick in @ steady state *)
-              let p = constants.get_value i2 in
-              match p with
+(*              match p with
                 | None ->
                   begin
                     Fsm.return (Slave_waiting_for_prepare (i2,current_n) )
@@ -139,8 +135,10 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
                       (Sn.string_of n2) (Sn.string_of i2)
                     >>= fun () ->
                     start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
-                    Fsm.return (Slave_steady_state (n2, i2, v))
-                  end
+                    Fsm.return (Slave_steady_state (n2, i2, None))
+                  end*)
+              start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
+              Fsm.return (Slave_steady_state (n2, i2, None))
             end
           | Accept(n', i', v) when current_n = n' && i' > current_i ->
             begin
@@ -377,10 +375,7 @@ let wait_for_promises (type s) constants state event =
                   | Prepare_dropped ->
                     Fsm.return (Wait_for_promises state)
                   | Promise_sent_up2date ->
-                    begin
-                      let last = constants.tlog_coll # get_last () in
-                      Fsm.return (Slave_wait_for_accept (n', i, last))
-                    end
+                    Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
                     let i = S.get_catchup_start_i constants.store in
                     Fsm.return (Slave_discovered_other_master (source, i, n', i'))
@@ -593,11 +588,9 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                       Fsm.return( Wait_for_accepteds state )
                     | Promise_sent_up2date ->
                       begin
-                        let last = constants.tlog_coll # get_last () in
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-                        Fsm.return
-                          (Slave_wait_for_accept (n', i, last))
+                        Fsm.return (Slave_steady_state (n', i, None))
                       end
                     | Promise_sent_needs_catchup ->
                       begin
@@ -731,8 +724,6 @@ let machine constants =
       (Unit_arg (Slave.slave_fake_prepare constants i), nop)
     | Slave_waiting_for_prepare state ->
       (Msg_arg (slave_waiting_for_prepare constants state), node_and_inject_and_timeout)
-    | Slave_wait_for_accept state ->
-      (Msg_arg (Slave.slave_wait_for_accept constants state), node_and_inject_and_timeout)
     | Slave_steady_state state ->
       (Msg_arg (Slave.slave_steady_state constants state), full)
     | Slave_discovered_other_master state ->
