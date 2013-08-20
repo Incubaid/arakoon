@@ -750,7 +750,7 @@ struct
     let prepend_oks n l =
       let rec inner l = function
         | 0 -> l
-        | n -> inner l (n-1) in
+        | n -> inner (Ok None :: l) (n-1) in
       inner l n in
     Lwt.return (prepend_oks j urs)
 
