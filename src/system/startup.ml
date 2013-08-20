@@ -104,6 +104,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
+    (ref false)
   >>= fun _ -> Lwt.return ()
 
 let _dump_tlc ~tlcs node =
