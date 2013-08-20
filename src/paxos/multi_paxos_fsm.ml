@@ -123,20 +123,6 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
           | Nak(n',(n2, i2)) when i2 = current_i ->
             begin
               Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
-              (* pick in @ steady state *)
-(*              match p with
-                | None ->
-                  begin
-                    Fsm.return (Slave_waiting_for_prepare (i2,current_n) )
-                  end
-                | Some v ->
-                  begin
-                    Logger.debug_f_ "%s: reentering steady state @(%s,%s)" constants.me
-                      (Sn.string_of n2) (Sn.string_of i2)
-                    >>= fun () ->
-                    start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
-                    Fsm.return (Slave_steady_state (n2, i2, None))
-                  end*)
               start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
               Fsm.return (Slave_steady_state (n2, i2, None))
             end
