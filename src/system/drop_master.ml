@@ -5,16 +5,21 @@ open Node_cfg.Node_cfg
 
 let section = Logger.Section.main
 
+let stop = ref false
+
 let setup tn master base () =
   let lease_period = 10 in
+  stop := false;
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
-  let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in
+  let t0 = Node_main.test_t make_config "t_arakoon_0" stop >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t make_config "t_arakoon_1" stop >>= fun _ -> Lwt.return () in
+  let t2 = Node_main.test_t make_config "t_arakoon_2" stop >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
   Lwt.return (tn, make_config (), all_t)
 
-let teardown (tn, _, all_t) = Lwt.return ()
+let teardown (tn, _, all_t) =
+  stop := true;
+  Lwt.join all_t
 
 let _with_master_admin (tn, cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
