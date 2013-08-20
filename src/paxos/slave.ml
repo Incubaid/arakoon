@@ -113,17 +113,17 @@ let slave_steady_state (type s) constants state event =
               (Sn.string_of n) (Sn.string_of i) (string_of msg) source
           )
         in
-        let accept_value i' v msg =
-          let reply = Accepted(n,i') in
-          let accept_e = EAccept (v,n,i') in
-          let start_e = EStartLeaseExpiration(v,n, true) in
+        let accept_value n' i' v msg =
+          let reply = Accepted(n',i') in
+          let accept_e = EAccept (v,n',i') in
+          let start_e = EStartLeaseExpiration(v,n', true) in
           let send_e = ESend(reply, source) in
           let log_e = ELog (fun () ->
               Printf.sprintf msg (string_of reply)
             )
           in
           let sides = [log_e0;accept_e;start_e; send_e; log_e] in
-          Fsm.return ~sides (Slave_steady_state (n, Sn.succ i', Some v))
+          Fsm.return ~sides (Slave_steady_state (n', Sn.succ i', Some v))
         in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
@@ -156,9 +156,9 @@ let slave_steady_state (type s) constants state event =
                 end
               end
               >>= fun _ ->
-              accept_value i' v "steady_state :: replying with %S"
+              accept_value n' i' v "steady_state :: replying with %S"
             end
-          | Accept (n',i',v) when (n',Sn.succ i') = (n,i) ->
+          | Accept (n',i',v) when (Sn.succ i' = i) && (n' >= n) ->
             let store_i = match S.consensus_i store with
               | None -> Sn.pred Sn.start
               | Some store_i -> store_i in
@@ -170,7 +170,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return (Slave_steady_state state)
               end
             else
-              accept_value i' v "steady_state :: replying again to previous with %S"
+              accept_value n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
             begin
