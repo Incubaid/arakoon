@@ -67,9 +67,44 @@ let slave_fake_prepare constants (current_i,current_n) () =
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
 let slave_steady_state (type s) constants state event =
-  let (n,i,previous) = state in
+  let (n,i,maybe_previous) = state in
   let store = constants.store in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let handle_timeout n' i' =
+    if (not (is_election constants)) || n' < n || i' < i
+    then
+      begin
+        let ns = (Sn.string_of n) and
+          ns' = (Sn.string_of n') in
+        let log_e = ELog (fun () ->
+            Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
+        in
+        Fsm.return ~sides:[log_e] (Slave_steady_state state)
+      end
+    else if constants.is_learner
+    then
+      let ns = (Sn.string_of n) in
+      let log_e = ELog (fun () ->
+          Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
+      in
+      start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+      Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,maybe_previous))
+    else
+      let elections_needed,_ = time_for_elections constants n' maybe_previous in
+      if elections_needed then
+        begin
+          let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
+          let el_i = S.get_succ_store_i constants.store in
+          let el_up = constants.get_value el_i in (* TODO election_suggest should figure this out *)
+          let new_n = update_n constants n in
+          Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up))
+        end
+      else
+        begin
+          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+          Fsm.return (Slave_steady_state state)
+        end
+  in
   match event with
     | FromNode (msg,source) ->
       begin
@@ -78,42 +113,64 @@ let slave_steady_state (type s) constants state event =
               (Sn.string_of n) (Sn.string_of i) (string_of msg) source
           )
         in
+        let accept_value i' v msg =
+          let reply = Accepted(n,i') in
+          let accept_e = EAccept (v,n,i') in
+          let start_e = EStartLeaseExpiration(v,n, true) in
+          let send_e = ESend(reply, source) in
+          let log_e = ELog (fun () ->
+              Printf.sprintf msg (string_of reply)
+            )
+          in
+          let sides = [log_e0;accept_e;start_e; send_e; log_e] in
+          Fsm.return ~sides (Slave_steady_state (n, Sn.succ i', Some v))
+        in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
             begin
-              let reply = Accepted(n,i) in
               begin
-                let m_store_i = S.consensus_i store in
+                (* we should have either a previous value received for this n
+                     (from same master) in that case store_i == i - 2
+                   or we should have no previous value and store_i = i - 1 *)
+                let store_i = match S.consensus_i store with
+                  | None -> Sn.pred Sn.start
+                  | Some store_i -> store_i in
                 begin
-                  match m_store_i with
-                    | None -> constants.on_consensus (previous, n, Sn.pred i)
-                    | Some store_i ->
-                      let prev_i = Sn.pred i in
-                      if (Sn.compare store_i (Sn.pred prev_i) ) == 0
+                  match maybe_previous with
+                    | None ->
+                      if Sn.sub i store_i = 1L
                       then
-                        constants.on_consensus (previous, n,prev_i)
+                        Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me
                       else
-                      if Sn.compare store_i prev_i == 0
+                        paxos_fatal constants.me "slave: no previous, mismatch store_i = %Li, i = %Li" store_i i
+                    | Some previous ->
+                      if Sn.sub i store_i = 2L
                       then
                         begin
-                          Logger.debug_f_ "%s: Preventing re-push of : %s. Store at %s" constants.me (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () ->
-                          Lwt.return [Store.Ok None]
+                          Logger.debug_f_ "%s: slave: have previous, so that implies consensus" constants.me >>= fun () ->
+                          constants.on_consensus (previous, n, Sn.pred i) >>= fun _ ->
+                          Lwt.return_unit
                         end
                       else
-                        Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)
+                        paxos_fatal constants.me "slave: with previous, mismatch store_i = %Li, i = %Li" store_i i
                 end
               end
               >>= fun _ ->
-              let accept_e = EAccept (v,n,i) in
-              let start_e = EStartLeaseExpiration(v,n, true) in
-              let send_e = ESend(reply, source) in
-              let log_e = ELog (fun () ->
-                  Printf.sprintf "steady_state :: replying with %S" (string_of reply)
-                )
-              in
-              let sides = [log_e0;accept_e;start_e; send_e; log_e] in
-              Fsm.return ~sides (Slave_steady_state (n, Sn.succ i, v))
+              accept_value i' v "steady_state :: replying with %S"
             end
+          | Accept (n',i',v) when (n',Sn.succ i') = (n,i) ->
+            let store_i = match S.consensus_i store with
+              | None -> Sn.pred Sn.start
+              | Some store_i -> store_i in
+            if Sn.sub i' store_i = 0L
+            then
+              begin
+                (* already learned this value, so no longer replying with accepted *)
+                Logger.debug_f_ "%s: slave, received old accepted (latest applied to store), ignoring" constants.me >>= fun () ->
+                Fsm.return (Slave_steady_state state)
+              end
+            else
+              accept_value i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
             begin
@@ -144,7 +201,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_steady_state state)
               | Promise_sent_up2date ->
                 let next_i = S.get_succ_store_i constants.store in
-                Fsm.return (Slave_wait_for_accept (n', next_i, None, None))
+                Fsm.return (Slave_steady_state (n', next_i, None))
               | Promise_sent_needs_catchup ->
                 let i = S.get_catchup_start_i constants.store in
                 let new_state = (source, i, n', i') in
@@ -160,58 +217,12 @@ let slave_steady_state (type s) constants state event =
             Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
 
       end
-    | ElectionTimeout _ ->
-      begin
-        let log_e = ELog (fun () -> "steady state :: ignoring election timeout") in
-        Fsm.return ~sides:[log_e] (Slave_steady_state state)
-      end
+    | ElectionTimeout (n', i') ->
+      handle_timeout n' i'
     | LeaseExpired n' ->
-      let ns  = (Sn.string_of n)
-      and ns' = (Sn.string_of n') in
-      if (not (is_election constants)) || n' < n
-      then
-        begin
-          let log_e = ELog (fun () ->
-              Printf.sprintf "steady state: ignoring old lease expiration (n'=%s,n=%s)" ns' ns )
-          in
-          Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
-        end
-      else if constants.is_learner
-      then
-        let log_e = ELog (fun () ->
-          Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
-        in
-        start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-        Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,previous))
-      else
-        begin
-          let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
-          if elections_needed then
-            begin
-              let new_n = update_n constants n in
-              let el_i = S.get_succ_store_i constants.store in
-              let el_up =
-                begin
-                  if el_i = (Sn.pred i)
-                  then Some previous
-                  else None
-                end
-              in
-              let log_e = ELog (fun () -> "ELECTIONS NEEDED") in
-              Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up ))
-            end
-          else
-            begin
-              let log_e = ELog(fun () ->
-                  Printf.sprintf
-                    "slave_steady_state ignoring lease expiration (n'=%s,n=%s) %s" ns' ns msg)
-              in
-              Fsm.return ~sides:[log_e] (Slave_steady_state(n,i,previous))
-            end
-        end
+      handle_timeout n' i
     | FromClient ufs ->
       begin
-
         (* there is a window in election
            that allows clients to get through before the node became a slave
            but I know I'm a slave now, so I let the update fail.
@@ -224,215 +235,21 @@ let slave_steady_state (type s) constants state event =
             loop ffs
         in
         loop finished_funs >>= fun () ->
-        Fsm.return  (Slave_steady_state(n,i,previous))
-      end
-    | Quiesce (sleep,awake) ->
-      begin
-        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
-        Fsm.return (Slave_steady_state state)
-      end
-
-    | Unquiesce ->
-      begin
-        handle_unquiesce_request constants n >>= fun (store_i, vo) ->
         Fsm.return  (Slave_steady_state state)
       end
+    | Quiesce (sleep,awake) ->
+      handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+      Fsm.return (Slave_steady_state state)
+    | Unquiesce ->
+      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      Fsm.return  (Slave_steady_state state)
     | DropMaster (sleep, awake) ->
       Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
       Fsm.return (Slave_steady_state state)
 
-(* a pending slave that has promised a value to a pending master waits
-   for an Accept from the master about this *)
-let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
-  let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let handle_timeout n' i' =
-    if (not (is_election constants || constants.is_learner)) || n' < n || i' < i
-    then
-      begin
-        let ns = (Sn.string_of n) and
-          ns' = (Sn.string_of n') in
-        let log_e = ELog (fun () ->
-            Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
-        in
-        Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
-      end
-    else
-      let elections_needed,_ = time_for_elections constants n' maybe_previous in
-      if elections_needed then
-        begin
-          let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
-          (* begin *)
-          let el_i = S.get_succ_store_i constants.store in
-          let el_up = constants.get_value el_i in
-            (*
-              begin
-              if el_i = (Sn.pred i)
-              then
-              begin
-              match maybe_previous with
-              | None -> None
-              | Some ( pup, prev_i )  -> Some pup
-              end
-              else None
-              end
-              in
-
-              Lwt.return (el_i,el_up)
-              end
-              >>= fun (el_i, el_up) ->
-            *)
-          let new_n = update_n constants n in
-          Fsm.return ~sides:[log_e] (Election_suggest (new_n, el_i, el_up))
-        end
-      else
-        begin
-          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-          Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
-        end
-  in
-  match event with
-    | FromNode(msg,source) ->
-      begin
-        let send = constants.send in
-        let me = constants.me in
-        Logger.debug_f_ "%s: slave_wait_for_accept n=%s:: received %S from %s" me
-          (Sn.string_of n) (string_of msg) source
-        >>= fun () ->
-        match msg with
-          | Prepare (n',i') ->
-            begin
-              let () = constants.on_witness source i' in
-              handle_prepare constants source n n' i' >>= function
-              | Prepare_dropped -> Fsm.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
-              | Nak_sent -> Fsm.return( Slave_wait_for_accept (n,i,vo, maybe_previous) )
-              | Promise_sent_up2date -> Fsm.return( Slave_wait_for_accept (n',i,vo, maybe_previous) )
-              | Promise_sent_needs_catchup ->
-                let i = S.get_catchup_start_i constants.store in
-                let state = (source, i, n', i') in
-                Fsm.return( Slave_discovered_other_master state )
-            end
-          | Accept (n',i',v) when n'=n ->
-            begin
-              let () = constants.on_witness source i' in
-              let tlog_coll = constants.tlog_coll in
-              let tlc_i = tlog_coll # get_last_i () in
-              if i' < tlc_i
-              then
-                begin
-                  let log_e = ELog(fun () ->
-                      Printf.sprintf "slave_wait_for_accept: dropping old accept (i=%s , i'=%s)"
-                        (Sn.string_of i) (Sn.string_of i'))
-                  in
-                  Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n, i, vo, maybe_previous))
-                end
-              else
-                begin
-                  if i' > i
-                  then
-                    let cu_pred = S.get_catchup_start_i constants.store in
-                    Fsm.return( Slave_discovered_other_master(source, cu_pred, n', i') )
-                  else
-                    begin
-                      constants.on_accept (v,n,i') >>= fun () ->
-                      begin
-                        if Value.is_master_set v
-                        then start_lease_expiration_thread constants n constants.lease_expiration
-                        else Lwt.return ()
-                      end >>= fun () ->
-                      match maybe_previous with
-                        | None -> begin Logger.debug_f_ "%s: No previous" me >>= fun () -> Lwt.return() end
-                        | Some( pv, pi ) ->
-                          let store_i = S.consensus_i constants.store in
-                          begin
-                            match store_i with
-                              | Some s_i ->
-                                if (Sn.compare s_i pi) == 0 || not ((Sn.compare i (Sn.succ pi)) == 0)
-                                then
-                                  Logger.debug_f_ "%s: slave_wait_for_accept: Not pushing previous" me
-                                else
-                                  begin
-                                    Logger.debug_f_ "%s: slave_wait_for_accept: Pushing previous (%s %s)" me
-                                      (Sn.string_of s_i) (Sn.string_of pi) >>=fun () ->
-                                    constants.on_consensus(pv,n,pi) >>= fun _ ->
-                                    Lwt.return ()
-                                  end
-                              | None ->
-                                (* store is empty, so a previous entry will
-                                   have the same i as the current one: don't push *)
-                                Logger.debug_f_ "%s: slave_wait_for_accept: pi=%s i=%s"
-                                  me (Sn.string_of pi) (Sn.string_of i)
-                          end
-                    end >>= fun _ ->
-                    let reply = Accepted(n,i') in
-                    Logger.debug_f_ "%s: replying with %S" me (string_of reply) >>= fun () ->
-                    send reply me source >>= fun () ->
-                    start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-                    Fsm.return (Slave_steady_state (n, Sn.succ i', v))
-                end
-            end
-          | Accept (n',i',v) when n' < n ->
-            begin
-              if i' > i
-              then
-                let log_e = ELog
-                              (fun () ->
-                                 Printf.sprintf
-                                   "slave_wait_for_accept: Got accept from other master with higher i (i: %s , i' %s)"
-                                   (Sn.string_of i) (Sn.string_of i')
-                              )
-                in
-                let cu_pred = S.get_catchup_start_i constants.store in
-                let new_state = (source, cu_pred, n', i') in
-                Fsm.return ~sides:[log_e] (Slave_discovered_other_master(new_state) )
-              else
-                let log_e = ELog
-                              (fun () ->
-                                 Printf.sprintf "slave_wait_for_accept: dropping old accept: %s " (string_of msg)
-                              )
-                in
-                Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
-            end
-          | Accept (n',i',v) ->
-            begin
-              let log_e = ELog (fun () ->
-                  Printf.sprintf "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare"
-                    (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
-                )
-              in
-              Fsm.return ~sides:[log_e] (Slave_fake_prepare (i,n'))
-            end
-          | Promise _
-          | Nak _
-          | Accepted _ ->
-            begin
-              let log_e = ELog (fun () -> "dropping : " ^ (string_of msg)) in
-              Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
-            end
-      end
-    | ElectionTimeout (n', i') ->
-      handle_timeout n' i'
-    | LeaseExpired n' ->
-      handle_timeout n' i
-    | FromClient msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
-
-    | Quiesce (sleep,awake) ->
-      begin
-        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
-        Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
-      end
-    | Unquiesce ->
-      begin
-        handle_unquiesce_request constants n >>= fun (store_i, store_vo) ->
-        Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
-      end
-    | DropMaster (sleep, awake) ->
-      Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
-      Fsm.return (Slave_wait_for_accept (n, i, vo, maybe_previous))
 
 (* a pending slave that discovered another master has to do
-   catchup and then go to steady state or wait_for_accept
-   depending on if there was an existing value or not *)
-
+   catchup and then go to steady state *)
 let slave_discovered_other_master (type s) constants state () =
   let (master, current_i, future_n, future_i) = state in
   let me = constants.me
@@ -441,54 +258,24 @@ let slave_discovered_other_master (type s) constants state () =
   and tlog_coll = constants.tlog_coll
   in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  if current_i < future_i then
+  if current_i <= future_i then
     begin
       Logger.debug_f_
         "%s: slave_discovered_other_master: catching up from %s @ %s"
         me master (Sn.string_of future_i) >>= fun() ->
-      let m_val = tlog_coll # get_last_value current_i in
-      let reply = Promise(future_n, current_i, m_val) in
-      constants.send reply me master >>= fun () ->
       let cluster_id = constants.cluster_id in
       Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in
-        let vo' = tlog_coll # get_last_value current_i' in
-
         let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
                             Sn.pred current_i') (* pred =  consensus_i *)
         in
         Multi_paxos.mcast constants fake >>= fun () ->
 
-        match vo' with
-          | Some v ->
-            begin
-              start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
-              Fsm.return (Slave_steady_state (future_n, current_i', v))
-            end
-          | None ->
-            let vo =
-              begin
-                match vo' with
-                  | None -> None
-                  | Some u -> Some ( u, current_i' )
-              end in
-            start_election_timeout constants future_n current_i' >>= fun () ->
-            Fsm.return (Slave_wait_for_accept (future_n, current_i', None, vo))
+        start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
+        Fsm.return (Slave_steady_state (future_n, current_i', None));
       end
-    end
-  else if current_i = future_i then
-    begin
-      let last = tlog_coll # get_last () in
-      let prom_val = constants.get_value future_i in
-      let reply = Promise(future_n, future_i, prom_val ) in
-      let send_e = ESend (reply, master) in
-      let start_e = EStartElectionTimeout (future_n, future_i) in
-      let log_e = ELog (fun () ->
-          Printf.sprintf "slave_discovered_other_master: no need for catchup %s" master )
-      in
-      Fsm.return ~sides:[log_e;send_e;start_e] (Slave_wait_for_accept (future_n, current_i, None, last))
     end
   else
     begin
@@ -505,7 +292,7 @@ let slave_discovered_other_master (type s) constants state () =
           "slave_discovered_other_master: my i is bigger then theirs ; back to election"
         else
           begin
-            Slave_wait_for_accept( future_n, next_i, None, None ),
+            Slave_steady_state( future_n, next_i, None ),
             "slave_discovered_other_master: forced slave, back to slave mode"
           end
       in

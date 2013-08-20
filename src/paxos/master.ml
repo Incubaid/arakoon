@@ -147,9 +147,8 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                   | Prepare_dropped -> Fsm.return  (Stable_master current_state )
                   | Promise_sent_up2date ->
                     begin
-                      let l_val = constants.tlog_coll # get_last () in
                       Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-                      Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
+                      Fsm.return (Slave_steady_state (n', new_i, None))
                     end
                   | Promise_sent_needs_catchup ->
                     let i = S.get_catchup_start_i constants.store in
