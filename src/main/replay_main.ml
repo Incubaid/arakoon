@@ -61,7 +61,7 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
                too_far_i
                f
              >>= fun () ->
-             Catchup.epilogue (module S) acc store >>= fun () ->
+             Catchup.epilogue (module S) db_name acc store >>= fun () ->
              S.close store
            else
              console "nothing to do"

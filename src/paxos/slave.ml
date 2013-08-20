@@ -77,7 +77,7 @@ let slave_steady_state (type s) constants state event =
         let ns = (Sn.string_of n) and
           ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
+            Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
@@ -93,7 +93,7 @@ let slave_steady_state (type s) constants state event =
       let elections_needed,_ = time_for_elections constants n' maybe_previous in
       if elections_needed then
         begin
-          let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
+          let log_e = ELog (fun () -> "slave_steady_state: Elections needed") in
           let el_i = S.get_succ_store_i constants.store in
           let el_up = constants.get_value el_i in (* TODO election_suggest should figure this out *)
           let new_n = update_n constants n in
