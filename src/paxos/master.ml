@@ -64,11 +64,11 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
           end
     )
   in
-  let state = (v,n,(Sn.succ i), lease_expire_waiters) in
+  let state = (n,(Sn.succ i), lease_expire_waiters) in
   Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
-let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev =
+let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current_state) ev =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   match ev with
     | LeaseExpired n' ->
@@ -212,7 +212,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
 
     | DropMaster (sleep, awake) ->
-      let state' = (v',n,new_i, (sleep, awake) :: lease_expire_waiters) in
+      let state' = (n,new_i, (sleep, awake) :: lease_expire_waiters) in
       Fsm.return (Stable_master state')
 
 (* a master informes the others of a new value by means of Accept
