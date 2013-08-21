@@ -77,7 +77,7 @@ let slave_steady_state (type s) constants state event =
         let ns = (Sn.string_of n) and
           ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            Printf.sprintf "slave_wait_for_accept: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
+            Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
@@ -93,7 +93,7 @@ let slave_steady_state (type s) constants state event =
       let elections_needed,_ = time_for_elections constants n' maybe_previous in
       if elections_needed then
         begin
-          let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
+          let log_e = ELog (fun () -> "slave_steady_state: Elections needed") in
           let el_i = S.get_succ_store_i constants.store in
           let el_up = constants.get_value el_i in (* TODO election_suggest should figure this out *)
           let new_n = update_n constants n in
@@ -113,17 +113,17 @@ let slave_steady_state (type s) constants state event =
               (Sn.string_of n) (Sn.string_of i) (string_of msg) source
           )
         in
-        let accept_value i' v msg =
-          let reply = Accepted(n,i') in
-          let accept_e = EAccept (v,n,i') in
-          let start_e = EStartLeaseExpiration(v,n, true) in
+        let accept_value n' i' v msg =
+          let reply = Accepted(n',i') in
+          let accept_e = EAccept (v,n',i') in
+          let start_e = EStartLeaseExpiration(v,n', true) in
           let send_e = ESend(reply, source) in
           let log_e = ELog (fun () ->
               Printf.sprintf msg (string_of reply)
             )
           in
           let sides = [log_e0;accept_e;start_e; send_e; log_e] in
-          Fsm.return ~sides (Slave_steady_state (n, Sn.succ i', Some v))
+          Fsm.return ~sides (Slave_steady_state (n', Sn.succ i', Some v))
         in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
@@ -156,9 +156,9 @@ let slave_steady_state (type s) constants state event =
                 end
               end
               >>= fun _ ->
-              accept_value i' v "steady_state :: replying with %S"
+              accept_value n' i' v "steady_state :: replying with %S"
             end
-          | Accept (n',i',v) when (n',Sn.succ i') = (n,i) ->
+          | Accept (n',i',v) when (Sn.succ i' = i) && (n' >= n) ->
             let store_i = match S.consensus_i store with
               | None -> Sn.pred Sn.start
               | Some store_i -> store_i in
@@ -170,7 +170,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return (Slave_steady_state state)
               end
             else
-              accept_value i' v "steady_state :: replying again to previous with %S"
+              accept_value n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
             begin
