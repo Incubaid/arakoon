@@ -134,7 +134,6 @@ struct
 
       method get ~allow_dirty key =
         let start = Unix.gettimeofday () in
-        log_o self "get ~allow_dirty:%b %s" allow_dirty key >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval [key] >>= fun () ->
         Lwt.catch
@@ -185,7 +184,6 @@ struct
 
       method range ~allow_dirty (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        log_o self "range %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range store first finc last linc max >>= fun keys ->
@@ -243,7 +241,6 @@ struct
 
       method set key value =
         let start = Unix.gettimeofday () in
-        log_o self "set %S" key >>= fun () ->
         self # _check_interval [key] >>= fun () ->
         let () = assert_value_size value in
         let update = Update.Set(key,value) in
@@ -339,14 +336,12 @@ struct
         _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
       method hello (client_id:string) (cluster_id:string) =
-        log_o self "hello %S %S" client_id cluster_id >>= fun () ->
         let msg = Printf.sprintf "Arakoon %i.%i.%i" Version.major Version.minor Version.patch in
         Lwt.return (0l, msg)
 
 
       method sequence ~sync (updates:Update.t list) =
         let start = Unix.gettimeofday() in
-        log_o self "sequence ~sync:%b" sync >>= fun () ->
         let update = if sync
           then Update.SyncedSequence updates
           else Update.Sequence updates
