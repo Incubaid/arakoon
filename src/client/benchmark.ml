@@ -122,13 +122,25 @@ let _fill_transactions client max_n tx_size size (t0:float) oc =
   loop_t 0
 
 
-let _range (client:Arakoon_client.client) ()  =
-  let first = _cat "key" 1
-  and last = _cat "key" 9999
+let _range (client:Arakoon_client.client) max_n (t0:float) oc  =
+  Lwt_io.fprintlf oc "(started @ %f)" (Unix.gettimeofday()) >>= fun () ->
+
+  let rec loop i =
+    if i = max_n
+    then Lwt.return ()
+    else
+      begin
+        let first = (Random.int max_n) - 10000 in
+        let last = Random.int 10000 in
+        let first_key = _cat "key" first in
+        let last_key = _cat "key" last in
+        _progress t0 i 10000 oc >>= fun () ->
+        client # range (Some first_key) true
+          (Some last_key) true 1000 >>= fun keys ->
+        loop (i+1)
+      end
   in
-  Lwt_io.printlf "range %s true %s true -1" first last >>= fun () ->
-  client # range (Some first) true (Some last) true (-1) >>= fun keys ->
-  Lwt_io.printlf "#keys %i" (List.length keys)
+  loop 0
 
 let _time
       (x:(float -> Lwt_io.output_channel-> unit Lwt.t))
@@ -188,8 +200,9 @@ let benchmark
       max_n tx_size d
   in
   let phase_5 client oc =
-    Lwt_io.fprintlf oc "range" >>= fun () ->
-    _range client ()
+    Lwt_io.fprintlf oc "going to do %i range queries" max_n >>= fun () ->
+    _time (_range client max_n) oc >>= fun d ->
+    Lwt_io.fprintlf oc "random ranges took %f" d
   in
   let do_one phase fn =
     Lwt_io.printlf "do_one %s" fn >>= fun () ->
