@@ -60,7 +60,10 @@ let get ms key =
 
 let range ms prefix first finc last linc max =
   let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  filter_keys_list keys
+  let p = String.length __prefix in
+  let cut x = String.sub x p (String.length x - p) in
+  Array.map cut keys
+
 
 let range_entries ms prefix first finc last linc max =
   let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in

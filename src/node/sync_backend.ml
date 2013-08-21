@@ -189,7 +189,7 @@ struct
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range store first finc last linc max >>= fun keys ->
-        let n_keys = List.length keys in
+        let n_keys = Array.length keys in
         Statistics.new_range _stats start n_keys;
         Lwt.return keys
 

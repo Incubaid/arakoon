@@ -165,7 +165,10 @@ let get ls key =
 let range ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
-  filter_keys_array r
+  let p = String.length __prefix in
+  let cut x = String.sub x p (String.length x - p) in
+  Array.map cut r
+
 
 let range_entries ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in

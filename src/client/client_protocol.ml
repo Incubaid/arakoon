@@ -231,10 +231,21 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
       Lwt.catch
         (fun () ->
-           backend # range ~allow_dirty first finc last linc max >>= fun list ->
-           Llio.output_int32 oc 0l >>= fun () ->
-           Llio.output_list Llio.output_string oc list >>= fun () ->
-           Lwt.return false
+          backend # range ~allow_dirty first finc last linc max >>= fun values ->
+          Llio.output_int32 oc 0l >>= fun () ->
+          let n = Array.length values in
+          Llio.output_int oc n >>= fun () ->
+          let rec loop i =
+            if i < 0
+            then Lwt.return false
+            else
+              begin
+                let vi = values.(i) in
+                Llio.output_string oc vi >>= fun () ->
+                loop (i-1)
+              end
+          in
+          loop (n-1)
         )
         (handle_exception oc )
     end

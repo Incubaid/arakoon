@@ -83,7 +83,8 @@ let rev_range_entries_ kv first finc last linc max =
 let range_ kv first finc last linc max =
   let one' = one_ (fun k _v -> k) first finc last linc max in
   let _,entries = StringMap.fold one' kv (0,[]) in
-  entries
+  Array.of_list entries
+
 
 class test_backend my_name = object(self:#backend)
   val mutable _kv = StringMap.empty
@@ -203,7 +204,7 @@ class test_backend my_name = object(self:#backend)
   method range ~allow_dirty (first:string option) (finc:bool)
            (last:string option) (linc:bool) (max:int) =
     let x = range_ _kv first finc last linc max in
-    Logger.info_f_ "range: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "range: found %d entries" (Array.length x) >>= fun () ->
     Lwt.return x
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
