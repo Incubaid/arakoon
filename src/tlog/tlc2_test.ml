@@ -98,7 +98,7 @@ let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
 let test_iterate4 (dn, tlf_dir, factory) =
   Logger.debug_ "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
@@ -115,8 +115,8 @@ let test_iterate4 (dn, tlf_dir, factory) =
 
 let test_iterate5 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
-  factory dn "node_name" >>= fun tlc ->
-  let rec loop tlc i =
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
+  let rec loop (tlc:tlog_collection) i =
     if i = 33
     then Lwt.return ()
     else
@@ -153,7 +153,7 @@ let test_iterate5 (dn, tlf_dir, factory) =
 let test_iterate6 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let rec loop i =
     if i = 33
     then Lwt.return ()
@@ -199,7 +199,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   Logger.info_ "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   Logger.info_ "have tlc" >>= fun () ->
   let sync = false in
   let n = 12 in
@@ -214,8 +214,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
-  Lwt_unix.sleep 1.0 >>= fun () ->
-  tlc # close () >>= fun () ->
+  tlc # close ~wait_for_compression:true () >>= fun () ->
   File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
@@ -235,7 +234,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   Logger.info_ "test_compression_previous_tlogs" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   Logger.info_ "have tlc" >>= fun () ->
   let sync = false in
   let n = 42 in
@@ -250,8 +249,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
-  Lwt_unix.sleep 6.0 >>= fun () ->
-  tlc # close () >>= fun () ->
+  tlc # close ~wait_for_compression:true () >>= fun () ->
 
   (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
   let uncompress tlf =
@@ -270,9 +268,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
-  (* give it some time to do it's thing *)
-  Lwt_unix.sleep 6.0 >>= fun () ->
-  tlc2 # close () >>= fun () ->
+  tlc2 # close ~wait_for_compression:true () >>= fun () ->
 
   let verify_exists tlf =
     File_system.exists (tlf_dir ^ "/" ^ tlf ^ ".tlf") >>= fun exists ->
