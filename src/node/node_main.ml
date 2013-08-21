@@ -468,7 +468,6 @@ let _main_2 (type s)
           >>= fun () ->
           S.clear_self_master store me.node_name;
           let new_i = S.get_succ_store_i store in
-          let vo = tlog_coll # get_last_value new_i in
           let client_buffer =
             let capacity = Some (cluster_cfg.client_buffer_capacity) in
             Lwt_buffer.create ~capacity () in
@@ -556,7 +555,7 @@ let _main_2 (type s)
               stop
           in
           let reporting_period = me.reporting in
-          Lwt.return ((master,constants, buffers, new_i, vo, store),
+          Lwt.return ((master,constants, buffers, new_i, store),
                       service, X.reporting reporting_period backend)
         end
 
@@ -567,7 +566,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend stop (master, constants, buffers, new_i, vo, store) =
+      let start_backend stop (master, constants, buffers, new_i, store) =
         let to_run =
           match master with
             | Forced master  ->
@@ -581,7 +580,7 @@ let _main_2 (type s)
                 end
             | _ -> Multi_paxos_fsm.enter_simple_paxos
         in
-        to_run ~stop constants buffers new_i vo
+        to_run ~stop constants buffers new_i
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -591,7 +590,7 @@ let _main_2 (type s)
            build_startup_state () >>= fun (start_state,
                                            service,
                                            rapporting) ->
-           let (_,constants,_,_,_,store) = start_state in
+           let (_,constants,_,_,store) = start_state in
            let log_exception m t =
              Lwt.catch
                t

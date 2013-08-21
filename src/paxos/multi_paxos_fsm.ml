@@ -57,7 +57,10 @@ let forced_master_suggest constants (n,i) () =
   Fsm.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
-let election_suggest constants (n,i,vo) () =
+let election_suggest (type s) constants n () =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let i = S.get_succ_store_i constants.store in
+  let vo = constants.get_value i in
   let me = constants.me in
   let v_lims, msg =
     match vo with
@@ -83,7 +86,7 @@ let election_suggest constants (n,i,vo) () =
 let read_only constants state () =
   Lwt_unix.sleep 60.0 >>= fun () ->
   Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
-  Fsm.return (Read_only state)
+  Fsm.return Read_only
 
 (* a pending slave that is waiting for a prepare or a nak
    in order to discover a master *)
@@ -215,7 +218,7 @@ let promises_check_done constants state () =
         begin
           Logger.warning_f_ "%s: promises_check_done: split vote, going back to elections" me >>= fun () ->
           let n' = update_n constants n in
-          Fsm.return (Election_suggest (n',i, Some bv))
+          Fsm.return (Election_suggest (n'))
         end
       else
         paxos_fatal me "slave checking for promises"
@@ -230,16 +233,6 @@ let wait_for_promises (type s) constants state event =
   match event with
     | FromNode (msg,source) ->
       begin
-        let wanted =
-          begin
-            let nnones, nsomes = v_lims in
-            match nsomes with
-              | [] -> None
-              | hd::tl ->
-                let bv, bf = hd in
-                Some bv
-          end
-        in
         let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
 
         let log_e0 =
@@ -290,7 +283,7 @@ let wait_for_promises (type s) constants state event =
                   (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n,i, wanted))
+                Fsm.return (Election_suggest (new_n))
               end
             | Nak (n',(n'',i')) when n' < n ->
               begin
@@ -304,7 +297,7 @@ let wait_for_promises (type s) constants state event =
                   (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n,i, wanted))
+                Fsm.return (Election_suggest (new_n))
               end
             | Nak (n',(n'',i')) -> (* n' = n *)
               begin
@@ -331,7 +324,7 @@ let wait_for_promises (type s) constants state event =
                       Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
                     else
                       let new_n = update_n constants (max n n'') in
-                      Fsm.return (Election_suggest (new_n,i, wanted))
+                      Fsm.return (Election_suggest (new_n))
                   end
                   (* else (* forced_slave *) (* this state is impossible?! *)
                      begin
@@ -401,28 +394,18 @@ let wait_for_promises (type s) constants state event =
                 Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n,i, wanted))
+                Fsm.return (Election_suggest (new_n))
               end
         end
       end
     | ElectionTimeout (n', i') ->
       let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters) = state in
-      let wanted =
-        begin
-          let nnones, nsomes = v_lims in
-          match nsomes with
-            | [] -> None
-            | hd::tl ->
-              let bv, bf = hd in
-              Some bv
-        end
-      in
       if n' = n && i' = i && not ( S.quiesced constants.store )
       then
         begin
           Logger.debug_f_ "%s: wait_for_promises: election timeout, restart from scratch" me
           >>= fun () ->
-          Fsm.return (Election_suggest (n,i, wanted))
+          Fsm.return (Election_suggest (n))
         end
       else
         begin
@@ -720,8 +703,8 @@ let machine constants =
 
     | Election_suggest state ->
       (Unit_arg (election_suggest constants state), nop)
-    | Read_only state ->
-      (Unit_arg (read_only constants state), nop)
+    | Read_only ->
+      (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
 
 
@@ -882,7 +865,7 @@ let _execute_effects constants e =
 
 (* the entry methods *)
 
-let enter_forced_slave ?(stop = ref false) constants buffers new_i vo=
+let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
   let trace = trace_transition me in
@@ -901,7 +884,7 @@ let enter_forced_slave ?(stop = ref false) constants buffers new_i vo=
        >>= fun () -> Lwt.fail exn
     )
 
-let enter_forced_master ?(stop = ref false) constants buffers current_i vo =
+let enter_forced_master ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
   let current_n = 0L in
@@ -920,7 +903,7 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i vo =
        >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos ?(stop = ref false) constants buffers current_i vo =
+let enter_simple_paxos ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = Sn.start in
@@ -932,7 +915,7 @@ let enter_simple_paxos ?(stop = ref false) constants buffers current_i vo =
          (_execute_effects constants)
          produce
          (machine constants)
-         (election_suggest constants (current_n, current_i, vo))
+         (election_suggest constants (current_n))
     )
     (fun e ->
        Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
@@ -940,7 +923,7 @@ let enter_simple_paxos ?(stop = ref false) constants buffers current_i vo =
        >>= fun () -> Lwt.fail e
     )
 
-let enter_read_only constants buffers current_i vo =
+let enter_read_only constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
   let current_n = 0L in
@@ -952,7 +935,7 @@ let enter_read_only constants buffers current_i vo =
          (_execute_effects constants)
          produce
          (machine constants)
-         (read_only constants (current_n, current_i, vo))
+         (read_only constants (current_n, current_i))
     )
     (fun exn ->
        Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
