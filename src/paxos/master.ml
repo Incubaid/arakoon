@@ -64,11 +64,12 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
           end
     )
   in
-  let state = (v,n,(Sn.succ i), lease_expire_waiters) in
+  let state = (n,(Sn.succ i), lease_expire_waiters) in
   Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
-let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as current_state) ev =
+let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current_state) ev =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
   match ev with
     | LeaseExpired n' ->
       let me = constants.me in
@@ -163,26 +164,29 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
             *)
             let () = constants.on_witness source i in
             Fsm.return (Stable_master current_state)
-          | Accept(n',i',v) when n' > n && i' > new_i ->
+          | Accept(n',i',v) when n' > n && i' >= new_i ->
             (*
-               somehow the others decided upon a master and I got no event my lease expired.
+               somehow the others decided upon a master and I got no lease expired event.
+               or I was running for master and another managed to prepare with a higher n.
                Let's see what's going on, and maybe go back to elections
             *)
             begin
-              Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-              let run_elections, why = Slave.time_for_elections constants n (Some v') in
-              let log_e =
-                ELog (fun () ->
-                    Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s"
-                      (Sn.string_of n') (Sn.string_of i')
-                      run_elections why)
-              in
-              let sides = [log_e] in
-              if run_elections
+              let run_elections, why = Slave.time_for_elections constants n in
+              if not run_elections
               then
-                Fsm.return ~sides (Election_suggest (n,new_i,Some v'))
+                begin
+                  Logger.debug_f_ "%s: stable_master: drop %S (it's still me)" me (string_of msg) >>= fun () ->
+                  Fsm.return (Stable_master current_state)
+                end
               else
-                Fsm.return ~sides (Stable_master (v',n,new_i, []))
+                begin
+                  (* Become slave, goto catchup *)
+                  Logger.debug_f_ "%s: stable_master: received Accept from new master %S" me (string_of msg) >>= fun () ->
+                  let cu_pred = S.get_catchup_start_i constants.store in
+                  let new_state = (source,cu_pred,n',i') in
+                  Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+                  Fsm.return (Slave_discovered_other_master new_state)
+                end
             end
           | _ ->
             begin
@@ -208,7 +212,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
 
     | DropMaster (sleep, awake) ->
-      let state' = (v',n,new_i, (sleep, awake) :: lease_expire_waiters) in
+      let state' = (n,new_i, (sleep, awake) :: lease_expire_waiters) in
       Fsm.return (Stable_master state')
 
 (* a master informes the others of a new value by means of Accept

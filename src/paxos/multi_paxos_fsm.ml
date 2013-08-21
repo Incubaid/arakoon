@@ -593,7 +593,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                   (MPMessage.string_of msg) source >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',_i,_v) when n' < n ->
+            | Accept (n',i',_) when n' < n || i' < i ->
               begin
                 Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
@@ -603,25 +603,12 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
                 Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',v') when i' <= i -> (* n' = n *)
-              begin
-                Logger.debug_f_ "%s: wait_for_accepteds: dropping accept with n = %s and i = %s" me
-                  (Sn.string_of n) (Sn.string_of i') >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-              end
-            | Accept (n',i',v') (* n' >= n && i' > i *)->
+            | Accept (n',i',v') (* when n' >= n && i' >= i ; but compiler is not smart enough for this *) ->
               (* check lease, if we're inside, drop (how could this have happened?)
                  otherwise, we've lost master role
               *)
-              let is_still_master () =
-                match S.who_master constants.store with
-                  | None -> false (* ???? *)
-                  | Some (_,al) -> let now = Unix.gettimeofday () in
-                    let alf = Int64.to_float al in
-                    let diff = now -. alf in
-                    diff < (float constants.lease_expiration)
-              in
-              if is_still_master ()
+              let run_elections, why = Slave.time_for_elections constants n in
+              if not run_elections
               then
                 begin
                   Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
