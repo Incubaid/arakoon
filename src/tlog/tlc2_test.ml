@@ -214,7 +214,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   in
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
-  Lwt_unix.sleep 1.0 >>= fun () ->
+  Lwt_unix.sleep 2.0 >>= fun () ->
   tlc # close () >>= fun () ->
   File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
@@ -271,7 +271,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
   (* give it some time to do it's thing *)
-  Lwt_unix.sleep 6.0 >>= fun () ->
+  Lwt_unix.sleep 10.0 >>= fun () ->
   tlc2 # close () >>= fun () ->
 
   let verify_exists tlf =
