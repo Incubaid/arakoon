@@ -26,7 +26,7 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
-let time_for_elections (type s) constants n' maybe_previous =
+let time_for_elections (type s) constants n' =
   begin
     let module S = (val constants.store_module : Store.STORE with type t = s) in
     if S.quiesced constants.store
@@ -90,7 +90,7 @@ let slave_steady_state (type s) constants state event =
       start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
       Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,maybe_previous))
     else
-      let elections_needed,_ = time_for_elections constants n' maybe_previous in
+      let elections_needed,_ = time_for_elections constants n' in
       if elections_needed then
         begin
           let log_e = ELog (fun () -> "slave_steady_state: Elections needed") in

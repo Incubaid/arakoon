@@ -65,7 +65,7 @@ type transitions =
 
   (* active master only *)
   | Master_consensus of (master_option * Value.t * n * i * slave_awaiters)
-  | Stable_master of (Value.t * n * i * slave_awaiters)
+  | Stable_master of (n * i * slave_awaiters)
   | Master_dictate of (master_option * Value.t * n * i * slave_awaiters)
   (* read only *)
   | Read_only of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t option)

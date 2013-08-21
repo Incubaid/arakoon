@@ -159,7 +159,7 @@ let test_generic network_factory n_nodes () =
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers
       expected steps current_n current_i
-    >>= fun (v', n, i,_) ->
+    >>= fun (n, i,_) ->
     Logger.debug_f_ "%s: consensus reached on n:%s" me (Sn.string_of n)
   in
   let addresses = List.map (fun name -> name , ("127.0.0.1", 7777))
@@ -401,7 +401,7 @@ let test_simulation filters () =
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers
       expected 50 current_n current_i
-    >>= fun (v', n, i, _) ->
+    >>= fun (n, i, _) ->
     Logger.debug_f_ "%s: consensus reached: (%s,%s)" me (sn2s n) (sn2s i)
   in
   let cx_t me other =
