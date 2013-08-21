@@ -1,3 +1,8 @@
+arakoon (1.6.3) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain@incubaid.com>  Wed, 21 Aug 2013 20:00:00 +0100
+
 arakoon (1.6.0) unstable; urgency=low
   * new upstream version
 
@@ -32,7 +37,7 @@ arakoon (1.2-dev) unstable; urgency=low
   * new upstream version
 
  -- Romain Slootmaekers <romain@incubaid.com>  Wed, 25 Jan 2012 15:35:54 +0100
- 
+
 arakoon (1.1-dev) unstable; urgency=low
   * new upstream version
   * dependency fix (libev iso libevent)
