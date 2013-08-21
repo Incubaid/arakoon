@@ -600,6 +600,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     n = len(node_names)
     
     for i in range (n) :
+        is_forced_slave = force_master & (i != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
         cluster.addNode(name=nodeName,
@@ -608,7 +609,8 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                         logDir = log_dir,
                         home = db_dir,
                         tlfDir = tlf_dir,
-                        headDir = head_dir)
+                        headDir = head_dir,
+                        isForcedSlave = is_forced_slave)
         
         cluster.addLocalNode(nodeName)
         cluster.createDirs(nodeName)
