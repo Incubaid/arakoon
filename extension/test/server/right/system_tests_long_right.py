@@ -225,7 +225,7 @@ def test_3_node_stop_master_slaves_restart():
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
     cli.dropConnections()
 
-@Common.with_custom_setup( Common.setup_2_nodes_forced_master , Common.basic_teardown )
+@Common.with_custom_setup( Common.setup_2_nodes_forced_master_normal_slaves , Common.basic_teardown )
 def test_missed_accept ():
 
 
@@ -532,6 +532,13 @@ def test_large_catchup_while_running():
 
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master,
+                           Common.basic_teardown)
+def test_db_optimize_forced_slaves():
+    assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
+    assert_raises( Exception, Common.optimizeDb, Common.node_names[1] )
+    assert_raises( Exception, Common.optimizeDb, Common.node_names[2] )
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master_normal_slaves,
                            Common.basic_teardown)
 def test_db_optimize():
     """

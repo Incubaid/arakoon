@@ -120,6 +120,7 @@ struct
         raise (Arakoon_exc.Exception (Arakoon_exc.E_UNKNOWN_FAILURE,
                                       "value too large"))
     in
+    let is_forced_slave = cfg.Node_cfg.is_forced_slave in
     object(self: #backend)
       val witnessed = Hashtbl.create 10
       val _stats = Statistics.create ()
@@ -582,12 +583,18 @@ struct
         push_node_msg update
 
       method try_quiesced f =
-        self # quiesce_db () >>= fun () ->
-        begin
-          Lwt.finalize
-            ( f )
-            ( self # unquiesce_db )
-        end
+        if is_forced_slave
+        then
+          Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, "Operation not supported on forced slaves"))
+        else
+          begin
+            self # quiesce_db () >>= fun () ->
+            begin
+              Lwt.finalize
+                ( f )
+                ( self # unquiesce_db )
+            end
+          end
 
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
@@ -595,9 +602,8 @@ struct
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
-        self # _not_if_master() >>= fun () ->
         Logger.info_ "defrag_db: enter" >>= fun () ->
-        S.defrag store >>= fun () ->
+        self # try_quiesced(fun () -> S.defrag store) >>= fun () ->
         Logger.info_ "defrag_db: exit"
 
 

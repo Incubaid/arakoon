@@ -666,6 +666,9 @@ def setup_3_nodes_forced_master_normal_slaves (home_dir):
 def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir)
 
+def setup_2_nodes_forced_master_normal_slaves (home_dir):
+    setup_n_nodes( 2, True, home_dir, force_slaves = False)
+
 def setup_1_node_forced_master (home_dir):
     setup_n_nodes( 1, True, home_dir)
 
