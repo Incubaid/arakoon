@@ -97,7 +97,7 @@ class mem_tlog_collection use_compression name =
 
     method get_tlog_from_i _ = Sn.start
 
-    method close () = Lwt.return ()
+    method close ?(wait_for_compression = false) () = Lwt.return ()
 
     method remove_oldest_tlogs count = Lwt.return ()
 
