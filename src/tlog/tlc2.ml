@@ -367,8 +367,10 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
     val mutable _previous_entry = last
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
+    val mutable _compressing = false
     val _closing = ref false
     val _write_lock = Lwt_mutex.create ()
+    val _jc = (Lwt_condition.create () : unit Lwt_condition.t)
     initializer self # start_compression_loop ()
 
 
@@ -437,6 +439,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       let rec loop () =
         Logger.debug_ "Taking job from compression queue..." >>= fun () ->
         Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
+        let () = _compressing <- true in
         Lwt.catch
           (fun () -> compress_one tlu tlc_temp tlc)
           (function
@@ -444,6 +447,8 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
         >>= fun () ->
         Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
+        let () = _compressing <- false in
+        let () = Lwt_condition.signal _jc () in
         loop ()
       in
 
@@ -655,11 +660,24 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
         | None -> None
         | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
 
-    method close () =
+    method close ?(wait_for_compression=false) () =
       Lwt_mutex.lock _write_lock >>= fun () ->
-      _closing := true;
       Logger.debug_ "tlc2::close()" >>= fun () ->
       begin
+        if wait_for_compression
+        then
+          Logger.debug_ "waiting for compression to finish it's queue" >>= fun () ->
+          Lwt_buffer.wait_until_empty _compression_q >>= fun () ->
+          begin
+            if _compressing
+            then Lwt_condition.wait _jc
+            else Lwt.return ()
+          end
+        else
+          Lwt.return ()
+      end >>= fun () ->
+      begin
+        _closing := true;
         match _compression_thread with
           | None -> assert false
           | Some t ->

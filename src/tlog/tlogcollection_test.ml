@@ -78,7 +78,7 @@ let _log_repeat tlc (value:Value.t) n =
 let test_rollover (dn, tlf_dir, factory) =
   Logger.info_ "test_rollover" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
-  factory dn "node_name" >>= fun c ->
+  factory dn "node_name" >>= fun (c:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat c value 101 >>= fun () ->
   c # close () >>= fun ()->
@@ -89,7 +89,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
   Logger.info_ "test_rollover_1002" >>= fun () ->
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
-  factory dn "node_name" >>= fun c ->
+  factory dn "node_name" >>= fun (c:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   let n_updates = 1002 * n + 3 in
   _log_repeat c value n_updates >>= fun () ->
@@ -104,7 +104,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
 
 let test_get_value_bug (dn, tlf_dir, factory) =
   Logger.info_ "test_get_value_bug" >>= fun () ->
-  factory dn "node_name" >>= fun c0 ->
+  factory dn "node_name" >>= fun (c0:tlog_collection) ->
   let v0 = Value.create_master_value ("XXXX",0L) in
   c0 # log_value 0L v0 >>= fun wr_result ->
   c0 # close () >>= fun () ->
@@ -125,7 +125,7 @@ let test_regexp (dn, tlf_dir, factory) =
   Lwt.return ()
 
 let test_restart (dn, tlf_dir, factory) =
-  factory dn "node_name" >>= fun tlc_one ->
+  factory dn "node_name" >>= fun (tlc_one:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat tlc_one value 100 >>= fun () ->
   tlc_one # close () >>= fun () ->
@@ -138,7 +138,7 @@ let test_restart (dn, tlf_dir, factory) =
 
 let test_iterate (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn "node_name" >>= fun  tlc ->
+  factory dn "node_name" >>= fun  (tlc:tlog_collection) ->
   let value = _make_set_v "xxx" "y" in
   _log_repeat tlc value 323 >>= fun () ->
   let sum = ref 0 in
@@ -157,7 +157,7 @@ let test_iterate (dn, tlf_dir, factory) =
 
 let test_iterate2 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate0" "xxx" in
   _log_repeat tlc value 3 >>= fun () ->
   let result = ref [] in
@@ -175,7 +175,7 @@ let test_iterate2 (dn, tlf_dir, factory) =
 
 let test_iterate3 (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  factory dn "node_name" >>= fun tlc ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate3" "xxx" in
   _log_repeat tlc value 120 >>= fun () ->
   let result = ref [] in

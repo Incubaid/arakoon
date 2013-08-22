@@ -109,8 +109,12 @@ module Lwt_buffer = struct
          else Lwt.return ()
       )
 
-  let wait_until_empty t =
+  let rec wait_until_empty t =
     if Queue.is_empty t.q
     then Lwt.return ()
-    else Lwt_condition.wait (*~mutex:t.full_m *) t.full
+    else
+      begin
+        Lwt_condition.wait (*~mutex:t.full_m *) t.full >>= fun () ->
+        wait_until_empty t
+      end
 end
