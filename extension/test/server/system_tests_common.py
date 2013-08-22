@@ -586,7 +586,7 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master, 
                        base_dir, base_msg_port, base_client_port, 
-                       extra = None):
+                       extra = None, force_slaves = True):
     
     q.system.process.run( "sudo /sbin/iptables -F" )
     
@@ -600,7 +600,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     n = len(node_names)
     
     for i in range (n) :
-        is_forced_slave = force_master & (i != 0)
+        is_forced_slave = force_master & force_slaves & (i != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
         cluster.addNode(name=nodeName,
@@ -646,10 +646,10 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     cluster.setMasterLease( lease )
     
     
-def setup_n_nodes ( n, force_master, home_dir , extra = None):
+def setup_n_nodes ( n, force_master, home_dir , extra = None, force_slaves = True):
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir, 
-                       node_msg_base_port, node_client_base_port, 
-                       extra = extra)
+                       node_msg_base_port, node_client_base_port,
+                       extra = extra, force_slaves = force_slaves)
     
     logging.info( "Starting cluster" )
     start_all( cluster_id ) 
@@ -659,7 +659,10 @@ def setup_n_nodes ( n, force_master, home_dir , extra = None):
 
 def setup_3_nodes_forced_master (home_dir):
     setup_n_nodes( 3, True, home_dir)
-    
+
+def setup_3_nodes_forced_master_normal_slaves (home_dir):
+    setup_n_nodes( 3, True, home_dir, force_slaves = False)
+
 def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir)
 
@@ -1035,7 +1038,7 @@ def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
         startOne(node)
         
 
-def restart_single_slave_scenario( restart_cnt, set_cnt ) :
+def restart_single_slave_scenario( restart_cnt, set_cnt, compare_store ) :
     start_stop_wait = 3.0
     stop_start_wait = 1.0
     slave_loop = lambda : restart_loop( 1, restart_cnt, start_stop_wait, stop_start_wait )
@@ -1046,7 +1049,8 @@ def restart_single_slave_scenario( restart_cnt, set_cnt ) :
     time.sleep( 5.0 )
     stop_all()
     assert_last_i_in_sync ( node_names[0], node_names[1] )
-    compare_stores( node_names[0], node_names[1] )
+    if compare_store:
+        compare_stores( node_names[0], node_names[1] )
 
 def get_entries_per_tlog():
     cmd = "%s --version" % binary_full_path 
