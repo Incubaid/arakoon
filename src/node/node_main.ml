@@ -598,13 +598,21 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
+           let swallow_canceled t =
+             Lwt.catch
+               t
+               (function
+                 | Canceled -> Lwt.return ()
+                 | exn -> Lwt.fail exn) in
            let stop_mvar = Lwt_mvar.create_empty () in
            let fsm () = start_backend stop start_state in
            let fsm_mutex = Lwt_mutex.create () in
            let fsm_t =
-             log_exception
-               "Exception in fsm thread"
-               (fun () -> Lwt_mutex.with_lock fsm_mutex fsm) in
+             swallow_canceled
+               (fun () ->
+                 log_exception
+                   "Exception in fsm thread"
+                   (fun () -> Lwt_mutex.with_lock fsm_mutex fsm)) in
            let msg_mutex = Lwt_mutex.create () in
            let msg_t =
              log_exception
