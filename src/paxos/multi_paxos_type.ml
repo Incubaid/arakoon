@@ -38,7 +38,7 @@ type transitions =
   | Forced_master_suggest of (n * i)
 
   (* election only *)
-  | Election_suggest of (n * i * Value.t option) (* TODO this doesn't need Value.t option *)
+  | Election_suggest of (n)
 
   (* slave or pending slave *)
   | Slave_fake_prepare of (n * i)
@@ -68,7 +68,7 @@ type transitions =
   | Stable_master of (n * i * slave_awaiters)
   | Master_dictate of (master_option * Value.t * n * i * slave_awaiters)
   (* read only *)
-  | Read_only of (Mp_msg.MPMessage.n * Mp_msg.MPMessage.n * Value.t option)
+  | Read_only
 
 (* utility functions *)
 let show_transition = function
@@ -86,7 +86,7 @@ let show_transition = function
   | Master_consensus _ -> "Master_consensus"
   | Stable_master _ -> "Stable_master"
   | Master_dictate _ -> "Master_dictate"
-  | Read_only _ -> "Read_only"
+  | Read_only -> "Read_only"
 
 type effect =
   | ELog of (unit -> string)
