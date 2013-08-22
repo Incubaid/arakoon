@@ -152,6 +152,9 @@ let run_some_tests repeat_count filter =
 
 
 let main () =
+  Ssl_threads.init ();
+  Ssl.init ~thread_safe:true ();
+
   let _ = Bz2.version in
   let () = Sys.set_signal Sys.sigpipe Sys.Signal_ignore in
   let () = Random.self_init () in
