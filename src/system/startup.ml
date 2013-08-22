@@ -70,6 +70,8 @@ let _make_cfg name n lease_period =
     fsync = false;
     is_test = true;
     reporting = 300;
+    tls_cert = None;
+    tls_key = None;
   }
 
 let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync node_id =
@@ -141,6 +143,7 @@ let post_failure () =
     max_value_size = Node_cfg.default_max_value_size;
     max_buffer_size = Node_cfg.default_max_buffer_size;
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+    tls_ca_cert = None;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -197,7 +200,8 @@ let restart_slaves () =
      overwrite_tlog_entries = None;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
-     client_buffer_capacity = Node_cfg.default_client_buffer_capacity
+     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     tls_ca_cert = None;
     }
   in
   let get_cfgs () = cluster_cfg in

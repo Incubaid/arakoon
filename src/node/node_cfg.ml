@@ -61,6 +61,8 @@ module Node_cfg = struct
             fsync : bool;
             is_test : bool;
             reporting: int;
+            tls_cert: string option;
+            tls_key: string option;
            }
 
   let _so2s = Log_extra.string_option2s
@@ -75,6 +77,7 @@ module Node_cfg = struct
         "master=%S; is_laggy=%b; is_learner=%b; " ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
+        "tls_cert=%s; tls_key=%s; " ^^
         "}"
     in
     Printf.sprintf template
@@ -88,6 +91,7 @@ module Node_cfg = struct
       (master2s t.master) t.is_laggy t.is_learner
       (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
       t.reporting
+      (_so2s t.tls_cert) (_so2s t.tls_key)
 
   type log_cfg =
     {
@@ -139,6 +143,7 @@ module Node_cfg = struct
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
+      tls_ca_cert: string option;
     }
 
   let string_of_cluster_cfg cluster_cfg =
@@ -157,12 +162,12 @@ module Node_cfg = struct
       (Printf.sprintf
          ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
           ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
-          ^^ "client_buffer_capacity=%i }")
+          ^^ "client_buffer_capacity=%i; tls_ca_cert=%s; }")
          (master2s cluster_cfg._master) cluster_cfg._lease_period cluster_cfg.cluster_id
          (List.fold_left (^) "" cluster_cfg.plugins)
          (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
          cluster_cfg.max_value_size cluster_cfg.max_buffer_size
-         cluster_cfg.client_buffer_capacity);
+         cluster_cfg.client_buffer_capacity (_so2s cluster_cfg.tls_ca_cert));
     Buffer.contents buffer
 
   let make_test_config
@@ -193,6 +198,8 @@ module Node_cfg = struct
         fsync = false;
         is_test = true;
         reporting = 300;
+        tls_cert = None;
+        tls_key = None;
       }
     in
     let rec loop acc = function
@@ -219,6 +226,7 @@ module Node_cfg = struct
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
+      tls_ca_cert = None;
     }
     in
     cluster_cfg
@@ -345,6 +353,9 @@ module Node_cfg = struct
       max_size;
     }
 
+  let _tls_ca_cert inifile =
+    Ini.get inifile "global" "tls_ca_cert" (Ini.p_option Ini.p_string) (Ini.default None)
+
   let _node_config inifile node_name master =
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
@@ -381,6 +392,11 @@ module Node_cfg = struct
       with _ -> home
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
+    let get_string_option x = Ini.get inifile node_name x (Ini.p_option Ini.p_string) (Ini.default None) in
+    let tls_cert = get_string_option "tls_cert"
+    and tls_key = get_string_option "tls_key" in
+    if (tls_cert = None && tls_key <> None) || (tls_cert <> None && tls_key = None)
+      then failwith (Printf.sprintf "%s: both tls_cert and tls_key should be provided" node_name);
     {node_name;
      ips;
      client_port;
@@ -402,6 +418,8 @@ module Node_cfg = struct
      fsync;
      is_test = false;
      reporting;
+     tls_cert;
+     tls_key;
     }
 
 
@@ -450,6 +468,7 @@ module Node_cfg = struct
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
+    let tls_ca_cert = _tls_ca_cert inifile in
     let cluster_cfg =
       { cfgs;
         log_cfgs;
@@ -464,6 +483,7 @@ module Node_cfg = struct
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;
+        tls_ca_cert;
       }
     in
     cluster_cfg
