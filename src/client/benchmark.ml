@@ -128,9 +128,9 @@ let _fill_transactions client max_n tx_size k_size v_size (t0:float) oc =
   loop_t 0
 
 
-let _range (client:Arakoon_client.client) max_n t0 oc =
+let _range (client:Arakoon_client.client) max_n k_size t0 oc =
   Lwt_io.fprintlf oc "(started @ %f: range)" (Unix.gettimeofday()) >>= fun () ->
-
+  let k0 = String.make (k_size - 8) '_' in
   let rec loop i =
     if i = max_n
     then Lwt.return ()
@@ -138,20 +138,21 @@ let _range (client:Arakoon_client.client) max_n t0 oc =
       begin
         let first = (Random.int max_n) - 10000 in
         let last = Random.int 10000 in
-        let first_key = _cat "key" first in
-        let last_key = _cat "key" last in
+        let first_key = _cat k0 first in
+        let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
         client # range (Some first_key) true
           (Some last_key) true 1000 >>= fun keys ->
+        (assert (List.length keys > 0));
         loop (i+1)
       end
   in
   loop 0
 
-let _range_entries (client: Arakoon_client.client) max_n t0 oc =
+let _range_entries (client: Arakoon_client.client) max_n k_size t0 oc =
  Lwt_io.fprintlf oc "(started @ %f: range_entries)"
    (Unix.gettimeofday()) >>= fun () ->
-
+  let k0 = String.make (k_size - 8) '_' in
   let rec loop i =
     if i = max_n
     then Lwt.return ()
@@ -159,8 +160,8 @@ let _range_entries (client: Arakoon_client.client) max_n t0 oc =
       begin
         let first = (Random.int max_n) - 10000 in
         let last = Random.int 10000 in
-        let first_key = _cat "key" first in
-        let last_key = _cat "key" last in
+        let first_key = _cat k0 first in
+        let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
         client # range_entries (Some first_key) true
           (Some last_key) true 1000 >>= fun kvs ->
@@ -234,14 +235,14 @@ let benchmark
   let phase_5 client oc =
     Lwt_io.fprintlf oc "%i `range` queries; key_size = %i"
       max_n k_size >>= fun () ->
-    _time (_range client max_n) oc >>= fun d ->
-    Lwt_io.fprintlf oc "random ranges took %f" d
+    _time (_range client max_n k_size) oc >>= fun d ->
+    Lwt_io.fprintlf oc "\nrandom ranges took %f" d
   in
   let phase_6 client oc =
-    Lwt_io.fprintlf oc "%i `range` queries; key_size = %i"
+    Lwt_io.fprintlf oc "\n\n%i `range_entries` queries; key_size = %i%!"
       max_n k_size >>= fun () ->
-    _time (_range_entries client max_n) oc >>= fun d ->
-    Lwt_io.fprintlf oc "random `range_entries` queries took %f" d
+    _time (_range_entries client max_n k_size) oc >>= fun d ->
+    Lwt_io.fprintlf oc "\nrandom `range_entries` queries took %f" d
   in
   let do_one phase fn =
     Lwt_io.printlf "do_one %s" fn >>= fun () ->
