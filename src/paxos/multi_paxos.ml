@@ -194,7 +194,25 @@ let mcast constants msg =
 
 
 let update_n constants n =
-  Sn.add n (Sn.of_int (1 + Random.int ( 1 + (List.length constants.others) * 2)))
+  let nodes = List.sort String.compare (constants.me :: constants.others) in
+  let position =
+    let rec inner p = function
+      | hd :: tl ->
+        if hd = constants.me
+        then
+          p
+        else
+          inner (p+1) tl
+      | [] -> failwith "couldn't find node in node list" in
+    inner 0 nodes in
+  let nnodes = Sn.of_int (List.length nodes) in
+  let strictly_positive a =
+    if (Sn.compare a 0L) <= 0
+    then
+      Sn.add a nnodes
+    else
+      a in
+  Sn.add n (strictly_positive (Sn.sub (Sn.of_int position) (Sn.rem n nnodes)))
 
 let push_value constants v n i =
   constants.on_accept (v,n,i) >>= fun () ->
