@@ -242,6 +242,39 @@ let output_string_list oc list = output_list output_string oc list
 
 let output_kv_list oc = output_list output_string_pair oc
 
+let output_array output_element oc es =
+  let n = Array.length es in
+  output_int oc n >>= fun () ->
+  let rec loop i =
+    if i = n
+    then Lwt.return ()
+    else
+      begin
+        let ei = es.(i) in
+        output_element oc ei >>= fun () ->
+        loop (i+1)
+      end
+  in
+  loop 0
+
+let output_array_reversed output_element oc es =
+  let n = Array.length es in
+  output_int oc n >>= fun () ->
+  let rec loop i =
+    if i < 0
+    then Lwt.return ()
+    else
+      begin
+        let ei = es.(i) in
+        output_element oc ei >>= fun () ->
+        loop (i-1)
+      end
+  in
+  loop (n-1)
+
+let output_string_array_reversed oc strings =
+  output_array_reversed output_string oc strings
+
 let list_to buf e_to list =
   int_to buf (List.length list);
   List.iter (e_to buf) (List.rev list)

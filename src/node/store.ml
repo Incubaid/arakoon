@@ -80,8 +80,12 @@ module type Simple_store = sig
 
   val range: t -> string -> string option -> bool -> string option -> bool ->
     int -> string array
-  val range_entries: t -> string -> string option -> bool -> string option -> bool -> int -> (string * string) list
-  val rev_range_entries: t -> string -> string option -> bool -> string option -> bool -> int -> (string * string) list
+  val range_entries: t -> string ->
+    string option -> bool ->
+    string option -> bool -> int -> (string * string) array
+  val rev_range_entries: t -> string ->
+    string option -> bool ->
+    string option -> bool -> int -> (string * string) array
   val prefix_keys: t -> string -> int -> string list
   val set: t -> transaction -> string -> string -> unit
   val delete: t -> transaction -> string -> unit
@@ -144,10 +148,15 @@ sig
 
   val get : t -> string -> string Lwt.t
   val exists : t -> string -> bool Lwt.t
-  val range :  t -> string option -> bool -> string option -> bool -> int
-    -> string array Lwt.t
-  val range_entries :  t -> ?_pf:string -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
-  val rev_range_entries :  t -> string option -> bool -> string option -> bool -> int -> (string * string) list Lwt.t
+  val range :  t ->
+    string option -> bool ->
+    string option -> bool -> int -> string array Lwt.t
+  val range_entries :  t -> ?_pf:string ->
+    string option -> bool ->
+    string option -> bool -> int -> (string * string) array Lwt.t
+  val rev_range_entries :  t ->
+    string option -> bool ->
+    string option -> bool -> int -> (string * string) array Lwt.t
   val prefix_keys : t -> string -> int -> string list Lwt.t
   val multi_get : t -> string list -> string list Lwt.t
   val multi_get_option : t -> string list -> string option list Lwt.t

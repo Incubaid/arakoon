@@ -81,7 +81,11 @@ val output_hashtbl:
 
 val output_kv_list: lwtoc -> ((string*string) list) -> unit Lwt.t
 val output_string_pair : lwtoc -> (string * string) -> unit Lwt.t
-
+val output_array : (lwtoc -> 'a -> unit Lwt.t) ->
+  lwtoc -> 'a array -> unit Lwt.t
+val output_array_reversed : (lwtoc -> 'a -> unit Lwt.t) -> lwtoc ->
+  'a array -> unit Lwt.t
+val output_string_array_reversed: lwtoc -> string array -> unit Lwt.t
 val input_bool: lwtic   -> bool Lwt.t
 val input_int:  lwtic   -> int Lwt.t
 val input_int32: lwtic  -> int32 Lwt.t

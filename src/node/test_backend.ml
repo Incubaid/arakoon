@@ -53,7 +53,7 @@ let one_ f first finc last linc max (k:string) (v:string) acc =
 let range_entries_ kv first finc last linc max =
   let one' = one_ (fun k v -> (k,v)) first finc last linc max in
   let _,entries = StringMap.fold one' kv (0,[]) in
-  entries
+  Array.of_list entries
 
 let rev_one_ first finc last linc max acc (kv: string * string) =
   let (k,v) = kv in
@@ -78,7 +78,7 @@ let rev_range_entries_ kv first finc last linc max =
   let rev_l = StringMap.fold (fun k v a -> (k,v)::a) kv [] in
   let one' = rev_one_ first finc last linc max in
   let _, entries = List.fold_left one' (0,[]) rev_l in
-  entries
+  Array.of_list entries
 
 let range_ kv first finc last linc max =
   let one' = one_ (fun k _v -> k) first finc last linc max in
@@ -192,13 +192,13 @@ class test_backend my_name = object(self:#backend)
   method range_entries ~allow_dirty (first:string option) (finc:bool)
            (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
-    Logger.info_f_ "range_entries: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "range_entries: found %d entries" (Array.length x) >>= fun () ->
     Lwt.return x
 
   method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
            (last:string option) (linc:bool) (max:int) =
     let x = rev_range_entries_ _kv first finc last linc max in
-    Logger.info_f_ "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
+    Logger.info_f_ "rev_range_entries: found %d entries" (Array.length x) >>= fun () ->
     Lwt.return x
 
   method range ~allow_dirty (first:string option) (finc:bool)

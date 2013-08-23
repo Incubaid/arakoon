@@ -216,7 +216,6 @@ struct
 
       method range_entries ~allow_dirty
                (first:string option) finc (last:string option) linc max =
-        log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range_entries store first finc last linc max
@@ -624,7 +623,7 @@ struct
                 let k' = String.sub k start length in
                 Hashtbl.replace result k' cfg
               in
-              List.iter add_item cfgs;
+              Array.iter add_item cfgs;
               let () = client_cfgs <- (Some result) in
               Lwt.return result
             | Some res ->

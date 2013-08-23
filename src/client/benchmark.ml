@@ -128,7 +128,10 @@ let _fill_transactions client max_n tx_size k_size v_size (t0:float) oc =
   loop_t 0
 
 
-let _range (client:Arakoon_client.client) max_n (t0:float) oc  =
+let _range_generic (client:Arakoon_client.client)
+    (range_f : string option -> bool ->
+     string option -> bool -> int -> 'a Lwt.t)
+    max_n (t0:float) oc  =
   Lwt_io.fprintlf oc "(started @ %f)" (Unix.gettimeofday()) >>= fun () ->
 
   let rec loop i =
@@ -141,12 +144,18 @@ let _range (client:Arakoon_client.client) max_n (t0:float) oc  =
         let first_key = _cat "key" first in
         let last_key = _cat "key" last in
         _progress t0 i 10000 oc >>= fun () ->
-        client # range (Some first_key) true
+        range_f (Some first_key) true
           (Some last_key) true 1000 >>= fun keys ->
         loop (i+1)
       end
   in
   loop 0
+
+let _range (c: Arakoon_client.client) max_n t0 oc =
+  let rf fo fi lo li max_n =
+    c # range_entries fo fi lo li max_n >>= fun _ -> Lwt.return ()
+  in
+  _range_generic c rf max_n t0 oc
 
 let _time
       (x:(float -> Lwt_io.output_channel-> unit Lwt.t))

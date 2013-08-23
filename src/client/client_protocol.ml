@@ -233,19 +233,8 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
           backend # range ~allow_dirty first finc last linc max >>= fun values ->
           Llio.output_int32 oc 0l >>= fun () ->
-          let n = Array.length values in
-          Llio.output_int oc n >>= fun () ->
-          let rec loop i =
-            if i < 0
-            then Lwt.return false
-            else
-              begin
-                let vi = values.(i) in
-                Llio.output_string oc vi >>= fun () ->
-                loop (i-1)
-              end
-          in
-          loop (n-1)
+          Llio.output_string_array_reversed oc values >>= fun () ->
+          Lwt.return false
         )
         (handle_exception oc )
     end
@@ -262,11 +251,11 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # range_entries ~allow_dirty first finc last linc max
-           >>= fun (list:(string*string) list) ->
+           >>= fun (kvs:(string*string) array) ->
            Llio.output_int32 oc 0l >>= fun () ->
-           let size = List.length list in
+           let size = Array.length kvs in
            Logger.debug_f_ "size = %i" size >>= fun () ->
-           Llio.output_list Llio.output_string_pair oc list >>= fun () ->
+           Llio.output_array_reversed Llio.output_string_pair oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)
@@ -284,11 +273,11 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # rev_range_entries ~allow_dirty first finc last linc max
-           >>= fun (list:(string*string) list) ->
+           >>= fun (kvs:(string*string) array) ->
            Llio.output_int32 oc 0l >>= fun () ->
-           let size = List.length list in
+           let size = Array.length kvs in
            Logger.debug_f_ "size = %i" size >>= fun () ->
-           Llio.output_kv_list oc list >>= fun () ->
+           Llio.output_array Llio.output_string_pair  oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)

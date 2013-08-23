@@ -48,15 +48,12 @@ let _delete_prefix bdb prefix =
 
 let _range_entries _pf bdb first finc last linc max =
   let keys_array = B.range bdb (_f _pf first) finc (_l _pf last) linc max in
-  let keys_list = Array.to_list keys_array in
   let pl = String.length _pf in
-  let x = List.fold_left
-            (fun ret_list k ->
-               let l = String.length k in
-               ((String.sub k pl (l-pl)), B.get bdb k) :: ret_list )
-            []
-            keys_list
-  in x
+  let cut k =
+    let l = String.length k in
+    String.sub k pl (l-pl)
+  in
+  Array.map (fun k -> (cut k,B.get bdb k)) keys_array
 
 let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
@@ -178,7 +175,8 @@ let range_entries ls prefix first finc last linc max =
 let rev_range_entries ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let r = B.rev_range_entries prefix bdb first finc last linc max in
-  r
+  Array.of_list r (* TODO *)
+
 
 let prefix_keys ls prefix max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
