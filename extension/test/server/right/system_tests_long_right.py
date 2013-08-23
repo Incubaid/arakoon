@@ -225,7 +225,7 @@ def test_3_node_stop_master_slaves_restart():
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
     cli.dropConnections()
 
-@Common.with_custom_setup( Common.setup_2_nodes_forced_master , Common.basic_teardown )
+@Common.with_custom_setup( Common.setup_2_nodes_forced_master_normal_slaves , Common.basic_teardown )
 def test_missed_accept ():
 
 
@@ -253,6 +253,40 @@ def test_missed_accept ():
     Common.compare_stores( zero, one )
 
 @Common.with_custom_setup( Common.setup_2_nodes_forced_master, Common.basic_teardown)
+def test_is_progress_possible_forced_slave():
+    time.sleep(0.2)
+    def write_loop ():
+        Common.iterate_n_times( 48000,
+                                Common.retrying_set_get_and_delete  )
+    logging.info("before write loop")
+    Common.create_and_wait_for_thread_list( [write_loop] )
+
+    logging.info( "Stored all keys" )
+    Common.stop_all()
+
+    Common.wipe(Common.node_names[1])
+
+    cli = Common.get_client()
+    Common.start_all()
+    logging.info( "nodes started" )
+
+    # forced slaves should be caught up very fast
+    counter = 0
+    max_wait = 10
+    up2date = False
+
+    while not up2date and counter < max_wait :
+        time.sleep( 1.0 )
+        counter += 1
+        up2date = cli.expectProgressPossible()
+
+    if counter >= max_wait :
+        raise Exception ("Node did not catchup in a timely fashion")
+
+    cli.set('k','v')
+
+
+@Common.with_custom_setup( Common.setup_2_nodes_forced_master_normal_slaves, Common.basic_teardown)
 def test_is_progress_possible():
     time.sleep(0.2)
     def write_loop ():
@@ -532,6 +566,12 @@ def test_large_catchup_while_running():
 
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master,
+                           Common.basic_teardown)
+def test_db_optimize_forced_slaves():
+    assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
+    assert_raises( Exception, Common.optimizeDb, Common.node_names[1] )
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master_normal_slaves,
                            Common.basic_teardown)
 def test_db_optimize():
     """

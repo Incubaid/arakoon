@@ -457,6 +457,17 @@ let _main_2 (type s)
               Sn.succ last_i
             else
               last_i in
+          begin
+            if me.is_forced_slave
+            then
+              begin
+                S.quiesce store >>= fun () ->
+                S._set_i store (Sn.pred last_i);
+                Lwt.return ()
+              end
+            else
+              Lwt.return ()
+          end >>= fun () ->
           Lwt.catch
             (fun () ->
                Catchup.verify_n_catchup_store ~stop:(ref false) me.node_name
@@ -568,17 +579,21 @@ let _main_2 (type s)
 
       let start_backend stop (master, constants, buffers, new_i, store) =
         let to_run =
-          match master with
-            | Forced master  ->
-              if master = my_name
-              then Multi_paxos_fsm.enter_forced_master
-              else
-                begin
-                  if me.is_learner
-                  then Multi_paxos_fsm.enter_simple_paxos
-                  else Multi_paxos_fsm.enter_forced_slave
-                end
-            | _ -> Multi_paxos_fsm.enter_simple_paxos
+          if me.is_forced_slave
+          then
+            Multi_paxos_fsm.enter_forced_slave
+          else
+            match master with
+              | Forced master  ->
+                if master = my_name
+                then Multi_paxos_fsm.enter_forced_master
+                else
+                  begin
+                    if me.is_learner
+                    then Multi_paxos_fsm.enter_simple_paxos
+                    else Multi_paxos_fsm.enter_forced_slave
+                  end
+              | _ -> Multi_paxos_fsm.enter_simple_paxos
         in
         to_run ~stop constants buffers new_i
       in

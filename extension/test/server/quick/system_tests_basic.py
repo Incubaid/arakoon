@@ -372,10 +372,13 @@ def test_current_state():
         logging.debug("node %s => %s", nn, s)
     client.dropConnections()
     
-@C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
+@C.with_custom_setup( C.setup_3_nodes_forced_master_normal_slaves, C.basic_teardown )
 def test_restart_single_slave_short ():
-    C.restart_single_slave_scenario( 2, 100 )
+    C.restart_single_slave_scenario( 2, 100, True )
 
+@C.with_custom_setup( C.setup_3_nodes_forced_master, C.basic_teardown )
+def test_restart_single_slave_short_2 ():
+    C.restart_single_slave_scenario( 2, 100, False )
 
 def test_daemon_version () :
     cmd = "%s --version" % C.binary_full_path 

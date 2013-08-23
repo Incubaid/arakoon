@@ -30,6 +30,28 @@ from threading import Thread
 from nose.tools import *
 
 
+@Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown)
+def test_collapse_forced_slave():
+    master = Common.node_names[0]
+    forced_slave = Common.node_names[1]
+    n = 298765
+    Common.iterate_n_times(n, Common.simple_set)
+    logging.info("did %i sets, now going into collapse scenario" % n)
+    Common.collapse(forced_slave,1)
+    logging.info("collapsing done")
+    Common.stopOne(master)
+    Common.wipe(master)
+    Common.startOne(master)
+    cli = Common.get_client()
+    assert_false(cli.expectProgressPossible())
+    up2date = False
+    counter = 0
+    while not up2date and counter < 100:
+        time.sleep(1.0)
+        counter = counter + 1
+        up2date = cli.expectProgressPossible()
+    logging.info("catchup from collapsed node finished")
+
 @Common.with_custom_setup(Common.setup_2_nodes, Common.basic_teardown)
 def test_collapse():
     zero = Common.node_names[0]

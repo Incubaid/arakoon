@@ -65,6 +65,7 @@ let _make_cfg name n lease_period =
     master = Elected;
     is_laggy = false;
     is_learner = false;
+    is_forced_slave = false;
     targets = [];
     use_compression = true;
     fsync = false;

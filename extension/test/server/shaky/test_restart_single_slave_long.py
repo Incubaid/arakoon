@@ -22,6 +22,10 @@ If not, see <http://www.gnu.org/licenses/>.
 
 from .. import system_tests_common as Common
 
-@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master_normal_slaves, Common.basic_teardown )
 def test_restart_single_slave_long ():
-    Common.restart_single_slave_scenario( 100, 10000 )
+    Common.restart_single_slave_scenario( 100, 10000, True )
+
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
+def test_restart_single_slave_long_2 ():
+    Common.restart_single_slave_scenario( 100, 10000, False )
