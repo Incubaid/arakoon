@@ -602,8 +602,9 @@ struct
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
+        self # _not_if_master() >>= fun () ->
         Logger.info_ "defrag_db: enter" >>= fun () ->
-        self # try_quiesced(fun () -> S.defrag store) >>= fun () ->
+        S.defrag store >>= fun () ->
         Logger.info_ "defrag_db: exit"
 
 
