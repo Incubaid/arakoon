@@ -128,11 +128,8 @@ let _fill_transactions client max_n tx_size k_size v_size (t0:float) oc =
   loop_t 0
 
 
-let _range_generic (client:Arakoon_client.client)
-    (range_f : string option -> bool ->
-     string option -> bool -> int -> 'a Lwt.t)
-    max_n (t0:float) oc  =
-  Lwt_io.fprintlf oc "(started @ %f)" (Unix.gettimeofday()) >>= fun () ->
+let _range (client:Arakoon_client.client) max_n t0 oc =
+  Lwt_io.fprintlf oc "(started @ %f: range)" (Unix.gettimeofday()) >>= fun () ->
 
   let rec loop i =
     if i = max_n
@@ -144,18 +141,34 @@ let _range_generic (client:Arakoon_client.client)
         let first_key = _cat "key" first in
         let last_key = _cat "key" last in
         _progress t0 i 10000 oc >>= fun () ->
-        range_f (Some first_key) true
+        client # range (Some first_key) true
           (Some last_key) true 1000 >>= fun keys ->
         loop (i+1)
       end
   in
   loop 0
 
-let _range (c: Arakoon_client.client) max_n t0 oc =
-  let rf fo fi lo li max_n =
-    c # range_entries fo fi lo li max_n >>= fun _ -> Lwt.return ()
+let _range_entries (client: Arakoon_client.client) max_n t0 oc =
+ Lwt_io.fprintlf oc "(started @ %f: range_entries)"
+   (Unix.gettimeofday()) >>= fun () ->
+
+  let rec loop i =
+    if i = max_n
+    then Lwt.return ()
+    else
+      begin
+        let first = (Random.int max_n) - 10000 in
+        let last = Random.int 10000 in
+        let first_key = _cat "key" first in
+        let last_key = _cat "key" last in
+        _progress t0 i 10000 oc >>= fun () ->
+        client # range_entries (Some first_key) true
+          (Some last_key) true 1000 >>= fun kvs ->
+        loop (i+1)
+      end
   in
-  _range_generic c rf max_n t0 oc
+  loop 0
+
 
 let _time
       (x:(float -> Lwt_io.output_channel-> unit Lwt.t))
@@ -210,7 +223,9 @@ let benchmark
     Lwt_io.fprintlf oc "\nget of %i values (random keys) took: %f" max_n d
   in
   let phase_4 client oc =
-    (* ???? >>= fun () -> *)
+    Lwt_io.fprintlf oc
+      "\n\n%i `multiget` (random, batch size=%i) key_size=%i value_size=%i"
+      max_n tx_size k_size v_size >>= fun ()->
     _time (_get_transactions client max_n tx_size k_size v_size) oc >>= fun d ->
     Lwt_io.fprintlf oc
       "\n%i `multigets` (random) key_size=%i value_size =%i tx_size = %i took %f"
@@ -221,6 +236,12 @@ let benchmark
       max_n k_size >>= fun () ->
     _time (_range client max_n) oc >>= fun d ->
     Lwt_io.fprintlf oc "random ranges took %f" d
+  in
+  let phase_6 client oc =
+    Lwt_io.fprintlf oc "%i `range` queries; key_size = %i"
+      max_n k_size >>= fun () ->
+    _time (_range_entries client max_n) oc >>= fun d ->
+    Lwt_io.fprintlf oc "random `range_entries` queries took %f" d
   in
   let do_one phase fn =
     Lwt_io.printlf "do_one %s" fn >>= fun () ->
@@ -250,4 +271,5 @@ let benchmark
   Lwt.join (ts phase_3) >>= fun () ->
   Lwt.join (ts phase_4) >>= fun () ->
   Lwt.join (ts phase_5) >>= fun () ->
+  Lwt.join (ts phase_6) >>= fun () ->
   Lwt.return ()
