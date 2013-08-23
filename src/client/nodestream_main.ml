@@ -24,51 +24,26 @@ open Remote_nodestream
 open Lwt
 open Network
 
-let optimize_db ip port cluster_id =
+let _do_it ip port cluster_id f =
   let do_it connection =
     make_remote_nodestream cluster_id connection >>= fun client ->
-    client # optimize_db ()
-  in
-  let address = make_address ip port in
-  let t () = 
-    Lwt_io.with_connection address do_it  >>= fun () ->
-    Lwt.return 0
-  in
-  Lwt_main.run( t()) 
-
-
-let defrag_db ip port cluster_id = 
-  let do_it connection = 
-    make_remote_nodestream cluster_id connection >>= fun client ->
-    client # defrag_db ()
-  in
-  let address = make_address ip port in
-  let t () = 
-    Lwt_io.with_connection address do_it >>= fun () ->
-    Lwt.return 0
-  in
-  Lwt_main.run (t ())
-
-let get_db ip port cluster_id location =
-  let do_it connection =
-    make_remote_nodestream cluster_id connection >>= fun client ->
-    client # get_db location
-  in
-  let address = make_address ip port in
-  let t () = 
-    Lwt_io.with_connection address do_it  >>= fun () ->
-    Lwt.return 0
-  in
-  Lwt_main.run( t()) 
-
-let drop_master ip port cluster_id =
-  let do_it connection =
-    make_remote_nodestream cluster_id connection >>= fun client ->
-    client # drop_master ()
+    f client
   in
   let address = make_address ip port in
   let t () =
-    Lwt_io.with_connection address do_it >>= fun () ->
+    Lwt_io.with_connection address do_it  >>= fun () ->
     Lwt.return 0
   in
-  Lwt_main.run(t ())
+  Lwt_main.run( t())
+
+let optimize_db ip port cluster_id =
+  _do_it ip port cluster_id (fun client -> client # optimize_db ())
+
+let defrag_db ip port cluster_id =
+  _do_it ip port cluster_id (fun client -> client # defrag_db ())
+
+let get_db ip port cluster_id location =
+  _do_it ip port cluster_id (fun client -> client # get_db location)
+
+let drop_master ip port cluster_id =
+  _do_it ip port cluster_id (fun client -> client # drop_master ())

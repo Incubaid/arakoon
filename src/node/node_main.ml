@@ -457,6 +457,17 @@ let _main_2 (type s)
               Sn.succ last_i
             else
               last_i in
+          begin
+            if me.is_quiesced
+            then
+              begin
+                S.quiesce store >>= fun () ->
+                S._set_i store (Sn.pred last_i);
+                Lwt.return ()
+              end
+            else
+              Lwt.return ()
+          end >>= fun () ->
           Lwt.catch
             (fun () ->
 	          Catchup.verify_n_catchup_store me.node_name
@@ -565,19 +576,26 @@ let _main_2 (type s)
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
       let start_backend (master, constants, buffers, new_i, vo, store) =
-	    let to_run = 
-	      match master with
-	        | Forced master  -> 
-              if master = my_name 
-	          then Multi_paxos_fsm.enter_forced_master
-	          else 
-		        begin
-		          if me.is_learner 
-		          then Multi_paxos_fsm.enter_simple_paxos
-		          else Multi_paxos_fsm.enter_forced_slave 
-		        end
-	        | _ -> Multi_paxos_fsm.enter_simple_paxos
-	    in
+        let to_run =
+          match master with
+          | Forced master  ->
+            if master = my_name
+            then Multi_paxos_fsm.enter_forced_master
+            else
+              begin
+                if me.is_learner
+                then Multi_paxos_fsm.enter_simple_paxos
+                else Multi_paxos_fsm.enter_forced_slave
+              end
+          | _ ->
+            begin
+              if me.is_quiesced
+              then
+                Multi_paxos_fsm.enter_forced_slave
+              else
+                Multi_paxos_fsm.enter_simple_paxos
+            end
+        in
         to_run constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
