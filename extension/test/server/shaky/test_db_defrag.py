@@ -33,7 +33,6 @@ import random
 def test_db_defrag_forced_slaves():
     assert_raises( Exception, Common.defragDb, Common.node_names[0])
     assert_raises( Exception, Common.defragDb, Common.node_names[1])
-    assert_raises( Exception, Common.defragDb, Common.node_names[2])
 
 @Common.with_custom_setup (Common.setup_3_nodes_forced_master_normal_slaves,
                            Common.basic_teardown)

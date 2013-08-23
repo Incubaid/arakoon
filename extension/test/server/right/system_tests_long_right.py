@@ -536,7 +536,6 @@ def test_large_catchup_while_running():
 def test_db_optimize_forced_slaves():
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
     assert_raises( Exception, Common.optimizeDb, Common.node_names[1] )
-    assert_raises( Exception, Common.optimizeDb, Common.node_names[2] )
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master_normal_slaves,
                            Common.basic_teardown)

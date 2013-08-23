@@ -600,7 +600,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     n = len(node_names)
     
     for i in range (n) :
-        is_forced_slave = force_master & force_slaves & (i != 0)
+        is_forced_slave = force_master & force_slaves & (i % 2 != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
         cluster.addNode(name=nodeName,
@@ -675,7 +675,11 @@ def setup_1_node_forced_master (home_dir):
 def setup_3_nodes_mini(home_dir):
     extra = {'__tainted_tlog_entries_per_file':'1000'}
     setup_n_nodes( 3, False, home_dir, extra)
-    
+
+def setup_3_nodes_mini_forced_master(home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes( 3, True, home_dir, extra)
+
 def setup_3_nodes (home_dir) :
     setup_n_nodes( 3, False, home_dir)
 
