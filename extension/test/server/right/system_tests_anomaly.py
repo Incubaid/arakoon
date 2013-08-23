@@ -31,6 +31,7 @@ import nose.tools as NT
 
 import logging
 import time
+import sys
 
 if __name__ == '__main__' :
     from pymonkey import InitBase
