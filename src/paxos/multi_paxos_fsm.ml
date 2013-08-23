@@ -870,7 +870,7 @@ let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
-  let new_n = Sn.start in
+  let new_n = update_n constants Sn.start in
 
   Lwt.catch
     (fun () ->
@@ -887,7 +887,7 @@ let enter_forced_slave ?(stop = ref false) constants buffers new_i =
 let enter_forced_master ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
-  let current_n = 0L in
+  let current_n = update_n constants Sn.start in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   Lwt.catch
@@ -906,7 +906,7 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i =
 let enter_simple_paxos ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
-  let current_n = Sn.start in
+  let current_n = update_n constants Sn.start in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   Lwt.catch
@@ -926,7 +926,6 @@ let enter_simple_paxos ?(stop = ref false) constants buffers current_i =
 let enter_read_only constants buffers current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
-  let current_n = 0L in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
   Lwt.catch
@@ -935,7 +934,7 @@ let enter_read_only constants buffers current_i =
          (_execute_effects constants)
          produce
          (machine constants)
-         (read_only constants (current_n, current_i))
+         (read_only constants ())
     )
     (fun exn ->
        Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
