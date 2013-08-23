@@ -462,7 +462,11 @@ let _main_2 (type s)
             then
               begin
                 S.quiesce store >>= fun () ->
-                S._set_i store (Sn.pred last_i);
+                if last_i <> 0L
+                then (* this is an optimization so catchup doesn't need to pretend
+                        to apply all previous values from tlog to the store
+                        if last_i = 0 this would result in an invalid store counter -1 *)
+                  S._set_i store (Sn.pred last_i);
                 Lwt.return ()
               end
             else
