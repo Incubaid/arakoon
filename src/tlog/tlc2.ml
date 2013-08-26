@@ -610,7 +610,8 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       >>= fun () ->
       Lwt_io.flush oc >>= fun () ->
       let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-      S.make_store head_name >>= fun store ->
+      S.make_store ~lcnum:Node_cfg.default_lcnum
+        ~ncnum:Node_cfg.default_ncnum head_name >>= fun store ->
       let io = S.consensus_i store in
       S.close store >>= fun () ->
       Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
