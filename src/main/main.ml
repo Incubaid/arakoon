@@ -174,7 +174,8 @@ let main () =
   and ip = ref "127.0.0.1"
   and port = ref 4000
   and cluster_id = ref "<none>"
-  and size = ref 10
+  and value_size = ref 10
+  and key_size = ref 10
   and tx_size = ref 100
   and max_n = ref (1000 * 1000)
   and daemonize = ref false
@@ -287,7 +288,9 @@ let main () =
      "add if you want the process to daemonize (only for --node)");
     ("-start", Arg.Unit (fun () -> ()),
      "no-op for process-matching purposes");
-    ("-value_size", Arg.Set_int size, "size of the values (only for --benchmark)");
+    ("-value_size", Arg.Set_int value_size, "size of the values (only for --benchmark)");
+    ("-key_size", Arg.Set_int key_size,
+     "size of the keys (only for --benchmark)");
     ("-tx_size", Arg.Set_int tx_size, "size of transactions (only for --benchmark)");
     ("-max_n", Arg.Set_int max_n,     "<benchmark size> (only for --benchmark)");
     ("-n_clients", Arg.Set_int n_clients, "<n_clients>  (only for --benchmark)");
@@ -385,8 +388,9 @@ let main () =
     | GET -> Client_main.get !config_file !key
     | PREFIX -> Client_main.prefix !config_file !key !max_results
     | DELETE_PREFIX -> Client_main.delete_prefix !config_file !key
-    | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n
-                    !n_clients
+    | BENCHMARK ->Client_main.benchmark !config_file
+      !key_size !value_size !tx_size !max_n
+      !n_clients
     | LOAD -> Load_client.main !config_file
                 !n_clients
     | DELETE -> Client_main.delete !config_file !key

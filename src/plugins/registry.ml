@@ -5,7 +5,7 @@ class type user_db =
     method delete: string -> unit
     method test_and_set: string -> string option -> string option -> string option
     method range_entries: string option -> bool -> string option -> bool -> int
-      -> (string * string) list
+      -> (string * string) array
   end
 
 module Registry = struct
