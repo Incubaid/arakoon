@@ -131,10 +131,21 @@ let make_server_thread
                  Lwt.catch
                    (fun () ->
                      Typed_ssl.Lwt.ssl_accept plain_fd ctx >>= fun (s, lwt_s) ->
-                     let cert = Ssl.get_certificate s in
-                     Logger.info_f_
-                       "server_loop: Received SSL connection, subject=%s"
-                       (Ssl.get_subject cert) >>= fun () ->
+                     let get_certificate s =
+                       try
+                         let c = Ssl.get_certificate s in
+                         Some c
+                       with Ssl.Certificate_error -> None
+                     in
+                     begin match get_certificate s with
+                       | None ->
+                           Logger.info_f_
+                             "server_loop: Received SSL connection without peer certificate"
+                       | Some cert ->
+                           Logger.info_f_
+                             "server_loop: Received SSL connection, subject=%s"
+                             (Ssl.get_subject cert)
+                     end >>= fun () ->
                      let cipher = Ssl.get_cipher s in
                      Logger.debug_f_
                        "server_loop: SSL connection using %s"
