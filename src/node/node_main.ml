@@ -117,7 +117,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
         with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
       set_max btc'.max_entries btc'.max_size
 
-let _config_messaging me others cookie laggy lease_period max_buffer_size =
+let _config_messaging ?ssl_context me others cookie laggy lease_period max_buffer_size =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
       let f msg source target =
@@ -137,8 +137,10 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
          a @ acc)
       [] others
   in
+  let client_ssl_context = ssl_context in
   let messaging = new tcp_messaging
-    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) in
+    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
+    ?client_ssl_context in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
 
@@ -225,7 +227,30 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     (tlc # close)
 
 
+let get_ssl_cert_paths me cluster =
+  match me.tls_cert with
+    | None -> None
+    | Some tls_cert ->
+        match me.tls_key with
+          | None -> failwith "get_ssl_cert_paths: no tls_key"
+          | Some tls_key ->
+              match cluster.tls_ca_cert with
+                | None -> failwith "get_ssl_cert_paths: no tls_ca_cert"
+                | Some tls_ca_cert -> Some (tls_cert, tls_key, tls_ca_cert)
 
+let build_ssl_context me cluster =
+  match get_ssl_cert_paths me cluster with
+    | None -> None
+    | Some (tls_cert, tls_key, tls_ca_cert) ->
+        let ctx = Typed_ssl.create_both_context Ssl.TLSv1 in
+        Typed_ssl.use_certificate ctx tls_cert tls_key;
+        Typed_ssl.set_verify
+          ctx
+          [Ssl.Verify_fail_if_no_peer_cert]
+          (Some Ssl.client_verify_callback);
+        Typed_ssl.set_client_CA_list_from_file ctx tls_ca_cert;
+        Typed_ssl.load_verify_locations ctx tls_ca_cert "";
+        Some ctx
 
 module X = struct
   (* Need to find a name for this:
@@ -330,6 +355,9 @@ let _main_2 (type s)
       in
       Lwt.ignore_result (handle ())) in
   _config_batched_transactions me cluster_cfg;
+
+  let ssl_context = build_ssl_context me cluster_cfg in
+
   if catchup_only
   then
     begin
@@ -422,7 +450,7 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
+      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
         other_names >>= fun () ->
@@ -635,7 +663,7 @@ let _main_2 (type s)
            let msg_t =
              log_exception
                "Exception in messaging thread"
-               (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run)) in
+               (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run ?ssl_context)) in
            Lwt.finalize
              (fun () ->
                 Lwt.choose

@@ -32,7 +32,7 @@ let a2s = function
   | Unix.ADDR_INET (sa,p) -> Printf.sprintf "(%s,%i)" (Unix.string_of_inet_addr sa) p
   | Unix.ADDR_UNIX s      -> Printf.sprintf "ADDR_UNIX(%s)" s
 
-let __open_connection socket_address =
+let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option) socket_address =
   (* Lwt_io.open_connection socket_address *)
   let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0  in
   let () = Lwt_unix.setsockopt socket Lwt_unix.TCP_NODELAY true in
@@ -49,12 +49,29 @@ let __open_connection socket_address =
        >>= fun () ->
        let fd_field = Obj.field (Obj.repr socket) 0 in
        let (fdi:int) = Obj.magic (fd_field) in
+       let peer_s = a2s peer in
        Logger.info_f_ "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
-         (a2s a2) (a2s peer)
+         (a2s a2) peer_s
        >>= fun () ->
-       let oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
-       let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket in
-       Lwt.return (ic,oc))
+       match ssl_context with
+         | None ->
+             let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket
+             and oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
+             Lwt.return (ic,oc)
+         | Some ctx ->
+             Typed_ssl.Lwt.ssl_connect socket ctx >>= fun (s, lwt_s) ->
+             let cert = Ssl.get_certificate s in
+             Logger.info_f_
+               "__open_connection: SSL connection to %s succeeded, issuer=%s, subject=%s"
+               peer_s (Ssl.get_issuer cert) (Ssl.get_subject cert) >>= fun () ->
+             let cipher = Ssl.get_cipher s in
+             Logger.debug_f_
+               "__open_connection: SSL connection to %s using %s"
+               peer_s (Ssl.get_cipher_description cipher) >>= fun () ->
+             let ic = Lwt_ssl.in_channel_of_descr lwt_s
+             and oc = Lwt_ssl.out_channel_of_descr lwt_s in
+             Lwt.return (ic, oc)
+       )
     (fun exn ->
        Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
        >>= fun () ->

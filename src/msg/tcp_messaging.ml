@@ -53,7 +53,11 @@ module RR = struct
 end
 
 
-class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function) max_buffer_size =
+class tcp_messaging
+  ?(timeout=60.0)
+  ?(client_ssl_context:[> `Client ] Typed_ssl.t option)
+  my_addresses my_cookie (drop_it: drop_function) max_buffer_size =
+
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
   let my_ips, my_port = my_addresses in
@@ -139,11 +143,12 @@ class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_functi
       let host_ip, port = address in
       let socket_address = Network.make_address host_ip port in
       let timeout = 5.0 in
+      let ssl_context = client_ssl_context in
       Logger.debug_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
       >>= fun () ->
       Lwt.pick[
         Lwt_unix.timeout timeout;
-        __open_connection socket_address
+        __open_connection ?ssl_context socket_address
       ]
       >>= fun (ic,oc) ->
       Llio.output_int64 oc _MAGIC >>= fun () ->
@@ -298,7 +303,7 @@ class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_functi
       else
         Logger.debug_f_ "XXX first connection with (%S,%i)" host port
 
-    method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback)  () =
+    method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback) ?ssl_context () =
       Logger.info_f_ "tcp_messaging %s: run" me >>= fun () ->
       let _check_mv magic version =
         if magic = _MAGIC && version = _VERSION then Lwt.return ()
@@ -377,7 +382,7 @@ class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_functi
           let scheme = Server.make_default_scheme () in
           let s = Server.make_server_thread ~name ~setup_callback
                     ~teardown_callback ip my_port protocol
-                    ~scheme
+                    ~scheme ?ssl_context
           in
           s ()
         in
