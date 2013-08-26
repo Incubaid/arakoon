@@ -147,7 +147,7 @@ let _config_messaging ?ssl_context me others cookie laggy lease_period max_buffe
 open Mp_msg
 
 
-let _config_service cfg backend=
+let _config_service ?ssl_context cfg backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -160,7 +160,7 @@ let _config_service cfg backend=
                       let name = Printf.sprintf "%s:client_service" host in
                       Server.make_server_thread ~name host port
                         (Client_protocol.protocol backend)
-                        ~scheme
+                        ~scheme ?ssl_context
                    )
                    hosts
   in
@@ -248,6 +248,24 @@ let build_ssl_context me cluster =
           ctx
           [Ssl.Verify_fail_if_no_peer_cert]
           (Some Ssl.client_verify_callback);
+        Typed_ssl.set_client_CA_list_from_file ctx tls_ca_cert;
+        Typed_ssl.load_verify_locations ctx tls_ca_cert "";
+        Some ctx
+
+let build_service_ssl_context me cluster =
+  if not cluster.tls_service
+  then None
+  else match get_ssl_cert_paths me cluster with
+    | None -> failwith "build_service_ssl_context: tls_service but no cert/key paths"
+    | Some (tls_cert, tls_key, tls_ca_cert) ->
+        let ctx = Typed_ssl.create_server_context Ssl.TLSv1 in
+        Typed_ssl.use_certificate ctx tls_cert tls_key;
+        let verify =
+          if cluster.tls_service_validate_peer
+          then [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
+          else []
+        in
+        Typed_ssl.set_verify ctx verify (Some Ssl.client_verify_callback);
         Typed_ssl.set_client_CA_list_from_file ctx tls_ca_cert;
         Typed_ssl.load_verify_locations ctx tls_ca_cert "";
         Some ctx
@@ -357,6 +375,7 @@ let _main_2 (type s)
   _config_batched_transactions me cluster_cfg;
 
   let ssl_context = build_ssl_context me cluster_cfg in
+  let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
   if catchup_only
   then
@@ -521,7 +540,7 @@ let _main_2 (type s)
           in
           let backend = (sb :> Backend.backend) in
 
-          let service = _config_service me backend in
+          let service = _config_service ?ssl_context:service_ssl_context me backend in
 
           let send, receive, run, register =
             Multi_paxos.network_of_messaging messaging in

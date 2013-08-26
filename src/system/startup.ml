@@ -144,6 +144,8 @@ let post_failure () =
     max_buffer_size = Node_cfg.default_max_buffer_size;
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
     tls_ca_cert = None;
+    tls_service = false;
+    tls_service_validate_peer = false;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -202,6 +204,8 @@ let restart_slaves () =
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      tls_ca_cert = None;
+     tls_service = false;
+     tls_service_validate_peer = false;
     }
   in
   let get_cfgs () = cluster_cfg in

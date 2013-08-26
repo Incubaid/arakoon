@@ -144,6 +144,8 @@ module Node_cfg = struct
       max_buffer_size: int;
       client_buffer_capacity: int;
       tls_ca_cert: string option;
+      tls_service: bool;
+      tls_service_validate_peer: bool;
     }
 
   let string_of_cluster_cfg cluster_cfg =
@@ -162,12 +164,14 @@ module Node_cfg = struct
       (Printf.sprintf
          ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
           ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
-          ^^ "client_buffer_capacity=%i; tls_ca_cert=%s; }")
+          ^^ "client_buffer_capacity=%i; tls_ca_cert=%s; "
+          ^^ "tls_service=%b; tls_service_validate_peer=%b; }")
          (master2s cluster_cfg._master) cluster_cfg._lease_period cluster_cfg.cluster_id
          (List.fold_left (^) "" cluster_cfg.plugins)
          (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
          cluster_cfg.max_value_size cluster_cfg.max_buffer_size
-         cluster_cfg.client_buffer_capacity (_so2s cluster_cfg.tls_ca_cert));
+         cluster_cfg.client_buffer_capacity (_so2s cluster_cfg.tls_ca_cert)
+         cluster_cfg.tls_service cluster_cfg.tls_service_validate_peer);
     Buffer.contents buffer
 
   let make_test_config
@@ -227,6 +231,8 @@ module Node_cfg = struct
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
       tls_ca_cert = None;
+      tls_service = false;
+      tls_service_validate_peer = false;
     }
     in
     cluster_cfg
@@ -356,6 +362,14 @@ module Node_cfg = struct
   let _tls_ca_cert inifile =
     Ini.get inifile "global" "tls_ca_cert" (Ini.p_option Ini.p_string) (Ini.default None)
 
+  let _tls_service inifile =
+    Ini.get inifile "global" "tls_service"
+      Ini.p_bool (Ini.default false)
+
+  let _tls_service_validate_peer inifile =
+    Ini.get inifile "global" "tls_service_validate_peer"
+      Ini.p_bool (Ini.default false)
+
   let _node_config inifile node_name master =
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
@@ -469,6 +483,8 @@ module Node_cfg = struct
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
     let tls_ca_cert = _tls_ca_cert inifile in
+    let tls_service = _tls_service inifile in
+    let tls_service_validate_peer = _tls_service_validate_peer inifile in
     let cluster_cfg =
       { cfgs;
         log_cfgs;
@@ -484,6 +500,8 @@ module Node_cfg = struct
         max_buffer_size;
         client_buffer_capacity;
         tls_ca_cert;
+        tls_service;
+        tls_service_validate_peer;
       }
     in
     cluster_cfg
