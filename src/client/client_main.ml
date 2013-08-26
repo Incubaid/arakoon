@@ -135,11 +135,11 @@ let prefix cfg_name prefix prefix_size =
   in
   run t
 
-let benchmark cfg_name size tx_size max_n n_clients =
+let benchmark cfg_name key_size value_size tx_size max_n n_clients =
   Lwt_io.set_default_buffer_size 32768;
   let t () =
     let with_c = with_master_client cfg_name in
-    Benchmark.benchmark ~with_c ~size ~tx_size ~max_n n_clients
+    Benchmark.benchmark ~with_c ~key_size ~value_size ~tx_size ~max_n n_clients
   in
   run t
 
