@@ -21,10 +21,10 @@ let teardown (tn, _, all_t) =
   stop := true;
   Lwt.join all_t
 
-let _with_master_admin (tn, cluster_cfg, _) f =
+let _with_master_admin ~tls (tn, cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
-  Client_main.find_master cluster_cfg >>= fun master_name ->
+  Client_main.find_master ~tls cluster_cfg >>= fun master_name ->
   Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
     List.hd
@@ -33,28 +33,28 @@ let _with_master_admin (tn, cluster_cfg, _) f =
   let host,port = List.hd master_cfg.ips , master_cfg.client_port in
   let sa = Network.make_address host port in
   let cid = cluster_cfg.cluster_id in
-  Lwt_io.with_connection sa
+  Client_main.with_connection ~tls sa
     (fun conn ->
        Remote_nodestream.make_remote_nodestream cid conn >>= fun admin ->
        f cluster_cfg master_name admin
     )
 
-let _drop_master cluster_cfg master_name admin =
+let _drop_master ~tls cluster_cfg master_name admin =
   Logger.info_ "drop_master scenario" >>= fun () ->
   admin # drop_master () >>= fun () ->
-  Client_main.find_master cluster_cfg >>= fun new_master ->
+  Client_main.find_master ~tls cluster_cfg >>= fun new_master ->
   Logger.info_f_ "new? master = %s" new_master >>= fun () ->
   OUnit.assert_bool "master should have been changed" (new_master <> master_name);
   Lwt.return ()
 
-let drop_master tpl = _with_master_admin tpl _drop_master
+let drop_master ~tls tpl = _with_master_admin ~tls tpl (_drop_master ~tls)
 
 
 
 let make_suite base name w =
   let make_el n base f = n >:: w n base f in
   name >:::
-    [make_el "drop_master" base drop_master;
+    [make_el "drop_master" base (drop_master ~tls:None);
     ]
 
 

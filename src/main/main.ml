@@ -195,6 +195,9 @@ let main () =
   and tlog_dir = ref ""
   and tlf_dir = ref ""
   and end_i = ref None
+  and tls_ca_cert = ref ""
+  and tls_cert = ref ""
+  and tls_key = ref ""
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -360,14 +363,16 @@ let main () =
                                  Arg.Set_string ip;
                                  Arg.Set_int port;
                                 ],
-     "<cluster_id> <ip> <port> requests the node to drop its master role")
-
+     "<cluster_id> <ip> <port> requests the node to drop its master role");
+    ("-tls-ca-cert", Arg.Set_string tls_ca_cert, "<path> TLS CA certificate");
+    ("-tls-cert", Arg.Set_string tls_cert, "<path> Certificate to use for TLS connections");
+    ("-tls-key", Arg.Set_string tls_key, "<path> Key to use for TLS connections");
   ] in
 
   let options = [] in
   let interface = actions @ options in
 
-  let do_local = function
+  let do_local ~tls = function
     | ShowUsage -> print_endline usage;0
     | RunAllTests -> run_all_tests ()
     | RunAllTestsXML -> run_all_tests_xml !xml_filename
@@ -384,33 +389,33 @@ let main () =
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename
     | UncompressTlog -> Tlog_main.uncompress_tlog !filename
-    | SET -> Client_main.set !config_file !key !value
-    | GET -> Client_main.get !config_file !key
-    | PREFIX -> Client_main.prefix !config_file !key !max_results
-    | DELETE_PREFIX -> Client_main.delete_prefix !config_file !key
-    | BENCHMARK ->Client_main.benchmark !config_file !size !tx_size !max_n
+    | SET -> Client_main.set ~tls !config_file !key !value
+    | GET -> Client_main.get ~tls !config_file !key
+    | PREFIX -> Client_main.prefix ~tls !config_file !key !max_results
+    | DELETE_PREFIX -> Client_main.delete_prefix ~tls !config_file !key
+    | BENCHMARK ->Client_main.benchmark ~tls !config_file !size !tx_size !max_n
                     !n_clients
-    | LOAD -> Load_client.main !config_file
+    | LOAD -> Load_client.main ~tls !config_file
                 !n_clients
-    | DELETE -> Client_main.delete !config_file !key
-    | WHO_MASTER -> Client_main.who_master !config_file ()
-    | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible !config_file
-    | STATISTICS -> Client_main.statistics !config_file
+    | DELETE -> Client_main.delete ~tls !config_file !key
+    | WHO_MASTER -> Client_main.who_master ~tls !config_file ()
+    | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_file
+    | STATISTICS -> Client_main.statistics ~tls !config_file
     | Collapse_remote -> Collapser_main.collapse_remote
-                           !ip !port !cluster_id !n_tlogs
-    | Backup_db -> Nodestream_main.get_db !ip !port !cluster_id !location
-    | Optimize_db -> Nodestream_main.optimize_db !ip !port !cluster_id
-    | Defrag_db   -> Nodestream_main.defrag_db !ip !port !cluster_id
-    | NumberOfValues -> Client_main.get_key_count !config_file ()
+                           ~tls !ip !port !cluster_id !n_tlogs
+    | Backup_db -> Nodestream_main.get_db ~tls !ip !port !cluster_id !location
+    | Optimize_db -> Nodestream_main.optimize_db ~tls !ip !port !cluster_id
+    | Defrag_db   -> Nodestream_main.defrag_db ~tls !ip !port !cluster_id
+    | NumberOfValues -> Client_main.get_key_count ~tls !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
                                !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
-    | PING -> Client_main.ping !ip !port !cluster_id
-    | NODE_VERSION -> Client_main.node_version !node_id !config_file
-    | NODE_STATE   -> Client_main.node_state !node_id !config_file
+    | PING -> Client_main.ping ~tls !ip !port !cluster_id
+    | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
+    | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
     | InjectAsHead -> inject_as_head !filename !node_id !config_file
-    | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
+    | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
 
   in
   let do_server node =
@@ -443,9 +448,18 @@ let main () =
     interface
     (fun x -> raise (Arg.Bad ("Bad argument : " ^ x)))
     usage;
+
+  let tls =
+    if !tls_ca_cert = ""
+      then None
+      else if !tls_cert = ""
+        then Some (!tls_ca_cert, None)
+        else Some (!tls_ca_cert, Some (!tls_cert, !tls_key))
+  in
+
   let exit_code =
     match !action with
-      | LocalAction la -> do_local la
+      | LocalAction la -> do_local ~tls la
       | ServerAction sa -> do_server sa
   in
   (* let () = Printf.printf "[rc=%i]\n" rc in *)
