@@ -22,9 +22,10 @@ module Node = struct
     List.iter (fun n -> ignore (stop n)) names
 
   let monitor_all () =
-    let tab x = Printf.sprintf
-                  "--tab-with-profile=Default -e 'tail -f %s/%s/%s.log' -t '%s' "
-                  root x x x
+    let tab x =
+      Printf.sprintf
+        "--tab-with-profile=Default -e 'tail -f %s/%s/%s.log' -t '%s' "
+        root x x x
     in
     let tabs = List.map tab names in
     let cmd = List.fold_left (^) "gnome-terminal " tabs in
@@ -33,8 +34,8 @@ module Node = struct
 
   let mkdirs () =
     let mkdir x =
-      let dir_name = Printf.sprintf "%s/%s" root x in
-      Unix.mkdir dir_name 0o755
+      let cmd = Printf.sprintf "mkdir -p %s/%s" root x in
+      Sys.command cmd
     in List.map mkdir names
 
   let clean_dirs () =
@@ -43,4 +44,7 @@ module Node = struct
       (fun name -> ignore (Sys.command ("rm -rf " ^ (dir_name name))))
       names
 
+  let who_master () =
+    let cmd = Printf.sprintf "%s -config %s --who-master" exec cfg_name in
+    Sys.command cmd
 end
