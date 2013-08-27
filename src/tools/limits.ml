@@ -45,3 +45,7 @@ type soft_or_hard =
 external get_rlimit: resource -> soft_or_hard -> int = "arakoon_get_rlimit"
 
 external get_maxrss: unit -> int  = "arakoon_get_maxrss"
+
+type rusage = { maxrss:int64; ixrss:int64; idrss:int64; isrss:int64 }
+
+external get_rusage: unit -> rusage = "arakoon_get_rusage"

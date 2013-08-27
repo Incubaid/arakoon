@@ -37,7 +37,7 @@ CAMLprim value arakoon_get_rlimit(value v_resource, value soft){
 
   int resource = Int_val(v_resource);
   int res = getrlimit(resource, &rlim);
-  
+
   if (res != 0) {
 
     caml_failwith("get_rlimit");
@@ -61,4 +61,28 @@ CAMLprim value arakoon_get_maxrss(value unit){
   }
   int res2 = usage.ru_maxrss;
   CAMLreturn(Val_int(res2));
+}
+
+CAMLprim value arakoon_get_rusage(value unit){
+    CAMLparam1 (unit);
+    int who = RUSAGE_SELF;
+    struct rusage usage;
+    int res = getrusage(who,&usage);
+    if(res !=0){
+        caml_failwith("get_rusage");
+    }
+    long int maxrss = usage.ru_maxrss;
+    long int ixrss = usage.ru_ixrss;
+    long int idrss = usage.ru_idrss;
+    long int isrss = usage.ru_isrss;
+    //printf("ixrss=%lu;\n",ixrss);
+    CAMLlocal1(result);
+    result = caml_alloc(4, 0);//4 fields, each one is a value
+
+
+    Store_field( result, 0, (caml_copy_int64(maxrss)));
+    Store_field( result, 1, (caml_copy_int64(ixrss)));
+    Store_field( result, 2, (caml_copy_int64(idrss)));
+    Store_field( result, 3, (caml_copy_int64(isrss)));
+    CAMLreturn(result);
 }

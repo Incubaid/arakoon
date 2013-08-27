@@ -36,6 +36,8 @@ let tools_tests = "tools" >::: [
     Server_test.suite;
     Backoff_test.suite;
     Cllio_test.suite;
+    Limits_test.suite;
+
   ]
 
 let client_tests = "client" >::: [
@@ -76,6 +78,7 @@ let system = "system" >::: [
 
 let lwt_socket_tests = "lwt" >::: [Lwt_socket_test.suite]
 
+
 let suite = "universe" >::: [
     lwt_socket_tests;
     crc32c_tests;
@@ -90,5 +93,5 @@ let suite = "universe" >::: [
     collapser;
     system;
     nursery;
-    store;
+    store
   ]
