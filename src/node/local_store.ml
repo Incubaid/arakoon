@@ -81,9 +81,6 @@ let copy_store2 old_location new_location overwrite =
     end
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
-  (*let lcnum = 8192
-  and ncnum = 4096
-  in*)
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
   let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
   if List.mem Camltc.Bdb.BDBFFATAL flags
