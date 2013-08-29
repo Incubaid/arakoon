@@ -35,7 +35,8 @@ class type messaging = object
   method expect_reachable: target: id -> bool
   method run :
     ?setup_callback:(unit -> unit Lwt.t) ->
-    ?teardown_callback:(unit -> unit Lwt.t)
-    -> unit -> unit Lwt.t
+    ?teardown_callback:(unit -> unit Lwt.t) ->
+    ?ssl_context:([> `Server ] Typed_ssl.t) ->
+    unit -> unit Lwt.t
   method get_buffer: id -> (Message.t * id) Lwt_buffer.t
 end

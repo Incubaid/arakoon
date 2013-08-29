@@ -50,11 +50,11 @@ let all_same_master (tn, cluster_cfg, all_t) =
     Lwt_unix.sleep q >>= fun () ->
     Logger.debug_ "start of scenario" >>= fun () ->
     let set_one client = client # set "key" "value" in
-    Client_main.find_master cluster_cfg >>= fun master_name ->
+    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
     let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
                                 cluster_cfg.cfgs)
     in
-    Client_main.with_client master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
+    Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
     let masters = ref [] in
     let do_one cfg =
       let nn = node_name cfg in
@@ -64,7 +64,7 @@ let all_same_master (tn, cluster_cfg, all_t) =
           masters := master :: !masters;
           Logger.info_f_ "Client:%s got: %s" nn (Log_extra.string_option2s master)
       in
-      Client_main.with_client cfg cluster_cfg.cluster_id f
+      Client_main.with_client ~tls:None cfg cluster_cfg.cluster_id f
     in
     let cfgs = cluster_cfg.cfgs in
     Lwt_list.iter_s do_one cfgs >>= fun () ->
@@ -94,7 +94,7 @@ let all_same_master (tn, cluster_cfg, all_t) =
 let nothing_on_slave (tn, cluster_cfg, all_t) =
   let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
-    Client_main.find_master cluster_cfg >>= fun m ->
+    Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
     let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> m) cfgs in
     Lwt.return slave_cfgs
   in
@@ -125,7 +125,7 @@ let nothing_on_slave (tn, cluster_cfg, all_t) =
       delete_on_slave client >>= fun () ->
       test_and_set_on_slave client
     in
-    Client_main.with_client cfg cluster_id f
+    Client_main.with_client ~tls:None cfg cluster_id f
   in
   let test_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
@@ -142,11 +142,11 @@ let dirty_on_slave (tn, cluster_cfg,_) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
-  Client_main.find_master cluster_cfg >>= fun master_name ->
+  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
   let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
                               cluster_cfg.cfgs)
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id
+  Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id
     (fun client -> client # set "xxx" "xxx")
   >>= fun () ->
 
@@ -166,7 +166,7 @@ let dirty_on_slave (tn, cluster_cfg,_) =
             Logger.debug_ "dirty_get yielded a not_found"
           | e -> Lwt.fail e)
     in
-    Client_main.with_client cfg cluster_id dirty_get
+    Client_main.with_client ~tls:None cfg cluster_id dirty_get
   in
   let do_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
@@ -511,13 +511,13 @@ let _with_master ((tn:string), cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
-  Client_main.find_master cluster_cfg >>= fun master_name ->
+  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
   Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
     List.hd
       (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
-  Client_main.with_client master_cfg cluster_cfg.cluster_id f
+  Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id f
 
 
 let trivial_master tpl =

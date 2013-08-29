@@ -19,6 +19,7 @@ Contents:
    arakoon_configuration
    cluster_nodes
    managing_arakoon
+   tls
    nursery
    arakoon_ocaml_client
    arakoon_python_client
