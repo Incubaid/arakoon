@@ -129,7 +129,6 @@ struct
 
 
       method exists ~allow_dirty key =
-        log_o self "exists %s" key >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         S.exists store key
 
@@ -223,14 +222,12 @@ struct
 
       method rev_range_entries ~allow_dirty
                (first:string option) finc (last:string option) linc max =
-        log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range last first >>= fun () ->
         S.rev_range_entries store first finc last linc max
 
       method prefix_keys ~allow_dirty (prefix:string) (max:int) =
         let start = Unix.gettimeofday() in
-        log_o self "prefix_keys %s %d" prefix max >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval [prefix]  >>= fun () ->
         S.prefix_keys store prefix max   >>= fun key_list ->
@@ -250,7 +247,6 @@ struct
 
 
       method confirm key value =
-        log_o self "confirm %S" key >>= fun () ->
         let () = assert_value_size value in
         self # exists ~allow_dirty:false key >>= function
         | true ->
@@ -263,42 +259,32 @@ struct
         | false -> self # set key value
 
       method set_routing r =
-        log_o self "set_routing" >>= fun () ->
         let update = Update.SetRouting r in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method set_routing_delta left sep right =
-        log_o self "set_routing_delta" >>= fun () ->
         let update = Update.SetRoutingDelta (left, sep, right) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method set_interval iv =
-        log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
         let update = Update.SetInterval iv in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method user_function name po =
-        log_o self "user_function %s" name >>= fun () ->
         let update = Update.UserFunction(name,po) in
         let so_post so = so in
         _update_rendezvous self update no_stats push_update ~so_post
 
       method aSSert ~allow_dirty (key:string) (vo:string option) =
-        log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert(key,vo) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method aSSert_exists ~allow_dirty (key:string)=
-        log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert_exists(key) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method test_and_set key expected (wanted:string option) =
         let start = Unix.gettimeofday() in
-        log_o self "test_and_set %s %s %s" key
-          (string_option2s expected)
-          (string_option2s wanted)
-        >>= fun () ->
         let () = match wanted with
           | None -> ()
           | Some w -> assert_value_size w
@@ -310,7 +296,6 @@ struct
 
       method delete_prefix prefix =
         let start = Unix.gettimeofday () in
-        log_o self "delete_prefix %S" prefix >>= fun () ->
         (* do we need to test the prefix on the interval ? *)
         let update = Update.DeletePrefix prefix in
         let update_stats ur =
@@ -329,7 +314,7 @@ struct
         _update_rendezvous self update update_stats push_update ~so_post
 
 
-      method delete key = log_o self "delete %S" key >>= fun () ->
+      method delete key =
         let start = Unix.gettimeofday () in
         let update = Update.Delete key in
         let update_stats ur = Statistics.new_delete _stats start in
@@ -380,8 +365,8 @@ struct
                   begin
                     let now = Int64.of_float (Unix.time()) in
                     let diff = Int64.sub now ls in
-                    if diff < Int64.of_int lease_expiration then
-                      (Some m,"inside lease")
+                    if diff < Int64.of_int lease_expiration
+                    then  (Some m,"inside lease")
                     else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
                   end
                 | ReadOnly -> Some my_name, "readonly"
@@ -659,7 +644,6 @@ struct
         end
 
       method get_fringe boundary direction =
-        Logger.debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
         S.get_fringe store boundary direction
 
       method drop_master () =
