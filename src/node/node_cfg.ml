@@ -28,7 +28,8 @@ let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
 let default_max_buffer_size = 32 * 1024 * 1024
 let default_client_buffer_capacity = 32
-
+let default_lcnum = 16384
+let default_ncnum = 8192
 open Master_type
 open Client_cfg
 open Log_extra
@@ -144,35 +145,41 @@ module Node_cfg = struct
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
+      lcnum : int; (* tokyo cabinet: leaf nodes in cache *)
+      ncnum : int; (* tokyo cabinet: internal nodes in cache *)
       tls_ca_cert: string option;
       tls_service: bool;
       tls_service_validate_peer: bool;
-    }
+}
 
   let string_of_cluster_cfg cluster_cfg =
     let buffer = Buffer.create 200 in
-    Buffer.add_string buffer "{ node_cfgs=[ ";
-    List.iter (fun cfg -> Buffer.add_string buffer (string_of cfg); Buffer.add_string buffer ",") cluster_cfg.cfgs;
+    let add s = Buffer.add_string buffer s in
+    add "{ node_cfgs=[ ";
+    List.iter (fun cfg -> add (string_of cfg); add ",") cluster_cfg.cfgs;
     List.iter (fun (name,lcfg) ->
-        Buffer.add_string buffer ("]; log_cfg['" ^ name ^ "']=");
-        Buffer.add_string buffer (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
+        add ("]; log_cfg['" ^ name ^ "']=");
+        add (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
     List.iter (fun (name,btcfg) ->
-        Buffer.add_string buffer ("; batched_transaction_cfg['" ^ name ^ "']=");
-        Buffer.add_string buffer (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
-    Buffer.add_string buffer "; nursery_cfg=";
-    Buffer.add_string buffer (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg) cluster_cfg.nursery_cfg);
-    Buffer.add_string buffer
+        add ("; batched_transaction_cfg['" ^ name ^ "']=");
+        add (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
+    add "; nursery_cfg=";
+    add (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg)
+           cluster_cfg.nursery_cfg);
+    add
       (Printf.sprintf
          ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
           ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
           ^^ "client_buffer_capacity=%i; tls_ca_cert=%s; "
-          ^^ "tls_service=%b; tls_service_validate_peer=%b; }")
-         (master2s cluster_cfg._master) cluster_cfg._lease_period cluster_cfg.cluster_id
+          ^^ "tls_service=%b; tls_service_validate_peer=%b; lcnum=%i; bcnum=%i }")
+         (master2s cluster_cfg._master) cluster_cfg._lease_period
+         cluster_cfg.cluster_id
          (List.fold_left (^) "" cluster_cfg.plugins)
          (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
          cluster_cfg.max_value_size cluster_cfg.max_buffer_size
          cluster_cfg.client_buffer_capacity (_so2s cluster_cfg.tls_ca_cert)
-         cluster_cfg.tls_service cluster_cfg.tls_service_validate_peer);
+         cluster_cfg.tls_service cluster_cfg.tls_service_validate_peer
+         cluster_cfg.lcnum cluster_cfg.ncnum);
     Buffer.contents buffer
 
   let make_test_config
@@ -232,6 +239,8 @@ module Node_cfg = struct
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
+      lcnum = default_lcnum;
+      ncnum = default_ncnum;
       tls_ca_cert = None;
       tls_service = false;
       tls_service_validate_peer = false;
@@ -276,6 +285,14 @@ module Node_cfg = struct
   let _client_buffer_capacity inifile =
     Ini.get inifile "global" "client_buffer_capacity"
       Ini.p_int (Ini.default default_client_buffer_capacity)
+
+  let _lcnum inifile =
+    Ini.get inifile "global" "lcnum" Ini.p_int
+      (Ini.default default_lcnum)
+
+  let _ncnum inifile =
+    Ini.get inifile "global" "ncnum" Ini.p_int
+      (Ini.default default_ncnum)
 
   let _startup_mode inifile =
     let master =
@@ -486,6 +503,8 @@ module Node_cfg = struct
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
+    let lcnum = _lcnum inifile in
+    let ncnum = _ncnum inifile in
     let tls_ca_cert = _tls_ca_cert inifile in
     let tls_service = _tls_service inifile in
     let tls_service_validate_peer = _tls_service_validate_peer inifile in
@@ -503,6 +522,8 @@ module Node_cfg = struct
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;
+        lcnum;
+        ncnum;
         tls_ca_cert;
         tls_service;
         tls_service_validate_peer;

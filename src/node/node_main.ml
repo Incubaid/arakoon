@@ -210,7 +210,9 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
           fo.node_name
     end
   in
-  S.make_store db_name >>= fun store ->
+  S.make_store ~lcnum:cluster_cfg.lcnum
+    ~ncnum:cluster_cfg.ncnum
+    db_name >>= fun store ->
   make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir
     me.use_compression me.fsync name >>= fun tlc ->
   Lwt.finalize
@@ -494,7 +496,10 @@ let _main_2 (type s)
           >>= fun () ->
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-          S.make_store db_name >>= fun (store:S.t) ->
+          let lcnum = cluster_cfg.lcnum
+          and ncnum = cluster_cfg.ncnum
+          in
+          S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
           let last_i = tlog_coll # get_last_i () in
           let ti_o = Some last_i in
           let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
