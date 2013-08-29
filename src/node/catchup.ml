@@ -89,7 +89,8 @@ let head_saved_epilogue hfn tlog_coll =
   *)
   Logger.debug_f_ "head_saved_epilogue %s" hfn >>= fun () ->
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-  S.make_store ~read_only:true hfn >>= fun store ->
+  S.make_store ~lcnum:default_lcnum
+    ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
   S.close store >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->

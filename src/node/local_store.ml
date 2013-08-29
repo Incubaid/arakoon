@@ -80,15 +80,13 @@ let copy_store2 old_location new_location overwrite =
       end
     end
 
-let safe_create db_path mode =
-  Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
+let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
+  Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
   let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
   if List.mem Camltc.Bdb.BDBFFATAL flags
   then Lwt.fail (BdbFFatal db_path)
   else Lwt.return db
 
-let get_construct_params db_name ~mode =
-  safe_create db_name mode
 
 let _with_tx ls tx f =
   match ls._tx with
@@ -366,14 +364,16 @@ let get_fringe ls border direction =
        Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
-let make_store read_only db_name =
+let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =
     if read_only
     then B.readonly_mode
     else B.default_mode
   in
-  Logger.info_f_ "Creating local store at %s" db_name >>= fun () ->
-  get_construct_params db_name ~mode
+  Logger.info_f_
+    "Creating local store at %s (lcnum=%i) (ncnum=%i)" db_name
+    lcnum ncnum >>= fun () ->
+  safe_create db_name ~mode ~lcnum ~ncnum
   >>= fun db ->
   Lwt.return { db = db;
                location = db_name;

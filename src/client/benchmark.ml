@@ -143,7 +143,6 @@ let _range (client:Arakoon_client.client) max_n k_size t0 oc =
         _progress t0 i 10000 oc >>= fun () ->
         client # range (Some first_key) true
           (Some last_key) true 1000 >>= fun keys ->
-        (assert (List.length keys > 0));
         loop (i+1)
       end
   in
