@@ -59,7 +59,7 @@ def test_prefered_master():
     master3 = client.whoMaster()
     logging.info("master3 = %s", master3)
     NT.assert_equals(master3,pm)
-    
+
 
 @Common.with_custom_setup(lambda h: Common.setup_n_nodes(5, False, h), Common.basic_teardown)
 def test_prefered_masters():
@@ -119,7 +119,7 @@ def test_prefered_masters():
         assert master == preferred_master
 
         logging.info('Killing master')
-        cluster.stopNode(master)
+        cluster.stopOne(master)
 
         logging.info('Stopped master, waiting for things to settle')
         time.sleep(delay)

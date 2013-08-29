@@ -1,6 +1,6 @@
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq ocaml libev-dev
+  - sudo apt-get install -qq ocaml libev-dev libssl-dev
 
 install:
   - curl -L https://github.com/OCamlPro/opam/archive/1.0.0.tar.gz | tar xz -C /tmp
@@ -15,7 +15,7 @@ install:
   - eval `opam config -env`
   - opam remote add incubaid-devel -v -y -k git git://github.com/Incubaid/opam-repository-devel.git
   - opam update -v -y
-  - opam install -q -v -y conf-libev lwt camlbz2 camltc
+  - opam install -q -v -y ssl conf-libev lwt camlbz2 camltc
 
 script:
   - eval `opam config -env`

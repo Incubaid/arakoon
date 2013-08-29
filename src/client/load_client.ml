@@ -1,8 +1,8 @@
 open Lwt
 
-let load_scenario cfg_name x =
+let load_scenario ~tls cfg_name x =
   let f cn =
-    Client_main.with_master_client
+    Client_main.with_master_client ~tls
       cfg_name
       (fun client ->
          let rec loop i =
@@ -29,4 +29,4 @@ let load_scenario cfg_name x =
   in
   Lwt_list.iter_p f cnis
 
-let main cfg_name n = Lwt_main.run (load_scenario cfg_name n);0
+let main ~tls cfg_name n = Lwt_main.run (load_scenario ~tls cfg_name n);0
