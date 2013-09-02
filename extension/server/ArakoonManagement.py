@@ -1035,8 +1035,9 @@ class ArakoonCluster:
         rs = ' '.join(r)
         p = subprocess.Popen(rs, shell= True, stdout = subprocess.PIPE)
         output = p.communicate()[0]
-        logging.debug("injectAsHead returned %s", output)
-        return
+        rc = p.returncode
+        logging.debug("injectAsHead returned [%d] %s", rc, output)
+        return rc
         
         
     def defragDb(self, nodeName):
