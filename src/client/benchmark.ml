@@ -127,6 +127,10 @@ let _fill_transactions client max_n tx_size k_size v_size (t0:float) oc =
   in
   loop_t 0
 
+let calc_range_keys max_n =
+  let first = Random.int max_n - 10000 in
+  let last = first + Random.int 10000 in
+  (first,last)
 
 let _range (client:Arakoon_client.client) max_n k_size t0 oc =
   Lwt_io.fprintlf oc "(started @ %f: range)" (Unix.gettimeofday()) >>= fun () ->
@@ -136,8 +140,7 @@ let _range (client:Arakoon_client.client) max_n k_size t0 oc =
     then Lwt.return ()
     else
       begin
-        let first = (Random.int max_n) - 10000 in
-        let last = Random.int 10000 in
+        let first,last = calc_range_keys max_n in
         let first_key = _cat k0 first in
         let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
@@ -157,8 +160,7 @@ let _range_entries (client: Arakoon_client.client) max_n k_size t0 oc =
     then Lwt.return ()
     else
       begin
-        let first = (Random.int max_n) - 10000 in
-        let last = Random.int 10000 in
+        let first,last = calc_range_keys max_n in
         let first_key = _cat k0 first in
         let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
