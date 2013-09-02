@@ -47,13 +47,8 @@ let _delete_prefix bdb prefix =
   B.delete_prefix bdb prefix
 
 let _range_entries _pf bdb first finc last linc max =
-  let keys_array = B.range bdb (_f _pf first) finc (_l _pf last) linc max in
-  let pl = String.length _pf in
-  let cut k =
-    let l = String.length k in
-    String.sub k pl (l-pl)
-  in
-  Array.map (fun k -> (cut k,B.get bdb k)) keys_array
+  B.range_entries _pf bdb first finc last linc max
+
 
 let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
