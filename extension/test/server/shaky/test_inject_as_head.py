@@ -50,7 +50,11 @@ def test_inject_as_head():
     print "1"
     cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
-    cluster.injectAsHead(s1, new_head)
+    ret = cluster.injectAsHead(s1, new_head)
+
+    if ret != 0:
+        raise RuntimeError('injectAsHead returned %d' % ret)
+
     print "2"
     logging.info("injected as head")
     Common.iterate_n_times(n,Common.simple_set)
@@ -61,3 +65,28 @@ def test_inject_as_head():
     print "4"
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
+
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
+def test_inject_as_head_failure():
+    '''Test inject_as_head with a fake database file (should fail)'''
+
+    logging.info('Filling cluster')
+    cluster = Common._getCluster()
+    Common.iterate_n_times(10, Common.simple_set)
+
+    logging.info('Looking up master')
+    client = Common.get_client()
+    m = client.whoMaster()
+    slaves = filter(lambda x: x != m, Common.node_names)
+    s = slaves[0]
+
+    logging.info('Creating broken database')
+    new_head = '/tmp/broken.db'
+    with open(new_head, 'w') as fd:
+        fd.write('this is not a TC database')
+
+    logging.info('Injecting broken database')
+    ret = cluster.injectAsHead(s, new_head)
+
+    if ret in [0, None]:
+        raise RuntimeError('Unexpected injectAsHead result: %r', ret)
