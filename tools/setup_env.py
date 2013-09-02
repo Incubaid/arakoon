@@ -120,7 +120,7 @@ def maybe_install_packages():
     opam(['init'])
     opam(['remote', 'add', 'devel', '-k', 'git', INCUBAID_DEVEL])
     opam(['update'])
-    opam(['install', 'ocamlfind','camlbz2','camltc'])
+    opam(['install', 'ssl', 'ocamlfind','camlbz2','camltc'])
     
 def do_it():
     sh(['mkdir', '-p', ROOT])
