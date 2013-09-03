@@ -81,7 +81,7 @@ let make_version _ _ =
     Printf.sprintf template git_revision time machine major minor patch
       (String.concat "\\n" dependencies)
   in
-  Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "version.ml"])
+  Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "arakoon_version.ml"])
 
 let before_space s =
   try
@@ -98,7 +98,7 @@ let path_to_bisect_instrument () =
 
 let _ = dispatch & function
     | After_rules ->
-      rule "version.ml" ~prod: "version.ml" make_version;
+      rule "arakoon_version.ml" ~prod: "arakoon_version.ml" make_version;
       rule "LaTeX to PDF"
         ~prod:"%.pdf"
         ~dep:"%.tex"

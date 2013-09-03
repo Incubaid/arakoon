@@ -177,9 +177,10 @@ let _log_rotate cfg i get_cfgs =
 
 let log_prelude cluster_cfg =
   Logger.info_ "--- NODE STARTED ---" >>= fun () ->
-  Logger.info_f_ "git_revision: %s " Version.git_revision >>= fun () ->
-  Logger.info_f_ "compile_time: %s " Version.compile_time >>= fun () ->
-  Logger.info_f_ "version: %i.%i.%i" Version.major Version.minor Version.patch   >>= fun () ->
+  Logger.info_f_ "git_revision: %s " Arakoon_version.git_revision >>= fun () ->
+  Logger.info_f_ "compile_time: %s " Arakoon_version.compile_time >>= fun () ->
+  Logger.info_f_ "version: %i.%i.%i" Arakoon_version.major
+    Arakoon_version.minor Arakoon_version.patch   >>= fun () ->
   Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
   Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
   Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)            >>= fun () ->

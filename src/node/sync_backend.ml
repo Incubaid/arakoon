@@ -336,7 +336,9 @@ struct
         _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
       method hello (client_id:string) (cluster_id:string) =
-        let msg = Printf.sprintf "Arakoon %i.%i.%i" Version.major Version.minor Version.patch in
+        let msg = Printf.sprintf "Arakoon %i.%i.%i"
+          Arakoon_version.major Arakoon_version.minor Arakoon_version.patch
+        in
         Lwt.return (0l, msg)
 
 

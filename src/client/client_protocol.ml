@@ -627,13 +627,13 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     begin
       Logger.debug_f_ "connection=%s VERSION" id >>= fun () ->
       Llio.output_int oc 0 >>= fun () ->
-      Llio.output_int oc Version.major >>= fun () ->
-      Llio.output_int oc Version.minor >>= fun () ->
-      Llio.output_int oc Version.patch >>= fun () ->
+      Llio.output_int oc Arakoon_version.major >>= fun () ->
+      Llio.output_int oc Arakoon_version.minor >>= fun () ->
+      Llio.output_int oc Arakoon_version.patch >>= fun () ->
       let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
-                   Version.git_revision
-                   Version.compile_time
-                   Version.machine
+                   Arakoon_version.git_revision
+                   Arakoon_version.compile_time
+                   Arakoon_version.machine
       in
       Llio.output_string oc rest >>= fun () ->
       Lwt.return false

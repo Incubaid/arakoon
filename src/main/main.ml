@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Version
+
 open OUnit_XML
 open OUnit
 open Tlogcommon
@@ -82,12 +82,15 @@ let list_tests() =
   List.iter do_path (OUnit.test_case_paths All_test.suite)
 
 let show_version ()=
-  Printf.printf "version: %i.%i.%i\n" Version.major Version.minor Version.patch;
-  Printf.printf "git_revision: %S\n" Version.git_revision;
-  Printf.printf "compiled: %S\n" Version.compile_time;
-  Printf.printf "machine: %S\n" Version.machine;
-  Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
-  Printf.printf "dependencies:\n%s\n" Version.dependencies
+  let open Arakoon_version in
+  let () =
+    Printf.printf "version: %i.%i.%i\n" major minor patch;
+    Printf.printf "git_revision: %S\n" git_revision;
+    Printf.printf "compiled: %S\n" compile_time;
+    Printf.printf "machine: %S\n" machine;
+    Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
+    Printf.printf "dependencies:\n%s\n" dependencies in
+  ()
 
 
 let run_all_tests () =
