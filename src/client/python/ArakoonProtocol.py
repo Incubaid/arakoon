@@ -27,9 +27,12 @@ from ArakoonExceptions import *
 from ArakoonValidators import SignatureValidator
 from NurseryRouting import RoutingInfo
 
+import os.path
+import ssl
 import struct
 import logging
 import select
+import operator
 import cStringIO
 import types
 
@@ -42,7 +45,8 @@ ARA_CFG_NO_MASTER_RETRY = 60
 
 class ArakoonClientConfig :
 
-    def __init__ (self, clusterId, nodes):
+    def __init__ (self, clusterId, nodes,
+        tls=False, tls_ca_cert=None, tls_cert=None):
         """
         Constructor of an ArakoonClientConfig object
 
@@ -61,10 +65,43 @@ class ArakoonClientConfig :
         @type nodes: dict
         @param nodes: A dictionary containing the locations for the server nodes
 
+        @param tls: Use a TLS connection
+            If `tls_ca_cert` is given, this *must* be `True`, otherwise a
+            `ValueError` will be raised.
+        @type tls: `bool`
+        @param tls_ca_cert: Path to CA certificate file
+            If set, this will be used to validate node certificates.
+        @type tls_ca_cert: `str`
+        @param tls_cert: Path of client certificate & key files
+            These should be passed as a tuple. When provided, `tls_ca_cert`
+            *must* be provided as well, otherwise a `ValueError` will be raised.
+        @type tls_cert: `(str, str)`
         """
         self._clusterId = clusterId
         self._nodes = self._cleanUp(nodes)
-    
+
+        if tls_ca_cert and not tls:
+            raise ValueError('tls_ca_cert passed, but tls is False')
+        if tls_cert and not tls_ca_cert:
+            raise ValueError('tls_cert passed, but tls_ca_cert not given')
+
+        if tls_ca_cert is not None and not os.path.isfile(tls_ca_cert):
+            raise ValueError('Invalid TLS CA cert path: %s' % tls_ca_cert)
+
+        if tls_cert:
+            cert, key = tls_cert
+            if not os.path.isfile(cert):
+                raise ValueError('Invalid TLS cert path: %s' % cert)
+            if not os.path.isfile(key):
+                raise ValueError('Invalid TLS key path: %s' % key)
+
+        self._tls = tls
+        self._tls_ca_cert = tls_ca_cert
+        self._tls_cert = tls_cert
+
+    tls = property(operator.attrgetter('_tls'))
+    tls_ca_cert = property(operator.attrgetter('_tls_ca_cert'))
+    tls_cert = property(operator.attrgetter('_tls_cert'))
 
     def _cleanUp(self, nodes):
         for k in nodes.keys():
@@ -303,6 +340,13 @@ def _readExactNBytes( con, n ):
     bytesRemaining = n
     tmpResult = ""
     timeout = ArakoonClientConfig.getConnectionTimeout()
+
+    if isinstance(con._socket, ssl.SSLSocket):
+        s = con._socket
+        pending = s.pending()
+        if pending > 0:
+            tmpResult = s.recv(min(n, pending))
+            bytesRemaining = bytesRemaining - len(tmpResult)
 
     while bytesRemaining > 0 :
 

@@ -751,7 +751,8 @@ class ArakoonClient :
         if connection is None:
             nodeLocations = self._config.getNodeLocations( nodeId )
             clusterId = self._config.getClusterId()
-            connection = ArakoonClientConnection ( nodeLocations , clusterId)
+            connection = ArakoonClientConnection ( nodeLocations , clusterId,
+                self._config)
             self._connections[ nodeId ] = connection
 
         return connection

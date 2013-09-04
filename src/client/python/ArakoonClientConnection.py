@@ -20,13 +20,14 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+import ssl
 import socket
 from ArakoonProtocol import *
 from ArakoonExceptions import *
 
 class ArakoonClientConnection :
 
-    def __init__ (self, nodeLocations, clusterId):
+    def __init__ (self, nodeLocations, clusterId, config):
         self._clusterId = clusterId
         self._nodeIPs = nodeLocations[0]
         self._nodePort = nodeLocations[1]
@@ -35,14 +36,36 @@ class ArakoonClientConnection :
         self._connected = False
         self._socket = None
         self._socketInfo = None
+        self._config = config
         self._reconnect()
 
     def _reconnect(self):
         self.close()
         try :
             ip = self._nodeIPs[self._index]
-            self._socket = socket.create_connection((ip , self._nodePort),
+            sock = socket.create_connection((ip , self._nodePort),
                                                     ArakoonClientConfig.getConnectionTimeout())
+
+            if self._config.tls:
+                kwargs = {
+                    'ssl_version': ssl.PROTOCOL_TLSv1,
+                    'cert_reqs': ssl.CERT_OPTIONAL,
+                    'do_handshake_on_connect': True
+                }
+
+                if self._config.tls_ca_cert:
+                    kwargs['cert_reqs'] = ssl.CERT_REQUIRED
+                    kwargs['ca_certs'] = self._config.tls_ca_cert
+
+                if self._config.tls_cert:
+                    cert, key = self._config.tls_cert
+                    kwargs['keyfile'] = key
+                    kwargs['certfile'] = cert
+
+                self._socket = ssl.wrap_socket(sock, **kwargs)
+            else:
+                self._socket = sock
+
             self._socketInfo = (ip, self._nodePort)
             sendPrologue(self._socket, self._clusterId)
             self._connected = True
