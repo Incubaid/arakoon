@@ -151,6 +151,8 @@ def get_current_iptables_rules ():
     return rules_file_contents.split( "\n") [5:-3]
 
 def apply_iptables_rules ( rules ) :
+    version =Common.check_output(['sudo','/sbin/iptables','--version'])
+    logging.info("version=%s",version)
 
     flush_all_rules()
 
