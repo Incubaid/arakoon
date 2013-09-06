@@ -59,7 +59,7 @@ def mount_ram_fs ( node_index ) :
         raise Exception( "%s is not valid mount target as it is not a directory")
 
     try :
-        cmd = "sudo mount -t tmpfs -o size=10m tmpfs %s" % mount_target
+        cmd = "sudo /bin/mount -t tmpfs -o size=10m tmpfs %s" % mount_target
         Common.run_cmd ( cmd )
     except Exception, ex :
         logging.error( "Caught exception: %s" , ex )
