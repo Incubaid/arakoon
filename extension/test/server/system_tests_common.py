@@ -1015,7 +1015,7 @@ def destroy_ram_fs( node_index ) :
     (mount_target,log_dir,tlf_dir,head_dir) = build_node_dir_names( node_names[node_index] )
     logging.info("destroying ram_fs %s" % mount_target)
     try :
-        cmd = "umount %s" % mount_target
+        cmd = "sudo /bin/umount %s" % mount_target
         run_cmd ( cmd )
     except Exception, ex:
         logging.error("Caught exception while destroying ram_fs %s",ex)
