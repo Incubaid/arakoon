@@ -57,13 +57,10 @@ def mount_ram_fs ( node_index ) :
 
     if not fs.isDir( mount_target ) :
         raise Exception( "%s is not valid mount target as it is not a directory")
+
     try :
-        cmd = "sudo /sbin/mke2fs -q -m 0 /dev/ram%d" % (node_index)
+        cmd = "sudo mount -t tmpfs -o size=10m tmpfs %s" % mount_target
         Common.run_cmd ( cmd )
-
-        cmd = "sudo mount /dev/ram%d %s" % (node_index, mount_target)
-        Common.run_cmd ( cmd )
-
     except Exception, ex :
         logging.error( "Caught exception: %s" , ex )
         Common.stopOne( Common.node_names[node_index] )
