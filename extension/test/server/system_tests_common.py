@@ -1013,7 +1013,7 @@ def dir_to_fs_file_name (dir_name):
 
 def destroy_ram_fs( node_index ) :
     (mount_target,log_dir,tlf_dir,head_dir) = build_node_dir_names( node_names[node_index] )
-    logging.info("destroying ram_fs" % mount_target)
+    logging.info("destroying ram_fs %s" % mount_target)
     try :
         cmd = "umount %s" % mount_target
         run_cmd ( cmd )
