@@ -4,7 +4,7 @@
 
 q.testrunner.list()
 
-test_spec = 'arakoon_system_tests.server.quick'
+test_spec = '${TEST_SPEC-arakoon_system_tests.server.quick}'
 #test_spec = 'arakoon_system_tests.server.system_tests_long'
 #test_spec = 'arakoon_system_tests'
 #test_spec = 'arakoon_system_tests.server.TestCmdTools'
