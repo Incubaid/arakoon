@@ -165,7 +165,10 @@ def apply_iptables_rules ( rules ) :
             elif line.startswith(":"):
                 pass
             elif line != "" :
-                cmd = "sudo /sbin/iptables %s %s" % (table_add, line)
+                table_add_local = table_add
+                if line.find('DROP')> -1:
+                    table_add_local = "-t filter"
+                cmd = "sudo /sbin/iptables %s %s" % (table_add_local, line)
                 logging.info("cmd=%s", cmd)
                 Common.run_cmd( cmd, False )
 
