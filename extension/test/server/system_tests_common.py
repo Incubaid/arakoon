@@ -180,10 +180,15 @@ def compare_stores( node1_id, node2_id ):
         cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
         (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
         i_line = stdout.split("\n") [0]
-        i_str = i_line.split("(")[1][:-1]
-        #"..."
-        i_str2 = i_str[1:-1]
-        return int(i_str2)
+        logging.info("i_line='%s'" % i_line)
+        if i_line.endswith("None"):
+            i = 0
+        else:
+            i_str = i_line.split("(")[1][1:-2]
+            i = int(i_str)
+
+        return i
+
 
 
 
@@ -970,7 +975,8 @@ def assert_last_i_in_sync ( node_1, node_2 ):
         masterSet = 4
         assert_equals(code,
                       masterSet,
-                      "Values for i are invalid %i %i code:%i" % (i1, i2,code) )
+                      "Values for i are invalid %s:%i %s:%i code:%i" %
+                      (node_1,i1,node_2, i2,code) )
     else:
         pass
 

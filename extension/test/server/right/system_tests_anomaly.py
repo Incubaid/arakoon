@@ -281,9 +281,11 @@ def iterate_block_unblock_nodes ( iter_cnt, node_ids, period = 1.0 ):
     for i in range( iter_cnt ) :
         time.sleep( period )
         for node_id in node_ids:
+            logging.info("blocking %s", node_id)
             block_node_ports( node_id )
         time.sleep( period )
         for node_id in node_ids:
+            logging.info("unblocking %s", node_id)
             unblock_node_ports( node_id )
 
 def iterate_block_unblock_single_slave ( ):
