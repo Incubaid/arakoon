@@ -155,12 +155,17 @@ def apply_iptables_rules ( rules ) :
     logging.info("version=%s",version)
 
     flush_all_rules()
-
+    table_add = ""
     for rule in rules :
         lines = rule.split("\n")
         for line in lines :
-            if line.strip() != "" :
-                cmd = "sudo /sbin/iptables %s" % line
+            line = line.strip()
+            if line.startswith("*"):
+                table_add = "-t %s" % line[1:]
+            elif line.startswith(":"):
+                pass
+            elif line != "" :
+                cmd = "sudo /sbin/iptables %s %s" % (table_add, line)
                 logging.info("cmd=%s", cmd)
                 Common.run_cmd( cmd, False )
 
