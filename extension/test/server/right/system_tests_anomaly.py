@@ -164,6 +164,8 @@ def apply_iptables_rules ( rules ) :
                 table_add = "-t %s" % line[1:]
             elif line.startswith(":") or line.startswith("#"):
                 pass
+            elif line.find("COMMIT") > -1:
+                pass
             elif line != "" :
                 table_add_local = table_add
                 if line.find('DROP')> -1:
