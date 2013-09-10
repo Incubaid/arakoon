@@ -162,7 +162,7 @@ def apply_iptables_rules ( rules ) :
             line = line.strip()
             if line.startswith("*"):
                 table_add = "-t %s" % line[1:]
-            elif line.startswith(":"):
+            elif line.startswith(":") or line.startswith("#"):
                 pass
             elif line != "" :
                 table_add_local = table_add
