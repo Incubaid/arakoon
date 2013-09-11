@@ -20,8 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Arakoon import ArakoonClient 
-from NurseryRouting import RoutingInfo 
+from Arakoon import ArakoonClient
+from NurseryRouting import RoutingInfo
 from ArakoonExceptions import NurseryRangeError, NurseryInvalidConfig,ArakoonException
 from functools import wraps
 import time
@@ -30,12 +30,12 @@ import logging
 maxDuration = 3
 
 def retryDuringMigration (f):
-    @wraps(f)    
+    @wraps(f)
     def retrying_f (self,*args,**kwargs):
         naptime = 0.1
         duration = 0.0
         start = time.time()
-        
+
         callSucceeded = False
         while (not callSucceeded and duration < maxDuration ):
             try:
@@ -43,47 +43,47 @@ def retryDuringMigration (f):
                 callSucceeded = True
             except (NurseryRangeError, NurseryInvalidConfig) as ex:
                 logging.warning("Nursery range or config error (%s). Sleep %f before next attempt" % (ex, naptime) )
-                time.sleep(naptime)       
+                time.sleep(naptime)
                 duration = time.time() - start
-                naptime *= 1.5    
+                naptime *= 1.5
                 self._fetchNurseryConfig()
-        
+
         if( duration >= maxDuration) :
             raise ArakoonException("Failed to process nursery request in a timely fashion")
-        
+
         return retVal
-    
+
     return retrying_f
 
 class NurseryClient:
-    
+
     def __init__(self,clientConfig):
         self.nurseryClusterId = clientConfig.getClusterId()
         self._keeperClient = ArakoonClient(clientConfig)
         self._clusterClients = dict ()
         self._fetchNurseryConfig()
-    
+
     def _fetchNurseryConfig(self):
         (routing,cfgs) = self._keeperClient.getNurseryConfig()
         self._routing = routing
         logging.debug( "Nursery client has routing: %s" % str(routing))
         for (clusterId,client) in self._clusterClients.iteritems() :
             client.dropConnections()
-        
+
         self._clusterClients = dict()
         logging.debug("Nursery contains %d clusters", len(cfgs))
         for (clusterId,cfg) in cfgs.iteritems():
             client = ArakoonClient(cfg)
             logging.debug("Adding client for cluster %s" % clusterId )
             self._clusterClients[clusterId] = client
-    
+
     def _getArakoonClient(self, key):
         clusterId = self._routing.getClusterId(key)
         logging.debug("Key %s goes to cluster %s" % (key, clusterId))
         if not self._clusterClients.has_key( clusterId ):
             raise NurseryInvalidConfig()
         return self._clusterClients[clusterId]
-    
+
     @retryDuringMigration
     def set(self, key, value):
         """
@@ -102,7 +102,7 @@ class NurseryClient:
         """
         client = self._getArakoonClient(key)
         client.set(key,value)
-        
+
     @retryDuringMigration
     def get(self, key):
         """
@@ -116,7 +116,7 @@ class NurseryClient:
 
         client = self._getArakoonClient(key)
         return client.get(key)
-    
+
     @retryDuringMigration
     def delete(self, key):
         """
@@ -130,3 +130,79 @@ class NurseryClient:
         client = self._getArakoonClient(key)
         client.delete(key)
 
+
+    @retryDuringMigration
+    def testAndSet(self, key, oldValue,newValue):
+        """
+        Conditionally update the value for the provided key.
+        Semantics:
+        If the current value associated with the key equals oldValue,
+        then this equals to set(key, newValue).
+        If the current value differs from oldValue, then it's a nop.
+        The result is always the value that was associated with the key
+        prior to this call.
+
+        @type key: string
+        @type oldValue: string option
+        @type newValue: string option
+        @rtype : string
+        """
+        client = self._getArakoonClient(key)
+        v = client.testAndSet(key, oldValue, newValue)
+        return v
+
+    def listEntries(self, firstKey, lastKey, maxEntries= 1000):
+        if maxEntries < 0 or maxEntries > (1<<31):
+            raise ValueError("maxEntries=%i" % maxEntries)
+
+        if lastKey:
+            firstCluster = self._getArakoonClient(firstKey)
+            lastCluster  = self._getArakoonClient(lastKey)
+            if firstCluster == lastCluster:
+                entries = firstCluster.range_entries(firstKey, True,
+                                                     lastKey, True,
+                                                     maxEntries)
+                entriesLength = len(entries)
+                if entriesLength <= maxEntries:
+                    return (entries, False, None)
+                else:
+                    lastEntry = entries[-1]
+                    lastEntryK = lastEntry[0]
+                    return (entries[:-1], True, lastEntryK)
+            else:
+                separator = self._routing.getSeparator(firstKey)
+                entries = firstCluster.range_entries(firstKey,True,
+                                                     separator, True,
+                                                     maxEntries)
+                entriesLength = len(entries)
+                if entriesLength == maxEntries:
+                    return (entries, False, None)
+                else:
+                    return (entries, True, separator)
+
+
+        else:
+            firstCluster = self._getArakoonClient(firstKey)
+            ls = self._routing.getLargestSeparator()
+            lastCluster = self._getArakoonClient(ls)
+            if firstCluster == lastCluster:
+                entries = firstCluster.range_entries(firstKey, True,
+                                                     lastKey, True,
+                                                     maxEntries)
+                entriesLength = len(entries)
+                if entriesLength <= maxEntries:
+                    return(entries, False, None)
+                else:
+                    lastEntry = entries[-1]
+                    lastEntryK = lastEnty[0]
+                    return (entries[:-1], True, lastEntryK)
+            else:
+                separator = self._routing.getSeparator(firstKey)
+                entries = firstCluster.range_entries(firstKey,True,
+                                                     separator, True,
+                                                     maxEntries)
+                entriesLength = len(entries)
+                if entriesLength == maxEntries:
+                    return (entries, False,None)
+                else:
+                    return (entries, True, separator)
