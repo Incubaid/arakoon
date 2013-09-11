@@ -34,6 +34,7 @@ let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
 let __lease_key = "*lease"
+let __lease_key2 = "*lease2"
 let __prefix = "@"
 let __adminprefix="*"
 
@@ -141,10 +142,10 @@ sig
 
   val incr_i : t -> unit Lwt.t
 
-  val set_master : t -> transaction -> string -> int64 -> unit Lwt.t
-  val set_master_no_inc : t -> string -> int64 -> unit Lwt.t
+  val set_master : t -> transaction -> string -> float -> unit Lwt.t
+  val set_master_no_inc : t -> string -> float -> unit Lwt.t
   val clear_self_master : t -> string -> unit
-  val who_master : t -> (string * int64) option
+  val who_master : t -> (string * float) option
 
   val get : t -> string -> string Lwt.t
   val exists : t -> string -> bool Lwt.t
@@ -180,7 +181,7 @@ struct
                  For an empty store, This is None
              *)
              mutable store_i : Sn.t option;
-             mutable master : (string * int64) option;
+             mutable master : (string * float) option;
              mutable interval : Interval.t;
              mutable routing : Routing.t option;
              mutable quiesced : bool;
@@ -207,8 +208,17 @@ struct
   let _master store =
     try
       let m = S.get store __master_key in
-      let ls_buff = S.get store __lease_key in
-      let ls,_ = Llio.int64_from ls_buff 0 in
+      let ls =
+        try
+          (* first try new key with more accurate storage *)
+          let ls_buff = S.get store __lease_key2 in
+          let ls, _ = Llio.float_from ls_buff 0 in
+          ls
+        with Not_found ->
+          (* fallback to old more coarse grained lease period *)
+          let ls_buff = S.get store __lease_key in
+          let ls, _ = Llio.int64_from ls_buff 0 in
+          (Int64.to_float ls) +. 1. in
       Some (m,ls)
     with Not_found ->
       None
@@ -335,9 +345,9 @@ struct
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
         S.set store.s tx __master_key master;
         let buffer = Buffer.create 8 in
-        let () = Llio.int64_to buffer lease_start in
+        let () = Llio.float_to buffer lease_start in
         let lease = Buffer.contents buffer in
-        S.set store.s tx __lease_key lease;
+        S.set store.s tx __lease_key2 lease;
         store.master <- Some (master, lease_start);
         Lwt.return ())
 
