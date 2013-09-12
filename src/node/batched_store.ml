@@ -154,7 +154,7 @@ struct
              in
 
              begin
-               if (s._entries >= !max_entries) or (s._size >= !max_size)
+               if (s._entries >= !max_entries) || (s._size >= !max_size)
                then
                  begin
                    Logger.debug_f_ "Batched_store, synching cache to local_store (_entries=%i, _size=%i)" s._entries s._size >>= fun () ->
