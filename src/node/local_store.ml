@@ -305,7 +305,7 @@ let get_fringe ls border direction =
           let cmp =
             begin
               match border with
-                | Some b -> (fun k -> k < (__prefix ^ b) or k.[0] <> __prefix.[0])
+                | Some b -> (fun k -> k < (__prefix ^ b) || k.[0] <> __prefix.[0])
                 | None -> (fun k -> k.[0] <> __prefix.[0])
             end
           in
@@ -330,7 +330,7 @@ let get_fringe ls border direction =
                        try
                          let k = B.key   lcdb cursor in
                          let v = B.value lcdb cursor in
-                         if ts >= limit  or (key_cmp k)
+                         if ts >= limit  || (key_cmp k)
                          then acc
                          else
                            let pk = String.sub k 1 (String.length k -1) in

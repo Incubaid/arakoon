@@ -422,7 +422,7 @@ struct
           end
 
       method private _read_allowed (allow_dirty:bool) =
-        if allow_dirty or read_only
+        if allow_dirty || read_only
         then Lwt.return ()
         else self # _write_allowed ()
 
