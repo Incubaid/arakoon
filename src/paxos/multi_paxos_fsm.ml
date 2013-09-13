@@ -191,7 +191,6 @@ let promises_check_done constants state () =
       Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
-      start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
       let ff = fun _ -> Lwt.return () in
       let ffs =
@@ -199,7 +198,7 @@ let promises_check_done constants state () =
           | 0 -> []
           | n -> ff :: repeat (n - 1) in
         repeat number_of_updates in
-      Fsm.return (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
+      Fsm.return ~sides:[EStartLeaseExpiration (bv,n,false)] (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
   if nvoted < nnodes
