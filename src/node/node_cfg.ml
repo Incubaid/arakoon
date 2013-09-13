@@ -346,7 +346,7 @@ module Node_cfg = struct
     try
       let qs = (inifile # getval "global" "quorum") in
       let qi = Scanf.sscanf qs "%i" (fun i -> i) in
-      if 1 <= qi & qi <= n_nodes
+      if 1 <= qi && qi <= n_nodes
       then fun n -> qi
       else
         let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"

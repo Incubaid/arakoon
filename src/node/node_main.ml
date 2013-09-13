@@ -298,7 +298,7 @@ module X = struct
                   | None -> true
               end
             in
-            if (Int64.sub now !last_master_log_stmt >= 60L) or new_master then
+            if (Int64.sub now !last_master_log_stmt >= 60L) || new_master then
               begin
                 last_master_log_stmt := now;
                 Logger.info_f_ "%s is master"  m

@@ -13,7 +13,7 @@ parser.add_option("-r", "--root", dest="root", default="../ROOT",
                   help="Root directory for the env", metavar="ROOT")
 (options, args) = parser.parse_args()
 
-OCAML='4.00.1'
+OCAML='4.01.0'
 ROOT = os.path.realpath(options.root)
 PREFIX = "%s/%s" % (ROOT,'OCAML')
 OPAM_HOME='%s/OPAM' % ROOT
@@ -74,9 +74,9 @@ def maybe_install_ocaml():
     if os.path.exists(PREFIX):
         print '%s exists, not installing ocaml compiler' % PREFIX
         return
-    
+
     lib = Lib('ocaml-%s' % OCAML,'.tar.bz2',
-              'http://caml.inria.fr/pub/distrib/ocaml-4.00/%s')
+              'http://caml.inria.fr/pub/distrib/ocaml-4.01/%s')
     lib.download()
     lib.extract()
     lib.sh(['./configure', '--prefix',PREFIX])
@@ -87,7 +87,7 @@ def maybe_install_opam():
     if os.path.exists(OPAM_HOME):
         print '%s exists, not installing opam' % OPAM_HOME
         return
-    
+
     lib = Lib('opam','',
               'https://github.com/OCamlPro/%s/tarball/master')
     lib.download()
@@ -105,13 +105,13 @@ def maybe_install_opam():
     sh(['make'], cwd = d, env = env)
     sh(['make','install'], cwd = d, env = env)
 
-    
+
 
 def maybe_install_packages():
     if os.path.exists(OPAM_ROOT):
         print '%s exists, not installing packages' % OPAM_ROOT
         return
-    
+
     sh(['mkdir', '-p', OPAM_ROOT])
     opam_env = env.copy()
     def opam(x):
@@ -121,7 +121,7 @@ def maybe_install_packages():
     opam(['remote', 'add', 'devel', '-k', 'git', INCUBAID_DEVEL])
     opam(['update'])
     opam(['install', 'ssl', 'ocamlfind','camlbz2','camltc'])
-    
+
 def do_it():
     sh(['mkdir', '-p', ROOT])
     maybe_install_ocaml()
@@ -136,5 +136,3 @@ def do_it():
 
 if __name__ == '__main__':
     do_it()
-
-
