@@ -57,7 +57,7 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
                 inject_lease_expired ()
               | Some (_, ls) ->
                 let diff = (Unix.gettimeofday ()) -. ls in
-                if not (diff < float constants.lease_expiration)
+                if diff >= float constants.lease_expiration
                 then
                   inject_lease_expired () in
             Lwt.return ()

@@ -902,25 +902,43 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i =
        >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos ?(stop = ref false) constants buffers current_i =
+let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
-  Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = update_n constants Sn.start in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-       Fsm.loop ~trace ~stop
-         (_execute_effects constants)
-         produce
-         (machine constants)
-         (election_suggest constants (current_n))
-    )
-    (fun e ->
-       Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
-         (Printexc.to_string e)
-       >>= fun () -> Lwt.fail e
-    )
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let other_master = match S.who_master constants.store with
+    | None -> false
+    | Some (_, ls) ->
+      let diff = (Unix.gettimeofday ()) -. ls in
+      diff < float constants.lease_expiration in
+  let run start_state =
+    Lwt.catch
+      (fun () ->
+         Fsm.loop ~trace ~stop
+           (_execute_effects constants)
+           produce
+           (machine constants)
+           start_state
+      )
+      (fun e ->
+         Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
+           (Printexc.to_string e)
+         >>= fun () -> Lwt.fail e
+      ) in
+  if other_master
+  then
+    begin
+      Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
+      start_lease_expiration_thread constants current_n constants.lease_expiration >>= fun () ->
+      run (Slave.slave_fake_prepare constants (current_i,current_n))
+    end
+  else
+    begin
+      Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
+      run (election_suggest constants (current_n))
+    end
 
 let enter_read_only constants buffers current_i =
   let me = constants.me in
