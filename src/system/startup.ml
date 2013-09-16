@@ -154,11 +154,11 @@ let post_failure () =
   }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0,0L)  in
+  let v0 = Value.create_master_value (node0,0.0)  in
   let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Int64.of_float( Unix.time() ) in
+  let now = Unix.gettimeofday () in
 
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
@@ -216,11 +216,11 @@ let restart_slaves () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0, 0L) in
+  let v0 = Value.create_master_value (node0, 0.0) in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Int64.of_float(Unix.time()) in
+  let now = Unix.gettimeofday () in
 
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in

@@ -56,8 +56,8 @@ let master_consensus (type s) constants ((finished_funs : master_option),v,n,i, 
               | None ->
                 inject_lease_expired ()
               | Some (_, ls) ->
-                let diff = Sn.sub (Int64.of_float (Unix.gettimeofday ())) ls in
-                if not (diff < Int64.of_int constants.lease_expiration)
+                let diff = (Unix.gettimeofday ()) -. ls in
+                if not (diff < float constants.lease_expiration)
                 then
                   inject_lease_expired () in
             Lwt.return ()
@@ -94,7 +94,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             else
               let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
-              let v = Value.create_master_value (me,0L) in
+              let v = Value.create_master_value (me,0.0) in
               let ff = fun _ -> Lwt.return () in
               Fsm.return ~sides:[log_e] (Master_dictate ([ff], v,n,new_i, lease_expire_waiters))
           in

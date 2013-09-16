@@ -174,11 +174,11 @@ let promises_check_done constants state () =
   let bv,bf,number_of_updates =
     begin
       match v_s with
-        | [] ->  (Value.create_master_value (me, 0L), 0, 1)
+        | [] ->  (Value.create_master_value (me, 0.0), 0, 1)
         | hd::tl ->
           let bv, bf = hd in
           if Value.is_master_set bv
-          then (Value.create_master_value (me, 0L), bf, 1)
+          then (Value.create_master_value (me, 0.0), bf, 1)
           else bv, bf , List.length (Value.updates_from_value bv)
 
     end in
