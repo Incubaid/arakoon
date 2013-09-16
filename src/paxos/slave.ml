@@ -33,10 +33,10 @@ let time_for_elections (type s) constants n' =
     then false, "quiesced"
     else
       begin
-        let origine,(am,al) =
+        let am,al =
           match S.who_master constants.store with
-            | None         -> "not_in_store", ("None", 0.0)
-            | Some (sm,sd) -> "stored", (sm,sd)
+            | None         -> ("None", 0.0)
+            | Some (sm,sd) -> (sm,sd)
         in
         let now = Unix.gettimeofday () in
       (*
@@ -76,7 +76,7 @@ let slave_steady_state (type s) constants state event =
         let ns = (Sn.string_of n) and
           ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
+            Printf.sprintf "slave_steady_state: Ignoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
@@ -255,42 +255,31 @@ let slave_discovered_other_master (type s) constants state () =
   and tlog_coll = constants.tlog_coll
   in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  if current_i <= future_i then
-    begin
-      Logger.debug_f_
-        "%s: slave_discovered_other_master: catching up from %s @ %s"
-        me master (Sn.string_of future_i) >>= fun() ->
-      let cluster_id = constants.cluster_id in
-      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
-      >>= fun () ->
+  begin
+    if current_i <= future_i then
       begin
-        let current_i' = S.get_succ_store_i store in
-        let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
-                            Sn.pred current_i') (* pred =  consensus_i *)
-        in
-        Multi_paxos.mcast constants fake >>= fun () ->
-
-        start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
-        Fsm.return (Slave_steady_state (future_n, current_i', None));
+        Logger.debug_f_
+          "%s: slave_discovered_other_master: catching up from %s @ %s"
+          me master (Sn.string_of future_i) >>= fun() ->
+        let cluster_id = constants.cluster_id in
+        Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
       end
+    else
+      Lwt.return ()
+  end >>= fun () ->
+  if is_election constants
+  then
+    begin
+      (* we have to go to election here or we can get in a situation where
+         everybody just waits for each other *)
+      let new_n = update_n constants future_n in
+      let log_e = ELog (fun () -> "slave_discovered_other_master: no current master, so back to election") in
+      Fsm.return ~sides:[log_e] (Election_suggest (new_n))
     end
   else
     begin
+      start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
       let next_i = S.get_succ_store_i constants.store in
-      let s, m =
-        if is_election constants
-        then
-          (* we have to go to election here or we can get in a situation where
-             everybody just waits for each other *)
-          let new_n = update_n constants future_n in
-          (Election_suggest (new_n)),
-          "slave_discovered_other_master: my i is bigger then theirs ; back to election"
-        else
-          begin
-            Slave_steady_state( future_n, next_i, None ),
-            "slave_discovered_other_master: forced slave, back to slave mode"
-          end
-      in
-      let log_e = ELog (fun () -> m) in
-      Fsm.return ~sides:[log_e] s
+      let log_e = ELog (fun () -> "slave_discovered_other_master: another master, so back to slave mode") in
+      Fsm.return ~sides:[log_e] (Slave_steady_state( future_n, next_i, None ))
     end
