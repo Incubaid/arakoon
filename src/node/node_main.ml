@@ -331,7 +331,11 @@ module X = struct
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
-    Logger.debug_f_ "T:on_accept took: %f" d
+    if d >= 1.0
+    then
+      Logger.info_f_ "T:on_accept took: %f" d
+    else
+      Logger.debug_f_ "T:on_accept took: %f" d
 
   let reporting period backend () =
     let fp = float period in
