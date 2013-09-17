@@ -24,7 +24,7 @@ open Update
 
 type t =
   | Vc of (Update.t list * bool) (* is_synced *)
-  | Vm of (string * int64)
+  | Vm of (string * float)
 
 let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
 let create_master_value (m,l) = Vm (m,l)
@@ -38,11 +38,11 @@ let is_synced = function
   | Vc (_,s) -> s
 
 let clear_self_master_set me = function
-  | Vm (m,l) when m = me -> Vm(m, 0L)
+  | Vm (m,l) when m = me -> Vm(m, 0.0)
   | v        -> v
 
 let fill_if_master_set = function
-  | Vm (m,_) -> let now = Int64.of_float (Unix.gettimeofday ()) in
+  | Vm (m,_) -> let now = Unix.gettimeofday () in
     Vm(m,now)
   | v -> v
 
@@ -61,7 +61,7 @@ let value_to buf v=
       begin
         Llio.char_to buf 'm';
         Llio.string_to buf m;
-        Llio.int64_to buf l
+        Llio.int64_to buf (Int64.of_float l)
       end
 
 let value_from string pos =
@@ -77,7 +77,7 @@ let value_from string pos =
         r, p4
       | 'm' -> let m, p3 = Llio.string_from string p2 in
         let l, p4 = Llio.int64_from string p3 in
-        (Vm (m,l)), p4
+        (Vm (m,Int64.to_float l)), p4
       | _ -> failwith "demarshalling error"
   else
     begin
@@ -95,4 +95,4 @@ let value2s ?(values=false) = function
   | Vc (us,synced)  ->
     let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
     Printf.sprintf "(Vc (%s,%b)" uss synced
-  | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%Li))" m l
+  | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%f))" m l
