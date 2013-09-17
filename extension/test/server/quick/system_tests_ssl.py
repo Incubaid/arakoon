@@ -1,6 +1,6 @@
 import subprocess
 import time
-#from .. import system_tests_common as C
+from .. import system_tests_common as C
 
 def make_config(config_fn, arakoon_root, ca_path, ca_path2):
     with open(config_fn,'w') as f:
@@ -126,7 +126,7 @@ def teardown():
     except:
         pass
 
-arakoon_bin = "/home/romain/workspace/ARAKOON/arakoon/arakoon.native"
+arakoon_bin = C.binary_full_path
 
 def start_node(i):
     cmd = [arakoon_bin,"-config", config_fn,
