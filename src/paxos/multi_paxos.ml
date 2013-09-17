@@ -51,9 +51,8 @@ let paxos_fatal me fmt =
 let can_promise (type s) (module S : Store.STORE with type t = s) store lease_expiration requester =
   match S.who_master store with
     | Some (m, ml) ->
-      let l64 = Int64.of_int lease_expiration in
       if (
-        ( (Int64.add ml l64) > Int64.of_float (Unix.time()) )
+        ( (ml +. float lease_expiration) > (Unix.gettimeofday ()) )
         &&
         (String.compare requester m) <> 0
       )
