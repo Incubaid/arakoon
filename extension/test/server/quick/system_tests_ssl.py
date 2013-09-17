@@ -121,7 +121,10 @@ def setup():
 
 
 def teardown():
-    shell(["pkill", "-9", "arakoon"])
+    try:
+        shell(["pkill", "-9", "arakoon"])
+    except:
+        pass
 
 arakoon_bin = "/home/romain/workspace/ARAKOON/arakoon/arakoon.native"
 
