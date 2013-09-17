@@ -35,7 +35,7 @@ let time_for_elections (type s) constants n' =
       begin
         let origine,(am,al) =
           match S.who_master constants.store with
-            | None         -> "not_in_store", ("None", Sn.start)
+            | None         -> "not_in_store", ("None", 0.0)
             | Some (sm,sd) -> "stored", (sm,sd)
         in
         let now = Unix.gettimeofday () in
@@ -44,8 +44,7 @@ let time_for_elections (type s) constants n' =
            log "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
       ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
         *)
-        let alf = Int64.to_float al in
-        let diff = now -. alf in
+        let diff = now -. al in
         diff >= (float constants.lease_expiration), Printf.sprintf "diff=%f" diff
       end
   end
@@ -87,8 +86,7 @@ let slave_steady_state (type s) constants state event =
       let log_e = ELog (fun () ->
           Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
       in
-      start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-      Fsm.return ~sides:[log_e] (Slave_steady_state (n,i,maybe_previous))
+      Fsm.return ~sides:[log_e] (Slave_steady_state state)
     else
       let elections_needed,_ = time_for_elections constants n' in
       if elections_needed then
@@ -99,8 +97,9 @@ let slave_steady_state (type s) constants state event =
         end
       else
         begin
-          start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
-          Fsm.return (Slave_steady_state state)
+          let log_e = ELog (fun () ->
+              "slave_steady_state: ignoring lease expiration master still active") in
+          Fsm.return ~sides:[log_e] (Slave_steady_state state)
         end
   in
   match event with

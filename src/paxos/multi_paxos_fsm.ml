@@ -174,11 +174,11 @@ let promises_check_done constants state () =
   let bv,bf,number_of_updates =
     begin
       match v_s with
-        | [] ->  (Value.create_master_value (me, 0L), 0, 1)
+        | [] ->  (Value.create_master_value (me, 0.0), 0, 1)
         | hd::tl ->
           let bv, bf = hd in
           if Value.is_master_set bv
-          then (Value.create_master_value (me, 0L), bf, 1)
+          then (Value.create_master_value (me, 0.0), bf, 1)
           else bv, bf , List.length (Value.updates_from_value bv)
 
     end in
@@ -191,7 +191,6 @@ let promises_check_done constants state () =
       Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
-      start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
       let ff = fun _ -> Lwt.return () in
       let ffs =
@@ -199,7 +198,7 @@ let promises_check_done constants state () =
           | 0 -> []
           | n -> ff :: repeat (n - 1) in
         repeat number_of_updates in
-      Fsm.return (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
+      Fsm.return ~sides:[EStartLeaseExpiration (bv,n,false)] (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
   if nvoted < nnodes
@@ -839,7 +838,7 @@ let _execute_effects constants e =
         then
           let period =
             if slave
-            then constants.lease_expiration
+            then constants.lease_expiration + 1
             else constants.lease_expiration / 2
           in
           start_lease_expiration_thread constants n period
@@ -903,25 +902,43 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i =
        >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos ?(stop = ref false) constants buffers current_i =
+let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
-  Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = update_n constants Sn.start in
   let trace = trace_transition me in
   let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-       Fsm.loop ~trace ~stop
-         (_execute_effects constants)
-         produce
-         (machine constants)
-         (election_suggest constants (current_n))
-    )
-    (fun e ->
-       Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
-         (Printexc.to_string e)
-       >>= fun () -> Lwt.fail e
-    )
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let other_master = match S.who_master constants.store with
+    | None -> false
+    | Some (_, ls) ->
+      let diff = (Unix.gettimeofday ()) -. ls in
+      diff < float constants.lease_expiration in
+  let run start_state =
+    Lwt.catch
+      (fun () ->
+         Fsm.loop ~trace ~stop
+           (_execute_effects constants)
+           produce
+           (machine constants)
+           start_state
+      )
+      (fun e ->
+         Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
+           (Printexc.to_string e)
+         >>= fun () -> Lwt.fail e
+      ) in
+  if other_master
+  then
+    begin
+      Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
+      start_lease_expiration_thread constants current_n constants.lease_expiration >>= fun () ->
+      run (Slave.slave_fake_prepare constants (current_i,current_n))
+    end
+  else
+    begin
+      Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
+      run (election_suggest constants (current_n))
+    end
 
 let enter_read_only constants buffers current_i =
   let me = constants.me in
