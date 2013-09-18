@@ -58,15 +58,15 @@ random.seed ( time.time() )
 
 
 def retryDuringMasterReelection (f):
-    @wraps(f)    
-    def retrying_f (self,*args,**kwargs):    
+    @wraps(f)
+    def retrying_f (self,*args,**kwargs):
         start = time.time()
         tryCount = 0.0
         backoffPeriod = 0.2
         callSucceeded = False
         retryPeriod = ArakoonClientConfig.getNoMasterRetryPeriod ()
         deadline = start + retryPeriod
-        while( not callSucceeded and time.time() < deadline ): 
+        while( not callSucceeded and time.time() < deadline ):
             try :
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
@@ -77,14 +77,14 @@ def retryDuringMasterReelection (f):
                 self.dropConnections()
                 sleepPeriod = backoffPeriod * tryCount
                 if time.time() + sleepPeriod > deadline :
-                    raise 
+                    raise
                 tryCount += 1.0
                 ArakoonClientLogger.logWarning( "Master not found (%s). Retrying in %0.2f sec." % (ex, sleepPeriod) )
                 time.sleep( sleepPeriod )
         return retVal
-    
+
     return retrying_f
-    
+
 class ArakoonClient :
 
     def __init__ (self, config=None):
@@ -110,19 +110,19 @@ class ArakoonClient :
         if len(nodeList) == 0:
             raise ArakoonInvalidConfig("Node list empty.")
         self._dirtyReadNode = random.choice( nodeList )
-    
+
     def allowDirtyReads(self):
         """
-        Allow the client to read values from a potential slave. 
-        
+        Allow the client to read values from a potential slave.
+
         Enabling this can give back outdated values!
         """
         self._allowDirty = True
-        
+
     def disallowDirtyReads(self):
         """
-        Disallow the client to read values from a potential slave.   
-        
+        Disallow the client to read values from a potential slave.
+
         Enabling dirty reads can give back outdated values!
         """
         self._allowDirty = False
@@ -135,7 +135,7 @@ class ArakoonClient :
     def setDirtyReadNode(self, node):
         """
         Set the node that will be used for dirty read operations
-        
+
         @type node : string
         @param node : the node identifier
         @rtype: void
@@ -145,21 +145,21 @@ class ArakoonClient :
         self._dirtyReadNode = node
 
     @utils.update_argspec('self')
-    @retryDuringMasterReelection 
+    @retryDuringMasterReelection
     def getKeyCount (self) :
         """
         Retrieve the number of keys in the database on the master
-        
+
         @rtype: int
         """
         encoded = ArakoonProtocol.encodeGetKeyCount()
         conn = self._sendToMaster(encoded)
-        return conn.decodeInt64Result()        
-    
+        return conn.decodeInt64Result()
+
     def getDirtyReadNode(self):
         """
         Retrieve the node that will be used for dirty read operations
-        
+
         @rtype: string
         @return : the node identifier
         """
@@ -171,7 +171,7 @@ class ArakoonClient :
     def hello (self, clientId, clusterId = 'arakoon'):
         """
         send a hello message to the node with your id and the cluster id.
-        
+
 
         Will return the server node identifier and the version of arakoon it is running
 
@@ -202,7 +202,7 @@ class ArakoonClient :
             conn = self._sendMessage(nodeId, msg )
 
         result = conn.decodeVersionResult()
-        
+
         return result
 
     def getCurrentState(self,nodeId = None):
@@ -217,7 +217,7 @@ class ArakoonClient :
             conn = self._sendToMaster(msg)
         else:
             conn = self._sendMessage(nodeId,msg)
-        
+
         result = conn.decodeStringResult()
         return result
 
@@ -275,16 +275,16 @@ class ArakoonClient :
             conn = self._sendMessage(self._dirtyReadNode, msg)
         else:
             conn = self._sendToMaster (msg)
-        result = conn.decodeStringListResult()
+        result = conn.decodeStringArrayResult()
         return result
 
     @utils.update_argspec('self','keys')
     @retryDuringMasterReelection
     def multiGetOption(self,keys):
         """
-        Retrieve the values for the keys in the given list. 
+        Retrieve the values for the keys in the given list.
         if there is no value for a particular key, a None is returned for that key.
-        
+
         @type key: string list
         @rtype: string (option) list
         @return: the values associated with the respective keys
@@ -295,7 +295,7 @@ class ArakoonClient :
             conn = self._sendMessage(self._dirtyReadNode, msg)
         else:
             conn = self._sendToMaster(msg)
-        result = conn.decodeStringOptionListResult()
+        result = conn.decodeStringOptionArrayResult()
         return result
 
     @utils.update_argspec('self', 'key', 'value')
@@ -324,14 +324,14 @@ class ArakoonClient :
     @SignatureValidator('string','string')
     def confirm(self, key,value):
         """
-        Do nothing if the value associated with the given key is this value; 
+        Do nothing if the value associated with the given key is this value;
         otherwise, behave as set(key,value)
         @rtype: void
         """
         msg = ArakoonProtocol.encodeConfirm(key,value)
         conn = self._sendToMaster(msg)
         conn.decodeVoidResult()
-        
+
     @utils.update_argspec('self', 'key', 'vo')
     @retryDuringMasterReelection
     @SignatureValidator('string','string_option')
@@ -375,8 +375,8 @@ class ArakoonClient :
     @SignatureValidator( 'sequence', 'bool' )
     def sequence(self, seq, sync = False):
         """
-        Try to execute a sequence of updates. 
-        if sync is true then the filesystem on 
+        Try to execute a sequence of updates.
+        if sync is true then the filesystem on
         server side will get synchronised right after the update.
 
         It's all-or-nothing: either all updates succeed, or they all fail.
@@ -385,7 +385,7 @@ class ArakoonClient :
         encoded = ArakoonProtocol.encodeSequence(seq, sync)
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
-    
+
     @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection
     @SignatureValidator( 'string' )
@@ -408,7 +408,7 @@ class ArakoonClient :
         """
         Remove ALL key-value pairs from the store for which the key matches the prefix
         returns the number of pairs deleted
-        
+
         @type prefix: string
         @rtype: integer
         """
@@ -421,7 +421,7 @@ class ArakoonClient :
     __getitem__= get
     __delitem__= delete
     __contains__ = exists
-    
+
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
         'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
@@ -455,7 +455,7 @@ class ArakoonClient :
         else:
             conn = self._sendToMaster (msg)
         return conn.decodeStringListResult()
-    
+
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
         'endKeyIncluded', ('maxElements', -1))
     @retryDuringMasterReelection
@@ -508,7 +508,7 @@ class ArakoonClient :
                           beginKey, beginKeyIncluded,
                           endKey,  endKeyIncluded,
                           maxElements= -1):
-        """ 
+        """
         Performs a reverse range query on the store, returning a sorted (in reverse order) list of key value pairs.
         @type beginKey: string option
         @type endKey :string option
@@ -533,7 +533,7 @@ class ArakoonClient :
         result = conn.decodeStringPairListResult()
         return result
 
-    
+
     @utils.update_argspec('self', 'keyPrefix', ('maxElements', -1))
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'int' )
@@ -607,7 +607,7 @@ class ArakoonClient :
         msg = ArakoonProtocol.encodeTestAndSet( key, oldValue, newValue )
         conn = self._sendToMaster( msg )
         return conn.decodeStringOptionResult()
-        
+
     @utils.update_argspec('self', 'name', 'argument')
     @retryDuringMasterReelection
     @SignatureValidator('string', 'string_option')
@@ -621,7 +621,7 @@ class ArakoonClient :
         @return: Function result
         @rtype: string option
         '''
-          
+
         msg = ArakoonProtocol.encodeUserFunction(name, argument)
         conn = self._sendToMaster(msg)
         return conn.decodeStringOptionResult()
@@ -639,7 +639,7 @@ class ArakoonClient :
 
         for key in keysToRemove:
             self._connections[key].close()
-            del self._connections[ key ] 
+            del self._connections[ key ]
 
     def _determineMaster(self):
         nodeIds = []
@@ -661,19 +661,19 @@ class ArakoonClient :
                                 self._masterId = None
                         else :
                             ArakoonClientLogger.logWarning( "Node '%s' does not know who the master is", node )
-                        
+
                     except Exception, ex :
-                        
+
                         ArakoonClientLogger.logWarning( "Could not validate master on node '%s'", tmpMaster )
                         ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
                         self._masterId = None
-                            
-                        
+
+
                 except Exception, ex :
                     # Exceptions will occur when nodes are down, simply ignore and try the next node
                     ArakoonClientLogger.logWarning( "Could not query node '%s' to see who is master", node )
                     ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
-                
+
 
         if self._masterId is None:
             ArakoonClientLogger.logError( "Could not determine master."  )
@@ -723,17 +723,19 @@ class ArakoonClient :
                     connection = self._getConnection( nodeId )
                     connection.send( msgBuffer )
 
-                    # Message sent correctly, return client connection so result can be read
+                    # Message sent correctly, return client connection so result
+                    # can be read
                     result = connection
                     break
 
                 except Exception, ex:
                     fmt = "Attempt %d to exchange message with node %s failed with error (%s: '%s')."
-                    ArakoonClientLogger.logWarning( fmt , i, nodeId, ex.__class__.__name__, ex )
+                    ArakoonClientLogger.logWarning( fmt , i, nodeId,
+                                                    ex.__class__.__name__, ex )
 
                     # Get rid of the connection in case of an exception
                     self._connections[nodeId].close()
-                    del self._connections[ nodeId ] 
+                    del self._connections[ nodeId ]
                     self._masterId = None
 
         if result is None:

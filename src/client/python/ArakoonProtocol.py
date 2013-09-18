@@ -122,14 +122,14 @@ class ArakoonClientConfig :
     def getNoMasterRetryPeriod() :
         """
         Retrieve the period messages to the master should be retried when a master re-election occurs
-        
+
         This period is specified in seconds
-        
+
         @rtype: integer
         @return: Returns the retry period in seconds
         """
         return ARA_CFG_NO_MASTER_RETRY
-    
+
     def getNodeLocations(self, nodeId):
         """
         Retrieve location of the server node with give node identifier
@@ -332,7 +332,7 @@ def sendPrologue(socket, clusterId):
     p += _packInt(ARA_CMD_VER)
     p += _packString(clusterId)
     socket.sendall(p)
-    
+
 def _readExactNBytes( con, n ):
 
     if not con._connected :
@@ -360,10 +360,10 @@ def _readExactNBytes( con, n ):
                 ArakoonClientLogger.logError ("Error while receiving from socket. %s: '%s'" % (ex.__class__.__name__, ex) )
                 con._connected = False
                 raise ArakoonSockRecvError()
-                
+
             newChunkSize = len( newChunk )
             if newChunkSize == 0 :
-                try: 
+                try:
                     con._socket.close()
                 except Exception, ex:
                     ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
@@ -374,7 +374,7 @@ def _readExactNBytes( con, n ):
 
         else :
             msg = str(con._socketInfo)
-            try: 
+            try:
                 con._socket.close()
             except Exception, ex:
                 ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
@@ -404,7 +404,7 @@ def _unpackString(buf, offset):
     size,o2 = _unpackInt(buf, offset)
     v = buf[o2:o2 + size]
     return v, o2+size
-    
+
 def _unpackStringList(buf, offset):
     size,offset = _unpackInt(buf, offset)
     retVal = []
@@ -417,7 +417,7 @@ def _unpackNamedField(buf, offset):
     type, offset = _unpackInt(buf, offset)
     name, offset = _unpackString(buf, offset)
     result = dict()
-    
+
     if type == NAMED_FIELD_TYPE_INT:
         result[name], offset = _unpackInt(buf,offset)
         return result, offset
@@ -438,7 +438,7 @@ def _unpackNamedField(buf, offset):
             localDict.update( field )
         result[name] = localDict
         return result, offset
-    
+
     raise ArakoonException("Cannot decode named field %s. Invalid type: %d" % (name,type) )
 
 def _recvInt ( con ):
@@ -487,7 +487,7 @@ class Set(Update):
     def write(self, fob):
         fob.write(_packInt(1))
         fob.write(_packString(self._key))
-        fob.write(_packString(self._value))  
+        fob.write(_packString(self._value))
 
 class Delete(Update):
     def __init__(self,key):
@@ -525,7 +525,7 @@ class Sequence(Update):
     @SignatureValidator( 'string', 'string' )
     def addSet(self, key,value):
         self._updates.append(Set(key,value))
-    
+
     @SignatureValidator( 'string' )
     def addDelete(self, key):
         self._updates.append(Delete(key))
@@ -541,8 +541,8 @@ class Sequence(Update):
         fob.write( _packInt(len(self._updates)))
         for update in self._updates:
             update.write(fob)
-        
-        
+
+
 class ArakoonProtocol :
 
     @staticmethod
@@ -556,7 +556,7 @@ class ArakoonProtocol :
     def encodeGetVersion():
         r = _packInt(ARA_CMD_VERSION)
         return r
-    
+
     @staticmethod
     def encodeGetCurrentState():
         r = _packInt(ARA_CMD_CURRENT_STATE)
@@ -612,8 +612,8 @@ class ArakoonProtocol :
         cmd = ARA_CMD_SEQ
         if sync:
             cmd = ARA_CMD_SYNCED_SEQUENCE
-        return _packInt(cmd) + _packString(flattened)     
-        
+        return _packInt(cmd) + _packString(flattened)
+
     @staticmethod
     def encodeDelete( key ):
         return _packInt ( ARA_CMD_DEL ) + _packString ( key )
@@ -681,19 +681,19 @@ class ArakoonProtocol :
         retVal = _packInt(ARA_CMD_STATISTICS)
         return retVal
 
-    @staticmethod    
+    @staticmethod
     def encodeUserFunction(name, argument):
         retVal = _packInt(ARA_CMD_USER_FUNCTION)
         retVal += _packString(name)
         retVal += _packStringOption(argument)
         return retVal
-    
+
     @staticmethod
     def encodeDeletePrefix(prefix):
         retVal =  _packInt(ARA_CMD_DELETE_PREFIX)
         retVal += _packString(prefix)
         return retVal
-        
+
     @staticmethod
     def _evaluateErrorCode( con ):
         errorCode = _recvInt ( con )
@@ -709,9 +709,9 @@ class ArakoonProtocol :
         if errorCode == ARA_ERR_ASSERTION_FAILED:
             raise ArakoonAssertionFailed(errorMsg)
         if errorCode == ARA_ERR_ASSERTEXISTS_FAILED:
-            raise ArakoonAssertExistsFailed(errorMsg)    
+            raise ArakoonAssertExistsFailed(errorMsg)
         if errorCode == ARA_ERR_RANGE_ERROR:
-            raise NurseryRangeError(errorMsg) 
+            raise NurseryRangeError(errorMsg)
         if errorCode == ARA_ERR_GOING_DOWN:
             raise ArakoonGoingDown(errorMsg)
         if errorCode != ARA_ERR_SUCCESS:
@@ -726,7 +726,7 @@ class ArakoonProtocol :
     def decodeIntResult(con):
         ArakoonProtocol._evaluateErrorCode(con)
         return _recvInt(con)
-    
+
     @staticmethod
     def decodeVoidResult( con ):
         ArakoonProtocol._evaluateErrorCode( con )
@@ -754,16 +754,27 @@ class ArakoonProtocol :
 
         arraySize = _recvInt( con )
 
-        for i in range( arraySize ) :
+        for i in xrange( arraySize ) :
             retVal[:0] = [ _recvString( con ) ]
         return retVal
 
     @staticmethod
-    def decodeStringOptionListResult(con):
+    def decodeStringArrayResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        retVal = []
+        size = _recvInt(con)
+        for i in xrange(size):
+            s = _recvString(con)
+            retVal.append(s)
+        return retVal
+
+
+    @staticmethod
+    def decodeStringOptionArrayResult(con):
         ArakoonProtocol._evaluateErrorCode(con)
         retVal = []
         arraySize = _recvInt(con)
-        for i in range(arraySize):
+        for i in xrange(arraySize):
             s = _recvStringOption(con)
             retVal.append(s)
         return retVal
@@ -772,7 +783,7 @@ class ArakoonProtocol :
     @staticmethod
     def decodeNurseryCfgResult( con ):
         ArakoonProtocol._evaluateErrorCode(con)
-        
+
         offset = 0
         encoded = _recvString( con )
         routing, offset = RoutingInfo.unpack(encoded, offset, _unpackBool, _unpackString)
@@ -789,8 +800,8 @@ class ArakoonProtocol :
                 cfg[nodeId] = (ips,port)
             cliCfg = ArakoonClientConfig(clusterId, cfg)
             resultCfgs[clusterId] = cliCfg
-        return (routing, resultCfgs)      
-        
+        return (routing, resultCfgs)
+
 
     @staticmethod
     def decodeStringPairListResult(con):
@@ -809,7 +820,7 @@ class ArakoonProtocol :
     @staticmethod
     def decodeStatistics(con):
         ArakoonProtocol._evaluateErrorCode(con)
-        
+
         buffer = _recvString(con)
         result, offset = _unpackNamedField(buffer,0)
         return result['arakoon_stats']
@@ -822,11 +833,11 @@ class ArakoonProtocol :
         patch = _recvInt(con)
         info  = _recvString(con)
         return (major,minor, patch, info)
-    
+
     @staticmethod
     def encodeGetKeyCount () :
         return _packInt(ARA_CMD_KEY_COUNT)
-    
-    @staticmethod 
+
+    @staticmethod
     def encodeGetNurseryCfg ():
-        return _packInt(ARA_CMD_GET_NURSERY_CFG) 
+        return _packInt(ARA_CMD_GET_NURSERY_CFG)
