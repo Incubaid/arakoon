@@ -192,13 +192,7 @@ let promises_check_done constants state () =
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
-      let ff = fun _ -> Lwt.return () in
-      let ffs =
-        let rec repeat = function
-          | 0 -> []
-          | n -> ff :: repeat (n - 1) in
-        repeat number_of_updates in
-      Fsm.return ~sides:[EStartLeaseExpiration (bv,n,false)] (Accepteds_check_done (ffs, n, i, new_ballot, bv, lease_expire_waiters))
+      Fsm.return (Accepteds_check_done (None, n, i, new_ballot, bv, lease_expire_waiters))
     end
   else (* bf < needed *)
   if nvoted < nnodes
@@ -431,17 +425,19 @@ let wait_for_promises (type s) constants state event =
 
 (* a (potential or full) master is waiting for accepteds and if he has received
    enough, consensus is reached and he becomes a full master *)
-let lost_master_role finished_funs =
-  begin
-    let msg = "lost master role during wait_for_accepteds while handling client request" in
-    let rc = Arakoon_exc.E_NOT_MASTER in
-    let result = Store.Update_fail (rc, msg) in
-    let rec loop = function
-      | [] -> Lwt.return ()
-      | f::ffs -> f result >>= fun () -> loop ffs
-    in
-    loop finished_funs
-  end
+let lost_master_role = function
+  | None -> Lwt.return ()
+  | Some finished_funs ->
+    begin
+      let msg = "lost master role during wait_for_accepteds while handling client request" in
+      let rc = Arakoon_exc.E_NOT_MASTER in
+      let result = Store.Update_fail (rc, msg) in
+      let rec loop = function
+        | [] -> Lwt.return ()
+        | f::ffs -> f result >>= fun () -> loop ffs
+      in
+      loop finished_funs
+    end
 
 let accepteds_check_done constants state () =
   let (mo,n,i,ballot,v, lease_expire_waiters) = state in
@@ -832,8 +828,25 @@ let _execute_effects constants e =
     | EMCast msg          -> mcast constants msg
     | EAccept (v,n,i)     -> constants.on_accept (v,n,i)
     | ESend (msg, target) -> constants.send msg constants.me target
-    | EStartLeaseExpiration (v,n, slave) ->
+    | EStartElectionTimeout (n, i) -> start_election_timeout constants n i
+
+    | EConsensus (ofinished_funs, v,n,i, slave) ->
       begin
+        constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
+        begin
+          match ofinished_funs with
+            | None -> Lwt.return_unit
+            | Some finished_funs ->
+              let rec loop ffs urs =
+                match (ffs,urs) with
+                  | [],[] -> Lwt.return ()
+                  | finished_f :: ffs , update_result :: urs ->
+                    finished_f update_result >>= fun () ->
+                    loop ffs urs
+                  | _,_ -> failwith "mismatch"
+              in
+              loop finished_funs urs
+        end >>= fun () ->
         if Value.is_master_set v
         then
           let period =
@@ -842,22 +855,8 @@ let _execute_effects constants e =
             else constants.lease_expiration / 2
           in
           start_lease_expiration_thread constants n period
-        else Lwt.return ()
-      end
-    | EStartElectionTimeout (n, i) -> start_election_timeout constants n i
-
-    | EConsensus (finished_funs, v,n,i) ->
-      constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
-      begin
-        let rec loop ffs urs =
-          match (ffs,urs) with
-            | [],[] -> Lwt.return ()
-            | finished_f :: ffs , update_result :: urs ->
-              finished_f update_result >>= fun () ->
-              loop ffs urs
-            | _,_ -> failwith "mismatch"
-        in
-        loop finished_funs urs
+        else
+          Lwt.return ()
       end
     | EGen f -> f ()
 
