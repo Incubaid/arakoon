@@ -851,7 +851,7 @@ let _execute_effects constants e =
         then
           let period =
             if slave
-            then constants.lease_expiration + 1
+            then constants.lease_expiration
             else constants.lease_expiration / 2
           in
           start_lease_expiration_thread constants n period
