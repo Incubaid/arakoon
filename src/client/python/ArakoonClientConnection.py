@@ -74,12 +74,12 @@ class ArakoonClientConnection :
                                             self._nodeIPs[self._index],
                                             self._nodePort,
                                             ex.__class__.__name__,
-                                            ex  )            
+                                            ex  )
             self._index = (self._index + 1) % self._nIPs
 
 
     def send(self, msg):
-        
+
         if not self._connected :
             self._reconnect()
             if not self._connected :
@@ -88,8 +88,8 @@ class ArakoonClientConnection :
             self._socket.sendall( msg )
         except Exception, ex:
             self.close()
-            ArakoonClientLogger.logWarning( "Error while sending data to (%s,%s) => %s: '%s'" , 
-                self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  ) 
+            ArakoonClientLogger.logWarning( "Error while sending data to (%s,%s) => %s: '%s'" ,
+                self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
             raise ArakoonSockSendError ()
 
     def close(self):
@@ -97,7 +97,7 @@ class ArakoonClientConnection :
             try:
                 self._socket.close()
             except Exception, ex:
-                ArakoonClientLogger.logError( "Error while closing socket to %s:%s (%s: '%s')" , 
+                ArakoonClientLogger.logError( "Error while closing socket to %s:%s (%s: '%s')" ,
                     self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
             self._socketInfo = None
             self._connected = False
@@ -114,27 +114,29 @@ class ArakoonClientConnection :
     def decodeStringOptionResult (self):
         return ArakoonProtocol.decodeStringOptionResult ( self )
 
-    def decodeStringListResult(self) :
-        return ArakoonProtocol.decodeStringListResult ( self )
+    def decodeStringArrayResult(self) :
+        return ArakoonProtocol.decodeStringArrayResult ( self )
 
-    def decodeStringOptionListResult(self):
-        return ArakoonProtocol.decodeStringOptionListResult(self)
+    def decodeStringListResult(self):
+        return ArakoonProtocol.decodeStringListResult(self)
+
+    def decodeStringOptionArrayResult(self):
+        return ArakoonProtocol.decodeStringOptionArrayResult(self)
 
     def decodeStringPairListResult(self) :
         return ArakoonProtocol.decodeStringPairListResult ( self )
 
     def decodeStatistics(self):
         return ArakoonProtocol.decodeStatistics(self)
-   
+
     def decodeInt64Result(self):
         return ArakoonProtocol.decodeInt64Result(self)
 
     def decodeIntResult(self):
         return ArakoonProtocol.decodeIntResult(self)
-    
+
     def decodeNurseryCfgResult(self):
         return ArakoonProtocol.decodeNurseryCfgResult(self)
 
     def decodeVersionResult(self):
         return ArakoonProtocol.decodeVersionResult(self)
-    
