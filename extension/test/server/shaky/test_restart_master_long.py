@@ -62,9 +62,11 @@ def test_restart_master_long ():
     Common.stop_all()
     node_names = Common.node_names
 
-    Common.assert_last_i_in_sync( node_names[0], node_names[1] )
+    # node1 and node2 can make progress after node0 was shut down so the assert below can fail
+    # Common.assert_last_i_in_sync( node_names[0], node_names[1] )
     Common.assert_last_i_in_sync( node_names[2], node_names[1] )
-    Common.compare_stores( node_names[0], node_names[1] )
+    # node1 and node2 can make progress after node0 was shut down so the assert below can fail
+    # Common.compare_stores( node_names[0], node_names[1] )
     Common.compare_stores( node_names[2], node_names[1] )
     cli.dropConnections()
     logging.info("end of `test_restart_master_long`")
