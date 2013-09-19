@@ -353,13 +353,10 @@ let handle_prepare (type s) constants dest n n' i' =
                     end
                   else
                     begin
-                      (* for now pretend we dropped the prepare while we give the
-                         other node that is running for master some time
+                      (* drop the prepare to give the other node that is running
+                         for master some time to do it's thing
                       *)
-                      Lwt.ignore_result (
-                        Lwt_unix.sleep (until -. now) >>= fun () ->
-                        constants.inject_event (FromNode (Prepare (n', i'), dest)));
-                      Logger.debug_f_ "%s: handle_prepare: temporary dropping prepare to respect another potential master" me >>= fun () ->
+                      Logger.debug_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
                       Lwt.return (Prepare_dropped, None)
                     end
             end
