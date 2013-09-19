@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 type finished_fun = Store.update_result -> unit Lwt.t
-type master_option = (finished_fun list)
+type master_option = (finished_fun list) option
 
 type v_limits = int * (Value.t * int) list
 (* number of times None was chosen;
@@ -93,7 +93,6 @@ type effect =
   | EMCast  of Mp_msg.MPMessage.t
   | ESend of Mp_msg.MPMessage.t * Messaging.id
   | EAccept of (Value.t * n * i)
-  | EStartLeaseExpiration of (Value.t * n * bool (* is slave *))
   | EStartElectionTimeout of n * i
-  | EConsensus of (master_option * Value.t * n * i)
+  | EConsensus of (master_option * Value.t * n * i * bool (* is slave *))
   | EGen of (unit -> unit Lwt.t)

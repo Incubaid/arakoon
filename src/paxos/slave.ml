@@ -110,17 +110,19 @@ let slave_steady_state (type s) constants state event =
               (Sn.string_of n) (Sn.string_of i) (string_of msg) source
           )
         in
-        let accept_value n' i' v msg =
+        let accept_value oconsensus n' i' v msg =
           let reply = Accepted(n',i') in
           let accept_e = EAccept (v,n',i') in
-          let start_e = EStartLeaseExpiration(v,n', true) in
           let send_e = ESend(reply, source) in
           let log_e = ELog (fun () ->
               Printf.sprintf msg (string_of reply)
             )
           in
-          let sides = [log_e0;accept_e;start_e; send_e; log_e] in
-          Fsm.return ~sides (Slave_steady_state (n', Sn.succ i', Some v))
+          let sides = [log_e0; accept_e; send_e; log_e] in
+          let sides' = match oconsensus with
+            | None -> sides
+            | Some s -> s :: sides in
+          Fsm.return ~sides:sides' (Slave_steady_state (n', Sn.succ i', Some v))
         in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
@@ -137,7 +139,8 @@ let slave_steady_state (type s) constants state event =
                     | None ->
                       if Sn.sub i store_i = 1L
                       then
-                        Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me
+                        Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me >>= fun () ->
+                        Lwt.return None
                       else
                         paxos_fatal constants.me "slave: no previous, mismatch store_i = %Li, i = %Li" store_i i
                     | Some previous ->
@@ -145,15 +148,14 @@ let slave_steady_state (type s) constants state event =
                       then
                         begin
                           Logger.debug_f_ "%s: slave: have previous, so that implies consensus" constants.me >>= fun () ->
-                          constants.on_consensus (previous, n, Sn.pred i) >>= fun _ ->
-                          Lwt.return_unit
+                          Lwt.return (Some (EConsensus (None, previous,n,Sn.pred i, true)))
                         end
                       else
                         paxos_fatal constants.me "slave: with previous, mismatch store_i = %Li, i = %Li" store_i i
                 end
               end
-              >>= fun _ ->
-              accept_value n' i' v "steady_state :: replying with %S"
+              >>= fun oconsensus ->
+              accept_value oconsensus n' i' v "steady_state :: replying with %S"
             end
           | Accept (n',i',v) when (Sn.succ i' = i) && (n' >= n) ->
             let store_i = match S.consensus_i store with
@@ -167,7 +169,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return (Slave_steady_state state)
               end
             else
-              accept_value n' i' v "steady_state :: replying again to previous with %S"
+              accept_value None n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
               (n'<=n && i'<i) || (n'< n && i'=i)  ->
             begin
