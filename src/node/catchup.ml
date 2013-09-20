@@ -87,7 +87,7 @@ let head_saved_epilogue hfn tlog_coll =
      they were already collapsed into
      the received head
   *)
-  Logger.debug_f_ "head_saved_epilogue %s" hfn >>= fun () ->
+  Logger.info_f_ "head_saved_epilogue %s" hfn >>= fun () ->
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store ~lcnum:default_lcnum
     ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
@@ -99,7 +99,7 @@ let head_saved_epilogue hfn tlog_coll =
       | None -> Lwt.return ()
       | Some head_i ->
         begin
-          Logger.debug_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
+          Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
           tlog_coll # remove_below head_i
         end
   end
@@ -108,14 +108,14 @@ let head_saved_epilogue hfn tlog_coll =
 
 let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
-  Logger.debug_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
+  Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
                  other_configs in
   let mr_addresses = Node_cfg.client_addresses mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
-  Logger.debug_f_ "getting last_entries from %s" mr_name >>= fun () ->
+  Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
   let head_saved_cb hfn =
-    Logger.debug_f_ "head_saved_cb %s" hfn >>= fun () ->
+    Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
     head_saved_epilogue hfn tlog_coll >>= fun () ->
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
@@ -139,7 +139,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   Lwt.catch
     (fun () ->
        _with_client_connection mr_addresses copy_tlog >>= fun () ->
-       Logger.debug_f_ "catchup_tlog completed"
+       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->

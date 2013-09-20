@@ -401,9 +401,9 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
         let try_unlink fn =
           Lwt.catch
             (fun () ->
-               Logger.debug_f_ "Compression: unlink of %s" fn >>= fun () ->
+               Logger.info_f_ "Compression: unlink of %s" fn >>= fun () ->
                Lwt_unix.unlink fn >>= fun () ->
-               Logger.debug_f_ "Compression: ok: unlinked %s" fn
+               Logger.info_f_ "Compression: ok: unlinked %s" fn
             )
             (function
               | Canceled -> Lwt.fail Canceled
@@ -428,16 +428,16 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
               else
                 Lwt.return ()
             end >>= fun () ->
-            Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+            Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
             Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
             File_system.rename tlc_temp tlc >>= fun () ->
             try_unlink tlu >>= fun () ->
-            Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+            Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
       in
 
       let rec loop () =
-        Logger.debug_ "Taking job from compression queue..." >>= fun () ->
+        Logger.info_ "Taking job from compression queue..." >>= fun () ->
         Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
         let () = _compressing <- true in
         Lwt.catch
@@ -446,7 +446,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
         >>= fun () ->
-        Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
+        Logger.info_ "Finished compression task, lets loop" >>= fun () ->
         let () = _compressing <- false in
         let () = Lwt_condition.signal _jc () in
         loop ()
@@ -551,7 +551,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
         if use_compression
         then
           let job = (tlu,tlc_temp,tlc) in
-          Logger.debug_ "adding new task to compression queue" >>= fun () ->
+          Logger.info_f_ "adding new task to compression queue %s,%s,%s" tlu tlc_temp tlc >>= fun () ->
           Lwt_buffer.add job _compression_q
         else
           Lwt.return ()
@@ -623,7 +623,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       Lwt.return next_i
 
     method save_head ic =
-      Logger.debug_ "save_head()" >>= fun () ->
+      Logger.info_ "save_head()" >>= fun () ->
       Llio.input_int64 ic >>= fun length ->
       let hf_name = self # get_head_name () in
       Lwt_io.with_file
@@ -632,7 +632,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
         hf_name
         (fun oc -> Llio.copy_stream ~length ~ic ~oc )
       >>= fun () ->
-      Logger.debug_ "done: save_head"
+      Logger.info_ "done: save_head"
 
 
     method get_last_i () =
