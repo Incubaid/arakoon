@@ -171,7 +171,7 @@ let slave_steady_state (type s) constants state event =
             else
               accept_value None n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when
-              (n'<=n && i'<i) || (n'< n && i'=i)  ->
+              (n'<=n && i'<i) || (n'< n)  ->
             begin
               let log_e = ELog (
                   fun () ->
