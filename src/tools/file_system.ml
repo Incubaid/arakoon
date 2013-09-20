@@ -25,7 +25,7 @@ open Lwt
 let section = Logger.Section.main
 
 let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.debug_f_ "copy_file %s %s" source target >>= fun () ->
+  Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
   let copy_all ic oc =
@@ -40,7 +40,7 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
         Lwt.return ()
     in
     loop () >>= fun () ->
-    Logger.debug_ "done: copy_file"
+    Logger.info_ "done: copy_file"
   in
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
@@ -73,7 +73,7 @@ let lwt_directory_list dn =
 
 
 let rename source target =
-  Logger.debug_f_ "rename %s -> %s" source target >>= fun () ->
+  Logger.info_f_ "rename %s -> %s" source target >>= fun () ->
   Lwt_unix.rename source target
 
 let mkdir name = Lwt_unix.mkdir name

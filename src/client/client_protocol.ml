@@ -441,7 +441,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Lwt_io.flush oc
       in
       Llio.input_int ic >>= fun n ->
-      Logger.debug_f_ "connection=%s COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
+      Logger.info_f_ "connection=%s COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
       Lwt.catch
         (fun () ->
            Logger.info_f_ "... Start collapsing ... (n=%i)" n >>= fun () ->
@@ -456,7 +456,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            Interval.input_interval ic >>= fun interval ->
-           Logger.debug_f_ "connection=%s SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
+           Logger.info_f_ "connection=%s SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
            backend # set_interval interval >>= fun () ->
            response_ok_unit oc
         )
@@ -487,7 +487,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
   | SET_ROUTING ->
     begin
       Routing.input_routing ic >>= fun routing ->
-      Logger.debug_f_ "connection=%s SET_ROUTING" id >>= fun () ->
+      Logger.info_f_ "connection=%s SET_ROUTING" id >>= fun () ->
       Lwt.catch
         (fun () ->
            backend # set_routing routing >>= fun () ->
@@ -501,7 +501,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Llio.input_string ic >>= fun left ->
           Llio.input_string ic >>= fun sep ->
           Llio.input_string ic >>= fun right ->
-          Logger.debug_f_ "connection=%s SET_ROUTING_DELTA: left=%S sep=%S right=%S" id left sep right >>= fun () ->
+          Logger.info_f_ "connection=%s SET_ROUTING_DELTA: left=%S sep=%S right=%S" id left sep right >>= fun () ->
           backend # set_routing_delta left sep right >>= fun () ->
           response_ok_unit oc )
         (handle_exception oc)
@@ -519,7 +519,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     begin
       Lwt.catch
         (fun() ->
-           Logger.debug_f_ "connection=%s GET_DB" id >>= fun () ->
+           Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
            backend # get_db (Some oc) >>= fun () ->
            Lwt.return false
         )
@@ -529,7 +529,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     begin
       Lwt.catch
         ( fun () ->
-           Logger.debug_f_ "connection=%s OPT_DB" id >>= fun () ->
+           Logger.info_f_ "connection=%s OPT_DB" id >>= fun () ->
            backend # optimize_db () >>= fun () ->
            response_ok_unit oc
         )
@@ -539,7 +539,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     begin
       Lwt.catch
         (fun () ->
-           Logger.debug_f_ "connection=%s DEFRAG_DB" id >>= fun () ->
+           Logger.info_f_ "connection=%s DEFRAG_DB" id >>= fun () ->
            backend # defrag_db () >>= fun () ->
            response_ok_unit oc)
         (handle_exception oc)
@@ -577,7 +577,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         fun () ->
           Llio.input_string ic >>= fun cluster_id ->
           ClientCfg.input_cfg ic >>= fun cfg ->
-          Logger.debug_f_ "connection=%s SET_NURSERY_CFG: cluster_id=%S" id cluster_id >>= fun () ->
+          Logger.info_f_ "connection=%s SET_NURSERY_CFG: cluster_id=%S" id cluster_id >>= fun () ->
           backend # set_cluster_cfg cluster_id cfg >>= fun () ->
           response_ok_unit oc
       )
@@ -596,7 +596,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
              else
                Routing.LOWER_BOUND
            in
-           Logger.debug_f_ "connection=%s GET_FRINGE: boundary=%s dir=%s"
+           Logger.info_f_ "connection=%s GET_FRINGE: boundary=%s dir=%s"
              id
              (p_option boundary)
              (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
@@ -640,7 +640,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
     end
   | DROP_MASTER ->
     begin
-      Logger.debug_f_ "connection=%s DROP_MASTER" id >>= fun () ->
+      Logger.info_f_ "connection=%s DROP_MASTER" id >>= fun () ->
       Lwt.catch
         (fun () -> backend # drop_master () >>= fun () ->
           response_ok_unit oc)
