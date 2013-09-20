@@ -93,7 +93,7 @@ let slave_steady_state (type s) constants state event =
         begin
           let log_e = ELog (fun () -> "slave_steady_state: Elections needed") in
           let new_n = update_n constants n in
-          Fsm.return ~sides:[log_e] (Election_suggest (new_n))
+          Fsm.return ~sides:[log_e] (Election_suggest (new_n, 0))
         end
       else
         begin
@@ -285,7 +285,7 @@ let slave_discovered_other_master (type s) constants state () =
           (* we have to go to election here or we can get in a situation where
              everybody just waits for each other *)
           let new_n = update_n constants future_n in
-          (Election_suggest (new_n)),
+          (Election_suggest (new_n, 0)),
           "slave_discovered_other_master: my i is bigger then theirs ; back to election"
         else
           begin

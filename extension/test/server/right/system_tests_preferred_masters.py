@@ -26,7 +26,7 @@ import time
 import logging
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
-def test_prefered_master():
+def test_preferred_master():
     cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
     cluster.stop()
     pm = Common.node_names[0]
@@ -62,7 +62,7 @@ def test_prefered_master():
 
 
 @Common.with_custom_setup(lambda h: Common.setup_n_nodes(5, False, h), Common.basic_teardown)
-def test_prefered_masters():
+def test_preferred_masters():
     # Get reference to the cluster
     cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
     cluster.stop()
