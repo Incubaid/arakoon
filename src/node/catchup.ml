@@ -82,24 +82,24 @@ let compare_store_tlc store tlc =
         then Lwt.return Store_1_behind
         else Lwt.return Store_n_behind
 
-let head_saved_epilogue hfn tlog_coll = 
-  (* maybe some tlogs must be thrown away because 
-     they were already collapsed into 
-     the received head 
+let head_saved_epilogue hfn tlog_coll =
+  (* maybe some tlogs must be thrown away because
+     they were already collapsed into
+     the received head
   *)
-  Logger.debug_f_ "head_saved_epilogue %s" hfn >>= fun () ->
+  Logger.info_f_ "head_saved_epilogue %s" hfn >>= fun () ->
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
   S.close store >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
-    match hio with 
-      | None -> Lwt.return () 
-      | Some head_i -> 
+    match hio with
+      | None -> Lwt.return ()
+      | Some head_i ->
 	begin
-	  Logger.debug_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->	    
-	  tlog_coll # remove_below head_i 
+	  Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
+	  tlog_coll # remove_below head_i
 	end
   end
 
@@ -107,19 +107,19 @@ let head_saved_epilogue hfn tlog_coll =
 
 let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
     =
-  Logger.debug_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
+  Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in
-  let mr_addresses = Node_cfg.client_addresses mr_cfg 
+  let mr_addresses = Node_cfg.client_addresses mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
-  Logger.debug_f_ "getting last_entries from %s" mr_name >>= fun () ->
-  let head_saved_cb hfn = 
-    Logger.debug_f_ "head_saved_cb %s" hfn >>= fun () -> 
-    head_saved_epilogue hfn tlog_coll >>= fun () -> 
-    let when_closed () = 
+  Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
+  let head_saved_cb hfn =
+    Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
+    head_saved_epilogue hfn tlog_coll >>= fun () ->
+    let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name 
+      File_system.copy_file hfn target_name
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
@@ -128,7 +128,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,value) =
-      tlog_coll # log_value i value >>= fun _ -> 
+      tlog_coll # log_value i value >>= fun _ ->
       Lwt.return ()
     in
 
@@ -138,17 +138,17 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
   Lwt.catch
     (fun () ->
       _with_client_connection mr_addresses copy_tlog >>= fun () ->
-      Logger.debug_f_ "catchup_tlog completed" 
+      Logger.info_f_ "catchup_tlog completed"
     )
-    (fun exn -> Logger.warning_ ~exn "catchup_tlog failed") 
+    (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
   let tlc_i = tlog_coll # get_last_i () in
-  let too_far_i = Sn.succ ( tlc_i ) in 
+  let too_far_i = Sn.succ ( tlc_i ) in
   Lwt.return too_far_i
 
 let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
-  let i = Entry.i_of entry 
-  and value = Entry.v_of entry 
+  let i = Entry.i_of entry
+  and value = Entry.v_of entry
   in
   match !acc with
     | None ->
@@ -156,7 +156,7 @@ let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store 
         Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
         Lwt.return ()
     | Some (pi,pv) ->
-        if pi < i 
+        if pi < i
         then
           begin
             log_i pi >>= fun () ->
@@ -179,7 +179,7 @@ let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store 
 
 
 let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
-  match !acc with 
+  match !acc with
     | None -> Lwt.return ()
     | Some(i,value) ->
       begin
@@ -198,14 +198,14 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       | Some i -> Sn.succ i
   in
   if Sn.compare start_i too_far_i > 0
-  then 
+  then
     let msg = Printf.sprintf
       "Store counter (%s) is ahead of tlog counter (%s). Aborting."
       (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
   else
-    begin 
+    begin
       Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s"
         (Sn.string_of start_i) (Sn.string_of too_far_i)
       >>= fun () ->
@@ -258,7 +258,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
   Lwt.return r
 
 let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
-  Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent" 
+  Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of current_i) mr_name
   >>= fun () ->
   catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
@@ -284,7 +284,7 @@ let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s)
         Lwt.return (i,vo)
       end
     | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
-    | Some i, Some j when i > j -> 
+    | Some i, Some j when i > j ->
       begin
 	    catchup_store me ((module S),store,tlog_coll) current_i >>= fun (end_i, vo) ->
 	    Lwt.return (end_i,vo)
@@ -305,40 +305,40 @@ let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s)
 
 let get_db db_name cluster_id cfgs =
 
-  let get_db_from_stream conn = 
+  let get_db_from_stream conn =
     make_remote_nodestream cluster_id conn >>= fun (client:nodestream) ->
-    client # get_db db_name 
+    client # get_db db_name
   in
   let try_db_download m_success cfg =
     begin
       match m_success with
         | Some s -> Lwt.return m_success
         | None ->
-          Lwt.catch 
+          Lwt.catch
           ( fun () ->
             Logger.info_f_ "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
             let mr_addresses = Node_cfg.client_addresses cfg in
-            _with_client_connection mr_addresses get_db_from_stream >>= fun () -> 
+            _with_client_connection mr_addresses get_db_from_stream >>= fun () ->
             Logger.info_ "get_db: Download succeeded" >>= fun () ->
             Lwt.return (Some (Node_cfg.node_name cfg))
-          ) 
+          )
           ( fun e ->
-            Logger.error_f_ "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () -> 
+            Logger.error_f_ "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () ->
             Lwt.return None
           )
     end
   in
-  Lwt_list.fold_left_s try_db_download None cfgs 
+  Lwt_list.fold_left_s try_db_download None cfgs
 
 
 
 
-let last_entries 
-    (type s) (module S : Store.STORE with type t = s) 
-    store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel) 
-    = 
-  (* This one is kept (for how long?) 
-     for x-version clusters during upgrades 
+let last_entries
+    (type s) (module S : Store.STORE with type t = s)
+    store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
+    =
+  (* This one is kept (for how long?)
+     for x-version clusters during upgrades
   *)
   Logger.warning_f_ "DEPRECATED : last_entries " >>= fun () ->
   Logger.debug_f_ "last_entries %s" (Sn.string_of start_i) >>= fun () ->
@@ -366,7 +366,7 @@ let last_entries
 	    end
 	    >>= fun start_i2->
 
-        
+
 	    let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 	    let rec loop_parts (start_i2:Sn.t) =
 	      if Sn.rem start_i2 step = Sn.start &&
@@ -390,7 +390,7 @@ let last_entries
           let i = Entry.i_of entry
           and v = Entry.v_of entry
           in
-          Tlogcommon.write_entry oc i v 
+          Tlogcommon.write_entry oc i v
         in
         Lwt.catch
           (fun () -> tlog_collection # iterate start_i3 too_far_i f)
@@ -405,9 +405,9 @@ let last_entries
 
 
 let last_entries2
-    (type s) (module S : Store.STORE with type t = s) 
-    store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel) 
-    = 
+    (type s) (module S : Store.STORE with type t = s)
+    store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
+    =
   Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
   let consensus_i = S.consensus_i store in
 
@@ -418,19 +418,19 @@ let last_entries2
 
       let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 
-      let stream_entries start_i too_far_i = 
+      let stream_entries start_i too_far_i =
 	    let _write_entry entry =
           let i = Entry.i_of entry
           and v = Entry.v_of entry
           in
-          Tlogcommon.write_entry oc i v 
+          Tlogcommon.write_entry oc i v
         in
 	    Llio.output_int oc 1 >>= fun () ->
         Lwt.catch
           (fun () -> tlog_collection # iterate start_i too_far_i _write_entry)
           (function
           | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
-          | ex -> Lwt.fail ex) 
+          | ex -> Lwt.fail ex)
         >>= fun () ->
 	    Sn.output_sn oc (-1L)
       in
@@ -450,7 +450,7 @@ let last_entries2
 	    else
 	      Lwt.return start_i2
       in
-      let maybe_dump_head () = 
+      let maybe_dump_head () =
 	    tlog_collection # get_infimum_i () >>= fun inf_i ->
         Logger.debug_f_
 	      "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
@@ -478,9 +478,9 @@ let last_entries2
           in
           let next_rotation = start_i2 +: (step -: (start_i2 %: step)) in
           Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-          (if next_rotation < too_far_i 
-           then 
-              begin 
+          (if next_rotation < too_far_i
+           then
+              begin
                 stream_entries start_i2 next_rotation >>= fun () ->
                 Lwt.return next_rotation
               end
