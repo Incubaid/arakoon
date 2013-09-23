@@ -38,7 +38,7 @@ type transitions =
   | Forced_master_suggest of (n * i)
 
   (* election only *)
-  | Election_suggest of (n)
+  | Election_suggest of (n * int)
 
   (* slave or pending slave *)
   | Slave_fake_prepare of (n * i)
@@ -51,11 +51,11 @@ type transitions =
                               Messaging.id list *
                               v_limits *
                               (string * Mp_msg.MPMessage.n) option *
-                              slave_awaiters)
+                              slave_awaiters * int)
   | Wait_for_promises of (n * i * Messaging.id list *
                             v_limits *
                             (string * Mp_msg.MPMessage.n) option *
-                            slave_awaiters)
+                            slave_awaiters * int)
   | Accepteds_check_done of (master_option * n * i *
                                (int * Messaging.id list) * Value.t *
                                slave_awaiters)

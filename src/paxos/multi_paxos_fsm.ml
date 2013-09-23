@@ -53,11 +53,11 @@ let forced_master_suggest constants (n,i) () =
   let who_voted = [me] in
 
   let i_lim = Some (me,i) in
-  let state = (n', i, who_voted, v_lims, i_lim, []) in
+  let state = (n', i, who_voted, v_lims, i_lim, [], 0) in
   Fsm.return (Promises_check_done state)
 
 (* in case of election, everybody suggests himself *)
-let election_suggest (type s) constants n () =
+let election_suggest (type s) constants (n, counter) () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let i = S.get_succ_store_i constants.store in
   let vo = constants.get_value i in
@@ -72,7 +72,7 @@ let election_suggest (type s) constants n () =
   start_election_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
-      | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2)
+      | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2) - counter
       | _ -> 0
   in
   let df = float delay in
@@ -80,7 +80,7 @@ let election_suggest (type s) constants n () =
     (Lwt_unix.sleep df >>= fun () -> mcast constants (Prepare (n,i)));
   let who_voted = [me] in
   let i_lim = Some (me,i) in
-  let state = (n, i, who_voted, v_lims, i_lim, []) in
+  let state = (n, i, who_voted, v_lims, i_lim, [], counter) in
   Fsm.return (Promises_check_done state)
 
 let read_only constants state () =
@@ -162,7 +162,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
-  let n, i, who_voted, (v_lims:v_limits), i_lim, lease_expire_waiters = state in
+  let n, i, who_voted, (v_lims:v_limits), i_lim, lease_expire_waiters, counter = state in
   (*
      3 cases:
      -) too early to decide
@@ -211,7 +211,7 @@ let promises_check_done constants state () =
         begin
           Logger.warning_f_ "%s: promises_check_done: split vote, going back to elections" me >>= fun () ->
           let n' = update_n constants n in
-          Fsm.return (Election_suggest (n'))
+          Fsm.return (Election_suggest (n', counter + 1))
         end
       else
         paxos_fatal me "slave checking for promises"
@@ -222,7 +222,7 @@ let promises_check_done constants state () =
 let wait_for_promises (type s) constants state event =
   let me = constants.me in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let (n, i, who_voted, v_lims, i_lim, lease_expire_waiters) = state in
+  let (n, i, who_voted, v_lims, i_lim, lease_expire_waiters, counter) = state in
   match event with
     | FromNode (msg,source) ->
       begin
@@ -268,7 +268,7 @@ let wait_for_promises (type s) constants state event =
                   | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
                   | None -> Some (source,new_i)
                 in
-                let state' = (n, i, who_voted', v_lims', new_ilim, lease_expire_waiters) in
+                let state' = (n, i, who_voted', v_lims', new_ilim, lease_expire_waiters, counter) in
                 Fsm.return (Promises_check_done state')
             | Promise (n' ,i', limit) -> (* n ' > n *)
               begin
@@ -276,7 +276,7 @@ let wait_for_promises (type s) constants state event =
                   (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n))
+                Fsm.return (Election_suggest (new_n, counter + 1))
               end
             | Nak (n',(n'',i')) when n' < n ->
               begin
@@ -290,7 +290,7 @@ let wait_for_promises (type s) constants state event =
                   (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n))
+                Fsm.return (Election_suggest (new_n, counter + 1))
               end
             | Nak (n',(n'',i')) -> (* n' = n *)
               begin
@@ -317,7 +317,7 @@ let wait_for_promises (type s) constants state event =
                       Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
                     else
                       let new_n = update_n constants (max n n'') in
-                      Fsm.return (Election_suggest (new_n))
+                      Fsm.return (Election_suggest (new_n, counter + 1))
                   end
                   (* else (* forced_slave *) (* this state is impossible?! *)
                      begin
@@ -387,18 +387,18 @@ let wait_for_promises (type s) constants state event =
                 Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me (Sn.string_of n) (Sn.string_of n')
                 >>= fun () ->
                 let new_n = update_n constants n' in
-                Fsm.return (Election_suggest (new_n))
+                Fsm.return (Election_suggest (new_n, counter + 1))
               end
         end
       end
     | ElectionTimeout (n', i') ->
-      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters) = state in
+      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters, counter) = state in
       if n' = n && i' = i && not ( S.quiesced constants.store )
       then
         begin
           Logger.debug_f_ "%s: wait_for_promises: election timeout, restart from scratch" me
           >>= fun () ->
-          Fsm.return (Election_suggest (n))
+          Fsm.return (Election_suggest (n, counter + 1))
         end
       else
         begin
@@ -936,7 +936,7 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
   else
     begin
       Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
-      run (election_suggest constants (current_n))
+      run (election_suggest constants (current_n, 0))
     end
 
 let enter_read_only constants buffers current_i =
