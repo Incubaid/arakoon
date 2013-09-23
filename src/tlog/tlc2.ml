@@ -399,9 +399,9 @@ object(self: # tlog_collection)
       let try_unlink fn =
         Lwt.catch
           (fun () ->
-            Logger.debug_f_ "Compression: unlink of %s" fn >>= fun () ->
+            Logger.info_f_ "Compression: unlink of %s" fn >>= fun () ->
             Lwt_unix.unlink fn >>= fun () ->
-            Logger.debug_f_ "Compression: ok: unlinked %s" fn
+            Logger.info_f_ "Compression: ok: unlinked %s" fn
           )
           (function
             | Canceled -> Lwt.fail Canceled
@@ -426,16 +426,16 @@ object(self: # tlog_collection)
             else
               Lwt.return ()
           end >>= fun () ->
-          Logger.debug_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
+          Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
           Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
           File_system.rename tlc_temp tlc >>= fun () ->
           try_unlink tlu >>= fun () ->
-          Logger.debug_f_ "end of compress : %s -> %s" tlu tlc
+          Logger.info_f_ "end of compress : %s -> %s" tlu tlc
         end
     in
 
     let rec loop () =
-      Logger.debug_ "Taking job from compression queue..." >>= fun () ->
+      Logger.info_ "Taking job from compression queue..." >>= fun () ->
       Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
       Lwt.catch
         (fun () -> compress_one tlu tlc_temp tlc)
@@ -443,7 +443,7 @@ object(self: # tlog_collection)
           | Canceled -> Lwt.fail Canceled
           | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
       >>= fun () ->
-      Logger.debug_ "Finished compression task, lets loop" >>= fun () ->
+      Logger.info_ "Finished compression task, lets loop" >>= fun () ->
       loop ()
     in
 
@@ -546,7 +546,7 @@ object(self: # tlog_collection)
       if use_compression
       then
         let job = (tlu,tlc_temp,tlc) in
-        Logger.debug_ "adding new task to compression queue" >>= fun () ->
+        Logger.info_ "adding new task to compression queue" >>= fun () ->
         Lwt_buffer.add job _compression_q
       else
         Lwt.return ()
@@ -617,7 +617,7 @@ object(self: # tlog_collection)
     Lwt.return next_i
 
   method save_head ic =
-    Logger.debug_ "save_head()" >>= fun () ->
+    Logger.info_ "save_head()" >>= fun () ->
     Llio.input_int64 ic >>= fun length ->
     let hf_name = self # get_head_name () in
     Lwt_io.with_file
@@ -626,7 +626,7 @@ object(self: # tlog_collection)
       hf_name
       (fun oc -> Llio.copy_stream ~length ~ic ~oc )
     >>= fun () ->
-    Logger.debug_ "done: save_head"
+    Logger.info_ "done: save_head"
 
 
  method get_last_i () =
@@ -867,5 +867,3 @@ let truncate_tlog filename =
         end
     end
   in Lwt_main.run t
-
-
