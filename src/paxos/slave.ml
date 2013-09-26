@@ -76,7 +76,11 @@ let slave_steady_state (type s) constants state event =
         let ns = (Sn.string_of n) and
           ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s)" ns' ns (Sn.string_of i'))
+            if n' < n || i' < i
+            then
+              Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i)
+            else
+              Printf.sprintf "slave_steady_state: Ingoring lease expiration while I still have a master (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
