@@ -131,6 +131,7 @@ let slave_steady_state (type s) constants state event =
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
             begin
+              let () = constants.on_witness source i' in
               begin
                 (* we should have either a previous value received for this n
                      (from same master) in that case store_i == i - 2
