@@ -226,11 +226,19 @@ let start_lease_expiration_thread constants n expiration =
       Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
         constants.me sleep_sec >>= fun () ->
       let t0 = Unix.gettimeofday () in
-      Lwt_unix.sleep sleep_sec >>= fun () ->
+      let until = t0 +. sleep_sec in
+      let rec sleep_until until current_time =
+        Lwt_unix.sleep (until -. current_time) >>= fun () ->
+        let t1 = Unix.gettimeofday () in
+        if t1 -. until < 0.
+        then
+          sleep_until until t1
+        else
+          Lwt.return_unit in
+      sleep_until until (Unix.gettimeofday ()) >>= fun () ->
       let t1 = Unix.gettimeofday () in
-      let slept = t1 -. t0 in
-      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f, diff %f)=> injecting LeaseExpired event for %s"
-        constants.me slept sleep_sec (slept -. sleep_sec) (Sn.string_of n) >>= fun () ->
+      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %s"
+        constants.me (t1 -. t0) sleep_sec (Sn.string_of n) >>= fun () ->
       constants.inject_event (LeaseExpired n)
     end in
   let () = Lwt.ignore_result (t ()) in
