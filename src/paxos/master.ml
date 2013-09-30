@@ -107,7 +107,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
               let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
               let (p, p_i) = List.hd slws in
               let diff = Sn.diff new_i p_i in
-              if diff < (Sn.of_int 5)
+              if diff < (Sn.of_int 5) && constants.is_alive p
               then
                 begin
                   let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in

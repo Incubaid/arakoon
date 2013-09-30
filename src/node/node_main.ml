@@ -567,7 +567,7 @@ let _main_2 (type s)
 
           let service = _config_service ?ssl_context:service_ssl_context me backend in
 
-          let send, receive, run, register =
+          let send, receive, run, register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
           let on_consensus = X.on_consensus (module S) store in
@@ -622,6 +622,7 @@ let _main_2 (type s)
               others
               lease_period
               inject_event
+              is_alive
               ~cluster_id
               false
               stop

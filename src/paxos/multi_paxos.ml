@@ -77,7 +77,8 @@ let network_of_messaging (m:messaging) =
   in
   let register = m # register_receivers in
   let run () = m # run () in
-  send, receive, run, register
+  let is_alive id = m#expect_reachable ~target:id in
+  send, receive, run, register, is_alive
 
 
 let update_votes (nones,somes) = function
@@ -137,6 +138,7 @@ type 'a constants =
    other_cfgs:Node_cfg.Node_cfg.t list;
    lease_expiration: int;
    inject_event: paxos_event -> unit Lwt.t;
+   is_alive: id -> bool;
    cluster_id : string;
    is_learner: bool;
    quiesced : bool;
@@ -158,28 +160,29 @@ let is_election constants =
 let make (type s) me is_learner others send receive get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
-      other_cfgs lease_expiration inject_event ~cluster_id
+      other_cfgs lease_expiration inject_event is_alive ~cluster_id
       quiesced stop =
   {
     me=me;
-    is_learner = is_learner;
-    others=others;
-    send = send;
-    get_value= get_value;
-    on_accept = on_accept;
-    on_consensus = on_consensus;
-    on_witness = on_witness;
-    last_witnessed = last_witnessed;
-    quorum_function = quorum_function;
+    is_learner;
+    others;
+    send;
+    get_value;
+    on_accept;
+    on_consensus;
+    on_witness;
+    last_witnessed;
+    quorum_function;
     master = master;
     store = store;
     store_module = (module S);
-    tlog_coll = tlog_coll;
-    other_cfgs = other_cfgs;
-    lease_expiration = lease_expiration;
-    inject_event = inject_event;
-    cluster_id = cluster_id;
-    quiesced = quiesced;
+    tlog_coll;
+    other_cfgs;
+    lease_expiration;
+    inject_event;
+    is_alive;
+    cluster_id;
+    quiesced;
     stop;
     election_timeout = None;
     respect_run_master = None;
