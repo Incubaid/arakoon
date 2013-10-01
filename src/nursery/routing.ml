@@ -300,7 +300,7 @@ module Routing = struct
 
   let get_diff t left sep right =
     begin
-      if not ( (contains t left) or (contains t right) )
+      if not ( (contains t left) || (contains t right) )
       then
         failwith "Can only add one cluster at the time"
       else
