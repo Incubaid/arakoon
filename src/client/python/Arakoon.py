@@ -423,10 +423,10 @@ class ArakoonClient :
     __contains__ = exists
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
-        'endKeyIncluded', ('maxElements', -1))
+                          'endKeyIncluded', ('maxElements', 1000))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
-    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = -1 ):
+    def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = 1000 ):
         """
         Perform a range query on the store, retrieving the set of matching keys
 
@@ -443,7 +443,7 @@ class ArakoonClient :
         @param beginKeyIncluded: Indicates if the lower boundary should be part of the result set
         @param endKey: Upper boundary of the requested range
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
-        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
+        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to 1000.
 
         @rtype: list of strings
         @return: Returns a list containing all matching keys
@@ -457,7 +457,7 @@ class ArakoonClient :
         return conn.decodeStringListResult()
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
-        'endKeyIncluded', ('maxElements', -1))
+                          'endKeyIncluded', ('maxElements', 1000))
     @retryDuringMasterReelection
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
     def range_entries(self,
@@ -465,7 +465,7 @@ class ArakoonClient :
                       beginKeyIncluded,
                       endKey,
                       endKeyIncluded,
-                      maxElements= -1):
+                      maxElements= 1000):
         """
         Perform a range query on the store, retrieving the set of matching key-value pairs
 
@@ -482,7 +482,7 @@ class ArakoonClient :
         @param beginKeyIncluded: Indicates if the lower boundary should be part of the result set
         @param endKey: Upper boundary of the requested range
         @param endKeyIncluded: Indicates if the upper boundary should be part of the result set
-        @param maxElements: The maximum number of key-value pairs to return. Negative means no maximum, all matches will be returned. Defaults to -1.
+        @param maxElements: The maximum number of key-value pairs to return. Negative means no maximum, all matches will be returned. Defaults to 1000.
 
         @rtype: list of (string,string)
         @return: Returns a list containing all matching key-value pairs
@@ -501,13 +501,13 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
-        'endKeyIncluded', ('maxElements', -1))
+                          'endKeyIncluded', ('maxElements', 1000))
     @retryDuringMasterReelection
     @SignatureValidator('string_option', 'bool', 'string_option', 'bool','int')
     def rev_range_entries(self,
                           beginKey, beginKeyIncluded,
                           endKey,  endKeyIncluded,
-                          maxElements= -1):
+                          maxElements= 1000):
         """
         Performs a reverse range query on the store, returning a sorted (in reverse order) list of key value pairs.
         @type beginKey: string option
@@ -517,7 +517,7 @@ class ArakoonClient :
         @type maxElements: integer
         @param beginKey: higher boundary of the requested range
         @param endKey: lower boundary of the requested range
-        @param maxElements: maximum number of key-value pairs to return. Negative means 'all'. Defaults to -1
+        @param maxElements: maximum number of key-value pairs to return. Negative means 'all'. Defaults to 1000.
         @rtype : list of (string,string)
         """
         msg = ArakoonProtocol.encodeReverseRangeEntries(beginKey,
@@ -534,10 +534,10 @@ class ArakoonClient :
         return result
 
 
-    @utils.update_argspec('self', 'keyPrefix', ('maxElements', -1))
+    @utils.update_argspec('self', 'keyPrefix', ('maxElements', 1000))
     @retryDuringMasterReelection
     @SignatureValidator( 'string', 'int' )
-    def prefix(self, keyPrefix , maxElements = -1 ):
+    def prefix(self, keyPrefix , maxElements = 1000 ):
         """
         Retrieve a set of keys that match with the provided prefix.
 
@@ -547,7 +547,7 @@ class ArakoonClient :
         @type keyPrefix: string
         @type maxElements: integer
         @param keyPrefix: The prefix that will be used when pattern matching the keys in the store
-        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to -1.
+        @param maxElements: The maximum number of keys to return. Negative means no maximum, all matches will be returned. Defaults to 1000.
 
         @rtype: list of strings
         @return: Returns a list of keys matching the provided prefix
