@@ -61,9 +61,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--version', required= True)
 parser.add_argument('--rev', required= True)
 
-# python make_download.py 
-# --version 1.6.0 
-# --rev 918ad2c920ae08e1d1536011a6af8e38131c179f
+# python make_download.py
+# --version 1.6.5
+# --rev a8792674f01e064ea4e1414250b0bbb8d072a4f3
 
 options = parser.parse_args()
 version = options.version
@@ -71,13 +71,13 @@ revision = options.rev
 
 base_url = "https://github.com/Incubaid/arakoon"
 #https://github.com/Incubaid/arakoon/releases/1.6.0/2444/arakoon_1.6.0_amd64.deb
-deb_url = "%s/releases/%s/2444/arakoon_%s_amd64.deb" % (base_url, version,version)
-egg_url = "%s/releases/%s/.../arakoon-%s-py2.7.egg" % (base_url, version,version)
+deb_url = "%s/releases/download/%s/arakoon_%s_amd64.deb" % (base_url, version,version)
+#egg_url = "%s/releases/%s/.../arakoon-%s-py2.7.egg" % (base_url, version,version)
 #https://github.com/Incubaid/arakoon/archive/1.6.0.tar.gz
 source_url = "%s/archive/%s.tar.gz" % (base_url, version)
-lib_url = "%s/releases/%s/2445/libarakoon-ocaml-dev_%s_amd64.deb" % (base_url, 
-                                                                     version,
-                                                                     version)
+lib_url = "%s/releases/download/%s/libarakoon-ocaml-dev_%s_amd64.deb" % (base_url,
+                                                                         version,
+                                                                         version)
 
 def check_download(url):
     f = urllib.urlopen(url)
