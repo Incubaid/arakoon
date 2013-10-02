@@ -25,6 +25,7 @@ open Node_cfg
 open Nursery
 open Routing
 open Client_cfg
+open Ncfg
 
 type lookup = (string, ClientCfg.node_address) Hashtbl.t
 
@@ -158,3 +159,12 @@ let init_nursery config cluster_id =
 
 let delete_nursery_cluster config cluster_id sep =
   __main_run "/tmp/nursery_delete.log" ( fun () -> __delete_from_nursery config cluster_id sep )
+
+
+let dump_nursery_config config =
+  __main_run "/tmp/nursery_dump.log"
+    (fun () ->
+      let keeper_id, cli_cfg = get_keeper_config config in
+      let get_nc client = client # get_nursery_cfg ()  in
+      with_master_remote_stream keeper_id cli_cfg get_nc >>= fun ncfg ->
+      Lwt_io.printlf "%s" (NCFG.to_string ncfg))

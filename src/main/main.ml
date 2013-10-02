@@ -62,6 +62,7 @@ type local_action =
   | InitNursery
   | MigrateNurseryRange
   | DeleteNurseryCluster
+  | NURSERY_SHOW_CONFIG
   | PING
   | InjectAsHead
   | NODE_VERSION
@@ -326,6 +327,8 @@ let main () =
                                    Arg.Rest (fun s -> separator := s);
                                   ],
      "<cluster_id> <separator> removes <cluster_id> from the nursery, if the cluster is a boundary cluster no separator is required");
+    ("--nursery-show-config", Arg.Tuple[set_laction NURSERY_SHOW_CONFIG;],
+     "prints the current nursery config");
     ("--backup-db", Arg.Tuple[set_laction Backup_db;
                               Arg.Set_string cluster_id;
                               Arg.Set_string ip;
@@ -418,6 +421,7 @@ let main () =
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
                                !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
+    | NURSERY_SHOW_CONFIG -> Nursery_main.dump_nursery_config !config_file
     | PING -> Client_main.ping ~tls !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
     | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file

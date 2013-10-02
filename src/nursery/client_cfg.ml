@@ -47,7 +47,7 @@ module ClientCfg = struct
     let buffer = Buffer.create 127 in
     Hashtbl.iter (fun s (ips,p) ->
         let ipss = Printf.sprintf "[%s]" (String.concat ";" ips) in
-        Buffer.add_string buffer (Printf.sprintf "(%s,(%s,%i))" s ipss p)) t;
+        Buffer.add_string buffer (Printf.sprintf "(%s, (%s, %i))" s ipss p)) t;
     Buffer.contents buffer
 
   let input_cfg ic =

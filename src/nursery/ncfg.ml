@@ -55,4 +55,19 @@ module NCFG = struct
   let get_routing t = t.r
   let set_routing t r = t.r <- r
 
+  let to_string t =
+    let b= Buffer.create 128 in
+    let () =
+      iter_cfgs t (fun k v ->
+        Buffer.add_string b "(";
+        Buffer.add_string b k;
+        Buffer.add_string b ", ";
+        Buffer.add_string b (ClientCfg.to_string v);
+        Buffer.add_string b "), "
+      )
+    in
+    Printf.sprintf "{r: %s;\ncfgs:%s}\n"
+      (Routing.to_s t.r)
+      (Buffer.contents b)
+
 end
