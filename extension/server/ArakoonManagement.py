@@ -583,6 +583,199 @@ class ArakoonCluster:
         self._changeFsync(nodes, 'false')
 
 
+    def setTLSCACertificate(self, ca_cert_path):
+        '''Configure path to TLS CA certificate
+
+        This corresponds to the `tls_ca_cert` entry in the `global` section.
+
+        Set to `None` to unset/disable.
+
+        The path should point to a valid file, otherwise a `ValueError` will be
+        raised.
+
+        :param ca_cert_path: Path to CA certificate
+        :type ca_cert_path: `str`
+        '''
+
+        global_ = 'global'
+        tls_ca_cert = 'tls_ca_cert'
+
+        config = self._getConfigFile()
+
+        if ca_cert_path is None:
+            if config.checkParam(global_, tls_ca_cert):
+                config.removeParam(global_, tls_ca_cert)
+
+            config.write()
+
+            return
+
+        if not os.path.isfile(ca_cert_path):
+            raise ValueError(
+                'Invalid ca_cert_path \'%s\': no such file' % ca_cert_path)
+
+        config.addParam(global_, tls_ca_cert, ca_cert_path)
+
+        config.write()
+
+    def enableTLSService(self):
+        '''Enable TLS on the client service
+
+        This corresponds to the `tls_service` entry in the `global` section.
+
+        Note `tls_ca_cert` should be configured before calling this method,
+        otherwise an `Exception` will be raised.
+        '''
+
+        global_ = 'global'
+        tls_ca_cert = 'tls_ca_cert'
+        tls_service = 'tls_service'
+
+        config = self._getConfigFile()
+
+        if not config.checkParam(global_, tls_ca_cert):
+            raise Exception('No tls_ca_cert configured')
+
+        if config.checkParam(global_, tls_service):
+            config.removeParam(global_, tls_service)
+
+        config.addParam(global_, tls_service, 'true')
+
+        config.write()
+
+    def disableTLSService(self):
+        '''Disable TLS on the client service
+
+        This corresponds to the `tls_service` entry in the `global` section.
+        '''
+
+        global_ = 'global'
+        tls_service = 'tls_service'
+
+        config = self._getConfigFile()
+
+        if config.checkParam(global_, tls_service):
+            config.removeParam(global_, tls_service)
+
+        config.write()
+
+    def enableTLSServiceValidatePeer(self):
+        '''Enable TLS peer verification on the client service
+
+        This corresponds to the `tls_service_validate_peer` entry in the
+        `global` section.
+
+        Note `tls_service` should be enabled before calling this method,
+        otherwise an `Exception` is raised.
+        '''
+
+        global_ = 'global'
+        tls_service = 'tls_service'
+        tls_service_validate_peer = 'tls_service_validate_peer'
+
+        config = self._getConfigFile()
+
+        if (not config.checkParam(global_, tls_service)) \
+            or (config.getValue(global_, tls_service).lower() != 'true'):
+            raise Exception('tls_service not enabled')
+
+        if config.checkParam(global_, tls_service_validate_peer):
+            config.removeParam(global_, tls_service_validate_peer)
+
+        config.addParam(global_, tls_service_validate_peer, 'true')
+
+        config.write()
+
+    def disableTLSServiceValidatePeer(self):
+        '''Disable TLS peer verification on the client service
+
+        This corresponds to the `tls_service_validate_peer` entry in the
+        `global` section.
+        '''
+
+        global_ = 'global'
+        tls_service_validate_peer = 'tls_service_validate_peer'
+
+        config = self._getConfigFile()
+
+        if config.checkParam(global_, tls_service_validate_peer):
+            config.removeParam(global_, tls_service_validate_peer)
+
+        config.write()
+
+    def setTLSCertificate(self, node, cert_path, key_path):
+        '''Set the TLS certificate & key paths for a node
+
+        This corresponds to the `tls_cert` and `tls_key` entries in a node
+        section.
+
+        Set both `cert_path` and `key_path` to `None` to unset the setting and
+        disable TLS usage.
+
+        Both paths should point to valid files, otherwise a `ValueError` is
+        raised.
+
+        `tls_ca_cert` should be configured before calling this method,
+        otherwise an `Exception` is raised.
+
+        :param node: Node name
+        :type node: `str`
+        :param cert_path: Path to node certificate file
+        :type cert_path: `str`
+        :param key_path: Path to node key file
+        :type key_path: `str`
+        '''
+
+        self.__validateName(node)
+
+        if cert_path is None and key_path is not None:
+            raise ValueError('cert_path is None but key_path isn\'t')
+
+        if cert_path is not None and key_path is None:
+            raise ValueError('key_path is None but cert_path isn\'t')
+
+        global_ = 'global'
+        tls_ca_cert = 'tls_ca_cert'
+        tls_cert = 'tls_cert'
+        tls_key = 'tls_key'
+
+        config = self._getConfigFile()
+
+        if cert_path is None and key_path is None:
+            if config.checkParam(node, tls_cert):
+                config.removeParam(node, tls_cert)
+
+            if config.checkParam(node, tls_key):
+                config.removeParam(node, tls_key)
+
+            config.write()
+
+            return
+
+
+        if not config.checkParam(global_, tls_ca_cert):
+            raise Exception('No tls_ca_cert configured')
+
+        if not os.path.isfile(cert_path):
+            raise ValueError(
+                'Invalid cert_path \'%s\': no such file' % cert_path)
+
+        if not os.path.isfile(key_path):
+            raise ValueError(
+                'Invalid key_path \'%s\': no such file' % key_path)
+
+        if config.checkParam(node, tls_cert):
+            config.removeParam(node, tls_cert)
+
+        if config.checkParam(node, tls_key):
+            config.removeParam(node, tls_key)
+
+        config.addParam(node, tls_cert, cert_path)
+        config.addParam(node, tls_key, key_path)
+
+        config.write()
+
+
     def setReadOnly(self, flag = True):
         config = self._getConfigFile()
         if flag and len(self.listNodes()) <> 1:
