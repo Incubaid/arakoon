@@ -573,15 +573,16 @@ let _main_2 (type s)
           let start_liveness_detection_loop () =
             let snt = -2L in
             let msg = (Mp_msg.MPMessage.Nak (snt, (snt, snt))) in
-            let send_message other =
+            let period = ((float lease_period) /. 2.) in
+            let send_message_loop other =
               let rec inner () =
-                Lwt_unix.sleep ((float lease_period) /. 2.) >>= fun () ->
+                Lwt_unix.sleep period >>= fun () ->
                 send msg me.node_name other >>= fun () ->
                 inner () in
               inner () in
             if not me.is_learner
             then
-              List.iter (fun other -> Lwt.ignore_result (send_message other.node_name)) others in
+              List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
           start_liveness_detection_loop ();
 
           let on_consensus = X.on_consensus (module S) store in
