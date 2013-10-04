@@ -150,11 +150,11 @@ def dump_store( node_id ):
     assert_equals( stat, q.enumerators.AppStatusType.HALTED, msg)
 
     db_file = get_node_db_file ( node_id )
-    dump_file = db_file + ".dump"
+    dump_file = "%s/%s.dump" % (q.dirs.tmpDir, node_id,)
     cmd = get_tcbmgr_path() + " list -pv " + db_file
     try:
         dump_fd = open( dump_file, 'w' )
-        logging.debug( "Dumping store of %s to %s" % (node_id, dump_file) )
+        logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
         (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
         dump_fd.close()
     except:
@@ -295,12 +295,14 @@ def get_last_i_tlog2(node_id):
     cluster = _getCluster()
     home = cluster.getNodeConfig(node_id )['home']
     tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    logging.info("reading i from : %s" % tlog_full_path)
     f = open(tlog_full_path,'rb')
     data = f.read()
     f.close()
     index = 0
     dlen = len(data)
     sn = None
+
     while index < dlen:
         sn = struct.unpack_from("q", data, index)[0]
         index = index + 8
