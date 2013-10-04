@@ -51,7 +51,7 @@ let get_value tlog_coll i = tlog_coll # get_last_value i
 
 let test_generic network_factory n_nodes () =
   Logger.info_ "START:TEST_GENERIC" >>= fun () ->
-  let get_buffer, send, nw_run, nw_register = network_factory () in
+  let get_buffer, send, nw_run, nw_register, is_alive = network_factory () in
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
@@ -84,6 +84,7 @@ let test_generic network_factory n_nodes () =
               other_cfgs = [];
               lease_expiration = 60;
               inject_event = inject_ev inject_buffer;
+              is_alive;
               cluster_id = "whatever";
               quiesced = false;
               stop = ref false;
@@ -200,7 +201,7 @@ let test_generic network_factory n_nodes () =
 
 
 let test_master_loop network_factory ()  =
-  let get_buffer, send, nw_run, nw_register =
+  let get_buffer, send, nw_run, nw_register, is_alive =
     network_factory () in
   let me = "c0" in
   let i0 = 0L in
@@ -256,6 +257,7 @@ let test_master_loop network_factory ()  =
                    other_cfgs = [];
                    lease_expiration = 60;
                    inject_event = inject_event;
+                   is_alive;
                    cluster_id = "whatever";
                    quiesced = false;
                    stop = ref false;
@@ -310,7 +312,8 @@ let build_perfect () =
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
   let register (xs:(string * (string * int)) list) = () in
-  get_buffer, send, run, register
+  let is_alive id = true in
+  get_buffer, send, run, register, is_alive
 
 
 let build_tcp () =
@@ -380,6 +383,7 @@ let test_simulation filters () =
     other_cfgs = [];
     lease_expiration = 60;
     inject_event = inject_event;
+    is_alive = (fun id -> true);
     cluster_id = "whatever";
     quiesced = false;
     stop = ref false;
