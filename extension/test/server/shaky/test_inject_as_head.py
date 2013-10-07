@@ -118,5 +118,42 @@ def test_inject_as_head_failure():
     logging.info('Injecting broken database')
     ret = cluster.injectAsHead(s, new_head)
 
-    if ret in [0, None]:
+    if ret != 4:
         raise RuntimeError('Unexpected injectAsHead result: %r', ret)
+
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
+def test_inject_as_head_current_corrupt():
+
+    logging.info('Filling cluster')
+    cluster = Common._getCluster()
+    Common.iterate_n_times(10, Common.simple_set)
+
+    logging.info('Looking up master')
+    client = Common.get_client()
+    m = client.whoMaster()
+    slaves = filter(lambda x: x != m, Common.node_names)
+    s = slaves[0]
+
+    good_head = '/tmp/h.db'
+    cluster.backupDb(s, good_head)
+
+    Common.stopOne(s)
+    current_head = Common.getConfig(s)['head_dir'] + '/head.db'
+    logging.info('Creating broken head database for slave at %s', current_head)
+    with open(current_head, 'w') as fd:
+        fd.write('this is not a TC database')
+
+    Common.startOne(s)
+    time.sleep(1.0)
+
+    logging.info('Injecting good head without --force')
+    ret = cluster.injectAsHead(s, good_head)
+
+    if ret != 3:
+        raise RuntimeError('Unexpected injectAsHead result: %r', ret)
+
+    logging.info('Injecting good head with --force')
+    ret = cluster.injectAsHead(s, good_head, force = True)
+
+    if not (ret in [0, None]):
+        raise RuntimeError('Unexpected injectAsHead --force result: %r', ret)

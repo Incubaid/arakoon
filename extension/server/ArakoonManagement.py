@@ -1214,16 +1214,21 @@ class ArakoonCluster:
         ArakoonRemoteControl.optimizeDb(ip,port, clusterId)
 
 
-    def injectAsHead(self, nodeName, newHead):
+    def injectAsHead(self, nodeName, newHead, force = False):
         """
         tell the node to use the file as its new head database
         @param nodeName The (local) node where you want to inject the database
         @param newHead  a database file that can serve as head
+        @param force forces the database to be injected even when the current head is corrupt
         @return void
         """
         self._requireLocal(nodeName)
-        r =  [self._binary,'--inject-as-head', newHead, nodeName, '-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterName) ]
+        if force:
+            r =  [self._binary,'--inject-as-head', newHead, nodeName, '-config',
+                  '%s/%s.cfg' % (self._clusterPath, self._clusterName), '--force' ]
+        else:
+            r =  [self._binary,'--inject-as-head', newHead, nodeName, '-config',
+                  '%s/%s.cfg' % (self._clusterPath, self._clusterName) ]
         #output = subprocess.check_output(r, shell= True) # starting from python 2.7
         rs = ' '.join(r)
         p = subprocess.Popen(rs, shell= True, stdout = subprocess.PIPE)
