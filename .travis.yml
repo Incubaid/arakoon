@@ -22,4 +22,5 @@ script:
   - eval `opam config -env`
   - ocamlbuild -use-ocamlfind -classic-display arakoon.native
   - ./arakoon.native --version
-# - ./arakoon.native --run-all-tests
+  - ./arakoon.native --run-all-tests 2>&1 | tail -n256
+  - exit ${PIPESTATUS[0]}
