@@ -478,6 +478,13 @@ let _main_2 (type s)
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
       let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
+      begin
+        if not me.fsync
+        then
+          Logger.info_ "Be careful, fsync is set to false! For durability in the case of powerloss it's recommended to set fsync=true; please make sure you know what you're doing."
+        else
+          Lwt.return ()
+      end >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
         other_names >>= fun () ->
       Logger.info_f_ "quorum_function gives %i for %i"
