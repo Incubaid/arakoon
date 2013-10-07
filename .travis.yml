@@ -1,17 +1,18 @@
+language: c
+env:
+  - PPA=avsm/ocaml40+opam10
+  - PPA=avsm/ocaml40+opam11
+  - PPA=avsm/ocaml41+opam10
+  - PPA=avsm/ocaml41+opam11
+
 before_install:
+  - echo "yes" | sudo add-apt-repository ppa:$PPA
   - sudo apt-get update -qq
-  - sudo apt-get install -qq ocaml libev-dev libssl-dev
+  - sudo apt-get install -qq ocaml ocaml-native-compilers camlp4-extra opam libev-dev libssl-dev
+  - ocamlopt -version
 
 install:
-  - curl -L https://github.com/OCamlPro/opam/archive/1.0.0.tar.gz | tar xz -C /tmp
-  - pushd /tmp/opam-1.0.0
-  - ./configure
-  - make
-  - sudo make install
-  - popd
   - opam init -v -y
-  - eval `opam config -env`
-  - opam switch 4.00.1
   - eval `opam config -env`
   - opam remote add incubaid-devel -v -y -k git git://github.com/Incubaid/opam-repository-devel.git
   - opam update -v -y
@@ -20,4 +21,5 @@ install:
 script:
   - eval `opam config -env`
   - ocamlbuild -use-ocamlfind -classic-display arakoon.native
+  - ./arakoon.native --version
 # - ./arakoon.native --run-all-tests
