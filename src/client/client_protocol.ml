@@ -367,7 +367,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
            backend # multi_get ~allow_dirty keys >>= fun values ->
            Llio.output_int oc 0 >>= fun () ->
-           Llio.output_string_list oc (List.rev values) >>= fun () ->
+           Llio.output_string_list oc values >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)
