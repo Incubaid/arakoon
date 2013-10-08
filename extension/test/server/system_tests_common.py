@@ -494,6 +494,7 @@ def add_node ( i ):
         home = db_dir,
         tlfDir = tlf_dir,
         headDir = head_dir)
+    cluster.disableFsync([ni])
     cluster.addLocalNode (ni )
     cluster.createDirs(ni)
 

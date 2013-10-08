@@ -455,9 +455,12 @@ def test_fsync():
     c.enableFsync()
     c.restart()
     time.sleep(2)
+    cli = Common.get_client()
+    assert_true( cli.expectProgressPossible())
     c.disableFsync()
     c.restart()
     time.sleep(2)
+    assert_true( cli.expectProgressPossible())
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
