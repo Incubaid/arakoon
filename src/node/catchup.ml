@@ -104,9 +104,14 @@ let head_saved_epilogue hfn tlog_coll =
         end
   end
 
+let stop_fuse stop =
+  if !stop
+  then
+    Lwt.fail Canceled
+  else
+    Lwt.return ()
 
-
-let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~stop me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
@@ -130,7 +135,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,value) =
       tlog_coll # log_value i value >>= fun _ ->
-      Lwt.return ()
+      stop_fuse stop
     in
 
     client # iterate current_i f tlog_coll ~head_saved_cb
@@ -157,13 +162,7 @@ let prepare_value pv me =
   pv''
 
 let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
-  begin
-    if !stop
-    then
-      Lwt.fail Canceled
-    else
-      Lwt.return ()
-  end >>= fun () ->
+  stop_fuse stop >>= fun () ->
   let i = Entry.i_of entry
   and value = Entry.v_of entry
   in
@@ -289,7 +288,7 @@ let catchup ~stop me other_configs ~cluster_id dbt current_i mr_name future_n =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of current_i) mr_name
   >>= fun () ->
-  catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
+  catchup_tlog ~stop me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
   Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
     (Sn.string_of too_far_i)
   >>= fun () ->
