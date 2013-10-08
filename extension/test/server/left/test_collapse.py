@@ -31,13 +31,13 @@ from nose.tools import *
 
 
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown)
-def test_collapse_forced_slave():
+def test_collapse_witness_node():
     master = Common.node_names[0]
-    forced_slave = Common.node_names[1]
+    witness = Common.node_names[1]
     n = 298765
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
-    Common.collapse(forced_slave,1)
+    Common.collapse(witness,1)
     logging.info("collapsing done")
     Common.stopOne(master)
     Common.wipe(master)

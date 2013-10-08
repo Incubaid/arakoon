@@ -319,7 +319,7 @@ let wait_for_promises (type s) constants state event =
                       let new_n = update_n constants (max n n'') in
                       Fsm.return (Election_suggest (new_n, counter + 1))
                   end
-                  (* else (* forced_slave *) (* this state is impossible?! *)
+                  (* else (* witness *) (* this state is impossible?! *)
                      begin
                        Logger.debug_f_ "%s: wait_for_promises; forced slave back waiting for prepare" me >>= fun () ->
                        Lwt.return (Slave_waiting_for_prepare (i,n))

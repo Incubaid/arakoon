@@ -253,7 +253,7 @@ def test_missed_accept ():
     Common.compare_stores( zero, one )
 
 @Common.with_custom_setup( Common.setup_2_nodes_forced_master, Common.basic_teardown)
-def test_is_progress_possible_forced_slave():
+def test_is_progress_possible_witness_node():
     time.sleep(0.2)
     def write_loop ():
         Common.iterate_n_times( 48000,
@@ -567,7 +567,7 @@ def test_large_catchup_while_running():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master,
                            Common.basic_teardown)
-def test_db_optimize_forced_slaves():
+def test_db_optimize_witness_node():
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
     assert_raises( Exception, Common.optimizeDb, Common.node_names[1] )
 
