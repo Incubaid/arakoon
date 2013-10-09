@@ -62,6 +62,13 @@ let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i,
                 let diff = (Unix.gettimeofday ()) -. ls in
                 if diff >= float constants.lease_expiration
                 then
+                  (* if we get here because a LeaseExpired message is
+                     delivered too late (thx Lwt!) then this injection
+                     could result in more & more LeaseExpired messages flowing
+                     through the state machine. This effect is contained
+                     by how the LeaseExpired messages are handled in the
+                     stable_master state below.
+                  *)
                   inject_lease_expired () in
             Lwt.return ()
           end
@@ -115,7 +122,25 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                 end
               else
                 extend ()
-            | _ -> extend()
+            | _ ->
+              (* prevent explosion of LeaseExpired messages
+                 by ignoring those delivered before halfway through the lease.
+                 see comment about injecting LeaseExpired
+                 in master_consensus for more info.
+              *)
+              match S.who_master constants.store with
+              | None ->
+                extend ()
+              | Some (_, ls) ->
+                let diff = (Unix.gettimeofday ()) -. ls in
+                if diff >= (float constants.lease_expiration) /. 2.
+                then
+                  extend()
+                else
+                  begin
+                    let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring lease expiration") in
+                    Fsm.return ~sides:[log_e] (Stable_master current_state)
+                  end
         end
     | FromClient ufs ->
       begin
