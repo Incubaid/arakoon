@@ -282,7 +282,7 @@ class ArakoonCluster:
                 batchedTransactionConfig = None,
                 tlfDir = None,
                 headDir = None,
-                isForcedSlave = False):
+                isWitness = False):
         """
         Add a node to the configuration of the supplied cluster
 
@@ -302,7 +302,7 @@ class ArakoonCluster:
         @param batchedTransactionConfig : specifies the batched transaction config to be used for this node
         @param tlfDir : the directory used for tlfs (if none, tlogDir will be used)
         @param headDir : the directory used for head.db (if none, tlfDir will be used)
-        @param isForcedSlave : whether this node is a forced slave or not
+        @param isWitness : whether this node is a witness or not
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -365,8 +365,8 @@ class ArakoonCluster:
                 targets = self.listNodes()
             config.addParam(name, "targets", string.join(targets,","))
 
-        if isForcedSlave:
-            config.addParam(name, "forced_slave", "true")
+        if isWitness:
+            config.addParam(name, "witness", "true")
 
         if not config.checkSection("global") :
             config.addSection("global")

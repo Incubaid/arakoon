@@ -120,7 +120,7 @@ struct
         raise (Arakoon_exc.Exception (Arakoon_exc.E_UNKNOWN_FAILURE,
                                       "value too large"))
     in
-    let is_forced_slave = cfg.Node_cfg.is_forced_slave in
+    let is_witness = cfg.Node_cfg.is_witness in
     object(self: #backend)
       val witnessed = Hashtbl.create 10
       val _stats = Statistics.create ()
@@ -579,9 +579,9 @@ struct
         push_node_msg update
 
       method try_quiesced f =
-        if is_forced_slave
+        if is_witness
         then
-          Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, "Operation not supported on forced slaves"))
+          Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, "Operation not supported on witness nodes"))
         else
           begin
             self # quiesce_db () >>= fun () ->
