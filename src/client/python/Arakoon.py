@@ -275,7 +275,7 @@ class ArakoonClient :
             conn = self._sendMessage(self._dirtyReadNode, msg)
         else:
             conn = self._sendToMaster (msg)
-        result = conn.decodeStringArrayResult()
+        result = conn.decodeStringListResult()
         return result
 
     @utils.update_argspec('self','keys')

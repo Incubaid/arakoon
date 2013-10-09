@@ -84,7 +84,9 @@ class remote_client ((ic,oc) as conn) =
 
     method multi_get ?(allow_dirty=false) keys =
       request  oc (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
-      response ic Llio.input_string_list
+      response ic
+        (fun ic -> Llio.input_string_list ic >>= fun x ->
+          Lwt.return (List.rev x))
 
     method multi_get_option ?(allow_dirty=false) keys =
       request oc (fun buf -> multiget_option_to buf ~allow_dirty keys) >>= fun () ->
