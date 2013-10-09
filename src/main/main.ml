@@ -121,14 +121,6 @@ let run_system_tests () =
   0
 
 
-
-
-let dump_store filename = Dump_store.dump_store filename
-
-let inject_as_head filename node_id cfg_name = Dump_store.inject_as_head filename node_id cfg_name
-
-
-
 let run_some_tests repeat_count filter =
   All_test.configure_logging();
   Printf.printf "running tests matching '%s'\n" filter;
@@ -202,6 +194,7 @@ let main () =
   and tls_ca_cert = ref ""
   and tls_cert = ref ""
   and tls_key = ref ""
+  and force = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -364,6 +357,8 @@ let main () =
                                     Arg.Set_string node_id],
      "<head.db> <node_id>"
     );
+    ("--force", Arg.Set force,
+     "force injection of the new head, even when the current head is corrupted (only for --inject-as-head)");
     ("--drop-master", Arg.Tuple [set_laction Drop_master;
                                  Arg.Set_string cluster_id;
                                  Arg.Set_string ip;
@@ -391,7 +386,7 @@ let main () =
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
-    | DumpStore -> dump_store !filename
+    | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename
     | UncompressTlog -> Tlog_main.uncompress_tlog !filename
@@ -421,7 +416,7 @@ let main () =
     | PING -> Client_main.ping ~tls !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
     | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
-    | InjectAsHead -> inject_as_head !filename !node_id !config_file
+    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file !force
     | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
 
   in

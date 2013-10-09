@@ -46,7 +46,9 @@ let dump_store filename =
   Lwt_main.run (t());
   0
 
-let inject_as_head fn node_id cfg_fn =
+exception ExitWithCode of int;;
+
+let inject_as_head fn node_id cfg_fn force =
   let canonical =
     if cfg_fn.[0] = '/'
     then cfg_fn
@@ -66,14 +68,29 @@ let inject_as_head fn node_id cfg_fn =
     let tlf_dir = node_cfg.tlf_dir in
     let head_dir = node_cfg.head_dir in
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
-    S.make_store ~lcnum:1024
-      ~ncnum:512 old_head_name >>= fun old_head ->
-    let old_head_i = S.consensus_i old_head in
-    S.close old_head      >>= fun () ->
 
-    S.make_store ~lcnum:1024 ~ncnum:512 fn >>= fun new_head ->
-    let new_head_i = S.consensus_i new_head in
-    S.close new_head      >>= fun () ->
+    let read_i head_name =
+      S.make_store ~lcnum:1024 ~ncnum:512 head_name >>= fun head ->
+      let head_i = S.consensus_i head in
+      S.close head >>= fun () ->
+      Lwt.return head_i in
+
+    (Lwt.catch
+       (fun () -> read_i old_head_name)
+       (fun exn ->
+          if force
+          then
+            Lwt.return None
+          else
+            begin
+              Lwt_io.printl (Printexc.to_string exn) >>= fun () ->
+              Lwt.fail (ExitWithCode 3)
+            end)) >>= fun old_head_i ->
+    (Lwt.catch
+       (fun () -> read_i fn)
+       (fun exn ->
+          Lwt_io.printl (Printexc.to_string exn) >>= fun () ->
+          Lwt.fail (ExitWithCode 4))) >>= fun new_head_i ->
 
     Lwt_io.printlf "# %s @ %s" old_head_name (Log_extra.option2s Sn.string_of old_head_i) >>= fun () ->
     Lwt_io.printlf "# %s @ %s" fn (Log_extra.option2s Sn.string_of new_head_i) >>= fun () ->
@@ -104,8 +121,11 @@ let inject_as_head fn node_id cfg_fn =
          File_system.unlink canonical
       ) old_tlns >>= fun () ->
     Lwt_io.printlf "# [OK]" >>= fun () ->
-    Lwt.return ()
+    Lwt.return 0
 
   in
-  Lwt_main.run (t());
-  0
+  try
+    Lwt_main.run (t ())
+  with
+    | ExitWithCode i -> i
+    | exn -> raise exn
