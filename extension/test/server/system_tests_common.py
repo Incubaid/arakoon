@@ -494,6 +494,7 @@ def add_node ( i ):
         home = db_dir,
         tlfDir = tlf_dir,
         headDir = head_dir)
+    cluster.disableFsync([ni])
     cluster.addLocalNode (ni )
     cluster.createDirs(ni)
 
@@ -616,6 +617,8 @@ def setup_n_nodes_base(c_id, node_names, force_master,
 
         cluster.addLocalNode(nodeName)
         cluster.createDirs(nodeName)
+
+    cluster.disableFsync()
 
     if force_master:
         logging.info( "Forcing master to %s", node_names[0] )
