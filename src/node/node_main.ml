@@ -515,7 +515,7 @@ let _main_2 (type s)
             else
               last_i in
           begin
-            if me.is_forced_slave
+            if me.is_witness
             then
               begin
                 S.quiesce store >>= fun () ->
@@ -656,7 +656,7 @@ let _main_2 (type s)
 
       let start_backend stop (master, constants, buffers, new_i, store) =
         let to_run =
-          if me.is_forced_slave
+          if me.is_witness
           then
             Multi_paxos_fsm.enter_forced_slave
           else

@@ -67,7 +67,7 @@ def test_inject_as_head():
     logging.info("get_tlog_dir => %i", ntlogs)
 
 @Common.with_custom_setup(Common.setup_3_nodes_mini_forced_master, Common.basic_teardown)
-def test_inject_as_head_forced_slaves():
+def test_inject_as_head_witness_node():
     """
     test_inject_as_head : asserts shortcut for those who don't want to collapse periodically. (eta: 20 s)
     ARAKOON-288

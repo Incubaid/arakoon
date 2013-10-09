@@ -30,7 +30,7 @@ import random
 
 @Common.with_custom_setup (Common.setup_3_nodes_forced_master,
                            Common.basic_teardown)
-def test_db_defrag_forced_slaves():
+def test_db_defrag_witness_node():
     assert_raises( Exception, Common.defragDb, Common.node_names[0])
     assert_raises( Exception, Common.defragDb, Common.node_names[1])
 
