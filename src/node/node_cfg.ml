@@ -414,7 +414,7 @@ module Node_cfg = struct
     let is_learner = get_bool "learner" in
     let is_witness = get_bool "witness" in
     let use_compression = not (get_bool "disable_tlog_compression") in
-    let fsync = get_bool "fsync" in
+    let fsync = Ini.get inifile node_name "fsync" Ini.p_bool (Ini.default true) in
     let targets =
       if is_learner
       then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required

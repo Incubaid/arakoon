@@ -452,12 +452,15 @@ def test_disable_tlog_compression():
 @Common.with_custom_setup(Common.default_setup, Common.basic_teardown)
 def test_fsync():
     c = _getCluster()
+    cli = Common.get_client()
+    cli.set('k1', 'v')
     c.enableFsync()
     c.restart()
-    time.sleep(2)
+    cli.set('k2', 'v')
     c.disableFsync()
     c.restart()
-    time.sleep(2)
+    cli.set('k3', 'v')
+    assert_equals(cli.deletePrefix('k'), 3)
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():

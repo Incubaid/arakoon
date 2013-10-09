@@ -44,16 +44,14 @@ def test_learner():
                     home = db_dir,
                     isLearner = True,
                     targets = [Common.node_names[0]])
-
+    cluster.disableFsync([name])
     cluster.addLocalNode(name)
     cluster.createDirs(name)
     cluster.startOne(name)
-    
+
     Common.assert_running_nodes(3)
     time.sleep(op_count / 1000 + 1 ) # 1000/s in catchup should be no problem
     #use a client ??"
     Common.stop_all()
     i2 = int(Common.get_last_i_tlog(name))
     assert_true(i2 >= op_count - 1)
-
-    
