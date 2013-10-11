@@ -33,7 +33,7 @@ sig
   val _tranabort : t -> unit
 end
 
-let default_max_entries = 200
+let default_max_entries = 100
 let default_max_size = 100_000
 
 let max_entries = ref default_max_entries

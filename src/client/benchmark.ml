@@ -41,6 +41,19 @@ let _progress t0 n step (oc:Lwt_io.output_channel) =
   else
     Lwt.return()
 
+let check_timing f f_msg =
+  let t0 = Unix.gettimeofday() in
+  f () >>= fun r ->
+  let t1 = Unix.gettimeofday() in
+  begin
+    let d = t1 -. t0 in
+    if d > 2.0
+    then Lwt_io.eprintlf "%s took %2.2f" (f_msg()) d
+    else Lwt.return ()
+  end
+  >>= fun () ->
+  Lwt.return r
+
 let _get (client:Arakoon_client.client) max_n k_size t0 oc =
   let k0 = String.make (k_size - 8 ) '_' in
   let rec loop n =
@@ -51,7 +64,11 @@ let _get (client:Arakoon_client.client) max_n k_size t0 oc =
         _progress t0 n 10000 oc >>= fun () ->
         let i = Random.int max_n in
         let key = _cat k0 i
-        in client # get key >>= fun _ ->
+        in
+        check_timing
+          (fun () -> client # get key )
+          (fun () -> Printf.sprintf "get %i" n)
+        >>= fun _ ->
         loop (n+1)
       end
   in
@@ -77,7 +94,10 @@ let _get_transactions (client:Arakoon_client.client)
         in
         let keys = build [] 0 in
         _progress t0 i 1000 oc >>= fun () ->
-        client # multi_get keys >>= fun values ->
+        check_timing
+          (fun () -> client # multi_get keys)
+          (fun () -> Printf.sprintf "multi_get %i" i)
+        >>= fun _ ->
         loop_t (i+1)
       end
   in
@@ -96,7 +116,10 @@ let _fill client max_n k_size v_size (t0:float) (oc:Lwt_io.output_channel) =
         _progress t0 n 10000 oc >>= fun () ->
         let key = _cat k0 n
         and value = _cat v0 n in
-        client # set key value >>= fun () ->
+        check_timing
+          (fun () ->client # set key value)
+          (fun () ->Printf.sprintf "get %i" n)
+        >>= fun () ->
         loop (n+1)
       end
   in
@@ -121,7 +144,10 @@ let _fill_transactions client max_n tx_size k_size v_size (t0:float) oc =
         in
         _progress t0 i 1000 oc >>= fun () ->
         let s = build [] 0 in
-        client # sequence s >>= fun () ->
+        check_timing
+          (fun () -> client # sequence s)
+          (fun () -> Printf.sprintf "sequence %i" i)
+        >>= fun () ->
         loop_t (i+1)
       end
   in
@@ -144,8 +170,12 @@ let _range (client:Arakoon_client.client) max_n k_size t0 oc =
         let first_key = _cat k0 first in
         let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
-        client # range (Some first_key) true
-          (Some last_key) true 1000 >>= fun keys ->
+        check_timing
+          (fun () -> client # range
+            (Some first_key) true
+            (Some last_key) true 1000)
+          (fun () -> Printf.sprintf "range %i %s %s" i first_key last_key)
+        >>= fun keys ->
         loop (i+1)
       end
   in
@@ -164,8 +194,13 @@ let _range_entries (client: Arakoon_client.client) max_n k_size t0 oc =
         let first_key = _cat k0 first in
         let last_key = _cat k0 last in
         _progress t0 i 10000 oc >>= fun () ->
-        client # range_entries (Some first_key) true
-          (Some last_key) true 1000 >>= fun kvs ->
+        check_timing
+          (fun () -> client # range_entries
+            (Some first_key) true
+            (Some last_key) true 1000)
+          (fun () -> Printf.sprintf "range_entries %i %s %s"
+            i first_key last_key)
+        >>= fun kvs ->
         loop (i+1)
       end
   in
