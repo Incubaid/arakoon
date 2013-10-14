@@ -57,23 +57,7 @@ let copy_store2 old_location new_location overwrite =
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    begin
-      File_system.exists new_location >>= fun dest_exists ->
-      begin
-        if dest_exists && overwrite
-        then
-          Lwt_unix.unlink new_location
-        else
-          Lwt.return ()
-      end >>= fun () ->
-      begin
-        if dest_exists && not overwrite
-        then
-          Logger.info_f_ "Not relocating store from %s to %s, destination exists" old_location new_location
-        else
-          File_system.copy_file old_location new_location
-      end
-    end
+    File_system.copy_file old_location new_location overwrite
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
