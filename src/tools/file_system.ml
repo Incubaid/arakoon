@@ -44,7 +44,7 @@ let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
   in
   Lwt_io.with_file ~mode:Lwt_io.input source
     (fun ic ->
-       Lwt_io.with_file ~mode:Lwt_io.output target
+       Lwt_io.with_file ~flags:[Lwt_unix.O_EXCL;Lwt_unix.O_CREAT] ~mode:Lwt_io.output target
          (fun oc ->copy_all ic oc)
     )
 
@@ -71,10 +71,16 @@ let lwt_directory_list dn =
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
+let fsync_dir filename =
+  Lwt_unix.openfile (Filename.dirname filename) [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
+  Lwt.finalize
+    (fun () -> Lwt_unix.fsync dir_descr)
+    (fun () -> Lwt_unix.close dir_descr)
 
 let rename source target =
   Logger.info_f_ "rename %s -> %s" source target >>= fun () ->
-  Lwt_unix.rename source target
+  Lwt_unix.rename source target >>= fun () ->
+  fsync_dir target
 
 let mkdir name = Lwt_unix.mkdir name
 
