@@ -287,6 +287,7 @@ let _init_file tlog_dir tlf_dir c =
   let fn = file_name c in
   let full_name = get_full_path tlog_dir tlf_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
+  File_system.fsync_dir_of_file full_name >>= fun () ->
   Lwt_unix.LargeFile.fstat fd >>= fun stats ->
   let pos0 = stats.st_size in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
