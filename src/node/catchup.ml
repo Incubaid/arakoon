@@ -125,7 +125,7 @@ let catchup_tlog (type s) ~stop me other_configs ~cluster_id (current_i: Sn.t) m
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name
+      File_system.copy_file hfn target_name true
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
