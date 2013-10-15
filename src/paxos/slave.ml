@@ -70,17 +70,23 @@ let slave_steady_state (type s) constants state event =
   let store = constants.store in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let handle_timeout n' i' =
-    if (not (is_election constants)) || n' < n || i' < i
+    if n' < n || i' < i
     then
       begin
         let ns = (Sn.string_of n) and
           ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            if n' < n || i' < i
-            then
-              Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i)
-            else
-              Printf.sprintf "slave_steady_state: Ingoring lease expiration while I still have a master (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i))
+            Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i))
+        in
+        Fsm.return ~sides:[log_e] (Slave_steady_state state)
+      end
+    else if not (is_election constants)
+    then
+      begin
+        let ns = (Sn.string_of n) and
+          ns' = (Sn.string_of n') in
+        let log_e = ELog (fun () ->
+            Printf.sprintf "slave_steady_state: Ingoring lease expiration because the master doesn't need elections (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
