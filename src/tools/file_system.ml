@@ -47,16 +47,19 @@ let lwt_directory_list dn =
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
-let fsync_dir filename =
-  Lwt_unix.openfile (Filename.dirname filename) [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
+let fsync_dir dir =
+  Lwt_unix.openfile dir [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
   Lwt.finalize
     (fun () -> Lwt_unix.fsync dir_descr)
     (fun () -> Lwt_unix.close dir_descr)
 
+let fsync_dir_of_file filename =
+  fsync_dir (Filename.dirname filename)
+
 let rename source target =
   Logger.info_f_ "rename %s -> %s" source target >>= fun () ->
   Lwt_unix.rename source target >>= fun () ->
-  fsync_dir target
+  fsync_dir_of_file target
 
 let mkdir name = Lwt_unix.mkdir name
 
