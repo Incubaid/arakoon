@@ -716,49 +716,46 @@ let _main_2 (type s)
              log_exception
                "Exception in messaging thread"
                (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run ?ssl_context)) in
-           Lwt.finalize
-             (fun () ->
-                Lwt.choose
-                  [Lwt.pick [
-                      fsm_t;
-                      msg_t;
-                      service ();
-                      rapporting ();
-                      (listen_for_signal () >>= fun () ->
-                       let msg = "got TERM | INT" in
-                       Logger.info_ msg >>= fun () ->
-                       Lwt_io.printl msg >>= fun () ->
-                       Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
-                       List.iter
-                         (fun n ->
-                            let s = Lwt_log.Section.make n in
-                            Lwt_log.Section.set_level s Lwt_log.Debug)
-                         ["client_protocol"; "tcp_messaging"; "paxos"];
-                       Logger.info_ "All logging set to debug level after TERM/INT"
-                      );
-                      Lwt_mvar.take stop_mvar];
-                   fsm_t;])
-             (fun () ->
-                Lwt_mvar.put stop_mvar () >>= fun () ->
-                stop := true;
-                Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
-                Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
-                           Logger.info_ "fsm thread finished");
-                          (Lwt_mutex.lock msg_mutex >>= fun () ->
-                           Logger.info_ "messaging thread finished")] >>= fun () ->
-                let count_thread m =
-                  let rec inner i =
-                    Logger.info_f_ m i >>= fun () ->
-                    Lwt_unix.sleep 1.0 >>= fun () ->
-                    inner (succ i) in
-                  inner 0 in
-                Lwt.pick [ S.close ~flush:false store ;
-                           count_thread "Closing store (%is)" ] >>= fun () ->
-                Logger.fatal_f_
-                  ">>> Closing the store @ %S succeeded: everything seems OK <<<"
-                  (S.get_location store) >>= fun () ->
-                Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
-                           count_thread "Closing tlog (%is)" ])
+           Lwt.choose
+             [Lwt.pick [
+                 fsm_t;
+                 msg_t;
+                 service ();
+                 rapporting ();
+                 (listen_for_signal () >>= fun () ->
+                  let msg = "got TERM | INT" in
+                  Logger.info_ msg >>= fun () ->
+                  Lwt_io.printl msg >>= fun () ->
+                  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+                  List.iter
+                    (fun n ->
+                       let s = Lwt_log.Section.make n in
+                       Lwt_log.Section.set_level s Lwt_log.Debug)
+                    ["client_protocol"; "tcp_messaging"; "paxos"];
+                  Logger.info_ "All logging set to debug level after TERM/INT"
+                 );
+                 Lwt_mvar.take stop_mvar];
+              fsm_t;] >>= fun () ->
+           Lwt_mvar.put stop_mvar () >>= fun () ->
+           stop := true;
+           Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
+           Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
+                      Logger.info_ "fsm thread finished");
+                     (Lwt_mutex.lock msg_mutex >>= fun () ->
+                      Logger.info_ "messaging thread finished")] >>= fun () ->
+           let count_thread m =
+             let rec inner i =
+               Logger.info_f_ m i >>= fun () ->
+               Lwt_unix.sleep 1.0 >>= fun () ->
+               inner (succ i) in
+             inner 0 in
+           Lwt.pick [ S.close ~flush:false store ;
+                      count_thread "Closing store (%is)" ] >>= fun () ->
+           Logger.fatal_f_
+             ">>> Closing the store @ %S succeeded: everything seems OK <<<"
+             (S.get_location store) >>= fun () ->
+           Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
+                      count_thread "Closing tlog (%is)" ]
            >>= fun () ->
            Logger.info_ "Completed shutdown"
            >>= fun () ->
