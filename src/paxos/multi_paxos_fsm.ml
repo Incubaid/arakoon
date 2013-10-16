@@ -654,19 +654,26 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
 
 (* the state machine translator *)
 
-type product_wanted =
-  | Nop
-  | Node_only
-  | Full
-  | Node_and_inject
-  | Node_and_timeout
-  | Node_and_inject_and_timeout
+type wanted_event =
+  | Node
+  | Inject
+  | Timeout
+  | Client
+
+let product_wanted_to_string pws =
+  Log_extra.list2s
+    (function
+      | Node -> "Node"
+      | Inject -> "Inject"
+      | Timeout -> "Timeout"
+      | Client -> "Client")
+    pws
 
 let machine constants =
-  let nop = Nop in
-  let full = Full in
-  let node_and_timeout = Node_and_timeout in
-  let node_and_inject_and_timeout = Node_and_inject_and_timeout in
+  let nop = [] in
+  let full = [Node; Inject; Timeout; Client] in
+  let node_and_timeout = [Node; Timeout] in
+  let node_and_inject_and_timeout = [Node; Inject; Timeout] in
   function
     | Forced_master_suggest state ->
       (Unit_arg (forced_master_suggest constants state), nop)
@@ -741,32 +748,20 @@ let make_buffers (a,b,c,d) = {
 let rec paxos_produce buffers
           constants product_wanted =
   let me = constants.me in
-  let ready_from_inject () =
-    Lwt_buffer.wait_for_item buffers.inject_buffer >>= fun () ->
-    Lwt.return Inject_ready
-  in
-  let ready_from_client () =
-    Lwt_buffer.wait_for_item buffers.client_buffer >>= fun () ->
-    Lwt.return Client_ready
-  in
-  let ready_from_node () =
-    Lwt_buffer.wait_for_item buffers.node_buffer >>= fun () ->
-    Lwt.return Node_ready
-  in
-  let ready_from_election_timeout () =
-    Lwt_buffer.wait_for_item buffers.election_timeout_buffer >>= fun () ->
-    Lwt.return Election_timeout_ready
-  in
-  let wmsg, waiters =
-    match product_wanted with
-      | Node_only -> "Node_only",[ready_from_node ();]
-      | Full -> "Full", [ready_from_inject();ready_from_node ();ready_from_client (); ready_from_election_timeout ()]
-      | Node_and_inject -> "Node_and_inject", [ready_from_inject();ready_from_node ();]
-      | Node_and_timeout -> "Node_and_timeout", [ready_from_election_timeout (); ready_from_node();]
-      | Node_and_inject_and_timeout ->
-        "Node_and_inject_and_timeout", [ready_from_inject();ready_from_election_timeout () ;ready_from_node()]
-      | Nop -> "Nop", failwith "Nop should not happen here"
-  in
+  let ready_from_buffer buf ready_result =
+    Lwt_buffer.wait_for_item buf >>= fun () ->
+    Lwt.return ready_result in
+  let wmsg = product_wanted_to_string product_wanted in
+  let waiters = List.map
+                  (function
+                    | Client -> ready_from_buffer buffers.client_buffer Client_ready
+                    | Node -> ready_from_buffer buffers.node_buffer Node_ready
+                    | Inject -> ready_from_buffer buffers.inject_buffer Inject_ready
+                    | Timeout -> ready_from_buffer buffers.election_timeout_buffer Election_timeout_ready)
+                  product_wanted in
+  let () = match product_wanted with
+    | [] -> failwith "No products wanted should not happen here"
+    | _ -> () in
   Lwt.catch
     (fun () ->
        Logger.debug_f_ "%s: T:waiting for event (%s)" me wmsg >>= fun () ->
