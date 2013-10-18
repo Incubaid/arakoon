@@ -119,7 +119,9 @@ let _trancommit ls =
         let t = ( Unix.gettimeofday() -. t0) in
         if t > 1.0
         then
-          Lwt.ignore_result ( Logger.info_f_ "Tokyo cabinet transaction took %fs" t )
+          let fn = Camltc.Hotc.filename ls.db in
+          Lwt.ignore_result
+            ( Logger.info_f_ "Tokyo cabinet (%s) transaction took %fs" fn t )
 
 
 let _tranabort ls =
@@ -143,7 +145,8 @@ let with_transaction ls f =
       let t = ( Unix.gettimeofday() -. t0) in
       if t > 1.0
       then
-        Logger.info_f_ "Tokyo cabinet transaction took %fs" t
+        let fn = Camltc.Hotc.filename ls.db in
+        Logger.info_f_ "Tokyo cabinet (%s) transaction took %fs" fn t
       else
         Lwt.return (); >>= fun () ->
       ls._tx <- None; Lwt.return ())
