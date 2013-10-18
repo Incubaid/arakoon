@@ -657,7 +657,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
 type wanted_event =
   | Node
   | Inject
-  | Timeout
+  | Election_timeout
   | Client
 
 let product_wanted_to_string pws =
@@ -665,15 +665,15 @@ let product_wanted_to_string pws =
     (function
       | Node -> "Node"
       | Inject -> "Inject"
-      | Timeout -> "Timeout"
+      | Election_timeout -> "Election_timeout"
       | Client -> "Client")
     pws
 
 let machine constants =
   let nop = [] in
-  let full = [Node; Inject; Timeout; Client] in
-  let node_and_timeout = [Node; Timeout] in
-  let node_and_inject_and_timeout = [Node; Inject; Timeout] in
+  let full = [Node; Inject; Election_timeout; Client] in
+  let node_and_timeout = [Node; Election_timeout] in
+  let node_and_inject_and_timeout = [Node; Inject; Election_timeout] in
   function
     | Forced_master_suggest state ->
       (Unit_arg (forced_master_suggest constants state), nop)
@@ -719,17 +719,11 @@ let rec trace_transition me key =
 and pull_state () = (show_transition !__state)
 
 
-type ready_result =
-  | Inject_ready
-  | Client_ready
-  | Node_ready
-  | Election_timeout_ready
-
 let prio = function
-  | Inject_ready -> 0
-  | Election_timeout_ready -> 1
-  | Node_ready   -> 2
-  | Client_ready -> 3
+  | Inject -> 0
+  | Election_timeout -> 1
+  | Node   -> 2
+  | Client -> 3
 
 
 type ('a,'b,'c) buffers =
@@ -748,16 +742,16 @@ let make_buffers (a,b,c,d) = {
 let rec paxos_produce buffers
           constants product_wanted =
   let me = constants.me in
-  let ready_from_buffer buf ready_result =
+  let ready_from_buffer buf wanted =
     Lwt_buffer.wait_for_item buf >>= fun () ->
-    Lwt.return ready_result in
+    Lwt.return wanted in
   let wmsg = product_wanted_to_string product_wanted in
   let waiters = List.map
                   (function
-                    | Client -> ready_from_buffer buffers.client_buffer Client_ready
-                    | Node -> ready_from_buffer buffers.node_buffer Node_ready
-                    | Inject -> ready_from_buffer buffers.inject_buffer Inject_ready
-                    | Timeout -> ready_from_buffer buffers.election_timeout_buffer Election_timeout_ready)
+                    | Client -> ready_from_buffer buffers.client_buffer Client
+                    | Node -> ready_from_buffer buffers.node_buffer Node
+                    | Inject -> ready_from_buffer buffers.inject_buffer Inject
+                    | Election_timeout -> ready_from_buffer buffers.election_timeout_buffer Election_timeout)
                   product_wanted in
   let () = match product_wanted with
     | [] -> failwith "No products wanted should not happen here"
@@ -783,18 +777,18 @@ let rec paxos_produce buffers
          in
          let best = List.fold_left f None r_list in
          match best with
-           | Some Inject_ready ->
+           | Some Inject ->
              begin
                Logger.debug_f_ "%s: taking from inject" me >>= fun () ->
                Lwt_buffer.take buffers.inject_buffer
              end
-           | Some Client_ready ->
+           | Some Client ->
              begin
                Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
                let event = FromClient reqs in
                Lwt.return event
              end
-           | Some Node_ready ->
+           | Some Node ->
              begin
                Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
                let msg2 = MPMessage.of_generic msg in
@@ -803,7 +797,7 @@ let rec paxos_produce buffers
                >>= fun () ->
                Lwt.return (FromNode (msg2,source))
              end
-           | Some Election_timeout_ready ->
+           | Some Election_timeout ->
              begin
                Logger.debug_f_ "%s: taking from timeout" me >>= fun () ->
                Lwt_buffer.take buffers.election_timeout_buffer
