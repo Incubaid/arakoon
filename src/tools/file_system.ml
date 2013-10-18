@@ -24,30 +24,6 @@ open Lwt
 
 let section = Logger.Section.main
 
-let copy_file source target = (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
-  let bs = Lwt_io.default_buffer_size () in
-  let buffer = String.create bs in
-  let copy_all ic oc =
-    let rec loop () =
-      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
-      if bytes_read > 0
-      then
-        begin
-	  Lwt_io.write oc buffer >>= fun () -> loop ()
-	end
-      else
-	Lwt.return ()
-    in
-    loop () >>= fun () ->
-    Logger.info_ "done: copy_file"
-  in
-  Lwt_io.with_file ~mode:Lwt_io.input source
-    (fun ic ->
-      Lwt_io.with_file ~mode:Lwt_io.output target
-	(fun oc ->copy_all ic oc)
-    )
-
 let lwt_directory_list dn =
   Lwt.catch
     (fun () ->
@@ -71,10 +47,19 @@ let lwt_directory_list dn =
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
+let fsync_dir dir =
+  Lwt_unix.openfile dir [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
+  Lwt.finalize
+    (fun () -> Lwt_unix.fsync dir_descr)
+    (fun () -> Lwt_unix.close dir_descr)
+
+let fsync_dir_of_file filename =
+  fsync_dir (Filename.dirname filename)
 
 let rename source target =
   Logger.info_f_ "rename %s -> %s" source target >>= fun () ->
-  Lwt_unix.rename source target
+  Lwt_unix.rename source target >>= fun () ->
+  fsync_dir_of_file target
 
 let mkdir name = Lwt_unix.mkdir name
 
@@ -92,3 +77,44 @@ let exists filename =
       | Unix.Unix_error (Unix.ENOENT,_,_) -> Lwt.return false
       | e -> Lwt.fail e
     )
+
+let copy_file source target overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
+  Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
+  let bs = Lwt_io.default_buffer_size () in
+  let buffer = String.create bs in
+  let copy_all ic oc =
+    let rec loop () =
+      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
+      if bytes_read > 0
+      then
+        begin
+          Lwt_io.write oc buffer >>= fun () -> loop ()
+        end
+      else
+        Lwt.return ()
+    in
+    loop () >>= fun () ->
+    Logger.info_ "done: copy_file"
+  in
+  exists target >>= fun target_exists ->
+  if target_exists && not overwrite
+  then
+    Logger.info_f_ "Not copying %s to %s because target already exists" source target
+  else
+    begin
+      let tmp_file = target ^ ".tmp" in
+      exists tmp_file >>= fun tmp_exists ->
+      begin
+        if tmp_exists
+        then
+          unlink tmp_file
+        else
+          Lwt.return ()
+      end >>= fun () ->
+      Lwt_io.with_file ~mode:Lwt_io.input source
+        (fun ic ->
+           Lwt_io.with_file ~flags:[Unix.O_WRONLY;Lwt_unix.O_EXCL;Lwt_unix.O_CREAT] ~mode:Lwt_io.output tmp_file
+             (fun oc -> copy_all ic oc)
+        ) >>= fun () ->
+      rename tmp_file target
+    end
