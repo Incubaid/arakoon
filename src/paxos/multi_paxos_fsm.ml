@@ -141,7 +141,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
       if n' = current_n && i' = current_i
       then Fsm.return (Slave_fake_prepare(current_i, current_n))
       else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
-    | LeaseExpired n' ->
+    | LeaseExpired (n', ls) ->
       if n' = current_n
       then Fsm.return (Slave_fake_prepare(current_i, current_n))
       else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
@@ -585,7 +585,7 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
               (* check lease, if we're inside, drop (how could this have happened?)
                  otherwise, we've lost master role
               *)
-              let run_elections, why = Slave.time_for_elections constants n in
+              let run_elections, why = Slave.time_for_elections constants in
               if not run_elections
               then
                 begin

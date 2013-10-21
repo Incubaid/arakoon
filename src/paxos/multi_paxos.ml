@@ -104,7 +104,7 @@ type quiesce_result =
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
-  | LeaseExpired of Sn.t
+  | LeaseExpired of (Sn.t * float)
   | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
   | Unquiesce
   | ElectionTimeout of Sn.t * Sn.t
@@ -155,7 +155,7 @@ let am_forced_master constants me =
 let is_election constants =
   match constants.master with
     | Elected | Preferred _ -> true
-    | _ -> false
+    | ReadOnly | Forced _ -> false
 
 let make (type s) me is_learner others send receive get_value
       on_accept on_consensus on_witness
@@ -222,27 +222,22 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread constants n expiration =
+let start_lease_expiration_thread (type s) constants n expiration =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let lease_start = match S.who_master constants.store with
+    | None -> 0.0
+    | Some(_, ls) -> ls in
   let sleep_sec = float_of_int expiration in
   let t () =
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
         constants.me sleep_sec >>= fun () ->
       let t0 = Unix.gettimeofday () in
-      let until = t0 +. sleep_sec in
-      let rec sleep_until until current_time =
-        Lwt_unix.sleep (until -. current_time) >>= fun () ->
-        let t1 = Unix.gettimeofday () in
-        if t1 -. until < 0.
-        then
-          sleep_until until t1
-        else
-          Lwt.return_unit in
-      sleep_until until (Unix.gettimeofday ()) >>= fun () ->
+      Lwt_unix.sleep sleep_sec >>= fun () ->
       let t1 = Unix.gettimeofday () in
-      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %s"
-        constants.me (t1 -. t0) sleep_sec (Sn.string_of n) >>= fun () ->
-      constants.inject_event (LeaseExpired n)
+      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %f"
+        constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
+      constants.inject_event (LeaseExpired (n, lease_start))
     end in
   let () = Lwt.ignore_result (t ()) in
   Lwt.return ()

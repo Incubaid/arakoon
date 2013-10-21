@@ -51,13 +51,13 @@ let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i,
           Lwt.return ()
         | _ ->
           begin
-            let inject_lease_expired () =
-              let event = Multi_paxos.LeaseExpired n in
+            let inject_lease_expired ls =
+              let event = Multi_paxos.LeaseExpired (n, ls) in
               Lwt.ignore_result (constants.inject_event event) in
             let module S = (val constants.store_module : Store.STORE with type t = s) in
             let () = match S.who_master constants.store with
               | None ->
-                inject_lease_expired ()
+                inject_lease_expired 0.0
               | Some (_, ls) ->
                 let diff = (Unix.gettimeofday ()) -. ls in
                 if diff >= float constants.lease_expiration
@@ -69,7 +69,7 @@ let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i,
                      by how the LeaseExpired messages are handled in the
                      stable_master state below.
                   *)
-                  inject_lease_expired () in
+                  inject_lease_expired ls in
             Lwt.return ()
           end
     )
@@ -81,7 +81,7 @@ let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i,
 let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current_state) ev =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   match ev with
-    | LeaseExpired n' ->
+    | LeaseExpired (n', ls) ->
       let me = constants.me in
       if n' < n
       then
@@ -100,7 +100,6 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
               let log_e = ELog (fun () ->
                   "stable_master: half-lease_expired, but not renewing lease")
               in
-              (* TODO Is this correct, to initiate handover? *)
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             else
               let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
@@ -123,7 +122,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
               else
                 extend ()
             | _ ->
-              (* prevent explosion of LeaseExpired messages
+              (* prevent memory leak of LeaseExpired messages
                  by ignoring those delivered before halfway through the lease.
                  see comment about injecting LeaseExpired
                  in master_consensus for more info.
@@ -198,7 +197,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                Let's see what's going on, and maybe go back to elections
             *)
             begin
-              let run_elections, why = Slave.time_for_elections constants n in
+              let run_elections, why = Slave.time_for_elections constants in
               if not run_elections
               then
                 begin
