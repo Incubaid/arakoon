@@ -247,15 +247,8 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
         else
           Lwt.return ()
       end >>= fun () ->
-      (* TODO: straighten interface *)
-      let vo = match !acc with
-        | None -> None
-        | Some (i,v) -> Some v
-      in
-      Lwt.return (too_far_i, vo)
-    end >>= fun r ->
-  S.flush store >>= fun () ->
-  Lwt.return r
+      S.flush store
+    end
 
 let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
@@ -263,12 +256,9 @@ let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
   >>= fun () ->
   catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
   Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
-    (Sn.string_of too_far_i)
-  >>= fun () ->
-  catchup_store me dbt too_far_i >>= fun (end_i,vo) ->
-  Logger.info_f_ "CATCHUP end" >>= fun () ->
-  Lwt.return (future_n, end_i,vo)
-
+    (Sn.string_of too_far_i) >>= fun () ->
+  catchup_store me dbt too_far_i >>= fun () ->
+  Logger.info_ "CATCHUP end"
 
 let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
   let io_s = Log_extra.option2s Sn.string_of  in
@@ -276,28 +266,19 @@ let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s)
   Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s"
     (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match ti_o, si_o with
-    | None, None -> Lwt.return (0L,None)
-    | Some 0L, None -> Lwt.return (0L,None)
+    | None, None -> Lwt.return ()
+    | Some 0L, None -> Lwt.return ()
     | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
-      begin
-        let vo = tlog_coll # get_last_value i in
-        Lwt.return (i,vo)
-      end
-    | Some i, Some j when i = j -> Lwt.return ((Sn.succ j),None)
-    | Some i, Some j when i > j ->
-      begin
-	    catchup_store me ((module S),store,tlog_coll) current_i >>= fun (end_i, vo) ->
-	    Lwt.return (end_i,vo)
-      end
+      Lwt.return ()
+    | Some i, Some j when i = j -> Lwt.return ()
+    | Some i, Some j when i > j -> 
+      catchup_store me ((module S),store,tlog_coll) current_i
     | Some i, None ->
-      begin
-	    catchup_store me ((module S),store,tlog_coll) current_i >>= fun (end_i, vo) ->
-	    Lwt.return (end_i,vo)
-      end
+      catchup_store me ((module S),store,tlog_coll) current_i
     | _,_ ->
       let msg = Printf.sprintf
-	    "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"
-	    (io_s ti_o) (io_s si_o)
+        "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"
+        (io_s ti_o) (io_s si_o)
       in
       Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
