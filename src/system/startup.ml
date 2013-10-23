@@ -30,7 +30,7 @@ open Tlogcommon
 
 let section = Logger.Section.main
 
-module LS = (val (Store.make_store_module (module Batched_store.Local_store)))
+module LS = (val (Store.make_store_module (module Mem_store)))
 
 let _make_log_cfg () =
   ("log_cfg",

@@ -69,8 +69,8 @@ let nursery = "nursery" >::: [
 
 let system = "system" >::: [
     Single.force_master;
-    Single.elect_master;(*
-  Startup.suite;*)
+    Single.elect_master;
+    Startup.suite;
     Drop_master.suite;
   ]
 
