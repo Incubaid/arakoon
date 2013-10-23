@@ -470,7 +470,7 @@ let _main_2 (type s)
               tlog_coll # close () >>= fun () ->
               Lwt.fail ex)
 	      >>= fun (new_i, vo) ->
-
+              S.clear_self_master store me.node_name;
 	      let client_buffer =
 	        let capacity = Some (cluster_cfg.client_buffer_capacity) in
 	        Lwt_buffer.create ~capacity () in
