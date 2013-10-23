@@ -469,8 +469,9 @@ let _main_2 (type s)
             (fun ex ->
               tlog_coll # close () >>= fun () ->
               Lwt.fail ex)
-	      >>= fun (new_i, vo) ->
-
+	    >>= fun () ->
+	      let new_i = S.get_succ_store_i store in
+	      let vo = tlog_coll # get_last_value new_i in
 	      let client_buffer =
 	        let capacity = Some (cluster_cfg.client_buffer_capacity) in
 	        Lwt_buffer.create ~capacity () in
