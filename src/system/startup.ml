@@ -30,7 +30,7 @@ open Tlogcommon
 
 let section = Logger.Section.main
 
-module LS = (val (Store.make_store_module (module Batched_store.Local_store)))
+module LS = (val (Store.make_store_module (module Mem_store)))
 
 let _make_log_cfg () =
   ("log_cfg",
@@ -149,14 +149,14 @@ let post_failure () =
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float( Unix.time() ) in
 
-  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
-  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
-  let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0]    node2 in
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
+  let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0]    node2 in
   let eventually_stop () = Lwt_unix.sleep 10.0 
 
   in
   Logger.debug_ "start of scenario" >>= fun () ->
-  Lwt.pick [run_node0 ();
+  Lwt.pick [begin Lwt_unix.sleep 1.0 >>= fun () -> run_node0 () end;
 	    begin Lwt_unix.sleep 5.0 >>= fun () -> run_node1 () end;
 	    run_node2 ();
 	    eventually_stop ()] 
@@ -200,14 +200,14 @@ let restart_slaves () =
     }
   in
   let get_cfgs () = cluster_cfg in 
-  let v0 = Value.create_master_value (node0, 0L) in
+  let v0 = Value.create_master_value (node2, 0L) in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float(Unix.time()) in
   
-  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
-  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
   let eventually_stop() = Lwt_unix.sleep 10.0 in
   Logger.debug_ "start of scenario" >>= fun () ->
