@@ -34,6 +34,7 @@ type rc =
   | E_OUTSIDE_INTERVAL
   | E_GOING_DOWN
   | E_NOT_SUPPORTED
+  | E_NO_LONGER_MASTER
   | E_UNKNOWN_FAILURE
 
 let int32_of_rc = function
@@ -49,6 +50,7 @@ let int32_of_rc = function
   | E_OUTSIDE_INTERVAL    -> 0x09l
   | E_GOING_DOWN          -> 0x10l
   | E_NOT_SUPPORTED       -> 0x20l
+  | E_NO_LONGER_MASTER    -> 0xffl
   | E_UNKNOWN_FAILURE     -> 0xffl
 
 let rc_of_int32 = function
