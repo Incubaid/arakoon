@@ -26,6 +26,15 @@ open Extra
 open OUnit
 open Tlogwriter
 open Update
+
+let _archive_name tlog_name = tlog_name ^ ".aar"
+
+let _tlog_name archive_name =
+  let len = String.length archive_name in
+  let ext = String.sub archive_name (len-4) 4 in
+  assert (ext=".aar");
+  String.sub archive_name 0 (len-4)
+
 let test_compress_file () =
   Logger.info Logger.Section.main "test_compress_file" >>= fun () ->
   let tlog_name = "/tmp/test_compress_file.tlog" in
@@ -45,12 +54,12 @@ let test_compress_file () =
            end
        in loop 0L
     ) >>= fun () ->
-  let archive_name = Compression.archive_name tlog_name in
-  compress_tlog tlog_name archive_name >>= fun () ->
-  let tlog2_name = Compression.tlog_name archive_name in
+  let arch_name = _archive_name tlog_name in
+  compress_tlog ~cancel:(ref false) tlog_name arch_name >>= fun () ->
+  let tlog2_name = _tlog_name arch_name in
   OUnit.assert_equal tlog2_name tlog_name;
   let tlog_name' = (tlog_name ^".restored") in
-  uncompress_tlog archive_name tlog_name'
+  uncompress_tlog arch_name tlog_name'
   >>= fun () ->
   let md5 = Digest.file tlog_name in
   let md5' = Digest.file tlog_name' in

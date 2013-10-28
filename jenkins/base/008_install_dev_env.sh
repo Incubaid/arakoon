@@ -11,6 +11,7 @@ opam pin camltc none || true
 opam install -y ssl
 opam install conf-libev
 opam install -y camlbz2
+opam install -y snappy
 opam install -y "lwt.2.4.3"
 opam install -y "camltc.999"
 opam install -y bisect

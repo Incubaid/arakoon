@@ -32,15 +32,19 @@ exception TLCNotProperlyClosed of string
 
 let section = Logger.Section.main
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|s\\)$"
+
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
-let archive_extension = ".tlf"
-let archive_name c = Printf.sprintf "%03i.tlf" c
+let archive_extension = ".tls"
+let archive_name c = Printf.sprintf "%03i.tls" c
 let head_fname = "head.db"
 
 let get_full_path tlog_dir tlf_dir name =
-  if Filename.check_suffix name ".tlf" || Filename.check_suffix name ".tlf.part"
+  if Filename.check_suffix name ".tls"
+     || Filename.check_suffix name ".tls.part"
+     || Filename.check_suffix name ".tlf"
+     || Filename.check_suffix name ".tlf.part"
   then
     Filename.concat tlf_dir name
   else
@@ -63,7 +67,9 @@ let to_archive_name fn =
 let to_tlog_name fn =
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = archive_extension || extension = ".tlc"
+  if extension = archive_extension
+     || extension = ".tlf"
+     || extension = ".tlc"
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"
@@ -130,12 +136,12 @@ let extension_of filename =
 
 let folder_for filename index =
   let extension = extension_of filename in
-  if extension = ".tlog"
-  then Tlogreader2.AU.fold, extension, index
-  else if extension = archive_extension then Tlogreader2.C.fold, extension, None
-  else if extension = ".tlc" then Tlogreader2.O.fold, extension, None
-  else failwith (Printf.sprintf "no folder for '%s'" extension)
-
+  match extension with
+  | ".tlog" -> Tlogreader2.AU.fold, extension, index
+  | ".tls"  -> Tlogreader2.AS.fold, extension, None
+  | ".tlf"  -> Tlogreader2.AC.fold, extension, None
+  | ".tlc"  -> Tlogreader2.AO.fold, extension, None
+  | _       -> failwith (Printf.sprintf "no folder for '%s'" extension)
 
 let fold_read tlog_dir tlf_dir file_name
       ~index
@@ -163,7 +169,7 @@ let fold_read tlog_dir tlf_dir file_name
             Lwt_io.with_file ~mode:Lwt_io.input full_an
               (fun ic ->
                  let index = None in
-                 Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
+                 Tlogreader2.AS.fold ic ~index lowerI too_far_i ~first a0 f)
           end
         else
           Lwt.fail exn

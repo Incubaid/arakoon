@@ -27,11 +27,15 @@ open Tlogcommon
 
 let section = Logger.Section.main
 
-let uncompress_block compressed =
+let _uncompress_bz2 compressed =
   (* it exploded on the monkey when I did a Lwt_preemptive detach here *)
   let lc = String.length compressed in
   let r = Bz2.uncompress compressed 0 lc in
   Lwt.return r
+
+let _uncompress_snappy compressed =
+  let u = Snappy.uncompress compressed in
+  Lwt.return u
 
 module Index = struct
   type index_r = { filename: string;
@@ -90,7 +94,8 @@ end
 open Tlogcommon
 
 module type TR = sig
-  val fold: Lwt_io.input_channel ->
+  val fold:
+    Lwt_io.input_channel ->
     index:Index.index ->
     Sn.t -> Sn.t option -> first:Sn.t ->
     'a ->
@@ -136,7 +141,8 @@ module U = struct
       then skip_until ic lowerI
       else Lwt.return siu
 
-  let fold ic
+  let fold
+        ic
         ~index
         lowerI
         (too_far_i:Sn.t option)
@@ -178,7 +184,10 @@ end
 
 
 module C = struct
-  let fold ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+  let _fold
+       ~inflate
+        ic ~index
+        (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
     Logger.debug_f_ "C.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)
@@ -246,7 +255,7 @@ module C = struct
         begin
           Logger.debug_f_ "uncompressing: %i bytes"
             (String.length compressed) >>= fun () ->
-          uncompress_block compressed >>= fun buffer ->
+          inflate compressed >>= fun buffer ->
           Logger.debug_f_ "uncompressed size: %i bytes"
             (String.length buffer) >>= fun () ->
           _fold_block a buffer 0 >>= fun a' ->
@@ -255,7 +264,7 @@ module C = struct
     in
     _skip_blocks () >>= fun compressed ->
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    uncompress_block compressed >>= fun buffer ->
+    inflate compressed >>= fun buffer ->
     Logger.debug_f_ "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
@@ -268,10 +277,20 @@ module C = struct
     Logger.debug_ "after_block" >>= fun () ->
     _fold_blocks a1
 
+
+  let fold ic ~index
+           (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+    _fold ~inflate:_uncompress_bz2 ic ~index lowerI too_far_i ~first a0 f
+end
+module S = struct (* snappy based *)
+  let fold ic ~index lowerI too_far_i ~first a0 f =
+    C._fold ~inflate:_uncompress_snappy ic ~index lowerI too_far_i ~first a0 f
 end
 
 module O = struct (* correct but slow folder for .tlc (aka Old) format *)
-  let fold ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+  let _fold
+        ~inflate
+        ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
     Logger.debug_f_ "O.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)
@@ -335,14 +354,14 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
       | Some compressed ->
         begin
           Logger.debug_f_ "compressed: %i" (String.length compressed) >>= fun () ->
-          uncompress_block compressed >>= fun buffer ->
+          inflate compressed >>= fun buffer ->
           _fold_block a buffer 0 >>= fun a' ->
           _fold_blocks a'
         end
     in
     _read_block () >>= fun compressed ->
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    uncompress_block compressed >>= fun buffer ->
+    inflate compressed >>= fun buffer ->
     Logger.debug_f_ "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
@@ -355,8 +374,12 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
     Logger.debug_ "after_block" >>= fun () ->
     _fold_blocks a1
 
+ let fold ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+   _fold ~inflate:_uncompress_bz2
+         ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f
 end
 
 module AU = (U: TR)
 module AC = (C: TR)
 module AO = (O: TR)
+module AS = (S: TR)

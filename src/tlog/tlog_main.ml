@@ -108,12 +108,12 @@ let compress_tlog tlu =
   let failwith x =
     Printf.ksprintf failwith x in
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
-  let tlf = Tlc2.to_archive_name tlu in
-  let () = if Sys.file_exists tlf then failwith "Can't compress %s as %s already exists" tlu tlf in
+  let tlx = Tlc2.to_archive_name tlu in
+  let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in
   let t =
-    let tmp = tlf ^ ".tmp" in
-    Compression.compress_tlog tlu tmp >>= fun () ->
-    File_system.rename tmp tlf >>= fun () ->
+    let tmp = tlx ^ ".tmp" in
+    Compression.compress_tlog ~cancel:(ref false) tlu tmp >>= fun () ->
+    File_system.rename tmp tlx >>= fun () ->
     File_system.unlink tlu
   in
   Lwt_main.run t;
@@ -122,20 +122,26 @@ let compress_tlog tlu =
 let uncompress_tlog tlx =
   let t =
     let extension = Tlc2.extension_of tlx in
-    if extension = Tlc2.archive_extension then
-      begin
-        let tlu = Tlc2.to_tlog_name tlx in
-        Compression.uncompress_tlog tlx tlu >>= fun () ->
-        Unix.unlink tlx;
-        Lwt.return ()
-      end
-    else if extension = ".tlc" then
-      begin
-        let tlu = Tlc2.to_tlog_name tlx in
-        Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
-        Unix.unlink tlx;
-        Lwt.return ()
-      end
-    else Lwt.fail (Failure "unknown file format")
+    let tlu = Tlc2.to_tlog_name tlx in
+    match extension with
+    | e when e = Tlc2.archive_extension ->
+       begin
+         Compression.uncompress_tlog tlx tlu >>= fun () ->
+         Lwt_unix.unlink tlx >>= fun () ->
+         Lwt.return ()
+       end
+    | ".tlc" ->
+       begin
+         Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
+         Lwt_unix.unlink tlx >>= fun () ->
+         Lwt.return ()
+       end
+    | ".tlf" ->
+       begin
+         Compression.uncompress_tlf tlx tlu >>= fun () ->
+         Lwt_unix.unlink tlx >>= fun () ->
+         Lwt.return ()
+       end
+    | _ -> Lwt.fail (Failure "unknown file format")
   in
   Lwt_main.run t;0

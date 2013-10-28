@@ -23,15 +23,20 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Tlogcommon
 
-let archive_name tlog_name = tlog_name ^ ".aar"
-let tlog_name archive_name =
-  let len = String.length archive_name in
-  let ext = String.sub archive_name (len-4) 4 in
-  assert (ext=".aar");
-  String.sub archive_name 0 (len-4)
+let compress_buffer b =
+  Bz2.compress ~block:9 b 0 (String.length b)
 
+let uncompress_buffer b =
+  let lc = String.length b in
+  let output = Bz2.uncompress b 0 lc in
+  output
 
-let compress_tlog ?(cancel=(ref false)) tlog_name archive_name =
+let compress_buffer_2 b = Snappy.compress b
+let uncompress_buffer_2 b = Snappy.uncompress b
+
+let _compress_tlog
+      ?(compress=compress_buffer_2)
+      ?(cancel=(ref false)) tlog_name archive_name =
   let limit = 2 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name
@@ -59,11 +64,7 @@ let compress_tlog ?(cancel=(ref false)) tlog_name archive_name =
             let compress_and_write last_i buffer =
               let contents = Buffer.contents buffer in
               let t0 = Unix.gettimeofday () in
-              Lwt_preemptive.detach
-                (fun () ->
-                   let output = Bz2.compress ~block:9 contents 0 (String.length contents)
-                   in
-                   output) ()
+              Lwt_preemptive.detach (fun () -> compress_buffer_2 contents) ()
               >>= fun output ->
               begin
                 if !cancel
@@ -101,7 +102,8 @@ let compress_tlog ?(cancel=(ref false)) tlog_name archive_name =
          )
     )
 
-let uncompress_tlog archive_name tlog_name =
+let _uncompress_tlog
+      ?(uncompress=uncompress_buffer_2) archive_name tlog_name =
   Lwt_io.with_file ~mode:Lwt_io.input archive_name
     (fun ic ->
        Lwt_io.with_file ~mode:Lwt_io.output tlog_name
@@ -119,12 +121,21 @@ let uncompress_tlog archive_name tlog_name =
               >>= function
               | None -> Lwt.return ()
               | Some compressed ->
-                begin
-                  let lc = String.length compressed in
-                  let output = Bz2.uncompress compressed 0 lc in
-                  let lo = String.length output in
-                  Lwt_io.write_from_exactly oc output 0 lo >>= fun () ->
-                  loop ()
-                end
+                 begin
+                   let output = uncompress_buffer_2 compressed in
+                   let lo = String.length output in
+                   Lwt_io.write_from_exactly oc output 0 lo >>= fun () ->
+                   loop ()
+                 end
             in loop ())
     )
+
+
+let compress_tlog ~cancel tlog_name archive_name =
+  _compress_tlog ~cancel tlog_name archive_name
+
+let uncompress_tlog archive_name tlog_name =
+  _uncompress_tlog archive_name tlog_name
+
+let uncompress_tlf archive_name tlog_name =
+  _uncompress_tlog ~uncompress:uncompress_buffer archive_name tlog_name

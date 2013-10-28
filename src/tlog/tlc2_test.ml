@@ -200,7 +200,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
-  Logger.info_ "have tlc" >>= fun () ->
+  Logger.info_ "have tls" >>= fun () ->
   let sync = false in
   let n = 12 in
   let rec loop i =
@@ -215,7 +215,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
-  File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
+  File_system.stat (tlf_dir ^ "/000.tls") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn "node_name" >>= fun tlc2 ->
@@ -227,7 +227,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   >>= fun () ->
   OUnit.assert_equal
     ~printer:string_of_int
-    ~msg:"tlc has a hole" (n+2) (List.length !entries);
+    ~msg:"tls has a hole" (n+2) (List.length !entries);
   Lwt.return ()
 
 let test_compression_previous (dn, tlf_dir, factory) =
@@ -252,9 +252,10 @@ let test_compression_previous (dn, tlf_dir, factory) =
   tlc # close ~wait_for_compression:true () >>= fun () ->
 
   (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
-  let uncompress tlf =
-    let tlfpath =  (tlf_dir ^ "/" ^ tlf ^ ".tlf") in
-    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlf ^ ".tlog") >>= fun () ->
+  let ext = Tlc2.archive_extension in
+  let uncompress tlx =
+    let tlfpath =  (tlf_dir ^ "/" ^ tlx ^ ext) in
+    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlx ^ ".tlog") >>= fun () ->
     File_system.unlink tlfpath
   in
   let compresseds = ["000"; "001"; "002"; "003"] in
@@ -264,14 +265,14 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   let touch fn =
     let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
-  touch (tlf_dir ^ "/000.tlf.part");
+  touch (tlf_dir ^ "/000" ^ ext ^ "s.part");
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
   tlc2 # close ~wait_for_compression:true () >>= fun () ->
 
-  let verify_exists tlf =
-    File_system.exists (tlf_dir ^ "/" ^ tlf ^ ".tlf") >>= fun exists ->
+  let verify_exists tlx =
+    File_system.exists (tlf_dir ^ "/" ^ tlx ^ ext) >>= fun exists ->
     assert exists;
     Lwt.return () in
   Lwt_list.iter_s verify_exists compresseds >>= fun () ->
