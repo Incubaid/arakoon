@@ -26,26 +26,22 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
-let time_for_elections (type s) constants n' =
+let time_for_elections ?invalidate_lease_start_until (type s) constants =
   begin
     let module S = (val constants.store_module : Store.STORE with type t = s) in
     if S.quiesced constants.store
     then false, "quiesced"
     else
       begin
+        let invalidate_lease_start_until = match invalidate_lease_start_until with
+          | Some x -> x
+          | None -> Unix.gettimeofday () -. (float constants.lease_expiration) in
         let origine,(am,al) =
           match S.who_master constants.store with
             | None         -> "not_in_store", ("None", 0.0)
             | Some (sm,sd) -> "stored", (sm,sd)
         in
-        let now = Unix.gettimeofday () in
-      (*
-           let ns' = Sn.string_of n' in
-           log "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
-      ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
-        *)
-        let diff = now -. al in
-        diff >= (float constants.lease_expiration), Printf.sprintf "diff=%f" diff
+        invalidate_lease_start_until >= al, Printf.sprintf "%f >= %f" invalidate_lease_start_until al
       end
   end
 
@@ -69,18 +65,20 @@ let slave_steady_state (type s) constants state event =
   let (n,i,maybe_previous) = state in
   let store = constants.store in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let handle_timeout n' i' =
-    if (not (is_election constants)) || n' < n || i' < i
+  let handle_timeout ?invalidate_lease_start_until n' i' =
+    if not (is_election constants)
     then
       begin
-        let ns = (Sn.string_of n) and
-          ns' = (Sn.string_of n') in
         let log_e = ELog (fun () ->
-            if n' < n || i' < i
-            then
-              Printf.sprintf "slave_steady_state: Ingoring old lease expiration (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i)
-            else
-              Printf.sprintf "slave_steady_state: Ingoring lease expiration while I still have a master (n'=%s n=%s i'=%s i=%s)" ns' ns (Sn.string_of i') (Sn.string_of i))
+            Printf.sprintf "slave_steady_state: Ignoring old timeout because the master is forced or readonly")
+        in
+        Fsm.return ~sides:[log_e] (Slave_steady_state state)
+      end
+    else if n' < n || i' < i
+    then
+      begin
+        let log_e = ELog (fun () ->
+            Printf.sprintf "slave_steady_state: Ingoring old timeout (n'=%s n=%s i'=%s i=%s)" (Sn.string_of n') (Sn.string_of n) (Sn.string_of i') (Sn.string_of i))
         in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
       end
@@ -92,10 +90,11 @@ let slave_steady_state (type s) constants state event =
       in
       Fsm.return ~sides:[log_e] (Slave_steady_state state)
     else
-      let elections_needed,_ = time_for_elections constants n' in
+      let elections_needed,why = time_for_elections ?invalidate_lease_start_until constants in
       if elections_needed then
         begin
-          let log_e = ELog (fun () -> "slave_steady_state: Elections needed") in
+          let log_e = ELog (fun () ->
+              Printf.sprintf "slave_steady_state: Elections needed because %s" why) in
           let new_n = update_n constants n in
           Fsm.return ~sides:[log_e] (Election_suggest (new_n, 0))
         end
@@ -223,8 +222,8 @@ let slave_steady_state (type s) constants state event =
       end
     | ElectionTimeout (n', i') ->
       handle_timeout n' i'
-    | LeaseExpired n' ->
-      handle_timeout n' i
+    | LeaseExpired (n', lease_start) ->
+      handle_timeout ~invalidate_lease_start_until:lease_start n' i
     | FromClient ufs ->
       begin
         (* there is a window in election
