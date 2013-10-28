@@ -268,6 +268,8 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
+  (* give tlogcollection a little time to create the compression jobs *)
+  Lwt_unix.sleep 1.0 >>= fun () ->
   tlc2 # close ~wait_for_compression:true () >>= fun () ->
 
   let verify_exists tlf =
