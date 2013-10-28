@@ -496,7 +496,7 @@ def test_sabotage():
     logging.info("sleeping fo 10s")
     time.sleep(10)
 
-    size = q.system.fs.fileSize("%s/001.tlf" % node_tlf_dir)
+    size = q.system.fs.fileSize("%s/001.tls" % node_tlf_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
 
@@ -602,9 +602,9 @@ def test_missing_tlog():
     fs = Common.q.system.fs
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlf_full_path = fs.joinPaths (node_tlf_dir, "002.tlf")
-    logging.info("removing %s", tlf_full_path)
-    os.remove(tlf_full_path)
+    tlx_full_path = fs.joinPaths (node_tlf_dir, "002.tls")
+    logging.info("removing %s", tlx_full_path)
+    os.remove(tlx_full_path)
 
 
     Common.startOne(nn)
@@ -648,7 +648,7 @@ def test_missing_tlog():
     f.close()
     ok = False
     for line in tail.split('\n'):
-        if line.find("(found neither 002.tlf nor 002.tlog)"):
+        if line.find("(found neither 002.tls nor 002.tlog)"):
             logging.info("line=%s",line)
             ok = True
 
