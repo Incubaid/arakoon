@@ -2,7 +2,7 @@ We use opam
 
 Some of the packages we use are not in the main opam repository (yet). So it's easiest if you add our devel repo:
 
-opam remote -add devel -kind git git://github.com/Incubaid/opam-repository-devel.git
+opam remote --kind git add devel git://github.com/Incubaid/opam-repository-devel.git
 
 Packages we use:
 
