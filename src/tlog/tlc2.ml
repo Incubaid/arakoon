@@ -37,7 +37,16 @@ let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|s\\)$"
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
 let archive_extension = ".tls"
-let archive_name c = Printf.sprintf "%03i.tls" c
+let archive_name comp c =
+  let x =
+    let open Compression in
+    match comp with
+    | Snappy -> "tls"
+    | Bz2 -> "tlf"
+    | No -> failwith "compression is off"
+  in
+  Printf.sprintf "%03i.%s" c x
+
 let head_fname = "head.db"
 
 let get_full_path tlog_dir tlf_dir name =
@@ -354,8 +363,10 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 
 
 
-class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
-        (last:Entry.t option) (index:Index.index) (use_compression:bool)
+class tlc2
+        ?(compressor=Compression.Snappy)
+        (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
+        (last:Entry.t option) (index:Index.index)
         (node_id:string) (fsync:bool)
   =
   let inner =
@@ -551,19 +562,20 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
             Lwt.return file
 
     method private _add_compression_job old_outer =
-      let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
-      let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
-      let tlc_temp = tlc ^ ".part" in
-      begin
-        if use_compression
-        then
-          let job = (tlu,tlc_temp,tlc) in
-          Logger.info_f_ "adding new task to compression queue %s,%s,%s" tlu tlc_temp tlc >>= fun () ->
-          Lwt_buffer.add job _compression_q
-        else
-          Lwt.return ()
-      end
-
+      let open Compression in
+      match compressor with
+      | Bz2 | Snappy ->
+         begin
+           let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
+           let tlc = get_full_path tlog_dir tlf_dir
+                                   (archive_name compressor old_outer) in
+           let tlc_temp = tlc ^ ".part" in
+           let job = (tlu,tlc_temp,tlc) in
+           Logger.info_f_ "adding new task to compression queue %s,%s,%s"
+                          tlu tlc_temp tlc >>= fun () ->
+           Lwt_buffer.add job _compression_q
+         end
+      | No -> Lwt.return ()
 
     method private _jump_to_tlog file new_outer =
       F.close file >>= fun () ->
@@ -727,34 +739,36 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       Lwt.return (List.length tlogs)
 
     method which_tlog_file (start_i : Sn.t) =
+      let open Compression in
       let n = Sn.to_int (get_file_number start_i) in
-      let an = archive_name n
+      let an0 = archive_name Snappy n
+      and an1 = archive_name Bz2 n
       and fn = file_name n
       in
-      let an_c = get_full_path tlog_dir tlf_dir an in
+      let an0_c = get_full_path tlog_dir tlf_dir an0 in
+      let an1_c = get_full_path tlog_dir tlf_dir an1 in
       let fn_c = get_full_path tlog_dir tlf_dir fn
       in
-      File_system.exists an_c >>= function
-      | true -> Lwt.return (Some an_c)
-      | false ->
-        begin
-          File_system.exists fn_c >>= function
-          | true -> Lwt.return (Some fn_c)
-          | false -> Lwt.return None
-        end
+      let rec loop = function
+        | []     -> Lwt.return None
+        | x::xs  -> File_system.exists x >>=
+                      (function
+                        | true -> Lwt.return (Some x)
+                        | false -> loop xs)
+      in
+      loop [an0_c;an1_c;fn_c]
+
 
     method dump_tlog_file start_i oc =
-      let n = Sn.to_int (get_file_number start_i) in
-      let an = archive_name n in
-      let fn = file_name n  in
-      begin
-        File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
-        | true -> Lwt.return an
-        | false -> Lwt.return fn
-      end
-      >>= fun name ->
-      let canonical = get_full_path tlog_dir tlf_dir name in
+      self # which_tlog_file start_i >>= fun co ->
+      let canonical = match co with
+        | Some fn -> fn
+        | None -> let n = Sn.to_int (get_file_number start_i) in
+                  let fn = file_name n in
+                  get_full_path tlog_dir tlf_dir fn
+      in
       Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
+      let name = Filename.basename canonical in
       Llio.output_string oc name >>= fun () ->
       File_system.stat canonical >>= fun stats ->
       let length = Int64.of_int(stats.Unix.st_size)
@@ -827,7 +841,8 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
          uncompress the .tlf into .tlog and remove it.
       *)
       let pc = new_c - 1 in
-      let tlc_name = get_full_path tlog_dir tlf_dir (archive_name pc) in
+      let tlc_name = get_full_path tlog_dir tlf_dir
+                                   (archive_name Compression.default pc) in
       let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
@@ -844,7 +859,7 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
+let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
@@ -856,7 +871,7 @@ let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index use_compression node_id fsync in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id fsync in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with

@@ -59,7 +59,7 @@ module Node_cfg = struct
             is_learner : bool;
             is_witness : bool;
             targets : string list;
-            use_compression : bool;
+            compressor : Compression.compressor;
             fsync : bool;
             is_test : bool;
             reporting: int;
@@ -77,7 +77,7 @@ module Node_cfg = struct
         "log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
-        "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
+        "targets=%s; compressor=%s; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
         "tls_cert=%s; tls_key=%s; " ^^
         "}"
@@ -91,7 +91,9 @@ module Node_cfg = struct
       t.log_level (_so2s t.log_config)
       (_so2s t.batched_transaction_config) t.lease_period
       (master2s t.master) t.is_laggy t.is_learner t.is_witness
-      (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
+      (list2s (fun s -> s) t.targets)
+      (Compression.compressor2s t.compressor)
+      t.fsync t.is_test
       t.reporting
       (_so2s t.tls_cert) (_so2s t.tls_key)
 
@@ -207,7 +209,7 @@ module Node_cfg = struct
         is_learner = false;
         is_witness = false;
         targets = [];
-        use_compression = true;
+        compressor = Compression.default;
         fsync = false;
         is_test = true;
         reporting = 300;
@@ -413,7 +415,20 @@ module Node_cfg = struct
     let is_laggy = get_bool "laggy" in
     let is_learner = get_bool "learner" in
     let is_witness = get_bool "witness" in
-    let use_compression = not (get_bool "disable_tlog_compression") in
+    let compressor =
+      if get_bool "disable_tlog_compression"
+      then Compression.No
+      else
+        begin
+          let s = Ini.get inifile node_name "compressor" Ini.p_string
+                          (Ini.default "snappy")
+          in
+          match String.lowercase s with
+          | "snappy" -> Compression.Snappy
+          | "bz2"    -> Compression.Bz2
+          | _        -> failwith (Printf.sprintf "no compressor named %s" s)
+        end
+    in
     let fsync = Ini.get inifile node_name "fsync" Ini.p_bool (Ini.default true) in
     let targets =
       if is_learner
@@ -449,7 +464,7 @@ module Node_cfg = struct
      is_learner;
      is_witness;
      targets;
-     use_compression;
+     compressor;
      fsync;
      is_test = false;
      reporting;

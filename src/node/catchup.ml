@@ -267,7 +267,7 @@ let catchup_store ~stop (type s) me
               | None ->
                 let n = tlog_coll # get_tlog_from_i ssi in
                 let ni = Sn.to_int n in
-                let an = Tlc2.archive_name ni
+                let an = Tlc2.archive_name Compression.default ni
                 and fn = Tlc2.file_name ni
                 in
                 Lwt.return

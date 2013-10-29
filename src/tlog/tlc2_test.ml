@@ -32,7 +32,8 @@ let section = Logger.Section.main
 
 let create_test_tlc dn =
   let tlf_dir = (dn ^ "_tlf") in
-  Tlc2.make_tlc2 dn tlf_dir tlf_dir true false
+  let compressor = Compression.default in
+  Tlc2.make_tlc2 dn tlf_dir tlf_dir ~compressor false
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
 let prepare_tlog_scenarios (dn,factory) =
