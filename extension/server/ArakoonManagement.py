@@ -561,7 +561,7 @@ class ArakoonCluster:
         Disables tlog compression for the given nodes
         @param nodes List of node names
         """
-        self._setTlogCompression(self,nodes,"none")
+        self._setTlogCompression(nodes,"none")
 
     def _changeFsync(self, nodes, value):
         if nodes is None:

@@ -421,17 +421,17 @@ def test_3_nodes_2_slaves_down ():
 
 
 
-@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown )
 def test_disable_tlog_compression():
     """
-    assert we can disable tlog compression (eta: 460s)
+    assert we can disable tlog compression (eta: 25s)
     """
     clu = _getCluster()
     clu.disableTlogCompression()
     clu.restart()
     time.sleep(1.0)
 
-    tlog_size = Common.get_entries_per_tlog()
+    tlog_size = 1000 # mini
 
     num_tlogs = 2
     test_size = num_tlogs*tlog_size
@@ -602,7 +602,7 @@ def test_missing_tlog():
     fs = Common.q.system.fs
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlx_full_path = fs.joinPaths (node_tlf_dir, "002.tls")
+    tlx_full_path = fs.joinPaths (node_tlf_dir, "002.tlf")
     logging.info("removing %s", tlx_full_path)
     os.remove(tlx_full_path)
 
