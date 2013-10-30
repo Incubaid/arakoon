@@ -496,7 +496,7 @@ def test_sabotage():
     logging.info("sleeping fo 10s")
     time.sleep(10)
 
-    size = q.system.fs.fileSize("%s/001.tls" % node_tlf_dir)
+    size = q.system.fs.fileSize("%s/001.tlf" % node_tlf_dir)
     logging.info("file_size = %i", size)
     assert_true(size > 1024 * 5)
 

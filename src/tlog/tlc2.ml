@@ -831,7 +831,7 @@ let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, get_full_path tlog_dir tlf_dir (file_name new_c))
 
-let maybe_correct tlog_dir tlf_dir new_c last index node_id =
+let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
   if new_c > 0 && last = None
   then
     begin
@@ -843,7 +843,7 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
       *)
       let pc = new_c - 1 in
       let tlc_name = get_full_path tlog_dir tlf_dir
-                                   (archive_name Compression.default pc) in
+                                   (archive_name compressor pc) in
       let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
@@ -864,7 +864,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
-  maybe_correct tlog_dir tlf_dir new_c last index node_id >>= fun (new_c,last,new_index) ->
+  maybe_correct tlog_dir tlf_dir new_c last index node_id compressor >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
     match last with
