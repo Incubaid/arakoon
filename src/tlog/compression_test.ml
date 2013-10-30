@@ -27,12 +27,12 @@ open OUnit
 open Tlogwriter
 open Update
 
-let _archive_name tlog_name = tlog_name ^ ".aar"
+let _archive_name tlog_name = tlog_name ^ ".tls"
 
 let _tlog_name archive_name =
   let len = String.length archive_name in
   let ext = String.sub archive_name (len-4) 4 in
-  assert (ext=".aar");
+  assert (ext=".tls");
   String.sub archive_name 0 (len-4)
 
 let test_compress_file () =
