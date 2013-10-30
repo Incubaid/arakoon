@@ -420,13 +420,14 @@ module Node_cfg = struct
       then Compression.No
       else
         begin
-          let s = Ini.get inifile node_name "compressor" Ini.p_string
-                          (Ini.default "snappy")
+          let s = Ini.get inifile node_name "tlog_compression" Ini.p_string
+                          (Ini.default "bz2")
           in
           match String.lowercase s with
-          | "snappy" -> Compression.Snappy
-          | "bz2"    -> Compression.Bz2
-          | _        -> failwith (Printf.sprintf "no compressor named %s" s)
+          | "snappy"  -> Compression.Snappy
+          | "bz2"     -> Compression.Bz2
+          | "none"    -> Compression.No
+          | _         -> failwith (Printf.sprintf "no compressor named %s" s)
         end
     in
     let fsync = Ini.get inifile node_name "fsync" Ini.p_bool (Ini.default true) in

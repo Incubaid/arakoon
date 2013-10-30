@@ -35,19 +35,19 @@ let compressor2s = function
 
 let default = Snappy
 
-let compress_buffer b =
+let compress_bz2 b =
   Bz2.compress ~block:9 b 0 (String.length b)
 
-let uncompress_buffer b =
+let uncompress_bz2 b =
   let lc = String.length b in
   let output = Bz2.uncompress b 0 lc in
   output
 
-let compress_buffer_2 b = Snappy.compress b
-let uncompress_buffer_2 b = Snappy.uncompress b
+let compress_snappy b = Snappy.compress b
+let uncompress_snappy b = Snappy.uncompress b
 
 let _compress_tlog
-      ?(compress=compress_buffer_2)
+      ~compress
       ?(cancel=(ref false)) tlog_name archive_name =
   let limit = 2 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
@@ -76,7 +76,7 @@ let _compress_tlog
             let compress_and_write last_i buffer =
               let contents = Buffer.contents buffer in
               let t0 = Unix.gettimeofday () in
-              Lwt_preemptive.detach (fun () -> compress_buffer_2 contents) ()
+              Lwt_preemptive.detach (fun () -> compress contents) ()
               >>= fun output ->
               begin
                 if !cancel
@@ -115,7 +115,7 @@ let _compress_tlog
     )
 
 let _uncompress_tlog
-      ?(uncompress=uncompress_buffer_2) archive_name tlog_name =
+      ~uncompress archive_name tlog_name =
   Lwt_io.with_file ~mode:Lwt_io.input archive_name
     (fun ic ->
        Lwt_io.with_file ~mode:Lwt_io.output tlog_name
@@ -134,7 +134,7 @@ let _uncompress_tlog
               | None -> Lwt.return ()
               | Some compressed ->
                  begin
-                   let output = uncompress_buffer_2 compressed in
+                   let output = uncompress compressed in
                    let lo = String.length output in
                    Lwt_io.write_from_exactly oc output 0 lo >>= fun () ->
                    loop ()
@@ -143,11 +143,20 @@ let _uncompress_tlog
     )
 
 
-let compress_tlog ~cancel tlog_name archive_name =
-  _compress_tlog ~cancel tlog_name archive_name
+let compress_tlog ~cancel tlog_name archive_name compressor=
+  let c = match compressor with
+  | Bz2 -> compress_bz2
+  | Snappy -> compress_snappy
+  | No -> failwith "compressor is 'No'"
+  in _compress_tlog ~compress:c ~cancel tlog_name archive_name
 
 let uncompress_tlog archive_name tlog_name =
-  _uncompress_tlog archive_name tlog_name
-
-let uncompress_tlf archive_name tlog_name =
-  _uncompress_tlog ~uncompress:uncompress_buffer archive_name tlog_name
+  let len = String.length archive_name in
+  let suffix = String.sub archive_name (len - 4) 4
+  in
+  let u = match suffix with
+    | ".tlf" -> uncompress_bz2
+    | ".tls" -> uncompress_snappy
+    | _ -> failwith (Printf.sprintf "invalid archive name %s" archive_name)
+  in
+  _uncompress_tlog ~uncompress:u archive_name tlog_name

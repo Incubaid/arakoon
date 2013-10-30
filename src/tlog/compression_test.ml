@@ -55,7 +55,8 @@ let test_compress_file () =
        in loop 0L
     ) >>= fun () ->
   let arch_name = _archive_name tlog_name in
-  compress_tlog ~cancel:(ref false) tlog_name arch_name >>= fun () ->
+  compress_tlog ~cancel:(ref false) tlog_name arch_name Compression.default
+  >>= fun () ->
   let tlog2_name = _tlog_name arch_name in
   OUnit.assert_equal tlog2_name tlog_name;
   let tlog_name' = (tlog_name ^".restored") in

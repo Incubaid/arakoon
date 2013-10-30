@@ -415,7 +415,7 @@ class tlc2
 
 
     method private start_compression_loop () =
-      let compress_one tlu tlc_temp tlc =
+      let compress_one tlu tlc_temp tlc compressor =
         let try_unlink fn =
           Lwt.catch
             (fun () ->
@@ -447,7 +447,8 @@ class tlc2
                 Lwt.return ()
             end >>= fun () ->
             Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
+            >>= fun () ->
             File_system.rename tlc_temp tlc >>= fun () ->
             try_unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
@@ -456,10 +457,10 @@ class tlc2
 
       let rec loop () =
         Logger.info_ "Taking job from compression queue..." >>= fun () ->
-        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
+        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc, compressor) ->
         let () = _compressing <- true in
         Lwt.catch
-          (fun () -> compress_one tlu tlc_temp tlc)
+          (fun () -> compress_one tlu tlc_temp tlc compressor)
           (function
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
@@ -570,7 +571,7 @@ class tlc2
            let tlc = get_full_path tlog_dir tlf_dir
                                    (archive_name compressor old_outer) in
            let tlc_temp = tlc ^ ".part" in
-           let job = (tlu,tlc_temp,tlc) in
+           let job = (tlu,tlc_temp,tlc,compressor) in
            Logger.info_f_ "adding new task to compression queue %s,%s,%s"
                           tlu tlc_temp tlc >>= fun () ->
            Lwt_buffer.add job _compression_q

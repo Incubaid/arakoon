@@ -34,7 +34,7 @@ import time
 import logging
 import subprocess
 import threading
-
+import os
 
 
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
@@ -164,3 +164,49 @@ def test_download_db_with_load():
     t0.join()
     t1.join()
     t2.join()
+
+@with_custom_setup(C.setup_2_nodes_mini, C.basic_teardown)
+def test_mixed_tlog_formats():
+    cluster = C._getCluster()
+    cluster.disableFsync(C.node_names[:2])
+    s0 = 10500
+    logging.info("going to do %i sets",s0)
+    C.iterate_n_times(s0,C.simple_set)
+    C.stop_all()
+    cluster.enableTlogCompression(compressor = 'snappy')
+
+    C.start_all()
+    logging.info("another %i sets", s0)
+    C.iterate_n_times(s0,C.simple_set)
+    C.stop_all()
+
+    # do we have both .tlf and .tls files?
+    n0 = C.node_names[0]
+    n1 = C.node_names[1]
+    config = C.getConfig(n0)
+
+    tlx_dir = config.get('tlf_dir')
+    if not tlx_dir:
+        tlx_dir = config.get('home')
+    files = os.listdir(tlx_dir)
+
+    tls = filter(lambda x:x.endswith(".tls"), files)
+    tlf = filter(lambda x:x.endswith(".tlf"), files)
+    assert_true(len(tls) > 0, "we should have .tls files" )
+    assert_true(len(tlf) > 0, "we should have .tlf files" )
+    # does catchup still work?
+
+    C.wipe(n0)
+    C.startOne(n1)
+
+    #wait for n1 to respond to client requests...
+    time.sleep(5)
+
+
+    rc = cluster.catchupOnly(n0)
+    logging.info("catchup had rc=%i", rc)
+
+    C.stop_all()
+
+
+    C.compare_stores(n0,n1)
