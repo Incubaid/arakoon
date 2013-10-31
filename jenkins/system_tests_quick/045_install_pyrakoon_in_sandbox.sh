@@ -10,6 +10,8 @@ popd
 ln -s `pwd`/pyrakoon/pyrakoon /opt/qbase3/lib/python/site-packages/pyrakoon
 
 /opt/qbase3/bin/python << EOF
+import inspect
+
 import arakoon
 import pyrakoon
 
