@@ -26,6 +26,7 @@ open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
+
 open Tlogreader2
 
 exception TLCNotProperlyClosed of string
@@ -36,16 +37,30 @@ let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|s\\)$"
 
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
-let archive_extension = ".tls"
+
+let extension comp =
+  let open Compression in
+  match comp with
+    | Snappy -> ".tls"
+    | Bz2 -> ".tlf"
+    | No -> ".tlog"
+
 let archive_name comp c =
-  let x =
-    let open Compression in
-    match comp with
-    | Snappy -> "tls"
-    | Bz2 -> "tlf"
-    | No -> failwith "compression is off"
-  in
-  Printf.sprintf "%03i.%s" c x
+  let x = extension comp in
+  Printf.sprintf "%03i%s" c x
+
+
+let to_archive_name comp fn =
+  let length = String.length fn in
+  let ext = String.sub fn (length -5) 5 in
+  if ext = ".tlog"
+  then
+    let root = String.sub fn 0 (length -5) in
+    let e = extension comp in
+    root ^ e
+  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" ext)
+
+
 
 let head_fname = "head.db"
 
@@ -59,30 +74,40 @@ let get_full_path tlog_dir tlf_dir name =
   else
     Filename.concat tlog_dir name
 
+
+let find_tlog_file tlog_dir tlf_dir c =
+  let open Compression in
+  let f0 = archive_name Snappy c in
+  let f1 = archive_name Bz2 c in
+  let f2 = file_name c in
+  let rec _find = function
+    | [] -> Lwt.fail (Failure (Printf.sprintf "no tlog file for %3i" c))
+    | f :: fs ->
+       let full = get_full_path tlog_dir tlf_dir f in
+       File_system.exists full >>= fun ok ->
+       if ok
+       then Lwt.return full
+       else _find fs
+  in
+  _find [f0;f1;f2]
+
 let head_name () = head_fname
 
 let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
 
-let to_archive_name fn =
-  let length = String.length fn in
-  let extension = String.sub fn (length -5) 5 in
-  if extension = ".tlog"
-  then
-    let root = String.sub fn 0 (length -5) in
-    root ^ archive_extension
-  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" extension)
+
 
 
 let to_tlog_name fn =
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = archive_extension
+  if extension = ".tls"
      || extension = ".tlf"
      || extension = ".tlc"
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"
-  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '%s'" extension archive_extension)
+  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tls .tlf .tls" extension)
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -170,15 +195,14 @@ let fold_read tlog_dir tlf_dir file_name
         if extension = ".tlog"
         then (* file might have moved meanwhile *)
           begin
-            Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
+            Logger.debug_f_ "%s became archive" file_name
             >>= fun () ->
-            let an = to_archive_name file_name in
-            let full_an = get_full_path tlog_dir tlf_dir an in
-            Logger.debug_f_ "folding compressed %s" an >>= fun () ->
+            let c = get_number file_name in
+            find_tlog_file tlog_dir tlf_dir c >>= fun full_an ->
+            let real_folder,_,_ = folder_for full_an None in
+            Logger.debug_f_ "folding compressed %s" full_an >>= fun () ->
             Lwt_io.with_file ~mode:Lwt_io.input full_an
-              (fun ic ->
-                 let index = None in
-                 Tlogreader2.AS.fold ic ~index lowerI too_far_i ~first a0 f)
+              (fun ic -> real_folder ic ~index:None lowerI too_far_i ~first a0 f)
           end
         else
           Lwt.fail exn

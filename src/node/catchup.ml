@@ -267,12 +267,9 @@ let catchup_store ~stop (type s) me
               | None ->
                 let n = tlog_coll # get_tlog_from_i ssi in
                 let ni = Sn.to_int n in
-                let an = Tlc2.archive_name Compression.default ni
-                and fn = Tlc2.file_name ni
-                in
                 Lwt.return
                   (Printf.sprintf
-                     "%s (found neither %s nor %s)" msg  an fn)
+                     "%s (found tlog nor archive for %3i)" msg ni)
               | Some _ -> Lwt.return msg
             else
               Lwt.return msg

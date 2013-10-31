@@ -104,15 +104,20 @@ let make_tlog tlog_name (i:int) =
   Lwt_main.run t;0
 
 
-let compress_tlog tlu =
+let compress_tlog tlu archive_type=
+  let compressor =
+    match archive_type with
+    | ".tls" | "tls" -> Compression.Snappy
+    | _ -> Compression.Bz2
+  in
   let failwith x =
     Printf.ksprintf failwith x in
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
-  let tlx = Tlc2.to_archive_name tlu in
+  let tlx = Tlc2.to_archive_name compressor tlu in
   let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in
   let t =
     let tmp = tlx ^ ".tmp" in
-    Compression.compress_tlog ~cancel:(ref false) tlu tmp Compression.default
+    Compression.compress_tlog ~cancel:(ref false) tlu tmp compressor
     >>= fun () ->
     File_system.rename tmp tlx >>= fun () ->
     File_system.unlink tlu
@@ -122,27 +127,8 @@ let compress_tlog tlu =
 
 let uncompress_tlog tlx =
   let t =
-    let extension = Tlc2.extension_of tlx in
     let tlu = Tlc2.to_tlog_name tlx in
-    match extension with
-    | e when e = Tlc2.archive_extension ->
-       begin
-         Compression.uncompress_tlog tlx tlu >>= fun () ->
-         Lwt_unix.unlink tlx >>= fun () ->
-         Lwt.return ()
-       end
-    | ".tlc" ->
-       begin
-         Tlc_compression.tlc2tlog tlx tlu >>= fun () ->
-         Lwt_unix.unlink tlx >>= fun () ->
-         Lwt.return ()
-       end
-    | ".tlf" ->
-       begin
-         Compression.uncompress_tlog tlx tlu >>= fun () ->
-         Lwt_unix.unlink tlx >>= fun () ->
-         Lwt.return ()
-       end
-    | _ -> Lwt.fail (Failure "unknown file format")
+    Compression.uncompress_tlog tlx tlu >>= fun () ->
+    Lwt_unix.unlink tlx
   in
   Lwt_main.run t;0

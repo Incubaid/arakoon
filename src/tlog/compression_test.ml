@@ -26,16 +26,10 @@ open Extra
 open OUnit
 open Tlogwriter
 open Update
+let section = Logger.Section.main
 
-let _archive_name tlog_name = tlog_name ^ ".tls"
-
-let _tlog_name archive_name =
-  let len = String.length archive_name in
-  let ext = String.sub archive_name (len-4) 4 in
-  assert (ext=".tls");
-  String.sub archive_name 0 (len-4)
-
-let test_compress_file () =
+let test_compress_file which () =
+  let archive_name, compressor, _tlog_name = which in
   Logger.info Logger.Section.main "test_compress_file" >>= fun () ->
   let tlog_name = "/tmp/test_compress_file.tlog" in
   Lwt_io.with_file tlog_name ~mode:Lwt_io.output
@@ -54,11 +48,12 @@ let test_compress_file () =
            end
        in loop 0L
     ) >>= fun () ->
-  let arch_name = _archive_name tlog_name in
-  compress_tlog ~cancel:(ref false) tlog_name arch_name Compression.default
+  let arch_name = archive_name tlog_name in
+  compress_tlog ~cancel:(ref false) tlog_name arch_name compressor
   >>= fun () ->
   let tlog2_name = _tlog_name arch_name in
-  OUnit.assert_equal tlog2_name tlog_name;
+  Logger.debug_f_ "comparing %s with %s" tlog2_name tlog_name >>= fun ()->
+  OUnit.assert_equal ~printer:(fun s -> s) tlog2_name tlog_name;
   let tlog_name' = (tlog_name ^".restored") in
   uncompress_tlog arch_name tlog_name'
   >>= fun () ->
@@ -69,6 +64,21 @@ let test_compress_file () =
 
 let w= lwt_test_wrap
 
-let suite = "bzip" >:::[
-    "compress_file" >:: w (test_compress_file);
-  ];;
+let bz2 =
+  let archive_name x = x ^ ".tls"
+  and compressor = Compression.Snappy
+  and tlog_name a = Filename.chop_extension a
+  in
+  (archive_name, compressor, tlog_name)
+
+let snappy =
+  let archive_name x = x ^ ".tlf"
+  and compressor = Compression.Bz2
+  and tlog_name a = Filename.chop_extension a
+  in
+  (archive_name, compressor, tlog_name)
+
+let suite = "compression" >:::[
+    "file_bz2" >:: w (test_compress_file bz2);
+    "file_snappy" >::w (test_compress_file snappy);
+  ]

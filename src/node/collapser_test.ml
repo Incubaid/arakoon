@@ -25,7 +25,7 @@ open OUnit
 open Update
 
 let section = Logger.Section.main
-let compressor = Compression.default
+let compressor = Compression.Snappy
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 

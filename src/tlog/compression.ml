@@ -33,8 +33,6 @@ let compressor2s = function
   | Bz2 -> "Bz2"
   | Snappy -> "Snappy"
 
-let default = Snappy
-
 let compress_bz2 b =
   Bz2.compress ~block:9 b 0 (String.length b)
 

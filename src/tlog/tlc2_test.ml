@@ -32,7 +32,7 @@ let section = Logger.Section.main
 
 let create_test_tlc dn =
   let tlf_dir = (dn ^ "_tlf") in
-  let compressor = Compression.default in
+  let compressor = Compression.Snappy in
   Tlc2.make_tlc2 dn tlf_dir tlf_dir ~compressor false
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
@@ -102,8 +102,9 @@ let test_iterate4 (dn, tlf_dir, factory) =
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
-  Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
-  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ Tlc2.archive_extension) in
+  Lwt_unix.sleep 3.0 >>= fun () -> (* TODO: compression should have callback *)
+  let extension = Tlc2.extension Compression.Snappy in
+  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ extension) in
   Unix.unlink fnc;
   (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
@@ -253,7 +254,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   tlc # close ~wait_for_compression:true () >>= fun () ->
 
   (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
-  let ext = Tlc2.archive_extension in
+  let ext = Tlc2.extension Compression.Snappy in
   let uncompress tlx =
     let tlfpath =  (tlf_dir ^ "/" ^ tlx ^ ext) in
     Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlx ^ ".tlog") >>= fun () ->

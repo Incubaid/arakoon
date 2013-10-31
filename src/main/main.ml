@@ -195,6 +195,7 @@ let main () =
   and tls_cert = ref ""
   and tls_key = ref ""
   and force = ref false
+  and archive_type = ref ".tlf"
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -252,6 +253,8 @@ let main () =
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
+    ("-archive", Arg.Set_string archive_type,
+     "either '.tlf' or '.tls'");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
                                     Arg.Set_string filename],
      "<filename> : uncompress a tlog file");
@@ -388,7 +391,7 @@ let main () =
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
-    | CompressTlog -> Tlog_main.compress_tlog !filename
+    | CompressTlog -> Tlog_main.compress_tlog !filename !archive_type
     | UncompressTlog -> Tlog_main.uncompress_tlog !filename
     | SET -> Client_main.set ~tls !config_file !key !value
     | GET -> Client_main.get ~tls !config_file !key

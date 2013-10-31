@@ -116,12 +116,19 @@ let test_get_value_bug (dn, tlf_dir, factory) =
 
 let test_regexp (dn, tlf_dir, factory) =
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
-  let fns = ["001.tlog";
-             "000" ^ Tlc2.archive_extension;
-             "000" ^ Tlc2.archive_extension ^ ".part"] in
-  let test fn = Str.string_match Tlc2.file_regexp fn 0 in
-  let results = List.map test fns in
-  List.iter2 (fun cr er -> OUnit.assert_equal cr er) results [true;true;false];
+  let open Compression in
+  let tests = ["001.tlog", true;
+             "000" ^ Tlc2.extension Snappy, true;
+             "000" ^ Tlc2.extension Snappy ^ ".part", false;
+             "000" ^ Tlc2.extension Bz2, true;
+             "000" ^ Tlc2.extension Bz2  ^ ".part", false;
+            ]
+  in
+  let test (fn,e) =
+    let r = Str.string_match Tlc2.file_regexp fn 0 in
+    OUnit.assert_equal r e
+  in
+  List.iter test tests;
   Lwt.return ()
 
 let test_restart (dn, tlf_dir, factory) =
