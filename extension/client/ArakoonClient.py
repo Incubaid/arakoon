@@ -25,10 +25,10 @@ try:
 except ImportError:
     from pylabs import q
 
-from arakoon.ArakoonProtocol import ArakoonClientConfig
 from arakoon import Nursery
 
 from pyrakoon import compat
+from pyrakoon.compat import ArakoonClientConfig
 
 class ArakoonClientExtConfig:
     """
