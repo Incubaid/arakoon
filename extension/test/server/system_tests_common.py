@@ -70,12 +70,9 @@ import os
 import random
 import threading
 import time
-import arakoon.ArakoonProtocol
 import logging
 
 
-
-from arakoon.ArakoonExceptions import *
 
 if __name__ == "__main__" :
     from pymonkey import InitBase
