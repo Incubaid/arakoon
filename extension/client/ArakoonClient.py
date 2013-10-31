@@ -25,9 +25,10 @@ try:
 except ImportError:
     from pylabs import q
 
-from arakoon import Arakoon 
 from arakoon.ArakoonProtocol import ArakoonClientConfig
 from arakoon import Nursery
+
+from pyrakoon import compat
 
 class ArakoonClientExtConfig:
     """
@@ -211,7 +212,7 @@ class ArakoonClient:
             
     def getClient(self, clusterId, configName=None):
         config = self._getClientConfig(clusterId, configName)
-        return Arakoon.ArakoonClient(config)
+        return compat.ArakoonClient(config)
 
     def listClients(self):
         """
