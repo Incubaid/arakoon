@@ -44,117 +44,138 @@ let uncompress_bz2 b =
 let compress_snappy b = Snappy.compress b
 let uncompress_snappy b = Snappy.uncompress b
 
+
+let format_snappy = "snappy"
+let read_format ic = function
+  | Snappy -> Llio.input_string ic >>= fun s ->
+              if s = format_snappy
+              then Lwt.return ()
+              else Lwt.fail (Failure "format error")
+  | _      -> Lwt.return ()
+
+
+let write_format oc = function
+  | Snappy -> Llio.output_string oc format_snappy
+  | _ -> Lwt.return ()
+
+
 let _compress_tlog
-      ~compress
+      ~compressor
       ?(cancel=(ref false)) tlog_name archive_name =
   let limit = 2 * 1024 * 1024 (* 896 * 1024  *)in
   let buffer_size = limit + (64 * 1024) in
+  let compress = match compressor with
+    | Bz2 -> compress_bz2
+    | Snappy -> compress_snappy
+    | No -> failwith "compressor is 'No'"
+  in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name
     (fun ic ->
        Lwt_io.with_file ~mode:Lwt_io.output archive_name
          (fun oc ->
-            let rec fill_buffer (buffer:Buffer.t) (last_i:Sn.t) (counter:int) =
-              Lwt.catch
-                (fun () ->
-                   Tlogcommon.read_entry ic >>= fun (entry:Entry.t) ->
-                   let i = Entry.i_of entry
-                   and v = Entry.v_of entry
-                   in
-                   Tlogcommon.entry_to buffer i v;
-                   let (last_i':Sn.t) = if i > last_i then i else last_i in
-                   if Buffer.length buffer < limit || counter = 0
-                   then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
-                   else Lwt.return (last_i',counter)
-                )
-                (function
-                  | End_of_file -> Lwt.return (last_i,counter)
-                  | exn -> Lwt.fail exn
-                )
-            in
-            let compress_and_write last_i buffer =
-              let contents = Buffer.contents buffer in
-              let t0 = Unix.gettimeofday () in
-              Lwt_preemptive.detach (fun () -> compress contents) ()
-              >>= fun output ->
+          write_format oc compressor >>= fun () ->
+          let rec fill_buffer (buffer:Buffer.t) (last_i:Sn.t) (counter:int) =
+            Lwt.catch
+              (fun () ->
+               Tlogcommon.read_entry ic >>= fun (entry:Entry.t) ->
+               let i = Entry.i_of entry
+               and v = Entry.v_of entry
+               in
+               Tlogcommon.entry_to buffer i v;
+               let (last_i':Sn.t) = if i > last_i then i else last_i in
+               if Buffer.length buffer < limit || counter = 0
+               then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
+               else Lwt.return (last_i',counter)
+              )
+              (function
+                | End_of_file -> Lwt.return (last_i,counter)
+                | exn -> Lwt.fail exn
+              )
+          in
+          let compress_and_write last_i buffer =
+            let contents = Buffer.contents buffer in
+            let t0 = Unix.gettimeofday () in
+            Lwt_preemptive.detach (fun () -> compress contents) ()
+            >>= fun output ->
+            begin
+              if !cancel
+              then Lwt.fail Canceled
+              else Lwt.return ()
+            end >>= fun () ->
+            let t1 = Unix.gettimeofday() in
+            let d = t1 -. t0 in
+            let cl = String.length contents in
+            let ol = String.length output in
+            let factor = (float cl) /. (float ol) in
+            Logger.debug_f Logger.Section.main "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor
+            >>= fun () ->
+            Llio.output_int64 oc last_i >>= fun () ->
+            Llio.output_string oc output >>= fun () ->
+            let sleep = 2.0 *. d in
+            Logger.debug_f Logger.Section.main "compression: sleeping %f" sleep >>= fun () ->
+            Lwt_unix.sleep sleep
+          in
+          let buffer = Buffer.create buffer_size in
+          let rec loop () =
+            fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
+            if counter = 0
+            then Lwt.return ()
+            else
               begin
-                if !cancel
-                then
-                  Lwt.fail Canceled
-                else
-                  Lwt.return ()
-              end >>= fun () ->
-              let t1 = Unix.gettimeofday() in
-              let d = t1 -. t0 in
-              let cl = String.length contents in
-              let ol = String.length output in
-              let factor = (float cl) /. (float ol) in
-              Logger.debug_f Logger.Section.main "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor
-              >>= fun () ->
-              Llio.output_int64 oc last_i >>= fun () ->
-              Llio.output_string oc output >>= fun () ->
-              let sleep = 2.0 *. d in
-              Logger.debug_f Logger.Section.main "compression: sleeping %f" sleep >>= fun () ->
-              Lwt_unix.sleep sleep
-            in
-            let buffer = Buffer.create buffer_size in
-            let rec loop () =
-              fill_buffer buffer (-1L) 0 >>= fun (last_i,counter) ->
-              if counter = 0
-              then Lwt.return ()
-              else
-                begin
-                  compress_and_write last_i buffer >>= fun () ->
-                  let () = Buffer.clear buffer in
-                  loop ()
-                end
-            in
-            loop ()
+                compress_and_write last_i buffer >>= fun () ->
+                let () = Buffer.clear buffer in
+                loop ()
+              end
+          in
+          loop ()
          )
     )
 
 let _uncompress_tlog
-      ~uncompress archive_name tlog_name =
+      ~compressor archive_name tlog_name =
+  let uncompress = match compressor with
+    | Snappy -> uncompress_snappy
+    | Bz2    -> uncompress_bz2
+    | No     -> failwith "No compressor"
+  in
   Lwt_io.with_file ~mode:Lwt_io.input archive_name
     (fun ic ->
-       Lwt_io.with_file ~mode:Lwt_io.output tlog_name
-         (fun oc ->
-            let rec loop () =
-              Lwt.catch
-                (fun () ->
-                   Sn.input_sn ic >>= fun last_i ->
-                   Llio.input_string ic >>= fun compressed ->
-                   Lwt.return (Some compressed))
-                (function
-                  | End_of_file -> Lwt.return None
-                  | exn -> Lwt.fail exn
-                )
-              >>= function
-              | None -> Lwt.return ()
-              | Some compressed ->
-                 begin
-                   let output = uncompress compressed in
-                   let lo = String.length output in
-                   Lwt_io.write_from_exactly oc output 0 lo >>= fun () ->
-                   loop ()
-                 end
-            in loop ())
+     read_format ic compressor >>= fun () ->
+     Lwt_io.with_file ~mode:Lwt_io.output tlog_name
+        (fun oc ->
+         let rec loop () =
+           Lwt.catch
+             (fun () ->
+              Sn.input_sn ic >>= fun last_i ->
+              Llio.input_string ic >>= fun compressed ->
+              Lwt.return (Some compressed))
+             (function
+               | End_of_file -> Lwt.return None
+               | exn -> Lwt.fail exn
+             )
+           >>= function
+             | None -> Lwt.return ()
+             | Some compressed ->
+                begin
+                  let output = uncompress compressed in
+                  let lo = String.length output in
+                  Lwt_io.write_from_exactly oc output 0 lo >>= fun () ->
+                  loop ()
+                end
+         in loop ())
     )
 
 
 let compress_tlog ~cancel tlog_name archive_name compressor=
-  let c = match compressor with
-  | Bz2 -> compress_bz2
-  | Snappy -> compress_snappy
-  | No -> failwith "compressor is 'No'"
-  in _compress_tlog ~compress:c ~cancel tlog_name archive_name
+  _compress_tlog ~compressor ~cancel tlog_name archive_name
 
 let uncompress_tlog archive_name tlog_name =
   let len = String.length archive_name in
   let suffix = String.sub archive_name (len - 4) 4
   in
-  let u = match suffix with
-    | ".tlf" -> uncompress_bz2
-    | ".tls" -> uncompress_snappy
+  let compressor = match suffix with
+    | ".tlf" -> Bz2
+    | ".tls" -> Snappy
     | _ -> failwith (Printf.sprintf "invalid archive name %s" archive_name)
   in
-  _uncompress_tlog ~uncompress:u archive_name tlog_name
+  _uncompress_tlog ~compressor archive_name tlog_name

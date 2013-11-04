@@ -282,8 +282,10 @@ module C = struct
            (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
     _fold ~inflate:_uncompress_bz2 ic ~index lowerI too_far_i ~first a0 f
 end
+
 module S = struct (* snappy based *)
   let fold ic ~index lowerI too_far_i ~first a0 f =
+    Compression.read_format ic Compression.Snappy >>= fun () ->
     C._fold ~inflate:_uncompress_snappy ic ~index lowerI too_far_i ~first a0 f
 end
 
