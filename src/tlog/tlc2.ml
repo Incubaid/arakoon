@@ -114,6 +114,11 @@ let get_number fn =
   let pre = String.sub fn 0 dot_pos in
   int_of_string pre
 
+let extension_of filename =
+  let len = String.length filename in
+  let dot_pos = String.rindex filename '.' in
+  String.sub filename dot_pos (len - dot_pos)
+
 let get_tlog_names tlog_dir tlf_dir =
   let get_entries dir invalid_dir_exn =
     Lwt.catch
@@ -142,18 +147,27 @@ let get_tlog_names tlog_dir tlf_dir =
     let n1 = get_number fn1
     and n2 = get_number fn2 in
     if n1 = n2
-    then compare fn1 fn2
+       (* make .tls < .tlf < .tlog , so we can filter later*)
+    then
+      let fn1x = extension_of fn1
+      and fn2x = extension_of fn2
+         in
+         let order x = match x with
+           | ".tls"  -> 1
+           | ".tlf"  -> 2
+           | ".tlog" -> 3
+           | _       -> 4
+         in compare (order fn1x) (order fn2x)
     else compare n1 n2
   in
   let sorted = List.sort my_compare filtered in
-  (* This code is based on ordering of the list, and 'tlf' being 'less than' 'tlog' *)
   let filtered2 = List.fold_left
                     (fun acc name ->
                        match acc with
                          | [] -> name :: acc
                          | prev :: rest ->
-                           if get_number prev = get_number name (* both x.tlf and x.tlog present *)
-                           then prev :: rest (* prefer .tlf over .tlog *)
+                           if get_number prev = get_number name
+                           then prev :: rest (* smaller is better *)
                            else name :: acc
                     ) [] sorted
   in
@@ -162,11 +176,6 @@ let get_tlog_names tlog_dir tlf_dir =
   Lwt_list.iter_s log_e sorted2 >>= fun () ->
   Lwt.return sorted2
 
-let extension_of filename =
-  let lm = String.length filename - 1 in
-  let dot_pos = String.rindex_from filename lm '.' in
-  let len = lm - dot_pos +1 in
-  String.sub filename dot_pos len
 
 let folder_for filename index =
   let extension = extension_of filename in
