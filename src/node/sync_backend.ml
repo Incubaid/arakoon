@@ -95,6 +95,7 @@ struct
     Logger.log_ section lvl (fun () -> Printf.sprintf "rendezvous (%s) took %f" (Update.update2s update) t) >>= fun () ->
     match r with
       | Store.Update_fail (rc,str) -> Lwt.fail (XException(rc,str))
+      | Store.Lost_master -> Lwt.fail Canceled
       | Store.Ok so -> Lwt.return (so_post so)
 
 

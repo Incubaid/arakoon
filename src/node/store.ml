@@ -67,6 +67,7 @@ class transaction = object end
 
 type update_result =
   | Ok of string option
+  | Lost_master
   | Update_fail of Arakoon_exc.rc * string
 
 exception Key_not_found of string
