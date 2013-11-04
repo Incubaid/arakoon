@@ -267,7 +267,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   let touch fn =
     let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
-  touch (tlf_dir ^ "/000" ^ ext ^ "s.part");
+  touch (tlf_dir ^ "/000" ^ ext ^ ".part");
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
