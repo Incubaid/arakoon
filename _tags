@@ -11,6 +11,7 @@ true: package(str)
 true: package(camltc)
 true: package(dynlink)
 true: pp(camlp4of)
+true: package(snappy)
 "doc": include
 "src":include
 "src/tools":include

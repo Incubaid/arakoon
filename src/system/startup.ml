@@ -67,7 +67,7 @@ let _make_cfg name n lease_period =
     is_learner = false;
     is_witness = false;
     targets = [];
-    use_compression = true;
+    compressor = Compression.Snappy;
     fsync = false;
     is_test = true;
     reporting = 300;
@@ -75,8 +75,9 @@ let _make_cfg name n lease_period =
     tls_key = None;
   }
 
-let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync node_id =
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir use_compression node_id >>= fun tlc ->
+let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
+                    fsync node_id =
+  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir true node_id >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
     | v :: vs ->

@@ -32,7 +32,8 @@ let section = Logger.Section.main
 
 let create_test_tlc dn =
   let tlf_dir = (dn ^ "_tlf") in
-  Tlc2.make_tlc2 dn tlf_dir tlf_dir true false
+  let compressor = Compression.Snappy in
+  Tlc2.make_tlc2 dn tlf_dir tlf_dir ~compressor false
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
 let prepare_tlog_scenarios (dn,factory) =
@@ -101,8 +102,9 @@ let test_iterate4 (dn, tlf_dir, factory) =
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = Value.create_client_value [Update.Set("test_iterate4","xxx")] false in
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
-  Lwt_unix.sleep 3.0 >>= fun () -> (* compression should have callback *)
-  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ Tlc2.archive_extension) in
+  Lwt_unix.sleep 3.0 >>= fun () -> (* TODO: compression should have callback *)
+  let extension = Tlc2.extension Compression.Snappy in
+  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ extension) in
   Unix.unlink fnc;
   (* remove 000.tlog & 000.tlf ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
@@ -200,7 +202,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
-  Logger.info_ "have tlc" >>= fun () ->
+  Logger.info_ "have tls" >>= fun () ->
   let sync = false in
   let n = 12 in
   let rec loop i =
@@ -215,7 +217,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
-  File_system.stat (tlf_dir ^ "/000.tlf") >>= fun stat ->
+  File_system.stat (tlf_dir ^ "/000.tls") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn "node_name" >>= fun tlc2 ->
@@ -227,7 +229,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   >>= fun () ->
   OUnit.assert_equal
     ~printer:string_of_int
-    ~msg:"tlc has a hole" (n+2) (List.length !entries);
+    ~msg:"tls has a hole" (n+2) (List.length !entries);
   Lwt.return ()
 
 let test_compression_previous (dn, tlf_dir, factory) =
@@ -252,9 +254,10 @@ let test_compression_previous (dn, tlf_dir, factory) =
   tlc # close ~wait_for_compression:true () >>= fun () ->
 
   (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
-  let uncompress tlf =
-    let tlfpath =  (tlf_dir ^ "/" ^ tlf ^ ".tlf") in
-    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlf ^ ".tlog") >>= fun () ->
+  let ext = Tlc2.extension Compression.Snappy in
+  let uncompress tlx =
+    let tlfpath =  (tlf_dir ^ "/" ^ tlx ^ ext) in
+    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlx ^ ".tlog") >>= fun () ->
     File_system.unlink tlfpath
   in
   let compresseds = ["000"; "001"; "002"; "003"] in
@@ -264,7 +267,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   let touch fn =
     let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
-  touch (tlf_dir ^ "/000.tlf.part");
+  touch (tlf_dir ^ "/000" ^ ext ^ ".part");
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
@@ -272,8 +275,8 @@ let test_compression_previous (dn, tlf_dir, factory) =
   Lwt_unix.sleep 1.0 >>= fun () ->
   tlc2 # close ~wait_for_compression:true () >>= fun () ->
 
-  let verify_exists tlf =
-    File_system.exists (tlf_dir ^ "/" ^ tlf ^ ".tlf") >>= fun exists ->
+  let verify_exists tlx =
+    File_system.exists (tlf_dir ^ "/" ^ tlx ^ ext) >>= fun exists ->
     assert exists;
     Lwt.return () in
   Lwt_list.iter_s verify_exists compresseds >>= fun () ->

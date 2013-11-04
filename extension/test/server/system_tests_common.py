@@ -267,6 +267,7 @@ def get_tlog_count (node_id ):
     tlogs =      ls( node_home_dir, filter="*.tlog" )
     tlogs.extend(ls( node_home_dir, filter="*.tlc" ) )
     tlogs.extend(ls( node_home_dir, filter="*.tlf" ) )
+    tlogs.extend(ls( node_home_dir, filter="*.tls" ) )
     return len(tlogs)
 
 def get_last_tlog_id ( node_id ):
@@ -680,6 +681,10 @@ def setup_1_node_forced_master (home_dir):
 def setup_3_nodes_mini(home_dir):
     extra = {'__tainted_tlog_entries_per_file':'1000'}
     setup_n_nodes( 3, False, home_dir, extra)
+
+def setup_2_nodes_mini(home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes(2, False, home_dir, extra)
 
 def setup_3_nodes_mini_forced_master(home_dir):
     extra = {'__tainted_tlog_entries_per_file':'1000'}

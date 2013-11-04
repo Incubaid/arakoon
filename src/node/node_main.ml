@@ -214,8 +214,10 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   S.make_store ~lcnum:cluster_cfg.lcnum
     ~ncnum:cluster_cfg.ncnum
     db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir
-    me.use_compression me.fsync name >>= fun tlc ->
+  let compressor = me.compressor in
+  make_tlog_coll ~compressor
+                 me.tlog_dir me.tlf_dir me.head_dir
+                 me.fsync name >>= fun tlc ->
   let current_i = match S.consensus_i store with
     | None -> Sn.start
     | Some i -> i
@@ -350,7 +352,8 @@ end
 
 let _main_2 (type s)
       (module S : Store.STORE with type t = s)
-      make_tlog_coll make_config get_snapshot_name ~name
+      make_tlog_coll
+      make_config get_snapshot_name ~name
       ~daemonize ~catchup_only stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
@@ -504,7 +507,10 @@ let _main_2 (type s)
               | e -> raise e
             )
           >>= fun () ->
-          make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
+          let compressor = me.compressor in
+          make_tlog_coll ~compressor
+                         me.tlog_dir me.tlf_dir me.head_dir
+                         me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let lcnum = cluster_cfg.lcnum
           and ncnum = cluster_cfg.ncnum
@@ -818,7 +824,9 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
 
 let test_t make_config name stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
-  let make_tlog_coll = fun a b _ d -> Mem_tlogcollection.make_mem_tlog_collection a b d in
+  let make_tlog_coll ~compressor =
+    Mem_tlogcollection.make_mem_tlog_collection
+  in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in

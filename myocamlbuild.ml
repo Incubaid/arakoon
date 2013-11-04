@@ -37,7 +37,7 @@ let branch_version = run_cmd "git describe --all"
 
 let machine = run_cmd "uname -mnrpio"
 
-let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc'";;
+let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc\\|snappy'"
 
 let split s ch =
   let x = ref [] in

@@ -26,48 +26,88 @@ open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
+
 open Tlogreader2
 
 exception TLCNotProperlyClosed of string
 
 let section = Logger.Section.main
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|s\\)$"
+
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
-let archive_extension = ".tlf"
-let archive_name c = Printf.sprintf "%03i.tlf" c
+
+let extension comp =
+  let open Compression in
+  match comp with
+    | Snappy -> ".tls"
+    | Bz2 -> ".tlf"
+    | No -> ".tlog"
+
+let archive_name comp c =
+  let x = extension comp in
+  Printf.sprintf "%03i%s" c x
+
+
+let to_archive_name comp fn =
+  let length = String.length fn in
+  let ext = String.sub fn (length -5) 5 in
+  if ext = ".tlog"
+  then
+    let root = String.sub fn 0 (length -5) in
+    let e = extension comp in
+    root ^ e
+  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" ext)
+
+
+
 let head_fname = "head.db"
 
 let get_full_path tlog_dir tlf_dir name =
-  if Filename.check_suffix name ".tlf" || Filename.check_suffix name ".tlf.part"
+  if Filename.check_suffix name ".tls"
+     || Filename.check_suffix name ".tls.part"
+     || Filename.check_suffix name ".tlf"
+     || Filename.check_suffix name ".tlf.part"
   then
     Filename.concat tlf_dir name
   else
     Filename.concat tlog_dir name
 
+
+let find_tlog_file tlog_dir tlf_dir c =
+  let open Compression in
+  let f0 = archive_name Snappy c in
+  let f1 = archive_name Bz2 c in
+  let f2 = file_name c in
+  let rec _find = function
+    | [] -> Lwt.fail (Failure (Printf.sprintf "no tlog file for %3i" c))
+    | f :: fs ->
+       let full = get_full_path tlog_dir tlf_dir f in
+       File_system.exists full >>= fun ok ->
+       if ok
+       then Lwt.return full
+       else _find fs
+  in
+  _find [f0;f1;f2]
+
 let head_name () = head_fname
 
 let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
 
-let to_archive_name fn =
-  let length = String.length fn in
-  let extension = String.sub fn (length -5) 5 in
-  if extension = ".tlog"
-  then
-    let root = String.sub fn 0 (length -5) in
-    root ^ archive_extension
-  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" extension)
+
 
 
 let to_tlog_name fn =
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = archive_extension || extension = ".tlc"
+  if extension = ".tls"
+     || extension = ".tlf"
+     || extension = ".tlc"
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"
-  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be '%s'" extension archive_extension)
+  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tls .tlf .tls" extension)
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -130,12 +170,12 @@ let extension_of filename =
 
 let folder_for filename index =
   let extension = extension_of filename in
-  if extension = ".tlog"
-  then Tlogreader2.AU.fold, extension, index
-  else if extension = archive_extension then Tlogreader2.C.fold, extension, None
-  else if extension = ".tlc" then Tlogreader2.O.fold, extension, None
-  else failwith (Printf.sprintf "no folder for '%s'" extension)
-
+  match extension with
+  | ".tlog" -> Tlogreader2.AU.fold, extension, index
+  | ".tls"  -> Tlogreader2.AS.fold, extension, None
+  | ".tlf"  -> Tlogreader2.AC.fold, extension, None
+  | ".tlc"  -> Tlogreader2.AO.fold, extension, None
+  | _       -> failwith (Printf.sprintf "no folder for '%s'" extension)
 
 let fold_read tlog_dir tlf_dir file_name
       ~index
@@ -155,15 +195,14 @@ let fold_read tlog_dir tlf_dir file_name
         if extension = ".tlog"
         then (* file might have moved meanwhile *)
           begin
-            Logger.debug_f_ "%s became %s meanwhile " file_name archive_extension
+            Logger.debug_f_ "%s became archive" file_name
             >>= fun () ->
-            let an = to_archive_name file_name in
-            let full_an = get_full_path tlog_dir tlf_dir an in
-            Logger.debug_f_ "folding compressed %s" an >>= fun () ->
+            let c = get_number file_name in
+            find_tlog_file tlog_dir tlf_dir c >>= fun full_an ->
+            let real_folder,_,_ = folder_for full_an None in
+            Logger.debug_f_ "folding compressed %s" full_an >>= fun () ->
             Lwt_io.with_file ~mode:Lwt_io.input full_an
-              (fun ic ->
-                 let index = None in
-                 Tlogreader2.AC.fold ic ~index lowerI too_far_i ~first a0 f)
+              (fun ic -> real_folder ic ~index:None lowerI too_far_i ~first a0 f)
           end
         else
           Lwt.fail exn
@@ -348,8 +387,10 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 
 
 
-class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
-        (last:Entry.t option) (index:Index.index) (use_compression:bool)
+class tlc2
+        ?(compressor=Compression.Snappy)
+        (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
+        (last:Entry.t option) (index:Index.index)
         (node_id:string) (fsync:bool)
   =
   let inner =
@@ -398,7 +439,7 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
 
 
     method private start_compression_loop () =
-      let compress_one tlu tlc_temp tlc =
+      let compress_one tlu tlc_temp tlc compressor =
         let try_unlink fn =
           Lwt.catch
             (fun () ->
@@ -430,7 +471,8 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
                 Lwt.return ()
             end >>= fun () ->
             Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog ~cancel:_closing tlu tlc_temp >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
+            >>= fun () ->
             File_system.rename tlc_temp tlc >>= fun () ->
             try_unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
@@ -439,10 +481,10 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
 
       let rec loop () =
         Logger.info_ "Taking job from compression queue..." >>= fun () ->
-        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc) ->
+        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc, compressor) ->
         let () = _compressing <- true in
         Lwt.catch
-          (fun () -> compress_one tlu tlc_temp tlc)
+          (fun () -> compress_one tlu tlc_temp tlc compressor)
           (function
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
@@ -545,19 +587,20 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
             Lwt.return file
 
     method private _add_compression_job old_outer =
-      let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
-      let tlc = get_full_path tlog_dir tlf_dir (archive_name old_outer) in
-      let tlc_temp = tlc ^ ".part" in
-      begin
-        if use_compression
-        then
-          let job = (tlu,tlc_temp,tlc) in
-          Logger.info_f_ "adding new task to compression queue %s,%s,%s" tlu tlc_temp tlc >>= fun () ->
-          Lwt_buffer.add job _compression_q
-        else
-          Lwt.return ()
-      end
-
+      let open Compression in
+      match compressor with
+      | Bz2 | Snappy ->
+         begin
+           let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
+           let tlc = get_full_path tlog_dir tlf_dir
+                                   (archive_name compressor old_outer) in
+           let tlc_temp = tlc ^ ".part" in
+           let job = (tlu,tlc_temp,tlc,compressor) in
+           Logger.info_f_ "adding new task to compression queue %s,%s,%s"
+                          tlu tlc_temp tlc >>= fun () ->
+           Lwt_buffer.add job _compression_q
+         end
+      | No -> Lwt.return ()
 
     method private _jump_to_tlog file new_outer =
       F.close file >>= fun () ->
@@ -721,34 +764,36 @@ class tlc2 (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
       Lwt.return (List.length tlogs)
 
     method which_tlog_file (start_i : Sn.t) =
+      let open Compression in
       let n = Sn.to_int (get_file_number start_i) in
-      let an = archive_name n
+      let an0 = archive_name Snappy n
+      and an1 = archive_name Bz2 n
       and fn = file_name n
       in
-      let an_c = get_full_path tlog_dir tlf_dir an in
+      let an0_c = get_full_path tlog_dir tlf_dir an0 in
+      let an1_c = get_full_path tlog_dir tlf_dir an1 in
       let fn_c = get_full_path tlog_dir tlf_dir fn
       in
-      File_system.exists an_c >>= function
-      | true -> Lwt.return (Some an_c)
-      | false ->
-        begin
-          File_system.exists fn_c >>= function
-          | true -> Lwt.return (Some fn_c)
-          | false -> Lwt.return None
-        end
+      let rec loop = function
+        | []     -> Lwt.return None
+        | x::xs  -> File_system.exists x >>=
+                      (function
+                        | true -> Lwt.return (Some x)
+                        | false -> loop xs)
+      in
+      loop [an0_c;an1_c;fn_c]
+
 
     method dump_tlog_file start_i oc =
-      let n = Sn.to_int (get_file_number start_i) in
-      let an = archive_name n in
-      let fn = file_name n  in
-      begin
-        File_system.exists (get_full_path tlog_dir tlf_dir an) >>= function
-        | true -> Lwt.return an
-        | false -> Lwt.return fn
-      end
-      >>= fun name ->
-      let canonical = get_full_path tlog_dir tlf_dir name in
+      self # which_tlog_file start_i >>= fun co ->
+      let canonical = match co with
+        | Some fn -> fn
+        | None -> let n = Sn.to_int (get_file_number start_i) in
+                  let fn = file_name n in
+                  get_full_path tlog_dir tlf_dir fn
+      in
       Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
+      let name = Filename.basename canonical in
       Llio.output_string oc name >>= fun () ->
       File_system.stat canonical >>= fun stats ->
       let length = Int64.of_int(stats.Unix.st_size)
@@ -810,7 +855,7 @@ let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, get_full_path tlog_dir tlf_dir (file_name new_c))
 
-let maybe_correct tlog_dir tlf_dir new_c last index node_id =
+let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
   if new_c > 0 && last = None
   then
     begin
@@ -821,7 +866,8 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
          uncompress the .tlf into .tlog and remove it.
       *)
       let pc = new_c - 1 in
-      let tlc_name = get_full_path tlog_dir tlf_dir (archive_name pc) in
+      let tlc_name = get_full_path tlog_dir tlf_dir
+                                   (archive_name compressor pc) in
       let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
       Logger.warning_ "Sabotage!" >>= fun () ->
       Logger.info_f_ "Counter Sabotage: decompress %s into %s"
@@ -838,11 +884,11 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id =
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
+let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
-  maybe_correct tlog_dir tlf_dir new_c last index node_id >>= fun (new_c,last,new_index) ->
+  maybe_correct tlog_dir tlf_dir new_c last index node_id compressor >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
     match last with
@@ -850,7 +896,7 @@ let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index use_compression node_id fsync in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id fsync in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
