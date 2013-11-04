@@ -22,6 +22,11 @@ libbz2:
     status: we use the OS installed version
     linking: dynamic
 
+snappy:
+    License: BSD New
+    status: we use the OS installed version
+    linking: dynamic
+
 for everything in this repository, except for the above, the following license applies:
 
 see COPYING
