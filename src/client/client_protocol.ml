@@ -89,10 +89,12 @@ let handle_exception oc exn=
     match exn with
       | XException(Arakoon_exc.E_NOT_FOUND, msg) ->
         Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, false, Logger.Debug)
-      | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
-        Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error)
       | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
         Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Logger.Debug)
+      | XException(Arakoon_exc.E_NO_LONGER_MASTER, msg) ->
+        Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, false, Logger.Debug)
+      | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
+        Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error)
       | XException(rc, msg) ->
         Lwt.return (rc,msg, false, true, Logger.Error)
       | Not_found ->

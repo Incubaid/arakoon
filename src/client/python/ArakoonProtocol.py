@@ -298,6 +298,7 @@ ARA_ERR_RANGE_ERROR         = 9
 ARA_ERR_GOING_DOWN          = 16
 ARA_ERR_ASSERTEXISTS_FAILED = 17
 ARA_ERR_NOT_SUPPORTED       = 0x20
+ARA_ERR_NO_LONGER_MASTER    = 0x21
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -706,6 +707,8 @@ class ArakoonProtocol :
             raise ArakoonNotFound(errorMsg)
         if errorCode == ARA_ERR_NOT_MASTER:
             raise ArakoonNodeNotMaster()
+        if errorCode == ARA_ERR_NO_LONGER_MASTER:
+            raise ArakoonNodeNoLongerMaster()
         if errorCode == ARA_ERR_ASSERTION_FAILED:
             raise ArakoonAssertionFailed(errorMsg)
         if errorCode == ARA_ERR_ASSERTEXISTS_FAILED:

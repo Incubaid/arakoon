@@ -430,13 +430,9 @@ let lost_master_role = function
   | Some finished_funs ->
     begin
       let msg = "lost master role during wait_for_accepteds while handling client request" in
-      let rc = Arakoon_exc.E_NOT_MASTER in
+      let rc = Arakoon_exc.E_NO_LONGER_MASTER in
       let result = Store.Update_fail (rc, msg) in
-      let rec loop = function
-        | [] -> Lwt.return ()
-        | f::ffs -> f result >>= fun () -> loop ffs
-      in
-      loop finished_funs
+      Lwt_list.iter_s (fun f -> f result) finished_funs
     end
 
 let accepteds_check_done constants ((ms,ballot)as state) () =
