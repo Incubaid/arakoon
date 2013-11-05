@@ -31,7 +31,7 @@ let section = Logger.Section.main
 
 let setup factory test_name () =
   let dn = Printf.sprintf "/tmp/%s" test_name in
-  let tlf_dir = Printf.sprintf "%s_tlf" dn in
+  let tlf_dir = Printf.sprintf "%s_tlx" dn in
   Logger.info_f_ "setup %s" dn >>= fun () ->
   let make_dir dir =
     File_system.mkdir dir 0o755 >>= fun () ->
