@@ -121,7 +121,6 @@ class sync_backend = fun cfg
 				    "value too large"))
   in
 object(self: #backend)
-  val instantiation_time = Int64.of_float (Unix.time())
   val witnessed = Hashtbl.create 10
   val _stats = Statistics.create ()
   val mutable client_cfgs = None
@@ -379,22 +378,18 @@ object(self: #backend)
     let mo = self # _who_master () in
     let result,argumentation =
       match mo with
-	| None -> None,"young cluster"
-	| Some (m,ls) ->
-	  match Node_cfg.get_master cfg with
-	    | Elected | Preferred _ ->
-	      begin
-	      if (m = my_name ) && (ls < instantiation_time)
-	      then None, (Printf.sprintf "%Li considered invalid lease from previous incarnation" ls)
-	      else
-		let now = Int64.of_float (Unix.time()) in
-		let diff = Int64.sub now ls in
-		if diff < Int64.of_int lease_expiration then
-		  (Some m,"inside lease")
-		else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
-	      end
-	    | Forced x -> Some x,"forced master"
-	    | ReadOnly -> Some my_name, "readonly"
+      | None -> None,"young cluster"
+      | Some (m,ls) ->
+        match Node_cfg.get_master cfg with
+        | Elected | Preferred _ | Forced _ ->
+          begin
+            let now = Int64.of_float (Unix.time()) in
+            let diff = Int64.sub now ls in
+            if diff < Int64.of_int lease_expiration then
+              (Some m,"inside lease")
+            else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now) 
+          end
+        | ReadOnly -> Some my_name, "readonly"
 
     in
     Logger.debug_f_ "who_master: returning %s because %s"

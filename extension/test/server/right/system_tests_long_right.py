@@ -81,7 +81,7 @@ def test_expect_progress_fixed_master ():
     except:
         pass
     Common.restart_all()
-    time.sleep(1.0)
+    cli.set('','')
     assert_true( cli.expectProgressPossible(),
                  "Master store counter is ahead of slave" )
 

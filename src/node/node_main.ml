@@ -472,6 +472,7 @@ let _main_2 (type s)
 	    >>= fun () ->
 	      let new_i = S.get_succ_store_i store in
 	      let vo = tlog_coll # get_last_value new_i in
+              S.clear_self_master store me.node_name;
 	      let client_buffer =
 	        let capacity = Some (cluster_cfg.client_buffer_capacity) in
 	        Lwt_buffer.create ~capacity () in
