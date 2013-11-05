@@ -30,7 +30,7 @@ let section = Logger.Section.main
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _dir_name = "/tmp/catchup_test"
-let _tlf_dir = "/tmp/catchup_test/tlf"
+let _tlx_dir = "/tmp/catchup_test/tlx"
 
 let _fill tlog_coll n =
   let sync = false in
@@ -105,17 +105,17 @@ let ignore_ex f =
 
 let setup () =
   Logger.info_ "Catchup_test.setup" >>= fun () ->
-  ignore_ex (fun () -> File_system.rmdir _tlf_dir) >>= fun () ->
+  ignore_ex (fun () -> File_system.rmdir _tlx_dir) >>= fun () ->
   ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 ) >>= fun () ->
-  ignore_ex (fun () -> File_system.mkdir  _tlf_dir 0o750 )
+  ignore_ex (fun () -> File_system.mkdir  _tlx_dir 0o750 )
 
 
 
 let test_common () =
   Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 ~compressor:Compression.Snappy
-                 _dir_name _tlf_dir _tlf_dir
+                 _dir_name _tlx_dir _tlx_dir
                  false "node_name" >>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
@@ -138,13 +138,13 @@ let teardown () =
              ignore_ex (fun () -> Lwt_unix.unlink fn)) entries
       )
       (fun exn -> Logger.debug_ ~exn "ignoring" ) in
-  clean_dir _tlf_dir >>= fun () ->
+  clean_dir _tlx_dir >>= fun () ->
   clean_dir _dir_name >>= fun () ->
   Logger.debug_ "end of teardown"
 
 let _tic (type s) filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
-  Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlf_dir _tlf_dir
+  Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
                  false "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let tlog_i = Sn.of_int n in

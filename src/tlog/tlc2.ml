@@ -33,7 +33,7 @@ exception TLCNotProperlyClosed of string
 
 let section = Logger.Section.main
 
-let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|s\\)$"
+let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|x\\)$"
 
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_name c = Printf.sprintf "%03i.tlog" c
@@ -41,7 +41,7 @@ let file_name c = Printf.sprintf "%03i.tlog" c
 let extension comp =
   let open Compression in
   match comp with
-    | Snappy -> ".tls"
+    | Snappy -> ".tlx"
     | Bz2 -> ".tlf"
     | No -> ".tlog"
 
@@ -65,8 +65,8 @@ let to_archive_name comp fn =
 let head_fname = "head.db"
 
 let get_full_path tlog_dir tlf_dir name =
-  if Filename.check_suffix name ".tls"
-     || Filename.check_suffix name ".tls.part"
+  if Filename.check_suffix name ".tlx"
+     || Filename.check_suffix name ".tlx.part"
      || Filename.check_suffix name ".tlf"
      || Filename.check_suffix name ".tlf.part"
   then
@@ -101,13 +101,13 @@ let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
 let to_tlog_name fn =
   let length = String.length fn in
   let extension = String.sub fn (length -4) 4 in
-  if extension = ".tls"
+  if extension = ".tlx"
      || extension = ".tlf"
      || extension = ".tlc"
   then
     let root = String.sub fn 0 (length -4) in
     root ^ ".tlog"
-  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tls .tlf .tls" extension)
+  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tlc .tlf .tlx" extension)
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -119,7 +119,7 @@ let extension_of filename =
   let dot_pos = String.rindex filename '.' in
   String.sub filename dot_pos (len - dot_pos)
 
-let get_tlog_names tlog_dir tlf_dir =
+let get_tlog_names tlog_dir tlx_dir =
   let get_entries dir invalid_dir_exn =
     Lwt.catch
       (fun () ->
@@ -133,11 +133,11 @@ let get_tlog_names tlog_dir tlf_dir =
         | exn -> Lwt.fail exn
       ) in
   get_entries tlog_dir (Node_cfg.InvalidTlogDir tlog_dir) >>= fun tlog_entries ->
-  (if tlog_dir = tlf_dir
+  (if tlog_dir = tlx_dir
    then
      Lwt.return []
    else
-     get_entries tlf_dir (Node_cfg.InvalidTlfDir tlf_dir)) >>= fun tlf_entries ->
+     get_entries tlx_dir (Node_cfg.InvalidTlxDir tlx_dir)) >>= fun tlf_entries ->
   let entries = List.rev_append tlf_entries tlog_entries in
   let filtered = List.filter
                    (fun e -> Str.string_match file_regexp e 0)
@@ -147,13 +147,13 @@ let get_tlog_names tlog_dir tlf_dir =
     let n1 = get_number fn1
     and n2 = get_number fn2 in
     if n1 = n2
-       (* make .tls < .tlf < .tlog , so we can filter later*)
+       (* make .tlx < .tlf < .tlog , so we can filter later*)
     then
       let fn1x = extension_of fn1
       and fn2x = extension_of fn2
          in
          let order x = match x with
-           | ".tls"  -> 1
+           | ".tlx"  -> 1
            | ".tlf"  -> 2
            | ".tlog" -> 3
            | _       -> 4
@@ -181,7 +181,7 @@ let folder_for filename index =
   let extension = extension_of filename in
   match extension with
   | ".tlog" -> Tlogreader2.AU.fold, extension, index
-  | ".tls"  -> Tlogreader2.AS.fold, extension, None
+  | ".tlx"  -> Tlogreader2.AS.fold, extension, None
   | ".tlf"  -> Tlogreader2.AC.fold, extension, None
   | ".tlc"  -> Tlogreader2.AO.fold, extension, None
   | _       -> failwith (Printf.sprintf "no folder for '%s'" extension)

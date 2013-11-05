@@ -175,7 +175,7 @@ let uncompress_tlog archive_name tlog_name =
   in
   let compressor = match suffix with
     | ".tlf" -> Bz2
-    | ".tls" -> Snappy
+    | ".tlx" -> Snappy
     | _ -> failwith (Printf.sprintf "invalid archive name %s" archive_name)
   in
   _uncompress_tlog ~compressor archive_name tlog_name

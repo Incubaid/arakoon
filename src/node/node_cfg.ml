@@ -36,7 +36,7 @@ open Log_extra
 
 exception InvalidHomeDir of string
 exception InvalidTlogDir of string
-exception InvalidTlfDir of string
+exception InvalidTlxDir of string
 exception InvalidHeadDir of string
 
 module Node_cfg = struct
@@ -47,7 +47,7 @@ module Node_cfg = struct
             messaging_port:int;
             home:string;
             tlog_dir:string;
-            tlf_dir:string;
+            tlx_dir:string;
             head_dir:string;
             log_dir:string;
             log_level:string;
@@ -73,7 +73,7 @@ module Node_cfg = struct
     let template =
       "{node_name=%S; ips=%s; client_port=%d; " ^^
         "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
-        "log_dir=%S; tlf_dir=%S; head_dir=%s; " ^^
+        "log_dir=%S; tlx_dir=%S; head_dir=%s; " ^^
         "log_level:%S; log_config=%s; " ^^
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
@@ -87,7 +87,7 @@ module Node_cfg = struct
       (list2s (fun s -> s) t.ips)
       t.client_port
       t.messaging_port t.home t.tlog_dir
-      t.log_dir t.tlf_dir t.head_dir
+      t.log_dir t.tlx_dir t.head_dir
       t.log_level (_so2s t.log_config)
       (_so2s t.batched_transaction_config) t.lease_period
       (master2s t.master) t.is_laggy t.is_learner t.is_witness
@@ -197,7 +197,7 @@ module Node_cfg = struct
         messaging_port = (base + 10 + n);
         home = home;
         tlog_dir = home;
-        tlf_dir = home;
+        tlx_dir = home;
         head_dir = home;
         log_dir = ":None";
         log_level = "DEBUG";
@@ -403,12 +403,19 @@ module Node_cfg = struct
       try get_string "tlog_dir"
       with _ -> home
     in
-    let tlf_dir =
-      try get_string "tlf_dir"
-      with _ -> tlog_dir in
+    let tlx_dir =
+      let rec _find = function
+        | [] -> tlog_dir
+        | x :: xs -> try get_string "tlf_dir"
+                     with _ -> _find xs
+      in
+      _find ["tlx_dir";"tlf_dir"]
+    in
+
     let head_dir =
       try get_string "head_dir"
-      with _ -> tlf_dir in
+      with _ -> tlx_dir
+    in
     let log_level = String.lowercase (get_string "log_level")  in
     let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
@@ -453,7 +460,7 @@ module Node_cfg = struct
      messaging_port;
      home;
      tlog_dir;
-     tlf_dir;
+     tlx_dir;
      head_dir;
      log_dir;
      log_level;
@@ -582,7 +589,7 @@ module Node_cfg = struct
 
         verify_exists t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
         verify_exists t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
-        verify_exists t.tlf_dir "Tlf dir" (InvalidTlfDir t.tlf_dir) >>= fun () ->
+        verify_exists t.tlx_dir "Tlx dir" (InvalidTlxDir t.tlx_dir) >>= fun () ->
         verify_exists t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
 
       end

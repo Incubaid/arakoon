@@ -31,9 +31,9 @@ open Tlogcommon
 let section = Logger.Section.main
 
 let create_test_tlc dn =
-  let tlf_dir = (dn ^ "_tlf") in
+  let tlx_dir = (dn ^ "_tlx") in
   let compressor = Compression.Snappy in
-  Tlc2.make_tlc2 dn tlf_dir tlf_dir ~compressor false
+  Tlc2.make_tlc2 dn tlx_dir tlx_dir ~compressor false
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
 let prepare_tlog_scenarios (dn,factory) =
@@ -49,22 +49,22 @@ let prepare_tlog_scenarios (dn,factory) =
   tlog_coll # close () >>= fun _ ->
   Lwt.return old_tlog_entries_value
 
-let test_interrupted_rollover (dn, tlf_dir, factory) =
+let test_interrupted_rollover (dn, tlx_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
-  (*let fn = Tlc2.get_full_path dn tlf_dir "001.tlog" in
+  (*let fn = Tlc2.get_full_path dn tlx_dir "001.tlog" in
     Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
   let value = Value.create_master_value ("me", 0.0) in
   tlog_coll # log_value 5L value >>= fun () ->
   tlog_coll # close () >>= fun _ ->
-  Tlc2.get_tlog_names dn tlf_dir >>= fun tlog_names ->
+  Tlc2.get_tlog_names dn tlx_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
 
-let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
+let test_validate_at_rollover_boundary (dn, tlx_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
   Logger.debug_ "1" >>= fun () ->
@@ -90,13 +90,13 @@ let test_validate_at_rollover_boundary (dn, tlf_dir, factory) =
   tlog_coll # log_value 7L value >>= fun _ ->
   tlog_coll # log_value 8L value >>= fun _ ->
   tlog_coll # log_value 9L value >>= fun _ ->
-  Tlc2.get_tlog_names dn tlf_dir >>= fun tlog_names ->
+  Tlc2.get_tlog_names dn tlx_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   Tlogcommon.tlogEntriesPerFile := old_tlog_entries_value;
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
   Lwt.return (OUnit.assert_equal ~msg n 2)
 
-let test_iterate4 (dn, tlf_dir, factory) =
+let test_iterate4 (dn, tlx_dir, factory) =
   Logger.debug_ "test_iterate4" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
@@ -104,9 +104,9 @@ let test_iterate4 (dn, tlf_dir, factory) =
   Tlogcollection_test._log_repeat tlc value 120 >>= fun () ->
   Lwt_unix.sleep 3.0 >>= fun () -> (* TODO: compression should have callback *)
   let extension = Tlc2.extension Compression.Snappy in
-  let fnc = Tlc2.get_full_path dn tlf_dir ("000" ^ extension) in
+  let fnc = Tlc2.get_full_path dn tlx_dir ("000" ^ extension) in
   Unix.unlink fnc;
-  (* remove 000.tlog & 000.tlf ; errors? *)
+  (* remove 000.tlog & 000.tlx ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
   Logger.debug_f_ "inf=%s" (Sn.string_of inf) >>= fun () ->
   OUnit.assert_equal ~printer:Sn.string_of inf (Sn.of_int 100);
@@ -115,7 +115,7 @@ let test_iterate4 (dn, tlf_dir, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn, tlf_dir, factory) =
+let test_iterate5 (dn, tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =
@@ -152,7 +152,7 @@ let test_iterate5 (dn, tlf_dir, factory) =
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return ()
 
-let test_iterate6 (dn, tlf_dir, factory) =
+let test_iterate6 (dn, tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
@@ -197,7 +197,7 @@ let test_iterate6 (dn, tlf_dir, factory) =
   Lwt.return ()
 
 
-let test_compression_bug (dn, tlf_dir, factory) =
+let test_compression_bug (dn, tlx_dir, factory) =
   Logger.info_ "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
@@ -217,7 +217,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
   tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
   loop 1 >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
-  File_system.stat (tlf_dir ^ "/000.tls") >>= fun stat ->
+  File_system.stat (tlx_dir ^ "/000.tlx") >>= fun stat ->
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory dn "node_name" >>= fun tlc2 ->
@@ -232,7 +232,7 @@ let test_compression_bug (dn, tlf_dir, factory) =
     ~msg:"tls has a hole" (n+2) (List.length !entries);
   Lwt.return ()
 
-let test_compression_previous (dn, tlf_dir, factory) =
+let test_compression_previous (dn, tlx_dir, factory) =
   Logger.info_ "test_compression_previous_tlogs" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let v = String.create (1024 * 1024) in
@@ -253,12 +253,12 @@ let test_compression_previous (dn, tlf_dir, factory) =
   loop 1 >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
 
-  (* mess around : uncompress tlfs to tlogs again, put some temp files in the way *)
+  (* mess around : uncompress tlxs to tlogs again, put some temp files in the way *)
   let ext = Tlc2.extension Compression.Snappy in
   let uncompress tlx =
-    let tlfpath =  (tlf_dir ^ "/" ^ tlx ^ ext) in
-    Compression.uncompress_tlog tlfpath (dn ^ "/" ^ tlx ^ ".tlog") >>= fun () ->
-    File_system.unlink tlfpath
+    let tlxpath =  (tlx_dir ^ "/" ^ tlx ^ ext) in
+    Compression.uncompress_tlog tlxpath (dn ^ "/" ^ tlx ^ ".tlog") >>= fun () ->
+    File_system.unlink tlxpath
   in
   let compresseds = ["000"; "001"; "002"; "003"] in
   Lwt_list.iter_s uncompress compresseds >>= fun () ->
@@ -267,7 +267,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
 
   let touch fn =
     let fd = Unix.openfile fn [Unix.O_CREAT] 0o644 in Unix.close fd in
-  touch (tlf_dir ^ "/000" ^ ext ^ ".part");
+  touch (tlx_dir ^ "/000" ^ ext ^ ".part");
 
   (* open tlog again *)
   factory dn "node_name" >>= fun tlc2 ->
@@ -276,7 +276,7 @@ let test_compression_previous (dn, tlf_dir, factory) =
   tlc2 # close ~wait_for_compression:true () >>= fun () ->
 
   let verify_exists tlx =
-    File_system.exists (tlf_dir ^ "/" ^ tlx ^ ext) >>= fun exists ->
+    File_system.exists (tlx_dir ^ "/" ^ tlx ^ ext) >>= fun exists ->
     assert exists;
     Lwt.return () in
   Lwt_list.iter_s verify_exists compresseds >>= fun () ->
