@@ -801,6 +801,10 @@ let _main_2 (type s)
             let rc = 49 in
             Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
             Lwt.return rc
+          | Tlogcommon.TLogSabotage ->
+            let rc = 50 in
+            Logger.fatal_f_ "[rc=%i] Somebody has been messing with the available tlogs" rc >>= fun () ->
+            Lwt.return rc
           | exn ->
             begin
               Logger.fatal_ ~exn "going down" >>= fun () ->

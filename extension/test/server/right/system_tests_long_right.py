@@ -465,7 +465,7 @@ def test_fsync():
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
     """
-    scenario countering a sysadmin removing files (s)he shouldn't (eta : 400s)
+    scenario countering a sysadmin removing files (s)he shouldn't (eta : 160s)
     """
     clu = _getCluster()
     tlog_size = Common.get_entries_per_tlog()
@@ -487,18 +487,12 @@ def test_sabotage():
     for f in files:
         print f
         q.system.fs.remove(f)
-    clu.start()
-    delay = 80
-    logging.info("sleeping for %i", delay)
-    time.sleep(delay)
-    logging.info("doing 2000 sets")
-    Common.iterate_n_times(2000, Common.simple_set)
-    logging.info("sleeping fo 10s")
-    time.sleep(10)
 
-    size = q.system.fs.fileSize("%s/001.tlf" % node_tlf_dir)
-    logging.info("file_size = %i", size)
-    assert_true(size > 1024 * 5)
+    cmd = []
+    command = clu._cmd('sturdy_0')
+    cmd.extend(command)
+    returncode = subprocess.call(cmd)
+    assert_equals(returncode, 50)
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():

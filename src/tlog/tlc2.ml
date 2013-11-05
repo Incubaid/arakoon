@@ -862,24 +862,10 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
       (* somebody sabotaged us:
          (s)he deleted the .tlog file but we have .tlf's
          meaning rotation happened correctly.
-         We have to take counter measures:
-         uncompress the .tlf into .tlog and remove it.
+         This means the marker can not be present.
+         Let the node die; they should fix this manually.
       *)
-      let pc = new_c - 1 in
-      let tlc_name = get_full_path tlog_dir tlf_dir
-                                   (archive_name compressor pc) in
-      let tlu_name = get_full_path tlog_dir tlf_dir (file_name pc)  in
-      Logger.warning_ "Sabotage!" >>= fun () ->
-      Logger.info_f_ "Counter Sabotage: decompress %s into %s"
-        tlc_name tlu_name
-      >>= fun () ->
-      Compression.uncompress_tlog tlc_name tlu_name >>= fun () ->
-      Logger.info_f_ "Counter Sabotage(2): rm %s " tlc_name >>= fun () ->
-      File_system.unlink tlc_name >>= fun () ->
-      Logger.info_ "Counter Sabotage finished" >>= fun () ->
-      _validate_one tlu_name node_id ~check_marker:false >>= fun (last,new_index) ->
-      Lwt.return (new_c -1 , last, new_index)
-
+      Lwt.fail TLogSabotage
     end
   else
     Lwt.return (new_c, last, index)
