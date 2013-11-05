@@ -122,22 +122,16 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
               else
                 extend ()
             | _ ->
-              (* prevent memory leak of LeaseExpired messages
-                 by ignoring those delivered before halfway through the lease.
-                 see comment about injecting LeaseExpired
-                 in master_consensus for more info.
-              *)
               match S.who_master constants.store with
               | None ->
                 extend ()
-              | Some (_, ls) ->
-                let diff = (Unix.gettimeofday ()) -. ls in
-                if diff >= (float constants.lease_expiration) /. 2.
+              | Some (_, ls') ->
+                if ls >= ls'
                 then
-                  extend()
+                  extend ()
                 else
                   begin
-                    let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring lease expiration") in
+                    let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
                     Fsm.return ~sides:[log_e] (Stable_master current_state)
                   end
         end
