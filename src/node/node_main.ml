@@ -216,7 +216,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     db_name >>= fun store ->
   let compressor = me.compressor in
   make_tlog_coll ~compressor
-                 me.tlog_dir me.tlf_dir me.head_dir
+                 me.tlog_dir me.tlx_dir me.head_dir
                  me.fsync name >>= fun tlc ->
   let current_i = match S.consensus_i store with
     | None -> Sn.start
@@ -509,7 +509,7 @@ let _main_2 (type s)
           >>= fun () ->
           let compressor = me.compressor in
           make_tlog_coll ~compressor
-                         me.tlog_dir me.tlf_dir me.head_dir
+                         me.tlog_dir me.tlx_dir me.head_dir
                          me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let lcnum = cluster_cfg.lcnum
@@ -785,9 +785,9 @@ let _main_2 (type s)
             let rc = 45 in
             Logger.fatal_f_ "[rc=%i] BDBFFATAL flag set on database %s" rc db >>= fun () ->
             Lwt.return rc
-          | Node_cfg.InvalidTlfDir dir ->
+          | Node_cfg.InvalidTlxDir dir ->
             let rc = 46 in
-            Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlf directory: %s" rc dir >>= fun () ->
+            Logger.fatal_f_ "[rc=%i] Missing or inaccessible tlx directory: %s" rc dir >>= fun () ->
             Lwt.return rc
           | Node_cfg.InvalidHeadDir dir ->
             let rc = 47 in

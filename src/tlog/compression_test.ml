@@ -64,14 +64,14 @@ let test_compress_file which () =
 
 let w= lwt_test_wrap
 
-let bz2 =
-  let archive_name x = x ^ ".tls"
+let snappy =
+  let archive_name x = x ^ ".tlx"
   and compressor = Compression.Snappy
   and tlog_name a = Filename.chop_extension a
   in
   (archive_name, compressor, tlog_name)
 
-let snappy =
+let bz2 =
   let archive_name x = x ^ ".tlf"
   and compressor = Compression.Bz2
   and tlog_name a = Filename.chop_extension a
