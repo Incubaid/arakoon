@@ -131,7 +131,7 @@ let test_iterate5 (dn, tlx_dir, factory) =
           if i mod 3 = 2
           then
             begin
-              tlc # close () >>= fun () ->
+              tlc # close ~wait_for_compression:true () >>= fun () ->
               factory dn "node_name"
             end
           else Lwt.return tlc
