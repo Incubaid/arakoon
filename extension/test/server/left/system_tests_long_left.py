@@ -180,7 +180,7 @@ def test_mixed_tlog_formats():
     C.iterate_n_times(s0,C.simple_set)
     C.stop_all()
 
-    # do we have both .tlf and .tls files?
+    # do we have both .tlf and .tlx files?
     n0 = C.node_names[0]
     n1 = C.node_names[1]
     config = C.getConfig(n0)
@@ -190,9 +190,9 @@ def test_mixed_tlog_formats():
         tlx_dir = config.get('home')
     files = os.listdir(tlx_dir)
 
-    tls = filter(lambda x:x.endswith(".tls"), files)
+    tls = filter(lambda x:x.endswith(".tlx"), files)
     tlf = filter(lambda x:x.endswith(".tlf"), files)
-    assert_true(len(tls) > 0, "we should have .tls files" )
+    assert_true(len(tls) > 0, "we should have .tlx files" )
     assert_true(len(tlf) > 0, "we should have .tlf files" )
     # does catchup still work?
 
