@@ -97,9 +97,11 @@ def maybe_install_opam():
     files = os.listdir(ROOT)
     d = None
     for f in files:
-        if f.startswith('OCamlPro'):
+        if f.startswith('ocaml-opam'):
             d = ROOT + '/' + f
             break
+    sh(['mkdir',OPAM_HOME])
+    print "d=",d
     sh(['./configure', '--prefix=%s' % OPAM_HOME], cwd = d, env = env)
     sh(['make','clean'], cwd = d, env = env)
     sh(['make'], cwd = d, env = env)
@@ -120,7 +122,9 @@ def maybe_install_packages():
     opam(['init'])
     opam(['remote', 'add', 'devel', '-k', 'git', INCUBAID_DEVEL])
     opam(['update'])
-    opam(['install', 'ssl', 'ocamlfind','camlbz2','camltc'])
+    opam(['install', 'ssl', 'ocamlfind',
+          'camlbz2','camltc','snappy',
+          'bisect'])
 
 def do_it():
     sh(['mkdir', '-p', ROOT])
@@ -129,7 +133,12 @@ def do_it():
     maybe_install_packages()
 
     print 'now do the following to update your environment:'
+    print
     print 'eval `%s/bin/opam config env -r %s`' % (OPAM_HOME, OPAM_ROOT)
+    print
+    print "ALSO: add the following to your path: "
+    print "%s/bin" % (PREFIX,)
+    print "%s/bin" % (OPAM_HOME,)
 
 
 
