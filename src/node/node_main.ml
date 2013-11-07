@@ -575,7 +575,7 @@ let _main_2 (type s)
           let send, receive, run, register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
-          let start_liveness_detection_loop () =
+          let start_liveness_detection_loop fuse =
             let snt = -2L in
             let msg = (Mp_msg.MPMessage.Nak (snt, (snt, snt))) in
             let period = ((float lease_period) /. 2.) in
@@ -583,12 +583,16 @@ let _main_2 (type s)
               let rec inner () =
                 Lwt_unix.sleep period >>= fun () ->
                 send msg me.node_name other >>= fun () ->
-                inner () in
+                if !fuse
+                then
+                  Lwt.return ()
+                else
+                  inner () in
               inner () in
             if not me.is_learner
             then
               List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
-          start_liveness_detection_loop ();
+          start_liveness_detection_loop stop;
 
           let on_consensus = X.on_consensus (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
