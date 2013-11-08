@@ -230,27 +230,30 @@ struct
       Some routing
     with Not_found -> None
 
+  let initialize store =
+    store.store_i <- _consensus_i store.s;
+    store.master <- _master store.s;
+    store.interval <- _get_interval store.s;
+    store.routing <- _get_routing store.s
 
   let make_store
       ~lcnum
       ~ncnum
       ?(read_only=false) db_name =
     S.make_store ~lcnum ~ncnum read_only db_name >>= fun simple_store ->
-    let store_i = _consensus_i simple_store
-    and master = _master simple_store
-    and interval = _get_interval simple_store
-    and routing = _get_routing simple_store in
-    Lwt.return
+    let store =
       { s = simple_store;
-        store_i;
-        master;
-        interval;
-        routing;
+        store_i = None;
+        master = None;
+        interval = Interval.max;
+        routing = None;
         quiesced = false;
         closed = false;
         _tx_lock = None;
         _tx_lock_mutex = Lwt_mutex.create ()
-      }
+      } in
+    let () = initialize store in
+    Lwt.return store
 
   let _get store key =
     S.get store.s (__prefix ^ key)
@@ -305,7 +308,7 @@ struct
 
   let reopen store f =
     S.reopen store.s f store.quiesced >>= fun () ->
-    store.store_i <- _consensus_i store.s;
+    initialize store;
     store.closed <- false;
     Lwt.return ()
 
