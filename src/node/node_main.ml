@@ -575,7 +575,7 @@ let _main_2 (type s)
           let send, receive, run, register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
-          let start_liveness_detection_loop () =
+          let start_liveness_detection_loop fuse =
             let snt = -2L in
             let msg = (Mp_msg.MPMessage.Nak (snt, (snt, snt))) in
             let period = ((float lease_period) /. 2.) in
@@ -583,12 +583,16 @@ let _main_2 (type s)
               let rec inner () =
                 Lwt_unix.sleep period >>= fun () ->
                 send msg me.node_name other >>= fun () ->
-                inner () in
+                if !fuse
+                then
+                  Lwt.return ()
+                else
+                  inner () in
               inner () in
             if not me.is_learner
             then
               List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
-          start_liveness_detection_loop ();
+          start_liveness_detection_loop stop;
 
           let on_consensus = X.on_consensus (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
@@ -742,19 +746,27 @@ let _main_2 (type s)
                      (Lwt_mutex.lock msg_mutex >>= fun () ->
                       Logger.info_ "messaging thread finished")] >>= fun () ->
            let count_thread m =
+             let stop = ref false in
              let rec inner i =
                Logger.info_f_ m i >>= fun () ->
                Lwt_unix.sleep 1.0 >>= fun () ->
-               inner (succ i) in
-             inner 0 in
+               if !stop
+               then
+                 Lwt.return ()
+               else
+                 inner (succ i) in
+             inner 0, stop in
+           let count_close_store, stop = count_thread "Closing store (%is)" in
            Lwt.pick [ S.close ~flush:false store ;
-                      count_thread "Closing store (%is)" ] >>= fun () ->
+                      count_close_store ] >>= fun () ->
+           stop := true;
            Logger.fatal_f_
              ">>> Closing the store @ %S succeeded: everything seems OK <<<"
              (S.get_location store) >>= fun () ->
+           let count_close_tlogcoll, stop = count_thread "Closing tlog (%is)" in
            Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
-                      count_thread "Closing tlog (%is)" ]
-           >>= fun () ->
+                      count_close_tlogcoll ] >>= fun () ->
+           stop := true;
            Logger.info_ "Completed shutdown"
            >>= fun () ->
            Lwt.return 0
