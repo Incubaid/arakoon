@@ -488,9 +488,7 @@ def test_sabotage():
         print f
         q.system.fs.remove(f)
 
-    cmd = []
-    command = clu._cmd('sturdy_0')
-    cmd.extend(command)
+    cmd = clu._cmd('sturdy_0')
     returncode = subprocess.call(cmd)
     assert_equals(returncode, 50)
 
