@@ -34,7 +34,7 @@ module B = Camltc.Bdb
 
 type t = { db : Camltc.Hotc.t;
            mutable location : string;
-           mutable _tx : (transaction * Camltc.Hotc.bdb * float) option;
+           mutable _tx : (transaction * Camltc.Hotc.bdb) option;
          }
 
 let _get bdb key = B.get bdb key
@@ -70,7 +70,7 @@ let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
 let _with_tx ls tx f =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _with_tx"
-    | Some (tx', db, t0) ->
+    | Some (tx', db) ->
       if tx != tx'
       then
         failwith "the provided transaction is not the current transaction of the local store"
@@ -80,28 +80,28 @@ let _with_tx ls tx f =
 let _tranbegin ls =
   let tx = new transaction in
   let bdb = Camltc.Hotc.get_bdb ls.db in
-  let t0 = Unix.gettimeofday () in
-  ls._tx <- Some (tx, bdb, t0);
+  ls._tx <- Some (tx, bdb);
   Camltc.Bdb._tranbegin bdb;
   tx
 
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
-    | Some (tx, bdb, t0) ->
+    | Some (tx, bdb) ->
+      let t0 = Unix.gettimeofday () in
       Camltc.Bdb._trancommit bdb;
-      let t = ( Unix.gettimeofday() -. t0) in
+      let t = ( Unix.gettimeofday () -. t0) in
       if t > 1.0
       then
         Lwt.ignore_result (
           let fn = Camltc.Hotc.filename ls.db in
-          Logger.info_f_ "Tokyo cabinet (%s) transaction took %fs" fn t )
+          Logger.info_f_ "Tokyo cabinet (%s) transaction commit took %fs" fn t )
 
 
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
-    | Some (tx, bdb, t0) ->
+    | Some (tx, bdb) ->
       Camltc.Bdb._tranabort bdb;
       ls._tx <- None
 
@@ -112,7 +112,7 @@ let with_transaction ls f =
        Camltc.Hotc.transaction ls.db
          (fun db ->
             let tx = new transaction in
-            ls._tx <- Some (tx, db, t0);
+            ls._tx <- Some (tx, db);
             f tx >>= fun a ->
             Lwt.return a))
     (fun () ->
