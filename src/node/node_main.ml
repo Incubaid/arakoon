@@ -495,6 +495,7 @@ let _main_2 (type s)
 	          ~test
 	          ~read_only
               ~max_value_size:cluster_cfg.max_value_size
+              ~collapse_slowdown:me.collapse_slowdown
 	      in
 	      let backend = (sb :> Backend.backend) in
 

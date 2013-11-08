@@ -70,6 +70,7 @@ let _make_cfg name n lease_period =
     fsync = false;
     is_test = true;
     reporting = 300;
+    collapse_slowdown = None;
   }
 
 let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression fsync node_id =

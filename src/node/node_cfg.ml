@@ -61,6 +61,7 @@ module Node_cfg = struct
         fsync : bool;
         is_test : bool;
         reporting: int;
+        collapse_slowdown : float option;
        }
 
   let _so2s = Log_extra.string_option2s
@@ -75,6 +76,7 @@ module Node_cfg = struct
         "master=%S; is_laggy=%b; is_learner=%b; " ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
+        "collapse_slowdown=%s" ^^
         "}"
     in
     Printf.sprintf template
@@ -88,6 +90,7 @@ module Node_cfg = struct
       (master2s t.master) t.is_laggy t.is_learner
       (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
       t.reporting
+      (option2s string_of_float t.collapse_slowdown)
 
   type log_cfg =
       {
@@ -193,6 +196,7 @@ module Node_cfg = struct
         fsync = false;
         is_test = true;
         reporting = 300;
+        collapse_slowdown = None;
       }
     in
     let rec loop acc = function
@@ -381,6 +385,9 @@ module Node_cfg = struct
       with _ -> home
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
+    let collapse_slowdown = match Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_int) (Ini.default None) with
+      | None -> None
+      | Some i -> Some (float i) in
     {node_name;
      ips;
      client_port;
@@ -402,6 +409,7 @@ module Node_cfg = struct
      fsync;
      is_test = false;
      reporting;
+     collapse_slowdown;
     }
 
 
