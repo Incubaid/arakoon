@@ -70,7 +70,7 @@ def retryDuringMasterReelection (f):
             try :
                 retVal = f(self,*args,**kwargs)
                 callSucceeded = True
-            except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected, ArakoonGoingDown) as ex:
+            except (ArakoonNotConnected, ArakoonNoMaster, ArakoonNodeNotMaster) as ex:
                 if len( self._config.getNodes().keys()) == 0 :
                     raise ArakoonInvalidConfig( "Empty client configuration" )
                 self._masterId = None
