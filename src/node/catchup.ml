@@ -287,8 +287,7 @@ let catchup ~stop me other_configs ~cluster_id dbt current_i mr_name future_n =
   >>= fun () ->
   catchup_tlog ~stop me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
   Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
-    (Sn.string_of too_far_i)
-  >>= fun () ->
+    (Sn.string_of too_far_i) >>= fun () ->
   catchup_store ~stop me dbt too_far_i >>= fun () ->
   Logger.info_ "CATCHUP end"
 

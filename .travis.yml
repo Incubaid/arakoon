@@ -16,7 +16,7 @@ install:
   - eval `opam config -env`
   - opam remote add incubaid-devel -v -y -k git git://github.com/Incubaid/opam-repository-devel.git
   - opam update -v -y
-  - opam install -q -v -y ssl conf-libev lwt camlbz2 camltc
+  - opam install -q -v -y ssl conf-libev lwt camlbz2 camltc.0.7.0
 
 script:
   - eval `opam config -env`
