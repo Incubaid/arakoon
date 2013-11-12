@@ -304,7 +304,7 @@ def get_last_i_tlog2(node_id):
     dlen = len(data)
     sn = None
 
-    while index < dlen:
+    while index < dlen -16:
         sn = struct.unpack_from("q", data, index)[0]
         index = index + 8
         index = index + 4 # skip crc32

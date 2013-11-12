@@ -187,7 +187,7 @@ let test_batched_with_failures () =
        assert_not_exists "_3b_key2530")
 
 let test_large_tlog_catchup () =
-  _tic _fill 100_000 "tcs"
+  _tic _fill 60_000 "tcs"
     (fun store new_i -> Lwt.return ())
 
 let suite =
