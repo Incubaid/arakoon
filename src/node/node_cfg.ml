@@ -385,9 +385,7 @@ module Node_cfg = struct
       with _ -> home
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
-    let collapse_slowdown = match Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_int) (Ini.default None) with
-      | None -> None
-      | Some i -> Some (float i) in
+    let collapse_slowdown = Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_float) (Ini.default None) in
     {node_name;
      ips;
      client_port;
