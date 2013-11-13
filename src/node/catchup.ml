@@ -256,7 +256,7 @@ let catchup me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
   catchup_tlog me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
-  catchup_store me dbt until_i >>= fun () ->
+  catchup_store me dbt (Sn.succ until_i) >>= fun () ->
   Logger.info_ "CATCHUP end"
 
 let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S : Store.STORE with type t = s), store, tlog_coll) =
