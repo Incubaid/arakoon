@@ -772,14 +772,20 @@ struct
   let _insert_value store (value:Value.t) kt =
     let updates = Value.updates_from_value value in
     let j = _get_j store in
-    let skip n l =
-      let rec inner = function
-        | 0, l -> l
-        | n, [] -> failwith "need to skip more updates than present in this paxos value"
-        | n, hd::tl -> inner ((n - 1), tl) in
-      inner (n, l) in
+    let rec skip n l =
+      if n = 0
+      then l
+      else
+        if l = [] then failwith "need to skip more updates than present in this paxos value"
+        else skip (n-1) (List.tl l)
+    in
     let updates' = skip j updates in
-    Logger.debug_f_ "skipped %i updates" j >>= fun () ->
+    begin
+      if j > 0
+      then Logger.debug_f_ "skipped %i updates" j
+      else Lwt.return ()
+    end
+    >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
     _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
     let prepend_oks n l =

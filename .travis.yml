@@ -5,22 +5,6 @@ env:
   - PPA=avsm/ocaml41+opam10
   - PPA=avsm/ocaml41+opam11
 
-before_install:
-  - echo "yes" | sudo add-apt-repository ppa:$PPA
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq ocaml ocaml-native-compilers camlp4-extra opam libev-dev libssl-dev
-  - ocamlopt -version
-
-install:
-  - opam init -v -y
-  - eval `opam config -env`
-  - opam remote add incubaid-devel -v -y -k git git://github.com/Incubaid/opam-repository-devel.git
-  - opam update -v -y
-  - opam install -q -v -y ssl conf-libev lwt camlbz2 camltc.0.7.0
-
-script:
-  - eval `opam config -env`
-  - ocamlbuild -use-ocamlfind -classic-display arakoon.native
-  - ./arakoon.native --version
-  - ./arakoon.native --run-all-tests 2>&1 | tail -n256
-  - exit ${PIPESTATUS[0]}
+before_install: ./travis.sh before_install
+install: ./travis.sh install
+script: ./travis.sh script
