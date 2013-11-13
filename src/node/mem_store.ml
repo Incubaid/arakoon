@@ -30,6 +30,7 @@ module StringMap = Map.Make(String);;
 
 type t = { mutable kv : string StringMap.t;
            mutable _tx : transaction option;
+           name : string;
          }
 
 let with_transaction ms f =
@@ -106,7 +107,7 @@ let close ms flush = Lwt.return ()
 
 let reopen ms when_closed quiesced = Lwt.return ()
 
-let get_location ms = failwith "not supported"
+let get_location ms = ms.name
 
 let get_key_count ms =
     let inc key value size =
@@ -140,7 +141,8 @@ let get_fringe ms boundary direction =
 
 let make_store read_only db_name =
   Lwt.return { kv = StringMap.empty;
-               _tx = None; }
+               _tx = None;
+               name = db_name; }
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()

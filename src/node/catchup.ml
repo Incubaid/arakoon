@@ -105,8 +105,9 @@ let head_saved_epilogue hfn tlog_coll =
 
 
 
-let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) me other_configs ~cluster_id mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
     =
+  let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
   let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
     other_configs in
@@ -142,9 +143,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id (current_i: Sn.t) mr_name
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
-  let tlc_i = tlog_coll # get_last_i () in
-  let too_far_i = Sn.succ ( tlc_i ) in
-  Lwt.return too_far_i
+  Lwt.return (tlog_coll # get_last_i ())
 
 let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
   let i = Entry.i_of entry
@@ -188,7 +187,7 @@ let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
       end
 
 
-let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) (too_far_i:Sn.t) =
+let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,tlog_coll) too_far_i =
   Logger.info_ "replaying log to store"
   >>= fun () ->
   let store_i = S.consensus_i store in
@@ -250,39 +249,43 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       S.flush store
     end
 
-let catchup me other_configs ~cluster_id dbt current_i mr_name future_n =
+let catchup me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
-    (Sn.string_of current_i) mr_name
+    (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog me other_configs ~cluster_id current_i mr_name dbt >>= fun too_far_i ->
-  Logger.info_f_ "CATCHUP phase 1 done (too_far_i = %s); now the store"
-    (Sn.string_of too_far_i) >>= fun () ->
-  catchup_store me dbt too_far_i >>= fun () ->
+  catchup_tlog me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
+    (Sn.string_of until_i) >>= fun () ->
+  catchup_store me dbt until_i >>= fun () ->
   Logger.info_ "CATCHUP end"
 
-let verify_n_catchup_store (type s) me ((module S : Store.STORE with type t = s), store, tlog_coll, ti_o) ~current_i forced_master =
+let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S : Store.STORE with type t = s), store, tlog_coll) =
+  let current_i = tlog_coll # get_last_i () in
+  let too_far_i =
+    if apply_last_tlog_value
+    then
+      Sn.succ current_i
+    else
+      current_i in
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
-  Logger.info_f_ "verify_n_catchup_store; ti_o=%s current_i=%s si_o:%s"
-    (io_s ti_o) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
-   match ti_o, si_o with
-    | None, None -> Lwt.return ()
-    | Some 0L, None -> Lwt.return ()
-    | Some i, Some j when i = Sn.succ j -> (* tlog 1 ahead of store *)
-      Lwt.return ()
-    | Some i, Some j when i = j -> Lwt.return ()
-    | Some i, Some j when i > j -> 
-      catchup_store me ((module S),store,tlog_coll) current_i
-    | Some i, None ->
-      catchup_store me ((module S),store,tlog_coll) current_i
+  Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
+    (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
+   match too_far_i, si_o with
+    | i, None when i <= 0L -> Lwt.return ()
+    | i, Some j when i = j -> Lwt.return ()
+    | i, Some j when i > j -> 
+      catchup_store me ((module S),store,tlog_coll) too_far_i
+    | i, None ->
+      catchup_store me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
       let msg = Printf.sprintf
-        "ti_o:%s, si_o:%s should not happen: tlogs have been removed?"
-        (io_s ti_o) (io_s si_o)
+        "too_far_i:%s, si_o:%s should not happen: tlogs have been removed?"
+        (Sn.string_of too_far_i) (io_s si_o)
       in
       Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
-      Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, maybe (-1L) ti_o))
+      Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
 
 let get_db db_name cluster_id cfgs =
 

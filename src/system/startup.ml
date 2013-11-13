@@ -270,10 +270,10 @@ let ahead_master_loses_role () =
   Lwt.ignore_result (run_node0 ());
   Lwt.ignore_result (run_node1 ());
   (* sleep a bit so the previous 2 slaves can make progress *)
-  Lwt_unix.sleep 3. >>= fun () ->
+  Lwt_unix.sleep 5. >>= fun () ->
   Lwt.ignore_result (run_previous_master ());
   (* allow previous master to catch up with the others *)
-  Lwt_unix.sleep 3. >>= fun () ->
+  Lwt_unix.sleep 1. >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
   let check_store node =
     let db_name = (node ^ "/" ^ node ^".db") in
