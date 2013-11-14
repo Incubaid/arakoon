@@ -272,8 +272,8 @@ module Statistics = struct
     let value_list = [
       Llio.NAMED_FLOAT ("start", t.start);
       Llio.NAMED_FLOAT ("last", t.last);
-      Llio.NAMED_FLOAT ("avg_get_size", t.avg_set_size);
-      Llio.NAMED_FLOAT ("avg_set_size", t.avg_get_size);
+      Llio.NAMED_FLOAT ("avg_set_size", t.avg_set_size);
+      Llio.NAMED_FLOAT ("avg_get_size", t.avg_get_size);
       Llio.NAMED_FLOAT ("avg_range_size", t.avg_range_size);
       Llio.NAMED_FLOAT ("avg_prefix_size", t.avg_prefix_size);
       Llio.NAMED_FLOAT ("avg_del_prefix_size", t.avg_del_prefix_size);
