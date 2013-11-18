@@ -250,7 +250,6 @@ let slave_steady_state (type s) constants state event =
       Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
       Fsm.return (Slave_steady_state state)
 
-
 (* a pending slave that discovered another master has to do
    catchup and then go to steady state *)
 let slave_discovered_other_master (type s) constants state () =
@@ -267,7 +266,7 @@ let slave_discovered_other_master (type s) constants state () =
         "%s: slave_discovered_other_master: catching up from %s @ %s"
         me master (Sn.string_of future_i) >>= fun() ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master (future_n, future_i)
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in

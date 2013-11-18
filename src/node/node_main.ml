@@ -545,6 +545,7 @@ let _main_2 (type s)
             ~current_i master >>= fun () ->
           S.clear_self_master store me.node_name;
           let new_i = S.get_succ_store_i store in
+
           let client_buffer =
             let capacity = Some (cluster_cfg.client_buffer_capacity) in
             Lwt_buffer.create ~capacity () in
