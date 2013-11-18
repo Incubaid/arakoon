@@ -256,25 +256,27 @@ let ahead_master_loses_role () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node2, 0L) in
+  let v0 = Value.create_master_value (node0, 0L) in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Int64.of_float (Unix.gettimeofday ()) in
 
-  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
-  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
+  let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 () in
+  let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 () in
   let run_previous_master = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1;v2] node2 in
   Logger.debug_ "start of scenario" >>= fun () ->
-  Lwt.ignore_result (run_node0 ());
-  Lwt.ignore_result (run_node1 ());
+  Lwt.ignore_result t_node0;
+  Lwt.ignore_result t_node1;
   (* sleep a bit so the previous 2 slaves can make progress *)
-  Lwt_unix.sleep 5. >>= fun () ->
-  Lwt.ignore_result (run_previous_master ());
+  Lwt_unix.sleep ((float lease_period) *. 1.5) >>= fun () ->
+  let t_previous_master = run_previous_master () in
+  Lwt.ignore_result t_previous_master;
   (* allow previous master to catch up with the others *)
   Lwt_unix.sleep 1. >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
+  List.iter (fun t -> Lwt.cancel t) [t_node0; t_node1; t_previous_master];
   let check_store node =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store = Hashtbl.find stores db_name in
