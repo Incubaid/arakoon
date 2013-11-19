@@ -560,14 +560,12 @@ object(self: #backend)
 
   method private quiesce_db ~mode () =
     self # _not_if_master () >>= fun () ->
-    let result = ref Quiesce.Result.Fail in
     let sleep, awake = Lwt.wait() in
     let update = Multi_paxos.Quiesce (mode, sleep, awake) in
     Logger.info_ "quiesce_db: Pushing quiesce request" >>= fun () ->
     push_node_msg update >>= fun () ->
     Logger.info_ "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
     sleep >>= fun res ->
-    result := res;
     Logger.info_ "quiesce_db: db is now completed" >>= fun () ->
     match res with
       | Quiesce.Result.OK -> Lwt.return ()
