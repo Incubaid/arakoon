@@ -473,10 +473,11 @@ let wait_for_accepteds
            when I fall back to a state without mo ? *)
         let {mo;v;n;i;lew} = ms in
         let drop msg reason =
-          let log_e = ELog
-                        (fun () ->
-                           Printf.sprintf "dropping %s because : '%s'" (MPMessage.string_of msg) reason
-                        )
+          let log_e =
+            ELog
+              (fun () ->
+               Printf.sprintf "dropping %s because : '%s'"
+                              (MPMessage.string_of msg) reason)
           in
           Fsm.return ~sides:[log_e] (Wait_for_accepteds state)
         in
@@ -500,7 +501,7 @@ let wait_for_accepteds
                 let () = constants.on_witness source i' in
                 Logger.debug_f_ "%s: wait_for_accepteds: received older Accepted for my n: ignoring" me
                 >>= fun () ->
-                Fsm.return (Wait_for_accepteds (ms,ballot))
+                Fsm.return (Wait_for_accepteds state)
               end
             | Accepted (n',i') when n' < n ->
               begin
