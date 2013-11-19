@@ -157,8 +157,8 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
         else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
     | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
     
-    | Quiesce (sleep,awake) ->
-        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+        handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
         Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
           
     | Unquiesce ->
@@ -452,8 +452,8 @@ let wait_for_promises (type s) constants state event =
     | FromClient _ -> 
         paxos_fatal me "wait_for_promises: don't want FromClient"
           
-    | Quiesce (sleep,awake) ->
-        handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+        handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
         Fsm.return (Wait_for_promises state)
       
     | Unquiesce ->
@@ -698,8 +698,8 @@ let wait_for_accepteds (type s) constants state (event:paxos_event) =
 	      end
       end
 	    
-    | Quiesce (sleep,awake) ->
-      fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+      fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
       Fsm.return (Wait_for_accepteds state)
       
     | Unquiesce ->

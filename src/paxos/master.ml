@@ -186,9 +186,9 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
           in          
           Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
-    | Quiesce (sleep,awake) ->
+    | Quiesce (_, sleep,awake) ->
       begin
-        fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+        fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
         Fsm.return (Stable_master current_state)
       end
         
