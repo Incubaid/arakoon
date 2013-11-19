@@ -30,6 +30,14 @@ type v_limits = int * (Value.t * int) list
 type n = Sn.t
 type i = Sn.t
 type slave_awaiters = (unit Lwt.t * unit Lwt.u) list
+
+type mballot = int * Messaging.id list
+type master_state = { mo:master_option;
+                      v: Value.t ;
+                      n:n;
+                      i:i;
+                      lew: slave_awaiters}
+
 type transitions =
   (* dummy to always have a previous transition *)
   | Start_transition
@@ -56,17 +64,13 @@ type transitions =
                             v_limits *
                             (string * Mp_msg.MPMessage.n) option *
                             slave_awaiters * int)
-  | Accepteds_check_done of (master_option * n * i *
-                               (int * Messaging.id list) * Value.t *
-                               slave_awaiters)
-  | Wait_for_accepteds of (master_option * n * i *
-                             (int * Messaging.id list) * Value.t *
-                             slave_awaiters)
+  | Accepteds_check_done of (master_state * mballot)
+  | Wait_for_accepteds   of (master_state * mballot)
 
   (* active master only *)
-  | Master_consensus of (master_option * Value.t * n * i * slave_awaiters)
-  | Stable_master of (n * i * slave_awaiters)
-  | Master_dictate of (master_option * Value.t * n * i * slave_awaiters)
+  | Master_consensus of master_state
+  | Stable_master    of (n * i * slave_awaiters)
+  | Master_dictate   of master_state
   (* read only *)
   | Read_only
 
