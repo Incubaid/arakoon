@@ -598,7 +598,8 @@ object(self: #backend)
   method defrag_db () =
     self # _not_if_master() >>= fun () ->
     Logger.info_ "defrag_db: enter" >>= fun () ->
-    S.defrag store >>= fun () ->
+    let mode = Quiesce.Mode.Writable in
+    self # try_quiesced ~mode (fun () -> S.defrag store) >>= fun () ->
     Logger.info_ "defrag_db: exit"
 
 
