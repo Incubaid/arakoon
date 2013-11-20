@@ -64,9 +64,9 @@ let teardown () =
     >>= fun () ->
   Logger.debug_ "end of teardown"
 
-let with_store name f =
+let with_store mode name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  S.make_store db_name >>= fun store ->
+  S.make_store mode db_name >>= fun store ->
   f store >>= fun () ->
   S.close store
 
@@ -108,11 +108,11 @@ let test_safe_insert_value () =
           asserts)
       value_asserts in
   Logger.info_ "applying updates without surrounding transaction" >>= fun () ->
-  with_store "tsiv" (fun store ->
+  with_store [Store.OpenMode.OCREAT; Store.OpenMode.OWRITER] "tsiv" (fun store ->
     do_asserts store)
 
 let test_safe_insert_value_with_partial_value_update () =
-  with_store "tsivwpvu" (fun store ->
+  with_store [Store.OpenMode.OCREAT; Store.OpenMode.OWRITER] "tsivwpvu" (fun store ->
     let k = "key" in
     let u1 = Update.TestAndSet(k, Some "value1", Some "illegal")
     and u2 = Update.TestAndSet(k, None, Some "value1")

@@ -90,8 +90,8 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
       struct
         include LS
-        let make_store ?(read_only=false) (db_name:string) =
-          LS.make_store db_name >>= fun store ->
+        let make_store mode (db_name:string) =
+          LS.make_store mode db_name >>= fun store ->
           LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () -> 
           Hashtbl.add stores db_name store;
           Lwt.return store

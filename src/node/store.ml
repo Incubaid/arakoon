@@ -95,7 +95,7 @@ module type Simple_store = sig
   val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> OpenMode.t list -> unit Lwt.t
-  val make_store: bool -> string -> t Lwt.t
+  val make_store: OpenMode.t list -> string -> t Lwt.t
 
   val get_location: t -> string
   val relocate: t -> string -> unit Lwt.t
@@ -119,7 +119,7 @@ module type STORE =
   sig
     type ss
     type t
-    val make_store : ?read_only:bool -> string -> t Lwt.t
+    val make_store : OpenMode.t list -> string -> t Lwt.t
     val consensus_i : t -> Sn.t option
     val flush : t -> unit Lwt.t
     val close : ?flush : bool -> t -> unit Lwt.t
@@ -215,8 +215,8 @@ struct
     with Not_found -> None
 
 
-  let make_store ?(read_only=false) db_name =
-    S.make_store read_only db_name >>= fun simple_store ->
+  let make_store mode db_name =
+    S.make_store mode db_name >>= fun simple_store ->
     let store_i = _consensus_i simple_store
     and master = _master simple_store
     and interval = _get_interval simple_store
