@@ -117,7 +117,7 @@ let test_common () =
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
-  S.make_store db_name >>= fun store ->
+  S.make_store [Store.OpenMode.OCREAT; Store.OpenMode.OWRITER] db_name >>= fun store ->
   Catchup.catchup_store me ((module S),store,tlog_coll) 500L >>= fun() ->
   Logger.info_ "TODO: validate store after this" >>= fun ()->
   tlog_coll # close () >>= fun () ->
@@ -144,7 +144,7 @@ let _tic (type s) filler_function n name verify_store =
   Tlc2.make_tlc2 _dir_name _tlf_dir _tlf_dir true false "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  S.make_store db_name >>= fun store ->
+  S.make_store [Store.OpenMode.OCREAT; Store.OpenMode.OWRITER] db_name >>= fun store ->
   let me = "??me??" in
   Catchup.verify_n_catchup_store me ((module S), store, tlog_coll)
   >>= fun () ->

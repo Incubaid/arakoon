@@ -39,7 +39,7 @@ let summary store =
 
 let dump_store filename = 
   let t () = 
-    S.make_store filename >>= fun store ->
+    S.make_store [Store.OpenMode.OREADER] filename >>= fun store ->
     summary store >>= fun () ->
     S.close store
   in
@@ -66,11 +66,11 @@ let inject_as_head fn node_id cfg_fn =
     let tlf_dir = node_cfg.tlf_dir in
     let head_dir = node_cfg.head_dir in
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
-    S.make_store old_head_name >>= fun old_head ->
+    S.make_store [Store.OpenMode.OREADER] old_head_name >>= fun old_head ->
     let old_head_i = S.consensus_i old_head in
     S.close old_head      >>= fun () ->
 
-    S.make_store fn >>= fun new_head ->
+    S.make_store [Store.OpenMode.OREADER] fn >>= fun new_head ->
     let new_head_i = S.consensus_i new_head in
     S.close new_head      >>= fun () ->
 

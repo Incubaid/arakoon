@@ -67,8 +67,16 @@ let copy_store2 old_location new_location overwrite =
   else
     File_system.copy_file old_location new_location overwrite
 
+let bdb_open_mode mode =
+  let map_mode = function
+    | OpenMode.OREADER -> Camltc.Bdb.OpenMode.OREADER
+    | OpenMode.OWRITER -> Camltc.Bdb.OpenMode.OWRITER
+    | OpenMode.OCREAT -> Camltc.Bdb.OpenMode.OCREAT
+  in
+  Camltc.Bdb.OpenMode.OLCKNB :: List.map map_mode mode
+
 let safe_create db_path mode =
-  Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
+  Camltc.Hotc.create db_path ~mode:(bdb_open_mode mode) [B.BDBTLARGE] >>= fun db ->
   let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
   if List.mem Camltc.Bdb.BDBFFATAL flags
     then Lwt.fail (BdbFFatal db_path)
@@ -190,16 +198,9 @@ let close ls flush =
 
 let get_location ls = Camltc.Hotc.filename ls.db
 
-let reopen ls f quiesced =
-  let mode =
-    begin
-      if quiesced then
-        B.readonly_mode
-      else
-        B.default_mode
-    end in
+let reopen ls f mode =
   Logger.info_f_ "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
-  Camltc.Hotc.reopen ls.db f mode >>= fun () ->
+  Camltc.Hotc.reopen ls.db f (bdb_open_mode mode) >>= fun () ->
   Logger.info_ "local_store::reopen Hotc::reopen succeeded"
 
 let get_key_count ls =
@@ -226,7 +227,7 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
   >>= fun () ->
   Lwt_io.flush oc
 
-let optimize ls quiesced =
+let optimize ls mode =
   let db_optimal = ls.location ^ ".opt" in
   Logger.info_ "Copying over db file" >>= fun () ->
   Lwt_io.with_file
@@ -236,7 +237,7 @@ let optimize ls quiesced =
   >>= fun () ->
   begin
     Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
-    safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
+    safe_create db_optimal [Store.OpenMode.OCREAT; Store.OpenMode.OWRITER] >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
         Logger.info_ "Optimizing db copy" >>= fun () ->
@@ -248,7 +249,7 @@ let optimize ls quiesced =
       )
   end >>= fun () ->
   File_system.rename db_optimal ls.location >>= fun () ->
-  reopen ls (fun () -> Lwt.return ()) quiesced
+  reopen ls (fun () -> Lwt.return ()) mode
 
 let relocate ls new_location =
   copy_store2 ls.location new_location true >>= fun () ->
@@ -352,12 +353,7 @@ let get_fringe ls border direction =
       Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
-let make_store read_only db_name =
-  let mode =
-    if read_only
-    then B.readonly_mode
-    else B.default_mode
-  in
+let make_store mode db_name =
   Logger.info_f_ "Creating local store at %s" db_name >>= fun () ->
   get_construct_params db_name ~mode
   >>= fun db ->
