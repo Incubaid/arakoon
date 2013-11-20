@@ -190,16 +190,16 @@ let close ls flush =
 
 let get_location ls = Camltc.Hotc.filename ls.db
 
-let reopen ls f quiesced =
-  let mode =
-    begin
-      if quiesced then
-        B.readonly_mode
-      else
-        B.default_mode
-    end in
+let reopen ls f mode =
+  let map_mode = function
+    | OpenMode.OREADER -> Camltc.Bdb.OpenMode.OREADER
+    | OpenMode.OWRITER -> Camltc.Bdb.OpenMode.OWRITER
+    | OpenMode.OCREAT -> Camltc.Bdb.OpenMode.OCREAT
+  in
+  let bdb_mode = Camltc.Bdb.OpenMode.OLCKNB :: List.map map_mode mode in
+
   Logger.info_f_ "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
-  Camltc.Hotc.reopen ls.db f mode >>= fun () ->
+  Camltc.Hotc.reopen ls.db f bdb_mode >>= fun () ->
   Logger.info_ "local_store::reopen Hotc::reopen succeeded"
 
 let get_key_count ls =
@@ -226,7 +226,7 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
   >>= fun () ->
   Lwt_io.flush oc
 
-let optimize ls quiesced =
+let optimize ls mode =
   let db_optimal = ls.location ^ ".opt" in
   Logger.info_ "Copying over db file" >>= fun () ->
   Lwt_io.with_file
@@ -248,7 +248,7 @@ let optimize ls quiesced =
       )
   end >>= fun () ->
   File_system.rename db_optimal ls.location >>= fun () ->
-  reopen ls (fun () -> Lwt.return ()) quiesced
+  reopen ls (fun () -> Lwt.return ()) mode
 
 let relocate ls new_location =
   copy_store2 ls.location new_location true >>= fun () ->

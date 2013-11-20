@@ -71,6 +71,12 @@ type update_result =
 exception Key_not_found of string
 exception CorruptStore
 
+module OpenMode = struct
+  type t = OREADER
+         | OWRITER
+         | OCREAT
+end
+
 module type Simple_store = sig
   type t
   val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
@@ -88,7 +94,7 @@ module type Simple_store = sig
 
   val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
-  val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
+  val reopen: t -> (unit -> unit Lwt.t) -> OpenMode.t list -> unit Lwt.t
   val make_store: bool -> string -> t Lwt.t
 
   val get_location: t -> string
@@ -96,7 +102,7 @@ module type Simple_store = sig
 
   val get_key_count : t -> int64 Lwt.t
 
-  val optimize : t -> bool -> unit Lwt.t
+  val optimize : t -> OpenMode.t list -> unit Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
@@ -279,7 +285,12 @@ struct
     S.get_location store.s
 
   let reopen store f =
-    S.reopen store.s f store.quiesced >>= fun () ->
+    let mode =
+      if store.quiesced
+      then [OpenMode.OREADER]
+      else [OpenMode.OWRITER]
+    in
+    S.reopen store.s f mode >>= fun () ->
     store.store_i <- _consensus_i store.s;
     store.closed <- false;
     Lwt.return ()
@@ -314,7 +325,8 @@ struct
     reopen store (fun () -> Lwt.return ())
 
   let optimize store =
-    S.optimize store.s store.quiesced
+    S.optimize store.s
+      [if store.quiesced then OpenMode.OREADER else OpenMode.OWRITER]
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
