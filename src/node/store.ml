@@ -384,11 +384,9 @@ struct
   let _set_j store tx j =
     S.set store.s tx __j_key (string_of_int j)
 
-  let _new_i old_i =
-    let new_i = match old_i with
-      | None -> Sn.start
-      | Some i -> Sn.succ i in
-    new_i
+  let _new_i = function
+    | None -> Sn.start
+    | Some i -> Sn.succ i
 
   let _incr_i store tx =
     let old_i = _consensus_i store.s in
@@ -861,11 +859,7 @@ struct
         else
           _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
 
-  let get_succ_store_i store =
-    let m_si = consensus_i store in
-    match m_si with
-      | None -> Sn.start
-      | Some si -> Sn.succ si
+  let get_succ_store_i store = _new_i (consensus_i store)
 
   let get_catchup_start_i = get_succ_store_i
 

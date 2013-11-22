@@ -34,12 +34,12 @@ let is_empty = function
 (* a (possibly potential) master has found consensus on a value
    first potentially finish of a client request and then on to
    being a stable master *)
-let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i, lease_expire_waiters) () =
-  let con_e = EConsensus(ofinished_funs, v,n,i, false) in
+let master_consensus (type s) constants {mo;v;n;i; lew} () =
+  let con_e = EConsensus(mo, v,n,i, false) in
   let log_e = ELog (fun () ->
       Printf.sprintf "on_consensus for : %s => %i finished_fs (in master_consensus)"
         (Value.value2s v)
-        (match ofinished_funs with
+        (match mo with
            | None -> 0
            | Some ffs -> (List.length ffs) ))
   in
@@ -74,7 +74,7 @@ let master_consensus (type s) constants ((ofinished_funs : master_option),v,n,i,
           end
     )
   in
-  let state = (n,(Sn.succ i), lease_expire_waiters) in
+  let state = (n,(Sn.succ i), lew) in
   Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
@@ -104,7 +104,8 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             else
               let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
               let v = Value.create_master_value (me,0.0) in
-              Fsm.return ~sides:[log_e] (Master_dictate (None, v,n,new_i, lease_expire_waiters))
+              let ms = {mo = None; v;n;i = new_i;lew = lease_expire_waiters} in
+              Fsm.return ~sides:[log_e] (Master_dictate ms)
           in
           match constants.master with
             | Preferred ps when not (List.mem me ps) ->
@@ -139,8 +140,11 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
       begin
         let updates, finished_funs = List.split ufs in
         let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
-        let value = Value.create_client_value updates synced in
-        Fsm.return (Master_dictate (Some finished_funs, value, n, new_i, lease_expire_waiters))
+        let v = Value.create_client_value updates synced in
+        let ms = {mo = Some finished_funs;v;n;i = new_i;
+                  lew = lease_expire_waiters}
+        in
+        Fsm.return (Master_dictate ms)
       end
     | FromNode (msg,source) ->
       begin
@@ -238,7 +242,8 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
 (* a master informes the others of a new value by means of Accept
    messages and then waits for Accepted responses *)
 
-let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
+let master_dictate constants ms () =
+  let {mo;v;n;i;lew} = ms in
   let accept_e = EAccept (v,n,i) in
 
   let mcast_e = EMCast (Accept(n,i,v)) in
@@ -260,4 +265,4 @@ let master_dictate constants (mo,v,n,i, lease_expire_waiters) () =
        mcast_e;
       ] in
   start_election_timeout constants n i >>= fun () ->
-  Fsm.return ~sides (Accepteds_check_done (mo, n, i, ballot, v, lease_expire_waiters))
+  Fsm.return ~sides (Accepteds_check_done (ms, ballot))
