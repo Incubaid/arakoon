@@ -88,7 +88,7 @@ module type Simple_store = sig
 
   val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
-  val reopen: t -> (unit -> unit Lwt.t) -> Quiesce.Mode.t -> unit Lwt.t
+  val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
   val make_store: bool -> string -> t Lwt.t
 
   val get_location: t -> string
@@ -96,7 +96,7 @@ module type Simple_store = sig
 
   val get_key_count : t -> int64 Lwt.t
 
-  val optimize : t -> Quiesce.Mode.t -> unit Lwt.t
+  val optimize : t -> bool -> unit Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
@@ -279,7 +279,10 @@ struct
     S.get_location store.s
 
   let reopen store f =
-    S.reopen store.s f store.quiesced >>= fun () ->
+    let m = match store.quiesced with
+      | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
+      | Quiesce.Mode.ReadOnly -> true in
+    S.reopen store.s f m >>= fun () ->
     store.store_i <- _consensus_i store.s;
     store.closed <- false;
     Lwt.return ()
@@ -313,7 +316,10 @@ struct
     reopen store (fun () -> Lwt.return ())
 
   let optimize store =
-    S.optimize store.s store.quiesced
+    let m = match store.quiesced with
+      | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
+      | Quiesce.Mode.ReadOnly -> true in
+    S.optimize store.s m
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->

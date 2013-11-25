@@ -194,11 +194,14 @@ let close ls flush =
 
 let get_location ls = Camltc.Hotc.filename ls.db
 
-let reopen ls f quiesce_mode =
-  let mode = match quiesce_mode with
-    | Quiesce.Mode.ReadOnly -> B.readonly_mode
-    | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> B.default_mode
-  in
+let reopen ls f quiesced =
+  let mode =
+    begin
+      if quiesced then
+        B.readonly_mode
+      else
+        B.default_mode
+    end in
   Logger.info_f_ "local_store %S::reopen calling Hotc::reopen" ls.location >>= fun () ->
   Camltc.Hotc.reopen ls.db f mode >>= fun () ->
   Logger.info_ "local_store::reopen Hotc::reopen succeeded"
