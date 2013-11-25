@@ -1,305 +1,471 @@
-import subprocess
+# This file is part of Arakoon, a distributed key-value store. Copyright
+# (C) 2013 Incubaid BVBA
+#
+# Licensees holding a valid Incubaid license may use this file in
+# accordance with Incubaid's Arakoon commercial license agreement. For
+# more information on how to enter into this agreement, please contact
+# Incubaid (contact details can be found on www.arakoon.org/licensing).
+#
+# Alternatively, this file may be redistributed and/or modified under
+# the terms of the GNU Affero General Public License version 3, as
+# published by the Free Software Foundation. Under this license, this
+# file is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See the GNU Affero General Public License for more details.
+# You should have received a copy of the
+# GNU Affero General Public License along with this program (file "COPYING").
+# If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import os.path
 import time
-from .. import system_tests_common as C
+import errno
+import shutil
+import socket
+import logging
+import tempfile
+import unittest
+import contextlib
+import subprocess
 
-def make_config(config_fn, arakoon_root, ca_path, ca_path2):
-    with open(config_fn,'w') as f:
-        contents = """
-[global]
-cluster = arakoon_0, arakoon_1, arakoon_2
-cluster_id = arakoon_tls_test
-tls_ca_cert = %s/cacert.pem
-tls_service = true
-tls_service_validate_peer = true
+try:
+    from .. import system_tests_common as C
 
-[arakoon_0]
-ip = 127.0.0.1
-client_port = 4000
-messaging_port = 4010
-home = %s/arakoon_0
-log_level = debug
-tls_cert = %s/arakoon_0.pem
-tls_key  = %s/arakoon_0.key
+    ARAKOON_BIN = C.binary_full_path
+except ImportError:
+    ARAKOON_BIN = 'arakoon'
 
-[arakoon_1]
-ip = 127.0.0.1
-client_port = 4001
-messaging_port = 4011
-home = %s/arakoon_1
-log_level = debug
-tls_cert = %s/arakoon_1.pem
-tls_key  = %s/arakoon_1.key
+LOGGER = logging.getLogger(__name__)
 
-[arakoon_2]
-ip = 127.0.0.1
-client_port = 4002
-messaging_port = 4012
-home = %s/arakoon_2
-log_level = debug
-tls_cert = %s/arakoon_2.pem
-tls_key  = %s/arakoon_2.key
-"""
-        filled_in = contents % (ca_path,
-                                arakoon_root, ca_path, ca_path,
-                                arakoon_root, ca_path, ca_path,
-                                arakoon_root, ca_path2, ca_path2)
-        f.write(filled_in)
+class Timeout(Exception): pass
 
+def wait_for_server(host, port, timeout):
+    start = time.time()
+    end = start + timeout
 
+    ok = False
 
-def shell(cmd):
-    rc = subprocess.check_call(cmd)
-    return rc
+    while time.time() <= end:
+        try:
+            s = socket.create_connection(
+                (host, port), timeout=(end - time.time()))
+            s.close()
+            ok = True
+            break
+        except:
+            LOGGER.exception('Failure to create socket')
 
-sub = '/C=BE/ST=Oost-Vlaanderen/L=Lochristi/O=Incubaid BVBA/OU=Arakoon Testing/CN=Arakoon Testing CA'
+        time.sleep(0.1)
 
-def make_ca_key(root):
-    cmd = ["openssl", "req", "-new" ,
-           "-nodes", "-out","%s/cacert-req.pem" % root,
-           "-keyout","%s/cacert.key" % root,
-           "-subj", sub]
-    shell(cmd)
+    if not ok:
+        raise Timeout('Unable to connect to %s:%d in time' % (host, port))
 
-def make_ca_csr(root):
-    cmd=["openssl", "x509",
-         "-signkey", "%s/cacert.key" % root,
-         "-req",
-         "-in", "%s/cacert-req.pem" % root,
-         "-out", "%s/cacert.pem" % root]
-    shell(cmd)
+def wait_for_master(cfg, nodes, settings, ca_path, key, timeout, interval):
+    tls_ca_cert = os.path.join(ca_path, 'cacert.pem')
+    tls_cert = os.path.join(ca_path, '%s.pem' % key)
+    tls_key = os.path.join(ca_path, '%s.key' % key)
 
-def remove_ca_csr(root):
-    cmd=["rm","%s/cacert-req.pem" % root]
-    shell(cmd)
+    args = [
+        ARAKOON_BIN,
+        '-config', cfg,
+        '-tls-ca-cert', tls_ca_cert,
+        '-tls-cert', tls_cert,
+        '-tls-key', tls_key,
+        '--who-master'
+    ]
 
-def make_key_csr(root, i):
-    cmd=["openssl","req",
-         "-out", "%s/arakoon_%i-req.pem" % (root,i),
-         "-new","-nodes",
-         "-keyout","%s/arakoon_%i.key" % (root,i),
-         "-subj", sub]
-    shell(cmd)
+    start = time.time()
+    end = start + timeout
 
-def sign_csr(root,i):
-    cmd = ["openssl","x509", "-req",
-           "-in", "%s/arakoon_%i-req.pem" % (root,i),
-           "-CA", "%s/cacert.pem" % root,
-           "-CAkey", "%s/cacert.key" % root,
-           "-out" , "%s/arakoon_%i.pem" % (root,i) ,
-           "-set_serial", "0%i" % i]
-    shell(cmd)
-    shell(["rm","%s/arakoon_%i-req.pem" % (root,i)])
+    for node in nodes:
+        wait_for_server(
+            settings['%s_ip' % node], settings['%s_client_port' % node],
+            end - time.time())
 
-def verify(root,i):
-    shell(["openssl", "verify", "-CAfile", "%s/cacert.pem" % root,
-           "%s/arakoon_%i.pem" % (root,i)])
+    while time.time() < end:
+        LOGGER.info('Retrieving master')
+
+        proc = subprocess.Popen(args, close_fds=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        rc = proc.wait()
+
+        LOGGER.info('rc: %s', rc)
+
+        if rc == 0:
+            return proc.stdout.read().strip()
+        else:
+            e = proc.stderr.read()
+            LOGGER.info('`--who-master` returned %r: %r', rc, e)
+
+        time.sleep(interval)
+
+    raise Timeout('Unable to find master')
 
 
-arakoon_root = "/tmp/arakoon"
-config_fn = "%s/arakoon_tls.ini" % (arakoon_root, )
+class ProcessManager(object):
+    def __init__(self):
+        self._processes = set()
 
-def setup():
-    shell(["rm","-rf", arakoon_root])
-    shell(["mkdir","-p", arakoon_root])
-    home =["%s/arakoon_%i" % (arakoon_root,i) for i in range(3)]
+    def __enter__(self):
+        return self
 
-    for i in range(3):
-        shell(["mkdir","-p", home[i]])
+    def __exit__(self, t, v, b):
+        procs = list(self._processes)
 
-    make_config(config_fn,
-                arakoon_root,
-                arakoon_root,
-                arakoon_root + "2")
+        try:
+            map(self.kill, procs)
+        except:
+            LOGGER.exception('Error during ProcessManager cleanup')
 
-    make_ca_key(arakoon_root)
-    make_ca_csr(arakoon_root)
-    remove_ca_csr(arakoon_root)
-    for i in range(3):
-        make_key_csr(arakoon_root, i)
-        sign_csr(arakoon_root,i)
-        verify(arakoon_root,i)
+        if t is not None:
+            raise t, v, b
+
+    def start_node(self, config_path, node_name):
+        return self.run_async(
+            [ARAKOON_BIN, '-config', config_path, '--node', node_name],
+            close_fds=True)
+
+    def start_nodes(self, config_path, nodes):
+        return map(lambda n: self.start_node(config_path, n), nodes)
+
+    def run_async(self, *a, **k):
+        proc = subprocess.Popen(*a, **k)
+        self._processes.add(proc)
+        return proc
+
+    def kill(self, proc):
+        self._processes.remove(proc)
+
+        if proc.poll() is not None:
+            return
+
+        try:
+            for i in xrange(100):
+                LOGGER.info('Terminating process %s (%d/100)',
+                str(proc.pid) if proc.pid else '<unknown>', i)
+                try:
+                    proc.terminate()
+                except OSError, ex:
+                    if ex.errno == errno.ESRCH:
+                        pass
+                    else:
+                        raise
+
+                if proc.poll() is not None:
+                    return
+
+                time.sleep(0.1)
+
+            LOGGER.info('Killing process %s',
+                str(proc.pid) if proc.pid else '<unknown>')
+            proc.kill()
+        except:
+            LOGGER.exception('Failure while terminating process')
 
 
-def teardown():
+
+def make_ca(path):
+    # CA key & CSR
+    subject = \
+        '/C=BE/ST=Oost-Vlaanderen/L=Lochristi/O=Incubaid BVBA/OU=Arakoon Testing/CN=Arakoon Testing CA'
+    args = \
+        'openssl req -new -nodes -out cacert-req.pem -keyout cacert.key -subj'.split()
+    args.append(subject)
+
+    subprocess.check_call(args, close_fds=True, cwd=path)
+
+    # Self-sign CA CSR
+    args = \
+        'openssl x509 -signkey cacert.key -req -in cacert-req.pem -out cacert.pem'.split()
+    subprocess.check_call(args, close_fds=True, cwd=path)
+
+    os.unlink(os.path.join(path, 'cacert-req.pem'))
+
+def make_node_cert(path, name, serial):
+    # CSR
+    subject = \
+        '/C=BE/ST=Oost-Vlaanderen/L=Lochristi/O=Incubaid BVBA/OU=Arakoon Testing/CN=%s' % name
+    args = \
+        'openssl req -out %(name)s-req.pem -new -nodes -keyout %(name)s.key -subj' % {'name': name}
+    args = args.split()
+    args.append(subject)
+
+    subprocess.check_call(args, close_fds=True, cwd=path)
+
+    # Sign
+    args = \
+        'openssl x509 -req -in %(name)s-req.pem -CA cacert.pem -CAkey cacert.key -out %(name)s.pem -set_serial 0%(serial)d' % \
+        {'name': name, 'serial': serial}
+    args = args.split()
+
+    subprocess.check_call(args, close_fds=True, cwd=path)
+
+    os.unlink(os.path.join(path, '%s-req.pem' % name))
+
+    # Verify
+    args = \
+        'openssl verify -CAfile cacert.pem %(name)s.pem' % {'name': name}
+    args = args.split()
+
+    subprocess.check_call(args, close_fds=True, cwd=path)
+
+@contextlib.contextmanager
+def config(template, nodes):
+    ca_path = tempfile.mkdtemp(suffix='ca')
+    ca_path2 = tempfile.mkdtemp(suffix='ca')
+    nodes_path = tempfile.mkdtemp(suffix='nodes')
+
+    make_ca(ca_path)
+    make_ca(ca_path2)
+
+    settings = {
+        'CLUSTER_ID': 'arakoon_tls_test',
+        'NODES_PATH': nodes_path,
+        'CA_PATH': ca_path,
+        'CA_PATH2': ca_path2,
+        'cluster': ', '.join(nodes)
+    }
+
+    for (idx, node) in enumerate(nodes):
+        os.mkdir(os.path.join(nodes_path, node))
+        make_node_cert(ca_path, node, idx)
+        make_node_cert(ca_path2, node, idx)
+
+        settings['%s_ip' % node] = '127.0.0.1'
+        settings['%s_client_port' % node] = 4000 + idx
+        settings['%s_messaging_port' % node] = 5000 + idx
+
+    config_path = os.path.join(nodes_path, 'arakoon.ini')
+    config = template % settings
+
+    with open(config_path, 'w') as fd:
+        fd.write(config)
+
     try:
-        shell(["pkill", "-9", "arakoon"])
+        yield (config_path, settings)
     except:
-        pass
+        raise
+    else:
+        shutil.rmtree(nodes_path)
+        shutil.rmtree(ca_path)
+        shutil.rmtree(ca_path2)
 
-arakoon_bin = C.binary_full_path
 
-def start_node(i):
-    cmd = [arakoon_bin,"-config", config_fn,
-           "--node", "arakoon_%i" % (i,)]
-    p = subprocess.Popen(cmd)
-    return p
-
-def test_ssl_1():
-    arakoon_0 = start_node(0)
-    time.sleep(1)
-    p = subprocess.Popen(["openssl", "s_client",
-                          "-connect", "localhost:4010",
-                          "-CAfile", "%s/cacert.pem" % arakoon_root,
-                          "-cert", "%s/arakoon_1.pem" % arakoon_root,
-                          "-key", "%s/arakoon_1.key" % arakoon_root],
-                         stdout = subprocess.PIPE)
-    data =p.stdout.read()
-    p.wait()
-    lines = data.split("\n")
-    if lines[-3].find("0 (ok)") < 0:
-        raise Exception("failed")
-
-    arakoon_0.kill()
-
-def cmd_line_client(ara_cmd):
-    cmd = [arakoon_bin, "-config", config_fn,
-           "-tls-ca-cert","%s/cacert.pem" % arakoon_root,
-           "-tls-cert",   "%s/arakoon_2.pem" % arakoon_root,
-           "-tls-key",    "%s/arakoon_2.key" % arakoon_root
-          ]
-    cmd.extend(ara_cmd)
-    shell(cmd)
-
-def _assert_master():
-    cmd_line_client(["--who-master"])
-
-def test_ssl_2():
-    arakoon_0 = start_node(0)
-    arakoon_1 = start_node(1)
-    _assert_master()
-    arakoon_0.kill()
-    arakoon_1.kill()
-
-def test_ssl_3():
-    arakoon_0 = start_node(0)
-    arakoon_1 = start_node(1)
-    _assert_master()
-
-    arakoon_0.kill()
-    arakoon_0 = start_node(0)
-    time.sleep(11)
-    _assert_master()
-
-def test_ssl_4():
-    todo = '''
-echo "Test #4: Make sure certs are validated"
-# Can't use tls_service_validate_peer in this test: client can connect to both
-# nodes, one of them will reject the connection due to certificate mismatch.
-cat > arakoon_tls.ini << EOF
+TEMPLATE1 = '''
 [global]
-cluster = arakoon_0, arakoon_1, arakoon_2
-cluster_id = arakoon_tls_test
-tls_ca_cert = $CA_PATH/cacert.pem
-
-[arakoon_0]
-ip = 127.0.0.1
-client_port = 4000
-messaging_port = 4010
-home = $NODES_PATH/arakoon_0
-log_level = debug
-tls_cert = $CA_PATH/arakoon0.pem
-tls_key = $CA_PATH/arakoon0.key
-
-[arakoon_1]
-ip = 127.0.0.1
-client_port = 4001
-messaging_port = 4011
-home = $NODES_PATH/arakoon_1
-log_level = debug
-tls_cert = $CA_PATH/arakoon1.pem
-tls_key = $CA_PATH/arakoon1.key
-
-[arakoon_2]
-ip = 127.0.0.1
-client_port = 4002
-messaging_port = 4012
-home = $NODES_PATH/arakoon_2
-log_level = debug
-tls_cert = $CA_PATH2/arakoon2.pem
-tls_key = $CA_PATH2/arakoon2.key
-EOF
-
-
-
-./arakoon.native -config arakoon_tls.ini --node arakoon_0 &
-ARAKOON0_PID=$!
-./arakoon.native -config arakoon_tls.ini --node arakoon_2 &
-ARAKOON2_PID=$!
-sleep 11
-./arakoon.native -config arakoon_tls.ini --who-master 2>&1 | grep "No Master"
-kill $ARAKOON0_PID
-kill $ARAKOON2_PID
-sleep 1
-
-'''
-    raise Exception("todo")
-
-def test_ssl_5():
-    todo = '''
-echo "Test #5: Python client"
-cat > arakoon_tls.ini << EOF
-[global]
-cluster = arakoon_0, arakoon_1, arakoon_2
-cluster_id = arakoon_tls_test
-tls_ca_cert = $CA_PATH/cacert.pem
+cluster = %(cluster)s
+cluster_id = %(CLUSTER_ID)s
+tls_ca_cert = %(CA_PATH)s/cacert.pem
 tls_service = true
 tls_service_validate_peer = true
 
 [arakoon_0]
-ip = 127.0.0.1
-client_port = 4000
-messaging_port = 4010
-home = $NODES_PATH/arakoon_0
+ip = %(arakoon_0_ip)s
+client_port = %(arakoon_0_client_port)s
+messaging_port = %(arakoon_0_messaging_port)s
+home = %(NODES_PATH)s/arakoon_0
 log_level = debug
-tls_cert = $CA_PATH/arakoon0.pem
-tls_key = $CA_PATH/arakoon0.key
+tls_cert = %(CA_PATH)s/arakoon_0.pem
+tls_key = %(CA_PATH)s/arakoon_0.key
 
 [arakoon_1]
-ip = 127.0.0.1
-client_port = 4001
-messaging_port = 4011
-home = $NODES_PATH/arakoon_1
+ip = %(arakoon_1_ip)s
+client_port = %(arakoon_1_client_port)s
+messaging_port = %(arakoon_1_messaging_port)s
+home = %(NODES_PATH)s/arakoon_1
 log_level = debug
-tls_cert = $CA_PATH/arakoon1.pem
-tls_key = $CA_PATH/arakoon1.key
+tls_cert = %(CA_PATH)s/arakoon_1.pem
+tls_key = %(CA_PATH)s/arakoon_1.key
 
 [arakoon_2]
-ip = 127.0.0.1
-client_port = 4002
-messaging_port = 4012
-home = $NODES_PATH/arakoon_2
+ip = %(arakoon_2_ip)s
+client_port = %(arakoon_2_client_port)s
+messaging_port = %(arakoon_2_messaging_port)s
+home = %(NODES_PATH)s/arakoon_2
 log_level = debug
-tls_cert = $CA_PATH/arakoon2.pem
-tls_key = $CA_PATH/arakoon2.key
-EOF
-
-./arakoon.native -config arakoon_tls.ini --node arakoon_0 &
-ARAKOON0_PID=$!
-./arakoon.native -config arakoon_tls.ini --node arakoon_1 &
-ARAKOON1_PID=$!
-sleep 2
-
-PYTHONPATH=src/client/python python << EOF
-import Arakoon
-config = Arakoon.ArakoonClientConfig(
-    'arakoon_tls_test',
-    { 'arakoon_0': (['127.0.0.1'], 4000),
-      'arakoon_1': (['127.0.0.1'], 4001) },
-    tls=True, tls_ca_cert='$CA_PATH/cacert.pem',
-    tls_cert=('$CA_PATH/arakoon2.pem', '$CA_PATH/arakoon2.key'))
-client = Arakoon.ArakoonClient(config=config)
-print 'Master:', client.whoMaster()
-client.set('tls_test_key', 'tls_test_value')
-assert client.get('tls_test_key') == 'tls_test_value'
-EOF
-
-kill $ARAKOON0_PID
-kill $ARAKOON1_PID
-
-sleep 1
+tls_cert = %(CA_PATH)s/arakoon_2.pem
+tls_key = %(CA_PATH)s/arakoon_2.key
 '''
-    raise Exception("todo")
+TEMPLATE1_NODES = ['arakoon_0', 'arakoon_1', 'arakoon_2']
 
-if __name__ == "__main__":
-    setup()
-    test_ssl_2()
+TEMPLATE2 = '''
+[global]
+cluster = %(cluster)s
+cluster_id = %(CLUSTER_ID)s
+tls_ca_cert = %(CA_PATH)s/cacert.pem
+
+[arakoon_0]
+ip = %(arakoon_0_ip)s
+client_port = %(arakoon_0_client_port)s
+messaging_port = %(arakoon_0_messaging_port)s
+home = %(NODES_PATH)s/arakoon_0
+log_level = debug
+tls_cert = %(CA_PATH)s/arakoon_0.pem
+tls_key = %(CA_PATH)s/arakoon_0.key
+
+[arakoon_1]
+ip = %(arakoon_1_ip)s
+client_port = %(arakoon_1_client_port)s
+messaging_port = %(arakoon_1_messaging_port)s
+home = %(NODES_PATH)s/arakoon_1
+log_level = debug
+tls_cert = %(CA_PATH)s/arakoon_1.pem
+tls_key = %(CA_PATH)s/arakoon_1.key
+
+[arakoon_2]
+ip = %(arakoon_2_ip)s
+client_port = %(arakoon_2_client_port)s
+messaging_port = %(arakoon_2_messaging_port)s
+home = %(NODES_PATH)s/arakoon_2
+log_level = debug
+tls_cert = %(CA_PATH2)s/arakoon_2.pem
+tls_key = %(CA_PATH2)s/arakoon_2.key
+
+'''
+TEMPLATE2_NODES = ['arakoon_0', 'arakoon_1', 'arakoon_2']
+
+class TestTLS(unittest.TestCase):
+    def test_cert(self):
+        # For now, CI doesn't like this
+        try:
+            raise unittest.SkipTest('Jenkins doesn\'t like this')
+        except AttributeError: # Very old Python
+            try:
+                import nose
+            except ImportError:
+                return # Bleh
+            else:
+                raise nose.SkipTest('Jenkins doesn\'t like this')
+
+        with config(TEMPLATE1, TEMPLATE1_NODES) as (cfg, settings):
+            with ProcessManager() as pm:
+                pm.start_node(cfg, 'arakoon_0')
+                wait_for_server(
+                    settings['arakoon_0_ip'], settings['arakoon_0_client_port'],
+                    10)
+                time.sleep(5)
+
+                args = 'openssl s_client -connect %(arakoon_0_ip)s:%(arakoon_0_client_port)d -CAfile %(CA_PATH)s/cacert.pem -cert %(CA_PATH)s/arakoon_1.pem -key %(CA_PATH)s/arakoon_1.key'
+                args = args % settings
+
+                args = args.split()
+
+                proc = subprocess.Popen(args, stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    close_fds=True)
+                proc.stdin.close()
+
+                rc = proc.wait()
+                self.assertEqual(rc, 0)
+
+                data = '%s\n%s' % \
+                    (proc.stdout.read().strip(), proc.stderr.read().strip())
+                LOGGER.info('openssl returned: %s', data)
+                self.assert_('Verify return code: 0' in data)
+
+    def test_inter_node_communication(self):
+        with config(TEMPLATE1, TEMPLATE1_NODES) as (cfg, settings):
+            with ProcessManager() as pm:
+                pm.start_nodes(cfg, ['arakoon_0', 'arakoon_1'])
+
+                wait_for_master(
+                    cfg, ['arakoon_0', 'arakoon_1'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_2',
+                    10, 1)
+
+    def test_reconnection(self):
+        with config(TEMPLATE1, TEMPLATE1_NODES) as (cfg, settings):
+            with ProcessManager() as pm:
+                procs = pm.start_nodes(cfg, ['arakoon_0', 'arakoon_1'])
+
+                wait_for_master(
+                    cfg, ['arakoon_0', 'arakoon_1'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_2',
+                    10, 1)
+
+                pm.kill(procs[1])
+                time.sleep(11)
+
+                self.assertRaises(Timeout, wait_for_master,
+                    cfg, ['arakoon_0'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_2',
+                    10, 1)
+
+                pm.start_node(cfg, 'arakoon_1')
+
+                wait_for_master(
+                    cfg, ['arakoon_0', 'arakoon_1'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_2',
+                    10, 1)
+
+    def test_reject_invalid_server_cert(self):
+        with config(TEMPLATE2, TEMPLATE2_NODES) as (cfg, settings):
+            with ProcessManager() as pm:
+                pm.start_nodes(cfg, ['arakoon_0', 'arakoon_2'])
+
+                self.assertRaises(Timeout, wait_for_master,
+                    cfg, ['arakoon_0', 'arakoon_2'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_1',
+                    15, 1)
+
+    def test_python_client(self):
+        def f(settings):
+            try:
+                import Arakoon
+            except ImportError:
+                try:
+                    from arakoon import Arakoon
+                except ImportError:
+                    LOGGER.warning('Unable to import `Arakoon`, fixing path')
+
+                    import sys
+
+                    client_path = os.path.abspath(os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        os.path.pardir, os.path.pardir, os.path.pardir,
+                        os.path.pardir,
+                        'src', 'client', 'python'))
+                    LOGGER.info('Appending %r to `sys.path`', client_path)
+                    sys.path.append(client_path)
+
+                    import Arakoon
+
+            nodes = dict(
+                (node, ([settings['%s_ip' % node]], settings['%s_client_port' % node]))
+                for node in ['arakoon_0', 'arakoon_1', 'arakoon_2'])
+
+            ca_path = settings['CA_PATH']
+            ca_cert = os.path.join(ca_path, 'cacert.pem')
+            pem = os.path.join(ca_path, 'arakoon_2.pem')
+            key = os.path.join(ca_path, 'arakoon_2.key')
+
+            config = Arakoon.ArakoonClientConfig(
+                settings['CLUSTER_ID'], nodes,
+                tls=True, tls_ca_cert=ca_cert,
+                tls_cert=(pem, key))
+
+            client = Arakoon.ArakoonClient(config=config)
+
+            print 'Master:', client.whoMaster()
+            client.set('tls_test_key', 'tls_test_value')
+            self.assertEqual(client.get('tls_test_key'), 'tls_test_value')
+
+        with config(TEMPLATE1, TEMPLATE1_NODES) as (cfg, settings):
+            with ProcessManager() as pm:
+                pm.start_nodes(cfg, ['arakoon_0', 'arakoon_1'])
+
+                wait_for_master(
+                    cfg, ['arakoon_0', 'arakoon_1'],
+                    settings,
+                    settings['CA_PATH'], 'arakoon_2',
+                    10, 1)
+
+                f(settings)
