@@ -137,7 +137,7 @@ disconnected,...). This is what it looks like::
     ...
 
 
-Kill another Node and Whipe it
+Kill another Node and Wipe it
 ------------------------------
 An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
 So go to the terminal tab for arakoon_1 and kill it.::
