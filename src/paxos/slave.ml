@@ -221,9 +221,9 @@ let slave_steady_state (type s) constants state event =
           loop finished_funs >>= fun () ->
           Fsm.return  (Slave_steady_state(n,i,previous))
         end
-    | Quiesce (sleep,awake) ->
+    | Quiesce (mode, sleep,awake) ->
         begin
-          handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+          handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
           Fsm.return (Slave_steady_state state)
         end
           
@@ -407,9 +407,9 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
             
     | FromClient msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
       
-    | Quiesce (sleep,awake) ->
+    | Quiesce (mode, sleep,awake) ->
         begin
-          handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+          handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
           Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
         end
     | Unquiesce ->
