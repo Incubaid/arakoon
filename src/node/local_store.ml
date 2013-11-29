@@ -131,7 +131,11 @@ let with_transaction ls f =
 
 let defrag ls =
   Logger.info_ "local_store :: defrag" >>= fun () ->
-  Camltc.Hotc.defrag ls.db >>= fun rc ->
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  Lwt_preemptive.detach
+    (Camltc.Bdb.defrag ~step:0L)
+    bdb
+  >>= fun rc ->
   Logger.info_f_ "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
   Lwt.return ()
 

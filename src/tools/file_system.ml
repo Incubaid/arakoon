@@ -27,23 +27,23 @@ let section = Logger.Section.main
 let lwt_directory_list dn =
   Lwt.catch
     (fun () ->
-       Lwt_unix.opendir dn >>= fun h ->
-       let rec loop acc  =
-         Lwt.catch
-           (fun () ->
-              Lwt_unix.readdir h >>= fun x ->
-              match x with
-                | "." | ".." -> loop acc
-                | s' -> loop (s' :: acc)
-           )
-           (function
-             | End_of_file -> Lwt.return (List.rev acc)
-             | exn -> Lwt.fail exn
-           )
-       in
-       Lwt.finalize
-         (fun () -> loop [])
-         (fun () -> Lwt_unix.closedir h)
+      Lwt_unix.opendir dn >>= fun h ->
+      let rec loop acc  =
+        Lwt.catch
+          (fun () ->
+            Lwt_unix.readdir h >>= fun x ->
+            match x with
+              | "." | ".." -> loop acc
+              | s' -> loop (s' :: acc)
+          )
+          (function
+            | End_of_file -> Lwt.return (List.rev acc)
+            | exn -> Lwt.fail exn
+          )
+      in
+      Lwt.finalize
+        (fun () -> loop [])
+        (fun () -> Lwt_unix.closedir h)
     )
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 

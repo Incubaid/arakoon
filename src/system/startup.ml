@@ -248,6 +248,70 @@ let restart_slaves () =
   Lwt_list.iter_s check_store [node0;node1]
 
 
+let ahead_master_loses_role () =
+  let lease_period = 2 in
+  let node0 = "slave0" in
+  let node1 = "slave1" in
+  let node2 = "was_master" in
+  let node0_cfg = _make_cfg node0 0 lease_period in
+  let node1_cfg = _make_cfg node1 1 lease_period in
+  let node2_cfg = _make_cfg node2 2 lease_period in
+  let cluster_cfg =
+    {cfgs = [node0_cfg;node1_cfg;node2_cfg];
+     log_cfgs = [_make_log_cfg ()];
+     batched_transaction_cfgs = [_make_batched_transaction_cfg ()];
+     _master = Elected;
+     quorum_function = Quorum.quorum_function;
+     _lease_period = 2;
+     cluster_id = "ricky";
+     plugins = [];
+     nursery_cfg = None;
+     overwrite_tlog_entries = None;
+     max_value_size = Node_cfg.default_max_value_size;
+     max_buffer_size = Node_cfg.default_max_buffer_size;
+     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     lcnum = 8192;
+     ncnum = 4096;
+     tls_ca_cert = None;
+     tls_service = false;
+     tls_service_validate_peer = false;
+    }
+  in
+  let get_cfgs () = cluster_cfg in
+  let v0 = Value.create_master_value (node0, 0.0) in
+  let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
+  let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
+  let tlcs = Hashtbl.create 5 in
+  let stores = Hashtbl.create 5 in
+  let now = Unix.gettimeofday () in
+
+  let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 () in
+  let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 () in
+  let run_previous_master = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1;v2] node2 in
+  Logger.debug_ "start of scenario" >>= fun () ->
+  Lwt.ignore_result t_node0;
+  Lwt.ignore_result t_node1;
+  (* sleep a bit so the previous 2 slaves can make progress *)
+  Lwt_unix.sleep ((float lease_period) *. 1.5) >>= fun () ->
+  let t_previous_master = run_previous_master () in
+  Lwt.ignore_result t_previous_master;
+  (* allow previous master to catch up with the others *)
+  Lwt_unix.sleep 1. >>= fun () ->
+  Logger.debug_ "end of scenario" >>= fun () ->
+  List.iter (fun t -> Lwt.cancel t) [t_node0; t_node1; t_previous_master];
+  let check_store node =
+    let db_name = (node ^ "/" ^ node ^".db") in
+    let store = Hashtbl.find stores db_name in
+    let key = "invalidkey" in
+    LS.exists store key >>= fun exists ->
+    Logger.debug_f_ "%s: '%s' exists? -> %b" node key exists >>= fun () ->
+    OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not exists);
+    Lwt.return ()
+  in
+  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
+  Lwt_list.iter_s check_store [node0;node1;node2]
+
+
 let setup () = Lwt.return ()
 let teardown () = Logger.debug_ "teardown"
 
@@ -256,4 +320,5 @@ let w f = Extra.lwt_bracket setup f teardown
 let suite = "startup" >:::[
     "post_failure" >:: w post_failure;
     "restart_slaves" >:: w restart_slaves;
+  "ahead_master_loses_role" >:: w ahead_master_loses_role;
   ]

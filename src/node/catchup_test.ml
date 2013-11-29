@@ -147,11 +147,10 @@ let _tic (type s) filler_function n name verify_store =
   Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
                  false "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
-  let tlog_i = Sn.of_int n in
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
   let me = "??me??" in
-  Catchup.verify_n_catchup_store ~stop:(ref false) me ((module S), store, tlog_coll, Some tlog_i) ~current_i:tlog_i None
+  Catchup.verify_n_catchup_store ~stop:(ref false) me ((module S), store, tlog_coll)
   >>= fun () ->
   let new_i = S.get_succ_store_i store in
   verify_store store new_i >>= fun () ->
