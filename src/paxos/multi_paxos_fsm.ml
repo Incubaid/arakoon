@@ -446,9 +446,9 @@ let accepteds_check_done constants ((ms,ballot)as state) () =
     begin
       let log_e =
         ELog (fun () ->
-              let n = ms.n and i = ms.i in
-            Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
-              (Sn.string_of n) ( Sn.string_of i )
+          let n = ms.n and i = ms.i in
+          Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
+            (Sn.string_of n) ( Sn.string_of i )
           )
       in
       let sides = [log_e] in

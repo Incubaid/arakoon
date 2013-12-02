@@ -99,7 +99,7 @@ let head_saved_epilogue hfn tlog_coll =
       | None -> Lwt.return ()
       | Some head_i ->
         begin
-	  Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
+          Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
           tlog_coll # remove_below head_i
         end
   end
@@ -144,7 +144,7 @@ let catchup_tlog (type s) ~stop me other_configs ~cluster_id  mr_name ((module S
 
   Lwt.catch
     (fun () ->
-       _with_client_connection mr_addresses copy_tlog >>= fun () ->
+      _with_client_connection mr_addresses copy_tlog >>= fun () ->
       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")

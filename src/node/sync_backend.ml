@@ -555,21 +555,21 @@ struct
         self # _read_allowed false >>= fun () ->
         S.get_key_count store
 
-  method private quiesce_db ~mode () =
+      method private quiesce_db ~mode () =
         self # _not_if_master () >>= fun () ->
         let sleep, awake = Lwt.wait() in
-    let update = Multi_paxos.Quiesce (mode, sleep, awake) in
+        let update = Multi_paxos.Quiesce (mode, sleep, awake) in
         Logger.info_ "quiesce_db: Pushing quiesce request" >>= fun () ->
         push_node_msg update >>= fun () ->
         Logger.info_ "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
         sleep >>= fun res ->
         Logger.info_ "quiesce_db: db is now completed" >>= fun () ->
         match res with
-      | Quiesce.Result.OK -> Lwt.return ()
-      | Quiesce.Result.FailMaster ->
-            Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
-      | Quiesce.Result.Fail ->
-            Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
+        | Quiesce.Result.OK -> Lwt.return ()
+        | Quiesce.Result.FailMaster ->
+          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+        | Quiesce.Result.Fail ->
+          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
       method private unquiesce_db () =
         Logger.info_ "unquiesce_db: Leaving quisced state" >>= fun () ->
@@ -592,8 +592,8 @@ struct
 
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
-    let mode = Quiesce.Mode.ReadOnly in
-    self # try_quiesced ~mode (fun () -> S.optimize store) >>= fun () ->
+        let mode = Quiesce.Mode.ReadOnly in
+        self # try_quiesced ~mode (fun () -> S.optimize store) >>= fun () ->
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
@@ -613,8 +613,8 @@ struct
               Lwt.fail ex
             | Some oc -> Lwt.return oc
         end >>= fun oc ->
-    let mode = Quiesce.Mode.ReadOnly in
-    self # try_quiesced ~mode ( fun () -> S.copy_store store oc ) >>= fun () ->
+        let mode = Quiesce.Mode.ReadOnly in
+        self # try_quiesced ~mode ( fun () -> S.copy_store store oc ) >>= fun () ->
         Logger.info_ "get_db: All done"
 
       method get_cluster_cfgs () =

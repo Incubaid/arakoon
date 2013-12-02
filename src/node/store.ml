@@ -130,7 +130,7 @@ sig
   val relocate : t -> string -> unit Lwt.t
 
   val quiesced : t -> bool
-    val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
+  val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
   val unquiesce : t -> unit Lwt.t
   val optimize : t -> unit Lwt.t
   val defrag : t -> unit Lwt.t
@@ -184,7 +184,7 @@ struct
              mutable master : (string * float) option;
              mutable interval : Interval.t;
              mutable routing : Routing.t option;
-               mutable quiesced : Quiesce.Mode.t;
+             mutable quiesced : Quiesce.Mode.t;
              mutable closed : bool;
              mutable _tx_lock : transaction_lock option;
              _tx_lock_mutex : Lwt_mutex.t
@@ -814,7 +814,7 @@ struct
                 else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
           end
           >>= fun () ->
-        if quiesced store
+          if quiesced store
           then
             begin
               incr_i store >>= fun () ->
@@ -850,7 +850,7 @@ struct
                 Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
                   (Sn.string_of i) (Sn.string_of store_i)
         end >>= fun () ->
-      if quiesced store
+        if quiesced store
         then
           begin
             begin
