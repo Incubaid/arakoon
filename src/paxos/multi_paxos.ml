@@ -96,16 +96,11 @@ let update_votes (nones,somes) = function
     let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
     (nones, somes')
 
-type quiesce_result =
-  | Quiesced_ok
-  | Quiesced_fail_master
-  | Quiesced_fail
-
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of (Sn.t * float)
-  | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
+  | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
   | Unquiesce
   | ElectionTimeout of Sn.t * Sn.t
   | DropMaster of (unit Lwt.t * unit Lwt.u)
@@ -114,7 +109,7 @@ let paxos_event2s = function
   | FromClient _ -> "FromClient _"
   | FromNode _ -> "FromNode _ "
   | LeaseExpired _ -> "LeaseExpired _"
-  | Quiesce _ -> "Quiesce _"
+  | Quiesce (mode, _, _) -> Printf.sprintf "Quiesce (%s, _, _)" (Quiesce.Mode.to_string mode)
   | Unquiesce -> "Unquiesce _"
   | ElectionTimeout _ -> "ElectionTimeout _"
   | DropMaster _ -> "DropMaster _"
@@ -400,9 +395,9 @@ let safe_wakeup_all v l =
 let fail_quiesce_request store sleeper awake reason =
   safe_wakeup sleeper awake reason
 
-let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store sleeper (awake: quiesce_result Lwt.u) =
-  S.quiesce store >>= fun () ->
-  safe_wakeup sleeper awake Quiesced_ok
+let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store mode sleeper (awake: Quiesce.Result.t Lwt.u) =
+  S.quiesce mode store >>= fun () ->
+  safe_wakeup sleeper awake Quiesce.Result.OK
 
 let handle_unquiesce_request (type s) constants n =
   let store = constants.store in

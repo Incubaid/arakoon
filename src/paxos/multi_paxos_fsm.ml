@@ -146,9 +146,8 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
       then Fsm.return (Slave_fake_prepare(current_i, current_n))
       else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
     | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
-
-    | Quiesce (sleep,awake) ->
-      handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+        handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
       Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
 
     | Unquiesce ->
@@ -411,8 +410,8 @@ let wait_for_promises (type s) constants state event =
     | FromClient _ ->
       paxos_fatal me "wait_for_promises: don't want FromClient"
 
-    | Quiesce (sleep,awake) ->
-      handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+        handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
       Fsm.return (Wait_for_promises state)
 
     | Unquiesce ->
@@ -441,15 +440,15 @@ let lost_master_role = function
     end
 
 let accepteds_check_done constants ((ms,ballot)as state) () =
-  let {mo;v;n;i; lew} = ms in
   let needed, already_voted = ballot in
   if needed = 0
   then
     begin
       let log_e =
         ELog (fun () ->
-            Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
-              (Sn.string_of n) ( Sn.string_of i )
+          let n = ms.n and i = ms.i in
+          Printf.sprintf "accepted_check_done :: we're done! returning %s %s"
+            (Sn.string_of n) ( Sn.string_of i )
           )
       in
       let sides = [log_e] in
@@ -463,15 +462,14 @@ let accepteds_check_done constants ((ms,ballot)as state) () =
 let wait_for_accepteds
       (type s) constants ((ms,ballot)as state)
       (event:paxos_event) =
-
   let me = constants.me in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let {mo;n;v;i;lew} = ms in
   match event with
     | FromNode(msg,source) ->
       begin
         (* TODO: what happens with the client request
            when I fall back to a state without mo ? *)
-        let {mo;v;n;i;lew} = ms in
         let drop msg reason =
           let log_e =
             ELog
@@ -616,7 +614,6 @@ let wait_for_accepteds
     | LeaseExpired n'    -> paxos_fatal me "no LeaseExpired should get here"
     | ElectionTimeout (n', i') ->
       begin
-        let {mo;v;n;i; lew} = ms in
         let here = "wait_for_accepteds : election timeout " in
         if n' <> n || i' <> i then
           begin
@@ -644,8 +641,8 @@ let wait_for_accepteds
             Fsm.return (Wait_for_accepteds state)
           end
       end
-    | Quiesce (sleep,awake) ->
-       fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+      fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
        Fsm.return (Wait_for_accepteds state)
 
     | Unquiesce ->

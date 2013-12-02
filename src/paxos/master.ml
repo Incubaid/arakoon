@@ -55,10 +55,11 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
               let event = Multi_paxos.LeaseExpired (n, ls) in
               Lwt.ignore_result (constants.inject_event event) in
             let module S = (val constants.store_module : Store.STORE with type t = s) in
+            let me = constants.me in
             let () = match S.who_master constants.store with
               | None ->
                 inject_lease_expired 0.0
-              | Some (_, ls) ->
+              | Some (m, ls) when m = me ->
                 let diff = (Unix.gettimeofday ()) -. ls in
                 if diff >= float constants.lease_expiration
                 then
@@ -69,7 +70,13 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
                      by how the LeaseExpired messages are handled in the
                      stable_master state below.
                   *)
-                  inject_lease_expired ls in
+                  inject_lease_expired ls
+              | Some (m, ls) (* when m <> me *) ->
+                (* always insert a lease expired after picking up master role
+                   from another node. do not compare gettimeofday with when the
+                   lease started, as we might have acted earlier than necessary
+                   with the lease expiration timeout from the other node *)
+                inject_lease_expired ls in
             Lwt.return ()
           end
     )
@@ -227,9 +234,9 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
         in
         Fsm.return ~sides:[log_e] (Stable_master current_state)
       end
-    | Quiesce (sleep,awake) ->
+    | Quiesce (_, sleep,awake) ->
       begin
-        fail_quiesce_request constants.store sleep awake Quiesced_fail_master >>= fun () ->
+        fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
         Fsm.return (Stable_master current_state)
       end
 

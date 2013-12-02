@@ -130,7 +130,7 @@ sig
   val relocate : t -> string -> unit Lwt.t
 
   val quiesced : t -> bool
-  val quiesce : t -> unit Lwt.t
+  val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
   val unquiesce : t -> unit Lwt.t
   val optimize : t -> unit Lwt.t
   val defrag : t -> unit Lwt.t
@@ -184,7 +184,7 @@ struct
              mutable master : (string * float) option;
              mutable interval : Interval.t;
              mutable routing : Routing.t option;
-             mutable quiesced : bool;
+             mutable quiesced : Quiesce.Mode.t;
              mutable closed : bool;
              mutable _tx_lock : transaction_lock option;
              _tx_lock_mutex : Lwt_mutex.t
@@ -247,7 +247,7 @@ struct
         master = None;
         interval = Interval.max;
         routing = None;
-        quiesced = false;
+        quiesced = Quiesce.Mode.NotQuiesced;
         closed = false;
         _tx_lock = None;
         _tx_lock_mutex = Lwt_mutex.create ()
@@ -307,7 +307,10 @@ struct
     S.get_location store.s
 
   let reopen store f =
-    S.reopen store.s f store.quiesced >>= fun () ->
+    let m = match store.quiesced with
+      | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
+      | Quiesce.Mode.ReadOnly -> true in
+    S.reopen store.s f m >>= fun () ->
     initialize store;
     store.closed <- false;
     Lwt.return ()
@@ -324,25 +327,27 @@ struct
   let relocate store loc =
     S.relocate store.s loc
 
-  let quiesced store =
-    store.quiesced
+  let quiesced store = Quiesce.Mode.is_quiesced store.quiesced
 
-  let quiesce store =
-    if store.quiesced
+  let quiesce mode store =
+    if quiesced store
     then Lwt.fail(Failure "Store already quiesced. Blocking second attempt")
     else
       begin
-        store.quiesced <- true;
+        store.quiesced <- mode;
         reopen store (fun () -> Lwt.return ()) >>= fun () ->
         Lwt.return ()
       end
 
   let unquiesce store =
-    store.quiesced <- false;
+    store.quiesced <- Quiesce.Mode.NotQuiesced;
     reopen store (fun () -> Lwt.return ())
 
   let optimize store =
-    S.optimize store.s store.quiesced
+    let m = match store.quiesced with
+      | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
+      | Quiesce.Mode.ReadOnly -> true in
+    S.optimize store.s m
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
@@ -355,7 +360,7 @@ struct
         Lwt.return ())
 
   let set_master_no_inc store master lease_start =
-    if store.quiesced
+    if quiesced store
     then
       begin
         store.master <- Some (master, lease_start);
@@ -403,7 +408,7 @@ struct
       (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
 
   let incr_i store =
-    if store.quiesced
+    if quiesced store
     then
       begin
         let new_i = _new_i store.store_i in
@@ -414,7 +419,7 @@ struct
       S.with_transaction store.s (fun tx -> _incr_i store tx)
 
   let _set_i store i =
-    if store.quiesced
+    if quiesced store
     then
       store.store_i <- Some i
     else
@@ -433,7 +438,7 @@ struct
     S.get_fringe store.s b d
 
   let copy_store store oc =
-    if store.quiesced
+    if quiesced store
     then
       S.copy_store store.s true oc
     else
@@ -809,7 +814,7 @@ struct
                 else Llio.lwt_failfmt "update %s, store @ %s don't fit" (Sn.string_of n) (Sn.string_of m)
           end
           >>= fun () ->
-          if store.quiesced
+          if quiesced store
           then
             begin
               incr_i store >>= fun () ->
@@ -845,7 +850,7 @@ struct
                 Llio.lwt_failfmt "Invalid store update requested (%s : %s)"
                   (Sn.string_of i) (Sn.string_of store_i)
         end >>= fun () ->
-        if store.quiesced
+        if quiesced store
         then
           begin
             begin

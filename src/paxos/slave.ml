@@ -240,8 +240,8 @@ let slave_steady_state (type s) constants state event =
         loop finished_funs >>= fun () ->
         Fsm.return  (Slave_steady_state state)
       end
-    | Quiesce (sleep,awake) ->
-      handle_quiesce_request (module S) constants.store sleep awake >>= fun () ->
+    | Quiesce (mode, sleep,awake) ->
+      handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
       Fsm.return (Slave_steady_state state)
     | Unquiesce ->
       handle_unquiesce_request constants n >>= fun (store_i, vo) ->
@@ -267,7 +267,7 @@ let slave_discovered_other_master (type s) constants state () =
         "%s: slave_discovered_other_master: catching up from %s @ %s"
         me master (Sn.string_of future_i) >>= fun() ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) current_i master future_n
+      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) master
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in

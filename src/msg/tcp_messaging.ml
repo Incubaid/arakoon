@@ -144,7 +144,7 @@ class tcp_messaging
       let socket_address = Network.make_address host_ip port in
       let timeout = 5.0 in
       let ssl_context = client_ssl_context in
-      Logger.debug_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
+      Logger.info_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
       >>= fun () ->
       Lwt.pick[
         Lwt_unix.timeout timeout;

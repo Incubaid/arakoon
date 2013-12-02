@@ -218,14 +218,8 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   make_tlog_coll ~compressor
                  me.tlog_dir me.tlx_dir me.head_dir
                  me.fsync name >>= fun tlc ->
-  let current_i = match S.consensus_i store with
-    | None -> Sn.start
-    | Some i -> i
-  in
-  let future_n = Sn.start in
-  let future_i = Sn.start in
   Catchup.catchup ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-    ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
+    ((module S),store,tlc) mr_name >>= fun _ ->
   S.close store >>= fun () ->
   tlc # close ()
 
@@ -517,19 +511,11 @@ let _main_2 (type s)
           in
           S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
           let last_i = tlog_coll # get_last_i () in
-          let ti_o = Some last_i in
-          let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
-            if n_nodes = 1
-            then
-              (* this is the only node, so accepting a value equals reaching consensus on it *)
-              Sn.succ last_i
-            else
-              last_i in
           begin
             if me.is_witness
             then
               begin
-                S.quiesce store >>= fun () ->
+                S.quiesce Quiesce.Mode.ReadOnly store >>= fun () ->
                 if last_i <> 0L
                 then (* this is an optimization so catchup doesn't need to pretend
                         to apply all previous values from tlog to the store
@@ -541,8 +527,8 @@ let _main_2 (type s)
               Lwt.return ()
           end >>= fun () ->
           Catchup.verify_n_catchup_store ~stop:(ref false) me.node_name
-            ((module S), store, tlog_coll, ti_o)
-            ~current_i master >>= fun () ->
+            ((module S), store, tlog_coll)
+            ~apply_last_tlog_value:(n_nodes = 1) >>= fun () ->
           S.clear_self_master store me.node_name;
           let new_i = S.get_succ_store_i store in
           let client_buffer =
