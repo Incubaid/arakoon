@@ -90,6 +90,9 @@ let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
+let stop = ref false
+let node_ts = ref []
+
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
   struct
@@ -102,7 +105,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
       Hashtbl.add stores db_name store;
       Lwt.return store
   end in
-  Node_main._main_2
+  let t = Node_main._main_2
     (module S)
     (_make_tlog_coll tlcs values)
     get_cfgs
@@ -110,8 +113,10 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    (ref false)
-  >>= fun _ -> Lwt.return ()
+    stop
+          >>= fun _ -> Lwt.return () in
+  node_ts := t :: !node_ts;
+  t
 
 let _dump_tlc ~tlcs node =
   let tlc0 = Hashtbl.find tlcs node in
@@ -312,13 +317,19 @@ let ahead_master_loses_role () =
   Lwt_list.iter_s check_store [node0;node1;node2]
 
 
-let setup () = Lwt.return ()
-let teardown () = Logger.debug_ "teardown"
+let setup () =
+  stop := false;
+  Lwt.return ()
+let teardown () =
+  stop := true;
+  Lwt.join !node_ts >>= fun () ->
+  node_ts := [];
+  Logger.debug_ "teardown"
 
 let w f = Extra.lwt_bracket setup f teardown
 
 let suite = "startup" >:::[
     "post_failure" >:: w post_failure;
     "restart_slaves" >:: w restart_slaves;
-  "ahead_master_loses_role" >:: w ahead_master_loses_role;
+    "ahead_master_loses_role" >:: w ahead_master_loses_role;
   ]
