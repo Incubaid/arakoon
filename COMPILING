@@ -10,7 +10,7 @@ ocamlfind.1.3.3
 camlbz2.0.6.0
 camltc
 
-In case it's been a while you might want to run `opam update` first to get the latest versions.
+When it's been a while you might want to run `opam update` first to get the latest versions.
 
 
 COMPILING:
