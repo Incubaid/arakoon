@@ -204,6 +204,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_steady_state state)
               | Promise_sent_up2date ->
                 let next_i = S.get_succ_store_i constants.store in
+                start_lease_expiration_thread constants n' ~slave:true >>= fun () ->
                 Fsm.return (Slave_steady_state (n', next_i, None))
               | Promise_sent_needs_catchup ->
                 let i = S.get_catchup_start_i constants.store in
@@ -222,8 +223,8 @@ let slave_steady_state (type s) constants state event =
       end
     | ElectionTimeout (n', i') ->
       handle_timeout n' i'
-    | LeaseExpired (n', lease_start) ->
-      handle_timeout ~invalidate_lease_start_until:lease_start n' i
+    | LeaseExpired (lease_start) ->
+      handle_timeout ~invalidate_lease_start_until:lease_start n i
     | FromClient ufs ->
       begin
         (* there is a window in election
@@ -277,27 +278,30 @@ let slave_discovered_other_master (type s) constants state () =
         in
         Multi_paxos.mcast constants fake >>= fun () ->
 
-        start_lease_expiration_thread constants future_n constants.lease_expiration >>= fun () ->
+        start_lease_expiration_thread constants future_n ~slave:true >>= fun () ->
         Fsm.return (Slave_steady_state (future_n, current_i', None));
       end
     end
   else
     begin
       let next_i = S.get_succ_store_i constants.store in
-      let s, m =
+      begin
         if is_election constants
         then
           (* we have to go to election here or we can get in a situation where
              everybody just waits for each other *)
           let new_n = update_n constants future_n in
-          (Election_suggest (new_n, 0)),
-          "slave_discovered_other_master: my i is bigger then theirs ; back to election"
+          Lwt.return
+            (Election_suggest (new_n, 0),
+             "slave_discovered_other_master: my i is bigger then theirs ; back to election")
         else
           begin
-            Slave_steady_state( future_n, next_i, None ),
-            "slave_discovered_other_master: forced slave, back to slave mode"
+            start_lease_expiration_thread constants future_n ~slave:true >>= fun () ->
+            Lwt.return
+              (Slave_steady_state( future_n, next_i, None ),
+               "slave_discovered_other_master: forced slave, back to slave mode")
           end
-      in
+      end >>= fun (s, m) ->
       let log_e = ELog (fun () -> m) in
       Fsm.return ~sides:[log_e] s
     end

@@ -105,6 +105,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
               | Prepare_dropped ->
                 Fsm.return ( Slave_waiting_for_prepare(current_i, current_n ) )
               | Promise_sent_up2date ->
+                start_lease_expiration_thread constants n' ~slave:true >>= fun () ->
                 Fsm.return (Slave_steady_state (n', current_i, None))
               | Promise_sent_needs_catchup ->
                 let i = S.get_catchup_start_i constants.store in
@@ -126,7 +127,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
           | Nak(n',(n2, i2)) when i2 = current_i ->
             begin
               Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
-              start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
+              start_lease_expiration_thread constants n2 ~slave:true >>= fun () ->
               Fsm.return (Slave_steady_state (n2, i2, None))
             end
           | Accept(n', i', v) when current_n = n' && i' > current_i ->
@@ -138,13 +139,11 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
             Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
       end
     | ElectionTimeout (n', i') ->
-      if n' = current_n && i' = current_i
+      if i' = current_i
       then Fsm.return (Slave_fake_prepare(current_i, current_n))
       else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
-    | LeaseExpired (n', ls) ->
-      if n' = current_n
-      then Fsm.return (Slave_fake_prepare(current_i, current_n))
-      else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
+    | LeaseExpired (ls) ->
+      Fsm.return (Slave_fake_prepare(current_i, current_n))
     | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
     | Quiesce (mode, sleep,awake) ->
         handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
@@ -347,6 +346,7 @@ let wait_for_promises (type s) constants state event =
                   | Prepare_dropped ->
                     Fsm.return (Wait_for_promises state)
                   | Promise_sent_up2date ->
+                    start_lease_expiration_thread constants n' ~slave:true >>= fun () ->
                     Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
                     let i = S.get_catchup_start_i constants.store in
@@ -557,6 +557,7 @@ let wait_for_accepteds
                       begin
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+                        start_lease_expiration_thread constants n' ~slave:true >>= fun () ->
                         Fsm.return (Slave_steady_state (n', i, None))
                       end
                     | Promise_sent_needs_catchup ->
@@ -840,12 +841,7 @@ let _execute_effects constants e =
         end >>= fun () ->
         if Value.is_master_set v
         then
-          let period =
-            if slave
-            then constants.lease_expiration
-            else constants.lease_expiration / 2
-          in
-          start_lease_expiration_thread constants n period
+          start_lease_expiration_thread constants n ~slave
         else
           Lwt.return ()
       end
@@ -921,7 +917,7 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
   then
     begin
       Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
-      start_lease_expiration_thread constants current_n constants.lease_expiration >>= fun () ->
+      start_lease_expiration_thread constants current_n ~slave:true >>= fun () ->
       run (Slave.slave_fake_prepare constants (current_i,current_n))
     end
   else
