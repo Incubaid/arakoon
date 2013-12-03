@@ -32,6 +32,7 @@ def test_preferred_master():
     pm = Common.node_names[0]
     cluster.preferredMasters([pm])
     cluster.start()
+    time.sleep(1.0)
     Common.assert_running_nodes(3)
     time.sleep(4.0 * Common.lease_duration)
     logging.info("all should be well")
