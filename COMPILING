@@ -13,11 +13,14 @@ ssl
 lwt with SSL support
 camltc
 
+When it's been a while you might want to run `opam update` first to get the latest versions.
+
 
 COMPILING:
 
 make
 (you can inspect the makefile for more fine grained targets)
+(if you get errors and you've built arakoon before you could try a `make clean` first)
 
 RUNNING THE TESTS:
 
