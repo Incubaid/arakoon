@@ -659,6 +659,7 @@ def setup_n_nodes ( n, force_master, home_dir , extra = None, force_slaves = Tru
 
     logging.info( "Starting cluster" )
     start_all( cluster_id )
+    time.sleep(1.0)
 
     logging.info( "Setup complete" )
 

@@ -337,7 +337,6 @@ def test_test_and_set() :
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master , C.basic_teardown )
 def test_who_master_fixed () :
-    time.sleep(1.0)
     client = C.get_client()
     node = client.whoMaster()
     assert_equals ( node, C.node_names[0] )
@@ -345,7 +344,6 @@ def test_who_master_fixed () :
 
 @C.with_custom_setup( C.setup_3_nodes , C.basic_teardown )
 def test_who_master () :
-    time.sleep(1.0)
     client = C.get_client()
     node = client.whoMaster()
     assert_true ( node in C.node_names )
