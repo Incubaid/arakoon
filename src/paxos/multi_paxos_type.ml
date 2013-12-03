@@ -50,7 +50,6 @@ type transitions =
 
   (* slave or pending slave *)
   | Slave_fake_prepare of (n * i)
-  | Slave_waiting_for_prepare of (n * i)
   | Slave_steady_state of (n * i * Value.t option) (* value received for this n and previous i *)
   | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n *
                                         Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
@@ -80,7 +79,6 @@ let show_transition = function
   | Forced_master_suggest _ -> "Forced_master_suggest"
   | Election_suggest _ -> "Election_suggest"
   | Slave_fake_prepare _ -> "Slave_fake_prepare"
-  | Slave_waiting_for_prepare _ -> "Slave_waiting_for_prepare"
   | Slave_steady_state _ -> "Slave_steady_state"
   | Slave_discovered_other_master _ -> "Slave_discovered_other_master"
   | Wait_for_promises _ -> "Wait_for_promises"

@@ -219,7 +219,7 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread (type s) constants n ~slave =
+let start_lease_expiration_thread (type s) constants ~slave =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let lease_start = match S.who_master constants.store with
     | None -> 0.0
@@ -227,7 +227,11 @@ let start_lease_expiration_thread (type s) constants n ~slave =
   let sleep_sec =
     if slave
     then
-      float_of_int constants.lease_expiration
+      (* sleep a little longer than necessary on a slave
+         to prevent a node thinking it's still the master
+         while some slaves have elected a new master amongst them
+         (in case the clocks don't all run at the same speed) *)
+      (float_of_int constants.lease_expiration) *. 1.1
     else
       float_of_int (constants.lease_expiration / 2) in
   let t () =
@@ -415,5 +419,5 @@ let handle_unquiesce_request (type s) constants n =
   Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
   let i = S.get_succ_store_i store in
   let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants n ~slave:true >>= fun () ->
+  start_lease_expiration_thread constants ~slave:true >>= fun () ->
   Lwt.return (i,vo)

@@ -57,7 +57,7 @@ let slave_fake_prepare constants (current_i,current_n) () =
     then [log_e; EStartElectionTimeout (current_n, current_i); mcast_e]
     else [log_e; mcast_e]
   in
-  Fsm.return ~sides:sides (Slave_waiting_for_prepare (current_i,current_n))
+  Fsm.return ~sides:sides (Slave_steady_state (current_n, current_i, None))
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
@@ -204,12 +204,18 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_steady_state state)
               | Promise_sent_up2date ->
                 let next_i = S.get_succ_store_i constants.store in
-                start_lease_expiration_thread constants n' ~slave:true >>= fun () ->
+                start_lease_expiration_thread constants ~slave:true >>= fun () ->
                 Fsm.return (Slave_steady_state (n', next_i, None))
               | Promise_sent_needs_catchup ->
                 let i = S.get_catchup_start_i constants.store in
                 let new_state = (source, i, n', i') in
                 Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
+            end
+          | Nak(n',(n2, i2)) when i2 > i ->
+            begin
+              Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
+              let cu_pred =  S.get_catchup_start_i constants.store in
+              Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
             end
           | Nak _
           | Promise _
@@ -278,7 +284,7 @@ let slave_discovered_other_master (type s) constants state () =
         in
         Multi_paxos.mcast constants fake >>= fun () ->
 
-        start_lease_expiration_thread constants future_n ~slave:true >>= fun () ->
+        start_lease_expiration_thread constants ~slave:true >>= fun () ->
         Fsm.return (Slave_steady_state (future_n, current_i', None));
       end
     end
@@ -296,7 +302,7 @@ let slave_discovered_other_master (type s) constants state () =
              "slave_discovered_other_master: my i is bigger then theirs ; back to election")
         else
           begin
-            start_lease_expiration_thread constants future_n ~slave:true >>= fun () ->
+            start_lease_expiration_thread constants ~slave:true >>= fun () ->
             Lwt.return
               (Slave_steady_state( future_n, next_i, None ),
                "slave_discovered_other_master: forced slave, back to slave mode")
