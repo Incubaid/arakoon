@@ -130,6 +130,7 @@ def test_marker_presence_required ():
     # add the marker and start again:
     subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed:%s' % nn])
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes(1)
 
 
