@@ -49,6 +49,8 @@ def test_learner():
     cluster.createDirs(name)
     cluster.startOne(name)
 
+    time.sleep(1.0)
+
     Common.assert_running_nodes(3)
     time.sleep(op_count / 1000 + 1 ) # 1000/s in catchup should be no problem
     #use a client ??"
