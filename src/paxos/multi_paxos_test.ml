@@ -90,6 +90,7 @@ let test_generic network_factory n_nodes () =
               stop = ref false;
               election_timeout = None;
               respect_run_master = None;
+              catchup_tls_ctx = None;
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -263,6 +264,7 @@ let test_master_loop network_factory ()  =
                    stop = ref false;
                    election_timeout = None;
                    respect_run_master = None;
+                   catchup_tls_ctx = None;
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -389,6 +391,7 @@ let test_simulation filters () =
     stop = ref false;
     election_timeout = None;
     respect_run_master = None;
+    catchup_tls_ctx = None;
   } in
   let c0_t () =
     let expected prev_key key =

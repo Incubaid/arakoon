@@ -138,6 +138,7 @@ type 'a constants =
    is_learner: bool;
    quiesced : bool;
    stop : bool ref;
+   catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable respect_run_master : (string * float) option;
   }
@@ -152,7 +153,7 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | ReadOnly | Forced _ -> false
 
-let make (type s) me is_learner others send receive get_value
+let make (type s) ~catchup_tls_ctx me is_learner others send receive get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
@@ -179,6 +180,7 @@ let make (type s) me is_learner others send receive get_value
     cluster_id;
     quiesced;
     stop;
+    catchup_tls_ctx;
     election_timeout = None;
     respect_run_master = None;
   }

@@ -190,7 +190,7 @@ let log_prelude cluster_cfg =
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
-let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll =
+let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~name ~cluster_cfg ~make_tlog_coll =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
   let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
@@ -198,7 +198,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   let db_name = full_db_name me in
   begin
     if node_cnt > 1
-    then Catchup.get_db db_name cluster_id other_configs
+    then Catchup.get_db ~tls_ctx db_name cluster_id other_configs
     else Lwt.return None
   end
   >>= fun m_mr_name ->
@@ -218,7 +218,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
   make_tlog_coll ~compressor
                  me.tlog_dir me.tlx_dir me.head_dir
                  me.fsync name >>= fun tlc ->
-  Catchup.catchup ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+  Catchup.catchup ~tls_ctx ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
     ((module S),store,tlc) mr_name >>= fun _ ->
   S.close store >>= fun () ->
   tlc # close ()
@@ -382,7 +382,7 @@ let _main_2 (type s)
   if catchup_only
   then
     begin
-      only_catchup (module S) ~name ~cluster_cfg ~make_tlog_coll
+      only_catchup (module S) ~tls_ctx:ssl_context ~name ~cluster_cfg ~make_tlog_coll
       >>= fun _ -> (* we don't need that here as there is no continuation *)
 
       Lwt.return 0
@@ -615,8 +615,13 @@ let _main_2 (type s)
                            inject_buffer,
                            election_timeout_buffer)
           in
+          let catchup_tls_ctx =
+            if cluster_cfg.tls_service
+              then ssl_context
+              else None
+          in
           let constants =
-            Multi_paxos.make my_name
+            Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
               me.is_learner
               other_names send receive
               get_last_value

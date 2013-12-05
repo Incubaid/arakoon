@@ -267,7 +267,8 @@ let slave_discovered_other_master (type s) constants state () =
         "%s: slave_discovered_other_master: catching up from %s @ %s"
         me master (Sn.string_of future_i) >>= fun() ->
       let cluster_id = constants.cluster_id in
-      Catchup.catchup ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) master
+      let tls_ctx = constants.catchup_tls_ctx in
+      Catchup.catchup ~tls_ctx ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) master
       >>= fun () ->
       begin
         let current_i' = S.get_succ_store_i store in
