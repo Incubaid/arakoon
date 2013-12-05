@@ -38,7 +38,28 @@ type store_tlc_cmp =
   | Store_tlc_equal
   | Store_ahead
 
-let _with_client_connection (ips,port) f =
+let with_connection ~tls_ctx address f = match tls_ctx with
+  | None -> Lwt_io.with_connection address f
+  | Some ctx ->
+      let fd = Lwt_unix.socket (Unix.domain_of_sockaddr address) Unix.SOCK_STREAM 0 in
+      Lwt_unix.set_close_on_exec fd;
+      Lwt_unix.connect fd address >>= fun () ->
+      Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
+      let ic = Lwt_ssl.in_channel_of_descr sock
+      and oc = Lwt_ssl.out_channel_of_descr sock in
+      Lwt.catch
+        (fun () ->
+          f (ic, oc) >>= fun r ->
+          Lwt_ssl.close sock >>= fun () ->
+          Lwt.return r)
+        (fun exc ->
+          Lwt.catch
+            (fun () ->
+              Lwt_ssl.close sock)
+            (fun _ -> Lwt.return ()) >>= fun () ->
+          Lwt.fail exc)
+
+let _with_client_connection ~tls_ctx (ips,port) f =
   let sl2s ss = list2s (fun s -> s) ss in
   let rec loop = function
     | [] -> Llio.lwt_failfmt "None of the ips: %s can be reached" (sl2s ips)
@@ -46,7 +67,7 @@ let _with_client_connection (ips,port) f =
       Lwt.catch
         (fun () ->
            let address = Network.make_address ip port in
-           Lwt_io.with_connection address f)
+           with_connection ~tls_ctx address f)
         (fun exn ->
            Logger.info_f_ ~exn "ip = %s " ip >>= fun () ->
            match exn with
@@ -111,7 +132,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~stop me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -144,7 +165,7 @@ let catchup_tlog (type s) ~stop me other_configs ~cluster_id  mr_name ((module S
 
   Lwt.catch
     (fun () ->
-      _with_client_connection mr_addresses copy_tlog >>= fun () ->
+      _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
@@ -280,11 +301,11 @@ let catchup_store ~stop (type s) me
       S.flush store
     end
 
-let catchup ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
+let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog ~stop me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  catchup_tlog ~tls_ctx ~stop me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
@@ -318,7 +339,7 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
 
-let get_db db_name cluster_id cfgs =
+let get_db ~tls_ctx db_name cluster_id cfgs =
 
   let get_db_from_stream conn =
     make_remote_nodestream cluster_id conn >>= fun (client:nodestream) ->
@@ -333,7 +354,7 @@ let get_db db_name cluster_id cfgs =
             ( fun () ->
                Logger.info_f_ "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
                let mr_addresses = Node_cfg.client_addresses cfg in
-               _with_client_connection mr_addresses get_db_from_stream >>= fun () ->
+               _with_client_connection ~tls_ctx mr_addresses get_db_from_stream >>= fun () ->
                Logger.info_ "get_db: Download succeeded" >>= fun () ->
                Lwt.return (Some (Node_cfg.node_name cfg))
             )
