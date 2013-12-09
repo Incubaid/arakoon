@@ -1018,6 +1018,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             master_id = cli.whoMaster()
             cli.dropConnections()
             stopOne( master_id )
+            cli.set('delayed_master_restart_loop', 'slaves elect new master and can make progress')
             startOne( master_id )
         except:
             logging.critical("!!!! Failing test. Exception in restart loop.")
