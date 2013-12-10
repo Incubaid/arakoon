@@ -273,7 +273,7 @@ let wait_for_promises (type s) constants state event =
                   | Prepare_dropped ->
                     Fsm.return (Wait_for_promises state)
                   | Promise_sent_up2date ->
-                    start_lease_expiration_thread constants ~slave:true >>= fun () ->
+                    start_lease_expiration_thread constants >>= fun () ->
                     Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
                     let i = S.get_catchup_start_i constants.store in
@@ -484,7 +484,7 @@ let wait_for_accepteds
                       begin
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lew >>= fun () ->
-                        start_lease_expiration_thread constants ~slave:true >>= fun () ->
+                        start_lease_expiration_thread constants >>= fun () ->
                         Fsm.return (Slave_steady_state (n', i, None))
                       end
                     | Promise_sent_needs_catchup ->
@@ -766,7 +766,7 @@ let _execute_effects constants e =
         end >>= fun () ->
         if Value.is_master_set v
         then
-          start_lease_expiration_thread constants ~slave
+          start_lease_expiration_thread constants
         else
           Lwt.return ()
       end
@@ -843,7 +843,7 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
   then
     begin
       Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
-      start_lease_expiration_thread constants ~slave:true >>= fun () ->
+      start_lease_expiration_thread constants >>= fun () ->
       run (Slave.slave_fake_prepare constants (current_i,current_n))
     end
   else

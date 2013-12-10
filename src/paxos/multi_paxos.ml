@@ -219,34 +219,37 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread (type s) constants ~slave =
+let start_lease_expiration_thread (type s) constants =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let lease_start = match S.who_master constants.store with
-    | None -> 0.0
-    | Some(_, ls) -> ls in
-  let sleep_sec =
-    if slave
-    then
-      (* sleep a little longer than necessary on a slave
-         to prevent a node thinking it's still the master
-         while some slaves have elected a new master amongst them
-         (in case the clocks don't all run at the same speed) *)
-      (float_of_int constants.lease_expiration) *. 1.1
-    else
-      float_of_int (constants.lease_expiration / 2) in
-  let t () =
-    begin
-      Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
-        constants.me sleep_sec >>= fun () ->
-      let t0 = Unix.gettimeofday () in
-      Lwt_unix.sleep sleep_sec >>= fun () ->
-      let t1 = Unix.gettimeofday () in
-      Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
-        constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
-      constants.inject_event (LeaseExpired (lease_start))
-    end in
-  let () = Lwt.ignore_result (t ()) in
-  Lwt.return ()
+  let rec inner () =
+    let lease_start, slave = match S.who_master constants.store with
+      | None -> 0.0, true
+      | Some(m, ls) -> ls, constants.me = m in
+    let sleep_sec =
+      if slave
+      then
+        (* sleep a little longer than necessary on a slave
+           to prevent a node thinking it's still the master
+           while some slaves have elected a new master amongst them
+           (in case the clocks don't all run at the same speed) *)
+        (float_of_int constants.lease_expiration) *. 1.1
+      else
+        float_of_int (constants.lease_expiration / 2) in
+    let t () =
+      begin
+        Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
+          constants.me sleep_sec >>= fun () ->
+        let t0 = Unix.gettimeofday () in
+        Lwt_unix.sleep sleep_sec >>= fun () ->
+        let t1 = Unix.gettimeofday () in
+        Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
+          constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
+        constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
+        inner ()
+      end in
+    let () = Lwt.ignore_result (t ()) in
+    Lwt.return () in
+  inner ()
 
 let start_election_timeout constants n i =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
@@ -419,5 +422,5 @@ let handle_unquiesce_request (type s) constants n =
   Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
   let i = S.get_succ_store_i store in
   let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants ~slave:true >>= fun () ->
+  start_lease_expiration_thread constants >>= fun () ->
   Lwt.return (i,vo)

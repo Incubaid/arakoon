@@ -175,7 +175,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                   | Promise_sent_up2date ->
                     begin
                       Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-                      start_lease_expiration_thread constants ~slave:true >>= fun () ->
+                      start_lease_expiration_thread constants >>= fun () ->
                       Fsm.return (Slave_steady_state (n', new_i, None))
                     end
                   | Promise_sent_needs_catchup ->
