@@ -228,7 +228,7 @@ let start_lease_expiration_thread (type s) constants =
   let rec inner () =
     let lease_start, slave = match S.who_master constants.store with
       | None -> 0.0, true
-      | Some(m, ls) -> ls, constants.me = m in
+      | Some(m, ls) -> ls, constants.me <> m in
     let sleep_sec =
       if slave
       then
