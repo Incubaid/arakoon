@@ -245,13 +245,15 @@ let start_lease_expiration_thread (type s) constants =
           constants.me sleep_sec >>= fun () ->
         let t0 = Unix.gettimeofday () in
         Lwt_unix.sleep sleep_sec >>= fun () ->
-        let t1 = Unix.gettimeofday () in
-        Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
-          constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
-        constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
         if id = constants.lease_expiration_id
         then
-          inner ()
+          begin
+            let t1 = Unix.gettimeofday () in
+            Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
+              constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
+            constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
+            inner ()
+          end
         else
           Lwt.return ()
       end in
