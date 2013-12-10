@@ -912,7 +912,6 @@ def generic_retrying_ ( client, f, is_valid_ex, duration = 5.0 ) :
                 raise
             logging.debug("recreating client")
             client.recreate = True
-            failed = False
             client.dropConnections()
             client = get_client()
 

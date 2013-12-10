@@ -57,33 +57,39 @@ def dump(src, length=8):
 random.seed ( time.time() )
 
 
-def retryDuringMasterReelection (f):
-    @wraps(f)
-    def retrying_f (self,*args,**kwargs):
-        start = time.time()
-        tryCount = 0.0
-        backoffPeriod = 0.2
-        callSucceeded = False
-        retryPeriod = ArakoonClientConfig.getNoMasterRetryPeriod ()
-        deadline = start + retryPeriod
-        while( not callSucceeded and time.time() < deadline ):
-            try :
-                retVal = f(self,*args,**kwargs)
-                callSucceeded = True
-            except (ArakoonNotConnected, ArakoonNoMaster, ArakoonNodeNotMaster) as ex:
-                if len( self._config.getNodes().keys()) == 0 :
-                    raise ArakoonInvalidConfig( "Empty client configuration" )
-                self._masterId = None
-                self.dropConnections()
-                sleepPeriod = backoffPeriod * tryCount
-                if time.time() + sleepPeriod > deadline :
-                    raise
-                tryCount += 1.0
-                ArakoonClientLogger.logWarning( "Master not found (%s). Retrying in %0.2f sec." % (ex, sleepPeriod) )
-                time.sleep( sleepPeriod )
-        return retVal
+def retryDuringMasterReelection (is_read_only = False):
+    def wrap(f):
+        @wraps(f)
+        def retrying_f (self,*args,**kwargs):
+            start = time.time()
+            tryCount = 0.0
+            backoffPeriod = 0.2
+            callSucceeded = False
+            retryPeriod = ArakoonClientConfig.getNoMasterRetryPeriod ()
+            deadline = start + retryPeriod
+            while( not callSucceeded and time.time() < deadline ):
+                try :
+                    retVal = f(self,*args,**kwargs)
+                    callSucceeded = True
+                except (ArakoonNoMaster, ArakoonNodeNotMaster, ArakoonSocketException, ArakoonNotConnected, ArakoonGoingDown) as ex:
+                    if not is_read_only and \
+                       isinstance(ex, (ArakoonSocketException, ArakoonGoingDown)):
+                        raise
+                    if len( self._config.getNodes().keys()) == 0 :
+                        raise ArakoonInvalidConfig( "Empty client configuration" )
+                    self._masterId = None
+                    self.dropConnections()
+                    sleepPeriod = backoffPeriod * tryCount
+                    if time.time() + sleepPeriod > deadline :
+                        raise
+                    tryCount += 1.0
+                    ArakoonClientLogger.logWarning( "Master not found (%s). Retrying in %0.2f sec." % (ex, sleepPeriod) )
+                    time.sleep( sleepPeriod )
+            return retVal
 
-    return retrying_f
+        return retrying_f
+    return wrap
+
 
 class ArakoonClient :
 
@@ -145,7 +151,7 @@ class ArakoonClient :
         self._dirtyReadNode = node
 
     @utils.update_argspec('self')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     def getKeyCount (self) :
         """
         Retrieve the number of keys in the database on the master
@@ -166,7 +172,7 @@ class ArakoonClient :
         return self._dirtyReadNode
 
     @utils.update_argspec('self', 'clientId', ('clusterId', 'arakoon'))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string', 'string' )
     def hello (self, clientId, clusterId = 'arakoon'):
         """
@@ -223,7 +229,7 @@ class ArakoonClient :
 
 
     @utils.update_argspec('self', 'key')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string' )
     def exists(self, key):
         """
@@ -239,7 +245,7 @@ class ArakoonClient :
         return conn.decodeBoolResult()
 
     @utils.update_argspec('self', 'key')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string' )
     def get(self, key):
         """
@@ -261,7 +267,7 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self', 'keys')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     def multiGet(self,keys):
         """
         Retrieve the values for the keys in the given list.
@@ -279,7 +285,7 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self','keys')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     def multiGetOption(self,keys):
         """
         Retrieve the values for the keys in the given list.
@@ -299,7 +305,7 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self', 'key', 'value')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator( 'string', 'string' )
     def set(self, key, value):
         """
@@ -320,7 +326,7 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @utils.update_argspec('self', 'key', 'value')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator('string','string')
     def confirm(self, key,value):
         """
@@ -333,7 +339,7 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @utils.update_argspec('self', 'key', 'vo')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator('string','string_option')
     def aSSert(self, key, vo):
         """
@@ -353,7 +359,7 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self', 'key')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator('string')
     def aSSert_exists(self, key):
         """
@@ -371,7 +377,7 @@ class ArakoonClient :
         return result
 
     @utils.update_argspec('self', 'seq', ('sync', False))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator( 'sequence', 'bool' )
     def sequence(self, seq, sync = False):
         """
@@ -387,7 +393,7 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @utils.update_argspec('self', 'key')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator( 'string' )
     def delete(self, key):
         """
@@ -402,7 +408,7 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @utils.update_argspec('self','prefix')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator('string')
     def deletePrefix(self, prefix):
         """
@@ -424,7 +430,7 @@ class ArakoonClient :
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
                           'endKeyIncluded', ('maxElements', 1000))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
     def range(self, beginKey, beginKeyIncluded, endKey, endKeyIncluded, maxElements = 1000 ):
         """
@@ -458,7 +464,7 @@ class ArakoonClient :
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
                           'endKeyIncluded', ('maxElements', 1000))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string_option', 'bool', 'string_option', 'bool', 'int' )
     def range_entries(self,
                       beginKey,
@@ -502,7 +508,7 @@ class ArakoonClient :
 
     @utils.update_argspec('self', 'beginKey', 'beginKeyIncluded', 'endKey',
                           'endKeyIncluded', ('maxElements', 1000))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator('string_option', 'bool', 'string_option', 'bool','int')
     def rev_range_entries(self,
                           beginKey, beginKeyIncluded,
@@ -535,7 +541,7 @@ class ArakoonClient :
 
 
     @utils.update_argspec('self', 'keyPrefix', ('maxElements', 1000))
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     @SignatureValidator( 'string', 'int' )
     def prefix(self, keyPrefix , maxElements = 1000 ):
         """
@@ -584,7 +590,7 @@ class ArakoonClient :
         return conn.decodeStatistics()
 
     @utils.update_argspec('self', 'key', 'oldValue', 'newValue')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator( 'string', 'string_option', 'string_option' )
     def testAndSet(self, key, oldValue, newValue):
         """
@@ -609,7 +615,7 @@ class ArakoonClient :
         return conn.decodeStringOptionResult()
 
     @utils.update_argspec('self', 'name', 'argument')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection()
     @SignatureValidator('string', 'string_option')
     def userFunction(self, name, argument): #pylint: disable-msg=C0103
         '''Call a user-defined function on the server
@@ -627,7 +633,7 @@ class ArakoonClient :
         return conn.decodeStringOptionResult()
 
     @utils.update_argspec('self')
-    @retryDuringMasterReelection
+    @retryDuringMasterReelection(is_read_only=True)
     def getNurseryConfig(self):
         msg = ArakoonProtocol.encodeGetNurseryCfg()
         con = self._sendToMaster(msg)
