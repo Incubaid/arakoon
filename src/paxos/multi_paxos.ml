@@ -140,6 +140,7 @@ type 'a constants =
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
+   mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
   }
 
@@ -182,6 +183,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send receive get_value
     stop;
     catchup_tls_ctx;
     election_timeout = None;
+    lease_expiration_id = 0;
     respect_run_master = None;
   }
 
@@ -221,6 +223,8 @@ let push_value constants v n i =
 
 let start_lease_expiration_thread (type s) constants =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
+  constants.lease_expiration_id <- constants.lease_expiration_id + 1;
+  let id = constants.lease_expiration_id in
   let rec inner () =
     let lease_start, slave = match S.who_master constants.store with
       | None -> 0.0, true
@@ -245,7 +249,11 @@ let start_lease_expiration_thread (type s) constants =
         Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
           constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
         constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
-        inner ()
+        if id = constants.lease_expiration_id
+        then
+          inner ()
+        else
+          Lwt.return ()
       end in
     let () = Lwt.ignore_result (t ()) in
     Lwt.return () in
