@@ -1,7 +1,7 @@
-# This makefile wrapper makes DEBIAN packaging easier. 
+# This makefile wrapper makes DEBIAN packaging easier.
 
 OCAML_VERSION ?= 4.00.1
-OCAML_LIBDIR ?= $(DESTDIR)/usr/lib/ocaml/
+OCAML_LIBDIR ?= $(DESTDIR)/lib/ocaml/
 OCAML_FIND ?= ocamlfind
 
 all: build
@@ -18,8 +18,8 @@ test:
 install: install_client install_server
 
 install_server:
-	mkdir -p $(DESTDIR)/usr/bin/
-	cp ./arakoon.native $(DESTDIR)/usr/bin/arakoon
+	mkdir -p $(DESTDIR)/bin/
+	cp ./arakoon.native $(DESTDIR)/bin/arakoon
 
 install_client:
 	mkdir -p $(OCAML_LIBDIR)
@@ -36,7 +36,7 @@ install_client:
           _build/src/plugins/registry.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
-          _build/src/arakoon_client.a 
+          _build/src/arakoon_client.a
 
 uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
