@@ -402,7 +402,7 @@ struct
           if m = my_name
           then
             let msg = "Operation cannot be performed on master node" in
-            Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, msg))
+            Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, msg))
           else
             Lwt.return ()
 
@@ -567,7 +567,7 @@ struct
         match res with
         | Quiesce.Result.OK -> Lwt.return ()
         | Quiesce.Result.FailMaster ->
-          Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
+          Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, "Operation cannot be performed on master node"))
         | Quiesce.Result.Fail ->
           Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
