@@ -456,9 +456,11 @@ def test_fsync():
     cli.set('k1', 'v')
     c.enableFsync()
     c.restart()
+    cli.get('k1')
     cli.set('k2', 'v')
     c.disableFsync()
     c.restart()
+    cli.get('k2')
     cli.set('k3', 'v')
     assert_equals(cli.deletePrefix('k'), 3)
 

@@ -72,6 +72,9 @@ class ArakoonNoMasterResult( ArakoonException ):
 class ArakoonNodeNotMaster( ArakoonException ):
     _msg = "Cannot perform operation on non-master node"
 
+class ArakoonNodeNoLongerMaster( ArakoonException ):
+    _msg = "Operation might or might not be performed on node which is no longer the master"
+
 class ArakoonAssertionFailed(ArakoonException):    
     _msg = "Assert did not yield expected result"
     def __init__(self,msg):

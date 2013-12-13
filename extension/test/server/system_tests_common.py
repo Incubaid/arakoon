@@ -887,7 +887,7 @@ def set_get_and_delete( client, key, value):
     client.delete( key )
     assert_raises ( ArakoonNotFound, client.get, key )
 
-def generic_retrying_ ( client, f, is_valid_ex ) :
+def generic_retrying_ ( client, f, is_valid_ex, duration = 5.0 ) :
     start = time.time()
     failed = True
     tryCnt = 0
@@ -896,7 +896,7 @@ def generic_retrying_ ( client, f, is_valid_ex ) :
 
     last_ex = None
 
-    while ( failed and time.time() < start + 5.0 ) :
+    while ( failed and time.time() < start + duration ) :
         try :
             tryCnt += 1
             f ()
@@ -912,7 +912,6 @@ def generic_retrying_ ( client, f, is_valid_ex ) :
                 raise
             logging.debug("recreating client")
             client.recreate = True
-            failed = False
             client.dropConnections()
             client = get_client()
 
@@ -920,10 +919,10 @@ def generic_retrying_ ( client, f, is_valid_ex ) :
         raise last_ex
 
 def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
-    generic_retrying_ (client, (lambda : client.set( key,value ) ), is_valid_ex )
-    generic_retrying_ (client, (lambda : assert_equals( client.get(key), value ) ) , is_valid_ex )
+    generic_retrying_ (client, (lambda : client.set( key,value ) ), is_valid_ex, duration = 60.0 )
+    generic_retrying_ (client, (lambda : assert_equals( client.get(key), value ) ) , is_valid_ex, duration = 60.0 )
     try:
-        generic_retrying_ (client, (lambda : client.delete( key ) ) , is_valid_ex )
+        generic_retrying_ (client, (lambda : client.delete( key ) ) , is_valid_ex, duration = 60.0 )
     except ArakoonNotFound:
         pass
 
@@ -939,6 +938,7 @@ def retrying_set_get_and_delete( client, key, value ):
         validEx = validEx or isinstance( ex, ArakoonSockSendError )
         validEx = validEx or isinstance( ex, ArakoonNotConnected )
         validEx = validEx or isinstance( ex, ArakoonNodeNotMaster )
+        validEx = validEx or isinstance( ex, ArakoonNodeNoLongerMaster )
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )
         return validEx
