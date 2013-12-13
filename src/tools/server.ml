@@ -37,7 +37,7 @@ let deny (ic,oc,cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int oc 0xfe >>= fun () ->
   Llio.output_string oc "too many clients"
-   
+
 
 let session_thread (sid:string) cid protocol fd =
   Lwt.catch
@@ -61,16 +61,16 @@ let session_thread (sid:string) cid protocol fd =
       | Canceled -> Lwt.fail Canceled
       | exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
-let create_connection_allocation_scheme max = 
+let create_connection_allocation_scheme max =
   let counter = ref 0 in
-  let maybe_take () = 
+  let maybe_take () =
     let c = !counter in
-    if c = max 
+    if c = max
     then None
     else let () = incr counter in Some c
-  and release () = decr counter 
+  and release () = decr counter
   in maybe_take, release
-    
+
 let make_default_scheme () = create_connection_allocation_scheme 10
 
 let make_counter () =
@@ -84,16 +84,19 @@ let socket_address_to_string = function
   | Unix.ADDR_UNIX s -> Printf.sprintf "ADDR_UNIX %s" s
   | Unix.ADDR_INET (inet_addr, port) -> Printf.sprintf "ADDR_INET %s,%i" (Unix.string_of_inet_addr inet_addr) port
 
-let make_server_thread 
+let make_server_thread
     ?(name = "socket server")
-    ?(setup_callback=no_callback) 
+    ?(setup_callback=no_callback)
     ?(teardown_callback = no_callback)
     ~scheme
     host port protocol =
-  let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  let new_socket sa =
+    let domain = Unix.domain_of_sockaddr sa in
+    Lwt_unix.socket domain Unix.SOCK_STREAM 0
+  in
   let socket_address = Network.make_address host port in
   begin
-    let listening_socket = new_socket () in
+    let listening_socket = new_socket socket_address in
     Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
