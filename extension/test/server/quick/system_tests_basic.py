@@ -665,6 +665,13 @@ def test_multi_get_option():
             assert_true(v is None)
     logging.debug("done")
 
+@C.with_custom_setup(C.setup_3_nodes_ipv6, C.basic_teardown)
+def test_ipv6():
+    cli = C.get_client()
+    cli.set("x","X")
+    x = cli.get("x")
+    assert_equals(x, "X")
+
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_rev_range_entries_arakoon368():
     """ assert ARAKOON-368 bugfix """
