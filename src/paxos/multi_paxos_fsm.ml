@@ -88,75 +88,6 @@ let read_only constants state () =
   Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
   Fsm.return Read_only
 
-(* a pending slave that is waiting for a prepare or a nak
-   in order to discover a master *)
-let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:Sn.t)) event =
-  let module S = (val constants.store_module : Store.STORE with type t = s) in
-  match event with
-    | FromNode(msg,source) ->
-      begin
-        Logger.debug_f_ "%s: slave_waiting_for_prepare: %S" constants.me (MPMessage.string_of msg)
-        >>= fun () ->
-        match msg with
-          | Prepare(n',i') ->
-            begin
-              handle_prepare constants source current_n n' i' >>= function
-              | Nak_sent
-              | Prepare_dropped ->
-                Fsm.return ( Slave_waiting_for_prepare(current_i, current_n ) )
-              | Promise_sent_up2date ->
-                Fsm.return (Slave_steady_state (n', current_i, None))
-              | Promise_sent_needs_catchup ->
-                let i = S.get_catchup_start_i constants.store in
-                let state = (source, i, n',i') in
-                Fsm.return (Slave_discovered_other_master state)
-            end
-          | Nak(n',(n2, i2)) when n' = -1L ->
-            begin
-              Logger.debug_f_ "%s: fake prepare response: discovered master" constants.me >>= fun () ->
-              let cu_pred = S.get_catchup_start_i constants.store in
-              Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-            end
-          | Nak(n',(n2, i2)) when i2 > current_i ->
-            begin
-              Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
-              let cu_pred =  S.get_catchup_start_i constants.store in
-              Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-            end
-          | Nak(n',(n2, i2)) when i2 = current_i ->
-            begin
-              Logger.debug_f_ "%s: got %s => we're in sync" constants.me (string_of msg) >>= fun () ->
-              start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
-              Fsm.return (Slave_steady_state (n2, i2, None))
-            end
-          | Accept(n', i', v) when current_n = n' && i' > current_i ->
-            begin
-              let cu_pred = S.get_catchup_start_i constants.store in
-              Fsm.return (Slave_discovered_other_master (source, cu_pred, n', i'))
-            end
-          | _ -> Logger.debug_f_ "%s: dropping unexpected %s" constants.me (string_of msg) >>= fun () ->
-            Fsm.return (Slave_waiting_for_prepare (current_i,current_n))
-      end
-    | ElectionTimeout (n', i') ->
-      if n' = current_n && i' = current_i
-      then Fsm.return (Slave_fake_prepare(current_i, current_n))
-      else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
-    | LeaseExpired (n', ls) ->
-      if n' = current_n
-      then Fsm.return (Slave_fake_prepare(current_i, current_n))
-      else Fsm.return (Slave_waiting_for_prepare(current_i, current_n))
-    | FromClient _ -> paxos_fatal constants.me "Slave_waiting_for_prepare cannot handle client requests"
-    | Quiesce (mode, sleep,awake) ->
-        handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
-      Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
-
-    | Unquiesce ->
-      handle_unquiesce_request constants current_n >>= fun (store_i, vo) ->
-      Fsm.return (Slave_waiting_for_prepare (current_i,current_n) )
-    | DropMaster (sleep, awake) ->
-      Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
-      Fsm.return (Slave_waiting_for_prepare (current_i, current_n))
-
 
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
@@ -319,11 +250,6 @@ let wait_for_promises (type s) constants state event =
                       let new_n = update_n constants (max n n'') in
                       Fsm.return (Election_suggest (new_n, counter + 1))
                   end
-                  (* else (* witness *) (* this state is impossible?! *)
-                     begin
-                       Logger.debug_f_ "%s: wait_for_promises; forced slave back waiting for prepare" me >>= fun () ->
-                       Lwt.return (Slave_waiting_for_prepare (i,n))
-                     end *)
               end
             | Prepare (n',i') ->
               begin
@@ -347,6 +273,7 @@ let wait_for_promises (type s) constants state event =
                   | Prepare_dropped ->
                     Fsm.return (Wait_for_promises state)
                   | Promise_sent_up2date ->
+                    start_lease_expiration_thread constants >>= fun () ->
                     Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
                     let i = S.get_catchup_start_i constants.store in
@@ -553,6 +480,7 @@ let wait_for_accepteds
                       begin
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+                        start_lease_expiration_thread constants >>= fun () ->
                         Fsm.return (Slave_steady_state (n', i, None))
                       end
                     | Promise_sent_needs_catchup ->
@@ -678,8 +606,6 @@ let machine constants =
 
     | Slave_fake_prepare i ->
       (Unit_arg (Slave.slave_fake_prepare constants i), nop)
-    | Slave_waiting_for_prepare state ->
-      (Msg_arg (slave_waiting_for_prepare constants state), node_and_inject_and_timeout)
     | Slave_steady_state state ->
       (Msg_arg (Slave.slave_steady_state constants state), full)
     | Slave_discovered_other_master state ->
@@ -836,12 +762,7 @@ let _execute_effects constants e =
         end >>= fun () ->
         if Value.is_master_set v
         then
-          let period =
-            if slave
-            then constants.lease_expiration
-            else constants.lease_expiration / 2
-          in
-          start_lease_expiration_thread constants n period
+          start_lease_expiration_thread constants
         else
           Lwt.return ()
       end
@@ -862,7 +783,8 @@ let enter_forced_slave ?(stop = ref false) constants buffers new_i =
        Fsm.loop ~trace ~stop
          (_execute_effects constants)
          produce
-         (machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
+         (machine constants)
+         (Slave.slave_fake_prepare constants (new_i,new_n))
     )
     (fun exn ->
        Logger.warning_ ~exn "FSM BAILED due to uncaught exception"
@@ -917,7 +839,7 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
   then
     begin
       Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
-      start_lease_expiration_thread constants current_n constants.lease_expiration >>= fun () ->
+      start_lease_expiration_thread constants >>= fun () ->
       run (Slave.slave_fake_prepare constants (current_i,current_n))
     end
   else

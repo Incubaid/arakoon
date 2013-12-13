@@ -44,7 +44,7 @@ let should_fail x error_msg success_msg =
 let _start tn =
   Logger.info_f_ "---------------------%s--------------------" tn
 
-let all_same_master (tn, cluster_cfg, all_t) =
+let all_same_master (tn, cluster_cfg, all_t, _) =
   let scenario () =
     let q = float (cluster_cfg._lease_period) *. 1.5 in
     Lwt_unix.sleep q >>= fun () ->
@@ -91,7 +91,7 @@ let all_same_master (tn, cluster_cfg, all_t) =
             scenario () ]
 
 
-let nothing_on_slave (tn, cluster_cfg, all_t) =
+let nothing_on_slave (tn, cluster_cfg, all_t, _) =
   let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
     Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
@@ -138,7 +138,7 @@ let nothing_on_slave (tn, cluster_cfg, all_t) =
   Lwt.pick [Lwt.join all_t;
             Lwt_unix.sleep 5.0 >>= fun () -> test_slaves cluster_cfg]
 
-let dirty_on_slave (tn, cluster_cfg,_) =
+let dirty_on_slave (tn, cluster_cfg,_, _) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
@@ -507,7 +507,7 @@ let _multi_get_option (client:client) =
       Lwt.fail (Failure "bad order or arity")
 
 
-let _with_master ((tn:string), cluster_cfg, _) f =
+let _with_master ((tn:string), cluster_cfg, _, _) f =
   let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
@@ -575,9 +575,8 @@ let assert_exists3 tpl =
 
 let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
-let stop = ref false
-
 let setup make_master tn base () =
+  let stop = ref false in
   _start tn >>= fun () ->
   let lease_period = 10 in
   let cluster_id = Printf.sprintf "%s_%i" tn base in
@@ -592,9 +591,9 @@ let setup make_master tn base () =
   let t1 = Node_main.test_t make_config (_node_name tn 1) stop >>= fun _ -> Lwt.return () in
   let t2 = Node_main.test_t make_config (_node_name tn 2) stop >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
-  Lwt.return (tn, make_config (), all_t)
+  Lwt.return (tn, make_config (), all_t, stop)
 
-let teardown (tn, _, all_t) =
+let teardown (tn, _, all_t, stop) =
   Logger.info_f_ "++++++++++++++++++++ %s +++++++++++++++++++" tn >>= fun () ->
   stop := true;
   Lwt.join all_t

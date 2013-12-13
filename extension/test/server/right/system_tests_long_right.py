@@ -379,7 +379,7 @@ def _test_drop_master_with_load_(client):
     t_drop.start()
 
     cv.acquire()
-    cv.wait(800.0)
+    cv.wait(900.0)
 
     assert_false( busy ) # test should be finished by now and is probably hanging
     if busy:

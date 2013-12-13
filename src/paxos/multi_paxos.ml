@@ -99,7 +99,7 @@ let update_votes (nones,somes) = function
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
-  | LeaseExpired of (Sn.t * float)
+  | LeaseExpired of (float)
   | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
   | Unquiesce
   | ElectionTimeout of Sn.t * Sn.t
@@ -140,6 +140,7 @@ type 'a constants =
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
+   mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
   }
 
@@ -182,6 +183,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send receive get_value
     stop;
     catchup_tls_ctx;
     election_timeout = None;
+    lease_expiration_id = 0;
     respect_run_master = None;
   }
 
@@ -219,25 +221,45 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread (type s) constants n expiration =
+let start_lease_expiration_thread (type s) constants =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let lease_start = match S.who_master constants.store with
-    | None -> 0.0
-    | Some(_, ls) -> ls in
-  let sleep_sec = float_of_int expiration in
-  let t () =
-    begin
-      Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
-        constants.me sleep_sec >>= fun () ->
-      let t0 = Unix.gettimeofday () in
-      Lwt_unix.sleep sleep_sec >>= fun () ->
-      let t1 = Unix.gettimeofday () in
-      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %f"
-        constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
-      constants.inject_event (LeaseExpired (n, lease_start))
-    end in
-  let () = Lwt.ignore_result (t ()) in
-  Lwt.return ()
+  constants.lease_expiration_id <- constants.lease_expiration_id + 1;
+  let id = constants.lease_expiration_id in
+  let rec inner () =
+    let lease_start, slave = match S.who_master constants.store with
+      | None -> 0.0, true
+      | Some(m, ls) -> ls, constants.me <> m in
+    let sleep_sec =
+      if slave
+      then
+        (* sleep a little longer than necessary on a slave
+           to prevent a node thinking it's still the master
+           while some slaves have elected a new master amongst them
+           (in case the clocks don't all run at the same speed) *)
+        (float_of_int constants.lease_expiration) *. 1.1
+      else
+        float_of_int (constants.lease_expiration / 2) in
+    let t () =
+      begin
+        Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
+          constants.me sleep_sec >>= fun () ->
+        let t0 = Unix.gettimeofday () in
+        Lwt_unix.sleep sleep_sec >>= fun () ->
+        if id = constants.lease_expiration_id
+        then
+          begin
+            let t1 = Unix.gettimeofday () in
+            Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
+              constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
+            constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
+            inner ()
+          end
+        else
+          Lwt.return ()
+      end in
+    let () = Lwt.ignore_result (t ()) in
+    Lwt.return () in
+  inner ()
 
 let start_election_timeout constants n i =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
@@ -410,5 +432,5 @@ let handle_unquiesce_request (type s) constants n =
   Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
   let i = S.get_succ_store_i store in
   let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+  start_lease_expiration_thread constants >>= fun () ->
   Lwt.return (i,vo)

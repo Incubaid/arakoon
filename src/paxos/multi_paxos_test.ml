@@ -89,6 +89,7 @@ let test_generic network_factory n_nodes () =
               quiesced = false;
               stop = ref false;
               election_timeout = None;
+              lease_expiration_id = 0;
               respect_run_master = None;
               catchup_tls_ctx = None;
              }
@@ -263,6 +264,7 @@ let test_master_loop network_factory ()  =
                    quiesced = false;
                    stop = ref false;
                    election_timeout = None;
+                   lease_expiration_id = 0;
                    respect_run_master = None;
                    catchup_tls_ctx = None;
                   } in
@@ -390,6 +392,7 @@ let test_simulation filters () =
     quiesced = false;
     stop = ref false;
     election_timeout = None;
+    lease_expiration_id = 0;
     respect_run_master = None;
     catchup_tls_ctx = None;
   } in

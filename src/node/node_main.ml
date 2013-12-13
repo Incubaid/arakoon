@@ -568,10 +568,9 @@ let _main_2 (type s)
             let send_message_loop other =
               let rec inner () =
                 Lwt_unix.sleep period >>= fun () ->
-                send msg me.node_name other >>= fun () ->
                 if !fuse
                 then
-                  Lwt.return ()
+                  send msg me.node_name other
                 else
                   inner () in
               inner () in
