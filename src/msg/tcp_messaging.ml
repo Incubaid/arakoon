@@ -141,10 +141,9 @@ object(self : # messaging )
     let timeout = 5.0 in
     Logger.info_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
     >>= fun () ->
-    Lwt.pick[
-      Lwt_unix.timeout timeout;
-	  __open_connection socket_address
-    ]
+    Lwt_unix.with_timeout
+      timeout
+      (fun () ->__open_connection socket_address)
     >>= fun (ic,oc) ->
     Llio.output_int64 oc _MAGIC >>= fun () ->
     Llio.output_int oc _VERSION >>= fun () ->
@@ -178,11 +177,13 @@ object(self : # messaging )
 	      self # _drop_connection address
 	    in
 	    let try_send () =
-	      self # _get_connection addresses >>= fun connection ->
-	      let ic,oc = connection in
-	      let pickled = self # _pickle source target msg in
-	      Llio.output_string oc pickled >>= fun () ->
-	      Lwt_io.flush oc
+              Lwt_unix.with_timeout timeout
+                (fun () ->
+	         self # _get_connection addresses >>= fun connection ->
+	         let ic,oc = connection in
+	         let pickled = self # _pickle source target msg in
+	         Llio.output_string oc pickled >>= fun () ->
+	         Lwt_io.flush oc)
 	    in
 	    Lwt.catch
 	      (fun () -> try_send ())
