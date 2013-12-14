@@ -13,9 +13,9 @@ ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
 #./arakoon.d.byte --run-all-tests-xml foobar.xml
 ./arakoon.native --run-all-tests-xml foobar.xml
 
-make coverage
-./arakoon.d.byte --run-all-tests
-./report.sh
+#make coverage
+#./arakoon.d.byte --run-all-tests
+#./report.sh
 
 # redo this for artifacts...
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
