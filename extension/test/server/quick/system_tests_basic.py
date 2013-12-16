@@ -601,7 +601,7 @@ def test_download_db():
     n0 = C.node_names[0]
     n1 = C.node_names[1]
     C.startOne(n0)
-    time.sleep(0.1)
+    time.sleep(1.0)
     db_file = C.get_node_db_file (n1)
 
     # since there is only 1 node running, there can't be a master and
