@@ -203,7 +203,7 @@ def apply_iptables_rules ( rules ) :
     flush_all_rules()
     for table in rules.keys():
         for line in rules[table]:
-            cmd = "sudo /sbin/iptables -t %s -A %s" % (table, line)
+            cmd = "sudo /sbin/iptables -t %s %s" % (table, line)
             logging.info("cmd=%s", cmd)
             Common.run_cmd( cmd, False )
 
