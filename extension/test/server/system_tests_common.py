@@ -180,10 +180,19 @@ def compare_stores( node1_id, node2_id ):
         cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
         (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
         i_line = stdout.split("\n") [0]
-        i_str = i_line.split("(")[1][:-1]
-        #"..."
-        i_str2 = i_str[1:-1]
-        return int(i_str2)
+        logging.info("i_line='%s'", i_line)
+        # 'i: Some("19999")'
+        # 'i: None'
+
+        if i_line.find("None"):
+            r = 0
+        else:
+            i_str = i_line.split("(")[1][:-1]
+            #"..."
+            i_str2 = i_str[1:-1]
+            r =  int(i_str2)
+
+        return r
 
 
 
