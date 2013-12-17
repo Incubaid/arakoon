@@ -138,7 +138,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
                     Logger.debug_f_ "%s: reentering steady state @(%s,%s)" constants.me
 		              (Sn.string_of n2) (Sn.string_of i2)
                     >>= fun () ->
-                    start_lease_expiration_thread constants n2 constants.lease_expiration >>= fun () ->
+                    start_lease_expiration_thread constants n2 ~slave:true >>= fun () ->
                     Fsm.return (Slave_steady_state (n2, i2, v))
 	              end
 	      end
@@ -200,7 +200,7 @@ let promises_check_done constants state () =
       Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       constants.on_accept (bv,n,i) >>= fun () ->
-      start_lease_expiration_thread constants n (constants.lease_expiration / 2)  >>= fun () ->
+      start_lease_expiration_thread constants n ~slave:false >>= fun () ->
       let msg = Accept(n,i,bv) in
       mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
@@ -697,7 +697,7 @@ let wait_for_accepteds (type s) constants ((ms,ballot) as state)
 	        Fsm.return (Wait_for_accepteds state)
 	      end
       end
-	    
+
     | Quiesce (mode, sleep,awake) ->
       fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
       Fsm.return (Wait_for_accepteds state)
@@ -892,13 +892,9 @@ let _execute_effects constants e =
         begin
           if Value.is_master_set v
           then
-            let period =
-              if slave
-              then constants.lease_expiration
-              else constants.lease_expiration / 2
-            in
-            start_lease_expiration_thread constants n period
-          else Lwt.return ()
+            start_lease_expiration_thread constants n ~slave
+          else
+            Lwt.return ()
         end
     | EStartElectionTimeout n -> start_election_timeout constants n
 
