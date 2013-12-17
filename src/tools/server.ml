@@ -104,10 +104,13 @@ let make_server_thread
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
       ~scheme
       host port protocol =
-  let new_socket () = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  let new_socket sa =
+    let domain = Unix.domain_of_sockaddr sa in
+    Lwt_unix.socket domain Unix.SOCK_STREAM 0
+  in
   let socket_address = Network.make_address host port in
   begin
-    let listening_socket = new_socket () in
+    let listening_socket = new_socket socket_address in
     Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;

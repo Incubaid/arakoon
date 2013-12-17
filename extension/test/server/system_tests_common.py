@@ -599,7 +599,7 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port,
-                       extra = None, force_slaves = True):
+                       extra = None, force_slaves = True, useIPV6=False):
 
     q.system.process.run( "sudo /sbin/iptables -F" )
 
@@ -611,12 +611,16 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     q.system.fs.createDir ( base_dir )
 
     n = len(node_names)
+    ip = "127.0.0.1"
+    if useIPV6:
+        ip = "::1"
 
     for i in range (n) :
         is_witness = force_master & force_slaves & (i % 2 != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
         cluster.addNode(name=nodeName,
+                        ip = ip,
                         clientPort = base_client_port+i,
                         messagingPort = base_msg_port+i,
                         logDir = log_dir,
@@ -661,10 +665,13 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     cluster.setMasterLease( lease )
 
 
-def setup_n_nodes ( n, force_master, home_dir , extra = None, force_slaves = True):
+def setup_n_nodes ( n, force_master, home_dir , extra = None,
+                    force_slaves = True, useIPV6 = False):
+
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
-                       extra = extra, force_slaves = force_slaves)
+                       extra = extra, force_slaves = force_slaves,
+                       useIPV6 = useIPV6 )
 
     logging.info( "Starting cluster" )
     start_all( cluster_id )
@@ -710,6 +717,9 @@ def setup_1_node (home_dir):
     setup_n_nodes( 1, False, home_dir )
 
 default_setup = setup_3_nodes
+
+def setup_3_nodes_ipv6(home_dir):
+    setup_n_nodes(3, False, home_dir, useIPV6 = True)
 
 def setup_nursery_n (n, home_dir):
 
