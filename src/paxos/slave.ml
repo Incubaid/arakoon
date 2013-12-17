@@ -41,7 +41,23 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
             | None         -> "not_in_store", ("None", 0.0)
             | Some (sm,sd) -> "stored", (sm,sd)
         in
-        invalidate_lease_start_until >= al, Printf.sprintf "%f >= %f" invalidate_lease_start_until al
+        let return need_elections =
+          need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until al in
+        if invalidate_lease_start_until >= al
+        then
+          begin
+            match constants.respect_run_master with
+            | None ->
+              return true
+            | Some(other, until) ->
+              if Unix.gettimeofday () < until
+              then
+                false, "lease expired, but respecting another node running for master"
+              else
+                return true
+          end
+        else
+          return false
       end
   end
 
@@ -101,7 +117,7 @@ let slave_steady_state (type s) constants state event =
       else
         begin
           let log_e = ELog (fun () ->
-              "slave_steady_state: ignoring lease expiration master still active") in
+              Printf.sprintf "slave_steady_state: Elections not needed because %s" why) in
           Fsm.return ~sides:[log_e] (Slave_steady_state state)
         end
   in
