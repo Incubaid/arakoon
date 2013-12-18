@@ -654,7 +654,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     cluster.setMasterLease( lease )
 
 
-def setup_n_nodes ( n, force_master, home_dir , extra = None, useIPV6 = False):
+def setup_n_nodes ( n, force_master, home_dir , extra = None, useIPV6 = False, slowCollapser = False):
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
                        extra = extra,
