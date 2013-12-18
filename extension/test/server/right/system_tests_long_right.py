@@ -142,7 +142,7 @@ def test_master_reelect():
     Common.stopOne( master_id )
     ld = Common.lease_duration
 
-    delay = 1.5 * ld
+    delay = 2.0 * ld
     time.sleep(delay)
     logging.info("waited %s, for reelection to happen" % delay)
     logging.info("config=%s" % (cli._config))

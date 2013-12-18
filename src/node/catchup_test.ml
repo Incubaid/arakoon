@@ -143,11 +143,10 @@ let _tic (type s) filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 _dir_name _tlf_dir _tlf_dir true false "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
-  let tlog_i = Sn.of_int n in
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   S.make_store db_name >>= fun store ->
   let me = "??me??" in
-  Catchup.verify_n_catchup_store me ((module S), store, tlog_coll, Some tlog_i) tlog_i None
+  Catchup.verify_n_catchup_store me ((module S), store, tlog_coll)
   >>= fun () ->
   let new_i = S.get_succ_store_i store in
   verify_store store new_i >>= fun () ->

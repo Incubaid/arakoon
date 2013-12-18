@@ -61,13 +61,11 @@ object (self: #tlog_collection)
       | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
 
-  method iterate i last_i f =
+  method iterate from_i too_far_i f =
     let data' = List.filter 
       (fun entry -> 
-        let ei = Entry.i_of entry 
-        (*and eu = Entry.u_of entry*)
-        in
-        ei >= i && ei <= last_i) data in
+        let ei = Entry.i_of entry in
+        ei >= from_i && ei < too_far_i) data in
     Lwt_list.iter_s f (List.rev data')
 
       

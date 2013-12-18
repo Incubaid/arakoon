@@ -559,22 +559,20 @@ object(self: #backend)
     self # _read_allowed false >>= fun () ->
     S.get_key_count store
 
-  method private quiesce_db () =
+  method private quiesce_db ~mode () =
     self # _not_if_master () >>= fun () ->
-    let result = ref Multi_paxos.Quiesced_fail in
     let sleep, awake = Lwt.wait() in
-    let update = Multi_paxos.Quiesce (sleep, awake) in
+    let update = Multi_paxos.Quiesce (mode, sleep, awake) in
     Logger.info_ "quiesce_db: Pushing quiesce request" >>= fun () ->
     push_node_msg update >>= fun () ->
     Logger.info_ "quiesce_db: waiting for quiesce request to be completed" >>= fun () ->
     sleep >>= fun res ->
-    result := res;
     Logger.info_ "quiesce_db: db is now completed" >>= fun () ->
     match res with
-      | Multi_paxos.Quiesced_ok -> Lwt.return ()
-      | Multi_paxos.Quiesced_fail_master ->
+      | Quiesce.Result.OK -> Lwt.return ()
+      | Quiesce.Result.FailMaster ->
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Operation cannot be performed on master node"))
-      | Multi_paxos.Quiesced_fail ->
+      | Quiesce.Result.Fail ->
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
   method private unquiesce_db () =
@@ -582,8 +580,8 @@ object(self: #backend)
     let update = Multi_paxos.Unquiesce in
     push_node_msg update
 
-  method try_quiesced f =
-    self # quiesce_db () >>= fun () ->
+  method try_quiesced ~mode f =
+    self # quiesce_db ~mode () >>= fun () ->
     begin
       Lwt.finalize
       ( f )
@@ -592,13 +590,15 @@ object(self: #backend)
 
   method optimize_db () =
     Logger.info_ "optimize_db: enter" >>= fun () ->
-    self # try_quiesced(fun () -> S.optimize store) >>= fun () ->
+    let mode = Quiesce.Mode.ReadOnly in
+    self # try_quiesced ~mode (fun () -> S.optimize store) >>= fun () ->
     Logger.info_ "optimize_db: All done"
 
   method defrag_db () =
     self # _not_if_master() >>= fun () ->
     Logger.info_ "defrag_db: enter" >>= fun () ->
-    S.defrag store >>= fun () ->
+    let mode = Quiesce.Mode.Writable in
+    self # try_quiesced ~mode (fun () -> S.defrag store) >>= fun () ->
     Logger.info_ "defrag_db: exit"
 
 
@@ -611,7 +611,8 @@ object(self: #backend)
           Lwt.fail ex
         | Some oc -> Lwt.return oc
     end >>= fun oc ->
-    self # try_quiesced ( fun () -> S.copy_store store oc ) >>= fun () ->
+    let mode = Quiesce.Mode.ReadOnly in
+    self # try_quiesced ~mode ( fun () -> S.copy_store store oc ) >>= fun () ->
     Logger.info_ "get_db: All done"
 
   method get_cluster_cfgs () =

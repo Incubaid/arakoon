@@ -96,16 +96,11 @@ let update_votes (nones,somes) = function
     let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
     (nones, somes')
 
-type quiesce_result =
-  | Quiesced_ok
-  | Quiesced_fail_master
-  | Quiesced_fail
- 				      
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of Sn.t
-  | Quiesce of (quiesce_result Lwt.t * quiesce_result Lwt.u)
+  | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
   | Unquiesce
   | ElectionTimeout of Sn.t
   | DropMaster of (unit Lwt.t * unit Lwt.u)
@@ -114,7 +109,7 @@ let paxos_event2s = function
   | FromClient _ -> "FromClient _"
   | FromNode _ -> "FromNode _ "
   | LeaseExpired _ -> "LeaseExpired _"
-  | Quiesce _ -> "Quiesce _"
+  | Quiesce (mode, _, _) -> Printf.sprintf "Quiesce (%s, _, _)" (Quiesce.Mode.to_string mode)
   | Unquiesce -> "Unquiesce _"
   | ElectionTimeout _ -> "ElectionTimeout _"
   | DropMaster _ -> "DropMaster _"
@@ -153,10 +148,10 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | _ -> false
 
-let make (type s) me is_learner others send receive get_value 
-    on_accept on_consensus on_witness 
-    last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll 
-    other_cfgs lease_expiration inject_event ~cluster_id 
+let make (type s) me is_learner others send receive get_value
+    on_accept on_consensus on_witness
+    last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
+    other_cfgs lease_expiration inject_event ~cluster_id
     quiesced =
   {
     me=me;
@@ -191,8 +186,14 @@ let update_n constants n =
   Sn.add n (Sn.of_int (1 + Random.int ( 1 + (List.length constants.others) * 2)))
 
 
-let start_lease_expiration_thread constants n expiration =
-  let sleep_sec = float_of_int expiration in
+let start_lease_expiration_thread constants n ~slave =
+  let sleep_sec =
+    if slave
+    then
+      (float_of_int constants.lease_expiration) *. 1.1
+    else
+      (float_of_int constants.lease_expiration) *. 0.5
+  in
   let t () =
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
@@ -209,7 +210,7 @@ let start_lease_expiration_thread constants n expiration =
 
 let start_election_timeout constants n =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
-  let t () = 
+  let t () =
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for election to finish" constants.me sleep_sec >>= fun () ->
       let t0 = Unix.gettimeofday () in
@@ -231,12 +232,12 @@ type prepare_repsonse =
 let handle_prepare (type s) constants dest n n' i' =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let me = constants.me in
-  let () = constants.on_witness dest i' in 
+  let () = constants.on_witness dest i' in
   if not ( List.mem dest constants.others) then
     begin
       let store = constants.store in
       let s_i = S.consensus_i store in
-      let nak_i = 
+      let nak_i =
         begin
           match s_i with
             | None -> Sn.start
@@ -246,38 +247,38 @@ let handle_prepare (type s) constants dest n n' i' =
       Logger.debug_f_ "%s: replying with %S to learner %s" me (string_of reply) dest
       >>= fun () ->
       constants.send reply me dest >>= fun () ->
-      Lwt.return Nak_sent 
+      Lwt.return Nak_sent
     end
   else
     begin
       let can_pr = can_promise constants.store_module constants.store constants.lease_expiration dest in
       if not can_pr && n' >= 0L
       then
-	    begin 
-          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me 
+	    begin
+          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
-	        
+
 	    end
-      else 
+      else
 	    begin
           let store = constants.store in
           let s_i = S.consensus_i store in
-          let nak_max = 
+          let nak_max =
             begin
               match s_i with
 		        | None -> Sn.start
 		        | Some si -> Sn.succ si
-	        end 
+	        end
           in
 
-          if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n 
+          if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me 
+            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
-            Lwt.return (Nak_sent, reply) 
+            Lwt.return (Nak_sent, reply)
           else
             begin
               (* We will send a Promise, start election timer *)
@@ -292,17 +293,17 @@ let handle_prepare (type s) constants dest n n' i' =
               else (* i' = i *)
                 (* Send Promise, we are in sync *)
 		        Lwt.return(Promise_sent_up2date, reply)
-            end 
+            end
 	    end >>= fun (ret_val, reply) ->
       Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end
-      
+
 let safe_wakeup sleeper awake value =
-  Lwt.catch 
+  Lwt.catch
   ( fun () -> Lwt.return (Lwt.wakeup awake value) )
-  ( fun e -> 
+  ( fun e ->
     match e with
       | Invalid_argument s ->
         let t = state sleeper in
@@ -313,7 +314,7 @@ let safe_wakeup sleeper awake value =
             | Sleep -> Lwt.fail (Failure "Wakeup error, sleeper is still sleeping")
         end
       | _ -> Lwt.fail e
-   ) 
+   )
 
 let safe_wakeup_all v l =
   Lwt_list.iter_s
@@ -322,10 +323,10 @@ let safe_wakeup_all v l =
 
 let fail_quiesce_request store sleeper awake reason =
   safe_wakeup sleeper awake reason
-  
-let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store sleeper (awake: quiesce_result Lwt.u) =
-  S.quiesce store >>= fun () ->
-  safe_wakeup sleeper awake Quiesced_ok
+
+let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store mode sleeper (awake: Quiesce.Result.t Lwt.u) =
+  S.quiesce mode store >>= fun () ->
+  safe_wakeup sleeper awake Quiesce.Result.OK
 
 let handle_unquiesce_request (type s) constants n =
   let store = constants.store in
@@ -336,5 +337,5 @@ let handle_unquiesce_request (type s) constants n =
   Catchup.catchup_store "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
   let i = S.get_succ_store_i store in
   let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants n constants.lease_expiration >>= fun () ->
+  start_lease_expiration_thread constants n ~slave:true >>= fun () ->
   Lwt.return (i,vo)

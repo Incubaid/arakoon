@@ -209,20 +209,13 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
     end
   in
   S.make_store db_name >>= fun store ->
-  make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir
+  make_tlog_coll
+    me.tlog_dir me.tlf_dir me.head_dir
     me.use_compression me.fsync name >>= fun tlc ->
-  Lwt.finalize
-    (fun () ->
-      let current_i = match S.consensus_i store with
-        | None -> Sn.start
-        | Some i -> i
-      in
-      let future_n = Sn.start in
-      let future_i = Sn.start in
-      Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-        ((module S),store,tlc)  current_i mr_name (future_n,future_i) >>= fun _ ->
-      S.close store)
-    (tlc # close)
+  Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+    ((module S),store,tlc) mr_name >>= fun _ ->
+  S.close store >>= fun () ->
+  tlc # close ()
 
 
 
@@ -452,24 +445,9 @@ let _main_2 (type s)
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           S.make_store db_name >>= fun (store:S.t) ->
-          let last_i = tlog_coll # get_last_i () in
-          let ti_o = Some last_i in
-          let current_i = (* confusingly ~current_i further in the callstack is too_far_i *)
-            if n_nodes = 1
-            then
-              (* this is the only node, so accepting a value equals reaching consensus on it *)
-              Sn.succ last_i
-            else
-              last_i in
-          Lwt.catch
-            (fun () ->
-	          Catchup.verify_n_catchup_store me.node_name
-	            ((module S), store, tlog_coll, ti_o)
-	            ~current_i master)
-            (fun ex ->
-              tlog_coll # close () >>= fun () ->
-              Lwt.fail ex)
-	    >>= fun () ->
+          Catchup.verify_n_catchup_store me.node_name
+            ((module S), store, tlog_coll)
+            ~apply_last_tlog_value:(n_nodes = 1) >>= fun () ->
 	      let new_i = S.get_succ_store_i store in
 	      let vo = tlog_coll # get_last_value new_i in
               S.clear_self_master store me.node_name;
