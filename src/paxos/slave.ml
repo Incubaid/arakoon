@@ -174,12 +174,11 @@ let slave_steady_state (type s) constants state event =
               end
             else
               accept_value None n' i' v "steady_state :: replying again to previous with %S"
-          | Accept (n',i',v) when
-              (n'<=n && i'<i) || (n'< n)  ->
+          | Accept (n',i',v) when i' <= i ->
             begin
               let log_e = ELog (
                   fun () ->
-                    Printf.sprintf "slave_steady_state received old %S for my n, ignoring"
+                    Printf.sprintf "slave_steady_state received old %S for my i, ignoring"
                       (string_of msg) )
               in
               Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
