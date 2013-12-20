@@ -38,6 +38,7 @@ def test_start_stop_single_node_forced () :
     cluster.stop()
     C.assert_running_nodes ( 0 )
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes ( 1 )
 
 @C.with_custom_setup ( C.setup_3_nodes_forced_master, C.basic_teardown )
@@ -47,6 +48,7 @@ def test_start_stop_three_nodes_forced () :
     cluster.stop()
     C.assert_running_nodes ( 0 )
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes ( 3 )
 
 def test_start_stop_wrapper():
