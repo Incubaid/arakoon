@@ -117,11 +117,11 @@ def test_catchup_while_collapsing():
     iter_cnt = 0
 
     while iter_cnt < time_out :
+        time.sleep(1.0)
         Common.assert_running_nodes ( 2 )
         if cli.expectProgressPossible() :
             break
         iter_cnt += 1
-        time.sleep(1.0)
 
     Common.stop_all()
     Common.assert_last_i_in_sync( node_names[0], node_names[1])
