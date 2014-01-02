@@ -536,6 +536,16 @@ struct
       end;
     existing
 
+  let _replace store tx key wanted =
+    let r = _get_option store key in
+    begin
+      match wanted,r with
+      | Some v, _      -> _set store tx key v
+      | None  , None   -> ()
+      | None  , Some o -> _delete store tx key
+    end;
+    r
+
   let _range_entries store first finc last linc max =
     S.range_entries store.s __prefix first finc last linc max
 
@@ -632,6 +642,8 @@ struct
           Lwt.return (Ok (Some ser))
         | Update.TestAndSet(key,expected,wanted)->
           Lwt.return (Ok (_test_and_set store tx key expected wanted))
+        | Update.Replace (key,wanted) ->
+           Lwt.return (Ok (_replace store tx key wanted))
         | Update.UserFunction(name,po) ->
           _user_function store name po tx >>= fun ro ->
           Lwt.return (Ok ro)
@@ -752,6 +764,9 @@ struct
           update_in_tx (fun tx -> _do_one update tx)
         | Update.AdminSet(k,vo) ->
           update_in_tx (fun tx -> _do_one update tx)
+        | Update.Replace(k, wanted) ->
+          update_in_tx (fun tx -> _do_one update tx)
+
     in
     let get_key = function
       | Update.Set (key,value) -> Some key

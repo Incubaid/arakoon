@@ -86,6 +86,13 @@ class type client = object
       Note that wanted can be None and can be used to delete a value
   *)
 
+  method replace : key -> value option -> (value option) Lwt.t
+  (**
+      [replace key wanted] assigns the wanted value to the key,
+      and returns the previous assignment (if any) for that key.
+      If wanted is None, the binding is deleted.
+   *)
+
   method ping: string -> string -> string Lwt.t
 
   method sequence: change list -> unit Lwt.t (* ... hm ... *)

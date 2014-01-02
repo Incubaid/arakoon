@@ -337,6 +337,19 @@ def test_drop_master_singleton():
 def test_test_and_set() :
     tes_and_set_scenario( 100000 )
 
+@C.with_custom_setup( C.default_setup, C.basic_teardown)
+def test_replace():
+    client = C.get_client()
+    old = client.replace("xxx", "xxx")
+    assert_equals(old, None)
+    old2 = client.replace("xxx","yyy")
+    assert_equals(old2, "xxx")
+    old3 = client.replace("xxx",None)
+    assert_equals(old3,"yyy")
+    e = client.exists("xxx")
+    assert_equals(e,False)
+
+
 @C.with_custom_setup( C.setup_3_nodes_forced_master , C.basic_teardown )
 def test_who_master_fixed () :
     client = C.get_client()

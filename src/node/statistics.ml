@@ -112,6 +112,7 @@ module Statistics = struct
     mutable mget_time_stats:          x_stats;
     mutable mget_option_time_stats:   x_stats;
     mutable tas_time_stats:           x_stats;
+    mutable replace_time_stats:       x_stats;
     mutable range_time_stats:         x_stats;
     mutable prefix_time_stats:        x_stats;
     mutable delete_prefix_time_stats: x_stats;
@@ -141,7 +142,8 @@ module Statistics = struct
      seq_time_stats=  create_x_stats();
      mget_time_stats= create_x_stats();
      mget_option_time_stats = create_x_stats();
-     tas_time_stats=  create_x_stats();
+     tas_time_stats     =  create_x_stats();
+     replace_time_stats = create_x_stats();
      range_time_stats = create_x_stats();
      prefix_time_stats = create_x_stats();
      delete_prefix_time_stats = create_x_stats();
@@ -170,6 +172,7 @@ module Statistics = struct
       t.seq_time_stats    <-  create_x_stats();
       t.mget_time_stats   <-  create_x_stats();
       t.tas_time_stats    <-  create_x_stats();
+      t.replace_time_stats<-  create_x_stats();
       t.range_time_stats  <-  create_x_stats();
       t.prefix_time_stats <-  create_x_stats();
       t.delete_prefix_time_stats <- create_x_stats();
@@ -226,6 +229,10 @@ module Statistics = struct
   let new_testandset t (start:float)=
     let x = new_op t start in
     update_x_stats t.tas_time_stats x
+
+  let new_replace t (start:float) =
+    let x = new_op t start in
+    update_x_stats t.replace_time_stats x
 
   let new_range t (start:float) =
     let x = new_op t start in
@@ -285,7 +292,7 @@ module Statistics = struct
       x_stats_to_value_list t.mget_time_stats "mget_info";
       x_stats_to_value_list t.mget_option_time_stats "mget_option_info";
       x_stats_to_value_list t.tas_time_stats "tas_info";
-
+      x_stats_to_value_list t.replace_time_stats "replace_info";
       x_stats_to_value_list t.range_time_stats "range_info";
       x_stats_to_value_list t.prefix_time_stats "prefix_info";
       x_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
@@ -393,6 +400,8 @@ module Statistics = struct
     let value, v_list = extract_next v_list in
     let tas_stats   = extract_x_stats value in
 
+    let value, v_list = extract_next v_list in
+    let replace_stats = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
     let range_stats = extract_x_stats value in
@@ -447,6 +456,7 @@ module Statistics = struct
       mget_time_stats = mget_stats;
       mget_option_time_stats = mget_option_stats;
       tas_time_stats = tas_stats;
+      replace_time_stats = replace_stats;
       range_time_stats = range_stats;
       prefix_time_stats = prefix_stats;
       delete_prefix_time_stats = delete_prefix_stats;
@@ -477,6 +487,7 @@ module Statistics = struct
         "mget_option_info: %s\n" ^^
         "seq_info: %s,\n" ^^
         "tas_info: %s,\n" ^^
+        "replace_info: %s,\n" ^^
         "range_info: %s,\n" ^^
         "prefix_info: %s,\n" ^^
         "delete_prefix_info: %s,\n" ^^
@@ -510,6 +521,7 @@ module Statistics = struct
       (x_stats_to_string t.mget_option_time_stats)
       (x_stats_to_string t.seq_time_stats)
       (x_stats_to_string t.tas_time_stats)
+      (x_stats_to_string t.replace_time_stats)
       (x_stats_to_string t.range_time_stats)
       (x_stats_to_string t.prefix_time_stats)
       (x_stats_to_string t.delete_prefix_time_stats)

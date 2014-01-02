@@ -282,6 +282,10 @@ ARA_CMD_ASSERT_EXISTS            = 0x00000029 | ARA_CMD_MAG
 ARA_CMD_MULTI_GET_OPTION         = 0x00000031 | ARA_CMD_MAG
 ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 
+
+ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
+
+
 # Arakoon error codes
 # Success
 ARA_ERR_SUCCESS = 0
@@ -654,6 +658,12 @@ class ArakoonProtocol :
         retVal = _packInt( ARA_CMD_TAS ) + _packString( key )
         retVal += _packStringOption( oldVal )
         retVal += _packStringOption( newVal )
+        return retVal
+
+    @staticmethod
+    def encodeReplace(key, wanted):
+        retVal = _packInt(ARA_CMD_REPLACE) + _packString(key)
+        retVal += _packStringOption(wanted)
         return retVal
 
     @staticmethod

@@ -327,6 +327,19 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       Llio.output_string_option oc vo >>= fun () ->
       Lwt.return false
     end
+  | REPLACE ->
+     begin
+       Lwt.catch
+         (fun () ->
+          Llio.input_string ic >>= fun key ->
+          Llio.input_string_option ic >>= fun wanted ->
+          Logger.debug_f_ "connection=%s REPLACE: key=%S" id key >>= fun () ->
+          backend # replace key wanted >>= fun vo ->
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_string_option oc vo >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
   | USER_FUNCTION ->
     begin
       Llio.input_string ic >>= fun name ->

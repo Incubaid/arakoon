@@ -154,6 +154,16 @@ class test_backend my_name = object(self:#backend)
   method test_and_set (key:string) (expected: string option) (wanted:string option) =
     Lwt.return wanted
 
+  method replace (key:string) (wanted: string option) =
+    let r = try Some (StringMap.find key _kv) with Not_found -> None in
+    let () =
+      match wanted, r with
+      | Some v, _      -> _kv <- StringMap.add key v _kv
+      | None  , None   -> ()
+      | None  , Some o -> _kv <- StringMap.remove key _kv
+    in
+    Lwt.return r
+
   method user_function name po =
     match name with
       | "reverse" ->
