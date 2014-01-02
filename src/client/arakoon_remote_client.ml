@@ -78,6 +78,10 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
       response ic Llio.input_string_option
 
+    method replace key wanted =
+      request oc (fun buf -> replace_to buf key wanted) >>= fun () ->
+      response ic Llio.input_string_option
+
     method user_function name po =
       request  oc (fun buf -> user_function_to buf name po) >>= fun () ->
       response ic Llio.input_string_option

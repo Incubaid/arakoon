@@ -308,6 +308,18 @@ struct
         let so_post so = so in
         _update_rendezvous self update update_stats push_update ~so_post
 
+      method replace key (wanted:string option) =
+        let start = Unix.gettimeofday() in
+        log_o self "replace %s %s" key (string_option2s wanted) >>= fun () ->
+        let () = match wanted with
+          | None -> ()
+          | Some w -> assert_value_size w
+        in
+        let update = Update.Replace(key,wanted) in
+        let update_stats ur = Statistics.new_replace _stats start in
+        let so_post so = so in
+        _update_rendezvous self update update_stats push_update ~so_post
+
       method delete_prefix prefix =
         let start = Unix.gettimeofday () in
         log_o self "delete_prefix %S" prefix >>= fun () ->

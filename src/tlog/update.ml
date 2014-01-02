@@ -41,6 +41,8 @@ module Update = struct
     | AdminSet of string * string option
     | SyncedSequence of t list
     | DeletePrefix of string
+    | Replace of string * string option
+
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -88,6 +90,8 @@ module Update = struct
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
       | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
+      | Replace(k,vo) ->
+         Printf.sprintf "Replace            ;%S;%i" k (_size_of vo)
     in
     _inner u
 
@@ -151,7 +155,10 @@ module Update = struct
       | Assert_exists (k) ->
         Llio.int_to b 15;
         Llio.string_to b k
-
+      | Replace (k,vo) ->
+         Llio.int_to b 20;
+         Llio.string_to b k;
+         Llio.string_option_to b vo
 
   let rec from_buffer b pos =
     let kind, pos1 = Llio.int_from b pos in
@@ -220,6 +227,10 @@ module Update = struct
       | 15 ->
         let k, pos2 = Llio.string_from b pos1 in
         Assert_exists (k) , pos2
+      | 20 ->
+         let k,pos2 = Llio.string_from b pos1 in
+         let vo, pos3 = Llio.string_option_from b pos2 in
+         Replace(k,vo), pos3
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function

@@ -71,6 +71,7 @@ type client_command =
   | GET_FRINGE
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
+  | REPLACE
   | REV_RANGE_ENTRIES
   | SYNCED_SEQUENCE
   | OPT_DB
@@ -80,6 +81,7 @@ type client_command =
   | DROP_MASTER
   | MULTI_GET_OPTION
   | CURRENT_STATE
+
 
 
 let code2int = [
@@ -123,6 +125,7 @@ let code2int = [
   DROP_MASTER             , 0x30l;
   MULTI_GET_OPTION        , 0x31l;
   CURRENT_STATE           , 0x32l;
+  REPLACE                 , 0x33l;
   LAST_ENTRIES2           , 0x40l;
 ]
 
@@ -256,6 +259,11 @@ let test_and_set_to b key expected wanted =
   command_to b TEST_AND_SET;
   Llio.string_to b key;
   Llio.string_option_to b expected;
+  Llio.string_option_to b wanted
+
+let replace_to b key wanted =
+  command_to b REPLACE;
+  Llio.string_to b key;
   Llio.string_option_to b wanted
 
 let user_function_to b name po =

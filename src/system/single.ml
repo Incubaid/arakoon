@@ -262,6 +262,34 @@ let _test_and_set_3 (client: client) =
     Llio.lwt_failfmt "we should have deleted this"
   else Lwt.return ()
 
+let _replace (client:client) =
+  Logger.info_f_ "_replace" >>= fun () ->
+  let v = "Wanted" in
+  let key = "replace" in
+  client # replace key (Some v) >>= fun vo ->
+  begin
+    match vo with
+    | None -> Logger.info_f_ "part 1: value is None, as expected"
+    | Some x -> Llio.lwt_failfmt "value='%S', which is wrong" x
+  end >>= fun () ->
+  let v2 = "Wanted2" in
+  client # replace key (Some v2) >>= fun vo2 ->
+  begin
+    match vo2 with
+    | None -> Llio.lwt_failfmt "value is None, which is wrong"
+    | Some x ->
+       Logger.info_f_ "part 2: got: %s" x >>= fun () ->
+       OUnit.assert_equal x v ~printer:(fun s -> s); Lwt.return ()
+  end >>= fun () ->
+  client # replace key None >>= fun vo2 ->
+  Logger.info_f_ "part 3: got %s" (Log_extra.string_option2s vo2) >>= fun () ->
+  OUnit.assert_equal vo2 (Some v2);
+
+  client # exists key >>= fun exists ->
+  OUnit.assert_bool "value should not exist here" (not exists);
+  Lwt.return ()
+
+
 let _assert1 (client: client) =
   Logger.info_ "_assert1" >>= fun () ->
   client # set "my_value" "my_value" >>= fun () ->
@@ -551,6 +579,8 @@ let trivial_master3 tpl =
   in
   _with_master tpl f
 
+let replace tpl = _with_master tpl _replace
+
 let trivial_master4 tpl = _with_master tpl _multi_get
 
 let trivial_master5 tpl = _with_master tpl _progress_possible
@@ -617,6 +647,7 @@ let make_suite base name w =
       make_el "assert_exists2"  (base + 1200) assert_exists2;
       make_el "assert_exists3"  (base + 1300) assert_exists3;
       make_el "trivial_master6" (base + 1400) trivial_master6;
+      make_el "replace"         (base + 1500) replace
     ]
 
 let force_master =

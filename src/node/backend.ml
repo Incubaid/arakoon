@@ -34,7 +34,9 @@ class type backend = object
   method aSSert: allow_dirty: bool -> string -> string option -> unit Lwt.t
   method aSSert_exists: allow_dirty: bool -> string -> unit Lwt.t
   method delete: string -> unit Lwt.t
-  method test_and_set: string -> string option -> string option -> (string option) Lwt.t
+  method test_and_set: string -> string option -> string option ->
+                       (string option) Lwt.t
+  method replace: string -> string option -> (string option) Lwt.t
   method range:
     allow_dirty:bool ->
     string option -> bool ->
