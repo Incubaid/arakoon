@@ -156,7 +156,7 @@ module Update = struct
         Llio.int_to b 15;
         Llio.string_to b k
       | Replace (k,vo) ->
-         Llio.int_to b 20;
+         Llio.int_to b 16;
          Llio.string_to b k;
          Llio.string_option_to b vo
 
@@ -227,7 +227,7 @@ module Update = struct
       | 15 ->
         let k, pos2 = Llio.string_from b pos1 in
         Assert_exists (k) , pos2
-      | 20 ->
+      | 16 ->
          let k,pos2 = Llio.string_from b pos1 in
          let vo, pos3 = Llio.string_option_from b pos2 in
          Replace(k,vo), pos3
