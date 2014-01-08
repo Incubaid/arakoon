@@ -10,7 +10,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a
+	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs
 
 test:
 	./arakoon.native --run-all-tests
@@ -26,6 +26,7 @@ install_client:
 	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
 	  _build/src/arakoon_client.cma \
 	  _build/src/arakoon_client.cmxa \
+	  _build/src/arakoon_client.cmxs \
 	  _build/src/client/arakoon_exc.mli \
 	  _build/src/client/arakoon_exc.cmi \
 	  _build/src/client/arakoon_client.mli \
