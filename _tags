@@ -34,6 +34,7 @@ true: package(snappy)
 <examples/ocaml/*.{bytes,native}>: use_thread
 <examples/ocaml/*.{byte,native}>: is_main
 <src/arakoon_client.*{cma,cmxa}>: use_thread
+"src/arakoon_client.cmxs" : use_thread
 <src/plugins/*.{cma,cmxa}>: use_thread
 "logger_macro.cmo" : use_camlp4, camlp4orf
 <src/**/*.ml> : camlp4of, use_log_macro
