@@ -323,65 +323,78 @@ class tcp_messaging
         _check_cookie cookie >>= fun () ->
         Llio.input_string ic >>= fun ip ->
         Llio.input_int ic    >>= fun port ->
-        self # _maybe_insert_connection (ip,port) >>= fun () ->
+        let address = (ip,port) in
+        self # _maybe_insert_connection address >>= fun () ->
+        Lwt.return address
+      in
+      let next_message b0 address ic =
+        Llio.input_int ic >>= fun msg_size ->
         begin
-          let rec loop b0 =
-            begin
-              Lwt.pick [
-                (Lwt_unix.sleep timeout >>= fun () ->
-                 Llio.lwt_failfmt "connection from (%s,%i) was idle too long (> %f)" ip port timeout
-                );
-                Llio.input_int ic]
-              >>= fun msg_size ->
-              begin
-                if msg_size > max_buffer_size
-                then
-                  let mbs_mb = max_buffer_size lsr 20 in
-                  Llio.lwt_failfmt "msg_size (%i) > %iMB" msg_size mbs_mb
-                else Lwt.return ()
-              end
-              >>= fun () ->
-              let b1 =
-                if msg_size > String.length b0
-                then String.create msg_size
-                else b0
-              in
-              Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
-              let (source:id), pos1 = Llio.string_from b1 0 in
-              let target, pos2 = Llio.string_from b1 pos1 in
-              let msg, _   = Message.from_buffer b1 pos2 in
-              (*log_f "message from %s for %s" source target >>= fun () ->*)
-              if drop_it msg source target then loop b1
-              else
-                begin
-                  begin
-                    if not (Hashtbl.mem _id2address source)
-                    then
-                      let () = self # _register_receiver source (ip,port) in
-                      Logger.debug_f_ "registered %s => (%s,%i)" source ip port
-                    else Lwt.return ()
-                  end >>= fun () ->
-                  let q = self # get_buffer target in
-                  Lwt_buffer.add (msg, source) q >>=  fun () ->
-                  loop b1
-                end
-            end
-          in
-          catch
-            (fun () -> loop (String.create 1024))
-            (fun exn ->
-               Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
-               let address = (ip,port) in
-               self # _drop_connection address >>= fun () ->
-               Lwt.fail exn)
-
+          if msg_size > max_buffer_size
+          then
+            let mbs_mb = max_buffer_size lsr 20 in
+            Llio.lwt_failfmt "msg_size (%i) > %iMB" msg_size mbs_mb
+          else Lwt.return ()
         end
+        >>= fun () ->
+        let b1 =
+          if msg_size > String.length b0
+          then String.create msg_size
+          else b0
+        in
+        Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
+        let (source:id), pos1 = Llio.string_from b1 0 in
+        let target, pos2 = Llio.string_from b1 pos1 in
+        let msg, _   = Message.from_buffer b1 pos2 in
+        (*log_f "message from %s for %s" source target >>= fun () ->*)
+        if drop_it msg source target then Lwt.return b1
+        else
+          begin
+            begin
+              if not (Hashtbl.mem _id2address source)
+              then
+                let () = self # _register_receiver source address in
+                Logger.debug_f_ "registered %s => (%s,%i)" source ip port
+              else Lwt.return ()
+            end >>= fun () ->
+            let q = self # get_buffer target in
+            Lwt_buffer.add (msg, source) q >>=  fun () ->
+            Lwt.return b1
+          end
+      in
+      let die_after timeout address=
+        Lwt_unix.sleep timeout >>= fun () ->
+        let (ip,port) = address in
+        Llio.lwt_failfmt
+          "connection from (%s,%i) was idle too long (> %f)"
+          ip port timeout
+      in
+      let protocol (ic,oc,cid) =
+        Lwt_unix.with_timeout timeout (fun () -> read_prologue ic)
+        >>= fun address ->
+        let rec loop b0 =
+          begin
+            Lwt.pick [
+              die_after timeout address;
+              next_message b0 address ic]
+            >>= fun b1 ->
+            loop b1
+          end
+        in
+        Lwt.catch
+          (fun () -> loop (String.create 1024))
+          (fun exn ->
+             Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
+             let address = (ip,port) in
+             self # _drop_connection address >>= fun () ->
+             Lwt.fail exn)
       in
       let servers_t () =
         let start ip  =
           let name = Printf.sprintf "messaging_%s" ip in
           let scheme = Server.make_default_scheme () in
-          let s = Server.make_server_thread ~name ~setup_callback
+          let s = Server.make_server_thread
+                    ~name ~setup_callback
                     ~teardown_callback ip my_port protocol
                     ~scheme ?ssl_context
           in
