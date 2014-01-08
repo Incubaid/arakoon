@@ -307,7 +307,8 @@ class tcp_messaging
     method run ?(setup_callback=no_callback) ?(teardown_callback=no_callback) ?ssl_context () =
       Logger.info_f_ "tcp_messaging %s: run" me >>= fun () ->
       let _check_mv magic version =
-        if magic = _MAGIC && version = _VERSION then Lwt.return ()
+        if magic = _MAGIC && version = _VERSION
+        then Lwt.return ()
         else Llio.lwt_failfmt "MAGIC %Lx or VERSION %x mismatch" magic version
       in
       let _check_cookie cookie =
@@ -315,7 +316,7 @@ class tcp_messaging
         then Llio.lwt_failfmt "COOKIE %s mismatch" cookie
         else Lwt.return ()
       in
-      let protocol (ic,oc,cid) =
+      let read_prologue ic =
         Llio.input_int64 ic >>= fun magic ->
         Llio.input_int ic >>= fun version ->
         _check_mv magic version >>= fun () ->
@@ -327,7 +328,7 @@ class tcp_messaging
         self # _maybe_insert_connection address >>= fun () ->
         Lwt.return address
       in
-      let next_message b0 address ic =
+      let next_message b0 ((ip, port) as address) ic =
         Llio.input_int ic >>= fun msg_size ->
         begin
           if msg_size > max_buffer_size
@@ -385,7 +386,6 @@ class tcp_messaging
           (fun () -> loop (String.create 1024))
           (fun exn ->
              Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
-             let address = (ip,port) in
              self # _drop_connection address >>= fun () ->
              Lwt.fail exn)
       in
