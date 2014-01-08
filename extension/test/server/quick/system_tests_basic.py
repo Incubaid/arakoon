@@ -96,6 +96,7 @@ def test_max_value_size_tinkering ():
     cfg.addParam("global", "__tainted_max_value_size", "1024")
     cfg.write()
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes(1)
     client = C.get_client()
     assert_raises (ArakoonException, client.set, key, value)
