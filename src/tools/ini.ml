@@ -23,6 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 let p_string s = Scanf.sscanf s "%s" (fun s -> s)
 
 let p_int s = Scanf.sscanf s "%i" (fun i -> i)
+let p_float s = Scanf.sscanf s "%f" (fun f -> f)
 
 let p_string_list s = Str.split (Str.regexp "[, \t]+") s
 

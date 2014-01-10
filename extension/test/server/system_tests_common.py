@@ -599,7 +599,8 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port,
-                       extra = None, force_slaves = True, useIPV6=False):
+                       extra = None, force_slaves = True, useIPV6=False,
+                       slowCollapser = False):
 
     q.system.process.run( "sudo /sbin/iptables -F" )
 
@@ -619,6 +620,10 @@ def setup_n_nodes_base(c_id, node_names, force_master,
         is_witness = force_master & force_slaves & (i % 2 != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
+        if slowCollapser and (i % 2 == 1):
+            collapseSlowdown = 3
+        else:
+            collapseSlowdown = None
         cluster.addNode(name=nodeName,
                         ip = ip,
                         clientPort = base_client_port+i,
@@ -627,7 +632,8 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                         home = db_dir,
                         tlfDir = tlf_dir,
                         headDir = head_dir,
-                        isWitness = is_witness)
+                        isWitness = is_witness,
+                        collapseSlowdown = collapseSlowdown)
 
         cluster.addLocalNode(nodeName)
         cluster.createDirs(nodeName)
@@ -666,12 +672,14 @@ def setup_n_nodes_base(c_id, node_names, force_master,
 
 
 def setup_n_nodes ( n, force_master, home_dir , extra = None,
-                    force_slaves = True, useIPV6 = False):
+                    force_slaves = True, useIPV6 = False,
+                    slowCollapser = False):
 
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
                        extra = extra, force_slaves = force_slaves,
-                       useIPV6 = useIPV6 )
+                       useIPV6 = useIPV6,
+                       slowCollapser = slowCollapser)
 
     logging.info( "Starting cluster" )
     start_all( cluster_id )
@@ -685,6 +693,9 @@ def setup_3_nodes_forced_master (home_dir):
 
 def setup_3_nodes_forced_master_normal_slaves (home_dir):
     setup_n_nodes( 3, True, home_dir, force_slaves = False)
+
+def setup_3_nodes_forced_master_slow_collapser(home_dir):
+    setup_n_nodes( 3, True, home_dir, slowCollapser = True)
 
 def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir)
