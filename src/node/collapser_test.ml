@@ -78,14 +78,14 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun s -> Lwt.return () in
-  Collapser.collapse_until tlc (module S) store_methods future_i cb >>= fun () ->
+  Collapser.collapse_until tlc (module S) store_methods future_i cb None >>= fun () ->
   (* some verification ? *)
   
   (* try to do it a second time, it should *)
   let future_i2 = Sn.of_int 1000 in
     _should_fail 
     (fun () ->
-      Collapser.collapse_until tlc (module S) store_methods future_i2 cb) 
+      Collapser.collapse_until tlc (module S) store_methods future_i2 cb None)
     "this should fail" 
     "great, it indeed refuses to do this" 
   >>= fun ()->
@@ -116,11 +116,11 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   end
   >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename) in
-  Collapser.collapse_many tlc (module S) store_methods 5 cb' cb >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
-  Collapser.collapse_many tlc (module S) store_methods 3 cb' cb >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 3 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 
