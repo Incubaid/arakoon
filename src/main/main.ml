@@ -88,6 +88,7 @@ let show_version ()=
     Printf.printf "git_revision: %S\n" git_revision;
     Printf.printf "compiled: %S\n" compile_time;
     Printf.printf "machine: %S\n" machine;
+    Printf.printf "compiler_version : %S\n" compiler_version;
     Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
     Printf.printf "dependencies:\n%s\n" dependencies in
   ()
