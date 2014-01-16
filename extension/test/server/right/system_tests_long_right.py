@@ -337,6 +337,7 @@ def drop_master(n):
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master():
+    Common.stopOne( Common.node_names[0] )
     n = 20
     drop_master(n)
 """    drop_masters = lambda : drop_master(n)
@@ -346,6 +347,7 @@ def test_drop_master():
 def _test_drop_master_with_load_(client):
     global busy, excs
 
+    Common.stopOne( Common.node_names[0] )
     n = 40
 
     busy = True
