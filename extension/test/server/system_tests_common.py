@@ -178,7 +178,7 @@ def flush_stores(nodes = None):
 
 def compare_stores( node1_id, node2_id ):
 
-    keys_to_skip = [ "*lease", "*i", "*master" ]
+    keys_to_skip = [ "*lease", "*lease2", "*i", "*master" ]
     dump1 = dump_store( node1_id )
     dump2 = dump_store( node2_id )
 
