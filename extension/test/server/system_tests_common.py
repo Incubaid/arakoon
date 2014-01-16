@@ -162,9 +162,23 @@ def dump_store( node_id ):
 
     return dump_file
 
+def flush_store( node_id ):
+    client = get_client ()
+    client.allowDirtyReads()
+    client.setDirtyReadNode ( node_id )
+    client.range("", True, "a", False, 1)
+    client.disallowDirtyReads()
+
+def flush_stores(nodes = None):
+    if nodes is None:
+        nodes = _getCluster().listNodes()
+
+    for node in nodes:
+        flush_store( node )
+
 def compare_stores( node1_id, node2_id ):
 
-    keys_to_skip = [ "*lease", "*i", "*master" ]
+    keys_to_skip = [ "*lease", "*lease2", "*i", "*master" ]
     dump1 = dump_store( node1_id )
     dump2 = dump_store( node2_id )
 
@@ -1085,6 +1099,7 @@ def restart_single_slave_scenario( restart_cnt, set_cnt, compare_store ) :
 
     # Give the slave some time to catch up
     time.sleep( 5.0 )
+    flush_stores()
     stop_all()
     assert_last_i_in_sync ( node_names[0], node_names[1] )
     if compare_store:

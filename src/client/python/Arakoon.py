@@ -137,7 +137,6 @@ class ArakoonClient :
         self._config = config
 
     @utils.update_argspec('self', 'node')
-    @SignatureValidator('string')
     def setDirtyReadNode(self, node):
         """
         Set the node that will be used for dirty read operations
@@ -235,7 +234,7 @@ class ArakoonClient :
         """
         @type key : string
         @param key : key
-        @returen : True if there is a value for that key, False otherwise
+        @return : True if there is a value for that key, False otherwise
         """
         msg = ArakoonProtocol.encodeExists(key, self._allowDirty)
         if self._allowDirty:
