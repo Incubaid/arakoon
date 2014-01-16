@@ -325,6 +325,14 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
         conn.decodeVoidResult()
 
+    @retryDuringMasterReelection()
+    def nop(self):
+        """
+        does a paxos nop (reaches consensus)
+        """
+        conn = self._sendToMaster(ArakoonProtocol.encodeNOP())
+        conn.decodeVoidResult()
+
     @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection()
     @SignatureValidator('string','string')

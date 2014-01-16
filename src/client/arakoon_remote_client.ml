@@ -129,6 +129,8 @@ class remote_client ((ic,oc) as conn) =
       Common.version (ic,oc)
 
     method current_state () = Common.current_state (ic,oc)
+    method nop () =
+      Common.nop (ic,oc)
   end
 
 let make_remote_client cluster connection =

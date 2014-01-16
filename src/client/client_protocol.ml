@@ -211,6 +211,15 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
         )
         (handle_exception oc)
     end
+  | NOP ->
+      begin
+        Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
+        Lwt.catch
+          (fun () ->
+           backend # nop () >>= fun () ->
+           response_ok_unit oc)
+          (handle_exception oc)
+      end
   | DELETE ->
     begin
       Llio.input_string ic >>= fun key ->
