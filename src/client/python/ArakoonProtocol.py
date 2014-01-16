@@ -284,7 +284,7 @@ ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 
 
 ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
-
+ARA_CMD_NOP                      = 0x00000041 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -603,6 +603,10 @@ class ArakoonProtocol :
     @staticmethod
     def encodeSet( key, value ):
         return _packInt( ARA_CMD_SET ) + _packString( key ) + _packString ( value )
+
+    @staticmethod
+    def encodeNOP():
+        return _packInt(ARA_CMD_NOP)
 
     @staticmethod
     def encodeConfirm(key, value):

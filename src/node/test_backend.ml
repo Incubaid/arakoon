@@ -333,4 +333,6 @@ class test_backend my_name = object(self:#backend)
     Lwt.return ()
 
   method get_current_state () = Lwt.return "test_backend"
+
+  method nop () = Lwt.return ()
 end

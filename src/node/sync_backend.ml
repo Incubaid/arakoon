@@ -248,6 +248,9 @@ struct
         _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
 
+      method nop () =
+        let update = Update.Nop in
+        _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
