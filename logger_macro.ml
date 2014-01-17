@@ -7,12 +7,17 @@ This file defines several macros related to the Logger module.
 It is important to keep in mind that macros can't always be used like functions, therefor it's useful to know how these macros are expanded.
 
 The general structure is the following (in which level can be any of Debug|Info|Notice|Warning|Error|Fatal):
-Logger.level    ?exn section msg
-Logger.level_   ?exn msg
-Logger.level_f  ?exn section format_string and args
-Logger.level_f_ ?exn format_string and args
+Logger.level     ?exn section msg
+Logger.level_    ?exn msg
+Logger.level_f   ?exn section format_string and args
+Logger.level_f_  ?exn format_string and args
+Logger.ign_level    ?exn section msg
+Logger.ign_level_   ?exn msg
+Logger.ign_level_f  ?exn section format_string and args
+Logger.ign_level_f_ ?exn format_string and args
 
 The macros ending with _ grab a variable named section from the enviroment.
+The macros starting with ign_ return unit instead of unit Lwt.t.
 Macros containing _f wrap the 'format_string and args' part into a closure which can at a later time be evaluated to calculate a string.
 
 Some concrete examples:
@@ -49,7 +54,17 @@ let split e =
   let rec aux acc = function
     | <:expr@_loc< Logger.log_f $section$ $level$ >> ->
       `Log_f(section, level, acc)
+    | <:expr@_loc< Logger.ign_log_f $section$ $level$ >> ->
+       `Ign_log_f(section, level, acc)
     | <:expr@_loc< Logger.$lid:func$ ~exn $arg$ >> ->
+      let ign =
+        String.length func >= 4 && "ign_" = String.sub func 0 4 in
+      let func =
+        if ign
+        then
+          String.sub func 4 (String.length func - 4)
+        else
+          func in
       let implicit_section = func.[String.length func - 1] = '_' in
       let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
       let is_f = func.[pos] = 'f' in
@@ -63,18 +78,26 @@ let split e =
           let level' = String.capitalize level in
           if implicit_section
           then
-            `Log_e_l_ (arg::acc, level')
+            `Log_e_l_ (arg::acc, level', ign)
           else
-            `Log_e_l(acc, level', arg)
+            `Log_e_l(acc, level', arg, ign)
       else
         let level = String.sub func 0 (pos - 1) in
         let level' = String.capitalize level in
         if implicit_section
         then
-          `Log_e_f_l_ (arg::acc, level')
+          `Log_e_f_l_ (arg::acc, level', ign)
         else
-          `Log_e_f_l (acc, level', arg)
+          `Log_e_f_l (acc, level', arg, ign)
     | <:expr@_loc< Logger.$lid:func$ $arg$ >> ->
+      let ign =
+        String.length func >= 4 && "ign_" = String.sub func 0 4 in
+      let func =
+        if ign
+        then
+          String.sub func 4 (String.length func - 4)
+        else
+          func in
       let implicit_section = func.[String.length func - 1] = '_' in
       let pos = String.length func - 1 - (if implicit_section then 1 else 0) in
       let is_f = func.[pos] = 'f' in
@@ -88,17 +111,17 @@ let split e =
           let level' = String.capitalize level in
           if implicit_section
           then
-            `Log_l_(arg::acc, level')
+            `Log_l_(arg::acc, level', ign)
           else
-            `Log_l (acc, level', arg)
+            `Log_l (acc, level', arg, ign)
       else
         let level = String.sub func 0 (pos - 1) in
         let level' = String.capitalize level in
         if implicit_section
         then
-          `Log_f_l_ (arg::acc, level')
+          `Log_f_l_ (arg::acc, level', ign)
         else
-          `Log_f_l (acc, level', arg)
+          `Log_f_l (acc, level', arg, ign)
     | <:expr@loc< $a$ $b$ >> -> begin
         match b with
           | b ->
@@ -131,73 +154,156 @@ let map =
             $level$
             (fun () -> $apply <:expr< Printf.sprintf >> args$)
 >>
-| `Log_l_(args, level) ->
-let args = List.map super#expr args in
-apply
-  <:expr<
-    Logger.log
-    section
-    Lwt_log.$uid:level$
-  >> args
-| `Log_e_l_(args, level) ->
-let args = List.map super#expr args in
-apply
-  <:expr<
-    Logger.log
-    ~exn
-    section
-    Lwt_log.$uid:level$
-  >> args
-| `Log_l(args, level, section) ->
-let args = List.map super#expr args in
-apply
-  <:expr<
-    Logger.log
-    $section$
-    Lwt_log.$uid:level$
-  >> args
-| `Log_e_l(args, level, section) ->
-let args = List.map super#expr args in
-apply <:expr<
-        Logger.log
-        ~exn
-        $section$
-        Lwt_log.$uid:level$
-      >> args
-| `Log_f_l_(args, level) ->
-let args = List.map super#expr args in
-<:expr<
-  Logger.log_
-  section
-  Lwt_log.$uid:level$
-  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+        | `Ign_log_f(section, level, args) ->
+          let args = List.map super#expr args in
+          <:expr<
+            Logger.ign_log_
+            $section$
+            $level$
+            (fun () -> $apply <:expr< Printf.sprintf >> args$)
 >>
-| `Log_e_f_l_(args, level) ->
-let args = List.map super#expr args in
-<:expr<
-  Logger.log_
-  ~exn
-  section
-  Lwt_log.$uid:level$
-  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+        | `Log_l_(args, level, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             apply
+               <:expr<
+                Logger.ign_log
+                section
+                Lwt_log.$uid:level$
+                >> args
+           else
+             apply
+               <:expr<
+                Logger.log
+                section
+                Lwt_log.$uid:level$
+                >> args
+        | `Log_e_l_(args, level, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             apply
+               <:expr<
+                Logger.ign_log
+                ~exn
+                section
+                Lwt_log.$uid:level$
+                >> args
+           else
+             apply
+               <:expr<
+                Logger.log
+                ~exn
+                section
+                Lwt_log.$uid:level$
+                >> args
+        | `Log_l(args, level, section, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             apply
+               <:expr<
+                Logger.ign_log
+                $section$
+                Lwt_log.$uid:level$
+                >> args
+           else
+             apply
+               <:expr<
+                Logger.log
+                $section$
+                Lwt_log.$uid:level$
+                >> args
+        | `Log_e_l(args, level, section, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             apply <:expr<
+                    Logger.ign_log
+                    ~exn
+                    $section$
+                    Lwt_log.$uid:level$
+                    >> args
+           else
+             apply <:expr<
+                    Logger.log
+                    ~exn
+                    $section$
+                    Lwt_log.$uid:level$
+                    >> args
+        | `Log_f_l_(args, level, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             <:expr<
+              Logger.ign_log_
+              section
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
 >>
-| `Log_f_l(args, level, section) ->
-let args = List.map super#expr args in
-<:expr<
-  Logger.log_
-  $section$
-  Lwt_log.$uid:level$
-  (fun () -> $apply <:expr< Printf.sprintf >> args$)
+           else
+             <:expr<
+              Logger.log_
+              section
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
 >>
-| `Log_e_f_l(args, level, section) ->
-let args = List.map super#expr args in
-<:expr<
-  Logger.log_
-  ~exn
-  $section$
-  Lwt_log.$uid:level$
-  (fun () -> $apply <:expr< Printf.sprintf >> args$)
->>
+        | `Log_e_f_l_(args, level, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             <:expr<
+              Logger.ign_log_
+              ~exn
+              section
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
+           else
+             <:expr<
+              Logger.log_
+              ~exn
+              section
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
+        | `Log_f_l(args, level, section, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             <:expr<
+              Logger.ign_log_
+              $section$
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
+           else
+             <:expr<
+              Logger.log_
+              $section$
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
+        | `Log_e_f_l(args, level, section, ign) ->
+           let args = List.map super#expr args in
+           if ign
+           then
+             <:expr<
+              Logger.ign_log_
+              ~exn
+              $section$
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
+           else
+             <:expr<
+              Logger.log_
+              ~exn
+              $section$
+              Lwt_log.$uid:level$
+              (fun () -> $apply <:expr< Printf.sprintf >> args$)
+                                                         >>
 | `No_match ->
 super#expr e
 end
