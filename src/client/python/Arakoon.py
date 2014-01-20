@@ -137,7 +137,6 @@ class ArakoonClient :
         self._config = config
 
     @utils.update_argspec('self', 'node')
-    @SignatureValidator('string')
     def setDirtyReadNode(self, node):
         """
         Set the node that will be used for dirty read operations
@@ -235,7 +234,7 @@ class ArakoonClient :
         """
         @type key : string
         @param key : key
-        @returen : True if there is a value for that key, False otherwise
+        @return : True if there is a value for that key, False otherwise
         """
         msg = ArakoonProtocol.encodeExists(key, self._allowDirty)
         if self._allowDirty:
@@ -323,6 +322,14 @@ class ArakoonClient :
         @rtype: void
         """
         conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
+        conn.decodeVoidResult()
+
+    @retryDuringMasterReelection()
+    def nop(self):
+        """
+        does a paxos nop (reaches consensus)
+        """
+        conn = self._sendToMaster(ArakoonProtocol.encodeNOP())
         conn.decodeVoidResult()
 
     @utils.update_argspec('self', 'key', 'value')

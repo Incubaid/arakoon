@@ -81,7 +81,7 @@ type client_command =
   | DROP_MASTER
   | MULTI_GET_OPTION
   | CURRENT_STATE
-
+  | NOP
 
 
 let code2int = [
@@ -127,6 +127,7 @@ let code2int = [
   CURRENT_STATE           , 0x32l;
   REPLACE                 , 0x33l;
   LAST_ENTRIES2           , 0x40l;
+  NOP                     , 0x41l;
 ]
 
 let int2code =
@@ -316,6 +317,10 @@ let who_master (ic,oc) =
 
 let set (ic,oc) key value =
   request  oc (fun buf -> set_to buf key value) >>= fun () ->
+  response ic nothing
+
+let nop (ic,oc) =
+  request oc (fun buf -> command_to buf NOP) >>= fun () ->
   response ic nothing
 
 let get (ic,oc) ~allow_dirty key =

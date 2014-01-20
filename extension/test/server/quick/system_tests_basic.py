@@ -365,6 +365,12 @@ def test_who_master () :
     assert_true ( node in C.node_names )
     client.dropConnections()
 
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_nop():
+    client = C.get_client()
+    for i in xrange(10):
+        client.nop()
+    client.dropConnections()
 
 @C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)
 def test_get_version():
@@ -612,10 +618,12 @@ def test_download_db():
     m = cli.whoMaster()
     clu = C._getCluster()
     assert_raises(Exception, clu.backupDb, m, "/tmp/backup")
-    C.stop_all()
-
     n0 = C.node_names[0]
     n1 = C.node_names[1]
+
+    C.flush_store(n1)
+    C.stop_all()
+
     C.startOne(n0)
     time.sleep(1.0)
     db_file = C.get_node_db_file (n1)
@@ -630,6 +638,7 @@ def test_download_db():
     clu.backupDb(n0, db_file)
     C.assert_running_nodes(1)
 
+    C.flush_store(n0)
     C.stop_all()
     C.compare_stores(n0,n1)
 

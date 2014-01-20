@@ -48,6 +48,7 @@ def test_catchup_only():
     logging.info("catchup-only")
     C.catchupOnly(n1)
     logging.info("done with catchup-only")
+    C.flush_store(n0)
     C.stopOne(n0)
     C.compare_stores(n1,n0)
     C.start_all()
@@ -206,6 +207,7 @@ def test_mixed_tlog_formats():
     rc = cluster.catchupOnly(n0)
     logging.info("catchup had rc=%i", rc)
 
+    C.flush_store(n1)
     C.stop_all()
 
 

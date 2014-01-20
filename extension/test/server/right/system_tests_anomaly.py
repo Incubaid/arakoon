@@ -425,6 +425,8 @@ def test_block_single_slave_ports_loop () :
 
     # Give the slave some time to catchup
     time.sleep(5.0)
+    Common.flush_store (master_id)
+    Common.flush_store (slave_id)
     Common.stop_all()
     Common.assert_last_i_in_sync ( master_id, slave_id )
     Common.compare_stores( master_id, slave_id )

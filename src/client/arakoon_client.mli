@@ -59,6 +59,10 @@ class type client = object
 
   method set: key -> value -> unit Lwt.t
 
+
+  method nop : unit -> unit Lwt.t
+  (** [nop ()] is a paxos no-operation.
+   *)
   method confirm: key -> value -> unit Lwt.t
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]

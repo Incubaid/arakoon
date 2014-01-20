@@ -59,6 +59,7 @@ def test_restart_master_long ():
 
     Common.stop_all()
     Common.start_all()
+    Common.flush_stores()
     Common.stop_all()
     node_names = Common.node_names
 

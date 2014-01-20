@@ -249,6 +249,9 @@ struct
         _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
 
+      method nop () =
+        let update = Update.Nop in
+        _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
@@ -521,32 +524,30 @@ struct
         Lwt.return r
 
       method collapse n cb' cb =
-        begin
-          if n < 1 then
+        if n < 1 then
+          let rc = Arakoon_exc.E_UNKNOWN_FAILURE
+          and msg = Printf.sprintf "%i is not acceptable" n
+          in
+          Lwt.fail (XException(rc,msg))
+        else
+          Logger.debug_f_ "collapsing_lock locked: %s"
+                          (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
+          if Lwt_mutex.is_locked collapsing_lock then
             let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-            and msg = Printf.sprintf "%i is not acceptable" n
+            and msg = "Collapsing already in progress"
             in
             Lwt.fail (XException(rc,msg))
           else
-            Logger.debug_f_ "collapsing_lock locked: %s"
-              (string_of_bool (Lwt_mutex.is_locked collapsing_lock)) >>= fun () ->
-            if Lwt_mutex.is_locked collapsing_lock then
-              let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-              and msg = "Collapsing already in progress"
-              in
-              Lwt.fail (XException(rc,msg))
-            else
-              Lwt.return ()
-        end >>= fun () ->
-        Lwt_mutex.with_lock collapsing_lock (fun () ->
-            let new_cb tlog_num =
-              cb() >>= fun () ->
-              self # wait_for_tlog_release tlog_num
-            in
-            Logger.info_ "Starting collapse" >>= fun () ->
-            Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb collapse_slowdown >>= fun () ->
-            Logger.info_ "Collapse completed"
-          )
+            Lwt_mutex.with_lock
+              collapsing_lock
+              (fun () ->
+               let new_cb tlog_num =
+                 cb() >>= fun () ->
+                 self # wait_for_tlog_release tlog_num
+               in
+               Logger.info_ "Starting collapse" >>= fun () ->
+               Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb collapse_slowdown >>= fun () ->
+               Logger.info_ "Collapse completed")
 
       method get_routing () =
         self # _read_allowed false >>= fun () ->

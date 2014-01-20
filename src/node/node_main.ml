@@ -220,7 +220,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
                  me.fsync name >>= fun tlc ->
   Catchup.catchup ~tls_ctx ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
     ((module S),store,tlc) mr_name >>= fun _ ->
-  S.close store >>= fun () ->
+  S.close ~flush:true store >>= fun () ->
   tlc # close ()
 
 

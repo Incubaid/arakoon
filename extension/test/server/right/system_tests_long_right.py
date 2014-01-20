@@ -123,6 +123,7 @@ def test_catchup_while_collapsing():
             break
         iter_cnt += 1
 
+    Common.flush_stores ()
     Common.stop_all()
     Common.assert_last_i_in_sync( node_names[0], node_names[1])
     Common.compare_stores( node_names[0], node_names[1] )
@@ -234,6 +235,7 @@ def test_missed_accept ():
     node_names = Common.node_names
     zero = node_names[0]
     one = node_names[1]
+    Common.flush_store( one )
     Common.stopOne(one)
 
     cli = Common.get_client()
@@ -248,6 +250,7 @@ def test_missed_accept ():
 
     Common.iterate_n_times( 1000, Common.set_get_and_delete )
     time.sleep(1.0)
+    Common.flush_store( zero )
     Common.stop_all()
     Common.assert_last_i_in_sync(zero, one )
     Common.compare_stores( zero, one )
@@ -334,6 +337,7 @@ def drop_master(n):
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master():
+    Common.stopOne( Common.node_names[0] )
     n = 20
     drop_master(n)
 """    drop_masters = lambda : drop_master(n)
@@ -343,6 +347,7 @@ def test_drop_master():
 def _test_drop_master_with_load_(client):
     global busy, excs
 
+    Common.stopOne( Common.node_names[0] )
     n = 40
 
     busy = True

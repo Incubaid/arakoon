@@ -88,8 +88,7 @@ def maybe_install_opam():
         print '%s exists, not installing opam' % OPAM_HOME
         return
 
-    lib = Lib('opam','',
-              'https://github.com/OCamlPro/%s/tarball/master')
+    lib = Lib('opam','', 'https://github.com/ocaml/%s/archive/1.1.0.tar.gz')
     lib.download()
     sh(['tar','-zxvf',lib._archive], cwd = ROOT)
 
@@ -97,7 +96,7 @@ def maybe_install_opam():
     files = os.listdir(ROOT)
     d = None
     for f in files:
-        if f.startswith('ocaml-opam'):
+        if f.startswith('opam-1.1.0'):
             d = ROOT + '/' + f
             break
     sh(['mkdir',OPAM_HOME])
