@@ -542,6 +542,20 @@ class ArakoonCluster:
         for n in nodes:
             config.addParam( n, "log_level", level )
 
+    def setCollapseSlowdown(self, collapseSlowdown, nodes=None):
+        if nodes is None:
+            nodes = self.listNodes()
+        else:
+            for n in nodes :
+                self.__validateName( n )
+        config = self._getConfigFile()
+
+        for n in nodes:
+            if collapseSlowdown:
+                config.addParam(n, "collapse_slowdown", collapseSlowdown)
+            else:
+                config.removeParam(n, "collapse_slowdown")
+
     def _setTlogCompression(self,nodes, compressor):
         if nodes is None:
             nodes = self.listNodes()

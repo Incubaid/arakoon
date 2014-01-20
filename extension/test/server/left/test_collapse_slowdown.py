@@ -56,4 +56,4 @@ def test_collapse_slowdown():
     normal_duration = t1 - t0
     logging.info('normal collapse took %f', normal_duration)
 
-    assert 3 * normal_duration < slow_duration < 10 * normal_duration
+    assert 3 * normal_duration < slow_duration < 20 * normal_duration
