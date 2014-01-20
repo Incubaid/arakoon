@@ -29,7 +29,7 @@ let section = Logger.Section.main
 let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
       (module S : Store.STORE with type t = s) (copy_store, head_location)
       (too_far_i:Sn.t)
-      (cb: Sn.t -> unit Lwt.t) =
+      (cb: Sn.t -> unit Lwt.t) slowdown =
 
   let new_location = head_location ^ ".clone" in
   Logger.debug_f_ "Creating db clone at %s" new_location >>= fun () ->
@@ -81,6 +81,21 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                 | _ -> Lwt.return ()
             end
           in
+          let slowdown =
+            match slowdown with
+            | None ->
+               fun f ->
+               f ()
+            | Some factor ->
+               fun f ->
+               let t0 = Unix.gettimeofday () in
+               f () >>= fun r ->
+               let t1 = Unix.gettimeofday () in
+               let period = ((t1 -. t0) *. factor) in
+               Logger.debug_f_ "Sleeping for %f to slow down replay to store" period >>= fun () ->
+               Lwt_unix.sleep period >>= fun () ->
+               Lwt.return r
+          in
           let add_to_store entry =
             let i = Entry.i_of entry
             and value = Entry.v_of entry
@@ -108,7 +123,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                           Lwt.return ()
                       end
                       >>= fun () ->
-                      S.safe_insert_value new_store pi pv >>= fun _ ->
+                      slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->
                       let () = acc := Some(i,value) in
                       Lwt.return ()
                     end
@@ -173,7 +188,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
 let collapse_many (type s) tlog_coll
       (module S : Store.STORE with type t = s)
       store_fs
-      tlogs_to_keep cb' cb =
+      tlogs_to_keep cb' cb slowdown =
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
@@ -201,7 +216,7 @@ let collapse_many (type s) tlog_coll
       let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
-      collapse_until tlog_coll (module S) store_fs g_too_far_i cb >>= fun () ->
+      collapse_until tlog_coll (module S) store_fs g_too_far_i cb slowdown >>= fun () ->
       tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
       cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
     end

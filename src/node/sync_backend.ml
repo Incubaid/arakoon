@@ -109,7 +109,8 @@ struct
     ~expect_reachable
     ~test
     ~(read_only:bool)
-    ~max_value_size ->
+    ~max_value_size
+    ~collapse_slowdown ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
     let blockers_cond = Lwt_condition.create() in
@@ -545,7 +546,7 @@ struct
                  self # wait_for_tlog_release tlog_num
                in
                Logger.info_ "Starting collapse" >>= fun () ->
-               Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb >>= fun () ->
+               Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb collapse_slowdown >>= fun () ->
                Logger.info_ "Collapse completed")
 
       method get_routing () =

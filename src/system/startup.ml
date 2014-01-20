@@ -73,6 +73,7 @@ let _make_cfg name n lease_period =
     reporting = 300;
     tls_cert = None;
     tls_key = None;
+    collapse_slowdown = None;
   }
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir

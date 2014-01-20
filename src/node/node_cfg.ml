@@ -65,6 +65,7 @@ module Node_cfg = struct
             reporting: int;
             tls_cert: string option;
             tls_key: string option;
+            collapse_slowdown : float option;
            }
 
   let _so2s = Log_extra.string_option2s
@@ -79,7 +80,7 @@ module Node_cfg = struct
         "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
         "targets=%s; compressor=%s; fsync=%b; is_test=%b; " ^^
         "reporting=%i; " ^^
-        "tls_cert=%s; tls_key=%s; " ^^
+        "tls_cert=%s; tls_key=%s; collapse_slowdown=%s" ^^
         "}"
     in
     Printf.sprintf template
@@ -96,6 +97,7 @@ module Node_cfg = struct
       t.fsync t.is_test
       t.reporting
       (_so2s t.tls_cert) (_so2s t.tls_key)
+      (option2s string_of_float t.collapse_slowdown)
 
   type log_cfg =
     {
@@ -215,6 +217,7 @@ module Node_cfg = struct
         reporting = 300;
         tls_cert = None;
         tls_key = None;
+        collapse_slowdown = None;
       }
     in
     let rec loop acc = function
@@ -454,6 +457,7 @@ module Node_cfg = struct
     and tls_key = get_string_option "tls_key" in
     if (tls_cert = None && tls_key <> None) || (tls_cert <> None && tls_key = None)
       then failwith (Printf.sprintf "%s: both tls_cert and tls_key should be provided" node_name);
+    let collapse_slowdown = Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_float) (Ini.default None) in
     {node_name;
      ips;
      client_port;
@@ -478,6 +482,7 @@ module Node_cfg = struct
      reporting;
      tls_cert;
      tls_key;
+     collapse_slowdown;
     }
 
 

@@ -282,7 +282,8 @@ class ArakoonCluster:
                 batchedTransactionConfig = None,
                 tlfDir = None,
                 headDir = None,
-                isWitness = False):
+                isWitness = False,
+                collapseSlowdown = None):
         """
         Add a node to the configuration of the supplied cluster
 
@@ -303,6 +304,7 @@ class ArakoonCluster:
         @param tlfDir : the directory used for tlfs (if none, tlogDir will be used)
         @param headDir : the directory used for head.db (if none, tlfDir will be used)
         @param isWitness : whether this node is a witness or not
+        @param collapseSlowdown : the factor with which collapsing should be slowed down
         """
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
@@ -367,6 +369,9 @@ class ArakoonCluster:
 
         if isWitness:
             config.addParam(name, "witness", "true")
+
+        if collapseSlowdown:
+            config.addParam(name, "collapse_slowdown", collapseSlowdown)
 
         if not config.checkSection("global") :
             config.addSection("global")
