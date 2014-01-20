@@ -81,6 +81,21 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                 | _ -> Lwt.return ()
             end
           in
+          let slowdown =
+            match slowdown with
+            | None ->
+               fun f ->
+               f ()
+            | Some factor ->
+               fun f ->
+               let t0 = Unix.gettimeofday () in
+               f () >>= fun r ->
+               let t1 = Unix.gettimeofday () in
+               let period = ((t1 -. t0) *. factor) in
+               Logger.debug_f_ "Sleeping for %f to slow down replay to store" period >>= fun () ->
+               Lwt_unix.sleep period >>= fun () ->
+               Lwt.return r
+          in
           let add_to_store entry =
             let i = Entry.i_of entry
             and value = Entry.v_of entry
@@ -108,19 +123,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                           Lwt.return ()
                       end
                       >>= fun () ->
-                      begin
-                        match slowdown with
-                          | None ->
-                            S.safe_insert_value new_store pi pv >>= fun _ ->
-                            Lwt.return ()
-                          | Some factor ->
-                            let t0 = Unix.gettimeofday () in
-                            S.safe_insert_value new_store pi pv >>= fun _ ->
-                            let t1 = Unix.gettimeofday () in
-                            let period = ((t1 -. t0) *. factor) in
-                            Logger.debug_f_ "Sleeping for %f to slow down replay to store" period >>= fun () ->
-                            Lwt_unix.sleep period
-                      end >>= fun () ->
+                      slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->
                       let () = acc := Some(i,value) in
                       Lwt.return ()
                     end
