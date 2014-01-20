@@ -34,6 +34,9 @@ from nose.tools import *
 def test_concurrent_collapse_fails():
     """ assert only one collapse goes through at any time (eta : 450s) """
     zero = Common.node_names[0]
+    Common.stopOne(zero)
+    Common._getCluster().setCollapseSlowdown(0.3)
+    Common.startOne(zero)
     n = 298765
     logging.info("going to do %i sets to fill tlogs", n)
     Common.iterate_n_times(n, Common.simple_set)
