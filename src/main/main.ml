@@ -192,6 +192,7 @@ let main () =
   and tlog_dir = ref ""
   and tlf_dir = ref ""
   and end_i = ref None
+  and in_place = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -352,6 +353,8 @@ let main () =
                                     Arg.Set_string node_id],
      "<head.db> <node_id>"
     );
+    ("--inplace", Arg.Set in_place,
+     "perform an in-place inject-as-head using rename (only for --inject-as-head)");
     ("--drop-master", Arg.Tuple [set_laction Drop_master;
                                              Arg.Set_string cluster_id;
                                              Arg.Set_string ip;
@@ -406,7 +409,7 @@ let main () =
     | PING -> Client_main.ping !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version !node_id !config_file
     | NODE_STATE   -> Client_main.node_state !node_id !config_file
-    | InjectAsHead -> inject_as_head !filename !node_id !config_file
+    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
 
   in

@@ -118,3 +118,17 @@ let copy_file source target overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
         ) >>= fun () ->
       rename tmp_file target
     end
+
+let safe_rename src dest =
+  Lwt_unix.stat src >>= fun ss ->
+  Lwt_unix.stat dest >>= fun ds ->
+  if ss.Lwt_unix.st_dev <> ds.Lwt_unix.st_dev
+    then
+      let msg = Printf.sprintf
+        "File_system.safe_rename: src %S and dest %S on different filesystem"
+        src dest
+      in
+      Lwt.fail (Failure msg)
+    else
+      (* Make sure this is the 'rename' from this module, not Lwt_unix.rename *)
+      rename src dest
