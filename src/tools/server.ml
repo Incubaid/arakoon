@@ -124,6 +124,13 @@ let make_server_thread
     let connection_counter = make_counter () in
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
+    let going_down = ref false in
+    let maybe_take () =
+      if !going_down
+      then
+        None
+      else
+        maybe_take () in
     let rec server_loop () =
       Lwt.catch
         (fun () ->
@@ -184,19 +191,20 @@ let make_server_thread
                          | _ -> Logger.Info in
                        Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid)))
            in
-           let t = client_thread () in
+           let finalize () =
+             Hashtbl.remove client_threads cid;
+             Lwt_condition.signal _condition ();
+             Lwt.return () in
            Lwt.ignore_result
-             (Lwt.finalize
+             (Lwt.catch
                 (fun () ->
+                   let t = client_thread () in
                    Hashtbl.add client_threads cid t;
-                   Lwt.catch
-                     (fun () -> t)
-                     (fun exn ->
-                        Logger.info_f_ ~exn "Exception in client thread %s" cid))
-                (fun () ->
-                   Hashtbl.remove client_threads cid;
-                   Lwt_condition.signal _condition ();
-                   Lwt.return ()));
+                   t >>= fun () ->
+                   finalize ())
+                (fun exn ->
+                   Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+                   finalize ()));
            server_loop ()
         )
         (function
@@ -226,6 +234,7 @@ let make_server_thread
            setup_callback () >>= fun () ->
            server_loop ())
         (fun () ->
+           going_down := true;
            Lwt.catch
              (fun () ->
                 Logger.debug_ "closing listening socket" >>= fun () ->
