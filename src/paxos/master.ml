@@ -176,7 +176,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                   if n' > 0L
                   then
                     let new_n = update_n constants n' in
-                    Fsm.return (Forced_master_suggest (new_n,new_i))
+                    Fsm.return (Election_suggest (new_n, 0))
                   else
                     Fsm.return (Stable_master current_state )
                 end
