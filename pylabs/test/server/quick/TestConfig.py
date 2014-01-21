@@ -20,9 +20,10 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pymonkey import q
+import Compat
+from Compat import X
+from .. import system_tests_common as C
 from nose.tools import *
-
 import os
 
 class TestConfig:
@@ -33,16 +34,16 @@ class TestConfig:
         return '%s_local_nodes' % self._clusterId
 
     def _getCluster(self):
-        return q.manage.arakoon.getCluster(self._clusterId)
+        return C._getCluster(self._clusterId)
     
     def setup(self):
         cid = self._clusterId
-        cl = q.manage.arakoon.getCluster( cid )
+        cl = C._getCluster( cid )
         cl.remove()
         
     def teardown(self):
         cid = self._clusterId
-        cl = q.manage.arakoon.getCluster( cid )
+        cl = C._getCluster( cid )
         cl.remove()
         
     def testAddNode(self):
@@ -54,15 +55,15 @@ class TestConfig:
         cluster.addNode(n0)
         
         config = cluster._getConfigFile()
-        assert_equals(config.getSectionAsDict("global"),
+        assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': n0,
                        'cluster_id': cid
                        })
-        assert_equals(config.getSectionAsDict(n0),
+        assert_equals(Compat.sectionAsDict(config, n0),
                       { 'client_port': '7080', 
-                        'home': '/opt/qbase3/var/db/%s/%s' % (cid,n0), 
+                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
                         'ip': '127.0.0.1', 
-                        'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
+                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0), 
                         'log_level': 'info', 
                         'messaging_port': '10000', 
                         'name': n0})
@@ -77,20 +78,20 @@ class TestConfig:
     
         config = cluster._getConfigFile()
         
-        assert_equals(config.getSectionAsDict("global"),
+        assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': '%s,%s' % (n0,n1),
                        'cluster_id':cid})
 
-        assert_equals(config.getSectionAsDict(n0),
+        assert_equals(Compat.sectionAsDict(config, n0),
                       { 'client_port': '7080', 
-                        'home': '/opt/qbase3/var/db/%s/%s' % (cid,n0), 
+                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
                         'ip': '127.0.0.1', 
-                        'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
+                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0), 
                         'log_level': 'info', 
                         'messaging_port': '10000', 
                         'name': n0})
     
-        assert_equals(config.getSectionAsDict(n1),
+        assert_equals(Compat.sectionAsDict(config, n1),
                       { 'client_port': '7081', 
                         'home': '/tmp/joe', 
                         'ip': '192.168.0.1', 
@@ -119,7 +120,7 @@ class TestConfig:
         ips = ["127.0.0.1","192.168.0.1"]
         cluster.addNode(name = name, ip=ips)
         config = cluster._getConfigFile()
-        d = config.getSectionAsDict(name)
+        d = Compat.sectionAsDict(config, name)
         assert_equals(d['ip'],'127.0.0.1,192.168.0.1')
         
     def testAddNodeDuplicateName(self):
@@ -140,8 +141,8 @@ class TestConfig:
         cluster.removeNode(n0)
 
         config = cluster._getConfigFile()
-        assert_equals(config.getSectionAsDict("global")['cluster'],n1)
-        assert_false(config.checkSection(n0))
+        assert_equals(Compat.sectionAsDict(config, "global")['cluster'],n1)
+        assert_false(config.has_section(n0))
 
     def testRemoveUnknownNode(self):
         cluster = self._getCluster()
@@ -163,17 +164,17 @@ class TestConfig:
         cluster.forceMaster(n0)
 
         config = cluster._getConfigFile()
-        assert_equals(config.getValue("global",'master'), n0)
+        assert_equals(config.get("global",'master'), n0)
 
         cluster.forceMaster(n1)
 
         config = cluster._getConfigFile()
-        assert_equals(config.getValue("global",'master'), n1)
+        assert_equals(config.get("global",'master'), n1)
 
         cluster.forceMaster(None)
 
         config = cluster._getConfigFile()
-        assert_false(config.checkParam("global",'master'))
+        assert_false(config.has_option("global",'master'))
 
 
         
@@ -194,9 +195,9 @@ class TestConfig:
             cluster.addNode(ni)
         cluster.forceMaster('%s_0' % cid, preferred = True)
         config = cluster._getConfigFile()
-        ok = config.checkParam("global", "preferred_master")
+        ok = config.has_option("global", "preferred_master")
         assert_true(ok)
-        p = config.getValue("global", "preferred_master")
+        p = config.get("global", "preferred_master")
         assert_equals(p,'true')
         
 
@@ -210,9 +211,9 @@ class TestConfig:
         cluster.preferredMasters(['%s_1' % cid, '%s_2' % cid])
 
         config = cluster._getConfigFile()
-        assert_true(config.checkParam('global', 'preferred_masters'))
+        assert_true(config.has_option('global', 'preferred_masters'))
         pms = map(str.strip,
-                config.getValue('global', 'preferred_masters').split(','))
+                config.get('global', 'preferred_masters').split(','))
         assert_equals(pms, ['%s_1' % cid, '%s_2' % cid])
 
     def testPreferredMastersForcedMaster(self):
@@ -238,11 +239,11 @@ class TestConfig:
         cluster.preferredMasters(['%s_0' % cid, '%s_1' % cid])
 
         config = cluster._getConfigFile()
-        assert_false(config.checkParam('global', 'master'))
-        assert_false(config.checkParam('global', 'preferred_master'))
-        assert_true(config.checkParam('global', 'preferred_masters'))
+        assert_false(config.has_option('global', 'master'))
+        assert_false(config.has_option('global', 'preferred_master'))
+        assert_true(config.has_option('global', 'preferred_masters'))
         pms = map(str.strip,
-                config.getValue('global', 'preferred_masters').split(','))
+                config.get('global', 'preferred_masters').split(','))
         assert_equals(pms, ['%s_0' % cid, '%s_1' % cid])
 
     def testUnsetPreferredMaster(self):
@@ -255,14 +256,14 @@ class TestConfig:
         cluster.preferredMasters(['%s_0' % cid, '%s_1' % cid])
 
         config = cluster._getConfigFile()
-        assert_true(config.checkParam('global', 'preferred_masters'))
+        assert_true(config.has_option('global', 'preferred_masters'))
         pms = map(str.strip,
-                config.getValue('global', 'preferred_masters').split(','))
+                config.get('global', 'preferred_masters').split(','))
         assert_equals(pms, ['%s_0' % cid, '%s_1' % cid])
 
         cluster.preferredMasters([])
         config = cluster._getConfigFile()
-        assert_false(config.checkParam('global', 'preferred_masters'))
+        assert_false(config.has_option('global', 'preferred_masters'))
 
 
     def testSetQuorum(self):
@@ -274,21 +275,21 @@ class TestConfig:
 
         cluster.setQuorum(1)
         config = cluster._getConfigFile()
-        assert_equals(config.getValue("global", 'quorum'), '1')
+        assert_equals(config.get("global", 'quorum'), '1')
 
         cluster.setQuorum(2)
         config = cluster._getConfigFile()
-        assert_equals(config.getValue("global", 'quorum'), '2')
+        assert_equals(config.get("global", 'quorum'), '2')
 
     def testReadOnly(self):
         cluster = self._getCluster()
         cluster.addNode("x1")
         cluster.setReadOnly(True)
         config = cluster._getConfigFile()
-        assert_equals(config.getValue("global","readonly"), 'true')
+        assert_equals(config.get("global","readonly"), 'true')
         cluster.setReadOnly(False)
         config = cluster._getConfigFile()
-        ok = config.checkParam("global","readonly")
+        ok = config.has_option("global","readonly")
         assert_false(ok)
 
     def testSetIllegalQuorum(self):
@@ -350,9 +351,9 @@ class TestConfig:
         
         assert_equals(cluster.getNodeConfig(n0),
                       {'client_port': '7080', 
-                       'home': '/opt/qbase3/var/db/%s/%s' % (cid, n0), 
+                       'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
                        'ip': '127.0.0.1', 
-                       'log_dir': '/opt/qbase3/var/log/%s/%s' % (cid,n0), 
+                       'log_dir': '%s/%s/%s' % (X.logDir, cid,n0), 
                        'log_level': 'info', 
                        'messaging_port': '7081', 
                        'name': n0})
@@ -370,12 +371,12 @@ class TestConfig:
         cluster = self._getCluster()
         cluster.addNode(n0)
         cluster.createDirs(n0)
-        p0 = q.system.fs.joinPaths(q.dirs.logDir, cid, n0)
-        p1 = q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)
+        p0 = '/'.join([X.logDir, cid, n0])
+        p1 = '/'.join([X.varDir, "db", cid, n0])
         print p0
         print p1
-        assert_true(q.system.fs.exists(p0))
-        assert_true(q.system.fs.exists(p1))
+        assert_true(X.fileExists(p0))
+        assert_true(X.fileExists(p1))
 
     def testRemoveDirs(self):
         cid = self._clusterId
@@ -384,10 +385,10 @@ class TestConfig:
         cluster.addNode(n0)
         cluster.createDirs(n0)
         cluster.removeDirs(n0)
-        p0 = q.system.fs.joinPaths(q.dirs.logDir, cid, n0)
-        p1 = q.system.fs.joinPaths(q.dirs.varDir, "db", cid, n0)
-        assert_false(q.system.fs.exists(p0))
-        assert_false(q.system.fs.exists(p1))
+        p0 = '/'.join([X.logDir, cid, n0])
+        p1 = '/'.join([X.varDir, "db", cid, n0])
+        assert_false(X.fileExists(p0))
+        assert_false(X.fileExists(p1))
 
     def testAddLocalNode(self):
         
@@ -403,15 +404,15 @@ class TestConfig:
 
         sn = self.__servernodes()
         
-        cfgPath = q.system.fs.joinPaths( q.dirs.cfgDir, "qconfig", "arakoon", cid, "%s_local_nodes" % cid)        
-        config = q.config.getInifile( cfgPath )
-        assert_equals(config.getSectionAsDict("global"),
+        cfgPath = '/'.join( [X.cfgDir, "qconfig", "arakoon", cid, "%s_local_nodes" % cid])        
+        config = X.getConfig( cfgPath )
+        assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': n1})
 
         cluster.addLocalNode(n0)
 
-        config = q.config.getInifile( cfgPath )
-        assert_equals(config.getSectionAsDict("global"),
+        config = X.getConfig( cfgPath )
+        assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': '%s,%s' % (n1,n0)})
 
     def testAddLocalNodeUnknownNode(self):
@@ -460,6 +461,4 @@ class TestConfig:
 
         assert_equals(cluster.listLocalNodes(), names)
 
-if __name__ == '__main__' :
-    from pymonkey import InitBase
-    pass
+

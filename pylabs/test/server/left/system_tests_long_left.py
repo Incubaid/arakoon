@@ -31,11 +31,12 @@ from .. import system_tests_common as C
 from nose.tools import *
 
 import time
-import logging
-import subprocess
-import threading
+from threading import Thread
 import os
-
+import sys
+import logging
+import arakoon_ext.server.RemoteControlProtocol as RCP
+from Compat import X
 
 @with_custom_setup(setup_2_nodes_forced_master, basic_teardown)
 def test_catchup_only():
@@ -55,11 +56,7 @@ def test_catchup_only():
     C.assert_running_nodes(2)
 
 
-import sys
-sys.path.append('/opt/qbase3/lib/pymonkey/extensions/arakoon/server/')
-import RemoteControlProtocol as RCP
-from threading import Thread
-import os
+
 
 def fake_download(sn):
     config = C.getConfig(sn)

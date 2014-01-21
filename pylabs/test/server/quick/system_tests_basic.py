@@ -27,9 +27,12 @@ from arakoon.Arakoon import ArakoonClient
 import arakoon
 import time
 import subprocess
-from nose.tools import *
-#from pymonkey import q, i
 import logging
+from nose.tools import *
+
+from Compat import X
+
+CONFIG = C.CONFIG
 
 try:
     assert_in
@@ -100,8 +103,8 @@ def test_max_value_size_tinkering ():
     client.set(key,value)
     cluster.stop()
     cfg = cluster._getConfigFile()
-    cfg.addParam("global", "__tainted_max_value_size", "1024")
-    cfg.write()
+    cfg.set("global", "__tainted_max_value_size", "1024")
+    X.writeConfig(cfg, cluster._getConfigFileName())
     cluster.start()
     time.sleep(1.0)
     C.assert_running_nodes(1)
@@ -110,6 +113,7 @@ def test_max_value_size_tinkering ():
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
+    _arakoon = CONFIG.binary_full_path
     C.assert_running_nodes(1)
     client = C.get_client()
     for x in xrange(100):
@@ -122,7 +126,7 @@ def test_marker_presence_required ():
     cfg = cluster.getNodeConfig(nn)
     home = cfg['home']
     tlog = home + '/000.tlog'
-    subprocess.call([C.binary_full_path,'--strip-tlog', tlog])
+    subprocess.call([_arakoon,'--strip-tlog', tlog])
 
     # this will fail
     cluster.start()
@@ -131,14 +135,14 @@ def test_marker_presence_required ():
 
     #check the exit code:
     try:
-       cfgp = "%s.cfg" % (cluster._getConfigFilePath()) # OMG
+       cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
        logging.debug("cfgp=%s",cfgp)
-       subprocess.check_call([C.binary_full_path, '--node', nn, '-config', cfgp])
+       subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
     except subprocess.CalledProcessError,e:
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
-    subprocess.call([C.binary_full_path,'--mark-tlog', tlog, 'closed:%s' % nn])
+    subprocess.call([_arakoon,'--mark-tlog', tlog, 'closed:%s' % nn])
     cluster.start()
     time.sleep(1.0)
     C.assert_running_nodes(1)
@@ -412,10 +416,10 @@ def test_restart_single_slave_short_2 ():
     C.restart_single_slave_scenario( 2, 100, False )
 
 def test_daemon_version () :
-    cmd = "%s --version" % C.binary_full_path
-    (exit,stdout,stderr) = C.q.system.process.run(cmd)
+    cmd = [CONFIG.binary_full_path,"--version" ]
+    print cmd
+    stdout = subprocess.check_output(cmd)
     logging.debug( "STDOUT: \n%s" % stdout )
-    logging.debug( "STDERR: \n%s" % stderr )
     assert_equals( exit, 0 )
     version = stdout.split('"') [1]
     assert_not_equals( "000000000000", version, "Invalid version 000000000000" )
@@ -549,10 +553,9 @@ def _test_gather_evidence():
     """ disabled, because of upstream inertia"""
     data_base_dir = C.data_base_dir
     q = C.q
-    fs = q.system.fs
     cluster = C._getCluster()
-    dest_file = fs.joinPaths( data_base_dir, "evidence.tgz" )
-    dest_dir =  fs.joinPaths( data_base_dir, "evidence" )
+    dest_file = '/'.join([data_base_dir, "evidence.tgz"])
+    dest_dir =  '/'.join([data_base_dir, "evidence"] )
     destination = 'file://%s' % dest_file
     cluster.gatherEvidence(destination, test = True)
 

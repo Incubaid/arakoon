@@ -20,7 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pymonkey import q
+from .. import system_tests_common as C
+from Compat import X
 from nose.tools import *
 import subprocess
 import os
@@ -39,19 +40,14 @@ class TestCmdTools:
         return "%s_servernodes" % self._clusterId
 
     def _getCluster(self):
-        return q.manage.arakoon.getCluster(self._clusterId)
+        return C._getCluster(self._clusterId)
     
     def setup(self):
         logging.info('setup')
-        if self._clusterId in q.config.list():
-            q.config.remove(self._clusterId)
-        
-        servernodes = self._serverNodes()
-        if servernodes in q.config.list():
-            q.config.remove(servernodes)
-
-        cluster = self._getCluster()
-        cluster.setUp(3)
+        c1 = self._getCluster()
+        c1.remove()
+        c2 = self._getCluster()
+        c2.setUp(3)
 
     def teardown(self):
         logging.info('teardown')
@@ -66,11 +62,11 @@ class TestCmdTools:
         logging.debug('status=%s', status)
         c = 0
         for key in status.keys():
-            if status[key] == q.enumerators.AppStatusType.RUNNING:
+            if status[key] == X.AppStatusType.RUNNING:
                 c = c + 1
         if c != n:
             for key in status.keys():
-                if status[key] == q.enumerators.AppStatusType.HALTED:
+                if status[key] == X.AppStatusType.HALTED:
                     cfg = cluster._getConfigFile()
                     logDir = cfg.getValue(key, "log_dir")
                     fn = "%s/%s.log" % (logDir, key)
@@ -158,23 +154,23 @@ class TestCmdTools:
         cluster.start()
         logging.info('3')
         assert_equals(cluster.getStatus(),
-                      {self._n0: q.enumerators.AppStatusType.RUNNING,
-                       self._n1: q.enumerators.AppStatusType.RUNNING,
-                       self._n2: q.enumerators.AppStatusType.RUNNING})
+                      {self._n0: X.AppStatusType.RUNNING,
+                       self._n1: X.AppStatusType.RUNNING,
+                       self._n2: X.AppStatusType.RUNNING})
         logging.info('4')
         cluster.stopOne(self._n0)
         assert_equals(cluster.getStatus(),
-                      {self._n0: q.enumerators.AppStatusType.HALTED, 
-                       self._n1: q.enumerators.AppStatusType.RUNNING,
-                       self._n2: q.enumerators.AppStatusType.RUNNING})
+                      {self._n0: X.AppStatusType.HALTED, 
+                       self._n1: X.AppStatusType.RUNNING,
+                       self._n2: X.AppStatusType.RUNNING})
         
     def testGetStatusOne(self):
         cluster = self._getCluster()
         cluster.start()
         cluster.stopOne(self._n0)
         gos = cluster.getStatusOne
-        assert_equals(gos(self._n0), q.enumerators.AppStatusType.HALTED)
-        assert_equals(gos(self._n1), q.enumerators.AppStatusType.RUNNING)
+        assert_equals(gos(self._n0), X.AppStatusType.HALTED)
+        assert_equals(gos(self._n1), X.AppStatusType.RUNNING)
 
     def testGetStatusOneUnknown(self):
         cluster = self._getCluster()
@@ -192,6 +188,3 @@ class TestCmdTools:
         cluster = self._getCluster()
         assert_raises(Exception, cluster.restartOne, "arakoon0")
 
-if __name__ == '__main__' :
-    from pymonkey import InitBase
-    pass

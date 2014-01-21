@@ -30,11 +30,8 @@ from nose.tools import *
 import os
 import random
 from threading import Thread, Condition
+from Compat import X
 
-
-def _getCluster():
-    q = Common.q # resistance is futile
-    return q.manage.arakoon.getCluster(Common.cluster_id)
 
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_single_client_100000_sets():
@@ -42,6 +39,8 @@ def test_single_client_100000_sets():
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_delete_non_existing_with_catchup ():
+    pass
+    
     """
     catchup after deleting a non existing value (eta: 6s)
     """
@@ -60,15 +59,15 @@ def test_delete_non_existing_with_catchup ():
     slave = Common.node_names[1]
     Common.startOne( slave )
     time.sleep(2.0)
-    cluster = _getCluster()
+    cluster = Common._getCluster()
     log_dir = cluster.getNodeConfig(slave ) ['log_dir']
     log_file = "%s/%s.log" % (log_dir, slave)
-    q = Common.q
-    log = q.system.fs.fileGetContents( log_file )
+    log = X.getFileContents( log_file )
     assert_equals( log.find( "don't fit" ), -1, "Store counter out of sync" )
 
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown )
 def test_expect_progress_fixed_master ():
+    pass
     """
     see if expect_progress gives the correct result after a cluster restart (eta: 67s)
     """
@@ -428,10 +427,11 @@ def test_3_nodes_2_slaves_down ():
 
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown )
 def test_disable_tlog_compression():
+    pass
     """
     assert we can disable tlog compression (eta: 25s)
     """
-    clu = _getCluster()
+    clu = Common._getCluster()
     clu.disableTlogCompression()
     clu.restart()
     time.sleep(1.0)
@@ -445,8 +445,7 @@ def test_disable_tlog_compression():
     logging.info("Tlog_size: %d", tlog_size)
     node_id = Common.node_names[0]
     node_home_dir = clu.getNodeConfig(node_id) ['home']
-    q = Common.q
-    ls = q.system.fs.listFilesInDir
+    ls = X.listFilesInDir
     time.sleep(2.0)
     tlogs = ls(node_home_dir, filter="*.tlog" )
     expected = num_tlogs + 1
@@ -456,7 +455,7 @@ def test_disable_tlog_compression():
 
 @Common.with_custom_setup(Common.default_setup, Common.basic_teardown)
 def test_fsync():
-    c = _getCluster()
+    c = Common._getCluster()
     cli = Common.get_client()
     cli.set('k1', 'v')
     c.enableFsync()
@@ -471,10 +470,11 @@ def test_fsync():
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_sabotage():
+    pass
     """
     scenario countering a sysadmin removing files (s)he shouldn't (eta : 160s)
     """
-    clu = _getCluster()
+    clu = Common._getCluster()
     tlog_size = Common.get_entries_per_tlog()
     num_tlogs = 2
     test_size = num_tlogs * tlog_size + 20
@@ -485,7 +485,6 @@ def test_sabotage():
     node_cfg = clu.getNodeConfig(node_id)
     node_home_dir = node_cfg ['home']
     node_tlf_dir = node_cfg ['tlf_dir']
-    q = Common.q
     files = map(lambda x : "%s/%s" % (node_home_dir, x),
                 [ "002.tlog",
                   "%s.db" % (node_id,),
@@ -493,10 +492,10 @@ def test_sabotage():
                   ])
     for f in files:
         print f
-        q.system.fs.remove(f)
+        X.removeFile(f)
 
     cmd = clu._cmd('sturdy_0')
-    returncode = subprocess.call(cmd)
+    returncode = X.subprocess.call(cmd)
     assert_equals(returncode, 50)
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
@@ -516,13 +515,13 @@ def test_large_catchup_while_running():
     node_pid = cluster._getPid(n_name)
 
     time.sleep(0.1)
-    Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    X.subprocess.call(["kill","-STOP",str(node_pid)])
     Common.iterate_n_times( 200000, Common.simple_set )
     for n in others:
         Common.collapse(n)
 
     time.sleep(1.0)
-    Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    X.subprocess.call(["kill","-CONT", str(node_pid) ])
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
@@ -555,13 +554,13 @@ def test_large_catchup_while_running():
     node_pid = cluster._getPid(n_name)
 
     time.sleep(0.1)
-    Common.q.system.process.run( "kill -STOP %s" % str(node_pid) )
+    X.subprocess.call(["kill","-STOP", str(node_pid) ])
     Common.iterate_n_times( 200000, Common.simple_set )
     for n in others:
         Common.collapse(n)
 
     time.sleep(1.0)
-    Common.q.system.process.run( "kill -CONT %s" % str(node_pid) )
+    X.subprocess.call(["kill", "-CONT", str(node_pid) ])
     cli.delete('k')
     time.sleep(10.0)
     Common.assert_running_nodes(3)
@@ -576,9 +575,8 @@ def test_db_optimize_witness_node():
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master_normal_slaves,
                            Common.basic_teardown)
 def test_db_optimize():
-    """
-    test_db_optimize : asserts an 'optimizeDb' call shrinks the database enough (eta: 100s)
-    """
+    pass
+    # asserts an 'optimizeDb' call shrinks the database enough (eta: 100s)
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
     Common.iterate_n_times(10000, Common.set_get_and_delete)
     db_file = Common.get_node_db_file( Common.node_names[1] )
@@ -597,11 +595,10 @@ def test_missing_tlog():
     fn = Common.get_node_db_file(nn)
     os.remove(fn)
     logging.info("removed %s", fn)
-    cluster = _getCluster()
-    fs = Common.q.system.fs
+    cluster = Common._getCluster()
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlx_full_path = fs.joinPaths (node_tlf_dir, "002.tlf")
+    tlx_full_path = '/'.join ([node_tlf_dir, "002.tlf"])
     logging.info("removing %s", tlx_full_path)
     os.remove(tlx_full_path)
 
@@ -636,7 +633,7 @@ def test_missing_tlog():
     ok_(n == 0,"node still running")
     #now check logging.
     log_dir = cfg['log_dir']
-    log_file = fs.joinPaths(log_dir, "%s.log" % nn)
+    log_file = '/'.join([log_dir, "%s.log" % nn])
 
 
 

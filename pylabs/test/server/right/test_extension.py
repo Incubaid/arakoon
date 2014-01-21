@@ -2,13 +2,9 @@
 
 import sys
 import unittest
-import ConfigParser
 
-orig_sys_path = sys.path  #pylint: disable-msg=C0103
-sys.path = ['/opt/qbase3/lib/pymonkey/extensions/arakoon/server'] + sys.path
-import ArakoonManagement
-sys.path = orig_sys_path
-del orig_sys_path
+from arakoon_ext.server import ArakoonManagement
+from Compat import X
 
 def make_file(name):
     '''Make a file with some blah content
@@ -27,9 +23,9 @@ class TestTLSConfiguration(unittest.TestCase):  #pylint: disable-msg=R0904
     def setUp(self):  #pylint: disable-msg=C0103
         self.cluster = ArakoonManagement.ArakoonCluster('tls_test')
         config = self.cluster._getConfigFile()  #pylint: disable-msg=W0212
-        config.addSection('global')
-        config.addParam('global', 'cluster_id', 'tls_test')
-        config.write()
+        config.add_section('global')
+        config.set('global', 'cluster_id', 'tls_test')
+        X.writeConfig(config, self.cluster._getConfigFileName())
 
     def tearDown(self):  #pylint: disable-msg=C0103
         self.cluster.remove()
@@ -47,11 +43,8 @@ class TestTLSConfiguration(unittest.TestCase):  #pylint: disable-msg=R0904
         :param value: Expected value, or `None`
         :type value: `str`
         '''
-
-        cfg = ConfigParser.ConfigParser()
-        path = '%s.cfg' % self.cluster._getConfigFilePath()  #pylint: disable-msg=W0212,C0301
-
-        cfg.read(path)
+        fn = self.cluster._getConfigFileName()
+        cfg = X.getConfig(fn)
 
         if value is None:
             self.assertFalse(cfg.has_option(section, option))

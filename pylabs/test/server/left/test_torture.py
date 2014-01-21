@@ -22,8 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 from .. import system_tests_common as Common
-from pymonkey import q
-import logging
 
 def last_slave(master_id, slaves=None):
     if slaves is None:

@@ -23,10 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 from .. import system_tests_common as C
 
 from nose.tools import *
-from pymonkey import q
 from arakoon.ArakoonExceptions import *
-import logging
-
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_read_only():

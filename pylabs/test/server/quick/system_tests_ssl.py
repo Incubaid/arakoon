@@ -30,15 +30,11 @@ import unittest
 import contextlib
 import subprocess
 
-try:
-    from .. import system_tests_common as C
-
-    ARAKOON_BIN = C.binary_full_path
-except ImportError:
-    ARAKOON_BIN = 'arakoon'
+from .. import system_tests_common as C
+from Compat import X
 
 LOGGER = logging.getLogger(__name__)
-
+CONFIG = C.CONFIG
 class Timeout(Exception): pass
 
 def wait_for_server(host, port, timeout):
@@ -68,7 +64,7 @@ def wait_for_master(cfg, nodes, settings, ca_path, key, timeout, interval):
     tls_key = os.path.join(ca_path, '%s.key' % key)
 
     args = [
-        ARAKOON_BIN,
+        CONFIG.binary_full_path,
         '-config', cfg,
         '-tls-ca-cert', tls_ca_cert,
         '-tls-cert', tls_cert,
@@ -125,7 +121,7 @@ class ProcessManager(object):
 
     def start_node(self, config_path, node_name):
         return self.run_async(
-            [ARAKOON_BIN, '-config', config_path, '--node', node_name],
+            [CONFIG.binary_full_path, '-config', config_path, '--node', node_name],
             close_fds=True)
 
     def start_nodes(self, config_path, nodes):

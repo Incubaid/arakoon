@@ -20,11 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
-try:
-    from pymonkey import q
-except ImportError:
-    from pylabs import q
-
+from Compat import X
 import os
 import ArakoonRemoteControl
 import os.path
@@ -40,8 +36,8 @@ from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
-    path = q.system.fs.joinPaths(q.dirs.appDir, "arakoon", "bin", "arakoon")
-    if q.system.fs.isFile(path):
+    path = "%s/arakoon/bin/arakoon" % (X.appDir )
+    if X.fileExists(path):
         return path
     else:
         return "arakoon"
@@ -54,99 +50,13 @@ class ArakoonManagement:
         """
         return ArakoonCluster(clusterName)
 
-    def upgrade(self):
-        """
-        update configs for the 'arakoon' cluster from 0.8.2 to 0.10.0
-        """
-
-        # Remove 'old' extension
-        import shutil
-
-        base = os.path.join(q.dirs.baseDir, 'lib', 'pymonkey', 'extensions',
-            'arakoon', 'server')
-        for name in 'config', 'cmdtools':
-            sub = os.path.join(base, name)
-
-            if not os.path.isdir(sub):
-                continue
-
-            shutil.rmtree(sub)
-
-
-        fs = q.system.fs
-        jp = fs.joinPaths
-        cfgDir = jp(q.dirs.cfgDir,'qconfig')
-        if fs.exists(jp(cfgDir,'arakoon.cfg')):
-            cfg = q.config.getInifile('arakoon')
-            cfg.addParam('global','cluster_id','arakoon')
-            cfg.write()
-
-        def maybe_move (source, target):
-            if fs.exists( source ):
-                targetDir = q.system.fs.getDirName(target)
-                q.system.fs.createDir(targetDir)
-                fs.moveFile(source, target)
-
-        def change_nodes_to_cluster( config ):
-            if config.checkParam('global', 'nodes') :
-                val = config.getValue('global', 'nodes')
-                config.addParam('global', 'cluster', val)
-                config.removeParam('global','nodes')
-                config.write()
-
-        nodes_source = jp(cfgDir,'arakoonnodes.cfg')
-        nodes_target = jp(cfgDir,'arakoon_nodes.cfg')
-        maybe_move (nodes_source,nodes_target)
-
-        servernodes_source = jp(cfgDir,'arakoonservernodes.cfg')
-        servernodes_target = jp(cfgDir,'arakoon_servernodes.cfg')
-
-        maybe_move (servernodes_source, servernodes_target)
-
-        """
-        update configs for the 'arakoon' cluster to the 0.10 way of doing things
-        """
-        new_cfg_dir = jp(cfgDir,'arakoon','arakoon')
-
-        nodes_source = nodes_target
-        nodes_target = jp(new_cfg_dir, 'arakoon_client.cfg')
-        if fs.exists( nodes_source ):
-            targetDir = q.system.fs.getDirName(nodes_target)
-            q.system.fs.createDir(targetDir)
-            fs.moveFile(nodes_source, nodes_target)
-            cfgFile = q.config.getInifile('arakoonclients')
-            cfgFile.addSection("arakoon")
-            cfgFile.addParam("arakoon", "path", new_cfg_dir)
-            cfg = q.config.getInifile( nodes_target.split('.')[0] )
-            change_nodes_to_cluster( cfg )
-
-        servernodes_source = servernodes_target
-        servernodes_target = jp(new_cfg_dir, 'arakoon_local_nodes.cfg')
-        if fs.exists( servernodes_source):
-            targetDir = q.system.fs.getDirName(servernodes_target)
-            q.system.fs.createDir(targetDir)
-            fs.moveFile (servernodes_source, servernodes_target)
-            cfg = q.config.getInifile( servernodes_target.split('.')[0] )
-            change_nodes_to_cluster( cfg )
-
-        cluster_source = jp(cfgDir,'arakoon.cfg')
-        cluster_target = jp(new_cfg_dir, 'arakoon.cfg' )
-        if fs.exists( cluster_source ):
-            targetDir = q.system.fs.getDirName(cluster_target)
-            q.system.fs.createDir(targetDir)
-            fs.moveFile(cluster_source, cluster_target)
-            cfgFile = q.config.getInifile('arakoonclusters')
-            cfgFile.addSection("arakoon")
-            cfgFile.addParam("arakoon", "path", new_cfg_dir)
-            cfg = q.config.getInifile( cluster_target.split('.')[0] )
-            change_nodes_to_cluster( cfg )
-
     def listClusters(self):
         """
         Returns a list with the existing clusters.
         """
-        config = q.config.getInifile("arakoonclusters")
-        return config.getSections()
+        fn = '%s/%s' % (X.cfgDir, "arakoonclusters")
+        config = X.getConfig(fn)
+        return config.sections()
 
     def start(self):
         """
@@ -170,51 +80,54 @@ class ArakoonManagement:
 
 class ArakoonCluster:
 
-    def __init__(self, clusterName):
-        self.__validateName(clusterName)
-        self._clusterName = clusterName
+    def __init__(self, clusterId):
+        self.__validateName(clusterId)
+        self._clusterId = clusterId
         self._binary = which_arakoon()
-        self._arakoonDir = q.system.fs.joinPaths(q.dirs.cfgDir, "arakoon")
+        self._arakoonDir = "%s/arakoon/" % (X.cfgDir,)
+        self._clustersFNH = '%s/%s' % (X.cfgDir, 'arakoonclusters')
+        clusterConfig = X.getConfig(self._clustersFNH)
 
-        clusterConfig = q.config.getInifile("arakoonclusters")
-        if not clusterConfig.checkSection(self._clusterName):
+        if not clusterConfig.has_section(self._clusterId):
 
-            clusterPath = q.system.fs.joinPaths(q.dirs.cfgDir,"qconfig", "arakoon", clusterName)
-            clusterConfig.addSection(clusterName)
-            clusterConfig.addParam(clusterName, "path", clusterPath)
+            clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", clusterId])
+            clusterConfig.add_section(clusterId)
+            clusterConfig.set(clusterId, "path", clusterPath)
 
-            if not q.system.fs.exists(self._arakoonDir):
-                q.system.fs.createDir(self._arakoonDir)
+            if not X.fileExists(self._arakoonDir):
+                X.createDir(self._arakoonDir)
 
-            if not q.system.fs.exists(clusterPath):
-                q.system.fs.createDir(clusterPath)
-
-        self._clusterPath = clusterConfig.getValue( clusterName, "path" )
+            if not X.fileExists(clusterPath):
+                X.createDir(clusterPath)
+            X.writeConfig(clusterConfig, self._clustersFNH)
+        self._clusterPath = clusterConfig.get(clusterId, "path" )
 
     def _servernodes(self):
-        return '%s_local_nodes' % self._clusterName
+        return '%s_local_nodes' % self._clusterId
 
     def __repr__(self):
-        return "<ArakoonCluster:%s>" % self._clusterName
+        return "<ArakoonCluster:%s>" % self._clusterId
 
-    def _getConfigFilePath(self):
-        clusterConfig = q.config.getInifile("arakoonclusters")
-        cfgDir = clusterConfig.getValue( self._clusterName, "path")
-        path = q.system.fs.joinPaths( cfgDir, self._clusterName )
-        return path
+    def _getConfigFileName(self):
+        p = X.getConfig(self._clustersFNH)
+        if not p.has_section(self._clusterId):
+            raise Exception("%s not present in %s" % (self._clusterId, self._clustersFNH))
+        cfgDir = p.get( self._clusterId, "path", False)
+        cfgFile = '/'.join([cfgDir, self._clusterId])
+        return cfgFile
 
     def _getConfigFile(self):
-        path = self._getConfigFilePath()
-        return q.config.getInifile(path)
+        h = self._getConfigFileName()
+        return X.getConfig(h)
 
     def _getClusterId(self):
-        clusterId = self._clusterName
+        clusterId = self._clusterId
         try:
             config = self._getConfigFile()
-            clusterId = config.getValue("global", "cluster_id")
+            clusterId = config.get("global", "cluster_id")
         except:
             logging.info("setting cluster_id to %s", clusterId)
-            config.addParam("global","cluster_id",clusterId)
+            config.set("global","cluster_id",clusterId)
         return clusterId
 
     def addBatchedTransactionConfig(self,
@@ -233,9 +146,9 @@ class ArakoonCluster:
         config.addSection(name)
 
         if max_entries is not None:
-            config.addParam(name, "max_entries", max_entries)
+            config.set(name, "max_entries", max_entries)
         if max_size is not None:
-            config.addParam(name, "max_size", max_size)
+            config.set(name, "max_size", max_size)
 
         config.write()
 
@@ -257,11 +170,11 @@ class ArakoonCluster:
         config.addSection(name)
 
         if client_protocol is not None:
-            config.addParam(name, "client_protocol", client_protocol)
+            config.set(name, "client_protocol", client_protocol)
         if paxos is not None:
-            config.addParam(name, "paxos", paxos)
+            config.set(name, "paxos", paxos)
         if tcp_messaging is not None:
-            config.addParam(name, "tcp_messaging", tcp_messaging)
+            config.set(name, "tcp_messaging", tcp_messaging)
 
         config.write()
 
@@ -318,67 +231,68 @@ class ArakoonCluster:
         if not isLearner:
             nodes.append(name)
 
-        config.addSection(name)
-        config.addParam(name, "name", name)
+        config.add_section(name)
+        config.set(name, "name", name)
 
         if type(ip) == types.StringType:
-            config.addParam(name, "ip", ip)
+            config.set(name, "ip", ip)
         elif type(ip) == types.ListType:
             line = string.join(ip,',')
-            config.addParam(name, "ip", line)
+            config.set(name, "ip", line)
         else:
             raise Exception("ip parameter needs string or string list type")
 
         self.__validateInt("clientPort", clientPort)
-        config.addParam(name, "client_port", clientPort)
+        config.set(name, "client_port", clientPort)
         self.__validateInt("messagingPort", messagingPort)
-        config.addParam(name, "messaging_port", messagingPort)
-        config.addParam(name, "log_level", logLevel)
+        config.set(name, "messaging_port", messagingPort)
+        config.set(name, "log_level", logLevel)
 
         if logConfig is not None:
-            config.addParam(name, "log_config", logConfig)
+            config.set(name, "log_config", logConfig)
 
         if batchedTransactionConfig is not None:
-            config.addParam(name, "batched_transaction_config", batchedTransactionConfig)
+            config.set(name, "batched_transaction_config", batchedTransactionConfig)
 
         if wrapper is not None:
-            config.addParam(name, "wrapper", wrapper)
+            config.set(name, "wrapper", wrapper)
 
         if logDir is None:
-            logDir = q.system.fs.joinPaths(q.dirs.logDir, self._clusterName, name)
-        config.addParam(name, "log_dir", logDir)
+            logDir = '/'.join([X.logDir, self._clusterId, name])
+        config.set(name, "log_dir", logDir)
 
         if home is None:
-            home = q.system.fs.joinPaths(q.dirs.varDir, "db", self._clusterName, name)
-        config.addParam(name, "home", home)
+            home = '/'.join([X.varDir, "db", self._clusterId, name])
+        config.set(name, "home", home)
 
         if tlogDir:
-            config.addParam(name,"tlog_dir", tlogDir)
+            config.set(name,"tlog_dir", tlogDir)
 
         if tlfDir:
-            config.addParam(name,"tlf_dir", tlfDir)
+            config.set(name,"tlf_dir", tlfDir)
 
         if headDir:
-            config.addParam(name,"head_dir", headDir)
+            config.set(name,"head_dir", headDir)
 
         if isLearner:
-            config.addParam(name, "learner", "true")
+            config.set(name, "learner", "true")
             if targets is None:
                 targets = self.listNodes()
-            config.addParam(name, "targets", string.join(targets,","))
+            config.set(name, "targets", string.join(targets,","))
 
         if isWitness:
-            config.addParam(name, "witness", "true")
+            config.set(name, "witness", "true")
 
         if collapseSlowdown:
-            config.addParam(name, "collapse_slowdown", collapseSlowdown)
+            config.set(name, "collapse_slowdown", collapseSlowdown)
 
-        if not config.checkSection("global") :
-            config.addSection("global")
-            config.addParam("global", "cluster_id", self._clusterName)
-        config.setParam("global","cluster", ",".join(nodes))
+        if not config.has_section("global") :
+            config.add_section("global")
+            config.set("global", "cluster_id", self._clusterName)
+        config.set("global","cluster", ",".join(nodes))
 
-        config.write()
+        fn = self._getConfigFileName()
+        X.writeConfig(config, fn)
 
         if isLocal:
             self.addLocalNode(name)
@@ -396,10 +310,10 @@ class ArakoonCluster:
 
         if name in nodes:
             self.removeLocalNode(name)
-            config.removeSection(name)
+            config.remove_section(name)
             nodes.remove(name)
-            config.setParam("global","cluster", ",".join(nodes))
-            config.write()
+            config.set("global","cluster", ",".join(nodes))
+            X.writeConfig(config, self._getConfigFileName())
             return
 
         raise Exception("No node with name %s" % name)
@@ -416,17 +330,18 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
 
-        if not config.checkSection( section ):
+        if not config.has_section( section ):
             raise Exception("Section '%s' not found in config" % section )
 
         if duration:
             if not isinstance( duration, int ) :
                 raise AttributeError( "Invalid value for lease duration (expected int, got: '%s')" % duration)
-            config.setParam(section, key, duration)
+            config.set(section, key, duration)
         else:
-            config.removeParam(section, key)
+            config.remove_option(section, key)
 
-        config.write()
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)
 
     def forceMaster(self, name=None, preferred = False):
         """
@@ -440,22 +355,21 @@ class ArakoonCluster:
         g = 'global'
         pm = 'preferred_master'
         m = 'master'
-        def _set(s,a,v):
-            config.addParam(s,a,v)
         if name:
             nodes = self.__getNodes(config)
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterName) )
-            _set(g,m,name)
+                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId) )
+            config.set(g,m,name)
             if preferred:
-                _set(g,pm,'true')
+                config.set(g,pm,'true')
         else:
-            config.removeParam(g, m)
-            if config.checkParam(g, pm):
-                config.removeParam(g, pm)
-        config.write()
+            config.remove_option(g, m)
+            if config.has_option(g, pm):
+                config.remove_option(g, pm)
+        fn = self._getConfigFileName()
+        X.writeConfig(config, fn)
 
     def preferredMasters(self, nodes):
         '''
@@ -474,16 +388,16 @@ class ArakoonCluster:
         @type nodes: `list` of `str`
         '''
 
+        fn = self._getConfigFileName()
         if isinstance(nodes, basestring):
             raise TypeError('Expected list of strings, not string')
 
         config = self._getConfigFile()
 
         if not nodes:
-            if config.checkParam('global', 'preferred_masters'):
-                config.removeParam('global', 'preferred_masters')
-                config.write()
-
+            if config.has_option('global', 'preferred_masters'):
+                config.remove_option('global', 'preferred_masters')
+                X.writeConfig(config,fn)
                 return
 
 
@@ -493,10 +407,10 @@ class ArakoonCluster:
 
         # Check existing master/preferred_master configuration. Bail out if
         # incompatible.
-        if config.checkParam(section, master):
+        if config.has_option(section, master):
             preferred_master_setting = \
-                config.getValue(section, preferred_master).lower() \
-                if config.checkParam(section, preferred_master) \
+                config.get(section, preferred_master).lower() \
+                if config.has_option(section, preferred_master) \
                 else 'false'
 
             if preferred_master_setting != 'true':
@@ -506,16 +420,16 @@ class ArakoonCluster:
             # If reached, 'master' was set and 'preferred_master' was true.
             # We're free to remove both, since they're replaced by the
             # 'preferred_masters' setting.
-            config.removeParam(section, master)
-            if config.checkParam(section, preferred_master):
-                config.removeParam(section, preferred_master)
+            config.remove_option(section, master)
+            if config.has_option(section, preferred_master):
+                config.remove_option(section, preferred_master)
 
         # Set up preferred_masters
         preferred_masters = 'preferred_masters'
 
-        config.addParam(section, preferred_masters, ', '.join(nodes))
+        config.set(section, preferred_masters, ', '.join(nodes))
 
-        config.write()
+        X.writeConfig(config,fn)
 
     def setLogConfig(self, logConfig, nodes=None):
         if nodes is None:
@@ -526,7 +440,7 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
         for n in nodes:
-            config.addParam(n, "log_config", logConfig)
+            config.set(n, "log_config", logConfig)
 
         config.write()
 
@@ -540,7 +454,9 @@ class ArakoonCluster:
         config = self._getConfigFile()
 
         for n in nodes:
-            config.addParam( n, "log_level", level )
+            config.set( n, "log_level", level )
+        fn = self._getConfigFileName()
+        X.writeConfig(config, fn)
 
     def setCollapseSlowdown(self, collapseSlowdown, nodes=None):
         if nodes is None:
@@ -564,8 +480,10 @@ class ArakoonCluster:
                 self.__validateName(n)
         config = self._getConfigFile()
         for n in nodes:
-            config.removeParam(n, "disable_tlog_compression")
-            config.addParam(n, "tlog_compression", compressor)
+            config.remove_option(n, "disable_tlog_compression")
+            config.set(n, "tlog_compression", compressor)
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)
 
     def enableTlogCompression(self, nodes=None, compressor='bz2'):
         """
@@ -592,7 +510,9 @@ class ArakoonCluster:
         config = self._getConfigFile()
 
         for node in nodes:
-            config.addParam(node, 'fsync', value)
+            config.set(node, 'fsync', value)
+        fn = self._getConfigFileName()
+        X.writeConfig(config, fn)
 
     def enableFsync(self, nodes=None):
         '''Enable fsync'ing of tlogs after every operation'''
@@ -621,12 +541,12 @@ class ArakoonCluster:
         tls_ca_cert = 'tls_ca_cert'
 
         config = self._getConfigFile()
-
+        fn = self._getConfigFileName()
         if ca_cert_path is None:
-            if config.checkParam(global_, tls_ca_cert):
-                config.removeParam(global_, tls_ca_cert)
+            if config.has_option(global_, tls_ca_cert):
+                config.remove_option(global_, tls_ca_cert)
 
-            config.write()
+            X.writeConfig(config, fn)
 
             return
 
@@ -634,9 +554,9 @@ class ArakoonCluster:
             raise ValueError(
                 'Invalid ca_cert_path \'%s\': no such file' % ca_cert_path)
 
-        config.addParam(global_, tls_ca_cert, ca_cert_path)
+        config.set(global_, tls_ca_cert, ca_cert_path)
 
-        config.write()
+        X.writeConfig(config, fn)
 
     def enableTLSService(self):
         '''Enable TLS on the client service
@@ -652,16 +572,16 @@ class ArakoonCluster:
         tls_service = 'tls_service'
 
         config = self._getConfigFile()
-
-        if not config.checkParam(global_, tls_ca_cert):
+        fn = self._getConfigFileName()
+        if not config.has_option(global_, tls_ca_cert):
             raise Exception('No tls_ca_cert configured')
 
-        if config.checkParam(global_, tls_service):
-            config.removeParam(global_, tls_service)
+        if config.has_option(global_, tls_service):
+            config.remove_option(global_, tls_service)
 
-        config.addParam(global_, tls_service, 'true')
+        config.set(global_, tls_service, 'true')
 
-        config.write()
+        X.writeConfig(config, fn)
 
     def disableTLSService(self):
         '''Disable TLS on the client service
@@ -673,11 +593,12 @@ class ArakoonCluster:
         tls_service = 'tls_service'
 
         config = self._getConfigFile()
+        fn = self._getConfigFileName()
 
-        if config.checkParam(global_, tls_service):
-            config.removeParam(global_, tls_service)
+        if config.has_option(global_, tls_service):
+            config.remove_option(global_, tls_service)
 
-        config.write()
+        X.writeConfig(config, fn)
 
     def enableTLSServiceValidatePeer(self):
         '''Enable TLS peer verification on the client service
@@ -694,17 +615,17 @@ class ArakoonCluster:
         tls_service_validate_peer = 'tls_service_validate_peer'
 
         config = self._getConfigFile()
-
-        if (not config.checkParam(global_, tls_service)) \
-            or (config.getValue(global_, tls_service).lower() != 'true'):
+        fn = self._getConfigFileName()
+        if (not config.has_option(global_, tls_service)) \
+            or (config.get(global_, tls_service).lower() != 'true'):
             raise Exception('tls_service not enabled')
 
-        if config.checkParam(global_, tls_service_validate_peer):
-            config.removeParam(global_, tls_service_validate_peer)
+        if config.has_option(global_, tls_service_validate_peer):
+            config.remove_option(global_, tls_service_validate_peer)
 
-        config.addParam(global_, tls_service_validate_peer, 'true')
+        config.set(global_, tls_service_validate_peer, 'true')
 
-        config.write()
+        X.writeConfig(config, fn)
 
     def disableTLSServiceValidatePeer(self):
         '''Disable TLS peer verification on the client service
@@ -717,11 +638,12 @@ class ArakoonCluster:
         tls_service_validate_peer = 'tls_service_validate_peer'
 
         config = self._getConfigFile()
+        fn = self._getConfigFileName()
 
-        if config.checkParam(global_, tls_service_validate_peer):
-            config.removeParam(global_, tls_service_validate_peer)
+        if config.has_option(global_, tls_service_validate_peer):
+            config.remove_option(global_, tls_service_validate_peer)
 
-        config.write()
+        X.writeConfig(config, fn)
 
     def setTLSCertificate(self, node, cert_path, key_path):
         '''Set the TLS certificate & key paths for a node
@@ -760,20 +682,20 @@ class ArakoonCluster:
         tls_key = 'tls_key'
 
         config = self._getConfigFile()
-
+        fn = self._getConfigFileName()
         if cert_path is None and key_path is None:
-            if config.checkParam(node, tls_cert):
-                config.removeParam(node, tls_cert)
+            if config.has_option(node, tls_cert):
+                config.remove_option(node, tls_cert)
 
-            if config.checkParam(node, tls_key):
-                config.removeParam(node, tls_key)
+            if config.has_option(node, tls_key):
+                config.remove_option(node, tls_key)
 
-            config.write()
+            X.writeConfig(config, fn)
 
             return
 
 
-        if not config.checkParam(global_, tls_ca_cert):
+        if not config.has_option(global_, tls_ca_cert):
             raise Exception('No tls_ca_cert configured')
 
         if not os.path.isfile(cert_path):
@@ -784,16 +706,16 @@ class ArakoonCluster:
             raise ValueError(
                 'Invalid key_path \'%s\': no such file' % key_path)
 
-        if config.checkParam(node, tls_cert):
-            config.removeParam(node, tls_cert)
+        if config.has_option(node, tls_cert):
+            config.remove_option(node, tls_cert)
 
-        if config.checkParam(node, tls_key):
-            config.removeParam(node, tls_key)
+        if config.has_option(node, tls_key):
+            config.remove_option(node, tls_key)
 
-        config.addParam(node, tls_cert, cert_path)
-        config.addParam(node, tls_key, key_path)
+        config.set(node, tls_cert, cert_path)
+        config.set(node, tls_key, key_path)
 
-        config.write()
+        X.writeConfig(config, fn)
 
 
     def setReadOnly(self, flag = True):
@@ -803,11 +725,12 @@ class ArakoonCluster:
 
         g = "global"
         p = "readonly"
-        if config.checkParam(g,p):
-            config.removeParam(g, p)
+        if config.has_option(g,p):
+            config.remove_option(g, p)
         if flag :
-            config.addParam(g, p, "true")
-        config.write()
+            config.set(g, p, "true")
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)
 
     def setQuorum(self, quorum=None):
         """
@@ -829,11 +752,11 @@ class ArakoonCluster:
             except:
                 raise Exception("Illegal value for quorum %s " % quorum)
 
-            config.addParam("global", "quorum", int(quorum))
+            config.set("global", "quorum", int(quorum))
         else:
-            config.removeParam("global", "quorum")
+            config.remove("global", "quorum")
 
-        config.write()
+        X.writeConfig(config,self._getConfigFileName())
 
 
     def getClientConfig(self):
@@ -847,9 +770,9 @@ class ArakoonCluster:
         nodes = self.__getNodes(config)
 
         for name in nodes:
-            ips = config.getValue(name, "ip")
+            ips = config.get(name, "ip")
             ip_list = ips.split(',')
-            port = int(config.getValue(name, "client_port"))
+            port = int(config.get(name, "client_port"))
             clientconfig[name] = (ip_list, port)
 
 
@@ -857,7 +780,7 @@ class ArakoonCluster:
 
     def getClient(self):
         config = self.getClientConfig()
-        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterName, config))
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
         return client
 
     def listNodes(self):
@@ -881,8 +804,11 @@ class ArakoonCluster:
 
         nodes = self.__getNodes(config)
 
-        if config.checkSection(name):
-            return config.getSectionAsDict(name)
+        if config.has_section(name):
+            d = {}
+            for option in config.options(name):
+                d[option] = config.get(name,option,False)
+            return d
         else:
             raise Exception("No node with name %s configured" % name)
 
@@ -897,24 +823,24 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
 
-        if config.checkSection(name):
-            home = config.getValue(name, "home")
-            q.system.fs.createDir(home)
+        if config.has_section(name):
+            home = config.get(name, "home")
+            X.createDir(home)
 
-            if config.checkParam(name, "tlog_dir"):
-                tlogDir = config.getValue(name, "tlog_dir")
-                q.system.fs.createDir(tlogDir)
+            if config.has_option(name, "tlog_dir"):
+                tlogDir = config.get(name, "tlog_dir")
+                X.createDir(tlogDir)
 
-            if config.checkParam(name, "tlf_dir"):
-                tlfDir = config.getValue(name, "tlf_dir")
-                q.system.fs.createDir(tlfDir)
+            if config.has_option(name, "tlf_dir"):
+                tlfDir = config.get(name, "tlf_dir")
+                X.createDir(tlfDir)
 
-            if config.checkParam(name, "head_dir"):
-                headDir = config.getValue(name, "head_dir")
-                q.system.fs.createDir(headDir)
+            if config.has_option(name, "head_dir"):
+                headDir = config.get(name, "head_dir")
+                X.createDir(headDir)
 
-            logDir = config.getValue(name, "log_dir")
-            q.system.fs.createDir(logDir)
+            logDir = config.get(name, "log_dir")
+            X.createDir(logDir)
 
             return
 
@@ -933,15 +859,15 @@ class ArakoonCluster:
         nodes = self.__getNodes(config)
 
         if name in nodes:
-            home = config.getValue(name, "home")
-            q.system.fs.removeDirTree(home)
+            home = config.get(name, "home")
+            X.removeDirTree(home)
 
-            if config.checkParam(name, "tlog_dir"):
-                tlogDir = config.getValue(name, "tlog_dir")
-                q.system.fs.removeDirTree(tlogDir)
+            if config.has_option(name, "tlog_dir"):
+                tlogDir = config.get(name, "tlog_dir")
+                X.removeDirTree(tlogDir)
 
-            logDir = config.getValue(name, "log_dir")
-            q.system.fs.removeDirTree(logDir)
+            logDir = config.get(name, "log_dir")
+            X.removeDirTree(logDir)
             return
 
         raise Exception("No node %s" % name )
@@ -960,21 +886,21 @@ class ArakoonCluster:
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
         config_name = self._servernodes()
-        if config.checkSection(name):
-            config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
-            nodesconfig = q.config.getInifile(config_name_path)
+        if config.has_section(name):
+            config_name_path = '/'.join([self._clusterPath, config_name])
+            nodesconfig = X.getConfig(config_name_path)
 
-            if not nodesconfig.checkSection("global"):
-                nodesconfig.addSection("global")
-                nodesconfig.addParam("global","cluster", "")
+            if not nodesconfig.has_section("global"):
+                nodesconfig.add_section("global")
+                nodesconfig.set("global","cluster", "")
 
             nodes = self.__getNodes(nodesconfig)
             if name in nodes:
                 raise Exception("node %s already present" % name)
             nodes.append(name)
-            nodesconfig.setParam("global","cluster", ",".join(nodes))
+            nodesconfig.set("global","cluster", ",".join(nodes))
 
-            nodesconfig.write()
+            X.writeConfig(nodesconfig,config_name_path)
 
             return
 
@@ -989,19 +915,19 @@ class ArakoonCluster:
         """
         self.__validateName(name)
         config_name = self._servernodes()
-        config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
-        config = q.config.getInifile(config_name_path)
+        config_name_path = '/'.join([self._clusterPath, config_name])
+        config = X.getConfig(config_name_path)
 
-        if not config.checkSection("global"):
+        if not config.has_section("global"):
             return
 
-        node_str = config.getValue("global", "cluster").strip()
+        node_str = config.get("global", "cluster").strip()
         nodes = node_str.split(',')
         if name in nodes:
             nodes.remove(name)
             node_str = ','.join(nodes)
-            config.setParam("global","cluster", node_str)
-            config.write()
+            config.set("global","cluster", node_str)
+            X.writeConfig(config, config_name_path)
 
     def listLocalNodes(self):
         """
@@ -1010,8 +936,8 @@ class ArakoonCluster:
         @return list of strings containing the node names
         """
         config_name = self._servernodes()
-        config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
-        config = q.config.getInifile(config_name_path)
+        config_name_path = '/'.join([self._clusterPath, config_name])
+        config = X.getConfig(config_name_path)
 
         return self.__getNodes(config)
 
@@ -1022,7 +948,7 @@ class ArakoonCluster:
         @param numberOfNodes the number of nodes in the environment
         @return the dict that can be used as a param for the ArakoonConfig object
         """
-        cid = self._clusterName
+        cid = self._clusterId
         clientPort = basePort
         messagingPort = basePort + 1
         for i in range(0, numberOfNodes):
@@ -1040,7 +966,8 @@ class ArakoonCluster:
             self.forceMaster("%s_0" % cid)
 
         config = self._getConfigFile()
-        config.addParam( 'global', 'cluster_id', cid)
+        config.set( 'global', 'cluster_id', cid)
+        X.writeConfig(config,self._getConfigFileName())
 
     def tearDown(self, removeDirs=True ):
         """
@@ -1063,38 +990,42 @@ class ArakoonCluster:
         self.remove()
 
     def remove(self):
+        clients_fn = "%s/%s" % (X.cfgDir, "arakoonclients")
+        clientConf = X.getConfig(clients_fn)
+        clientConf.remove_section(self._clusterId)
+        X.writeConfig(clientConf,clients_fn)
 
-        clientConf = q.config.getInifile("arakoonclients")
-        clientConf.removeSection(self._clusterName)
-        clientConf.write()
+        fn = self._clustersFNH 
+        clusterConf = X.getConfig(fn)
+        clusterConf.remove_section(self._clusterId)
+        X.writeConfig(clientConf, fn)
 
-        clusterConf = q.config.getInifile("arakoonclusters")
-        clusterConf.removeSection(self._clusterName)
-        clusterConf.write()
-
-        q.system.fs.removeDirTree(self._clusterPath)
+        X.removeDirTree(self._clusterPath)
 
     def __getForcedMaster(self, config):
-        if not config.checkSection("global"):
+        if not config.has_section("global"):
             return []
 
-        if config.checkParam("global", "master"):
-            return config.getValue("global", "master").strip()
+        if config.has_option("global", "master"):
+            return config.get("global", "master").strip()
         else:
             return []
 
     def __getNodes(self, config):
-        if not config.checkSection("global"):
+        if not config.has_section("global"):
             return []
         nodes = []
         try:
-            line = config.getValue("global", "cluster").strip()
-            # "".split(",") -> ['']
-            if line == "":
-                nodes =  []
+            if config.has_option("global", "cluster"):
+                line = config.get("global", "cluster").strip()
+                # "".split(",") -> ['']
+                if line == "":
+                    nodes =  []
+                else:
+                    nodes = line.split(",")
+                    nodes = map(lambda x: x.strip(), nodes)
             else:
-                nodes = line.split(",")
-                nodes = map(lambda x: x.strip(), nodes)
+                nodes = []
         except LookupError:
             pass
         return nodes
@@ -1160,7 +1091,7 @@ class ArakoonCluster:
         """
         Get the status the cluster's nodes running on this machine
 
-        @return dict node name -> status (q.enumerators.AppStatusType)
+        @return dict node name -> status (AppStatusType)
         """
         status = {}
         for name in self.listLocalNodes():
@@ -1191,7 +1122,7 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         cmd = [self._binary,
                '-config',
-               '%s/%s.cfg' % (self._clusterPath, self._clusterName),
+               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
                '--node',
                nodeName,
                '-catchup-only']
@@ -1323,7 +1254,7 @@ class ArakoonCluster:
 
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterName),
+              '%s/%s.cfg' % (self._clusterPath, self._clusterId),
               '-start']
         return r
 
@@ -1333,7 +1264,7 @@ class ArakoonCluster:
         return cmdLine
 
     def _startOne(self, name):
-        if self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING:
+        if self._getStatusOne(name) == X.AppStatusType.RUNNING:
             return
 
         config = self.getNodeConfig(name)
@@ -1364,40 +1295,35 @@ class ArakoonCluster:
         cmd = ['pkill', '-f',  line]
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
         rc = subprocess.call(cmd, close_fds = True)
-        q.logger.log("%s=>rc=%i" % (cmd,rc), level = 3)
+        logging.debug("%s=>rc=%i" % (cmd,rc))
         i = 0
-        while(self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING):
+        while(self._getStatusOne(name) == X.AppStatusType.RUNNING):
             rc = subprocess.call(cmd, close_fds = True)
-            q.logger.log("%s=>rc=%i" % (cmd,rc), level = 3)
+            logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
             logging.debug("'%s' is still running... waiting" % name)
-            q.logger.log("'%s' is still running... waiting" % name, level = 3)
 
             if i == 10:
                 msg = "Requesting '%s' to dump crash log information" % name
                 logging.debug(msg)
-                q.logger.log(msg, level=3)
-                subprocess.call(['pkill', '-%d' % signal.SIGUSR2, '-f', line], close_fds=True)
+                X.subprocess.call(['pkill', '-%d' % signal.SIGUSR2, '-f', line], close_fds=True)
                 time.sleep(1)
 
                 logging.debug("stopping '%s' with kill -9" % name)
-                q.logger.log("stopping '%s' with kill -9" % name, level = 3)
-                rc = subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
+                rc = X.subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
                 if rc == 0:
                     rc = 9
                 cnt = 0
-                while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
+                while (self._getStatusOne(name) == X.AppStatusType.RUNNING ) :
                     logging.debug("'%s' is STILL running... waiting" % name)
-                    q.logger.log("'%s' is STILL running... waiting" % name,
-                                 level = 3)
                     time.sleep(1)
                     cnt += 1
                     if( cnt > 10):
                         break
                 break
             else:
-                subprocess.call(cmd, close_fds=True)
+                X.subprocess.call(cmd, close_fds=True)
         if rc < 9:
             rc = 0 # might be we looped one time too many.
         return rc
@@ -1408,15 +1334,15 @@ class ArakoonCluster:
 
 
     def _getPid(self, name):
-        if self._getStatusOne(name) == q.enumerators.AppStatusType.HALTED:
+        if self._getStatusOne(name) == X.AppStatusType.HALTED:
             return None
         line = self._cmdLine(name)
-        cmd = 'pgrep -o -f "%s"' % line
-        (exitCode, stdout, stderr) = q.system.process.run( cmd )
-        if exitCode != 0 :
-            return None
-        else:
+        cmd = ['pgrep', '-o' ,'-f' , line]
+        try:
+            stdout = X.subprocess.check_output( cmd )
             return int(stdout)
+        except:
+            return None
 
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
@@ -1429,9 +1355,9 @@ class ArakoonCluster:
         lenp = len(pid_list)
         result = None
         if lenp == 1:
-            result = q.enumerators.AppStatusType.RUNNING
+            result = X.AppStatusType.RUNNING
         elif lenp == 0:
-            result = q.enumerators.AppStatusType.HALTED
+            result = X.AppStatusType.HALTED
         else:
             for pid in pid_list:
                 try:
@@ -1628,7 +1554,7 @@ class ArakoonCluster:
         folder and places a copy at the destination provided at the beginning
         """
         nodes_list = self.listNodes()
-        archive_name = self._clusterName + "_cluster_details"
+        archive_name = self._clusterId + "_cluster_details"
         archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , archive_name)
 
         cfs = q.cloud.system.fs
@@ -1676,10 +1602,10 @@ class ArakoonCluster:
                         cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
 
 
-            clusterName = self._clusterName + '.cfg'
-            clusterNodes = self._clusterName + '_local_nodes.cfg'
+            clusterId = self._clusterId + '.cfg'
+            clusterNodes = self._clusterId + '_local_nodes.cfg'
 
-            clusterPath = q.system.fs.joinPaths(self._clusterPath, clusterName)
+            clusterPath = '/'.join(self._clusterPath, clusterId)
             q.cloud.system.fs.copyFile(source_path + clusterPath, 'file://' + node_folder)
 
             clusterNodesPath = q.system.fs.joinPaths(self._clusterPath, clusterNodes)

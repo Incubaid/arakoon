@@ -21,7 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from pymonkey import q, i
+from Compat import X
 from nose.tools import *
 from functools import wraps
 import traceback
@@ -30,8 +30,35 @@ import struct
 import subprocess
 import signal
 import gzip
+import logging
+
+from arakoon_ext.server import ArakoonManagement
+from arakoon_ext.client import ArakoonClient
 
 test_failed = False
+
+class Config:
+    def __init__(self):
+        self.lease_duration = 2.0
+        self.tlog_entries_per_tlog = 1000
+        self.node_names = [ "sturdy_0", "sturdy_1", "sturdy_2" ]
+        self.cluster_id = 'sturdy'
+        self.key_format_str = "key_%012d"
+        self.value_format_str = "value_%012d"
+        self.data_base_dir = None
+        self.binary_full_path = ArakoonManagement.which_arakoon()
+        self.nursery_nodes = {
+            'nurse_0' : [ 'nurse_0_0', 'nurse_0_1', 'nurse_0_2'],
+            'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
+            'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
+            }
+        self.nursery_cluster_ids = self.nursery_nodes.keys()
+        self.node_client_base_port = 7080
+        self.node_msg_base_port = 10000
+        self.nursery_keeper_id = self.nursery_cluster_ids[0]
+        self.node_ips = [ "127.0.0.1", "127.0.0.1", "127.0.0.1"]
+
+CONFIG = Config()
 
 class with_custom_setup ():
 
@@ -44,12 +71,12 @@ class with_custom_setup ():
         def decorate(*args,**kwargs):
 
             global data_base_dir
-            data_base_dir = q.system.fs.joinPaths( q.dirs.tmpDir, 'arakoon_system_tests' , func.func_name )
+            data_base_dir = '%s/arakoon_system_tests/%s' % (X.tmpDir, func.func_name)
             global test_failed
             test_failed = False
             fatal_ex = None
             home_dir = data_base_dir
-            if q.system.fs.exists( data_base_dir):
+            if X.fileExists( data_base_dir):
                 remove_dirs ()
             self.__setup( home_dir )
             try:
@@ -77,8 +104,6 @@ import logging
 
 from arakoon.ArakoonExceptions import *
 
-if __name__ == "__main__" :
-    from pymonkey import InitBase
 
 data_base_dir = None
 cluster_id = 'sturdy'
@@ -87,7 +112,7 @@ node_ips = ["127.0.0.1"] * len(node_names)
 node_client_base_port = 7080
 node_msg_base_port = 10000
 daemon_name = "arakoon"
-binary_full_path = "/opt/qbase3/apps/arakoon/bin/arakoon"
+
 lease_duration = 8.0 # was 2.0 s but is not enough on our virtualized test env.
 tlog_entries_per_tlog = 1000
 
@@ -103,36 +128,34 @@ nursery_keeper_id = nursery_cluster_ids[0]
 key_format_str = "key_%012d"
 value_format_str = "value_%012d"
 
-fs = q.system.fs
-proc = q.system.process
-
 def generate_lambda( f, *args, **kwargs ):
     return lambda: f( *args, **kwargs )
 
 def _getCluster( c_id = None):
     if c_id is None:
         c_id = cluster_id
-    return q.manage.arakoon.getCluster(c_id)
+    mgmt = ArakoonManagement.ArakoonManagement()
+    return mgmt.getCluster(c_id)
 
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    tlog_full_path =  q.system.fs.joinPaths ( node_home_dir, "%03d.tlog" % tlog_number  )
+    tlog_full_path =  '/'.join ([node_home_dir, "%03d.tlog" % tlog_number]  )
     cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
     logging.debug( "Dumping file %s" % tlog_full_path )
     logging.debug("Command is : '%s'" % cmd )
-    (exit,stdout,stderr) = q.system.process.run(cmd)
+    stdout = X.subprocess.check_output(cmd)
     assert_equals( exit, 0, "Could not dump tlog for node %s" % node_id )
     return stdout
 
 def get_arakoon_binary() :
-    return fs.joinPaths( get_arakoon_bin_dir(), 'arakoon')
+    return '/'.join([get_arakoon_bin_dir(), 'arakoon'])
 
 def get_arakoon_bin_dir():
-    return fs.joinPaths( q.dirs.appDir, "arakoon", "bin")
+    return '/'.join([X.appDir, "arakoon", "bin"])
 
 def get_tcbmgr_path ():
-    return fs.joinPaths( get_arakoon_bin_dir(), "tcbmgr" )
+    return '/'.join([get_arakoon_bin_dir(), "tcbmgr"] )
 
 def get_diff_path():
     return "/usr/bin/diff"
@@ -140,17 +163,17 @@ def get_diff_path():
 def get_node_db_file( node_id ) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
+    db_file = '/'.join([node_home_dir, node_id + ".db" ])
     return db_file
 
 def dump_store( node_id ):
     cluster = _getCluster()
     stat = cluster.getStatusOne(node_id )
     msg = "Can only dump the store of a node that is not running (status is %s)" % stat
-    assert_equals( stat, q.enumerators.AppStatusType.HALTED, msg)
+    assert_equals( stat, X.AppStatusType.HALTED, msg)
 
     db_file = get_node_db_file ( node_id )
-    dump_file = "%s/%s.dump" % (q.dirs.tmpDir, node_id,)
+    dump_file = "%s/%s.dump" % (X.tmpDir, node_id,)
     cmd = get_tcbmgr_path() + " list -pv " + db_file
     try:
         dump_fd = open( dump_file, 'w' )
@@ -189,10 +212,10 @@ def compare_stores( node1_id, node2_id ):
     cluster = _getCluster()
     def get_i ( node_id ):
         stat = cluster.getStatusOne(node_id )
-        assert_equals( stat, q.enumerators.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+        assert_equals( stat, X.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
         db_file = get_node_db_file(node_id)
-        cmd = " ".join( [get_arakoon_binary(), "--dump-store", db_file])
-        (exit,stdout,stderr) = proc.run( cmd, captureOutput=True )
+        cmd = [get_arakoon_binary(), "--dump-store", db_file]
+        stdout=  X.subprocess.check_output(cmd)
         i_line = stdout.split("\n") [0]
         logging.info("i_line='%s'", i_line)
         # 'i: Some("19999")'
@@ -286,7 +309,7 @@ def compare_stores( node1_id, node2_id ):
 def get_tlog_count (node_id ):
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
-    ls = q.system.fs.listFilesInDir
+    ls = X.listFilesInDir
     tlogs =      ls( node_home_dir, filter="*.tlog" )
     tlogs.extend(ls( node_home_dir, filter="*.tlc" ) )
     tlogs.extend(ls( node_home_dir, filter="*.tlf" ) )
@@ -298,7 +321,7 @@ def get_last_tlog_id ( node_id ):
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_max_id = 0
     tlog_id = None
-    tlogs_for_node = q.system.fs.listFilesInDir( node_home_dir, filter="*.tlog" )
+    tlogs_for_node = X.listFilesInDir( node_home_dir, filter="*.tlog" )
     for tlog in tlogs_for_node:
         tlog = tlog [ len(node_home_dir):]
         tlog = tlog.strip('/')
@@ -318,7 +341,7 @@ def get_last_i_tlog2(node_id):
     number = get_last_tlog_id(node_id)
     cluster = _getCluster()
     home = cluster.getNodeConfig(node_id )['home']
-    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    tlog_full_path =  '/'.join([home, "%03d.tlog" % number])
     logging.info("reading i from : %s" % tlog_full_path)
     f = open(tlog_full_path,'rb')
     data = f.read()
@@ -339,7 +362,7 @@ def last_entry_code(node_id):
     number = get_last_tlog_id(node_id)
     cluster = _getCluster()
     home = cluster.getNodeConfig(node_id )['home']
-    tlog_full_path =  q.system.fs.joinPaths(home, "%03d.tlog" % number)
+    tlog_full_path =  '/'.join([home, "%03d.tlog" % number])
     f = open(tlog_full_path,'rb')
     data = f.read()
     f.close()
@@ -405,36 +428,36 @@ def send_signal ( node_name, signal ):
     cluster = _getCluster()
     pid = cluster._getPid(node_name)
     if pid is not None:
-        q.system.process.kill( pid, signal )
+        X.subprocess.call(['kill', str(pid), '-s', str(signal)] )
 
 def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
     cfg = getConfig(node_name)
     log_dir = cfg['log_dir']
 
-    log_file = fs.joinPaths(log_dir, "%s.log" % (node_name) )
+    log_file = '/'.join([log_dir, "%s.log" % (node_name) ])
     if compress_old_files:
-        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d.gz" % (node_name) )
+        old_log_fmt = '/'.join([log_dir, "%s.log.%%d.gz" % (node_name) ])
     else :
-        old_log_fmt = fs.joinPaths(log_dir, "%s.log.%%d" % (node_name) )
+        old_log_fmt = '/'.join([log_dir, "%s.log.%%d" % (node_name) ])
 
     tmp_log_file = log_file + ".1"
 
     def shift_logs ( ) :
         log_to_remove = old_log_fmt % (max_logs_to_keep - 1)
-        if fs.isFile ( log_to_remove ) :
+        if X.fileExists ( log_to_remove ) :
             fs.unlink(log_to_remove)
 
         for i in range( 1, max_logs_to_keep - 1) :
             j = max_logs_to_keep - 1 - i
             log_to_move = old_log_fmt % j
             new_log_name = old_log_fmt % (j + 1)
-            if fs.isFile( log_to_move ) :
-                fs.renameFile ( log_to_move, new_log_name )
+            if X.fileExists( log_to_move ) :
+                os.rename ( log_to_move, new_log_name )
     cluster = _getCluster()
     shift_logs()
-    if fs.isFile( log_file ):
-        fs.renameFile ( log_file, tmp_log_file )
-        if cluster.getStatusOne(node_name) == q.enumerators.AppStatusType.RUNNING:
+    if X.fileExists( log_file ):
+        os.rename ( log_file, tmp_log_file )
+        if cluster.getStatusOne(node_name) == X.AppStatusType.RUNNING:
             send_signal ( node_name, signal.SIGUSR1 )
 
         if compress_old_files:
@@ -443,7 +466,7 @@ def rotate_log(node_name, max_logs_to_keep, compress_old_files ):
             cf.writelines(orig)
             cf.close()
             orig.close()
-            fs.unlink(tmp_log_file)
+            os.remove(tmp_log_file)
 
 
 def getConfig(name):
@@ -452,24 +475,26 @@ def getConfig(name):
 
 
 def regenerateClientConfig( cluster_id ):
+    h = '%s/%s' % (X.cfgDir,'arakoonclients')
+    p = X.getConfig(h)
 
-    clientsCfg = q.config.getConfig("arakoonclients")
-    if cluster_id in clientsCfg.keys():
-        clusterDir = clientsCfg[cluster_id]["path"]
-        clientCfgFile = q.system.fs.joinPaths(clusterDir, "%s_client.cfg" % cluster_id)
-        if q.system.fs.exists( clientCfgFile):
-            q.system.fs.removeFile( clientCfgFile)
-    cliCfg = q.clients.arakoon.getClientConfig( cluster_id )
+    if cluster_id in p.sections():
+        clusterDir = p.get(cluster_id, "path")
+        clientCfgFile = '/'.join([clusterDir, "%s_client.cfg" % cluster_id])
+        if X.fileExists(clientCfgFile):
+            X.removeFile(clientCfgFile)
+
+    client = ArakoonClient.ArakoonClient()
+    cliCfg = client.getClientConfig( cluster_id )
     cliCfg.generateFromServerConfig()
-
 
 def wipe(name):
     config = getConfig(name)
     data_dir = config['home']
     dirs = [data_dir]
     def wipe_dir(d):
-        q.system.fs.removeDirTree(d)
-        q.system.fs.createDir(d)
+        X.removeDirTree(d)
+        X.createDir(d)
     wipe_dir(data_dir)
     tlf_dir = config.get('tlf_dir')
     if tlf_dir:
@@ -500,7 +525,7 @@ def collapse(name, n = 1):
     config = getConfig(name)
     ip = config['ip']
     port = config['client_port']
-    rc = subprocess.call([binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
+    rc = X.subprocess.call([CONFIG.binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
     return rc
 
 def add_node ( i ):
@@ -604,11 +629,11 @@ def build_node_dir_names ( nodeName, base_dir = None ):
     if base_dir is None:
         global data_base_dir
         base_dir = data_base_dir
-    data_dir = q.system.fs.joinPaths( base_dir, nodeName)
-    db_dir = q.system.fs.joinPaths( data_dir, "db")
-    log_dir = q.system.fs.joinPaths( data_dir, "log")
-    tlf_dir = q.system.fs.joinPaths( data_dir, "tlf")
-    head_dir = q.system.fs.joinPaths( data_dir, "head")
+    data_dir = '/'.join([ base_dir, nodeName])
+    db_dir = '/'.join([data_dir, "db"])
+    log_dir = '/'.join([data_dir, "log"])
+    tlf_dir = '/'.join([data_dir, "tlf"])
+    head_dir = '/'.join([data_dir, "head"])
     return (db_dir,log_dir,tlf_dir,head_dir)
 
 def setup_n_nodes_base(c_id, node_names, force_master,
@@ -616,14 +641,14 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                        extra = None, force_slaves = True, useIPV6=False,
                        slowCollapser = False):
 
-    q.system.process.run( "sudo /sbin/iptables -F" )
+    #q.system.process.run( "sudo /sbin/iptables -F" )
 
-    cluster = q.manage.arakoon.getCluster( c_id )
+    cluster = _getCluster( c_id )
     cluster.tearDown()
-    cluster = q.manage.arakoon.getCluster( c_id )
 
+    cluster = _getCluster(c_id)
     logging.info( "Creating data base dir %s" % base_dir )
-    q.system.fs.createDir ( base_dir )
+    X.createDir ( base_dir )
 
     n = len(node_names)
     ip = "127.0.0.1"
@@ -668,10 +693,10 @@ def setup_n_nodes_base(c_id, node_names, force_master,
         config = cluster._getConfigFile()
         for k,v in extra.items():
             logging.info("%s -> %s", k, v)
-            config.addParam("global", k, v)
+            config.set("global", k, v)
 
-        logging.info("config=\n%s", config.getContent())
-        config.write ()
+        fn = cluster._getConfigFileName()
+        X.writeConfig(config, fn)
 
 
     logging.info( "Creating client config" )
@@ -790,7 +815,7 @@ def common_teardown( removeDirs, cluster_ids):
         remove_dirs ()
 
 def remove_dirs():
-    q.system.fs.removeDirTree( data_base_dir )
+    X.removeDirTree( data_base_dir )
 
 def basic_teardown( removeDirs ):
     logging.info("basic_teardown(%s)" % removeDirs)
@@ -807,7 +832,8 @@ def nursery_teardown( removeDirs ):
 def get_client ( c_id = None):
     if c_id is None:
         c_id = cluster_id
-    client = q.clients.arakoon.getClient(c_id)
+    ext = ArakoonClient.ArakoonClient()
+    client = ext.getClient(c_id)
     return client
 
 def get_nursery_client():
@@ -1117,9 +1143,8 @@ def restart_single_slave_scenario( restart_cnt, set_cnt, compare_store ) :
         compare_stores( node_names[0], node_names[1] )
 
 def get_entries_per_tlog():
-    cmd = "%s --version" % binary_full_path
-    (exit,stdout,stderr) = q.system.process.run(cmd)
-    assert_equals( exit, 0 )
+    cmd = [CONFIG.binary_full_path, '--version']
+    stdout = X.subprocess.check_output(cmd)
     lines = stdout.split('\n')
     k = 'tlogEntriesPerFile:'
     for line in lines:

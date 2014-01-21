@@ -22,7 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 
 from .. import system_tests_common as Common
-from ..system_tests_common import q
 from .. import system_tests_common
 
 from arakoon.ArakoonExceptions import *
@@ -32,10 +31,6 @@ import nose.tools as NT
 import logging
 import time
 import sys
-
-if __name__ == '__main__' :
-    from pymonkey import InitBase
-    from pymonkey import i,q
 
 def mount_ram_fs ( node_index ) :
 

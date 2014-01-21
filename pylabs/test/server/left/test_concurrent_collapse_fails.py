@@ -23,9 +23,8 @@ If not, see <http://www.gnu.org/licenses/>.
 from .. import system_tests_common as Common
 from arakoon.ArakoonExceptions import *
 import arakoon
-import logging
 import time
-import subprocess
+from Compat import X
 from threading import Thread
 from nose.tools import *
 
