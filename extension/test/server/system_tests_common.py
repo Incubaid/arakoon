@@ -613,7 +613,7 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port,
-                       extra = None, force_slaves = True, useIPV6=False,
+                       extra = None, witness_nodes = False, useIPV6=False,
                        slowCollapser = False):
 
     q.system.process.run( "sudo /sbin/iptables -F" )
@@ -631,7 +631,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
         ip = "::1"
 
     for i in range (n) :
-        is_witness = force_master & force_slaves & (i % 2 != 0)
+        is_witness = witness_nodes & (i % 2 != 0)
         nodeName = node_names[ i ]
         (db_dir,log_dir,tlf_dir,head_dir) = build_node_dir_names( nodeName )
         if slowCollapser and (i % 2 == 1):
@@ -686,12 +686,12 @@ def setup_n_nodes_base(c_id, node_names, force_master,
 
 
 def setup_n_nodes ( n, force_master, home_dir , extra = None,
-                    force_slaves = True, useIPV6 = False,
+                    witness_nodes = False, useIPV6 = False,
                     slowCollapser = False):
 
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
-                       extra = extra, force_slaves = force_slaves,
+                       extra = extra, witness_nodes = witness_nodes,
                        useIPV6 = useIPV6,
                        slowCollapser = slowCollapser)
 
@@ -703,22 +703,25 @@ def setup_n_nodes ( n, force_master, home_dir , extra = None,
 
 
 def setup_3_nodes_forced_master (home_dir):
-    setup_n_nodes( 3, True, home_dir)
+    setup_n_nodes( 3, True, home_dir, witness_nodes = True)
 
 def setup_3_nodes_forced_master_normal_slaves (home_dir):
-    setup_n_nodes( 3, True, home_dir, force_slaves = False)
+    setup_n_nodes( 3, True, home_dir)
 
 def setup_3_nodes_forced_master_slow_collapser(home_dir):
-    setup_n_nodes( 3, True, home_dir, slowCollapser = True)
+    setup_n_nodes( 3, True, home_dir, witness_nodes = True, slowCollapser = True)
 
 def setup_2_nodes_forced_master (home_dir):
-    setup_n_nodes( 2, True, home_dir)
+    setup_n_nodes( 2, True, home_dir, witness_nodes = True)
 
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
-    setup_n_nodes( 2, True, home_dir, force_slaves = False)
+    setup_n_nodes( 2, True, home_dir)
 
 def setup_1_node_forced_master (home_dir):
     setup_n_nodes( 1, True, home_dir)
+
+def setup_3_nodes_witness_slave (home_dir):
+    setup_n_nodes( 3, False, home_dir, witness_nodes = True)
 
 def setup_3_nodes_mini(home_dir):
     extra = {'__tainted_tlog_entries_per_file':'1000'}

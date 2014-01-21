@@ -409,6 +409,14 @@ def test_drop_master_with_load():
 
     _test_drop_master_with_load_(client)
 
+@Common.with_custom_setup( Common.setup_3_nodes_witness_slave, Common.basic_teardown)
+def test_drop_master_witness_slave():
+    Common.stopOne( Common.node_names[0] )
+    cli = Common.get_client()
+    cli.nop()
+    master = cli.whoMaster()
+    Common.dropMaster(master)
+    cli.nop()
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_nodes_2_slaves_down ():
