@@ -196,6 +196,7 @@ let main () =
   and tls_cert = ref ""
   and tls_key = ref ""
   and force = ref false
+  and in_place = ref false
   and archive_type = ref ".tlf"
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
@@ -363,6 +364,8 @@ let main () =
     );
     ("--force", Arg.Set force,
      "force injection of the new head, even when the current head is corrupted (only for --inject-as-head)");
+    ("--inplace", Arg.Set in_place,
+     "perform an in-place inject-as-head using rename (only for --inject-as-head)");
     ("--drop-master", Arg.Tuple [set_laction Drop_master;
                                  Arg.Set_string cluster_id;
                                  Arg.Set_string ip;
@@ -420,7 +423,8 @@ let main () =
     | PING -> Client_main.ping ~tls !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
     | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
-    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file !force
+    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file
+                        ~force:(!force) ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
 
   in
