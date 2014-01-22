@@ -78,7 +78,7 @@ let exists filename =
       | e -> Lwt.fail e
     )
 
-let copy_file source target overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
+let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
   Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in

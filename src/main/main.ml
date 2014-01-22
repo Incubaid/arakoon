@@ -423,7 +423,8 @@ let main () =
     | PING -> Client_main.ping ~tls !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
     | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
-    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file !force ~in_place:(!in_place)
+    | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file
+                        ~force:(!force) ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
 
   in
