@@ -31,6 +31,13 @@ from nose.tools import *
 #from pymonkey import q, i
 import logging
 
+try:
+    assert_in
+except NameError:
+    def assert_in(member, container, msg=None):
+        assert_true(member in container,
+            '%r not found in %r' % (member, container))
+
 @C.with_custom_setup ( C.setup_1_node_forced_master, C.basic_teardown )
 def test_start_stop_single_node_forced () :
     C.assert_running_nodes ( 1 )
@@ -380,7 +387,8 @@ def test_get_version():
     vt = client.getVersion()
     logging.debug("tuple = %s", str(vt))
     (major,minor,patch, info) = vt
-    assert_equals(major, 1)
+    majors = [1, 2 ** 32 - 1] # 2 ** 32 - 1 ~= -1
+    assert_in(major, majors)
     #then on specific level:
     vt2 = client.getVersion(C.node_names[0])
     logging.debug("tuple = %s", str(vt2))
