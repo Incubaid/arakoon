@@ -48,7 +48,7 @@ let dump_store filename =
 
 exception ExitWithCode of int;;
 
-let inject_as_head fn node_id cfg_fn force =
+let inject_as_head fn node_id cfg_fn ~force ~in_place =
   let canonical =
     if cfg_fn.[0] = '/'
     then cfg_fn
@@ -108,8 +108,18 @@ let inject_as_head fn node_id cfg_fn force =
       | None -> failwith "can't happen"
       | Some i -> Sn.to_int (Tlc2.get_file_number i)
     in
-    Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
-    File_system.copy_file fn old_head_name true >>= fun () ->
+    begin
+      if (not in_place)
+      then begin
+        Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
+        File_system.copy_file fn old_head_name ~overwrite:true
+      end
+      else begin
+        Lwt_io.printf "rename %S %S" fn old_head_name >>= fun () ->
+        File_system.safe_rename fn old_head_name
+      end
+    end
+    >>= fun () ->
     Lwt_io.printlf "# [OK]">>= fun () ->
     Lwt_io.printlf "# remove superfluous .tlx files" >>= fun () ->
     Tlc2.get_tlog_names tlog_dir tlx_dir >>= fun tlns ->
