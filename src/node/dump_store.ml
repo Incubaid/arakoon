@@ -94,7 +94,7 @@ let inject_as_head fn node_id cfg_fn ~in_place =
       if (not in_place)
       then begin
         Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
-        File_system.copy_file fn old_head_name true
+        File_system.copy_file fn old_head_name ~overwrite:true
       end
       else begin
         Lwt_io.printf "rename %S %S" fn old_head_name >>= fun () ->
