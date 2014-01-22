@@ -20,6 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os.path
+
 from .. import system_tests_common as Common
 from arakoon.ArakoonExceptions import *
 import arakoon
@@ -95,6 +97,56 @@ def test_inject_as_head_witness_node():
     print "4"
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
+
+@Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
+def test_inplace_inject_as_head():
+    cluster = Common._getCluster()
+    npt = 1000
+    n = 4 * npt + 65
+    Common.iterate_n_times(n,Common.simple_set)
+    client = Common.get_client()
+    m = client.whoMaster()
+    slaves = filter(lambda x:x != m, Common.node_names)
+    s0 = slaves[0]
+    s1 = slaves[1]
+
+    config = cluster._getConfigFile()
+    def get_path(c, n, e):
+        if len(e) == 0:
+            return None
+
+        f, r = e[0], e[1:]
+        if c.checkParam(n, f):
+            return c.getValue(n, f)
+        else:
+            return get_path(c, n, r)
+
+    s1_head_dir = get_path(config, s1,
+        ['head_dir', 'tlf_dir', 'tlog_dir', 'home'])
+    if not s1_head_dir:
+        raise Exception('Unable to find suitable head dir')
+
+    new_head = os.path.join(s1_head_dir, 'test_inject_as_head.db')
+
+    print "1"
+    cluster.backupDb(s0, new_head)
+    logging.info("backup-ed %s from %s", new_head, s0)
+    ret = cluster.injectAsHead(s1, new_head, inPlace=True)
+
+    if ret != 0:
+        raise RuntimeError('injectAsHead returned %d' % ret)
+
+    print "2"
+    logging.info("injected as head")
+    Common.iterate_n_times(n,Common.simple_set)
+    logging.info("iterated")
+    print "3"
+    cluster.remoteCollapse(s1, 3)
+    logging.info("done")
+    print "4"
+    ntlogs = Common.get_tlog_count(s1)
+    logging.info("get_tlog_dir => %i", ntlogs)
+
 
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_inject_as_head_failure():
