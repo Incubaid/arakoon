@@ -466,6 +466,7 @@ def test_block_master_ports () :
         return new_master_id
 
     cli = Common.get_client()
+    cli.nop()
     old_master_id = cli.whoMaster()
 
     master_ports = get_node_ports( old_master_id )
