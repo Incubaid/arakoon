@@ -229,16 +229,17 @@ let start_lease_expiration_thread (type s) constants =
     let lease_start, slave = match S.who_master constants.store with
       | None -> 0.0, true
       | Some(m, ls) -> ls, constants.me <> m in
-    let sleep_sec =
+    let factor =
       if slave
       then
         (* sleep a little longer than necessary on a slave
            to prevent a node thinking it's still the master
            while some slaves have elected a new master amongst them
            (in case the clocks don't all run at the same speed) *)
-        (float_of_int constants.lease_expiration) *. 1.1
+        1.1
       else
-        float_of_int (constants.lease_expiration / 2) in
+        0.5 in
+    let sleep_sec = (float_of_int constants.lease_expiration) *. factor in
     let t () =
       begin
         Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
