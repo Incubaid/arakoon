@@ -745,6 +745,10 @@ def setup_2_nodes (home_dir) :
 def setup_1_node (home_dir):
     setup_n_nodes( 1, False, home_dir )
 
+def setup_1_node_mini (home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes(1, False, home_dir, extra)
+
 default_setup = setup_3_nodes
 
 def setup_3_nodes_ipv6(home_dir):
