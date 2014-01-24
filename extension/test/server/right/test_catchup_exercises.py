@@ -30,9 +30,8 @@ from threading import Thread
 from nose.tools import *
 
 
-@Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown)
+@Common.with_custom_setup(Common.setup_2_nodes_forced_master_mini, Common.basic_teardown)
 def test_catchup_exercises():
-    time.sleep(Common.lease_duration) # ??
 
     def do_one(n, max_wait):
         logging.info("do_one(%i,%f)", n, max_wait)
@@ -59,10 +58,9 @@ def test_catchup_exercises():
         if counter >= max_wait :
             raise Exception ("Node did not catchup in a timely fashion")
 
-    n = 20000
-    w = 80 # 250/s should be more than enough even for dss driven vmachines
+    n = 2000
+    w = 8 # 250/s should be more than enough even for dss driven vmachines
     for i in range(5):
         do_one(n,w)
         n = n * 2
         w = w * 2
-
