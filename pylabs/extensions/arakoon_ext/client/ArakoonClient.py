@@ -244,13 +244,6 @@ class ArakoonClient:
         return '/'.join([clusterDir, last])
 
 
-        clientsCfg = X.getConfig( "arakoonclients")
-        clusterDir = clientsCfg.get(clusterName, "path")
-        if configName is None:
-            return '/'.join([clusterDir, "%s_client" % clusterName])
-        else:
-            return '/'.join( clusterDir, "%s_client_%s" % (clusterName, configName))
-
 class NurseryClient:
     def getClient(self, clusterName):
         cfg = ArakoonClient._getClientConfig( clusterName, None )
