@@ -123,6 +123,10 @@ class ArakoonCluster:
         cfgFile = '/'.join([cfgDir, self._clusterName])
         return cfgFile
 
+    def _saveConfig(self,config):
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)
+
     def _getConfigFile(self):
         h = self._getConfigFileName()
         return X.getConfig(h)
@@ -298,8 +302,7 @@ class ArakoonCluster:
             config.set("global", "cluster_id", self._clusterName)
         config.set("global","cluster", ",".join(nodes))
 
-        fn = self._getConfigFileName()
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
         if isLocal:
             self.addLocalNode(name)
@@ -320,7 +323,7 @@ class ArakoonCluster:
             config.remove_section(name)
             nodes.remove(name)
             config.set("global","cluster", ",".join(nodes))
-            X.writeConfig(config, self._getConfigFileName())
+            self._saveConfig(config)
             return
 
         raise Exception("No node with name %s" % name)
@@ -346,8 +349,7 @@ class ArakoonCluster:
         else:
             config.remove_option(section, key)
 
-        fn = self._getConfigFileName()
-        X.writeConfig(config,fn)
+        self._saveConfig(config)
 
     def forceMaster(self, name=None, preferred = False):
         """
@@ -374,8 +376,8 @@ class ArakoonCluster:
             config.remove_option(g, m)
             if config.has_option(g, pm):
                 config.remove_option(g, pm)
-        fn = self._getConfigFileName()
-        X.writeConfig(config, fn)
+
+        self._saveConfig(config)
 
     def preferredMasters(self, nodes):
         '''
@@ -394,7 +396,6 @@ class ArakoonCluster:
         @type nodes: `list` of `str`
         '''
 
-        fn = self._getConfigFileName()
         if isinstance(nodes, basestring):
             raise TypeError('Expected list of strings, not string')
 
@@ -403,7 +404,7 @@ class ArakoonCluster:
         if not nodes:
             if config.has_option('global', 'preferred_masters'):
                 config.remove_option('global', 'preferred_masters')
-                X.writeConfig(config,fn)
+                self._saveConfig(config)
                 return
 
 
@@ -434,8 +435,7 @@ class ArakoonCluster:
         preferred_masters = 'preferred_masters'
 
         config.set(section, preferred_masters, ', '.join(nodes))
-
-        X.writeConfig(config,fn)
+        self._saveConfig(config)
 
     def setLogConfig(self, logConfig, nodes=None):
         if nodes is None:
@@ -461,8 +461,7 @@ class ArakoonCluster:
 
         for n in nodes:
             config.set( n, "log_level", level )
-        fn = self._getConfigFileName()
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def setCollapseSlowdown(self, collapseSlowdown, nodes=None):
         if nodes is None:
@@ -477,8 +476,8 @@ class ArakoonCluster:
                 config.set(n, "collapse_slowdown", collapseSlowdown)
             else:
                 config.remove_option(n, "collapse_slowdown")
-        fn = self._getConfigFileName()
-        X.writeConfig(config,fn)
+        
+        self._saveConfig(config)
 
     def _setTlogCompression(self,nodes, compressor):
         if nodes is None:
@@ -490,8 +489,7 @@ class ArakoonCluster:
         for n in nodes:
             config.remove_option(n, "disable_tlog_compression")
             config.set(n, "tlog_compression", compressor)
-        fn = self._getConfigFileName()
-        X.writeConfig(config,fn)
+        self._saveConfig(config)
 
     def enableTlogCompression(self, nodes=None, compressor='bz2'):
         """
@@ -519,8 +517,7 @@ class ArakoonCluster:
 
         for node in nodes:
             config.set(node, 'fsync', value)
-        fn = self._getConfigFileName()
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def enableFsync(self, nodes=None):
         '''Enable fsync'ing of tlogs after every operation'''
@@ -549,13 +546,11 @@ class ArakoonCluster:
         tls_ca_cert = 'tls_ca_cert'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
         if ca_cert_path is None:
             if config.has_option(global_, tls_ca_cert):
                 config.remove_option(global_, tls_ca_cert)
 
-            X.writeConfig(config, fn)
-
+            self._saveConfig(config)
             return
 
         if not os.path.isfile(ca_cert_path):
@@ -564,7 +559,7 @@ class ArakoonCluster:
 
         config.set(global_, tls_ca_cert, ca_cert_path)
 
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def enableTLSService(self):
         '''Enable TLS on the client service
@@ -580,7 +575,6 @@ class ArakoonCluster:
         tls_service = 'tls_service'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
         if not config.has_option(global_, tls_ca_cert):
             raise Exception('No tls_ca_cert configured')
 
@@ -588,8 +582,7 @@ class ArakoonCluster:
             config.remove_option(global_, tls_service)
 
         config.set(global_, tls_service, 'true')
-
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def disableTLSService(self):
         '''Disable TLS on the client service
@@ -601,12 +594,11 @@ class ArakoonCluster:
         tls_service = 'tls_service'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
 
         if config.has_option(global_, tls_service):
             config.remove_option(global_, tls_service)
 
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def enableTLSServiceValidatePeer(self):
         '''Enable TLS peer verification on the client service
@@ -623,7 +615,6 @@ class ArakoonCluster:
         tls_service_validate_peer = 'tls_service_validate_peer'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
         if (not config.has_option(global_, tls_service)) \
             or (config.get(global_, tls_service).lower() != 'true'):
             raise Exception('tls_service not enabled')
@@ -632,8 +623,7 @@ class ArakoonCluster:
             config.remove_option(global_, tls_service_validate_peer)
 
         config.set(global_, tls_service_validate_peer, 'true')
-
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
     def disableTLSServiceValidatePeer(self):
         '''Disable TLS peer verification on the client service
@@ -646,12 +636,11 @@ class ArakoonCluster:
         tls_service_validate_peer = 'tls_service_validate_peer'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
 
         if config.has_option(global_, tls_service_validate_peer):
             config.remove_option(global_, tls_service_validate_peer)
-
-        X.writeConfig(config, fn)
+        
+        self._saveConfig(config)
 
     def setTLSCertificate(self, node, cert_path, key_path):
         '''Set the TLS certificate & key paths for a node
@@ -690,7 +679,6 @@ class ArakoonCluster:
         tls_key = 'tls_key'
 
         config = self._getConfigFile()
-        fn = self._getConfigFileName()
         if cert_path is None and key_path is None:
             if config.has_option(node, tls_cert):
                 config.remove_option(node, tls_cert)
@@ -722,8 +710,7 @@ class ArakoonCluster:
 
         config.set(node, tls_cert, cert_path)
         config.set(node, tls_key, key_path)
-
-        X.writeConfig(config, fn)
+        self._saveConfig(config)
 
 
     def setReadOnly(self, flag = True):
@@ -737,8 +724,7 @@ class ArakoonCluster:
             config.remove_option(g, p)
         if flag :
             config.set(g, p, "true")
-        fn = self._getConfigFileName()
-        X.writeConfig(config,fn)
+        self._saveConfig(config)
 
     def setQuorum(self, quorum=None):
         """
@@ -764,8 +750,7 @@ class ArakoonCluster:
         else:
             config.remove("global", "quorum")
 
-        X.writeConfig(config,self._getConfigFileName())
-
+        self._saveConfig(config)
 
     def getClientConfig(self):
         """
@@ -975,7 +960,7 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
         config.set( 'global', 'cluster_id', cid)
-        X.writeConfig(config,self._getConfigFileName())
+        self._saveConfig(config)
 
     def tearDown(self, removeDirs=True ):
         """
@@ -1660,5 +1645,4 @@ class ArakoonCluster:
             config.add_section(id)
             config.set(id,"ip",ip)
             config.set(id,"client_port",port)
-        fn = self._getConfigFileName()
-        X.writeConfig(config,fn)
+        self._saveConfig(config)
