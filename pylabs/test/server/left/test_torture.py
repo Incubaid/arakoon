@@ -30,7 +30,7 @@ def last_slave(master_id, slaves=None):
     slaves = filter(lambda x: x!= master_id, slaves)
     return slaves [-1]
 
-    
+
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_slave():
     cli = Common.get_client()
@@ -38,9 +38,9 @@ def test_shaky_slave():
     slave_id = last_slave(master_id, Common.node_names[:3])
     Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
-    n = 2000
+    n = 200
     Common.iterate_n_times( n, Common.simple_set)
-    cycles = 100 
+    cycles = 100
     for i in range(cycles):
         print ("starting cycle %i" % i)
         Common.startOne(slave_id)
@@ -56,9 +56,9 @@ def test_fat_shaky_slave():
     slave_id = last_slave(master_id, Common.node_names[:3])
     Common.stopOne(slave_id)
     print ("slave %s stopped" % slave_id)
-    n = 20000
+    n = 200
     Common.iterate_n_times( n, Common.simple_set)
-    cycles = 10 
+    cycles = 10
     for i in range(cycles):
         print ("starting cycle %i" % i)
         Common.startOne(slave_id)
@@ -69,18 +69,16 @@ def test_fat_shaky_slave():
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_cluster():
-    n = 500
+    n = 200
     names = Common.node_names
     def stop_all():
         for node_name in names:
             Common.stopOne(node_name)
-    
+
     def start_all():
         for node_name in names:
             Common.startOne(node_name)
-    
+
     for i in range(n):
         Common.restart_all()
         Common.assert_running_nodes(3)
-    
-        

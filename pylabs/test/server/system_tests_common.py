@@ -740,6 +740,10 @@ def setup_3_nodes_forced_master_slow_collapser(home_dir):
 def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir)
 
+def setup_2_nodes_forced_master_mini (home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes( 2, True, home_dir, extra)
+
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
     setup_n_nodes( 2, True, home_dir, force_slaves = False)
 
@@ -766,6 +770,10 @@ def setup_2_nodes (home_dir) :
 
 def setup_1_node (home_dir):
     setup_n_nodes( 1, False, home_dir )
+
+def setup_1_node_mini (home_dir):
+    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    setup_n_nodes(1, False, home_dir, extra)
 
 default_setup = setup_3_nodes
 
