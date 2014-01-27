@@ -469,15 +469,15 @@ def test_fsync():
     cli.set('k3', 'v')
     assert_equals(cli.deletePrefix('k'), 3)
 
-@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
+@Common.with_custom_setup(Common.setup_1_node_mini, Common.basic_teardown)
 def test_sabotage():
     """
-    scenario countering a sysadmin removing files (s)he shouldn't (eta : 160s)
+    scenario countering a sysadmin removing files (s)he shouldn't (eta : 16s)
     """
     clu = _getCluster()
-    tlog_size = Common.get_entries_per_tlog()
+    tlog_size = 1000
     num_tlogs = 2
-    test_size = num_tlogs * tlog_size + 20
+    test_size = num_tlogs * tlog_size
     Common.iterate_n_times(test_size, Common.simple_set)
     time.sleep(10)
     clu.stop()
