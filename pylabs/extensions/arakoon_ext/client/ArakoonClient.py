@@ -192,9 +192,10 @@ class ArakoonClient:
             clusterParam = cfgFile.get("global", "cluster")
             for node in clusterParam.split(",") :
                 node = node.strip()
-                ip = cfgFile.get(node, "ip")
+                ips = cfgFile.get(node, "ip")
+                ip_list = ips.split(',')
                 port = cfgFile.get(node, "client_port")
-                ip_port = (ip, port)
+                ip_port = (ip_list, port)
                 node_dict.update({node: ip_port})
             config = ArakoonClientConfig(clusterId, node_dict)
             return config
@@ -250,3 +251,7 @@ class ArakoonClient:
         else:
             return '/'.join( clusterDir, "%s_client_%s" % (clusterId, configName))
 
+class NurseryClient:
+    def getClient(self, cluster_id):
+        cfg = ArakoonClient._getClientConfig( cluster_id, None )
+        return Nursery.NurseryClient(cfg)

@@ -116,8 +116,8 @@ def test_inplace_inject_as_head():
             return None
 
         f, r = e[0], e[1:]
-        if c.checkParam(n, f):
-            return c.getValue(n, f)
+        if c.has_option(n, f):
+            return c.get(n, f)
         else:
             return get_path(c, n, r)
 

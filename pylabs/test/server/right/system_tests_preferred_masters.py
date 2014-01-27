@@ -27,7 +27,7 @@ import logging
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_preferred_master():
-    cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     cluster.stop()
     pm = Common.node_names[0]
     cluster.preferredMasters([pm])
@@ -65,7 +65,7 @@ def test_preferred_master():
 @Common.with_custom_setup(lambda h: Common.setup_n_nodes(5, False, h), Common.basic_teardown)
 def test_preferred_masters():
     # Get reference to the cluster
-    cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     cluster.stop()
 
     # 2 of 5 nodes are preferred masters

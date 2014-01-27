@@ -61,6 +61,15 @@ def _writeConfig(self, p, h):
     with open(fn,'w') as cfg:
         p.write(cfg)
         
+
+def _run(self,cmd):
+    #['mount', '-t', 'tmpfs', '-o', 'size=20m', 'tmpfs', '/opt/qbase3/var/tmp//arakoon_system_tests/test_disk_full_on_slave/sturdy_0/db']
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+    proc.wait()
+    output = proc.stdout.read()    
+    err = proc.stderr.read()
+    return (proc.returncode, output,err)
+
 class Compat:
     def __init__(self):
         self.logging = logging
@@ -103,6 +112,11 @@ class Compat:
     def raiseError(self,x):
         raise Exception(x)
 
+    def copyDirTree(self,src,dst):
+        shutil.copytree(src,dst)
+
+    run = _run
+
     cfg2str = _cfg2str
     writeConfig = _writeConfig
     getConfig = _getConfig
@@ -135,7 +149,11 @@ class _LOGGING:
 
 class Q: # (Compat)
     def __init__(self):
-        from pymonkey import q
+        try:
+            from pymonkey import q
+        except ImportError:
+            from pylabs import q
+
         self.tmpDir = q.dirs.tmpDir
         self.appDir = q.dirs.appDir
         self.cfgDir = q.dirs.cfgDir
@@ -148,8 +166,8 @@ class Q: # (Compat)
         self.listFilesInDir = q.system.fs.listFilesInDir
 
         self.subprocess = subprocess 
-        def check_output(cmd):
-            return subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+        def check_output(cmd, **kwargs):
+            return subprocess.Popen(cmd, stdout=subprocess.PIPE, **kwargs).communicate()[0]
         self.subprocess.check_output = check_output
 
     def fileExists(self,fn):
@@ -167,19 +185,26 @@ class Q: # (Compat)
     def removeFile(self,path):
         os.unlink(path)
     
+    def getFileContents(self, path):
+        data = self._q.system.fs.fileGetContents(path)
+        return data
+
+    def raiseError(self, s):
+        raise Exception(s)
+
+    def copyDirTree(self, source, destination):
+        self._q.system.fs.copyDirTree(source,destination)
     cfg2str = _cfg2str
+    run = _run
     
 
 def which_compat():
     print "which_compat"
     g = globals()
     if sys.prefix == '/opt/qbase3':
-        print "in q's hell"
-        
         r = Q()
     else:
         r = Compat()
-    print "compat=", r
     return r
 
 

@@ -27,7 +27,7 @@ import time
 from Compat import X
 from threading import Thread
 from nose.tools import *
-
+import logging
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_concurrent_collapse_fails():

@@ -71,7 +71,7 @@ class with_custom_setup ():
         def decorate(*args,**kwargs):
 
             global data_base_dir
-            data_base_dir = '%s/arakoon_system_tests/%s' % (X.tmpDir, func.func_name)
+            data_base_dir = '/'.join([X.tmpDir,'arakoon_system_tests' , func.func_name])
             global test_failed
             test_failed = False
             fatal_ex = None
@@ -141,11 +141,10 @@ def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
     tlog_full_path =  '/'.join ([node_home_dir, "%03d.tlog" % tlog_number]  )
-    cmd = "%s --dump-tlog %s" % (binary_full_path, tlog_full_path)
+    cmd = [CONFIG.binary_full_path, "--dump-tlog", tlog_full_path]
     logging.debug( "Dumping file %s" % tlog_full_path )
     logging.debug("Command is : '%s'" % cmd )
     stdout = X.subprocess.check_output(cmd)
-    assert_equals( exit, 0, "Could not dump tlog for node %s" % node_id )
     return stdout
 
 def get_arakoon_binary() :
@@ -173,12 +172,12 @@ def dump_store( node_id ):
     assert_equals( stat, X.AppStatusType.HALTED, msg)
 
     db_file = get_node_db_file ( node_id )
-    dump_file = "%s/%s.dump" % (X.tmpDir, node_id,)
+    dump_file = '/'.join([X.tmpDir,"%s.dump" % node_id])
     cmd = get_tcbmgr_path() + " list -pv " + db_file
     try:
         dump_fd = open( dump_file, 'w' )
         logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
-        (exit,stdout,stderr) = proc.run( cmd , captureOutput=True, stdout=dump_fd )
+        stdout= X.subprocess.check_output( cmd , captureOutput=True, stdout=dump_fd )
         dump_fd.close()
     except:
         logging.info("Unexpected error: %s" % sys.exc_info()[0])
@@ -475,7 +474,7 @@ def getConfig(name):
 
 
 def regenerateClientConfig( cluster_id ):
-    h = '%s/%s' % (X.cfgDir,'arakoonclients')
+    h = '/'.join([X.cfgDir,'arakoonclients'])
     p = X.getConfig(h)
 
     if cluster_id in p.sections():
@@ -508,11 +507,13 @@ def get_memory_usage(node_name):
     pid = cluster._getPid(node_name )
     if pid is None:
         return 0
-    cmd = "ps -p %s -o vsz" % (pid)
-    (exit_code, stdout,stderr) = q.system.process.run( cmd, stopOnError=False)
-    if (exit_code != 0 ):
+    cmd = ["ps", "-p", pid, "-o", "vsz"]
+    try:
+        stdout = X.subprocess.check_output( cmd )
+    except:
         logging.error( "Coud not determine memory usage: %s" % stderr )
         return 0
+
     try:
         size_str = stdout.split("\n") [1]
         return int( size_str )
@@ -641,7 +642,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                        extra = None, force_slaves = True, useIPV6=False,
                        slowCollapser = False):
 
-    #q.system.process.run( "sudo /sbin/iptables -F" )
+    X.subprocess.check_call("sudo /sbin/iptables -F".split(' ') )
 
     cluster = _getCluster( c_id )
     cluster.tearDown()
@@ -775,7 +776,7 @@ def setup_nursery_n (n, home_dir):
 
     for i in range(n):
         c_id = nursery_cluster_ids[i]
-        base_dir = q.system.fs.joinPaths(data_base_dir, c_id)
+        base_dir = '/'.join([data_base_dir, c_id])
         setup_n_nodes_base( c_id, nursery_nodes[c_id], False, base_dir,
                             node_msg_base_port + 3*i, node_client_base_port+3*i)
         clu = _getCluster(c_id)
@@ -1056,18 +1057,9 @@ def assert_last_i_in_sync ( node_1, node_2 ):
         pass
 
 
-def check_output(args):
-    process = subprocess.Popen(args, stdout=subprocess.PIPE)
-    output, unused_err = process.communicate()
-    retcode = process.poll()
-    if retcode:
-        cmd = args[0]
-        raise subprocess.CalledProcessError(retcode, cmd)
-    return output
-
 def assert_running_nodes ( n ):
     try:
-        count = int(check_output(['pgrep', '-c', daemon_name]))
+        count = int(X.subprocess.check_output(['pgrep', '-c', daemon_name]))
     except subprocess.CalledProcessError:
         count = 0
 
@@ -1086,20 +1078,16 @@ def assert_list ( format_str, start_suffix, list_size, list ) :
         elem = format_str % (start_suffix + i)
         assert_equals ( elem , list [i] )
 
-def run_cmd (cmd, display_output = True) :
-    q.system.process.execute( cmd, outputToStdout = display_output )
-
 def dir_to_fs_file_name (dir_name):
     return dir_name.replace( "/", "_")
 
 def destroy_ram_fs( node_index ) :
     (mount_target,log_dir,tlf_dir,head_dir) = build_node_dir_names( node_names[node_index] )
-
-    try :
-        cmd = "sudo /bin/umount %s" % mount_target
-        run_cmd ( cmd )
-    except :
-        pass
+    if os.path.isdir(mount_target) and os.path.ismount(mount_target):
+        cmd = ["sudo", "/bin/umount", mount_target]
+        (rc,out,err) = X.run(cmd)
+        if rc:
+            raise Exception("cmd:%s failed (%s,%s,%s)" % (str(cmd), rc,out,err))
 
 def delayed_master_restart_loop ( iter_cnt, delay ) :
     for i in range( iter_cnt ):

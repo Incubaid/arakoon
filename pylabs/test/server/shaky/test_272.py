@@ -37,9 +37,9 @@ def test_272():
     """
     node = Common.node_names[0]
     cluster = Common._getCluster()
-    path = '%s.cfg' % cluster._getConfigFilePath()
+    path = cluster._getConfigFileName() + ".cfg"
     logging.info('path=%s', path)
-    bench = subprocess.Popen([Common.binary_full_path, '-config', path ,'--benchmark',
+    bench = subprocess.Popen([Common.CONFIG.binary_full_path, '-config', path ,'--benchmark',
                               '-max_n', '100000'])
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode

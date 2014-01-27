@@ -36,7 +36,7 @@ from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
-    path = "%s/arakoon/bin/arakoon" % (X.appDir )
+    path = '/'.join([X.appDir,"arakoon/bin/arakoon"])
     if X.fileExists(path):
         return path
     else:
@@ -54,7 +54,7 @@ class ArakoonManagement:
         """
         Returns a list with the existing clusters.
         """
-        fn = '%s/%s' % (X.cfgDir, "arakoonclusters")
+        fn = '/'.join ([X.cfgDir, "arakoonclusters"])
         config = X.getConfig(fn)
         return config.sections()
 
@@ -80,19 +80,26 @@ class ArakoonManagement:
 
 class ArakoonCluster:
 
-    def __init__(self, clusterId):
-        self.__validateName(clusterId)
-        self._clusterId = clusterId
+    def __init__(self, clusterName):
+        self.__validateName(clusterName) 
+        """
+        There's a difference between the clusterId and the cluster's name.
+        The name is used to construct the path to find the config file.
+        the id is what's inside the cfg file and 
+               what you need to provide to a client that want's to talk to the cluster.
+        """
+        self._clusterName = clusterName
         self._binary = which_arakoon()
-        self._arakoonDir = "%s/arakoon/" % (X.cfgDir,)
-        self._clustersFNH = '%s/%s' % (X.cfgDir, 'arakoonclusters')
+        self._arakoonDir = '/'.join([X.cfgDir, "arakoon"])
+        self._clustersFNH = '/'.join([X.cfgDir, 'arakoonclusters'])
+
         clusterConfig = X.getConfig(self._clustersFNH)
 
-        if not clusterConfig.has_section(self._clusterId):
+        if not clusterConfig.has_section(self._clusterName):
 
-            clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", clusterId])
-            clusterConfig.add_section(clusterId)
-            clusterConfig.set(clusterId, "path", clusterPath)
+            clusterPath = '/'.join([X.cfgDir,"qconfig", "arakoon", clusterName])
+            clusterConfig.add_section(clusterName)
+            clusterConfig.set(clusterName, "path", clusterPath)
 
             if not X.fileExists(self._arakoonDir):
                 X.createDir(self._arakoonDir)
@@ -100,20 +107,20 @@ class ArakoonCluster:
             if not X.fileExists(clusterPath):
                 X.createDir(clusterPath)
             X.writeConfig(clusterConfig, self._clustersFNH)
-        self._clusterPath = clusterConfig.get(clusterId, "path" )
+        self._clusterPath = clusterConfig.get(clusterName, "path" )
 
     def _servernodes(self):
-        return '%s_local_nodes' % self._clusterId
+        return '%s_local_nodes' % self._clusterName
 
     def __repr__(self):
-        return "<ArakoonCluster:%s>" % self._clusterId
+        return "<ArakoonCluster:%s>" % self._clusterName
 
     def _getConfigFileName(self):
         p = X.getConfig(self._clustersFNH)
-        if not p.has_section(self._clusterId):
-            raise Exception("%s not present in %s" % (self._clusterId, self._clustersFNH))
-        cfgDir = p.get( self._clusterId, "path", False)
-        cfgFile = '/'.join([cfgDir, self._clusterId])
+        if not p.has_section(self._clusterName):
+            raise Exception("%s not present in %s" % (self._clusterName, self._clustersFNH))
+        cfgDir = p.get( self._clusterName, "path", False)
+        cfgFile = '/'.join([cfgDir, self._clusterName])
         return cfgFile
 
     def _getConfigFile(self):
@@ -121,7 +128,7 @@ class ArakoonCluster:
         return X.getConfig(h)
 
     def _getClusterId(self):
-        clusterId = self._clusterId
+        clusterId = self._clusterName
         try:
             config = self._getConfigFile()
             clusterId = config.get("global", "cluster_id")
@@ -258,11 +265,11 @@ class ArakoonCluster:
             config.set(name, "wrapper", wrapper)
 
         if logDir is None:
-            logDir = '/'.join([X.logDir, self._clusterId, name])
+            logDir = '/'.join([X.logDir, self._clusterName, name])
         config.set(name, "log_dir", logDir)
 
         if home is None:
-            home = '/'.join([X.varDir, "db", self._clusterId, name])
+            home = '/'.join([X.varDir, "db", self._clusterName, name])
         config.set(name, "home", home)
 
         if tlogDir:
@@ -360,7 +367,7 @@ class ArakoonCluster:
 
             self.__validateName(name)
             if not name in nodes:
-                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterId) )
+                raise Exception("No node with name %s configured in cluster %s" % (name,self._clusterName) )
             config.set(g,m,name)
             if preferred:
                 config.set(g,pm,'true')
@@ -468,9 +475,11 @@ class ArakoonCluster:
 
         for n in nodes:
             if collapseSlowdown:
-                config.addParam(n, "collapse_slowdown", collapseSlowdown)
+                config.set(n, "collapse_slowdown", collapseSlowdown)
             else:
-                config.removeParam(n, "collapse_slowdown")
+                config.remove_option(n, "collapse_slowdown")
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)
 
     def _setTlogCompression(self,nodes, compressor):
         if nodes is None:
@@ -780,7 +789,7 @@ class ArakoonCluster:
 
     def getClient(self):
         config = self.getClientConfig()
-        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterId, config))
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterName, config))
         return client
 
     def listNodes(self):
@@ -948,7 +957,7 @@ class ArakoonCluster:
         @param numberOfNodes the number of nodes in the environment
         @return the dict that can be used as a param for the ArakoonConfig object
         """
-        cid = self._clusterId
+        cid = self._clusterName
         clientPort = basePort
         messagingPort = basePort + 1
         for i in range(0, numberOfNodes):
@@ -992,13 +1001,13 @@ class ArakoonCluster:
     def remove(self):
         clients_fn = "%s/%s" % (X.cfgDir, "arakoonclients")
         clientConf = X.getConfig(clients_fn)
-        clientConf.remove_section(self._clusterId)
+        clientConf.remove_section(self._clusterName)
         X.writeConfig(clientConf,clients_fn)
 
         fn = self._clustersFNH 
         clusterConf = X.getConfig(fn)
-        clusterConf.remove_section(self._clusterId)
-        X.writeConfig(clientConf, fn)
+        clusterConf.remove_section(self._clusterName)
+        X.writeConfig(clusterConf, fn)
 
         X.removeDirTree(self._clusterPath)
 
@@ -1122,7 +1131,7 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         cmd = [self._binary,
                '-config',
-               '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+               '%s/%s.cfg' % (self._clusterPath, self._clusterName),
                '--node',
                nodeName,
                '-catchup-only']
@@ -1254,7 +1263,7 @@ class ArakoonCluster:
 
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
-              '%s/%s.cfg' % (self._clusterPath, self._clusterId),
+              '%s/%s.cfg' % (self._clusterPath, self._clusterName),
               '-start']
         return r
 
@@ -1554,7 +1563,7 @@ class ArakoonCluster:
         folder and places a copy at the destination provided at the beginning
         """
         nodes_list = self.listNodes()
-        archive_name = self._clusterId + "_cluster_details"
+        archive_name = self._clusterName + "_cluster_details"
         archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , archive_name)
 
         cfs = q.cloud.system.fs
@@ -1602,8 +1611,8 @@ class ArakoonCluster:
                         cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
 
 
-            clusterId = self._clusterId + '.cfg'
-            clusterNodes = self._clusterId + '_local_nodes.cfg'
+            clusterId = self._clusterName + '.cfg'
+            clusterNodes = self._clusterName + '_local_nodes.cfg'
 
             clusterPath = '/'.join(self._clusterPath, clusterId)
             q.cloud.system.fs.copyFile(source_path + clusterPath, 'file://' + node_folder)
@@ -1636,7 +1645,7 @@ class ArakoonCluster:
         config = self._getConfigFile()
 
         if clusterId is None:
-            config.removeSection("nursery")
+            config.remove_section("nursery")
             return
 
         cliCfg = q.clients.arakoon.getClientConfig(clusterId)
@@ -1645,11 +1654,13 @@ class ArakoonCluster:
         if len(nurseryNodes) == 0:
             raise RuntimeError("A valid client configuration is required for cluster '%s'" % (clusterId) )
 
-        config.addSection("nursery")
-        config.addParam("nursery", "cluster_id", clusterId)
-        config.addParam("nursery", "cluster", ",".join( nurseryNodes.keys() ))
+        config.add_section("nursery")
+        config.set("nursery", "cluster_id", clusterId)
+        config.set("nursery", "cluster", ",".join( nurseryNodes.keys() ))
 
         for (id,(ip,port)) in nurseryNodes.iteritems() :
-            config.addSection(id)
-            config.addParam(id,"ip",ip)
-            config.addParam(id,"client_port",port)
+            config.add_section(id)
+            config.set(id,"ip",ip)
+            config.set(id,"client_port",port)
+        fn = self._getConfigFileName()
+        X.writeConfig(config,fn)

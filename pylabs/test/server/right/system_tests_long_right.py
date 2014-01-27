@@ -485,6 +485,7 @@ def test_sabotage():
     node_cfg = clu.getNodeConfig(node_id)
     node_home_dir = node_cfg ['home']
     node_tlf_dir = node_cfg ['tlf_dir']
+    logging.debug("node_tlf_dir=%s", node_tlf_dir)
     files = map(lambda x : "%s/%s" % (node_home_dir, x),
                 [ "002.tlog",
                   "%s.db" % (node_id,),

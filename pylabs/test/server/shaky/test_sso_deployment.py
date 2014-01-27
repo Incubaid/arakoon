@@ -30,10 +30,7 @@ from nose.tools import *
 import os
 import random
 from threading import Thread, Condition
-
-def _getCluster():
-    q = Common.q # resistance is futile
-    return q.manage.arakoon.getCluster(Common.cluster_id)
+from Compat import X
 
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
@@ -57,7 +54,7 @@ def test_sso_deployment():
                                 startSuffix = 2000000  )
 
     Common.add_node( 1 )
-    cl = _getCluster()
+    cl = Common._getCluster()
     cl.setLogLevel("debug")
 
     Common.regenerateClientConfig(Common.cluster_id)
@@ -70,7 +67,7 @@ def test_sso_deployment():
     Common.create_and_wait_for_thread_list ( [ large_write_loop ] )
 
     Common.add_node( 2 )
-    cl = _getCluster()
+    cl = Common._getCluster()
     cl.setLogLevel("debug")
     cl.forceMaster(None )
     logging.info("2 node config without forced master")

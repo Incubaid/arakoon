@@ -27,52 +27,44 @@ from .. import system_tests_common
 from arakoon.ArakoonExceptions import *
 import arakoon
 import nose.tools as NT
-
+from Compat import X
 import logging
 import time
 import sys
+import os
 
+CONFIG = Common.CONFIG
 def mount_ram_fs ( node_index ) :
 
     (mount_target,log_dir,tlf_dir,head_dir) = Common.build_node_dir_names( Common.node_names[node_index] )
-    fs = q.system.fs
-    if fs.exists( mount_target ) :
-        try:
-            Common.stopOne( Common.node_names[node_index] )
-        except:
-            pass
-        try :
-            cmd = "umount %s" % mount_target
-            Common.run_cmd ( cmd )
-        except :
-            pass
-        fs.removeDirTree( mount_target )
-
-    fs.createDir ( mount_target )
-
-    if not fs.isDir( mount_target ) :
-        raise Exception( "%s is not valid mount target as it is not a directory")
-    try :
-        cmd = "sudo /bin/mount -t tmpfs -o size=20m tmpfs %s" % mount_target
-        Common.run_cmd ( cmd )
-
-    except Exception, ex :
-        logging.error( "Caught exception: %s" , ex )
+    if X.fileExists( mount_target ) :
         Common.stopOne( Common.node_names[node_index] )
-        destroy_ram_fs ( node_index )
+        cmd = ["umount", mount_target]
+        X.subprocess.check_call ( cmd )
+        X.removeDirTree( mount_target )
 
+    X.createDir ( mount_target )
+
+    if not os.path.isdir( mount_target ) :
+        raise Exception( "%s is not valid mount target as it is not a directory")
+
+    cmd = ["sudo", "mount", "-t", "tmpfs","-o","size=20m","tmpfs", mount_target]
+    (rc,out,err) = X.run(cmd)
+    if rc:
+        logging.info("out=%s", out)
+        logging.info("err = %s", err)
+        raise Exception("Mounting failed (rc=%s)" % rc)
+    
 
 def setup_3_nodes_ram_fs ( home_dir ):
-    cfg_list = q.config.list()
-
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     cluster.remove()
 
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
 
     logging.info( "Creating data base dir %s" % home_dir )
 
-    q.system.fs.createDir ( home_dir )
+    X.createDir ( home_dir )
 
     try :
         for i in range( len(Common.node_names) ):
@@ -97,7 +89,7 @@ def setup_3_nodes_ram_fs ( home_dir ):
 
     logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
-    cluster.setMasterLease(int(Common.lease_duration))
+    cluster.setMasterLease(int(CONFIG.lease_duration))
 
     logging.info( "Creating client config" )
     Common.regenerateClientConfig(Common.cluster_id)
@@ -111,23 +103,23 @@ def teardown_ram_fs ( removeDirs ):
 
     # Copy over log files
     if not removeDirs:
-        destination = q.dirs.tmpDir + Common.data_base_dir [1:]
-        if q.system.fs.exists( destination ):
-            q.system.fs.removeDirTree( destination )
-        q.system.fs.createDir(destination)
-        q.system.fs.copyDirTree( system_tests_common.data_base_dir, destination)
+        destination = X.tmpDir + Common.data_base_dir [1:]
+        if os.path.isdir( destination ):
+            X.removeDirTree( destination )
+        X.createDir(destination)
+        X.copyDirTree( system_tests_common.data_base_dir, destination)
 
     for i in range ( len( Common.node_names ) ):
         Common.destroy_ram_fs( i )
 
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(CONFIG.cluster_id)
     cluster.tearDown()
 
 
 def fill_disk ( file_to_write ) :
-    cmd = "dd if=/dev/zero of=%s bs=1M" % file_to_write
+    cmd = ["dd", "if=/dev/zero","of=%s" % file_to_write, "bs=1M"]
     try :
-        Common.run_cmd ( cmd )
+        X.subprocess.call(cmd)
     except Exception, ex:
         logging.error( "Caught exception => %s: %s", ex.__class__.__name__, ex )
 
@@ -165,10 +157,9 @@ COMMIT
 COMMIT
 # Completed on Wed Dec 11 13:20:53 2013
     """
-    rules_file = q.system.fs.joinPaths( q.dirs.tmpDir, "iptables-rules-save")
-    cmd = "sudo /sbin/iptables-save > %s" % rules_file
-    Common.run_cmd( cmd )
-    blob = q.system.fs.fileGetContents( rules_file )
+    rules_file = '/'.join([X.tmpDir, "iptables-rules-save"])
+    cmd = ["sudo","/sbin/iptables-save"]
+    blob = X.subprocess.check_output(cmd)
     contents = blob.split("\n")
     chain = "---"
     all = {}
@@ -198,9 +189,12 @@ def apply_iptables_rules ( rules ) :
     flush_all_rules()
     for table in rules.keys():
         for line in rules[table]:
-            cmd = "sudo /sbin/iptables -t %s %s" % (table, line)
+            cmd = "sudo /sbin/iptables -t %s %s" %(table,line) 
+            logging.info ("cmd = %s", cmd)
+            cmd = cmd.strip()
+            cmd = cmd.split(' ')
             logging.info("cmd=%s", cmd)
-            Common.run_cmd( cmd, False )
+            X.subprocess.check_call(cmd)
 
 
 def block_tcp_port ( tcp_port ):
@@ -234,10 +228,10 @@ def test_disk_full_on_slave ():
 
 
 def disk_full_scenario( node_id, cli ):
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(CONFIG.cluster_id)
     node_home = cluster.getNodeConfig(node_id ) ['home']
 
-    disk_filling = q.system.fs.joinPaths( node_home , "filling")
+    disk_filling = '/'.join([node_home , "filling"])
     disk_filler = lambda: fill_disk ( disk_filling )
     set_loop = lambda: Common.iterate_n_times( 500, Common.simple_set, 500 )
     set_get_delete_loop = lambda: Common.iterate_n_times(10000,
@@ -253,12 +247,12 @@ def disk_full_scenario( node_id, cli ):
     except Exception, ex:
         logging.error( "Caught exception when disk was full => %s: %s", ex.__class__.__name__, ex )
 
-    q.system.fs.unlink( disk_filling )
+    os.remove( disk_filling )
     cli.dropConnections()
 
     # Make sure the node with a full disk is no longer running
     NT.assert_equals( cluster.getStatusOne(node_id),
-                      q.enumerators.AppStatusType.HALTED,
+                      X.AppStatusType.HALTED,
                       'Node with full disk is still running')
     time.sleep( 2* Common.lease_duration )
 
@@ -331,13 +325,11 @@ def get_node_block_rules( node_id ):
     return node_block_rules
 
 def get_node_ports ( node_id ):
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     node_pid = cluster._getPid(node_id)
     cmd = "netstat -natp | grep %s\/arakoon | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid
-    (exitcode,stdout,stderr) = q.system.process.run( cmd )
+    stdout = X.subprocess.check_output([cmd], shell = True )
     print stdout
-    print stderr
-    NT.assert_equals( exitcode, 0, "Could not determine node ports for %s" % node_id )
     port_list = stdout.strip().split("\n")
 
     return port_list
@@ -393,8 +385,8 @@ def iterate_block_unblock_master ( ):
     iterate_block_unblock_nodes ( 60, [ master_id ] )
 
 def flush_all_rules() :
-    cmd = "sudo /sbin/iptables -F"
-    Common.run_cmd( cmd, False )
+    cmd = ["sudo","/sbin/iptables","-F"]
+    X.subprocess.call(cmd)
 
 def iptables_teardown( removeDirs ) :
     flush_all_rules ()
@@ -429,7 +421,6 @@ def test_block_single_slave_ports_loop () :
 @Common.with_custom_setup(Common.setup_3_nodes,
                           iptables_teardown )
 def test_block_master_ports () :
-    global cluster_id
 
     def validate_reelection( old_master_id) :
 
@@ -440,7 +431,7 @@ def test_block_master_ports () :
         # Kick out old master out of config, he is unaware of who is master
         cli_cfg_no_master.pop(old_master_id)
         new_cli = arakoon.Arakoon.ArakoonClient(
-            arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id,
+            arakoon.Arakoon.ArakoonClientConfig(CONFIG.cluster_id,
                                                 cli_cfg_no_master) )
 
         new_master_id = new_cli.whoMaster()
@@ -453,7 +444,7 @@ def test_block_master_ports () :
             if key == old_master_id :
                 cli_cfg_only_master [ key ] = cli._config.getNodeLocations( key  )
         new_cli = arakoon.Arakoon.ArakoonClient(
-            arakoon.Arakoon.ArakoonClientConfig(Common.cluster_id,
+            arakoon.Arakoon.ArakoonClientConfig(CONFIG.cluster_id,
                                                 cli_cfg_only_master ) )
         NT.assert_raises( ArakoonNoMaster, new_cli.whoMaster )
         new_cli.dropConnections()
@@ -464,7 +455,7 @@ def test_block_master_ports () :
     old_master_id = cli.whoMaster()
 
     master_ports = get_node_ports( old_master_id )
-    cluster = q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     master_client_port = cluster.getNodeConfig(old_master_id ) ["client_port"]
     master_ports.remove( master_client_port )
     block_rules = []

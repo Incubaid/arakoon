@@ -417,10 +417,8 @@ def test_restart_single_slave_short_2 ():
 
 def test_daemon_version () :
     cmd = [CONFIG.binary_full_path,"--version" ]
-    print cmd
     stdout = subprocess.check_output(cmd)
     logging.debug( "STDOUT: \n%s" % stdout )
-    assert_equals( exit, 0 )
     version = stdout.split('"') [1]
     assert_not_equals( "000000000000", version, "Invalid version 000000000000" )
     local_mods = version.find ("+")

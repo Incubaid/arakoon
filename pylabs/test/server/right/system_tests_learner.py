@@ -24,12 +24,13 @@ from .. import system_tests_common as Common
 from nose.tools import assert_true
 import time
 import logging
+from Compat import X
 
 @Common.with_custom_setup(Common.setup_2_nodes, Common.basic_teardown)
 def test_learner():
     op_count = 54321
     Common.iterate_n_times(op_count, Common.simple_set)
-    cluster = Common.q.manage.arakoon.getCluster(Common.cluster_id)
+    cluster = Common._getCluster(Common.cluster_id)
     logging.info("adding learner")
     name = Common.node_names[2]
     (db_dir, log_dir, tlf_dir, head_dir) = Common.build_node_dir_names(name)
@@ -44,6 +45,8 @@ def test_learner():
                     home = db_dir,
                     isLearner = True,
                     targets = [Common.node_names[0]])
+    cfg = cluster._getConfigFile()
+    logging.info("cfg=%s", X.cfg2str(cfg))
     cluster.disableFsync([name])
     cluster.addLocalNode(name)
     cluster.createDirs(name)
