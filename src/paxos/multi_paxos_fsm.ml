@@ -33,29 +33,6 @@ open Multi_paxos
 open Master_type
 
 
-(* a forced master always suggests himself *)
-let forced_master_suggest constants (n,i) () =
-  let me = constants.me in
-  let n' = update_n constants n in
-  mcast constants (Prepare (n',i)) >>= fun () ->
-  start_election_timeout constants n i >>= fun () ->
-  Logger.debug_f_ "%s: forced_master_suggest: suggesting n=%s" me (Sn.string_of n') >>= fun () ->
-  let tlog_coll = constants.tlog_coll in
-  let l_val = tlog_coll # get_last_value i in
-
-  let v_lims =
-    begin
-      match l_val with
-        | None -> (1,[])
-        | Some v ->(0, [v,1])
-    end
-  in
-  let who_voted = [me] in
-
-  let i_lim = Some (me,i) in
-  let state = (n', i, who_voted, v_lims, i_lim, [], 0) in
-  Fsm.return (Promises_check_done state)
-
 (* in case of election, everybody suggests himself *)
 let election_suggest (type s) constants (n, counter) () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
@@ -134,7 +111,7 @@ let promises_check_done constants state () =
       then
         begin
           Logger.warning_f_ "%s: promises_check_done: split vote, going to forced_master_suggest" me >>= fun () ->
-          Fsm.return (Forced_master_suggest (n,i))
+          Fsm.return (Election_suggest (n, 0))
         end
       else
       if is_election constants
@@ -234,7 +211,7 @@ let wait_for_promises (type s) constants state event =
                   begin
                     Logger.debug_f_ "%s: wait_for_promises; forcing new master suggest" me >>= fun () ->
                     let n3 = update_n constants (max n n'') in
-                    Fsm.return (Forced_master_suggest (n3,i))
+                    Fsm.return (Election_suggest (n3,0))
                   end
                 else
                   (* if is_election constants
@@ -260,7 +237,7 @@ let wait_for_promises (type s) constants state event =
                     let reply = Nak (n', (n,i))  in
                     constants.send reply me source >>= fun () ->
                     let new_n = update_n constants n' in
-                    Fsm.return (Forced_master_suggest (new_n, i))
+                    Fsm.return (Election_suggest (new_n, 0))
                   end
                 else
 
@@ -467,7 +444,7 @@ let wait_for_accepteds
                     begin
                       lost_master_role mo >>= fun () ->
                       Multi_paxos.safe_wakeup_all () lew >>= fun () ->
-                      Fsm.return (Forced_master_suggest (n',i))
+                      Fsm.return (Election_suggest (n', 0))
                     end
                 else
                   begin
@@ -601,9 +578,6 @@ let machine constants =
   let node_and_timeout = [Node; Election_timeout] in
   let node_and_inject_and_timeout = [Node; Inject; Election_timeout] in
   function
-    | Forced_master_suggest state ->
-      (Unit_arg (forced_master_suggest constants state), nop)
-
     | Slave_fake_prepare i ->
       (Unit_arg (Slave.slave_fake_prepare constants i), nop)
     | Slave_steady_state state ->
@@ -803,7 +777,7 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i =
          (_execute_effects constants)
          produce
          (machine constants)
-         (forced_master_suggest constants (current_n,current_i))
+         (election_suggest constants (current_n, 0))
     )
     (fun e ->
        Logger.debug_f_ "%s: FSM BAILED due to uncaught exception %s" me (Printexc.to_string e)
@@ -890,7 +864,7 @@ let expect_run_forced_master constants buffers expected step_count current_n cur
          (_execute_effects constants)
          expected step_count Start_transition produce
          (machine constants)
-         (forced_master_suggest constants (current_n,current_i))
+         (election_suggest constants (current_n, 0))
     )
     (fun e ->
        Logger.debug_f_ "%s: FSM BAILED due to uncaught exception %s" constants.me (Printexc.to_string e)

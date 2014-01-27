@@ -42,9 +42,6 @@ type transitions =
   (* dummy to always have a previous transition *)
   | Start_transition
 
-  (* forced master only *)
-  | Forced_master_suggest of (n * i)
-
   (* election only *)
   | Election_suggest of (n * int)
 
@@ -76,7 +73,6 @@ type transitions =
 (* utility functions *)
 let show_transition = function
   | Start_transition -> "Start_transition"
-  | Forced_master_suggest _ -> "Forced_master_suggest"
   | Election_suggest _ -> "Election_suggest"
   | Slave_fake_prepare _ -> "Slave_fake_prepare"
   | Slave_steady_state _ -> "Slave_steady_state"
