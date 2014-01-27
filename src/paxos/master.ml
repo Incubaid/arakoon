@@ -112,7 +112,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                 in
                 Fsm.return ~sides:[log_e] (Stable_master current_state)
             end
-          else
+          else (* if is_empty lease_expire_waiters *)
             let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
             let v = Value.create_master_value (me,0.0) in
             let ms = {mo = None; v;n;i = new_i;lew = []} in
