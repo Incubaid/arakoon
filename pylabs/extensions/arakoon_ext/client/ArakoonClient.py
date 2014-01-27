@@ -169,25 +169,25 @@ class ArakoonClient:
     Arakoon client management
     """
     @staticmethod
-    def _getClientConfig(clusterId, configName = None):
+    def _getClientConfig(clusterName, configName = None):
         """
         Gets an Arakoon client object for an existing cluster
-        @type clusterId: string
-        @param clusterId: the name of the cluster for which you want to get a client
+        @type clusterName: string
+        @param clusterName: the name of the cluster for which you want to get a client
         @return arakoon client object
         """
         clientConfig = X.getConfig('/'.join ([X.cfgDir,"arakoonclients"]))
-        if not clientConfig.has_section(clusterId):
-            X.raiseError("No such client configured for cluster [%s]" % clusterId)
+        if not clientConfig.has_section(clusterName):
+            X.raiseError("No such client configured for cluster [%s]" % clusterName)
         else:
             node_dict = {}
-            clientCfg = ArakoonClient._getConfig(clusterId, configName)
+            clientCfg = ArakoonClient._getConfig(clusterName, configName)
             cfgFile = X.getConfig( clientCfg )
             if not cfgFile.has_section("global") :
                 if configName is not None:
-                    msg = "Named client '%s' for cluster '%s' does not exist" % (configName, clusterId)
+                    msg = "Named client '%s' for cluster '%s' does not exist" % (configName, clusterName)
                 else :
-                    msg = "No client available for cluster '%s'" % clusterId
+                    msg = "No client available for cluster '%s'" % clusterName
                 X.raiseError(msg )
             clusterParam = cfgFile.get("global", "cluster")
             for node in clusterParam.split(",") :
@@ -197,11 +197,11 @@ class ArakoonClient:
                 port = cfgFile.get(node, "client_port")
                 ip_port = (ip_list, port)
                 node_dict.update({node: ip_port})
-            config = ArakoonClientConfig(clusterId, node_dict)
+            config = ArakoonClientConfig(clusterName, node_dict)
             return config
 
-    def getClient(self, clusterId, configName=None):
-        config = self._getClientConfig(clusterId, configName)
+    def getClient(self, clusterName, configName=None):
+        config = self._getClientConfig(clusterName, configName)
         return Arakoon.ArakoonClient(config)
 
     def listClients(self):
@@ -211,47 +211,47 @@ class ArakoonClient:
         config = X.getConfig("arakoonclients")
         return config.sections() 
 
-    def getClientConfig (self, clusterId, configName = None):
+    def getClientConfig (self, clusterName, configName = None):
         """
         Adds an Arakoon client to the configuration.
-        @type clusterId: string
-        @param clusterId: the name of the cluster for which you want to add a client
+        @type clusterName: string
+        @param clusterName: the name of the cluster for which you want to add a client
         @type configName: optional string
         @param configName: the name of the client configuration for this cluster
         """
         fn = '/'.join([X.cfgDir, 'arakoonclients'])
         p = X.getConfig(fn)
-        if not p.has_section(clusterId):
-            p.add_section(clusterId)
-            cfgDir = '/'.join([X.cfgDir, "qconfig", "arakoon", clusterId])
-            p.set(clusterId, "path", cfgDir)
+        if not p.has_section(clusterName):
+            p.add_section(clusterName)
+            cfgDir = '/'.join([X.cfgDir, "qconfig", "arakoon", clusterName])
+            p.set(clusterName, "path", cfgDir)
             X.writeConfig(p, fn)
         
-        cfgFile = self._getConfig(clusterId, configName)
-        return ArakoonClientExtConfig(clusterId, cfgFile)
+        cfgFile = self._getConfig(clusterName, configName)
+        return ArakoonClientExtConfig(clusterName, cfgFile)
         
     @staticmethod
-    def _getConfig(clusterId, configName):
+    def _getConfig(clusterName, configName):
         fn = '/'.join([X.cfgDir, 'arakoonclients'])
         p = X.getConfig(fn)
-        clusterDir = p.get(clusterId, "path")
+        clusterDir = p.get(clusterName, "path")
         last = None
         if configName is None:
-            last = "%s_client" % clusterId
+            last = "%s_client" % clusterName
         else:
-            last = "%s_client_%s" % (clusterId, configName)
+            last = "%s_client_%s" % (clusterName, configName)
 
         return '/'.join([clusterDir, last])
 
 
         clientsCfg = X.getConfig( "arakoonclients")
-        clusterDir = clientsCfg.get(clusterId,"path")
+        clusterDir = clientsCfg.get(clusterName, "path")
         if configName is None:
-            return '/'.join([clusterDir, "%s_client" % clusterId])
+            return '/'.join([clusterDir, "%s_client" % clusterName])
         else:
-            return '/'.join( clusterDir, "%s_client_%s" % (clusterId, configName))
+            return '/'.join( clusterDir, "%s_client_%s" % (clusterName, configName))
 
 class NurseryClient:
-    def getClient(self, cluster_id):
-        cfg = ArakoonClient._getClientConfig( cluster_id, None )
+    def getClient(self, clusterName):
+        cfg = ArakoonClient._getClientConfig( clusterName, None )
         return Nursery.NurseryClient(cfg)

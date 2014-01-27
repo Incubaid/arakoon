@@ -330,7 +330,6 @@ class ArakoonCluster:
         Set the master lease duration in the supplied cluster
 
         @param duration The duration of the master lease in seconds
-        @param clusterId the id of the arakoon cluster
         """
         section = "global"
         key = "lease_period"
@@ -1087,7 +1086,6 @@ class ArakoonCluster:
         """
         Restart all nodes in the supplied cluster
 
-        @param clusterId the arakoon cluster name
         """
         rcs = {}
 
