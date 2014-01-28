@@ -25,6 +25,7 @@ from Compat import X
 from .. import system_tests_common as C
 from nose.tools import *
 import os
+import logging
 
 class TestConfig:
     def __init__(self):
@@ -462,3 +463,34 @@ class TestConfig:
         assert_equals(cluster.listLocalNodes(), names)
 
 
+    def testNameDiffersFromId(self):
+        name = self._clusterId
+        id_inside = "id_inside"
+        cluster = C._getCluster(name)
+        cfg_name = cluster._getConfigFileName()
+        logging.debug("cfg_name = %s", cfg_name)
+        #/opt/qbase3/cfg//qconfig/arakoon/cluster_name
+        ok = cfg_name.endswith(name)
+        assert_true(ok)
+        cluster.addNode('node_0')
+
+        cfg = X.getConfig(cfg_name)
+        logging.debug("cfg = %s", X.cfg2str(cfg))        
+        id0 = cfg.get('global', 'cluster_id')
+        assert_equals(id0, name)
+        # now set it to id
+        cfg.set('global', 'cluster_id',id_inside)
+        X.writeConfig(cfg,cfg_name)
+        logging.debug('cfg_after = %s', X.cfg2str(cfg))
+
+        cluster = C._getCluster(name)
+        #ccfg = cluster.getClientConfig()
+        #print ccfg
+
+        client = cluster.getClient()
+        ccfg2 = client._config
+        logging.debug("ccfg2=%s", ccfg2)
+        ccfg_id = ccfg2.getClusterId()
+
+        assert_equals(ccfg_id, id_inside)
+        

@@ -114,8 +114,8 @@ class ArakoonClientConfig :
 
         return nodes
     def __str__(self):
-        r = "ArakoonClientConfig(%s,%s)" % (self._clusterId,
-                                            str(self._nodes))
+        r = "ArakoonClientConfig('%s', %s)" % (self._clusterId,
+                                               str(self._nodes))
         return r
 
     @staticmethod

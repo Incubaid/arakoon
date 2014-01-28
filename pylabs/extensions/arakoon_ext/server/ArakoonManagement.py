@@ -773,7 +773,8 @@ class ArakoonCluster:
 
     def getClient(self):
         config = self.getClientConfig()
-        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterName, config))
+        id = self._getClusterId()
+        client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(id, config))
         return client
 
     def listNodes(self):
