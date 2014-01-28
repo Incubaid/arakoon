@@ -59,52 +59,76 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
       let me = constants.me in
       if n' < n
       then
-	    begin
-          let log_e = ELog (fun () ->
-	        Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s"
-	          (Sn.string_of n') (Sn.string_of n))
+        begin
+          let log_e =
+            ELog (fun () ->
+                  Printf.sprintf "stable_master: ignoring old lease_expired with n:%s < n:%s"
+                                 (Sn.string_of n') (Sn.string_of n))
           in
-	      Fsm.return ~sides:[log_e] (Stable_master current_state)
-	    end
+          Fsm.return ~sides:[log_e] (Stable_master current_state)
+        end
       else
-	    begin
-	      let extend () =
-                if not (null lease_expire_waiters)
+        begin
+          let extend ls =
+            if not (null lease_expire_waiters)
+            then
+              begin
+
+                if (Unix.gettimeofday () -. ls) > 2.2 *. (float constants.lease_expiration)
                 then
+                  begin
+                    (* nobody is taking over, go to elections *)
+                    Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+                    let log_e =
+                      ELog (fun () ->
+                            "stable_master: half-lease_expired while doing drop-master but nobody taking over, go to election")
+                    in
+                    let new_n = update_n constants n in
+                    Fsm.return ~sides:[log_e] (Election_suggest (new_n, new_i, None))
+                  end
+                else
                   let log_e = ELog (fun () ->
-                    "stable_master: half-lease_expired, but not renewing lease")
+                                    "stable_master: half-lease_expired, but not renewing lease")
                   in
                   (* TODO Is this correct, to initiate handover? *)
                   Fsm.return ~sides:[log_e] (Stable_master current_state)
+              end
                 else
                   let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
                   let v = Value.create_master_value (me,0L) in
                   let ff = fun _ -> Lwt.return () in
-		    (* TODO: we need election timeout as well here *)
+                  (* TODO: we need election timeout as well here *)
                   let ms = {mo = [ff];
                             v;n;i = new_i;
                             lew = lease_expire_waiters;
                            }
                   in
                   Fsm.return ~sides:[log_e] (Master_dictate ms)
-              in
-	      match constants.master with
-	        | Preferred ps when not (List.mem me ps) ->
-                  let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
-                  (* Multiply with -1 to get a reverse-sorted list *)
-                  let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
-                  let (p, p_i) = List.hd slws in
-	          let diff = Sn.diff new_i p_i in
-	          if diff < (Sn.of_int 5)
-              then
-		        begin
-                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
-		          Fsm.return ~sides:[log_e] (Stable_master current_state)
-		        end
-	          else
-		        extend ()
-	        | _ -> extend()
-	    end
+          in
+          let extend () =
+            let module S = (val constants.store_module : Store.STORE with type t = s) in
+            match S.who_master constants.store with
+            | None ->
+               extend 0.0
+            | Some(_, ls) ->
+               extend (Int64.to_float ls) in
+          match constants.master with
+          | Preferred ps when not (List.mem me ps) ->
+             let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
+             (* Multiply with -1 to get a reverse-sorted list *)
+             let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
+             let (p, p_i) = List.hd slws in
+             let diff = Sn.diff new_i p_i in
+             if diff < (Sn.of_int 5)
+             then
+               begin
+                 let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
+                 Fsm.return ~sides:[log_e] (Stable_master current_state)
+               end
+             else
+               extend ()
+          | _ -> extend()
+        end
     | FromClient ufs ->
         begin
           let updates, finished_funs = List.split ufs in
