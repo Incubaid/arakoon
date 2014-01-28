@@ -182,6 +182,13 @@ struct
         | Some v -> v)
       (fun () -> S.get s.s k)
 
+  let get' s k =
+    _with_key_in_cache s k
+      (function
+        | None -> raise Not_found
+        | Some v -> Lwt.return v)
+      (fun () -> S.get' s.s k)
+
   let set s tx k v =
     _verify_tx s tx;
     _track_or_apply_vo s k (Some v)

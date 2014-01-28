@@ -59,6 +59,9 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
+let get' ms key =
+  Lwt.return (get ms key)
+
 let range ms prefix first finc last linc max =
   let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
   let p = String.length __prefix in

@@ -147,6 +147,12 @@ let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
 
+let get' ls key =
+  Lwt_preemptive.detach
+    (fun () ->
+     let bdb = Camltc.Hotc.get_bdb ls.db in
+     B.get bdb key) ()
+
 let range ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in

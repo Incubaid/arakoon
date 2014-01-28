@@ -79,6 +79,8 @@ module type Simple_store = sig
   val exists: t -> string -> bool
   val get: t -> string -> string
 
+  val get': t -> string -> string Lwt.t
+
   val range: t -> string -> string option -> bool -> string option -> bool ->
     int -> string array
   val range_entries: t -> string ->
@@ -272,8 +274,7 @@ struct
         | exn -> Lwt.fail exn)
 
   let get store key =
-    _wrap_exception store "GET" CorruptStore (fun () ->
-        Lwt.return (_get store key))
+    _wrap_exception store "GET" CorruptStore (fun () -> S.get' store.s (__prefix ^ key))
 
   let _set store tx key value =
     S.set store.s tx (__prefix ^ key) value
