@@ -686,7 +686,7 @@ class ArakoonCluster:
             if config.has_option(node, tls_key):
                 config.remove_option(node, tls_key)
 
-            X.writeConfig(config, fn)
+            self._saveConfig(config)
 
             return
 
