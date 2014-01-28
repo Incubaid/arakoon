@@ -197,7 +197,8 @@ class ArakoonClient:
                 port = cfgFile.get(node, "client_port")
                 ip_port = (ip_list, port)
                 node_dict.update({node: ip_port})
-            config = ArakoonClientConfig(clusterName, node_dict)
+            clusterId = cfgFile.get('global', 'cluster_id')
+            config = ArakoonClientConfig(clusterId, node_dict)
             return config
 
     def getClient(self, clusterName, configName=None):
