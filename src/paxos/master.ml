@@ -91,28 +91,42 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
     | LeaseExpired (ls) ->
       let me = constants.me in
       begin
-        let extend () =
+        let extend ls =
           if not (is_empty lease_expire_waiters)
           then
-            let log_e = ELog (fun () ->
-              "stable_master: half-lease_expired, but not renewing lease")
-            in
-            Fsm.return ~sides:[log_e] (Stable_master current_state)
-          else
+            begin
+              if (Unix.gettimeofday () -. ls) > 2.2 *. (float constants.lease_expiration)
+              then
+                begin
+                  (* nobody is taking over, go to elections *)
+                  Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
+                  let log_e = ELog (fun () ->
+                                    "stable_master: half-lease_expired while doing drop-master but nobody taking over, go to election")
+                  in
+                  let new_n = update_n constants n in
+                  Fsm.return ~sides:[log_e] (Election_suggest (new_n, 0))
+                end
+              else
+                let log_e = ELog (fun () ->
+                                  "stable_master: half-lease_expired while doing drop-master, so not renewing lease")
+                in
+                Fsm.return ~sides:[log_e] (Stable_master current_state)
+            end
+          else (* if is_empty lease_expire_waiters *)
             let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
             let v = Value.create_master_value (me,0.0) in
-            let ms = {mo = None; v;n;i = new_i;lew = lease_expire_waiters} in
+            let ms = {mo = None; v;n;i = new_i;lew = []} in
             Fsm.return ~sides:[log_e] (Master_dictate ms)
         in
         let maybe_extend () =
           begin
             match S.who_master constants.store with
             | None ->
-              extend ()
+              extend 0.0
             | Some (_, ls') ->
               if ls >= ls'
               then
-                extend ()
+                extend ls
               else
                 begin
                   let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
@@ -162,7 +176,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                   if n' > 0L
                   then
                     let new_n = update_n constants n' in
-                    Fsm.return (Forced_master_suggest (new_n,new_i))
+                    Fsm.return (Election_suggest (new_n, 0))
                   else
                     Fsm.return (Stable_master current_state )
                 end
