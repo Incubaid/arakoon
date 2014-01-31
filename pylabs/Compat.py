@@ -14,6 +14,10 @@ class Status:
     def __init__(self):
         pass
 
+from pyrakoon import compat
+
+global arakoon_client
+arakoon_client = compat
 
 """
 cluster_id = 'sturdy'
@@ -208,4 +212,6 @@ def which_compat():
     return r
 
 
+
 X = which_compat()
+X.arakoon_client = arakoon_client

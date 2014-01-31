@@ -31,6 +31,10 @@ import subprocess
 import signal
 import gzip
 import logging
+import os
+import random
+import threading
+import time
 
 from arakoon_ext.server import ArakoonManagement
 from arakoon_ext.client import ArakoonClient
@@ -91,18 +95,6 @@ class with_custom_setup ():
             if fatal_ex is not None:
                 raise fatal_ex
         return decorate
-
-
-import os
-import random
-import threading
-import time
-import arakoon.ArakoonProtocol
-import logging
-
-
-
-from arakoon.ArakoonExceptions import *
 
 
 data_base_dir = None
@@ -967,7 +959,7 @@ def set_get_and_delete( client, key, value):
     client.set( key, value )
     assert_equals( client.get(key), value )
     client.delete( key )
-    assert_raises ( ArakoonNotFound, client.get, key )
+    assert_raises ( X.arakoon_client.ArakoonNotFound, client.get, key )
 
 def generic_retrying_ ( client, f, is_valid_ex, duration = 5.0 ) :
     start = time.time()

@@ -21,10 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from .. import system_tests_common as C
-from arakoon.ArakoonExceptions import *
-from arakoon.ArakoonProtocol import ArakoonClientConfig, ARA_ERR_NOT_SUPPORTED
-from arakoon.Arakoon import ArakoonClient
-import arakoon
 import time
 import subprocess
 import logging
@@ -102,6 +98,7 @@ def test_max_value_size_tinkering ():
     client = C.get_client()
     client.set(key,value)
     cluster.stop()
+    logging.debug("set succeeded")
     cfg = cluster._getConfigFile()
     cfg.set("global", "__tainted_max_value_size", "1024")
     X.writeConfig(cfg, cluster._getConfigFileName())
@@ -109,7 +106,13 @@ def test_max_value_size_tinkering ():
     time.sleep(1.0)
     C.assert_running_nodes(1)
     client = C.get_client()
-    assert_raises (ArakoonException, client.set, key, value)
+    try:
+        client.set(key, value)
+        assert_true(False)
+    except Exception, e:
+        # with multiple clients, we have multiple ArakoonException hierarchies
+        assert_equals(e.__class__.__name__, 'ArakoonException')
+    
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
@@ -203,9 +206,8 @@ def test_aSSert_scenario_2():
 def test_aSSert_scenario_3():
     client = C.get_client()
     client.set('x','x')
-    ass = arakoon.ArakoonProtocol.Assert('x','x')
-    seq = arakoon.ArakoonProtocol.Sequence()
-    seq.addUpdate(ass)
+    seq = client.makeSequence()
+    seq.addAssert('x','x')
     client.sequence(seq)
 
 @C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
@@ -324,7 +326,7 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
             client.delete( key )
         except ArakoonNotFound:
             logging.error ( "Caught not found for key %s" % key )
-        assert_raises( ArakoonNotFound, client.get, key )
+        assert_raises( X.arakoon_client.ArakoonNotFound, client.get, key )
 
     client.dropConnections()
 
@@ -454,7 +456,7 @@ def sequence_scenario( start_suffix ):
 
     start_key = C.key_format_str % start_suffix
     end_key = C.key_format_str % ( start_suffix + iter_size - 1 )
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     for i in range( iter_size ) :
         k = C.key_format_str % (i+start_suffix)
         v = C.value_format_str % (i+start_suffix)
@@ -465,7 +467,7 @@ def sequence_scenario( start_suffix ):
     key_value_list = cli.range_entries( start_key, True, end_key, True )
     C.assert_key_value_list(start_suffix, iter_size , key_value_list )
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     for i in range( iter_size ) :
         k = C.key_format_str % (start_suffix + i)
         seq.addDelete(k)
@@ -481,7 +483,7 @@ def sequence_scenario( start_suffix ):
         seq.addSet(k, v)
 
     seq.addDelete( "non-existing" )
-    assert_raises( ArakoonNotFound, cli.sequence, seq )
+    assert_raises( X.arakoon_client.ArakoonNotFound, cli.sequence, seq )
     key_value_list = cli.range_entries( start_key, True, end_key, True )
     assert_equal( len(key_value_list), 0, "There are keys in the store, should not be the case" )
 
@@ -761,7 +763,7 @@ def test_statistics():
 
 
     key_list = list()
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
 
     for i in range(10) :
         key = "key_%d" % i

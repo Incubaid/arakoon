@@ -21,10 +21,13 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from Compat import X
-from arakoon import Arakoon 
-from arakoon.ArakoonProtocol import ArakoonClientConfig
-from arakoon import Nursery
 
+
+def make_client(config):
+    print X.arakoon_client
+    client = X.arakoon_client.ArakoonClient(config)
+    return client
+    
 class ArakoonClientExtConfig:
     """
     Configuration of Arakoon nodes
@@ -198,12 +201,13 @@ class ArakoonClient:
                 ip_port = (ip_list, port)
                 node_dict.update({node: ip_port})
             clusterId = cfgFile.get('global', 'cluster_id')
-            config = ArakoonClientConfig(clusterId, node_dict)
+            config = X.arakoon_client.ArakoonClientConfig(clusterId, node_dict)
             return config
 
     def getClient(self, clusterName, configName=None):
         config = self._getClientConfig(clusterName, configName)
-        return Arakoon.ArakoonClient(config)
+        client = make_client(config)
+        return client
 
     def listClients(self):
         """

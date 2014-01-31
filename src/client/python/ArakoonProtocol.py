@@ -145,6 +145,13 @@ class ArakoonClientConfig :
         """
         return self._nodes[ nodeId ]
 
+    def getNodeLocation(self, nodeId):
+        """
+        """
+        ns,port = self.getNodeLocations(nodeId)
+        ip0 =ns[0]
+        loc = ip0,port
+        return loc
 
     def getTryCount (self):
         """
