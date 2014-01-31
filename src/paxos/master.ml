@@ -93,19 +93,19 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                   (* TODO Is this correct, to initiate handover? *)
                   Fsm.return ~sides:[log_e] (Stable_master current_state)
               end
-                else
-                  let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
-                  let v = Value.create_master_value (me,0L) in
-                  let ff = fun _ -> Lwt.return () in
-                  (* TODO: we need election timeout as well here *)
-                  let ms = {mo = [ff];
-                            v;n;i = new_i;
-                            lew = lease_expire_waiters;
-                           }
-                  in
-                  Fsm.return ~sides:[log_e] (Master_dictate ms)
+            else (* if lease_expire_waiter is empty *)
+              let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
+              let v = Value.create_master_value (me,0L) in
+              let ff = fun _ -> Lwt.return () in
+              (* TODO: we need election timeout as well here *)
+              let ms = {mo = [ff];
+                        v;n;i = new_i;
+                        lew = [];
+                       }
+              in
+              Fsm.return ~sides:[log_e] (Master_dictate ms)
           in
-          let extend () =
+          let maybe_extend () =
             let module S = (val constants.store_module : Store.STORE with type t = s) in
             match S.who_master constants.store with
             | None ->
@@ -126,8 +126,9 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                  Fsm.return ~sides:[log_e] (Stable_master current_state)
                end
              else
-               extend ()
-          | _ -> extend()
+               maybe_extend ()
+          | _ ->
+             maybe_extend ()
         end
     | FromClient ufs ->
         begin
