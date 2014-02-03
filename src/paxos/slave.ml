@@ -184,9 +184,13 @@ let slave_steady_state (type s) constants state event =
             if Sn.sub i' store_i = 0L
             then
               begin
-                (* already learned this value, so no longer replying with accepted *)
+                (* already learned this value, so no longer writing it to the tlog,
+                   but we can be polite and answer with accepted again, as it should
+                   be the same paxos-value as before *)
                 Logger.debug_f_ "%s: slave, received old accepted (latest applied to store), ignoring" constants.me >>= fun () ->
-                Fsm.return (Slave_steady_state state)
+                let reply = Accepted(n',i') in
+                let send_e = ESend(reply, source) in
+                Fsm.return ~sides:[ send_e ] (Slave_steady_state state)
               end
             else
               accept_value None n' i' v "steady_state :: replying again to previous with %S"
