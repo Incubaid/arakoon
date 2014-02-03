@@ -215,12 +215,12 @@ def test_aSSert_sequences():
     client = C.get_client()
     client.set ('test_assert','test_assert')
     client.aSSert('test_assert', 'test_assert')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.aSSert,
                   'test_assert',
                   'something_else')
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = client.makeSequence()
     seq.addAssert('test_assert','test_assert')
     seq.addSet('test_assert','changed')
     client.sequence(seq)
@@ -229,10 +229,10 @@ def test_aSSert_sequences():
 
     assert_equals(v, 'changed', "first_sequence failed")
 
-    seq2 = arakoon.ArakoonProtocol.Sequence()
+    seq2 = client.makeSequence()
     seq2.addAssert('test_assert','test_assert')
     seq2.addSet('test_assert','changed2')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.sequence,
                   seq2)
 
@@ -269,11 +269,11 @@ def test_aSSert_exists_sequences():
     client = C.get_client()
     client.set ('test_assert_exists','test_assert_exists')
     client.aSSert_exists('test_assert_exists')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.aSSert_exists,
                   'test_assert_not_set')
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = client.makeSequence()
     seq.addAssertExists('test_assert_exists')
     seq.addSet('test_assert','changed')
     client.sequence(seq)
@@ -282,10 +282,10 @@ def test_aSSert_exists_sequences():
 
     assert_equals(v, 'changed', "first_sequence failed")
 
-    seq2 = arakoon.ArakoonProtocol.Sequence()
+    seq2 = client.makeSequence()
     seq2.addAssertExists('test_assert_exists_not_set_2')
     seq2.addSet('test_assert','changed2')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.sequence,
                   seq2)
 
@@ -341,6 +341,7 @@ def test_drop_master_singleton():
         raise Error
     except Exception, e:
         rc = e.args[0]
+        ARA_ERR_NOT_SUPPORTED = 32
         assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
 
 
@@ -430,7 +431,7 @@ def test_delete_non_existing() :
     cli = C.get_client()
     try :
         cli.delete( 'non-existing' )
-    except ArakoonNotFound as ex:
+    except X.arakoon_client.ArakoonNotFound as ex:
         ex_msg = "%s" % ex
         assert_equals( "'non-existing'", ex_msg, "Delete did not return the key, got: %s" % ex_msg)
     C.set_get_and_delete( cli, "k", "v")
@@ -439,11 +440,11 @@ def test_delete_non_existing() :
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_delete_non_existing_sequence() :
     cli = C.get_client()
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     seq.addDelete( 'non-existing' )
     try :
         cli.sequence( seq )
-    except ArakoonNotFound as ex:
+    except X.arakoon_client.ArakoonNotFound as ex:
         ex_msg = "%s" % ex
         assert_equals( "'non-existing'", ex_msg, "Sequence did not return the key, got: %s" % ex_msg)
     C.set_get_and_delete( cli, "k", "v")
@@ -588,13 +589,13 @@ def test_get_key_count_on_slave():
     port = cluster.getNodeConfig(s0)['client_port']
     s0_coords = ["127.0.0.1", port]
     # evil: point everything to the slave
-    cfg = ArakoonClientConfig(C.cluster_id,
-                              { 'sturdy_0' : s0_coords,
-                                'sturdy_1' : s0_coords,
-                                'sturdy_2' : s0_coords,
-                                })
+    cfg = X.arakoon_client.ArakoonClientConfig(C.cluster_id,
+                                               { 'sturdy_0' : s0_coords,
+                                                 'sturdy_1' : s0_coords,
+                                                 'sturdy_2' : s0_coords,
+                                             })
 
-    slave_only_client = ArakoonClient(cfg)
+    slave_only_client = X.arakoon_client.ArakoonClient(cfg)
     try:
         count = slave_only_client.getKeyCount()
         logging.debug("count = %i", count)
@@ -643,7 +644,7 @@ def test_download_db():
 
     C.assert_running_nodes(1)
     cli2 = C.get_client()
-    assert_raises(ArakoonNoMaster, cli2.whoMaster)
+    assert_raises(X.arakoon_client.ArakoonNoMaster, cli2.whoMaster)
 
     clu.backupDb(n0, db_file)
     C.assert_running_nodes(1)
