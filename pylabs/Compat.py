@@ -26,6 +26,7 @@ if os.environ.has_key(VAR):
     wanted = os.environ[VAR]
     if wanted == 'pyrakoon':
         logging.info("opting for pyrakoon")
+        print "pyrakoon"
         from pyrakoon import compat
         arakoon_client = compat
     else:
