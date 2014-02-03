@@ -24,7 +24,6 @@ from Compat import X
 
 
 def make_client(config):
-    print X.arakoon_client
     client = X.arakoon_client.ArakoonClient(config)
     return client
     

@@ -179,7 +179,7 @@ def test_large_value ():
     try:
         client.set ('some_key', value)
         raise Exception('this should have failed')
-    except ArakoonException as inst:
+    except X.arakoon_client.ArakoonException as inst:
         logging.info('inst=%s', inst)
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
@@ -192,7 +192,7 @@ def test_aSSert_scenario_1():
     client.set('x','x')
     try:
         client.aSSert('x','x')
-    except ArakoonException as ex:
+    except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
         assert_equals(True,False)
 
@@ -200,7 +200,7 @@ def test_aSSert_scenario_1():
 def test_aSSert_scenario_2():
     client = C.get_client()
     client.set('x','x')
-    assert_raises( ArakoonAssertionFailed, client.aSSert, 'x', None)
+    assert_raises( X.arakoon_client.ArakoonAssertionFailed, client.aSSert, 'x', None)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_3():
@@ -246,7 +246,7 @@ def test_aSSert_exists_scenario_1():
     client.set('x_e','x_e')
     try:
         client.aSSert_exists('x_e')
-    except ArakoonException as ex:
+    except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
         assert_equals(True,False)
 
@@ -254,15 +254,14 @@ def test_aSSert_exists_scenario_1():
 def test_aSSert_exists_scenario_2():
     client = C.get_client()
     client.set('x_e','x_e')
-    assert_raises( ArakoonAssertionFailed, client.aSSert_exists, 'no_x')
+    assert_raises( X.arakoon_client.ArakoonAssertionFailed, client.aSSert_exists, 'no_x')
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_exists_scenario_3():
     client = C.get_client()
     client.set('x_e','x_e')
-    ass = arakoon.ArakoonProtocol.AssertExists('x_e')
-    seq = arakoon.ArakoonProtocol.Sequence()
-    seq.addUpdate(ass)
+    seq = client.makeSequence()
+    ass = seq.addAssertExists('x_e')
     client.sequence(seq)
 
 @C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
@@ -600,7 +599,7 @@ def test_get_key_count_on_slave():
         count = slave_only_client.getKeyCount()
         logging.debug("count = %i", count)
         assert_true(False)
-    except ArakoonException, e:
+    except X.arakoon_client.ArakoonException, e:
         pass
 
 
