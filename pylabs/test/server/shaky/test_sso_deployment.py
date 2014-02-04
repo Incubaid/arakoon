@@ -34,6 +34,7 @@ from Compat import X
 
 @Common.with_custom_setup( Common.setup_1_node_forced_master, Common.basic_teardown )
 def test_sso_deployment():
+    pass
     """ the scaling scenario from 1 node to 3 nodes the way A-server does it (eta : 2200 s) """
     global test_failed
     test_failed = False

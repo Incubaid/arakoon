@@ -34,6 +34,7 @@ from ArakoonProtocol import *
 from ArakoonExceptions import *
 from ArakoonClientConnection import *
 from ArakoonValidators import SignatureValidator
+from ArakoonProtocol import ArakoonClientConfig
 
 from functools import wraps
 
@@ -398,6 +399,12 @@ class ArakoonClient :
         encoded = ArakoonProtocol.encodeSequence(seq, sync)
         conn = self._sendToMaster(encoded)
         conn.decodeVoidResult()
+
+    def makeSequence(self):
+        """
+        Factory method for sequences
+        """
+        return Sequence()
 
     @utils.update_argspec('self', 'key')
     @retryDuringMasterReelection()

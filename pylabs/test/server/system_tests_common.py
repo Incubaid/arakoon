@@ -31,6 +31,10 @@ import subprocess
 import signal
 import gzip
 import logging
+import os
+import random
+import threading
+import time
 
 from arakoon_ext.server import ArakoonManagement
 from arakoon_ext.client import ArakoonClient
@@ -91,18 +95,6 @@ class with_custom_setup ():
             if fatal_ex is not None:
                 raise fatal_ex
         return decorate
-
-
-import os
-import random
-import threading
-import time
-import arakoon.ArakoonProtocol
-import logging
-
-
-
-from arakoon.ArakoonExceptions import *
 
 
 data_base_dir = None
@@ -967,7 +959,7 @@ def set_get_and_delete( client, key, value):
     client.set( key, value )
     assert_equals( client.get(key), value )
     client.delete( key )
-    assert_raises ( ArakoonNotFound, client.get, key )
+    assert_raises ( X.arakoon_client.ArakoonNotFound, client.get, key )
 
 def generic_retrying_ ( client, f, is_valid_ex, duration = 5.0 ) :
     start = time.time()
@@ -1005,22 +997,22 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
     generic_retrying_ (client, (lambda : assert_equals( client.get(key), value ) ) , is_valid_ex, duration = 60.0 )
     try:
         generic_retrying_ (client, (lambda : client.delete( key ) ) , is_valid_ex, duration = 60.0 )
-    except ArakoonNotFound:
+    except X.arakoon_client.ArakoonNotFound:
         pass
 
 def retrying_set_get_and_delete( client, key, value ):
     def validate_ex ( ex, tryCnt ):
         ex_msg = "%s" % ex
-        validEx = False
-
-        validEx = validEx or isinstance( ex, ArakoonSockNotReadable )
-        validEx = validEx or isinstance( ex, ArakoonSockReadNoBytes )
-        validEx = validEx or isinstance( ex, ArakoonSockRecvError )
-        validEx = validEx or isinstance( ex, ArakoonSockRecvClosed )
-        validEx = validEx or isinstance( ex, ArakoonSockSendError )
-        validEx = validEx or isinstance( ex, ArakoonNotConnected )
-        validEx = validEx or isinstance( ex, ArakoonNodeNotMaster )
-        validEx = validEx or isinstance( ex, ArakoonNodeNoLongerMaster )
+        valids = (X.arakoon_client.ArakoonSockNotReadable,
+                  X.arakoon_client.ArakoonSockReadNoBytes,
+                  X.arakoon_client.ArakoonSockRecvError,
+                  X.arakoon_client.ArakoonSockRecvClosed,
+                  X.arakoon_client.ArakoonSockSendError,
+                  X.arakoon_client.ArakoonNotConnected,
+                  X.arakoon_client.ArakoonNodeNotMaster,
+                  X.arakoon_client.ArakoonNodeNoLongerMaster,
+              )
+        validEx = isinstance(ex, valids)
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )
         return validEx

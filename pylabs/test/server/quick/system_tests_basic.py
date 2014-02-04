@@ -21,10 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 """
 
 from .. import system_tests_common as C
-from arakoon.ArakoonExceptions import *
-from arakoon.ArakoonProtocol import ArakoonClientConfig, ARA_ERR_NOT_SUPPORTED
-from arakoon.Arakoon import ArakoonClient
-import arakoon
 import time
 import subprocess
 import logging
@@ -102,6 +98,7 @@ def test_max_value_size_tinkering ():
     client = C.get_client()
     client.set(key,value)
     cluster.stop()
+    logging.debug("set succeeded")
     cfg = cluster._getConfigFile()
     cfg.set("global", "__tainted_max_value_size", "1024")
     X.writeConfig(cfg, cluster._getConfigFileName())
@@ -109,7 +106,13 @@ def test_max_value_size_tinkering ():
     time.sleep(1.0)
     C.assert_running_nodes(1)
     client = C.get_client()
-    assert_raises (ArakoonException, client.set, key, value)
+    try:
+        client.set(key, value)
+        assert_true(False)
+    except Exception, e:
+        # with multiple clients, we have multiple ArakoonException hierarchies
+        assert_equals(e.__class__.__name__, 'ArakoonException')
+    
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
@@ -176,7 +179,7 @@ def test_large_value ():
     try:
         client.set ('some_key', value)
         raise Exception('this should have failed')
-    except ArakoonException as inst:
+    except X.arakoon_client.ArakoonException as inst:
         logging.info('inst=%s', inst)
 
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
@@ -189,7 +192,7 @@ def test_aSSert_scenario_1():
     client.set('x','x')
     try:
         client.aSSert('x','x')
-    except ArakoonException as ex:
+    except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
         assert_equals(True,False)
 
@@ -197,15 +200,14 @@ def test_aSSert_scenario_1():
 def test_aSSert_scenario_2():
     client = C.get_client()
     client.set('x','x')
-    assert_raises( ArakoonAssertionFailed, client.aSSert, 'x', None)
+    assert_raises( X.arakoon_client.ArakoonAssertionFailed, client.aSSert, 'x', None)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_3():
     client = C.get_client()
     client.set('x','x')
-    ass = arakoon.ArakoonProtocol.Assert('x','x')
-    seq = arakoon.ArakoonProtocol.Sequence()
-    seq.addUpdate(ass)
+    seq = client.makeSequence()
+    seq.addAssert('x','x')
     client.sequence(seq)
 
 @C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
@@ -213,12 +215,12 @@ def test_aSSert_sequences():
     client = C.get_client()
     client.set ('test_assert','test_assert')
     client.aSSert('test_assert', 'test_assert')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.aSSert,
                   'test_assert',
                   'something_else')
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = client.makeSequence()
     seq.addAssert('test_assert','test_assert')
     seq.addSet('test_assert','changed')
     client.sequence(seq)
@@ -227,10 +229,10 @@ def test_aSSert_sequences():
 
     assert_equals(v, 'changed', "first_sequence failed")
 
-    seq2 = arakoon.ArakoonProtocol.Sequence()
+    seq2 = client.makeSequence()
     seq2.addAssert('test_assert','test_assert')
     seq2.addSet('test_assert','changed2')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.sequence,
                   seq2)
 
@@ -244,7 +246,7 @@ def test_aSSert_exists_scenario_1():
     client.set('x_e','x_e')
     try:
         client.aSSert_exists('x_e')
-    except ArakoonException as ex:
+    except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
         assert_equals(True,False)
 
@@ -252,15 +254,14 @@ def test_aSSert_exists_scenario_1():
 def test_aSSert_exists_scenario_2():
     client = C.get_client()
     client.set('x_e','x_e')
-    assert_raises( ArakoonAssertionFailed, client.aSSert_exists, 'no_x')
+    assert_raises( X.arakoon_client.ArakoonAssertionFailed, client.aSSert_exists, 'no_x')
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_exists_scenario_3():
     client = C.get_client()
     client.set('x_e','x_e')
-    ass = arakoon.ArakoonProtocol.AssertExists('x_e')
-    seq = arakoon.ArakoonProtocol.Sequence()
-    seq.addUpdate(ass)
+    seq = client.makeSequence()
+    ass = seq.addAssertExists('x_e')
     client.sequence(seq)
 
 @C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
@@ -268,11 +269,11 @@ def test_aSSert_exists_sequences():
     client = C.get_client()
     client.set ('test_assert_exists','test_assert_exists')
     client.aSSert_exists('test_assert_exists')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.aSSert_exists,
                   'test_assert_not_set')
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = client.makeSequence()
     seq.addAssertExists('test_assert_exists')
     seq.addSet('test_assert','changed')
     client.sequence(seq)
@@ -281,10 +282,10 @@ def test_aSSert_exists_sequences():
 
     assert_equals(v, 'changed', "first_sequence failed")
 
-    seq2 = arakoon.ArakoonProtocol.Sequence()
+    seq2 = client.makeSequence()
     seq2.addAssertExists('test_assert_exists_not_set_2')
     seq2.addSet('test_assert','changed2')
-    assert_raises(ArakoonAssertionFailed,
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed,
                   client.sequence,
                   seq2)
 
@@ -324,7 +325,7 @@ def tes_and_set_scenario( start_suffix ): #tes is deliberate
             client.delete( key )
         except ArakoonNotFound:
             logging.error ( "Caught not found for key %s" % key )
-        assert_raises( ArakoonNotFound, client.get, key )
+        assert_raises( X.arakoon_client.ArakoonNotFound, client.get, key )
 
     client.dropConnections()
 
@@ -340,6 +341,7 @@ def test_drop_master_singleton():
         raise Error
     except Exception, e:
         rc = e.args[0]
+        ARA_ERR_NOT_SUPPORTED = 32
         assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
 
 
@@ -429,7 +431,7 @@ def test_delete_non_existing() :
     cli = C.get_client()
     try :
         cli.delete( 'non-existing' )
-    except ArakoonNotFound as ex:
+    except X.arakoon_client.ArakoonNotFound as ex:
         ex_msg = "%s" % ex
         assert_equals( "'non-existing'", ex_msg, "Delete did not return the key, got: %s" % ex_msg)
     C.set_get_and_delete( cli, "k", "v")
@@ -438,11 +440,11 @@ def test_delete_non_existing() :
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_delete_non_existing_sequence() :
     cli = C.get_client()
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     seq.addDelete( 'non-existing' )
     try :
         cli.sequence( seq )
-    except ArakoonNotFound as ex:
+    except X.arakoon_client.ArakoonNotFound as ex:
         ex_msg = "%s" % ex
         assert_equals( "'non-existing'", ex_msg, "Sequence did not return the key, got: %s" % ex_msg)
     C.set_get_and_delete( cli, "k", "v")
@@ -454,7 +456,7 @@ def sequence_scenario( start_suffix ):
 
     start_key = C.key_format_str % start_suffix
     end_key = C.key_format_str % ( start_suffix + iter_size - 1 )
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     for i in range( iter_size ) :
         k = C.key_format_str % (i+start_suffix)
         v = C.value_format_str % (i+start_suffix)
@@ -465,7 +467,7 @@ def sequence_scenario( start_suffix ):
     key_value_list = cli.range_entries( start_key, True, end_key, True )
     C.assert_key_value_list(start_suffix, iter_size , key_value_list )
 
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
     for i in range( iter_size ) :
         k = C.key_format_str % (start_suffix + i)
         seq.addDelete(k)
@@ -481,7 +483,7 @@ def sequence_scenario( start_suffix ):
         seq.addSet(k, v)
 
     seq.addDelete( "non-existing" )
-    assert_raises( ArakoonNotFound, cli.sequence, seq )
+    assert_raises( X.arakoon_client.ArakoonNotFound, cli.sequence, seq )
     key_value_list = cli.range_entries( start_key, True, end_key, True )
     assert_equal( len(key_value_list), 0, "There are keys in the store, should not be the case" )
 
@@ -587,18 +589,18 @@ def test_get_key_count_on_slave():
     port = cluster.getNodeConfig(s0)['client_port']
     s0_coords = ["127.0.0.1", port]
     # evil: point everything to the slave
-    cfg = ArakoonClientConfig(C.cluster_id,
-                              { 'sturdy_0' : s0_coords,
-                                'sturdy_1' : s0_coords,
-                                'sturdy_2' : s0_coords,
-                                })
+    cfg = X.arakoon_client.ArakoonClientConfig(C.cluster_id,
+                                               { 'sturdy_0' : s0_coords,
+                                                 'sturdy_1' : s0_coords,
+                                                 'sturdy_2' : s0_coords,
+                                             })
 
-    slave_only_client = ArakoonClient(cfg)
+    slave_only_client = X.arakoon_client.ArakoonClient(cfg)
     try:
         count = slave_only_client.getKeyCount()
         logging.debug("count = %i", count)
         assert_true(False)
-    except ArakoonException, e:
+    except X.arakoon_client.ArakoonException, e:
         pass
 
 
@@ -642,7 +644,7 @@ def test_download_db():
 
     C.assert_running_nodes(1)
     cli2 = C.get_client()
-    assert_raises(ArakoonNoMaster, cli2.whoMaster)
+    assert_raises(X.arakoon_client.ArakoonNoMaster, cli2.whoMaster)
 
     clu.backupDb(n0, db_file)
     C.assert_running_nodes(1)
@@ -761,7 +763,7 @@ def test_statistics():
 
 
     key_list = list()
-    seq = arakoon.ArakoonProtocol.Sequence()
+    seq = cli.makeSequence()
 
     for i in range(10) :
         key = "key_%d" % i

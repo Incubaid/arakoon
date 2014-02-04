@@ -14,6 +14,26 @@ class Status:
     def __init__(self):
         pass
 
+VAR = 'ARAKOON_PYTHON_CLIENT'
+def _normal_client():
+    logging.info("opting for normal client")
+    global arakoon_client
+    from arakoon import Arakoon
+    arakoon_client = Arakoon
+
+if os.environ.has_key(VAR):
+    global arakoon_client
+    wanted = os.environ[VAR]
+    if wanted == 'pyrakoon':
+        logging.info("opting for pyrakoon")
+        print "pyrakoon"
+        from pyrakoon import compat
+        arakoon_client = compat
+    else:
+        _normal_client()
+else:
+    print "normal"
+    _normal_client()
 
 """
 cluster_id = 'sturdy'
@@ -208,4 +228,6 @@ def which_compat():
     return r
 
 
+
 X = which_compat()
+X.arakoon_client = arakoon_client

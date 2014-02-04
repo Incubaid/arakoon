@@ -25,7 +25,7 @@ prologue()
 
 env = os.environ
 pwd = os.getcwd()
-paths = ':'.join(map (lambda x: pwd + x, ['/pylabs','/pylabs/extensions']))
+paths = ':'.join(map (lambda x: pwd + x, ['/pylabs','/pylabs/extensions','/pylabs/pyrakoon']))
 print paths
 env ['PYTHONPATH'] = paths
 cmd = ['nosetests', '-w', 'test']
