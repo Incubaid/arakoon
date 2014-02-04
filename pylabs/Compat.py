@@ -15,25 +15,18 @@ class Status:
         pass
 
 VAR = 'ARAKOON_PYTHON_CLIENT'
-def _normal_client():
+
+if os.environ.has_key(VAR) and os.environ[VAR] == 'pyrakoon':
+    logging.info("opting for pyrakoon")
+    print "pyrakoon"
+    from pyrakoon import compat
+    arakoon_client = compat
+else:
     logging.info("opting for normal client")
-    global arakoon_client
+    print "arakoon"
     from arakoon import Arakoon
     arakoon_client = Arakoon
 
-if os.environ.has_key(VAR):
-    global arakoon_client
-    wanted = os.environ[VAR]
-    if wanted == 'pyrakoon':
-        logging.info("opting for pyrakoon")
-        print "pyrakoon"
-        from pyrakoon import compat
-        arakoon_client = compat
-    else:
-        _normal_client()
-else:
-    print "normal"
-    _normal_client()
 
 """
 cluster_id = 'sturdy'
