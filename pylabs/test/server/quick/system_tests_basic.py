@@ -106,12 +106,7 @@ def test_max_value_size_tinkering ():
     time.sleep(1.0)
     C.assert_running_nodes(1)
     client = C.get_client()
-    try:
-        client.set(key, value)
-        assert_true(False)
-    except Exception, e:
-        # with multiple clients, we have multiple ArakoonException hierarchies
-        assert_equals(e.__class__.__name__, 'ArakoonException')
+    assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
     
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
