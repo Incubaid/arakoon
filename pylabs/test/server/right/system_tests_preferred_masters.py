@@ -75,6 +75,7 @@ def test_preferred_masters():
 
     # Launch cluster and wait until it's up-and-running
     cluster.start()
+    time.sleep(1.0)
     Common.assert_running_nodes(5)
 
     time.sleep(4.0 * Common.lease_duration)
