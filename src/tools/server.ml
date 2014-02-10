@@ -132,6 +132,19 @@ let new_socket sa =
     let domain = Unix.domain_of_sockaddr sa in
     Lwt_unix.socket domain Unix.SOCK_STREAM 0
 
+let _socket_closer cid sock f =
+  Lwt.finalize 
+    f
+    (fun () ->    
+     Lwt.catch
+       (fun () -> close sock)
+       (fun exn ->
+        let level = match exn with
+          | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+          | _ -> Logger.Info in
+        Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+    )
+  
 let make_server_thread
       ?(name = "socket server")
       ?(setup_callback=no_callback)
@@ -162,19 +175,7 @@ let make_server_thread
       then None
       else maybe_take () 
     in
-    let _socket_closer cid sock f =
-      Lwt.finalize 
-        f
-        (fun () ->    
-         Lwt.catch
-           (fun () -> close sock)
-           (fun exn ->
-            let level = match exn with
-              | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
-              | _ -> Logger.Info in
-            Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
-        )
-    in
+    
     let possible_denial cid plain_fd cl_socket_address =
       make_socket plain_fd ssl_context >>= fun sock ->
       match inner_take () with
