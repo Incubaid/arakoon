@@ -476,7 +476,7 @@ let _main_2 (type s)
       begin
         if not me.fsync
         then
-          Logger.info_ "Be careful, fsync is set to false! For durability in the case of powerloss it's recommended to set fsync=true; please make sure you know what you're doing."
+          Logger.warning_ "Be careful, fsync is set to false! For durability and consistency reasons - in the case of powerloss - it's recommended to set fsync=true; please make sure you understand the risks of this configuration."
         else
           Lwt.return ()
       end >>= fun () ->
