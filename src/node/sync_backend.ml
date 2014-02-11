@@ -218,10 +218,14 @@ object(self: #backend)
 
   method range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =
+    let start = Unix.gettimeofday() in
     log_o self "range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
-    S.range_entries store first finc last linc max
+    S.range_entries store first finc last linc max >>= fun kvs ->
+    let n_keys = List.length kvs in 
+    Statistics.new_range_entries _stats start n_keys;
+    Lwt.return (n_keys, kvs)
 
   method rev_range_entries ~allow_dirty
     (first:string option) finc (last:string option) linc max =

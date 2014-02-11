@@ -67,6 +67,7 @@ type local_action =
   | NODE_VERSION
   | Drop_master
   | NODE_STATE
+  | RANGE_ENTRIES
 
 type server_action =
   | Node
@@ -193,6 +194,10 @@ let main () =
   and tlf_dir = ref ""
   and end_i = ref None
   and in_place = ref false
+  and left = ref None
+  and linc = ref true
+  and right = ref None
+  and rinc = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -293,6 +298,7 @@ let main () =
     ("-max_n", Arg.Set_int max_n,     "<benchmark size> (only for --benchmark)");
     ("-n_clients", Arg.Set_int n_clients, "<n_clients>  (only for --benchmark)");
     ("-max_results", Arg.Set_int max_results, "max size of the result (for --prefix)");
+    
     ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
     ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
 				    Arg.Set_string cluster_id;
@@ -360,8 +366,11 @@ let main () =
                                              Arg.Set_string ip;
                                              Arg.Set_int port;
                                             ],
-     "<cluster_id> <ip> <port> requests the node to drop its master role")
-
+     "<cluster_id> <ip> <port> requests the node to drop its master role");
+    ("--range-entries", Arg.Tuple [set_laction RANGE_ENTRIES;],
+     "list entries within range");
+    ("-left", Arg.String  (fun s -> left  := Some s), "left boundary (range query)");
+    ("-right", Arg.String (fun s -> right := Some s), "right boundary (range query)");
   ] in
 
   let options = [] in
@@ -411,6 +420,7 @@ let main () =
     | NODE_STATE   -> Client_main.node_state !node_id !config_file
     | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
+    | RANGE_ENTRIES -> Client_main.range_entries !config_file !left !linc !right !rinc !max_results
 
   in
   let do_server node =

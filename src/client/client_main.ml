@@ -135,6 +135,19 @@ let prefix cfg_name prefix prefix_size =
   in
   run t
   
+let range_entries cfg_name left linc right rinc max_results = 
+  let t () = 
+    with_master_client 
+      cfg_name
+      (fun client ->
+       client # range_entries left linc right rinc max_results >>= fun entries ->
+       Lwt_list.iter_s (fun (k,v) -> Lwt_io.printlf "%S %S" k v ) entries >>= fun () ->
+       let size = List.length entries in
+       Lwt_io.printlf "%i listed" size >>= fun () ->
+       Lwt.return () 
+      )
+  in
+  run t
 let benchmark cfg_name size tx_size max_n n_clients = 
   Lwt_io.set_default_buffer_size 32768;
   let t () = 

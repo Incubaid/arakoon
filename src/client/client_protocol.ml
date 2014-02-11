@@ -251,9 +251,8 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
           Lwt.catch
 	    (fun () ->
 	      backend # range_entries ~allow_dirty first finc last linc max
-	      >>= fun (list:(string*string) list) ->
+	      >>= fun ((size:int) , (list:(string*string) list)) ->
 	      Llio.output_int32 oc 0l >>= fun () ->
-	      let size = List.length list in
 	      Logger.debug_f_ "size = %i" size >>= fun () ->
 	      Llio.output_list Llio.output_string_pair oc list >>= fun () ->
               Lwt.return false
