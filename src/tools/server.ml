@@ -97,6 +97,54 @@ let socket_address_to_string = function
   | Unix.ADDR_UNIX s -> Printf.sprintf "ADDR_UNIX %s" s
   | Unix.ADDR_INET (inet_addr, port) -> Printf.sprintf "ADDR_INET %s,%i" (Unix.string_of_inet_addr inet_addr) port
 
+
+let make_socket plain_fd = function
+  | None -> Lwt.return (Plain plain_fd)
+  | Some ctx ->
+     Lwt.catch
+       (fun () ->
+        Typed_ssl.Lwt.ssl_accept plain_fd ctx >>= fun (s, lwt_s) ->
+        let get_certificate s =
+          try
+            let c = Ssl.get_certificate s in
+            Some c
+          with Ssl.Certificate_error -> None
+        in
+        begin match get_certificate s with
+              | None ->
+                 Logger.info_f_
+                   "server_loop: Received SSL connection without peer certificate"
+              | Some cert ->
+                 Logger.info_f_
+                   "server_loop: Received SSL connection, subject=%s"
+                   (Ssl.get_subject cert)
+        end >>= fun () ->
+        let cipher = Ssl.get_cipher s in
+        Logger.debug_f_
+          "server_loop: SSL connection using %s"
+          (Ssl.get_cipher_description cipher) >>= fun () ->
+        Lwt.return (TLS lwt_s))
+       (fun exn ->
+        Lwt_unix.close plain_fd >>= fun () ->
+        Lwt.fail exn)
+
+let new_socket sa =
+    let domain = Unix.domain_of_sockaddr sa in
+    Lwt_unix.socket domain Unix.SOCK_STREAM 0
+
+let _socket_closer cid sock f =
+  Lwt.finalize 
+    f
+    (fun () ->    
+     Lwt.catch
+       (fun () -> close sock)
+       (fun exn ->
+        let level = match exn with
+          | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+          | _ -> Logger.Info in
+        Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+    )
+  
 let make_server_thread
       ?(name = "socket server")
       ?(setup_callback=no_callback)
@@ -104,10 +152,7 @@ let make_server_thread
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
       ~scheme
       host port protocol =
-  let new_socket sa =
-    let domain = Unix.domain_of_sockaddr sa in
-    Lwt_unix.socket domain Unix.SOCK_STREAM 0
-  in
+  
   let socket_address = Network.make_address host port in
   begin
     let listening_socket = new_socket socket_address in
@@ -125,88 +170,69 @@ let make_server_thread
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
     let going_down = ref false in
-    let maybe_take () =
+    let inner_take () =
       if !going_down
-      then
-        None
-      else
-        maybe_take () in
+      then None
+      else maybe_take () 
+    in
+    
+    let possible_denial cid plain_fd cl_socket_address =
+      make_socket plain_fd ssl_context >>= fun sock ->
+      match inner_take () with
+      | None ->  
+         begin
+           _socket_closer cid sock (fun () -> session_thread "--" cid deny sock)
+           >>= fun () ->
+           Lwt.return None
+         end
+      | Some id ->  
+         begin
+           let t = 
+             _socket_closer 
+               cid sock 
+               (fun () ->
+                (* Lwt_unix.fstat plain_fd >>= fun fstat -> *)
+                Logger.info_f_
+                  "%s:session=%i connection=%s socket_address=%s" (* " file_descriptor_inode=%i" *)
+                  name id cid (socket_address_to_string cl_socket_address) (* fstat.Lwt_unix.st_ino *)
+                >>= fun () -> 
+                let sid = string_of_int id in
+                session_thread sid cid protocol sock >>= fun () ->
+                release ();
+                Lwt.return ())
+           in
+           Lwt.return (Some t)
+         end
+    in
     let rec server_loop () =
       Lwt.catch
         (fun () ->
            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
-           let client_thread () =
-             begin match ssl_context with
-               | None -> Lwt.return (Plain plain_fd)
-               | Some ctx ->
-                 Lwt.catch
-                   (fun () ->
-                      Typed_ssl.Lwt.ssl_accept plain_fd ctx >>= fun (s, lwt_s) ->
-                      let get_certificate s =
-                        try
-                          let c = Ssl.get_certificate s in
-                          Some c
-                        with Ssl.Certificate_error -> None
-                      in
-                      begin match get_certificate s with
-                        | None ->
-                          Logger.info_f_
-                            "server_loop: Received SSL connection without peer certificate"
-                        | Some cert ->
-                          Logger.info_f_
-                            "server_loop: Received SSL connection, subject=%s"
-                            (Ssl.get_subject cert)
-                      end >>= fun () ->
-                      let cipher = Ssl.get_cipher s in
-                      Logger.debug_f_
-                        "server_loop: SSL connection using %s"
-                        (Ssl.get_cipher_description cipher) >>= fun () ->
-                      Lwt.return (TLS lwt_s))
-                   (fun exn ->
-                      Lwt_unix.close plain_fd >>= fun () ->
-                      Lwt.fail exn)
-             end >>= fun sock ->
-             Lwt.finalize
-               (fun () ->
-                  match maybe_take () with
-                    | None ->
-                      session_thread "--" cid deny sock
-                    | Some id ->
-                      Lwt_unix.fstat plain_fd >>= fun fstat ->
-                      Logger.info_f_
-                        "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
-                        name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
-                      >>= fun () ->
-                      let sid = string_of_int id in
-                      session_thread sid cid protocol sock >>= fun () ->
-                      release();
-                      Lwt.return())
-               (fun () ->
-                  Lwt.catch
-                    (fun () -> close sock)
-                    (fun exn ->
-                       let level = match exn with
-                         | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
-                         | _ -> Logger.Info in
-                       Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid)))
-           in
            let finalize () =
              Hashtbl.remove client_threads cid;
              Lwt_condition.signal _condition ();
-             Lwt.return () in
-           Lwt.ignore_result
-             (Lwt.catch
-                (fun () ->
-                   let t = client_thread () in
-                   Hashtbl.add client_threads cid t;
-                   t >>= fun () ->
-                   finalize ())
-                (fun exn ->
-                   Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
-                   finalize ()));
-           server_loop ()
+             Lwt.return () 
+           in
+           possible_denial cid plain_fd cl_socket_address >>= fun mt ->
+           begin
+             match mt with
+             | Some t ->
+                Lwt.ignore_result
+                  (Lwt.catch
+                     (fun () ->
+                      Hashtbl.add client_threads cid t;
+                      t >>= fun () ->
+                      finalize ()
+                     )
+                     (fun exn ->
+                      Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+                      finalize ()))
+             | None -> ()
+           end;
+           server_loop ()           
         )
+
         (function
           | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
             let timeout = 4.0 in
