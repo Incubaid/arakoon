@@ -145,7 +145,7 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
 open Mp_msg
 
 
-let _config_service cfg backend=
+let _config_service cfg stop backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -157,7 +157,7 @@ let _config_service cfg backend=
     (fun host ->
       let name = Printf.sprintf "%s:client_service" host in
       Server.make_server_thread ~name host port
-        (Client_protocol.protocol backend)
+        (Client_protocol.protocol stop backend)
         ~scheme
     )
     hosts
@@ -475,8 +475,8 @@ let _main_2 (type s)
               ~max_value_size:cluster_cfg.max_value_size
 	      in
 	      let backend = (sb :> Backend.backend) in
-
-	      let service = _config_service me backend in
+              let stop = ref false in
+	      let service = _config_service me stop backend in
 
 	      let send, receive, run, register =
 	        Multi_paxos.network_of_messaging messaging in
@@ -538,7 +538,7 @@ let _main_2 (type s)
 	      in
 	      let reporting_period = me.reporting in
 	      Lwt.return ((master,constants, buffers, new_i, vo, store),
-		              service, X.reporting reporting_period backend)
+		              service, X.reporting reporting_period backend, stop)
 	    end
 
       in
@@ -569,9 +569,10 @@ let _main_2 (type s)
         (fun () ->
           let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
           let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
-	      build_startup_state () >>= fun (start_state,
-					                      service,
-					                      rapporting) ->
+          build_startup_state () >>= fun (start_state,
+                                          service,
+                                          rapporting,
+                                          stop) ->
           let (_,constants,_,_,_,store) = start_state in
           let log_exception m t =
             Lwt.catch
@@ -595,6 +596,7 @@ let _main_2 (type s)
                     service ();
                     rapporting ();
                     (listen_for_signal () >>= fun () ->
+                     stop := true;
                      let msg = "got TERM | INT" in
                      Logger.info_ msg >>= fun () ->
                      Lwt_io.printl msg >>= fun () ->
