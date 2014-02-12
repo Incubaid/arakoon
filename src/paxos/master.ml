@@ -278,8 +278,8 @@ let master_dictate constants ms () =
   in
   let sides =
       [log_e;
-       accept_e;
        mcast_e;
+       accept_e;
       ] in
   start_election_timeout constants n i >>= fun () ->
   Fsm.return ~sides (Accepteds_check_done (ms, ballot))
