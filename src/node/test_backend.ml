@@ -191,20 +191,23 @@ class test_backend my_name = object(self:#backend)
   method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_entries_ _kv first finc last linc max in
-    Logger.info_f_ "range_entries: found %d entries" (List.length x) >>= fun () ->
-    Lwt.return x
+    let size = List.length x in
+    Logger.info_f_ "range_entries: found %d entries" size >>= fun () ->
+    Lwt.return (size,x)
 
   method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = rev_range_entries_ _kv first finc last linc max in
-    Logger.info_f_ "rev_range_entries: found %d entries" (List.length x) >>= fun () ->
-    Lwt.return x
+    let size = List.length x in
+    Logger.info_f_ "rev_range_entries: found %d entries" size >>= fun () ->
+    Lwt.return (size,x)
 
   method range ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
     let x = range_ _kv first finc last linc max in
-    Logger.info_f_ "range: found %d entries" (List.length x) >>= fun () ->
-    Lwt.return x
+    let size = List.length x in 
+    Logger.info_f_ "range: found %d entries" size >>= fun () ->
+    Lwt.return (size,x)
 
   method prefix_keys ~allow_dirty (prefix:string) (max:int) =
     let reg = "^" ^ prefix in
