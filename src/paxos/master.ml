@@ -257,14 +257,14 @@ let master_dictate constants ({mo;v;n;i;lew} as ms) () =
   let sides =
     if null lew
     then
-      [accept_e;
+      [mcast_e;
+       accept_e;
        start_e;
-       mcast_e;
        log_e;
       ]
     else
-      [accept_e;
-       mcast_e;
+      [mcast_e;
+       accept_e;
        log_e;
       ]
   in
