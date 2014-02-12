@@ -221,7 +221,7 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread (type s) constants =
+let start_lease_expiration_thread (type s) ?(maybe_immediate=false) constants =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   constants.lease_expiration_id <- constants.lease_expiration_id + 1;
   let id = constants.lease_expiration_id in
@@ -229,6 +229,7 @@ let start_lease_expiration_thread (type s) constants =
     let lease_start, slave = match S.who_master constants.store with
       | None -> 0.0, true
       | Some(m, ls) -> ls, constants.me <> m in
+    let lease_expiration = float_of_int constants.lease_expiration in
     let factor =
       if slave
       then
@@ -239,7 +240,7 @@ let start_lease_expiration_thread (type s) constants =
         1.1
       else
         0.5 in
-    let sleep_sec = (float_of_int constants.lease_expiration) *. factor in
+    let sleep_sec = lease_expiration *. factor in
     let t () =
       begin
         Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
@@ -258,6 +259,12 @@ let start_lease_expiration_thread (type s) constants =
         else
           Lwt.return ()
       end in
+    if maybe_immediate && (lease_start +. sleep_sec) <= Unix.gettimeofday ()
+    then
+      begin
+        Logger.ign_debug_f_ "start_lease_expiration_thread, taking immediate path";
+        Lwt.ignore_result (constants.inject_event (LeaseExpired (lease_start)))
+      end;
     let () = Lwt.ignore_result (t ()) in
     Lwt.return () in
   inner ()

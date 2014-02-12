@@ -190,7 +190,7 @@ let slave_steady_state (type s) constants state event =
                 Logger.debug_f_ "%s: slave, received old accepted (latest applied to store), ignoring" constants.me >>= fun () ->
                 let reply = Accepted(n',i') in
                 let send_e = ESend(reply, source) in
-                Fsm.return ~sides:[ send_e ] (Slave_steady_state state)
+                Fsm.return ~sides:[ send_e ] (Slave_steady_state (n', i, maybe_previous))
               end
             else
               accept_value None n' i' v "steady_state :: replying again to previous with %S"
@@ -303,7 +303,7 @@ let slave_discovered_other_master (type s) constants state () =
         in
         Multi_paxos.mcast constants fake >>= fun () ->
 
-        start_lease_expiration_thread constants >>= fun () ->
+        start_lease_expiration_thread ~maybe_immediate:true constants >>= fun () ->
         Fsm.return (Slave_steady_state (future_n, current_i', None));
       end
     end
