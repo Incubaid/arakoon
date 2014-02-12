@@ -67,6 +67,8 @@ type local_action =
   | NODE_VERSION
   | Drop_master
   | NODE_STATE
+  | RANGE_ENTRIES
+  | REV_RANGE_ENTRIES
 
 type server_action =
   | Node
@@ -198,6 +200,10 @@ let main () =
   and force = ref false
   and in_place = ref false
   and archive_type = ref ".tlf"
+  and left = ref None
+  and linc = ref true
+  and right = ref None
+  and rinc = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -375,6 +381,13 @@ let main () =
     ("-tls-ca-cert", Arg.Set_string tls_ca_cert, "<path> TLS CA certificate");
     ("-tls-cert", Arg.Set_string tls_cert, "<path> Certificate to use for TLS connections");
     ("-tls-key", Arg.Set_string tls_key, "<path> Key to use for TLS connections");
+    ("--range-entries", Arg.Tuple [set_laction RANGE_ENTRIES;],
+     "list entries within range");
+    ("--rev-range-entries", Arg.Tuple [set_laction REV_RANGE_ENTRIES;],
+     "reverse list entries within range");
+    ("-left", Arg.String  (fun s -> left  := Some s), "left boundary (range query)");
+    ("-right", Arg.String (fun s -> right := Some s), "right boundary (range query)");
+
   ] in
 
   let options = [] in
@@ -426,6 +439,14 @@ let main () =
     | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file
                         ~force:(!force) ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
+    | RANGE_ENTRIES ->
+       Client_main.range_entries
+         ~tls !config_file
+         !left !linc !right !rinc !max_results
+    | REV_RANGE_ENTRIES ->
+       Client_main.rev_range_entries
+         ~tls !config_file
+         !left !linc !right !rinc !max_results
 
   in
   let do_server node =
