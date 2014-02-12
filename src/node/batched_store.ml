@@ -119,8 +119,8 @@ struct
         s._entries <- 0;
         s._size <- 0
 
-  let _with_complex_query s =
-    if s._tx <> None
+  let _with_complex_query ~allow_in_transaction s =
+    if s._tx <> None || not allow_in_transaction
     then
       begin
         _commit_ls_tx_if_any s;
@@ -199,24 +199,24 @@ struct
       raise Not_found
 
   let range s prefix first finc last linc max =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:true s;
     S.range s.s prefix first finc last linc max
 
   let range_entries s prefix first finc last linc max =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:true s;
     S.range_entries s.s prefix first finc last linc max
 
   let rev_range_entries s prefix first finc last linc max =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:true s;
     S.rev_range_entries s.s prefix first finc last linc max
 
   let prefix_keys s prefix max =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:true s;
     S.prefix_keys s.s prefix max
 
   let delete_prefix s tx prefix =
     _verify_tx s tx;
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:false s;
     S.delete_prefix s.s (_get_ls_tx s)  prefix
 
   let flush s =
@@ -251,7 +251,7 @@ struct
     S.relocate s.s
 
   let get_key_count s =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:false s;
     S.get_key_count s.s
 
   let optimize s =
@@ -270,7 +270,7 @@ struct
     S.copy_store2
 
   let get_fringe s =
-    _with_complex_query s;
+    _with_complex_query ~allow_in_transaction:true s;
     S.get_fringe s.s
 end
 
