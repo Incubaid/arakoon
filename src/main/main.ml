@@ -68,6 +68,7 @@ type local_action =
   | Drop_master
   | NODE_STATE
   | RANGE_ENTRIES
+  | REV_RANGE_ENTRIES
 
 type server_action =
   | Node
@@ -369,8 +370,11 @@ let main () =
      "<cluster_id> <ip> <port> requests the node to drop its master role");
     ("--range-entries", Arg.Tuple [set_laction RANGE_ENTRIES;],
      "list entries within range");
+    ("--rev-range-entries", Arg.Tuple [set_laction REV_RANGE_ENTRIES;],
+     "reverse list entries within range");
     ("-left", Arg.String  (fun s -> left  := Some s), "left boundary (range query)");
     ("-right", Arg.String (fun s -> right := Some s), "right boundary (range query)");
+    
   ] in
 
   let options = [] in
@@ -420,7 +424,8 @@ let main () =
     | NODE_STATE   -> Client_main.node_state !node_id !config_file
     | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master !ip !port !cluster_id
-    | RANGE_ENTRIES -> Client_main.range_entries !config_file !left !linc !right !rinc !max_results
+    | RANGE_ENTRIES     -> Client_main.range_entries     !config_file !left !linc !right !rinc !max_results
+    | REV_RANGE_ENTRIES -> Client_main.rev_range_entries !config_file !left !linc !right !rinc !max_results
 
   in
   let do_server node =

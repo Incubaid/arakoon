@@ -40,7 +40,7 @@ class type backend = object
   method range:
     allow_dirty:bool ->
       string option -> bool ->
-	string option -> bool -> int -> (string list) Lwt.t
+	string option -> bool -> int -> (int * string list) Lwt.t
   method range_entries:
     allow_dirty:bool ->
       string option -> bool ->
@@ -48,7 +48,7 @@ class type backend = object
   method rev_range_entries:
     allow_dirty:bool ->
       string option -> bool ->
-	string option -> bool -> int -> kvs Lwt.t
+	string option -> bool -> int -> (int * kvs)  Lwt.t
   method prefix_keys: 
     allow_dirty:bool -> string -> int -> (string list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
