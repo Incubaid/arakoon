@@ -120,9 +120,13 @@ struct
         s._size <- 0
 
   let _with_complex_query s =
-    _commit_ls_tx_if_any s;
-    s._with_complex_query <- true;
-    _apply_cache_to_local_store s
+    if s._tx <> None
+    then
+      begin
+        _commit_ls_tx_if_any s;
+        s._with_complex_query <- true;
+        _apply_cache_to_local_store s
+      end
 
   let with_transaction s f =
     Lwt_mutex.with_lock s._tx_lock (fun () ->
