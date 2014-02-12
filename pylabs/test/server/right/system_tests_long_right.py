@@ -40,7 +40,7 @@ def test_single_client_100000_sets():
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_delete_non_existing_with_catchup ():
     pass
-    
+
     """
     catchup after deleting a non existing value (eta: 6s)
     """
@@ -421,6 +421,7 @@ def test_drop_master_witness_slave():
 def test_3_nodes_2_slaves_down ():
     """ make sure the 'set' operation fails when 2 slaves are down, (eta: 63s) """
     cli = Common.get_client()
+    cli.nop()
     master_id = cli.whoMaster()
 
     slaves = filter( lambda n: n != master_id, Common.node_names[:3] )
