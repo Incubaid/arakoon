@@ -41,12 +41,34 @@ def test_restart_master_long ():
                                                   ArakoonGoingDown
                                                   ] )
 
+    def range_query_loop1 ():
+        Common.heavy_range_entries_scenario (200000,
+                                             1500,
+                                             1000)
+    def range_query_loop2 ():
+        Common.heavy_range_entries_scenario (210000,
+                                             1500,
+                                             1000)
+    def range_query_loop3 ():
+        Common.heavy_range_entries_scenario (220000,
+                                             1500,
+                                             1000)
+    def range_query_loop4 ():
+        Common.heavy_range_entries_scenario (230000,
+                                             1500,
+                                             1000)
+
     def restart_loop ():
         Common.delayed_master_restart_loop( restart_iter_cnt ,
                                             1.5 * Common.lease_duration )
     global test_failed
     test_failed = False
-    Common.create_and_wait_for_thread_list( [restart_loop, write_loop] )
+    Common.create_and_wait_for_thread_list( [restart_loop,
+                                             write_loop,
+                                             range_query_loop1,
+                                             range_query_loop2,
+                                             range_query_loop3,
+                                             range_query_loop4] )
 
     cli = Common.get_client()
     time.sleep(2.0)

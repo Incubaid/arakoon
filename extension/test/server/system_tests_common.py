@@ -1164,6 +1164,22 @@ def range_entries_scenario( start_suffix ):
         logging.info("on failure moment, master was: %s", client._masterId)
         raise ex
 
+def heavy_range_entries_scenario( start_suffix, count, queries ):
+    value_format_str_ = "p" * 4200 +  "value_%012d"
+    client = get_client()
+
+    for i in range(count):
+        suffix = ( i + start_suffix )
+        key = key_format_str % suffix
+        value = value_format_str_ % suffix
+
+        client.set(key, value)
+
+
+    start_key = key_format_str % (start_suffix )
+    end_suffix = key_format_str % (start_suffix + count)
+    for i in range(queries) :
+        key_value_list = client.range_entries ( start_key , True, end_suffix , False, -1 )
 
 def reverse_range_entries_scenario(start_suffix):
     iterate_n_times(100, simple_set, startSuffix = start_suffix)
