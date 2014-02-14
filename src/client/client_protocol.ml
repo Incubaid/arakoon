@@ -157,6 +157,15 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       backend # hello client_id cluster_id >>= fun (rc,msg) ->
       response_rc_string oc rc msg
     end
+  | FLUSH_STORE ->
+     begin
+       Lwt.catch
+         (fun () ->
+          Logger.debug_f_ "connection=%s FLUSH_STORE" id >>= fun () ->
+          backend # flush_store () >>= fun () ->
+          response_ok_unit oc)
+         (handle_exception oc)
+     end
   | EXISTS ->
     begin
       Llio.input_bool ic   >>= fun allow_dirty ->

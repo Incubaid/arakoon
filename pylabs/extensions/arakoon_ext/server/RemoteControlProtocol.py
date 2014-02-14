@@ -30,6 +30,7 @@ _DOWNLOAD_DB = 0x1b
 _OPTIMIZE_DB = 0x25
 _DEFRAG_DB = 0x26
 _DROP_MASTER = 0x30
+_FLUSH_STORE = 0x42
 _MAGIC   = 0xb1ff0000
 _VERSION = 0x00000001
 
@@ -76,7 +77,7 @@ def _receive_int64(sock):
     buf = _receive_all(sock, 8)
     i64,_ = _int64_from(buf,0)
     return i64
-    
+
 def _receive_string(sock):
     size = _receive_int(sock)
     s = _receive_all(sock,size)

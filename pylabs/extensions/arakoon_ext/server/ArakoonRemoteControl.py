@@ -26,17 +26,17 @@ import RemoteControlProtocol as RCP
 
 def collapse(ip, port, clusterId, n):
     """
-    tell the node listening on (ip, port) to collapse, and keep n tlog files 
+    tell the node listening on (ip, port) to collapse, and keep n tlog files
     @type ip: string
     @type port: int
     @type n: int > 0
     @type clusterId:string
     @param clusterId: must match cluster id of the node
     """
-    if n < 1: 
+    if n < 1:
         raise ValueError("%i is not acceptable" % n)
     s = RCP.make_socket(ip, port)
-    
+
     try:
         RCP._prologue(clusterId, s)
         cmd  = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)
@@ -52,10 +52,10 @@ def collapse(ip, port, clusterId, n):
             logging.info("took %i", took)
     finally:
         s.close()
-        
+
 def downloadDb(ip, port, clusterId, location):
     s = RCP.make_socket(ip, port)
-    
+
     try:
         with open(location,'w+b') as db_file:
             RCP._prologue(clusterId, s)
@@ -72,7 +72,7 @@ def downloadDb(ip, port, clusterId, location):
         s.close()
 
 def _simple_cmd(ip,port,clusterId, code):
-   s = RCP.make_socket(ip, port) 
+   s = RCP.make_socket(ip, port)
    RCP._prologue(clusterId, s)
    cmd = RCP._int_to(code | RCP._MAGIC)
    s.send(cmd)
@@ -87,8 +87,11 @@ def defragDb(ip,port,clusterId):
 def dropMaster(ip,port,clusterId):
     _simple_cmd(ip,port,clusterId, RCP._DROP_MASTER)
 
+def flushStore(ip,port,clusterId):
+    _simple_cmd(ip,port,clusterId, RCP._FLUSH_STORE)
+
 def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
-    s = RCP.make_socket(ip,port)    
+    s = RCP.make_socket(ip,port)
     try:
         RCP._prologue(cluster_id, s)
         cmd = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)
@@ -99,6 +102,4 @@ def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
         s.send(cmd)
         RCP.check_error_code(s)
     finally:
-        s.close()    
-    
-
+        s.close()

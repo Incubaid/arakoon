@@ -357,6 +357,9 @@ struct
         in
         Lwt.return (0l, msg)
 
+      method flush_store () =
+        S.flush store
+
 
       method sequence ~sync (updates:Update.t list) =
         let start = Unix.gettimeofday() in
