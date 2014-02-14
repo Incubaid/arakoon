@@ -682,11 +682,11 @@ let protocol stop backend connection =
   in
   let rec loop () =
     begin
-	  one_command stop connection backend >>= fun closed ->
-	  Lwt_io.flush oc >>= fun() ->
-	  if closed
-	  then Logger.debug_ "leaving client loop"
-	  else loop ()
+      one_command stop connection backend >>= fun closed ->
+      Lwt_io.flush oc >>= fun() ->
+      if closed || !stop
+      then Logger.debug_ "leaving client loop"
+      else loop ()
     end
   in
   prologue () >>= fun () ->

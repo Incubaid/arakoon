@@ -99,14 +99,14 @@ object(self)
 	    loop ()
       end
     in loop ()
-end 
-  
-let make_transport addresses = 
-  let tcp_transport = new tcp_messaging addresses "yummy" (fun _ _ _-> false) Node_cfg.default_max_buffer_size in
-  (tcp_transport :> messaging) 
-    
-let eventually_die ?(t=10.0) () = 
-  Lwt_unix.sleep t >>= fun () -> 
+end
+
+let make_transport addresses =
+  let tcp_transport = new tcp_messaging addresses "yummy" (fun _ _ _-> false) Node_cfg.default_max_buffer_size ~stop:(ref false) in
+  (tcp_transport :> messaging)
+
+let eventually_die ?(t=10.0) () =
+  Lwt_unix.sleep t >>= fun () ->
   let msg = Printf.sprintf "test takes too long (> %2f)" t in
   OUnit.assert_failure msg
   

@@ -88,6 +88,7 @@ let make_server_thread
     ?(name = "socket server")
     ?(setup_callback=no_callback)
     ?(teardown_callback = no_callback)
+    ~stop
     ~scheme
     host port protocol =
   let new_socket sa =
@@ -101,6 +102,10 @@ let make_server_thread
     Lwt_unix.bind listening_socket socket_address;
     Lwt_unix.listen listening_socket 1024;
     let maybe_take,release = scheme in
+    let inner_take () =
+      if !stop
+      then None
+      else maybe_take () in
     let connection_counter = make_counter () in
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
@@ -110,7 +115,7 @@ let make_server_thread
           Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
           let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
           let client_thread () =
-            match maybe_take () with
+            match inner_take () with
               | None ->
                   session_thread "--" cid deny fd
               | Some id ->

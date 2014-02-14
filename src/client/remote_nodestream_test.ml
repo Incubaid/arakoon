@@ -26,9 +26,10 @@ let __wrap__ port conversation =
     Lwt.return ()
   in
   let scheme = Server.make_default_scheme () in
+  let stop = ref false in
   let server =
-    Server.make_server_thread ~setup_callback "127.0.0.1" port ~scheme
-      (Client_protocol.protocol (ref false) backend) in
+    Server.make_server_thread ~setup_callback "127.0.0.1" port ~scheme ~stop
+      (Client_protocol.protocol stop backend) in
   let client_t () =
     sleep >>= fun () ->
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
