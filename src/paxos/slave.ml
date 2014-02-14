@@ -75,37 +75,38 @@ let slave_steady_state (type s) constants state event =
   match event with
     | FromNode (msg,source) ->
         begin
-          let log_e0 = ELog (fun () ->
-	        Printf.sprintf "slave_steady_state n:%s i:%s got %S from %s"
-	          (Sn.string_of n) (Sn.string_of i) (string_of msg) source
-          )
+          let log_e0 =
+            ELog (fun () ->
+                  Printf.sprintf "slave_steady_state n:%s i:%s got %S from %s"
+                                 (Sn.string_of n) (Sn.string_of i) (string_of msg) source)
           in
-	      match msg with
-	        | Accept (n',i',v) when (n',i') = (n,i) ->
-	            begin
-	              let reply = Accepted(n,i) in
-	              begin
-		            let m_store_i = S.consensus_i store in
-		            begin
-		              match m_store_i with
-		                | None -> constants.on_consensus (previous, n, Sn.pred i)
-		                | Some store_i ->
-                            let prev_i = Sn.pred i in
-                            if (Sn.compare store_i (Sn.pred prev_i) ) == 0
-                            then
-			                  constants.on_consensus (previous, n,prev_i)
-                            else
-			                  if Sn.compare store_i prev_i == 0
-			                  then
-                                begin
-			                      Logger.debug_f_ "%s: Preventing re-push of : %s. Store at %s" constants.me (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () ->
-                                  Lwt.return [Store.Ok None]
-                                end
-			                  else
-			                    Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)
-	                end
+          match msg with
+          | Accept (n',i',v) when (n',i') = (n,i) ->
+             begin
+               let reply = Accepted(n,i) in
+               begin
+                 let m_store_i = S.consensus_i store in
+                 begin
+                   match m_store_i with
+                   | None ->
+                      Lwt.return [EConsensus(None, previous, n, Sn.pred i)]
+                   | Some store_i ->
+                      let prev_i = Sn.pred i in
+                      if (Sn.compare store_i (Sn.pred prev_i) ) == 0
+                      then
+                        Lwt.return [EConsensus(None, previous, n, prev_i)]
+                      else
+                        if Sn.compare store_i prev_i == 0
+                        then
+                          begin
+                            Logger.debug_f_ "%s: Preventing re-push of : %s. Store at %s" constants.me (Sn.string_of prev_i) (Sn.string_of store_i) >>= fun () ->
+                            Lwt.return []
+                          end
+                        else
+                          Llio.lwt_failfmt "Illegal push requested: %s. Store at %s" (Sn.string_of prev_i) (Sn.string_of store_i)
+                 end
                   end
-                  >>= fun _ ->
+                  >>= fun consensus_e ->
                   let accept_e = EAccept (v,n,i) in
                   let start_e = EStartLeaseExpiration(v,n, true) in
                   let send_e = ESend(reply, source) in
@@ -113,7 +114,7 @@ let slave_steady_state (type s) constants state event =
                     Printf.sprintf "steady_state :: replying with %S" (string_of reply)
                   )
                   in
-                  let sides = [log_e0;accept_e;start_e; send_e; log_e] in
+                  let sides = log_e0::accept_e::start_e::send_e::log_e::consensus_e in
                   Fsm.return ~sides (Slave_steady_state (n, Sn.succ i, v))
 	            end
 	      | Accept (n',i',v) when

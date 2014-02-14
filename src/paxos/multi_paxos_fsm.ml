@@ -204,13 +204,7 @@ let promises_check_done constants state () =
       let msg = Accept(n,i,bv) in
       mcast constants msg >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
-      let ff = fun _ -> Lwt.return () in
-      let ffs =
-        let rec repeat = function
-          | 0 -> []
-          | n -> ff :: repeat (n - 1) in
-        repeat number_of_updates in
-      let ms = {mo = ffs;n;i;v = bv; lew = lease_expire_waiters;} in
+      let ms = {mo = None;n;i;v = bv; lew = lease_expire_waiters;} in
       Fsm.return (Accepteds_check_done (ms,new_ballot))
     end
   else (* bf < needed *)
@@ -467,17 +461,19 @@ let wait_for_promises (type s) constants state event =
 
 (* a (potential or full) master is waiting for accepteds and if he has received
    enough, consensus is reached and he becomes a full master *)
-let lost_master_role finished_funs =
-  begin
-	let msg = "lost master role during wait_for_accepteds while handling client request" in
-	let rc = Arakoon_exc.E_NOT_MASTER in
-	let result = Store.Update_fail (rc, msg) in
-    let rec loop = function
-      | [] -> Lwt.return ()
-      | f::ffs -> f result >>= fun () -> loop ffs
-    in
-	loop finished_funs
-  end
+let lost_master_role = function
+  | None -> Lwt.return ()
+  | Some finished_funs ->
+     begin
+       let msg = "lost master role during wait_for_accepteds while handling client request" in
+       let rc = Arakoon_exc.E_NOT_MASTER in
+       let result = Store.Update_fail (rc, msg) in
+       let rec loop = function
+         | [] -> Lwt.return ()
+         | f::ffs -> f result >>= fun () -> loop ffs
+       in
+       loop finished_funs
+     end
 
 let accepteds_check_done constants ((ms,ballot) as state) () =
   let needed, already_voted = ballot in
@@ -901,15 +897,19 @@ let _execute_effects constants e =
     | EConsensus (finished_funs, v,n,i) ->
         constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
         begin
-          let rec loop ffs urs =
-            match (ffs,urs) with
-              | [],[] -> Lwt.return ()
-              | finished_f :: ffs , update_result :: urs ->
+          match finished_funs with
+          | None ->
+             Lwt.return_unit
+          | Some finished_funs ->
+             let rec loop ffs urs =
+               match (ffs,urs) with
+               | [],[] -> Lwt.return ()
+               | finished_f :: ffs , update_result :: urs ->
                   finished_f update_result >>= fun () ->
                   loop ffs urs
-              | _,_ -> failwith "mismatch"
-          in
-          loop finished_funs urs
+               | _,_ -> failwith "mismatch"
+             in
+             loop finished_funs urs
         end
     | EGen f -> f ()
 
