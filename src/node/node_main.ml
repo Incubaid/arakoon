@@ -117,7 +117,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
           with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
         set_max btc'.max_entries btc'.max_size
 
-let _config_messaging me others cookie laggy lease_period max_buffer_size =
+let _config_messaging me others cookie laggy lease_period max_buffer_size ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
 	          let f msg source target =
@@ -138,14 +138,14 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size =
       [] others
   in
   let messaging = new tcp_messaging
-    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) in
+    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
 
 open Mp_msg
 
 
-let _config_service cfg backend=
+let _config_service cfg stop backend=
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -157,8 +157,8 @@ let _config_service cfg backend=
     (fun host ->
       let name = Printf.sprintf "%s:client_service" host in
       Server.make_server_thread ~name host port
-        (Client_protocol.protocol backend)
-        ~scheme
+        (Client_protocol.protocol stop backend)
+        ~scheme ~stop
     )
     hosts
   in
@@ -419,7 +419,8 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
+      let stop = ref false in
+      let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
 	    other_names >>= fun () ->
@@ -475,8 +476,7 @@ let _main_2 (type s)
               ~max_value_size:cluster_cfg.max_value_size
 	      in
 	      let backend = (sb :> Backend.backend) in
-
-	      let service = _config_service me backend in
+	      let service = _config_service me stop backend in
 
 	      let send, receive, run, register =
 	        Multi_paxos.network_of_messaging messaging in
@@ -538,7 +538,7 @@ let _main_2 (type s)
 	      in
 	      let reporting_period = me.reporting in
 	      Lwt.return ((master,constants, buffers, new_i, vo, store),
-		              service, X.reporting reporting_period backend)
+		              service, X.reporting reporting_period backend, stop)
 	    end
 
       in
@@ -569,9 +569,10 @@ let _main_2 (type s)
         (fun () ->
           let _ = Lwt_unix.on_signal 15 unlock_killswitch in (* TERM aka kill   *)
           let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
-	      build_startup_state () >>= fun (start_state,
-					                      service,
-					                      rapporting) ->
+          build_startup_state () >>= fun (start_state,
+                                          service,
+                                          rapporting,
+                                          stop) ->
           let (_,constants,_,_,_,store) = start_state in
           let log_exception m t =
             Lwt.catch
@@ -595,6 +596,7 @@ let _main_2 (type s)
                     service ();
                     rapporting ();
                     (listen_for_signal () >>= fun () ->
+                     stop := true;
                      let msg = "got TERM | INT" in
                      Logger.info_ msg >>= fun () ->
                      Lwt_io.printl msg >>= fun () ->

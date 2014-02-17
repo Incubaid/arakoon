@@ -53,7 +53,7 @@ module RR = struct
 end
 
 
-class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function) max_buffer_size =
+class tcp_messaging ?(timeout=60.0) my_addresses my_cookie (drop_it: drop_function) max_buffer_size ~stop =
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
   let my_ips, my_port = my_addresses in
@@ -394,7 +394,7 @@ object(self : # messaging )
         let s = Server.make_server_thread
                   ~name ~setup_callback
                   ~teardown_callback ip my_port protocol
-                  ~scheme
+                  ~scheme ~stop
         in
         s ()
       in

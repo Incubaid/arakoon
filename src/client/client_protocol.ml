@@ -145,8 +145,13 @@ let handle_sequence ~sync ic oc backend =
 
   end
 
-let one_command (ic,oc,id) (backend:Backend.backend) =
-  read_command (ic,oc) >>= function
+let one_command stop (ic,oc,id) (backend:Backend.backend) =
+  read_command (ic,oc) >>= fun command ->
+  if !stop
+  then
+    Lwt.return true
+  else
+    match command with
     | PING ->
         begin
           Llio.input_string ic >>= fun client_id ->
@@ -654,7 +659,7 @@ let one_command (ic,oc,id) (backend:Backend.backend) =
       end
 
 
-let protocol backend connection =
+let protocol stop backend connection =
   let ic,oc,cid = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
@@ -675,11 +680,11 @@ let protocol backend connection =
   in
   let rec loop () =
     begin
-	  one_command connection backend >>= fun closed ->
-	  Lwt_io.flush oc >>= fun() ->
-	  if closed
-	  then Logger.debug_ "leaving client loop"
-	  else loop ()
+      one_command stop connection backend >>= fun closed ->
+      Lwt_io.flush oc >>= fun() ->
+      if closed || !stop
+      then Logger.debug_ "leaving client loop"
+      else loop ()
     end
   in
   prologue () >>= fun () ->
