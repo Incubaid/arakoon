@@ -475,7 +475,6 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let stop = ref false in
       let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       begin
@@ -735,6 +734,7 @@ let _main_2 (type s)
                  );
                  Lwt_mvar.take stop_mvar];
               fsm_t;] >>= fun () ->
+           stop := true;
            Lwt_mvar.put stop_mvar () >>= fun () ->
            Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
            Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
