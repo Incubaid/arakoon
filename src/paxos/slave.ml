@@ -137,11 +137,8 @@ let slave_steady_state (type s) constants state event =
               Printf.sprintf msg (string_of reply)
             )
           in
-          let sides = [log_e0; accept_e; send_e; log_e] in
-          let sides' = match oconsensus with
-            | None -> sides
-            | Some s -> s :: sides in
-          Fsm.return ~sides:sides' (Slave_steady_state (n', Sn.succ i', Some v))
+          let sides = log_e0::accept_e::send_e::log_e::oconsensus in
+          Fsm.return ~sides (Slave_steady_state (n', Sn.succ i', Some v))
         in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
@@ -160,7 +157,7 @@ let slave_steady_state (type s) constants state event =
                       if Sn.sub i store_i = 1L
                       then
                         Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me >>= fun () ->
-                        Lwt.return None
+                        Lwt.return []
                       else
                         paxos_fatal constants.me "slave: no previous, mismatch store_i = %Li, i = %Li" store_i i
                     | Some previous ->
@@ -168,7 +165,7 @@ let slave_steady_state (type s) constants state event =
                       then
                         begin
                           Logger.debug_f_ "%s: slave: have previous, so that implies consensus" constants.me >>= fun () ->
-                          Lwt.return (Some (EConsensus (None, previous,n,Sn.pred i, true)))
+                          Lwt.return [EConsensus (None, previous,n,Sn.pred i, true)]
                         end
                       else
                         paxos_fatal constants.me "slave: with previous, mismatch store_i = %Li, i = %Li" store_i i
@@ -193,7 +190,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[ send_e ] (Slave_steady_state state)
               end
             else
-              accept_value None n' i' v "steady_state :: replying again to previous with %S"
+              accept_value [] n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when i' <= i ->
             begin
               let log_e = ELog (

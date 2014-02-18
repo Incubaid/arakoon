@@ -614,7 +614,7 @@ def getRandomString( length = 16 ) :
         return chr(random.randint(0,25) + ord('A'))
 
     retVal = ""
-    for i in range( length ) :
+    for i in xrange( length ) :
         retVal += getRC()
     return retVal
 
@@ -857,7 +857,7 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
 
     global test_failed
 
-    for i in range ( n ) :
+    for i in xrange ( n ) :
         if test_failed :
             logging.error( "Test marked as failed. Aborting.")
             break
@@ -1030,7 +1030,7 @@ def add_node_scenario ( node_to_add_index ):
 
 def assert_key_value_list( start_suffix, list_size, list ):
     assert_equals( len(list), list_size )
-    for i in range( list_size ) :
+    for i in xrange( list_size ) :
         suffix = start_suffix + i
         key = key_format_str % (suffix )
         value = value_format_str % (suffix )
@@ -1077,7 +1077,7 @@ def assert_key_list ( start_suffix, list_size, list ) :
 def assert_list ( format_str, start_suffix, list_size, list ) :
     assert_equals( len(list), list_size )
 
-    for i in range( list_size ) :
+    for i in xrange( list_size ) :
         elem = format_str % (start_suffix + i)
         assert_equals ( elem , list [i] )
 
@@ -1093,7 +1093,7 @@ def destroy_ram_fs( node_index ) :
             raise Exception("cmd:%s failed (%s,%s,%s)" % (str(cmd), rc,out,err))
 
 def delayed_master_restart_loop ( iter_cnt, delay ) :
-    for i in range( iter_cnt ):
+    for i in xrange( iter_cnt ):
         global test_failed
         try:
             time.sleep( delay )
@@ -1110,7 +1110,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             raise
 
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
-    for i in range (iter_cnt) :
+    for i in xrange (iter_cnt) :
         node = node_names[node_index]
         time.sleep( 1.0 * int_start_stop )
         stopOne(node)
@@ -1240,6 +1240,22 @@ def range_entries_scenario( start_suffix ):
         logging.info("on failure moment, master was: %s", client._masterId)
         raise ex
 
+def heavy_range_entries_scenario( start_suffix, count, queries ):
+    value_format_str_ = "p" * 4200 +  "value_%012d"
+    client = get_client()
+
+    for i in xrange(count):
+        suffix = ( i + start_suffix )
+        key = key_format_str % suffix
+        value = value_format_str_ % suffix
+
+        client.set(key, value)
+
+
+    start_key = key_format_str % (start_suffix )
+    end_suffix = key_format_str % (start_suffix + count)
+    for i in xrange(queries) :
+        key_value_list = client.range_entries ( start_key , True, end_suffix , False, -1 )
 
 def reverse_range_entries_scenario(start_suffix):
     iterate_n_times(100, simple_set, startSuffix = start_suffix)
