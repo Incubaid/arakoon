@@ -34,7 +34,10 @@ let master_consensus constants {mo;v;n;i;lew} () =
   let con_e = EConsensus(mo, v,n,i) in
   let log_e = ELog (fun () ->
     Printf.sprintf "on_consensus for : %s => %i finished_fs (in master_consensus)"
-      (Value.value2s v) (List.length mo) )
+      (Value.value2s v)
+      (match mo with
+       | None -> 0
+       | Some mo -> List.length mo))
   in
   let inject_e = EGen (fun () ->
     match v with
@@ -96,9 +99,8 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
             else (* if lease_expire_waiter is empty *)
               let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
               let v = Value.create_master_value (me,0L) in
-              let ff = fun _ -> Lwt.return () in
               (* TODO: we need election timeout as well here *)
-              let ms = {mo = [ff];
+              let ms = {mo = None;
                         v;n;i = new_i;
                         lew = [];
                        }
@@ -135,7 +137,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
           let updates, finished_funs = List.split ufs in
           let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
           let value = Value.create_client_value updates synced in
-          let ms = {mo = finished_funs;
+          let ms = {mo = Some finished_funs;
                     v = value;
                     n;i = new_i;
                     lew = lease_expire_waiters
