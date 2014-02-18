@@ -1,6 +1,7 @@
 open Unix
 open Arg
-open Otc
+open Camltc
+open Lwt
 
 let clock f = 
   let t0 = Unix.gettimeofday () in
@@ -10,7 +11,7 @@ let clock f =
 
 let make_key i = Printf.sprintf "key_%08i" i 
 
-let sync = Bdb._dbsync
+let sync _ = () (* Camltc.Bdb._dbsync *)
 
 let set_loop db vs n = 
   let v = String.make vs 'x' in
@@ -37,6 +38,20 @@ let get_loop db n =
   in
   loop 0
 
+
+let get_random_loop db n =
+  let get k = try Some (Bdb.get db k) with Not_found -> None in
+  let rec loop i =
+    if i = n 
+    then ()
+    else
+      let r = Random.int n in
+      let key = make_key r in
+      let _ = get key in
+      loop (i+1)
+  in
+  loop 0
+
 let delete_loop db n = 
   let delete k = Bdb.out db k in
   let rec loop i = 
@@ -48,6 +63,7 @@ let delete_loop db n =
       loop (i+1)
   in
   loop 0
+
 
 let () = 
   let n  = ref 1_000_000 in
@@ -62,14 +78,21 @@ let () =
       (fun _ ->()) 
       "simple baardskeerder like benchmark for tc"
   in
-  let db = Bdb._make () in
-  let () = Bdb._dbopen db !fn Bdb.default_mode in
-  let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" !n !vs in
-  let d = clock (fun () -> set_loop db !vs !n) in
-  Printf.printf "%i sets: %fs\n%!" !n d;
-  let d2 = clock (fun () -> get_loop db !n) in
-  Printf.printf "%i gets: %fs\n%!" !n d2;
-  let d3 = clock (fun () -> delete_loop db !n) in
-  Printf.printf "%i deletes: %fs\n%!" !n d3;
-  let () = Bdb._dbclose db in
-  ();;
+  let t () = 
+    Hotc.create !fn [] >>= fun ho ->
+    let db = Hotc.get_bdb ho in
+    let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" !n !vs in
+    let d = clock (fun () -> set_loop db !vs !n) in
+    Printf.printf "%i sets: %fs\n%!" !n d;
+    let d2 = clock (fun () -> get_loop db !n) in
+    Printf.printf "%i ordered gets: %fs\n%!" !n d2;
+    let d4 = clock (fun () -> get_random_loop db !n) in
+    Printf.printf "%i random gets: %fs\n%!" !n d4;
+    let d3 = clock (fun () -> delete_loop db !n) in
+    Printf.printf "%i deletes: %fs\n%!" !n d3;
+    
+    Hotc.close ho >>= fun () ->
+    Lwt.return ()
+  in
+  Lwt_main.run (t ())
+ 
