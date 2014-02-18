@@ -722,7 +722,8 @@ let _execute_effects constants e =
         constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
         begin
           match ofinished_funs with
-            | None -> Lwt.return_unit
+            | None ->
+              Lwt.return_unit
             | Some finished_funs ->
               let rec loop ffs urs =
                 match (ffs,urs) with

@@ -99,9 +99,11 @@ module Statistics = struct
     mutable start: float (* start of operations (timestamp) *);
     mutable last:  float (* last operation (timestamp)      *);
 
-    mutable avg_set_size:float (* size of values *);
-    mutable avg_get_size:float;
-    mutable avg_range_size:float;
+    mutable avg_set_size:           float (* size of values *);
+    mutable avg_get_size:           float;
+    mutable avg_range_size:         float;
+    mutable avg_range_entries_size: float;
+    mutable avg_rev_range_entries_size :float;
     mutable avg_prefix_size:float;
     mutable avg_del_prefix_size:float;
     mutable harvest_stats: x_stats;
@@ -114,6 +116,8 @@ module Statistics = struct
     mutable tas_time_stats:           x_stats;
     mutable replace_time_stats:       x_stats;
     mutable range_time_stats:         x_stats;
+    mutable range_entries_time_stats: x_stats;
+    mutable rev_range_entries_time_stats: x_stats;
     mutable prefix_time_stats:        x_stats;
     mutable delete_prefix_time_stats: x_stats;
     mutable op_time_stats:            x_stats;
@@ -131,24 +135,28 @@ module Statistics = struct
   let create () =
     {start = Unix.gettimeofday();
      last  = Unix.gettimeofday();
-     avg_set_size=0.0;
-     avg_get_size=0.0;
-     avg_range_size = 0.0;
-     avg_prefix_size = 0.0;
-     avg_del_prefix_size = 0.0;
-     set_time_stats=  create_x_stats();
-     get_time_stats=  create_x_stats();
-     del_time_stats=  create_x_stats();
-     seq_time_stats=  create_x_stats();
-     mget_time_stats= create_x_stats();
-     mget_option_time_stats = create_x_stats();
-     tas_time_stats     =  create_x_stats();
-     replace_time_stats = create_x_stats();
-     range_time_stats = create_x_stats();
-     prefix_time_stats = create_x_stats();
+     avg_set_size             = 0.0;
+     avg_get_size             = 0.0;
+     avg_range_size           = 0.0;
+     avg_range_entries_size   = 0.0;
+     avg_rev_range_entries_size = 0.0;
+     avg_prefix_size          = 0.0;
+     avg_del_prefix_size      = 0.0;
+     set_time_stats           = create_x_stats();
+     get_time_stats           = create_x_stats();
+     del_time_stats           = create_x_stats();
+     seq_time_stats           = create_x_stats();
+     mget_time_stats          = create_x_stats();
+     mget_option_time_stats   = create_x_stats();
+     tas_time_stats           = create_x_stats();
+     replace_time_stats       = create_x_stats();
+     range_time_stats         = create_x_stats();
+     range_entries_time_stats = create_x_stats();
+     rev_range_entries_time_stats     = create_x_stats();
+     prefix_time_stats        = create_x_stats();
      delete_prefix_time_stats = create_x_stats();
-     op_time_stats= create_x_stats();
-     mem_allocated= 0.0;
+     op_time_stats            = create_x_stats();
+     mem_allocated            = 0.0;
      mem_maxrss= 0;
      mem_minor_collections= 0;
      mem_major_collections= 0;
@@ -161,23 +169,26 @@ module Statistics = struct
     begin
       t.start <- Unix.gettimeofday();
       t.last  <- Unix.gettimeofday();
-      t.avg_set_size <- 0.0;
-      t.avg_get_size <- 0.0;
-      t.avg_range_size <- 0.0;
-      t.avg_prefix_size <- 0.0;
-      t.avg_del_prefix_size <- 0.0;
-      t.set_time_stats    <-  create_x_stats();
-      t.get_time_stats    <-  create_x_stats();
-      t.del_time_stats    <-  create_x_stats();
-      t.seq_time_stats    <-  create_x_stats();
-      t.mget_time_stats   <-  create_x_stats();
-      t.tas_time_stats    <-  create_x_stats();
-      t.replace_time_stats<-  create_x_stats();
-      t.range_time_stats  <-  create_x_stats();
-      t.prefix_time_stats <-  create_x_stats();
+      t.avg_set_size           <- 0.0;
+      t.avg_get_size           <- 0.0;
+      t.avg_range_size         <- 0.0;
+      t.avg_range_entries_size <- 0.0;
+      t.avg_prefix_size        <- 0.0;
+      t.avg_del_prefix_size    <- 0.0;
+      t.set_time_stats           <- create_x_stats();
+      t.get_time_stats           <- create_x_stats();
+      t.del_time_stats           <- create_x_stats();
+      t.seq_time_stats           <- create_x_stats();
+      t.mget_time_stats          <- create_x_stats();
+      t.tas_time_stats           <- create_x_stats();
+      t.replace_time_stats       <- create_x_stats();
+      t.range_time_stats         <- create_x_stats();
+      t.range_entries_time_stats <- create_x_stats();
+      t.rev_range_entries_time_stats <- create_x_stats();
+      t.prefix_time_stats        <- create_x_stats();
       t.delete_prefix_time_stats <- create_x_stats();
-      t.op_time_stats     <-  create_x_stats();
-      t.harvest_stats     <- create_x_stats ();
+      t.op_time_stats            <- create_x_stats();
+      t.harvest_stats            <- create_x_stats ();
     end
 
   let _clock t start =
@@ -238,6 +249,14 @@ module Statistics = struct
     let x = new_op t start in
     update_x_stats t.range_time_stats x
 
+  let new_range_entries t (start:float) =
+    let x = new_op t start in
+    update_x_stats t.range_time_stats x
+
+  let new_rev_range_entries t (start:float) =
+    let x = new_op t start in
+    update_x_stats t.rev_range_entries_time_stats x
+
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
     update_x_stats t.prefix_time_stats x;
@@ -252,6 +271,19 @@ module Statistics = struct
     let nf = float n in
     t.avg_range_size <- t.avg_range_size +. ((float n_keys -. t.avg_range_size) /. nf)
 
+  let new_range_entries t (start:float) n_keys =
+    let x = new_op t start in
+    update_x_stats t.range_entries_time_stats x;
+    let n = t.range_entries_time_stats.n in
+    let nf = float n in
+    t.avg_range_entries_size <- t.avg_range_entries_size +. ((float n_keys -. t.avg_range_entries_size) /. nf)
+
+  let new_rev_range_entries t (start:float) n_keys =
+    let x = new_op t start in
+    update_x_stats t.rev_range_entries_time_stats x;
+    let n = t.rev_range_entries_time_stats.n in
+    let nf = float n in
+    t.avg_rev_range_entries_size <- t.avg_rev_range_entries_size +. ((float n_keys -. t.avg_rev_range_entries_size) /. nf)
 
   let new_delete_prefix t (start:float) n_keys =
     let x = new_op t start in
@@ -282,6 +314,8 @@ module Statistics = struct
       Llio.NAMED_FLOAT ("avg_set_size", t.avg_set_size);
       Llio.NAMED_FLOAT ("avg_get_size", t.avg_get_size);
       Llio.NAMED_FLOAT ("avg_range_size", t.avg_range_size);
+      Llio.NAMED_FLOAT ("avg_range_entries_size", t.avg_range_entries_size);
+      Llio.NAMED_FLOAT ("avg_rev_range_entries_size", t.avg_rev_range_entries_size);
       Llio.NAMED_FLOAT ("avg_prefix_size", t.avg_prefix_size);
       Llio.NAMED_FLOAT ("avg_del_prefix_size", t.avg_del_prefix_size);
       x_stats_to_value_list t.harvest_stats "harvest_stats";
@@ -294,6 +328,8 @@ module Statistics = struct
       x_stats_to_value_list t.tas_time_stats "tas_info";
       x_stats_to_value_list t.replace_time_stats "replace_info";
       x_stats_to_value_list t.range_time_stats "range_info";
+      x_stats_to_value_list t.range_entries_time_stats "range_entries_info";
+      x_stats_to_value_list t.rev_range_entries_time_stats "rev_range_entries_info";
       x_stats_to_value_list t.prefix_time_stats "prefix_info";
       x_stats_to_value_list t.delete_prefix_time_stats "delete_prefix_info";
 
@@ -370,6 +406,13 @@ module Statistics = struct
     let avg_range_size = extract_float value in
 
     let value, v_list = extract_next v_list in
+    let avg_range_entries_size = extract_float value in
+
+    let value, v_list = extract_next v_list in
+    let avg_rev_range_entries_size =extract_float value in
+
+
+    let value, v_list = extract_next v_list in
     let avg_prefix_size = extract_float value in
 
     let value, v_list = extract_next v_list in
@@ -405,6 +448,12 @@ module Statistics = struct
 
     let value, v_list = extract_next v_list in
     let range_stats = extract_x_stats value in
+
+    let value, v_list = extract_next v_list in
+    let range_entries_stats = extract_x_stats value in
+
+    let value, v_list = extract_next v_list in
+    let rev_range_entries_stats = extract_x_stats value in
 
     let value, v_list = extract_next v_list in
     let prefix_stats = extract_x_stats value in
@@ -446,6 +495,8 @@ module Statistics = struct
       avg_set_size = avg_set_size;
       avg_get_size = avg_get_size;
       avg_range_size = avg_range_size;
+      avg_range_entries_size = avg_range_entries_size;
+      avg_rev_range_entries_size = avg_rev_range_entries_size;
       avg_prefix_size = avg_prefix_size;
       avg_del_prefix_size = avg_del_prefix_size;
       harvest_stats = harvest_stats;
@@ -458,6 +509,8 @@ module Statistics = struct
       tas_time_stats = tas_stats;
       replace_time_stats = replace_stats;
       range_time_stats = range_stats;
+      range_entries_time_stats = range_entries_stats;
+      rev_range_entries_time_stats = rev_range_entries_stats;
       prefix_time_stats = prefix_stats;
       delete_prefix_time_stats = delete_prefix_stats;
       op_time_stats = op_stats;
@@ -473,11 +526,13 @@ module Statistics = struct
   let string_of t =
     let template =
       "{start: %f, " ^^
-        "last: %f, " ^^
-        "avg_set_size: %f, " ^^
-        "avg_get_size: %f, " ^^
-        "avg_range_size: %f, " ^^
-        "avg_prefix_size: %f, " ^^
+        "last: %f,\n" ^^
+        "avg_set_size: %f,\n" ^^
+        "avg_get_size: %f,\n" ^^
+        "avg_range_size: %f,\n" ^^
+        "avg_range_entries_size: %f,\n" ^^
+        "avg_rev_range_entries_size: %f,\n" ^^
+        "avg_prefix_size: %f,\n" ^^
         "avg_del_prefix_size: %f,\n" ^^
         "harvest_stats: %s,\n" ^^
         "set_info: %s,\n" ^^
@@ -489,6 +544,8 @@ module Statistics = struct
         "tas_info: %s,\n" ^^
         "replace_info: %s,\n" ^^
         "range_info: %s,\n" ^^
+        "range_entries_info: %s,\n" ^^
+        "rev_range_entries_info: %s,\n" ^^
         "prefix_info: %s,\n" ^^
         "delete_prefix_info: %s,\n" ^^
         "ops_info: %s,\n" ^^
@@ -511,6 +568,8 @@ module Statistics = struct
       t.avg_set_size
       t.avg_get_size
       t.avg_range_size
+      t.avg_range_entries_size
+      t.avg_rev_range_entries_size
       t.avg_prefix_size
       t.avg_del_prefix_size
       (x_stats_to_string t.harvest_stats)
@@ -523,6 +582,8 @@ module Statistics = struct
       (x_stats_to_string t.tas_time_stats)
       (x_stats_to_string t.replace_time_stats)
       (x_stats_to_string t.range_time_stats)
+      (x_stats_to_string t.range_entries_time_stats)
+      (x_stats_to_string t.rev_range_entries_time_stats)
       (x_stats_to_string t.prefix_time_stats)
       (x_stats_to_string t.delete_prefix_time_stats)
       (x_stats_to_string t.op_time_stats)

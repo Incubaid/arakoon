@@ -56,12 +56,13 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
   let tb = new test_backend _CLUSTER in
   let backend = (tb :> Backend.backend) in
   let scheme = Server.make_default_scheme () in
+  let stop = ref false in
   let server = Server.make_server_thread
                  ~setup_callback
                  ~teardown_callback
                  ~scheme
-                 "127.0.0.1" port
-                 (Client_protocol.protocol backend) in
+                 "127.0.0.1" port ~stop
+                 (Client_protocol.protocol stop backend) in
 
   let client_t () =
     let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in

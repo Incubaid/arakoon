@@ -117,7 +117,11 @@ let _config_batched_transactions node_cfg cluster_cfg =
         with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
       set_max btc'.max_entries btc'.max_size
 
-let _config_messaging ?ssl_context me others cookie laggy lease_period max_buffer_size =
+let _config_messaging
+      ?ssl_context me others
+      cookie laggy
+      lease_period max_buffer_size
+      ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
       let f msg source target =
@@ -140,14 +144,14 @@ let _config_messaging ?ssl_context me others cookie laggy lease_period max_buffe
   let client_ssl_context = ssl_context in
   let messaging = new tcp_messaging
     (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
-    ?client_ssl_context in
+    ?client_ssl_context ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
 
 open Mp_msg
 
 
-let _config_service ?ssl_context cfg backend=
+let _config_service ?ssl_context cfg stop backend =
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -159,8 +163,8 @@ let _config_service ?ssl_context cfg backend=
                    (fun host ->
                       let name = Printf.sprintf "%s:client_service" host in
                       Server.make_server_thread ~name host port
-                        (Client_protocol.protocol backend)
-                        ~scheme ?ssl_context
+                        (Client_protocol.protocol stop backend)
+                        ~scheme ?ssl_context ~stop
                    )
                    hosts
   in
@@ -471,7 +475,7 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size in
+      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       begin
         if not me.fsync
@@ -557,7 +561,7 @@ let _main_2 (type s)
           in
           let backend = (sb :> Backend.backend) in
 
-          let service = _config_service ?ssl_context:service_ssl_context me backend in
+          let service = _config_service ?ssl_context:service_ssl_context me stop backend in
 
           let send, receive, run, register, is_alive =
             Multi_paxos.network_of_messaging messaging in
@@ -716,6 +720,7 @@ let _main_2 (type s)
                  service ();
                  rapporting ();
                  (listen_for_signal () >>= fun () ->
+                  stop := true;
                   let msg = "got TERM | INT" in
                   Logger.info_ msg >>= fun () ->
                   Lwt_io.printl msg >>= fun () ->
@@ -729,8 +734,8 @@ let _main_2 (type s)
                  );
                  Lwt_mvar.take stop_mvar];
               fsm_t;] >>= fun () ->
-           Lwt_mvar.put stop_mvar () >>= fun () ->
            stop := true;
+           Lwt_mvar.put stop_mvar () >>= fun () ->
            Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
            Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
                       Logger.info_ "fsm thread finished");

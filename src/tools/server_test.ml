@@ -45,10 +45,11 @@ let test_echo () =
   let port = 6666 in
   let host = "127.0.0.1" in
   let scheme = Server.make_default_scheme () in
+  let stop = ref false in
   let server = Server.make_server_thread
                  ~setup_callback host port echo_protocol
                  ~teardown_callback
-                 ~scheme
+                 ~scheme ~stop
   in
   let client () =
     Logger.debug_ "sleeping until server socket started" >>= fun () ->
@@ -88,9 +89,10 @@ let test_max_connections () =
   let port = 6666 in
   let host = "127.0.0.1" in
   let scheme = Server.create_connection_allocation_scheme 2 in
+  let stop = ref false in
   let server = Server.make_server_thread ~scheme
                  ~setup_callback ~teardown_callback
-                 host port echo_protocol
+                 host port echo_protocol ~stop
   in
   let n_problems = ref 0 in
   let client i =

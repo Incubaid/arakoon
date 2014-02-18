@@ -56,7 +56,8 @@ end
 class tcp_messaging
   ?(timeout=60.0)
   ?(client_ssl_context:[> `Client ] Typed_ssl.t option)
-  my_addresses my_cookie (drop_it: drop_function) max_buffer_size =
+  my_addresses my_cookie (drop_it: drop_function)
+  max_buffer_size ~stop =
 
   let _MAGIC = 0xB0BAFE7L in
   let _VERSION = 1 in
@@ -397,6 +398,7 @@ class tcp_messaging
                     ~name ~setup_callback
                     ~teardown_callback ip my_port protocol
                     ~scheme ?ssl_context
+                    ~stop
           in
           s ()
         in

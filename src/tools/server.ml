@@ -133,9 +133,9 @@ let new_socket sa =
     Lwt_unix.socket domain Unix.SOCK_STREAM 0
 
 let _socket_closer cid sock f =
-  Lwt.finalize 
+  Lwt.finalize
     f
-    (fun () ->    
+    (fun () ->
      Lwt.catch
        (fun () -> close sock)
        (fun exn ->
@@ -144,15 +144,15 @@ let _socket_closer cid sock f =
           | _ -> Logger.Info in
         Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
     )
-  
+
 let make_server_thread
       ?(name = "socket server")
       ?(setup_callback=no_callback)
       ?(teardown_callback = no_callback)
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
-      ~scheme
+      ~scheme ~stop
       host port protocol =
-  
+
   let socket_address = Network.make_address host port in
   begin
     let listening_socket = new_socket socket_address in
@@ -166,36 +166,34 @@ let make_server_thread
           ()
     in
     let maybe_take,release = scheme in
+    let inner_take () =
+      if !stop
+      then None
+      else maybe_take () in
     let connection_counter = make_counter () in
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
-    let going_down = ref false in
-    let inner_take () =
-      if !going_down
-      then None
-      else maybe_take () 
-    in
-    
+
     let possible_denial cid plain_fd cl_socket_address =
       make_socket plain_fd ssl_context >>= fun sock ->
       match inner_take () with
-      | None ->  
+      | None ->
          begin
            _socket_closer cid sock (fun () -> session_thread "--" cid deny sock)
            >>= fun () ->
            Lwt.return None
          end
-      | Some id ->  
+      | Some id ->
          begin
-           let t = 
-             _socket_closer 
-               cid sock 
+           let t =
+             _socket_closer
+               cid sock
                (fun () ->
                 (* Lwt_unix.fstat plain_fd >>= fun fstat -> *)
                 Logger.info_f_
                   "%s:session=%i connection=%s socket_address=%s" (* " file_descriptor_inode=%i" *)
                   name id cid (socket_address_to_string cl_socket_address) (* fstat.Lwt_unix.st_ino *)
-                >>= fun () -> 
+                >>= fun () ->
                 let sid = string_of_int id in
                 session_thread sid cid protocol sock >>= fun () ->
                 release ();
@@ -212,7 +210,7 @@ let make_server_thread
            let finalize () =
              Hashtbl.remove client_threads cid;
              Lwt_condition.signal _condition ();
-             Lwt.return () 
+             Lwt.return ()
            in
            possible_denial cid plain_fd cl_socket_address >>= fun mt ->
            begin
@@ -230,7 +228,7 @@ let make_server_thread
                       finalize ()))
              | None -> ()
            end;
-           server_loop ()           
+           server_loop ()
         )
 
         (function
@@ -260,7 +258,6 @@ let make_server_thread
            setup_callback () >>= fun () ->
            server_loop ())
         (fun () ->
-           going_down := true;
            Lwt.catch
              (fun () ->
                 Logger.debug_ "closing listening socket" >>= fun () ->
