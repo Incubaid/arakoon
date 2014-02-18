@@ -176,12 +176,9 @@ def dump_store( node_id ):
 
     return dump_file
 
-def flush_store( node_id ):
-    client = get_client ()
-    client.allowDirtyReads()
-    client.setDirtyReadNode ( node_id )
-    client.range("", True, "a", False, 1)
-    client.disallowDirtyReads()
+def flush_store(node_name):
+    cluster = _getCluster()
+    cluster.flushStore(node_name)
 
 def flush_stores(nodes = None):
     if nodes is None:

@@ -81,11 +81,11 @@ class ArakoonManagement:
 class ArakoonCluster:
 
     def __init__(self, clusterName):
-        self.__validateName(clusterName) 
+        self.__validateName(clusterName)
         """
         There's a difference between the clusterId and the cluster's name.
         The name is used to construct the path to find the config file.
-        the id is what's inside the cfg file and 
+        the id is what's inside the cfg file and
                what you need to provide to a client that want's to talk to the cluster.
         """
         self._clusterName = clusterName
@@ -476,7 +476,7 @@ class ArakoonCluster:
                 config.set(n, "collapse_slowdown", collapseSlowdown)
             else:
                 config.remove_option(n, "collapse_slowdown")
-        
+
         self._saveConfig(config)
 
     def _setTlogCompression(self,nodes, compressor):
@@ -639,7 +639,7 @@ class ArakoonCluster:
 
         if config.has_option(global_, tls_service_validate_peer):
             config.remove_option(global_, tls_service_validate_peer)
-        
+
         self._saveConfig(config)
 
     def setTLSCertificate(self, node, cert_path, key_path):
@@ -989,7 +989,7 @@ class ArakoonCluster:
         clientConf.remove_section(self._clusterName)
         X.writeConfig(clientConf,clients_fn)
 
-        fn = self._clustersFNH 
+        fn = self._clustersFNH
         clusterConf = X.getConfig(fn)
         clusterConf.remove_section(self._clusterName)
         X.writeConfig(clusterConf, fn)
@@ -1210,6 +1210,20 @@ class ArakoonCluster:
         port = int(config['client_port'])
         clusterId = self._getClusterId()
         ArakoonRemoteControl.dropMaster(ip,port, clusterId)
+
+
+    def flushStore(self, nodeName):
+        """
+        Request a node to flush its batched store to disk
+        @param nodeName The name of the node you want to perform the flush of its store
+        @return void
+        """
+        config = self.getNodeConfig(nodeName)
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
+        port = int(config['client_port'])
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.flushStore(ip,port, clusterId)
 
 
     def restartOne(self, nodeName):

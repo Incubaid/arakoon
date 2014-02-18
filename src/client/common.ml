@@ -82,6 +82,7 @@ type client_command =
   | MULTI_GET_OPTION
   | CURRENT_STATE
   | NOP
+  | FLUSH_STORE
 
 
 let code2int = [
@@ -128,6 +129,7 @@ let code2int = [
   REPLACE                 , 0x33l;
   LAST_ENTRIES2           , 0x40l;
   NOP                     , 0x41l;
+  FLUSH_STORE             , 0x42l;
 ]
 
 let int2code =

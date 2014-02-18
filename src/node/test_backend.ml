@@ -104,6 +104,9 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt.return r
 
+  method flush_store () =
+    Lwt.fail (Failure "Not implemented")
+
   method exists ~allow_dirty (key:string) =
     Lwt.return (StringMap.mem key _kv)
 
