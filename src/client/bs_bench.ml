@@ -1,23 +1,25 @@
 open Unix
 open Arg
-open Otc
+open Camltc
+open Lwt
 
 let clock f = 
   let t0 = Unix.gettimeofday () in
-  let () = f() in
+  f() >>= fun () ->
   let t1 = Unix.gettimeofday () in
-  t1 -. t0
+  Lwt.return (t1 -. t0)
 
 let make_key i = Printf.sprintf "key_%08i" i 
 
-let sync = Bdb._dbsync
+let sync t = Camltc.Hotc.sync t
 
-let set_loop db vs n = 
+let set_loop t vs n = 
+  let db = Hotc.get_bdb t in
   let v = String.make vs 'x' in
   let set k v = Bdb.put db k v in
   let rec loop i = 
     if i = n 
-    then sync db
+    then sync t
     else
       let key = make_key i in
       let () = set key v in
@@ -25,11 +27,12 @@ let set_loop db vs n =
   in
   loop 0
 
-let get_loop db n = 
+let get_loop t n = 
+  let db = Hotc.get_bdb t in
   let get k = Bdb.get db k in
   let rec loop i =
     if i = n 
-    then ()
+    then Lwt.return ()
     else
       let key = make_key i in
       let _ = get key in
@@ -37,17 +40,34 @@ let get_loop db n =
   in
   loop 0
 
-let delete_loop db n = 
+
+let get_random_loop t n =
+  let db = Hotc.get_bdb t in
+  let get k = try Some (Bdb.get db k) with Not_found -> None in
+  let rec loop i =
+    if i = n 
+    then Lwt.return ()
+    else
+      let r = Random.int n in
+      let key = make_key r in
+      let _ = get key in
+      loop (i+1)
+  in
+  loop 0
+
+let delete_loop t n = 
+  let db = Hotc.get_bdb t in
   let delete k = Bdb.out db k in
   let rec loop i = 
     if i = n 
-    then sync db
+    then sync t
     else
       let key = make_key i in
       let () = delete key in
       loop (i+1)
   in
   loop 0
+
 
 let () = 
   let n  = ref 1_000_000 in
@@ -62,14 +82,20 @@ let () =
       (fun _ ->()) 
       "simple baardskeerder like benchmark for tc"
   in
-  let db = Bdb._make () in
-  let () = Bdb._dbopen db !fn Bdb.default_mode in
-  let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" !n !vs in
-  let d = clock (fun () -> set_loop db !vs !n) in
-  Printf.printf "%i sets: %fs\n%!" !n d;
-  let d2 = clock (fun () -> get_loop db !n) in
-  Printf.printf "%i gets: %fs\n%!" !n d2;
-  let d3 = clock (fun () -> delete_loop db !n) in
-  Printf.printf "%i deletes: %fs\n%!" !n d3;
-  let () = Bdb._dbclose db in
-  ();;
+  let t () = 
+    Hotc.create !fn [] >>= fun ho ->
+    let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" !n !vs in
+    clock (fun () -> set_loop ho !vs !n) >>= fun d ->
+    Lwt_io.printlf "%i sets: %fs%!" !n d >>= fun () ->
+    clock (fun () -> get_loop ho !n) >>= fun d2 ->
+    Lwt_io.printlf "%i ordered gets: %fs%!" !n d2 >>= fun () ->
+    clock (fun () -> get_random_loop ho !n) >>= fun d4 ->
+    Lwt_io.printlf "%i random gets: %fs%!" !n d4 >>= fun () ->
+    clock (fun () -> delete_loop ho !n) >>= fun d3 ->
+    Lwt_io.printlf "%i deletes: %fs%!" !n d3 >>= fun () ->
+    
+    Hotc.close ho >>= fun () ->
+    Lwt.return ()
+  in
+  Lwt_main.run (t ())
+ 
