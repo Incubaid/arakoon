@@ -66,7 +66,7 @@ let teardown () =
 
 let with_store name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  S.make_store db_name >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
   f store >>= fun () ->
   S.close store
 

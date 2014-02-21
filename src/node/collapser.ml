@@ -43,7 +43,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     )
   >>= fun () ->
   Logger.debug_f_ "Creating store at %s" new_location >>= fun () ->
-  S.make_store new_location >>= fun new_store ->
+  S.make_store new_location ~lcnum:1024 ~ncnum:512 >>= fun new_store ->
   Lwt.finalize (
     fun () ->
 	  tlog_coll # get_infimum_i () >>= fun min_i ->
@@ -155,7 +155,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
   Lwt.catch
     (fun () ->
       let read_only=true in
-      S.make_store ~read_only head_location >>= fun head ->
+      S.make_store ~read_only ~lcnum:1024 ~ncnum:512 head_location >>= fun head ->
       let head_io = S.consensus_i head in
       S.close head >>= fun () ->
       Lwt.return head_io

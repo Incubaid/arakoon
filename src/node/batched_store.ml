@@ -55,8 +55,8 @@ struct
     mutable _size : int;
   }
 
-  let make_store b s =
-    S.make_store b s >>= fun s ->
+  let make_store ~lcnum ~ncnum b s =
+    S.make_store ~lcnum ~ncnum b s >>= fun s ->
     Lwt.return {
       s;
       _cache = Hashtbl.create !max_entries;

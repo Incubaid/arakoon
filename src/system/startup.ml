@@ -90,8 +90,8 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
       struct
         include LS
-        let make_store ?(read_only=false) (db_name:string) =
-          LS.make_store db_name >>= fun store ->
+        let make_store ~lcnum ~ncnum ?(read_only=false) (db_name:string) =
+          LS.make_store ~lcnum ~ncnum db_name >>= fun store ->
           LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () -> 
           Hashtbl.add stores db_name store;
           Lwt.return store
@@ -140,6 +140,8 @@ let post_failure () =
     max_value_size = Node_cfg.default_max_value_size;
     max_buffer_size = Node_cfg.default_max_buffer_size;
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+    lcnum = Node_cfg.default_lcnum;
+    ncnum = Node_cfg.default_ncnum;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -196,7 +198,9 @@ let restart_slaves () =
      overwrite_tlog_entries = None;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
-     client_buffer_capacity = Node_cfg.default_client_buffer_capacity
+     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     lcnum = Node_cfg.default_lcnum;
+     ncnum = Node_cfg.default_ncnum;
     }
   in
   let get_cfgs () = cluster_cfg in 
@@ -253,6 +257,8 @@ let ahead_master_loses_role () =
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     lcnum = Node_cfg.default_lcnum;
+     ncnum = Node_cfg.default_ncnum;
     }
   in
   let get_cfgs () = cluster_cfg in
