@@ -142,11 +142,14 @@ let _socket_closer cid sock f =
     (fun () ->
      Lwt.catch
        (fun () -> close sock)
-       (fun exn ->
-        let level = match exn with
-          | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
-          | _ -> Logger.Info in
-        Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+       (function
+         | Canceled ->
+            Lwt.fail Canceled
+         | exn ->
+            let level = match exn with
+              | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+              | _ -> Logger.Info in
+            Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
     )
 
 let make_server_thread
@@ -181,7 +184,7 @@ let make_server_thread
          begin
            _socket_closer cid sock (fun () -> session_thread "--" cid deny_closing sock)
            >>= fun () ->
-           Lwt.return None
+           Lwt.fail Canceled
          end
       | false, None ->
          begin
