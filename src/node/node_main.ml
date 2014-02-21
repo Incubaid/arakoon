@@ -708,16 +708,16 @@ let _main_2 (type s)
                  log_exception
                    "Exception in fsm thread"
                    (fun () -> Lwt_mutex.with_lock fsm_mutex fsm)) in
-           let msg_mutex = Lwt_mutex.create () in
-           let msg_t =
+           let service_mutex = Lwt_mutex.create () in
+           let service_t = (* service_t hosts the client protocol *)
              log_exception
-               "Exception in messaging thread"
-               (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run ?ssl_context)) in
+               "Exception in service thread"
+               (fun () -> Lwt_mutex.with_lock service_mutex service) in
            Lwt.choose
              [Lwt.pick [
                  fsm_t;
-                 msg_t;
-                 service ();
+                 (messaging # run ?ssl_context ());
+                 service_t;
                  rapporting ();
                  (listen_for_signal () >>= fun () ->
                   stop := true;
@@ -739,8 +739,8 @@ let _main_2 (type s)
            Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
            Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
                       Logger.info_ "fsm thread finished");
-                     (Lwt_mutex.lock msg_mutex >>= fun () ->
-                      Logger.info_ "messaging thread finished")] >>= fun () ->
+                     (Lwt_mutex.lock service_mutex >>= fun () ->
+                      Logger.info_ "service thread finished")] >>= fun () ->
            let count_thread m =
              let stop = ref false in
              let rec inner i =
