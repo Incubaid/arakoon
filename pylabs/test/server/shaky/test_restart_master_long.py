@@ -41,22 +41,29 @@ def test_restart_master_long ():
                                                   ArakoonGoingDown
                                                   ] )
 
+    valid_excs = [ArakoonSockNotReadable,
+                  ArakoonNotFound,
+                  ArakoonGoingDown]
     def range_query_loop1 ():
         Common.heavy_range_entries_scenario (200000,
                                              1500,
-                                             1000)
+                                             1000,
+                                             valid_exceptions=valid_excs)
     def range_query_loop2 ():
         Common.heavy_range_entries_scenario (210000,
                                              1500,
-                                             1000)
+                                             1000,
+                                             valid_exceptions=valid_excs)
     def range_query_loop3 ():
         Common.heavy_range_entries_scenario (220000,
                                              1500,
-                                             1000)
+                                             1000,
+                                             valid_exceptions=valid_excs)
     def range_query_loop4 ():
         Common.heavy_range_entries_scenario (230000,
                                              1500,
-                                             1000)
+                                             1000,
+                                             valid_exceptions=valid_excs)
 
     def restart_loop ():
         Common.delayed_master_restart_loop( restart_iter_cnt ,

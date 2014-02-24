@@ -1237,16 +1237,24 @@ def range_entries_scenario( start_suffix ):
         logging.info("on failure moment, master was: %s", client._masterId)
         raise ex
 
-def heavy_range_entries_scenario( start_suffix, count, queries ):
+def heavy_range_entries_scenario( start_suffix, count, queries, valid_exceptions ):
     value_format_str_ = "p" * 4200 +  "value_%012d"
     client = get_client()
+
+    def validate_ex(ex, tryCnt):
+        ex_msg = str(ex)
+        validEx = isinstance(ex, valid_exceptions)
+        if validEx:
+            logging.debug( "Ignoring exception: %s", ex_msg )
+        return validEx
+
 
     for i in xrange(count):
         suffix = ( i + start_suffix )
         key = key_format_str % suffix
         value = value_format_str_ % suffix
 
-        client.set(key, value)
+        generic_retrying_(client, lambda: client.set(key, value), validate_ex, duration = 60.0)
 
 
     start_key = key_format_str % (start_suffix )
