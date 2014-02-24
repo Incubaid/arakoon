@@ -693,19 +693,19 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let swallow_canceled t =
-             Lwt.catch
-               t
-               (function
-                 | Canceled -> Lwt.return ()
-                 | exn -> Lwt.fail exn) in
            let fsm () = start_backend stop start_state in
            let fsm_t =
-             swallow_canceled
+             Lwt.finalize
                (fun () ->
                  log_exception
                    "Exception in fsm thread"
-                      fsm) in
+                   fsm)
+               (fun () ->
+                let open Multi_paxos in
+                (* stop lease_expiration thread *)
+                constants.lease_expiration_id <- constants.lease_expiration_id + 1;
+                Lwt.return ())
+           in
            Lwt.pick [
                fsm_t;
                (messaging # run ?ssl_context ());
