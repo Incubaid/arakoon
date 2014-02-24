@@ -1243,7 +1243,11 @@ def heavy_range_entries_scenario( start_suffix, count, queries, valid_exceptions
 
     def validate_ex(ex, tryCnt):
         ex_msg = str(ex)
-        validEx = isinstance(ex, valid_exceptions)
+        validEx = False
+        for valid_ex in valid_exceptions:
+            if isinstance(ex, valid_ex ) :
+                validEx = True
+
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )
         return validEx
