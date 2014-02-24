@@ -33,7 +33,11 @@ module Message = struct
   let payload_of t = t.payload
 
   let string_of t=
-    Printf.sprintf "{kind=%s;payload=%S}" t.kind t.payload
+    if String.length t.payload >= 128
+    then
+      Printf.sprintf "{kind=%s;payload=%S ...}" t.kind (String.sub t.payload 0 128)
+    else
+      Printf.sprintf "{kind=%s;payload=%S}" t.kind t.payload
 
   let to_buffer t buffer =
     Llio.string_to buffer t.kind;
