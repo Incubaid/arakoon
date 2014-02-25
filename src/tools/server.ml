@@ -39,11 +39,15 @@ let close = function
   | Plain fd -> Lwt_unix.close fd
   | TLS fd -> Lwt_ssl.close fd
 
-let deny (ic,oc,cid) =
+let deny_max (ic,oc,cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
-  Llio.output_int oc 0xfe >>= fun () ->
+  Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_MAX_CONNECTIONS) >>= fun () ->
   Llio.output_string oc "too many clients"
 
+let deny_closing (ic,oc,cid) =
+  Logger.warning_ "closing socket, denying this one" >>= fun () ->
+  Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_GOING_DOWN) >>= fun () ->
+  Llio.output_string oc "closing socket"
 
 let session_thread (sid:string) cid protocol fd =
   Lwt.catch
@@ -138,11 +142,14 @@ let _socket_closer cid sock f =
     (fun () ->
      Lwt.catch
        (fun () -> close sock)
-       (fun exn ->
-        let level = match exn with
-          | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
-          | _ -> Logger.Info in
-        Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+       (function
+         | Canceled ->
+            Lwt.fail Canceled
+         | exn ->
+            let level = match exn with
+              | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+              | _ -> Logger.Info in
+            Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
     )
 
 let make_server_thread
@@ -166,24 +173,26 @@ let make_server_thread
           ()
     in
     let maybe_take,release = scheme in
-    let inner_take () =
-      if !stop
-      then None
-      else maybe_take () in
     let connection_counter = make_counter () in
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
 
     let possible_denial cid plain_fd cl_socket_address =
       make_socket plain_fd ssl_context >>= fun sock ->
-      match inner_take () with
-      | None ->
+      match !stop, maybe_take () with
+      | true, _ ->
          begin
-           _socket_closer cid sock (fun () -> session_thread "--" cid deny sock)
+           _socket_closer cid sock (fun () -> session_thread "--" cid deny_closing sock)
+           >>= fun () ->
+           Lwt.fail Canceled
+         end
+      | false, None ->
+         begin
+           _socket_closer cid sock (fun () -> session_thread "--" cid deny_max sock)
            >>= fun () ->
            Lwt.return None
          end
-      | Some id ->
+      | false, Some id ->
          begin
            let t =
              _socket_closer

@@ -693,54 +693,38 @@ let _main_2 (type s)
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let swallow_canceled t =
-             Lwt.catch
-               t
-               (function
-                 | Canceled -> Lwt.return ()
-                 | exn -> Lwt.fail exn) in
-           let stop_mvar = Lwt_mvar.create_empty () in
            let fsm () = start_backend stop start_state in
-           let fsm_mutex = Lwt_mutex.create () in
            let fsm_t =
-             swallow_canceled
+             Lwt.finalize
                (fun () ->
                  log_exception
                    "Exception in fsm thread"
-                   (fun () -> Lwt_mutex.with_lock fsm_mutex fsm)) in
-           let msg_mutex = Lwt_mutex.create () in
-           let msg_t =
-             log_exception
-               "Exception in messaging thread"
-               (fun () -> Lwt_mutex.with_lock msg_mutex (messaging # run ?ssl_context)) in
-           Lwt.choose
-             [Lwt.pick [
-                 fsm_t;
-                 msg_t;
-                 service ();
-                 rapporting ();
-                 (listen_for_signal () >>= fun () ->
-                  stop := true;
-                  let msg = "got TERM | INT" in
-                  Logger.info_ msg >>= fun () ->
-                  Lwt_io.printl msg >>= fun () ->
-                  Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
-                  List.iter
-                    (fun n ->
-                       let s = Lwt_log.Section.make n in
-                       Lwt_log.Section.set_level s Lwt_log.Debug)
-                    ["client_protocol"; "tcp_messaging"; "paxos"];
-                  Logger.info_ "All logging set to debug level after TERM/INT"
-                 );
-                 Lwt_mvar.take stop_mvar];
-              fsm_t;] >>= fun () ->
+                   fsm)
+               (fun () ->
+                let open Multi_paxos in
+                (* stop lease_expiration thread *)
+                constants.lease_expiration_id <- constants.lease_expiration_id + 1;
+                Lwt.return ())
+           in
+           Lwt.pick [
+               fsm_t;
+               (messaging # run ?ssl_context ());
+               service ();
+               rapporting ();
+               (listen_for_signal () >>= fun () ->
+                stop := true;
+                let msg = "got TERM | INT" in
+                Logger.info_ msg >>= fun () ->
+                Lwt_io.printl msg >>= fun () ->
+                Lwt_log.Section.set_level Lwt_log.Section.main Lwt_log.Debug;
+                List.iter
+                  (fun n ->
+                   let s = Lwt_log.Section.make n in
+                   Lwt_log.Section.set_level s Lwt_log.Debug)
+                  ["client_protocol"; "tcp_messaging"; "paxos"];
+                Logger.info_ "All logging set to debug level after TERM/INT"
+               );] >>= fun () ->
            stop := true;
-           Lwt_mvar.put stop_mvar () >>= fun () ->
-           Logger.info_ "waiting for fsm and messaging thread to finish" >>= fun () ->
-           Lwt.join [(Lwt_mutex.lock fsm_mutex >>= fun () ->
-                      Logger.info_ "fsm thread finished");
-                     (Lwt_mutex.lock msg_mutex >>= fun () ->
-                      Logger.info_ "messaging thread finished")] >>= fun () ->
            let count_thread m =
              let stop = ref false in
              let rec inner i =
