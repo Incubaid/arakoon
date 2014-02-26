@@ -317,13 +317,15 @@ let _main_2 (type s)
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
+  let maybe_dump_crash_log () =
+    match dump_crash_log with
+    | None -> Logger.info_ "No crash_log defined"
+    | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped" in
   let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
       let handle () =
           Lwt_unix.sleep 0.001 >>= fun () ->
           Logger.info_ "Received USR2, dumping crash_log" >>= fun () ->
-          match dump_crash_log with
-            | None -> Logger.info_ "No crash_log defined"
-            | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped"
+          maybe_dump_crash_log ()
       in
       Lwt.ignore_result (handle ())) in
   _config_batched_transactions me cluster_cfg;
@@ -636,7 +638,7 @@ let _main_2 (type s)
           >>= fun () ->
           Lwt.return 0
         )
-	    (function
+        (function
           | Catchup.StoreAheadOfTlogs(s_i, tlog_i) ->
               let rc = 40 in
               Logger.fatal_f_ "[rc=%i] Store ahead of tlogs: s_i=%s, tlog_i=%s"
@@ -645,6 +647,7 @@ let _main_2 (type s)
           | Catchup.StoreCounterTooLow msg ->
               let rc = 41 in
               Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
+              maybe_dump_crash_log () >>= fun () ->
               Lwt.return rc
           | Tlc2.TLCNotProperlyClosed msg ->
               let rc = 42 in
@@ -679,15 +682,11 @@ let _main_2 (type s)
               Logger.fatal_f_ "[rc=%i] Tlog has a checksum error, last valid pos = %Li" rc pos >>= fun () ->
               Lwt.return rc
           | exn ->
-              begin
-	            Logger.fatal_ ~exn "going down" >>= fun () ->
-	            Logger.fatal_ "after pick" >>= fun() ->
-	            begin
-                  match dump_crash_log with
-	                | None -> Logger.info_ "Not dumping state"
-	                | Some f -> f()
-                end >>= fun () ->
-                Lwt.return 1
+             begin
+               Logger.fatal_ ~exn "going down" >>= fun () ->
+               Logger.fatal_ "after pick" >>= fun() ->
+               maybe_dump_crash_log () >>= fun () ->
+               Lwt.return 1
               end
         )
     end
