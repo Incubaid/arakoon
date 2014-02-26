@@ -221,7 +221,7 @@ let push_value constants v n i =
   mcast constants msg
 
 
-let start_lease_expiration_thread (type s) ?(maybe_immediate=false) constants =
+let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) constants =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   constants.lease_expiration_id <- constants.lease_expiration_id + 1;
   let id = constants.lease_expiration_id in
@@ -259,7 +259,7 @@ let start_lease_expiration_thread (type s) ?(maybe_immediate=false) constants =
         else
           Lwt.return ()
       end in
-    if maybe_immediate && (lease_start +. sleep_sec) <= Unix.gettimeofday ()
+    if immediate_lease_expiration
     then
       begin
         Logger.ign_debug_f_ "start_lease_expiration_thread, taking immediate path";
