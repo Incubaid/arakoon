@@ -292,6 +292,9 @@ let slave_discovered_other_master (type s) constants state () =
       let cluster_id = constants.cluster_id in
       let tls_ctx = constants.catchup_tls_ctx in
       let master_before = S.who_master store in
+      let lease_expired = match master_before with
+        | None -> true
+        | Some (m, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
       Catchup.catchup
         ~tls_ctx
         ~stop:constants.stop
@@ -299,8 +302,9 @@ let slave_discovered_other_master (type s) constants state () =
 
       let master_after = S.who_master store in
       let immediate_lease_expiration =
-        (* structural equality check *)
-        master_after = master_before in
+        (* lease was previously expired and learned no new master leases *)
+        lease_expired && (master_after = master_before)
+      in
       let current_i' = S.get_succ_store_i store in
       let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
                           Sn.pred current_i') (* pred =  consensus_i *)
