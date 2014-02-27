@@ -291,18 +291,24 @@ let slave_discovered_other_master (type s) constants state () =
         me master (Sn.string_of future_i) >>= fun() ->
       let cluster_id = constants.cluster_id in
       let tls_ctx = constants.catchup_tls_ctx in
-      Catchup.catchup ~tls_ctx ~stop:constants.stop me other_cfgs ~cluster_id ((module S), store, tlog_coll) master
-      >>= fun () ->
-      begin
-        let current_i' = S.get_succ_store_i store in
-        let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
-                            Sn.pred current_i') (* pred =  consensus_i *)
-        in
-        Multi_paxos.mcast constants fake >>= fun () ->
+      let master_before = S.who_master store in
+      Catchup.catchup
+        ~tls_ctx
+        ~stop:constants.stop
+        me other_cfgs ~cluster_id ((module S), store, tlog_coll) master >>= fun () ->
 
-        start_lease_expiration_thread ~maybe_immediate:true constants >>= fun () ->
-        Fsm.return (Slave_steady_state (future_n, current_i', None));
-      end
+      let master_after = S.who_master store in
+      let immediate_lease_expiration =
+        (* structural equality check *)
+        master_after = master_before in
+      let current_i' = S.get_succ_store_i store in
+      let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
+                          Sn.pred current_i') (* pred =  consensus_i *)
+      in
+      Multi_paxos.mcast constants fake >>= fun () ->
+
+      start_lease_expiration_thread ~immediate_lease_expiration constants >>= fun () ->
+      Fsm.return (Slave_steady_state (future_n, current_i', None));
     end
   else
     begin
