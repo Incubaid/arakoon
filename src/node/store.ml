@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Update
 open Interval
 open Routing
@@ -482,9 +483,62 @@ struct
         Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max))
 
   let range store first finc last linc max =
-    _wrap_exception store "RANGE" CorruptStore (fun () ->
-      let r = S.range store.s __prefix first finc last linc max in
-      Lwt.return r)
+    _wrap_exception
+      store
+      "RANGE"
+      CorruptStore
+      (fun () ->
+       let first = match first with
+         | None -> __prefix
+         | Some f -> __prefix ^ f in
+       let last = match last with
+         | None -> next_prefix __prefix
+         | Some l -> Some (__prefix ^ l) in
+       let comp_last =
+         match last with
+         | None ->
+            fun k -> true
+         | Some last ->
+            if linc
+            then
+              fun k -> String.(<=:) k last
+            else
+              fun k -> String.(<:) k last in
+       let p = String.length __prefix in
+       let cut x = String.sub x p (String.length x - p) in
+       let res =
+         S.with_cursor
+           store.s
+           (fun cur ->
+            let rec inner acc count =
+              if count = max
+              then
+                acc
+              else
+                begin
+                  let k, _ = S.cur_get cur in
+                  if comp_last k
+                  then
+                    begin
+                      let acc' = (cut k) :: acc in
+                      if S.cur_next cur
+                      then
+                        inner acc' (count + 1)
+                      else
+                        acc'
+                    end
+                  else
+                    acc
+                end
+            in
+            if S.cur_jump cur first
+            then
+              inner [] 0
+            else
+              [])
+       in
+       let r = Array.of_list res in
+       Lwt.return r)
 
   let prefix_keys store prefix max =
     _wrap_exception store "PREFIX_KEYS" CorruptStore (fun () ->

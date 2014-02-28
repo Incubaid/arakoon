@@ -147,14 +147,6 @@ let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
 
-let range ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map cut r
-
-
 let range_entries ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let r = _range_entries prefix bdb first finc last linc max in
@@ -358,12 +350,20 @@ type cursor = (B.bdb * B.bdbcur)
 let with_cursor ls f =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.with_cursor bdb (fun _ cur -> f (bdb, cur))
-let cur_first (bdb, cur) = B.first bdb cur
-let cur_last (bdb, cur) = B.last bdb cur
+
+let wrap_not_found f =
+  try
+    f ();
+    true
+  with Not_found -> false
+(* let cur_first (bdb, cur) = B.first bdb cur *)
+(* let cur_last (bdb, cur) = B.last bdb cur *)
 let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
 let cur_get_key (bdb, cur) = B.key bdb cur
-let cur_next (bdb, cur) = B.next bdb cur
-let cur_jump (bdb, cur) = B.jump bdb cur
+let cur_next (bdb, cur) =
+  wrap_not_found (fun () -> B.next bdb cur)
+let cur_jump (bdb, cur) key =
+  wrap_not_found (fun () -> B.jump bdb cur key)
 
 let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =

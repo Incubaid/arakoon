@@ -60,54 +60,6 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
-let range ms prefix first finc last linc max =
-  let first = match first with
-    | None -> prefix
-    | Some f -> prefix ^ f in
-  let last = match last with
-    | None -> next_prefix prefix
-    | Some l -> Some (prefix ^ l) in
-  let comp_last =
-    match last with
-    | None ->
-       fun k -> true
-    | Some last ->
-       if linc
-       then
-         fun k -> String.(<=:) k last
-       else
-         fun k -> String.(<:) k last in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  let rec inner acc count cur =
-    if count = max
-    then
-      acc
-    else
-      begin
-        let k, _ = StringMap.cur_get cur in
-        if comp_last k
-        then
-          begin
-            let acc' = (cut k) :: acc in
-            match StringMap.cur_next cur with
-            | None ->
-               acc'
-            | Some cur' ->
-               inner acc' (count + 1) cur'
-          end
-        else
-          acc
-      end
-  in
-  let res =
-    match StringMap.cur_jump ~dir:StringMap.Right first ms.kv with
-    | None ->
-       []
-    | Some cur ->
-       inner [] 0 cur in
-  Array.of_list res
-
 
 let range_entries ms prefix first finc last linc max =
   let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
@@ -218,10 +170,14 @@ let cur_get (zip, ls) =
 let cur_get_key cur =
   let k, _ = cur_get cur in
   k
+
 let cur_next (zip, ls) =
-  with_initialized
-    zip
-    (fun z ->
-     zip := StringMap.cur_next z)
+  match !zip with
+  | None -> false
+  | Some z ->
+     zip := StringMap.cur_next z;
+     !zip <> None
+
 let cur_jump (zip, ls) key =
-  zip := StringMap.cur_jump key ls.kv
+  zip := StringMap.cur_jump key ls.kv;
+  !zip <> None

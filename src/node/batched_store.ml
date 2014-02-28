@@ -198,10 +198,6 @@ struct
     else
       raise Not_found
 
-  let range s prefix first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.range s.s prefix first finc last linc max
-
   let range_entries s prefix first finc last linc max =
     _with_complex_query ~allow_in_transaction:true s;
     S.range_entries s.s prefix first finc last linc max
@@ -277,10 +273,10 @@ struct
   let with_cursor s f =
     _with_complex_query ~allow_in_transaction:true s;
     S.with_cursor s.s (fun cur -> f cur)
-  let cur_first =
-    S.cur_first
-  let cur_last =
-    S.cur_last
+  (* let cur_first = *)
+  (*   S.cur_first *)
+  (* let cur_last = *)
+  (*   S.cur_last *)
   let cur_get =
     S.cur_get
   let cur_get_key =
