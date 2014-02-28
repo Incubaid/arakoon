@@ -188,10 +188,9 @@ struct
         let start = Unix.gettimeofday() in
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
-        S.range store first finc last linc max >>= fun keys ->
-        let n_keys = Array.length keys in
-        Statistics.new_range _stats start n_keys;
-        Lwt.return keys
+        S.range store first finc last linc max >>= fun r ->
+        Statistics.new_range _stats start (fst r);
+        Lwt.return r
 
       method private with_blocked_collapser start_i f =
         Lwt.finalize
@@ -221,10 +220,9 @@ struct
         let start = Unix.gettimeofday() in
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
-        S.range_entries store first finc last linc max >>= fun kvs ->
-        let n_keys = Array.length kvs in
-        Statistics.new_range_entries _stats start n_keys;
-        Lwt.return kvs
+        S.range_entries store first finc last linc max >>= fun r ->
+        Statistics.new_range_entries _stats start (fst r);
+        Lwt.return r
 
       method rev_range_entries ~allow_dirty
                (first:string option) finc (last:string option) linc max =
@@ -232,10 +230,9 @@ struct
         log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range last first >>= fun () ->
-        S.rev_range_entries store first finc last linc max >>= fun kvs ->
-        let n_keys = Array.length kvs in
-        Statistics.new_rev_range_entries _stats start n_keys;
-        Lwt.return kvs
+        S.rev_range_entries store first finc last linc max >>= fun r ->
+        Statistics.new_rev_range_entries _stats start (fst r);
+        Lwt.return r
 
       method prefix_keys ~allow_dirty (prefix:string) (max:int) =
         let start = Unix.gettimeofday() in
@@ -658,7 +655,7 @@ struct
                 let k' = String.sub k start length in
                 Hashtbl.replace result k' cfg
               in
-              Array.iter add_item cfgs;
+              List.iter add_item (snd cfgs);
               let () = client_cfgs <- (Some result) in
               Lwt.return result
             | Some res ->

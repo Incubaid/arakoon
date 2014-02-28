@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Common
 open Lwt
 open Log_extra
@@ -258,7 +259,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
           backend # range ~allow_dirty first finc last linc max >>= fun values ->
           Llio.output_int32 oc 0l >>= fun () ->
-          Llio.output_string_array_reversed oc values >>= fun () ->
+          let size = fst values in
+          Logger.debug_f_ "size = %i" size >>= fun () ->
+          Llio.output_counted_list Llio.output_string oc values >>= fun () ->
           Lwt.return false
         )
         (handle_exception oc )
@@ -276,11 +279,11 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # range_entries ~allow_dirty first finc last linc max
-           >>= fun (kvs:(string*string) array) ->
+           >>= fun (kvs:(string*string) counted_list) ->
            Llio.output_int32 oc 0l >>= fun () ->
-           let size = Array.length kvs in
+           let size = fst kvs in
            Logger.debug_f_ "size = %i" size >>= fun () ->
-           Llio.output_array_reversed Llio.output_string_pair oc kvs >>= fun () ->
+           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)
@@ -298,11 +301,11 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # rev_range_entries ~allow_dirty first finc last linc max
-           >>= fun (kvs:(string*string) array) ->
+           >>= fun (kvs:(string*string) counted_list) ->
            Llio.output_int32 oc 0l >>= fun () ->
-           let size = Array.length kvs in
+           let size = fst kvs in
            Logger.debug_f_ "size = %i" size >>= fun () ->
-           Llio.output_array Llio.output_string_pair  oc kvs >>= fun () ->
+           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)

@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Update
 open Interval
 open Routing
@@ -40,15 +41,15 @@ class type backend = object
   method range:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> (string array) Lwt.t
+    string option -> bool -> int -> (string counted_list) Lwt.t
   method range_entries:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> ((string * string) array) Lwt.t
+    string option -> bool -> int -> ((string * string) counted_list) Lwt.t
   method rev_range_entries:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> ((string * string) array) Lwt.t
+    string option -> bool -> int -> ((string * string) counted_list) Lwt.t
   method prefix_keys:
     allow_dirty:bool -> string -> int -> (string list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t

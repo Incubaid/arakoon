@@ -76,13 +76,13 @@ sig
   val exists : t -> string -> bool Lwt.t
   val range :  t ->
     string option -> bool ->
-    string option -> bool -> int -> string array Lwt.t
+    string option -> bool -> int -> string counted_list Lwt.t
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) array Lwt.t
+    string option -> bool -> int -> (string * string) counted_list Lwt.t
   val rev_range_entries :  t ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) array Lwt.t
+    string option -> bool -> int -> (string * string) counted_list Lwt.t
   val prefix_keys : t -> string -> int -> string list Lwt.t
   val multi_get : t -> string list -> string list Lwt.t
   val multi_get_option : t -> string list -> string option list Lwt.t
@@ -549,9 +549,7 @@ struct
          else
            init)
     in
-    let res' = List.rev res in
-    let r = Array.of_list res' in
-    r
+    res
 
   let fold_rev_range store first finc last linc max f init =
     let first = match first with
@@ -601,9 +599,7 @@ struct
          else
            init)
     in
-    let res' = List.rev res in
-    let r = Array.of_list res' in
-    r
+    res
 
 
   let range store first finc last linc max =
@@ -615,9 +611,9 @@ struct
        let r = fold_range store
                           first finc last linc
                           max
-                          (fun cur acc ->
-                           (cut (S.cur_get_key cur)) :: acc)
-                          [] in
+                          (fun cur (count, acc) ->
+                           count + 1, (cut (S.cur_get_key cur)) :: acc)
+                          (0, []) in
       Lwt.return r)
 
   let _range_entries store first finc last linc max =
@@ -635,7 +631,14 @@ struct
       "RANGE_ENTRIES"
       CorruptStore
       (fun () ->
-       Lwt.return (_range_entries store first finc last linc max))
+       let r = fold_range store
+               first finc last linc
+               max
+               (fun cur (count, acc) ->
+                let k, v = S.cur_get cur in
+                count + 1, (cut k, v) :: acc)
+               (0, []) in
+       Lwt.return r)
 
   let rev_range_entries store first finc last linc max =
     _wrap_exception
@@ -647,10 +650,10 @@ struct
                  store
                  first finc last linc
                  max
-                 (fun cur acc ->
+                 (fun cur (count, acc) ->
                   let k, v = S.cur_get cur in
-                  (cut k, v) :: acc)
-                 [] in
+                  count + 1, (cut k, v) :: acc)
+                 (0, []) in
        Lwt.return r)
 
   let prefix_keys store prefix max =
@@ -689,7 +692,7 @@ struct
 
       method range_entries first finc last linc max =
         test_range first last;
-        _range_entries store first finc last linc max
+        Array.of_list (List.rev (_range_entries store first finc last linc max))
     end
 
   let _user_function store (name:string) (po:string option) tx =

@@ -20,6 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
+
 type lwtoc = Lwt_io.output_channel
 type lwtic = Lwt_io.input_channel
 
@@ -70,6 +72,9 @@ val output_int32:         lwtoc -> int32         -> unit Lwt.t
 val output_int64:         lwtoc -> int64         -> unit Lwt.t
 val output_string_option: lwtoc -> string option -> unit Lwt.t
 val output_string:        lwtoc -> string        -> unit Lwt.t
+val output_counted_list:
+  (lwtoc -> 'a -> unit Lwt.t) ->
+  lwtoc -> 'a counted_list -> unit Lwt.t
 val output_list:
   (lwtoc -> 'a -> unit Lwt.t) ->
   lwtoc -> 'a list -> unit Lwt.t

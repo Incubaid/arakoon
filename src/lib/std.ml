@@ -342,3 +342,5 @@ module Map = struct
 
   end
 end
+
+type 'a counted_list = (int * 'a list)
