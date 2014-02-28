@@ -20,13 +20,14 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Store
+open Std
+open Simple_store
 open Lwt
 open Log_extra
 open Update
 open Routing
 
-module StringMap = Map.Make(String);;
+module StringMap = Test_backend.StringMap
 
 type t = { mutable kv : string StringMap.t;
            mutable _tx : transaction option;
@@ -60,10 +61,45 @@ let get ms key =
   StringMap.find key ms.kv
 
 let range ms prefix first finc last linc max =
-  let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
+  let first = match first with
+    | None -> prefix
+    | Some f -> prefix ^ f in
+  let last = match last with
+    | None -> next_prefix prefix
+    | Some l -> Some (prefix ^ l) in
+  let comp_last =
+    match last with
+    | None ->
+       fun k -> true
+    | Some last ->
+       if linc
+       then
+         fun k -> String.(<=:) k last
+       else
+         fun k -> String.(<:) k last in
   let p = String.length __prefix in
   let cut x = String.sub x p (String.length x - p) in
-  Array.map cut keys
+  let rec inner acc cur =
+    let k, _ = StringMap.cur_get cur in
+    if comp_last k
+    then
+      begin
+        let acc' = (cut k) :: acc in
+        match StringMap.cur_next cur with
+        | None ->
+           acc'
+        | Some cur' ->
+           inner acc' cur'
+      end
+    else
+      acc in
+  let res =
+    match StringMap.cur_jump ~dir:StringMap.Right first ms.kv with
+    | None ->
+       []
+    | Some cur ->
+       inner [] cur in
+  Array.of_list res
 
 
 let range_entries ms prefix first finc last linc max =

@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Store
+open Simple_store
 open Lwt
 
 module StringMap = Map.Make(String)

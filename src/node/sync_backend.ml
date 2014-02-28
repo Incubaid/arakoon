@@ -33,7 +33,7 @@ struct
   open Interval
   open Mp_msg
   open Common
-  open Store
+  open Simple_store
   open Master_type
   open Tlogcommon
 

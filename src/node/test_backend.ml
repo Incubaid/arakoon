@@ -27,10 +27,11 @@ open Update
 open Routing
 open Common
 open Interval
+open Std
 
 let section = Logger.Section.main
 
-module StringMap = Map.Make(String);;
+module StringMap = Map.Make(String)
 
 let one_ f first finc last linc max (k:string) (v:string) acc =
   let count = fst acc and a = snd acc in

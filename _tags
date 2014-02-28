@@ -10,10 +10,12 @@ true: package(bz2)
 true: package(str)
 true: package(camltc)
 true: package(dynlink)
+true: package(quickcheck)
 true: pp(camlp4of)
 true: package(snappy)
 "doc": include
 "src":include
+"src/lib":include
 "src/tools":include
 "src/client":include
 "src/toy":include

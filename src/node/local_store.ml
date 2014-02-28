@@ -25,7 +25,7 @@ open Lwt
 open Update
 open Routing
 open Log_extra
-open Store
+open Simple_store
 open Unix.LargeFile
 
 exception BdbFFatal of string

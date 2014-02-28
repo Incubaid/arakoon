@@ -25,91 +25,15 @@ open Interval
 open Routing
 open Lwt
 open Log_extra
+open Simple_store
 
-let section = Logger.Section.main
-
-let __i_key = "*i"
-let __j_key = "*j"
-let __interval_key = "*interval"
-let __routing_key = "*routing"
-let __master_key  = "*master"
-let __lease_key = "*lease"
-let __lease_key2 = "*lease2"
-let __prefix = "@"
-let __adminprefix="*"
-
-let _f _pf = function
-  | Some x -> (Some (_pf ^ x))
-  | None -> (Some _pf)
-let _l _pf = function
-  | Some x -> (Some (_pf ^ x))
-  | None -> None
-
-let _filter get_key make_entry fold coll pf =
-  let pl = String.length pf in
-  fold (fun acc entry ->
-      let key = get_key entry in
-      let kl = String.length key in
-      let key' = String.sub key pl (kl-pl) in
-      (make_entry entry key')::acc) [] coll
-
-let filter_keys_list keys =
-  _filter (fun i -> i) (fun e k -> k) List.fold_left keys __prefix
-
-let filter_entries_list entries =
-  _filter (fun (k,v) -> k) (fun (k,v) k' -> (k',v)) List.fold_left entries __prefix
-
-let filter_keys_array entries =
-  _filter (fun i -> i) (fun e k -> k) Array.fold_left entries __prefix
-
-
-class transaction = object end
 
 type update_result =
+    Simple_store.update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-exception Key_not_found of string
 exception CorruptStore
-
-module type Simple_store = sig
-  type t
-  val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
-
-  val exists: t -> string -> bool
-  val get: t -> string -> string
-
-  val range: t -> string -> string option -> bool -> string option -> bool ->
-    int -> string array
-  val range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
-  val rev_range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
-  val prefix_keys: t -> string -> int -> string list
-  val set: t -> transaction -> string -> string -> unit
-  val delete: t -> transaction -> string -> unit
-  val delete_prefix: t -> transaction -> string -> int
-
-  val flush: t -> unit Lwt.t
-  val close: t -> bool -> unit Lwt.t
-  val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
-  val make_store: lcnum:int -> ncnum:int -> bool -> string -> t Lwt.t
-
-  val get_location: t -> string
-  val relocate: t -> string -> unit Lwt.t
-
-  val get_key_count : t -> int64 Lwt.t
-
-  val optimize : t -> bool -> unit Lwt.t
-  val defrag : t -> unit Lwt.t
-  val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
-  val copy_store2 : string -> string -> bool -> unit Lwt.t
-  val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
-end
-
-class transaction_lock = object end
 
 type key_or_transaction =
   | Key of transaction_lock
