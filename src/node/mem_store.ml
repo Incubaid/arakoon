@@ -79,26 +79,33 @@ let range ms prefix first finc last linc max =
          fun k -> String.(<:) k last in
   let p = String.length __prefix in
   let cut x = String.sub x p (String.length x - p) in
-  let rec inner acc cur =
-    let k, _ = StringMap.cur_get cur in
-    if comp_last k
+  let rec inner acc count cur =
+    if count = max
     then
-      begin
-        let acc' = (cut k) :: acc in
-        match StringMap.cur_next cur with
-        | None ->
-           acc'
-        | Some cur' ->
-           inner acc' cur'
-      end
+      acc
     else
-      acc in
+      begin
+        let k, _ = StringMap.cur_get cur in
+        if comp_last k
+        then
+          begin
+            let acc' = (cut k) :: acc in
+            match StringMap.cur_next cur with
+            | None ->
+               acc'
+            | Some cur' ->
+               inner acc' (count + 1) cur'
+          end
+        else
+          acc
+      end
+  in
   let res =
     match StringMap.cur_jump ~dir:StringMap.Right first ms.kv with
     | None ->
        []
     | Some cur ->
-       inner [] cur in
+       inner [] 0 cur in
   Array.of_list res
 
 
