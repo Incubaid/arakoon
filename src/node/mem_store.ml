@@ -174,10 +174,6 @@ let cur_next (zip, ls) =
      zip := StringMap.cur_next z;
      !zip <> None
 
-let cur_jump_left (zip, ls) key =
-  zip := StringMap.cur_jump_left key ls.kv;
-  !zip <> None
-
-let cur_jump_right (zip, ls) key =
-  zip := StringMap.cur_jump_right key ls.kv;
+let cur_jump (zip, ls) key =
+  zip := StringMap.cur_jump key ls.kv;
   !zip <> None

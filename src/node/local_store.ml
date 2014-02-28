@@ -364,16 +364,7 @@ let cur_next (bdb, cur) =
     (fun () ->
      B.next bdb cur)
 
-let cur_jump_left (bdb, cur) key =
-  wrap_not_found
-    (fun () ->
-     B.jump bdb cur key;
-     let k = B.key bdb cur in
-     if not String.(k =: key)
-     then
-       B.prev bdb cur)
-
-let cur_jump_right (bdb, cur) key =
+let cur_jump (bdb, cur) key =
   wrap_not_found
     (fun () ->
      B.jump bdb cur key)

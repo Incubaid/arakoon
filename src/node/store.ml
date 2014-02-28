@@ -475,6 +475,32 @@ struct
     let p = String.length __prefix in
     fun x -> String.sub x p (String.length x - p)
 
+  let jump cur key ~inc ~right =
+    if S.cur_jump cur key
+    then
+      begin
+        match inc, right with
+        | true, true -> true
+        | false, true ->
+           let k = S.cur_get_key cur in
+           if String.(=:) k key
+           then
+             S.cur_next cur
+           else
+             true
+        | true, false ->
+           let k = S.cur_get_key cur in
+           if String.(=:) k key
+           then
+             true
+           else
+             S.cur_prev cur
+        | false, false ->
+           S.cur_prev cur
+      end
+    else
+      false
+
   let fold_range store first finc last linc max f init =
     let first = match first with
       | None -> __prefix
@@ -517,21 +543,9 @@ struct
                  acc
              end
          in
-         if S.cur_jump_right cur first
+         if jump cur first ~inc:finc ~right:true
          then
-           begin
-             let ok =
-               if not finc && String.(=:) first (S.cur_get_key cur)
-               then
-                 S.cur_next cur
-               else
-                 true in
-             if ok
-             then
-               inner init 0
-             else
-               init
-           end
+           inner init 0
          else
            init)
     in
@@ -581,8 +595,7 @@ struct
              | None ->
                 S.cur_last cur
              | Some l ->
-                (* TODO keep linc in mind! *)
-                S.cur_jump_left cur l)
+                jump cur l ~inc:linc ~right:false)
          then
            inner init 0
          else

@@ -282,11 +282,8 @@ struct
   let cur_next =
     S.cur_next
 
-  let cur_jump_left =
-    S.cur_jump_left
-
-  let cur_jump_right =
-    S.cur_jump_right
+  let cur_jump =
+    S.cur_jump
 end
 
 module Local_store = Batched_store(Local_store)

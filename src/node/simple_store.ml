@@ -57,8 +57,7 @@ module type Simple_store = sig
   val cur_get_key : cursor -> key
   val cur_prev : cursor -> bool
   val cur_next : cursor -> bool
-  val cur_jump_left : cursor -> key -> bool
-  val cur_jump_right : cursor -> key -> bool
+  val cur_jump : cursor -> key -> bool (* jumps to the specified key or just right from it *)
 
   val exists: t -> string -> bool
   val get: t -> string -> string
