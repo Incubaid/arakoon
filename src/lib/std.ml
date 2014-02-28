@@ -247,9 +247,10 @@ module Map = struct
 
     let cur_first ?(c=[]) t =
       let rec inner acc = function
-        | Empty -> failwith "invalid"
+        | Empty ->
+           None
         | Node(Empty, _, _, _, _) as t ->
-           t, acc
+           Some (t, acc)
         | Node(l, _, _, _, _) as t ->
            inner ((t, Left)::acc) l in
       inner c (Obj.magic t)
@@ -287,7 +288,7 @@ module Map = struct
          end
       | Node(_, _, _, r, _) ->
          let c' = (h, Right) :: c in
-         Some (cur_first ~c:c' r)
+         cur_first ~c:c' r
 
     let cur_prev (h, c) =
       match h with
