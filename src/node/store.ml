@@ -519,11 +519,24 @@ struct
          in
          if S.cur_jump_right cur first
          then
-           inner init 0
+           begin
+             let ok =
+               if not finc && String.(=:) first (S.cur_get_key cur)
+               then
+                 S.cur_next cur
+               else
+                 true in
+             if ok
+             then
+               inner init 0
+             else
+               init
+           end
          else
            init)
     in
-    let r = Array.of_list res in
+    let res' = List.rev res in
+    let r = Array.of_list res' in
     r
 
   let fold_rev_range store first finc last linc max f init =
@@ -568,13 +581,15 @@ struct
              | None ->
                 S.cur_last cur
              | Some l ->
+                (* TODO keep linc in mind! *)
                 S.cur_jump_left cur l)
          then
            inner init 0
          else
            init)
     in
-    let r = Array.of_list res in
+    let res' = List.rev res in
+    let r = Array.of_list res' in
     r
 
 
