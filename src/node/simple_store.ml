@@ -43,12 +43,25 @@ exception Key_not_found of string
 class transaction_lock = object end
 class transaction = object end
 
+type key = string
+type value = string
+
 module type Simple_store = sig
   type t
   val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
+  type cursor
+  val with_cursor : t -> (cursor -> 'a) -> 'a
+  val cur_first : cursor -> unit
+  val cur_last : cursor -> unit
+  val cur_get : cursor -> (key * value)
+  val cur_get_key : cursor -> key
+  val cur_next : cursor -> unit
+  val cur_jump : cursor -> key -> unit
+
   val exists: t -> string -> bool
   val get: t -> string -> string
+
 
   val range: t -> string -> string option -> bool -> string option -> bool ->
     int -> string array

@@ -190,3 +190,31 @@ let make_store ~lcnum ~ncnum read_only db_name =
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
+
+type cursor = (string StringMap.zipper option ref * t)
+let with_cursor ls f =
+  let zip = ref None in
+  f (zip, ls)
+let cur_first (zip, ls) =
+  zip := Some (StringMap.cur_first ls.kv)
+let cur_last (zip, ls) =
+  zip := Some (StringMap.cur_last ls.kv)
+let with_initialized zip f =
+  match !zip with
+  | None -> failwith "invalid cursor"
+  | Some z -> f z
+let cur_get (zip, ls) =
+  with_initialized
+    zip
+    (fun zip ->
+     StringMap.cur_get zip)
+let cur_get_key cur =
+  let k, _ = cur_get cur in
+  k
+let cur_next (zip, ls) =
+  with_initialized
+    zip
+    (fun z ->
+     zip := StringMap.cur_next z)
+let cur_jump (zip, ls) key =
+  zip := StringMap.cur_jump key ls.kv

@@ -272,6 +272,23 @@ struct
   let get_fringe s =
     _with_complex_query ~allow_in_transaction:true s;
     S.get_fringe s.s
+
+  type cursor = S.cursor
+  let with_cursor s f =
+    _with_complex_query ~allow_in_transaction:true s;
+    S.with_cursor s.s (fun cur -> f cur)
+  let cur_first =
+    S.cur_first
+  let cur_last =
+    S.cur_last
+  let cur_get =
+    S.cur_get
+  let cur_get_key =
+    S.cur_get_key
+  let cur_next =
+    S.cur_next
+  let cur_jump =
+    S.cur_jump
 end
 
 module Local_store = Batched_store(Local_store)

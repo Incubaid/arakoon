@@ -354,6 +354,17 @@ let get_fringe ls border direction =
        Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
+type cursor = (B.bdb * B.bdbcur)
+let with_cursor ls f =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.with_cursor bdb (fun _ cur -> f (bdb, cur))
+let cur_first (bdb, cur) = B.first bdb cur
+let cur_last (bdb, cur) = B.last bdb cur
+let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
+let cur_get_key (bdb, cur) = B.key bdb cur
+let cur_next (bdb, cur) = B.next bdb cur
+let cur_jump (bdb, cur) = B.jump bdb cur
+
 let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =
     if read_only
