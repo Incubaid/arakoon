@@ -61,13 +61,6 @@ let get ms key =
   StringMap.find key ms.kv
 
 
-let range_entries ms prefix first finc last linc max =
-  let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map (fun (k,v) -> (cut k,v)) entries
-
-
 let rev_range_entries ms prefix first finc last linc max =
   let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
   let p = String.length __prefix in

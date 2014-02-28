@@ -471,16 +471,60 @@ struct
     end;
     r
 
-  let _range_entries store first finc last linc max =
-    S.range_entries store.s __prefix first finc last linc max
+  let cut =
+    let p = String.length __prefix in
+    fun x -> String.sub x p (String.length x - p)
 
-  let range_entries store ?(_pf=__prefix) first finc last linc max =
-    _wrap_exception store "RANGE_ENTRIES" CorruptStore (fun () ->
-        Lwt.return (S.range_entries store.s _pf first finc last linc max))
-
-  let rev_range_entries store first finc last linc max =
-    _wrap_exception store "REV_RANGE_ENTRIES" CorruptStore (fun () ->
-        Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max))
+  let fold_range store first finc last linc max f init =
+    let first = match first with
+      | None -> __prefix
+      | Some f -> __prefix ^ f in
+    let last = match last with
+      | None -> next_prefix __prefix
+      | Some l -> Some (__prefix ^ l) in
+    let comp_last =
+      match last with
+      | None ->
+         fun k -> true
+      | Some last ->
+         if linc
+         then
+           fun k -> String.(<=:) k last
+         else
+           fun k -> String.(<:) k last in
+    let res =
+      S.with_cursor
+        store.s
+        (fun cur ->
+         let rec inner acc count =
+           if count = max
+           then
+             acc
+           else
+             begin
+               let k, _ = S.cur_get cur in
+               if comp_last k
+               then
+                 begin
+                   let acc' = f cur acc in
+                   if S.cur_next cur
+                   then
+                     inner acc' (count + 1)
+                   else
+                     acc'
+                 end
+               else
+                 acc
+             end
+         in
+         if S.cur_jump cur first
+         then
+           inner init 0
+         else
+           init)
+    in
+    let r = Array.of_list res in
+    r
 
   let range store first finc last linc max =
     _wrap_exception
@@ -488,57 +532,34 @@ struct
       "RANGE"
       CorruptStore
       (fun () ->
-       let first = match first with
-         | None -> __prefix
-         | Some f -> __prefix ^ f in
-       let last = match last with
-         | None -> next_prefix __prefix
-         | Some l -> Some (__prefix ^ l) in
-       let comp_last =
-         match last with
-         | None ->
-            fun k -> true
-         | Some last ->
-            if linc
-            then
-              fun k -> String.(<=:) k last
-            else
-              fun k -> String.(<:) k last in
-       let p = String.length __prefix in
-       let cut x = String.sub x p (String.length x - p) in
-       let res =
-         S.with_cursor
-           store.s
-           (fun cur ->
-            let rec inner acc count =
-              if count = max
-              then
-                acc
-              else
-                begin
-                  let k, _ = S.cur_get cur in
-                  if comp_last k
-                  then
-                    begin
-                      let acc' = (cut k) :: acc in
-                      if S.cur_next cur
-                      then
-                        inner acc' (count + 1)
-                      else
-                        acc'
-                    end
-                  else
-                    acc
-                end
-            in
-            if S.cur_jump cur first
-            then
-              inner [] 0
-            else
-              [])
-       in
-       let r = Array.of_list res in
-       Lwt.return r)
+       let r = fold_range store
+                          first finc last linc
+                          max
+                          (fun cur acc ->
+                           (cut (S.cur_get_key cur)) :: acc)
+                          [] in
+      Lwt.return r)
+
+  let _range_entries store first finc last linc max =
+    fold_range store
+               first finc last linc
+               max
+               (fun cur acc ->
+                let k, v = S.cur_get cur in
+                (cut k, v) :: acc)
+               []
+
+  let range_entries store ?(_pf=__prefix) first finc last linc max =
+    _wrap_exception
+      store
+      "RANGE_ENTRIES"
+      CorruptStore
+      (fun () ->
+       Lwt.return (_range_entries store first finc last linc max))
+
+  let rev_range_entries store first finc last linc max =
+    _wrap_exception store "REV_RANGE_ENTRIES" CorruptStore (fun () ->
+        Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max))
 
   let prefix_keys store prefix max =
     _wrap_exception store "PREFIX_KEYS" CorruptStore (fun () ->

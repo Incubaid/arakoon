@@ -63,9 +63,6 @@ module type Simple_store = sig
   val get: t -> string -> string
 
 
-  val range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
   val rev_range_entries: t -> string ->
     string option -> bool ->
     string option -> bool -> int -> (string * string) array

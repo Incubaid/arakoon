@@ -147,11 +147,6 @@ let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
 
-let range_entries ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = _range_entries prefix bdb first finc last linc max in
-  r
-
 let rev_range_entries ls prefix first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let r = B.rev_range_entries prefix bdb first finc last linc max in
