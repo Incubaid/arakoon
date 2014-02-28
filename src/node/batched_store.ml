@@ -198,10 +198,6 @@ struct
     else
       raise Not_found
 
-  let rev_range_entries s prefix first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.rev_range_entries s.s prefix first finc last linc max
-
   let prefix_keys s prefix max =
     _with_complex_query ~allow_in_transaction:true s;
     S.prefix_keys s.s prefix max
@@ -266,21 +262,31 @@ struct
     S.get_fringe s.s
 
   type cursor = S.cursor
+
   let with_cursor s f =
     _with_complex_query ~allow_in_transaction:true s;
     S.with_cursor s.s (fun cur -> f cur)
-  (* let cur_first = *)
-  (*   S.cur_first *)
-  (* let cur_last = *)
-  (*   S.cur_last *)
+
+  let cur_last =
+    S.cur_last
+
   let cur_get =
     S.cur_get
+
   let cur_get_key =
     S.cur_get_key
+
+  let cur_prev =
+    S.cur_prev
+
   let cur_next =
     S.cur_next
-  let cur_jump =
-    S.cur_jump
+
+  let cur_jump_left =
+    S.cur_jump_left
+
+  let cur_jump_right =
+    S.cur_jump_right
 end
 
 module Local_store = Batched_store(Local_store)

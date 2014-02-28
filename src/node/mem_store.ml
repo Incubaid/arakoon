@@ -60,13 +60,6 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
-
-let rev_range_entries ms prefix first finc last linc max =
-  let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map (fun (k,v) -> (cut k,v)) entries
-
 let prefix_keys ms prefix max =
   let reg = "^" ^ prefix in
   let keys = StringMap.fold
@@ -147,22 +140,32 @@ type cursor = (string StringMap.zipper option ref * t)
 let with_cursor ls f =
   let zip = ref None in
   f (zip, ls)
-let cur_first (zip, ls) =
-  zip := Some (StringMap.cur_first ls.kv)
+
 let cur_last (zip, ls) =
-  zip := Some (StringMap.cur_last ls.kv)
+  zip := StringMap.cur_last ls.kv;
+  !zip <> None
+
 let with_initialized zip f =
   match !zip with
   | None -> failwith "invalid cursor"
   | Some z -> f z
+
 let cur_get (zip, ls) =
   with_initialized
     zip
     (fun zip ->
      StringMap.cur_get zip)
+
 let cur_get_key cur =
   let k, _ = cur_get cur in
   k
+
+let cur_prev (zip, ls) =
+  match !zip with
+  | None -> false
+  | Some z ->
+     zip := StringMap.cur_prev z;
+     !zip <> None
 
 let cur_next (zip, ls) =
   match !zip with
@@ -171,6 +174,10 @@ let cur_next (zip, ls) =
      zip := StringMap.cur_next z;
      !zip <> None
 
-let cur_jump (zip, ls) key =
-  zip := StringMap.cur_jump key ls.kv;
+let cur_jump_left (zip, ls) key =
+  zip := StringMap.cur_jump_left key ls.kv;
+  !zip <> None
+
+let cur_jump_right (zip, ls) key =
+  zip := StringMap.cur_jump_right key ls.kv;
   !zip <> None

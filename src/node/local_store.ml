@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Mp_msg
 open Lwt
 open Update
@@ -146,12 +147,6 @@ let exists ls key =
 let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
-
-let rev_range_entries ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = B.rev_range_entries prefix bdb first finc last linc max in
-  Array.of_list r (* TODO *)
-
 
 let prefix_keys ls prefix max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
@@ -342,6 +337,7 @@ let get_fringe ls border direction =
     )
 
 type cursor = (B.bdb * B.bdbcur)
+
 let with_cursor ls f =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.with_cursor bdb (fun _ cur -> f (bdb, cur))
@@ -351,14 +347,36 @@ let wrap_not_found f =
     f ();
     true
   with Not_found -> false
-(* let cur_first (bdb, cur) = B.first bdb cur *)
-(* let cur_last (bdb, cur) = B.last bdb cur *)
+
+let cur_last (bdb, cur) =
+  wrap_not_found (fun () -> B.last bdb cur)
+
 let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
 let cur_get_key (bdb, cur) = B.key bdb cur
+
+let cur_prev (bdb, cur) =
+  wrap_not_found
+    (fun () ->
+     B.prev bdb cur)
+
 let cur_next (bdb, cur) =
-  wrap_not_found (fun () -> B.next bdb cur)
-let cur_jump (bdb, cur) key =
-  wrap_not_found (fun () -> B.jump bdb cur key)
+  wrap_not_found
+    (fun () ->
+     B.next bdb cur)
+
+let cur_jump_left (bdb, cur) key =
+  wrap_not_found
+    (fun () ->
+     B.jump bdb cur key;
+     let k = B.key bdb cur in
+     if not String.(k =: key)
+     then
+       B.prev bdb cur)
+
+let cur_jump_right (bdb, cur) key =
+  wrap_not_found
+    (fun () ->
+     B.jump bdb cur key)
 
 let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =

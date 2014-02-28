@@ -52,20 +52,17 @@ module type Simple_store = sig
 
   type cursor
   val with_cursor : t -> (cursor -> 'a) -> 'a
-  (* val cur_first : cursor -> bool *)
-  (* val cur_last : cursor -> bool *)
+  val cur_last : cursor -> bool
   val cur_get : cursor -> (key * value)
   val cur_get_key : cursor -> key
+  val cur_prev : cursor -> bool
   val cur_next : cursor -> bool
-  val cur_jump : cursor -> key -> bool
+  val cur_jump_left : cursor -> key -> bool
+  val cur_jump_right : cursor -> key -> bool
 
   val exists: t -> string -> bool
   val get: t -> string -> string
 
-
-  val rev_range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
   val prefix_keys: t -> string -> int -> string list
   val set: t -> transaction -> string -> string -> unit
   val delete: t -> transaction -> string -> unit

@@ -256,9 +256,9 @@ module Map = struct
 
     let cur_last ?(cur=[]) t =
       let rec inner acc = function
-        | Empty -> failwith "invalid"
+        | Empty -> None
         | Node(_, _, _, Empty, _) as t ->
-           t, acc
+           Some (t, acc)
         | Node(_, _, _, r, _) as t ->
            inner ((t, Right) :: acc) r in
       inner cur (Obj.magic t)
@@ -306,7 +306,7 @@ module Map = struct
          end
       | Node(l, _, _, _, _) ->
          let c' = (h, Left) :: c in
-         Some (cur_last ~cur:c' l)
+         cur_last ~cur:c' l
 
     let cur_jump ?(dir=Right) k t =
       let rec inner acc = function
