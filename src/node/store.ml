@@ -499,7 +499,11 @@ struct
            S.cur_prev cur
       end
     else
-      false
+      if right
+      then
+        false
+      else
+        S.cur_last cur
 
   let fold_range store first finc last linc max f init =
     let first = match first with
@@ -551,19 +555,19 @@ struct
     in
     res
 
-  let fold_rev_range store first finc last linc max f init =
-    let first = match first with
+  let fold_rev_range store high hinc low linc max f init =
+    let low = match low with
       | None -> __prefix
-      | Some f -> __prefix ^ f in
-    let last = match last with
+      | Some l -> __prefix ^ l in
+    let high = match high with
       | None -> next_prefix __prefix
-      | Some l -> Some (__prefix ^ l) in
-    let comp_first =
-      if finc
+      | Some h -> Some (__prefix ^ h) in
+    let comp_low =
+      if linc
       then
-        fun k -> String.(>=:) k first
+        fun k -> String.(>=:) k low
       else
-        fun k -> String.(>:) k first in
+        fun k -> String.(>:) k low in
     let res =
       S.with_cursor
         store.s
@@ -571,33 +575,34 @@ struct
          let rec inner acc count =
            if count = max
            then
-             acc
+             count, acc
            else
              begin
                let k, _ = S.cur_get cur in
-               if comp_first k
+               if comp_low k
                then
                  begin
+                   let count' = count + 1 in
                    let acc' = f cur acc in
                    if S.cur_prev cur
                    then
-                     inner acc' (count + 1)
+                     inner acc' count'
                    else
-                     acc'
+                     count', acc'
                  end
                else
-                 acc
+                 count, acc
              end
          in
-         if (match last with
+         if (match high with
              | None ->
                 S.cur_last cur
-             | Some l ->
-                jump cur l ~inc:linc ~right:false)
+             | Some h ->
+                jump cur h ~inc:hinc ~right:false)
          then
            inner init 0
          else
-           init)
+           0, init)
     in
     res
 
@@ -640,7 +645,7 @@ struct
                (0, []) in
        Lwt.return r)
 
-  let rev_range_entries store first finc last linc max =
+  let rev_range_entries store high hinc low linc max =
     _wrap_exception
       store
       "REV_RANGE_ENTRIES"
@@ -648,12 +653,12 @@ struct
       (fun () ->
        let r = fold_rev_range
                  store
-                 first finc last linc
+                 high hinc low linc
                  max
-                 (fun cur (count, acc) ->
+                 (fun cur acc ->
                   let k, v = S.cur_get cur in
-                  count + 1, (cut k, v) :: acc)
-                 (0, []) in
+                  (cut k, v) :: acc)
+                 [] in
        Lwt.return r)
 
   let prefix_keys store prefix max =
