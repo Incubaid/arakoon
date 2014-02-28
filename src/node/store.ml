@@ -83,7 +83,7 @@ sig
   val rev_range_entries :  t ->
     string option -> bool ->
     string option -> bool -> int -> (string * string) counted_list Lwt.t
-  val prefix_keys : t -> string -> int -> string list Lwt.t
+  val prefix_keys : t -> string -> int -> string counted_list Lwt.t
   val multi_get : t -> string list -> string list Lwt.t
   val multi_get_option : t -> string list -> string option list Lwt.t
   val get_key_count : t -> int64 Lwt.t
@@ -377,14 +377,6 @@ struct
   let defrag store =
     S.defrag store.s
 
-  let get_key_count store =
-    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
-        S.get_key_count store.s >>= fun raw_count ->
-        (* Leave out administrative keys *)
-        let admin_keys = S.prefix_keys store.s __adminprefix (-1) in
-        let admin_key_count = List.length admin_keys in
-        Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
-
   let get_routing store =
     Logger.debug_ "get_routing " >>= fun () ->
     match store.routing with
@@ -505,13 +497,13 @@ struct
       else
         S.cur_last cur
 
-  let fold_range store first finc last linc max f init =
+  let fold_range store prefix first finc last linc max f init =
     let first = match first with
-      | None -> __prefix
-      | Some f -> __prefix ^ f in
+      | None -> prefix
+      | Some f -> prefix ^ f in
     let last = match last with
-      | None -> next_prefix __prefix
-      | Some l -> Some (__prefix ^ l) in
+      | None -> next_prefix prefix
+      | Some l -> Some (prefix ^ l) in
     let comp_last =
       match last with
       | None ->
@@ -529,39 +521,40 @@ struct
          let rec inner acc count =
            if count = max
            then
-             acc
+             count, acc
            else
              begin
                let k, _ = S.cur_get cur in
                if comp_last k
                then
                  begin
+                   let count' = count + 1 in
                    let acc' = f cur acc in
                    if S.cur_next cur
                    then
-                     inner acc' (count + 1)
+                     inner acc' count'
                    else
-                     acc'
+                     count', acc'
                  end
                else
-                 acc
+                 count, acc
              end
          in
          if jump cur first ~inc:finc ~right:true
          then
            inner init 0
          else
-           init)
+           0, init)
     in
     res
 
-  let fold_rev_range store high hinc low linc max f init =
+  let fold_rev_range store prefix high hinc low linc max f init =
     let low = match low with
-      | None -> __prefix
-      | Some l -> __prefix ^ l in
+      | None -> prefix
+      | Some l -> prefix ^ l in
     let high = match high with
-      | None -> next_prefix __prefix
-      | Some h -> Some (__prefix ^ h) in
+      | None -> next_prefix prefix
+      | Some h -> Some (prefix ^ h) in
     let comp_low =
       if linc
       then
@@ -613,22 +606,24 @@ struct
       "RANGE"
       CorruptStore
       (fun () ->
-       let r = fold_range store
+       let r = fold_range store __prefix
                           first finc last linc
                           max
-                          (fun cur (count, acc) ->
-                           count + 1, (cut (S.cur_get_key cur)) :: acc)
-                          (0, []) in
+                          (fun cur acc ->
+                           (cut (S.cur_get_key cur)) :: acc)
+                          [] in
       Lwt.return r)
 
   let _range_entries store first finc last linc max =
-    fold_range store
-               first finc last linc
-               max
-               (fun cur acc ->
-                let k, v = S.cur_get cur in
-                (cut k, v) :: acc)
-               []
+    let _, r =
+      fold_range store __prefix
+                 first finc last linc
+                 max
+                 (fun cur acc ->
+                  let k, v = S.cur_get cur in
+                  (cut k, v) :: acc)
+                 [] in
+    r
 
   let range_entries store ?(_pf=__prefix) first finc last linc max =
     _wrap_exception
@@ -636,13 +631,13 @@ struct
       "RANGE_ENTRIES"
       CorruptStore
       (fun () ->
-       let r = fold_range store
+       let r = fold_range store __prefix
                first finc last linc
                max
-               (fun cur (count, acc) ->
+               (fun cur acc ->
                 let k, v = S.cur_get cur in
-                count + 1, (cut k, v) :: acc)
-               (0, []) in
+                (cut k, v) :: acc)
+               [] in
        Lwt.return r)
 
   let rev_range_entries store high hinc low linc max =
@@ -652,7 +647,7 @@ struct
       CorruptStore
       (fun () ->
        let r = fold_rev_range
-                 store
+                 store __prefix
                  high hinc low linc
                  max
                  (fun cur acc ->
@@ -661,9 +656,33 @@ struct
                  [] in
        Lwt.return r)
 
+  let get_key_count store =
+    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
+        S.get_key_count store.s >>= fun raw_count ->
+        (* Leave out administrative keys *)
+        let admin_key_count, () =
+          fold_range store __adminprefix
+                     None true None true
+                     (-1)
+                     (fun cur () -> ())
+                     () in
+        Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
+
   let prefix_keys store prefix max =
-    _wrap_exception store "PREFIX_KEYS" CorruptStore (fun () ->
-        Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max))
+    _wrap_exception
+      store
+      "PREFIX_KEYS"
+      CorruptStore
+      (fun () ->
+       let res =
+         fold_range store __prefix
+                    (Some prefix) true (next_prefix prefix) false
+                    max
+                    (fun cur acc ->
+                     let k = S.cur_get_key cur in
+                     cut k :: acc)
+                    [] in
+       Lwt.return res)
 
   let get_interval store =
     Lwt.return (store.interval)

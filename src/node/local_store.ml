@@ -148,12 +148,6 @@ let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
 
-let prefix_keys ls prefix max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let keys_array = B.prefix_keys bdb prefix max in
-  let keys_list = filter_keys_array keys_array in
-  keys_list
-
 let set ls tx key value =
   _with_tx ls tx (fun db -> _set db key value)
 

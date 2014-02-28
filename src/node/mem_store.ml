@@ -60,17 +60,6 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
-let prefix_keys ms prefix max =
-  let reg = "^" ^ prefix in
-  let keys = StringMap.fold
-    (fun k v a ->
-      (* TODO this is buggy -> what if prefix contains special regex chars? *)
-      if (Str.string_match (Str.regexp reg) k 0)
-      then k::a
-      else a
-    ) ms.kv []
-  in filter_keys_list keys
-
 let delete ms tx key =
   _verify_tx ms tx;
   if StringMap.mem key ms.kv then
@@ -80,9 +69,19 @@ let delete ms tx key =
 
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
-  let keys = prefix_keys ms prefix (-1) in
-  let () = List.iter (fun k -> delete ms tx k) keys in
-  List.length keys
+  let prefix_keys =
+    let reg = "^" ^ prefix in
+    let keys = StringMap.fold
+                 (fun k v a ->
+                  (* TODO this is buggy -> what if prefix contains special regex chars? *)
+                  if (Str.string_match (Str.regexp reg) k 0)
+                  then k::a
+                  else a
+                 ) ms.kv []
+    in filter_keys_list keys
+  in
+  let () = List.iter (fun k -> delete ms tx k) prefix_keys in
+  List.length prefix_keys
 
 let set ms tx key value =
   _verify_tx ms tx;

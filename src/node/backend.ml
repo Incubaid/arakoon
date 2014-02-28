@@ -51,7 +51,7 @@ class type backend = object
     string option -> bool ->
     string option -> bool -> int -> ((string * string) counted_list) Lwt.t
   method prefix_keys:
-    allow_dirty:bool -> string -> int -> (string list) Lwt.t
+    allow_dirty:bool -> string -> int -> (string counted_list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 

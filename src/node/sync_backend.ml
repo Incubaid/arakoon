@@ -240,7 +240,7 @@ struct
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval [prefix]  >>= fun () ->
         S.prefix_keys store prefix max   >>= fun key_list ->
-        let n_keys = List.length key_list in
+        let n_keys = fst key_list in
         Logger.debug_f_ "prefix_keys found %d matching keys" n_keys >>= fun () ->
         Statistics.new_prefix_keys _stats start n_keys;
         Lwt.return key_list

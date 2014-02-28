@@ -62,7 +62,6 @@ module type Simple_store = sig
   val exists: t -> string -> bool
   val get: t -> string -> string
 
-  val prefix_keys: t -> string -> int -> string list
   val set: t -> transaction -> string -> string -> unit
   val delete: t -> transaction -> string -> unit
   val delete_prefix: t -> transaction -> string -> int

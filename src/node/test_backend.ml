@@ -232,7 +232,7 @@ class test_backend my_name = object(self:#backend)
                     then k::a
                     else a
                  ) _kv []
-    in Lwt.return keys
+    in Lwt.return (List.length keys, keys)
 
   method who_master () = Lwt.return (Some my_name)
 

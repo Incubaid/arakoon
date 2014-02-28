@@ -198,10 +198,6 @@ struct
     else
       raise Not_found
 
-  let prefix_keys s prefix max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.prefix_keys s.s prefix max
-
   let delete_prefix s tx prefix =
     _verify_tx s tx;
     _with_complex_query ~allow_in_transaction:false s;

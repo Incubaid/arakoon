@@ -391,11 +391,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
       >>= fun () ->
       backend # prefix_keys ~allow_dirty key max >>= fun keys ->
-      let size = List.length keys in
       Llio.output_int oc 0 >>= fun () ->
+      let size = fst keys in
       Logger.debug_f_ "size = %i" size >>= fun () ->
-      Llio.output_int oc size >>= fun () ->
-      Lwt_list.iter_s (Llio.output_string oc) keys >>= fun () ->
+      Llio.output_counted_list Llio.output_string oc keys >>= fun () ->
       Lwt.return false
     end
   | MULTI_GET ->
