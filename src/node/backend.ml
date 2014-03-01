@@ -95,7 +95,7 @@ class type backend = object
   method optimize_db: unit -> unit Lwt.t
   method defrag_db:unit -> unit Lwt.t
 
-  method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
+  method get_fringe: string option -> Routing.range_direction -> ((string * string) counted_list) Lwt.t
 
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t

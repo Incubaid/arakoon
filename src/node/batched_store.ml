@@ -253,10 +253,6 @@ struct
   let copy_store2 =
     S.copy_store2
 
-  let get_fringe s =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.get_fringe s.s
-
   type cursor = S.cursor
 
   let with_cursor s f =

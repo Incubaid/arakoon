@@ -88,7 +88,7 @@ sig
   val multi_get_option : t -> string list -> string option list Lwt.t
   val get_key_count : t -> int64 Lwt.t
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
+  val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) counted_list Lwt.t
 
   val get_interval : t -> Interval.t Lwt.t
   val get_routing : t -> Routing.t Lwt.t
@@ -359,8 +359,54 @@ struct
              f txl)
           (fun () -> store._tx_lock <- None; Lwt.return ()))
 
+  module CS = Extended_cursor_store(S)
+
+  let cut =
+    let pl = String.length __prefix in
+    fun x -> String.sub x pl (String.length x - pl)
+
   let get_fringe store b d =
-    S.get_fringe store.s b d
+    let limit = 1024 * 1024 in
+    let fringe = ref (0, []) in
+    let () =
+      try
+        fringe :=
+          let len, (ts, f) =
+            S.with_cursor
+              store.s
+              (fun cur ->
+               let f_acc =
+                 fun cur k count (ts, acc) ->
+                 if ts >= limit
+                 then
+                   begin
+                     fringe := (count, acc);
+                     raise Break
+                   end
+                 else
+                   begin
+                     let v = S.cur_get_value cur in
+                     let ts' = ts + String.length k + String.length v in
+                     ts', (cut k, v) :: acc
+                   end in
+               match d with
+               | Routing.UPPER_BOUND ->
+                  let bound = match b with
+                    | None -> next_prefix __prefix
+                    | Some b -> Some (__prefix ^ b) in
+                  CS.fold_range cur
+                                __prefix true bound false (-1)
+                                f_acc (0, [])
+               | Routing.LOWER_BOUND ->
+                  let bound = match b with
+                    | None -> __prefix
+                    | Some b -> __prefix ^ b in
+                  CS.fold_rev_range cur
+                                    None false bound true (-1)
+                                    f_acc (0, [])) in
+          (len, f)
+      with Break -> () in
+    Lwt.return !fringe
 
   let copy_store store oc =
     if quiesced store
@@ -463,12 +509,6 @@ struct
     end;
     r
 
-  let cut =
-    let p = String.length __prefix in
-    fun x -> String.sub x p (String.length x - p)
-
-  module CS = Extended_cursor_store(S)
-
   let fold_range store prefix first finc last linc max f init =
     let first = match first with
       | None -> prefix
@@ -502,7 +542,7 @@ struct
        let r = fold_range store __prefix
                           first finc last linc
                           max
-                          (fun cur k acc ->
+                          (fun cur k _ acc ->
                            (cut k) :: acc)
                           [] in
       Lwt.return r)
@@ -512,7 +552,7 @@ struct
       fold_range store __prefix
                  first finc last linc
                  max
-                 (fun cur k acc ->
+                 (fun cur k _ acc ->
                   let v = S.cur_get_value cur in
                   (cut k, v) :: acc)
                  [] in
@@ -527,7 +567,7 @@ struct
        let r = fold_range store __prefix
                first finc last linc
                max
-               (fun cur k acc ->
+               (fun cur k _ acc ->
                 let v = S.cur_get_value cur in
                 (cut k, v) :: acc)
                [] in
@@ -543,7 +583,7 @@ struct
                  store __prefix
                  high hinc low linc
                  max
-                 (fun cur k acc ->
+                 (fun cur k _ acc ->
                   let v = S.cur_get_value cur in
                   (cut k, v) :: acc)
                  [] in
@@ -557,7 +597,7 @@ struct
           fold_range store __adminprefix
                      None true None true
                      (-1)
-                     (fun cur k () -> ())
+                     (fun cur k _ () -> ())
                      () in
         Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
@@ -571,7 +611,7 @@ struct
          fold_range store __prefix
                     (Some prefix) true (next_prefix prefix) false
                     max
-                    (fun cur k acc ->
+                    (fun cur k _ acc ->
                      cut k :: acc)
                     [] in
        Lwt.return res)

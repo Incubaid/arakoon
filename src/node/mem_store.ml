@@ -127,7 +127,7 @@ let delete_prefix ms tx prefix =
       (fun cur ->
        CS.fold_range cur prefix true (next_prefix prefix) false
                      (-1)
-                     (fun cur k () ->
+                     (fun cur k _ () ->
                       delete ms tx k)
                      ()) in
   count
@@ -156,25 +156,6 @@ let copy_store ms networkClient oc = failwith "copy_store not supported"
 let copy_store2 old_location new_location overwrite = Lwt.return ()
 
 let relocate new_location = failwith "Memstore.relocation not implemented"
-
-let get_fringe ms boundary direction =
-  Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
-  let cmp =
-    begin
-      match direction, boundary with
-        | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
-        | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
-        | _ , None -> (fun k -> true)
-    end
-  in
-  let all = StringMap.fold
-              (fun k v acc ->
-                 if cmp k
-                 then (k,v)::acc
-                 else acc)
-              ms.kv []
-  in
-  Lwt.return all
 
 let make_store ~lcnum ~ncnum read_only db_name =
   Lwt.return { kv = StringMap.empty;

@@ -40,6 +40,7 @@ type update_result =
   | Update_fail of Arakoon_exc.rc * string
 
 exception Key_not_found of string
+exception Break
 
 class transaction_lock = object end
 class transaction = object end
@@ -90,7 +91,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
       else
         C.cur_last cur
 
-  let _fold_range cur jump_init comp_end_key max f init =
+  let _fold_range cur jump_init comp_end_key cur_next max f init =
     let rec inner acc count =
       if count = max
       then
@@ -102,8 +103,8 @@ module Extended_cursor_store(C : Cursor_store) = struct
           then
             begin
               let count' = count + 1 in
-              let acc' = f cur k acc in
-              if C.cur_next cur
+              let acc' = f cur k count acc in
+              if cur_next cur
               then
                 inner acc' count'
               else
@@ -131,7 +132,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
          else
            fun k -> String.(<:) k last in
     let jump_init = cur_jump' cur first ~inc:finc ~right:true in
-    _fold_range cur jump_init comp_last max f init
+    _fold_range cur jump_init comp_last C.cur_next max f init
 
   let fold_rev_range cur high hinc low linc max f init =
     let comp_low =
@@ -145,7 +146,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
          C.cur_last cur
       | Some h ->
          cur_jump' cur h ~inc:hinc ~right:false in
-    _fold_range cur jump_init comp_low max f init
+    _fold_range cur jump_init comp_low C.cur_prev max f init
 
 end
 
@@ -177,7 +178,6 @@ module type Simple_store = sig
   val defrag : t -> unit Lwt.t
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
-  val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
 end
 
 let _f _pf = function

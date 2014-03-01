@@ -649,8 +649,8 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            >>= fun () ->
            backend # get_fringe boundary direction >>= fun kvs ->
            Logger.debug_ "get_fringe backend op complete" >>= fun () ->
-           Llio.output_int oc 0 >>= fun () ->
-           Llio.output_kv_list oc kvs >>= fun () ->
+           Llio.output_int oc 0 >>= fun () -> (* TODO remove all these *)
+           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Logger.debug_ "get_fringe all done" >>= fun () ->
            Lwt.return false
         )
