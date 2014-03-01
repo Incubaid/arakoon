@@ -1,8 +1,29 @@
+(*
+This file is part of Arakoon, a distributed key-value store. Copyright
+(C) 2010 Incubaid BVBA
+
+Licensees holding a valid Incubaid license may use this file in
+accordance with Incubaid's Arakoon commercial license agreement. For
+more information on how to enter into this agreement, please contact
+Incubaid (contact details can be found on www.arakoon.org/licensing).
+
+Alternatively, this file may be redistributed and/or modified under
+the terms of the GNU Affero General Public License version 3, as
+published by the Free Software Foundation. Under this license, this
+file is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.
+
+See the GNU Affero General Public License for more details.
+You should have received a copy of the
+GNU Affero General Public License along with this program (file "COPYING").
+If not, see <http://www.gnu.org/licenses/>.
+*)
+
 open Lwt
 open OUnit
 open Node_cfg
 open Master_type
-open Test_backend
 open Remote_nodestream
 open Arakoon_remote_client
 open Routing
@@ -14,39 +35,46 @@ let teardown () = Lwt.return ()
 
 let section = Logger.Section.main
 
-let _cluster = "baby1"
+let cluster_id = "baby1"
 
 let __wrap__ port conversation =
-  let sleep, notifier = Lwt.wait () in
-  let tb = new test_backend _cluster in
-  let backend = (tb :> Backend.backend) in
-  let setup_callback ()  =
-    Logger.info_ "callback" >>= fun () ->
-    Lwt.wakeup notifier ();
+  let stop = ref false in
+  let lease_period = 2 in
+  let make_config () = Node_cfg.make_test_config
+                         ~cluster_id
+                         ~node_name:(Printf.sprintf "sweety_%i")
+                         ~base:port
+                         1 (Master_type.Elected) lease_period
+  in
+  let cluster_cfg = make_config () in
+  let t0 = Node_main.test_t make_config "sweety_0" stop >>= fun _ -> Lwt.return () in
+
+  let client_t () =
+    let sp = float(lease_period) *. 0.5 in
+    Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
+    Logger.info_ "cluster should have reached stability" >>= fun () ->
+    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Logger.info_f_ "master=%S" master_name >>= fun () ->
+    let master_cfg =
+      List.hd
+        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
+    in
+    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, master_cfg.Node_cfg.client_port) in
+    Lwt_io.open_connection address >>= fun (ic,oc) ->
+    conversation (ic, oc) >>= fun () ->
+    Logger.debug section "end_of_senario" >>= fun () ->
+    Lwt_io.close ic >>= fun () ->
+    Lwt_io.close oc >>= fun () ->
     Lwt.return ()
   in
-  let scheme = Server.make_default_scheme () in
-  let stop = ref false in
-  let server =
-    Server.make_server_thread ~setup_callback "127.0.0.1" port ~scheme ~stop
-      (Client_protocol.protocol stop backend) in
-  let client_t () =
-    sleep >>= fun () ->
-    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
-    Lwt_io.open_connection address >>= function (ic,oc) ->
-      conversation (ic,oc) >>= fun () ->
-      Logger.debug section "end_of_senario" >>= fun () ->
-      Lwt_io.close ic >>= fun () ->
-      Lwt_io.close oc >>= fun () ->
-      Lwt.return ()
-  in
-  Lwt.pick [client_t ();server ()] >>= fun () ->
+  Lwt.pick [client_t ();t0] >>= fun () ->
+  stop := true;
   Lwt.return ()
 
 let set_interval port () =
   let conversation conn =
     Logger.debug_ "starting set_interval ..." >>= fun () ->
-    Common.prologue _cluster conn >>= fun () ->
+    Common.prologue cluster_id conn >>= fun () ->
     let i0 = Interval.make (Some "a") None None None in
     Logger.debug_f_ "i0=%S" (Interval.to_string i0) >>= fun () ->
     Common.set_interval conn i0 >>= fun () ->
@@ -61,7 +89,7 @@ let get_fringe port ()=
   let fill_it_a_bit () =
     let address = Network.make_address "127.0.0.1" port in
     Lwt_io.with_connection address (fun conn ->
-        make_remote_client _cluster conn >>= fun client ->
+        make_remote_client cluster_id conn >>= fun client ->
         Lwt_list.iter_s (fun (k,v) -> client # set k v)
           [("k1", "vk1");
            ("k2", "vk2");
@@ -76,7 +104,7 @@ let get_fringe port ()=
   let conversation conn =
     fill_it_a_bit ()  >>= fun () ->
     let (ic,oc) = conn in
-    make_remote_nodestream _cluster conn >>= fun ns ->
+    make_remote_nodestream cluster_id conn >>= fun ns ->
     Logger.debug_ "starting get_fringe" >>= fun () ->
     ns # get_fringe (Some "k") Routing.LOWER_BOUND >>= fun kvs ->
     let got = List.length kvs in
@@ -98,7 +126,7 @@ let set_route_delta port () =
   let old_ser = Buffer.create 15 in
   Routing.routing_to old_ser r_target ;
   let conversation conn =
-    make_remote_nodestream _cluster conn >>= fun ns ->
+    make_remote_nodestream cluster_id conn >>= fun ns ->
     Logger.debug_ "starting set_routing" >>= fun () ->
     ns # set_routing r >>= fun () ->
     Logger.debug_ "starting set_routing_delta" >>= fun () ->

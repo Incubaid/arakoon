@@ -156,12 +156,15 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   else
     match command with
   | PING ->
-    begin
-      Llio.input_string ic >>= fun client_id ->
-      Llio.input_string ic >>= fun cluster_id ->
-      Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
-      backend # hello client_id cluster_id >>= fun (rc,msg) ->
-      response_rc_string oc rc msg
+     begin
+       Lwt.catch
+         (fun () ->
+          Llio.input_string ic >>= fun client_id ->
+          Llio.input_string ic >>= fun cluster_id ->
+          Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
+          backend # hello client_id cluster_id >>= fun msg ->
+          response_rc_string oc 0l msg)
+         (handle_exception oc)
     end
   | FLUSH_STORE ->
      begin

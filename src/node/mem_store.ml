@@ -27,7 +27,7 @@ open Log_extra
 open Update
 open Routing
 
-module StringMap = Test_backend.StringMap
+module StringMap = Map.Make(String)
 
 type t = { mutable kv : string StringMap.t;
            mutable _tx : transaction option;

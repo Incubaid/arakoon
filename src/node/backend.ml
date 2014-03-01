@@ -63,7 +63,7 @@ class type backend = object
     allow_dirty:bool ->
     string list -> string option list Lwt.t
 
-  method hello: string -> string -> (int32 * string) Lwt.t
+  method hello: string -> string -> string Lwt.t
   method flush_store : unit -> unit Lwt.t
 
   method who_master: unit -> string option Lwt.t

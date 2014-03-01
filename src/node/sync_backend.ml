@@ -357,10 +357,15 @@ struct
         _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
       method hello (client_id:string) (cluster_id:string) =
-        let msg = Printf.sprintf "Arakoon %i.%i.%i"
-          Arakoon_version.major Arakoon_version.minor Arakoon_version.patch
-        in
-        Lwt.return (0l, msg)
+        if test ~cluster_id
+        then
+          let msg = Printf.sprintf
+                      "Arakoon %i.%i.%i"
+                      Arakoon_version.major Arakoon_version.minor Arakoon_version.patch
+          in
+          Lwt.return msg
+        else
+          Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_WRONG_CLUSTER, "Wrong cluster"))
 
       method flush_store () =
         S.flush store

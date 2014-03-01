@@ -580,6 +580,7 @@ struct
     Lwt.return (store.interval)
 
   let _set_interval store tx range =
+    store.interval <- range;
     let buf = Buffer.create 80 in
     let () = Interval.interval_to buf range in
     let range_s = Buffer.contents buf in
