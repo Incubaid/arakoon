@@ -502,8 +502,8 @@ struct
        let r = fold_range store __prefix
                           first finc last linc
                           max
-                          (fun cur acc ->
-                           (cut (S.cur_get_key cur)) :: acc)
+                          (fun cur k acc ->
+                           (cut k) :: acc)
                           [] in
       Lwt.return r)
 
@@ -512,8 +512,8 @@ struct
       fold_range store __prefix
                  first finc last linc
                  max
-                 (fun cur acc ->
-                  let k, v = S.cur_get cur in
+                 (fun cur k acc ->
+                  let v = S.cur_get_value cur in
                   (cut k, v) :: acc)
                  [] in
     r
@@ -527,8 +527,8 @@ struct
        let r = fold_range store __prefix
                first finc last linc
                max
-               (fun cur acc ->
-                let k, v = S.cur_get cur in
+               (fun cur k acc ->
+                let v = S.cur_get_value cur in
                 (cut k, v) :: acc)
                [] in
        Lwt.return r)
@@ -543,8 +543,8 @@ struct
                  store __prefix
                  high hinc low linc
                  max
-                 (fun cur acc ->
-                  let k, v = S.cur_get cur in
+                 (fun cur k acc ->
+                  let v = S.cur_get_value cur in
                   (cut k, v) :: acc)
                  [] in
        Lwt.return r)
@@ -557,7 +557,7 @@ struct
           fold_range store __adminprefix
                      None true None true
                      (-1)
-                     (fun cur () -> ())
+                     (fun cur k () -> ())
                      () in
         Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
@@ -571,8 +571,7 @@ struct
          fold_range store __prefix
                     (Some prefix) true (next_prefix prefix) false
                     max
-                    (fun cur acc ->
-                     let k = S.cur_get_key cur in
+                    (fun cur k acc ->
                      cut k :: acc)
                     [] in
        Lwt.return res)

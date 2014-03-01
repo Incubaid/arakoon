@@ -52,6 +52,7 @@ module type Cursor_store = sig
   val cur_last : cursor -> bool
   val cur_get : cursor -> (key * value)
   val cur_get_key : cursor -> key
+  val cur_get_value : cursor -> value
   val cur_prev : cursor -> bool
   val cur_next : cursor -> bool
   val cur_jump : cursor -> key -> bool (* jumps to the specified key or just right from it *)
@@ -101,7 +102,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
           then
             begin
               let count' = count + 1 in
-              let acc' = f cur acc in
+              let acc' = f cur k acc in
               if C.cur_next cur
               then
                 inner acc' count'

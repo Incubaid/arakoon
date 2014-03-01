@@ -347,6 +347,7 @@ let cur_last (bdb, cur) =
 
 let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
 let cur_get_key (bdb, cur) = B.key bdb cur
+let cur_get_value (bdb, cur) = B.value bdb cur
 
 let cur_prev (bdb, cur) =
   wrap_not_found

@@ -56,6 +56,10 @@ module Cursor = struct
     let k, _ = cur_get cur in
     k
 
+  let cur_get_value cur =
+    let _, v = cur_get cur in
+    v
+
   let cur_prev (zip, ls) =
     match !zip with
     | None -> false
@@ -123,8 +127,8 @@ let delete_prefix ms tx prefix =
       (fun cur ->
        CS.fold_range cur prefix true (next_prefix prefix) false
                      (-1)
-                     (fun cur () ->
-                      delete ms tx (cur_get_key cur))
+                     (fun cur k () ->
+                      delete ms tx k)
                      ()) in
   count
 

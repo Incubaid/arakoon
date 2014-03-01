@@ -272,6 +272,9 @@ struct
   let cur_get_key =
     S.cur_get_key
 
+  let cur_get_value =
+    S.cur_get_value
+
   let cur_prev =
     S.cur_prev
 
