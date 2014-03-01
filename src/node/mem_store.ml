@@ -34,6 +34,53 @@ type t = { mutable kv : string StringMap.t;
            name : string;
          }
 
+module Cursor = struct
+  type cursor = (string StringMap.zipper option ref * t)
+
+  let cur_last (zip, ls) =
+    zip := StringMap.cur_last ls.kv;
+    !zip <> None
+
+  let with_initialized zip f =
+    match !zip with
+    | None -> failwith "invalid cursor"
+    | Some z -> f z
+
+  let cur_get (zip, ls) =
+    with_initialized
+      zip
+      (fun zip ->
+       StringMap.cur_get zip)
+
+  let cur_get_key cur =
+    let k, _ = cur_get cur in
+    k
+
+  let cur_prev (zip, ls) =
+    match !zip with
+    | None -> false
+    | Some z ->
+       zip := StringMap.cur_prev z;
+       !zip <> None
+
+  let cur_next (zip, ls) =
+    match !zip with
+    | None -> false
+    | Some z ->
+       zip := StringMap.cur_next z;
+       !zip <> None
+
+  let cur_jump (zip, ls) key =
+    zip := StringMap.cur_jump key ls.kv;
+    !zip <> None
+end
+
+include Cursor
+
+let with_cursor ls f =
+  let zip = ref None in
+  f (zip, ls)
+
 let with_transaction ms f =
   let tx = new transaction in
   ms._tx <- Some tx;
@@ -69,19 +116,17 @@ let delete ms tx key =
 
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
-  let prefix_keys =
-    let reg = "^" ^ prefix in
-    let keys = StringMap.fold
-                 (fun k v a ->
-                  (* TODO this is buggy -> what if prefix contains special regex chars? *)
-                  if (Str.string_match (Str.regexp reg) k 0)
-                  then k::a
-                  else a
-                 ) ms.kv []
-    in filter_keys_list keys
-  in
-  let () = List.iter (fun k -> delete ms tx k) prefix_keys in
-  List.length prefix_keys
+  let module CS = Extended_cursor_store(Cursor) in
+  let count, () =
+    with_cursor
+      ms
+      (fun cur ->
+       CS.fold_range cur prefix true (next_prefix prefix) false
+                     (-1)
+                     (fun cur () ->
+                      delete ms tx (cur_get_key cur))
+                     ()) in
+  count
 
 let set ms tx key value =
   _verify_tx ms tx;
@@ -134,45 +179,3 @@ let make_store ~lcnum ~ncnum read_only db_name =
 
 let copy_store old_location new_location overwrite =
   Lwt.return ()
-
-type cursor = (string StringMap.zipper option ref * t)
-let with_cursor ls f =
-  let zip = ref None in
-  f (zip, ls)
-
-let cur_last (zip, ls) =
-  zip := StringMap.cur_last ls.kv;
-  !zip <> None
-
-let with_initialized zip f =
-  match !zip with
-  | None -> failwith "invalid cursor"
-  | Some z -> f z
-
-let cur_get (zip, ls) =
-  with_initialized
-    zip
-    (fun zip ->
-     StringMap.cur_get zip)
-
-let cur_get_key cur =
-  let k, _ = cur_get cur in
-  k
-
-let cur_prev (zip, ls) =
-  match !zip with
-  | None -> false
-  | Some z ->
-     zip := StringMap.cur_prev z;
-     !zip <> None
-
-let cur_next (zip, ls) =
-  match !zip with
-  | None -> false
-  | Some z ->
-     zip := StringMap.cur_next z;
-     !zip <> None
-
-let cur_jump (zip, ls) key =
-  zip := StringMap.cur_jump key ls.kv;
-  !zip <> None

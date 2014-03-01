@@ -467,35 +467,7 @@ struct
     let p = String.length __prefix in
     fun x -> String.sub x p (String.length x - p)
 
-  let jump cur key ~inc ~right =
-    if S.cur_jump cur key
-    then
-      begin
-        match inc, right with
-        | true, true -> true
-        | false, true ->
-           let k = S.cur_get_key cur in
-           if String.(=:) k key
-           then
-             S.cur_next cur
-           else
-             true
-        | true, false ->
-           let k = S.cur_get_key cur in
-           if String.(=:) k key
-           then
-             true
-           else
-             S.cur_prev cur
-        | false, false ->
-           S.cur_prev cur
-      end
-    else
-      if right
-      then
-        false
-      else
-        S.cur_last cur
+  module CS = Extended_cursor_store(S)
 
   let fold_range store prefix first finc last linc max f init =
     let first = match first with
@@ -504,49 +476,10 @@ struct
     let last = match last with
       | None -> next_prefix prefix
       | Some l -> Some (prefix ^ l) in
-    let comp_last =
-      match last with
-      | None ->
-         fun k -> true
-      | Some last ->
-         if linc
-         then
-           fun k -> String.(<=:) k last
-         else
-           fun k -> String.(<:) k last in
-    let res =
-      S.with_cursor
-        store.s
-        (fun cur ->
-         let rec inner acc count =
-           if count = max
-           then
-             count, acc
-           else
-             begin
-               let k, _ = S.cur_get cur in
-               if comp_last k
-               then
-                 begin
-                   let count' = count + 1 in
-                   let acc' = f cur acc in
-                   if S.cur_next cur
-                   then
-                     inner acc' count'
-                   else
-                     count', acc'
-                 end
-               else
-                 count, acc
-             end
-         in
-         if jump cur first ~inc:finc ~right:true
-         then
-           inner init 0
-         else
-           0, init)
-    in
-    res
+    S.with_cursor
+      store.s
+      (fun cur ->
+       CS.fold_range cur first finc last linc max f init)
 
   let fold_rev_range store prefix high hinc low linc max f init =
     let low = match low with
@@ -555,50 +488,10 @@ struct
     let high = match high with
       | None -> next_prefix prefix
       | Some h -> Some (prefix ^ h) in
-    let comp_low =
-      if linc
-      then
-        fun k -> String.(>=:) k low
-      else
-        fun k -> String.(>:) k low in
-    let res =
-      S.with_cursor
-        store.s
-        (fun cur ->
-         let rec inner acc count =
-           if count = max
-           then
-             count, acc
-           else
-             begin
-               let k, _ = S.cur_get cur in
-               if comp_low k
-               then
-                 begin
-                   let count' = count + 1 in
-                   let acc' = f cur acc in
-                   if S.cur_prev cur
-                   then
-                     inner acc' count'
-                   else
-                     count', acc'
-                 end
-               else
-                 count, acc
-             end
-         in
-         if (match high with
-             | None ->
-                S.cur_last cur
-             | Some h ->
-                jump cur h ~inc:hinc ~right:false)
-         then
-           inner init 0
-         else
-           0, init)
-    in
-    res
-
+    S.with_cursor
+      store.s
+      (fun cur ->
+       CS.fold_rev_range cur high hinc low linc max f init)
 
   let range store first finc last linc max =
     _wrap_exception

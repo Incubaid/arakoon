@@ -20,6 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Routing
 
 let section = Logger.Section.main
@@ -46,18 +47,113 @@ class transaction = object end
 type key = string
 type value = string
 
-module type Simple_store = sig
-  type t
-  val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
-
+module type Cursor_store = sig
   type cursor
-  val with_cursor : t -> (cursor -> 'a) -> 'a
   val cur_last : cursor -> bool
   val cur_get : cursor -> (key * value)
   val cur_get_key : cursor -> key
   val cur_prev : cursor -> bool
   val cur_next : cursor -> bool
   val cur_jump : cursor -> key -> bool (* jumps to the specified key or just right from it *)
+end
+
+module Extended_cursor_store(C : Cursor_store) = struct
+
+  let cur_jump' cur key ~inc ~right =
+    if C.cur_jump cur key
+    then
+      begin
+        match inc, right with
+        | true, true -> true
+        | false, true ->
+           let k = C.cur_get_key cur in
+           if String.(=:) k key
+           then
+             C.cur_next cur
+           else
+             true
+        | true, false ->
+           let k = C.cur_get_key cur in
+           if String.(=:) k key
+           then
+             true
+           else
+             C.cur_prev cur
+        | false, false ->
+           C.cur_prev cur
+      end
+    else
+      if right
+      then
+        false
+      else
+        C.cur_last cur
+
+  let _fold_range cur jump_init comp_end_key max f init =
+    let rec inner acc count =
+      if count = max
+      then
+        count, acc
+      else
+        begin
+          let k = C.cur_get_key cur in
+          if comp_end_key k
+          then
+            begin
+              let count' = count + 1 in
+              let acc' = f cur acc in
+              if C.cur_next cur
+              then
+                inner acc' count'
+              else
+                count', acc'
+            end
+          else
+            count, acc
+        end
+    in
+    if jump_init
+    then
+      inner init 0
+    else
+      0, init
+
+  let fold_range cur first finc last linc max f init =
+    let comp_last =
+      match last with
+      | None ->
+         fun k -> true
+      | Some last ->
+         if linc
+         then
+           fun k -> String.(<=:) k last
+         else
+           fun k -> String.(<:) k last in
+    let jump_init = cur_jump' cur first ~inc:finc ~right:true in
+    _fold_range cur jump_init comp_last max f init
+
+  let fold_rev_range cur high hinc low linc max f init =
+    let comp_low =
+      if linc
+      then
+        fun k -> String.(>=:) k low
+      else
+        fun k -> String.(>:) k low in
+    let jump_init = match high with
+      | None ->
+         C.cur_last cur
+      | Some h ->
+         cur_jump' cur h ~inc:hinc ~right:false in
+    _fold_range cur jump_init comp_low max f init
+
+end
+
+module type Simple_store = sig
+  type t
+
+  include Cursor_store
+  val with_cursor : t -> (cursor -> 'a) -> 'a
+  val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
 
   val exists: t -> string -> bool
   val get: t -> string -> string
