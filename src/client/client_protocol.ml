@@ -65,23 +65,26 @@ let read_command (ic,oc) =
 let log_debug m =
   Logger.debug_ m
 
+let response_ok oc =
+  Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_OK)
+
 let response_ok_unit oc =
   log_debug "ok_unit back to client" >>= fun () ->
-  Llio.output_int32 oc 0l >>= fun () ->
+  response_ok oc >>= fun () ->
   Lwt.return false
 
 let response_ok_int64 oc i64 =
-  Llio.output_int32 oc 0l >>= fun () ->
+  response_ok oc >>= fun () ->
   Llio.output_int64 oc i64 >>= fun () ->
   Lwt.return false
 
-let response_rc_string oc rc string =
-  Llio.output_int32 oc rc >>= fun () ->
+let response_ok_string oc string =
+  response_ok oc >>= fun () ->
   Llio.output_string oc string >>= fun () ->
   Lwt.return false
 
-let response_rc_bool oc rc b =
-  Llio.output_int32 oc rc >>= fun () ->
+let response_ok_bool oc b =
+  response_ok oc >>= fun () ->
   Llio.output_bool oc b >>= fun () ->
   Lwt.return false
 
@@ -163,7 +166,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           Llio.input_string ic >>= fun cluster_id ->
           Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
           backend # hello client_id cluster_id >>= fun msg ->
-          response_rc_string oc 0l msg)
+          response_ok_string oc msg)
          (handle_exception oc)
     end
   | FLUSH_STORE ->
@@ -182,7 +185,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s EXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
       Lwt.catch
         (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
-                   response_rc_bool oc 0l exists)
+                   response_ok_bool oc exists)
         (handle_exception oc)
     end
   | GET ->
@@ -192,7 +195,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s GET: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
       Lwt.catch
         (fun () -> backend # get ~allow_dirty key >>= fun value ->
-          response_rc_string oc 0l value)
+          response_ok_string oc value)
         (handle_exception oc)
     end
   | ASSERT ->
