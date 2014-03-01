@@ -402,7 +402,7 @@ struct
                     | None -> __prefix
                     | Some b -> __prefix ^ b in
                   CS.fold_rev_range cur
-                                    None false bound true (-1)
+                                    (next_prefix __prefix) false bound true (-1)
                                     f_acc (0, [])) in
           (len, f)
       with Break -> () in
