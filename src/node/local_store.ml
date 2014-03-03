@@ -47,9 +47,6 @@ let _delete bdb key    = B.out bdb key
 let _delete_prefix bdb prefix =
   B.delete_prefix bdb prefix
 
-let _range_entries _pf bdb first finc last linc max =
-  B.range_entries _pf bdb first finc last linc max
-
 
 let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->

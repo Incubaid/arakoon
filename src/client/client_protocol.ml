@@ -264,9 +264,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
           backend # range ~allow_dirty first finc last linc max >>= fun values ->
-          Llio.output_int32 oc 0l >>= fun () ->
-          let size = fst values in
-          Logger.debug_f_ "size = %i" size >>= fun () ->
+          response_ok oc >>= fun () ->
           Llio.output_counted_list Llio.output_string oc values >>= fun () ->
           Lwt.return false
         )
@@ -286,9 +284,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
            backend # range_entries ~allow_dirty first finc last linc max
            >>= fun (kvs:(string*string) counted_list) ->
-           Llio.output_int32 oc 0l >>= fun () ->
-           let size = fst kvs in
-           Logger.debug_f_ "size = %i" size >>= fun () ->
+           response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Lwt.return false
         )
@@ -308,9 +304,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
            backend # rev_range_entries ~allow_dirty first finc last linc max
            >>= fun (kvs:(string*string) counted_list) ->
-           Llio.output_int32 oc 0l >>= fun () ->
-           let size = fst kvs in
-           Logger.debug_f_ "size = %i" size >>= fun () ->
+           response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Lwt.return false
         )
@@ -320,7 +314,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Sn.input_sn ic >>= fun i ->
       Logger.debug_f_ "connection=%s LAST_ENTRIES: i=%Li" id i >>= fun () ->
-      Llio.output_int32 oc 0l >>= fun () ->
+      response_ok oc >>= fun () ->
       backend # last_entries i oc >>= fun () ->
       Lwt.return false
     end
@@ -328,7 +322,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Sn.input_sn ic >>= fun i ->
       Logger.debug_f_ "connection=%s LAST_ENTRIES2: i=%Li" id i >>= fun () ->
-      Llio.output_int32 oc 0l >>= fun () ->
+      response_ok oc >>= fun () ->
       backend # last_entries2 i oc >>= fun () ->
       Lwt.return false
     end
@@ -336,7 +330,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
       backend # who_master () >>= fun m ->
-      Llio.output_int32 oc 0l >>= fun () ->
+      response_ok oc >>= fun () ->
       Llio.output_string_option oc m >>= fun () ->
       Lwt.return false
     end
@@ -344,9 +338,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Logger.debug_f_ "connection=%s EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
       backend # expect_progress_possible () >>= fun poss ->
-      Llio.output_int32 oc 0l >>= fun () ->
-      Llio.output_bool oc poss >>= fun () ->
-      Lwt.return false
+      response_ok_bool oc poss
     end
   | TEST_AND_SET ->
     begin
@@ -355,7 +347,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_string_option ic >>= fun wanted ->
       Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
       backend # test_and_set key expected wanted >>= fun vo ->
-      Llio.output_int oc 0 >>= fun () ->
+      response_ok oc >>= fun () ->
       Llio.output_string_option oc vo >>= fun () ->
       Lwt.return false
     end
@@ -367,7 +359,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           Llio.input_string_option ic >>= fun wanted ->
           Logger.debug_f_ "connection=%s REPLACE: key=%S" id key >>= fun () ->
           backend # replace key wanted >>= fun vo ->
-          Llio.output_int oc 0 >>= fun () ->
+          response_ok oc >>= fun () ->
           Llio.output_string_option oc vo >>= fun () ->
           Lwt.return false)
          (handle_exception oc)
@@ -382,7 +374,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
            begin
              backend # user_function name po >>= fun ro ->
-             Llio.output_int oc 0 >>= fun () ->
+             response_ok oc >>= fun () ->
              Llio.output_string_option oc ro >>= fun () ->
              Lwt.return false
            end
@@ -397,9 +389,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
       >>= fun () ->
       backend # prefix_keys ~allow_dirty key max >>= fun keys ->
-      Llio.output_int oc 0 >>= fun () ->
-      let size = fst keys in
-      Logger.debug_f_ "size = %i" size >>= fun () ->
+      response_ok oc >>= fun () ->
       Llio.output_counted_list Llio.output_string oc keys >>= fun () ->
       Lwt.return false
     end
@@ -412,7 +402,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # multi_get ~allow_dirty keys >>= fun values ->
-           Llio.output_int oc 0 >>= fun () ->
+           response_ok oc >>= fun () ->
            Llio.output_string_list oc values >>= fun () ->
            Lwt.return false
         )
@@ -428,7 +418,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
            backend # multi_get_option ~allow_dirty keys >>= fun vos ->
 
-           Llio.output_int oc 0 >>= fun () ->
+           response_ok oc >>= fun () ->
            Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
            Lwt.return false)
         (handle_exception oc)
@@ -458,10 +448,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s STATISTICS" id
       >>= fun () ->
       let s = backend # get_statistics () in
+      response_ok oc >>= fun () ->
       let b = Buffer.create 100 in
       Statistics.to_buffer b s;
       let bs = Buffer.contents b in
-      Llio.output_int oc 0 >>= fun () ->
       Llio.output_string oc bs >>= fun () ->
       Lwt.return false
     end
@@ -471,7 +461,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       let t0 = sw() in
       let cb' n =
         Logger.debug_f_ "CB' %i" n >>= fun () ->
-        Llio.output_int oc 0 >>= fun () -> (* ok *)
+        response_ok oc >>= fun () ->
         Llio.output_int oc n >>= fun () ->
         Lwt_io.flush oc
       in
@@ -482,7 +472,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           let () = incr count in
           let ts = sw() in
           let d = Int64.sub ts t0 in
-          Llio.output_int oc 0 >>= fun () ->
+          response_ok oc >>= fun () ->
           Llio.output_int64 oc d >>= fun () ->
           Lwt_io.flush oc
       in
@@ -514,7 +504,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         fun() ->
           Logger.debug_f_ "connection=%s GET_INTERVAL" id >>= fun () ->
           backend # get_interval () >>= fun interval ->
-          Llio.output_int oc 0 >>= fun () ->
+          response_ok oc >>= fun () ->
           Interval.output_interval oc interval >>= fun () ->
           Lwt.return false
       )
@@ -525,7 +515,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       (fun () ->
          Logger.debug_f_ "connection=%s GET_ROUTING" id >>= fun () ->
          backend # get_routing () >>= fun routing ->
-         Llio.output_int oc 0 >>= fun () ->
+         response_ok oc >>= fun () ->
          Routing.output_routing oc routing >>= fun () ->
          Lwt.return false
       )
@@ -609,9 +599,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           Logger.debug_f_ "connection=%s GET_NURSERY_CFG" id >>= fun () ->
           backend # get_routing () >>= fun routing ->
           backend # get_cluster_cfgs () >>= fun cfgs ->
+          response_ok oc >>= fun () ->
           let buf = Buffer.create 32 in
           NCFG.ncfg_to buf (routing,cfgs);
-          Llio.output_int oc 0 >>= fun () ->
           Llio.output_string oc (Buffer.contents buf) >>= fun () ->
           Lwt.return false
       )
@@ -649,7 +639,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            >>= fun () ->
            backend # get_fringe boundary direction >>= fun kvs ->
            Logger.debug_ "get_fringe backend op complete" >>= fun () ->
-           Llio.output_int oc 0 >>= fun () -> (* TODO remove all these *)
+           response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
            Logger.debug_ "get_fringe all done" >>= fun () ->
            Lwt.return false
@@ -663,7 +653,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            Llio.input_string ic >>= fun prefix ->
            Logger.debug_f_ "connection=%s DELETE_PREFIX %S" id prefix >>= fun () ->
            backend # delete_prefix prefix >>= fun n_deleted ->
-           Llio.output_int oc 0 >>= fun () ->
+           response_ok oc >>= fun () ->
            Llio.output_int oc n_deleted >>= fun () ->
            Lwt.return false
         )
@@ -672,7 +662,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | VERSION ->
     begin
       Logger.debug_f_ "connection=%s VERSION" id >>= fun () ->
-      Llio.output_int oc 0 >>= fun () ->
+      response_ok oc >>= fun () ->
       Llio.output_int oc Arakoon_version.major >>= fun () ->
       Llio.output_int oc Arakoon_version.minor >>= fun () ->
       Llio.output_int oc Arakoon_version.patch >>= fun () ->
@@ -695,8 +685,8 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | CURRENT_STATE ->
     begin
       Logger.debug_f_ "connection=%s CURRENT_STATE" id >>= fun () ->
-      Llio.output_int oc 0 >>= fun () ->
       backend # get_current_state () >>= fun state ->
+      response_ok oc >>= fun () ->
       Llio.output_string oc state >>= fun () ->
       Lwt.return false
     end
