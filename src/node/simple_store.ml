@@ -56,40 +56,37 @@ module type Cursor_store = sig
   val cur_get_value : cursor -> value
   val cur_prev : cursor -> bool
   val cur_next : cursor -> bool
-  val cur_jump : cursor -> key -> bool (* jumps to the specified key or just right from it *)
+  val cur_jump : cursor -> ?direction:direction -> key -> bool
 end
 
 module Extended_cursor_store(C : Cursor_store) = struct
 
   let cur_jump' cur key ~inc ~right =
-    if C.cur_jump cur key
+    if C.cur_jump cur ~direction:(if right then Right else Left) key
     then
       begin
-        match inc, right with
-        | true, true -> true
-        | false, true ->
-           let k = C.cur_get_key cur in
-           if String.(=:) k key
-           then
-             C.cur_next cur
-           else
-             true
-        | true, false ->
-           let k = C.cur_get_key cur in
-           if String.(=:) k key
-           then
-             true
-           else
-             C.cur_prev cur
-        | false, false ->
-           C.cur_prev cur
+        if inc
+        then
+          true
+        else
+          (* maybe move 1 position left or right *)
+          begin
+            let k = C.cur_get_key cur in
+            if String.(=:) k key
+            then
+              begin
+                if right
+                then
+                  C.cur_next cur
+                else
+                  C.cur_prev cur
+              end
+            else
+              true
+          end
       end
     else
-      if right
-      then
-        false
-      else
-        C.cur_last cur
+      false
 
   let _fold_range cur jump_init comp_end_key cur_next max f init =
     let rec inner acc count =

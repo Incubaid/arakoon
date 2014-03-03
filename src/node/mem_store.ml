@@ -35,55 +35,35 @@ type t = { mutable kv : string StringMap.t;
          }
 
 module Cursor = struct
-  type cursor = (string StringMap.zipper option ref * t)
+  open StringMap
+  type cursor = string Cursor.t
 
-  let cur_last (zip, ls) =
-    zip := StringMap.cur_last ls.kv;
-    !zip <> None
+  let cur_last t =
+    Cursor.last t
 
-  let with_initialized zip f =
-    match !zip with
-    | None -> failwith "invalid cursor"
-    | Some z -> f z
+  let cur_get t =
+    Cursor.get t
 
-  let cur_get (zip, ls) =
-    with_initialized
-      zip
-      (fun zip ->
-       StringMap.cur_get zip)
+  let cur_get_key t =
+    fst (cur_get t)
 
-  let cur_get_key cur =
-    let k, _ = cur_get cur in
-    k
+  let cur_get_value t =
+    snd (cur_get t)
 
-  let cur_get_value cur =
-    let _, v = cur_get cur in
-    v
+  let cur_prev t =
+    Cursor.prev t
 
-  let cur_prev (zip, ls) =
-    match !zip with
-    | None -> false
-    | Some z ->
-       zip := StringMap.cur_prev z;
-       !zip <> None
+  let cur_next t =
+    Cursor.next t
 
-  let cur_next (zip, ls) =
-    match !zip with
-    | None -> false
-    | Some z ->
-       zip := StringMap.cur_next z;
-       !zip <> None
-
-  let cur_jump (zip, ls) key =
-    zip := StringMap.cur_jump key ls.kv;
-    !zip <> None
+  let cur_jump t ?direction key =
+    Cursor.jump ?dir:direction key t
 end
 
 include Cursor
 
 let with_cursor ls f =
-  let zip = ref None in
-  f (zip, ls)
+  StringMap.Cursor.with_cursor ls.kv f
 
 let with_transaction ms f =
   let tx = new transaction in

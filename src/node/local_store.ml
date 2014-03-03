@@ -266,10 +266,28 @@ let cur_next (bdb, cur) =
     (fun () ->
      B.next bdb cur)
 
-let cur_jump (bdb, cur) key =
-  wrap_not_found
-    (fun () ->
-     B.jump bdb cur key)
+let cur_jump (bdb, cur) ?(direction=Right) key =
+  match direction with
+  | Right ->
+     wrap_not_found
+       (fun () ->
+        B.jump bdb cur key)
+  | Left ->
+     try
+       B.jump bdb cur key;
+       if String.(=:) key (B.key bdb cur)
+       then
+         true
+       else
+         begin
+           try
+             B.prev bdb cur;
+             true
+           with Not_found ->
+             false
+         end
+     with Not_found ->
+       cur_last (bdb, cur)
 
 let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =

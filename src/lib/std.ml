@@ -226,6 +226,10 @@ module List = struct
   let find' test list = try Some(find test list) with Not_found -> None
 end
 
+type direction =
+  | Left
+  | Right
+
 module Map = struct
   module Make(Ord : Map.OrderedType) = struct
     module M = Map.Make(Ord)
@@ -238,109 +242,149 @@ module Map = struct
       | Empty
       | Node of 'a t' * key' * 'a * 'a t' * int
 
-    type direction =
-      | Left
-      | Right
+    module Zipper = struct
 
-    type 'a zipper =
-        'a t' * ('a t' * direction) list
+      type 'a t =
+          'a t' * ('a t' * direction) list
 
-    let cur_first ?(c=[]) t =
-      let rec inner acc = function
+      let first ?(z=[]) t =
+        let rec inner acc = function
+          | Empty ->
+             None
+          | Node(Empty, _, _, _, _) as t ->
+             Some (t, acc)
+          | Node(l, _, _, _, _) as t ->
+             inner ((t, Left)::acc) l in
+        inner z (Obj.magic t)
+
+      let last ?(z=[]) t =
+        let rec inner acc = function
+          | Empty -> None
+          | Node(_, _, _, Empty, _) as t ->
+             Some (t, acc)
+          | Node(_, _, _, r, _) as t ->
+             inner ((t, Right) :: acc) r in
+        inner z (Obj.magic t)
+
+      let get (h, _) =
+        match h with
         | Empty ->
-           None
-        | Node(Empty, _, _, _, _) as t ->
-           Some (t, acc)
-        | Node(l, _, _, _, _) as t ->
-           inner ((t, Left)::acc) l in
-      inner c (Obj.magic t)
+           failwith "invalid zipper"
+        | Node(_, k, v, _, _) ->
+           (k, v)
 
-    let cur_last ?(cur=[]) t =
-      let rec inner acc = function
-        | Empty -> None
-        | Node(_, _, _, Empty, _) as t ->
-           Some (t, acc)
-        | Node(_, _, _, r, _) as t ->
-           inner ((t, Right) :: acc) r in
-      inner cur (Obj.magic t)
-
-    let cur_get (h, _) =
-      match h with
-      | Empty ->
-         failwith "impossible"
-      | Node(_, k, v, _, _) ->
-         (k, v)
-
-    let cur_next (h, c) =
-      match h with
-      | Empty ->
-         failwith "impossible"
-      | Node(_, _, _, Empty, _) ->
-         begin
-           let rec inner = function
-             | (t, Left) :: c' ->
-                Some (t, c')
-             | (t, Right) :: c' ->
-                inner c'
-             | [] ->
-                None in
-           inner c
-         end
-      | Node(_, _, _, r, _) ->
-         let c' = (h, Right) :: c in
-         cur_first ~c:c' r
-
-    let cur_prev (h, c) =
-      match h with
-      | Empty ->
-         failwith "impossible"
-      | Node(Empty, _, _, _, _) ->
-         begin
-           let rec inner = function
-             | (t, Right) :: c' ->
-                Some (t, c')
-             | (t, Left) :: c' ->
-                inner c'
-             | [] ->
-                None in
-           inner c
-         end
-      | Node(l, _, _, _, _) ->
-         let c' = (h, Left) :: c in
-         cur_last ~cur:c' l
-
-    let cur_jump ?(dir=Right) k t =
-      let rec inner acc = function
+      let next (h, z) =
+        match h with
         | Empty ->
+           failwith "invalid zipper"
+        | Node(_, _, _, Empty, _) ->
            begin
              let rec inner = function
-               | (t, d) :: tl when d <> dir ->
-                  Some (t, tl)
-               | _ :: tl ->
-                  inner tl
+               | (t, Left) :: z' ->
+                  Some (t, z')
+               | (t, Right) :: z' ->
+                  inner z'
                | [] ->
                   None in
-             inner acc
+             inner z
            end
-        | Node(l, k', v, r, _) as t ->
+        | Node(_, _, _, r, _) ->
+           let z' = (h, Right) :: z in
+           first ~z:z' r
+
+      let prev (h, z) =
+        match h with
+        | Empty ->
+           failwith "invalid zipper"
+        | Node(Empty, _, _, _, _) ->
            begin
-             match Ord.compare k k' with
-             | -1 ->
-                inner ((t, Left) :: acc) l
-             | 0 ->
-                Some (t, acc)
-             | 1 ->
-                inner ((t, Right) :: acc) r
-             | _ ->
-                failwith "impossible compare result"
-           end in
-      inner [] (Obj.magic t)
+             let rec inner = function
+               | (t, Right) :: z' ->
+                  Some (t, z')
+               | (t, Left) :: z' ->
+                  inner z'
+               | [] ->
+                  None in
+             inner z
+           end
+        | Node(l, _, _, _, _) ->
+           let z' = (h, Left) :: z in
+           last ~z:z' l
 
-    let cur_jump_left k t =
-      cur_jump ~dir:Left k t
-    let cur_jump_right k t =
-      cur_jump ~dir:Right k t
+      let jump ?(dir=Right) k t =
+        let rec inner acc = function
+          | Empty ->
+             begin
+               let rec inner = function
+                 | (t, d) :: tl when d <> dir ->
+                    Some (t, tl)
+                 | _ :: tl ->
+                    inner tl
+                 | [] ->
+                    None in
+               inner acc
+             end
+          | Node(l, k', v, r, _) as t ->
+             begin
+               match Ord.compare k k' with
+               | -1 ->
+                  inner ((t, Left) :: acc) l
+               | 0 ->
+                  Some (t, acc)
+               | 1 ->
+                  inner ((t, Right) :: acc) r
+               | _ ->
+                  failwith "impossible compare result"
+             end in
+        inner [] (Obj.magic t)
+    end
 
+    module Cursor = struct
+      type 'a m = 'a t
+      type 'a t = 'a Zipper.t option ref * 'a m
+
+      let with_cursor m f =
+        f (ref None, m)
+
+      let is_valid (zo, m) =
+        !zo <> None
+
+      let first ((zo, m) as c) =
+        zo := Zipper.first m;
+        is_valid c
+
+      let last ((zo, m) as c) =
+        zo := Zipper.last m;
+        is_valid c
+
+      let jump ?dir k ((zo, m) as c) =
+        zo := Zipper.jump ?dir k m;
+        is_valid c
+
+      let next ((zo, m) as c) =
+        match !zo with
+        | None ->
+           failwith "invalid cursor"
+        | Some z ->
+           zo := Zipper.next z;
+           is_valid c
+
+      let prev ((zo, m) as c) =
+        match !zo with
+        | None ->
+           failwith "invalid cursor"
+        | Some z ->
+           zo := Zipper.prev z;
+           is_valid c
+
+      let get (zo, m) =
+        match !zo with
+        | None ->
+           failwith "invalid cursor"
+        | Some z ->
+           Zipper.get z
+
+    end
   end
 end
 
