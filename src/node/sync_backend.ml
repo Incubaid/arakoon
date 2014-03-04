@@ -189,7 +189,7 @@ struct
         self # _read_allowed allow_dirty >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range store first finc last linc max >>= fun r ->
-        Statistics.new_range _stats start (fst r);
+        Statistics.new_range _stats start (Array.length r);
         Lwt.return r
 
       method private with_blocked_collapser start_i f =

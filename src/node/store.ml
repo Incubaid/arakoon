@@ -76,7 +76,7 @@ sig
   val exists : t -> string -> bool Lwt.t
   val range :  t ->
     string option -> bool ->
-    string option -> bool -> int -> string counted_list Lwt.t
+    string option -> bool -> int -> string array Lwt.t
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
     string option -> bool -> int -> (string * string) counted_list Lwt.t
@@ -539,13 +539,13 @@ struct
       "RANGE"
       CorruptStore
       (fun () ->
-       let r = fold_range store __prefix
-                          first finc last linc
-                          max
-                          (fun cur k _ acc ->
-                           (cut k) :: acc)
-                          [] in
-      Lwt.return r)
+       let first' = _f __prefix first in
+       let last' = _l __prefix last in
+       let r = S.range store.s
+                       first' finc last' linc
+                       max
+       in
+       Lwt.return (Array.map cut r))
 
   let _range_entries store first finc last linc max =
     let _, r =

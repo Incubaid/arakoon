@@ -263,9 +263,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
       Lwt.catch
         (fun () ->
-          backend # range ~allow_dirty first finc last linc max >>= fun values ->
+          backend # range ~allow_dirty first finc last linc max >>= fun keys ->
           response_ok oc >>= fun () ->
-          Llio.output_counted_list Llio.output_string oc values >>= fun () ->
+          Llio.output_string_array_reversed oc keys >>= fun () ->
           Lwt.return false
         )
         (handle_exception oc )

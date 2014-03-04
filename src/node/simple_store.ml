@@ -161,6 +161,11 @@ module type Simple_store = sig
   val delete: t -> transaction -> string -> unit
   val delete_prefix: t -> transaction -> string -> int
 
+  (* special case this one, for speed. *)
+  val range : t ->
+              string -> bool -> string option -> bool ->
+              int -> string array
+
   val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
@@ -176,6 +181,14 @@ module type Simple_store = sig
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
 end
+
+let _f _pf = function
+  | Some x -> _pf ^ x
+  | None -> _pf
+
+let _l _pf = function
+  | Some x -> (Some (_pf ^ x))
+  | None -> None
 
 let next_prefix prefix =
   if 0 = String.length prefix

@@ -98,9 +98,10 @@ let delete ms tx key =
   else
     raise (Key_not_found key)
 
+module CS = Extended_cursor_store(Cursor)
+
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
-  let module CS = Extended_cursor_store(Cursor) in
   let count, () =
     with_cursor
       ms
@@ -111,6 +112,20 @@ let delete_prefix ms tx prefix =
                       delete ms tx k)
                      ()) in
   count
+
+
+let range ms first finc last linc max =
+  let count, keys =
+    with_cursor
+      ms
+      (fun cur ->
+       CS.fold_range cur
+                     first finc last linc
+                     max
+                     (fun cur k _ acc ->
+                      k :: acc)
+                     []) in
+  Array.of_list keys
 
 let set ms tx key value =
   _verify_tx ms tx;

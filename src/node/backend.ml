@@ -41,7 +41,7 @@ class type backend = object
   method range:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> (string counted_list) Lwt.t
+    string option -> bool -> int -> (string array) Lwt.t
   method range_entries:
     allow_dirty:bool ->
     string option -> bool ->
