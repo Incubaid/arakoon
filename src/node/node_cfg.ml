@@ -28,6 +28,8 @@ let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
 let default_max_buffer_size = 32 * 1024 * 1024
 let default_client_buffer_capacity = 32
+let default_lcnum = 16384
+let default_ncnum = 8192
 
 open Master_type
 open Client_cfg
@@ -139,6 +141,8 @@ module Node_cfg = struct
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
+      lcnum : int;
+      ncnum : int;
     }
 
   let string_of_cluster_cfg cluster_cfg =
@@ -157,12 +161,14 @@ module Node_cfg = struct
       (Printf.sprintf
          ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
           ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
-          ^^ "client_buffer_capacity=%i }")
+          ^^ "client_buffer_capacity=%i; lcnum=%i; ncnum=%i }")
          (master2s cluster_cfg._master) cluster_cfg._lease_period cluster_cfg.cluster_id
          (List.fold_left (^) "" cluster_cfg.plugins)
          (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
          cluster_cfg.max_value_size cluster_cfg.max_buffer_size
-         cluster_cfg.client_buffer_capacity);
+         cluster_cfg.client_buffer_capacity 
+         cluster_cfg.lcnum cluster_cfg.ncnum
+      );
     Buffer.contents buffer
 
   let make_test_config
@@ -219,6 +225,8 @@ module Node_cfg = struct
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
+      lcnum = default_lcnum;
+      ncnum = default_ncnum;
     }
     in
     cluster_cfg
@@ -260,6 +268,16 @@ module Node_cfg = struct
   let _client_buffer_capacity inifile =
     Ini.get inifile "global" "client_buffer_capacity"
       Ini.p_int (Ini.default default_client_buffer_capacity)
+
+  let _lcnum inifile =
+    Ini.get inifile "global" "lcnum" Ini.p_int
+      (Ini.default default_lcnum)
+
+  let _ncnum inifile =
+    Ini.get inifile "global" "ncnum" Ini.p_int
+      (Ini.default default_ncnum)
+
+
 
   let _startup_mode inifile =
     let master =
@@ -450,6 +468,8 @@ module Node_cfg = struct
     let max_value_size = _max_value_size inifile in
     let max_buffer_size = _max_buffer_size inifile in
     let client_buffer_capacity = _client_buffer_capacity inifile in
+    let lcnum = _lcnum inifile in
+    let ncnum = _ncnum inifile in
     let cluster_cfg =
       { cfgs;
         log_cfgs;
@@ -464,6 +484,8 @@ module Node_cfg = struct
         max_value_size;
         max_buffer_size;
         client_buffer_capacity;
+        lcnum;
+        ncnum;
       }
     in
     cluster_cfg

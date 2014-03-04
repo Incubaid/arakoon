@@ -139,7 +139,7 @@ let get_fringe ms boundary direction =
     in
     Lwt.return all
 
-let make_store read_only db_name =
+let make_store ~lcnum ~ncnum read_only db_name =
   Lwt.return { kv = StringMap.empty;
                _tx = None;
                name = db_name; }

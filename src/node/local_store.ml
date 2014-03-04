@@ -67,15 +67,16 @@ let copy_store2 old_location new_location overwrite =
   else
     File_system.copy_file old_location new_location overwrite
 
-let safe_create db_path mode =
-  Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
+let safe_create db_path ~mode ~lcnum ~ncnum =
+  Camltc.Hotc.create db_path ~lcnum ~ncnum ~mode [B.BDBTLARGE] >>= fun db ->
+  Logger.info_f_ "safe_create %s ~lcnum:%i ~ncnum:%i" db_path lcnum ncnum >>= fun () ->
   let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
   if List.mem Camltc.Bdb.BDBFFATAL flags
     then Lwt.fail (BdbFFatal db_path)
     else Lwt.return db
 
-let get_construct_params db_name ~mode =
-  safe_create db_name mode
+let get_construct_params db_name ~mode ~lcnum ~ncnum=
+  safe_create db_name ~mode ~lcnum ~ncnum
 
 let _with_tx ls tx f =
   match ls._tx with
@@ -240,7 +241,7 @@ let optimize ls quiesced =
   >>= fun () ->
   begin
     Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
-    safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
+    safe_create db_optimal ~lcnum:1024 ~ncnum:512 ~mode:Camltc.Bdb.default_mode >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
         Logger.info_ "Optimizing db copy" >>= fun () ->
@@ -356,14 +357,14 @@ let get_fringe ls border direction =
       Logger.debug_f_ "buf:%s" (Buffer.contents buf)
     )
 
-let make_store read_only db_name =
+let make_store ~lcnum ~ncnum read_only db_name =
   let mode =
     if read_only
     then B.readonly_mode
     else B.default_mode
   in
   Logger.info_f_ "Creating local store at %s" db_name >>= fun () ->
-  get_construct_params db_name ~mode
+  get_construct_params db_name ~mode ~lcnum ~ncnum
   >>= fun db ->
   Lwt.return { db = db;
                location = db_name;

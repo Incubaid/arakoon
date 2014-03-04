@@ -23,7 +23,7 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
   let t () = 
     Lwt.catch 
       (fun () ->
-        S.make_store db_name >>= fun store ->
+        S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
         let cio = S.consensus_i store in
         let cios = Log_extra.option2s Sn.string_of cio in
         console "store @ %s" cios >>= fun () ->

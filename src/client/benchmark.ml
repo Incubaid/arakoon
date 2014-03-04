@@ -56,6 +56,28 @@ let _get (client:Arakoon_client.client) max_n t0 oc =
   in
   loop 0
 
+let _tas (client:Arakoon_client.client) max_n size t0 oc =
+  let v0 = String.make (size -8) 'x' in
+  let v1 = String.make (size -8) 'y' in
+  let rec loop n = 
+    if n = max_n
+    then Lwt.return ()
+    else
+      begin
+        _progress t0 n 10000 oc >>= fun () ->
+        let i = Random.int max_n in
+        let key = _cat "key" i in
+        let expected = Some (_cat v0 n) 
+        and wanted = Some (_cat v1 n)
+        in
+        client # test_and_set key expected wanted >>= fun e2 ->
+        
+        loop (n+1)
+      end
+  in
+  loop 0
+
+
 let _get_transactions (client:Arakoon_client.client) max_n t size (t0:float) oc= 
   let n_transactions = (max_n + t -1) / t in
   let rec loop_t i =
@@ -157,7 +179,7 @@ let benchmark
   let sz = 
     if size < 10 then 10 else size 
   in
-  let phase_0 client oc = 
+ let phase_0 client oc = 
     client # who_master () >>= fun master ->
     Lwt_io.fprintlf oc "Master %s; size=%i" 
       (Log_extra.string_option2s master)
@@ -186,6 +208,11 @@ let benchmark
     Lwt_io.fprintlf oc 
       "\nmultiget of %i values (random keys) in transactions of size %i took %f"
       max_n tx_size d 
+  in 
+  let phase_4_5 client oc = 
+    _time (_tas client  max_n size) oc >>= fun d ->
+    Lwt_io.fprintlf oc
+      "\ntest_and_set of %i random keys (value size=%i bytes) took %f" max_n sz d
   in
   let phase_5 client oc = 
     Lwt_io.fprintlf oc "range" >>= fun () ->
@@ -217,6 +244,7 @@ let benchmark
   Lwt.join (ts phase_1) >>= fun () ->
   Lwt.join (ts phase_2) >>= fun () ->
   Lwt.join (ts phase_3) >>= fun () ->
-  Lwt.join (ts phase_4) >>= fun () ->
+  Lwt.join (ts phase_4) >>= fun () -> 
+  Lwt.join (ts phase_4_5) >>= fun () ->
   Lwt.join (ts phase_5) >>= fun () ->
   Lwt.return ()

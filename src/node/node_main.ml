@@ -208,7 +208,9 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
           fo.node_name
     end
   in
-  S.make_store db_name >>= fun store ->
+  let lcnum = cluster_cfg.lcnum in
+  let ncnum = cluster_cfg.ncnum in
+  S.make_store ~lcnum ~ncnum db_name >>= fun store ->
   make_tlog_coll
     me.tlog_dir me.tlf_dir me.head_dir
     me.use_compression me.fsync name >>= fun tlc ->
@@ -447,7 +449,10 @@ let _main_2 (type s)
           >>= fun () ->
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
-          S.make_store db_name >>= fun (store:S.t) ->
+          let lcnum = cluster_cfg.lcnum 
+          and ncnum = cluster_cfg.ncnum 
+          in
+          S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
           Catchup.verify_n_catchup_store me.node_name
             ((module S), store, tlog_coll)
             ~apply_last_tlog_value:(n_nodes = 1) >>= fun () ->

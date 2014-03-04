@@ -65,7 +65,7 @@ let test_generic network_factory n_nodes () =
   let last_witnessed who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
-  S.make_store "MEM#store" >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true "???">>= fun tlog_coll ->
   let base = {me = "???";
 	          others = [] ;
@@ -234,7 +234,7 @@ let test_master_loop network_factory ()  =
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
-  S.make_store "MEM#store" >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {me = me; 
 		   is_learner = false;
@@ -354,7 +354,7 @@ let test_simulation filters () =
       Logger.debug_f_ "got (%s,%s,%s) => dropping" msg_s source target
   in
   
-  S.make_store "MEM#store"  >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store"  >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {
     me = me;
