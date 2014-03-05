@@ -390,7 +390,7 @@ let _range_1 (client: client) =
   let size = List.length keys in
   Logger.info_f_ "size = %i" size >>= fun () ->
   if size <> 10
-  then Llio.lwt_failfmt "size should be 10 and is %i" size
+  then Llio.lwt_failfmt "_range_1: size should be 10 and is %i" size
   else Lwt.return ()
 
 let _range_entries_1 (client: client) =

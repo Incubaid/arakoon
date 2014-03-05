@@ -24,6 +24,7 @@ open OUnit
 open Lwt
 open Extra
 open Update
+open Simple_store
 open Store
 
 let section = Logger.Section.main

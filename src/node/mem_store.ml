@@ -20,18 +20,50 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Store
+open Std
+open Simple_store
 open Lwt
 open Log_extra
 open Update
 open Routing
 
-module StringMap = Map.Make(String);;
+module StringMap = Map.Make(String)
 
 type t = { mutable kv : string StringMap.t;
            mutable _tx : transaction option;
            name : string;
          }
+
+module Cursor = struct
+  open StringMap
+  type cursor = string Cursor.t
+
+  let cur_last t =
+    Cursor.last t
+
+  let cur_get t =
+    Cursor.get t
+
+  let cur_get_key t =
+    fst (cur_get t)
+
+  let cur_get_value t =
+    snd (cur_get t)
+
+  let cur_prev t =
+    Cursor.prev t
+
+  let cur_next t =
+    Cursor.next t
+
+  let cur_jump t ?direction key =
+    Cursor.jump ?dir:direction key t
+end
+
+include Cursor
+
+let with_cursor ls f =
+  StringMap.Cursor.with_cursor ls.kv f
 
 let with_transaction ms f =
   let tx = new transaction in
@@ -59,37 +91,6 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
-let range ms prefix first finc last linc max =
-  let keys = Test_backend.range_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map cut keys
-
-
-let range_entries ms prefix first finc last linc max =
-  let entries = Test_backend.range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map (fun (k,v) -> (cut k,v)) entries
-
-
-let rev_range_entries ms prefix first finc last linc max =
-  let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map (fun (k,v) -> (cut k,v)) entries
-
-let prefix_keys ms prefix max =
-  let reg = "^" ^ prefix in
-  let keys = StringMap.fold
-    (fun k v a ->
-      (* TODO this is buggy -> what if prefix contains special regex chars? *)
-      if (Str.string_match (Str.regexp reg) k 0)
-      then k::a
-      else a
-    ) ms.kv []
-  in filter_keys_list keys
-
 let delete ms tx key =
   _verify_tx ms tx;
   if StringMap.mem key ms.kv then
@@ -97,11 +98,34 @@ let delete ms tx key =
   else
     raise (Key_not_found key)
 
+module CS = Extended_cursor_store(Cursor)
+
 let delete_prefix ms tx prefix =
   _verify_tx ms tx;
-  let keys = prefix_keys ms prefix (-1) in
-  let () = List.iter (fun k -> delete ms tx k) keys in
-  List.length keys
+  let count, () =
+    with_cursor
+      ms
+      (fun cur ->
+       CS.fold_range cur prefix true (next_prefix prefix) false
+                     (-1)
+                     (fun cur k _ () ->
+                      delete ms tx k)
+                     ()) in
+  count
+
+
+let range ms first finc last linc max =
+  let count, keys =
+    with_cursor
+      ms
+      (fun cur ->
+       CS.fold_range cur
+                     first finc last linc
+                     max
+                     (fun cur k _ acc ->
+                      k :: acc)
+                     []) in
+  Array.of_list keys
 
 let set ms tx key value =
   _verify_tx ms tx;
@@ -127,25 +151,6 @@ let copy_store ms networkClient oc = failwith "copy_store not supported"
 let copy_store2 old_location new_location overwrite = Lwt.return ()
 
 let relocate new_location = failwith "Memstore.relocation not implemented"
-
-let get_fringe ms boundary direction =
-  Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
-  let cmp =
-    begin
-      match direction, boundary with
-        | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
-        | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
-        | _ , None -> (fun k -> true)
-    end
-  in
-  let all = StringMap.fold
-              (fun k v acc ->
-                 if cmp k
-                 then (k,v)::acc
-                 else acc)
-              ms.kv []
-  in
-  Lwt.return all
 
 let make_store ~lcnum ~ncnum read_only db_name =
   Lwt.return { kv = StringMap.empty;

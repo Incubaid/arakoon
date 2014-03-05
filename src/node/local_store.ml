@@ -20,12 +20,13 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Mp_msg
 open Lwt
 open Update
 open Routing
 open Log_extra
-open Store
+open Simple_store
 open Unix.LargeFile
 
 exception BdbFFatal of string
@@ -46,8 +47,9 @@ let _delete bdb key    = B.out bdb key
 let _delete_prefix bdb prefix =
   B.delete_prefix bdb prefix
 
-let _range_entries _pf bdb first finc last linc max =
-  B.range_entries _pf bdb first finc last linc max
+let range ls first finc last linc max =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.range bdb (Some first) finc last linc max
 
 
 let copy_store2 old_location new_location overwrite =
@@ -147,31 +149,6 @@ let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.get bdb key
 
-let range ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = B.range bdb (_f prefix first) finc (_l prefix last) linc max in
-  let p = String.length __prefix in
-  let cut x = String.sub x p (String.length x - p) in
-  Array.map cut r
-
-
-let range_entries ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = _range_entries prefix bdb first finc last linc max in
-  r
-
-let rev_range_entries ls prefix first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let r = B.rev_range_entries prefix bdb first finc last linc max in
-  Array.of_list r (* TODO *)
-
-
-let prefix_keys ls prefix max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  let keys_array = B.prefix_keys bdb prefix max in
-  let keys_list = filter_keys_array keys_array in
-  keys_list
-
 let set ls tx key value =
   _with_tx ls tx (fun db -> _set db key value)
 
@@ -261,98 +238,57 @@ let relocate ls new_location =
   Logger.info_f_ "Successfully unlinked file at '%s'" old_location
 
 
-let get_fringe ls border direction =
-  let cursor_init, get_next, key_cmp =
-    begin
-      match direction with
-        | Routing.UPPER_BOUND ->
-          let skip_keys lcdb cursor =
-            let () = B.first lcdb cursor in
-            let rec skip_admin_key () =
-              begin
-                let k = B.key lcdb cursor in
-                if k.[0] <> __adminprefix.[0]
-                then
-                  Lwt.ignore_result ( Logger.debug_f_ "Not skipping key: %s" k )
-                else
-                  begin
-                    Lwt.ignore_result ( Logger.debug_f_ "Skipping key: %s" k );
-                    begin
-                      try
-                        B.next lcdb cursor;
-                        skip_admin_key ()
-                      with Not_found -> ()
-                    end
-                  end
-              end
-            in
-            skip_admin_key ()
-          in
-          let cmp =
-            begin
-              match border with
-                | Some b ->  (fun k -> k >= (__prefix ^ b))
-                | None -> (fun k -> false)
-            end
-          in
-          skip_keys, B.next, cmp
-        | Routing.LOWER_BOUND ->
-          let cmp =
-            begin
-              match border with
-                | Some b -> (fun k -> k < (__prefix ^ b) || k.[0] <> __prefix.[0])
-                | None -> (fun k -> k.[0] <> __prefix.[0])
-            end
-          in
-          B.last, B.prev, cmp
-    end
-  in
-  Logger.debug_f_ "local_store::get_fringe %S" (Log_extra.string_option2s border) >>= fun () ->
-  let buf = Buffer.create 128 in
-  Lwt.finalize
-    (fun () ->
-       Camltc.Hotc.transaction ls.db
-         (fun txdb ->
-            Camltc.Hotc.with_cursor txdb
-              (fun lcdb cursor ->
-                 Buffer.add_string buf "1\n";
-                 let limit = 1024 * 1024 in
-                 let () = cursor_init lcdb cursor in
-                 Buffer.add_string buf "2\n";
-                 let r =
-                   let rec loop acc ts =
-                     begin
-                       try
-                         let k = B.key   lcdb cursor in
-                         let v = B.value lcdb cursor in
-                         if ts >= limit  || (key_cmp k)
-                         then acc
-                         else
-                           let pk = String.sub k 1 (String.length k -1) in
-                           let acc' = (pk,v) :: acc in
-                           Buffer.add_string buf (Printf.sprintf "pk=%s v=%s\n" pk v);
-                           let ts' = ts + String.length k + String.length v in
-                           begin
-                             try
-                               get_next lcdb cursor ;
-                               loop acc' ts'
-                             with Not_found ->
-                               acc'
-                           end
-                       with Not_found ->
-                         acc
-                     end
+type cursor = (B.bdb * B.bdbcur)
 
-                   in
-                   loop [] 0
-                 in
-                 Lwt.return r
-              )
-         )
-    )
+let with_cursor ls f =
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.with_cursor bdb (fun _ cur -> f (bdb, cur))
+
+let wrap_not_found f =
+  try
+    f ();
+    true
+  with Not_found -> false
+
+let cur_last (bdb, cur) =
+  wrap_not_found (fun () -> B.last bdb cur)
+
+let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
+let cur_get_key (bdb, cur) = B.key bdb cur
+let cur_get_value (bdb, cur) = B.value bdb cur
+
+let cur_prev (bdb, cur) =
+  wrap_not_found
     (fun () ->
-       Logger.debug_f_ "buf:%s" (Buffer.contents buf)
-    )
+     B.prev bdb cur)
+
+let cur_next (bdb, cur) =
+  wrap_not_found
+    (fun () ->
+     B.next bdb cur)
+
+let cur_jump (bdb, cur) ?(direction=Right) key =
+  match direction with
+  | Right ->
+     wrap_not_found
+       (fun () ->
+        B.jump bdb cur key)
+  | Left ->
+     try
+       B.jump bdb cur key;
+       if String.(=:) key (B.key bdb cur)
+       then
+         true
+       else
+         begin
+           try
+             B.prev bdb cur;
+             true
+           with Not_found ->
+             false
+         end
+     with Not_found ->
+       cur_last (bdb, cur)
 
 let make_store ~lcnum ~ncnum read_only db_name  =
   let mode =

@@ -232,11 +232,17 @@ let input_string_list ic = input_list input_string ic
 
 let input_kv_list ic = input_list input_string_pair ic
 
-let output_list output_element oc list =
-  let n = List.length list in
-  output_int oc n  >>= fun () ->
-  Client_log.debug_f "Outputting list with %d elements" n >>= fun () ->
+let _output_list output_element oc count list =
+  output_int oc count >>= fun () ->
+  Client_log.debug_f "Outputting list with %d elements" count >>= fun () ->
   Lwt_list.iter_s (output_element oc) list
+
+let output_counted_list output_element oc (count, list) =
+  _output_list output_element oc count list
+
+let output_list output_element oc list =
+  let count = List.length list in
+  _output_list output_element oc count list
 
 let output_string_list oc list = output_list output_string oc list
 

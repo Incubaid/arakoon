@@ -24,8 +24,8 @@ open OUnit
 open Lwt
 open Log_extra
 open Arakoon_remote_client
-open Test_backend
 open Update
+open Node_cfg
 
 let section = Logger.Section.main
 
@@ -38,53 +38,49 @@ let _CLUSTER = "sweety"
 type real_test = Arakoon_client.client -> unit Lwt.t
 
 let __client_server_wrapper__ cluster (real_test:real_test) =
-  let port = 7777 in
-  let conversation connection  =
-    cucu "started conversation" >>= fun () ->
-    make_remote_client cluster connection
-    >>= fun (client:Arakoon_client.client) ->
-    real_test client >>= fun () -> Lwt.return ()
-  in
-  let sleep, notifier = wait () in
-  let td_var = Lwt_mvar.create_empty () in
-  let setup_callback () =
-    Logger.info_ "callback" >>= fun () ->
-    Lwt.wakeup notifier ();
-    Lwt.return ()
-  in
-  let teardown_callback () = Lwt_mvar.put td_var () in
-  let tb = new test_backend _CLUSTER in
-  let backend = (tb :> Backend.backend) in
-  let scheme = Server.make_default_scheme () in
   let stop = ref false in
-  let server = Server.make_server_thread
-                 ~setup_callback
-                 ~teardown_callback
-                 ~scheme
-                 "127.0.0.1" port ~stop
-                 (Client_protocol.protocol stop backend) in
+  let lease_period = 2 in
+  let cluster_id = "sweety" in
+  let make_config () = Node_cfg.make_test_config
+                         ~cluster_id
+                         ~node_name:(Printf.sprintf "sweety_%i")
+                         1 (Master_type.Elected) lease_period
+  in
+  let cluster_cfg = make_config () in
+  let t0 = Node_main.test_t make_config "sweety_0" stop >>= fun _ -> Lwt.return () in
 
   let client_t () =
-    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, port) in
-    Lwt_io.open_connection address >>= function (ic,oc) ->
-      conversation (ic,oc) >>= fun () ->
-      Logger.debug_ "end_of_senario" >>= fun () ->
-      Lwt_io.close ic >>= fun () ->
-      Lwt_io.close oc >>= fun () ->
-      Lwt.return ()
+    let sp = float(lease_period) *. 0.5 in
+    Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
+    Logger.info_ "cluster should have reached stability" >>= fun () ->
+    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Logger.info_f_ "master=%S" master_name >>= fun () ->
+    let master_cfg =
+      List.hd
+        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
+    in
+    Client_main.with_client
+      ~tls:None
+      master_cfg
+      cluster_cfg.Node_cfg.cluster_id
+      real_test
   in
   let main () =
-    Lwt.pick [client_t ();
-              server ();] >>= fun () ->
-    Lwt_mvar.take td_var  >>= fun () ->
-    Logger.info_ "server down"
+    Lwt.pick [t0;
+              client_t ();] >>= fun () ->
+    stop := true;
+    Lwt.return ()
   in
   Lwt_main.run (main());;
 
 let test_ping () =
   let real_test client =
     client # ping "test_ping" _CLUSTER >>= fun server_version ->
-    OUnit.assert_equal server_version "test_backend.0.0.0";
+    OUnit.assert_equal
+      server_version
+      (Printf.sprintf
+         "Arakoon %i.%i.%i"
+         Arakoon_version.major Arakoon_version.minor Arakoon_version.patch);
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test
 
@@ -313,9 +309,9 @@ let test_and_set_to_none () =
     let wanted = Some wanted_s in
     let expected = None in
     client # test_and_set key expected wanted >>= fun result ->
-    OUnit.assert_equal ~printer:string_option2s ~msg:"assert1" result wanted;
+    OUnit.assert_equal ~printer:string_option2s ~msg:"assert1" result None;
     client # test_and_set key wanted None >>= fun result2 ->
-    OUnit.assert_equal ~printer:string_option2s ~msg:"assert2" result2 None;
+    OUnit.assert_equal ~printer:string_option2s ~msg:"assert2" result2 wanted;
     Lwt.return ()
   in __client_server_wrapper__ _CLUSTER real_test
 

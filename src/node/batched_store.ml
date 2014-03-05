@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Store
+open Simple_store
 open Lwt
 
 module StringMap = Map.Make(String)
@@ -198,26 +198,14 @@ struct
     else
       raise Not_found
 
-  let range s prefix first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.range s.s prefix first finc last linc max
-
-  let range_entries s prefix first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.range_entries s.s prefix first finc last linc max
-
-  let rev_range_entries s prefix first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.rev_range_entries s.s prefix first finc last linc max
-
-  let prefix_keys s prefix max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.prefix_keys s.s prefix max
-
   let delete_prefix s tx prefix =
     _verify_tx s tx;
     _with_complex_query ~allow_in_transaction:false s;
     S.delete_prefix s.s (_get_ls_tx s)  prefix
+
+  let range s first finc last linc max =
+    _with_complex_query ~allow_in_transaction:true s;
+    S.range s.s first finc last linc max
 
   let flush s =
     _commit_ls_tx_if_any s;
@@ -269,9 +257,32 @@ struct
   let copy_store2 =
     S.copy_store2
 
-  let get_fringe s =
+  type cursor = S.cursor
+
+  let with_cursor s f =
     _with_complex_query ~allow_in_transaction:true s;
-    S.get_fringe s.s
+    S.with_cursor s.s (fun cur -> f cur)
+
+  let cur_last =
+    S.cur_last
+
+  let cur_get =
+    S.cur_get
+
+  let cur_get_key =
+    S.cur_get_key
+
+  let cur_get_value =
+    S.cur_get_value
+
+  let cur_prev =
+    S.cur_prev
+
+  let cur_next =
+    S.cur_next
+
+  let cur_jump =
+    S.cur_jump
 end
 
 module Local_store = Batched_store(Local_store)

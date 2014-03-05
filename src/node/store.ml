@@ -20,96 +20,21 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+open Std
 open Update
 open Interval
 open Routing
 open Lwt
 open Log_extra
+open Simple_store
 
-let section = Logger.Section.main
-
-let __i_key = "*i"
-let __j_key = "*j"
-let __interval_key = "*interval"
-let __routing_key = "*routing"
-let __master_key  = "*master"
-let __lease_key = "*lease"
-let __lease_key2 = "*lease2"
-let __prefix = "@"
-let __adminprefix="*"
-
-let _f _pf = function
-  | Some x -> (Some (_pf ^ x))
-  | None -> (Some _pf)
-let _l _pf = function
-  | Some x -> (Some (_pf ^ x))
-  | None -> None
-
-let _filter get_key make_entry fold coll pf =
-  let pl = String.length pf in
-  fold (fun acc entry ->
-      let key = get_key entry in
-      let kl = String.length key in
-      let key' = String.sub key pl (kl-pl) in
-      (make_entry entry key')::acc) [] coll
-
-let filter_keys_list keys =
-  _filter (fun i -> i) (fun e k -> k) List.fold_left keys __prefix
-
-let filter_entries_list entries =
-  _filter (fun (k,v) -> k) (fun (k,v) k' -> (k',v)) List.fold_left entries __prefix
-
-let filter_keys_array entries =
-  _filter (fun i -> i) (fun e k -> k) Array.fold_left entries __prefix
-
-
-class transaction = object end
 
 type update_result =
+    Simple_store.update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
 
-exception Key_not_found of string
 exception CorruptStore
-
-module type Simple_store = sig
-  type t
-  val with_transaction: t -> (transaction -> 'a Lwt.t) -> 'a Lwt.t
-
-  val exists: t -> string -> bool
-  val get: t -> string -> string
-
-  val range: t -> string -> string option -> bool -> string option -> bool ->
-    int -> string array
-  val range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
-  val rev_range_entries: t -> string ->
-    string option -> bool ->
-    string option -> bool -> int -> (string * string) array
-  val prefix_keys: t -> string -> int -> string list
-  val set: t -> transaction -> string -> string -> unit
-  val delete: t -> transaction -> string -> unit
-  val delete_prefix: t -> transaction -> string -> int
-
-  val flush: t -> unit Lwt.t
-  val close: t -> bool -> unit Lwt.t
-  val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
-  val make_store: lcnum:int -> ncnum:int -> bool -> string -> t Lwt.t
-
-  val get_location: t -> string
-  val relocate: t -> string -> unit Lwt.t
-
-  val get_key_count : t -> int64 Lwt.t
-
-  val optimize : t -> bool -> unit Lwt.t
-  val defrag : t -> unit Lwt.t
-  val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
-  val copy_store2 : string -> string -> bool -> unit Lwt.t
-  val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
-end
-
-class transaction_lock = object end
 
 type key_or_transaction =
   | Key of transaction_lock
@@ -154,16 +79,16 @@ sig
     string option -> bool -> int -> string array Lwt.t
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) array Lwt.t
+    string option -> bool -> int -> (string * string) counted_list Lwt.t
   val rev_range_entries :  t ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) array Lwt.t
-  val prefix_keys : t -> string -> int -> string list Lwt.t
+    string option -> bool -> int -> (string * string) counted_list Lwt.t
+  val prefix_keys : t -> string -> int -> string counted_list Lwt.t
   val multi_get : t -> string list -> string list Lwt.t
   val multi_get_option : t -> string list -> string option list Lwt.t
   val get_key_count : t -> int64 Lwt.t
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
+  val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) counted_list Lwt.t
 
   val get_interval : t -> Interval.t Lwt.t
   val get_routing : t -> Routing.t Lwt.t
@@ -434,8 +359,54 @@ struct
              f txl)
           (fun () -> store._tx_lock <- None; Lwt.return ()))
 
+  module CS = Extended_cursor_store(S)
+
+  let cut =
+    let pl = String.length __prefix in
+    fun x -> String.sub x pl (String.length x - pl)
+
   let get_fringe store b d =
-    S.get_fringe store.s b d
+    let limit = 1024 * 1024 in
+    let fringe = ref (0, []) in
+    let () =
+      try
+        fringe :=
+          let len, (ts, f) =
+            S.with_cursor
+              store.s
+              (fun cur ->
+               let f_acc =
+                 fun cur k count (ts, acc) ->
+                 if ts >= limit
+                 then
+                   begin
+                     fringe := (count, acc);
+                     raise Break
+                   end
+                 else
+                   begin
+                     let v = S.cur_get_value cur in
+                     let ts' = ts + String.length k + String.length v in
+                     ts', (cut k, v) :: acc
+                   end in
+               match d with
+               | Routing.UPPER_BOUND ->
+                  let bound = match b with
+                    | None -> next_prefix __prefix
+                    | Some b -> Some (__prefix ^ b) in
+                  CS.fold_range cur
+                                __prefix true bound false (-1)
+                                f_acc (0, [])
+               | Routing.LOWER_BOUND ->
+                  let bound = match b with
+                    | None -> __prefix
+                    | Some b -> __prefix ^ b in
+                  CS.fold_rev_range cur
+                                    (next_prefix __prefix) false bound true (-1)
+                                    f_acc (0, [])) in
+          (len, f)
+      with Break -> () in
+    Lwt.return !fringe
 
   let copy_store store oc =
     if quiesced store
@@ -451,14 +422,6 @@ struct
 
   let defrag store =
     S.defrag store.s
-
-  let get_key_count store =
-    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
-        S.get_key_count store.s >>= fun raw_count ->
-        (* Leave out administrative keys *)
-        let admin_keys = S.prefix_keys store.s __adminprefix (-1) in
-        let admin_key_count = List.length admin_keys in
-        Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
   let get_routing store =
     Logger.debug_ "get_routing " >>= fun () ->
@@ -546,30 +509,118 @@ struct
     end;
     r
 
-  let _range_entries store first finc last linc max =
-    S.range_entries store.s __prefix first finc last linc max
+  let fold_range store prefix first finc last linc max f init =
+    let first = match first with
+      | None -> prefix
+      | Some f -> prefix ^ f in
+    let last = match last with
+      | None -> next_prefix prefix
+      | Some l -> Some (prefix ^ l) in
+    S.with_cursor
+      store.s
+      (fun cur ->
+       CS.fold_range cur first finc last linc max f init)
 
-  let range_entries store ?(_pf=__prefix) first finc last linc max =
-    _wrap_exception store "RANGE_ENTRIES" CorruptStore (fun () ->
-        Lwt.return (S.range_entries store.s _pf first finc last linc max))
-
-  let rev_range_entries store first finc last linc max =
-    _wrap_exception store "REV_RANGE_ENTRIES" CorruptStore (fun () ->
-        Lwt.return (S.rev_range_entries store.s __prefix first finc last linc max))
+  let fold_rev_range store prefix high hinc low linc max f init =
+    let low = match low with
+      | None -> prefix
+      | Some l -> prefix ^ l in
+    let high = match high with
+      | None -> next_prefix prefix
+      | Some h -> Some (prefix ^ h) in
+    S.with_cursor
+      store.s
+      (fun cur ->
+       CS.fold_rev_range cur high hinc low linc max f init)
 
   let range store first finc last linc max =
-    _wrap_exception store "RANGE" CorruptStore (fun () ->
-      let r = S.range store.s __prefix first finc last linc max in
-      Lwt.return r)
+    _wrap_exception
+      store
+      "RANGE"
+      CorruptStore
+      (fun () ->
+       let first' = _f __prefix first in
+       let last' = _l __prefix last in
+       let r = S.range store.s
+                       first' finc last' linc
+                       max
+       in
+       Lwt.return (Array.map cut r))
+
+  let _range_entries store first finc last linc max =
+    let _, r =
+      fold_range store __prefix
+                 first finc last linc
+                 max
+                 (fun cur k _ acc ->
+                  let v = S.cur_get_value cur in
+                  (cut k, v) :: acc)
+                 [] in
+    r
+
+  let range_entries store ?(_pf=__prefix) first finc last linc max =
+    _wrap_exception
+      store
+      "RANGE_ENTRIES"
+      CorruptStore
+      (fun () ->
+       let r = fold_range store __prefix
+               first finc last linc
+               max
+               (fun cur k _ acc ->
+                let v = S.cur_get_value cur in
+                (cut k, v) :: acc)
+               [] in
+       Lwt.return r)
+
+  let rev_range_entries store high hinc low linc max =
+    _wrap_exception
+      store
+      "REV_RANGE_ENTRIES"
+      CorruptStore
+      (fun () ->
+       let r = fold_rev_range
+                 store __prefix
+                 high hinc low linc
+                 max
+                 (fun cur k _ acc ->
+                  let v = S.cur_get_value cur in
+                  (cut k, v) :: acc)
+                 [] in
+       Lwt.return r)
+
+  let get_key_count store =
+    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
+        S.get_key_count store.s >>= fun raw_count ->
+        (* Leave out administrative keys *)
+        let admin_key_count, () =
+          fold_range store __adminprefix
+                     None true None true
+                     (-1)
+                     (fun cur k _ () -> ())
+                     () in
+        Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
   let prefix_keys store prefix max =
-    _wrap_exception store "PREFIX_KEYS" CorruptStore (fun () ->
-        Lwt.return (S.prefix_keys store.s (__prefix ^ prefix) max))
+    _wrap_exception
+      store
+      "PREFIX_KEYS"
+      CorruptStore
+      (fun () ->
+       let res =
+         fold_range store __prefix
+                    (Some prefix) true (next_prefix prefix) false
+                    max
+                    (fun cur k _ acc ->
+                     cut k :: acc)
+                    [] in
+       Lwt.return res)
 
   let get_interval store =
     Lwt.return (store.interval)
 
   let _set_interval store tx range =
+    store.interval <- range;
     let buf = Buffer.create 80 in
     let () = Interval.interval_to buf range in
     let range_s = Buffer.contents buf in
@@ -598,7 +649,7 @@ struct
 
       method range_entries first finc last linc max =
         test_range first last;
-        _range_entries store first finc last linc max
+        Array.of_list (List.rev (_range_entries store first finc last linc max))
     end
 
   let _user_function store (name:string) (po:string option) tx =
