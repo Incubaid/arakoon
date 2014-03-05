@@ -899,7 +899,7 @@ let _execute_effects constants e =
         begin
           match finished_funs with
           | None ->
-             Lwt.return_unit
+             Lwt.return ()
           | Some finished_funs ->
              let rec loop ffs urs =
                match (ffs,urs) with
