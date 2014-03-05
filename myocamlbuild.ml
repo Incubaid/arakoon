@@ -32,7 +32,7 @@ let output_cmd cmd =
     List.rev (!acc)
 
 let git_revision = run_cmd "git describe --all --long --always --dirty"
-let tag_version = run_cmd "git describe --tags --exact-match"
+let tag_version = run_cmd "git describe --tags --exact-match --dirty"
 let branch_version = run_cmd "git describe --all"
 
 let machine = run_cmd "uname -mnrpio"
