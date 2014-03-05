@@ -25,6 +25,7 @@ open Routing
 open Client_cfg
 open Ncfg
 open Interval
+open Arakoon_client
 
 let section = Logger.Section.main
 
@@ -139,7 +140,7 @@ module NC = struct
 
   let get t key =
     let cn = NCFG.find_cluster t.rc key in
-    let todo conn = Common.get conn false key in
+    let todo conn = Common.get conn Consistent key in
     _with_master_connection t cn todo
 
   let force_interval t cn i =

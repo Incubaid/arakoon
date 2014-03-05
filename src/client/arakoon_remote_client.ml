@@ -24,16 +24,17 @@ open Lwt
 open Common
 open Update
 open Statistics
+open Arakoon_client
 
 class remote_client ((ic,oc) as conn) =
 
   object(self: #Arakoon_client.client)
 
-    method exists ?(allow_dirty=false) key =
-      request  oc (fun buf -> exists_to ~allow_dirty buf key) >>= fun () ->
+    method exists ?(consistency=Consistent) key =
+      request  oc (fun buf -> exists_to ~consistency buf key) >>= fun () ->
       response ic Llio.input_bool
 
-    method get ?(allow_dirty=false) key = Common.get conn ~allow_dirty key
+    method get ?(consistency=Consistent) key = Common.get conn ~consistency key
 
     method set key value = Common.set conn key value
 
@@ -41,12 +42,12 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> confirm_to buf key value) >>= fun () ->
       response ic nothing
 
-    method aSSert ?(allow_dirty=false) key vo =
-      request oc (fun buf -> assert_to ~allow_dirty buf key vo) >>= fun () ->
+    method aSSert ?(consistency=Consistent) key vo =
+      request oc (fun buf -> assert_to ~consistency buf key vo) >>= fun () ->
       response ic nothing
 
-    method aSSert_exists ?(allow_dirty=false) key =
-      request oc (fun buf -> assert_exists_to ~allow_dirty buf key) >>= fun () ->
+    method aSSert_exists ?(consistency=Consistent) key =
+      request oc (fun buf -> assert_exists_to ~consistency buf key) >>= fun () ->
       response ic nothing
 
     method delete key =
@@ -55,23 +56,23 @@ class remote_client ((ic,oc) as conn) =
 
     method delete_prefix prefix = Common.delete_prefix (ic,oc) prefix
 
-    method range ?(allow_dirty=false) first finc last linc max =
-      request oc (fun buf -> range_to buf ~allow_dirty first finc last linc max)
+    method range ?(consistency=Consistent) first finc last linc max =
+      request oc (fun buf -> range_to buf ~consistency first finc last linc max)
       >>= fun () ->
       response ic Llio.input_string_list
 
-    method range_entries ?(allow_dirty=false) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> range_entries_to buf ~allow_dirty first finc last linc max)
+    method range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
+      request oc (fun buf -> range_entries_to buf consistency first finc last linc max)
       >>= fun () ->
       response ic Llio.input_kv_list
 
-    method rev_range_entries ?(allow_dirty=false) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> rev_range_entries_to buf ~allow_dirty first finc last linc max)
+    method rev_range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
+      request oc (fun buf -> rev_range_entries_to buf consistency first finc last linc max)
       >>= fun () ->
       response ic Llio.input_kv_list
 
-    method prefix_keys ?(allow_dirty=false) pref max =
-      request  oc (fun buf -> prefix_keys_to buf ~allow_dirty pref max) >>= fun () ->
+    method prefix_keys ?(consistency=Consistent) pref max =
+      request  oc (fun buf -> prefix_keys_to buf consistency pref max) >>= fun () ->
       response ic Llio.input_string_list
 
     method test_and_set key expected wanted =
@@ -86,14 +87,14 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> user_function_to buf name po) >>= fun () ->
       response ic Llio.input_string_option
 
-    method multi_get ?(allow_dirty=false) keys =
-      request  oc (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
+    method multi_get ?(consistency=Consistent) keys =
+      request  oc (fun buf -> multiget_to buf consistency keys) >>= fun () ->
       response ic
         (fun ic -> Llio.input_string_list ic >>= fun x ->
           Lwt.return (List.rev x))
 
-    method multi_get_option ?(allow_dirty=false) keys =
-      request oc (fun buf -> multiget_option_to buf ~allow_dirty keys) >>= fun () ->
+    method multi_get_option ?(consistency=Consistent) keys =
+      request oc (fun buf -> multiget_option_to buf consistency keys) >>= fun () ->
       response ic (Llio.input_list Llio.input_string_option)
 
     method sequence changes = Common.sequence conn changes

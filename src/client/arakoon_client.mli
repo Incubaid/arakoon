@@ -13,20 +13,25 @@ type change =
   | TestAndSet of key * value option * value option
   | Sequence of change list
 
+type consistency = 
+  | Consistent
+  | No_guarantees
+  | At_least of Stamp.t
+
 class type client = object
 
   (** Tests presence of a value for particular key *)
-  method exists: ?allow_dirty:bool -> key -> bool Lwt.t
+  method exists: ?consistency:consistency -> key -> bool Lwt.t
 
   (** retrieves the value for a key *)
-  method get: ?allow_dirty:bool -> key -> value Lwt.t
+  method get: ?consistency:consistency -> key -> value Lwt.t
   (** or fails with Arakoon_exc.Exception (E_NOT_FOUND,_) if there is none *)
 
-  method range: ?allow_dirty:bool -> key option -> bool -> key option -> bool -> int -> key list Lwt.t
+  method range: ?consistency:consistency -> key option -> bool -> key option -> bool -> int -> key list Lwt.t
   (** will yield a list of key value pairs in range. *)
 
   method range_entries:
-    ?allow_dirty:bool ->
+    ?consistency:consistency ->
     first:key option -> finc:bool ->
     last:key option ->  linc:bool -> max:int ->
     (key * value) list Lwt.t
@@ -38,7 +43,7 @@ class type client = object
   *)
 
   method rev_range_entries:
-    ?allow_dirty:bool ->
+    ?consistency:consistency ->
     first:key option -> finc:bool ->
     last:key option ->  linc:bool -> max:int ->
     (key * value) list Lwt.t
@@ -50,12 +55,12 @@ class type client = object
   *)
 
   (** yields the list of keys starting with that prefix *)
-  method prefix_keys: ?allow_dirty:bool -> key -> int -> key list Lwt.t
+  method prefix_keys: ?consistency:consistency -> key -> int -> key list Lwt.t
 
-  method multi_get: ?allow_dirty:bool -> key list -> (value list) Lwt.t
+  method multi_get: ?consistency:consistency -> key list -> (value list) Lwt.t
 
   (** retuns the list of value options for the keys *)
-  method multi_get_option: ?allow_dirty:bool -> key list -> (value option list) Lwt.t
+  method multi_get_option: ?consistency:consistency -> key list -> (value option list) Lwt.t
 
   method set: key -> value -> unit Lwt.t
 
@@ -67,12 +72,12 @@ class type client = object
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]
   *)
-  method aSSert: ?allow_dirty:bool -> key -> value option -> unit Lwt.t
+  method aSSert: ?consistency:consistency -> key -> value option -> unit Lwt.t
   (**
      [aSSert key vo] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if
      the value associated with the key is not what was expected.
   *)
-  method aSSert_exists: ?allow_dirty:bool -> key -> unit Lwt.t
+  method aSSert_exists: ?consistency:consistency -> key -> unit Lwt.t
 
   method delete: key -> unit Lwt.t
 

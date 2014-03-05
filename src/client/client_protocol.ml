@@ -180,43 +180,43 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
      end
   | EXISTS ->
     begin
-      Llio.input_bool ic   >>= fun allow_dirty ->
+      Common.input_consistency ic  >>= fun consistency ->
       Llio.input_string ic >>= fun key ->
-      Logger.debug_f_ "connection=%s EXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
+      Logger.debug_f_ "connection=%s EXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       Lwt.catch
-        (fun () -> backend # exists ~allow_dirty key >>= fun exists ->
+        (fun () -> backend # exists ~consistency key >>= fun exists ->
                    response_ok_bool oc exists)
         (handle_exception oc)
     end
   | GET ->
     begin
-      Llio.input_bool   ic >>= fun allow_dirty ->
+      Common.input_consistency   ic >>= fun consistency ->
       Llio.input_string ic >>= fun  key ->
-      Logger.debug_f_ "connection=%s GET: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
+      Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       Lwt.catch
-        (fun () -> backend # get ~allow_dirty key >>= fun value ->
+        (fun () -> backend # get ~consistency key >>= fun value ->
           response_ok_string oc value)
         (handle_exception oc)
     end
   | ASSERT ->
     begin
-      Llio.input_bool ic          >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
       Llio.input_string_option ic >>= fun vo ->
-      Logger.debug_f_ "connection=%s ASSERT: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
+      Logger.debug_f_ "connection=%s ASSERT: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       Lwt.catch
-        (fun () -> backend # aSSert ~allow_dirty key vo >>= fun () ->
+        (fun () -> backend # aSSert ~consistency key vo >>= fun () ->
           response_ok_unit oc
         )
         (handle_exception oc)
     end
   | ASSERTEXISTS ->
     begin
-      Llio.input_bool ic          >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
-      Logger.debug_f_ "connection=%s ASSERTEXISTS: allow_dirty=%B key=%S" id allow_dirty key >>= fun () ->
+      Logger.debug_f_ "connection=%s ASSERTEXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       Lwt.catch
-        (fun () -> backend # aSSert_exists ~allow_dirty key>>= fun () ->
+        (fun () -> backend # aSSert_exists ~consistency key>>= fun () ->
           response_ok_unit oc
         )
         (handle_exception oc)
@@ -253,17 +253,17 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | RANGE ->
     begin
-      Llio.input_bool ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun (first:string option) ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun (last:string option)  ->
       Llio.input_bool          ic >>= fun linc  ->
       Llio.input_int           ic >>= fun max   ->
-      Logger.debug_f_ "connection=%s RANGE: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-        id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+      Logger.debug_f_ "connection=%s RANGE: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
+        id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
       Lwt.catch
         (fun () ->
-          backend # range ~allow_dirty first finc last linc max >>= fun keys ->
+          backend # range ~consistency first finc last linc max >>= fun keys ->
           response_ok oc >>= fun () ->
           Llio.output_string_array_reversed oc keys >>= fun () ->
           Lwt.return false
@@ -272,17 +272,17 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | RANGE_ENTRIES ->
     begin
-      Llio.input_bool          ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun first ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun last  ->
       Llio.input_bool          ic >>= fun linc  ->
       Llio.input_int           ic >>= fun max   ->
-      Logger.debug_f_ "connection=%s RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-        id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+      Logger.debug_f_ "connection=%s RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
+        id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
       Lwt.catch
         (fun () ->
-           backend # range_entries ~allow_dirty first finc last linc max
+           backend # range_entries ~consistency first finc last linc max
            >>= fun (kvs:(string*string) counted_list) ->
            response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
@@ -292,17 +292,17 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | REV_RANGE_ENTRIES ->
     begin
-      Llio.input_bool          ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun first ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun last  ->
       Llio.input_bool          ic >>= fun linc  ->
       Llio.input_int           ic >>= fun max   ->
-      Logger.debug_f_ "connection=%s REV_RANGE_ENTRIES: allow_dirty=%B first=%s finc=%B last=%s linc=%B max=%i"
-        id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
+      Logger.debug_f_ "connection=%s REV_RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
+        id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
       Lwt.catch
         (fun () ->
-           backend # rev_range_entries ~allow_dirty first finc last linc max
+           backend # rev_range_entries ~consistency first finc last linc max
            >>= fun (kvs:(string*string) counted_list) ->
            response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
@@ -383,25 +383,25 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | PREFIX_KEYS ->
     begin
-      Llio.input_bool   ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic >>= fun key ->
       Llio.input_int    ic >>= fun max ->
-      Logger.debug_f_ "connection=%s PREFIX_KEYS: allow_dirty=%B key=%S max=%i" id allow_dirty key max
+      Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max
       >>= fun () ->
-      backend # prefix_keys ~allow_dirty key max >>= fun keys ->
+      backend # prefix_keys ~consistency key max >>= fun keys ->
       response_ok oc >>= fun () ->
       Llio.output_counted_list Llio.output_string oc keys >>= fun () ->
       Lwt.return false
     end
   | MULTI_GET ->
     begin
-      Llio.input_bool ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
-      Logger.debug_f_ "connection=%s MULTI_GET: allow_dirty=%B length=%i keys=%S" id allow_dirty length
+      Logger.debug_f_ "connection=%s MULTI_GET: consistency=%s length=%i keys=%S" id (consistency2s consistency) length
         (String.concat ";" keys) >>= fun () ->
       Lwt.catch
         (fun () ->
-           backend # multi_get ~allow_dirty keys >>= fun values ->
+           backend # multi_get ~consistency keys >>= fun values ->
            response_ok oc >>= fun () ->
            Llio.output_string_list oc values >>= fun () ->
            Lwt.return false
@@ -410,13 +410,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | MULTI_GET_OPTION ->
     begin
-      Llio.input_bool ic >>= fun allow_dirty ->
+      Common.input_consistency ic >>= fun consistency ->
       Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
-      Logger.debug_f_ "connection=%s MULTI_GET_OPTION: allow_dirty=%B length=%i keys=%S"
-        id allow_dirty length (String.concat ";" keys) >>= fun () ->
+      Logger.debug_f_ "connection=%s MULTI_GET_OPTION: consistency=%s length=%i keys=%S"
+        id (consistency2s consistency) length (String.concat ";" keys) >>= fun () ->
       Lwt.catch
         (fun () ->
-           backend # multi_get_option ~allow_dirty keys >>= fun vos ->
+           backend # multi_get_option ~consistency keys >>= fun vos ->
 
            response_ok oc >>= fun () ->
            Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->

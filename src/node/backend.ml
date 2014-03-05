@@ -26,41 +26,42 @@ open Interval
 open Routing
 open Statistics
 open Client_cfg
+open Arakoon_client
 
 class type backend = object
-  method exists: allow_dirty:bool -> string -> bool Lwt.t
-  method get: allow_dirty:bool -> string -> string Lwt.t
+  method exists: consistency:consistency -> string -> bool Lwt.t
+  method get: consistency:consistency -> string -> string Lwt.t
   method set: string -> string -> unit Lwt.t
   method confirm: string -> string -> unit Lwt.t
-  method aSSert: allow_dirty: bool -> string -> string option -> unit Lwt.t
-  method aSSert_exists: allow_dirty: bool -> string -> unit Lwt.t
+  method aSSert: consistency:consistency -> string -> string option -> unit Lwt.t
+  method aSSert_exists: consistency:consistency -> string -> unit Lwt.t
   method delete: string -> unit Lwt.t
   method test_and_set: string -> string option -> string option ->
                        (string option) Lwt.t
   method replace: string -> string option -> (string option) Lwt.t
   method range:
-    allow_dirty:bool ->
+    consistency:consistency ->
     string option -> bool ->
     string option -> bool -> int -> (string array) Lwt.t
   method range_entries:
-    allow_dirty:bool ->
+    consistency:consistency ->
     string option -> bool ->
     string option -> bool -> int -> ((string * string) counted_list) Lwt.t
   method rev_range_entries:
-    allow_dirty:bool ->
+    consistency:consistency ->
     string option -> bool ->
     string option -> bool -> int -> ((string * string) counted_list) Lwt.t
   method prefix_keys:
-    allow_dirty:bool -> string -> int -> (string counted_list) Lwt.t
+    consistency:consistency -> string -> int -> (string counted_list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get:
-    allow_dirty:bool ->
+    consistency:consistency ->
     string list -> string list Lwt.t
 
   method multi_get_option:
-    allow_dirty:bool ->
+    consistency:consistency ->
     string list -> string option list Lwt.t
 
   method hello: string -> string -> string Lwt.t

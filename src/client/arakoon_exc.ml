@@ -35,6 +35,7 @@ type rc =
   | E_GOING_DOWN
   | E_NOT_SUPPORTED
   | E_NO_LONGER_MASTER
+  | E_INCONSISTENT_READ
   | E_MAX_CONNECTIONS
   | E_UNKNOWN_FAILURE
 
@@ -52,6 +53,7 @@ let int32_of_rc = function
   | E_GOING_DOWN          -> 0x10l
   | E_NOT_SUPPORTED       -> 0x20l
   | E_NO_LONGER_MASTER    -> 0x21l
+  | E_INCONSISTENT_READ   -> 0x80l
   | E_MAX_CONNECTIONS     -> 0xfel
   | E_UNKNOWN_FAILURE     -> 0xffl
 
@@ -69,6 +71,7 @@ let rc_of_int32 = function
   | 0x10l -> E_GOING_DOWN
   | 0x20l -> E_NOT_SUPPORTED
   | 0x21l -> E_NO_LONGER_MASTER
+  | 0x22l -> E_INCONSISTENT_READ
   | 0xfel -> E_MAX_CONNECTIONS
   | 0xffl -> E_UNKNOWN_FAILURE
   | _     -> E_UNKNOWN_FAILURE

@@ -24,6 +24,7 @@ open OUnit
 open Lwt
 open Node_cfg.Node_cfg
 open Arakoon_remote_client
+open Arakoon_client
 open Network
 open Update
 open Master_type
@@ -158,7 +159,7 @@ let dirty_on_slave (tn, cluster_cfg,_, _) =
     let dirty_get (client:Arakoon_client.client) =
       Logger.debug_ "dirty_get" >>= fun () ->
       Lwt.catch
-        (fun () -> client # get ~allow_dirty:true "xxx" >>= fun v ->
+        (fun () -> client # get ~consistency:No_guarantees "xxx" >>= fun v ->
           Logger.debug_f_ "dirty_get:result = %s" v
         )
         (function
