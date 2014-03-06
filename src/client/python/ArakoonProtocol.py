@@ -292,6 +292,7 @@ ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 
 ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
 ARA_CMD_NOP                      = 0x00000041 | ARA_CMD_MAG
+ARA_CMD_MARK                     = 0x00000043 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -488,6 +489,30 @@ def _recvStringOption ( con ):
     else :
         return None
 
+class Consistency:
+    def __init__(self):
+        self._v = _packBool(False)
+    
+    def encode(self):
+        return self._v
+        
+    def isDirty(self):
+        return False
+
+class Consistent(Consistency):
+    pass
+
+class NoGuarantee(Consistency):
+    def __init__(self):
+        self._v = _packBool(True)
+    
+    def isDirty(self):
+        return True
+    
+class AtLeast(Consistency):
+    def __init__(self,i):
+        self._v = "\x02" + _packInt64(i)
+
 
 class Update(object):
     pass
@@ -579,31 +604,31 @@ class ArakoonProtocol :
         return _packInt( ARA_CMD_WHO )
 
     @staticmethod
-    def encodeExists(key, allowDirty):
+    def encodeExists(key, consistency):
         msg = _packInt(ARA_CMD_EXISTS)
-        msg += _packBool(allowDirty)
+        msg += consistency.encode()
         msg += _packString(key)
         return msg
 
     @staticmethod
-    def encodeAssert(key, vo, allowDirty):
+    def encodeAssert(key, vo, consistency):
         msg = _packInt(ARA_CMD_ASSERT)
-        msg += _packBool(allowDirty)
+        msg += consistency.encode()
         msg += _packString(key)
         msg += _packStringOption(vo)
         return msg
 
     @staticmethod
-    def encodeAssertExists(key, allowDirty):
+    def encodeAssertExists(key, consistency):
         msg = _packInt(ARA_CMD_ASSERT_EXISTS)
-        msg += _packBool(allowDirty)
+        msg += consistency.encode()
         msg += _packString(key)
         return msg
 
     @staticmethod
-    def encodeGet(key , allowDirty):
+    def encodeGet(key , consistency):
         msg = _packInt(ARA_CMD_GET)
-        msg += _packBool(allowDirty)
+        msg += consistency.encode()
         msg += _packString(key)
         return msg
 
@@ -614,6 +639,10 @@ class ArakoonProtocol :
     @staticmethod
     def encodeNOP():
         return _packInt(ARA_CMD_NOP)
+
+    @staticmethod
+    def encodeMark():
+        return _packInt(ARA_CMD_MARK)
 
     @staticmethod
     def encodeConfirm(key, value):
@@ -826,6 +855,20 @@ class ArakoonProtocol :
             resultCfgs[clusterId] = cliCfg
         return (routing, resultCfgs)
 
+
+    @staticmethod
+    def decodeMarkResult(con):
+        ArakoonProtocol._evaluateErrorCode(con)
+        x= _readExactNBytes( con, 1)
+        if x == '\x00':
+            return NoGuarantees()
+        elif x == '\x01':
+            return Consistent()
+        elif x == '\x02':
+            i = _recvInt64(con)
+            return AtLeast(i)
+        else:
+            raise ArakoonException("%c does not denote a consistency")
 
     @staticmethod
     def decodeStringPairListResult(con):

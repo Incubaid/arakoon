@@ -241,6 +241,14 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            response_ok_unit oc)
           (handle_exception oc)
       end
+  | MARK ->
+     begin
+       Logger.debug_f_ "connection=%s MARK" id >>= fun () ->
+       let mark = backend # mark () in
+       response_ok oc >>= fun () ->
+       Common.output_consistency oc mark >>= fun () ->
+       Lwt.return false
+     end
   | DELETE ->
     begin
       Llio.input_string ic >>= fun key ->

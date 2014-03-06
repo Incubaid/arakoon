@@ -380,6 +380,13 @@ def test_nop():
         client.nop()
     client.dropConnections()
 
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_mark():
+    client = C.get_client ()
+    for i in xrange(10):
+        m = client.mark()
+    client.dropConnections()
+
 @C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)
 def test_get_version():
     client = C.get_client()

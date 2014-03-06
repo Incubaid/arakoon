@@ -84,6 +84,7 @@ type client_command =
   | CURRENT_STATE
   | NOP
   | FLUSH_STORE
+  | MARK
 
 
 let code2int = [
@@ -131,6 +132,7 @@ let code2int = [
   LAST_ENTRIES2           , 0x40l;
   NOP                     , 0x41l;
   FLUSH_STORE             , 0x42l;
+  MARK                    , 0x43l;
 ]
 
 let int2code =
@@ -192,8 +194,8 @@ let response ic f =
     Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
 let consistency_to buffer = function
-  | Consistent    -> Buffer.add_char buffer '\x01'
-  | No_guarantees -> Buffer.add_char buffer '\x00'
+  | Consistent    -> Buffer.add_char buffer '\x00'
+  | No_guarantees -> Buffer.add_char buffer '\x01'
   | At_least s    -> Buffer.add_char buffer '\x02';
                      Stamp.stamp_to buffer s
 
@@ -204,6 +206,10 @@ let input_consistency ic =
     | '\x01' -> Lwt.return Consistent
     | '\x02' -> Stamp.input_stamp ic >>= fun s -> Lwt.return (At_least s)
     |  c     -> failwith (Printf.sprintf "%C is not a consistency" c)
+let output_consistency oc c =
+  let b = Buffer.create 10 in
+  consistency_to b c;
+  Lwt_io.write oc (Buffer.contents b)
                                    
 let consistency2s = function
   | Consistent -> "Consistent"
@@ -345,6 +351,10 @@ let set (ic,oc) key value =
 let nop (ic,oc) =
   request oc (fun buf -> command_to buf NOP) >>= fun () ->
   response ic nothing
+
+let mark(ic,oc) = 
+  request oc (fun buf -> command_to buf MARK) >>= fun () ->
+  response ic input_consistency
 
 let get (ic,oc) ~consistency key =
   request  oc (fun buf -> get_to ~consistency buf key) >>= fun () ->

@@ -140,3 +140,7 @@ class ArakoonClientConnection :
 
     def decodeVersionResult(self):
         return ArakoonProtocol.decodeVersionResult(self)
+
+    def decodeMarkResult(self):
+        return ArakoonProtocol.decodeMarkResult(self)
+

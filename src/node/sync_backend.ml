@@ -259,6 +259,11 @@ struct
         let update = Update.Nop in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
+      method mark () =
+        let io = S.consensus_i store in
+        let i = match io with None -> Sn.zero | Some i -> i in
+        At_least i
+        
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
         let () = assert_value_size value in
@@ -460,7 +465,7 @@ struct
           | No_guarantees -> Lwt.return ()
           | At_least s    -> let io = S.consensus_i store in
                              let i = match io with 
-                               | None -> Sn.pred Sn.zero 
+                               | None -> Sn.zero
                                | Some i -> i
                              in
                              if Stamp.(<=) i s 

@@ -54,7 +54,7 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> delete_to buf key) >>= fun () ->
       response ic nothing
 
-    method delete_prefix prefix = Common.delete_prefix (ic,oc) prefix
+    method delete_prefix prefix = Common.delete_prefix conn prefix
 
     method range ?(consistency=Consistent) first finc last linc max =
       request oc (fun buf -> range_to buf ~consistency first finc last linc max)
@@ -124,14 +124,14 @@ class remote_client ((ic,oc) as conn) =
       response ic Llio.input_int64
 
     method get_cluster_cfgs () =
-      Common.get_nursery_cfg (ic,oc)
+      Common.get_nursery_cfg conn
 
     method version () =
-      Common.version (ic,oc)
+      Common.version conn
 
-    method current_state () = Common.current_state (ic,oc)
-    method nop () =
-      Common.nop (ic,oc)
+    method current_state () = Common.current_state conn
+    method nop () = Common.nop conn
+    method mark () = Common.mark conn
   end
 
 let make_remote_client cluster connection =
