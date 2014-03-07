@@ -94,6 +94,7 @@ class type backend = object
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
   method optimize_db: unit -> unit Lwt.t
   method defrag_db:unit -> unit Lwt.t
+  method copy_db_to_head : int -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) counted_list) Lwt.t
 

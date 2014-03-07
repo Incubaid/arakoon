@@ -644,6 +644,32 @@ struct
         self # try_quiesced ~mode ( fun () -> S.copy_store store oc ) >>= fun () ->
         Logger.info_ "get_db: All done"
 
+      method copy_db_to_head tlogs_to_keep =
+        let mode = Quiesce.Mode.ReadOnly in
+        let head_dir = cfg.Node_cfg.head_dir in
+        let head_path = Filename.concat head_dir Tlc2.head_fname in
+        self # try_quiesced
+                 ~mode
+                 (fun () ->
+                  S.copy_store2 (S.get_location store) head_path true) >>= fun () ->
+
+        (* remove all but tlogs_to_keep last tlogs *)
+        Collapser._head_i (module S) head_path >>= fun head_io ->
+
+        let head_n = match head_io with
+          | None -> failwith "impossible i for copied head"
+          | Some i -> Tlc2.get_file_number i
+        in
+        let keep_bottom_n = Sn.sub head_n (Sn.of_int tlogs_to_keep) in
+        if Sn.compare keep_bottom_n Sn.zero = 1
+        then
+          begin
+            self # wait_for_tlog_release keep_bottom_n >>= fun () ->
+            tlog_collection # remove_below (Tlc2.get_tlog_i keep_bottom_n)
+          end
+        else
+          Lwt.return ()
+
       method get_cluster_cfgs () =
         begin
           match client_cfgs with

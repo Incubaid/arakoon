@@ -487,6 +487,17 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         )
         (handle_exception oc)
     end
+  | COPY_DB_TO_HEAD ->
+     begin
+       Llio.input_int ic >>= fun tlogs_to_keep ->
+       Lwt.catch
+         (fun () ->
+          Logger.debug_f_ "connection=%s COPY_DB_TO_HEAD: tlogs_to_keep=%i" id tlogs_to_keep >>= fun () ->
+          backend # copy_db_to_head tlogs_to_keep >>= fun () ->
+          response_ok_unit oc
+         )
+         (handle_exception oc)
+     end
   | SET_INTERVAL ->
     begin
       Lwt.catch

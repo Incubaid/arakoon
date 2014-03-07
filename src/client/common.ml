@@ -83,6 +83,7 @@ type client_command =
   | CURRENT_STATE
   | NOP
   | FLUSH_STORE
+  | COPY_DB_TO_HEAD
 
 
 let code2int = [
@@ -130,6 +131,7 @@ let code2int = [
   LAST_ENTRIES2           , 0x40l;
   NOP                     , 0x41l;
   FLUSH_STORE             , 0x42l;
+  COPY_DB_TO_HEAD         , 0x43l;
 ]
 
 let int2code =
