@@ -26,6 +26,7 @@ open Update
 open Routing
 open Client_cfg
 open Ncfg
+open Arakoon_client
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -83,6 +84,7 @@ type client_command =
   | CURRENT_STATE
   | NOP
   | FLUSH_STORE
+  | GET_TXID
 
 
 let code2int = [
@@ -130,6 +132,7 @@ let code2int = [
   LAST_ENTRIES2           , 0x40l;
   NOP                     , 0x41l;
   FLUSH_STORE             , 0x42l;
+  GET_TXID                , 0x43l;
 ]
 
 let int2code =
@@ -190,25 +193,49 @@ let response ic f =
     let rc = Arakoon_exc.rc_of_int32 rc32 in
     Lwt.fail (Arakoon_exc.Exception (rc, msg))
 
-let exists_to buffer ~allow_dirty key =
+let consistency_to buffer = function
+  | Consistent    -> Buffer.add_char buffer '\x00'
+  | No_guarantees -> Buffer.add_char buffer '\x01'
+  | At_least s    -> Buffer.add_char buffer '\x02';
+                     Stamp.stamp_to buffer s
+
+let input_consistency ic = 
+  Lwt_io.read_char ic >>= 
+    function 
+    | '\x00' -> Lwt.return Consistent
+    | '\x01' -> Lwt.return No_guarantees
+    | '\x02' -> Stamp.input_stamp ic >>= fun s -> Lwt.return (At_least s)
+    |  c     -> failwith (Printf.sprintf "%C is not a consistency" c)
+let output_consistency oc c =
+  let b = Buffer.create 10 in
+  consistency_to b c;
+  Lwt_io.write oc (Buffer.contents b)
+                                   
+let consistency2s = function
+  | Consistent -> "Consistent"
+  | No_guarantees -> "No_guarantees"
+  | At_least s -> Printf.sprintf "(At_least %s)" (Stamp.to_s s)
+                   
+
+let exists_to buffer ~consistency key =
   command_to buffer EXISTS;
-  Llio.bool_to buffer allow_dirty;
+  consistency_to buffer consistency;
   Llio.string_to buffer key
 
-let get_to ~allow_dirty buffer key =
+let get_to ~consistency buffer key =
   command_to buffer GET;
-  Llio.bool_to buffer allow_dirty;
+  consistency_to buffer consistency;
   Llio.string_to buffer key
 
-let assert_to ~allow_dirty buffer key vo =
+let assert_to ~consistency buffer key vo =
   command_to buffer ASSERT;
-  Llio.bool_to buffer allow_dirty;
+  consistency_to buffer consistency;
   Llio.string_to buffer key;
   Llio.string_option_to buffer vo
 
-let assert_exists_to ~allow_dirty buffer key=
+let assert_exists_to ~consistency buffer key=
   command_to buffer ASSERTEXISTS;
-  Llio.bool_to buffer allow_dirty;
+  consistency_to buffer consistency;
   Llio.string_to buffer key
 
 let set_to buffer key value =
@@ -225,36 +252,36 @@ let delete_to buffer key =
   command_to buffer DELETE;
   Llio.string_to buffer key
 
-let range_to b ~allow_dirty first finc last linc max =
+let range_to b ~consistency first finc last linc max =
   command_to b RANGE;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_option_to b first;
   Llio.bool_to b finc;
   Llio.string_option_to b last;
   Llio.bool_to b linc;
   Llio.int_to b max
 
-let range_entries_to b ~allow_dirty first finc last linc max =
+let range_entries_to b ~consistency first finc last linc max =
   command_to b RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_option_to b first;
   Llio.bool_to b finc;
   Llio.string_option_to b last;
   Llio.bool_to b linc;
   Llio.int_to b max
 
-let rev_range_entries_to b ~allow_dirty first finc last linc max =
+let rev_range_entries_to b ~consistency first finc last linc max =
   command_to b REV_RANGE_ENTRIES;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_option_to b first;
   Llio.bool_to b finc;
   Llio.string_option_to b last;
   Llio.bool_to b linc;
   Llio.int_to b max
 
-let prefix_keys_to b ~allow_dirty prefix max =
+let prefix_keys_to b ~consistency prefix max =
   command_to b PREFIX_KEYS;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_to b prefix;
   Llio.int_to b max
 
@@ -274,14 +301,14 @@ let user_function_to b name po =
   Llio.string_to b name;
   Llio.string_option_to b po
 
-let multiget_to b ~allow_dirty keys =
+let multiget_to b ~consistency keys =
   command_to b MULTI_GET;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_list_to b keys
 
-let multiget_option_to b ~allow_dirty keys =
+let multiget_option_to b ~consistency keys =
   command_to b MULTI_GET_OPTION;
-  Llio.bool_to b allow_dirty;
+  consistency_to b consistency;
   Llio.string_list_to b keys
 
 let who_master_to b =
@@ -325,8 +352,12 @@ let nop (ic,oc) =
   request oc (fun buf -> command_to buf NOP) >>= fun () ->
   response ic nothing
 
-let get (ic,oc) ~allow_dirty key =
-  request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->
+let get_txid(ic,oc) = 
+  request oc (fun buf -> command_to buf GET_TXID) >>= fun () ->
+  response ic input_consistency
+
+let get (ic,oc) ~consistency key =
+  request  oc (fun buf -> get_to ~consistency buf key) >>= fun () ->
   response ic Llio.input_string
 
 let get_fringe (ic,oc) boundary direction =

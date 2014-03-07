@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 module Sync_backend = functor(S : Store.STORE) ->
 struct
-
+  
   open Backend
   open Statistics
   open Client_cfg
@@ -36,6 +36,7 @@ struct
   open Simple_store
   open Master_type
   open Tlogcommon
+  open Arakoon_client
 
   let _s_ = string_option2s
 
@@ -129,14 +130,14 @@ struct
 
 
 
-      method exists ~allow_dirty key =
+      method exists ~consistency key =
         log_o self "exists %s" key >>= fun () ->
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         S.exists store key
 
-      method get ~allow_dirty key =
+      method get ~consistency key =
         let start = Unix.gettimeofday () in
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         self # _check_interval [key] >>= fun () ->
         Lwt.catch
           (fun () ->
@@ -155,7 +156,7 @@ struct
                | ext -> Lwt.fail ext)
 
       method get_interval () =
-        self # _read_allowed false >>= fun () ->
+        self # _read_allowed Consistent >>= fun () ->
         S.get_interval store
 
 
@@ -184,9 +185,9 @@ struct
         else
           Lwt.return ()
 
-      method range ~allow_dirty (first:string option) finc (last:string option) linc max =
+      method range ~consistency (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range store first finc last linc max >>= fun r ->
         Statistics.new_range _stats start (Array.length r);
@@ -215,29 +216,29 @@ struct
              Catchup.last_entries2 (module S) store tlog_collection start_i oc
           )
 
-      method range_entries ~allow_dirty
+      method range_entries ~consistency
                (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range_entries store first finc last linc max >>= fun r ->
         Statistics.new_range_entries _stats start (fst r);
         Lwt.return r
 
-      method rev_range_entries ~allow_dirty
+      method rev_range_entries ~consistency
                (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
         log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         self # _check_interval_range last first >>= fun () ->
         S.rev_range_entries store first finc last linc max >>= fun r ->
         Statistics.new_rev_range_entries _stats start (fst r);
         Lwt.return r
 
-      method prefix_keys ~allow_dirty (prefix:string) (max:int) =
+      method prefix_keys ~consistency (prefix:string) (max:int) =
         let start = Unix.gettimeofday() in
         log_o self "prefix_keys %s %d" prefix max >>= fun () ->
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         self # _check_interval [prefix]  >>= fun () ->
         S.prefix_keys store prefix max   >>= fun key_list ->
         let n_keys = fst key_list in
@@ -258,10 +259,15 @@ struct
         let update = Update.Nop in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
+      method get_txid () =
+        let io = S.consensus_i store in
+        let i = match io with None -> Sn.zero | Some i -> i in
+        At_least i
+        
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
         let () = assert_value_size value in
-        self # exists ~allow_dirty:false key >>= function
+        self # exists ~consistency:Consistent key >>= function
         | true ->
           begin
             S.get store key >>= fun old_value ->
@@ -292,12 +298,12 @@ struct
         let so_post so = so in
         _update_rendezvous self update no_stats push_update ~so_post
 
-      method aSSert ~allow_dirty (key:string) (vo:string option) =
+      method aSSert ~consistency (key:string) (vo:string option) =
         log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert(key,vo) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
-      method aSSert_exists ~allow_dirty (key:string)=
+      method aSSert_exists ~consistency (key:string)=
         log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert_exists(key) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
@@ -381,16 +387,16 @@ struct
         let so_post _ = () in
         _update_rendezvous self update update_stats push_update ~so_post
 
-      method multi_get ~allow_dirty (keys:string list) =
+      method multi_get ~consistency (keys:string list) =
         let start = Unix.gettimeofday() in
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         S.multi_get store keys >>= fun values ->
         Statistics.new_multiget _stats start;
         Lwt.return values
 
-      method multi_get_option ~allow_dirty (keys:string list) =
+      method multi_get_option ~consistency (keys:string list) =
         let start = Unix.gettimeofday() in
-        self # _read_allowed allow_dirty >>= fun () ->
+        self # _read_allowed consistency >>= fun () ->
         S.multi_get_option store keys >>= fun vos ->
         Statistics.new_multiget_option _stats start;
         Lwt.return vos
@@ -450,10 +456,26 @@ struct
               else Lwt.return ()
           end
 
-      method private _read_allowed (allow_dirty:bool) =
-        if allow_dirty || read_only
+      method private _read_allowed (consistency:consistency) =
+        if read_only 
         then Lwt.return ()
-        else self # _write_allowed ()
+        else
+          match consistency with
+          | Consistent    -> self # _write_allowed ()
+          | No_guarantees -> Lwt.return ()
+          | At_least s    -> 
+             begin
+               
+               let io = S.consensus_i store in
+               Logger.debug_f_ "_read_allowed: store @ %s at_least=%s" (Log_extra.option2s Sn.string_of io) (Sn.string_of s) >>= fun () ->
+               let i = match io with 
+                 | None -> Sn.zero
+                 | Some i -> i
+               in
+               if Stamp.(<=) s i 
+               then Logger.debug_f_ "ok" 
+               else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
+             end
 
       method private _check_interval keys =
         S.get_interval store >>= fun iv ->
@@ -563,7 +585,7 @@ struct
                Logger.info_ "Collapse completed")
 
       method get_routing () =
-        self # _read_allowed false >>= fun () ->
+        self # _read_allowed Consistent >>= fun () ->
         Lwt.catch
           (fun () ->
              S.get_routing store
@@ -579,7 +601,7 @@ struct
 
 
       method get_key_count () =
-        self # _read_allowed false >>= fun () ->
+        self # _read_allowed Consistent >>= fun () ->
         S.get_key_count store
 
       method private quiesce_db ~mode () =
