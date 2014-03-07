@@ -195,7 +195,9 @@ let output_string oc (s:string) =
   output_int32 oc (Int32.of_int size) >>= fun () ->
   Lwt_io.write oc s
 
-
+let output_key oc (k:Key.t) =
+  output_int32 oc (Int32.of_int (Key.length k)) >>= fun () ->
+  Key.to_oc k oc
 
 let input_string ic =
   input_int ic >>= fun size ->
@@ -209,6 +211,10 @@ let input_string ic =
 let output_string_pair oc (s0,s1) =
   output_string oc s0 >>= fun () ->
   output_string oc s1
+
+let output_key_value_pair oc (k,v) =
+  output_key oc k >>= fun () ->
+  output_string oc v
 
 let input_string_pair ic =
   input_string ic >>= fun s0 ->

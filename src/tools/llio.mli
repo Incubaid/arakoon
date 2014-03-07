@@ -72,6 +72,7 @@ val output_int32:         lwtoc -> int32         -> unit Lwt.t
 val output_int64:         lwtoc -> int64         -> unit Lwt.t
 val output_string_option: lwtoc -> string option -> unit Lwt.t
 val output_string:        lwtoc -> string        -> unit Lwt.t
+val output_key :          lwtoc -> Key.t         -> unit Lwt.t
 val output_counted_list:
   (lwtoc -> 'a -> unit Lwt.t) ->
   lwtoc -> 'a counted_list -> unit Lwt.t
@@ -86,6 +87,7 @@ val output_hashtbl:
 
 val output_kv_list: lwtoc -> ((string*string) list) -> unit Lwt.t
 val output_string_pair : lwtoc -> (string * string) -> unit Lwt.t
+val output_key_value_pair : lwtoc -> (Key.t * string) -> unit Lwt.t
 val output_array : (lwtoc -> 'a -> unit Lwt.t) ->
   lwtoc -> 'a array -> unit Lwt.t
 val output_array_reversed : (lwtoc -> 'a -> unit Lwt.t) -> lwtoc ->
