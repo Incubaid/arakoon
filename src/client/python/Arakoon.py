@@ -337,12 +337,12 @@ class ArakoonClient :
         conn.decodeVoidResult()
 
     @retryDuringMasterReelection()
-    def mark(self):
+    def get_txid(self):
         """
-        returns the current consistency mark for later usage
+        returns the current transaction id for later usage
         """
-        conn = self._sendToMaster(ArakoonProtocol.encodeMark())
-        result = conn.decodeMarkResult()
+        conn = self._sendToMaster(ArakoonProtocol.encodeGetTxid())
+        result = conn.decodeGetTxidResult()
         return result
 
     @utils.update_argspec('self', 'key', 'value')

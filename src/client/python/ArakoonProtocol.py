@@ -292,7 +292,7 @@ ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 
 ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
 ARA_CMD_NOP                      = 0x00000041 | ARA_CMD_MAG
-ARA_CMD_MARK                     = 0x00000043 | ARA_CMD_MAG
+ARA_CMD_GET_TXID                 = 0x00000043 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -516,8 +516,14 @@ class NoGuarantee(Consistency):
     
 class AtLeast(Consistency):
     def __init__(self,i):
+        self._i = i
         self._v = "\x02" + _packInt64(i)
+    
+    def __str__(self):
+        return "AtLeast(%i)" % self._i
 
+    def isDirty(self):
+        return True
 
 class Update(object):
     pass
@@ -646,8 +652,8 @@ class ArakoonProtocol :
         return _packInt(ARA_CMD_NOP)
 
     @staticmethod
-    def encodeMark():
-        return _packInt(ARA_CMD_MARK)
+    def encodeGetTxid():
+        return _packInt(ARA_CMD_GET_TXID)
 
     @staticmethod
     def encodeConfirm(key, value):
@@ -862,7 +868,7 @@ class ArakoonProtocol :
 
 
     @staticmethod
-    def decodeMarkResult(con):
+    def decodeGetTxidResult(con):
         ArakoonProtocol._evaluateErrorCode(con)
         x= _readExactNBytes( con, 1)
         r = None

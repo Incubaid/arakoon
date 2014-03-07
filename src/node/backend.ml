@@ -106,5 +106,5 @@ class type backend = object
   method drop_master: unit -> unit Lwt.t
   method get_current_state : unit -> string Lwt.t
   method nop : unit -> unit Lwt.t
-  method mark: unit -> consistency
+  method get_txid: unit -> consistency
 end

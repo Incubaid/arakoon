@@ -99,6 +99,8 @@ let handle_exception oc exn=
         Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, false, Logger.Debug)
       | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
         Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error)
+      | XException(Arakoon_exc.E_INCONSISTENT_READ, msg) ->
+         Lwt.return (Arakoon_exc.E_INCONSISTENT_READ,msg,false,false, Logger.Debug)
       | XException(rc, msg) ->
         Lwt.return (rc,msg, false, true, Logger.Error)
       | Not_found ->
@@ -241,12 +243,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            response_ok_unit oc)
           (handle_exception oc)
       end
-  | MARK ->
+  | GET_TXID ->
      begin
-       Logger.debug_f_ "connection=%s MARK" id >>= fun () ->
-       let mark = backend # mark () in
+       Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
+       let txid = backend # get_txid () in
        response_ok oc >>= fun () ->
-       Common.output_consistency oc mark >>= fun () ->
+       Common.output_consistency oc txid >>= fun () ->
        Lwt.return false
      end
   | DELETE ->

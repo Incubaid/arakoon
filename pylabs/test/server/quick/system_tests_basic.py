@@ -29,6 +29,7 @@ from nose.tools import *
 from Compat import X
 
 CONFIG = C.CONFIG
+from arakoon.ArakoonProtocol import AtLeast
 
 try:
     assert_in
@@ -381,17 +382,25 @@ def test_nop():
     client.dropConnections()
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
-def test_mark():
+def test_consistency():
     client = C.get_client ()
     client.set('x','X')
+    client.set('z','Z')
     for i in xrange(10):
-        m = client.mark()
-        print m
-        assert_equals(str(m), "AtLeast")
+        m = client.get_txid()
+        logging.debug("m = %s", m)
+        assert_equals(str(m).find("AtLeast"),0)
         client.setConsistency(m)
         v = client.get('x')
         assert_equals(v,'X')
-        
+        m2 = AtLeast(1000)
+        client.setConsistency(m2)
+        try:
+            v2 = client.get('z')
+            raise Exception()
+        except X.arakoon_client.ArakoonException as e:
+            logging.debug(e._msg)
+
     client.dropConnections()
 
 @C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)

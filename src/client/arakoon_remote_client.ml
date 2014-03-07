@@ -131,7 +131,7 @@ class remote_client ((ic,oc) as conn) =
 
     method current_state () = Common.current_state conn
     method nop () = Common.nop conn
-    method mark () = Common.mark conn
+    method get_txid () = Common.get_txid conn
   end
 
 let make_remote_client cluster connection =

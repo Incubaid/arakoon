@@ -84,7 +84,7 @@ type client_command =
   | CURRENT_STATE
   | NOP
   | FLUSH_STORE
-  | MARK
+  | GET_TXID
 
 
 let code2int = [
@@ -132,7 +132,7 @@ let code2int = [
   LAST_ENTRIES2           , 0x40l;
   NOP                     , 0x41l;
   FLUSH_STORE             , 0x42l;
-  MARK                    , 0x43l;
+  GET_TXID                , 0x43l;
 ]
 
 let int2code =
@@ -352,8 +352,8 @@ let nop (ic,oc) =
   request oc (fun buf -> command_to buf NOP) >>= fun () ->
   response ic nothing
 
-let mark(ic,oc) = 
-  request oc (fun buf -> command_to buf MARK) >>= fun () ->
+let get_txid(ic,oc) = 
+  request oc (fun buf -> command_to buf GET_TXID) >>= fun () ->
   response ic input_consistency
 
 let get (ic,oc) ~consistency key =

@@ -259,7 +259,7 @@ struct
         let update = Update.Nop in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
-      method mark () =
+      method get_txid () =
         let io = S.consensus_i store in
         let i = match io with None -> Sn.zero | Some i -> i in
         At_least i
@@ -463,14 +463,19 @@ struct
           match consistency with
           | Consistent    -> self # _write_allowed ()
           | No_guarantees -> Lwt.return ()
-          | At_least s    -> let io = S.consensus_i store in
-                             let i = match io with 
-                               | None -> Sn.zero
-                               | Some i -> i
-                             in
-                             if Stamp.(<=) i s 
-                             then Lwt.return ()
-                             else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
+          | At_least s    -> 
+             begin
+               
+               let io = S.consensus_i store in
+               Logger.debug_f_ "_read_allowed: store @ %s at_least=%s" (Log_extra.option2s Sn.string_of io) (Sn.string_of s) >>= fun () ->
+               let i = match io with 
+                 | None -> Sn.zero
+                 | Some i -> i
+               in
+               if Stamp.(<=) s i 
+               then Logger.debug_f_ "ok" 
+               else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
+             end
 
       method private _check_interval keys =
         S.get_interval store >>= fun iv ->
