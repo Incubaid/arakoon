@@ -1143,6 +1143,19 @@ class ArakoonCluster:
         clusterId = self._getClusterId()
         ArakoonRemoteControl.collapse(ip,port,clusterId, n)
 
+    def copyDbToHead(self, nodeName, n):
+        """
+        Tell the targetted node to take a copy of it's db to be used as head, removing all but n tlogs
+        @type nodeName: string
+        @type n: int
+        """
+        config = self.getNodeConfig(nodeName)
+        ip_mess = config['ip']
+        ip = self._getIp(ip_mess)
+        port = int(config['client_port'])
+        clusterId = self._getClusterId()
+        ArakoonRemoteControl.copyDbToHead(ip,port,clusterId, n)
+
     def optimizeDb(self, nodeName):
         """
         Tell a node to optimize its database (only works on slaves)

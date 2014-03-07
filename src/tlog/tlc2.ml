@@ -94,7 +94,7 @@ let find_tlog_file tlog_dir tlf_dir c =
 let head_name () = head_fname
 
 let get_file_number i = Sn.div i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
-
+let get_tlog_i n = Sn.mul n (Sn.of_int !Tlogcommon.tlogEntriesPerFile)
 
 
 

@@ -85,6 +85,7 @@ type client_command =
   | NOP
   | FLUSH_STORE
   | GET_TXID
+  | COPY_DB_TO_HEAD
 
 
 let code2int = [
@@ -133,6 +134,7 @@ let code2int = [
   NOP                     , 0x41l;
   FLUSH_STORE             , 0x42l;
   GET_TXID                , 0x43l;
+  COPY_DB_TO_HEAD         , 0x44l;
 ]
 
 let int2code =
@@ -199,9 +201,9 @@ let consistency_to buffer = function
   | At_least s    -> Buffer.add_char buffer '\x02';
                      Stamp.stamp_to buffer s
 
-let input_consistency ic = 
-  Lwt_io.read_char ic >>= 
-    function 
+let input_consistency ic =
+  Lwt_io.read_char ic >>=
+    function
     | '\x00' -> Lwt.return Consistent
     | '\x01' -> Lwt.return No_guarantees
     | '\x02' -> Stamp.input_stamp ic >>= fun s -> Lwt.return (At_least s)
@@ -210,12 +212,12 @@ let output_consistency oc c =
   let b = Buffer.create 10 in
   consistency_to b c;
   Lwt_io.write oc (Buffer.contents b)
-                                   
+
 let consistency2s = function
   | Consistent -> "Consistent"
   | No_guarantees -> "No_guarantees"
   | At_least s -> Printf.sprintf "(At_least %s)" (Stamp.to_s s)
-                   
+
 
 let exists_to buffer ~consistency key =
   command_to buffer EXISTS;
@@ -352,7 +354,7 @@ let nop (ic,oc) =
   request oc (fun buf -> command_to buf NOP) >>= fun () ->
   response ic nothing
 
-let get_txid(ic,oc) = 
+let get_txid(ic,oc) =
   request oc (fun buf -> command_to buf GET_TXID) >>= fun () ->
   response ic input_consistency
 

@@ -71,12 +71,26 @@ def downloadDb(ip, port, clusterId, location):
     finally:
         s.close()
 
+def copyDbToHead(ip, port, clusterId, tlogsToKeep):
+    s = RCP.make_socket(ip, port)
+    try:
+        RCP._prologue(clusterId, s)
+        cmd  = RCP._int_to(RCP._COPY_DB_TO_HEAD | RCP._MAGIC)
+        cmd += RCP._int_to(tlogsToKeep)
+        s.send(cmd)
+        RCP.check_error_code(s)
+    finally:
+        s.close()
+
 def _simple_cmd(ip,port,clusterId, code):
-   s = RCP.make_socket(ip, port)
-   RCP._prologue(clusterId, s)
-   cmd = RCP._int_to(code | RCP._MAGIC)
-   s.send(cmd)
-   RCP.check_error_code(s)
+    s = RCP.make_socket(ip, port)
+    try:
+        RCP._prologue(clusterId, s)
+        cmd = RCP._int_to(code | RCP._MAGIC)
+        s.send(cmd)
+        RCP.check_error_code(s)
+    finally:
+        s.close()
 
 def optimizeDb(ip, port, clusterId):
     _simple_cmd(ip,port,clusterId, RCP._OPTIMIZE_DB)
@@ -94,7 +108,7 @@ def setInterval(cluster_id, ip, port, pub_start, pub_end, priv_start, priv_end):
     s = RCP.make_socket(ip,port)
     try:
         RCP._prologue(cluster_id, s)
-        cmd = RCP._int_to(RCP._COLLAPSE_TLOGS | RCP._MAGIC)
+        cmd = RCP._int_to(RCP._SET_INTERVAL | RCP._MAGIC)
         cmd += RCP._string_option_to (pub_start)
         cmd += RCP._string_option_to (pub_end)
         cmd += RCP._string_option_to (priv_start)
