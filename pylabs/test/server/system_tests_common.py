@@ -187,6 +187,30 @@ def flush_stores(nodes = None):
     for node in nodes:
         flush_store( node )
 
+
+def get_i(node_id, head=False):
+    cluster = _getCluster()
+    stat = cluster.getStatusOne(node_id )
+    assert_equals( stat, X.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
+    if head:
+        (home_dir, _, _, head_dir) = build_node_dir_names(node_id)
+        db_file = head_dir + "/head.db"
+    else:
+        db_file = get_node_db_file(node_id)
+    cmd = [get_arakoon_binary(), "--dump-store", db_file]
+    stdout=  X.subprocess.check_output(cmd)
+    i_line = stdout.split("\n") [0]
+    logging.info("i_line='%s'", i_line)
+
+    if i_line.find("None") <> -1:
+        r = 0
+    else:
+        i_str = i_line.split("(")[1][:-1]
+        i_str2 = i_str[1:-1]
+        r =  int(i_str2)
+
+    return r
+
 def compare_stores( node1_id, node2_id ):
 
     keys_to_skip = [ "*lease", "*lease2", "*i", "*master" ]
@@ -196,30 +220,6 @@ def compare_stores( node1_id, node2_id ):
     # Line 2 contains the master lease, can be different as it contains a timestamp
     d1_fd = open ( dump1, "r" )
     d2_fd = open ( dump2, "r" )
-
-    cluster = _getCluster()
-    def get_i ( node_id ):
-        stat = cluster.getStatusOne(node_id )
-        assert_equals( stat, X.AppStatusType.HALTED, "Can only dump the store of a node that is not running")
-        db_file = get_node_db_file(node_id)
-        cmd = [get_arakoon_binary(), "--dump-store", db_file]
-        stdout=  X.subprocess.check_output(cmd)
-        i_line = stdout.split("\n") [0]
-        logging.info("i_line='%s'", i_line)
-        # 'i: Some("19999")'
-        # 'i: None'
-
-        if i_line.find("None"):
-            r = 0
-        else:
-            i_str = i_line.split("(")[1][:-1]
-            #"..."
-            i_str2 = i_str[1:-1]
-            r =  int(i_str2)
-
-        return r
-
-
 
     i1 = get_i (node1_id)
     logging.debug("Counter value for store of %s: %d" % (node1_id,i1))
@@ -391,6 +391,10 @@ def startOne(name):
 def dropMaster(name):
     cluster = _getCluster()
     cluster.dropMaster(name)
+
+def copyDbToHead(name, n):
+    cluster = _getCluster()
+    cluster.copyDbToHead(name, n)
 
 def optimizeDb(name):
     cluster = _getCluster()
