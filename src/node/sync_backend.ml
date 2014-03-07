@@ -23,6 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
+  open Std
   open Backend
   open Statistics
   open Client_cfg
@@ -652,12 +653,12 @@ struct
                 ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
               >>= fun cfgs ->
               let result = Hashtbl.create 5 in
-              let add_item (item: string*string) =
+              let add_item (item: Key.t*string) =
                 let (k,v) = item in
                 let cfg, _ = ClientCfg.cfg_from v 0 in
                 let start = String.length ncfg_prefix_b4 in
-                let length = (String.length k) - start in
-                let k' = String.sub k start length in
+                let length = (Key.length k) - start in
+                let k' = Key.sub k start length in
                 Hashtbl.replace result k' cfg
               in
               List.iter add_item (snd cfgs);

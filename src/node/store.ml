@@ -76,19 +76,19 @@ sig
   val exists : t -> string -> bool Lwt.t
   val range :  t ->
     string option -> bool ->
-    string option -> bool -> int -> string array Lwt.t
+    string option -> bool -> int -> Key.t array Lwt.t
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) counted_list Lwt.t
+    string option -> bool -> int -> (Key.t * string) counted_list Lwt.t
   val rev_range_entries :  t ->
     string option -> bool ->
-    string option -> bool -> int -> (string * string) counted_list Lwt.t
-  val prefix_keys : t -> string -> int -> string counted_list Lwt.t
+    string option -> bool -> int -> (Key.t * string) counted_list Lwt.t
+  val prefix_keys : t -> string -> int -> Key.t counted_list Lwt.t
   val multi_get : t -> string list -> string list Lwt.t
   val multi_get_option : t -> string list -> string option list Lwt.t
   val get_key_count : t -> int64 Lwt.t
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (string * string) counted_list Lwt.t
+  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list Lwt.t
 
   val get_interval : t -> Interval.t Lwt.t
   val get_routing : t -> Routing.t Lwt.t
@@ -387,7 +387,7 @@ struct
                    begin
                      let v = S.cur_get_value cur in
                      let ts' = ts + String.length k + String.length v in
-                     ts', (cut k, v) :: acc
+                     ts', (Key.make k, v) :: acc
                    end in
                match d with
                | Routing.UPPER_BOUND ->
@@ -541,11 +541,12 @@ struct
       (fun () ->
        let first' = _f __prefix first in
        let last' = _l __prefix last in
-       let r = S.range store.s
+       let (r : string array) = S.range store.s
                        first' finc last' linc
                        max
        in
-       Lwt.return (Array.map cut r))
+       let (r' : Key.t array) = (Obj.magic r) in
+       Lwt.return r')
 
   let _range_entries store first finc last linc max =
     let _, r =
@@ -569,7 +570,7 @@ struct
                max
                (fun cur k _ acc ->
                 let v = S.cur_get_value cur in
-                (cut k, v) :: acc)
+                (Key.make k, v) :: acc)
                [] in
        Lwt.return r)
 
@@ -585,7 +586,7 @@ struct
                  max
                  (fun cur k _ acc ->
                   let v = S.cur_get_value cur in
-                  (cut k, v) :: acc)
+                  (Key.make k, v) :: acc)
                  [] in
        Lwt.return r)
 
@@ -612,7 +613,7 @@ struct
                     (Some prefix) true (next_prefix prefix) false
                     max
                     (fun cur k _ acc ->
-                     cut k :: acc)
+                     Key.make k :: acc)
                     [] in
        Lwt.return res)
 

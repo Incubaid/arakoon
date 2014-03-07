@@ -41,17 +41,17 @@ class type backend = object
   method range:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> (string array) Lwt.t
+    string option -> bool -> int -> (Key.t array) Lwt.t
   method range_entries:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> ((string * string) counted_list) Lwt.t
+    string option -> bool -> int -> ((Key.t * string) counted_list) Lwt.t
   method rev_range_entries:
     allow_dirty:bool ->
     string option -> bool ->
-    string option -> bool -> int -> ((string * string) counted_list) Lwt.t
+    string option -> bool -> int -> ((Key.t * string) counted_list) Lwt.t
   method prefix_keys:
-    allow_dirty:bool -> string -> int -> (string counted_list) Lwt.t
+    allow_dirty:bool -> string -> int -> (Key.t counted_list) Lwt.t
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
@@ -95,7 +95,7 @@ class type backend = object
   method optimize_db: unit -> unit Lwt.t
   method defrag_db:unit -> unit Lwt.t
 
-  method get_fringe: string option -> Routing.range_direction -> ((string * string) counted_list) Lwt.t
+  method get_fringe: string option -> Routing.range_direction -> ((Key.t * string) counted_list) Lwt.t
 
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t

@@ -265,7 +265,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         (fun () ->
           backend # range ~allow_dirty first finc last linc max >>= fun keys ->
           response_ok oc >>= fun () ->
-          Llio.output_string_array_reversed oc keys >>= fun () ->
+          Llio.output_array_reversed Llio.output_key oc keys >>= fun () ->
           Lwt.return false
         )
         (handle_exception oc )
@@ -283,9 +283,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # range_entries ~allow_dirty first finc last linc max
-           >>= fun (kvs:(string*string) counted_list) ->
+           >>= fun kvs ->
            response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
+           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)
@@ -303,9 +303,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Lwt.catch
         (fun () ->
            backend # rev_range_entries ~allow_dirty first finc last linc max
-           >>= fun (kvs:(string*string) counted_list) ->
+           >>= fun kvs ->
            response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
+           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
            Lwt.return false
         )
         (handle_exception oc)
@@ -390,7 +390,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       >>= fun () ->
       backend # prefix_keys ~allow_dirty key max >>= fun keys ->
       response_ok oc >>= fun () ->
-      Llio.output_counted_list Llio.output_string oc keys >>= fun () ->
+      Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
       Lwt.return false
     end
   | MULTI_GET ->
@@ -640,7 +640,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            backend # get_fringe boundary direction >>= fun kvs ->
            Logger.debug_ "get_fringe backend op complete" >>= fun () ->
            response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_string_pair oc kvs >>= fun () ->
+           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
            Logger.debug_ "get_fringe all done" >>= fun () ->
            Lwt.return false
         )
