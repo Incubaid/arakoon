@@ -669,31 +669,31 @@ class ArakoonProtocol :
         return _packInt ( ARA_CMD_DEL ) + _packString ( key )
 
     @staticmethod
-    def encodeRange( bKey, bInc, eKey, eInc, maxCnt , allowDirty):
-        retVal = _packInt( ARA_CMD_RAN ) + _packBool(allowDirty)
+    def encodeRange( bKey, bInc, eKey, eInc, maxCnt , consistency):
+        retVal = _packInt( ARA_CMD_RAN ) + consistency.encode()
         retVal += _packStringOption( bKey ) + _packBool ( bInc )
         retVal += _packStringOption( eKey ) + _packBool (eInc) + _packSignedInt (maxCnt)
         return  retVal
 
     @staticmethod
-    def encodeRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
-        r = _packInt(ARA_CMD_RAN_E) + _packBool(allowDirty)
+    def encodeRangeEntries(first, finc, last, linc, maxEntries, consistency):
+        r = _packInt(ARA_CMD_RAN_E) + consistency.encode()
         r += _packStringOption(first) + _packBool(finc)
         r += _packStringOption(last)  + _packBool(linc)
         r += _packSignedInt(maxEntries)
         return r
 
     @staticmethod
-    def encodeReverseRangeEntries(first, finc, last, linc, maxEntries, allowDirty):
-        r = _packInt(ARA_CMD_REV_RAN_E) + _packBool(allowDirty)
+    def encodeReverseRangeEntries(first, finc, last, linc, maxEntries, consistency):
+        r = _packInt(ARA_CMD_REV_RAN_E) + consistency.encode()
         r += _packStringOption(first) + _packBool(finc)
         r += _packStringOption(last) + _packBool(linc)
         r += _packSignedInt(maxEntries)
         return r
 
     @staticmethod
-    def encodePrefixKeys( key, maxCnt, allowDirty ):
-        retVal = _packInt( ARA_CMD_PRE) + _packBool(allowDirty)
+    def encodePrefixKeys( key, maxCnt, consistency ):
+        retVal = _packInt( ARA_CMD_PRE) + consistency.encode()
         retVal += _packString( key )
         retVal += _packSignedInt( maxCnt )
         return retVal
@@ -712,16 +712,16 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
-    def encodeMultiGet(keys, allowDirty):
-        retVal = _packInt(ARA_CMD_MULTI_GET) + _packBool(allowDirty)
+    def encodeMultiGet(keys, consistency):
+        retVal = _packInt(ARA_CMD_MULTI_GET) + consistency.encode()
         retVal += _packInt(len(keys))
         for key in keys:
             retVal += _packString(key)
         return retVal
 
     @staticmethod
-    def encodeMultiGetOption(keys,allowDirty):
-        retVal = _packInt(ARA_CMD_MULTI_GET_OPTION) + _packBool(allowDirty)
+    def encodeMultiGetOption(keys, consistency):
+        retVal = _packInt(ARA_CMD_MULTI_GET_OPTION) + consistency.encode()
         retVal += _packInt(len(keys))
         for key in keys:
             retVal += _packString(key)

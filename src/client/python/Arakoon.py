@@ -137,6 +137,7 @@ class ArakoonClient :
 
     def setConsistency(self, c):
         """
+        Either Consistent or NoGuarantees or AtLeast. Allows fine grained consistency constraints on subsequent reads
         @type c: Consistency
         """
         self._consistency = c
