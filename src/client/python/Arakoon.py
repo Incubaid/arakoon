@@ -341,7 +341,8 @@ class ArakoonClient :
         returns the current consistency mark for later usage
         """
         conn = self._sendToMaster(ArakoonProtocol.encodeMark())
-        conn.decodeMarkResult()
+        result = conn.decodeMarkResult()
+        return result
 
     @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection()

@@ -202,8 +202,8 @@ let consistency_to buffer = function
 let input_consistency ic = 
   Lwt_io.read_char ic >>= 
     function 
-    | '\x00' -> Lwt.return No_guarantees
-    | '\x01' -> Lwt.return Consistent
+    | '\x00' -> Lwt.return Consistent
+    | '\x01' -> Lwt.return No_guarantees
     | '\x02' -> Stamp.input_stamp ic >>= fun s -> Lwt.return (At_least s)
     |  c     -> failwith (Printf.sprintf "%C is not a consistency" c)
 let output_consistency oc c =

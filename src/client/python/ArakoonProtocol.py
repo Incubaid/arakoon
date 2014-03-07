@@ -499,6 +499,11 @@ class Consistency:
     def isDirty(self):
         return False
 
+    def __str__(self):
+        return self.__class__.__name__
+
+    __repr__ = __str__
+
 class Consistent(Consistency):
     pass
 
@@ -860,15 +865,18 @@ class ArakoonProtocol :
     def decodeMarkResult(con):
         ArakoonProtocol._evaluateErrorCode(con)
         x= _readExactNBytes( con, 1)
+        r = None
         if x == '\x00':
-            return NoGuarantees()
+            r = NoGuarantees()
         elif x == '\x01':
-            return Consistent()
+            r =  Consistent()
         elif x == '\x02':
             i = _recvInt64(con)
-            return AtLeast(i)
+            r =  AtLeast(i)
         else:
             raise ArakoonException("%c does not denote a consistency")
+        return r
+
 
     @staticmethod
     def decodeStringPairListResult(con):

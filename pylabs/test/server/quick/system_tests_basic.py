@@ -383,8 +383,15 @@ def test_nop():
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_mark():
     client = C.get_client ()
+    client.set('x','X')
     for i in xrange(10):
         m = client.mark()
+        print m
+        assert_equals(str(m), "AtLeast")
+        client.setConsistency(m)
+        v = client.get('x')
+        assert_equals(v,'X')
+        
     client.dropConnections()
 
 @C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)
