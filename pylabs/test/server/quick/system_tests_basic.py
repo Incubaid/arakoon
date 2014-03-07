@@ -386,20 +386,20 @@ def test_consistency():
     client = C.get_client ()
     client.set('x','X')
     client.set('z','Z')
-    for i in xrange(10):
-        m = client.get_txid()
-        logging.debug("m = %s", m)
-        assert_equals(str(m).find("AtLeast"),0)
-        client.setConsistency(m)
-        v = client.get('x')
-        assert_equals(v,'X')
-        m2 = AtLeast(1000)
-        client.setConsistency(m2)
-        try:
-            v2 = client.get('z')
-            raise Exception()
-        except X.arakoon_client.ArakoonException as e:
-            logging.debug(e._msg)
+    m = client.get_txid()
+    logging.debug("m = %s", m)
+    assert_equals(str(m).find("AtLeast"),0)
+    time.sleep(5)
+    client.setConsistency(m)
+    v = client.get('x')
+    assert_equals(v,'X')
+    m2 = AtLeast(1000)
+    client.setConsistency(m2)
+    try:
+        v2 = client.get('z')
+        raise Exception()
+    except X.arakoon_client.ArakoonException as e:
+        logging.debug(e._msg)
 
     client.dropConnections()
 
