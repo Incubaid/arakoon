@@ -48,10 +48,18 @@ let lwt_directory_list dn =
     (fun exn -> Logger.debug_f_ ~exn "lwt_directory_list %s" dn >>= fun () -> Lwt.fail exn)
 
 let fsync_dir dir =
+  let t0 = Unix.gettimeofday() in
   Lwt_unix.openfile dir [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
   Lwt.finalize
     (fun () -> Lwt_unix.fsync dir_descr)
-    (fun () -> Lwt_unix.close dir_descr)
+    (fun () -> Lwt_unix.close dir_descr 
+               >>= fun () ->
+               let t1 = Unix.gettimeofday() in
+               let d = t1 -. t0 in
+               if d < 1.0 
+               then Lwt.return ()
+               else Logger.warning_f_ "fsync_dir of %S took : %f" dir d
+    )
 
 let fsync_dir_of_file filename =
   fsync_dir (Filename.dirname filename)
