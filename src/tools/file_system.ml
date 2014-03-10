@@ -58,7 +58,7 @@ let fsync_dir dir =
                let d = t1 -. t0 in
                if d < 1.0 
                then Lwt.return ()
-               else Logger.warning_f_ "fsync_dir took :%f" d
+               else Logger.warning_f_ "fsync_dir of %S took : %f" dir d
     )
 
 let fsync_dir_of_file filename =
