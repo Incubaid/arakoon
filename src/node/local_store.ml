@@ -38,15 +38,6 @@ type t = { db : Camltc.Hotc.t;
            mutable _tx : (transaction * Camltc.Hotc.bdb) option;
          }
 
-let _get bdb key = B.get bdb key
-
-let _set bdb key value = B.put bdb key value
-
-let _delete bdb key    = B.out bdb key
-
-let _delete_prefix bdb prefix =
-  B.delete_prefix bdb prefix
-
 let range ls first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.range bdb (Some first) finc last linc max
@@ -147,17 +138,17 @@ let exists ls key =
 
 let get ls key =
   let bdb = Camltc.Hotc.get_bdb ls.db in
-  B.get bdb key
+  B.get3 bdb key
 
 let set ls tx key value =
-  _with_tx ls tx (fun db -> _set db key value)
+  _with_tx ls tx (fun db -> B.put db key value)
 
 let delete ls tx key =
-  _with_tx ls tx (fun db -> _delete db key)
+  _with_tx ls tx (fun db -> B.out db key)
 
 let delete_prefix ls tx prefix =
   _with_tx ls tx
-    (fun db -> _delete_prefix db prefix)
+    (fun db -> B.delete_prefix db prefix)
 
 let flush ls =
   Lwt.return ()
@@ -253,9 +244,9 @@ let wrap_not_found f =
 let cur_last (bdb, cur) =
   wrap_not_found (fun () -> B.last bdb cur)
 
-let cur_get (bdb, cur) = (B.key bdb cur, B.value bdb cur)
-let cur_get_key (bdb, cur) = B.key bdb cur
-let cur_get_value (bdb, cur) = B.value bdb cur
+let cur_get (bdb, cur) = (B.key3 bdb cur, B.value3 bdb cur)
+let cur_get_key (bdb, cur) = B.key3 bdb cur
+let cur_get_value (bdb, cur) = B.value3 bdb cur
 
 let cur_prev (bdb, cur) =
   wrap_not_found
