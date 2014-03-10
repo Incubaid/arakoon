@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -23,7 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 class ArakoonException (Exception) :
     _msg = None
-    
+
     def __init__ (self, msg = "" ):
         if ( self._msg is not None and msg == "" ):
             msg = self._msg
@@ -31,15 +31,15 @@ class ArakoonException (Exception) :
 
 class ArakoonInvalidConfig( ArakoonException, RuntimeError ):
     _msg = "Invalid configuration"
-    
+
     def __init__ (self, additionalInfo="" ):
         if additionalInfo != "" :
             self._msg = "%s: %s" % (self._msg, additionalInfo)
-            
-            
+
+
 class ArakoonNotFound( ArakoonException, KeyError ):
     _msg = "Key not found"
-    
+
 class ArakoonUnknownNode (ArakoonException):
     _msgF = "Unknown node identifier: %s"
 
@@ -49,11 +49,11 @@ class ArakoonUnknownNode (ArakoonException):
 
 class ArakoonNodeNotLocal( ArakoonException ):
     _msgF = "%s is not a local node"
-    
+
     def __init__ (self, node):
         self._msg = ArakoonNodeNotLocal._msgF % ( node )
         ArakoonException.__init__( self, self._msg )
-        
+
 class ArakoonNotConnected( ArakoonException ):
     _msgF = "No connection available to node at %s on port %s"
 
@@ -75,19 +75,19 @@ class ArakoonNodeNotMaster( ArakoonException ):
 class ArakoonNodeNoLongerMaster( ArakoonException ):
     _msg = "Operation might or might not be performed on node which is no longer the master"
 
-class ArakoonAssertionFailed(ArakoonException):    
+class ArakoonAssertionFailed(ArakoonException):
     _msg = "Assert did not yield expected result"
     def __init__(self,msg):
         ArakoonException.__init__(self,msg)
 
-class ArakoonAssertExistsFailed(ArakoonException):    
+class ArakoonAssertExistsFailed(ArakoonException):
     _msg = "AssertExists did not yield expected result"
     def __init__(self,msg):
         ArakoonException.__init__(self,msg)
 
 class ArakoonGoingDown(ArakoonException):
     _msg = "Server is going down"
-    
+
 class ArakoonSocketException ( ArakoonException ):
     pass
 
@@ -100,25 +100,25 @@ class ArakoonSockReadNoBytes( ArakoonSocketException ):
 class ArakoonSockNotReadable( ArakoonSocketException ):
     _msg = "Socket is not readable. Aborting."
 
-class ArakoonSockRecvError ( ArakoonSocketException ):  
+class ArakoonSockRecvError ( ArakoonSocketException ):
     _msg = "Error while receiving data from socket"
-    
+
 class ArakoonSockRecvClosed( ArakoonSocketException ):
     _msg = "Cannot receive on a not-connected socket"
-    
+
 class ArakoonSockSendError( ArakoonSocketException ):
     _msg = "Error while sending data on socket"
-    
+
 class ArakoonInvalidArguments( ArakoonException, TypeError ):
     _msgF = "Invalid argument(s) for %s: %s"
-    
+
     def __init__ (self, fun_name, invalid_args):
         error_string = "%s=%s" % (invalid_args[0][0],invalid_args[0][1])
         if len(invalid_args) > 1 :
             error_string = reduce( lambda s1,s2: "%s, %s=%s" % (s1,s2[0],s2[1]) , invalid_args[1:], error_string )
         self._msg = ArakoonInvalidArguments._msgF % ( fun_name, error_string)
-        ArakoonException.__init__(self, self._msg ) 
-        
+        ArakoonException.__init__(self, self._msg )
+
 class NurseryException( ArakoonException ):
     pass
 

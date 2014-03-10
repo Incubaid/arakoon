@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -492,10 +492,10 @@ def _recvStringOption ( con ):
 class Consistency:
     def __init__(self):
         self._v = _packBool(False)
-    
+
     def encode(self):
         return self._v
-        
+
     def isDirty(self):
         return False
 
@@ -510,15 +510,15 @@ class Consistent(Consistency):
 class NoGuarantee(Consistency):
     def __init__(self):
         self._v = _packBool(True)
-    
+
     def isDirty(self):
         return True
-    
+
 class AtLeast(Consistency):
     def __init__(self,i):
         self._i = i
         self._v = "\x02" + _packInt64(i)
-    
+
     def __str__(self):
         return "AtLeast(%i)" % self._i
 

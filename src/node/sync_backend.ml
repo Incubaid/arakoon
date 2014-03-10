@@ -1,6 +1,6 @@
 (*
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -22,7 +22,7 @@ If not, see <http://www.gnu.org/licenses/>.
 
 module Sync_backend = functor(S : Store.STORE) ->
 struct
-  
+
   open Backend
   open Statistics
   open Client_cfg
@@ -263,7 +263,7 @@ struct
         let io = S.consensus_i store in
         let i = match io with None -> Sn.zero | Some i -> i in
         At_least i
-        
+
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
         let () = assert_value_size value in
@@ -457,23 +457,23 @@ struct
           end
 
       method private _read_allowed (consistency:consistency) =
-        if read_only 
+        if read_only
         then Lwt.return ()
         else
           match consistency with
           | Consistent    -> self # _write_allowed ()
           | No_guarantees -> Lwt.return ()
-          | At_least s    -> 
+          | At_least s    ->
              begin
-               
+
                let io = S.consensus_i store in
                Logger.debug_f_ "_read_allowed: store @ %s at_least=%s" (Log_extra.option2s Sn.string_of io) (Sn.string_of s) >>= fun () ->
-               let i = match io with 
+               let i = match io with
                  | None -> Sn.zero
                  | Some i -> i
                in
-               if Stamp.(<=) s i 
-               then Logger.debug_f_ "ok" 
+               if Stamp.(<=) s i
+               then Logger.debug_f_ "ok"
                else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
              end
 

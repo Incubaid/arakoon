@@ -1,6 +1,6 @@
 '''
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -19,4 +19,3 @@ You should have received a copy of the
 GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 '''
-

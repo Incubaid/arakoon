@@ -1,6 +1,6 @@
 (*
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -326,7 +326,7 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j -> 
+    | i, Some j when i > j ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | i, None ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i

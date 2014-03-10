@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -92,7 +92,7 @@ def retryDuringMasterReelection (is_read_only = False):
         return retrying_f
     return wrap
 
-     
+
 class ArakoonClient :
 
     def __init__ (self, config=None):
