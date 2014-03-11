@@ -13,6 +13,7 @@ true: package(dynlink)
 true: package(quickcheck)
 true: pp(camlp4of)
 true: package(snappy)
+true: package(extended_map)
 "doc": include
 "src":include
 "src/lib":include

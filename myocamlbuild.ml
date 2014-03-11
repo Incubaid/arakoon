@@ -39,7 +39,7 @@ let machine = run_cmd "uname -mnrpio"
 
 let compiler_version = run_cmd "ocamlopt -version"
 
-let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc\\|snappy\\|ssl\\|camlbz2'"
+let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc\\|extended_map\\|snappy\\|ssl\\|camlbz2'"
 
 let split s ch =
   let x = ref [] in

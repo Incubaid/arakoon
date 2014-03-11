@@ -15,4 +15,5 @@ opam install -y "lwt.2.4.4"
 opam remove camltc
 opam install -y "camltc.999"
 opam install -y bisect
+opam install -y extended_map
 opam install -y quickcheck

@@ -2,7 +2,7 @@
 
 APT_DEPENDS="libev-dev libssl-dev libsnappy-dev"
 APT_OCAML_DEPENDS="ocaml ocaml-native-compilers camlp4-extra opam"
-OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck"
+OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck extended_map"
 
 export OPAMYES=1
 export OPAMVERBOSE=1

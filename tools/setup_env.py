@@ -123,7 +123,7 @@ def maybe_install_packages():
     opam(['update'])
     opam(['install', 'ssl', 'ocamlfind',
           'camlbz2','camltc','snappy',
-          'bisect'])
+          'extended_map','bisect'])
 
 def do_it():
     sh(['mkdir', '-p', ROOT])
