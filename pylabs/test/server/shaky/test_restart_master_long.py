@@ -41,9 +41,8 @@ def test_restart_master_long ():
                                                   ArakoonGoingDown
                                                   ] )
 
-    valid_excs = [ArakoonSockNotReadable,
-                  ArakoonNotFound,
-                  ArakoonSockReadNoBytes,
+    valid_excs = [ArakoonNotFound,
+                  ArakoonSocketException
                   ArakoonGoingDown]
     def range_query_loop1 ():
         Common.heavy_range_entries_scenario (200000,
