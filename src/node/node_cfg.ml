@@ -61,6 +61,7 @@ module Node_cfg = struct
             targets : string list;
             compressor : Compression.compressor;
             fsync : bool;
+            _fsync_tlog_dir : bool;
             is_test : bool;
             reporting: int;
             tls_cert: string option;
@@ -79,7 +80,7 @@ module Node_cfg = struct
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
         "targets=%s; compressor=%s; fsync=%b; is_test=%b; " ^^
-        "reporting=%i; " ^^
+        "reporting=%i; _fsync_tlog_dir=%b; " ^^
         "tls_cert=%s; tls_key=%s; collapse_slowdown=%s" ^^
         "}"
     in
@@ -95,7 +96,7 @@ module Node_cfg = struct
       (list2s (fun s -> s) t.targets)
       (Compression.compressor2s t.compressor)
       t.fsync t.is_test
-      t.reporting
+      t.reporting t._fsync_tlog_dir
       (_so2s t.tls_cert) (_so2s t.tls_key)
       (option2s string_of_float t.collapse_slowdown)
 
@@ -213,6 +214,7 @@ module Node_cfg = struct
         targets = [];
         compressor = Compression.Snappy;
         fsync = false;
+        _fsync_tlog_dir = false;
         is_test = true;
         reporting = 300;
         tls_cert = None;
@@ -441,6 +443,12 @@ module Node_cfg = struct
         end
     in
     let fsync = Ini.get inifile node_name "fsync" Ini.p_bool (Ini.default true) in
+    let _fsync_tlog_dir = Ini.get
+                            inifile
+                            node_name
+                            "__tained_fsync_tlog_dir"
+                            Ini.p_bool
+                            (Ini.default true) in
     let targets =
       if is_learner
       then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required
@@ -478,6 +486,7 @@ module Node_cfg = struct
      targets;
      compressor;
      fsync;
+     _fsync_tlog_dir;
      is_test = false;
      reporting;
      tls_cert;

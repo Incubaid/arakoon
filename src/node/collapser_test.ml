@@ -61,7 +61,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 1000 in
   Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
   Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 false "node_name" >>= fun tlc ->
+                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -102,7 +102,7 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
   Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 false "node_name" >>= fun tlc ->
+                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *)

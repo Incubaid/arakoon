@@ -679,18 +679,23 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     else :
         logging.info( "Using master election" )
         cluster.forceMaster(None )
+
+    config = cluster._getConfigFile()
+    for i in range (n):
+        nodeName = node_names[ i ]
+        config.set(nodeName, '__tained_fsync_tlog_dir', 'false')
+
     #
     #
     #
     if extra :
         logging.info("EXTRA!")
-        config = cluster._getConfigFile()
         for k,v in extra.items():
             logging.info("%s -> %s", k, v)
             config.set("global", k, v)
 
-        fn = cluster._getConfigFileName()
-        X.writeConfig(config, fn)
+    fn = cluster._getConfigFileName()
+    X.writeConfig(config, fn)
 
 
     logging.info( "Creating client config" )
