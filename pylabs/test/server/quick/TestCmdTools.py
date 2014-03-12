@@ -68,7 +68,7 @@ class TestCmdTools:
             for key in status.keys():
                 if status[key] == X.AppStatusType.HALTED:
                     cfg = cluster._getConfigFile()
-                    logDir = cfg.getValue(key, "log_dir")
+                    logDir = cfg.get(key, "log_dir")
                     fn = "%s/%s.log" % (logDir, key)
                     logging.info("fn=%s",fn)
                     with open(fn,'r') as f:
