@@ -116,7 +116,7 @@ let test_common () =
   Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 ~compressor:Compression.Snappy
                  _dir_name _tlx_dir _tlx_dir
-                 false "node_name" >>= fun tlog_coll ->
+                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
@@ -145,7 +145,7 @@ let teardown () =
 let _tic (type s) filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
-                 false "node_name" >>= fun tlog_coll ->
+                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->

@@ -331,11 +331,17 @@ module F = struct
 end
 
 
-let _init_file tlog_dir tlf_dir c =
+let _init_file fsync_dir tlog_dir tlf_dir c =
   let fn = file_name c in
   let full_name = get_full_path tlog_dir tlf_dir fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
-  File_system.fsync_dir_of_file full_name >>= fun () ->
+  begin
+    if fsync_dir
+    then
+      File_system.fsync_dir_of_file full_name
+    else
+      Lwt.return ()
+  end >>= fun () ->
   Lwt_unix.LargeFile.fstat fd >>= fun stats ->
   let pos0 = stats.st_size in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
@@ -400,7 +406,7 @@ class tlc2
         ?(compressor=Compression.Snappy)
         (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
         (last:Entry.t option) (index:Index.index)
-        (node_id:string) (fsync:bool)
+        (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
   =
   let inner =
     match last with
@@ -577,7 +583,7 @@ class tlc2
               else
                 Lwt.return ()
             end >>= fun () ->
-            _init_file tlog_dir tlf_dir _outer >>= fun file ->
+            _init_file fsync_tlog_dir tlog_dir tlf_dir _outer >>= fun file ->
             _file <- Some file;
             _index <- Index.make (F.fn_of file);
             Lwt.return file
@@ -616,7 +622,7 @@ class tlc2
       let old_outer = _outer in
       _inner <- 0;
       _outer <- new_outer;
-      _init_file tlog_dir tlf_dir new_outer >>= fun new_file ->
+      _init_file fsync_tlog_dir tlog_dir tlf_dir new_outer >>= fun new_file ->
       _file <- Some new_file;
       let index =
         let fn = file_name _outer in
@@ -745,7 +751,7 @@ class tlc2
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
       let last_file () =
         match _file with
-          | None -> _init_file tlog_dir tlf_dir _outer
+          | None -> _init_file fsync_tlog_dir tlog_dir tlf_dir _outer
           | Some file -> Lwt.return file
       in
       last_file () >>= fun file ->
@@ -879,7 +885,7 @@ let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
   else
     Lwt.return (new_c, last, index)
 
-let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
+let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
@@ -891,7 +897,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id fsync in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id ~fsync ~fsync_tlog_dir in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
@@ -903,7 +909,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir fsync node_id =
         let i = Entry.i_of e in
         let v = Entry.v_of e in
         let marker = _make_open_marker node_id in
-        _init_file tlog_dir tlf_dir new_c >>= fun file ->
+        _init_file fsync_tlog_dir tlog_dir tlf_dir new_c >>= fun file ->
         let oc = F.oc_of file in
         Tlogcommon.write_marker oc i v marker >>= fun () ->
         F.close file >>= fun () ->

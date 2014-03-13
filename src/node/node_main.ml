@@ -221,7 +221,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
   let compressor = me.compressor in
   make_tlog_coll ~compressor
                  me.tlog_dir me.tlx_dir me.head_dir
-                 me.fsync name >>= fun tlc ->
+                 ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
   Catchup.catchup ~tls_ctx ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
     ((module S),store,tlc) mr_name >>= fun _ ->
   S.close ~flush:true store >>= fun () ->
@@ -510,7 +510,7 @@ let _main_2 (type s)
           let compressor = me.compressor in
           make_tlog_coll ~compressor
                          me.tlog_dir me.tlx_dir me.head_dir
-                         me.fsync name
+                         ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let lcnum = cluster_cfg.lcnum
           and ncnum = cluster_cfg.ncnum
