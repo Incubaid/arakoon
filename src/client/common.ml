@@ -476,8 +476,9 @@ let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
 
 let get_nursery_cfg (ic,oc) =
   let decode ic =
-    Llio.input_string ic >>= fun buf ->
-    let cfg, pos = NCFG.ncfg_from buf 0 in
+    Llio.input_string ic >>= fun s ->
+    let buf = Llio.make_buffer s 0 in
+    let cfg = NCFG.ncfg_from buf in
     Lwt.return cfg
   in
   request oc get_nursery_cfg_to >>= fun () ->

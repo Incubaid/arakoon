@@ -50,18 +50,25 @@ let (>::) = Int64.shift_right_logical
 let (|: ) = Int32.logor
 let (|::) = Int64.logor
 
-let int32_from buff pos =
-  let i32 i= Int32.of_int (Char.code buff.[pos + i]) in
-  let b0 = i32 0
-  and b1s = i32 1 <: 8
-  and b2s = i32 2 <: 16
-  and b3s = i32 3 <: 24 in
-  let result = b0 |: b1s |: b2s |: b3s
-  in result, pos + 4
+type buffer = {buf : string ; mutable pos : int }
+let make_buffer buf pos = {buf;pos}
+let buffer_done b = b.pos = String.length b.buf
+let buffer_pos b = b.pos
 
-let int_from buff pos =
-  let r,pos' = int32_from buff pos in
-  Int32.to_int r ,pos'
+let buffer_set_pos b pos = b.pos <- pos
+
+external get32_prim : string -> int -> int32  = "%caml_string_get32"
+external get64_prim : string -> int -> int64  = "%caml_string_get64"
+
+let int_from b =
+  let result = get32_prim b.buf b.pos in
+  let () = b.pos <- b.pos + 4 in
+  Int32.to_int result
+
+let int32_from b =
+  let result = get32_prim b.buf b.pos in
+  let () = b.pos <- b.pos + 4 in
+  result
 
 let int32_to buffer i32 =
   let char_at n =
@@ -78,21 +85,13 @@ let int32_to buffer i32 =
 
 let int_to buffer i = int32_to buffer (Int32.of_int i)
 
-let int64_from buf pos =
-  let i64 i= Int64.of_int (Char.code buf.[pos + i]) in
-  let b0 = i64 0
-  and b1s = i64 1 <:: 8
-  and b2s = i64 2 <:: 16
-  and b3s = i64 3 <:: 24
-  and b4s = i64 4 <:: 32
-  and b5s = i64 5 <:: 40
-  and b6s = i64 6 <:: 48
-  and b7s = i64 7 <:: 56 in
-  let r =
-    b0 |:: b1s |:: b2s |:: b3s
-    |:: b4s |:: b5s |:: b6s |:: b7s
+let int64_from b =
+  let pos = b.pos
+  and buf = b.buf
   in
-  r,pos + 8
+  let r = get64_prim buf pos in
+  let () = b.pos <- pos + 8 in
+  r
 
 let int64_to buf i64 =
   let char_at n =
@@ -115,7 +114,8 @@ let output_int64 oc i64 =
 let input_int64 ic =
   let buf = String.create 8 in
   Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
-  let r,_ = int64_from buf 0 in
+  let b = make_buffer buf 0 in
+  let r = int64_from b in
   Lwt.return r
 
 
@@ -123,16 +123,19 @@ let float_to buf f =
   let bf = Int64.bits_of_float f in
   int64_to buf bf
 
-let float_from buffer pos =
-  let bf,pos' = int64_from buffer pos in
+let float_from buffer =
+  let bf = int64_from buffer in
   let f = Int64.float_of_bits bf in
-  f,pos'
+  f
 
 
 
-let string_from buffer pos =
-  let size,pos' = int_from buffer pos in
-  String.sub buffer (pos+4) size, pos' + size
+let string_from buffer =
+  let size = int_from buffer in
+  let pos = buffer.pos in
+  let s = String.sub buffer.buf pos size in
+  let () = buffer.pos <- pos + size in
+  s
 
 let string_to buffer s =
   let size = String.length s in
@@ -141,22 +144,27 @@ let string_to buffer s =
 
 let char_to buffer c = Buffer.add_char buffer c
 
-let char_from buffer pos =
-  let c = buffer.[pos] in
-  c, pos + 1
+let char_from buffer =
+  let pos = buffer.pos in
+  let c = buffer.buf.[pos] in
+  let () = buffer.pos <- pos + 1 in
+  c
 
 
 let bool_to buffer b =
   let c = if b then '\x01' else '\x00' in
   Buffer.add_char buffer c
 
-let bool_from buffer pos =
-  let c = buffer.[pos] in
+let bool_from b =
+  let p = b.pos in
+  let c = b.buf.[p] in
   let r = match c with
     | '\x00' -> false
     | '\x01' -> true
     | _ -> failwith "not a boolean"
-  in r,pos + 1
+  in
+  let () = b.pos <- p + 1 in
+  r
 
 
 let output_int32 oc (i:int32) =
@@ -179,7 +187,7 @@ let input_bool ic =
 let input_int32 ic =
   let buf = String.create 4 in
   Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
-  let r,_ = int32_from buf 0 in
+  let r = int32_from (make_buffer buf 0) in
   Lwt.return r
 
 
@@ -293,15 +301,15 @@ let list_to buf e_to list =
 
 let string_list_to buf sl = list_to buf string_to sl
 
-let list_from s e_from pos =
-  let size,p0 = int_from s pos in
-  let rec loop acc p = function
-    | 0 -> acc,p
-    | i -> let e,p' = e_from s p in
-      loop (e::acc) p' (i-1)
-  in loop [] p0 size
+let list_from b e_from  =
+  let size = int_from b in
+  let rec loop acc = function
+    | 0 -> acc
+    | i -> let e  = e_from b in
+      loop (e::acc) (i-1)
+  in loop [] size
 
-let string_list_from s pos = list_from s string_from pos
+let string_list_from buf = list_from buf string_from
 
 let output_string_option oc = function
   | None -> output_bool oc false
@@ -315,16 +323,16 @@ let option_to (f:Buffer.t -> 'a -> unit) buff =  function
     bool_to buff true;
     f buff v
 
-let option_from (f:string -> int -> 'a * int) string pos =
-  let b, pos1 = bool_from string pos in
+let option_from (f:buffer -> 'a ) buffer =
+  let b = bool_from buffer in
   match b with
-    | false -> None, pos1
-    | true -> let v, pos2 = f string pos1 in
-      (Some v), pos2
+    | false -> None
+    | true -> let v = f buffer in
+      Some v
 
 let string_option_to buff so =  option_to string_to buff so
 
-let string_option_from string pos = option_from string_from string pos
+let string_option_from buffer = option_from string_from buffer
 
 
 
@@ -338,16 +346,16 @@ let hashtbl_to buf e2 h =
   int_to buf len;
   Hashtbl.iter (fun k v -> e2 buf k v) h
 
-let hashtbl_from buf ef pos =
-  let len,p1 = int_from buf pos in
+let hashtbl_from buf ef =
+  let len = int_from buf in
   let r = Hashtbl.create len in
-  let rec loop pos = function
-    | 0 -> r, pos
-    | i -> let (k,v), p2 = ef buf pos in
+  let rec loop = function
+    | 0 -> r
+    | i -> let (k,v) = ef buf in
       let () = Hashtbl.add r k v in
-      loop p2 (i-1)
+      loop (i-1)
   in
-  loop p1 len
+  loop len
 
 
 let copy_stream ~length ~ic ~oc =
@@ -392,34 +400,34 @@ let rec named_field_to (buffer: Buffer.t) (field: namedValue) : unit =
       let encode_entry = named_field_to buffer in
       List.iter encode_entry l
 
-let rec named_field_from buffer offset: (namedValue*int) =
-  let field_type, offset = int_from buffer offset in
-  let field_name, offset = string_from buffer offset in
+let rec named_field_from buffer : namedValue =
+  let field_type = int_from buffer in
+  let field_name = string_from buffer in
   begin
     match field_type with
       | 1 ->
-        let i, offset = int_from buffer offset in
-        NAMED_INT(field_name, i), offset
+        let i = int_from buffer in
+        NAMED_INT(field_name, i)
       | 2 ->
-        let i64, offset = int64_from buffer offset in
-        NAMED_INT64(field_name, i64), offset
+        let i64 = int64_from buffer in
+        NAMED_INT64(field_name, i64)
       | 3 ->
-        let f, offset = float_from buffer offset in
-        NAMED_FLOAT(field_name, f), offset
+        let f = float_from buffer in
+        NAMED_FLOAT(field_name, f)
       | 4 ->
-        let s, offset = string_from buffer offset in
-        NAMED_STRING(field_name, s), offset
+        let s = string_from buffer in
+        NAMED_STRING(field_name, s)
       | 5 ->
         begin
-          let rec decode_loop decoded offset= function
-            | 0 -> (List.rev decoded), offset
+          let rec decode_loop decoded = function
+            | 0 -> (List.rev decoded)
             | i ->
-              let new_elem, offset = named_field_from buffer offset in
-              decode_loop (new_elem :: decoded) offset (i-1)
+              let new_elem = named_field_from buffer in
+              decode_loop (new_elem :: decoded) (i-1)
           in
-          let length, offset = int_from buffer offset in
-          let decoded, offset = decode_loop [] offset length in
-          NAMED_VALUELIST(field_name, decoded), offset
+          let length  = int_from buffer in
+          let decoded = decode_loop [] length in
+          NAMED_VALUELIST(field_name, decoded)
         end
       | _ -> failwith "Unknown value type. Cannot decode."
   end

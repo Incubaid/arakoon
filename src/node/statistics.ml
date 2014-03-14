@@ -45,14 +45,14 @@ let x_stats_to_string (stats:x_stats) :string =
     (to_str_init_zero stats.avg)
     (to_str_init_zero (sqrt stats.var))
 
-let x_stats_from (buffer:string) (offset:int) : (x_stats * int) =
-  let n,  o1 = Llio.int_from buffer offset in
-  let min,o2 = Llio.float_from buffer o1 in
-  let max,o3 = Llio.float_from buffer o2 in
-  let m2 ,o4 = Llio.float_from buffer o3 in
-  let avg,o5 = Llio.float_from buffer o4 in
-  let var,o6 = Llio.float_from buffer o5 in
-  ( {n;min;max;m2;avg;var;}, o6)
+let x_stats_from buffer : x_stats  =
+  let n = Llio.int_from buffer in
+  let min = Llio.float_from buffer in
+  let max = Llio.float_from buffer in
+  let m2  = Llio.float_from buffer in
+  let avg = Llio.float_from buffer in
+  let var = Llio.float_from buffer in
+  {n;min;max;m2;avg;var;}
 
 let x_stats_to_value_list (stats:x_stats) (list_name:string) : Llio.namedValue =
   let l = [
@@ -345,8 +345,8 @@ module Statistics = struct
     Llio.named_field_to b (Llio.NAMED_VALUELIST ("arakoon_stats", value_list))
 
 
-  let from_buffer buffer pos =
-    let n_value_list,pos = Llio.named_field_from buffer pos in
+  let from_buffer buffer  =
+    let n_value_list= Llio.named_field_from buffer in
 
     let extract_next (l :Llio.namedValue list) : (Llio.namedValue * Llio.namedValue list) =
       match l with
@@ -521,7 +521,7 @@ module Statistics = struct
       mem_compactions;
       node_is = node_is;
     } in
-    t, pos
+    t
 
   let string_of t =
     let template =

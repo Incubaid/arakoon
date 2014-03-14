@@ -50,21 +50,26 @@ val string_list_to : Buffer.t -> string list -> unit
 val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
   ('a, 'b) Hashtbl.t -> unit
 
-val bool_from : string -> int -> bool  * int
-val char_from : string -> int -> char  * int
-val int_from  : string -> int -> int   * int
-val int32_from: string -> int -> int32 * int
-val int64_from: string -> int -> int64 * int
-val float_from: string -> int -> float * int
-val string_from: string -> int -> string * int
-val option_from: (string -> int -> 'a * int) -> string -> int -> 'a option * int
-val string_option_from: string -> int -> string option * int
-val list_from: string -> (string -> int -> 'a * int) -> int -> ('a list) * int
-val string_list_from: string -> int -> string list * int
-val named_field_from: string -> int -> namedValue * int
+type buffer
+val make_buffer : string -> int -> buffer
+val buffer_pos : buffer -> int
+val buffer_done : buffer -> bool
+val buffer_set_pos: buffer -> int -> unit
 
-val hashtbl_from: string -> (string -> int -> ('a * 'b) * int) -> int ->
-  ('a, 'b) Hashtbl.t * int
+val bool_from : buffer  -> bool
+val char_from : buffer  -> char
+val int_from  : buffer  -> int
+val int32_from: buffer  -> int32
+val int64_from: buffer  -> int64
+val float_from: buffer  -> float
+val string_from: buffer -> string
+val option_from: (buffer -> 'a ) -> buffer -> 'a option
+val string_option_from: buffer -> string option
+val list_from: buffer -> (buffer -> 'a ) -> 'a list
+val string_list_from: buffer -> string list
+val named_field_from: buffer -> namedValue
+
+val hashtbl_from: buffer -> (buffer -> 'a * 'b) -> ('a, 'b) Hashtbl.t
 
 val output_bool:          lwtoc -> bool          -> unit Lwt.t
 val output_int:           lwtoc -> int           -> unit Lwt.t

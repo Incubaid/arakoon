@@ -111,7 +111,7 @@ class remote_client ((ic,oc) as conn) =
       request oc (fun buf -> command_to buf STATISTICS) >>= fun () ->
       response ic
         (fun ic -> Llio.input_string ic >>= fun ss ->
-          let s,_  = Statistics.from_buffer ss 0 in
+          let s = Statistics.from_buffer (Llio.make_buffer ss 0) in
           Lwt.return s
         )
 

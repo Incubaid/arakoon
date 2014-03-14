@@ -118,14 +118,14 @@ struct
   let _get_interval store =
     try
       let interval_s = S.get store __interval_key in
-      let interval,_ = Interval.interval_from interval_s 0 in
+      let interval   = Interval.interval_from (Llio.make_buffer interval_s 0) in
       interval
     with Not_found -> Interval.max
 
   let _consensus_i store =
     try
       let i_string = S.get store __i_key in
-      let i,_ = Sn.sn_from i_string 0 in
+      let i = Sn.sn_from (Llio.make_buffer i_string 0) in
       Some i
     with Not_found ->
       None
@@ -137,12 +137,12 @@ struct
         try
           (* first try new key with more accurate storage *)
           let ls_buff = S.get store __lease_key2 in
-          let ls, _ = Llio.float_from ls_buff 0 in
+          let ls = Llio.float_from (Llio.make_buffer ls_buff 0) in
           ls
         with Not_found ->
           (* fallback to old more coarse grained lease period *)
           let ls_buff = S.get store __lease_key in
-          let ls, _ = Llio.int64_from ls_buff 0 in
+          let ls  = Llio.int64_from (Llio.make_buffer ls_buff 0) in
           (Int64.to_float ls) +. 1. in
       Some (m,ls)
     with Not_found ->
@@ -151,7 +151,7 @@ struct
   let _get_routing store =
     try
       let routing_s = S.get store __routing_key in
-      let routing,_ = Routing.routing_from routing_s 0 in
+      let routing   = Routing.routing_from (Llio.make_buffer routing_s 0) in
       Some routing
     with Not_found -> None
 

@@ -81,12 +81,13 @@ let read_entry ic =
          then Lwt.fail (TLogCheckSumError last_valid_pos )
          else Lwt.return ()
        end >>= fun () ->
-       let value,off = Value.value_from cmd 0 in
+       let buf = Llio.make_buffer cmd 0 in
+       let value = Value.value_from buf in
        let marker =
-         if off = cmdl
+         if Llio.buffer_pos buf = cmdl
          then None
          else
-           let m,_ = Llio.string_option_from cmd off in
+           let m = Llio.string_option_from buf in
            m
        in
        let (entry : Entry.t) = Entry.make i value last_valid_pos marker in
@@ -112,13 +113,13 @@ let read_entry ic =
       | ex -> Lwt.fail ex)
 
 
-let entry_from buff pos =
-  let i, pos2  = Sn.sn_from       buff pos  in
-  let crc,pos3 = Llio.int32_from  buff pos2 in
-  let cmd,pos4 = Llio.string_from buff pos3 in
-  let value,_ = Value.value_from cmd 0 in
+let entry_from buff =
+  let i  = Sn.sn_from       buff in
+  let _  = Llio.int32_from  buff in
+  let cmd = Llio.string_from buff in
+  let value = Value.value_from (Llio.make_buffer cmd 0) in
   let e = Entry.make i value 0L None in
-  e, pos4
+  e
 
 
 let read_into ic buf =

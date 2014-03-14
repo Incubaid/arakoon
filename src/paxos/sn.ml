@@ -39,7 +39,7 @@ let to_int = Int64.to_int
 let string_of = Int64.to_string
 let of_string = Int64.of_string
 let sn_to buf sn=  Llio.int64_to buf sn
-let sn_from string p = Llio.int64_from string p
+let sn_from buf = Llio.int64_from buf
 
 let output_sn oc t = Llio.output_int64 oc t
 let input_sn ic = Llio.input_int64 ic

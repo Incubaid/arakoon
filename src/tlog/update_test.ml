@@ -30,7 +30,7 @@ let _b2b u =
   let b = Buffer.create 1024 in
   let () = Update.to_buffer b u in
   let flat = Buffer.contents b in
-  let u',_ = Update.from_buffer flat 0 in
+  let u' = Update.from_buffer (Llio.make_buffer flat 0) in
   u'
 
 let _cmp = OUnit.assert_equal ~printer:Update.update2s
