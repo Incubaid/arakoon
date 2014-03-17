@@ -269,8 +269,13 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
     Lwt.return () in
   inner ()
 
-let start_election_timeout constants n i =
-  let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
+let start_election_timeout ?(from_master=false) constants n i =
+  let sleep_sec =
+    if from_master
+    then
+      float_of_int (constants.lease_expiration) /. 4.0
+    else
+      float_of_int (constants.lease_expiration) /. 2.0 in
   let () = match constants.election_timeout with
     | None ->
       begin
