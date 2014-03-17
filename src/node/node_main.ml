@@ -565,7 +565,7 @@ let _main_2 (type s)
 
           let service = _config_service ?ssl_context:service_ssl_context me stop backend in
 
-          let send, receive, run, register, is_alive =
+          let send, run, register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
           let start_liveness_detection_loop fuse =
@@ -629,7 +629,7 @@ let _main_2 (type s)
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
               me.is_learner
-              other_names send receive
+              other_names send
               get_last_value
               on_accept
               on_consensus

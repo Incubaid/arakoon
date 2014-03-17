@@ -69,16 +69,10 @@ let network_of_messaging (m:messaging) =
     let g = MPMessage.generic_of msg in
     m # send_message g ~source ~target
   in
-  let receive target =
-    (* log "calling receive" >>= fun () -> *)
-    m # recv_message ~target >>= fun (g,s) ->
-    let msg = MPMessage.of_generic g in
-    Lwt.return (msg,s)
-  in
   let register = m # register_receivers in
   let run () = m # run () in
   let is_alive id = m#expect_reachable ~target:id in
-  send, receive, run, register, is_alive
+  send, run, register, is_alive
 
 
 let update_votes (nones,somes) = function
@@ -154,7 +148,7 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | ReadOnly | Forced _ -> false
 
-let make (type s) ~catchup_tls_ctx me is_learner others send receive get_value
+let make (type s) ~catchup_tls_ctx me is_learner others send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
