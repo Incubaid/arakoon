@@ -401,10 +401,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_int    ic >>= fun max ->
       Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max
       >>= fun () ->
-      backend # prefix_keys ~consistency key max >>= fun keys ->
-      response_ok oc >>= fun () ->
-      Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
-      Lwt.return false
+      Lwt.catch
+        (fun () ->
+         backend # prefix_keys ~consistency key max >>= fun keys ->
+         response_ok oc >>= fun () ->
+         Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
+         Lwt.return false)
+        (handle_exception oc)
     end
   | MULTI_GET ->
     begin
