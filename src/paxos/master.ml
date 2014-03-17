@@ -281,5 +281,5 @@ let master_dictate constants ms () =
        mcast_e;
        accept_e;
       ] in
-  start_election_timeout constants n i >>= fun () ->
+  start_election_timeout ~from_master:true constants n i >>= fun () ->
   Fsm.return ~sides (Accepteds_check_done (ms, ballot))
