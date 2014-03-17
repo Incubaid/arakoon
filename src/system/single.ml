@@ -31,13 +31,19 @@ open Master_type
 
 let section = Logger.Section.main
 
-let should_fail x error_msg success_msg =
+let should_fail f rc error_msg success_msg =
   Lwt.catch
     (fun ()  ->
-       x () >>= fun () ->
+       f () >>= fun () ->
        Logger.debug_ "should fail...doesn't" >>= fun () ->
        Lwt.return true)
-    (fun exn -> Logger.debug_ ~exn success_msg >>= fun () -> Lwt.return false)
+    (function
+        | Arakoon_exc.Exception(rc', _) when rc' = rc ->
+           Logger.debug_ success_msg >>= fun () ->
+           Lwt.return false
+        | exn ->
+           Logger.debug_ ~exn error_msg >>= fun () ->
+           Lwt.return true)
   >>= fun bad ->
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
@@ -100,7 +106,9 @@ let nothing_on_slave (tn, cluster_cfg, all_t, _) =
     Lwt.return slave_cfgs
   in
   let named_fail name f =
-    should_fail f
+    should_fail
+      f
+      Arakoon_exc.E_NOT_MASTER
       (name ^ " should not succeed on slave")
       (name ^ " failed on slave, which is intended")
   in
@@ -121,12 +129,12 @@ let nothing_on_slave (tn, cluster_cfg, all_t, _) =
 
   let test_slave cluster_id cfg =
     Logger.info_f_ "slave=%s" cfg.node_name  >>= fun () ->
-    let f (client:Arakoon_client.client) =
-      set_on_slave client >>= fun () ->
-      delete_on_slave client >>= fun () ->
-      test_and_set_on_slave client
+    let f with_client =
+      with_client set_on_slave >>= fun () ->
+      with_client delete_on_slave >>= fun () ->
+      with_client test_and_set_on_slave
     in
-    Client_main.with_client ~tls:None cfg cluster_id f
+    f (fun client_action -> Client_main.with_client ~tls:None cfg cluster_id client_action)
   in
   let test_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
@@ -158,14 +166,13 @@ let dirty_on_slave (tn, cluster_cfg,_, _) =
   let do_slave cluster_id cfg =
     let dirty_get (client:Arakoon_client.client) =
       Logger.debug_ "dirty_get" >>= fun () ->
-      Lwt.catch
-        (fun () -> client # get ~consistency:No_guarantees "xxx" >>= fun v ->
-          Logger.debug_f_ "dirty_get:result = %s" v
-        )
-        (function
-          | Arakoon_exc.Exception(Arakoon_exc.E_NOT_FOUND,"xxx") ->
-            Logger.debug_ "dirty_get yielded a not_found"
-          | e -> Lwt.fail e)
+      should_fail
+        (fun () ->
+         client # get ~consistency:No_guarantees "xxx" >>= fun v ->
+         Logger.debug_f_ "dirty_get:result = %s" v)
+        Arakoon_exc.E_NOT_FOUND
+        "dirty get should fail with not found"
+        "dirty get failed with not found as intended"
     in
     Client_main.with_client ~tls:None cfg cluster_id dirty_get
   in
@@ -215,6 +222,7 @@ let _delete_after_set (client:client) =
        Logger.info_f_ "delete_after_set get yields value=%S" v >>= fun () ->
        Lwt.return ()
     )
+    Arakoon_exc.E_NOT_FOUND
     "get after delete yields, which is A PROBLEM!"
     "get after delete fails, which was intended"
 
@@ -302,6 +310,7 @@ let _assert2 (client: client) =
   client # set "x" "x" >>= fun () ->
   should_fail
     (fun () -> client # aSSert "x" (Some "y"))
+    Arakoon_exc.E_ASSERTION_FAILED
     "PROBLEM:_assert2: yielded unit"
     "_assert2: ok, this aSSert should indeed fail"
 
@@ -318,7 +327,7 @@ let _assert3 (client:client) =
   client # sequence updates >>= fun () ->
   client # get k >>= fun v2 ->
   OUnit.assert_equal v2 "REALLY";
-  Lwt.catch
+  should_fail
     (fun () ->
        client # sequence updates >>= fun () ->
        let u2 = [
@@ -327,10 +336,9 @@ let _assert3 (client:client) =
        ]
        in
        client # sequence u2)
-    (function
-      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
-      | ex -> Lwt.fail ex
-    )
+    Arakoon_exc.E_ASSERTION_FAILED
+    "sequence should fail with E_ASSERTION_FAILED"
+    "sequence should fail with E_ASSERTION_FAILED"
   >>= fun () ->
   client # get k >>= fun  v3 ->
   OUnit.assert_equal v2 "REALLY";
@@ -345,6 +353,7 @@ let _assert_exists2 (client: client) =
   client # set "x_exists" "x_exists" >>= fun () ->
   should_fail
     (fun () -> client # aSSert_exists "x_no_exists")
+    Arakoon_exc.E_ASSERTION_FAILED
     "PROBLEM:_assert_exists2: yielded unit"
     "_assert_exists2: ok, this aSSert should indeed fail"
 
@@ -360,22 +369,15 @@ let _assert_exists3 (client:client) =
   client # sequence updates >>= fun () ->
   client # get k >>= fun v2 ->
   OUnit.assert_equal v2 "REALLY";
-  Lwt.catch
-    (fun () ->
-       client # sequence updates >>= fun () ->
-       let u2 = [
-         Arakoon_client.Assert_exists(k);
-         Arakoon_client.Set(k,"NO WAY")
-       ]
-       in
-       client # sequence u2)
-    (function
-      | Arakoon_exc.Exception(Arakoon_exc.E_ASSERTION_FAILED, msg) -> Lwt.return ()
-      | ex -> Lwt.fail ex
-    )
-  >>= fun () ->
+  client # sequence updates >>= fun () ->
+  let u2 = [
+    Arakoon_client.Assert_exists(k);
+    Arakoon_client.Set(k,"YES WAY")
+  ]
+  in
+  client # sequence u2 >>= fun () ->
   client # get k >>= fun  v3 ->
-  OUnit.assert_equal v2 "REALLY";
+  OUnit.assert_equal v3 "YES WAY";
   Lwt.return ()
 
 let _range_1 (client: client) =
@@ -459,12 +461,14 @@ let _sequence2 (client: client) =
   in
   should_fail
     (fun () -> client # sequence updates)
+    Arakoon_exc.E_NOT_FOUND
     "_sequence2:failing delete in sequence does not produce exception"
     "_sequence2:produced exception, which is intended"
   >>= fun ()->
   Logger.debug_ "_sequence2: part 2 of scenario" >>= fun () ->
   should_fail
     (fun () -> client # get k2 >>= fun _ -> Lwt.return ())
+    Arakoon_exc.E_NOT_FOUND
     "PROBLEM:_sequence2: get yielded a value"
     "_sequence2: ok, this get should indeed fail"
   >>= fun () -> Lwt.return ()
@@ -478,11 +482,13 @@ let _sequence3 (client: client) =
                  Arakoon_client.Delete k2;] in
   should_fail
     (fun () -> client # sequence changes)
+    Arakoon_exc.E_NOT_FOUND
     "PROBLEM: _sequence3: change should fail (exception in change)"
     "sequence3 changes indeed failed"
   >>= fun () ->
   should_fail
     (fun () -> client # get k1 >>= fun v1 -> Logger.info_f_ "value=:%s" v1)
+    Arakoon_exc.E_NOT_FOUND
     "PROBLEM: changes should be all or nothing"
     "ok: all-or-noting changes"
   >>= fun () -> Logger.info_f_ "sequence3.ok"
@@ -510,12 +516,14 @@ let _multi_get (client: client) =
         Lwt.return ()
       | _ -> Lwt.fail (Failure "2 values expected")
   end >>= fun () ->
-  Lwt.catch
+  should_fail
     (fun () ->
        client # multi_get ["I_DO_NOT_EXIST";key2]
        >>= fun values ->
        Lwt.return ())
-    (fun exn -> Logger.debug_ ~exn "is this ok?")
+    Arakoon_exc.E_NOT_FOUND
+    "should fail with E_NOT_FOUND"
+    "should fail with E_NOT_FOUND"
 
 let _multi_get_option (client:client) =
   let k1 = "_multi_get_option:key1"
@@ -634,21 +642,21 @@ let make_suite base name w =
   name >:::
     [
       make_el "all_same_master" base all_same_master;
-      (* "nothing_on_slave">:: w nothing_on_slave; *)
-      make_el "dirty_on_slave"  (base +200) dirty_on_slave;
-      make_el "trivial_master"  (base +300) trivial_master;
-      make_el "trivial_master2" (base +400) trivial_master2;
-      make_el "trivial_master3" (base +500) trivial_master3;
-      make_el "trivial_master4" (base +600) trivial_master4;
-      make_el "trivial_master5" (base +700) trivial_master5;
-      make_el "assert1"         (base + 800) assert1;
-      make_el "assert2"         (base + 900) assert2;
-      make_el "assert3"         (base + 1000) assert3;
-      make_el "assert_exists1"  (base + 1100) assert_exists1;
-      make_el "assert_exists2"  (base + 1200) assert_exists2;
-      make_el "assert_exists3"  (base + 1300) assert_exists3;
-      make_el "trivial_master6" (base + 1400) trivial_master6;
-      make_el "replace"         (base + 1500) replace
+      make_el "nothing_on_slave" (base + 100) nothing_on_slave;
+      make_el "dirty_on_slave"   (base + 200) dirty_on_slave;
+      make_el "trivial_master"   (base + 300) trivial_master;
+      make_el "trivial_master2"  (base + 400) trivial_master2;
+      make_el "trivial_master3"  (base + 500) trivial_master3;
+      make_el "trivial_master4"  (base + 600) trivial_master4;
+      make_el "trivial_master5"  (base + 700) trivial_master5;
+      make_el "assert1"          (base + 800) assert1;
+      make_el "assert2"          (base + 900) assert2;
+      make_el "assert3"          (base + 1000) assert3;
+      make_el "assert_exists1"   (base + 1100) assert_exists1;
+      make_el "assert_exists2"   (base + 1200) assert_exists2;
+      make_el "assert_exists3"   (base + 1300) assert_exists3;
+      make_el "trivial_master6"  (base + 1400) trivial_master6;
+      make_el "replace"          (base + 1500) replace
     ]
 
 let force_master =

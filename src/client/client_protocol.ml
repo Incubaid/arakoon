@@ -351,16 +351,19 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       response_ok_bool oc poss
     end
   | TEST_AND_SET ->
-    begin
-      Llio.input_string ic >>= fun key ->
-      Llio.input_string_option ic >>= fun expected ->
-      Llio.input_string_option ic >>= fun wanted ->
-      Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
-      backend # test_and_set key expected wanted >>= fun vo ->
-      response_ok oc >>= fun () ->
-      Llio.output_string_option oc vo >>= fun () ->
-      Lwt.return false
-    end
+     begin
+       Lwt.catch
+         (fun () ->
+          Llio.input_string ic >>= fun key ->
+          Llio.input_string_option ic >>= fun expected ->
+          Llio.input_string_option ic >>= fun wanted ->
+          Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
+          backend # test_and_set key expected wanted >>= fun vo ->
+          response_ok oc >>= fun () ->
+          Llio.output_string_option oc vo >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
   | REPLACE ->
      begin
        Lwt.catch
