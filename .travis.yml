@@ -1,8 +1,5 @@
 language: c
 env:
-  - PPA=avsm/ocaml40+opam10
-  - PPA=avsm/ocaml40+opam11
-  - PPA=avsm/ocaml41+opam10
   - PPA=avsm/ocaml41+opam11
 
 before_install: ./travis.sh before_install
