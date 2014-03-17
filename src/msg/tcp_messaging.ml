@@ -345,9 +345,10 @@ class tcp_messaging
           else b0
         in
         Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
-        let (source:id), pos1 = Llio.string_from b1 0 in
-        let target, pos2 = Llio.string_from b1 pos1 in
-        let msg, _   = Message.from_buffer b1 pos2 in
+        let buffer = Llio.make_buffer b1 0 in
+        let (source:id) = Llio.string_from buffer in
+        let target      = Llio.string_from buffer in
+        let msg         = Message.from_buffer buffer in
         (*log_f "message from %s for %s" source target >>= fun () ->*)
         if drop_it msg source target then Lwt.return b1
         else

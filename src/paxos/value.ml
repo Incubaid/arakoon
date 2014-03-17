@@ -64,29 +64,31 @@ let value_to buf v=
         Llio.int64_to buf (Int64.of_float l)
       end
 
-let value_from string pos =
-  let i0,p1 = Llio.int_from string pos in
+let value_from b =
+  let pos = Llio.buffer_pos b in
+  let i0 = Llio.int_from b in
   if i0 = 0xff
   then
-    let c,p2 = Llio.char_from string p1 in
+    let c = Llio.char_from b in
     match c with
       | 'c' ->
-        let synced, p3 = Llio.bool_from string p2 in
-        let us, p4     = Llio.list_from string Update.from_buffer p3 in
+        let synced = Llio.bool_from b  in
+        let us     = Llio.list_from b Update.from_buffer in
         let r = Vc(us,synced) in
-        r, p4
-      | 'm' -> let m, p3 = Llio.string_from string p2 in
-        let l, p4 = Llio.int64_from string p3 in
-        (Vm (m,Int64.to_float l)), p4
+        r
+      | 'm' -> let m = Llio.string_from b in
+        let l = Llio.int64_from b in
+        Vm (m,Int64.to_float l)
       | _ -> failwith "demarshalling error"
   else
     begin
       (* this is for backward compatibility:
          formerly, we logged updates iso values *)
-      let u,p2 = Update.from_buffer string pos in
+      let () = Llio.buffer_set_pos b pos in
+      let u = Update.from_buffer b in
       let synced = Update.is_synced u in
       let r = Vc ([u], synced) in
-      r, p2
+      r
     end
 
 

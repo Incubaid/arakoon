@@ -43,8 +43,8 @@ module Message = struct
     Llio.string_to buffer t.kind;
     Llio.string_to buffer t.payload
 
-  let from_buffer buffer pos =
-    let k, pos1  = Llio.string_from buffer pos in
-    let p, pos2  = Llio.string_from buffer pos1
-    in {kind=k;payload=p}, pos2
+  let from_buffer buffer =
+    let k  = Llio.string_from buffer in
+    let p  = Llio.string_from buffer
+    in {kind=k;payload=p}
 end

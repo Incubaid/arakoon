@@ -205,18 +205,18 @@ module Routing = struct
     in
     walk cfg
 
-  let routing_from buf pos =
-    let rec _build pos =
-      let typ,p1 = Llio.bool_from buf pos in
-      let r,p = if typ
-        then let s,p2 = Llio.string_from buf p1 in Cluster s,p2
-        else let sep,p2 = Llio.string_from buf p1 in
-          let left,p3 = _build p2 in
-          let right,p4 = _build p3 in
-          Branch(left,sep,right),p4
-      in r,p
+  let routing_from buf =
+    let rec _build () =
+      let typ = Llio.bool_from buf in
+      let r = if typ
+        then let s   = Llio.string_from buf in Cluster s
+        else let sep = Llio.string_from buf in
+          let left  = _build () in
+          let right = _build () in
+          Branch(left,sep,right)
+      in r
     in
-    _build pos
+    _build ()
 
   let output_routing oc routing =
     let buf = Buffer.create 97 in
@@ -228,7 +228,8 @@ module Routing = struct
 
   let input_routing ic =
     Llio.input_string ic >>= fun s ->
-    let r,_ = routing_from s 0 in
+    let buf = Llio.make_buffer s 0 in
+    let r   = routing_from buf in
     Lwt.return r
 
   let find cfg key =

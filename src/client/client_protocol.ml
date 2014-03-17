@@ -132,7 +132,7 @@ let decode_sequence ic =
   begin
     Llio.input_string ic >>= fun data ->
     Logger.debug_f_ "Read out %d bytes" (String.length data) >>= fun () ->
-    let update,_ = Update.from_buffer data 0 in
+    let update = Update.from_buffer (Llio.make_buffer data 0) in
     match update with
       | Update.Sequence updates ->
         Lwt.return updates

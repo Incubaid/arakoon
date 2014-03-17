@@ -25,7 +25,7 @@ let test_serialization () =
   let () = Statistics.to_buffer b s in
   let bs = Buffer.contents b in
   let () = Printf.eprintf "bs=%S\n" bs in
-  let s1,_ = Statistics.from_buffer bs 0 in
+  let s1 = Statistics.from_buffer (Llio.make_buffer bs 0) in
   OUnit.assert_equal ~printer:Statistics.string_of s s1
 
 let suite = "statistics" >::: [

@@ -343,15 +343,14 @@ struct
         let update_stats ur =
           let n_keys =
             match ur with
-              | Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
+              | Ok so -> (match so with | None -> 0 | Some ns -> (Llio.int_from (Llio.make_buffer ns 0)))
               | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
           in
           Statistics.new_delete_prefix _stats start n_keys
         in
         let so_post = function
           | None -> 0
-          | Some s -> let r', _ = Llio.int_from s 0 in
-            r'
+          | Some s -> Llio.int_from (Llio.make_buffer s 0)
         in
         _update_rendezvous self update update_stats push_update ~so_post
 
@@ -709,8 +708,8 @@ struct
               >>= fun cfgs ->
               let result = Hashtbl.create 5 in
               let add_item (item: Key.t*string) =
-                let (k,v) = item in
-                let cfg, _ = ClientCfg.cfg_from v 0 in
+                let k,v = item in
+                let cfg = ClientCfg.cfg_from (Llio.make_buffer v 0) in
                 let start = String.length ncfg_prefix_b4 in
                 let length = (Key.length k) - start in
                 let k' = Key.sub k start length in

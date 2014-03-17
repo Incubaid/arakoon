@@ -208,7 +208,9 @@ module C = struct
         then maybe_p, pos
         else
           begin
-            let entry1, pos1 = Tlogcommon.entry_from buffer pos in
+            let x = Llio.make_buffer buffer pos in
+            let entry1 = Tlogcommon.entry_from x in
+            let pos1 = Llio.buffer_pos x in
             let i1 = Entry.i_of entry1 in
             if i1 > lowerI
             then maybe_p, pos
@@ -224,7 +226,9 @@ module C = struct
         if p = (String.length buffer)
         then Lwt.return a
         else
-          let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
+          let x = Llio.make_buffer buffer p in
+          let buf_entry = Tlogcommon.entry_from x in
+          let pos2 = Llio.buffer_pos x in
           begin
             match too_far_i with
               | None -> f a buf_entry
@@ -308,7 +312,9 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
         then maybe_p, pos
         else
           begin
-            let entry1, pos1 = Tlogcommon.entry_from buffer pos in
+            let x = Llio.make_buffer buffer pos in
+            let entry1 = Tlogcommon.entry_from x in
+            let pos1 = Llio.buffer_pos x in
             let i1 = Entry.i_of entry1 in
             if i1 > lowerI
             then maybe_p, pos
@@ -324,7 +330,9 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
         if p = (String.length buffer)
         then Lwt.return a
         else
-          let buf_entry, pos2 = Tlogcommon.entry_from buffer p in
+          let x = Llio.make_buffer buffer p in
+          let buf_entry = Tlogcommon.entry_from x in
+          let pos2 = Llio.buffer_pos x in
           begin
             match too_far_i with
               | None -> f a buf_entry

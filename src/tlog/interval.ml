@@ -57,14 +57,13 @@ module Interval = struct
     so2 buf t.pr_b;
     so2 buf t.pr_e
 
-  let interval_from s pos =
-    let sof s pos = Llio.string_option_from s pos in
-    let pu_b,p1 = sof s pos in
-    let pu_e,p2 = sof s p1 in
-    let pr_b,p3 = sof s p2 in
-    let pr_e,p4 = sof s p3 in
-    let r = {pu_b;pu_e;pr_b;pr_e} in
-    r,p4
+  let interval_from b =
+    let sof () = Llio.string_option_from b in
+    let pu_b = sof () in
+    let pu_e = sof () in
+    let pr_b = sof () in
+    let pr_e = sof () in
+    {pu_b;pu_e;pr_b;pr_e}
 
   open Lwt
   let output_interval oc t=

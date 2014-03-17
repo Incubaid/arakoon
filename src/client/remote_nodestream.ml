@@ -83,7 +83,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
               last_seen := Some i2;
               Llio.input_int32 ic >>= fun chksum ->
               Llio.input_string ic >>= fun entry ->
-              let value,_ = Value.value_from entry 0 in
+              let value = Value.value_from (Llio.make_buffer entry 0) in
               f (i2, value) >>= fun () ->
               loop_entries ()
             end

@@ -87,29 +87,30 @@ module MPMessage = struct
 
   let of_generic m =
     let kind, payload = Message.kind_of m, Message.payload_of m in
+    let buf = Llio.make_buffer payload 0 in
     match kind with
       | "prepare" ->
-        let n, pos1 = Sn.sn_from payload 0 in
-        let i, _    = Sn.sn_from payload pos1 in
+        let n = Sn.sn_from buf in
+        let i = Sn.sn_from buf in
         Prepare (n,i)
       | "nak"     ->
-        let n, pos1 = Sn.sn_from payload 0 in
-        let n', pos2 = Sn.sn_from payload pos1 in
-        let i', _ = Sn.sn_from payload pos2 in
+        let n = Sn.sn_from buf in
+        let n' = Sn.sn_from buf in
+        let i' = Sn.sn_from buf in
         Nak (n,(n',i'))
       | "promise" ->
-        let n, pos1 = Sn.sn_from payload 0 in
-        let i, pos2 = Sn.sn_from payload pos1 in
-        let v, pos3 = Llio.option_from Value.value_from payload pos2
-        in Promise (n,i, v)
+        let n = Sn.sn_from buf in
+        let i = Sn.sn_from buf in
+        let v = Llio.option_from Value.value_from buf in
+        Promise (n,i, v)
       | "accept"  ->
-        let n, pos1 = Sn.sn_from payload 0 in
-        let i, pos2 = Sn.sn_from payload pos1 in
-        let s, pos2 = Value.value_from payload pos2 in
+        let n = Sn.sn_from buf in
+        let i = Sn.sn_from buf in
+        let s = Value.value_from buf in
         Accept(n, i,s)
       | "accepted" ->
-        let n, pos1 = Sn.sn_from payload 0 in
-        let i, _ = Sn.sn_from payload pos1 in
+        let n = Sn.sn_from buf in
+        let i = Sn.sn_from buf in
         Accepted(n,i)
       | s -> failwith (s ^":not implemented")
 end

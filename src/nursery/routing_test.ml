@@ -8,7 +8,7 @@ let test_serialization () =
   let b = Buffer.create 127 in
   Routing.routing_to b routing ;
   let flat = Buffer.contents b in
-  let inflated,_ = Routing.routing_from flat 0 in
+  let inflated  = Routing.routing_from (Llio.make_buffer flat 0) in
   Printf.eprintf "reinflated=%s\n" (Routing.to_s inflated);
   OUnit.assert_equal routing inflated ~printer:Routing.to_s;
   ()
