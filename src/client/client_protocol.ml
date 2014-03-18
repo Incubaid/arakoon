@@ -95,6 +95,8 @@ let handle_exception oc exn=
         Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, false, Logger.Debug)
       | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
         Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Logger.Debug)
+      | XException(Arakoon_exc.E_NOT_MASTER, msg) ->
+        Lwt.return (Arakoon_exc.E_NOT_MASTER, msg, false, false, Logger.Debug)
       | XException(Arakoon_exc.E_NO_LONGER_MASTER, msg) ->
         Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, false, Logger.Debug)
       | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
