@@ -123,6 +123,7 @@ def maybe_install_packages():
     opam(['update'])
     opam(['install', 'ssl', 'ocamlfind',
           'camlbz2','camltc','snappy',
+          'quickcheck',
           'bisect'])
 
 def do_it():
