@@ -51,7 +51,7 @@ let get_value tlog_coll i = tlog_coll # get_last_value i
 
 let test_generic network_factory n_nodes () =
   Logger.info_ "START:TEST_GENERIC" >>= fun () ->
-  let get_buffer, send, nw_run, nw_register, is_alive = network_factory () in
+  let get_buffer, (send, nw_run, nw_register, is_alive) = network_factory () in
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
@@ -203,7 +203,7 @@ let test_generic network_factory n_nodes () =
 
 
 let test_master_loop network_factory ()  =
-  let get_buffer, send, nw_run, nw_register, is_alive =
+  let get_buffer, (send, nw_run, nw_register, is_alive) =
     network_factory () in
   let me = "c0" in
   let i0 = 0L in
@@ -317,7 +317,7 @@ let build_perfect () =
   let run () = Lwt_unix.sleep 2.0 in
   let register (xs:(string * (string * int)) list) = () in
   let is_alive id = true in
-  get_buffer, send, run, register, is_alive
+  get_buffer, (send, run, register, is_alive)
 
 
 let build_tcp () =
@@ -325,7 +325,7 @@ let build_tcp () =
     (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
   in
   let network = network_of_messaging m in
-  network
+  m # get_buffer, network
 
 
 
@@ -459,27 +459,18 @@ let ideal    = [ (fun (msg,s,t) -> true) ]
 let c2_fails = [ (fun (msg,s,t) -> s <> "c2")]
 
 
-let xtodo () =
-  OUnit.todo "re-enable"
-
-(* Lwt_main.run (test ideal);; *)
 open OUnit
 let w = lwt_test_wrap
 let suite = "basic" >::: [
     "singleton_perfect" >:: w (test_generic build_perfect 1);
     "pair_perfect"  >:: w (test_generic build_perfect 2);
-    (*"trio"          >:: w (test_generic build_perfect 3);
-      "quartet"       >:: w (test_generic build_perfect 4);
-      "quintet"       >:: w (test_generic build_perfect 5);
-      "sextet"        >:: w (test_generic build_perfect 6);
-      "ideal_simulation" >:: w (test_simulation ideal);
-      "c2_fails"      >:: w (test_simulation c2_fails);*)
-  (*
-  "c2_fails"      >:: w (test_simulation c2_fails);
-  "c1_nak"        >:: w (test_simulation c1_nak);
-  *)
-    (* "c1_nak"        >:: xtodo;
-       "pair_tcp"      >:: xtodo; *)
-    (* "pair_tcp"      >:: w (test_generic build_tcp 2); *)
+    "trio"          >:: w (test_generic build_perfect 3);
+    "quartet"       >:: w (test_generic build_perfect 4);
+    "quintet"       >:: w (test_generic build_perfect 5);
+    "sextet"        >:: w (test_generic build_perfect 6);
+    "ideal_simulation" >:: w (test_simulation ideal);
+    "c2_fails"      >:: w (test_simulation c2_fails);
+    (* "c1_nak"        >:: w (test_simulation c1_nak); *)
+    "pair_tcp"      >:: w (test_generic build_tcp 2);
     "master_loop_1" >:: w (test_master_loop build_perfect);
   ];;
