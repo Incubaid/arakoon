@@ -151,10 +151,10 @@ let close ls flush =
 
 let get_location ls = Camltc.Hotc.filename ls.db
 
-let reopen ls f quiesced =
+let reopen ls f read_only =
   let mode =
     begin
-      if quiesced then
+      if read_only then
         B.readonly_mode
       else
         B.default_mode

@@ -28,7 +28,7 @@ open LevelDB
 module LevelDBStore =(
   struct
     type t = {
-      db: LevelDB.db ;
+      mutable db: LevelDB.db ;
       mutable location : string;
       mutable _tx: (transaction * LevelDB.writebatch) option;
     }
@@ -85,22 +85,24 @@ module LevelDBStore =(
       (* TODO should return not found? *)
       __with_batch t (fun batch -> LevelDB.Batch.delete batch key)
 
-    let range_delete t tx left ro = failwith "todo:range_delete"
     let close t flush =
       LevelDB.close t.db;
       Lwt.return ()
 
-    let get_key_count t = failwith "todo:get_key_count"
-    let copy_store t b oc = failwith "copy_store"
+    let get_key_count t = failwith "get_key_count not supported"
 
-    let copy_store2 x y b = Lwt.fail Not_found
-
-    let defrag t = failwith "defrag"
-    let optimize t = failwith "optimize"
-    let relocate t s = failwith "relocate"
+    let copy_store t b oc = Lwt.fail (Failure "copy_store")
+    let copy_store2 x y b = Lwt.fail (Failure "no copy_store2")
+    let defrag t = Logger.warning_f_ "no defrag"
+    let optimize t quisced = Logger.warning_f_ "no optimize"
+    let relocate t s = Lwt.fail (Failure "relocate")
     let get_location t = t.location
-    let reopen t when_closed ro = failwith "reopen"
     let flush t = Logger.warning_f_ "no flushing"
+    let reopen t when_closed ro =
+      close t true >>= fun () ->
+      when_closed () >>= fun () ->
+      t.db <- LevelDB.open_db t.location; (* TODO use ro *)
+      Lwt.return ()
 
     module Cursor = struct
       type cursor = LevelDB.iterator
