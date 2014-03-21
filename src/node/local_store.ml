@@ -34,11 +34,6 @@ type t = { db : Camltc.Hotc.t;
            mutable _tx : (transaction * Camltc.Hotc.bdb) option;
          }
 
-let range ls first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  B.range bdb (Some first) finc last linc max
-
-
 let copy_store2 old_location new_location overwrite =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists

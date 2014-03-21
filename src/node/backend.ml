@@ -38,7 +38,7 @@ class type backend = object
   method range:
     consistency:consistency ->
     string option -> bool ->
-    string option -> bool -> int -> (Key.t array) Lwt.t
+    string option -> bool -> int -> (Key.t counted_list) Lwt.t
   method range_entries:
     consistency:consistency ->
     string option -> bool ->

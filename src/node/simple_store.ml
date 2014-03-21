@@ -157,11 +157,6 @@ module type Simple_store = sig
   val delete: t -> transaction -> string -> unit
   val delete_prefix: t -> transaction -> string -> int
 
-  (* special case this one, for speed. *)
-  val range : t ->
-              string -> bool -> string option -> bool ->
-              int -> string array
-
   val flush: t -> unit Lwt.t
   val close: t -> bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t

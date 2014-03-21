@@ -186,7 +186,7 @@ struct
         self # _read_allowed consistency >>= fun () ->
         self # _check_interval_range first last >>= fun () ->
         S.range store first finc last linc max >>= fun r ->
-        Statistics.new_range _stats start (Array.length r);
+        Statistics.new_range _stats start (fst r);
         Lwt.return r
 
       method private with_blocked_collapser start_i f =

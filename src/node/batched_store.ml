@@ -191,10 +191,6 @@ struct
     _with_complex_query ~allow_in_transaction:false s;
     S.delete_prefix s.s (_get_ls_tx s)  prefix
 
-  let range s first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
-    S.range s.s first finc last linc max
-
   let flush s =
     _commit_ls_tx_if_any s;
     Lwt.return ()

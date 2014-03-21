@@ -81,16 +81,16 @@ module LevelDBStore =(
     let set t tx key value =
       __with_batch t (fun batch -> LevelDB.Batch.put batch key value)
 
-    let delete t tx key = failwith "todo:delete"
-    let range t left linc right rinc max = failwith "todo:range"
+    let delete t tx key =
+      (* TODO should return not found? *)
+      __with_batch t (fun batch -> LevelDB.Batch.delete batch key)
+
     let range_delete t tx left ro = failwith "todo:range_delete"
     let close t flush =
       LevelDB.close t.db;
       Lwt.return ()
 
     let get_key_count t = failwith "todo:get_key_count"
-    let get_fringe_border_descending t xo x i = failwith "todo:get_fringe_border_a"
-    let get_fringe_border_ascending t x xo i = failwith "todo:get_fringe_border_d"
     let copy_store t b oc = failwith "copy_store"
 
     let copy_store2 x y b = Lwt.fail Not_found

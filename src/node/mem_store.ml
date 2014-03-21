@@ -110,19 +110,6 @@ let delete_prefix ms tx prefix =
   count
 
 
-let range ms first finc last linc max =
-  let count, keys =
-    with_cursor
-      ms
-      (fun cur ->
-       CS.fold_range cur
-                     first finc last linc
-                     max
-                     (fun cur k _ acc ->
-                      k :: acc)
-                     []) in
-  Array.of_list keys
-
 let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
