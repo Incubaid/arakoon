@@ -178,6 +178,14 @@ module type Simple_store = sig
   val copy_store2 : string -> string -> bool -> unit Lwt.t
 end
 
+module type Extended_simple_store =
+sig
+  include Simple_store
+  val _tranbegin : t -> transaction
+  val _trancommit : t -> unit
+  val _tranabort : t -> unit
+end
+
 let _f _pf = function
   | Some x -> _pf ^ x
   | None -> _pf

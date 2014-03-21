@@ -21,14 +21,6 @@ open Lwt
 
 module StringMap = Map.Make(String)
 
-module type Extended_simple_store =
-sig
-  include Simple_store
-  val _tranbegin : t -> transaction
-  val _trancommit : t -> unit
-  val _tranabort : t -> unit
-end
-
 let default_max_entries = 100
 let default_max_size = 100_000
 
@@ -281,4 +273,4 @@ struct
     S.cur_jump
 end
 
-module Local_store = Batched_store(Local_store)
+module Local_store = (*Batched_store ( *) Leveldb_store.LevelDBStore (* ) *)
