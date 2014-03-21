@@ -92,7 +92,7 @@ module LevelDBStore =(
     let get_key_count t = failwith "get_key_count not supported"
 
     let copy_store t b oc = Lwt.fail (Failure "copy_store")
-    let copy_store2 x y b = Lwt.fail (Failure "no copy_store2")
+    let copy_store2 x y b = Logger.warning_f_ "no copy store2"
     let defrag t = Logger.warning_f_ "no defrag"
     let optimize t quisced = Logger.warning_f_ "no optimize"
     let relocate t s = Lwt.fail (Failure "relocate")
@@ -121,49 +121,39 @@ module LevelDBStore =(
            Snapshot.release snapshot;
            raise e
 
-      let wrap_not_found f =
-        try
-          f ();
-          true
-        with Not_found -> false
-
       let cur_last cur =
-        wrap_not_found
-          (fun () ->
-           Iterator.seek_to_last cur)
+        Iterator.seek_to_last cur;
+        Iterator.valid cur
 
       let cur_jump cur ?(direction=Right) key =
         match direction with
         | Right ->
-           wrap_not_found
-             (fun () ->
-              Iterator.seek cur key 0 (String.length key))
+           Iterator.seek cur key 0 (String.length key);
+           Iterator.valid cur
         | Left ->
-           try
-             Iterator.seek cur key 0 (String.length key);
-             if String.(=:) key (Iterator.get_key cur)
-             then
-               true
-             else
-               begin
-                 try
+           Iterator.seek cur key 0 (String.length key);
+           if Iterator.valid cur
+           then
+             begin
+               if String.(=:) key (Iterator.get_key cur)
+               then
+                 true
+               else
+                 begin
                    Iterator.prev cur;
-                   true
-                 with Not_found ->
-                   false
-               end
-           with Not_found ->
+                   Iterator.valid cur
+                 end
+             end
+           else
              cur_last cur
 
       let cur_next cur =
-        wrap_not_found
-          (fun () ->
-           Iterator.next cur)
+        Iterator.next cur;
+        Iterator.valid cur
 
       let cur_prev cur =
-        wrap_not_found
-          (fun () ->
-           Iterator.prev cur)
+        Iterator.prev cur;
+        Iterator.valid cur
 
       let cur_get_key cur =
         Iterator.get_key cur
