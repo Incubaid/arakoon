@@ -98,78 +98,95 @@ module LevelDBStore =(
     let defrag t = failwith "defrag"
     let optimize t = failwith "optimize"
     let relocate t s = failwith "relocate"
-    let get_location t = failwith "get_location"
+    let get_location t = t.location
     let reopen t when_closed ro = failwith "reopen"
     let flush t = Logger.warning_f_ "no flushing"
-    let delete_prefix t = failwith "delete_prefix"
 
-    type cursor = LevelDB.iterator
+    module Cursor = struct
+      type cursor = LevelDB.iterator
 
-    let with_cursor t f =
-      let snapshot = Snapshot.make t.db in
-      let iterator = Snapshot.iterator snapshot in
-      try
-        let r = f iterator in
-        Iterator.close iterator;
-        Snapshot.release snapshot;
-        r
-      with
-      | e ->
-         Iterator.close iterator;
-         Snapshot.release snapshot;
-         raise e
+      let with_cursor t f =
+        let snapshot = Snapshot.make t.db in
+        let iterator = Snapshot.iterator snapshot in
+        try
+          let r = f iterator in
+          Iterator.close iterator;
+          Snapshot.release snapshot;
+          r
+        with
+        | e ->
+           Iterator.close iterator;
+           Snapshot.release snapshot;
+           raise e
 
-    let wrap_not_found f =
-      try
-        f ();
-        true
-      with Not_found -> false
+      let wrap_not_found f =
+        try
+          f ();
+          true
+        with Not_found -> false
 
-    let cur_last cur =
-      wrap_not_found
-        (fun () ->
-         Iterator.seek_to_last cur)
+      let cur_last cur =
+        wrap_not_found
+          (fun () ->
+           Iterator.seek_to_last cur)
 
-    let cur_jump cur ?(direction=Right) key =
-      match direction with
-      | Right ->
-         wrap_not_found
-           (fun () ->
-            Iterator.seek cur key 0 (String.length key))
-      | Left ->
-         try
-           Iterator.seek cur key 0 (String.length key);
-           if String.(=:) key (Iterator.get_key cur)
-           then
-             true
-           else
-             begin
-               try
-                 Iterator.prev cur;
-                 true
-               with Not_found ->
-                 false
-             end
-         with Not_found ->
-           cur_last cur
+      let cur_jump cur ?(direction=Right) key =
+        match direction with
+        | Right ->
+           wrap_not_found
+             (fun () ->
+              Iterator.seek cur key 0 (String.length key))
+        | Left ->
+           try
+             Iterator.seek cur key 0 (String.length key);
+             if String.(=:) key (Iterator.get_key cur)
+             then
+               true
+             else
+               begin
+                 try
+                   Iterator.prev cur;
+                   true
+                 with Not_found ->
+                   false
+               end
+           with Not_found ->
+             cur_last cur
 
-    let cur_next cur =
-      wrap_not_found
-        (fun () ->
-         Iterator.next cur)
+      let cur_next cur =
+        wrap_not_found
+          (fun () ->
+           Iterator.next cur)
 
-    let cur_prev cur =
-      wrap_not_found
-        (fun () ->
-         Iterator.prev cur)
+      let cur_prev cur =
+        wrap_not_found
+          (fun () ->
+           Iterator.prev cur)
 
-    let cur_get_key cur =
-      Iterator.get_key cur
+      let cur_get_key cur =
+        Iterator.get_key cur
 
-    let cur_get_value cur =
-      Iterator.get_value cur
+      let cur_get_value cur =
+        Iterator.get_value cur
 
-    let cur_get cur =
-      (cur_get_key cur, cur_get_value cur)
+      let cur_get cur =
+        (cur_get_key cur, cur_get_value cur)
+    end
+
+    include Cursor
+
+    module CS = Extended_cursor_store(Cursor)
+
+    let delete_prefix t tx prefix =
+      let count, () =
+        with_cursor
+          t
+          (fun cur ->
+           CS.fold_range cur prefix true (next_prefix prefix) false
+                         (-1)
+                         (fun cur k _ () ->
+                          delete t tx k)
+                         ()) in
+      count
 
 end : Extended_simple_store)
