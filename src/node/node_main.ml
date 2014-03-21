@@ -548,7 +548,7 @@ let _main_2 (type s)
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-              store (S.copy_store2, full_snapshot_path)
+              store
               tlog_coll lease_period
               ~quorum_function n_nodes
               ~expect_reachable

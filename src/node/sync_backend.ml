@@ -99,7 +99,6 @@ struct
     (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
     (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
     (store: 'a)
-    (store_methods: (string -> string -> bool -> unit Lwt.t) * string )
     (tlog_collection:Tlogcollection.tlog_collection)
     (lease_expiration:int)
     ~quorum_function n_nodes
@@ -576,7 +575,7 @@ struct
                  self # wait_for_tlog_release tlog_num
                in
                Logger.info_ "Starting collapse" >>= fun () ->
-               Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb collapse_slowdown >>= fun () ->
+               Collapser.collapse_many tlog_collection (module S) n cb' new_cb collapse_slowdown >>= fun () ->
                Logger.info_ "Collapse completed")
 
       method get_routing () =

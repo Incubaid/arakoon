@@ -23,15 +23,16 @@ open Tlogcommon
 let section = Logger.Section.main
 
 let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
-      (module S : Store.STORE with type t = s) (copy_store, head_location)
+      (module S : Store.STORE with type t = s)
       (too_far_i:Sn.t)
       (cb: Sn.t -> unit Lwt.t) slowdown =
 
+  let head_location = tlog_coll # get_head_name () in
   let new_location = head_location ^ ".clone" in
   Logger.debug_f_ "Creating db clone at %s" new_location >>= fun () ->
   Lwt.catch (
     fun () ->
-      copy_store head_location new_location true
+      S.copy_store2 head_location new_location true
   ) (
     function
       | Not_found -> Logger.debug_f_ "head db at '%s' does not exist" head_location
@@ -183,13 +184,12 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
 
 let collapse_many (type s) tlog_coll
       (module S : Store.STORE with type t = s)
-      store_fs
       tlogs_to_keep cb' cb slowdown =
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
-  let (_,(head_location:string)) = store_fs in
+  let head_location = tlog_coll # get_head_name () in
   _head_i (module S) head_location >>= fun head_io ->
   let last_i = tlog_coll # get_last_i () in
   Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
@@ -212,7 +212,7 @@ let collapse_many (type s) tlog_coll
       let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
-      collapse_until tlog_coll (module S) store_fs g_too_far_i cb slowdown >>= fun () ->
+      collapse_until tlog_coll (module S) g_too_far_i cb slowdown >>= fun () ->
       tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
       cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
     end
