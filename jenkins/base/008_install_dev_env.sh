@@ -7,7 +7,7 @@ opam switch 4.01.0
 eval `opam config env`
 
 opam update -y
-opam pin camltc none || true 
+opam pin camltc none || true
 opam install -y ssl
 opam install -y conf-libev
 opam install -y camlbz2
@@ -15,3 +15,4 @@ opam install -y snappy
 opam install -y "lwt.2.4.4"
 opam install -y "camltc.999"
 opam install -y bisect
+opam install -y leveldb

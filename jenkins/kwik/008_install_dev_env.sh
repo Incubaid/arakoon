@@ -16,3 +16,4 @@ opam remove camltc
 opam install -y "camltc.999"
 opam install -y bisect
 opam install -y quickcheck
+opam install -y leveldb

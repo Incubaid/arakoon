@@ -13,6 +13,7 @@ ssl
 lwt with SSL support
 camltc
 quickcheck
+leveldb
 
 When it's been a while you might want to run `opam update` first to get the latest versions.
 
