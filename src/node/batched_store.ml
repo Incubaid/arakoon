@@ -269,4 +269,4 @@ struct
     S.cur_jump
 end
 
-module Local_store = (*Batched_store ( *) Leveldb_store.LevelDBStore (* ) *)
+module Local_store = Batched_store(Leveldb_store.LevelDBStore)
