@@ -82,7 +82,7 @@ module LevelDBStore =(
       __with_batch t (fun batch -> LevelDB.Batch.put batch key value)
 
     let delete t tx key =
-      (* TODO should return not found? *)
+      ignore (get t key); (* to throw Not_found when needed *)
       __with_batch t (fun batch -> LevelDB.Batch.delete batch key)
 
     let close t flush =
