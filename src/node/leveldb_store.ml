@@ -25,6 +25,15 @@ open Simple_store
 open Lwt
 open LevelDB
 
+(*
+TODO
+
+- with batch semantics ... -> get/exist/delete should keep in mind changes already in 'batch'
+- copy/relocate store methods (work with directories)
+- open db RO
+
+ *)
+
 module LevelDBStore =(
   struct
     type t = {
