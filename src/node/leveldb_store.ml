@@ -81,9 +81,7 @@ module LevelDBStore =(
          f batch
 
     let get t key =
-      match LevelDB.get t.db key with
-      | None -> raise Not_found
-      | Some v ->  v
+      LevelDB.get_exn t.db key
 
     let exists t key = LevelDB.mem t.db key
 
