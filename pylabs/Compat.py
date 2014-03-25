@@ -1,3 +1,25 @@
+"""
+This file is part of Arakoon, a distributed key-value store. Copyright
+(C) 2010-2014 Incubaid BVBA
+
+Licensees holding a valid Incubaid license may use this file in
+accordance with Incubaid's Arakoon commercial license agreement. For
+more information on how to enter into this agreement, please contact
+Incubaid (contact details can be found on www.arakoon.org/licensing).
+
+Alternatively, this file may be redistributed and/or modified under
+the terms of the GNU Affero General Public License version 3, as
+published by the Free Software Foundation. Under this license, this
+file is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.
+
+See the GNU Affero General Public License for more details.
+You should have received a copy of the
+GNU Affero General Public License along with this program (file "COPYING").
+If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import os
 import ConfigParser
 import shutil
@@ -73,13 +95,13 @@ def _writeConfig(self, p, h):
     logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
     with open(fn,'w') as cfg:
         p.write(cfg)
-        
+
 
 def _run(self,cmd):
     #['mount', '-t', 'tmpfs', '-o', 'size=20m', 'tmpfs', '/opt/qbase3/var/tmp//arakoon_system_tests/test_disk_full_on_slave/sturdy_0/db']
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr = subprocess.PIPE)
     proc.wait()
-    output = proc.stdout.read()    
+    output = proc.stdout.read()
     err = proc.stderr.read()
     return (proc.returncode, output,err)
 
@@ -150,7 +172,7 @@ class Compat:
 class _LOGGING:
     def __init__(self,q):
         self._q = q
-        
+
     def info(self,template,*rest):
         message = template % rest
         self._q.logger.log(message,level = 10)
@@ -158,7 +180,7 @@ class _LOGGING:
     def debug(self,template,*rest):
         message = template % rest
         self._q.logger.log(message,level = 5)
-            
+
 
 class Q: # (Compat)
     def __init__(self):
@@ -178,7 +200,7 @@ class Q: # (Compat)
         self.AppStatusType = q.enumerators.AppStatusType
         self.listFilesInDir = q.system.fs.listFilesInDir
 
-        self.subprocess = subprocess 
+        self.subprocess = subprocess
         def check_output(cmd, **kwargs):
             return subprocess.Popen(cmd, stdout=subprocess.PIPE, **kwargs).communicate()[0]
         self.subprocess.check_output = check_output
@@ -188,7 +210,7 @@ class Q: # (Compat)
 
     getConfig = _getConfig
     writeConfig = _writeConfig
-            
+
     def removeDirTree(self,path):
         return self._q.system.fs.removeDirTree(path)
 
@@ -197,7 +219,7 @@ class Q: # (Compat)
 
     def removeFile(self,path):
         os.unlink(path)
-    
+
     def getFileContents(self, path):
         data = self._q.system.fs.fileGetContents(path)
         return data
@@ -209,7 +231,7 @@ class Q: # (Compat)
         self._q.system.fs.copyDirTree(source,destination)
     cfg2str = _cfg2str
     run = _run
-    
+
 
 def which_compat():
     print "which_compat"

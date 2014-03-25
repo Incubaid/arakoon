@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -108,7 +108,7 @@ def test_max_value_size_tinkering ():
     C.assert_running_nodes(1)
     client = C.get_client()
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
-    
+
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():

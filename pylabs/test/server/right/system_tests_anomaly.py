@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -54,7 +54,7 @@ def mount_ram_fs ( node_index ) :
         logging.info("out=%s", out)
         logging.info("err = %s", err)
         raise Exception("Mounting failed (rc=%s)" % rc)
-    
+
 
 def setup_3_nodes_ram_fs ( home_dir ):
     cluster = Common._getCluster(Common.cluster_id)
@@ -189,7 +189,7 @@ def apply_iptables_rules ( rules ) :
     flush_all_rules()
     for table in rules.keys():
         for line in rules[table]:
-            cmd = "sudo /sbin/iptables -t %s %s" %(table,line) 
+            cmd = "sudo /sbin/iptables -t %s %s" %(table,line)
             logging.info ("cmd = %s", cmd)
             cmd = cmd.strip()
             cmd = cmd.split(' ')

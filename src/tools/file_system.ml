@@ -1,6 +1,6 @@
 (*
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -52,11 +52,11 @@ let fsync_dir dir =
   Lwt_unix.openfile dir [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
   Lwt.finalize
     (fun () -> Lwt_unix.fsync dir_descr)
-    (fun () -> Lwt_unix.close dir_descr 
+    (fun () -> Lwt_unix.close dir_descr
                >>= fun () ->
                let t1 = Unix.gettimeofday() in
                let d = t1 -. t0 in
-               if d < 1.0 
+               if d < 1.0
                then Lwt.return ()
                else Logger.warning_f_ "fsync_dir of %S took : %f" dir d
     )

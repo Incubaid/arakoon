@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -41,7 +41,7 @@ class TestCmdTools:
 
     def _getCluster(self):
         return C._getCluster(self._clusterId)
-    
+
     def setup(self):
         logging.info('setup')
         c1 = self._getCluster()
@@ -160,10 +160,10 @@ class TestCmdTools:
         logging.info('4')
         cluster.stopOne(self._n0)
         assert_equals(cluster.getStatus(),
-                      {self._n0: X.AppStatusType.HALTED, 
+                      {self._n0: X.AppStatusType.HALTED,
                        self._n1: X.AppStatusType.RUNNING,
                        self._n2: X.AppStatusType.RUNNING})
-        
+
     def testGetStatusOne(self):
         cluster = self._getCluster()
         cluster.start()
@@ -187,4 +187,3 @@ class TestCmdTools:
     def testRestartOneUnknown(self):
         cluster = self._getCluster()
         assert_raises(Exception, cluster.restartOne, "arakoon0")
-

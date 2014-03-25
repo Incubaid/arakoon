@@ -1,6 +1,6 @@
 /*
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -37,7 +37,7 @@ CAMLprim value arakoon_get_rlimit(value v_resource, value soft){
 
   int resource = Int_val(v_resource);
   int res = getrlimit(resource, &rlim);
-  
+
   if (res != 0) {
 
     caml_failwith("get_rlimit");

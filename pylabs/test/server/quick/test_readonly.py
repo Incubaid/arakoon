@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -37,4 +37,3 @@ def test_read_only():
    assert_raises(ArakoonException, client.set, 'xxx','yyy')
    xxx = client['xxx']
    assert_equals(xxx,v)
-   

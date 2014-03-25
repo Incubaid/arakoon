@@ -1,6 +1,6 @@
 """
 This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+(C) 2010-2014 Incubaid BVBA
 
 Licensees holding a valid Incubaid license may use this file in
 accordance with Incubaid's Arakoon commercial license agreement. For
@@ -70,8 +70,8 @@ def test_db_defrag():
     db_file = Common.get_node_db_file( slave)
     start_size = os.path.getsize( db_file )
     print "start_size=", start_size
-    Common.defragDb(Common.node_names[1]) 
+    Common.defragDb(Common.node_names[1])
     opt_size = os.path.getsize(db_file)
-    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
-    msg = template % (start_size, opt_size) 
+    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'."
+    msg = template % (start_size, opt_size)
     assert_true( opt_size < 0.9 * start_size, msg)
