@@ -14,11 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+class type cursor_db =
+  object
+    method get_key : unit -> Key.t
+    method get_value : unit -> string
+    method jump : string -> bool
+    method last : unit -> bool
+    method next : unit -> bool
+    method prev : unit -> bool
+  end
+
 class type read_user_db =
   object
-    method get : string -> string
-    (* method range_entries: string option -> bool -> string option -> bool -> int *)
-    (*                       -> (string * string) array *)
+    method get : string -> string (* TODO should be string option *)
+    method with_cursor : (cursor_db -> 'a) -> 'a
   end
 
 class type user_db =

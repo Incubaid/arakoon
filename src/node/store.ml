@@ -637,15 +637,72 @@ struct
 
   (* let test_range store first last = test_option store first; test_option store last *)
 
+  class store_cursor_db cur =
+    object(self: #Registry.cursor_db)
+      val mutable is_valid = None
+
+      method assert_valid () =
+        if is_valid = None
+        then
+          failwith "invalid cursor"
+      method invalidate () =
+        is_valid <- None;
+        false
+      method validate_by_key () =
+        let k = S.cur_get_key cur in
+        let valid =
+          try
+            k.[0] = __prefix.[0]
+          with Invalid_argument "index out of bounds" ->
+            false in
+        if valid
+        then
+          begin
+            is_valid <- Some (Key.make k);
+            true
+          end
+        else
+          self # invalidate ()
+
+      method get_key () =
+        match is_valid with
+        | None -> failwith "invalid cursor"
+        | Some k -> k
+
+      method get_value () =
+        self # assert_valid ();
+        S.cur_get_value cur
+
+      method move_and_validate f =
+        if f ()
+        then
+          self # validate_by_key ()
+        else
+          self # invalidate ()
+
+      method jump k =
+        self # move_and_validate (fun () -> S.cur_jump cur (__prefix ^ k))
+
+      method last () =
+        self # move_and_validate (fun () -> S.cur_last cur)
+
+      method next () =
+        self # move_and_validate (fun () -> S.cur_next cur)
+
+      method prev () =
+        self # move_and_validate (fun () -> S.cur_prev cur)
+  end
+
   class store_read_user_db store =
     object(self: #Registry.read_user_db)
       method get k =
         test store k;
         _get store k
 
-      (* method range_entries first finc last linc max = *)
-      (*   test_range first last; *)
-      (*   _range_entries store first finc last linc max *)
+      method with_cursor f =
+        S.with_cursor
+          store.s
+          (fun cur -> f (new store_cursor_db cur :> Registry.cursor_db))
   end
 
   let get_read_user_db store = new store_read_user_db store
