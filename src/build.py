@@ -79,7 +79,7 @@ def render_rst(in_, out):
         settings=None, settings_spec=None, settings_overrides=RST_SETTINGS,
         config_section=None, enable_exit_status=False)
 
-    title = doc.document['title']
+    title = doc.document.get('title', "???")
 
     document = lxml.html.fromstring(text)
 
