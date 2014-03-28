@@ -301,8 +301,9 @@ let user_function_to b name po =
   Llio.string_to b name;
   Llio.string_option_to b po
 
-let user_hook_to b name payload =
+let user_hook_to b ~consistency name payload =
   command_to b USER_HOOK;
+  consistency_to b consistency;
   Llio.string_to b name;
   Llio.string_to b payload
 

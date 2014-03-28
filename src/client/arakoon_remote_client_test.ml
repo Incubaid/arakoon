@@ -192,6 +192,16 @@ let _test_user_function (client:Arakoon_client.client) =
 let test_user_function () =
   __client_server_wrapper__ _CLUSTER _test_user_function
 
+let test_user_hook () =
+  Registry.HookRegistry.register "t3k"
+                                 (fun user_db payload iv ->
+                                  Registry.HookRegistry.Return "cucu");
+  __client_server_wrapper__ _CLUSTER
+                            (fun client ->
+                             client # user_hook "t3k" "" >>= fun r ->
+                             OUnit.assert_equal r (Some "cucu");
+                             Lwt.return ())
+
 let _clear (client:Arakoon_client.client)  () =
   client # range None true None true 1000 >>= fun xn ->
   Lwt_list.iter_s (fun x -> client # delete x) xn
@@ -325,6 +335,7 @@ let suite = "remote_client" >::: [
     "test_and_set_to_none"  >:: test_and_set_to_none;
     "sequence"   >:: test_sequence;
     "user_function" >:: test_user_function;
+    "user_hook" >:: test_user_hook;
     "get_key_count" >:: test_get_key_count;
     "confirm"    >:: test_confirm;
     "reverse_range" >:: test_reverse_range;
