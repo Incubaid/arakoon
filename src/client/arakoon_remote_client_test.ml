@@ -62,7 +62,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
       real_test
   in
   let main () =
-    Lwt.pick [t0;
+    Lwt.pick [(t0 >>= fun () -> Lwt.fail (Failure "node stopped"));
               client_t ();] >>= fun () ->
     stop := true;
     Lwt.return ()
@@ -181,6 +181,9 @@ let test_sequence () =
 
 
 let _test_user_function (client:Arakoon_client.client) =
+  Registry.Registry.register "reverse"
+                    (fun user_db vo iv ->
+                     (Some "ohce"));
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");

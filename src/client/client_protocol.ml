@@ -380,13 +380,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name >>= fun () ->
       Lwt.catch
         (fun () ->
-           begin
-             backend # user_function name po >>= fun ro ->
-             response_ok oc >>= fun () ->
-             Llio.output_string_option oc ro >>= fun () ->
-             Lwt.return false
-           end
-        )
+         backend # user_function name po >>= fun ro ->
+         response_ok oc >>= fun () ->
+         Llio.output_string_option oc ro >>= fun () ->
+         Lwt.return false)
         (handle_exception oc)
     end
   | USER_HOOK ->

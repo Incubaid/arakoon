@@ -836,7 +836,7 @@ struct
         | Update.TestAndSet(key,expected,wanted)->
           update_in_tx_with_not_found key (fun tx -> _do_one update tx)
         | Update.UserFunction(name,po) ->
-          update_in_tx (fun tx -> _do_one update tx)
+          update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
           update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
