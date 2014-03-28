@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 
 
@@ -16,7 +15,7 @@
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '',
+        URL_ROOT:    './',
         VERSION:     '1.0.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -94,16 +93,31 @@ For simplicity, all of the nodes run on 1 machine.</p>
 </div>
 <div class="section" id="getting-it">
 <h2>Getting it<a class="headerlink" href="#getting-it" title="Permalink to this headline">¶</a></h2>
-<p>The simplest is to download the archive. Other options (from source,
-using Debian packages,...) exist too, but this is the easiest.</p>
-<div class="highlight-python"><pre>$&gt; wget http://www.arakoon.org/downloads/arakoon-1.0.0.tgz
+<p>The simplest is to download and install the debian archive. It&#8217;s not difficult to build from source neither, but it takes longer.</p>
+<div class="highlight-python"><div class="highlight"><pre>$&gt; wget https://github.com/Incubaid/arakoon/releases/download/1.7.1/arakoon_1.7.1_amd64.deb
+...
+$&gt; sudo dpkg -i ./arakoon_1.7.1_amd64.deb
+...
+$&gt; arakoon --version
+version: 1.7.1
+git_revision: &quot;tags/1.7.1-0-g68fa200&quot;
+compiled: &quot;19/03/2014 12:56:43 UTC&quot;
+machine: &quot;romain-ThinkPad 3.11.0-18-generic x86_64 x86_64 x86_64 GNU/Linux&quot;
+compiler_version : &quot;4.01.0&quot;
+tlogEntriesPerFile: 100000
+dependencies:
+camlbz2        0.6.0  Bindings for bzip2
+camltc         0.9.0  Tokyo Cabinet bindings for OCaml.
+lwt            2.4.4  A cooperative threads library for OCaml
+ounit          2.0.0  Unit testing framework loosely based on HUnit. It is similar to JUnit, and other XUnit testing frameworks
+snappy         0.1.0  Bindings to snappy - fast compression/decompression library
+ssl            0.4.6  Bindings for the libssl
 
-$&gt; tar -zxvf arakoon-1.0.0.tgz
-arakoon-1.0.0/arakoon
-arakoon-1.0.0/cfg/arakoon.ini
 
-$&gt; cd arakoon-1.0.0
-arakoon-1.0.0$&gt;</pre>
+$&gt; mkdir -p cluster/cfg
+$&gt; cd cluster
+cluster$&gt;
+</pre></div>
 </div>
 </div>
 <div class="section" id="configuration">
@@ -112,7 +126,7 @@ arakoon-1.0.0$&gt;</pre>
 needs to be exactly the same for every node, and for a cluster on a
 single machine, all nodes can use the same file location. Here is the one
 we&#8217;ll be using today:</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; cat cfg/arakoon.ini
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; cat cfg/arakoon.ini
 
 [global]
 cluster_id = ricky
@@ -123,71 +137,85 @@ ip = 127.0.0.1
 client_port = 4000
 messaging_port = 4010
 home = /tmp/arakoon/arakoon_0
+log_level = info
 
 [arakoon_1]
 ip = 127.0.0.1
 client_port = 4001
 messaging_port = 4011
+home = /tmp/arakoon/arakoon_1
+log_level = info
 
 [arakoon_2]
 ip = 127.0.0.1
 client_port = 4002
-messaging_port = 4012</pre>
+messaging_port = 4012
+home = /tmp/arakoon/arakoon_2
+log_level = info
+</pre></div>
 </div>
+<p>It&#8217;s exactly this config that allows nodes to find each other.</p>
 </div>
 <div class="section" id="starting-the-nodes">
 <h2>Starting the nodes<a class="headerlink" href="#starting-the-nodes" title="Permalink to this headline">¶</a></h2>
 <p>An arakoon node will not start unless the configured directories exist.
 Other things you need to provide are the name of the node, and the
 location of its configuration file.</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_0
-arakoon-1.0.0$&gt; ./arakoon -config cfg/arakoon.ini --node arakoon_0</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; mkdir -p /tmp/arakoon/arakoon_0
+cluster$&gt; arakoon -config cfg/arakoon.ini --node arakoon_0
+</pre></div>
 </div>
 <p>In another terminal tab, start the second node. Fortunately, Arakoon
 considers its default configuration location to be <strong>./cfg/arakoon.ini</strong>.</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_1
-arakoon-1.0.0$&gt; ./arakoon --node arakoon_1</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; mkdir -p /tmp/arakoon/arakoon_1
+cluster$&gt; arakoon --node arakoon_1
+</pre></div>
 </div>
 <p>In yet another terminal tab, start the third node:</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; mkdir -p /tmp/arakoon/arakoon_2
-arakoon-1.0.0$&gt; ./arakoon --node arakoon_2</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; mkdir -p /tmp/arakoon/arakoon_2
+cluster$&gt; arakoon --node arakoon_2
+</pre></div>
 </div>
 </div>
 <div class="section" id="first-steps">
 <h2>First steps<a class="headerlink" href="#first-steps" title="Permalink to this headline">¶</a></h2>
-<p>The arakoon binary is also an ad-hoc client, administrative too,...
+<p>The arakoon binary is also an ad-hoc client, administrative tool,...
 We&#8217;ll show some examples below.</p>
 <div class="section" id="who-s-the-master">
 <h3>Who&#8217;s the master<a class="headerlink" href="#who-s-the-master" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; ./arakoon --who-master
-arakoon_1</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon --who-master
+arakoon_0
+</pre></div>
 </div>
+<p>The actual output might vary as any of the 3 nodes can become master.
+It depends on which node wins the elections.
+Normally, a client finds out who the master is, and then talks to that node for requests</p>
 </div>
 <div class="section" id="basic-set-get-delete">
 <h3>Basic Set/Get/Delete<a class="headerlink" href="#basic-set-get-delete" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; ./arakoon --set some_key some_value
-arakoon-1.0.0$&gt; ./arakoon --get some_key
-"some_value"
-arakoon-1.0.0$&gt; ./arakoon --delete some_key
-arakoon-1.0.0$&gt; ./arakoon --get some_key
-Fatal error: exception Arakoon_exc.Exception(5, "some_key")
-Raised at file "src/core/lwt.ml", line 557, characters 22-23
-Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
-Called from file "src/client/client_main.ml", line 68, characters 12-31
-Called from file "src/main/main.ml", line 395, characters 26-37
-Called from file "src/main/arakoon.ml", line 1, characters 0-12</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon --set some_key some_value
+cluster$&gt; arakoon --get some_key
+&quot;some_value&quot;
+
+
+cluster$&gt; arakoon --delete some_key
+cluster$&gt; arakoon --get some_key
+Fatal error: exception Arakoon_exc.Exception(5, &quot;some_key&quot;)
+$&gt;
+</pre></div>
 </div>
 </div>
 <div class="section" id="one-node-goes-down">
 <h3>One node goes down<a class="headerlink" href="#one-node-goes-down" title="Permalink to this headline">¶</a></h3>
 <p>Go to the terminal tab for arakoon_0 and kill the node (<em>ctrl-c</em>).</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt; ./arakoon -config cfg/arakoon.ini --node arakoon_0
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon -config cfg/arakoon.ini --node arakoon_0
 ^C
-arakoon-1.0.0$&gt;./arakoon --expect-progress-possible
-true
-arakoon-1.0.0$&gt;./arakoon --set still_alive yes
-arakoon-1.0.0$&gt;./arakoon --get still_alive
-"yes"</pre>
+cluster$&gt; arakoon --who-master
+arakoon_2
+cluster$&gt; arakoon --set still_alive yes
+cluster$&gt; arakoon --get still_alive
+&quot;yes&quot;
+</pre></div>
 </div>
 <p>You can verify the cluster still behaves properly. This is because the
 <strong>majority</strong> of the nodes is just fine.</p>
@@ -197,36 +225,35 @@ arakoon-1.0.0$&gt;./arakoon --get still_alive
 <p>Arakoon keeps record of the everything you do so it can replay it to
 nodes that could not follow the cluster (because they were down,
 disconnected,...). This is what it looks like:</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt;./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog
-0:MasterSet ;"arakoon_1";0
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog
+0:(Vm (arakoon_0,0.000000))
+1:(Vc ([NOP;],false)
 ...
-5:Set       ;"some_key";10
+80:(Vc ([Set            ;&quot;some_key&quot;;10;&quot;...&quot;;],false)
 ...
-12:Delete    ;"some_key"
-13:MasterSet ;"arakoon_1";0
-...</pre>
+137:(Vc ([NOP;],false):&quot;closed:arakoon_0&quot;
+</pre></div>
 </div>
+<p>Whenever a node goes down, the very last thing it will do is write a marker on the tlog.
+This ensures the node can safely know everything is ok the next time it starts up.</p>
 </div>
-<div class="section" id="kill-another-node-and-whipe-it">
-<h3>Kill another Node and Whipe it<a class="headerlink" href="#kill-another-node-and-whipe-it" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="kill-another-node-and-wipe-it">
+<h3>Kill another Node and Wipe it<a class="headerlink" href="#kill-another-node-and-wipe-it" title="Permalink to this headline">¶</a></h3>
 <p>An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
 So go to the terminal tab for arakoon_1 and kill it.:</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt;./arakoon --node arakoon_1
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon --node arakoon_1
 ^C
-arakoon-1.0.0$&gt;./arakoon --get some_key
-Fatal error: exception Failure("No Master")
-Raised at file "src/core/lwt.ml", line 557, characters 22-23
-Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
-Called from file "src/client/client_main.ml", line 68, characters 12-31
-Called from file "src/main/main.ml", line 395, characters 26-37
-Called from file "src/main/arakoon.ml", line 1, characters 0-12
-arakoon-1.0.0$&gt;rm -rf /tmp/arakoon/arakoon_1/*
-arakoon-1.0.0$&gt;./arakoon --node arakoon_1</pre>
+cluster$&gt; arakoon --get some_key
+Fatal error: exception Failure(&quot;No Master&quot;)
+cluster$&gt; rm -rf /tmp/arakoon/arakoon_1/*
+cluster$&gt; arakoon --node arakoon_1
+</pre></div>
 </div>
 <p>The node has been restarted.
 Now go to a free tab, and try to get the value:</p>
-<div class="highlight-python"><pre>arakoon-1.0.0$&gt;./arakoon --get some_key
-"some_value"</pre>
+<div class="highlight-python"><div class="highlight"><pre>cluster$&gt; arakoon --get some_key
+&quot;some_value&quot;
+</pre></div>
 </div>
 <p>Arakoon nodes repair themselves using their siblings. Most of the time it&#8217;s automatic,
 but sometimes they need assistence (if a database is corrupt fe)</p>

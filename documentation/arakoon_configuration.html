@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 
 
@@ -16,7 +15,7 @@
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '',
+        URL_ROOT:    './',
         VERSION:     '1.0.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
@@ -93,7 +92,7 @@ configuration file.</p>
 setup shown on the <a class="reference internal" href="arakoon_deployment.html"><em>Arakoon Deployment page</em></a>. This
 configuration file must be stored somewhere on your file system. The file name
 can be freely chosen.</p>
-<div class="highlight-python"><pre>[global]
+<div class="highlight-python"><div class="highlight"><pre>[global]
 # A setup with 3 nodes
 
 cluster = Node_0, Node_1, Node_2
@@ -108,6 +107,11 @@ cluster_id = Demo_Cluster
 
 #quorum = 1
 
+[default_log_config]
+# available levels are: debug info notice warning error fatal
+client_protocol = info
+paxos = info
+tcp_messaging = info
 
 [Node_0]
 ip = 192.168.1.1
@@ -116,6 +120,7 @@ messaging_port = 10000
 home = /tmp/Node_0
 log_dir = /tmp/Node_0
 log_level = debug
+log_config = default_log_config
 #disable_tlog_compression = true
 
 [Node_1]
@@ -127,6 +132,7 @@ home = /tmp/arakoon_1
 #tlog_dir = /tmp/Node_1_tlog
 log_dir = /tmp/Node_1
 log_level = debug
+log_config = default_log_config
 #disable_tlog_compression = true
 
 [Node_2]
@@ -138,7 +144,9 @@ home = /tmp/Node_2
 #tlog_dir = /tmp/Node_2_tlog
 log_dir = /tmp/Node_2
 log_level = debug
-#disable_tlog_compression = true</pre>
+log_config = default_log_config
+#disable_tlog_compression = true
+</pre></div>
 </div>
 <div class="section" id="content-of-a-configuration-file">
 <h2>Content of a Configuration File<a class="headerlink" href="#content-of-a-configuration-file" title="Permalink to this headline">¶</a></h2>
@@ -147,6 +155,7 @@ log_level = debug
 <li>global</li>
 <li>node</li>
 </ul>
+<p>Optionally one or more log config sections can be added.</p>
 <div class="section" id="global-section">
 <h3>Global Section<a class="headerlink" href="#global-section" title="Permalink to this headline">¶</a></h3>
 <p>The global section of the configuration file defines the Arakoon setup.
@@ -209,6 +218,8 @@ the node database and not the transaction log file.</dd>
 <dt>log_dir <em>(optional)</em></dt>
 <dd>Location of the node&#8217;s log files on the file system. By default this is the
 same directory as the home location but you may choose another location.</dd>
+<dt>log_config <em>(optional)</em></dt>
+<dd>The log config to be used for this node.</dd>
 <dt>log_level</dt>
 <dd><p class="first">The level of logging on the node, possible options are:</p>
 <ul class="last simple">
@@ -226,6 +237,22 @@ connect/disconnect of a client</li>
 <dd>A transaction log is by default compressed when it has reached its maximum
 of entries (100.000). If you don&#8217;t want to compress these log, set the
 parameter to true.</dd>
+</dl>
+</div>
+<div class="section" id="log-config-section">
+<h3>Log Config Section<a class="headerlink" href="#log-config-section" title="Permalink to this headline">¶</a></h3>
+<p>The log config section specifies the log level for the different &#8216;log sections&#8217;
+Arakoon logs to.</p>
+<dl class="docutils">
+<dt>client_protocol <em>(optional)</em></dt>
+<dd>The level of logging associated with this section. Same options as log_level.
+The default value is what is specified in the node&#8217;s log_level.</dd>
+<dt>paxos <em>(optional)</em></dt>
+<dd>The level of logging associated with this section. Same options as log_level.
+The default value is what is specified in the node&#8217;s log_level.</dd>
+<dt>tcp_messaging <em>(optional)</em></dt>
+<dd>The level of logging associated with this section. Same options as log_level.
+The default value is what is specified in the node&#8217;s log_level.</dd>
 </dl>
 </div>
 </div>
