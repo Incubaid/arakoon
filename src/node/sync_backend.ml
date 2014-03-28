@@ -288,6 +288,16 @@ struct
         let update = Update.SetInterval iv in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
+      method user_hook name payload =
+          let open Registry in
+          let open HookRegistry in
+          let h = lookup name in
+          match h (S.get_read_user_db store) payload with
+          | Return s ->
+             Lwt.return (Some s)
+          | Update (name, po) ->
+             self # user_function name po
+
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
         let update = Update.UserFunction(name,po) in

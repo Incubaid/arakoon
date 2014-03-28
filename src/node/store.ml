@@ -91,6 +91,8 @@ sig
 
   val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
+  val get_read_user_db : t -> Registry.read_user_db
+
   val _set_i : t -> Sn.t -> unit
 end
 
@@ -623,39 +625,49 @@ struct
     let range_s = Buffer.contents buf in
     S.set store.s tx __interval_key range_s
 
+  let test store k =
+    if not (Interval.is_ok store.interval k) then
+      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+    else
+      ()
+
+  let test_option store = function
+    | None -> () (* TODO check omega *)
+    | Some k -> test store k
+
+  (* let test_range store first last = test_option store first; test_option store last *)
+
+  class store_read_user_db store =
+    object(self: #Registry.read_user_db)
+      method get k =
+        test store k;
+        _get store k
+
+      (* method range_entries first finc last linc max = *)
+      (*   test_range first last; *)
+      (*   _range_entries store first finc last linc max *)
+  end
+
+  let get_read_user_db store = new store_read_user_db store
+
   class store_user_db store tx =
-    let test k =
-      if not (Interval.is_ok store.interval k) then
-        raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
-    in
-    let test_option = function
-      | None -> ()
-      | Some k -> test k
-    in
-    let test_range first last = test_option first; test_option last
-    in
 
-    object (self : # Registry.user_db)
+  object (self : # Registry.user_db)
+    inherit store_read_user_db store
 
-      method set k v = test k ; _set store tx k v
-      method get k   = test k ; _get store k
+    method set k v = test store k ; _set store tx k v
 
-      method delete k = test k ; _delete store tx k
+    method delete k = test store k ; _delete store tx k
 
-      method test_and_set k e w = test k; _test_and_set store tx k e w
-
-      method range_entries first finc last linc max =
-        test_range first last;
-        Array.of_list (List.rev (_range_entries store first finc last linc max))
-    end
+    method test_and_set k e w = test store k; _test_and_set store tx k e w
+  end
 
   let _user_function store (name:string) (po:string option) tx =
     Lwt.wrap (fun () ->
-        let f = Registry.Registry.lookup name in
-        let user_db = new store_user_db store tx in
-        let ro = f user_db po in
-        ro)
-
+              let f = Registry.Registry.lookup name in
+              let user_db = new store_user_db store tx in
+              let ro = f user_db po in
+              ro)
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with

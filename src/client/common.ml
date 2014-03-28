@@ -82,6 +82,7 @@ type client_command =
   | FLUSH_STORE
   | GET_TXID
   | COPY_DB_TO_HEAD
+  | USER_HOOKS
 
 
 let code2int = [
@@ -131,6 +132,7 @@ let code2int = [
   FLUSH_STORE             , 0x42l;
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
+  USER_HOOKS              , 0x45l;
 ]
 
 let int2code =

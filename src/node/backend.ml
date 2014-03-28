@@ -79,6 +79,7 @@ class type backend = object
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
 
   method user_function: string -> string option -> (string option) Lwt.t
+  method user_hook: string -> string -> (string option) Lwt.t
 
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t

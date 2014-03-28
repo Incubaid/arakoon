@@ -14,14 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+class type read_user_db =
+  object
+    method get : string -> string
+    (* method range_entries: string option -> bool -> string option -> bool -> int *)
+    (*                       -> (string * string) array *)
+  end
+
 class type user_db =
   object
+    inherit read_user_db
     method set : string -> string -> unit
-    method get : string -> string
     method delete: string -> unit
     method test_and_set: string -> string option -> string option -> string option
-    method range_entries: string option -> bool -> string option -> bool -> int
-      -> (string * string) array
   end
 
 
@@ -29,4 +34,14 @@ module Registry : sig
   type f = user_db -> string option -> string option
   val register : string -> f -> unit
   val lookup : string -> f
+end
+
+
+module HookRegistry : sig
+  type continuation =
+    | Return of string
+    | Update of string * string option
+  type h = read_user_db -> string -> continuation
+  val register : string -> h -> unit
+  val lookup : string -> h
 end

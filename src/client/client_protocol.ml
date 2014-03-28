@@ -377,8 +377,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Llio.input_string ic >>= fun name ->
       Llio.input_string_option ic >>= fun po ->
-      Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name
-      >>= fun () ->
+      Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name >>= fun () ->
       Lwt.catch
         (fun () ->
            begin
@@ -390,6 +389,19 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
         )
         (handle_exception oc)
     end
+  | USER_HOOKS ->
+     begin
+       Llio.input_string ic >>= fun name ->
+       Llio.input_string ic >>= fun payload ->
+       Logger.debug_f_ "connection=%s USER_HOOK: name=%S" id name >>= fun () ->
+       Lwt.catch
+         (fun () ->
+          backend # user_hook name payload >>= fun ro ->
+          Llio.output_int oc 0 >>= fun () ->
+          Llio.output_string_option oc ro >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
   | PREFIX_KEYS ->
     begin
       Common.input_consistency ic >>= fun consistency ->
