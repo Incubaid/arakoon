@@ -198,8 +198,8 @@ struct
     _wrap_exception store "GET" CorruptStore (fun () ->
         Lwt.return (_get store key))
 
-  let _set store tx key value =
-    S.set store.s tx (__prefix ^ key) value
+  let _put store tx key vo =
+    S.put store.s tx (__prefix ^ key) vo
 
   let _get_option store key =
     try
@@ -479,32 +479,23 @@ struct
         Lwt.return (List.rev vs))
 
   let _delete store tx key =
-    S.delete store.s tx (__prefix ^ key)
+    let pk = (__prefix ^ key) in
+    if S.exists store.s pk
+    then
+      S.put store.s tx pk None
+    else
+      raise Not_found
 
   let _test_and_set store tx key expected wanted =
     let existing = _get_option store key in
     if existing = expected
     then
-      begin
-        match wanted with
-          | None ->
-            begin
-              match existing with
-                | None -> ()
-                | Some _ -> _delete store tx key
-            end
-          | Some wanted_s -> _set store tx key wanted_s
-      end;
+      _put store tx key wanted;
     existing
 
   let _replace store tx key wanted =
     let r = _get_option store key in
-    begin
-      match wanted,r with
-      | Some v, _      -> _set store tx key v
-      | None  , None   -> ()
-      | None  , Some o -> _delete store tx key
-    end;
+    _put store tx key wanted;
     r
 
   let fold_range store prefix first finc last linc max f init =
@@ -625,18 +616,6 @@ struct
     let range_s = Buffer.contents buf in
     S.set store.s tx __interval_key range_s
 
-  let test store k =
-    if not (Interval.is_ok store.interval k) then
-      raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
-    else
-      ()
-
-  let test_option store = function
-    | None -> () (* TODO check omega *)
-    | Some k -> test store k
-
-  (* let test_range store first last = test_option store first; test_option store last *)
-
   class store_cursor_db cur =
     object(self: #Registry.cursor_db)
       val mutable is_valid = None
@@ -696,8 +675,7 @@ struct
   class store_read_user_db store =
     object(self: #Registry.read_user_db)
       method get k =
-        test store k;
-        _get store k
+        _get_option store k
 
       method with_cursor f =
         S.with_cursor
@@ -712,11 +690,8 @@ struct
   object (self : # Registry.user_db)
     inherit store_read_user_db store
 
-    method set k v = test store k ; _set store tx k v
-
-    method delete k = test store k ; _delete store tx k
-
-    method test_and_set k e w = test store k; _test_and_set store tx k e w
+    method put k v =
+      _put store tx k v
   end
 
   let _user_function store (name:string) (po:string option) tx =
@@ -745,7 +720,7 @@ struct
         _wrap_exception store "_insert_update" Server.FOOBAR (fun () ->
             (Lwt.wrap f) >>= return) in
       match update with
-        | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
+        | Update.Set(key,value) -> wrap (fun () -> _put store tx key (Some value))
         | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
         | Update.Delete(key) ->
           Logger.debug_f_ "store # delete %S" key >>= fun () ->
@@ -809,9 +784,7 @@ struct
           end
         | Update.AdminSet(k,vo) ->
           let () =
-            match vo with
-              | None   -> S.delete store.s tx (__adminprefix ^ k)
-              | Some v -> S.set    store.s tx (__adminprefix ^ k) v
+            S.put store.s tx (__adminprefix ^ k) vo
           in
           Lwt.return (Ok None)
     in

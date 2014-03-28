@@ -154,7 +154,7 @@ module type Simple_store = sig
   val get: t -> string -> string
 
   val set: t -> transaction -> string -> string -> unit
-  val delete: t -> transaction -> string -> unit
+  val put: t -> transaction -> string -> string option -> unit
   val delete_prefix: t -> transaction -> string -> int
 
   (* special case this one, for speed. *)

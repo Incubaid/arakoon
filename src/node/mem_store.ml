@@ -87,12 +87,17 @@ let exists ms key =
 let get ms key =
   StringMap.find key ms.kv
 
-let delete ms tx key =
+let set ms tx key value =
   _verify_tx ms tx;
-  if StringMap.mem key ms.kv then
-    ms.kv <- StringMap.remove key ms.kv
-  else
-    raise (Key_not_found key)
+  ms.kv <- StringMap.add key value ms.kv
+
+let put ms tx key vo =
+  match vo with
+  | None ->
+     _verify_tx ms tx;
+     ms.kv <- StringMap.remove key ms.kv
+  | Some v ->
+     set ms tx key v
 
 module CS = Extended_cursor_store(Cursor)
 
@@ -105,7 +110,7 @@ let delete_prefix ms tx prefix =
        CS.fold_range cur prefix true (next_prefix prefix) false
                      (-1)
                      (fun cur k _ () ->
-                      delete ms tx k)
+                      put ms tx k None)
                      ()) in
   count
 
@@ -122,10 +127,6 @@ let range ms first finc last linc max =
                       k :: acc)
                      []) in
   Array.of_list keys
-
-let set ms tx key value =
-  _verify_tx ms tx;
-  ms.kv <- StringMap.add key value ms.kv
 
 let optimize ms quiesced = Lwt.return ()
 let defrag ms = Lwt.return ()

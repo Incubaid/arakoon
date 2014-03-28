@@ -26,16 +26,14 @@ class type cursor_db =
 
 class type read_user_db =
   object
-    method get : string -> string
+    method get : string -> string option
     method with_cursor : (cursor_db -> 'a) -> 'a
   end
 
 class type user_db =
   object
     inherit read_user_db
-    method set : string -> string -> unit
-    method delete: string -> unit
-    method test_and_set: string -> string option -> string option -> string option
+    method put : string -> string option -> unit
   end
 
 
