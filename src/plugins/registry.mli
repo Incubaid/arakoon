@@ -38,7 +38,7 @@ class type user_db =
 
 
 module Registry : sig
-  type f = user_db -> string option -> string option
+  type f = user_db -> string option -> Interval.Interval.t -> string option
   val register : string -> f -> unit
   val lookup : string -> f
 end
@@ -48,7 +48,7 @@ module HookRegistry : sig
   type continuation =
     | Return of string
     | Update of string * string option
-  type h = read_user_db -> string -> continuation
+  type h = read_user_db -> string -> Interval.Interval.t -> continuation
   val register : string -> h -> unit
   val lookup : string -> h
 end

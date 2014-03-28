@@ -291,8 +291,11 @@ struct
       method user_hook name payload =
           let open Registry in
           let open HookRegistry in
+          (* TODO pass in consistency and check it
+                  add call to ocaml client + test it *)
+          S.get_interval store >>= fun interval ->
           let h = lookup name in
-          match h (S.get_read_user_db store) payload with
+          match h (S.get_read_user_db store) payload interval with
           | Return s ->
              Lwt.return (Some s)
           | Update (name, po) ->

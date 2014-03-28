@@ -38,7 +38,7 @@ class type user_db =
   end
 
 module Registry = struct
-  type f = user_db -> string option -> string option (* TODO add routing here? *)
+  type f = user_db -> string option -> Interval.Interval.t -> string option
   let _r = Hashtbl.create 42
   let register name (f:f) = Hashtbl.replace _r name f
   let lookup name = Hashtbl.find _r name
@@ -48,7 +48,7 @@ module HookRegistry = struct
   type continuation =
     | Return of string (* TODO functional unparsing? *)
     | Update of string * string option (* user function name + payload *)
-  type h = read_user_db -> string -> continuation (* TODO add routing here? *)
+  type h = read_user_db -> string -> Interval.Interval.t -> continuation
   let _r = Hashtbl.create 42
   let register name (h:h) = Hashtbl.replace _r name h
   let lookup name = Hashtbl.find _r name

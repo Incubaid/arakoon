@@ -698,7 +698,7 @@ struct
     Lwt.wrap (fun () ->
               let f = Registry.Registry.lookup name in
               let user_db = new store_user_db store tx in
-              let ro = f user_db po in
+              let ro = f user_db po store.interval in
               ro)
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
