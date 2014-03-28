@@ -9,19 +9,33 @@ For simplicity, all of the nodes run on 1 machine.
 
 Getting it
 ==========
-The simplest is to download the archive. Other options (from source,
-using Debian packages,...) exist too, but this is the easiest.
+The simplest is to download and install the debian archive. It's not difficult to build from source neither, but it takes longer.
 
 ::
 
-    $> wget http://www.arakoon.org/downloads/arakoon-1.0.0.tgz
+    $> wget https://github.com/Incubaid/arakoon/releases/download/1.7.1/arakoon_1.7.1_amd64.deb
+    ...
+    $> sudo dpkg -i ./arakoon_1.7.1_amd64.deb
+    ...
+    $> arakoon --version
+    version: 1.7.1
+    git_revision: "tags/1.7.1-0-g68fa200"
+    compiled: "19/03/2014 12:56:43 UTC"
+    machine: "romain-ThinkPad 3.11.0-18-generic x86_64 x86_64 x86_64 GNU/Linux"
+    compiler_version : "4.01.0"
+    tlogEntriesPerFile: 100000
+    dependencies:
+    camlbz2        0.6.0  Bindings for bzip2
+    camltc         0.9.0  Tokyo Cabinet bindings for OCaml.
+    lwt            2.4.4  A cooperative threads library for OCaml
+    ounit          2.0.0  Unit testing framework loosely based on HUnit. It is similar to JUnit, and other XUnit testing frameworks
+    snappy         0.1.0  Bindings to snappy - fast compression/decompression library
+    ssl            0.4.6  Bindings for the libssl
 
-    $> tar -zxvf arakoon-1.0.0.tgz
-    arakoon-1.0.0/arakoon
-    arakoon-1.0.0/cfg/arakoon.ini
 
-    $> cd arakoon-1.0.0
-    arakoon-1.0.0$>
+    $> mkdir -p cluster/cfg
+    $> cd cluster
+    cluster$>
 
 Configuration
 =============
@@ -30,7 +44,7 @@ needs to be exactly the same for every node, and for a cluster on a
 single machine, all nodes can use the same file location. Here is the one
 we'll be using today::
 
-    arakoon-1.0.0$> cat cfg/arakoon.ini
+    cluster$> cat cfg/arakoon.ini
 
     [global]
     cluster_id = ricky
@@ -41,16 +55,23 @@ we'll be using today::
     client_port = 4000
     messaging_port = 4010
     home = /tmp/arakoon/arakoon_0
+    log_level = info
 
     [arakoon_1]
     ip = 127.0.0.1
     client_port = 4001
     messaging_port = 4011
+    home = /tmp/arakoon/arakoon_1
+    log_level = info
 
     [arakoon_2]
     ip = 127.0.0.1
     client_port = 4002
     messaging_port = 4012
+    home = /tmp/arakoon/arakoon_2
+    log_level = info
+
+It's exactly this config that allows nodes to find each other.
 
 Starting the nodes
 ==================
@@ -60,49 +81,51 @@ location of its configuration file.
 
 ::
 
-    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_0
-    arakoon-1.0.0$> ./arakoon -config cfg/arakoon.ini --node arakoon_0
+    cluster$> mkdir -p /tmp/arakoon/arakoon_0
+    cluster$> arakoon -config cfg/arakoon.ini --node arakoon_0
 
 In another terminal tab, start the second node. Fortunately, Arakoon
 considers its default configuration location to be **./cfg/arakoon.ini**.
 
 ::
 
-    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_1
-    arakoon-1.0.0$> ./arakoon --node arakoon_1
+    cluster$> mkdir -p /tmp/arakoon/arakoon_1
+    cluster$> arakoon --node arakoon_1
 
 In yet another terminal tab, start the third node::
 
-    arakoon-1.0.0$> mkdir -p /tmp/arakoon/arakoon_2
-    arakoon-1.0.0$> ./arakoon --node arakoon_2
+    cluster$> mkdir -p /tmp/arakoon/arakoon_2
+    cluster$> arakoon --node arakoon_2
 
 First steps
 ===========
-The arakoon binary is also an ad-hoc client, administrative too,...
+The arakoon binary is also an ad-hoc client, administrative tool,...
 We'll show some examples below.
 
 Who's the master
 ----------------
 ::
 
-    arakoon-1.0.0$> ./arakoon --who-master
-    arakoon_1
+    cluster$> arakoon --who-master
+    arakoon_0
+
+The actual output might vary as any of the 3 nodes can become master.
+It depends on which node wins the elections.
+Normally, a client finds out who the master is, and then talks to that node for requests
 
 Basic Set/Get/Delete
 --------------------
 ::
 
-    arakoon-1.0.0$> ./arakoon --set some_key some_value
-    arakoon-1.0.0$> ./arakoon --get some_key
+    cluster$> arakoon --set some_key some_value
+    cluster$> arakoon --get some_key
     "some_value"
-    arakoon-1.0.0$> ./arakoon --delete some_key
-    arakoon-1.0.0$> ./arakoon --get some_key
+
+
+    cluster$> arakoon --delete some_key
+    cluster$> arakoon --get some_key
     Fatal error: exception Arakoon_exc.Exception(5, "some_key")
-    Raised at file "src/core/lwt.ml", line 557, characters 22-23
-    Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
-    Called from file "src/client/client_main.ml", line 68, characters 12-31
-    Called from file "src/main/main.ml", line 395, characters 26-37
-    Called from file "src/main/arakoon.ml", line 1, characters 0-12
+    $>
 
 One node goes down
 ------------------
@@ -110,12 +133,12 @@ Go to the terminal tab for arakoon_0 and kill the node (*ctrl-c*).
 
 ::
 
-    arakoon-1.0.0$> ./arakoon -config cfg/arakoon.ini --node arakoon_0
+    cluster$> arakoon -config cfg/arakoon.ini --node arakoon_0
     ^C
-    arakoon-1.0.0$>./arakoon --expect-progress-possible
-    true
-    arakoon-1.0.0$>./arakoon --set still_alive yes
-    arakoon-1.0.0$>./arakoon --get still_alive 
+    cluster$> arakoon --who-master
+    arakoon_2
+    cluster$> arakoon --set still_alive yes
+    cluster$> arakoon --get still_alive
     "yes"
 
 You can verify the cluster still behaves properly. This is because the
@@ -127,38 +150,35 @@ Arakoon keeps record of the everything you do so it can replay it to
 nodes that could not follow the cluster (because they were down,
 disconnected,...). This is what it looks like::
 
-    arakoon-1.0.0$>./arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog 
-    0:MasterSet ;"arakoon_1";0
+    cluster$> arakoon --dump-tlog /tmp/arakoon/arakoon_0/000.tlog
+    0:(Vm (arakoon_0,0.000000))
+    1:(Vc ([NOP;],false)
     ...
-    5:Set       ;"some_key";10
+    80:(Vc ([Set            ;"some_key";10;"...";],false)
     ...
-    12:Delete    ;"some_key"
-    13:MasterSet ;"arakoon_1";0
-    ...
+    137:(Vc ([NOP;],false):"closed:arakoon_0"
 
+
+Whenever a node goes down, the very last thing it will do is write a marker on the tlog.
+This ensures the node can safely know everything is ok the next time it starts up.
 
 Kill another Node and Wipe it
 ------------------------------
 An Arakoon cluster needs to have a majority of nodes in sync to be able to have progress.
 So go to the terminal tab for arakoon_1 and kill it.::
 
-   arakoon-1.0.0$>./arakoon --node arakoon_1
+   cluster$> arakoon --node arakoon_1
    ^C
-   arakoon-1.0.0$>./arakoon --get some_key
+   cluster$> arakoon --get some_key
    Fatal error: exception Failure("No Master")
-   Raised at file "src/core/lwt.ml", line 557, characters 22-23
-   Called from file "src/unix/lwt_main.ml", line 38, characters 8-18
-   Called from file "src/client/client_main.ml", line 68, characters 12-31
-   Called from file "src/main/main.ml", line 395, characters 26-37
-   Called from file "src/main/arakoon.ml", line 1, characters 0-12
-   arakoon-1.0.0$>rm -rf /tmp/arakoon/arakoon_1/*
-   arakoon-1.0.0$>./arakoon --node arakoon_1
+   cluster$> rm -rf /tmp/arakoon/arakoon_1/*
+   cluster$> arakoon --node arakoon_1
 
 The node has been restarted.
 Now go to a free tab, and try to get the value::
-    
-    arakoon-1.0.0$>./arakoon --get some_key
+
+    cluster$> arakoon --get some_key
     "some_value"
 
-Arakoon nodes repair themselves using their siblings. Most of the time it's automatic, 
+Arakoon nodes repair themselves using their siblings. Most of the time it's automatic,
 but sometimes they need assistence (if a database is corrupt fe)
