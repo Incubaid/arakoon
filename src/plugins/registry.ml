@@ -27,7 +27,7 @@ class type cursor_db =
 
 class type read_user_db =
   object
-    method get : string -> string
+    method get : string -> string (* TODO get a string option *)
     method with_cursor : (cursor_db -> 'a) -> 'a
   end
 
@@ -36,11 +36,11 @@ class type user_db =
     inherit read_user_db
     method set : string -> string -> unit
     method delete: string -> unit
-    method test_and_set: string -> string option -> string option -> string option
+    method test_and_set: string -> string option -> string option -> string option (* TODO remove *)
   end
 
 module Registry = struct
-  type f = user_db -> string option -> string option
+  type f = user_db -> string option -> string option (* TODO add routing here? *)
   let _r = Hashtbl.create 42
   let register name (f:f) = Hashtbl.replace _r name f
   let lookup name = Hashtbl.find _r name
@@ -48,9 +48,9 @@ end
 
 module HookRegistry = struct
   type continuation =
-    | Return of string
+    | Return of string (* TODO functional unparsing? *)
     | Update of string * string option (* user function name + payload *)
-  type h = read_user_db -> string -> continuation
+  type h = read_user_db -> string -> continuation (* TODO add routing here? *)
   let _r = Hashtbl.create 42
   let register name (h:h) = Hashtbl.replace _r name h
   let lookup name = Hashtbl.find _r name

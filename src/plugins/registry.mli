@@ -26,7 +26,7 @@ class type cursor_db =
 
 class type read_user_db =
   object
-    method get : string -> string (* TODO should be string option *)
+    method get : string -> string
     method with_cursor : (cursor_db -> 'a) -> 'a
   end
 
