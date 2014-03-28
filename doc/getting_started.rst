@@ -71,6 +71,8 @@ we'll be using today::
     home = /tmp/arakoon/arakoon_2
     log_level = info
 
+It's exactly this config that allows nodes to find each other.
+
 Starting the nodes
 ==================
 An arakoon node will not start unless the configured directories exist.
@@ -167,7 +169,7 @@ So go to the terminal tab for arakoon_1 and kill it.::
 
    cluster$> arakoon --node arakoon_1
    ^C
-   $>arakoon --get some_key
+   cluster$> arakoon --get some_key
    Fatal error: exception Failure("No Master")
    cluster$> rm -rf /tmp/arakoon/arakoon_1/*
    cluster$> arakoon --node arakoon_1
@@ -175,7 +177,7 @@ So go to the terminal tab for arakoon_1 and kill it.::
 The node has been restarted.
 Now go to a free tab, and try to get the value::
 
-    arakoon-1.0.0$>./arakoon --get some_key
+    cluster$> arakoon --get some_key
     "some_value"
 
 Arakoon nodes repair themselves using their siblings. Most of the time it's automatic,
