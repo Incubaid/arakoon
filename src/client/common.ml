@@ -82,7 +82,7 @@ type client_command =
   | FLUSH_STORE
   | GET_TXID
   | COPY_DB_TO_HEAD
-  | USER_HOOKS
+  | USER_HOOK
 
 
 let code2int = [
@@ -132,7 +132,7 @@ let code2int = [
   FLUSH_STORE             , 0x42l;
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
-  USER_HOOKS              , 0x45l;
+  USER_HOOK               , 0x45l;
 ]
 
 let int2code =
@@ -301,6 +301,11 @@ let user_function_to b name po =
   Llio.string_to b name;
   Llio.string_option_to b po
 
+let user_hook_to b name payload =
+  command_to b USER_HOOK;
+  Llio.string_to b name;
+  Llio.string_to b payload
+
 let multiget_to b ~consistency keys =
   command_to b MULTI_GET;
   consistency_to b consistency;
@@ -434,7 +439,7 @@ let delete_prefix (ic,oc) prefix =
 
 
 let _build_sequence_request buf changes =
-  let update_buf = Buffer.create (32 * List.length changes) in
+  let update_buf = Buffer.create 100 in
   let rec c2u = function
     | Arakoon_client.Set (k,v) -> Update.Set(k,v)
     | Arakoon_client.Delete k -> Update.Delete k
@@ -442,6 +447,7 @@ let _build_sequence_request buf changes =
     | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
     | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
     | Arakoon_client.Assert_exists(k) -> Update.Assert_exists(k)
+    | Arakoon_client.UserFunction(name,vo) -> Update.UserFunction(name, vo)
   in
   let updates = List.map c2u changes in
   let seq = Update.Sequence updates in

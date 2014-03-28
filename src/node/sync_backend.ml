@@ -288,11 +288,10 @@ struct
         let update = Update.SetInterval iv in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
-      method user_hook name payload =
+      method user_hook ~consistency name payload =
           let open Registry in
           let open HookRegistry in
-          (* TODO pass in consistency and check it
-                  add call to ocaml client + test it *)
+          self # _read_allowed consistency >>= fun () ->
           S.get_interval store >>= fun interval ->
           let h = lookup name in
           match h (S.get_read_user_db store) payload interval with

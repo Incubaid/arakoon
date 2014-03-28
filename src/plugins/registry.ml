@@ -53,3 +53,5 @@ module HookRegistry = struct
   let register name (h:h) = Hashtbl.replace _r name h
   let lookup name = Hashtbl.find _r name
 end
+
+(* TODO test user functions and user hooks *)
