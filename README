@@ -4,8 +4,8 @@ It's an ocaml based multi-paxos implementation on top of Tokyo Cabinet.
 Compiling: see COMPILING
 
 License information: 
-  GNU AFFERO GENERAL PUBLIC LICENSE
-  (for the full license text, see COPYING)
+  ALv2 
+  (for the full license text, see LICENSE)
 
 Libraries we use: see LIBRARIES
   
