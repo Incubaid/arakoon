@@ -159,7 +159,7 @@ disconnected,...). This is what it looks like::
     137:(Vc ([NOP;],false):"closed:arakoon_0"
 
 
-Whenever a node goes down, it the very last thing it will do is write a marker on the tlog.
+Whenever a node goes down, the very last thing it will do is write a marker on the tlog.
 This ensures the node can safely know everything is ok the next time it starts up.
 
 Kill another Node and Wipe it
