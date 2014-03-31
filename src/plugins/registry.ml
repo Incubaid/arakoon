@@ -46,8 +46,8 @@ end
 
 module HookRegistry = struct
   type continuation =
-    | Return of string (* TODO functional unparsing? *)
-    | Update of string * string option (* user function name + payload *)
+    | Return of string option
+    | Update of Arakoon_client.change
   type h = read_user_db -> string -> Interval.Interval.t -> continuation
   let _r = Hashtbl.create 42
   let register name (h:h) = Hashtbl.replace _r name h

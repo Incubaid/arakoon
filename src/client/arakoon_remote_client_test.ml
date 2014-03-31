@@ -195,7 +195,7 @@ let test_user_function () =
 let test_user_hook () =
   Registry.HookRegistry.register "t3k"
                                  (fun user_db payload iv ->
-                                  Registry.HookRegistry.Return "cucu");
+                                  Registry.HookRegistry.Return (Some "cucu"));
   __client_server_wrapper__ _CLUSTER
                             (fun client ->
                              client # user_hook "t3k" "" >>= fun r ->

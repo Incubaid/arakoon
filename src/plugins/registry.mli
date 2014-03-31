@@ -46,8 +46,8 @@ end
 
 module HookRegistry : sig
   type continuation =
-    | Return of string
-    | Update of string * string option
+    | Return of string option
+    | Update of Arakoon_client.change
   type h = read_user_db -> string -> Interval.Interval.t -> continuation
   val register : string -> h -> unit
   val lookup : string -> h

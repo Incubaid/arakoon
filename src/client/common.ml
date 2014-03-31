@@ -438,19 +438,18 @@ let delete_prefix (ic,oc) prefix =
   request oc outgoing >>= fun () ->
   response ic Llio.input_int
 
+let rec change_to_update = function
+  | Arakoon_client.Set (k,v) -> Update.Set(k,v)
+  | Arakoon_client.Delete k -> Update.Delete k
+  | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
+  | Arakoon_client.Sequence cs -> Update.Sequence (List.map change_to_update cs)
+  | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
+  | Arakoon_client.Assert_exists(k) -> Update.Assert_exists(k)
+  | Arakoon_client.UserFunction(name,vo) -> Update.UserFunction(name, vo)
 
 let _build_sequence_request buf changes =
   let update_buf = Buffer.create 100 in
-  let rec c2u = function
-    | Arakoon_client.Set (k,v) -> Update.Set(k,v)
-    | Arakoon_client.Delete k -> Update.Delete k
-    | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
-    | Arakoon_client.Sequence cs -> Update.Sequence (List.map c2u cs)
-    | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
-    | Arakoon_client.Assert_exists(k) -> Update.Assert_exists(k)
-    | Arakoon_client.UserFunction(name,vo) -> Update.UserFunction(name, vo)
-  in
-  let updates = List.map c2u changes in
+  let updates = List.map change_to_update changes in
   let seq = Update.Sequence updates in
   let () = Update.to_buffer update_buf seq in
   let () = Llio.string_to buf (Buffer.contents update_buf)

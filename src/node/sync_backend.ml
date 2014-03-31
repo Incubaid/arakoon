@@ -19,6 +19,7 @@ limitations under the License.
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
+  open Std
   open Backend
   open Statistics
   open Client_cfg
@@ -296,9 +297,10 @@ struct
           let h = lookup name in
           match h (S.get_read_user_db store) payload interval with
           | Return s ->
-             Lwt.return (Some s)
-          | Update (name, po) ->
-             self # user_function name po
+             Lwt.return s
+          | Update change ->
+             let update = Common.change_to_update change in
+             _update_rendezvous self update no_stats push_update ~so_post:id
 
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
