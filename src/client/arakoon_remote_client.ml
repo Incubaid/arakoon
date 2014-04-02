@@ -83,6 +83,10 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> user_function_to buf name po) >>= fun () ->
       response ic Llio.input_string_option
 
+    method user_hook ?(consistency=Consistent) name =
+      request  oc (fun buf -> user_hook_to buf ~consistency name) >>= fun () ->
+      Lwt.return (ic, oc)
+
     method multi_get ?(consistency=Consistent) keys =
       request  oc (fun buf -> multiget_to buf consistency keys) >>= fun () ->
       response ic

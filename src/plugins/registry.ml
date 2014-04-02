@@ -14,19 +14,47 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+
+class type cursor_db =
+  object
+    method get_key : unit -> Key.t
+    method get_value : unit -> string
+    method jump : string -> bool
+    method last : unit -> bool
+    method next : unit -> bool
+    method prev : unit -> bool
+  end
+
+class type read_user_db =
+  object
+    method get : string -> string option
+    method with_cursor : (cursor_db -> 'a) -> 'a
+
+    method get_interval : unit -> Interval.Interval.t
+  end
+
 class type user_db =
   object
-    method set : string -> string -> unit
-    method get : string -> string
-    method delete: string -> unit
-    method test_and_set: string -> string option -> string option -> string option
-    method range_entries: string option -> bool -> string option -> bool -> int
-      -> (string * string) array
+    inherit read_user_db
+    method put : string -> string option -> unit
+  end
+
+class type backend =
+  object
+    method push_update : Update.Update.t -> string option Lwt.t
   end
 
 module Registry = struct
   type f = user_db -> string option -> string option
   let _r = Hashtbl.create 42
   let register name (f:f) = Hashtbl.replace _r name f
+  let lookup name = Hashtbl.find _r name
+end
+
+module HookRegistry = struct
+  (* input and output channel *)
+  type h = (Llio.lwtic * Llio.lwtoc * string) -> read_user_db -> backend -> unit Lwt.t
+  let _r = Hashtbl.create 42
+  let register name (h:h) = Hashtbl.replace _r name h
   let lookup name = Hashtbl.find _r name
 end

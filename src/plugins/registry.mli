@@ -14,19 +14,44 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-class type user_db =
+class type cursor_db =
   object
-    method set : string -> string -> unit
-    method get : string -> string
-    method delete: string -> unit
-    method test_and_set: string -> string option -> string option -> string option
-    method range_entries: string option -> bool -> string option -> bool -> int
-      -> (string * string) array
+    method get_key : unit -> Key.t
+    method get_value : unit -> string
+    method jump : string -> bool
+    method last : unit -> bool
+    method next : unit -> bool
+    method prev : unit -> bool
   end
 
+class type read_user_db =
+  object
+    method get : string -> string option
+    method with_cursor : (cursor_db -> 'a) -> 'a
+
+    method get_interval : unit -> Interval.Interval.t
+  end
+
+class type user_db =
+  object
+    inherit read_user_db
+    method put : string -> string option -> unit
+  end
+
+class type backend =
+  object
+    method push_update : Update.Update.t -> string option Lwt.t
+  end
 
 module Registry : sig
   type f = user_db -> string option -> string option
   val register : string -> f -> unit
   val lookup : string -> f
+end
+
+
+module HookRegistry : sig
+  type h = (Llio.lwtic * Llio.lwtoc * string) -> read_user_db -> backend -> unit Lwt.t
+  val register : string -> h -> unit
+  val lookup : string -> h
 end

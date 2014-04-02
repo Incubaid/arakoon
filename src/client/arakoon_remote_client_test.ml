@@ -62,7 +62,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
       real_test
   in
   let main () =
-    Lwt.pick [t0;
+    Lwt.pick [(t0 >>= fun () -> Lwt.fail (Failure "node stopped"));
               client_t ();] >>= fun () ->
     stop := true;
     Lwt.return ()
@@ -181,6 +181,9 @@ let test_sequence () =
 
 
 let _test_user_function (client:Arakoon_client.client) =
+  Registry.Registry.register "reverse"
+                    (fun user_db vo ->
+                     (Some "ohce"));
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");
@@ -188,6 +191,19 @@ let _test_user_function (client:Arakoon_client.client) =
 
 let test_user_function () =
   __client_server_wrapper__ _CLUSTER _test_user_function
+
+let test_user_hook () =
+  Registry.HookRegistry.register "t3k"
+                                 (fun (ic,oc,id) user_db backend ->
+                                  Llio.input_string ic >>= fun arg ->
+                                  Llio.output_string oc ("cucu " ^ arg));
+  __client_server_wrapper__ _CLUSTER
+                            (fun client ->
+                             client # user_hook "t3k" >>= fun (ic,oc) ->
+                             Llio.output_string oc "cthulhu" >>= fun () ->
+                             Llio.input_string ic >>= fun response ->
+                             OUnit.assert_equal response "cucu cthulhu";
+                             Lwt.return ())
 
 let _clear (client:Arakoon_client.client)  () =
   client # range None true None true 1000 >>= fun xn ->
@@ -322,6 +338,7 @@ let suite = "remote_client" >::: [
     "test_and_set_to_none"  >:: test_and_set_to_none;
     "sequence"   >:: test_sequence;
     "user_function" >:: test_user_function;
+    "user_hook" >:: test_user_hook;
     "get_key_count" >:: test_get_key_count;
     "confirm"    >:: test_confirm;
     "reverse_range" >:: test_reverse_range;
