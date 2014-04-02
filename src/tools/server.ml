@@ -208,8 +208,9 @@ let make_server_thread
          end
     in
     let rec server_loop () =
-      Lwt.catch
-        (fun () ->
+      let serve () =
+        Lwt.catch
+          (fun () ->
            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
            let finalize () =
@@ -233,29 +234,30 @@ let make_server_thread
                       finalize ()))
              | None -> ()
            end;
-           server_loop ()
-        )
-
-        (function
-          | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
-            let timeout = 4.0 in
-            (* if we don't sleep, this will go into a spinning loop of
+           Lwt.return ()
+          )
+          (function
+            | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
+               let timeout = 4.0 in
+               (* if we don't sleep, this will go into a spinning loop of
                failfasts;
                we want to block until an fd is available,
                but alas, I found no such API.
-            *)
-            Logger.warning_f_
-              "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
-              s0 s1 port timeout >>= fun () ->
-            Lwt_unix.sleep timeout >>= fun () ->
-            server_loop ()
-          | Ssl.Accept_error _ as exn ->
-              Logger.warning_f_ ~exn
-                "Ssl.Accept_error in server_loop: %s"
-                (Ssl.get_error_string ()) >>=
-              server_loop
-          | e -> Lwt.fail e
-        )
+                *)
+               Logger.warning_f_
+                 "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
+                 s0 s1 port timeout >>= fun () ->
+               Lwt_unix.sleep timeout
+            | Ssl.Accept_error _ as exn ->
+               Logger.warning_f_ ~exn
+                                 "Ssl.Accept_error in server_loop: %s"
+                                 (Ssl.get_error_string ())
+
+            | e -> Lwt.fail e
+           )
+      in
+      serve () >>= fun () ->
+      server_loop ()
     in
     let r  = fun () ->
       Lwt.finalize
