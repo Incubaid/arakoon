@@ -289,24 +289,17 @@ struct
         let update = Update.SetInterval iv in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
-      method user_hook ~consistency name payload =
-          let open Registry in
-          let open HookRegistry in
-          self # _read_allowed consistency >>= fun () ->
-          S.get_interval store >>= fun interval ->
-          let h = lookup name in
-          match h (S.get_read_user_db store) payload interval with
-          | Return s ->
-             Lwt.return s
-          | Update change ->
-             let update = Common.change_to_update change in
-             _update_rendezvous self update no_stats push_update ~so_post:id
-
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
         let update = Update.UserFunction(name,po) in
         let so_post so = so in
         _update_rendezvous self update no_stats push_update ~so_post
+
+      method get_read_user_db () =
+        S.get_read_user_db store
+
+      method push_update update =
+        _update_rendezvous self update ignore push_update ~so_post:id
 
       method aSSert ~consistency (key:string) (vo:string option) =
         log_o self "aSSert %S ..." key >>= fun () ->
@@ -485,6 +478,9 @@ struct
                then Logger.debug_f_ "ok"
                else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
              end
+
+      method read_allowed consistency =
+        self # _read_allowed consistency
 
       method private _check_interval keys =
         S.get_interval store >>= fun iv ->

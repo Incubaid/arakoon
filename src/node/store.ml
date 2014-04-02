@@ -681,6 +681,9 @@ struct
         S.with_cursor
           store.s
           (fun cur -> f (new store_cursor_db cur :> Registry.cursor_db))
+
+      method get_interval () =
+        store.interval
   end
 
   let get_read_user_db store = new store_read_user_db store
@@ -698,7 +701,7 @@ struct
     Lwt.wrap (fun () ->
               let f = Registry.Registry.lookup name in
               let user_db = new store_user_db store tx in
-              let ro = f user_db po store.interval in
+              let ro = f user_db po in
               ro)
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =

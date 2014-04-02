@@ -301,11 +301,10 @@ let user_function_to b name po =
   Llio.string_to b name;
   Llio.string_option_to b po
 
-let user_hook_to b ~consistency name payload =
+let user_hook_to b ~consistency name =
   command_to b USER_HOOK;
   consistency_to b consistency;
-  Llio.string_to b name;
-  Llio.string_to b payload
+  Llio.string_to b name
 
 let multiget_to b ~consistency keys =
   command_to b MULTI_GET;

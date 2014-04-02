@@ -182,7 +182,7 @@ let test_sequence () =
 
 let _test_user_function (client:Arakoon_client.client) =
   Registry.Registry.register "reverse"
-                    (fun user_db vo iv ->
+                    (fun user_db vo ->
                      (Some "ohce"));
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
@@ -194,12 +194,15 @@ let test_user_function () =
 
 let test_user_hook () =
   Registry.HookRegistry.register "t3k"
-                                 (fun user_db payload iv ->
-                                  Registry.HookRegistry.Return (Some "cucu"));
+                                 (fun (ic,oc,id) user_db backend ->
+                                  Llio.input_string ic >>= fun arg ->
+                                  Llio.output_string oc ("cucu " ^ arg));
   __client_server_wrapper__ _CLUSTER
                             (fun client ->
-                             client # user_hook "t3k" "" >>= fun r ->
-                             OUnit.assert_equal r (Some "cucu");
+                             client # user_hook "t3k" >>= fun (ic,oc) ->
+                             Llio.output_string oc "cthulhu" >>= fun () ->
+                             Llio.input_string ic >>= fun response ->
+                             OUnit.assert_equal response "cucu cthulhu";
                              Lwt.return ())
 
 let _clear (client:Arakoon_client.client)  () =
