@@ -110,62 +110,65 @@ let make_server_thread
     let client_threads = Hashtbl.create 10 in
     let _condition = Lwt_condition.create () in
     let rec server_loop () =
-      Lwt.catch
-        (fun () ->
-          Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
-          let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
-          let client_thread () =
-            match inner_take () with
-              | None ->
-                  session_thread "--" cid deny fd
-              | Some id ->
-                  Lwt_unix.fstat fd >>= fun fstat ->
-                  Logger.info_f_
-                    "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
-                    name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
-                  >>= fun () ->
-                  let sid = string_of_int id in
-                  session_thread sid cid protocol fd >>= fun () ->
-                  release();
-                  Lwt.return()
-          in
-          let t = client_thread () in
-          Lwt.ignore_result
-            (Lwt.finalize
-               (fun () ->
+      let serve () =
+        Lwt.catch
+          (fun () ->
+           Lwt_unix.accept listening_socket >>= fun (fd, cl_socket_address) ->
+           let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
+           let client_thread () =
+             match inner_take () with
+             | None ->
+                session_thread "--" cid deny fd
+             | Some id ->
+                Lwt_unix.fstat fd >>= fun fstat ->
+                Logger.info_f_
+                  "%s:session=%i connection=%s socket_address=%s file_descriptor_inode=%i"
+                  name id cid (socket_address_to_string cl_socket_address) fstat.Lwt_unix.st_ino
+                >>= fun () ->
+                let sid = string_of_int id in
+                session_thread sid cid protocol fd >>= fun () ->
+                release();
+                Lwt.return()
+           in
+           let t = client_thread () in
+           Lwt.ignore_result
+             (Lwt.finalize
+                (fun () ->
                  Hashtbl.add client_threads cid (t, fd);
                  Lwt.catch
                    (fun () -> t)
                    (fun exn ->
-                     Logger.info_f_ ~exn "Exception in client thread %s" cid))
-               (fun () ->
+                    Logger.info_f_ ~exn "Exception in client thread %s" cid))
+                (fun () ->
                  Lwt.catch
                    (fun () -> Lwt_unix.close fd)
                    (fun exn ->
-                     let level = match exn with
-                       | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
-                       | _ -> Logger.Info in
-                     Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid)) >>= fun () ->
+                    let level = match exn with
+                      | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
+                      | _ -> Logger.Info in
+                    Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid)) >>= fun () ->
                  Hashtbl.remove client_threads cid;
                  Lwt_condition.signal _condition ();
                  Lwt.return ()));
-          server_loop ()
-        )
-        (function
-          | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
-              let timeout = 4.0 in
-              (* if we don't sleep, this will go into a spinning loop of
+           Lwt.return ()
+          )
+          (function
+            | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
+               let timeout = 4.0 in
+               (* if we don't sleep, this will go into a spinning loop of
                  failfasts;
                  we want to block until an fd is available,
                  but alas, I found no such API.
-              *)
-              Logger.warning_f_
-                "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
-                s0 s1 port timeout >>= fun () ->
-              Lwt_unix.sleep timeout >>= fun () ->
-              server_loop ()
-          | e -> Lwt.fail e
-        )
+                *)
+               Logger.warning_f_
+                 "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
+                 s0 s1 port timeout >>= fun () ->
+               Lwt_unix.sleep timeout
+            | e -> Lwt.fail e
+          )
+      in
+      serve () >>= fun () ->
+      server_loop ()
     in
     let r  = fun () ->
       Lwt.finalize
