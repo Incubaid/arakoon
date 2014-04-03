@@ -141,6 +141,9 @@ let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> B.delete_prefix db prefix)
 
+let sync ls =
+  Camltc.Hotc.sync ls.db
+
 let flush ls =
   Lwt.return ()
 

@@ -16,99 +16,114 @@ limitations under the License.
 
 open Unix
 open Arg
-open Camltc
 open Lwt
 
-let clock f =
-  let t0 = Unix.gettimeofday () in
-  f() >>= fun () ->
-  let t1 = Unix.gettimeofday () in
-  Lwt.return (t1 -. t0)
+module Bench(S : Simple_store.Simple_store) = struct
 
-let make_key i = Printf.sprintf "key_%08i" i
+  let clock f =
+    let t0 = Unix.gettimeofday () in
+    f () >>= fun () ->
+    let t1 = Unix.gettimeofday () in
+    Lwt.return (t1 -. t0)
 
-let sync t = Camltc.Hotc.sync t
+  let make_key i = Printf.sprintf "key_%08i" i
 
-let set_loop t vs n =
-  let db = Hotc.get_bdb t in
-  let v = String.make vs 'x' in
-  let set k v = Bdb.put db k v in
-  let rec loop i =
-    if i = n
-    then sync t
-    else
-      let key = make_key i in
-      let () = set key v in
-      loop (i+1)
-  in
-  loop 0
+  let sync t = S.sync t
 
-let get_loop t n =
-  let db = Hotc.get_bdb t in
-  let get k = Bdb.get db k in
-  let rec loop i =
-    if i = n
-    then Lwt.return ()
-    else
-      let key = make_key i in
-      let _ = get key in
-      loop (i+1)
-  in
-  loop 0
+  let set_loop t vs n =
+    let v = String.make vs 'x' in
+    let set k v = S.with_transaction t (fun tx -> S.set t tx k v; Lwt.return ()) in
+    let rec loop i =
+      if i = n
+      then sync t
+      else
+        let key = make_key i in
+        set key v >>= fun () ->
+        loop (i+1)
+    in
+    loop 0
 
-let get_random_loop t n =
-  let db = Hotc.get_bdb t in
-  let get k = try Some (Bdb.get db k) with Not_found -> None in
-  let rec loop i =
-    if i = n
-    then Lwt.return ()
-    else
-      let r = Random.int n in
-      let key = make_key r in
-      let _ = get key in
-      loop (i+1)
-  in
-  loop 0
+  let get_loop t n =
+    let get k = S.get t k in
+    let rec loop i =
+      if i = n
+      then Lwt.return ()
+      else
+        let key = make_key i in
+        let _ = get key in
+        loop (i+1)
+    in
+    loop 0
 
-let delete_loop t n =
-  let db = Hotc.get_bdb t in
-  let delete k = Bdb.out db k in
-  let rec loop i =
-    if i = n
-    then sync t
-    else
-      let key = make_key i in
-      let () = delete key in
-      loop (i+1)
-  in
-  loop 0
+  let get_random_loop t n =
+    let get k = try Some (S.get t k) with Not_found -> None in
+    let rec loop i =
+      if i = n
+      then Lwt.return ()
+      else
+        let r = Random.int n in
+        let key = make_key r in
+        let _ = get key in
+        loop (i+1)
+    in
+    loop 0
+
+  let delete_loop t n =
+    let delete k = S.with_transaction t (fun tx -> S.delete t tx k; Lwt.return ()) in
+    let rec loop i =
+      if i = n
+      then sync t
+      else
+        let key = make_key i in
+        delete key >>= fun () ->
+        loop (i+1)
+    in
+    loop 0
+
+  let run_tests fn vs n =
+    let t () =
+      S.make_store
+        ~lcnum:Node_cfg.default_lcnum
+        ~ncnum:Node_cfg.default_ncnum
+        false fn >>= fun s ->
+      let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" n vs in
+      clock (fun () -> set_loop s vs n) >>= fun d ->
+      Lwt_io.printlf "%i sets: %fs%!" n d >>= fun () ->
+      clock (fun () -> get_loop s n) >>= fun d2 ->
+      Lwt_io.printlf "%i ordered gets: %fs%!" n d2 >>= fun () ->
+      clock (fun () -> get_random_loop s n) >>= fun d4 ->
+      Lwt_io.printlf "%i random gets: %fs%!" n d4 >>= fun () ->
+      clock (fun () -> delete_loop s n) >>= fun d3 ->
+      Lwt_io.printlf "%i deletes: %fs%!" n d3 >>= fun () ->
+
+      S.close s true >>= fun () ->
+      Lwt.return ()
+    in
+    Lwt_main.run (t ())
+end
 
 let () =
   let n  = ref 1_000_000 in
   let vs = ref 2_000 in
   let fn = ref "test.db" in
+  let store_type = ref "tc" in
   let () =
-    Arg.parse [
-      ("--value-size",Set_int vs, Printf.sprintf "size of the values in bytes (%i)" !vs);
-      ("--file", Set_string fn, Printf.sprintf "file name for database (%S)" !fn);
-      ("--bench-size",Set_int n,  Printf.sprintf "number of sets/gets/deletes (%i)" !n);
-    ]
-      (fun _ ->())
-      "simple baardskeerder like benchmark for tc"
+    Arg.parse
+      [ ("--value-size",Set_int vs, Printf.sprintf "size of the values in bytes (%i)" !vs);
+        ("--file", Set_string fn, Printf.sprintf "file name for database (%S)" !fn);
+        ("--bench-size",Set_int n,  Printf.sprintf "number of sets/gets/deletes (%i)" !n);
+        ("--store-type",Set_string store_type, "the type of store to test (either 'tc' or 'leveldb')"); ]
+      (fun _ -> ())
+      "simple baardskeerder like benchmark for simple store"
   in
-  let t () =
-    Hotc.create !fn [] >>= fun ho ->
-    let () = Printf.printf "\niterations = %i\nvalue_size = %i\n%!" !n !vs in
-    clock (fun () -> set_loop ho !vs !n) >>= fun d ->
-    Lwt_io.printlf "%i sets: %fs%!" !n d >>= fun () ->
-    clock (fun () -> get_loop ho !n) >>= fun d2 ->
-    Lwt_io.printlf "%i ordered gets: %fs%!" !n d2 >>= fun () ->
-    clock (fun () -> get_random_loop ho !n) >>= fun d4 ->
-    Lwt_io.printlf "%i random gets: %fs%!" !n d4 >>= fun () ->
-    clock (fun () -> delete_loop ho !n) >>= fun d3 ->
-    Lwt_io.printlf "%i deletes: %fs%!" !n d3 >>= fun () ->
-
-    Hotc.close ho >>= fun () ->
-    Lwt.return ()
-  in
-  Lwt_main.run (t ())
+  match !store_type with
+  | "tc" ->
+     let module S = (val (module Local_store : Simple_store.Simple_store)) in
+     let module B = Bench(S) in
+     B.run_tests !fn !vs !n
+  | "leveldb" ->
+     let module S = (val (module Leveldb_store.LevelDBStore : Simple_store.Simple_store)) in
+     let module B = Bench(S) in
+     B.run_tests !fn !vs !n
+  | _ ->
+     failwith "invalid store type"

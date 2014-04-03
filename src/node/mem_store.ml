@@ -117,6 +117,7 @@ let set ms tx key value =
 let optimize ms quiesced = Lwt.return ()
 let defrag ms = Lwt.return ()
 
+let sync ms = Lwt.return ()
 let flush ms = Lwt.return ()
 let close ms flush = Lwt.return ()
 

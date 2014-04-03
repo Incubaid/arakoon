@@ -227,6 +227,10 @@ got an exception so aborting the transaction *)
     _sync_and_start_transaction_if_needed s;
     Lwt.return ()
 
+  let sync s =
+    _sync_and_start_transaction_if_needed s;
+    S.sync s.s
+
   let close s flush =
     if flush
     then
