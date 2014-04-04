@@ -32,12 +32,18 @@ module Bench(S : Simple_store.Simple_store) = struct
 
   let set_loop t vs n =
     let v = String.make vs 'x' in
+    let rec randomize_string = function
+      | 0 -> ()
+      | n -> let i = n - 1 in
+             v.[i] <- Char.chr (Random.int 256);
+             randomize_string i in
     let set k v = S.with_transaction t (fun tx -> S.set t tx k v; Lwt.return ()) in
     let rec loop i =
       if i = n
       then sync t
       else
         let key = make_key i in
+        randomize_string vs;
         set key v >>= fun () ->
         loop (i+1)
     in
