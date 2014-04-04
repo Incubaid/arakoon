@@ -3,7 +3,7 @@ Upstream-Name: arakoon
 Source: http://www.arakoon.org
 
 Files: *
-Copyright: 2010- incubaid
+Copyright: 2010-2014 incubaid
 License: Apache-2.0
 
 Files: debian/*
