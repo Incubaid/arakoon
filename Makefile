@@ -17,9 +17,9 @@ build:
 test:
 	./arakoon.native --run-all-tests
 
-install: install_client install_server
+install: install_client install_server man
 
-install_server: man
+install_server:
 	mkdir -p $(START)/bin/
 	cp ./arakoon.native $(START)/bin/arakoon
 
@@ -52,7 +52,9 @@ coverage:
 	arakoon.d.byte
 
 man:
+	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
+	rm arakoon 
 
 .PHONY: install test build install_client
 
