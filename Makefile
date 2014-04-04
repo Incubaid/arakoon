@@ -19,7 +19,7 @@ test:
 
 install: install_client install_server
 
-install_server:
+install_server: man
 	mkdir -p $(START)/bin/
 	cp ./arakoon.native $(START)/bin/arakoon
 
@@ -50,6 +50,9 @@ coverage:
 	-tag 'syntax(camlp4o)' \
 	-tag 'syntax(bisect_pp)' \
 	arakoon.d.byte
+
+man:
+	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 
 .PHONY: install test build install_client
 
