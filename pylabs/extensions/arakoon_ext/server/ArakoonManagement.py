@@ -237,7 +237,6 @@ class ArakoonCluster:
             nodes.append(name)
 
         config.add_section(name)
-        config.set(name, "name", name)
 
         if type(ip) == types.StringType:
             config.set(name, "ip", ip)

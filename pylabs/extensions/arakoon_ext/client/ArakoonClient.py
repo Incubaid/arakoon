@@ -56,7 +56,6 @@ class ArakoonClientExtConfig:
 
         nodes.append(name)
         config.add_section(name)
-        config.set(name, "name", name)
         config.set(name, "ip", ip)
         config.set(name, "client_port", clientPort)
 

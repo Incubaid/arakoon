@@ -32,17 +32,17 @@ class TestConfig:
 
     def _getCluster(self):
         return C._getCluster(self._clusterId)
-    
+
     def setup(self):
         cid = self._clusterId
         cl = C._getCluster( cid )
         cl.remove()
-        
+
     def teardown(self):
         cid = self._clusterId
         cl = C._getCluster( cid )
         cl.remove()
-        
+
     def testAddNode(self):
         cid = self._clusterId
         n0 = '%s_0' % cid
@@ -50,21 +50,20 @@ class TestConfig:
 
         cluster = self._getCluster()
         cluster.addNode(n0)
-        
+
         config = cluster._getConfigFile()
         assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': n0,
                        'cluster_id': cid
                        })
         assert_equals(Compat.sectionAsDict(config, n0),
-                      { 'client_port': '7080', 
-                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
-                        'ip': '127.0.0.1', 
-                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0), 
-                        'log_level': 'info', 
-                        'messaging_port': '10000', 
-                        'name': n0})
-        
+                      { 'client_port': '7080',
+                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0),
+                        'ip': '127.0.0.1',
+                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0),
+                        'log_level': 'info',
+                        'messaging_port': '10000'})
+
         cluster.addNode(n1,
                         "192.168.0.1",
                         7081,
@@ -72,30 +71,28 @@ class TestConfig:
                         "debug",
                         "/tmp",
                         "/tmp/joe")
-    
+
         config = cluster._getConfigFile()
-        
+
         assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': '%s,%s' % (n0,n1),
                        'cluster_id':cid})
 
         assert_equals(Compat.sectionAsDict(config, n0),
-                      { 'client_port': '7080', 
-                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
-                        'ip': '127.0.0.1', 
-                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0), 
-                        'log_level': 'info', 
-                        'messaging_port': '10000', 
-                        'name': n0})
-    
+                      { 'client_port': '7080',
+                        'home': '%s/db/%s/%s' % (X.varDir, cid, n0),
+                        'ip': '127.0.0.1',
+                        'log_dir': '%s/%s/%s' % (X.logDir, cid, n0),
+                        'log_level': 'info',
+                        'messaging_port': '10000'})
+
         assert_equals(Compat.sectionAsDict(config, n1),
-                      { 'client_port': '7081', 
-                        'home': '/tmp/joe', 
-                        'ip': '192.168.0.1', 
-                        'log_dir': '/tmp', 
-                        'log_level': 'debug', 
-                        'messaging_port': '12345', 
-                        'name': n1})
+                      { 'client_port': '7081',
+                        'home': '/tmp/joe',
+                        'ip': '192.168.0.1',
+                        'log_dir': '/tmp',
+                        'log_level': 'debug',
+                        'messaging_port': '12345'})
 
     def testAddNodeInvalidName(self):
         cluster = self._getCluster()
@@ -119,7 +116,7 @@ class TestConfig:
         config = cluster._getConfigFile()
         d = Compat.sectionAsDict(config, name)
         assert_equals(d['ip'],'127.0.0.1,192.168.0.1')
-        
+
     def testAddNodeDuplicateName(self):
         cid = self._clusterId
         n0 = '%s_%i' % (cid,0)
@@ -153,7 +150,7 @@ class TestConfig:
         n1 = '%s_%i' % (cid,1)
 
         cluster = self._getCluster()
-        
+
         for i in range(0,3):
             ni = '%s_%i' % (cid,i)
             cluster.addNode(ni)
@@ -174,7 +171,7 @@ class TestConfig:
         assert_false(config.has_option("global",'master'))
 
 
-        
+
     def testForceUnknownMaster(self):
         cid = self._clusterId
         cluster = self._getCluster()
@@ -196,7 +193,7 @@ class TestConfig:
         assert_true(ok)
         p = config.get("global", "preferred_master")
         assert_equals(p,'true')
-        
+
 
     def testPreferredMastersNoMaster(self):
         cid = self._clusterId
@@ -319,14 +316,14 @@ class TestConfig:
         ips = ["127.0.0.1","192.168.0.1"]
         cluster.addNode(name = name, ip=ips)
         ccfg = cluster.getClientConfig()
-        ip_list,port = ccfg[name] 
+        ip_list,port = ccfg[name]
         assert_equals(ip_list,['127.0.0.1', '192.168.0.1'])
 
     def testWrapper(self):
         cluster = self._getCluster()
         name = "wrappertest"
         wrapper = 'sh'
-        cluster.addNode(name = name, 
+        cluster.addNode(name = name,
                         wrapper = wrapper)
         cfg = cluster.getNodeConfig(name)
         wl = cfg.get('wrapper')
@@ -345,15 +342,14 @@ class TestConfig:
         cluster = self._getCluster()
         cluster.setUp(3)
         n0 = '%s_%i' % (cid, 0)
-        
+
         assert_equals(cluster.getNodeConfig(n0),
-                      {'client_port': '7080', 
-                       'home': '%s/db/%s/%s' % (X.varDir, cid, n0), 
-                       'ip': '127.0.0.1', 
-                       'log_dir': '%s/%s/%s' % (X.logDir, cid,n0), 
-                       'log_level': 'info', 
-                       'messaging_port': '7081', 
-                       'name': n0})
+                      {'client_port': '7080',
+                       'home': '%s/db/%s/%s' % (X.varDir, cid, n0),
+                       'ip': '127.0.0.1',
+                       'log_dir': '%s/%s/%s' % (X.logDir, cid,n0),
+                       'log_level': 'info',
+                       'messaging_port': '7081'})
 
     def testGetNodeConfigUnknownNode(self):
         cid = self._clusterId
@@ -388,7 +384,7 @@ class TestConfig:
         assert_false(X.fileExists(p1))
 
     def testAddLocalNode(self):
-        
+
         cid = self._clusterId
         cluster = self._getCluster()
         for i in range(0,3):
@@ -396,12 +392,12 @@ class TestConfig:
 
         n0 = '%s_0' % cid
         n1 = '%s_1' % cid
-        
+
         cluster.addLocalNode(n1)
 
         sn = self.__servernodes()
-        
-        cfgPath = '/'.join( [X.cfgDir, "qconfig", "arakoon", cid, "%s_local_nodes" % cid])        
+
+        cfgPath = '/'.join( [X.cfgDir, "qconfig", "arakoon", cid, "%s_local_nodes" % cid])
         config = X.getConfig( cfgPath )
         assert_equals(Compat.sectionAsDict(config, "global"),
                       {'cluster': n1})
@@ -471,7 +467,7 @@ class TestConfig:
         cluster.addNode('node_0')
 
         cfg = X.getConfig(cfg_name)
-        logging.debug("cfg = %s", X.cfg2str(cfg))        
+        logging.debug("cfg = %s", X.cfg2str(cfg))
         id0 = cfg.get('global', 'cluster_id')
         assert_equals(id0, name)
         # now set it to id
@@ -489,4 +485,3 @@ class TestConfig:
         ccfg_id = ccfg2.getClusterId()
 
         assert_equals(ccfg_id, id_inside)
-        
