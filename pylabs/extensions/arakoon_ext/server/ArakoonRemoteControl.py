@@ -1,24 +1,19 @@
 """
-This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+Copyright (2010-2014) INCUBAID BVBA
 
-Licensees holding a valid Incubaid license may use this file in
-accordance with Incubaid's Arakoon commercial license agreement. For
-more information on how to enter into this agreement, please contact
-Incubaid (contact details can be found on www.arakoon.org/licensing).
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Alternatively, this file may be redistributed and/or modified under
-the terms of the GNU Affero General Public License version 3, as
-published by the Free Software Foundation. Under this license, this
-file is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.
+    http://www.apache.org/licenses/LICENSE-2.0
 
-See the GNU Affero General Public License for more details.
-You should have received a copy of the
-GNU Affero General Public License along with this program (file "COPYING").
-If not, see <http://www.gnu.org/licenses/>.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
+
 import socket
 import logging
 

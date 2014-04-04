@@ -4,7 +4,7 @@ Source: <url://www.arakoon.org>
 
 Files: *
 Copyright: 2010- incubaid
-License: AGPL-3.0
+License: Apache-2.0
 
 Files: debian/*
 Copyright: 2010 - Romain Slootmaekers <romain@incubaid.com>

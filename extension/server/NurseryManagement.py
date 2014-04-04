@@ -1,23 +1,17 @@
 """
-This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+Copyright (2010-2014) INCUBAID BVBA
 
-Licensees holding a valid Incubaid license may use this file in
-accordance with Incubaid's Arakoon commercial license agreement. For
-more information on how to enter into this agreement, please contact
-Incubaid (contact details can be found on www.arakoon.org/licensing).
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Alternatively, this file may be redistributed and/or modified under
-the terms of the GNU Affero General Public License version 3, as
-published by the Free Software Foundation. Under this license, this
-file is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.
+    http://www.apache.org/licenses/LICENSE-2.0
 
-See the GNU Affero General Public License for more details.
-You should have received a copy of the
-GNU Affero General Public License along with this program (file "COPYING").
-If not, see <http://www.gnu.org/licenses/>.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 try:
@@ -31,10 +25,10 @@ class NurseryManagement:
     def getNursery(self, clusterId ):
         """
         Retrieve the nursery manager for the nursery with the provided keeper
-        
+
         @param clusterId:  The keeper of the nursery
         @type clusterId:   string
-        
+
         @rtype:            NurseryManager
         """
         return NurseryManager( clusterId )
@@ -46,22 +40,22 @@ class NurseryManagement:
             return "%s/%s.cfg" % (cfg[ clusterId ]["path"], clusterId)
         else:
             raise RuntimeError("Unknown nursery cluster %s" % clusterId)
-           
+
 class NurseryManager:
     def __init__(self,clusterId):
         self._keeperCfg = NurseryManagement.getConfigLocation(clusterId)
-                
+
     def migrate(self, leftClusterId, separator, rightClusterId):
         """
         Trigger a migration of key range in the nursery.
-        
-        Either leftClusterId or rightClusterId must already be part of the nursery. 
+
+        Either leftClusterId or rightClusterId must already be part of the nursery.
         So it is not possible to add two clusters at the same time.
-        
+
         The separator will serve as the boundary of the key range that is migrated.
-        
+
         For more documentation see the docs on our portal (www.arakoon.org)
-        
+
         @param leftClusterId:   The cluster that will be responsible for the key range up to the separator
         @type leftClusterId:    string
         @param separator:       The separator separating the key ranges between the two clusters
@@ -72,31 +66,31 @@ class NurseryManager:
         """
         cmd = "%s -config %s --nursery-migrate %s %s %s" % (self.__which(), self._keeperCfg, leftClusterId, separator, rightClusterId)
         self.__runCmd ( cmd )
-    
+
     def initialize(self, firstClusterId):
         """
         Initialize the routing of the nursery so it only contains the provided cluster
-        
+
         A nursery can only be initialized once
-        
+
         @param firstClusterId:  The first cluster of the nursery
         @type firstClusterId:   string
-        
+
         @rtype void
         """
         cmd = "%s -config %s --nursery-init %s" % (self.__which(), self._keeperCfg, firstClusterId)
         self.__runCmd ( cmd )
-    
+
     def delete(self, clusterId, separator = None):
         """
         Remove a cluster from the nursery. If the cluster is a boundary cluster, no separator can be provided.
-        
+
         @param clusterId:  The cluster to be removed
         @type clusterId:   string
-        
+
         @param separator:  Separator separating the clusters neighbouring the cluster that will be removed (not valid when deleting boundary clusters
         @type separator:   string
-        
+
         @rtype void
         """
         sep_string = None
@@ -104,16 +98,14 @@ class NurseryManager:
             sep_string = '""'
         else:
             sep_string = separator
-        
+
         cmd = "%s -config %s --nursery-delete %s %s" % (self.__which(), self._keeperCfg, clusterId, sep_string)
         self.__runCmd( cmd )
-        
+
     def __runCmd(self, cmd):
         (exit, stdout, stderr) = q.system.process.run( commandline = cmd, stopOnError=False)
         if exit :
             raise RuntimeError( stderr )
-        
+
     def __which(self):
         return ArakoonManagement.which_arakoon()
-
-    
