@@ -118,11 +118,11 @@ let () =
   in
   match !store_type with
   | "tc" ->
-     let module S = (val (module Local_store : Simple_store.Simple_store)) in
+     let module S = (val (module Batched_store.Local_store : Simple_store.Simple_store)) in
      let module B = Bench(S) in
      B.run_tests !fn !vs !n
   | "leveldb" ->
-     let module S = (val (module Leveldb_store.LevelDBStore : Simple_store.Simple_store)) in
+     let module S = (val (module Leveldb_store.Level_store : Simple_store.Simple_store)) in
      let module B = Bench(S) in
      B.run_tests !fn !vs !n
   | _ ->
