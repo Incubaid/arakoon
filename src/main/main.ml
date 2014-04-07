@@ -459,7 +459,7 @@ let main () =
           let main_t = (Node_main.main_t make_config
                           !node_id !daemonize !catchup_only)
           in
-          (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
+          Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t);
           Lwt_main.run main_t
         end
       | TestNode ->
