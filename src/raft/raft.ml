@@ -23,8 +23,21 @@ type term = Int64.t
 type index = Int64.t
 type entry = string (* consensus on opaque strings *)
 
+type raft_cfg = {
+  timeout : float;
+  others : node_id list;
+  me : node_id;
+  quorum : int;
+}
+
 type follower_state = {
   mutable latest_heartbeat : float;
+}
+
+type 'a set = ('a, unit) Hashtbl.t
+
+type candidate_state = {
+  votes : node_id set;
 }
 
 type leader_state = {
@@ -34,7 +47,7 @@ type leader_state = {
 
 type role =
   | Follower of follower_state
-  | Candidate
+  | Candidate of candidate_state
   | Leader of leader_state
 
 class type transactionLog = object
@@ -86,16 +99,16 @@ type event =
   | HeartbeatTimeout of float (* time of timeout start? *)
   | ElectionTimeout of term (**)
 
+let ignore () = []
 
-let follower_handle_event state fs = function
+let follower_handle_event cfg state fs = function
   | HeartbeatTimeout t ->
      if fs.latest_heartbeat <= t then
        [`PromoteToCandidate]
      else
-       [] (* ignore old heartbeat timeout *)
+       ignore () (* old heartbeat timeout *)
   | ElectionTimeout _ ->
-     (* ignore *)
-     []
+     ignore ()
   | NodeMessage (from, (term, msg)) ->
      begin
        match msg with
@@ -118,8 +131,7 @@ let follower_handle_event state fs = function
           end
        | AppendEntriesResponse _
        | RequestVoteResponse _ ->
-          (* ignore *)
-          []
+          ignore ()
        | RequestVote _ ->
           begin
             let vote_response vote_granted =
@@ -146,7 +158,7 @@ let follower_handle_event state fs = function
           end
      end
 
-let candidate_handle_event state = function
+let candidate_handle_event cfg state cs = function
   | HeartbeatTimeout _ ->
      (* ignore, we're in candidate state already *)
      []
@@ -192,11 +204,32 @@ let candidate_handle_event state = function
                  `AppendEntries ae;]
           end
        | AppendEntriesResponse _ ->
-          (* ignore *)
-          []
-       | RequestVoteResponse _ ->
-          (* TODO collect and track these in the candidate state. *)
-          [`ToLeader { next_index = Hashtbl.create 3; match_index = Hashtbl.create 3; }]
+          ignore ()
+       | RequestVoteResponse { vote_granted; } ->
+          begin
+            match Int64.compare' term state.persisted_state.current_term with
+            | LT ->
+               ignore ()
+            | GT ->
+               (* this is weird. anyway, bump term. *)
+               [`UpdateTerm (None, term);
+                `ToFollower]
+            | EQ ->
+               (* add vote if not yet in set *)
+               if (Hashtbl.mem cs.votes from)
+               then
+                 (* already voted *)
+                 ignore ()
+               else
+                 begin
+                   Hashtbl.add cs.votes from ();
+                   if Hashtbl.length cs.votes = cfg.quorum
+                   then
+                     [`ToLeader { next_index = Hashtbl.create 3; match_index = Hashtbl.create 3; }]
+                   else
+                     ignore ()
+                 end
+          end
        | RequestVote _ ->
           begin
             let vote_response granted =
@@ -214,7 +247,7 @@ let candidate_handle_event state = function
           end
      end
 
-let leader_handle_event state ls = function
+let leader_handle_event cfg state ls = function
   | HeartbeatTimeout _ ->
      (* TODO check time? + renew 'lease' *)
      []
@@ -263,14 +296,14 @@ let leader_handle_event state ls = function
           end
      end
 
-let handle_event state role event =
+let handle_event cfg state role event =
   match role with
   | Follower fs ->
-     follower_handle_event state fs event
-  | Candidate ->
-     candidate_handle_event state event
+     follower_handle_event cfg state fs event
+  | Candidate cs ->
+     candidate_handle_event cfg state cs event
   | Leader ls ->
-     leader_handle_event state ls event
+     leader_handle_event cfg state ls event
 
 let produce_event () =
   Lwt.return
@@ -279,7 +312,7 @@ let produce_event () =
                          { last_log_index = None;
                            last_log_term = None; })))
 
-let rec handle_effects state role = function
+let rec handle_effects cfg state role = function
   | [] -> Lwt.return (state, role)
   | eff :: tl ->
      begin
@@ -287,26 +320,26 @@ let rec handle_effects state role = function
        | `PromoteToCandidate ->
           (* go from follower to candidate.
              immediately hand electiontimeout event to candidate *)
-          handle_effects state Candidate tl
+          handle_effects cfg state (Candidate { votes = Hashtbl.create cfg.quorum }) tl
        | `ToFollower ->
           let latest_heartbeat = Unix.gettimeofday () in
           (* TODO schedule timeout message ... *)
-          handle_effects state (Follower { latest_heartbeat;}) tl
+          handle_effects cfg state (Follower { latest_heartbeat;}) tl
        | `ToLeader s ->
-          handle_effects state (Leader s) tl
+          handle_effects cfg state (Leader s) tl
        | `Send (node, msg) ->
           (* plug in networking.. *)
-          handle_effects state role tl
+          handle_effects cfg state role tl
        | `UpdateTerm ((node : string option), (t : term)) ->
           (* if node is set then this must be fsync wise persisted *)
-          handle_effects state role tl
+          handle_effects cfg state role tl
        | `AppendEntries { prev_log_index; prev_log_term; entries; leader_commit } ->
           (* this might need to throw away part of the tlog.. *)
-          handle_effects state role tl
+          handle_effects cfg state role tl
      end
 
-let rec event_loop state role =
+let rec event_loop cfg state role =
   produce_event () >>= fun event ->
-  let effects = handle_event state role event in
-  handle_effects state role effects >>= fun (state, role) ->
-  event_loop state role
+  let effects = handle_event cfg state role event in
+  handle_effects cfg state role effects >>= fun (state, role) ->
+  event_loop cfg state role
