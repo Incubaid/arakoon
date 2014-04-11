@@ -23,13 +23,17 @@ type term = Int64.t
 type index = Int64.t
 type entry = string (* consensus on opaque strings *)
 
+type follower_state = {
+  mutable latest_heartbeat : float;
+}
+
 type leader_state = {
   next_index : (node_id, index) Hashtbl.t;
   match_index : (node_id, index) Hashtbl.t;
 }
 
 type role =
-  | Follower
+  | Follower of follower_state
   | Candidate
   | Leader of leader_state
 
@@ -83,10 +87,12 @@ type event =
   | ElectionTimeout of term (**)
 
 
-let follower_handle_event state = function
+let follower_handle_event state fs = function
   | HeartbeatTimeout t ->
-     (* TODO verify this is the most recent timeout *)
-     [`PromoteToCandidate]
+     if fs.latest_heartbeat <= t then
+       [`PromoteToCandidate]
+     else
+       [] (* ignore old heartbeat timeout *)
   | ElectionTimeout _ ->
      (* ignore *)
      []
@@ -259,8 +265,8 @@ let leader_handle_event state ls = function
 
 let handle_event state role event =
   match role with
-  | Follower ->
-     follower_handle_event state event
+  | Follower fs ->
+     follower_handle_event state fs event
   | Candidate ->
      candidate_handle_event state event
   | Leader ls ->
@@ -283,7 +289,9 @@ let rec handle_effects state role = function
              immediately hand electiontimeout event to candidate *)
           handle_effects state Candidate tl
        | `ToFollower ->
-          handle_effects state Follower tl
+          let latest_heartbeat = Unix.gettimeofday () in
+          (* TODO schedule timeout message ... *)
+          handle_effects state (Follower { latest_heartbeat;}) tl
        | `ToLeader s ->
           handle_effects state (Leader s) tl
        | `Send (node, msg) ->
