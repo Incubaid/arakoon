@@ -53,7 +53,7 @@ type role =
 class type transactionLog = object
   (* method get_entry : index -> (entry * term) option Lwt.t *)
   (* method get_max_i : unit -> index option (\* should be cached *\) *)
-  method append_entries : (index * term) -> term -> entry list -> bool Lwt.t
+  method append_entries : (index * term) -> term -> entry list -> index option Lwt.t
 end
 
 type persisted_state = {
@@ -68,7 +68,6 @@ type state = {
 }
 
 type request_vote_request = {
-  (* candidate_id : node_id; *)
   last_log_index : index option;
   last_log_term : index option;
 }
@@ -77,14 +76,13 @@ type request_vote_response = {
 }
 
 type append_entries_request = {
-  (* leader_id : node_id; *)
   prev_log_index : index;
   prev_log_term : index;
   entries : entry list;
   leader_commit : index;
 }
 type append_entries_response = {
-  success : bool;
+  success : index option;
 }
 
 type message_base =
@@ -99,6 +97,7 @@ type event =
   | NodeMessage of node_id * message
   | HeartbeatTimeout of float (* time of timeout start? *)
   | ElectionTimeout of term (**)
+  (* | ClientUpdates of entry list *)
 
 let ignore () = []
 
@@ -119,7 +118,7 @@ let follower_handle_event cfg state fs = function
               `Send (from, (AppendEntriesResponse { success; })) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response false]
+               [response None]
             | GT ->
                [`UpdateTerm (Some from, term);
                 `AppendEntriesAndReply (from, term, ae);]
@@ -179,7 +178,7 @@ let candidate_handle_event cfg state cs = function
               `Send (from, (AppendEntriesResponse { success; })) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response false]
+               [response None]
             | GT ->
                [`UpdateTerm (Some from, term);
                 `ToFollower;
@@ -225,6 +224,7 @@ let candidate_handle_event cfg state cs = function
             | GT ->
                (* newer term, so no leader yet ... grant this one *)
                [`UpdateTerm (Some from, term);
+                `ToFollower;
                 vote_response true]
             | EQ ->
                (* already voted for myself -> deny *)
@@ -248,36 +248,41 @@ let leader_handle_event cfg state ls = function
               `Send (from, (AppendEntriesResponse { success; })) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response false]
+               [response None]
             | GT ->
-               (* TODO
-                  go to follower
-                  try to append entries
-                  process original message in follower state? -> that's not such a bad idea...
-                *)
                [`UpdateTerm (Some from, term);
-                `ToFollower]
+                `ToFollower;
+                `AppendEntriesAndReply (from, term, ae)]
             | EQ ->
                failwith "impossible"
           end
-       | AppendEntriesResponse aer ->
-          (* TODO update leader state, learn about commit index advancing? *)
-          []
+       | AppendEntriesResponse { success } ->
+          begin
+            match success with
+            | Some i ->
+               Hashtbl.replace ls.match_index from i;
+               (* TODO advance commit index? *)
+               []
+            | None ->
+               (* TODO other node should sync up (catchup)... *)
+               []
+          end
        | RequestVoteResponse _ ->
-          (* ignore ... hmm or look at term? *)
+          (* ignore *)
           []
        | RequestVote { last_log_index; last_log_term } ->
           begin
-            let response vote_granted =
+            let vote_response vote_granted =
               `Send (from, (RequestVoteResponse { vote_granted; })) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response false]
+               [vote_response false]
             | GT ->
-               (* TODO bump term and go to follower *)
-               [response true]
+               [`UpdateTerm (Some from, term);
+                `ToFollower;
+                vote_response true]
             | EQ ->
-               [response false]
+               [vote_response false]
           end
      end
 
