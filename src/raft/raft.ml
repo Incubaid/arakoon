@@ -51,8 +51,9 @@ type role =
   | Leader of leader_state
 
 class type transactionLog = object
-  method get_entry : index -> (entry * term) option Lwt.t
-  method get_max_i : unit -> index option Lwt.t
+  (* method get_entry : index -> (entry * term) option Lwt.t *)
+  (* method get_max_i : unit -> index option (\* should be cached *\) *)
+  method append_entries : (index * term) -> term -> entry list -> bool Lwt.t
 end
 
 type persisted_state = {
@@ -121,13 +122,9 @@ let follower_handle_event cfg state fs = function
                [response false]
             | GT ->
                [`UpdateTerm (Some from, term);
-                `AppendEntries ae;] (* do other stuff too? *)
+                `AppendEntriesAndReply (from, term, ae);]
             | EQ ->
-               (* TODO check that we have prev_log_index ... but that is an effect!! *)
-               (* keep floating state .. latest transaction log entry + it's term,
-                  so in the happy path we can go quick (and handle it here?) *)
-               [`AppendEntries ae;
-                (* response true; CANT ANSWER THIS HERE. *)]
+               [`AppendEntriesAndReply (from, term, ae); ]
           end
        | AppendEntriesResponse _
        | RequestVoteResponse _ ->
@@ -184,24 +181,12 @@ let candidate_handle_event cfg state cs = function
             | LT ->
                [response false]
             | GT ->
-               (* TODO
-                  go to follower
-                  try to append entries
-                  process original message in follower state? -> that's not such a bad idea...
-                *)
                [`UpdateTerm (Some from, term);
-                `ToFollower]
+                `ToFollower;
+                `AppendEntriesAndReply (from, term, ae)]
             | EQ ->
-               (* TODO
-                  go to follower
-                  try to append entries
-
-                  hmmm, this can work, but isn't it a bit dangerous?
-                  'safest' thing to do is inject an electiontimeout here...
-                  no! that can lead to other troubles ...; become follower!
-                *)
                [`ToFollower;
-                 `AppendEntries ae;]
+                `AppendEntriesAndReply (from, term, ae);]
           end
        | AppendEntriesResponse _ ->
           ignore ()
@@ -331,11 +316,22 @@ let rec handle_effects cfg state role = function
           (* plug in networking.. *)
           handle_effects cfg state role tl
        | `UpdateTerm ((node : string option), (t : term)) ->
-          (* if node is set then this must be fsync wise persisted *)
-          handle_effects cfg state role tl
-       | `AppendEntries { prev_log_index; prev_log_term; entries; leader_commit } ->
-          (* this might need to throw away part of the tlog.. *)
-          handle_effects cfg state role tl
+          (* TODO if node is set then this must be fsync wise persisted *)
+          let state' = {state with
+                         persisted_state = { state.persisted_state with
+                                             current_term = t;
+                                             voted_for = node;}} in
+          handle_effects cfg state' role tl
+       | `AppendEntriesAndReply (node,
+                                 term,
+                                 { prev_log_index;
+                                   prev_log_term;
+                                   entries;
+                                   leader_commit; }) ->
+          let tlog = state.persisted_state.log in
+          tlog # append_entries (prev_log_index, prev_log_term) term entries >>= fun success ->
+          let msg_effect = (`Send (node, AppendEntriesResponse { success })) in
+          handle_effects cfg state role (msg_effect :: tl)
      end
 
 let rec event_loop cfg state role =
