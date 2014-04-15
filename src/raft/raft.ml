@@ -40,9 +40,12 @@ type candidate_state = {
   votes : node_id set;
 }
 
+module Int64Map = Map.Make(Int64)
+
 type leader_state = {
   next_index : (node_id, index) Hashtbl.t;
   match_index : (node_id, index) Hashtbl.t;
+  mutable rev_match_index : int Int64Map.t;
 }
 
 type role =
@@ -209,7 +212,9 @@ let candidate_handle_event cfg state cs = function
                    Hashtbl.add cs.votes from ();
                    if Hashtbl.length cs.votes = cfg.quorum
                    then
-                     [`ToLeader { next_index = Hashtbl.create 3; match_index = Hashtbl.create 3; }]
+                     [`ToLeader { next_index = Hashtbl.create 3;
+                                  match_index = Hashtbl.create 3;
+                                  rev_match_index = Int64Map.empty; }]
                    else
                      ignore ()
                  end
@@ -260,9 +265,50 @@ let leader_handle_event cfg state ls = function
           begin
             match success with
             | Some i ->
-               Hashtbl.replace ls.match_index from i;
-               (* TODO advance commit index? *)
-               []
+               let find' k m =
+                 try
+                   Int64Map.find k m
+                 with Not_found -> 0 in
+               let () =
+                 try
+                   let prev_i = Hashtbl.find ls.match_index from in
+                   Hashtbl.replace ls.match_index from i;
+                   let r' = Int64Map.add prev_i
+                                         ((Int64Map.find prev_i ls.rev_match_index) - 1)
+                                         ls.rev_match_index in
+                   let r'' = Int64Map.add i
+                                          ((find' i r') + 1)
+                                          r' in
+                   ls.rev_match_index <- r''
+                 with Not_found ->
+                   (* node does not yet exist in ls.match_index and ls.rev_match_index *)
+                   Hashtbl.add ls.match_index from i;
+                   ls.rev_match_index <- Int64Map.add i
+                                                      ((find' i ls.rev_match_index) + 1)
+                                                      ls.rev_match_index
+               in
+
+               (* determine possibly new(bumped) commit index *)
+               let module C = Int64Map.Cursor in
+               let count = ref 0 in
+               let index =
+                 C.with_cursor
+                   ls.rev_match_index
+                   (fun cur ->
+                    while (C.next cur && !count < cfg.quorum) do
+                      count := !count + snd (C.get cur)
+                    done;
+                    fst (C.get cur)) in
+               if !count >= cfg.quorum
+               then
+                 let commit_index = index in
+                 if Int64.(commit_index >= state.commit_index)
+                 then
+                   [`CommitIndex commit_index]
+                 else
+                   []
+               else
+                 []
             | None ->
                (* TODO other node should sync up (catchup)... *)
                []
@@ -337,6 +383,9 @@ let rec handle_effects cfg state role = function
           tlog # append_entries (prev_log_index, prev_log_term) term entries >>= fun success ->
           let msg_effect = (`Send (node, AppendEntriesResponse { success })) in
           handle_effects cfg state role (msg_effect :: tl)
+       | `CommitIndex i ->
+          (* TODO *)
+          handle_effects cfg {state with commit_index = i } role tl
      end
 
 let rec event_loop cfg state role =
