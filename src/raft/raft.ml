@@ -17,21 +17,15 @@ limitations under the License.
 open Std
 open Compare
 open Lwt
+open Lwt_buffer
 
 type node_id = string
 type term = Int64.t
 type index = Int64.t
 type entry = string (* consensus on opaque strings *)
 
-type raft_cfg = {
-  timeout : float;
-  others : node_id list;
-  me : node_id;
-  quorum : int;
-}
-
 type follower_state = {
-  mutable latest_heartbeat : float;
+  unit : unit
 }
 
 type 'a set = ('a, unit) Hashtbl.t
@@ -67,6 +61,7 @@ type persisted_state = {
 
 type state = {
   persisted_state : persisted_state;
+  last_timeout : float;
   commit_index : index;
 }
 
@@ -97,20 +92,30 @@ type message = term * message_base
 
 type event =
   | NodeMessage of node_id * message
-  | HeartbeatTimeout of float (* time of timeout start? *)
-  | ElectionTimeout of term (**)
+  | Timeout of float (* time of timeout start *)
   (* | ClientUpdates of entry list *)
+
+type buffers = {
+  timeout_buffer : event Lwt_buffer.t;
+  node_buffer : event Lwt_buffer.t;
+}
+
+type raft_cfg = {
+  timeout : float;
+  others : node_id list;
+  me : node_id;
+  quorum : int;
+  buffers : buffers;
+}
 
 let ignore () = []
 
 let follower_handle_event cfg state fs = function
-  | HeartbeatTimeout t ->
-     if fs.latest_heartbeat <= t then
+  | Timeout t ->
+     if state.last_timeout <= t then
        [`PromoteToCandidate]
      else
        ignore () (* old heartbeat timeout *)
-  | ElectionTimeout _ ->
-     ignore ()
   | NodeMessage (from, (term, msg)) ->
      begin
        match msg with
@@ -157,13 +162,10 @@ let follower_handle_event cfg state fs = function
      end
 
 let candidate_handle_event cfg state cs = function
-  | HeartbeatTimeout _ ->
-     (* ignore, we're in candidate state already *)
-     []
-  | ElectionTimeout t ->
-     if Int64.(t = state.persisted_state.current_term)
+  | Timeout t ->
+     if state.last_timeout <= t
      then
-       (* bump term
+       (* TODO bump term
           send request vote messages
           launch new election timeout
         *)
@@ -237,11 +239,8 @@ let candidate_handle_event cfg state cs = function
      end
 
 let leader_handle_event cfg state ls = function
-  | HeartbeatTimeout _ ->
+  | Timeout _ ->
      (* TODO check time? + renew 'lease' *)
-     []
-  | ElectionTimeout _ ->
-     (* ignore, only relevant for candidates *)
      []
   | NodeMessage (from, (term, msg)) ->
      begin
@@ -340,12 +339,29 @@ let handle_event cfg state role event =
   | Leader ls ->
      leader_handle_event cfg state ls event
 
-let produce_event () =
-  Lwt.return
-    (NodeMessage
-       ("node_0", (0L, RequestVote
-                         { last_log_index = None;
-                           last_log_term = None; })))
+let produce_event buffers =
+  let ordered_buffers = [ buffers.timeout_buffer;
+                          buffers.node_buffer; ] in
+  Lwt.pick (List.map
+              Lwt_buffer.wait_for_item
+              ordered_buffers) >>= fun () ->
+
+  let rec inner = function
+    | [] ->
+       failwith "impossible produce event"
+    | b :: tl ->
+       if Lwt_buffer.has_item b
+       then
+         Lwt_buffer.take b
+       else
+         inner tl
+  in
+  inner ordered_buffers
+  (* Lwt.return *)
+  (*   (NodeMessage *)
+  (*      ("node_0", (0L, RequestVote *)
+  (*                        { last_log_index = None; *)
+  (*                          last_log_term = None; }))) *)
 
 let rec handle_effects cfg state role = function
   | [] -> Lwt.return (state, role)
@@ -354,12 +370,12 @@ let rec handle_effects cfg state role = function
        match eff with
        | `PromoteToCandidate ->
           (* go from follower to candidate.
-             immediately hand electiontimeout event to candidate *)
+             TODO immediately hand electiontimeout event to candidate *)
           handle_effects cfg state (Candidate { votes = Hashtbl.create cfg.quorum }) tl
        | `ToFollower ->
-          let latest_heartbeat = Unix.gettimeofday () in
-          (* TODO schedule timeout message ... *)
-          handle_effects cfg state (Follower { latest_heartbeat;}) tl
+          let last_timeout = Unix.gettimeofday () in
+          (* TODO schedule timeout message here ... *)
+          handle_effects cfg {state with last_timeout } (Follower { unit = ();}) tl
        | `ToLeader s ->
           handle_effects cfg state (Leader s) tl
        | `Send (node, msg) ->
@@ -387,7 +403,16 @@ let rec handle_effects cfg state role = function
      end
 
 let rec event_loop cfg state role =
-  produce_event () >>= fun event ->
+  produce_event cfg.buffers >>= fun event ->
   let effects = handle_event cfg state role event in
   handle_effects cfg state role effects >>= fun (state, role) ->
   event_loop cfg state role
+
+(*
+TODO
+
+- timeouts
+
+- fake messaging
+- tests with a couple of nodes
+ *)
