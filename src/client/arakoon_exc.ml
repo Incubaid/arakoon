@@ -20,7 +20,6 @@ limitations under the License.
 type rc =
   | E_OK
   | E_NO_MAGIC
-  | E_TOO_MANY_DEAD_NODES
   | E_NO_HELLO
   | E_NOT_MASTER
   | E_NOT_FOUND
@@ -38,7 +37,6 @@ type rc =
 let int32_of_rc = function
   | E_OK                  -> 0x00l
   | E_NO_MAGIC            -> 0x01l
-  | E_TOO_MANY_DEAD_NODES -> 0x02l
   | E_NO_HELLO            -> 0x03l
   | E_NOT_MASTER          -> 0x04l
   | E_NOT_FOUND           -> 0x05l
@@ -56,7 +54,6 @@ let int32_of_rc = function
 let rc_of_int32 = function
   | 0x00l -> E_OK
   | 0x01l -> E_NO_MAGIC
-  | 0x02l -> E_TOO_MANY_DEAD_NODES
   | 0x03l -> E_NO_HELLO
   | 0x04l -> E_NOT_MASTER
   | 0x05l -> E_NOT_FOUND
