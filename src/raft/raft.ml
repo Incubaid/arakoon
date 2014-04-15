@@ -53,16 +53,16 @@ type role =
   | Candidate of candidate_state
   | Leader of leader_state
 
-class type transactionLog = object
+class type transaction_log = object
   (* method get_entry : index -> (entry * term) option Lwt.t *)
   (* method get_max_i : unit -> index option (\* should be cached *\) *)
-  method append_entries : (index * term) -> term -> entry list -> index option Lwt.t
+  method append_entries : (index * term) option -> term -> entry list -> index option Lwt.t
 end
 
 type persisted_state = {
   current_term : term;
   voted_for : node_id option;
-  log : transactionLog;
+  log : transaction_log;
 }
 
 type state = {
@@ -79,8 +79,7 @@ type request_vote_response = {
 }
 
 type append_entries_request = {
-  prev_log_index : index;
-  prev_log_term : index;
+  predecessor : (index * term) option;
   entries : entry list;
   leader_commit : index;
 }
@@ -375,12 +374,11 @@ let rec handle_effects cfg state role = function
           handle_effects cfg state' role tl
        | `AppendEntriesAndReply (node,
                                  term,
-                                 { prev_log_index;
-                                   prev_log_term;
+                                 { predecessor;
                                    entries;
                                    leader_commit; }) ->
           let tlog = state.persisted_state.log in
-          tlog # append_entries (prev_log_index, prev_log_term) term entries >>= fun success ->
+          tlog # append_entries predecessor term entries >>= fun success ->
           let msg_effect = (`Send (node, AppendEntriesResponse { success })) in
           handle_effects cfg state role (msg_effect :: tl)
        | `CommitIndex i ->
