@@ -636,17 +636,7 @@ let make_buffers (a,b,c,d) = {
 let rec paxos_produce buffers
           constants product_wanted =
   let me = constants.me in
-  let ready_from_buffer buf wanted =
-    Lwt_buffer.wait_for_item buf >>= fun () ->
-    Lwt.return wanted in
   let wmsg = product_wanted_to_string product_wanted in
-  let waiters = List.map
-                  (function
-                    | Client -> ready_from_buffer buffers.client_buffer Client
-                    | Node -> ready_from_buffer buffers.node_buffer Node
-                    | Inject -> ready_from_buffer buffers.inject_buffer Inject
-                    | Election_timeout -> ready_from_buffer buffers.election_timeout_buffer Election_timeout)
-                  product_wanted in
   let () = match product_wanted with
     | [] -> failwith "No products wanted should not happen here"
     | _ -> () in
@@ -655,7 +645,15 @@ let rec paxos_produce buffers
        Logger.debug_f_ "%s: T:waiting for event (%s)" me wmsg >>= fun () ->
        let t0 = Unix.gettimeofday () in
 
-       Lwt.pick waiters >>= fun ready_list ->
+       let wait_for_buffer = function
+         | Client -> Lwt_buffer.wait_for_item buffers.client_buffer
+         | Node -> Lwt_buffer.wait_for_item buffers.node_buffer
+         | Inject -> Lwt_buffer.wait_for_item buffers.inject_buffer
+         | Election_timeout -> Lwt_buffer.wait_for_item buffers.election_timeout_buffer in
+       let waiters = List.map
+                       wait_for_buffer
+                       product_wanted in
+       Lwt.pick waiters >>= fun () ->
 
        let t1 = Unix.gettimeofday () in
        let d = t1 -. t0 in
@@ -698,7 +696,17 @@ let rec paxos_produce buffers
              end
            | None ->
              Lwt.fail ( Failure "FSM BAILED: No events ready while there should be" )
-       in get_highest_prio_evt ( [ ready_list ] )
+       in
+       let buffer_has_item = function
+         | Client -> Lwt_buffer.has_item buffers.client_buffer
+         | Node -> Lwt_buffer.has_item buffers.node_buffer
+         | Inject -> Lwt_buffer.has_item buffers.inject_buffer
+         | Election_timeout -> Lwt_buffer.has_item buffers.election_timeout_buffer in
+       let ready_list =
+         List.filter
+           buffer_has_item
+           product_wanted in
+       get_highest_prio_evt ready_list
     )
     (fun e -> Logger.debug_f_ "%s: ZYX %s" me (Printexc.to_string e) >>= fun () -> Lwt.fail e)
 
