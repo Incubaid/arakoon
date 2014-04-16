@@ -14,10 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
+open Std
 
 type t
 val make : string -> t
 val length : t -> int
 val sub : t -> int -> int -> string
 val to_oc : t -> Lwt_io.output_channel -> unit Lwt.t
+val get : t -> string
+
+include Comparable with type t := t

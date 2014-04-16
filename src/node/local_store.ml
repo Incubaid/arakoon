@@ -139,8 +139,15 @@ let get ls key =
 let set ls tx key value =
   _with_tx ls tx (fun db -> B.put db key value)
 
-let delete ls tx key =
-  _with_tx ls tx (fun db -> B.out db key)
+let put ls tx key = function
+  | None ->
+     begin
+       try
+         _with_tx ls tx (fun db -> B.out db key)
+       with Not_found -> ()
+     end
+  | Some v ->
+     set ls tx key v
 
 let delete_prefix ls tx prefix =
   _with_tx ls tx

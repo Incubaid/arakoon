@@ -19,8 +19,20 @@ limitations under the License.
 
 open Std
 
-type t = string
-let make = id
-let length t = String.length t - 1
-let sub t start length = String.sub t (start + 1) length
-let to_oc t oc = Lwt_io.write_from_exactly oc t 1 (length t)
+module Key = struct
+  type t = string
+  let make = id
+  let length t = String.length t - 1
+  let sub t start length = String.sub t (start + 1) length
+  let to_oc t oc = Lwt_io.write_from_exactly oc t 1 (length t)
+  let get t = sub t 0 (length t)
+  let compare k1 k2 =
+    (* both keys should have the same first character... *)
+    String.compare k1 k2
+end
+
+include Key
+
+module C = CompareLib.Default(Key)
+
+include C

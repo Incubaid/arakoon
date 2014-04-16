@@ -70,14 +70,7 @@ struct
 
   let _apply_vo_to_local_store s ls_tx k vo =
     s._entries <- s._entries + 1;
-    match vo with
-      | Some v ->
-        s._size <- s._size + String.length v;
-        S.set s.s ls_tx k v
-      | None ->
-        try
-          S.delete s.s ls_tx k
-        with Not_found -> ()
+    S.put s.s ls_tx k vo
 
   let _get_ls_tx s =
     match s._ls_tx with
@@ -186,13 +179,9 @@ struct
     _verify_tx s tx;
     _track_or_apply_vo s k (Some v)
 
-  let delete s tx k =
+  let put s tx k vo =
     _verify_tx s tx;
-    if exists s k
-    then
-      _track_or_apply_vo s k None
-    else
-      raise Not_found
+    _track_or_apply_vo s k vo
 
   let delete_prefix s tx prefix =
     _verify_tx s tx;

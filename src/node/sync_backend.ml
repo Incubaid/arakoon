@@ -19,6 +19,7 @@ limitations under the License.
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
+  open Std
   open Backend
   open Statistics
   open Client_cfg
@@ -294,6 +295,12 @@ struct
         let so_post so = so in
         _update_rendezvous self update no_stats push_update ~so_post
 
+      method get_read_user_db () =
+        S.get_read_user_db store
+
+      method push_update update =
+        _update_rendezvous self update ignore push_update ~so_post:id
+
       method aSSert ~consistency (key:string) (vo:string option) =
         log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert(key,vo) in
@@ -471,6 +478,9 @@ struct
                then Logger.debug_f_ "ok"
                else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
              end
+
+      method read_allowed consistency =
+        self # _read_allowed consistency
 
       method private _check_interval keys =
         S.get_interval store >>= fun iv ->
