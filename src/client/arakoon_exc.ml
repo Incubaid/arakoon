@@ -52,12 +52,22 @@ let mapping = [
   ( E_UNKNOWN_FAILURE     , 0xffl );
 ]
 
-let int32_of_rc rc = List.assoc rc mapping
+let create f =
+  let h = Hashtbl.create 47 in
+  let () = List.iter
+             (fun (a,b) -> let (a',b') = f (a,b) in Hashtbl.add h a' b')
+             mapping
+  in
+  h
 
-let rev_mapping = List.map (fun (a,b) -> (b,a) ) mapping
+let hmap = create (fun x -> x)
+let rmap = create (fun (a,b) -> (b,a))
+
+let int32_of_rc rc = Hashtbl.find hmap rc
+
 
 let rc_of_int32 i32 =
-  try List.assoc i32 rev_mapping with Not_found -> E_UNKNOWN_FAILURE
+  try Hashtbl.find rmap i32 with Not_found -> E_UNKNOWN_FAILURE
 
 exception Exception of rc * string
 
