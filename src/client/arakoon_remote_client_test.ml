@@ -197,12 +197,35 @@ let test_user_hook () =
                                  (fun (ic,oc,id) user_db backend ->
                                   Llio.input_string ic >>= fun arg ->
                                   Llio.output_string oc ("cucu " ^ arg));
+  Registry.HookRegistry.register "rev_range"
+                                 (fun (ic,oc,id) user_db backend ->
+                                  let _count, keys = user_db # with_cursor
+                                                         (fun cur ->
+                                                          Registry.Cursor_store.fold_rev_range
+                                                            cur
+                                                            (Some "t")
+                                                            false
+                                                            "a"
+                                                            false
+                                                            (-1)
+                                                            (fun cur k count acc ->
+                                                             k :: acc)
+                                                            []) in
+                                  Llio.output_list Llio.output_key oc keys
+                                 );
   __client_server_wrapper__ _CLUSTER
                             (fun client ->
                              client # user_hook "t3k" >>= fun (ic,oc) ->
                              Llio.output_string oc "cthulhu" >>= fun () ->
                              Llio.input_string ic >>= fun response ->
                              OUnit.assert_equal response "cucu cthulhu";
+
+                             let keys = ["a"; "b"; "c"; "f"; "t"] in
+                             Lwt_list.iter_p (fun k -> client # set k k) keys >>= fun () ->
+
+                             client # user_hook "rev_range" >>= fun (ic,oc) ->
+                             Llio.input_list Llio.input_string ic >>= fun response ->
+                             OUnit.assert_equal response ["f"; "c"; "b"];
                              Lwt.return ())
 
 let _clear (client:Arakoon_client.client)  () =
