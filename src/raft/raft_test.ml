@@ -26,13 +26,14 @@ class mem_transaction_log = fun () ->
       | None ->
          let app = List.mapi (fun i e -> (Int64.of_int i, term, e)) entries in
          log <- List.rev app;
+         (* TODO what if the first append entries request is empty? *)
          let i, _, _ = List.hd log in
-         Lwt.return (Some i)
+         Lwt.return (Success i)
       | Some (prev_index, prev_term) ->
          begin
            let rec inner = function
              | [] ->
-                Lwt.return None
+                Lwt.return (MisMatch (prev_index, prev_term))
              | (i, t, e) :: tl as log' ->
                 if i = prev_index
                 then
@@ -48,11 +49,11 @@ class mem_transaction_log = fun () ->
                              rev_append (Int64.succ i) ((i, t, e) :: log) tl in
                         log <- rev_append (Int64.succ prev_index) log' entries;
                         let i, _, _ = List.hd log in
-                        Lwt.return (Some i)
+                        Lwt.return (Success i)
                       end
                     else
                       (* oops, no match *)
-                      Lwt.return None
+                      Lwt.return (MisMatch (prev_index, prev_term))
                   end
                 else
                   inner tl
@@ -67,21 +68,21 @@ let test_tlog () =
   let tlog = new mem_transaction_log () in
 
   tlog # append_entries (Some (1L, 1L)) 2L [""] >>= fun success ->
-  assert (success = None);
+  assert (success = (MisMatch (1L, 1L)));
   assert ((List.length (tlog # get_log ())) = 0);
 
   tlog # append_entries None 2L ["a";"b";"c"] >>= fun success ->
-  assert (success = (Some 2L));
+  assert (success = (Success 2L));
   assert ((List.length (tlog # get_log ())) = 3);
   assert (["c";"b";"a"] = (List.map (fun (_, _, e) -> e) (tlog # get_log ())));
 
   tlog # append_entries None 2L ["c";"d";"e"] >>= fun success ->
-  assert (success = (Some 2L));
+  assert (success = (Success 2L));
   assert ((List.length (tlog # get_log ())) = 3);
   assert (["e";"d";"c"] = (List.map (fun (_, _, e) -> e) (tlog # get_log ())));
 
   tlog # append_entries (Some (1L, 2L)) 2L ["f";"g"] >>= fun success ->
-  assert (success = (Some 3L));
+  assert (success = (Success 3L));
   assert ((List.length (tlog # get_log ())) = 4);
   assert (["g";"f";"d";"c"] = (List.map (fun (_, _, e) -> e) (tlog # get_log ())));
 

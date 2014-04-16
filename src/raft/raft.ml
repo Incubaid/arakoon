@@ -24,6 +24,46 @@ type term = Int64.t
 type index = Int64.t
 type entry = string (* consensus on opaque strings *)
 
+type request_vote_request = {
+  last_log_index : index option;
+  last_log_term : index option;
+}
+type request_vote_response = {
+  vote_granted : bool;
+}
+
+type append_entries_request = {
+  predecessor : (index * term) option;
+  entries : entry list;
+  leader_commit : index;
+}
+type append_entries_response =
+  | Success of index
+  | OldTerm
+  | MisMatch of index * term
+
+type message_base =
+  | AppendEntriesRequest of append_entries_request
+  | AppendEntriesResponse of append_entries_response
+  | RequestVote of request_vote_request
+  | RequestVoteResponse of request_vote_response
+
+type message = term * message_base
+
+type event =
+  | NodeMessage of node_id * message
+  | Timeout of float (* time of timeout start *)
+  (* | ClientUpdates of entry list *)
+
+
+class type transaction_log = object
+  (* method get_entry : index -> (entry * term) option Lwt.t *)
+  (* method get_max_i : unit -> index option (\* should be cached *\) *)
+  method append_entries : (index * term) option ->
+                          term -> entry list ->
+                          append_entries_response Lwt.t
+end
+
 type follower_state = {
   unit : unit
 }
@@ -47,12 +87,6 @@ type role =
   | Candidate of candidate_state
   | Leader of leader_state
 
-class type transaction_log = object
-  (* method get_entry : index -> (entry * term) option Lwt.t *)
-  (* method get_max_i : unit -> index option (\* should be cached *\) *)
-  method append_entries : (index * term) option -> term -> entry list -> index option Lwt.t
-end
-
 type persisted_state = {
   current_term : term;
   voted_for : node_id option;
@@ -64,36 +98,6 @@ type state = {
   last_timeout : float;
   commit_index : index;
 }
-
-type request_vote_request = {
-  last_log_index : index option;
-  last_log_term : index option;
-}
-type request_vote_response = {
-  vote_granted : bool;
-}
-
-type append_entries_request = {
-  predecessor : (index * term) option;
-  entries : entry list;
-  leader_commit : index;
-}
-type append_entries_response = {
-  success : index option;
-}
-
-type message_base =
-  | AppendEntriesRequest of append_entries_request
-  | AppendEntriesResponse of append_entries_response
-  | RequestVote of request_vote_request
-  | RequestVoteResponse of request_vote_response
-
-type message = term * message_base
-
-type event =
-  | NodeMessage of node_id * message
-  | Timeout of float (* time of timeout start *)
-  (* | ClientUpdates of entry list *)
 
 type buffers = {
   timeout_buffer : event Lwt_buffer.t;
@@ -121,11 +125,11 @@ let follower_handle_event cfg state fs = function
        match msg with
        | AppendEntriesRequest ae ->
           begin
-            let response success =
-              `Send (from, (AppendEntriesResponse { success; })) in
+            let response aer =
+              `Send (from, (AppendEntriesResponse aer)) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response None]
+               [response OldTerm]
             | GT ->
                [`UpdateTerm (Some from, term);
                 `AppendEntriesAndReply (from, term, ae);]
@@ -178,11 +182,11 @@ let candidate_handle_event cfg state cs = function
        match msg with
        | AppendEntriesRequest ae ->
           begin
-            let response success =
-              `Send (from, (AppendEntriesResponse { success; })) in
+            let response aer =
+              `Send (from, (AppendEntriesResponse aer)) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response None]
+               [response OldTerm]
             | GT ->
                [`UpdateTerm (Some from, term);
                 `ToFollower;
@@ -247,11 +251,11 @@ let leader_handle_event cfg state ls = function
        match msg with
        | AppendEntriesRequest ae ->
           begin
-            let response success =
-              `Send (from, (AppendEntriesResponse { success; })) in
+            let response aer =
+              `Send (from, (AppendEntriesResponse aer)) in
             match Int64.compare' term state.persisted_state.current_term with
             | LT ->
-               [response None]
+               [response OldTerm]
             | GT ->
                [`UpdateTerm (Some from, term);
                 `ToFollower;
@@ -259,10 +263,10 @@ let leader_handle_event cfg state ls = function
             | EQ ->
                failwith "impossible"
           end
-       | AppendEntriesResponse { success } ->
+       | AppendEntriesResponse aer ->
           begin
-            match success with
-            | Some i ->
+            match aer with
+            | Success i ->
                let find' k m =
                  try
                    Int64Map.find k m
@@ -307,9 +311,11 @@ let leader_handle_event cfg state ls = function
                    []
                else
                  []
-            | None ->
-               (* TODO other node should sync up (catchup)... *)
-               []
+            | OldTerm ->
+               [`UpdateTerm (None, term);
+                `ToFollower]
+            | MisMatch (i, t) ->
+               [`Catchup (from, i, t)]
           end
        | RequestVoteResponse _ ->
           (* ignore *)
@@ -394,12 +400,15 @@ let rec handle_effects cfg state role = function
                                    entries;
                                    leader_commit; }) ->
           let tlog = state.persisted_state.log in
-          tlog # append_entries predecessor term entries >>= fun success ->
-          let msg_effect = (`Send (node, AppendEntriesResponse { success })) in
+          tlog # append_entries predecessor term entries >>= fun aer ->
+          let msg_effect = (`Send (node, AppendEntriesResponse aer)) in
           handle_effects cfg state role (msg_effect :: tl)
        | `CommitIndex i ->
           (* TODO *)
           handle_effects cfg {state with commit_index = i } role tl
+       | `Catchup (node, prev_i, prev_term) ->
+          (* TODO find out from which point we should send data to this follower *)
+          handle_effects cfg state role tl
      end
 
 let rec event_loop cfg state role =
