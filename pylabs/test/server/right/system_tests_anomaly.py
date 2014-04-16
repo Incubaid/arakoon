@@ -50,7 +50,7 @@ def mount_ram_fs ( node_index ) :
         logging.info("out=%s", out)
         logging.info("err = %s", err)
         raise Exception("Mounting failed (rc=%s)" % rc)
-    
+
 
 def setup_3_nodes_ram_fs ( home_dir ):
     cluster = Common._getCluster(Common.cluster_id)
@@ -81,7 +81,7 @@ def setup_3_nodes_ram_fs ( home_dir ):
     except Exception as ex:
         teardown_ram_fs( True )
         (a,b,c) = sys.exc_info()
-        raise a, b, c
+        raise Exception(a, b, c)
 
     logging.info( "Changing log level to debug for all nodes" )
     cluster.setLogLevel("debug")
@@ -116,7 +116,7 @@ def fill_disk ( file_to_write ) :
     cmd = ["dd", "if=/dev/zero","of=%s" % file_to_write, "bs=1M"]
     try :
         X.subprocess.call(cmd)
-    except Exception, ex:
+    except Exception as ex:
         logging.error( "Caught exception => %s: %s", ex.__class__.__name__, ex )
 
 
@@ -177,7 +177,7 @@ COMMIT
             else:
                 chain_rules.append(rule)
 
-    print all
+    print (all)
     return all
 
 def apply_iptables_rules ( rules ) :
@@ -185,7 +185,7 @@ def apply_iptables_rules ( rules ) :
     flush_all_rules()
     for table in rules.keys():
         for line in rules[table]:
-            cmd = "sudo /sbin/iptables -t %s %s" %(table,line) 
+            cmd = "sudo /sbin/iptables -t %s %s" %(table,line)
             logging.info ("cmd = %s", cmd)
             cmd = cmd.strip()
             cmd = cmd.split(' ')
@@ -240,7 +240,7 @@ def disk_full_scenario( node_id, cli ):
         Common.create_and_wait_for_thread_list ( [ disk_filler,
                                                    set_loop,
                                                    set_get_delete_loop ] )
-    except Exception, ex:
+    except Exception as ex:
         logging.error( "Caught exception when disk was full => %s: %s", ex.__class__.__name__, ex )
 
     os.remove( disk_filling )
@@ -325,7 +325,7 @@ def get_node_ports ( node_id ):
     node_pid = cluster._getPid(node_id)
     cmd = "netstat -natp | grep %s\/arakoon | awk '// {print $4}' | cut -d ':' -f 2 | sort -u" % node_pid
     stdout = X.subprocess.check_output([cmd], shell = True )
-    print stdout
+    print (stdout)
     port_list = stdout.strip().split("\n")
 
     return port_list

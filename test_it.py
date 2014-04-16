@@ -15,9 +15,9 @@ def prologue():
     else:
         version = subprocess.check_output(['./arakoon.native','--version'])
         version2 = subprocess.check_output([bin,'--version'])
-        if version <> version2:
-            print version,version2
-            print "=> copying exec"
+        if version != version2:
+            print(version,version2)
+            print("=> copying exec")
             subprocess.call(['cp','./arakoon.native', bin])
 
 
@@ -25,13 +25,13 @@ prologue()
 
 env = os.environ
 pwd = os.getcwd()
-paths = ':'.join(map (lambda x: pwd + x, ['/pylabs','/pylabs/extensions','/pylabs/pyrakoon']))
-print paths
+paths = ':'.join([pwd + x for x in ['/pylabs','/pylabs/extensions','/pylabs/pyrakoon']])
+print(paths)
 env ['PYTHONPATH'] = paths
 cmd = ['nosetests', '-w', 'test']
 ldlib = 'LD_LIBRARY_PATH'
-if env.has_key(ldlib):
-    print "LD_LIBRARY_PATH=%s" % env[ldlib]
+if ldlib in env:
+    print("LD_LIBRARY_PATH=%s" % env[ldlib])
 rest = sys.argv[1:]
 cmd.extend(rest)
 subprocess.call(cmd,

@@ -19,18 +19,23 @@ limitations under the License.
 """
 Module implementing the Arakoon protocol
 """
-from ArakoonExceptions import *
-from ArakoonValidators import SignatureValidator
-from NurseryRouting import RoutingInfo
-
 import os.path
 import ssl
 import struct
 import logging
 import select
 import operator
-import cStringIO
 import types
+
+from .ArakoonExceptions import *
+from .ArakoonValidators import SignatureValidator
+from .NurseryRouting import RoutingInfo
+
+try:
+    import io
+except ImportError:
+    import cStringIO as io
+
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -100,7 +105,7 @@ class ArakoonClientConfig :
     tls_cert = property(operator.attrgetter('_tls_cert'))
 
     def _cleanUp(self, nodes):
-        for k in nodes.keys():
+        for k in list(nodes.keys()):
             t = nodes[k]
             maybe_string = t[0]
             if type(maybe_string) == types.StringType:
@@ -365,7 +370,7 @@ def _readExactNBytes( con, n ):
             newChunk = ""
             try :
                 newChunk =  tripleList [0][0].recv ( bytesRemaining)
-            except Exception, ex:
+            except Exception as ex:
                 ArakoonClientLogger.logError ("Error while receiving from socket. %s: '%s'" % (ex.__class__.__name__, ex) )
                 con._connected = False
                 raise ArakoonSockRecvError()
@@ -374,7 +379,7 @@ def _readExactNBytes( con, n ):
             if newChunkSize == 0 :
                 try:
                     con._socket.close()
-                except Exception, ex:
+                except Exception as ex:
                     ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
                 con._connected = False
                 raise ArakoonSockReadNoBytes ()
@@ -385,7 +390,7 @@ def _readExactNBytes( con, n ):
             msg = str(con._socketInfo)
             try:
                 con._socket.close()
-            except Exception, ex:
+            except Exception as ex:
                 ArakoonClientLogger.logError( "Error while closing socket. %s: %s" % (ex.__class__.__name__,ex))
             con._connected = False
             raise ArakoonSockNotReadable(msg = msg)
@@ -488,10 +493,10 @@ def _recvStringOption ( con ):
 class Consistency:
     def __init__(self):
         self._v = _packBool(False)
-    
+
     def encode(self):
         return self._v
-        
+
     def isDirty(self):
         return False
 
@@ -506,15 +511,15 @@ class Consistent(Consistency):
 class NoGuarantee(Consistency):
     def __init__(self):
         self._v = _packBool(True)
-    
+
     def isDirty(self):
         return True
-    
+
 class AtLeast(Consistency):
     def __init__(self,i):
         self._i = i
         self._v = "\x02" + _packInt64(i)
-    
+
     def __str__(self):
         return "AtLeast(%i)" % self._i
 
@@ -657,7 +662,7 @@ class ArakoonProtocol :
 
     @staticmethod
     def encodeSequence(seq, sync):
-        r = cStringIO.StringIO()
+        r = io.BytesIO()
         seq.write(r)
         flattened = r.getvalue()
         r.close()
@@ -814,7 +819,7 @@ class ArakoonProtocol :
 
         arraySize = _recvInt( con )
 
-        for i in xrange( arraySize ) :
+        for i in range( arraySize ) :
             retVal[:0] = [ _recvString( con ) ]
         return retVal
 
@@ -823,7 +828,7 @@ class ArakoonProtocol :
         ArakoonProtocol._evaluateErrorCode(con)
         retVal = []
         size = _recvInt(con)
-        for i in xrange(size):
+        for i in range(size):
             s = _recvString(con)
             retVal.append(s)
         return retVal
@@ -834,7 +839,7 @@ class ArakoonProtocol :
         ArakoonProtocol._evaluateErrorCode(con)
         retVal = []
         arraySize = _recvInt(con)
-        for i in xrange(arraySize):
+        for i in range(arraySize):
             s = _recvStringOption(con)
             retVal.append(s)
         return retVal

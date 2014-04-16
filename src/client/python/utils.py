@@ -23,10 +23,15 @@ limitations under the License.
 #
 # .. _Pyrakoon: https://github.com/Incubaid/pyrakoon
 
-import __builtin__
 import uuid
 import functools
 import itertools
+
+try:
+    import builtins
+except ImportError:
+    import __builtin__ as  builtins
+
 
 def update_argspec(*argnames): #pylint: disable-msg=R0912
     '''Wrap a callable to use real argument names
@@ -108,9 +113,9 @@ def update_argspec(*argnames): #pylint: disable-msg=R0912
     # Standard execution context, contains only what we actually need in the
     # function template
     context = {
-        '__builtins__': None,
-        'dict': __builtin__.dict,
-        'zip': __builtin__.zip,
+        'builtins': None,
+        'dict': builtins.dict,
+        'zip': builtins.zip,
         'True': True,
         'False': False,
     }
@@ -119,13 +124,11 @@ def update_argspec(*argnames): #pylint: disable-msg=R0912
     def _format(value):
         '''Format a value for display in a function signature'''
 
-        if isinstance(value, unicode):
-            return 'u\'%s\'' % value
-        elif isinstance(value, str):
+        if isinstance(value, str):
             return '\'%s\'' % value
         elif isinstance(value, bool):
             return 'True' if value else 'False'
-        elif isinstance(value, (int, long)):
+        elif isinstance(value, int):
             return '%d' % value
         elif value is None:
             return 'None'

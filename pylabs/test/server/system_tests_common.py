@@ -52,7 +52,7 @@ class Config:
             'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
             'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
             }
-        self.nursery_cluster_ids = self.nursery_nodes.keys()
+        self.nursery_cluster_ids = list(self.nursery_nodes.keys())
         self.node_client_base_port = 7080
         self.node_msg_base_port = 10000
         self.nursery_keeper_id = self.nursery_cluster_ids[0]
@@ -71,7 +71,7 @@ class with_custom_setup ():
         def decorate(*args,**kwargs):
 
             global data_base_dir
-            data_base_dir = '/'.join([X.tmpDir,'arakoon_system_tests' , func.func_name])
+            data_base_dir = '/'.join([X.tmpDir,'arakoon_system_tests' , func.__name__])
             global test_failed
             test_failed = False
             fatal_ex = None
@@ -81,7 +81,7 @@ class with_custom_setup ():
             self.__setup( home_dir )
             try:
                 func(*args,**kwargs)
-            except Exception, outer :
+            except Exception as outer :
                 tb = traceback.format_exc()
                 logging.fatal( tb )
                 fatal_ex = outer
@@ -95,7 +95,7 @@ class with_custom_setup ():
 
 data_base_dir = None
 cluster_id = 'sturdy'
-node_names = ['sturdy_%d' % n for n in xrange(5)]
+node_names = ['sturdy_%d' % n for n in range(5)]
 node_ips = ["127.0.0.1"] * len(node_names)
 node_client_base_port = 7080
 node_msg_base_port = 10000
@@ -109,7 +109,7 @@ nursery_nodes = {
    'nurse_1' : [ 'nurse_1_0', 'nurse_1_1', 'nurse_1_2'],
    'nurse_2' : [ 'nurse_2_0', 'nurse_2_1', 'nurse_2_2']
 }
-nursery_cluster_ids = nursery_nodes.keys()
+nursery_cluster_ids = list(nursery_nodes.keys())
 nursery_cluster_ids.sort()
 nursery_keeper_id = nursery_cluster_ids[0]
 
@@ -198,7 +198,7 @@ def get_i(node_id, head=False):
     i_line = stdout.split("\n") [0]
     logging.info("i_line='%s'", i_line)
 
-    if i_line.find("None") <> -1:
+    if i_line.find("None") != -1:
         r = 0
     else:
         i_str = i_line.split("(")[1][:-1]
@@ -552,7 +552,7 @@ def stop_all(clusterId = None ):
     logging.info("stop_all")
     cluster = _getCluster( clusterId )
     rcs = cluster.stop()
-    for nn in rcs.keys():
+    for nn in list(rcs.keys()):
         v = rcs[nn]
         logging.info("rcs[%s] = %i", nn, v)
         assert (v == 0)
@@ -611,7 +611,7 @@ def getRandomString( length = 16 ) :
         return chr(random.randint(0,25) + ord('A'))
 
     retVal = ""
-    for i in xrange( length ) :
+    for i in range( length ) :
         retVal += getRC()
     return retVal
 
@@ -686,7 +686,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     #
     if extra :
         logging.info("EXTRA!")
-        for k,v in extra.items():
+        for k,v in list(extra.items()):
             logging.info("%s -> %s", k, v)
             config.set("global", k, v)
 
@@ -859,7 +859,7 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
 
     global test_failed
 
-    for i in xrange ( n ) :
+    for i in range ( n ) :
         if test_failed :
             logging.error( "Test marked as failed. Aborting.")
             break
@@ -869,7 +869,7 @@ def iterate_n_times (n, f, startSuffix = 0, failure_max=0, valid_exceptions=None
 
         try:
             f(client, key, value )
-        except Exception, ex:
+        except Exception as ex:
             logging.info("%i:Exception: %s for key=%s", i,ex,key)
             failure_count += 1
             fatal = True
@@ -903,7 +903,7 @@ def create_and_start_thread (f ):
         def run (self):
             try:
                 self._f ( *(self._args), **(self._kwargs) )
-            except Exception, ex:
+            except Exception as ex:
                 global test_failed
                 logging.critical("!!! Failing test")
                 tb = traceback.format_exc()
@@ -916,7 +916,7 @@ def create_and_start_thread (f ):
     return t
 
 def create_and_start_thread_list ( f_list ):
-    return map ( create_and_start_thread, f_list )
+    return list(map ( create_and_start_thread, f_list ))
 
 def create_and_wait_for_thread_list ( f_list , timeout=None, assert_failure=True ):
 
@@ -978,7 +978,7 @@ def generic_retrying_ ( client, f, is_valid_ex, duration = 5.0 ) :
             f ()
             failed = False
             last_ex = None
-        except Exception, ex:
+        except Exception as ex:
             logging.debug( "Caught an exception => %s: %s", ex.__class__.__name__, ex )
             time.sleep( 0.5 )
             last_ex = ex
@@ -1032,7 +1032,7 @@ def add_node_scenario ( node_to_add_index ):
 
 def assert_key_value_list( start_suffix, list_size, list ):
     assert_equals( len(list), list_size )
-    for i in xrange( list_size ) :
+    for i in range( list_size ) :
         suffix = start_suffix + i
         key = key_format_str % (suffix )
         value = value_format_str % (suffix )
@@ -1079,7 +1079,7 @@ def assert_key_list ( start_suffix, list_size, list ) :
 def assert_list ( format_str, start_suffix, list_size, list ) :
     assert_equals( len(list), list_size )
 
-    for i in xrange( list_size ) :
+    for i in range( list_size ) :
         elem = format_str % (start_suffix + i)
         assert_equals ( elem , list [i] )
 
@@ -1095,7 +1095,7 @@ def destroy_ram_fs( node_index ) :
             raise Exception("cmd:%s failed (%s,%s,%s)" % (str(cmd), rc,out,err))
 
 def delayed_master_restart_loop ( iter_cnt, delay ) :
-    for i in xrange( iter_cnt ):
+    for i in range( iter_cnt ):
         global test_failed
         try:
             time.sleep( delay )
@@ -1112,7 +1112,7 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             raise
 
 def restart_loop( node_index, iter_cnt, int_start_stop, int_stop_start ) :
-    for i in xrange (iter_cnt) :
+    for i in range (iter_cnt) :
         node = node_names[node_index]
         time.sleep( 1.0 * int_start_stop )
         stopOne(node)
@@ -1238,7 +1238,7 @@ def range_entries_scenario( start_suffix ):
 
         key_value_list = client.range_entries( test_key, True, test_key_2 , False, 10 )
         assert_key_value_list ( start_suffix + 25, 10, key_value_list )
-    except Exception, ex:
+    except Exception as ex:
         logging.info("on failure moment, master was: %s", client._masterId)
         raise ex
 
@@ -1258,7 +1258,7 @@ def heavy_range_entries_scenario( start_suffix, count, queries, valid_exceptions
         return validEx
 
 
-    for i in xrange(count):
+    for i in range(count):
         suffix = ( i + start_suffix )
         key = key_format_str % suffix
         value = value_format_str_ % suffix
@@ -1268,7 +1268,7 @@ def heavy_range_entries_scenario( start_suffix, count, queries, valid_exceptions
 
     start_key = key_format_str % (start_suffix )
     end_suffix = key_format_str % (start_suffix + count)
-    for i in xrange(queries) :
+    for i in range(queries) :
         key_value_list = client.range_entries ( start_key , True, end_suffix , False, -1 )
 
 def reverse_range_entries_scenario(start_suffix):
@@ -1286,5 +1286,5 @@ def reverse_range_entries_scenario(start_suffix):
             logging.info("t=%s", t)
         assert_equals( len(kv_list), 10)
         assert_equals(kv_list[0][0], 'key_000000001099')
-    except Exception, ex:
+    except Exception as ex:
         raise ex

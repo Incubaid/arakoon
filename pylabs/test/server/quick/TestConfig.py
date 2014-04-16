@@ -366,8 +366,8 @@ class TestConfig:
         cluster.createDirs(n0)
         p0 = '/'.join([X.logDir, cid, n0])
         p1 = '/'.join([X.varDir, "db", cid, n0])
-        print p0
-        print p1
+        print (p0)
+        print (p1)
         assert_true(X.fileExists(p0))
         assert_true(X.fileExists(p1))
 

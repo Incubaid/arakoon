@@ -45,7 +45,7 @@ def test_inject_as_head():
     s0 = slaves[0]
     s1 = slaves[1]
     new_head = '/tmp/test_inject_as_head.db'
-    print "1"
+    print ("1")
     cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
     ret = cluster.injectAsHead(s1, new_head)
@@ -53,14 +53,14 @@ def test_inject_as_head():
     if ret != 0:
         raise RuntimeError('injectAsHead returned %d' % ret)
 
-    print "2"
+    print ("2")
     logging.info("injected as head")
     Common.iterate_n_times(n,Common.simple_set)
     logging.info("iterated")
-    print "3"
+    print ("3")
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
-    print "4"
+    print ("4")
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
 
@@ -79,18 +79,18 @@ def test_inject_as_head_witness_node():
     s0 = Common.node_names[2] # this is a normal slave from which you can do backupDb
     s1 = Common.node_names[1] # this is a forced slave which should support inject_as_head
     new_head = '/tmp/test_inject_as_head.db'
-    print "1"
+    print ("1")
     cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
     cluster.injectAsHead(s1, new_head)
-    print "2"
+    print ("2")
     logging.info("injected as head")
     Common.iterate_n_times(n,Common.simple_set)
     logging.info("iterated")
-    print "3"
+    print ("3")
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
-    print "4"
+    print ("4")
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
 
@@ -124,7 +124,7 @@ def test_inplace_inject_as_head():
 
     new_head = os.path.join(s1_head_dir, 'test_inject_as_head.db')
 
-    print "1"
+    print ("1")
     cluster.backupDb(s0, new_head)
     logging.info("backup-ed %s from %s", new_head, s0)
     ret = cluster.injectAsHead(s1, new_head, inPlace=True)
@@ -132,14 +132,14 @@ def test_inplace_inject_as_head():
     if ret != 0:
         raise RuntimeError('injectAsHead returned %d' % ret)
 
-    print "2"
+    print ("2")
     logging.info("injected as head")
     Common.iterate_n_times(n,Common.simple_set)
     logging.info("iterated")
-    print "3"
+    print ("3")
     cluster.remoteCollapse(s1, 3)
     logging.info("done")
-    print "4"
+    print ("4")
     ntlogs = Common.get_tlog_count(s1)
     logging.info("get_tlog_dir => %i", ntlogs)
 

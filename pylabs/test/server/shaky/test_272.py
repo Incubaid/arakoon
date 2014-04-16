@@ -37,7 +37,7 @@ def test_272():
                               '-max_n', '100000'])
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode
-    if rc <> None:
+    if rc != None:
         raise Exception ("benchmark should not have finished yet.")
 
     for i in range(100):
@@ -51,11 +51,11 @@ def test_272():
         # running.
         Common.assert_running_nodes(2)
         rc = bench.returncode
-        if rc <> None:
+        if rc != None:
             raise Exception ("benchmark should not have stopped")
 
     Common.assert_running_nodes(2)
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
-    if rc <> 0:
+    if rc != 0:
         raise Exception("benchmark exited with rc = %s" % rc)

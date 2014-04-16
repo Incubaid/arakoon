@@ -57,17 +57,17 @@ def test_db_defrag():
         v = "xxxxxxxxxx" * vs
         client.set(key_s,key_s)
         client.set(key_s,v)
-        print i, key_s, vs
+        print (i, key_s, vs)
         if i == 65537:
             seed = 1
 
     slave = Common.node_names[1]
-    print slave
+    print (slave)
     db_file = Common.get_node_db_file( slave)
     start_size = os.path.getsize( db_file )
-    print "start_size=", start_size
-    Common.defragDb(Common.node_names[1]) 
+    print ("start_size=", start_size)
+    Common.defragDb(Common.node_names[1])
     opt_size = os.path.getsize(db_file)
-    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'." 
-    msg = template % (start_size, opt_size) 
+    template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'."
+    msg = template % (start_size, opt_size)
     assert_true( opt_size < 0.9 * start_size, msg)

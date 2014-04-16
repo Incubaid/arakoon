@@ -43,7 +43,7 @@ def test_shaky_slave():
         Common.iterate_n_times( n, Common.simple_set)
         Common.stopOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
-    print "phewy!"
+    print("phewy!")
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_fat_shaky_slave():
@@ -61,7 +61,7 @@ def test_fat_shaky_slave():
         Common.iterate_n_times( n, Common.simple_set)
         Common.stopOne(slave_id)
         Common.iterate_n_times( n, Common.simple_set)
-    print "phewy!"
+    print ("phewy!")
 
 @Common.with_custom_setup(Common.setup_3_nodes, Common.basic_teardown)
 def test_shaky_cluster():

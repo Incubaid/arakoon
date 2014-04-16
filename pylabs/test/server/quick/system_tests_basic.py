@@ -104,7 +104,7 @@ def test_max_value_size_tinkering ():
     C.assert_running_nodes(1)
     client = C.get_client()
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
-    
+
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
@@ -133,8 +133,8 @@ def test_marker_presence_required ():
        cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
        logging.debug("cfgp=%s",cfgp)
        subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
-    except subprocess.CalledProcessError,e:
-        assert_equals(e.returncode,42)
+    except subprocess.CalledProcessError as ex:
+        assert_equals(ex.returncode,42)
 
     # add the marker and start again:
     subprocess.call([_arakoon,'--mark-tlog', tlog, 'closed:%s' % nn])
@@ -331,7 +331,7 @@ def test_drop_master_singleton():
     try:
         cluster.dropMaster(master)
         raise Error
-    except Exception, e:
+    except Exception as e:
         rc = e.args[0]
         ARA_ERR_NOT_SUPPORTED = 32
         assert_equals (rc,ARA_ERR_NOT_SUPPORTED, "wrong rc %i" % rc)
@@ -597,7 +597,7 @@ def test_get_key_count_on_slave():
     #
     cli = C.get_client()
     m = cli.whoMaster()
-    slaves = filter(lambda x: x <> m, C.node_names)
+    slaves = filter(lambda x: x != m, C.node_names)
     s0 = slaves[0]
     cluster = C._getCluster()
     port = cluster.getNodeConfig(s0)['client_port']
@@ -614,7 +614,7 @@ def test_get_key_count_on_slave():
         count = slave_only_client.getKeyCount()
         logging.debug("count = %i", count)
         assert_true(False)
-    except X.arakoon_client.ArakoonException, e:
+    except X.arakoon_client.ArakoonException as ex:
         pass
 
 
@@ -630,7 +630,7 @@ def test_close_on_sigterm():
         tail = lines[-20:]
         found = False
         for l in tail:
-            print l
+            print (l)
             if l.find("fatal") > 0 and l.find ("OK") >0:
                 found = True
                 break

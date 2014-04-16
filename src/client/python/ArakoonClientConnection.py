@@ -18,8 +18,8 @@ limitations under the License.
 
 import ssl
 import socket
-from ArakoonProtocol import *
-from ArakoonExceptions import *
+from .ArakoonProtocol import *
+from .ArakoonExceptions import *
 
 class ArakoonClientConnection :
 
@@ -65,7 +65,7 @@ class ArakoonClientConnection :
             self._socketInfo = (ip, self._nodePort)
             sendPrologue(self._socket, self._clusterId)
             self._connected = True
-        except Exception, ex :
+        except Exception as ex :
             ArakoonClientLogger.logWarning( "Unable to connect to %s:%s (%s: '%s')" ,
                                             self._nodeIPs[self._index],
                                             self._nodePort,
@@ -82,7 +82,7 @@ class ArakoonClientConnection :
                 raise ArakoonNotConnected( (self._nodeIPs, self._nodePort) )
         try:
             self._socket.sendall( msg )
-        except Exception, ex:
+        except Exception as ex:
             self.close()
             ArakoonClientLogger.logWarning( "Error while sending data to (%s,%s) => %s: '%s'" ,
                 self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
@@ -92,7 +92,7 @@ class ArakoonClientConnection :
         if self._connected and self._socket is not None :
             try:
                 self._socket.close()
-            except Exception, ex:
+            except Exception as ex:
                 ArakoonClientLogger.logError( "Error while closing socket to %s:%s (%s: '%s')" ,
                     self._nodeIPs[self._index], self._nodePort, ex.__class__.__name__, ex  )
             self._socketInfo = None
@@ -139,4 +139,3 @@ class ArakoonClientConnection :
 
     def decodeGetTxidResult(self):
         return ArakoonProtocol.decodeGetTxidResult(self)
-

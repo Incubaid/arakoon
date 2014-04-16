@@ -17,7 +17,7 @@ limitations under the License.
 import socket
 import logging
 
-import RemoteControlProtocol as RCP
+from . import RemoteControlProtocol as RCP
 
 def collapse(ip, port, clusterId, n):
     """

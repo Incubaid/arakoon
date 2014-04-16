@@ -16,7 +16,7 @@ limitations under the License.
 
 from Compat import X
 import os
-import ArakoonRemoteControl
+
 import os.path
 import itertools
 import subprocess
@@ -26,11 +26,12 @@ import signal
 import string
 import logging
 
+from . import ArakoonRemoteControl
 from arakoon import Arakoon
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
-    path = '/'.join([X.appDir,"arakoon/bin/arakoon"])
+    path = '/'.join([X.appDir, "arakoon/bin/arakoon"])
     if X.fileExists(path):
         return path
     else:
@@ -708,7 +709,7 @@ class ArakoonCluster:
 
     def setReadOnly(self, flag = True):
         config = self._getConfigFile()
-        if flag and len(self.listNodes()) <> 1:
+        if flag and len(self.listNodes()) != 1:
             raise Exception("only for clusters of size 1")
 
         g = "global"

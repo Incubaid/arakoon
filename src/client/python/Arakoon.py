@@ -26,17 +26,17 @@ import time
 import random
 import threading
 
-from ArakoonProtocol import *
-from ArakoonProtocol import _packBool
-from ArakoonExceptions import *
-from ArakoonClientConnection import *
-from ArakoonValidators import SignatureValidator
-from ArakoonProtocol import ArakoonClientConfig
+from .ArakoonProtocol import *
+from .ArakoonProtocol import _packBool
+from .ArakoonExceptions import *
+from .ArakoonClientConnection import *
+from .ArakoonValidators import SignatureValidator
+from .ArakoonProtocol import ArakoonClientConfig
 
 from functools import wraps
 
 #from arakoon import utils
-import utils
+from . import utils
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -88,7 +88,7 @@ def retryDuringMasterReelection (is_read_only = False):
         return retrying_f
     return wrap
 
-     
+
 class ArakoonClient :
 
     def __init__ (self, config=None):
@@ -689,14 +689,14 @@ class ArakoonClient :
                         else :
                             ArakoonClientLogger.logWarning( "Node '%s' does not know who the master is", node )
 
-                    except Exception, ex :
+                    except Exception as ex :
 
                         ArakoonClientLogger.logWarning( "Could not validate master on node '%s'", tmpMaster )
                         ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
                         self._masterId = None
 
 
-                except Exception, ex :
+                except Exception as ex :
                     # Exceptions will occur when nodes are down, simply ignore and try the next node
                     ArakoonClientLogger.logWarning( "Could not query node '%s' to see who is master", node )
                     ArakoonClientLogger.logDebug( "%s: %s" % (ex.__class__.__name__, ex))
@@ -755,7 +755,7 @@ class ArakoonClient :
                     result = connection
                     break
 
-                except Exception, ex:
+                except Exception as ex:
                     fmt = "Attempt %d to exchange message with node %s failed with error (%s: '%s')."
                     ArakoonClientLogger.logWarning( fmt , i, nodeId,
                                                     ex.__class__.__name__, ex )

@@ -37,7 +37,7 @@ class TestCmdTools:
 
     def _getCluster(self):
         return C._getCluster(self._clusterId)
-    
+
     def setup(self):
         logging.info('setup')
         c1 = self._getCluster()
@@ -57,11 +57,12 @@ class TestCmdTools:
         status = cluster.getStatus()
         logging.debug('status=%s', status)
         c = 0
-        for key in status.keys():
+        kl = list(status.keys())
+        for key in kl:
             if status[key] == X.AppStatusType.RUNNING:
                 c = c + 1
         if c != n:
-            for key in status.keys():
+            for key in kl:
                 if status[key] == X.AppStatusType.HALTED:
                     cfg = cluster._getConfigFile()
                     logDir = cfg.get(key, "log_dir")
@@ -80,7 +81,7 @@ class TestCmdTools:
         cluster = self._getCluster()
         rcs = cluster.start()
 
-        assert set(rcs.iterkeys()) == set(cluster.listNodes())
+        assert set(rcs.keys()) == set(cluster.listNodes())
 
         self._assert_n_running(3)
 
@@ -106,7 +107,7 @@ class TestCmdTools:
         cluster = self._getCluster()
         rcs = cluster.start()
 
-        assert set(rcs.iterkeys()) == set(cluster.listNodes())
+        assert set(rcs.keys()) == set(cluster.listNodes())
 
         self._assert_n_running(3)
 
@@ -156,10 +157,10 @@ class TestCmdTools:
         logging.info('4')
         cluster.stopOne(self._n0)
         assert_equals(cluster.getStatus(),
-                      {self._n0: X.AppStatusType.HALTED, 
+                      {self._n0: X.AppStatusType.HALTED,
                        self._n1: X.AppStatusType.RUNNING,
                        self._n2: X.AppStatusType.RUNNING})
-        
+
     def testGetStatusOne(self):
         cluster = self._getCluster()
         cluster.start()
@@ -183,4 +184,3 @@ class TestCmdTools:
     def testRestartOneUnknown(self):
         cluster = self._getCluster()
         assert_raises(Exception, cluster.restartOne, "arakoon0")
-

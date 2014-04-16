@@ -113,7 +113,7 @@ class ProcessManager(object):
             LOGGER.exception('Error during ProcessManager cleanup')
 
         if t is not None:
-            raise t, v, b
+            raise Exception(t, v, b)
 
     def start_node(self, config_path, node_name):
         return self.run_async(
@@ -140,7 +140,7 @@ class ProcessManager(object):
                 str(proc.pid) if proc.pid else '<unknown>', i)
                 try:
                     proc.terminate()
-                except OSError, ex:
+                except OSError as ex:
                     if ex.errno == errno.ESRCH:
                         pass
                     else:
@@ -446,7 +446,7 @@ class TestTLS(unittest.TestCase):
 
             client = Arakoon.ArakoonClient(config=config)
 
-            print 'Master:', client.whoMaster()
+            print ('Master:', client.whoMaster())
             client.set('tls_test_key', 'tls_test_value')
             self.assertEqual(client.get('tls_test_key'), 'tls_test_value')
 

@@ -196,12 +196,12 @@ def test_3_node_stop_master_slaves_restart():
     nap_time = 2 * ld
     logging.info( "Stopped master. Sleeping for %0.2f secs" % nap_time )
 
-    print nap_time
+    print (nap_time)
 
     time.sleep( nap_time )
     logging.info( "Stopping old slaves")
     for node in slaves:
-        print "Stopping %s" % node
+        print ("Stopping %s" % node)
         Common.stopOne( node )
 
     logging.info( "Starting old master")
@@ -236,7 +236,7 @@ def test_missed_accept ():
     cli = Common.get_client()
     try:
         cli.set("k","v")
-    except Exception, ex:
+    except Exception as ex:
         logging.info( "Caught exception (%s: '%s'" , ex.__class__.__name__, ex )
 
     Common.startOne (one)
@@ -366,7 +366,7 @@ def _test_drop_master_with_load_(client):
             busy = False
             cv.notify()
             cv.release()
-        except Exception, ex:
+        except Exception as ex:
             excs.append(ex)
             cv.acquire()
             busy = False
@@ -388,7 +388,7 @@ def _test_drop_master_with_load_(client):
         assert_false( True ) # test should be finished by now and is probably hanging
 
     time.sleep(10) # give the client threads some time to finish
-    if len(excs) <> 0:
+    if len(excs) != 0:
         raise excs[0]
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
@@ -398,7 +398,7 @@ def test_drop_master_with_load():
         try :
             while busy:
                 Common.iterate_n_times( 100, Common.retrying_set_get_and_delete, startSuffix = n * 100 )
-        except Exception, ex:
+        except Exception as ex:
             excs.append(ex)
             raise ex
 
@@ -497,7 +497,7 @@ def test_sabotage():
                   #"%s.db.wal" % (node_id,), # should not exist after a `proper` close
                   ])
     for f in files:
-        print f
+        print(f)
         X.removeFile(f)
 
     cmd = clu._cmd('sturdy_0')
