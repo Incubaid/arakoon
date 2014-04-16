@@ -19,6 +19,13 @@ open Raft
 open Lwt
 open Lwt_buffer
 
+class mem_messaging = fun me buffer_tbl ->
+  object (self :# messaging)
+    method send node_id msg =
+      Lwt.ignore_result
+        (Lwt_buffer.add (NodeMessage (me, msg)) (Hashtbl.find buffer_tbl node_id))
+  end
+
 class mem_transaction_log = fun () ->
   object (self :# transaction_log)
     val mutable log = []
@@ -91,17 +98,20 @@ let test_tlog () =
 
 let test () =
   let all = ["ricky_0"; "ricky_1"; "ricky_2"] in
+  let buffer_tbl = Hashtbl.create 3 in
   let make_cfg me =
     let buffers = {
       timeout_buffer = Lwt_buffer.create ();
       node_buffer = Lwt_buffer.create ();
     } in
+    Hashtbl.add buffer_tbl me buffers.node_buffer;
     let cfg = {
       timeout = 1.0;
       others = List.filter ((<>) me) all;
       me = me;
       quorum = 2;
       buffers;
+      messaging = new mem_messaging me buffer_tbl;
     } in
     cfg in
   let cfg = make_cfg (List.nth all 0) in

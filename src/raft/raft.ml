@@ -102,12 +102,17 @@ type buffers = {
   node_buffer : event Lwt_buffer.t;
 }
 
+class type messaging = object
+  method send : node_id -> message -> unit
+end
+
 type raft_cfg = {
   timeout : float;
   others : node_id list;
   me : node_id;
   quorum : int;
   buffers : buffers;
+  messaging : messaging;
 }
 
 let ignore () = []
@@ -379,9 +384,10 @@ let rec handle_effects cfg state role = function
              Lwt_buffer.add (Timeout last_timeout) cfg.buffers.timeout_buffer);
           handle_effects cfg {state with last_timeout } (Follower ()) tl
        | `ToLeader s ->
+          (* TODO start timeout loop for lease *)
           handle_effects cfg state (Leader s) tl
        | `Send (node, msg) ->
-          (* plug in networking.. *)
+          cfg.messaging # send node (state.persisted_state.current_term, msg);
           handle_effects cfg state role tl
        | `UpdateTerm ((node : string option), (t : term)) ->
           (* TODO if node is set then this must be fsync wise persisted *)
