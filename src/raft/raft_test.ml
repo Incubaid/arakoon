@@ -17,6 +17,7 @@ limitations under the License.
 open Std
 open Raft
 open Lwt
+open Lwt_buffer
 
 class mem_transaction_log = fun () ->
   object (self :# transaction_log)
@@ -88,6 +89,34 @@ let test_tlog () =
 
   Lwt.return ()
 
+let test () =
+  let all = ["ricky_0"; "ricky_1"; "ricky_2"] in
+  let make_cfg me =
+    let buffers = {
+      timeout_buffer = Lwt_buffer.create ();
+      node_buffer = Lwt_buffer.create ();
+    } in
+    let cfg = {
+      timeout = 1.0;
+      others = List.filter ((<>) me) all;
+      me = me;
+      quorum = 2;
+      buffers;
+    } in
+    cfg in
+  let cfg = make_cfg (List.nth all 0) in
+  let state = {
+    persisted_state = {
+      current_term = 0L;
+      voted_for = None;
+      log = (new mem_transaction_log () :> transaction_log);
+    };
+    last_timeout = 0.;
+    commit_index = None;
+  } in
+  Lwt.pick
+    [event_loop cfg state (Follower ());
+     (Lwt_unix.timeout 10. >>= fun () -> Lwt.fail (Failure "timeout"))]
 
 let wrap f () = Lwt_main.run (f ())
 
@@ -95,5 +124,6 @@ open OUnit
 
 let suite =
   "raft" >::: [
-    "tlog" >:: wrap test_tlog
+    "tlog" >:: wrap test_tlog;
+    "event_loop" >:: wrap test;
   ]

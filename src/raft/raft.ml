@@ -64,9 +64,7 @@ class type transaction_log = object
                           append_entries_response Lwt.t
 end
 
-type follower_state = {
-  unit : unit
-}
+type follower_state = unit
 
 type 'a set = ('a, unit) Hashtbl.t
 
@@ -96,7 +94,7 @@ type persisted_state = {
 type state = {
   persisted_state : persisted_state;
   last_timeout : float;
-  commit_index : index;
+  commit_index : index option;
 }
 
 type buffers = {
@@ -304,10 +302,12 @@ let leader_handle_event cfg state ls = function
                if !count >= cfg.quorum
                then
                  let commit_index = index in
-                 if Int64.(commit_index >= state.commit_index)
-                 then
-                   [`CommitIndex commit_index]
-                 else
+                 match state.commit_index with
+                 | None ->
+                    [`CommitIndex commit_index]
+                 | Some i when Int64.(commit_index > i) ->
+                    [`CommitIndex commit_index]
+                 | _ ->
                    []
                else
                  []
@@ -363,11 +363,6 @@ let produce_event buffers =
          inner tl
   in
   inner ordered_buffers
-  (* Lwt.return *)
-  (*   (NodeMessage *)
-  (*      ("node_0", (0L, RequestVote *)
-  (*                        { last_log_index = None; *)
-  (*                          last_log_term = None; }))) *)
 
 let rec handle_effects cfg state role = function
   | [] -> Lwt.return (state, role)
@@ -375,13 +370,14 @@ let rec handle_effects cfg state role = function
      begin
        match eff with
        | `PromoteToCandidate ->
-          (* go from follower to candidate.
-             TODO immediately hand electiontimeout event to candidate *)
+          Lwt_buffer.add (Timeout state.last_timeout) cfg.buffers.timeout_buffer >>= fun () ->
           handle_effects cfg state (Candidate { votes = Hashtbl.create cfg.quorum }) tl
        | `ToFollower ->
           let last_timeout = Unix.gettimeofday () in
-          (* TODO schedule timeout message here ... *)
-          handle_effects cfg {state with last_timeout } (Follower { unit = ();}) tl
+          Lwt.ignore_result
+            (Lwt_unix.timeout cfg.timeout >>= fun () ->
+             Lwt_buffer.add (Timeout last_timeout) cfg.buffers.timeout_buffer);
+          handle_effects cfg {state with last_timeout } (Follower ()) tl
        | `ToLeader s ->
           handle_effects cfg state (Leader s) tl
        | `Send (node, msg) ->
@@ -404,8 +400,8 @@ let rec handle_effects cfg state role = function
           let msg_effect = (`Send (node, AppendEntriesResponse aer)) in
           handle_effects cfg state role (msg_effect :: tl)
        | `CommitIndex i ->
-          (* TODO *)
-          handle_effects cfg {state with commit_index = i } role tl
+          (* TODO notify application + other nodes *)
+          handle_effects cfg {state with commit_index = (Some i) } role tl
        | `Catchup (node, prev_i, prev_term) ->
           (* TODO find out from which point we should send data to this follower *)
           handle_effects cfg state role tl
