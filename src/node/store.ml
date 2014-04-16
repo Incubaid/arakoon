@@ -659,8 +659,8 @@ struct
         else
           self # invalidate ()
 
-      method jump k =
-        self # move_and_validate (fun () -> S.cur_jump cur (__prefix ^ k))
+      method jump ?(inc=true) ?(right=true) k =
+        self # move_and_validate (fun () -> CS.cur_jump' cur (__prefix ^ k) ~inc ~right)
 
       method last () =
         self # move_and_validate (fun () -> S.cur_last cur)

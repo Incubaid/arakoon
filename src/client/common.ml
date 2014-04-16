@@ -437,14 +437,16 @@ let delete_prefix (ic,oc) prefix =
   request oc outgoing >>= fun () ->
   response ic Llio.input_int
 
-let rec change_to_update = function
-  | Arakoon_client.Set (k,v) -> Update.Set(k,v)
-  | Arakoon_client.Delete k -> Update.Delete k
-  | Arakoon_client.TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
-  | Arakoon_client.Sequence cs -> Update.Sequence (List.map change_to_update cs)
-  | Arakoon_client.Assert(k,vo) -> Update.Assert(k,vo)
-  | Arakoon_client.Assert_exists(k) -> Update.Assert_exists(k)
-  | Arakoon_client.UserFunction(name,vo) -> Update.UserFunction(name, vo)
+let rec change_to_update c =
+  let open Arakoon_client in
+  match c with
+  | Set (k,v) -> Update.Set(k,v)
+  | Delete k -> Update.Delete k
+  | TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
+  | Sequence cs -> Update.Sequence (List.map change_to_update cs)
+  | Assert(k,vo) -> Update.Assert(k,vo)
+  | Assert_exists(k) -> Update.Assert_exists(k)
+  | UserFunction(name,vo) -> Update.UserFunction(name, vo)
 
 let _build_sequence_request buf changes =
   let update_buf = Buffer.create 100 in

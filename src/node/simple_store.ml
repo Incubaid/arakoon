@@ -21,6 +21,26 @@ open Routing
 
 let section = Logger.Section.main
 
+let next_prefix prefix =
+  if 0 = String.length prefix
+  then
+    None
+  else
+    let next_char c =
+      let code = Char.code c + 1 in
+      match code with
+      | 256 -> Char.chr 0, true
+      | code -> Char.chr code, false in
+    let rec inner s pos =
+      let c, carry = next_char s.[pos] in
+      s.[pos] <- c;
+      match carry, pos with
+      | false, _ -> Some s
+      | true, 0 -> None
+      | true, pos -> inner s (pos - 1) in
+    let copy = String.copy prefix in
+    inner copy ((String.length copy) - 1)
+
 let __i_key = "*i"
 let __j_key = "*j"
 let __interval_key = "*interval"
@@ -29,7 +49,14 @@ let __master_key  = "*master"
 let __lease_key = "*lease"
 let __lease_key2 = "*lease2"
 let __prefix = "@"
+let __prefix_successor =
+  match next_prefix __prefix with
+  | Some s -> s
+  | None -> failwith "impossible"
 let __adminprefix="*"
+
+let make_public k =
+  __prefix ^ k
 
 type update_result =
   | Ok of string option
@@ -54,6 +81,35 @@ module type Cursor_store = sig
   val cur_next : cursor -> bool
   val cur_jump : cursor -> ?direction:direction -> key -> bool
 end
+
+let _fold_range cur jump_init comp_end_key cur_get_key cur_next max f init =
+  let rec inner acc count =
+    if count = max
+    then
+      count, acc
+    else
+      begin
+        let k = cur_get_key cur in
+        if comp_end_key k
+        then
+          begin
+            let count' = count + 1 in
+            let acc' = f cur k count acc in
+            if cur_next cur
+            then
+              inner acc' count'
+            else
+              count', acc'
+          end
+        else
+          count, acc
+      end
+  in
+  if jump_init
+  then
+    inner init 0
+  else
+    0, init
 
 module Extended_cursor_store(C : Cursor_store) = struct
 
@@ -84,35 +140,6 @@ module Extended_cursor_store(C : Cursor_store) = struct
     else
       false
 
-  let _fold_range cur jump_init comp_end_key cur_next max f init =
-    let rec inner acc count =
-      if count = max
-      then
-        count, acc
-      else
-        begin
-          let k = C.cur_get_key cur in
-          if comp_end_key k
-          then
-            begin
-              let count' = count + 1 in
-              let acc' = f cur k count acc in
-              if cur_next cur
-              then
-                inner acc' count'
-              else
-                count', acc'
-            end
-          else
-            count, acc
-        end
-    in
-    if jump_init
-    then
-      inner init 0
-    else
-      0, init
-
   let fold_range cur first finc last linc max f init =
     let comp_last =
       match last with
@@ -125,7 +152,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
          else
            fun k -> String.(<:) k last in
     let jump_init = cur_jump' cur first ~inc:finc ~right:true in
-    _fold_range cur jump_init comp_last C.cur_next max f init
+    _fold_range cur jump_init comp_last C.cur_get_key C.cur_next max f init
 
   let fold_rev_range cur high hinc low linc max f init =
     let comp_low =
@@ -139,7 +166,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
          C.cur_last cur
       | Some h ->
          cur_jump' cur h ~inc:hinc ~right:false in
-    _fold_range cur jump_init comp_low C.cur_prev max f init
+    _fold_range cur jump_init comp_low C.cur_get_key C.cur_prev max f init
 
 end
 
@@ -185,23 +212,3 @@ let _f _pf = function
 let _l _pf = function
   | Some x -> (Some (_pf ^ x))
   | None -> None
-
-let next_prefix prefix =
-  if 0 = String.length prefix
-  then
-    None
-  else
-    let next_char c =
-      let code = Char.code c + 1 in
-      match code with
-      | 256 -> Char.chr 0, true
-      | code -> Char.chr code, false in
-    let rec inner s pos =
-      let c, carry = next_char s.[pos] in
-      s.[pos] <- c;
-      match carry, pos with
-      | false, _ -> Some s
-      | true, 0 -> None
-      | true, pos -> inner s (pos - 1) in
-    let copy = String.copy prefix in
-    inner copy ((String.length copy) - 1)

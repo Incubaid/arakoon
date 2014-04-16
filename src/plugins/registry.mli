@@ -18,11 +18,24 @@ class type cursor_db =
   object
     method get_key : unit -> Key.t
     method get_value : unit -> string
-    method jump : string -> bool
+    method jump : ?inc:bool -> ?right:bool -> string -> bool
     method last : unit -> bool
     method next : unit -> bool
     method prev : unit -> bool
   end
+
+module Cursor_store : sig
+  val fold_range : cursor_db ->
+                   string -> bool -> string option -> bool ->
+                   int ->
+                   (cursor_db -> Key.t -> int -> 'b -> 'b) -> 'b ->
+                   (int * 'b)
+  val fold_rev_range : cursor_db ->
+                       string option -> bool -> string -> bool ->
+                       int ->
+                       (cursor_db -> Key.t -> int -> 'b -> 'b) -> 'b ->
+                       (int * 'b)
+end
 
 class type read_user_db =
   object
