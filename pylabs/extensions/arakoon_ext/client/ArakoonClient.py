@@ -1,23 +1,17 @@
 """
-This file is part of Arakoon, a distributed key-value store. Copyright
-(C) 2010 Incubaid BVBA
+Copyright (2010-2014) INCUBAID BVBA
 
-Licensees holding a valid Incubaid license may use this file in
-accordance with Incubaid's Arakoon commercial license agreement. For
-more information on how to enter into this agreement, please contact
-Incubaid (contact details can be found on www.arakoon.org/licensing).
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Alternatively, this file may be redistributed and/or modified under
-the terms of the GNU Affero General Public License version 3, as
-published by the Free Software Foundation. Under this license, this
-file is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.
+    http://www.apache.org/licenses/LICENSE-2.0
 
-See the GNU Affero General Public License for more details.
-You should have received a copy of the
-GNU Affero General Public License along with this program (file "COPYING").
-If not, see <http://www.gnu.org/licenses/>.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 from Compat import X
@@ -26,7 +20,7 @@ from Compat import X
 def make_client(config):
     client = X.arakoon_client.ArakoonClient(config)
     return client
-    
+
 class ArakoonClientExtConfig:
     """
     Configuration of Arakoon nodes
@@ -44,10 +38,10 @@ class ArakoonClientExtConfig:
         @param clientPort: the port of the node
         """
         self.__validateName(name)
-        
+
         clusterId = self._clusterId
         inifile_path = self._configPath
-        
+
         config = X.getConfig(inifile_path)
 
         if not config.has_section("global"):
@@ -62,8 +56,7 @@ class ArakoonClientExtConfig:
 
         nodes.append(name)
         config.add_section(name)
-        config.set(name, "name", name)
-        config.set(name, "ip", ip) 
+        config.set(name, "ip", ip)
         config.set(name, "client_port", clientPort)
 
         config.set("global","cluster", ",".join(nodes))
@@ -103,7 +96,7 @@ class ArakoonClientExtConfig:
         """
 
         config = X.getConfig(self._configPath)
-    
+
         clientconfig = {}
 
         if config.has_section("global"):
@@ -123,7 +116,7 @@ class ArakoonClientExtConfig:
         fn = '/'.join([X.cfgDir, 'arakoonclusters'])
         p = X.getConfig(fn)
         clusterExists = p.has_section(clusterId)
-            
+
         if not clusterExists:
             X.raiseError("No server cluster '%s' is defined." % clusterId)
 
@@ -140,7 +133,7 @@ class ArakoonClientExtConfig:
                 self.addNode(name,
                              serverConfig.get(name, "ip"),
                              serverConfig.get(name, "client_port"))
-        
+
     def __getNodes(self, config):
         if not config.has_section("global"):
             return []
@@ -165,7 +158,7 @@ class ArakoonClientExtConfig:
         for char in [' ', ',', '#']:
             if char in name:
                 raise Exception("name should not contain %s" % char)
-            
+
 class ArakoonClient:
     """
     Arakoon client management
@@ -213,7 +206,7 @@ class ArakoonClient:
         Returns a list with the existing clients.
         """
         config = X.getConfig("arakoonclients")
-        return config.sections() 
+        return config.sections()
 
     def getClientConfig (self, clusterName, configName = None):
         """
@@ -230,10 +223,10 @@ class ArakoonClient:
             cfgDir = '/'.join([X.cfgDir, "qconfig", "arakoon", clusterName])
             p.set(clusterName, "path", cfgDir)
             X.writeConfig(p, fn)
-        
+
         cfgFile = self._getConfig(clusterName, configName)
         return ArakoonClientExtConfig(clusterName, cfgFile)
-        
+
     @staticmethod
     def _getConfig(clusterName, configName):
         fn = '/'.join([X.cfgDir, 'arakoonclients'])

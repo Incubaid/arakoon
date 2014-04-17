@@ -1,5 +1,5 @@
 Source: arakoon
-Section: unknown
+Section: database
 Priority: extra
 Maintainer: Romain Slootmaekers <romain@incubaid.com>
 Build-Depends: debhelper (>= 8.0.0)

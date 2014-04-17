@@ -105,6 +105,9 @@ module Lwt_buffer = struct
          else Lwt.return ()
       )
 
+  let has_item t =
+    not (Queue.is_empty t.q)
+
   let rec wait_until_empty t =
     if Queue.is_empty t.q
     then Lwt.return ()

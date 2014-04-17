@@ -19,7 +19,6 @@ limitations under the License.
 type rc =
   | E_OK
   | E_NO_MAGIC
-  | E_TOO_MANY_DEAD_NODES
   | E_NO_HELLO
   | E_NOT_MASTER
   | E_NOT_FOUND
