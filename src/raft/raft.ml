@@ -50,10 +50,14 @@ type message_base =
 
 type message = term * message_base
 
+type update_result =
+  | NotLeader of string option
+  | Applied of string
+
 type event =
   | NodeMessage of node_id * message
   | Timeout of float (* time of timeout start *)
-  (* | ClientUpdates of entry list *)
+  | ClientUpdate of entry * (update_result -> unit)
 
 
 class type transaction_log = object
@@ -100,6 +104,7 @@ type state = {
 type buffers = {
   timeout_buffer : event Lwt_buffer.t;
   node_buffer : event Lwt_buffer.t;
+  client_buffer : event Lwt_buffer.t;
 }
 
 class type messaging = object
@@ -123,6 +128,9 @@ let follower_handle_event cfg state fs = function
        [`PromoteToCandidate]
      else
        ignore () (* old heartbeat timeout *)
+  | ClientUpdate (_entry, callback) ->
+     callback (NotLeader state.persisted_state.voted_for);
+     []
   | NodeMessage (from, (term, msg)) ->
      begin
        match msg with
@@ -180,6 +188,9 @@ let candidate_handle_event cfg state cs = function
      else
        (* old timeout, ignoring *)
        []
+  | ClientUpdate (_entry, callback) ->
+     callback (NotLeader None);
+     []
   | NodeMessage (from, (term, msg)) ->
      begin
        match msg with
@@ -248,6 +259,11 @@ let candidate_handle_event cfg state cs = function
 let leader_handle_event cfg state ls = function
   | Timeout _ ->
      (* TODO check time? + renew 'lease' *)
+     []
+  | ClientUpdate (_entry, callback) ->
+     (* TODO send AppendEntriesRequest *)
+     (* let msg = AppendEntriesRequest { predecessor } in *)
+     (* List.map (fun n -> `Send (n, msg)) cfg.others *)
      []
   | NodeMessage (from, (term, msg)) ->
      begin

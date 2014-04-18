@@ -103,6 +103,7 @@ let test () =
     let buffers = {
       timeout_buffer = Lwt_buffer.create ();
       node_buffer = Lwt_buffer.create ();
+      client_buffer = Lwt_buffer.create ();
     } in
     Hashtbl.add buffer_tbl me buffers.node_buffer;
     let cfg = {
