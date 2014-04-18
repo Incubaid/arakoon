@@ -138,7 +138,9 @@ let _socket_closer cid sock f =
     f
     (fun () ->
      Lwt.catch
-       (fun () -> close sock)
+       (fun () ->
+        Logger.info_f_ "%s: closing" cid >>= fun () ->
+        close sock)
        (function
          | Canceled ->
             Lwt.fail Canceled
