@@ -321,7 +321,7 @@ let build_tcp () =
     (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
   in
   let network = network_of_messaging m in
-  m # get_buffer, network
+  m # get_buffer ?sub_target:None, network
 
 
 

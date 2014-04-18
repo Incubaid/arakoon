@@ -281,14 +281,8 @@ struct
         Lwt.return ())
 
   let set_master_no_inc store master lease_start =
-    if quiesced store
-    then
-      begin
-        store.master <- Some (master, lease_start);
-        Lwt.return ()
-      end
-    else
-      S.with_transaction store.s (fun tx -> set_master store tx master lease_start)
+    store.master <- Some (master, lease_start);
+    Lwt.return ()
 
   let clear_self_master store me =
     match store.master with

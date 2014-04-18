@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 
-
+open Std
 open Node_cfg.Node_cfg
 open Tcp_messaging
 open Update
@@ -267,6 +267,109 @@ let build_service_ssl_context me cluster =
         Typed_ssl.load_verify_locations ctx tls_ca_cert "";
         Some ctx
 
+module RenewLease = struct
+  type counter = Int64.t
+  type node_id = string
+  type n = Int64.t
+  type event =
+    (* | Renew of node_id * n * counter *)
+    | Grant of node_id * n * counter
+    | Timeout of float
+
+  module NodeSet = Set.Make(String)
+
+  open Message
+
+  let make_granted_msg node n counter =
+    let buf = Buffer.create 20 in
+    Llio.string_to buf node;
+    Llio.int64_to buf n;
+    Llio.int64_to buf counter;
+    Message.create "TODO kind" (Buffer.contents buf)
+
+  let read_granted_msg msg =
+    let payload = Message.payload_of msg in
+    let buf = Llio.make_buffer payload 0 in
+    let node = Llio.string_from buf in
+    let n = Llio.int64_from buf in
+    let counter = Llio.int64_from buf in
+    Grant (node, n, counter)
+
+  let master_renew_lease (type s) (module S : Store.STORE with type t = s) store n nodes me messaging =
+    (*
+loopke die uit messaging buffer leest
+en in andere buffer injecteert?
+
+make this forever running?
+da's mss beter he...
+kan ook timeout injecteren vanuit die on_consensus hier wa lager om nen trap te geven
+
+*)
+
+    let new_granteds = NodeSet.add me NodeSet.empty in
+    let quorum =
+      ((List.length nodes) / 2) + 1 in
+
+    let rec wait_for_timeout counter =
+      Lwt_buffer.take buf >>= function
+       | Grant _ ->
+          wait_for_timeout counter
+       | Timeout t ->
+          begin
+            match S.who_master store with
+            | None ->
+               (* exit renewal loop *)
+               Lwt.return ()
+            | Some (m, ls) ->
+               if me <> m
+               then
+                 (* exit renewal loop *)
+                 Lwt.return ()
+               else if ls = t
+               then
+                 let t_new = Unix.gettimeofday () in
+                 (* TODO send renew messages to slave *)
+                 wait_for_grants new_granteds t_new counter
+               else
+                 wait_for_timeout counter
+          end
+      and wait_for_grants granteds new_ls counter =
+        Lwt_buffer.take buf >>= function
+         | Timeout t ->
+            (* TODO: hmm .. send previous messages again + new timeout? *)
+            wait_for_grants granteds new_ls counter
+         | Grant (from, n', counter') ->
+            if Int64.(n' =: n && counter =: counter')
+            then
+              begin
+                let granteds' = NodeSet.add from granteds in
+                if NodeSet.cardinal granteds' >= quorum
+                then
+                  begin
+                    S.set_master_no_inc store me new_ls >>= fun () ->
+                    wait_for_timeout (Int64.succ counter)
+                  end
+                else
+                  wait_for_grants granteds' new_ls counter
+              end
+            else
+              wait_for_grants granteds new_ls counter in
+    wait_for_timeout 0L
+
+  let renew_loop stop (type s) (module S : Store.STORE with type t = s) store n buf =
+    let rec inner () =
+      if !stop
+      then Lwt.return ()
+      else
+        begin
+          (* TODO read from buffer
+             if msg is renewal for current master -> reply with granted
+           *)
+          Lwt.return ()
+        end in
+    Lwt.ignore_result (inner ())
+end
+
 module X = struct
   (* Need to find a name for this:
      the idea is to lift stuff out of _main_2
@@ -282,8 +385,8 @@ module X = struct
       let vni' = v',n,i in
       begin
         match v' with
-          | Value.Vm (m, _) ->
-            let now = Int64.of_float (Unix.gettimeofday ()) in
+          | Value.Vm (m, now) ->
+            let now = Int64.of_float (t0) in
             let m_old_master = S.who_master store in
             let new_master =
               begin

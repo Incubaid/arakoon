@@ -63,7 +63,7 @@ let network_of_messaging (m:messaging) =
   let send msg source target =
     Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
     let g = MPMessage.generic_of msg in
-    m # send_message g ~source ~target
+    m # send_message g ~source ?sub_target:None ~target
   in
   let register = m # register_receivers in
   let run () = m # run () in
