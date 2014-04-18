@@ -38,7 +38,8 @@ let close = function
 let deny_max (ic,oc,cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_MAX_CONNECTIONS) >>= fun () ->
-  Llio.output_string oc "too many clients"
+  Llio.output_string oc "too many clients" >>= fun () ->
+  Lwt_io.flush oc
 
 let deny_closing (ic,oc,cid) =
   Logger.warning_ "closing socket, denying this one" >>= fun () ->
