@@ -88,40 +88,33 @@ let handle_exception oc exn=
   begin
     match exn with
       | XException(Arakoon_exc.E_NOT_FOUND, msg) ->
-        Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, false, Logger.Debug)
+        Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, Logger.Debug)
       | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
-        Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, false, Logger.Debug)
+        Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, Logger.Debug)
       | XException(Arakoon_exc.E_NO_LONGER_MASTER, msg) ->
-        Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, false, Logger.Debug)
+        Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, Logger.Debug)
       | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
-        Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, true, Logger.Error)
+        Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, Logger.Error)
       | XException(Arakoon_exc.E_INCONSISTENT_READ, msg) ->
-         Lwt.return (Arakoon_exc.E_INCONSISTENT_READ,msg,false,false, Logger.Debug)
+         Lwt.return (Arakoon_exc.E_INCONSISTENT_READ,msg,false, Logger.Debug)
       | XException(rc, msg) ->
-        Lwt.return (rc,msg, false, true, Logger.Error)
+         Lwt.return (rc,msg, true, Logger.Error)
       | Not_found ->
-        Lwt.return (Arakoon_exc.E_NOT_FOUND, "Not_found", false, false, Logger.Debug)
+        Lwt.return (Arakoon_exc.E_NOT_FOUND, "Not_found", false, Logger.Debug)
       | Server.FOOBAR ->
-        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, true, Logger.Error)
+        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, Logger.Error)
       | Canceled ->
         Lwt.fail Canceled
       | _ ->
-        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", false, true, Logger.Error)
+        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", true, Logger.Error)
   end
-  >>= fun (rc, msg, is_fatal, close_socket, level) ->
+  >>= fun (rc, msg, death, level) ->
   Logger.log_ section level
     (fun () -> Printf.sprintf
                  "Exception during client request (%s) => rc:%lx msg:%s"
                  (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg) >>= fun () ->
   Arakoon_exc.output_exception oc rc msg >>= fun () ->
-  begin
-    if close_socket
-    then log_debug "Closing client socket" >>= fun () -> Lwt_io.close oc
-    else Lwt.return ()
-  end >>= fun () ->
-  if is_fatal
-  then Lwt.fail exn
-  else Lwt.return close_socket
+  Lwt.return death
 
 
 let decode_sequence ic =
@@ -736,9 +729,9 @@ let protocol stop backend connection =
   in
   let rec loop () =
     begin
-      one_command stop connection backend >>= fun closed ->
+      one_command stop connection backend >>= fun death ->
       Lwt_io.flush oc >>= fun() ->
-      if closed || !stop
+      if death || !stop
       then Logger.debug_ "leaving client loop"
       else loop ()
     end
