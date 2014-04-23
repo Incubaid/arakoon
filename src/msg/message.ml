@@ -18,7 +18,7 @@ limitations under the License.
 
 module Message = struct
 
-  type t = {kind:string; payload:string} (* primitive, bug suffices *)
+  type t = {kind:string; payload:string} (* primitive, but suffices *)
 
 
   let create kind payload =
