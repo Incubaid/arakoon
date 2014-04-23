@@ -235,7 +235,7 @@ let input_listl input_element ic =
 
 let input_list input_element ic =
   input_listl input_element ic >>= fun (size,list) ->
-  Client_log.debug_f "Received a list of %d elemements" size >>= fun () ->
+  Client_log.debug_f "Received a list of %d elements" size >>= fun () ->
   Lwt.return list
 
 let input_string_list ic = input_list input_string ic

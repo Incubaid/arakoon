@@ -56,7 +56,7 @@ let test_echo () =
       let test_one word =
         Lwt_io.write_line oc word >>= fun () ->
         Lwt_io.read_line ic >>= fun word' ->
-        Logger.info_f_ "%s ? %s" word word'
+        Logger.info_f_ "%S ? %S" word word'
       in Lwt_list.iter_s test_one words
     in
     let address = Unix.ADDR_INET(Unix.inet_addr_loopback, port) in
@@ -80,6 +80,16 @@ let test_max_connections () =
     Lwt.wakeup notifier () ;
     Lwt.return ()
   in
+  let echo_protocol2 (ic,oc,cid) =
+    let rec loop () =
+      Llio.input_string ic >>= fun s ->
+      Logger.debug_f_ "%S read %S" cid s >>= fun () ->
+      Llio.output_int32 oc 0l >>= fun () ->
+      Llio.output_string oc s >>= fun () ->
+      loop ()
+    in
+    loop()
+  in
 
   let teardown_callback () = Lwt_mvar.put td_var () in
   let port = 6666 in
@@ -88,20 +98,27 @@ let test_max_connections () =
   let stop = ref false in
   let server = Server.make_server_thread ~scheme
                  ~setup_callback ~teardown_callback
-                 host port echo_protocol ~stop
+                 host port echo_protocol2 ~stop
   in
   let n_problems = ref 0 in
+  let rc_x = ref None in
   let client i =
-    Logger.debug_f_ "client %i sleeping until server socket started" i >>= fun () ->
+    Logger.debug_f_ "client %i: sleeping until server socket started" i >>= fun () ->
     sleep >>= fun () ->
-    Logger.debug_ "server is up & running" >>= fun () ->
+    Logger.debug_f_ "client %i: server is up & running" i >>= fun () ->
     let conversation (ic,oc) =
       Logger.debug_f_ "start_of_conversation client %i" i >>= fun () ->
       let words = ["e";"eo";"eoe";"eoebanibabaniwe";] in
       let test_one word =
-        Lwt_io.write_line oc word >>= fun () ->
-        Lwt_io.read_line ic >>= fun word' ->
-        Logger.info_f_ "%s ? %s" word word'
+        Llio.output_string oc word >>= fun () ->
+        Llio.input_int32 ic >>= fun rc ->
+        begin
+          match rc with
+          | 0l -> ()
+          | rc -> rc_x := Some rc
+        end;
+        Llio.input_string ic >>= fun word' ->
+        Logger.info_f_ "client:%i %s ? (rc=%lx) %s" i word rc word'
       in
       Lwt.catch
         (fun () -> Lwt_list.iter_s test_one words >>= fun () -> Lwt_unix.sleep 0.1 )
@@ -126,6 +143,7 @@ let test_max_connections () =
     Lwt_mvar.take td_var >>= fun () ->
     Logger.debug_f_ "n_problems = %i" n_problems' >>= fun () ->
     OUnit.assert_equal n_problems' 1;
+    OUnit.assert_equal !rc_x (Some 0xfel);
     Lwt.return ()
   in
   Lwt_main.run main_t
