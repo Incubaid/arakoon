@@ -272,100 +272,138 @@ module RenewLease = struct
   type node_id = string
   type n = Int64.t
   type event =
-    (* | Renew of node_id * n * counter *)
-    | Grant of node_id * n * counter
-    | Timeout of float
+    | Grant of (node_id * counter)
+    | Timeout of (float)
+    | Kick
 
   module NodeSet = Set.Make(String)
 
   open Message
 
-  let make_granted_msg node n counter =
+  let make_payload counter =
     let buf = Buffer.create 20 in
-    Llio.string_to buf node;
-    Llio.int64_to buf n;
     Llio.int64_to buf counter;
-    Message.create "TODO kind" (Buffer.contents buf)
+    Buffer.contents buf
 
-  let read_granted_msg msg =
-    let payload = Message.payload_of msg in
+  let decode_payload payload =
     let buf = Llio.make_buffer payload 0 in
-    let node = Llio.string_from buf in
-    let n = Llio.int64_from buf in
     let counter = Llio.int64_from buf in
-    Grant (node, n, counter)
+    counter
 
-  let master_renew_lease (type s) (module S : Store.STORE with type t = s) store n nodes me messaging =
-    (*
-loopke die uit messaging buffer leest
-en in andere buffer injecteert?
+  let make_renew_msg counter =
+    Message.create "renew" (make_payload counter)
 
-make this forever running?
-da's mss beter he...
-kan ook timeout injecteren vanuit die on_consensus hier wa lager om nen trap te geven
+  let decode_granted_msg from msg =
+    let payload = Message.payload_of msg in
+    Grant (from, decode_payload payload)
 
-*)
+  let start_master_renew_lease_loop
+        (type s) (module S : Store.STORE with type t = s) store
+        (messaging : Messaging.messaging) cfg stop =
 
+    let me = cfg.Multi_paxos.me in
     let new_granteds = NodeSet.add me NodeSet.empty in
     let quorum =
-      ((List.length nodes) / 2) + 1 in
+      ((List.length cfg.Multi_paxos.others) / 2) + 1 in
 
-    let rec wait_for_timeout counter =
+    let buf = Lwt_buffer.create () in
+
+    let () =
+      Lwt.ignore_result
+        begin
+          (* receive grant messages and put them on 'buf' to be processed by the main loop *)
+          let rec inner () =
+            messaging # recv_message ~sub_target:"grant" ~target:me >>= fun (msg, from) ->
+            Lwt_buffer.add (decode_granted_msg from msg) buf >>= fun () ->
+            inner () in
+          inner ()
+        end in
+
+    let rec inner counter new_lease =
+      let next_renew () =
+        (* master now and received kick or timeout, so
+           - send renew-messages to slaves
+           - register new timeout
+           - wait for granteds *)
+        let t_new = Unix.gettimeofday () in
+        let counter' = Int64.succ counter in
+        let msg = make_renew_msg counter' in
+        Lwt_list.iter_p
+          (fun other ->
+           messaging # send_message ~source:me ~sub_target:"renew" ~target:other msg)
+          cfg.Multi_paxos.others >>= fun () ->
+        Lwt.ignore_result
+          begin
+            Lwt_unix.sleep (float cfg.Multi_paxos.lease_expiration) >>= fun () ->
+            Lwt_buffer.add (Timeout t_new) buf
+          end;
+        inner counter' (Some (t_new, new_granteds))
+      in
       Lwt_buffer.take buf >>= function
-       | Grant _ ->
-          wait_for_timeout counter
+       | Grant (from, counter') ->
+          if Int64.(counter =: counter')
+          then
+            match new_lease with
+            | Some (new_ls, granteds) ->
+               begin
+                 let granteds' = NodeSet.add from granteds in
+                 if NodeSet.cardinal granteds' >= quorum
+                 then
+                   begin
+                     S.set_master_no_inc store me new_ls >>= fun () ->
+                     inner (Int64.succ counter) None
+                   end
+                 else
+                   inner counter (Some (new_ls, granteds'))
+               end
+            | None ->
+               inner counter None
+          else
+            inner counter new_lease
        | Timeout t ->
           begin
             match S.who_master store with
-            | None ->
-               (* exit renewal loop *)
-               Lwt.return ()
-            | Some (m, ls) ->
-               if me <> m
-               then
-                 (* exit renewal loop *)
-                 Lwt.return ()
-               else if ls = t
-               then
-                 let t_new = Unix.gettimeofday () in
-                 (* TODO send renew messages to slave *)
-                 wait_for_grants new_granteds t_new counter
-               else
-                 wait_for_timeout counter
+            | Some (m, ls) when me = m->
+               if ls = t
+               then next_renew ()
+               else inner counter new_lease
+            | _ -> inner counter new_lease
           end
-      and wait_for_grants granteds new_ls counter =
-        Lwt_buffer.take buf >>= function
-         | Timeout t ->
-            (* TODO: hmm .. send previous messages again + new timeout? *)
-            wait_for_grants granteds new_ls counter
-         | Grant (from, n', counter') ->
-            if Int64.(n' =: n && counter =: counter')
-            then
-              begin
-                let granteds' = NodeSet.add from granteds in
-                if NodeSet.cardinal granteds' >= quorum
-                then
-                  begin
-                    S.set_master_no_inc store me new_ls >>= fun () ->
-                    wait_for_timeout (Int64.succ counter)
-                  end
-                else
-                  wait_for_grants granteds' new_ls counter
-              end
-            else
-              wait_for_grants granteds new_ls counter in
-    wait_for_timeout 0L
+       | Kick ->
+          next_renew ()
+    in
+    let kick () =
+      Lwt.ignore_result
+        begin
+          Lwt_buffer.add Kick buf
+        end in
+    inner 0L None, kick
 
-  let renew_loop stop (type s) (module S : Store.STORE with type t = s) store n buf =
+  let start_grant_loop
+        (type s) (module S : Store.STORE with type t = s) store
+        (messaging : Messaging.messaging) cfg stop =
     let rec inner () =
       if !stop
       then Lwt.return ()
       else
         begin
-          (* TODO read from buffer
-             if msg is renewal for current master -> reply with granted
-           *)
-          Lwt.return ()
+          messaging # recv_message ~sub_target:"renew" ~target:cfg.Multi_paxos.me >>= fun (msg, from) ->
+          match S.who_master store with
+          | Some (m, ls) when m = from ->
+             let now = Unix.gettimeofday () in
+             if  now < ls +. (float cfg.Multi_paxos.lease_expiration)
+             then
+               begin
+                 (* lease is still valid, grant more *)
+                 (* no need to fire lease expiration thread ... *)
+                 S.set_master_no_inc store m now >>= fun () ->
+                 (* send the exact same message back *)
+                 messaging # send_message ~source:cfg.Multi_paxos.me ~sub_target:"grant" ~target:from msg
+               end
+             else
+               Lwt.return ()
+          | _ ->
+             Lwt.return ()
         end in
     Lwt.ignore_result (inner ())
 end
