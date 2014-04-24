@@ -44,6 +44,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
         | Value.Vm _ ->
           let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
           Lwt.ignore_result (constants.inject_event event);
+          constants.kick ();
           Lwt.return ()
         | _ ->
           begin

@@ -132,6 +132,7 @@ type 'a constants =
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
+   kick : unit -> unit;
   }
 
 let am_forced_master constants me =
@@ -148,7 +149,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
-      quiesced stop =
+      quiesced stop kick =
   {
     me=me;
     is_learner;
@@ -175,6 +176,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     election_timeout = None;
     lease_expiration_id = 0;
     respect_run_master = None;
+    kick;
   }
 
 let mcast constants msg =

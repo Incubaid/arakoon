@@ -299,14 +299,16 @@ module RenewLease = struct
 
   let start_master_renew_lease_loop
         (type s) (module S : Store.STORE with type t = s) store
-        (messaging : Messaging.messaging) cfg stop =
+        (messaging : Messaging.messaging)
+        me others lease_expiration stop =
 
-    let me = cfg.Multi_paxos.me in
+    (* let me = constants.Multi_paxos.me in *)
+    (* let others = constants.Multi_paxos.others in *)
+    (* let lease_expiration = float constants.Multi_paxos.lease_expiration in *)
     let new_granteds = NodeSet.add me NodeSet.empty in
-    let quorum =
-      ((List.length cfg.Multi_paxos.others) / 2) + 1 in
-
+    let quorum = ((List.length others) / 2) + 1 in
     let buf = Lwt_buffer.create () in
+
 
     let () =
       Lwt.ignore_result
@@ -331,46 +333,57 @@ module RenewLease = struct
         Lwt_list.iter_p
           (fun other ->
            messaging # send_message ~source:me ~sub_target:"renew" ~target:other msg)
-          cfg.Multi_paxos.others >>= fun () ->
+          others >>= fun () ->
         Lwt.ignore_result
           begin
-            Lwt_unix.sleep (float cfg.Multi_paxos.lease_expiration) >>= fun () ->
+            (* need this for single node clusters ? *)
+            Lwt_buffer.add (Grant (me, counter')) buf
+          end;
+        Lwt.ignore_result
+          begin
+            Lwt_unix.sleep (lease_expiration /. 4.) >>= fun () ->
             Lwt_buffer.add (Timeout t_new) buf
           end;
         inner counter' (Some (t_new, new_granteds))
       in
-      Lwt_buffer.take buf >>= function
-       | Grant (from, counter') ->
-          if Int64.(counter =: counter')
-          then
-            match new_lease with
-            | Some (new_ls, granteds) ->
-               begin
-                 let granteds' = NodeSet.add from granteds in
-                 if NodeSet.cardinal granteds' >= quorum
-                 then
-                   begin
-                     S.set_master_no_inc store me new_ls >>= fun () ->
-                     inner (Int64.succ counter) None
-                   end
-                 else
-                   inner counter (Some (new_ls, granteds'))
-               end
-            | None ->
-               inner counter None
-          else
-            inner counter new_lease
-       | Timeout t ->
-          begin
-            match S.who_master store with
-            | Some (m, ls) when me = m->
-               if ls = t
-               then next_renew ()
-               else inner counter new_lease
-            | _ -> inner counter new_lease
-          end
-       | Kick ->
-          next_renew ()
+      if !stop
+      then Lwt.return ()
+      else
+        Lwt_buffer.take buf >>= function
+         | Grant (from, counter') ->
+            Logger.debug_f_ "renew_lease_loop: Received Grant %s, %Li" from counter' >>= fun () ->
+            if Int64.(counter =: counter')
+            then
+              match new_lease with
+              | Some (new_ls, granteds) ->
+                 begin
+                   let granteds' = NodeSet.add from granteds in
+                   if NodeSet.cardinal granteds' >= quorum
+                   then
+                     begin
+                       S.set_master_no_inc store me new_ls >>= fun () ->
+                       inner counter None
+                     end
+                   else
+                     inner counter (Some (new_ls, granteds'))
+                 end
+              | None ->
+                 inner counter None
+            else
+              inner counter new_lease
+         | Timeout t ->
+            Logger.debug_f_ "renew_lease_loop: Timeout %f" t >>= fun () ->
+            begin
+              match S.who_master store with
+              | Some (m, ls) when me = m->
+                 if ls = t
+                 then next_renew ()
+                 else inner counter new_lease
+              | _ -> inner counter new_lease
+            end
+         | Kick ->
+            Logger.debug_ "renew_lease_loop: Kick" >>= fun () ->
+            next_renew ()
     in
     let kick () =
       Lwt.ignore_result
@@ -381,31 +394,34 @@ module RenewLease = struct
 
   let start_grant_loop
         (type s) (module S : Store.STORE with type t = s) store
-        (messaging : Messaging.messaging) cfg stop =
+        (messaging : Messaging.messaging) constants stop =
+    let me = constants.Multi_paxos.me in
+    let lease_expiration = float constants.Multi_paxos.lease_expiration in
     let rec inner () =
       if !stop
       then Lwt.return ()
       else
+        messaging # recv_message ~sub_target:"renew" ~target:me >>= fun (msg, from) ->
         begin
-          messaging # recv_message ~sub_target:"renew" ~target:cfg.Multi_paxos.me >>= fun (msg, from) ->
           match S.who_master store with
           | Some (m, ls) when m = from ->
              let now = Unix.gettimeofday () in
-             if  now < ls +. (float cfg.Multi_paxos.lease_expiration)
+             if  now < ls +. lease_expiration
              then
                begin
                  (* lease is still valid, grant more *)
                  (* no need to fire lease expiration thread ... *)
                  S.set_master_no_inc store m now >>= fun () ->
                  (* send the exact same message back *)
-                 messaging # send_message ~source:cfg.Multi_paxos.me ~sub_target:"grant" ~target:from msg
+                 messaging # send_message ~source:me ~sub_target:"grant" ~target:from msg
                end
              else
                Lwt.return ()
           | _ ->
              Lwt.return ()
-        end in
-    Lwt.ignore_result (inner ())
+        end >>= fun () ->
+        inner () in
+    inner ()
 end
 
 module X = struct
@@ -763,6 +779,7 @@ let _main_2 (type s)
               then ssl_context
               else None
           in
+          let master_renew_t, kick = RenewLease.start_master_renew_lease_loop (module S) store messaging my_name other_names (float lease_period) stop in
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
               me.is_learner
@@ -784,10 +801,12 @@ let _main_2 (type s)
               ~cluster_id
               false
               stop
+              kick
           in
           let reporting_period = me.reporting in
           Lwt.return ((master,constants, buffers, new_i, store),
-                      service, X.reporting reporting_period backend)
+                      service, X.reporting reporting_period backend,
+                      master_renew_t)
         end
 
       in
@@ -824,7 +843,8 @@ let _main_2 (type s)
            let _ = Lwt_unix.on_signal 2  unlock_killswitch in (*  INT aka Ctrl-C *)
            build_startup_state () >>= fun (start_state,
                                            service,
-                                           rapporting) ->
+                                           rapporting,
+                                           master_renew_t) ->
            let (_,constants,_,_,store) = start_state in
            let log_exception m t =
              Lwt.catch
@@ -845,11 +865,14 @@ let _main_2 (type s)
                 constants.lease_expiration_id <- constants.lease_expiration_id + 1;
                 Lwt.return ())
            in
+           let grant_t () = RenewLease.start_grant_loop (module S) store messaging constants stop in
            Lwt.pick [
                fsm_t;
                (messaging # run ?ssl_context ());
                service ();
                rapporting ();
+               master_renew_t;
+               grant_t ();
                (listen_for_signal () >>= fun () ->
                 stop := true;
                 let msg = "got TERM | INT" in
