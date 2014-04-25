@@ -88,7 +88,8 @@ let test_generic network_factory n_nodes () =
               lease_expiration_id = 0;
               respect_run_master = None;
               catchup_tls_ctx = None;
-              kick = fun () -> ();
+              renew_lease = (fun () -> ());
+              drop_master = (fun () -> ());
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -264,7 +265,8 @@ let test_master_loop network_factory ()  =
                    lease_expiration_id = 0;
                    respect_run_master = None;
                    catchup_tls_ctx = None;
-                   kick = fun () -> ();
+                   renew_lease = (fun () -> ());
+                   drop_master = (fun () -> ());
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -393,7 +395,8 @@ let test_simulation filters () =
     lease_expiration_id = 0;
     respect_run_master = None;
     catchup_tls_ctx = None;
-    kick = fun () -> ();
+    renew_lease = (fun () -> ());
+    drop_master = (fun () -> ());
   } in
   let c0_t () =
     let expected prev_key key =

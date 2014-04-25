@@ -44,7 +44,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
         | Value.Vm _ ->
           let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
           Lwt.ignore_result (constants.inject_event event);
-          constants.kick ();
+          constants.renew_lease ();
           Lwt.return ()
         | _ ->
           begin
@@ -250,6 +250,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
 
     | DropMaster (sleep, awake) ->
+      constants.drop_master ();
       let state' = (n,new_i, (sleep, awake) :: lease_expire_waiters) in
       Fsm.return (Stable_master state')
 

@@ -275,6 +275,7 @@ module RenewLease = struct
     | Grant of (node_id * counter)
     | Timeout of (float)
     | Kick
+    | DropMaster
 
   module NodeSet = Set.Make(String)
 
@@ -321,7 +322,7 @@ module RenewLease = struct
           inner ()
         end in
 
-    let rec inner counter new_lease =
+    let rec inner counter new_lease dropping_master =
       let next_renew () =
         (* master now and received kick or timeout, so
            - send renew-messages to slaves
@@ -344,7 +345,7 @@ module RenewLease = struct
             Lwt_unix.sleep (lease_expiration /. 4.) >>= fun () ->
             Lwt_buffer.add (Timeout t_new) buf
           end;
-        inner counter' (Some (t_new, new_granteds))
+        inner counter' (Some (t_new, new_granteds)) false
       in
       if !stop
       then Lwt.return ()
@@ -362,35 +363,43 @@ module RenewLease = struct
                    then
                      begin
                        S.set_master_no_inc store me new_ls >>= fun () ->
-                       inner counter None
+                       inner counter None dropping_master
                      end
                    else
-                     inner counter (Some (new_ls, granteds'))
+                     inner counter (Some (new_ls, granteds')) dropping_master
                  end
               | None ->
-                 inner counter None
+                 inner counter None dropping_master
             else
-              inner counter new_lease
+              inner counter new_lease dropping_master
          | Timeout t ->
             Logger.debug_f_ "renew_lease_loop: Timeout %f" t >>= fun () ->
             begin
               match S.who_master store with
               | Some (m, ls) when me = m->
-                 if ls = t
+                 if ls = t && not dropping_master
                  then next_renew ()
-                 else inner counter new_lease
-              | _ -> inner counter new_lease
+                 else inner counter new_lease dropping_master
+              | _ -> inner counter new_lease dropping_master
             end
          | Kick ->
             Logger.debug_ "renew_lease_loop: Kick" >>= fun () ->
             next_renew ()
+         | DropMaster ->
+            Logger.debug_ "renew_lease_loop: DropMaster" >>= fun () ->
+            inner counter new_lease true
     in
-    let kick () =
+    let renew_lease () =
       Lwt.ignore_result
         begin
           Lwt_buffer.add Kick buf
         end in
-    inner 0L None, kick
+    let drop_master () =
+      Lwt.ignore_result
+        begin
+          Lwt_buffer.add DropMaster buf
+        end in
+    inner 0L None false, renew_lease, drop_master
 
   let start_grant_loop
         (type s) (module S : Store.STORE with type t = s) store
@@ -779,7 +788,7 @@ let _main_2 (type s)
               then ssl_context
               else None
           in
-          let master_renew_t, kick = RenewLease.start_master_renew_lease_loop (module S) store messaging my_name other_names (float lease_period) stop in
+          let master_renew_t, renew_lease, drop_master = RenewLease.start_master_renew_lease_loop (module S) store messaging my_name other_names (float lease_period) stop in
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
               me.is_learner
@@ -801,7 +810,8 @@ let _main_2 (type s)
               ~cluster_id
               false
               stop
-              kick
+              ~renew_lease
+              ~drop_master
           in
           let reporting_period = me.reporting in
           Lwt.return ((master,constants, buffers, new_i, store),
