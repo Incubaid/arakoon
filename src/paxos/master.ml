@@ -141,6 +141,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
           if diff < (Sn.of_int 5) && constants.is_alive p
           then
             begin
+              constants.drop_master ();
               let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             end

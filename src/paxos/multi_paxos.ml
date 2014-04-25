@@ -325,38 +325,37 @@ let handle_prepare (type s) constants dest n n' i' =
     end
   else
     begin
-      let can_pr = can_promise constants.store_module constants.store constants.lease_expiration dest in
-      if not can_pr && n' >= 0L
-      then
+      let store = constants.store in
+      let s_i = S.consensus_i store in
+      let nak_max =
         begin
-          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
-          >>= fun () ->
-          Lwt.return Prepare_dropped
-
+          match s_i with
+          | None -> Sn.start
+          | Some si -> Sn.succ si
         end
+      in
+
+      if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n
+      then
+        (* Send Nak, other node is behind *)
+        let reply = Nak( n',(n,nak_max)) in
+        Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
+                        (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
+        Lwt.return (Nak_sent, Some reply)
       else
         begin
-          let store = constants.store in
-          let s_i = S.consensus_i store in
-          let nak_max =
-            begin
-              match s_i with
-                | None -> Sn.start
-                | Some si -> Sn.succ si
-            end
-          in
-
-          if ( n' > n && i' < nak_max && nak_max <> Sn.start ) || n' <= n
-          then
-            (* Send Nak, other node is behind *)
-            let reply = Nak( n',(n,nak_max)) in
-            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
-              (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
-            Lwt.return (Nak_sent, Some reply)
-          else
-            begin
-              (* Ok, we can make a Promise to the other node, if we want to *)
-              let make_promise () =
+          (* Ok, we can make a Promise to the other node, if we want to *)
+          let maybe_promise () =
+            let can_pr = can_promise constants.store_module constants.store constants.lease_expiration dest in
+            if not can_pr && n' >= 0L
+            then
+              begin
+                Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
+                >>= fun () ->
+                Lwt.return (Prepare_dropped, None)
+              end
+            else
+              begin
                 constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
                 let lv = constants.get_value nak_max in
                 let reply = Promise(n',nak_max,lv) in
@@ -368,39 +367,39 @@ let handle_prepare (type s) constants dest n n' i' =
                   Lwt.return(Promise_sent_needs_catchup, Some reply)
                 else (* i' = i *)
                   (* Send Promise, we are in sync *)
-                  Lwt.return(Promise_sent_up2date, Some reply) in
-              match constants.respect_run_master with
-                | None ->
-                  make_promise ()
-                | Some (other, until) ->
-                  let now = Unix.gettimeofday () in
-                  if until < now || dest = other
-                  then
-                    begin
-                      (* handle the prepare by making a promise *)
-                      (* old respect_run_master info
+                  Lwt.return(Promise_sent_up2date, Some reply)
+              end in
+          match constants.respect_run_master with
+          | None ->
+             maybe_promise ()
+          | Some (other, until) ->
+             let now = Unix.gettimeofday () in
+             if until < now || dest = other
+             then
+               begin
+                 (* handle the prepare by making a promise *)
+                 (* old respect_run_master info
                            (which we can safely ignore, it will be overwritten in make_promise)
                          or a prepare from the same node again
                            (this ensures no prepares from the same node queue up here) *)
-                      make_promise ()
-                    end
-                  else
-                    begin
-                      (* drop the prepare to give the other node that is running
+                 maybe_promise ()
+               end
+             else
+               begin
+                 (* drop the prepare to give the other node that is running
                          for master some time to do it's thing
-                      *)
-                      Logger.debug_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
-                      Lwt.return (Prepare_dropped, None)
-                    end
-            end
-        end >>= fun (ret_val, reply) ->
-        match reply with
-          | None -> Lwt.return ret_val
-          | Some reply ->
-            Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
-            constants.send reply me dest >>= fun () ->
-            Lwt.return ret_val
-    end
+                  *)
+                 Logger.debug_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
+                 Lwt.return (Prepare_dropped, None)
+               end
+        end
+    end >>= fun (ret_val, reply) ->
+    match reply with
+    | None -> Lwt.return ret_val
+    | Some reply ->
+       Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
+       constants.send reply me dest >>= fun () ->
+       Lwt.return ret_val
 
 let safe_wakeup sleeper awake value =
   Lwt.catch
