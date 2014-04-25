@@ -595,12 +595,68 @@ module Node_cfg = struct
               Lwt.fail exn
             end
           else
-            Lwt.return () in
+            Lwt.return ()
+        in
 
-        verify_exists t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
-        verify_exists t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
-        verify_exists t.tlx_dir "Tlx dir" (InvalidTlxDir t.tlx_dir) >>= fun () ->
-        verify_exists t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
+        let verify_writable dir msg exn =
+          let handle_exn =
+            (* Work-around: Logger macro doesn't accept an 'exn' argument not
+             * called 'exn' *)
+            let log exn =
+              Logger.fatal_f_ ~exn "Failure while verifying %s '%s'" msg dir
+            in
+            function
+              (* Set of exceptions we map to some specific exit code *)
+              | Unix.Unix_error(Unix.EPERM, _, _)
+              | Unix.Unix_error(Unix.EACCES, _, _)
+              | Unix.Unix_error(Unix.EROFS, _, _)
+              | Unix.Unix_error(Unix.ENOSPC, _, _) as e ->
+                  log e >>= fun () ->
+                  Lwt.fail exn
+              | e ->
+                  log e >>= fun () ->
+                  Lwt.fail e
+          in
+
+          let safe_unlink p =
+            Lwt.catch
+              (fun () -> Lwt_unix.unlink p)
+              (function
+                | Unix.Unix_error(Unix.ENOENT, _, _) -> Lwt.return ()
+                | e -> handle_exn e)
+          in
+
+          let fn = Printf.sprintf "%s/touch-%d" dir (Unix.getpid ()) in
+
+          let check () =
+            safe_unlink fn >>= fun () ->
+            let go () =
+              Lwt_unix.openfile fn
+                [Lwt_unix.O_RDWR; Lwt_unix.O_CLOEXEC; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
+                0o600 >>= fun fd ->
+
+              Lwt.finalize
+                (fun () ->
+                  Lwt_unix.write fd "0" 0 1 >>= fun _ ->
+                  Lwt_unix.fsync fd)
+                (fun () ->
+                  Lwt_unix.close fd)
+            in
+            Lwt.catch go handle_exn
+          in
+
+          Lwt.finalize check (fun () -> safe_unlink fn)
+        in
+
+        let verify dir msg exn =
+          verify_exists dir msg exn >>= fun () ->
+          verify_writable dir msg exn
+        in
+
+        verify t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
+        verify t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
+        verify t.tlx_dir "Tlx dir" (InvalidTlxDir t.tlx_dir) >>= fun () ->
+        verify t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
 
       end
 end
