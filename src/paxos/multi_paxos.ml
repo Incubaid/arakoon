@@ -234,7 +234,13 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
         1.1
       else
         0.5 in
-    let sleep_sec = (lease_expiration +. lease_start -. Unix.gettimeofday ()) *. factor in
+    let sleep_sec =
+      let now = Unix.gettimeofday () in
+      if lease_start +. lease_expiration < now
+      then
+        lease_expiration *. factor
+      else
+        (lease_expiration -. (now -. lease_start)) *. factor in
     let t () =
       begin
         Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
