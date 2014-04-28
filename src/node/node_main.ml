@@ -316,9 +316,16 @@ module RenewLease = struct
         begin
           (* receive grant messages and put them on 'buf' to be processed by the main loop *)
           let rec inner () =
-            messaging # recv_message ~sub_target:"grant" ~target:me >>= fun (msg, from) ->
-            Lwt_buffer.add (decode_granted_msg from msg) buf >>= fun () ->
-            inner () in
+            if !stop
+            then
+              Lwt.return ()
+            else
+              begin
+                messaging # recv_message ~sub_target:"grant" ~target:me >>= fun (msg, from) ->
+                Lwt_buffer.add (decode_granted_msg from msg) buf >>= fun () ->
+                inner ()
+              end
+          in
           inner ()
         end in
 
@@ -331,10 +338,13 @@ module RenewLease = struct
         let t_new = Unix.gettimeofday () in
         let counter' = Int64.succ counter in
         let msg = make_renew_msg counter' in
-        Lwt_list.iter_p
-          (fun other ->
-           messaging # send_message ~source:me ~sub_target:"renew" ~target:other msg)
-          others >>= fun () ->
+        Lwt.ignore_result
+          begin
+            Lwt_list.iter_p
+              (fun other ->
+               messaging # send_message ~source:me ~sub_target:"renew" ~target:other msg)
+              others
+          end;
         Lwt.ignore_result
           begin
             (* need this for single node clusters ? *)
@@ -377,7 +387,7 @@ module RenewLease = struct
             begin
               match S.who_master store with
               | Some (m, ls) when me = m->
-                 if ls = t && not dropping_master
+                 if ls <= t && not dropping_master
                  then next_renew ()
                  else inner counter new_lease dropping_master
               | _ -> inner counter new_lease dropping_master
@@ -411,6 +421,7 @@ module RenewLease = struct
       then Lwt.return ()
       else
         messaging # recv_message ~sub_target:"renew" ~target:me >>= fun (msg, from) ->
+        Logger.debug_f_ "grant_loop: received renew request from %s" from >>= fun () ->
         begin
           match S.who_master store with
           | Some (m, ls) when m = from ->

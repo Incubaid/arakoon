@@ -20,6 +20,7 @@ open Tlogcollection
 open Tlogcommon
 open Lwt
 
+let delay = ref None
 
 class mem_tlog_collection name =
   object (self: #tlog_collection)
@@ -79,7 +80,11 @@ class mem_tlog_collection name =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
-      Lwt.return ()
+      match !delay with
+      | None ->
+         Lwt.return ()
+      | Some d ->
+         Lwt_unix.sleep (Random.float d)
 
     method log_value i v = self #log_value_explicit i v false None
 

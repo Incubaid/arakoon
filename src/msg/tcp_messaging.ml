@@ -359,7 +359,7 @@ class tcp_messaging
         let (source:id) = Llio.string_from buffer in
         let target      = Llio.string_from buffer in
         let msg         = Message.from_buffer buffer in
-        Logger.debug_f_ "message from %s for %s" source target >>= fun () ->
+        (* Logger.debug_f_ "message from %s for %s" source target >>= fun () -> *)
         if drop_it msg source target then Lwt.return b1
         else
           begin

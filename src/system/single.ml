@@ -608,6 +608,21 @@ let assert_exists3 tpl =
   _start "assert_exists3" >>= fun () ->
   _with_master tpl _assert_exists3
 
+let test_renew_lease tpl =
+  _with_master
+    tpl
+    (fun client ->
+     Mem_tlogcollection.delay := (Some 10.);
+     Lwt.finalize
+       (fun () ->
+        client # set "k" "v" >>= fun () ->
+        client # get "k" >>= fun v ->
+        Lwt.return ())
+       (fun () ->
+        Mem_tlogcollection.delay := None;
+        Lwt.return ())
+    )
+
 let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
 let setup make_master tn base () =
@@ -652,7 +667,8 @@ let make_suite base name w =
       make_el "assert_exists2"   (base + 1200) assert_exists2;
       make_el "assert_exists3"   (base + 1300) assert_exists3;
       make_el "trivial_master6"  (base + 1400) trivial_master6;
-      make_el "replace"          (base + 1500) replace
+      make_el "replace"          (base + 1500) replace;
+      make_el "test_renew_lease" (base + 1600) test_renew_lease;
     ]
 
 let force_master =
