@@ -30,7 +30,7 @@ man pages or the help function.
       --who-master tells you who's the master
       --expect-progress-possible tells you if the master thinks progress is possible
       --statistics returns some master statistics
-      --run-system-tests run system tests (you need a running installation
+      --run-system-tests run system tests (you need a running installation)
       --version shows version
       -config specifies config file (default = cfg/arakoon.ini )
       -catchup-only will only do a catchup of the node, without actually starting it (option to --node)
