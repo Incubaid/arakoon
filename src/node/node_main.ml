@@ -267,6 +267,18 @@ let build_service_ssl_context me cluster =
         Typed_ssl.load_verify_locations ctx tls_ca_cert "";
         Some ctx
 
+type test =
+  | Msg1
+  | Msg2
+class renew_actor buf =
+  object
+    inherit [test] Lwt_actor.actor buf
+    method process_message msg =
+      match msg with
+      | Msg1 -> ()
+      | Msg2 -> ()
+  end
+
 module RenewLease = struct
   type counter = Int64.t
   type node_id = string
