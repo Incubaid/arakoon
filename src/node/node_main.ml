@@ -282,7 +282,7 @@ module RenewLease = struct
   open Message
 
   let make_payload counter =
-    let buf = Buffer.create 20 in
+    let buf = Buffer.create 8 in
     Llio.int64_to buf counter;
     Buffer.contents buf
 
@@ -301,14 +301,13 @@ module RenewLease = struct
   let start_master_renew_lease_loop
         (type s) (module S : Store.STORE with type t = s) store
         (messaging : Messaging.messaging)
-        me others lease_expiration stop =
+        me others
+        quorum_function
+        lease_expiration stop =
 
-    (* let me = constants.Multi_paxos.me in *)
-    (* let others = constants.Multi_paxos.others in *)
-    (* let lease_expiration = float constants.Multi_paxos.lease_expiration in *)
     let new_granteds = NodeSet.add me NodeSet.empty in
-    let quorum = ((List.length others) / 2) + 1 in
     let buf = Lwt_buffer.create () in
+    let needed = quorum_function (List.length others + 1) in
 
 
     let () =
@@ -369,7 +368,7 @@ module RenewLease = struct
               | Some (new_ls, granteds) ->
                  begin
                    let granteds' = NodeSet.add from granteds in
-                   if NodeSet.cardinal granteds' >= quorum
+                   if NodeSet.cardinal granteds' >= needed
                    then
                      begin
                        S.set_master_no_inc store me new_ls >>= fun () ->
@@ -799,7 +798,14 @@ let _main_2 (type s)
               then ssl_context
               else None
           in
-          let master_renew_t, renew_lease, drop_master = RenewLease.start_master_renew_lease_loop (module S) store messaging my_name other_names (float lease_period) stop in
+          let master_renew_t, renew_lease, drop_master =
+            RenewLease.start_master_renew_lease_loop
+              (module S) store
+              messaging
+              my_name other_names
+              quorum_function
+              (float lease_period)
+              stop in
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
               me.is_learner
