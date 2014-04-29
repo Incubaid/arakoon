@@ -44,6 +44,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
         | Value.Vm _ ->
           let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
           Lwt.ignore_result (constants.inject_event event);
+          constants.renew_lease ();
           Lwt.return ()
         | _ ->
           begin
@@ -140,6 +141,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
           if diff < (Sn.of_int 5) && constants.is_alive p
           then
             begin
+              constants.drop_master ();
               let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
               Fsm.return ~sides:[log_e] (Stable_master current_state)
             end
@@ -249,6 +251,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
     | Unquiesce -> Lwt.fail (Failure "Unexpected unquiesce request while running as")
 
     | DropMaster (sleep, awake) ->
+      constants.drop_master ();
       let state' = (n,new_i, (sleep, awake) :: lease_expire_waiters) in
       Fsm.return (Stable_master state')
 

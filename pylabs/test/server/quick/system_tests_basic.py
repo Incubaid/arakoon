@@ -104,7 +104,7 @@ def test_max_value_size_tinkering ():
     C.assert_running_nodes(1)
     client = C.get_client()
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
-    
+
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
@@ -385,7 +385,7 @@ def test_consistency():
     m = client.get_txid()
     logging.debug("m = %s", m)
     assert_equals(str(m).find("AtLeast"),0)
-    time.sleep(5)
+    client.nop()
     client.setConsistency(m)
     v = client.get('x')
     assert_equals(v,'X')

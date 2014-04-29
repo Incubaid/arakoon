@@ -385,3 +385,9 @@ module Map = struct
 end
 
 type 'a counted_list = (int * 'a list)
+
+module Int64 = struct
+  include Int64
+  module C = CompareLib.Default(Int64)
+  include C
+end

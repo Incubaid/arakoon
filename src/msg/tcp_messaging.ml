@@ -83,9 +83,18 @@ class tcp_messaging
 
     method register_receivers mapping = List.iter (fun (id,address) -> self # _register_receiver id address) mapping
 
+    method private _target' sub_target ~target =
+      match sub_target with
+        | None -> target
+        | Some sub -> Printf.sprintf "%s\n%s" target sub
 
     method private _get_target_addresses ~target =
-      try Some (Hashtbl.find _id2address target)
+      let target' =
+        try
+          let index = String.index target '\n' in
+          String.sub target 0 index
+        with Not_found -> target in
+      try Some (Hashtbl.find _id2address target')
       with Not_found -> None
 
 
@@ -114,26 +123,28 @@ class tcp_messaging
         let () = Hashtbl.add _outgoing target fresh in
         fresh
 
-    method send_message m ~source ~target =
+    method send_message m ~source ?sub_target ~target =
       let tq = self # _get_send_q ~target in
-      Lwt_buffer.add (source, target, m) tq
+      Lwt_buffer.add (source, target, sub_target, m) tq
 
-
-
-    method private get_buffer (target:id) =
-      try Hashtbl.find _qs target
+    method private _get_buffer target' =
+      try Hashtbl.find _qs target'
       with | Not_found ->
         begin
           let tq =
             let capacity = Some 1000
             and leaky = true in
             Lwt_buffer.create ~capacity ~leaky () in
-          let () = Hashtbl.add _qs target tq in
+          let () = Hashtbl.add _qs target' tq in
           tq
         end
 
-    method recv_message ~target =
-      let q = self # get_buffer target in
+    method private get_buffer ?sub_target (target:id) =
+      let target' = self # _target' sub_target ~target in
+      self # _get_buffer target'
+
+    method recv_message ?sub_target ~target =
+      let q = self # get_buffer ?sub_target target in
       Lwt_buffer.take q
 
     method private _establish_connection address =
@@ -167,7 +178,7 @@ class tcp_messaging
 
     method private _make_sender_loop target target_q =
       let rec _loop_for_q () =
-        Lwt_buffer.take target_q >>= fun (source, target, msg) ->
+        Lwt_buffer.take target_q >>= fun (source, target, sub_target, msg) ->
         let rr_o = self # _get_target_addresses ~target in
         begin
           match rr_o with
@@ -183,7 +194,10 @@ class tcp_messaging
                   (fun () ->
                    self # _get_connection addresses >>= fun connection ->
                    let ic,oc = connection in
-                   let pickled = self # _pickle source target msg in
+                   let pickled = self # _pickle
+                                          source
+                                          (self # _target' sub_target ~target)
+                                          msg in
                    Llio.output_string oc pickled >>= fun () ->
                    Lwt_io.flush oc)
               in
@@ -345,7 +359,7 @@ class tcp_messaging
         let (source:id) = Llio.string_from buffer in
         let target      = Llio.string_from buffer in
         let msg         = Message.from_buffer buffer in
-        (*log_f "message from %s for %s" source target >>= fun () ->*)
+        (* Logger.debug_f_ "message from %s for %s" source target >>= fun () -> *)
         if drop_it msg source target then Lwt.return b1
         else
           begin
@@ -356,7 +370,7 @@ class tcp_messaging
                 Logger.debug_f_ "registered %s => (%s,%i)" source ip port
               else Lwt.return ()
             end >>= fun () ->
-            let q = self # get_buffer target in
+            let q = self # _get_buffer target in
             Lwt_buffer.add (msg, source) q >>=  fun () ->
             Lwt.return b1
           end

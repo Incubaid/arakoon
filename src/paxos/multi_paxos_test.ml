@@ -88,6 +88,8 @@ let test_generic network_factory n_nodes () =
               lease_expiration_id = 0;
               respect_run_master = None;
               catchup_tls_ctx = None;
+              renew_lease = (fun () -> ());
+              drop_master = (fun () -> ());
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -263,6 +265,8 @@ let test_master_loop network_factory ()  =
                    lease_expiration_id = 0;
                    respect_run_master = None;
                    catchup_tls_ctx = None;
+                   renew_lease = (fun () -> ());
+                   drop_master = (fun () -> ());
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -321,7 +325,7 @@ let build_tcp () =
     (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
   in
   let network = network_of_messaging m in
-  m # get_buffer, network
+  m # get_buffer ?sub_target:None, network
 
 
 
@@ -391,6 +395,8 @@ let test_simulation filters () =
     lease_expiration_id = 0;
     respect_run_master = None;
     catchup_tls_ctx = None;
+    renew_lease = (fun () -> ());
+    drop_master = (fun () -> ());
   } in
   let c0_t () =
     let expected prev_key key =

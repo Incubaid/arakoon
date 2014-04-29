@@ -74,15 +74,15 @@ let promises_check_done constants state () =
   *)
   let me = constants.me in
   let nnones, v_s = v_lims in
-  let bv,bf,number_of_updates =
+  let bv,bf =
     begin
       match v_s with
-        | [] ->  (Value.create_master_value (me, 0.0), 0, 1)
+        | [] ->  (Value.create_master_value (me, 0.0), 0)
         | hd::tl ->
           let bv, bf = hd in
           if Value.is_master_set bv
-          then (Value.create_master_value (me, 0.0), bf, 1)
-          else bv, bf , List.length (Value.updates_from_value bv)
+          then (Value.create_master_value (me, 0.0), bf)
+          else bv, bf
 
     end in
   let nnodes = List.length constants.others + 1 in
