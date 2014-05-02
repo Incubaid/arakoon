@@ -55,7 +55,7 @@ let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
          | None ->
              let ic = Lwt_io.of_fd ~mode:Lwt_io.input  socket
              and oc = Lwt_io.of_fd ~mode:Lwt_io.output socket in
-             Lwt.return (ic,oc)
+             Lwt.return (socket, ic, oc)
          | Some ctx ->
              Typed_ssl.Lwt.ssl_connect socket ctx >>= fun (s, lwt_s) ->
              let cert = Ssl.get_certificate s in
@@ -68,7 +68,7 @@ let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
                peer_s (Ssl.get_cipher_description cipher) >>= fun () ->
              let ic = Lwt_ssl.in_channel_of_descr lwt_s
              and oc = Lwt_ssl.out_channel_of_descr lwt_s in
-             Lwt.return (ic, oc)
+             Lwt.return (socket, ic, oc)
        )
     (fun exn ->
        Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
