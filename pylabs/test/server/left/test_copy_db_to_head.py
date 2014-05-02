@@ -23,7 +23,7 @@ import logging
 
 @C.with_custom_setup(C.setup_2_nodes_forced_master_mini, C.basic_teardown)
 def test_copy_db_to_head():
-    # fill cluster until they have at least 5 tlogs
+    # fill cluster until they have at least 10 tlogs
     C.iterate_n_times(5000, C.set_get_and_delete)
 
     slave = C.node_names[1]
@@ -36,8 +36,10 @@ def test_copy_db_to_head():
 
     C.stop_all()
 
-    (home_dir, _, _, head_dir) = C.build_node_dir_names(slave)
-    assert(len(X.listFilesInDir( home_dir, filter="*.tlog" )) == 1)
+    (home_dir, _, tlf_dir, head_dir) = C.build_node_dir_names(slave)
+    tlogs_count = len(X.listFilesInDir( home_dir, filter="*.tlog" ))
+    tlf_count = len(X.listFilesInDir( tlf_dir, filter="*.tlf" ))
+    assert(tlogs_count + tlf_count < 5)
     assert(X.fileExists(head_dir + "/head.db"))
     a = C.get_i(slave, True)
     logging.info("slave_head_i='%s'", a)
