@@ -620,7 +620,9 @@ module Node_cfg = struct
 
           let safe_unlink p =
             Lwt.catch
-              (fun () -> Lwt_unix.unlink p)
+              (fun () ->
+               Logger.debug_f_ "Unlinking %S" p >>= fun () ->
+               Lwt_unix.unlink p)
               (function
                 | Unix.Unix_error(Unix.ENOENT, _, _) -> Lwt.return ()
                 | e -> handle_exn e)
@@ -631,14 +633,23 @@ module Node_cfg = struct
           let check () =
             safe_unlink fn >>= fun () ->
             let go () =
+              Logger.debug_f_ "Touching %S" fn >>= fun () ->
               Lwt_unix.openfile fn
                 [Lwt_unix.O_RDWR; Lwt_unix.O_CLOEXEC; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
                 0o600 >>= fun fd ->
 
               Lwt.finalize
                 (fun () ->
+                  Logger.debug_f_ "Write byte to %S" fn >>= fun () ->
                   Lwt_unix.write fd "0" 0 1 >>= fun _ ->
-                  Lwt_unix.fsync fd)
+                  if t._fsync_tlog_dir
+                  then
+                    begin
+                      Logger.debug_f_ "Fsync %S" fn >>= fun () ->
+                      Lwt_unix.fsync fd
+                    end
+                  else
+                    Lwt.return ())
                 (fun () ->
                   Lwt_unix.close fd)
             in
