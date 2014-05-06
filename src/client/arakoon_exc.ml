@@ -30,6 +30,7 @@ type rc =
   | E_GOING_DOWN
   | E_NOT_SUPPORTED
   | E_NO_LONGER_MASTER
+  | E_BAD_INPUT
   | E_INCONSISTENT_READ
   | E_MAX_CONNECTIONS
   | E_UNKNOWN_FAILURE
@@ -47,6 +48,7 @@ let mapping = [
   ( E_GOING_DOWN          , 0x10l);
   ( E_NOT_SUPPORTED       , 0x20l);
   ( E_NO_LONGER_MASTER    , 0x21l);
+  ( E_BAD_INPUT           , 0x26l);
   ( E_INCONSISTENT_READ   , 0x80l);
   ( E_MAX_CONNECTIONS     , 0xfel);
   ( E_UNKNOWN_FAILURE     , 0xffl );

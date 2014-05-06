@@ -624,12 +624,12 @@ struct
   let get_interval store =
     Lwt.return (store.interval)
 
-  let _set_interval store tx range =
-    store.interval <- range;
+  let _set_interval store tx interval =
+    store.interval <- interval;
     let buf = Buffer.create 80 in
-    let () = Interval.interval_to buf range in
-    let range_s = Buffer.contents buf in
-    S.set store.s tx __interval_key range_s
+    let () = Interval.interval_to buf interval in
+    let interval_s = Buffer.contents buf in
+    S.set store.s tx __interval_key interval_s
 
   class store_user_db store tx =
     let test k =
@@ -690,26 +690,40 @@ struct
           Logger.debug_f_ "store # delete %S" key >>= fun () ->
           wrap (fun () -> _delete store tx key)
         | Update.DeletePrefix prefix ->
-           (* TODO check interval *)
-          Logger.debug_f_ "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = S.delete_prefix store.s tx (make_public prefix) in
-          let sb = Buffer.create 8 in
-          let () = Llio.int_to sb n_deleted in
-          let ser = Buffer.contents sb in
-          Lwt.return (Ok (Some ser))
+           if Interval.is_ok store.interval prefix &&
+                Interval.is_ok_extended store.interval ~inc:false (next_prefix prefix)
+           then
+             begin
+               Logger.debug_f_ "store :: delete_prefix %S" prefix >>= fun () ->
+               let n_deleted = S.delete_prefix store.s tx (make_public prefix) in
+               let sb = Buffer.create 8 in
+               let () = Llio.int_to sb n_deleted in
+               let ser = Buffer.contents sb in
+               Lwt.return (Ok (Some ser))
+             end
+           else
+             Lwt.return (Update_fail (Arakoon_exc.E_OUTSIDE_INTERVAL, "Delete prefix outside interval"))
         | Update.DeleteRange (left, linc, right) ->
-           (* TODO check interval *)
-           let n_deleted =
-             S.range_delete
-               store.s tx
-               (make_public left) linc
-               (match right with
-                | None          -> Some (__prefix_plus_one, false)
-                | Some(r, rinc) -> Some (make_public r    , rinc)) in
-           let sb = Buffer.create 8 in
-           let () = Llio.int_to sb n_deleted in
-           let ser = Buffer.contents sb in
-           Lwt.return (Ok (Some ser))
+           if Interval.is_ok store.interval left &&
+                (match right with
+                 | None -> Interval.is_ok_omega store.interval
+                 | Some (r, rinc) -> Interval.is_ok store.interval ~inc:rinc r)
+           then
+             begin
+               let n_deleted =
+                 S.range_delete
+                   store.s tx
+                   (make_public left) linc
+                   (match right with
+                    | None          -> Some (__prefix_plus_one, false)
+                    | Some(r, rinc) -> Some (make_public r    , rinc)) in
+               let sb = Buffer.create 8 in
+               let () = Llio.int_to sb n_deleted in
+               let ser = Buffer.contents sb in
+               Lwt.return (Ok (Some ser))
+             end
+           else
+             Lwt.return (Update_fail (Arakoon_exc.E_OUTSIDE_INTERVAL, "Delete range outside interval"))
         | Update.TestAndSet(key,expected,wanted)->
           Lwt.return (Ok (_test_and_set store tx key expected wanted))
         | Update.Replace (key,wanted) ->
@@ -739,7 +753,11 @@ struct
               | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
               | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
         | Update.SetInterval interval ->
-          wrap (fun () -> _set_interval store tx interval)
+           if Interval.is_valid interval
+           then
+             wrap (fun () -> _set_interval store tx interval)
+           else
+             Lwt.return (Update_fail(Arakoon_exc.E_BAD_INPUT, "Interval failed validation"))
         | Update.SetRouting routing ->
           Logger.debug_f_ "set_routing %s" (Routing.to_s routing) >>= fun () ->
           wrap (fun () -> _set_routing store tx routing)
