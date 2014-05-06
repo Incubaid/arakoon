@@ -34,6 +34,38 @@ type t = { db : Camltc.Hotc.t;
            mutable _tx : (transaction * Camltc.Hotc.bdb) option;
          }
 
+let _range_delete bdb left (linc:bool) (right:(string*bool) option) =
+  let count = ref 0 in
+  let maybe_stop key =
+    match right with
+    | None -> false
+    | Some (r,false) -> r <= key
+    | Some (r,true) -> r < key
+  in
+  let __delete bdb c =
+    try
+      let () = B.jump bdb c left in
+      let jk = B.key bdb c in (* left <= jk *)
+      if (not linc) && jk = left then B.next bdb c;
+      let rec loop c key =
+        if maybe_stop key
+
+        then ()
+        else
+          begin
+            let () = B.cur_out bdb c in (* jumps to next *)
+            let () = incr count in
+            let jk' = B.key bdb c in
+            loop c jk'
+          end
+       in
+       loop c jk
+    with
+    | Not_found ->()
+  in
+  B.with_cursor bdb __delete;
+  !count
+
 let range ls first finc last linc max =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   B.range bdb (Some first) finc last linc max
@@ -145,6 +177,9 @@ let delete ls tx key =
 let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> B.delete_prefix db prefix)
+
+let range_delete ls tx left ro =
+  _with_tx ls tx (fun db -> _range_delete db left ro)
 
 let flush ls =
   Lwt.return ()

@@ -21,6 +21,8 @@ open Std
 type lwtoc = Lwt_io.output_channel
 type lwtic = Lwt_io.input_channel
 
+type 'a serializer = lwtoc -> 'a -> unit Lwt.t
+type 'a deserializer = lwtic -> 'a Lwt.t
 
 type namedValue =
   | NAMED_INT of string * int
@@ -42,6 +44,11 @@ val option_to: (Buffer.t -> 'a -> unit) -> Buffer.t -> 'a option -> unit
 val string_option_to: Buffer.t -> string option -> unit
 val named_field_to: Buffer.t -> namedValue -> unit
 val list_to  : Buffer.t -> (Buffer.t -> 'a -> unit) -> 'a list -> unit
+val pair_to  : (Buffer.t -> 'a -> unit) ->
+               (Buffer.t -> 'b -> unit) ->
+               Buffer.t ->
+               ('a * 'b) ->
+               unit
 val string_list_to : Buffer.t -> string list -> unit
 val hashtbl_to: Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
   ('a, 'b) Hashtbl.t -> unit
@@ -62,6 +69,10 @@ val string_from: buffer -> string
 val option_from: (buffer -> 'a ) -> buffer -> 'a option
 val string_option_from: buffer -> string option
 val list_from: buffer -> (buffer -> 'a ) -> 'a list
+val pair_from: (buffer -> 'a) ->
+               (buffer -> 'b) ->
+               buffer ->
+               ('a * 'b)
 val string_list_from: buffer -> string list
 val named_field_from: buffer -> namedValue
 
@@ -101,6 +112,7 @@ val input_int64: lwtic  -> int64 Lwt.t
 val input_string: lwtic -> string Lwt.t
 val input_string_option: lwtic -> (string option) Lwt.t
 val input_string_pair: lwtic -> (string * string) Lwt.t
+val input_pair: 'a deserializer -> 'b deserializer -> lwtic -> ('a * 'b) Lwt.t
 val input_list  :(lwtic -> 'a Lwt.t) -> lwtic -> 'a list Lwt.t
 val input_listl :(lwtic -> 'a Lwt.t) -> lwtic -> (int * 'a list) Lwt.t
 val input_string_list: lwtic -> string list Lwt.t

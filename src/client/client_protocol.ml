@@ -434,20 +434,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | SYNCED_SEQUENCE ->
     Logger.debug_f_ "connection=%s SYNCED_SEQUENCE" id >>= fun () ->
     handle_sequence ~sync:true ic oc backend
-  | MIGRATE_RANGE ->
-    begin
-      Lwt.catch(
-        fun () ->
-          Interval.input_interval ic >>= fun interval ->
-          Logger.debug_f_ "connection=%s MIGRATE_RANGE" id
-          >>= fun () ->
-          decode_sequence ic >>= fun updates ->
-          let interval_update = Update.SetInterval interval in
-          let updates' =  interval_update :: updates in
-          backend # sequence ~sync:false updates' >>= fun () ->
-          response_ok_unit oc
-      ) (handle_exception oc)
-    end
   | STATISTICS ->
     begin
       Logger.debug_f_ "connection=%s STATISTICS" id
@@ -503,17 +489,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
          )
          (handle_exception oc)
      end
-  | SET_INTERVAL ->
-    begin
-      Lwt.catch
-        (fun () ->
-           Interval.input_interval ic >>= fun interval ->
-           Logger.info_f_ "connection=%s SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
-           backend # set_interval interval >>= fun () ->
-           response_ok_unit oc
-        )
-        (handle_exception oc)
-    end
   | GET_INTERVAL ->
     begin
       Lwt.catch(
@@ -526,6 +501,49 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       )
         (handle_exception oc)
     end
+  | PINCH_FRINGE ->
+     begin
+       Lwt.catch
+         (fun() ->
+          Logger.debug_f_ "connection=%s PINCH_FRINGE" id >>= fun () ->
+          Llio.input_int ic >>= fun dir_as_int ->
+          let direction =
+            if dir_as_int = 0
+            then
+              Routing.UPPER_BOUND
+            else
+              Routing.LOWER_BOUND
+          in
+          backend # pinch_fringe direction >>= fun (fringe, (from, to')) ->
+          Llio.output_counted_list Llio.output_key_value_pair oc fringe >>= fun () ->
+          Llio.output_string oc from >>= fun () ->
+          Llio.output_string_option oc to' >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
+  | ACCEPT_FRINGE ->
+     begin
+       Lwt.catch
+         (fun() ->
+          Logger.debug_f_ "connection=%s ACCEPT_FRINGE" id >>= fun () ->
+          Llio.input_string ic >>= fun left ->
+          Llio.input_string_option ic >>= fun right ->
+          Llio.input_kv_list ic >>= fun kvs ->
+          backend # accept_fringe left right kvs >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
+  | REMOVE_FRINGE ->
+     begin
+       Lwt.catch
+         (fun() ->
+          Logger.debug_f_ "connection=%s GET_INTERVAL" id >>= fun () ->
+          Llio.input_string ic >>= fun left ->
+          Llio.input_string_option ic >>= fun right ->
+          backend # remove_fringe left right >>= fun () ->
+          Lwt.return false)
+         (handle_exception oc)
+     end
   | GET_ROUTING ->
     Lwt.catch
       (fun () ->
@@ -634,33 +652,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           response_ok_unit oc
       )
         ( handle_exception oc )
-    end
-  | GET_FRINGE ->
-    begin
-      Lwt.catch
-        (fun () ->
-           Llio.input_string_option ic >>= fun boundary ->
-           Llio.input_int ic >>= fun dir_as_int ->
-           let direction =
-             if dir_as_int = 0
-             then
-               Routing.UPPER_BOUND
-             else
-               Routing.LOWER_BOUND
-           in
-           Logger.info_f_ "connection=%s GET_FRINGE: boundary=%s dir=%s"
-             id
-             (p_option boundary)
-             (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
-           >>= fun () ->
-           backend # get_fringe boundary direction >>= fun kvs ->
-           Logger.debug_ "get_fringe backend op complete" >>= fun () ->
-           response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
-           Logger.debug_ "get_fringe all done" >>= fun () ->
-           Lwt.return false
-        )
-        (handle_exception oc)
     end
   | DELETE_PREFIX ->
     begin

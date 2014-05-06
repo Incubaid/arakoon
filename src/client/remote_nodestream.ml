@@ -42,8 +42,10 @@ class type nodestream = object
   method defrag_db: unit -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
-  method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
-  method set_interval : Interval.t -> unit Lwt.t
+  method pinch_fringe: Routing.range_direction ->
+                       ((string * string) list * (string * string option)) Lwt.t
+  method accept_fringe: string -> string option -> (string * string) list -> unit Lwt.t
+  method remove_fringe: string -> string option -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
 
   method store_cluster_cfg : string -> ClientCfg.t -> unit Lwt.t
@@ -147,7 +149,6 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     response ic incoming
 
 
-  method set_interval iv = Common.set_interval conn iv
   method get_interval () = Common.get_interval conn
 
   method get_routing () = Common.get_routing conn
@@ -171,7 +172,11 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
     request  oc outgoing >>= fun () ->
     response ic incoming
 
-  method get_fringe (boundary:string option) direction= Common.get_fringe conn boundary direction
+  method pinch_fringe direction= Common.pinch_fringe conn direction
+
+  method accept_fringe left right kvs = Common.accept_fringe conn left right kvs
+
+  method remove_fringe left right = Common.remove_fringe conn left right
 
   method store_cluster_cfg cluster_id cfg =
     Common.set_nursery_cfg (ic,oc) cluster_id cfg

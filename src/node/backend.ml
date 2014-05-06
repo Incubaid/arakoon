@@ -80,7 +80,6 @@ class type backend = object
 
   method user_function: string -> string option -> (string option) Lwt.t
 
-  method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t Lwt.t
   method get_routing: unit -> Routing.t Lwt.t
   method set_routing: Routing.t -> unit Lwt.t
@@ -93,7 +92,10 @@ class type backend = object
   method defrag_db:unit -> unit Lwt.t
   method copy_db_to_head : int -> unit Lwt.t
 
-  method get_fringe: string option -> Routing.range_direction -> ((Key.t * string) counted_list) Lwt.t
+  method pinch_fringe : Routing.range_direction ->
+                        ((Key.t * string) counted_list * (string * string option)) Lwt.t
+  method accept_fringe : string -> string option -> (string * string) list -> unit Lwt.t
+  method remove_fringe : string -> string option -> unit Lwt.t
 
   method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t

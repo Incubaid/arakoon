@@ -31,6 +31,39 @@ let __lease_key2 = "*lease2"
 let __prefix = "@"
 let __adminprefix="*"
 
+let make_public = (^) __prefix
+let is_public_key k =
+  if k = ""
+  then
+    false
+  else
+    k.[0] = '@'
+
+let next_prefix prefix =
+  if 0 = String.length prefix
+  then
+    None
+  else
+    let next_char c =
+      let code = Char.code c + 1 in
+      match code with
+      | 256 -> Char.chr 0, true
+      | code -> Char.chr code, false in
+    let rec inner s pos =
+      let c, carry = next_char s.[pos] in
+      s.[pos] <- c;
+      match carry, pos with
+      | false, _ -> Some s
+      | true, 0 -> None
+      | true, pos -> inner s (pos - 1) in
+    let copy = String.copy prefix in
+    inner copy ((String.length copy) - 1)
+
+let __prefix_plus_one =
+  match next_prefix __prefix with
+  | None -> failwith "__prefix_plus_one impossible"
+  | Some p -> p
+
 type update_result =
   | Ok of string option
   | Update_fail of Arakoon_exc.rc * string
@@ -157,6 +190,10 @@ module type Simple_store = sig
   val delete: t -> transaction -> string -> unit
   val delete_prefix: t -> transaction -> string -> int
 
+  val range_delete : t -> transaction ->
+                     string -> bool ->
+                     (string * bool) option -> int
+
   (* special case this one, for speed. *)
   val range : t ->
               string -> bool -> string option -> bool ->
@@ -185,23 +222,3 @@ let _f _pf = function
 let _l _pf = function
   | Some x -> (Some (_pf ^ x))
   | None -> None
-
-let next_prefix prefix =
-  if 0 = String.length prefix
-  then
-    None
-  else
-    let next_char c =
-      let code = Char.code c + 1 in
-      match code with
-      | 256 -> Char.chr 0, true
-      | code -> Char.chr code, false in
-    let rec inner s pos =
-      let c, carry = next_char s.[pos] in
-      s.[pos] <- c;
-      match carry, pos with
-      | false, _ -> Some s
-      | true, 0 -> None
-      | true, pos -> inner s (pos - 1) in
-    let copy = String.copy prefix in
-    inner copy ((String.length copy) - 1)

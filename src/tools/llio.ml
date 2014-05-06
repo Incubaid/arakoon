@@ -21,6 +21,9 @@ open Lwt
 type lwtoc = Lwt_io.output_channel
 type lwtic = Lwt_io.input_channel
 
+type 'a serializer = lwtoc -> 'a -> unit Lwt.t
+type 'a deserializer = lwtic -> 'a Lwt.t
+
 type namedValue =
   | NAMED_INT of string * int
   | NAMED_INT64 of string * int64
@@ -212,6 +215,11 @@ let input_string ic =
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
 
+let input_pair input_a input_b ic =
+  input_a ic >>= fun a ->
+  input_b ic >>= fun b ->
+  Lwt.return (a,b)
+
 let output_string_pair oc (s0,s1) =
   output_string oc s0 >>= fun () ->
   output_string oc s1
@@ -306,6 +314,15 @@ let list_from b e_from  =
   in loop [] size
 
 let string_list_from buf = list_from buf string_from
+
+let pair_to a_to b_to buf (a,b) =
+  a_to buf a;
+  b_to buf b
+
+let pair_from a_from b_from buf =
+  let a = a_from buf in
+  let b = b_from buf in
+  (a,b)
 
 let output_string_option oc = function
   | None -> output_bool oc false
