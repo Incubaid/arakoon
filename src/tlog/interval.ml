@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
+open Std
 
 module Interval = struct
   type t = { pu_b : string option;
@@ -30,6 +30,26 @@ module Interval = struct
               pr_b = None;
               pr_e = None}
 
+  let is_valid { pu_b; pu_e; pr_b; pr_e } =
+    let cond1 =
+      match pr_b, pu_b with
+      | None, None -> true
+      | None, Some _ -> true
+      | Some _, None -> false
+      | Some prb, Some pub -> String.(prb <=: pub) in
+    let cond2 =
+      match pu_e, pr_e with
+      | None, None -> true
+      | None, Some _ -> false
+      | Some _, None -> true
+      | Some pue, Some pre -> String.(pue <=: pre) in
+    let cond3 =
+      match pu_b, pu_e with
+      | None, _ -> true
+      | _, None -> true
+      | Some pub, Some pue -> String.(pub <=: pue) in
+    cond1 && cond2 && cond3
+
   let to_string t =
     let so2s = function
       | None -> "_"
@@ -38,12 +58,24 @@ module Interval = struct
     Printf.sprintf "{(%s,%s),(%s,%s)}"
       (so2s t.pu_b) (so2s t.pu_e) (so2s t.pr_b) (so2s t.pr_e)
 
-  let is_ok t key =
+  let is_ok t ?(inc=true) key =
+    let check_upper e =
+      if inc
+      then key < e
+      else key <= e
+    in
     match t.pu_b,t.pu_e with
       | None  , None   -> true
       | Some b, None   -> b <= key
-      | None  , Some e -> key < e
-      | Some b, Some e  -> b <= key && key < e
+      | None  , Some e -> check_upper e
+      | Some b, Some e  -> b <= key && check_upper e
+
+  let is_ok_omega t =
+    t.pu_e = None
+
+  let is_ok_extended t ?inc = function
+    | None -> is_ok_omega t
+    | Some key -> is_ok t ?inc key
 
   let interval_to buf t =
     let so2 buf x= Llio.string_option_to buf x in
