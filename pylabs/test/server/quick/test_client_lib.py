@@ -17,11 +17,13 @@ limitations under the License.
 from Compat import X
 
 def test_client_lib():
-
+    my_temp = '/tmp/client_lib_test'
     cmds = [
         (['make', 'uninstall_client'], None),
         (['make', 'install_client'], None),
-        (['ocamlbuild', '-use-ocamlfind', 'demo.native'], '../../examples/ocaml'),
+        (['mkdir', '-p',  my_temp], None),
+        (['cp', './examples/ocaml/demo.ml', './examples/ocaml/_tags', my_temp], None),
+        (['ocamlbuild', '-use-ocamlfind', 'demo.native'], my_temp),
         (['make', 'uninstall_client'], None),
     ]
     for cmd, cwd in cmds:
