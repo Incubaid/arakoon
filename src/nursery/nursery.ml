@@ -128,127 +128,59 @@ module NC = struct
     _get_connection t nn >>= fun connection ->
     todo connection
 
-  let set t key value =
-    let cn = NCFG.find_cluster t.rc key in
-    Logger.debug_f_ "set %S => %s" key cn >>= fun () ->
-    let todo conn = Common.set conn key value in
-    _with_master_connection t cn todo
-
-  let get t key =
-    let cn = NCFG.find_cluster t.rc key in
-    let todo conn = Common.get conn Consistent key in
-    _with_master_connection t cn todo
-
-  (* let force_interval t cn i = *)
-  (*   Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () -> *)
-  (*   _with_master_connection t cn *)
-  (*     (fun conn -> Common.set_interval conn i) *)
-
-
-  let close t = Llio.lwt_failfmt "close not implemented"
-
-
-  let __migrate t clu_left sep clu_right finalize publish migration =
+  let __migrate t clu_left sep clu_right publish migration =
     Logger.debug_f_ "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
     Logger.debug_f_ "from:%s to:%s" from_cn to_cn >>= fun () ->
-    (* let pull () = *)
-    (*   Logger.debug_ "pull">>= fun () -> *)
-    (*   _with_master_connection t from_cn *)
-    (*     (fun conn -> Common.get_fringe conn sep direction ) *)
-    (* in *)
-    (* let push fringe i = *)
-    (*   let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in *)
-    (*   Logger.debug_ "push" >>= fun () -> *)
-    (*   _with_master_connection t to_cn *)
-    (*     (fun conn -> Common.migrate_range conn i seq) *)
-    (* in *)
-    let delete fringe =
-      let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
-      Logger.debug_ "delete" >>= fun () ->
+    let pinch () =
+      Logger.debug_ "pinch" >>= fun () ->
       _with_master_connection t from_cn
-        (fun conn -> Common.sequence conn seq)
+                              (fun conn ->
+                               Common.pinch_fringe conn direction sep)
     in
-    let get_next_key k =
-      k ^ (String.make 1 (Char.chr 1))
+    let push_fringe left right kvs =
+      Logger.debug_f_ "push %S %s" left (Log_extra.string_option2s right) >>= fun () ->
+      _with_master_connection t to_cn
+                              (fun conn ->
+                               Common.accept_fringe conn left right kvs)
     in
-    let get_interval cn = _with_master_connection t cn Common.get_interval in
-    let i2s i = Interval.to_string i in
-    Logger.debug_f_ "Getting initial interval from %s" from_cn >>= fun () ->
-    get_interval from_cn >>= fun from_i ->
-    Logger.debug_f_ "Getting initial interval from %s" to_cn >>= fun () ->
-    get_interval to_cn >>= fun to_i ->
-    let open Interval in
-    let rec loop (from_i:Interval.t) (to_i:Interval.t) =
-      (* pull () >>= fun fringe -> *)
-      match (* fringe *)[] with
-        | [] ->
-          begin
-            finalize from_i to_i
-          end
-        | fringe ->
-          let size = List.length fringe in
-          Logger.debug_f_ "Length = %i" size >>= fun () ->
-          (*
-           - change public interval on 'from'
-           - push fringe & change private interval on 'to'
-           - delete fringe & change private interval on 'from'
-           - change public interval 'to'
-           - publish new route.
-          *)
-          let fpu_b = from_i.pu_b
-          and fpu_e = from_i.pu_e
-          and fpr_b = from_i.pr_b
-          and fpr_e = from_i.pr_e
-          in
-          let tpu_b = to_i.pu_b
-          and tpu_e = to_i.pu_e
-          and tpr_b = to_i.pr_b
-          and tpr_e = to_i.pr_e
-          in
-          begin
-            match direction with
-              | Routing.UPPER_BOUND ->
-                let b, _ = List.hd fringe in
-                let e, _ = List.hd( List.rev fringe ) in
-                let e = get_next_key  e in
-                Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
-                (* let from_i' = Interval.make (Some e) fpu_e fpr_b fpr_e in *)
-                (* TODO this should not be needed set_interval from_cn from_i' >>= fun () -> *)
-                (* let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in *)
-                (* push fringe to_i1 >>= fun () -> *)
-                delete fringe >>= fun () ->
-                Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
-                let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in
-                (* TODO this should not be needed set_interval to_cn to_i2 >>= fun () -> *)
-                let from_i2 = Interval.make (Some e) fpu_e (Some e) fpr_e in
-                (* set_interval from_cn from_i2 >>= fun () -> *)
-                Lwt.return (e, from_i2, to_i2, to_cn, from_cn)
+    ignore (push_fringe "" None []);
+    let delete_fringe left right =
+      Logger.debug_f_ "delete_fringe %S %s" left (Log_extra.string_option2s right) >>= fun () ->
+      _with_master_connection t from_cn
+        (fun conn -> Common.remove_fringe conn left right)
+    in
 
-              | Routing.LOWER_BOUND ->
-                let b, _ = List.hd( List.rev fringe ) in
-                let e, _ = List.hd fringe in
-                Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
-                (* let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in *)
-                (* set_interval from_cn from_i' >>= fun () -> *)
-                (* let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in *)
-                (* push fringe to_i1 >>= fun () -> *)
-                delete fringe >>= fun () ->
-                Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
-                let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
-                (* set_interval to_cn to_i2 >>= fun () -> *)
-                let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
-                (* set_interval from_cn from_i2 >>= fun () -> *)
-                Lwt.return (b, from_i2, to_i2, from_cn, to_cn)
-          end
-          >>= fun (pub, from_i2, to_i2, left, right) ->
-          (* set_interval to_cn to_i1 >>= fun () -> *)
-          Logger.debug_f_ "from {%s:%s;%s:%s}" from_cn (i2s from_i) to_cn (i2s to_i) >>= fun () ->
-          Logger.debug_f_ "to   {%s:%s;%s:%s}" from_cn (i2s from_i2) to_cn (i2s to_i2) >>= fun () ->
-          publish (Some pub) left right >>= fun () ->
-          loop from_i2 to_i2
+    (* TODO reuse master connection if possible? *)
+
+    let cl_left, cl_right = match direction with
+      | Routing.UPPER_BOUND -> from_cn, to_cn
+      | Routing.LOWER_BOUND -> to_cn, from_cn
     in
-    loop from_i to_i
+
+    let rec loop () =
+      pinch () >>= fun (kvs,(b_left,b_right)) ->
+      if (Some b_left) = b_right
+      then
+        begin
+          assert (kvs = []);
+          publish b_right cl_left cl_right >>= fun () ->
+          Logger.debug_f_ "Migration has finished"
+        end
+      else
+        begin
+          push_fringe b_left b_right kvs >>= fun () ->
+          delete_fringe b_left b_right >>= fun () ->
+          publish (match direction with
+                   | Routing.UPPER_BOUND -> Some b_left
+                   | Routing.LOWER_BOUND -> b_right)
+                  cl_left
+                  cl_right
+          >>= fun () ->
+          loop ()
+        end
+    in
+    loop ()
 
 
   let migrate t clu_left (sep: string) clu_right  =
@@ -269,41 +201,7 @@ module NC = struct
           | None -> failwith "Cannot end up with an empty separator during regular migration"
       end
     in
-    let open Interval in
-    let finalize (from_i: Interval.t) (to_i: Interval.t) =
-      Logger.debug_ "Setting final intervals en routing" >>= fun () ->
-
-      let fpu_b = from_i.pu_b
-      and fpu_e = from_i.pu_e
-      and fpr_b = from_i.pr_b
-      and fpr_e = from_i.pr_e
-      in
-      let tpu_b = to_i.pu_b
-      and tpu_e = to_i.pu_e
-      and tpr_b = to_i.pr_b
-      and tpr_e = to_i.pr_e
-      in
-      let (from_i', to_i', left, right) =
-        begin
-          match direction with
-            | Routing.UPPER_BOUND ->
-              let from_i' = Interval.make (Some sep) fpu_e (Some sep) fpr_e in
-              let to_i'   = Interval.make tpu_b (Some sep) tpr_b (Some sep) in
-              from_i', to_i', to_cn, from_cn
-
-            | Routing.LOWER_BOUND ->
-              let from_i' = Interval.make fpu_b (Some sep) fpr_b (Some sep) in
-              let to_i'   = Interval.make (Some sep) tpu_e (Some sep) tpr_e in
-              from_i', to_i', from_cn, to_cn
-        end
-      in
-      Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
-      Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
-      (* set_interval from_cn from_i' >>= fun () -> *)
-      (* set_interval to_cn to_i' >>= fun () -> *)
-      publish (Some sep) left right
-    in
-    __migrate t clu_left (Some sep) clu_right finalize publish (from_cn, to_cn, direction)
+    __migrate t clu_left (Some sep) clu_right publish (from_cn, to_cn, direction)
 
   let delete t (cluster_id: string) (sep: string option) =
     Logger.debug_f_ "Nursery.delete %s %s" cluster_id (so2s sep) >>= fun () ->
@@ -330,39 +228,6 @@ module NC = struct
               (fun conn -> Common.set_routing conn new_route)
       end
     in
-    let open Interval in
-    let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) =
-      Logger.debug_ "Setting final intervals en routing" >>= fun () ->
-      let fpu_b = from_i.pu_b
-      and fpu_e = from_i.pu_e
-      and fpr_b = from_i.pr_b
-      and fpr_e = from_i.pr_e
-      in
-      let tpu_b = to_i.pu_b
-      and tpu_e = to_i.pu_e
-      and tpr_b = to_i.pr_b
-      and tpr_e = to_i.pr_e
-      in
-      let (from_i', to_i', left, right) =
-        begin
-          match direction with
-            | Routing.UPPER_BOUND ->
-              let from_i' = Interval.make sep fpu_e sep fpr_e in
-              let to_i' = Interval.make tpu_b sep  tpr_b sep  in
-              from_i', to_i', to_cn, from_cn
-
-            | Routing.LOWER_BOUND ->
-              let from_i' = Interval.make fpu_b sep fpr_b sep in
-              let to_i' = Interval.make sep tpu_e sep tpr_e   in
-              from_i', to_i', from_cn, to_cn
-        end
-      in
-      Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
-      Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
-      (* set_interval from_cn from_i' >>= fun () -> *)
-      (* set_interval to_cn to_i' >>= fun () -> *)
-      publish sep left right
-    in
     begin
       Logger.debug_f_ "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
       match lower, upper with
@@ -377,7 +242,6 @@ module NC = struct
                     | None -> failwith "Invalid routing request. No previous??"
                     | Some prev ->
                       __migrate t cluster_id sep prev
-                        (finalize cluster_id prev Routing.UPPER_BOUND)
                         publish (cluster_id, prev, Routing.UPPER_BOUND)
                 end
               | Some y ->
@@ -393,7 +257,6 @@ module NC = struct
                     | None -> failwith "Invalid routing request. No next??"
                     | Some next ->
                       __migrate t cluster_id sep next
-                        (finalize cluster_id next Routing.LOWER_BOUND)
                         publish (cluster_id, next, Routing.LOWER_BOUND)
                 end
               | Some y ->
@@ -411,11 +274,9 @@ module NC = struct
                   match m_next, m_prev with
                     | Some next, Some prev ->
                       __migrate t cluster_id sep prev
-                        (finalize cluster_id prev Routing.UPPER_BOUND)
                         publish (cluster_id, prev, Routing.UPPER_BOUND)
                       >>= fun () ->
                       __migrate t cluster_id sep next
-                        (finalize cluster_id next Routing.LOWER_BOUND)
                         publish (cluster_id, next, Routing.LOWER_BOUND)
                     | _ -> failwith "Invalid routing request. No next or previous??"
                 end

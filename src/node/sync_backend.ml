@@ -734,16 +734,35 @@ struct
               Lwt.return ( Hashtbl.replace res cluster_id cfg )
         end
 
-      method pinch_fringe direction =
+      method pinch_fringe direction max_border =
         let open Routing in
         Logger.debug_f_ "pinch_fringe %s" (Routing.direction2s direction) >>= fun () ->
-
-        let open Interval in
 
         Lwt_mutex.with_lock
           migration_lock
           (fun () ->
            S.get_interval store >>= fun interval ->
+
+           begin
+             if not (Interval.is_ok_extended interval ~inc:false max_border)
+             then
+               Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, "pinch_fringe: max_border should be in the owned interval"))
+             else
+               Lwt.return ()
+           end >>= fun () ->
+
+           let get_min_border = function
+             | None, a
+             | a, None ->
+                a
+             | Some a, Some b ->
+                Some (min a b) in
+           let get_max_border = function
+             | None, _
+             | _, None -> None
+             | Some a, Some b ->
+                Some (max a b) in
+
            let set_interval i =
              _update_rendezvous
                self
@@ -753,12 +772,14 @@ struct
                ~so_post:ignore >>= fun () ->
              Lwt.return i in
            begin
+             let open Interval in
              match direction with
              | Routing.UPPER_BOUND ->
                 (if interval.pu_e = interval.pr_e
                  then
                    let border = S.get_fringe_border store direction in
-                   let interval' = { interval with pr_e = border } in
+                   let border' = get_max_border (border, max_border) in
+                   let interval' = { interval with pu_e = border' } in
                    set_interval interval'
                  else
                    Lwt.return interval) >>= fun interval' ->
@@ -770,7 +791,8 @@ struct
                 (if interval.pu_b = interval.pr_b
                 then
                   let border = S.get_fringe_border store direction in
-                  let interval' = { interval with pr_b = border } in
+                  let border' = get_min_border (border, max_border) in
+                  let interval' = { interval with pu_b = border' } in
                   set_interval interval'
                 else
                   Lwt.return interval) >>= fun interval' ->

@@ -92,7 +92,7 @@ class type backend = object
   method defrag_db:unit -> unit Lwt.t
   method copy_db_to_head : int -> unit Lwt.t
 
-  method pinch_fringe : Routing.range_direction ->
+  method pinch_fringe : Routing.range_direction -> string option ->
                         ((Key.t * string) counted_list * (string * string option)) Lwt.t
   method accept_fringe : string -> string option -> (string * string) list -> unit Lwt.t
   method remove_fringe : string -> string option -> unit Lwt.t
