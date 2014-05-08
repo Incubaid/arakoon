@@ -765,9 +765,6 @@ class tlc2
       end >>= fun () ->
       F.close file
 
-
-    method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
-
     method get_tlog_from_i (i:Sn.t) = get_file_number i
 
     method get_tlog_count () =

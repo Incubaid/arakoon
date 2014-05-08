@@ -27,10 +27,6 @@ class tlogWriter oc lastI =
 
     val mutable lastWrittenI = lastI;
 
-    method getLastI () = lastWrittenI
-
-    method closeChannel () = Lwt_io.close oc
-
     method log_value i value =
       if isValidSuccessor i lastWrittenI  then
         begin

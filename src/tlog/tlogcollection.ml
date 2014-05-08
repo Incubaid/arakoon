@@ -39,7 +39,6 @@ class type tlog_collection = object
   method dump_tlog_file : Sn.t -> Lwt_io.output_channel -> Sn.t Lwt.t
   method save_tlog_file : string -> int64 -> Lwt_io.input_channel -> unit Lwt.t
   method get_head_name : unit -> string
-  method get_tlog_from_name : string -> Sn.t
   method get_tlog_from_i : Sn.t -> Sn.t
   method get_tlog_count: unit -> int Lwt.t
   method remove_oldest_tlogs : int -> unit Lwt.t

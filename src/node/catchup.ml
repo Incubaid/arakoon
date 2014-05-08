@@ -84,21 +84,6 @@ let _with_client_connection ~tls_ctx (ips,port) f =
   loop ips
 
 
-let compare_store_tlc store tlc =
-  tlc # get_last_i () >>= fun tlc_i ->
-  let m_store_i = store # consensus_i () in
-  match m_store_i with
-    | None ->
-      if tlc_i = ( Sn.succ Sn.start )
-      then Lwt.return Store_1_behind
-      else Lwt.return Store_n_behind
-    | Some store_i when store_i = tlc_i -> Lwt.return Store_tlc_equal
-    | Some store_i when store_i > tlc_i -> Lwt.return Store_ahead
-    | Some store_i ->
-      if store_i = (Sn.pred tlc_i)
-      then Lwt.return Store_1_behind
-      else Lwt.return Store_n_behind
-
 let head_saved_epilogue hfn tlog_coll =
   (* maybe some tlogs must be thrown away because
      they were already collapsed into

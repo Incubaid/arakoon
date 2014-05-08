@@ -204,7 +204,6 @@ end = struct
 end
 
 external id : 'a -> 'a = "%identity"
-let compose f g = fun x -> f (g x)
 
 module String = struct
   include String
@@ -218,8 +217,6 @@ module List = struct
   let is_empty = function
     | [] -> true
     | _ -> false
-
-  let find' test list = try Some(find test list) with Not_found -> None
 end
 
 type direction =
@@ -344,10 +341,6 @@ module Map = struct
 
       let is_valid (zo, m) =
         !zo <> None
-
-      let first ((zo, m) as c) =
-        zo := Zipper.first m;
-        is_valid c
 
       let last ((zo, m) as c) =
         zo := Zipper.last m;

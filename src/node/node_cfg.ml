@@ -254,8 +254,6 @@ module Node_cfg = struct
 
 
 
-  let tlog_dir t = t.tlog_dir
-
   let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
