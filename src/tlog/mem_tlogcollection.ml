@@ -89,8 +89,6 @@ class mem_tlog_collection name =
 
     method get_head_name () = failwith "get_head_name not implemented"
 
-    method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
-
     method get_tlog_from_i _ = Sn.start
 
     method close ?(wait_for_compression = false) () = Lwt.return ()

@@ -41,13 +41,6 @@ module Index = struct
 
   let make filename = Some {filename; mapping=[]}
 
-  let replace filename = function
-    | None -> None
-    | (Some index_r) as idx ->
-      if filename = index_r.filename
-      then idx
-      else None
-
   let find_pos start_i = function
     | None -> 0L
     | Some index_r ->
