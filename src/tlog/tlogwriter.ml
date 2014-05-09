@@ -18,8 +18,6 @@ limitations under the License.
 
 open Lwt
 open Tlogcommon
-open Common
-
 
 class tlogWriter oc lastI =
 

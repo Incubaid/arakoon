@@ -147,7 +147,7 @@ let _ = dispatch & function
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
       flag ["ocaml";"compile";"warn_error"]
-        (S[A"-warn-error";A"A"]);
+        (S[A"-w"; A"+A-4-27@33";]);
 
       flag ["pp"; "camlp4of"] & S[A"-loc"; A"loc"] ;
 

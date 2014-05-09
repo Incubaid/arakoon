@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Update
 open Routing
 open Interval
 open Client_cfg
