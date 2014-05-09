@@ -795,26 +795,49 @@ struct
            begin
              if right = interval.pu_b && right = interval.pr_b
              then
-               Lwt.return { interval with pu_b = sleft; pr_b = sleft }
+               Lwt.return (Some { interval with pu_b = sleft; pr_b = sleft })
              else if sleft = interval.pu_e && sleft = interval.pr_e
              then
-               Lwt.return { interval with pu_e = right; pr_e = right }
+               Lwt.return (Some { interval with pu_e = right; pr_e = right })
+             else if interval = Interval.max
+             then
+               begin
+                 let keycount = S.get_key_count store in
+                 if keycount = 0L
+                 then
+                   (* freshly minted cluster is being added to the nursery *)
+                   Lwt.return (Some { pr_b = sleft;
+                                      pu_b = sleft;
+                                      pr_e = right;
+                                      pu_e = right; })
+                 else
+                   Lwt.fail
+                     (XException(Arakoon_exc.E_UNKNOWN_FAILURE,
+                                 Printf.sprintf "accept_fringe for non-empty cluster with interval = Interval.max"))
+               end
+             else if (right = interval.pu_e && right = interval.pr_e) ||
+                       (sleft = interval.pu_b && sleft = interval.pr_b)
+             then
+               (* cluster is sending the same fringe again.. *)
+               Lwt.return None
              else
-               (* TODO need to throw something here which the client can handle! *)
-               (* TODO should test interrupted migration (sth private which is not yet on the other cluster...)*)
-               Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "fringe didn't match interval for this cluster"))
-           end >>= fun interval' ->
-           let update =
-             Update.SyncedSequence
-               (Update.SetInterval interval' :: List.map
-                                                  (fun (k,v) -> Update.Set(k,v))
-                                                  kvs) in
-           _update_rendezvous
-             self
-             update
-             ignore
-             push_update
-             ~so_post:ignore)
+               Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE,
+                                    "fringe didn't match interval for this cluster"))
+           end >>= function
+             | None ->
+                Lwt.return ()
+             | Some interval' ->
+                let update =
+                  Update.SyncedSequence
+                    (Update.SetInterval interval' :: List.map
+                                                       (fun (k,v) -> Update.Set(k,v))
+                                                       kvs) in
+                _update_rendezvous
+                  self
+                  update
+                  ignore
+                  push_update
+                  ~so_post:ignore)
 
       method remove_fringe left right =
         let sleft = Some left in
