@@ -14,14 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Node_cfg.Node_cfg
 open Tcp_messaging
 open Update
 open Lwt
 open Lwt_buffer
-open Tlogcommon
 open Gc
 open Master_type
 open Client_cfg
@@ -143,8 +140,6 @@ let _config_messaging
     ?client_ssl_context ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
-
-open Mp_msg
 
 
 let _config_service ?ssl_context cfg stop backend =

@@ -14,14 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Std
 open Simple_store
-open Lwt
-open Log_extra
-open Update
-open Routing
 
 module StringMap = Map.Make(String)
 

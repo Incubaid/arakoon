@@ -18,7 +18,6 @@ limitations under the License.
 
 
 open Lwt
-open Update
 open Tlogcommon
 
 let section = Logger.Section.main

@@ -21,7 +21,6 @@ open Update
 open Interval
 open Routing
 open Lwt
-open Log_extra
 open Simple_store
 
 

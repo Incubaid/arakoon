@@ -14,15 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open OUnit
 open Lwt
 open Node_cfg.Node_cfg
-open Arakoon_remote_client
 open Arakoon_client
-open Network
-open Update
 open Master_type
 
 let section = Logger.Section.main

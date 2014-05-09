@@ -14,12 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Lwt
 open OUnit
 open Node_cfg
-open Master_type
 open Remote_nodestream
 open Arakoon_remote_client
 open Routing

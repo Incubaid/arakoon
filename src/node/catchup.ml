@@ -21,8 +21,6 @@ open Node_cfg
 open Remote_nodestream
 open Tlogcollection
 open Log_extra
-open Update
-open Store
 open Tlogcommon
 
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)

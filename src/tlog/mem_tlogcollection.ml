@@ -14,12 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Tlogcollection
 open Tlogcommon
-open Lwt
-
 
 class mem_tlog_collection name =
   object (self: #tlog_collection)

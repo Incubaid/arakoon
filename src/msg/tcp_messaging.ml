@@ -14,12 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Message
 open Messaging
 open Lwt
-open Log_extra
 open Lwt_buffer
 open Network
 

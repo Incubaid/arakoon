@@ -14,14 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Lwt
-open Messaging
 open Mp_msg
 open MPMessage
 
-open Update
 open Lwt_buffer
 open Fsm
 open Multi_paxos_type
