@@ -35,11 +35,11 @@ module Update = struct
     | Assert_exists of string
     | UserFunction of string * string option
     | AdminSet of string * string option
+    | AdminTestAndSet of string * string option * string option
     | SyncedSequence of t list
     | DeletePrefix of string
     | Replace of string * string option
     | DeleteRange of string * bool * (string * bool) option
-
 
   let make_master_set me maybe_lease =
     match maybe_lease with
@@ -85,6 +85,8 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
+      | AdminTestAndSet (key, expected, wanted) ->
+        Printf.sprintf "AdminTestAndSet        ;%S;%i;%S" key (_size_of wanted) (maybe_o wanted)
       | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
       | Replace(k,vo) ->
@@ -172,6 +174,11 @@ module Update = struct
               Llio.bool_to)
            b
            right
+      | AdminTestAndSet (key, expected, wanted) ->
+         Llio.int_to b 18;
+         Llio.string_to b key;
+         Llio.string_option_to b expected;
+         Llio.string_option_to b wanted
 
   let rec from_buffer b =
     let kind = Llio.int_from b in
@@ -252,6 +259,11 @@ module Update = struct
                           Llio.bool_from)
                        b in
          DeleteRange(left, linc, right)
+      | 18 ->
+         let key = Llio.string_from b in
+         let expected = Llio.string_option_from b in
+         let wanted = Llio.string_option_from b in
+         AdminTestAndSet (key, expected, wanted)
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function
