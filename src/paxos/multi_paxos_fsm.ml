@@ -14,14 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Lwt
-open Messaging
 open Mp_msg
 open MPMessage
 
-open Update
 open Lwt_buffer
 open Fsm
 open Multi_paxos_type
@@ -607,7 +603,7 @@ let machine constants =
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
 
-let rec trace_transition me key =
+let trace_transition me key =
   __state := key;
   Lwt.return ()
 and pull_state () = (show_transition !__state)
@@ -633,7 +629,7 @@ let make_buffers (a,b,c,d) = {
   election_timeout_buffer = d;
 }
 
-let rec paxos_produce buffers
+let paxos_produce buffers
           constants product_wanted =
   let me = constants.me in
   let wmsg = product_wanted_to_string product_wanted in

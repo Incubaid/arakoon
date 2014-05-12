@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Lwt
-
 module Section =
 struct
   let make = Lwt_log.Section.make

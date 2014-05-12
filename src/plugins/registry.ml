@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Std
-
 class type cursor_db =
   object
     method get_key : unit -> Key.t

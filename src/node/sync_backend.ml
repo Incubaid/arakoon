@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
@@ -28,11 +26,9 @@ struct
   open Log_extra
   open Update
   open Interval
-  open Mp_msg
   open Common
   open Simple_store
   open Master_type
-  open Tlogcommon
   open Arakoon_client
 
   let _s_ = string_option2s

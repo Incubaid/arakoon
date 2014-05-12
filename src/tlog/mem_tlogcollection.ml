@@ -14,12 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Tlogcollection
 open Tlogcommon
-open Lwt
-
 
 class mem_tlog_collection name =
   object (self: #tlog_collection)
@@ -88,8 +84,6 @@ class mem_tlog_collection name =
     method save_head ic = Llio.lwt_failfmt "save_head not implemented"
 
     method get_head_name () = failwith "get_head_name not implemented"
-
-    method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
 
     method get_tlog_from_i _ = Sn.start
 

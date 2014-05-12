@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Std
 open Common
 open Lwt
 open Log_extra
-open Extra
 open Update
 open Interval
 open Routing
