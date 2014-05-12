@@ -26,12 +26,6 @@ open Tlogcommon
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
 exception StoreCounterTooLow of string
 
-type store_tlc_cmp =
-  | Store_n_behind
-  | Store_1_behind
-  | Store_tlc_equal
-  | Store_ahead
-
 let with_connection ~tls_ctx address f = match tls_ctx with
   | None -> Lwt_io.with_connection address f
   | Some ctx ->
