@@ -220,9 +220,6 @@ struct
         in
         Lwt.return (List.rev vs))
 
-  let consensus_i store =
-    store.store_i
-
   let get_location store =
     S.get_location store.s
 
