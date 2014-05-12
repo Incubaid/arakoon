@@ -410,7 +410,6 @@ let delete_prefix (ic,oc) prefix =
   response ic Llio.input_int
 
 let rec change_to_update c =
-  let open Arakoon_client in
   match c with
   | Set (k,v) -> Update.Set(k,v)
   | Delete k -> Update.Delete k

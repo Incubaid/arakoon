@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Node_cfg.Node_cfg
 open Network
 open Statistics
@@ -226,7 +224,7 @@ let who_master ~tls cfg_name () =
 
 let _cluster_and_node_cfg node_name cfg_name =
   let cluster_cfg = read_config cfg_name in
-  let rec _find cfgs =
+  let _find cfgs =
     let rec loop = function
       | [] -> failwith (node_name ^ " is not known in config " ^ cfg_name)
       | cfg :: rest ->

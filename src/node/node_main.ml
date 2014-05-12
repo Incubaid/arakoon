@@ -26,7 +26,7 @@ open Statistics
 
 let section = Logger.Section.main
 
-let rec _split node_name cfgs =
+let _split node_name cfgs =
   let rec loop me_o others = function
     | [] -> me_o, others
     | cfg :: rest ->
