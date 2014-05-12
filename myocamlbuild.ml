@@ -147,27 +147,17 @@ let _ = dispatch & function
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
       flag ["ocaml";"compile";"warn_error"]
-        (S[A"-warn-error";A"A"]);
-
-      flag ["pp"; "camlp4of"] & S[A"-loc"; A"loc"] ;
-
-      flag ["compile";"ocaml";"use_bisect"]
-        (S[A"-I";A"+bisect"]);
-
-
-      flag ["ocaml";"byte";"link";"use_bisect"]
-        (S[ A"-I"; A"+bisect"; A"bisect.cma"; ]);
-
-      flag ["ocaml";"native";"link";"program";"use_bisect"]
-        (S[A"-I";A"+bisect";A"bisect.cmxa"; ]);
-
-      flag ["link";"use_bisect"] (S[A"-ccopt";A"--coverage";]);
+        (S[A"-w"; A"+A"; A"-warn-error"; A"+A-4-6-27-34-44"]);
 
       flag ["pp";"ocaml";"use_log_macro"] (A"logger_macro.cmo");
       dep ["ocaml"; "ocamldep"; "use_log_macro"] ["logger_macro.cmo"];
 
-      flag ["pp";"ocaml";"use_bisect"]
-        (S[A"-no_quot";A(path_to_bisect_instrument()  ^ "/instrument.cmo")]);
+      flag ["ocaml"; "compile"; "use_bisect"]
+        (S[A"-package"; A"bisect"]);
+      flag ["ocaml"; "link"; "use_bisect"]
+        (S[A"-package"; A"bisect"]);
+      flag ["pp"; "ocaml"; "use_bisect"; "maybe_use_bisect"]
+        (S[A"str.cma"; A(path_to_bisect_instrument()  ^ "/bisect_pp.cmo")]);
 
       flag ["pp";"use_macro";"small_tlogs";
             "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);

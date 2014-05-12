@@ -14,13 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
-open Lwt
-
 open OUnit_XML
 open OUnit
-open Tlogcommon
 
 open Node_cfg
 type local_action =

@@ -17,9 +17,7 @@ limitations under the License.
 
 
 open Lwt
-open Arakoon_remote_client
 open Arakoon_client
-open Network
 
 let _cat s i = s ^ (Printf.sprintf "%08i" i)
 
