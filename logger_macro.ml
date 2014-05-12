@@ -143,7 +143,7 @@ let map =
   object
     inherit Ast.map as super
 
-    method expr e =
+    method! expr e =
       let _loc = Ast.loc_of_expr e in
       match split e with
         | `Log_f(section, level, args) ->
