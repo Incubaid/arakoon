@@ -138,7 +138,6 @@ let get_key_count ms =
   in
   Lwt.return (StringMap.fold inc ms.kv 0L)
 
-let copy_store ms networkClient oc = failwith "copy_store not supported"
 let copy_store2 old_location new_location overwrite = Lwt.return ()
 
 let relocate new_location = failwith "Memstore.relocation not implemented"

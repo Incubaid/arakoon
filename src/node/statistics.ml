@@ -241,18 +241,6 @@ module Statistics = struct
     let x = new_op t start in
     update_x_stats t.replace_time_stats x
 
-  let new_range t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.range_time_stats x
-
-  let new_range_entries t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.range_time_stats x
-
-  let new_rev_range_entries t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.rev_range_entries_time_stats x
-
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
     update_x_stats t.prefix_time_stats x;
