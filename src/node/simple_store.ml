@@ -17,7 +17,6 @@ limitations under the License.
 
 
 open Std
-open Routing
 
 let section = Logger.Section.main
 

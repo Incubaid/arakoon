@@ -46,9 +46,7 @@ uninstall_client:
 
 coverage:
 	ocamlbuild -use-ocamlfind \
-	-tag 'package(bisect)' \
-	-tag 'syntax(camlp4o)' \
-	-tag 'syntax(bisect_pp)' \
+	-tag use_bisect \
 	arakoon.d.byte
 
 man:

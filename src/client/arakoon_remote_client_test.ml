@@ -14,13 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open OUnit
 open Lwt
 open Log_extra
-open Arakoon_remote_client
-open Update
 open Node_cfg
 
 let section = Logger.Section.main

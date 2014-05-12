@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open OUnit
 open Unix
 open Lwt
 open Update
-open Extra
 open Tlogcollection
 open Tlogcommon
 

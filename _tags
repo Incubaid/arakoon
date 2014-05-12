@@ -13,7 +13,6 @@ true: package(dynlink)
 true: package(quickcheck)
 true: pp(camlp4of)
 true: package(snappy)
-"doc": include
 "src":include
 "src/lib":include
 "src/tools":include
@@ -39,4 +38,4 @@ true: package(snappy)
 "src/arakoon_client.cmxs" : use_thread
 <src/plugins/*.{cma,cmxa}>: use_thread
 "logger_macro.cmo" : use_camlp4, camlp4orf
-<src/**/*.ml> : camlp4of, use_log_macro
+<src/**/*.ml> : camlp4of, use_log_macro, maybe_use_bisect
