@@ -52,17 +52,6 @@ let tlogFileRegex =
 let isValidSuccessor i prevI =
   i = prevI || i = Sn.succ prevI
 
-let calculateTlogEntryChecksum dataToChecksum =
-  Int32.of_int (Hashtbl.hash dataToChecksum)
-
-let validateTlogEntry buffer checkSum =
-  let calculatedChecksum = calculateTlogEntryChecksum buffer in
-  if ( Int32.compare checkSum calculatedChecksum ) <> 0 then
-    Llio.lwt_failfmt "Corrupt tlog entry found. Checksum failure. %ld %ld" checkSum calculatedChecksum
-  else
-    Lwt.return()
-
-
 let read_entry ic =
   let last_valid_pos = Lwt_io.position ic in
   Lwt.catch

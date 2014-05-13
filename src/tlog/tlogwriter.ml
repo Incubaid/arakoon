@@ -18,18 +18,12 @@ limitations under the License.
 
 open Lwt
 open Tlogcommon
-open Common
-
 
 class tlogWriter oc lastI =
 
   object (self)
 
     val mutable lastWrittenI = lastI;
-
-    method getLastI () = lastWrittenI
-
-    method closeChannel () = Lwt_io.close oc
 
     method log_value i value =
       if isValidSuccessor i lastWrittenI  then

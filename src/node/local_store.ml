@@ -17,11 +17,7 @@ limitations under the License.
 
 
 open Std
-open Mp_msg
 open Lwt
-open Update
-open Routing
-open Log_extra
 open Simple_store
 open Unix.LargeFile
 

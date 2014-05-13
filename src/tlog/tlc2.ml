@@ -14,11 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Tlogcollection
 open Tlogcommon
-open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
@@ -764,9 +761,6 @@ class tlc2
             end
       end >>= fun () ->
       F.close file
-
-
-    method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
 
     method get_tlog_from_i (i:Sn.t) = get_file_number i
 

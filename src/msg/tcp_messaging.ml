@@ -14,12 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Message
 open Messaging
 open Lwt
-open Log_extra
 open Lwt_buffer
 open Network
 
@@ -31,7 +28,6 @@ let section =
   s
 
 
-let never () = Lwt.return false
 let no_callback () = Lwt.return ()
 
 type drop_function = Message.t -> string -> string -> bool
@@ -94,14 +90,6 @@ class tcp_messaging
       match addresses_o with
         | None -> false
         | Some rr -> RR.fold (fun acc a -> acc || Hashtbl.mem _connections a) false rr
-
-
-
-    method private __die__ () =
-      Logger.debug_f_ "tcp_messaging %s: cancelling my threads" me >>= fun () ->
-      List.iter (fun w -> Lwt.cancel w) _my_threads;
-      _my_threads <- [];
-      Lwt.return ()
 
     method private _get_send_q ~target =
       try Hashtbl.find _outgoing target

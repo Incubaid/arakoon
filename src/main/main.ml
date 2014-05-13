@@ -14,13 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
-open Lwt
-
 open OUnit_XML
 open OUnit
-open Tlogcommon
 
 open Node_cfg
 type local_action =
@@ -286,7 +281,7 @@ let main () =
      "tells you if the master thinks progress is possible");
     ("--statistics", set_laction STATISTICS, "returns some master statistics");
     ("--run-system-tests", set_laction SystemTests,
-     "run system tests (you need a running installation");
+     "run system tests (you need a running installation)");
     ("--version", set_laction ShowVersion, "shows version");
     (* ("-port", Arg.Set_int port, "specifies server port"); *)
     ("-config", Arg.Set_string config_file,

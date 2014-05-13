@@ -43,8 +43,6 @@ let (<: ) = Int32.shift_left
 let (<::) = Int64.shift_left
 let (>: ) = Int32.shift_right_logical
 let (>::) = Int64.shift_right_logical
-let (|: ) = Int32.logor
-let (|::) = Int64.logor
 
 type buffer = {buf : string ; mutable pos : int }
 let make_buffer buf pos = {buf;pos}

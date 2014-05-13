@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Multi_paxos_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
-open Update
 
 let time_for_elections ?invalidate_lease_start_until (type s) constants =
   begin

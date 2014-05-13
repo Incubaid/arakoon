@@ -149,34 +149,6 @@ let command_to buffer command =
 
 let nothing = fun ic -> Lwt.return ()
 
-let value_array ic =
-  Llio.input_int ic >>= fun size ->
-  let result = Array.create size "" in
-  let rec loop i =
-    if i = size
-    then Lwt.return result
-    else
-      begin
-        Llio.input_string ic >>= fun s ->
-        result.(i) <- s;
-        loop (i+1)
-      end
-  in loop 0
-
-let kv_array ic =
-  Llio.input_int ic >>= fun size ->
-  let result = Array.create size ("","") in
-  let rec loop i =
-    if i = size
-    then Lwt.return result
-    else
-      begin
-        Llio.input_string_pair ic >>= fun p ->
-        result.(i) <- p;
-        loop (i+1)
-      end
-  in loop 0
-
 
 let request oc f =
   let buf = Buffer.create 32 in
@@ -438,7 +410,6 @@ let delete_prefix (ic,oc) prefix =
   response ic Llio.input_int
 
 let rec change_to_update c =
-  let open Arakoon_client in
   match c with
   | Set (k,v) -> Update.Set(k,v)
   | Delete k -> Update.Delete k

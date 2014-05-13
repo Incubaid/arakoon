@@ -3,7 +3,7 @@
 description = "Arakoon client"
 version = "1.7.2"
 exists_if = "arakoon_client.cma,arakoon_client.cmxa,arakoon_client.cmxs"
-requires = "threads lwt lwt.unix str"
+requires = "threads lwt lwt.unix str oUnit quickcheck"
 archive(byte) = "arakoon_client.cma"
 archive(native) = "arakoon_client.cmxa"
 
