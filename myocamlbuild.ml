@@ -1,14 +1,23 @@
+(* Findlib dependencies *)
+let dependencies = [ "lwt"
+                   ; "oUnit"
+                   ; "camltc"
+                   ; "snappy"
+                   ; "ssl"
+                   ; "bz2"
+                   ; "quickcheck"
+                   ]
+
+(* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
+let warnings = "+A"
+(* Enabled compiler errors, argument for '-warn-error' *)
+let errors = "+A-4-6-27-34-44"
+
 open Ocamlbuild_pack
 open Ocamlbuild_plugin
 open Unix
 
-let pdflatex = A"pdflatex"
-let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
-
-(* ocamlfind command *)
-let ocamlfind x = S[A"ocamlfind"; x]
-
-let run_cmd cmd =
+let run_cmd cmd () =
   try
     let ch = Unix.open_process_in cmd in
     let line = input_line ch in
@@ -16,122 +25,77 @@ let run_cmd cmd =
     line
   with | End_of_file -> "Not available"
 
-
-let output_cmd cmd =
-  let acc = ref [] in
-  let ch = Unix.open_process_in cmd in
-  try
-    let rec loop () =
-      let line = input_line ch in
-      let () = acc := line :: !acc in
-      loop ()
-    in
-    loop ()
-  with | End_of_file ->
-    let () = close_in ch in
-    List.rev (!acc)
-
-let git_revision = run_cmd "git describe --all --long --always --dirty"
-let tag_version = run_cmd "git describe --tags --exact-match --dirty"
-let branch_version = run_cmd "git describe --all"
-
-let machine = run_cmd "uname -mnrpio"
-
-let compiler_version = run_cmd "ocamlopt -version"
-
-let dependencies = output_cmd "opam list -i | grep 'lwt\\|ounit\\|camltc\\|snappy\\|ssl\\|camlbz2'"
-
-let split s ch =
-  let x = ref [] in
-  let rec go s =
-    let pos = String.index s ch in
-    x := (String.before s pos)::!x;
-    go (String.after s (pos + 1))
+let list_dependencies () =
+  let query pkg =
+    let package = Findlib.query pkg in
+    (pkg, package.Findlib.version, package.Findlib.description)
   in
-  try
-    go s
-  with Not_found -> !x
+  let pkgs = List.map query dependencies in
+  let lines = List.map (fun (pkg, version, descr) ->
+    let tabs = if String.length pkg < 8 then "\t\t" else "\t" in
+    Printf.sprintf "%s%s%s\t%s" pkg tabs version descr)
+    pkgs
+  in
+  String.concat "\n" lines
 
-let split_nl s = split s '\n'
-
-let time =
+let time () =
   let tm = Unix.gmtime (Unix.time()) in
   Printf.sprintf "%02d/%02d/%04d %02d:%02d:%02d UTC"
     (tm.tm_mday) (tm.tm_mon + 1) (tm.tm_year + 1900)
     tm.tm_hour tm.tm_min tm.tm_sec
 
-let make_version _ _ =
-  let cmd =
-    let template = "let git_revision = %S\n" ^^
-                     "let compile_time = %S\n" ^^
-                     "let machine = %S\n" ^^
-                     "let compiler_version = %S\n" ^^
-                     "let major = %i\n" ^^
-                     "let minor = %i\n" ^^
-                     "let patch = %i\n" ^^
-                     "let dependencies = %S\n"
-    in
-    let major,minor,patch =
+let major_minor_patch () =
+  let tag_version = run_cmd "git describe --tags --exact-match --dirty"
+  and branch_version = run_cmd "git describe --all" in
+
+  let (major, minor, patch) =
+    try
+      Scanf.sscanf (tag_version ()) "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
+    with _ ->
+      let bv = branch_version () in
       try
-        Scanf.sscanf tag_version "%i.%i.%i" (fun ma mi p -> (ma,mi,p))
+        Scanf.sscanf bv "heads/%i.%i" (fun ma mi -> (ma,mi,-1))
       with _ ->
-        try Scanf.sscanf branch_version "heads/%i.%i" (fun ma mi -> (ma,mi,-1))
-        with _ ->
-          (* This one matches what's on Jenkins slaves *)
-          try Scanf.sscanf branch_version "remotes/origin/%i.%i" (fun ma mi -> (ma, mi, -1))
-          with _ -> (-1,-1,-1)
-    in
-    Printf.sprintf template git_revision time machine compiler_version major minor patch
-      (String.concat "\\n" dependencies)
+        (* This one matches what's on Jenkins slaves *)
+        try
+          Scanf.sscanf bv "remotes/origin/%i.%i" (fun ma mi -> (ma, mi, -1))
+        with _ -> (-1,-1,-1)
   in
-  Cmd (S [A "echo"; Quote(Sh cmd); Sh ">"; P "arakoon_version.ml"])
+  Printf.sprintf "(%d, %d, %d)" major minor patch
 
-let before_space s =
-  try
-    String.before s (String.index s ' ')
-  with Not_found -> s
 
-let path_to_bisect_instrument () =
+let make_version _ _ =
+  let stringify v = Printf.sprintf "%S" v
+  and id = fun x -> x in
+
+  let fields = [ "git_revision", run_cmd "git describe --all --long --always --dirty", stringify
+               ; "compile_time", time, stringify
+               ; "machine", run_cmd "uname -mnrpio", stringify
+               ; "compiler_version", run_cmd "ocamlopt -version", stringify
+               ; "(major, minor, patch)", major_minor_patch, id
+               ; "dependencies", list_dependencies, stringify
+               ]
+  in
+  let vals = List.map (fun (n, f, r) -> (n, f (), r)) fields in
+  let lines = List.map (fun (n, v, r) -> Printf.sprintf "let %s = %s\n" n (r v)) vals in
+  Echo (lines, "arakoon_version.ml")
+
+
+let path_to_bisect () =
   try
-    let r = run_and_read "ocamlfind query bisect" in
-    let r_stripped = List.hd(split_nl r ) in
-    (* Printf.printf "\n\npath=%s\n\n\n" r_stripped ; *)
-    r_stripped
-  with _ -> "___could_not_find_bisect___"
+    let bisect_pkg = Findlib.query "bisect" in
+    bisect_pkg.Findlib.location
+  with Findlib.Findlib_error _ -> "__could_not_find_bisect__"
+
 
 let _ = dispatch & function
     | After_rules ->
-      rule "arakoon_version.ml" ~prod: "arakoon_version.ml" make_version;
-      rule "LaTeX to PDF"
-        ~prod:"%.pdf"
-        ~dep:"%.tex"
-        begin fun env _build ->
-          let tex = env "%.tex" in
-          (* let pdf = env "%.pdf" in *)
-          let tags = tags_of_pathname tex ++ "compile" ++ "LaTeX" ++ "pdf" in
-          let cmd = Cmd(S[pdflatex;A"-shell-escape";T tags;P tex;A"-halt-on-error"]) in
-          Seq[cmd;]
-        end;
-      dep ["compile";"LaTeX";"pdf";]
-        ["doc/introduction.tex";
-         "doc/client.tex";
-         "doc/consistency.tex";
-         "doc/protocol.tex";
-         "doc/restarting.tex";
-         "doc/part3.tex";
-         "doc/state_machine.tex";
-         "doc/user_functions.tex";
-         "doc/states.eps";
-         "doc/nursery.tex";
-        ];
+      rule "arakoon_version.ml" ~prod:"arakoon_version.ml" make_version;
 
-      (* how to compile C stuff that needs tc *)
-      flag ["compile"; "c";]
-        (S[
-            A"-ccopt";A"-I../src/tools";
-          ]);
+      (* how to compile C stuff *)
       flag ["compile";"c";]
         (S[
+            A"-ccopt"; A"-I../src/tools";
             A"-ccopt"; A"-msse4.2";
             A"-ccopt"; A"-Wall";
             A"-ccopt"; A"-Wextra";
@@ -146,16 +110,13 @@ let _ = dispatch & function
       dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
       flag ["ocaml";"link";"is_main"](
-        S[A"-thread";
-          A"-linkpkg";
-          A"src/libcutil.a";
+        S[A"-linkpkg"; A"src/libcutil.a";
          ]);
-      flag ["ocaml";"compile";] (S[A"-thread"]);
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
       flag ["ocaml";"compile";"warn_error"]
-        (S[A"-w"; A"+A"; A"-warn-error"; A"+A-4-6-27-34-44"]);
+        (S[A"-w"; A warnings; A"-warn-error"; A errors]);
 
       flag ["pp";"ocaml";"use_log_macro"] (A"logger_macro.cmo");
       dep ["ocaml"; "ocamldep"; "use_log_macro"] ["logger_macro.cmo"];
@@ -165,9 +126,8 @@ let _ = dispatch & function
       flag ["ocaml"; "link"; "use_bisect"]
         (S[A"-package"; A"bisect"]);
       flag ["pp"; "ocaml"; "use_bisect"; "maybe_use_bisect"]
-        (S[A"str.cma"; A(path_to_bisect_instrument()  ^ "/bisect_pp.cmo")]);
+        (S[A"str.cma"; A(path_to_bisect () ^ "/bisect_pp.cmo")]);
 
       flag ["pp";"use_macro";"small_tlogs";
             "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
-      flag ["library";"use_thread"](S[A"-thread"]);
     | _ -> ()
