@@ -5,22 +5,21 @@
 q.testrunner.list()
 
 test_spec = '${TEST_SPEC-arakoon_system_tests.server.quick}'
-#test_spec = 'arakoon_system_tests.server.system_tests_long'
-#test_spec = 'arakoon_system_tests'
-#test_spec = 'arakoon_system_tests.server.TestCmdTools'
 
 output_format = q.enumerators.TestRunnerOutputFormat.XML
 output_folder = '${WORKSPACE}/testresults'
 
 arguments = q.testrunner._parseArgs('%s_results' % test_spec, output_format, output_folder, False)
-#arguments = q.testrunner._parseArgs(test_spec, output_format, output_folder, False)
+
 arguments.extend([
+    '--logging-format=%(asctime)-15s %(message)s',
     '--with-coverage',
     '--cover-package=arakoon',
     '--cover-erase',
     '--with-xcoverage',
 ])
 arguments.append(q.testrunner._convertTestSpec(test_spec))
+
 q.testrunner._runTests(arguments)
 "
 
