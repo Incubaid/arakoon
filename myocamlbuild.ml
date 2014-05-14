@@ -132,7 +132,12 @@ let _ = dispatch & function
           ]);
       flag ["compile";"c";]
         (S[
-            A"-ccopt";A"-msse4.2";
+            A"-ccopt"; A"-msse4.2";
+            A"-ccopt"; A"-Wall";
+            A"-ccopt"; A"-Wextra";
+            A"-ccopt"; A"-Werror";
+            A"-ccopt"; A"-pedantic";
+            A"-ccopt"; A"-ggdb3";
           ]);
 
       dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
