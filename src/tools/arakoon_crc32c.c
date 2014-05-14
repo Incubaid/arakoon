@@ -23,7 +23,7 @@
 #include "bsd_crc32c.h"
 #include "cpudetect.h"
 
-// these are available externally
+/* these are available externally */
 CAMLprim value calculate_crc32c(value buffer, value offset, value length);
 CAMLprim value update_crc32c(value crc32c, value buffer, value offset, value length);
 

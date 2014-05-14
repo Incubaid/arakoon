@@ -24,35 +24,38 @@
 #include <caml/fail.h>
 
 
-CAMLprim value arakoon_get_rlimit(value v_resource, value soft){
-
+CAMLprim value arakoon_get_rlimit(value v_resource, value soft) {
   CAMLparam2(v_resource,soft);
+
+  int res = 0;
   struct rlimit rlim;
 
-  int resource = Int_val(v_resource);
-  int res = getrlimit(resource, &rlim);
+  res = getrlimit(Int_val(v_resource), &rlim);
 
   if (res != 0) {
-
     caml_failwith("get_rlimit");
   }
-  int res2 = 0;
+
   if (Int_val(soft) == 0) {
-    res2 = rlim.rlim_cur;
+    res = rlim.rlim_cur;
   } else {
-    res2 = rlim.rlim_max;
+    res = rlim.rlim_max;
   }
-  CAMLreturn(Val_int(res2));
+
+  CAMLreturn(Val_int(res));
 }
 
-CAMLprim value arakoon_get_maxrss(value unit){
+CAMLprim value arakoon_get_maxrss(value unit) {
   CAMLparam1 (unit);
-  int who = RUSAGE_SELF;
+
+  int res = 0, who = RUSAGE_SELF;
   struct rusage usage;
-  int res = getrusage(who, &usage);
+
+  res = getrusage(who, &usage);
+
   if (res != 0){
     caml_failwith ("get_rusage");
   }
-  int res2 = usage.ru_maxrss;
-  CAMLreturn(Val_int(res2));
+
+  CAMLreturn(Val_int(usage.ru_maxrss));
 }
