@@ -1,5 +1,4 @@
 arakoon_crc32c.o
 bsd_crc32c.o
-cpudetect.o
 arakoon_limits.o
 cllio_c.o
