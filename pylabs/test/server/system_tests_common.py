@@ -679,7 +679,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     config = cluster._getConfigFile()
     for i in range (n):
         nodeName = node_names[ i ]
-        config.set(nodeName, '__tained_fsync_tlog_dir', 'false')
+        config.set(nodeName, '__tainted_fsync_tlog_dir', 'false')
 
     #
     #
