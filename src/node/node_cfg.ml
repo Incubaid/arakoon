@@ -440,7 +440,7 @@ module Node_cfg = struct
     let _fsync_tlog_dir = Ini.get
                             inifile
                             node_name
-                            "__tained_fsync_tlog_dir"
+                            "__tainted_fsync_tlog_dir"
                             Ini.p_bool
                             (Ini.default true) in
     let targets =
