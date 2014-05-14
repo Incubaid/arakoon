@@ -14,16 +14,34 @@
   limitations under the License.
  */
 
-#include <stdio.h>
-#include <assert.h>
-#include <caml/mlvalues.h>
-#include <caml/bigarray.h>
+#include <cpuid.h>
+
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include "bsd_crc32c.h"
-#include "cpudetect.h"
+#include <caml/mlvalues.h>
 
-// these are available externally
+#include "bsd_crc32c.h"
+
+/* CPU SSE4.2 support detection routines */
+int has_sse_4_2 = 0;
+
+void __cpu_detect(void) __attribute__((constructor));
+
+void __cpu_detect(void)
+{
+  unsigned int a = 0, b = 0, c = 0, d = 0, func = 1;
+  int r = 0;
+
+  r = __get_cpuid(func, &a, &b, &c, &d);
+  if(r == 0) {
+    /* Lookup failed */
+    c = 0;
+  }
+
+  has_sse_4_2 = (c & bit_SSE4_2) != 0;
+}
+
+/* these are available externally */
 CAMLprim value calculate_crc32c(value buffer, value offset, value length);
 CAMLprim value update_crc32c(value crc32c, value buffer, value offset, value length);
 
