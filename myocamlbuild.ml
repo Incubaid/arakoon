@@ -91,11 +91,8 @@ let _ = dispatch & function
       dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
 
       flag ["ocaml";"link";"is_main"](
-        S[A"-thread";
-          A"-linkpkg";
-          A"src/libcutil.a";
+        S[A"-linkpkg"; A"src/libcutil.a";
          ]);
-      flag ["ocaml";"compile";] (S[A"-thread"]);
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
@@ -114,5 +111,4 @@ let _ = dispatch & function
 
       flag ["pp";"use_macro";"small_tlogs";
             "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
-      flag ["library";"use_thread"](S[A"-thread"]);
     | _ -> ()
