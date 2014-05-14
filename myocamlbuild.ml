@@ -81,14 +81,11 @@ let _ = dispatch & function
     | After_rules ->
       rule "arakoon_version.ml" ~prod:"arakoon_version.ml" make_version;
 
-      (* how to compile C stuff that needs tc *)
-      flag ["compile"; "c";]
-        (S[
-            A"-ccopt";A"-I../src/tools";
-          ]);
+      (* how to compile C stuff *)
       flag ["compile";"c";]
         (S[
-            A"-ccopt";A"-msse4.2";
+            A"-ccopt"; A"-I../src/tools";
+            A"-ccopt"; A"-msse4.2";
           ]);
 
       dep ["ocaml";"link";"is_main"]["src/libcutil.a"];
