@@ -2,7 +2,6 @@ open Ocamlbuild_pack
 open Ocamlbuild_plugin
 open Unix
 
-let pdflatex = A"pdflatex"
 let run_and_read = Ocamlbuild_pack.My_unix.run_and_read
 
 (* ocamlfind command *)
@@ -102,28 +101,6 @@ let path_to_bisect_instrument () =
 let _ = dispatch & function
     | After_rules ->
       rule "arakoon_version.ml" ~prod: "arakoon_version.ml" make_version;
-      rule "LaTeX to PDF"
-        ~prod:"%.pdf"
-        ~dep:"%.tex"
-        begin fun env _build ->
-          let tex = env "%.tex" in
-          (* let pdf = env "%.pdf" in *)
-          let tags = tags_of_pathname tex ++ "compile" ++ "LaTeX" ++ "pdf" in
-          let cmd = Cmd(S[pdflatex;A"-shell-escape";T tags;P tex;A"-halt-on-error"]) in
-          Seq[cmd;]
-        end;
-      dep ["compile";"LaTeX";"pdf";]
-        ["doc/introduction.tex";
-         "doc/client.tex";
-         "doc/consistency.tex";
-         "doc/protocol.tex";
-         "doc/restarting.tex";
-         "doc/part3.tex";
-         "doc/state_machine.tex";
-         "doc/user_functions.tex";
-         "doc/states.eps";
-         "doc/nursery.tex";
-        ];
 
       (* how to compile C stuff that needs tc *)
       flag ["compile"; "c";]
