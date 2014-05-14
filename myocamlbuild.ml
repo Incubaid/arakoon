@@ -5,6 +5,7 @@ let dependencies = [ "lwt"
                    ; "snappy"
                    ; "ssl"
                    ; "bz2"
+                   ; "quickcheck"
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
@@ -30,7 +31,11 @@ let list_dependencies () =
     (pkg, package.Findlib.version, package.Findlib.description)
   in
   let pkgs = List.map query dependencies in
-  let lines = List.map (fun (a, b, c) -> Printf.sprintf "%s\t%s\t%s" a b c) pkgs in
+  let lines = List.map (fun (pkg, version, descr) ->
+    let tabs = if String.length pkg < 8 then "\t\t" else "\t" in
+    Printf.sprintf "%s%s%s\t%s" pkg tabs version descr)
+    pkgs
+  in
   String.concat "\n" lines
 
 let time () =
