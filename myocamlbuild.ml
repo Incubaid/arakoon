@@ -1,3 +1,17 @@
+(* Findlib dependencies *)
+let dependencies = [ "lwt"
+                   ; "oUnit"
+                   ; "camltc"
+                   ; "snappy"
+                   ; "ssl"
+                   ; "bz2"
+                   ]
+
+(* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
+let warnings = "+A"
+(* Enabled compiler errors, argument for '-warn-error' *)
+let errors = "+A-4-6-27-34-44"
+
 open Ocamlbuild_pack
 open Ocamlbuild_plugin
 open Unix
@@ -9,14 +23,6 @@ let run_cmd cmd () =
     let () = close_in ch in
     line
   with | End_of_file -> "Not available"
-
-let dependencies = [ "lwt"
-                   ; "oUnit"
-                   ; "camltc"
-                   ; "snappy"
-                   ; "ssl"
-                   ; "bz2"
-                   ]
 
 let list_dependencies () =
   let query pkg =
@@ -97,7 +103,7 @@ let _ = dispatch & function
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
       flag ["ocaml";"compile";"warn_error"]
-        (S[A"-w"; A"+A"; A"-warn-error"; A"+A-4-6-27-34-44"]);
+        (S[A"-w"; A warnings; A"-warn-error"; A errors]);
 
       flag ["pp";"ocaml";"use_log_macro"] (A"logger_macro.cmo");
       dep ["ocaml"; "ocamldep"; "use_log_macro"] ["logger_macro.cmo"];
