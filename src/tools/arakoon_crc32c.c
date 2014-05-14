@@ -14,6 +14,8 @@
   limitations under the License.
  */
 
+#include <cpuid.h>
+
 #include <caml/alloc.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
@@ -27,14 +29,16 @@ void __cpu_detect(void) __attribute__((constructor));
 
 void __cpu_detect(void)
 {
-  int a = 0, b = 0, c = 0, d = 0, func = 1;
+  unsigned int a = 0, b = 0, c = 0, d = 0, func = 1;
+  int r = 0;
 
-  __asm__ __volatile__ ( "cpuid"
-                       : "=a" (a), "=b" (b), "=c" (c), "=d" (d)
-                       : "a" (func)
-                       );
+  r = __get_cpuid(func, &a, &b, &c, &d);
+  if(r == 0) {
+    /* Lookup failed */
+    c = 0;
+  }
 
-  has_sse_4_2 = ((1 << 20) & c) != 0;
+  has_sse_4_2 = (c & bit_SSE4_2) != 0;
 }
 
 /* these are available externally */
