@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 from Compat import X
+import types
+import string
 
 
 def make_client(config):
@@ -56,7 +58,15 @@ class ArakoonClientExtConfig:
 
         nodes.append(name)
         config.add_section(name)
-        config.set(name, "ip", ip)
+
+        if type(ip) == types.StringType:
+            config.set(name, "ip", ip)
+        elif type(ip) == types.ListType:
+            line = string.join(ip,',')
+            config.set(name, "ip", line)
+        else:
+            raise Exception("ip parameter needs string or string list type")
+
         config.set(name, "client_port", clientPort)
 
         config.set("global","cluster", ",".join(nodes))
@@ -103,7 +113,7 @@ class ArakoonClientExtConfig:
             nodes = self.__getNodes(config)
 
             for name in nodes:
-                clientconfig[name] = (config.get(name, "ip"),
+                clientconfig[name] = (config.get(name, "ip").split(','),
                                       config.get(name, "client_port"))
 
         return clientconfig
@@ -131,7 +141,7 @@ class ArakoonClientExtConfig:
                     self.removeNode(name)
 
                 self.addNode(name,
-                             serverConfig.get(name, "ip"),
+                             serverConfig.get(name, "ip").split(','),
                              serverConfig.get(name, "client_port"))
 
     def __getNodes(self, config):

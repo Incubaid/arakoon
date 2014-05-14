@@ -1664,6 +1664,12 @@ class ArakoonCluster:
 
         for (id,(ip,port)) in nurseryNodes.iteritems() :
             config.add_section(id)
-            config.set(id,"ip",ip)
+            if type(ip) == types.StringType:
+                config.set(id, "ip", ip)
+            elif type(ip) == types.ListType:
+                line = string.join(ip,',')
+                config.set(ip, "ip", line)
+            else:
+                raise Exception("ip parameter needs string or string list type")
             config.set(id,"client_port",port)
         self._saveConfig(config)
