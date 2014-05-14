@@ -29,7 +29,7 @@ let _b2b u =
   let u' = Update.from_buffer (Llio.make_buffer flat 0) in
   u'
 
-let _cmp = OUnit.assert_equal ~printer:Update.update2s
+let _cmp = OUnit.assert_equal ~printer:(Update.update2s ~values:false)
 
 let test_sequence () =
   let s = Update.Sequence [

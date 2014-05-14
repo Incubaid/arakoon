@@ -11,7 +11,7 @@ let dependencies = [ "lwt"
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
 let warnings = "+A"
 (* Enabled compiler errors, argument for '-warn-error' *)
-let errors = "+A-4-6-27-34-44"
+let errors = "+A-3-4-6-27-34-44"
 
 open Ocamlbuild_pack
 open Ocamlbuild_plugin
@@ -101,6 +101,7 @@ let _ = dispatch & function
             A"-ccopt"; A"-Wextra";
             A"-ccopt"; A"-Werror";
             A"-ccopt"; A"-pedantic";
+            A"-ccopt"; A"-Wno-long-long"; (* Required for OCaml headers *)
             A"-ccopt"; A"-ggdb3";
             A"-ccopt"; A"-O2";
             (* Optionally add something like -march=core2 -mtune=corei7-avx for

@@ -92,7 +92,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
   c # close () >>= fun () ->
   factory dn "node_name" >>= fun tlc_two ->
   let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
-  let vos = Log_extra.option2s Value.value2s vo in
+  let vos = Log_extra.option2s (Value.value2s ~values:false) vo in
   Logger.info_f_ "last_value = %s" vos >>= fun () ->
   tlc_two # close() >>= fun () ->
   Lwt.return ()
