@@ -227,6 +227,8 @@ class ArakoonCluster:
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
 
+        if isinstance(ip, basestring):
+            ip = [ip]
 
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
@@ -238,13 +240,7 @@ class ArakoonCluster:
 
         config.add_section(name)
 
-        if type(ip) == types.StringType:
-            config.set(name, "ip", ip)
-        elif type(ip) == types.ListType:
-            line = string.join(ip,',')
-            config.set(name, "ip", line)
-        else:
-            raise Exception("ip parameter needs string or string list type")
+        config.set(name, "ip", ','.join(ip))
 
         self.__validateInt("clientPort", clientPort)
         config.set(name, "client_port", clientPort)
