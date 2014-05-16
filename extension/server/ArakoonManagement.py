@@ -25,7 +25,7 @@ try:
 except ImportError:
     from pylabs import q
 
-import os 
+import os
 import ArakoonRemoteControl
 import os.path
 import itertools
@@ -86,28 +86,28 @@ class ArakoonManagement:
                 targetDir = q.system.fs.getDirName(target)
                 q.system.fs.createDir(targetDir)
                 fs.moveFile(source, target)
-        
+
         def change_nodes_to_cluster( config ):
             if config.checkParam('global', 'nodes') :
                 val = config.getValue('global', 'nodes')
                 config.addParam('global', 'cluster', val)
                 config.removeParam('global','nodes')
                 config.write()
-        
+
         nodes_source = jp(cfgDir,'arakoonnodes.cfg')
         nodes_target = jp(cfgDir,'arakoon_nodes.cfg')
         maybe_move (nodes_source,nodes_target)
 
         servernodes_source = jp(cfgDir,'arakoonservernodes.cfg')
         servernodes_target = jp(cfgDir,'arakoon_servernodes.cfg')
-        
+
         maybe_move (servernodes_source, servernodes_target)
-            
+
         """
         update configs for the 'arakoon' cluster to the 0.10 way of doing things
         """
         new_cfg_dir = jp(cfgDir,'arakoon','arakoon')
-        
+
         nodes_source = nodes_target
         nodes_target = jp(new_cfg_dir, 'arakoon_client.cfg')
         if fs.exists( nodes_source ):
@@ -128,7 +128,7 @@ class ArakoonManagement:
             fs.moveFile (servernodes_source, servernodes_target)
             cfg = q.config.getInifile( servernodes_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
-        
+
         cluster_source = jp(cfgDir,'arakoon.cfg')
         cluster_target = jp(new_cfg_dir, 'arakoon.cfg' )
         if fs.exists( cluster_source ):
@@ -140,7 +140,7 @@ class ArakoonManagement:
             cfgFile.addParam("arakoon", "path", new_cfg_dir)
             cfg = q.config.getInifile( cluster_target.split('.')[0] )
             change_nodes_to_cluster( cfg )
-        
+
     def listClusters(self):
         """
         Returns a list with the existing clusters.
@@ -166,7 +166,7 @@ class ArakoonManagement:
         """
         self.stop()
         self.start()
-       
+
 
 class ArakoonCluster:
 
@@ -175,10 +175,10 @@ class ArakoonCluster:
         self._clusterName = clusterName
         self._binary = which_arakoon()
         self._arakoonDir = q.system.fs.joinPaths(q.dirs.cfgDir, "arakoon")
-        
+
         clusterConfig = q.config.getInifile("arakoonclusters")
         if not clusterConfig.checkSection(self._clusterName):
-            
+
             clusterPath = q.system.fs.joinPaths(q.dirs.cfgDir,"qconfig", "arakoon", clusterName)
             clusterConfig.addSection(clusterName)
             clusterConfig.addParam(clusterName, "path", clusterPath)
@@ -190,7 +190,7 @@ class ArakoonCluster:
                 q.system.fs.createDir(clusterPath)
 
         self._clusterPath = clusterConfig.getValue( clusterName, "path" )
-        
+
     def _servernodes(self):
         return '%s_local_nodes' % self._clusterName
 
@@ -305,6 +305,8 @@ class ArakoonCluster:
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
 
+        if isinstance(ip, basestring):
+            ip = [ip]
 
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
@@ -317,13 +319,7 @@ class ArakoonCluster:
         config.addSection(name)
         config.addParam(name, "name", name)
 
-        if type(ip) == types.StringType:
-            config.addParam(name, "ip", ip)
-        elif type(ip) == types.ListType:
-            line = string.join(ip,',')
-            config.addParam(name, "ip", line)
-        else:
-            raise Exception("ip parameter needs string or string list type")
+        config.addParam(name, "ip", ', '.join(ip))
 
         self.__validateInt("clientPort", clientPort)
         config.addParam(name, "client_port", clientPort)
@@ -383,7 +379,7 @@ class ArakoonCluster:
 
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
-        
+
         if name in nodes:
             self.removeLocalNode(name)
             config.removeSection(name)
@@ -403,7 +399,7 @@ class ArakoonCluster:
         """
         section = "global"
         key = "lease_period"
-        
+
         config = self._getConfigFile()
 
         if not config.checkSection( section ):
@@ -417,7 +413,7 @@ class ArakoonCluster:
             config.removeParam(section, key)
 
         config.write()
-        
+
     def forceMaster(self, name=None, preferred = False):
         """
         Force a master in the supplied cluster
@@ -528,7 +524,7 @@ class ArakoonCluster:
                 self.__validateName( n )
         self.__validateLogLevel( level )
         config = self._getConfigFile()
-        
+
         for n in nodes:
             config.addParam( n, "log_level", level )
 
@@ -541,14 +537,14 @@ class ArakoonCluster:
         config = self._getConfigFile()
         for n in nodes:
             config.addParam(n, "disable_tlog_compression", value )
-            
+
     def enableTlogCompression(self, nodes=None):
         """
         Enables tlog compression for the given nodes (this is enabled by default)
         @param nodes List of node names
         """
         self._changeTlogCompression(nodes, 'false')
-    
+
     def disableTlogCompression(self, nodes=None):
         """
         Disables tlog compression for the given nodes
@@ -590,7 +586,7 @@ class ArakoonCluster:
         if flag :
             config.addParam(g, p, "true")
         config.write()
-        
+
     def setQuorum(self, quorum=None):
         """
         Set the quorum for the supplied cluster
@@ -598,7 +594,7 @@ class ArakoonCluster:
         The quorum dictates on how many nodes need to acknowledge the new value before it becomes accepted.
         The default is (nodes/2)+1
 
-        @param quorum the forced quorum. If None, the default is used 
+        @param quorum the forced quorum. If None, the default is used
         """
         config = self._getConfigFile()
         if quorum:
@@ -607,14 +603,14 @@ class ArakoonCluster:
                      quorum < 0 or
                      quorum > len( self.listNodes())) :
                     raise Exception ( "Illegal value for quorum %s" % quorum )
-                
+
             except:
                 raise Exception("Illegal value for quorum %s " % quorum)
-            
+
             config.addParam("global", "quorum", int(quorum))
-        else: 
+        else:
             config.removeParam("global", "quorum")
-            
+
         config.write()
 
 
@@ -633,7 +629,7 @@ class ArakoonCluster:
             ip_list = ips.split(',')
             port = int(config.getValue(name, "client_port"))
             clientconfig[name] = (ip_list, port)
-                                  
+
 
         return clientconfig
 
@@ -641,7 +637,7 @@ class ArakoonCluster:
         config = self.getClientConfig()
         client = Arakoon.ArakoonClient(Arakoon.ArakoonClientConfig(self._clusterName, config))
         return client
-   
+
     def listNodes(self):
         """
         Get a list of all node names in the supplied cluster
@@ -652,7 +648,7 @@ class ArakoonCluster:
 
     def getNodeConfig(self,name):
         """
-        Get the parameters of a node section 
+        Get the parameters of a node section
 
         @param name the name of the node
         @return dict keys and values of the nodes parameters
@@ -678,7 +674,7 @@ class ArakoonCluster:
         self.__validateName(name)
 
         config = self._getConfigFile()
-        
+
         if config.checkSection(name):
             home = config.getValue(name, "home")
             q.system.fs.createDir(home)
@@ -721,11 +717,11 @@ class ArakoonCluster:
             if config.checkParam(name, "tlog_dir"):
                 tlogDir = config.getValue(name, "tlog_dir")
                 q.system.fs.removeDirTree(tlogDir)
-            
+
             logDir = config.getValue(name, "log_dir")
             q.system.fs.removeDirTree(logDir)
             return
-        
+
         raise Exception("No node %s" % name )
 
 
@@ -759,7 +755,7 @@ class ArakoonCluster:
             nodesconfig.write()
 
             return
-        
+
         raise Exception("No node %s" % name)
 
     def removeLocalNode(self, name):
@@ -773,7 +769,7 @@ class ArakoonCluster:
         config_name = self._servernodes()
         config_name_path = q.system.fs.joinPaths(self._clusterPath, config_name)
         config = q.config.getInifile(config_name_path)
-        
+
         if not config.checkSection("global"):
             return
 
@@ -809,7 +805,7 @@ class ArakoonCluster:
         messagingPort = basePort + 1
         for i in range(0, numberOfNodes):
             nodeName = "%s_%i" %(cid, i)
-            
+
             self.addNode(name = nodeName,
                          clientPort = clientPort,
                          messagingPort = messagingPort)
@@ -820,7 +816,7 @@ class ArakoonCluster:
 
         if numberOfNodes > 0:
             self.forceMaster("%s_0" % cid)
-        
+
         config = self._getConfigFile()
         config.addParam( 'global', 'cluster_id', cid)
 
@@ -833,19 +829,19 @@ class ArakoonCluster:
         """
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
-        
+
         for node in nodes:
             if removeDirs:
                 self.removeDirs(node)
             self.removeNode(node)
-        
+
         if self.__getForcedMaster(config):
             self.forceMaster(None)
-        
+
         self.remove()
-        
+
     def remove(self):
-        
+
         clientConf = q.config.getInifile("arakoonclients")
         clientConf.removeSection(self._clusterName)
         clientConf.write()
@@ -859,7 +855,7 @@ class ArakoonCluster:
     def __getForcedMaster(self, config):
         if not config.checkSection("global"):
             return []
-        
+
         if config.checkParam("global", "master"):
             return config.getValue("global", "master").strip()
         else:
@@ -915,7 +911,7 @@ class ArakoonCluster:
     def stop(self):
         """
         stop all nodes in the supplied cluster
-        
+
         @param cluster the arakoon cluster name
         """
         rcs = {}
@@ -928,7 +924,7 @@ class ArakoonCluster:
     def restart(self):
         """
         Restart all nodes in the supplied cluster
-        
+
         @param clusterId the arakoon cluster name
         """
         rcs = {}
@@ -953,7 +949,7 @@ class ArakoonCluster:
     def _requireLocal(self, nodeName):
         if not nodeName in self.listLocalNodes():
             raise ArakoonNodeNotLocal( nodeName)
-    
+
     def startOne(self, nodeName):
         """
         Start the node with a given name
@@ -963,7 +959,7 @@ class ArakoonCluster:
         self._requireLocal(nodeName)
         return self._startOne(nodeName)
 
-    
+
     def catchupOnly(self, nodeName):
         """
         make the node catchup, but don't start it.
@@ -978,7 +974,7 @@ class ArakoonCluster:
                nodeName,
                '-catchup-only']
         return subprocess.call(cmd)
-        
+
     def stopOne(self, nodeName):
         """
         Stop the node with a given name
@@ -1037,8 +1033,8 @@ class ArakoonCluster:
         rc = p.returncode
         logging.debug("injectAsHead returned [%d] %s", rc, output)
         return rc
-        
-        
+
+
     def defragDb(self, nodeName):
         """
         Tell a node to defrag its database (only works on slaves)
@@ -1087,7 +1083,7 @@ class ArakoonCluster:
     def backupDb(self, nodeName, location):
         """
         Make a backup the live database to the specified file
-        
+
         @param nodeName The name of the node you want to backup
         @param location The path to the file where the backup should be stored
         @return void
@@ -1098,23 +1094,23 @@ class ArakoonCluster:
         port = int(config['client_port'])
         clusterId = self._getClusterId()
         ArakoonRemoteControl.downloadDb(ip,port,clusterId, location)
-        
+
 
     def _cmd(self, name):
         r =  [self._binary,'--node',name,'-config',
               '%s/%s.cfg' % (self._clusterPath, self._clusterName),
               '-start']
         return r
-    
+
     def _cmdLine(self, name):
         cmd = self._cmd(name)
         cmdLine = string.join(cmd, ' ')
         return cmdLine
-    
+
     def _startOne(self, name):
         if self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING:
             return
-        
+
         config = self.getNodeConfig(name)
         cmd = []
         if 'wrapper' in config :
@@ -1168,7 +1164,7 @@ class ArakoonCluster:
                 cnt = 0
                 while (self._getStatusOne(name) == q.enumerators.AppStatusType.RUNNING ) :
                     logging.debug("'%s' is STILL running... waiting" % name)
-                    q.logger.log("'%s' is STILL running... waiting" % name, 
+                    q.logger.log("'%s' is STILL running... waiting" % name,
                                  level = 3)
                     time.sleep(1)
                     cnt += 1
@@ -1180,7 +1176,7 @@ class ArakoonCluster:
         if rc < 9:
             rc = 0 # might be we looped one time too many.
         return rc
-    
+
     def _restartOne(self, name):
         self._stopOne(name)
         return self._startOne(name)
@@ -1194,9 +1190,9 @@ class ArakoonCluster:
         (exitCode, stdout, stderr) = q.system.process.run( cmd )
         if exitCode != 0 :
             return None
-        else: 
+        else:
             return int(stdout)
-                
+
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fn', line]
@@ -1235,7 +1231,7 @@ class ArakoonCluster:
 
         :param node: Name of the node to check
         :type node: `str`
-        
+
         :param cluster: Name of the arakoon cluster
         :type cluster: `str`
 
@@ -1307,36 +1303,36 @@ class ArakoonCluster:
         @param includeDB : Boolean value indicating that the Tokyo Cabinet db and db.wall files need to be included in the evidence archive, default is True
         @param includeTLogs : Boolean value indicating that the tlogs need to be included in the evidence archive, default is True
         @param includeConfig : Boolean value indicating that the arakoon configuration files should be included in the resulting archive
-        
+
         """
         nodes_list = self.listNodes()
         diff_list = self.listNodes()
-        
+
         if q.qshellconfig.interactive or test:
-            
+
             if not clusterCredentials:
                 clusterCredentials = self._getClusterCredentials(nodes_list,diff_list,test)
-            
+
             elif len(clusterCredentials) < len(nodes_list):
                 nodes_list = [x for x in nodes_list if x not in clusterCredentials]
                 diff_list = [x for x in nodes_list if x not in clusterCredentials]
                 sub_clusterCredentials = self._getClusterCredentials(nodes_list, diff_list, test)
                 clusterCredentials.update(sub_clusterCredentials)
-                
+
             else:
                 q.gui.dialog.message("All Nodes have Credentials.")
-            
+
             self._transferFiles(destination,
                                 clusterCredentials,
                                 includeLogs,
                                 includeDB,
                                 includeTLogs,
                                 includeConfig)
-        
+
         else:
             if not clusterCredentials or len(clusterCredentials) < len(nodes_list):
                 raise NameError('Error: QShell is Not interactive')
-            
+
             else:
                 q.gui.dialog.message("All Nodes have Credentials.")
                 self._transferFiles(destination,
@@ -1347,40 +1343,40 @@ class ArakoonCluster:
                                     includeConfig)
 
 
-    def _getClusterCredentials(self, 
+    def _getClusterCredentials(self,
                                nodes_list,
                                diff_list, test):
         clusterCredentials = dict()
         same_credentials_nodes = list()
-        
+
         for nodename in nodes_list:
             node_passwd = ''
             if not test:
                 if nodename in diff_list:
-                    
+
                     node_config = self.getNodeConfig(nodename)
                     node_ip_mess = node_config['ip']
                     node_ip = self._getIp(node_ip_mess)
                     node_login = q.gui.dialog.askString("Please provide login name for %s @ %s default 'root'" % (nodename, node_ip))
                     if node_login == '':
                         node_login = 'root'
-                    
+
                     while node_passwd == '':
                         node_passwd = q.gui.dialog.askPassword('Please provide password for %s @ %s' % (nodename, node_ip))
                         if node_passwd == '':
                             q.gui.dialog.message("Error: Password is Empty.")
-                    
+
                     clusterCredentials[nodename] = (node_login, node_passwd)
-                    
+
                     if len(diff_list) > 1:
                         same_credentials = q.gui.dialog.askYesNo('Do you want to set the same credentials for any other node?')
-                        
+
                         diff_list.remove(nodename)
-                        
+
                         if same_credentials:
-                            
+
                             same_credentials_nodes = q.gui.dialog.askChoiceMultiple("Please choose node(s) that will take same credentials:",diff_list)
-                            
+
                             for node in same_credentials_nodes:
                                 clusterCredentials[node] = (node_login, node_passwd)
                             #end for
@@ -1402,59 +1398,59 @@ class ArakoonCluster:
                        includeTLogs=True,
                        includeConfig=True):
         """
-        
-        This function copies the logs, db, tlog and config files to a Temp folder on the machine running the script then compresses the Temp 
+
+        This function copies the logs, db, tlog and config files to a Temp folder on the machine running the script then compresses the Temp
         folder and places a copy at the destination provided at the beginning
         """
         nodes_list = self.listNodes()
         archive_name = self._clusterName + "_cluster_details"
         archive_folder = q.system.fs.joinPaths(q.dirs.tmpDir , archive_name)
-        
-        cfs = q.cloud.system.fs 
+
+        cfs = q.cloud.system.fs
         sfs = q.system.fs
-        
-        for nodename in nodes_list:    
+
+        for nodename in nodes_list:
             node_folder  = sfs.joinPaths( archive_folder, nodename)
-            
+
             sfs.createDir(node_folder)
             configDict = self.getNodeConfig(nodename)
             source_ip_mess = configDict['ip']
             source_ip = self._getIp(source_ip_mess)
             userName = clusterCredentials[nodename][0]
             password = clusterCredentials[nodename][1]
-            
+
             source_path = 'sftp://' + userName + ':' + password + '@' + source_ip
-            
+
             if includeDB:
                 db_files = cfs.listDir( source_path + configDict['home'] )
                 files2copy = filter ( lambda fn : fn.startswith( nodename ), db_files )
                 for fn in files2copy :
                     full_db_file = source_path + configDict['home'] + "/" + fn
                     cfs.copyFile(full_db_file , 'file://' + node_folder)
-                
-            
+
+
             if includeLogs:
-                
+
                 for fname in cfs.listDir(source_path + configDict['log_dir']):
                     if fname.startswith(nodename):
                         fileinlog = q.system.fs.joinPaths(configDict['log_dir'] ,fname)
                         cfs.copyFile(source_path + fileinlog, 'file://' + node_folder)
-            
+
             if includeTLogs:
-                
+
                 source_dir = None
                 if configDict.has_key('tlog_dir'):
                     source_dir = configDict['tlog_dir']
                 else:
                     source_dir = configDict['home']
                 full_source_dir = source_path + source_dir
-                    
+
                 for fname in q.cloud.system.fs.listDir( full_source_dir ):
                     if fname.endswith('.tlog') or fname.endswith('.tlc') or fname.endswith('.tlf'):
                         tlogfile = q.system.fs.joinPaths(source_dir ,fname)
                         cfs.copyFile(source_path + tlogfile, 'file://' + node_folder)
 
-            
+
             clusterName = self._clusterName + '.cfg'
             clusterNodes = self._clusterName + '_local_nodes.cfg'
 
@@ -1464,46 +1460,48 @@ class ArakoonCluster:
             clusterNodesPath = q.system.fs.joinPaths(self._clusterPath, clusterNodes)
             if q.cloud.system.fs.sourcePathExists('file://' + clusterNodesPath):
                 q.cloud.system.fs.copyFile(source_path +  clusterNodesPath, 'file://' + node_folder)
-            
-            
+
+
         archive_file = sfs.joinPaths( q.dirs.tmpDir, self._clusterName + '_cluster_evidence.tgz')
         q.system.fs.targzCompress( archive_folder,  archive_file)
         cfs.copyFile('file://' + archive_file , destination)
         q.system.fs.removeDirTree( archive_folder )
         q.system.fs.unlink( archive_file )
-    
-    
-    def setNurseryKeeper(self, clusterId): 
+
+
+    def setNurseryKeeper(self, clusterId):
         """
-        Updates the cluster configuration file to the correct nursery keeper cluster. 
+        Updates the cluster configuration file to the correct nursery keeper cluster.
         If the keeper needs to be removed from the cluster config, specify None as clusterId
-        
+
         This requires a valid client configuration on the system that can be used to access the keeper cluster.
-        
+
         @param clusterId:  The id of the cluster that will function as nursery keeper
         @type clusterId:   string / None
-        
+
         @return void
         """
-        
+
         config = self._getConfigFile()
-        
+
         if clusterId is None:
             config.removeSection("nursery")
             return
-            
+
         cliCfg = q.clients.arakoon.getClientConfig(clusterId)
         nurseryNodes = cliCfg.getNodes()
-        
+
         if len(nurseryNodes) == 0:
             raise RuntimeError("A valid client configuration is required for cluster '%s'" % (clusterId) )
-        
+
         config.addSection("nursery")
         config.addParam("nursery", "cluster_id", clusterId)
         config.addParam("nursery", "cluster", ",".join( nurseryNodes.keys() ))
-        
-        for (id,(ip,port)) in nurseryNodes.iteritems() :
-            config.addSection(id)
-            config.addParam(id,"ip",ip)
-            config.addParam(id,"client_port",port)
 
+        for (id,(ip,port)) in nurseryNodes.iteritems() :
+            if isinstance(ip, basestring):
+                ip = [ip]
+
+            config.addSection(id)
+            config.addParam(id,"ip",', '.join(ip))
+            config.addParam(id,"client_port",port)
