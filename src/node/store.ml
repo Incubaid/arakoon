@@ -52,7 +52,7 @@ sig
   val quiesced : t -> bool
   val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
   val unquiesce : t -> unit Lwt.t
-  val optimize : t -> unit Lwt.t
+  val optimize : t -> bool Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
@@ -264,7 +264,7 @@ struct
     let m = match store.quiesced with
       | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
       | Quiesce.Mode.ReadOnly -> true in
-    S.optimize store.s m
+    S.optimize store.s ~quiesced:m ~stop:(ref false)
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->

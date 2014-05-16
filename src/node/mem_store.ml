@@ -121,7 +121,7 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize ms quiesced = Lwt.return ()
+let optimize ms ~quiesced ~stop = Lwt.return true
 let defrag ms = Lwt.return ()
 
 let flush ms = Lwt.return ()
