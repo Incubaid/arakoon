@@ -626,7 +626,7 @@ class ArakoonCluster:
 
         for name in nodes:
             ips = config.getValue(name, "ip")
-            ip_list = ips.split(',')
+            ip_list = map(lambda x: x.strip(), ips.split(","))
             port = int(config.getValue(name, "client_port"))
             clientconfig[name] = (ip_list, port)
 
