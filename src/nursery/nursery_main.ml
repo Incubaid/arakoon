@@ -107,7 +107,7 @@ let __init_nursery config cluster_id =
   let (keeper_id, cli_cfg) = get_keeper_config config in
   let set_routing client =
     Lwt.catch( fun () ->
-        client # get_routing () >>= fun cur ->
+        client # get_routing () >>= fun _cur ->
         failwith "Cannot initialize nursery. It's already initialized."
       ) ( function
         | Arakoon_exc.Exception( Arakoon_exc.E_NOT_FOUND, _ ) ->

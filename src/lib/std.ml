@@ -273,12 +273,10 @@ module Map = struct
         | Node(_, _, _, Empty, _) ->
            begin
              let rec inner = function
-               | (t, Left) :: z' ->
-                  Some (t, z')
-               | (t, Right) :: z' ->
-                  inner z'
-               | [] ->
-                  None in
+               | [] -> None
+               | (t, Left) :: z' -> Some (t, z')
+               | (_, Right) :: z' -> inner z'
+             in
              inner z
            end
         | Node(_, _, _, r, _) ->

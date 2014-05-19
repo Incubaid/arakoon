@@ -29,7 +29,7 @@ let _CLUSTER = "sweety"
 
 type real_test = Arakoon_client.client -> unit Lwt.t
 
-let __client_server_wrapper__ cluster (real_test:real_test) =
+let __client_server_wrapper__ _cluster (real_test:real_test) =
   let stop = ref false in
   let lease_period = 2 in
   let cluster_id = "sweety" in
@@ -81,7 +81,7 @@ let test_wrong_cluster () =
   let real_test client =
     Lwt.catch
       (fun () ->
-         client # ping "boba fet" wrong_cluster >>= fun result ->
+         client # ping "boba fet" wrong_cluster >>= fun _result ->
          OUnit.assert_bool "we should not be able to connect to this cluster" false;
          Lwt.return ())
       (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
@@ -127,7 +127,7 @@ let test_delete () =
     client # delete "key" >>= fun () ->
     Lwt.catch
       (fun () ->
-         client # get "key" >>= fun value ->
+         client # get "key" >>= fun _value ->
          Lwt.return ())
       (function
         | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
@@ -240,7 +240,7 @@ let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
   client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
-  Lwt_list.iter_s (fun (k,v) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
+  Lwt_list.iter_s (fun (k, _) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in
   let () = OUnit.assert_bool "hd" (k  = "xey099") in
   Lwt.return ()

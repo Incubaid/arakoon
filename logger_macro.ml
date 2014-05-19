@@ -122,7 +122,7 @@ let split e =
           `Log_f_l_ (arg::acc, level', ign)
         else
           `Log_f_l (acc, level', arg, ign)
-    | <:expr@loc< $a$ $b$ >> -> begin
+    | <:expr@_loc< $a$ $b$ >> -> begin
         match b with
           | b ->
             aux (b :: acc) a

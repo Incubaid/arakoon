@@ -31,7 +31,7 @@ type e = {
 let circ_buf = Lwt_sequence.create()
 let msg_cnt = ref 0
 
-let add_to_crash_log section level msgs =
+let add_to_crash_log _section level msgs =
   let max_crash_log_size = 1000 in
   let level_to_string lvl =
     begin

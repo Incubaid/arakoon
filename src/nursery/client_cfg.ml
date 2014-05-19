@@ -68,7 +68,7 @@ module ClientCfg = struct
     Llio.output_hashtbl helper oc cfg
 
 
-  let node_names (t:t) = Hashtbl.fold (fun k v acc -> k::acc) t []
+  let node_names (t:t) = Hashtbl.fold (fun k _v acc -> k::acc) t []
   let make () = Hashtbl.create 7
   let add (t:t) name sa = Hashtbl.add t name sa
   let get (t:t) name = Hashtbl.find t name

@@ -105,7 +105,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop _me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -299,9 +299,9 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j -> 
+    | i, Some j when i > j ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
-    | i, None ->
+    | _, None ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
       let msg = Printf.sprintf
@@ -321,7 +321,7 @@ let get_db ~tls_ctx db_name cluster_id cfgs =
   let try_db_download m_success cfg =
     begin
       match m_success with
-        | Some s -> Lwt.return m_success
+        | Some _ -> Lwt.return m_success
         | None ->
           Lwt.catch
             ( fun () ->
