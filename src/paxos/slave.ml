@@ -26,7 +26,7 @@ open Lwt
 open Mp_msg.MPMessage
 open Update
 
-let time_for_elections (type s) constants n' maybe_previous =
+let time_for_elections (type s) constants =
   begin
     let module S = (val constants.store_module : Store.STORE with type t = s) in
     if S.quiesced constants.store
@@ -126,19 +126,32 @@ let slave_steady_state (type s) constants state event =
 		          (string_of msg) )
                 in
 	            Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
-	          end
-	      | Accept (n',i',v) ->
-	          begin
-                let log_e = ELog (fun () ->
-	              Printf.sprintf
-                    "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
-		            (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
-                )
-                in
-                let cu_pred = S.get_catchup_start_i constants.store in
-                let new_state = (source,cu_pred,n',i') in
-                Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
-	          end
+	     end
+          | Accept (n',i',v) ->
+             if fst (time_for_elections constants)
+             then
+               begin
+                 let log_e =
+                   ELog (fun () ->
+                         Printf.sprintf
+                           "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
+                           (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
+                        )
+                 in
+                 let cu_pred = S.get_catchup_start_i constants.store in
+                 let new_state = (source,cu_pred,n',i') in
+                 Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+               end
+             else
+               begin
+                 let log_e =
+                   ELog
+                     (fun () ->
+                      Printf.sprintf
+                        "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master while still in lease"
+                        (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)) in
+                 Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
+               end
 	      | Prepare(n',i') ->
 	          begin
                 handle_prepare constants source n n' i' >>= function
@@ -181,7 +194,7 @@ let slave_steady_state (type s) constants state event =
 	      end
         else
 	      begin
-	        let elections_needed, msg = time_for_elections constants n' (Some (previous,Sn.pred i)) in
+	        let elections_needed, msg = time_for_elections constants in
 	        if elections_needed then
 	          begin
 	            let new_n = update_n constants n in
@@ -373,7 +386,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
         Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
         end
       else
-        let elections_needed,_ = time_for_elections constants n' maybe_previous in
+        let elections_needed,_ = time_for_elections constants in
         if elections_needed then
           begin
             let log_e = ELog (fun () -> "slave_wait_for_accept: Elections needed") in
