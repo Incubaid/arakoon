@@ -404,7 +404,7 @@ module Node_cfg = struct
     let tlx_dir =
       let rec _find = function
         | [] -> tlog_dir
-        | _ :: xs -> try get_string "tlf_dir"
+        | x :: xs -> try get_string x
                      with _ -> _find xs
       in
       _find ["tlx_dir";"tlf_dir"]

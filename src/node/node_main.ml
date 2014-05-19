@@ -303,7 +303,7 @@ module X = struct
       Lwt.return r
     end
 
-  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) _store (v,n,i) =
+  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
@@ -581,7 +581,7 @@ let _main_2 (type s)
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
-          let on_accept = X.on_accept statistics tlog_coll (module S) store in
+          let on_accept = X.on_accept statistics tlog_coll in
 
           let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
           let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in

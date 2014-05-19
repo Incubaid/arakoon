@@ -18,7 +18,6 @@ limitations under the License.
 
 open Lwt
 open Node_cfg
-open Nursery
 open Routing
 open Client_cfg
 
@@ -91,7 +90,7 @@ let get_keeper_config config =
 let get_nursery_client keeper_id cli_cfg =
   let get_nc client =
     client # get_nursery_cfg () >>= fun ncfg ->
-    Lwt.return ( NC.make ncfg keeper_id )
+    Lwt.return ( Nursery.NC.make ncfg keeper_id )
   in
   with_master_remote_stream keeper_id cli_cfg get_nc
 
@@ -100,7 +99,7 @@ let __migrate_nursery_range config left sep right =
   Logger.debug_ "=== STARTING MIGRATE ===" >>= fun () ->
   let keeper_id, cli_cfg = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
-  NC.migrate nc left sep right
+  Nursery.NC.migrate nc left sep right
 
 let __init_nursery config cluster_id =
   Logger.info_ "=== STARTING INIT ===" >>= fun () ->
@@ -130,7 +129,7 @@ let __delete_from_nursery config cluster_id sep =
   in
   let (keeper_id, cli_cfg) = get_keeper_config config in
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
-  NC.delete nc cluster_id m_sep
+  Nursery.NC.delete nc cluster_id m_sep
 
 let __main_run log_file f =
   Lwt_main.run(

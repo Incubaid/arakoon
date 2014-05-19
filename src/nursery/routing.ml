@@ -99,7 +99,7 @@ module Routing = struct
           | None -> get_upper_sep None c_id r
           | _ -> m_l
       end
-    | Cluster x -> None
+    | Cluster _ -> None
 
 (*
   let rec remove t c_id =
