@@ -357,14 +357,29 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	        end
 	      | Accept (n',i',v) ->
-	          begin
-                let log_e = ELog (fun () ->
-                  Printf.sprintf "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare"
-		            (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
-                )
-                in
-	            Fsm.return ~sides:[log_e] (Slave_fake_prepare (i,n'))
-	          end
+             if fst (time_for_elections constants)
+             then
+               begin
+                 let log_e =
+                   ELog (fun () ->
+                         Printf.sprintf
+                           "slave_wait_for_accept : foreign(%s,%s) <> (%s,%s) sending fake prepare"
+                           (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
+                        )
+                 in
+                 Fsm.return ~sides:[log_e] (Slave_fake_prepare (i,n'))
+               end
+             else
+               begin
+                 let log_e =
+                   ELog (fun () ->
+                         Printf.sprintf
+                           "slave_wait_for_accept : ignorning foreign(%s,%s) <> (%s,%s) while in a lease"
+                           (Sn.string_of n') (Sn.string_of i') (Sn.string_of n) (Sn.string_of i)
+                        )
+                 in
+                 Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
+               end
 	      | Promise _
           | Nak _
           | Accepted _ ->
