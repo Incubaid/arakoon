@@ -117,9 +117,9 @@ let slave_steady_state (type s) constants state event =
                   let sides = log_e0::accept_e::start_e::send_e::log_e::consensus_e in
                   Fsm.return ~sides (Slave_steady_state (n, Sn.succ i, v))
 	            end
-	      | Accept (n',i',v) when
-              (n'<=n && i'<i) || (n'< n && i'=i)  ->
-	          begin
+          | Accept (n',i',v) when
+                 (i'<i) || (n'< n && i'=i)  ->
+             begin
                 let log_e = ELog (
                   fun () ->
                     Printf.sprintf "slave_steady_state received old %S for my n, ignoring"
