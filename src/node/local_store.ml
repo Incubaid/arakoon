@@ -276,14 +276,7 @@ let optimize ls ~quiesced ~stop =
   let log_size = 1_000_000 in
   let log_batch_count = (log_size / batch_size) - 1 in
   let db_optimal = ls.location ^ ".opt" in
-  File_system.exists db_optimal >>= fun opt_exists ->
-  begin
-    if opt_exists
-    then
-      File_system.unlink db_optimal
-    else
-      Lwt.return ()
-  end >>= fun () ->
+  File_system.unlink db_optimal >>= fun () ->
   Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
   make_store ~lcnum:ls.lcnum ~ncnum:ls.ncnum false db_optimal >>= fun ls_optimal ->
   Lwt.finalize
