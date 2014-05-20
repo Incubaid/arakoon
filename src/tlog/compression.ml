@@ -47,12 +47,12 @@ let read_format ic = function
               if s = format_snappy
               then Lwt.return ()
               else Lwt.fail (Failure "format error")
-  | _      -> Lwt.return ()
+  | No | Bz2  -> Lwt.return ()
 
 
 let write_format oc = function
   | Snappy -> Llio.output_string oc format_snappy
-  | _ -> Lwt.return ()
+  | No | Bz2 -> Lwt.return ()
 
 
 let _compress_tlog

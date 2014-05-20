@@ -338,7 +338,7 @@ struct
           let n_keys =
             match ur with
               | Ok so -> (match so with | None -> 0 | Some ns -> (Llio.int_from (Llio.make_buffer ns 0)))
-              | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
+              | Update_fail _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
           in
           Statistics.new_delete_prefix _stats start n_keys
         in

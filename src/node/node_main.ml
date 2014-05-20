@@ -294,7 +294,7 @@ module X = struct
               end
             else
               Lwt.return ()
-          | _ -> Lwt.return ()
+          | Value.Vc _ -> Lwt.return ()
       end >>= fun () ->
       S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
@@ -309,14 +309,14 @@ module X = struct
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
     begin
       match v with
         | Value.Vc (us,_)     ->
           let size = List.length us in
           let () = Statistics.new_harvest statistics size in
           Lwt.return ()
-        | _ -> Lwt.return ()
+        | Value.Vm _  -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in

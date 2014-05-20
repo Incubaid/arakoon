@@ -190,8 +190,9 @@ let _range_entries (client: Arakoon_client.client) max_n k_size t0 oc =
         _progress t0 i 10000 oc >>= fun () ->
         check_timing
           (fun () -> client # range_entries
-            (Some first_key) true
-            (Some last_key) true 1000)
+            ~consistency:Consistent
+            ~first:(Some first_key) ~finc:true
+            ~last:(Some last_key) ~linc:true ~max:1000)
           (fun () -> Printf.sprintf "range_entries %i %s %s"
             i first_key last_key)
         >>= fun _kvs ->
