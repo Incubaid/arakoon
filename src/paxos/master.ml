@@ -195,7 +195,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
             *)
             begin
               Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-              let run_elections, why = Slave.time_for_elections constants n (Some v') in
+              let run_elections, why = Slave.time_for_elections constants in
               let log_e =
                 ELog (fun () ->
                   Printf.sprintf "XXXXX received Accept(n:%s,i:%s) time for elections? %b %s"
