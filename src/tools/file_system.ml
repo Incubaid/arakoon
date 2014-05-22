@@ -70,11 +70,13 @@ let mkdir name = Lwt_unix.mkdir name
 let unlink name =
   Lwt.catch
     (fun () ->
-     Logger.debug_f_ "Unlinking %S" name >>= fun () ->
+     Logger.info_f_ "Unlinking %S" name >>= fun () ->
      Lwt_unix.unlink name)
     (function
-      | Unix.Unix_error(Unix.ENOENT, _, _) -> Lwt.return ()
-      | e -> Lwt.fail e)
+      | Unix.Unix_error(Unix.ENOENT, _, _) ->
+         Logger.info_f_ "Unlink of %S failed with ENOENT" name
+      | e ->
+         Lwt.fail e)
 
 let rmdir name = Lwt_unix.rmdir name
 

@@ -616,10 +616,16 @@ module Node_cfg = struct
                   Lwt.fail e
           in
 
+
+          let safe_unlink fn =
+            Lwt.catch
+              (fun () -> File_system.unlink fn)
+              handle_exn in
+
           let fn = Printf.sprintf "%s/touch-%d" dir (Unix.getpid ()) in
 
           let check () =
-            File_system.unlink fn >>= fun () ->
+            safe_unlink fn >>= fun () ->
             let go () =
               Logger.debug_f_ "Touching %S" fn >>= fun () ->
               Lwt_unix.openfile fn
@@ -644,7 +650,7 @@ module Node_cfg = struct
             Lwt.catch go handle_exn
           in
 
-          Lwt.finalize check (fun () -> File_system.unlink fn)
+          Lwt.finalize check (fun () -> safe_unlink fn)
         in
 
         let verify dir msg exn =
