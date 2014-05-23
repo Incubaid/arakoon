@@ -201,7 +201,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             *)
             let () = constants.on_witness source i in
             Fsm.return (Stable_master current_state)
-          | Accept(n',i',v) when n' > n && i' >= new_i ->
+          | Accept(n',i',v) when i' > i || (i' = i && n' > n) ->
             (*
                somehow the others decided upon a master and I got no lease expired event.
                or I was running for master and another managed to prepare with a higher n.
