@@ -287,35 +287,6 @@ let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
 
-let get_db db_name cluster_id cfgs =
-
-  let get_db_from_stream conn =
-    make_remote_nodestream cluster_id conn >>= fun (client:nodestream) ->
-    client # get_db db_name
-  in
-  let try_db_download m_success cfg =
-    begin
-      match m_success with
-        | Some s -> Lwt.return m_success
-        | None ->
-          Lwt.catch
-          ( fun () ->
-            Logger.info_f_ "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
-            let mr_addresses = Node_cfg.client_addresses cfg in
-            _with_client_connection mr_addresses get_db_from_stream >>= fun () ->
-            Logger.info_ "get_db: Download succeeded" >>= fun () ->
-            Lwt.return (Some (Node_cfg.node_name cfg))
-          )
-          ( fun e ->
-            Logger.error_f_ "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () ->
-            Lwt.return None
-          )
-    end
-  in
-  Lwt_list.fold_left_s try_db_download None cfgs
-
-
-
 
 let last_entries
     (type s) (module S : Store.STORE with type t = s)

@@ -189,35 +189,34 @@ let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
 let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluster_cfg ~make_tlog_coll =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
-  let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
-  begin
-	if node_cnt > 1
-    then Catchup.get_db db_name cluster_id other_configs
-	else Lwt.return None
-  end
-  >>= fun m_mr_name ->
-  let mr_name =
-    begin
-      match m_mr_name with
-        | Some m -> m
-        | None ->
-          let fo = List.hd other_configs in
-          fo.node_name
-    end
+  let try_catchup mr_name =
+    Lwt.catch
+      (fun () ->
+       S.make_store db_name >>= fun store ->
+       make_tlog_coll
+         me.tlog_dir me.tlf_dir me.head_dir
+         me.use_compression me.fsync name >>= fun tlc ->
+       Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+                       ((module S),store,tlc) mr_name >>= fun _ ->
+       S.close store >>= fun () ->
+       tlc # close () >>= fun () ->
+       Lwt.return true)
+      (fun exn ->
+       Lwt.return false)
   in
-  S.make_store db_name >>= fun store ->
-  make_tlog_coll
-    me.tlog_dir me.tlf_dir me.head_dir
-    me.use_compression me.fsync name >>= fun tlc ->
-  Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-    ((module S),store,tlc) mr_name >>= fun _ ->
-  S.close store >>= fun () ->
-  tlc # close ()
-
-
+  let rec try_nodes = function
+    | [] -> Lwt.fail (Failure "Could not perform catchup, no other nodes cooperated.")
+    | node :: others ->
+       try_catchup node.node_name >>= fun succeeded ->
+       if succeeded
+       then
+         Lwt.return ()
+       else
+         try_nodes others in
+  try_nodes other_configs
 
 
 module X = struct
