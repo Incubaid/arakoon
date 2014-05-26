@@ -29,12 +29,11 @@ let _CLUSTER = "sweety"
 
 type real_test = Arakoon_client.client -> unit Lwt.t
 
-let __client_server_wrapper__ _cluster (real_test:real_test) =
+let __client_server_wrapper__ (real_test:real_test) =
   let stop = ref false in
   let lease_period = 2 in
-  let cluster_id = "sweety" in
   let make_config () = Node_cfg.make_test_config
-                         ~cluster_id
+                         ~cluster_id:_CLUSTER
                          ~node_name:(Printf.sprintf "sweety_%i")
                          1 (Master_type.Elected) lease_period
   in
@@ -74,7 +73,7 @@ let test_ping () =
          "Arakoon %i.%i.%i"
          Arakoon_version.major Arakoon_version.minor Arakoon_version.patch);
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_wrong_cluster () =
   let wrong_cluster = "mindy" in
@@ -88,7 +87,7 @@ let test_wrong_cluster () =
         >>= fun () -> Lwt.return ())
     >>= fun () ->
     Lwt.return ()
-  in __client_server_wrapper__ wrong_cluster real_test
+  in __client_server_wrapper__ real_test
 
 let test_set_get () =
   let real_test (client:Arakoon_client.client) =
@@ -96,14 +95,14 @@ let test_set_get () =
     client # get "key" >>= fun value ->
     OUnit.assert_equal value "value";
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_assert_exists () =
   let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # aSSert_exists "key" >>= fun () ->
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_confirm () =
   let real_test (client:Arakoon_client.client) =
@@ -119,7 +118,7 @@ let test_confirm () =
     OUnit.assert_equal v4 "something else";
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 let test_delete () =
   let real_test (client:Arakoon_client.client) =
@@ -151,7 +150,7 @@ let test_delete () =
           OUnit.assert_failure "XXX"
       )
 
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_sequence () =
   let real_test (client:Arakoon_client.client) =
@@ -173,7 +172,7 @@ let test_sequence () =
     OUnit.assert_bool "XXX0 should not be there" (not exists);
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 
 let _test_user_function (client:Arakoon_client.client) =
@@ -183,7 +182,7 @@ let _test_user_function (client:Arakoon_client.client) =
   Lwt.return ()
 
 let test_user_function () =
-  __client_server_wrapper__ _CLUSTER _test_user_function
+  __client_server_wrapper__ _test_user_function
 
 let _clear (client:Arakoon_client.client)  () =
   client # range None true None true 1000 >>= fun xn ->
@@ -245,9 +244,9 @@ let _test_reverse_range (client:Arakoon_client.client) =
   let () = OUnit.assert_bool "hd" (k  = "xey099") in
   Lwt.return ()
 
-let test_range () = __client_server_wrapper__ _CLUSTER _test_range
+let test_range () = __client_server_wrapper__ _test_range
 
-let test_reverse_range () = __client_server_wrapper__ _CLUSTER _test_reverse_range
+let test_reverse_range () = __client_server_wrapper__ _test_reverse_range
 
 let _prefix_keys_test (client:Arakoon_client.client) =
   let cat s i = s ^ (string_of_int i) in
@@ -271,7 +270,7 @@ let _prefix_keys_test (client:Arakoon_client.client) =
   Lwt.return ()
 
 let test_prefix_keys () =
-  __client_server_wrapper__ _CLUSTER _prefix_keys_test
+  __client_server_wrapper__ _prefix_keys_test
 
 let test_get_key_count () =
   let real_test client =
@@ -291,7 +290,7 @@ let test_get_key_count () =
     OUnit.assert_equal ~msg result 100L;
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 
 let test_and_set_to_none () =
@@ -305,7 +304,7 @@ let test_and_set_to_none () =
     client # test_and_set key wanted None >>= fun result2 ->
     OUnit.assert_equal ~printer:string_option2s ~msg:"assert2" result2 wanted;
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let suite = "remote_client" >::: [
     "ping"      >:: test_ping;
