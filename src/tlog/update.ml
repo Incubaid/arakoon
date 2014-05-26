@@ -83,7 +83,7 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
-      | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
+      | SyncedSequence _us     -> Printf.sprintf "SyncedSequence  ;..."
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
       | Replace(k,vo) ->
          Printf.sprintf "Replace            ;%S;%i" k (_size_of vo)

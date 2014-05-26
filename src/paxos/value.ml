@@ -26,24 +26,25 @@ let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
 let create_master_value (m,l) = Vm (m,l)
 
 let is_master_set  = function
+  | Vc _ -> false
   | Vm _ ->  true
-  | _    -> false
+
 
 let is_synced = function
-  | Vm _ -> false
   | Vc (_,s) -> s
+  | Vm _     -> false
 
-let clear_self_master_set me = function
-  | Vm (m,l) when m = me -> Vm(m, 0.0)
-  | v        -> v
+let clear_self_master_set me v = match v with
+  | Vm (m,_) -> if m = me then Vm(m, 0.0) else v
+  | Vc _     -> v
 
 let fill_if_master_set = function
   | Vm (m,_) -> let now = Unix.gettimeofday () in
     Vm(m,now)
-  | v -> v
+  | Vc _ as v -> v
 
 let updates_from_value = function
-  | Vc (us,s)     -> us
+  | Vc (us,_)     -> us
   | Vm (m,l)      -> [Update.MasterSet(m,l)]
 
 let value_to buf v=

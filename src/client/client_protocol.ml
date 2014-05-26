@@ -706,7 +706,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
 
 
 let protocol stop backend connection =
-  let ic,oc,cid = connection in
+  let ic,oc,_ = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version

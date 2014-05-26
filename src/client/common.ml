@@ -145,7 +145,7 @@ let command_to buffer command =
   let masked = Int32.logor c _MAGIC in
   Llio.int32_to buffer masked
 
-let nothing = fun ic -> Lwt.return ()
+let nothing = fun _ic -> Lwt.return ()
 
 
 let request oc f =
