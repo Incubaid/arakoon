@@ -324,7 +324,7 @@ struct
           | Some w -> assert_value_size w
         in
         let update = Update.Replace(key,wanted) in
-        let update_stats __ur = Statistics.new_replace _stats start in
+        let update_stats _ur = Statistics.new_replace _stats start in
         let so_post so = so in
         _update_rendezvous self update update_stats push_update ~so_post
 
@@ -352,7 +352,7 @@ struct
       method delete key = log_o self "delete %S" key >>= fun () ->
         let start = Unix.gettimeofday () in
         let update = Update.Delete key in
-        let update_stats __ur = Statistics.new_delete _stats start in
+        let update_stats _ur = Statistics.new_delete _stats start in
         _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
       method hello (_client_id:string) (cluster_id:string) =

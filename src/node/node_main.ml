@@ -651,7 +651,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend stop (master, constants, buffers, new_i, _store) =
+      let start_backend stop (master, constants, buffers, new_i) =
         let to_run =
           if me.is_witness
           then
@@ -679,14 +679,14 @@ let _main_2 (type s)
            build_startup_state () >>= fun (start_state,
                                            service,
                                            rapporting) ->
-           let (_,constants,_,_,store) = start_state in
+           let (master, constants, buffers, new_i, store) = start_state in
            let log_exception m t =
              Lwt.catch
                t
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let fsm () = start_backend stop start_state in
+           let fsm () = start_backend stop (master, constants, buffers, new_i) in
            let fsm_t =
              Lwt.finalize
                (fun () ->
