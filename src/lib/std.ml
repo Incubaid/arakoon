@@ -16,8 +16,6 @@ limitations under the License.
 
 
 
-open Test_utils
-
 module type Show = sig
   type t
   val show : t -> string
@@ -28,60 +26,6 @@ module type Equable = sig
 
   val (=:) : t -> t -> bool
   val (<>:) : t -> t -> bool
-end
-
-module EqLib : sig
-  module type S = sig
-    type s
-    val (=:) : s -> s -> bool
-  end
-
-  module Make : functor(S : S) -> Equable with type t := S.s
-  module Default : functor(S : sig type s end) -> Equable with type t := S.s
-
-  module Test : sig
-    module type S = sig
-      type t
-      include QuickCheckUtils.Testable with type t := t
-      include Equable with type t := t
-    end
-
-    val quickCheck :
-      (module S with type t = 'a) -> 'a QuickCheckUtils.test
-  end
-end = struct
-  module type S = sig
-    type s
-    val (=:) : s -> s -> bool
-  end
-
-  module Make = functor(S : S) -> struct
-    type t = S.s
-
-    let (=:) = S.(=:)
-    let (<>:) a b = not S.(a =: b)
-  end
-
-  module Default = functor(S : sig type s end) -> struct
-    type t = S.s
-
-    let (=:) = (=)
-    let (<>:) = (<>)
-  end
-
-  module Test = struct
-    module type S = sig
-      type t
-      include QuickCheckUtils.Testable with type t := t
-      include Equable with type t := t
-    end
-
-    let quickCheck (type t)
-      (module M : S with type t = t) =
-      let open M in
-
-      QuickCheckUtils.prop_test (module M) (fun v -> v =: v)
-  end
 end
 
 module Compare : sig
