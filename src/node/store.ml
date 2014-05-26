@@ -605,7 +605,7 @@ struct
          fold_range store __prefix
                     (Some prefix) true (next_prefix prefix) false
                     max
-                    (fun cur k _ acc ->
+                    (fun _ k _ acc ->
                      Key.make k :: acc)
                     [] in
        res)
@@ -712,7 +712,7 @@ struct
                    | exn -> Lwt.fail exn))
               >>= function
               | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
-              | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+              | Ok _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
         | Update.SetInterval interval ->
           wrap (fun () -> _set_interval store tx interval)
         | Update.SetRouting routing ->
@@ -916,7 +916,7 @@ struct
             begin
               match v with
                 | Value.Vm (m, ls) -> set_master_no_inc store m ls
-                | _ -> Lwt.return ()
+                | Value.Vc _ -> Lwt.return ()
             end >>= fun () ->
             incr_i store >>= fun () ->
             Lwt.return [Ok None]
