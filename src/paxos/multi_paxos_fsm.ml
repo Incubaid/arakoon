@@ -610,53 +610,47 @@ let wait_for_accepteds (type s) constants ((ms,ballot) as state)
                     (MPMessage.string_of msg) source >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
-	        | Accept (n',_i,_v) when n' < n ->
-	            begin
-	              Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-	              Fsm.return (Wait_for_accepteds state)
-	            end
 	        | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
 	            begin
 	              Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
 	              Fsm.return (Wait_for_accepteds state)
 	            end
-	        | Accept (n',i',v') when i' <= i -> (* n' = n *)
-                begin
-                  Logger.debug_f_ "%s: wait_for_accepteds: dropping accept with n = %s and i = %s" me
-                    (Sn.string_of n) (Sn.string_of i') >>= fun () ->
-                  Fsm.return (Wait_for_accepteds state)
+	        | Accept (n',i',v') when i' > i || (i' = i && n' > n) ->
+                   (* check lease, if we're inside, drop (how could this have happened?)
+                      otherwise, we've lost master role
+                    *)
+                   let is_still_master () =
+                     match S.who_master constants.store with
+                     | None -> false
+                     | Some (_,al) -> let now = Unix.gettimeofday () in
+                                      let alf = Int64.to_float al in
+                                      let diff = now -. alf in
+                                      diff < (float constants.lease_expiration)
+                   in
+                   if is_still_master ()
+                   then
+                     begin
+                       Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
+                       Fsm.return (Wait_for_accepteds state)
+                     end
+                   else
+                     begin
+                       lost_master_role mo >>= fun () ->
+                       Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+                       begin
+                         (* Become slave, goto catchup *)
+                         Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
+                         let cu_pred = S.get_catchup_start_i constants.store in
+                         let new_state = (source,cu_pred,n,i') in
+                         Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
+                         Fsm.return (Slave_discovered_other_master new_state)
+                       end
                 end
-	        | Accept (n',i',v') (* n' >= n && i' > i *)->
-              (* check lease, if we're inside, drop (how could this have happened?)
-                 otherwise, we've lost master role
-              *)
-              let is_still_master () =
-                match S.who_master constants.store with
-                  | None -> false (* ???? *)
-                  | Some (_,al) -> let now = Unix.gettimeofday () in
-                                   let alf = Int64.to_float al in
-                                   let diff = now -. alf in
-                                   diff < (float constants.lease_expiration)
-              in
-              if is_still_master ()
-              then
-                begin
-                  Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
-                  Fsm.return (Wait_for_accepteds state)
-                end
-              else
-                begin
-                  lost_master_role mo >>= fun () ->
-                  Multi_paxos.safe_wakeup_all () lew >>= fun () ->
-                  begin
-                  (* Become slave, goto catchup *)
-                    Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
-                    let cu_pred = S.get_catchup_start_i constants.store in
-                    let new_state = (source,cu_pred,n,i') in
-                    Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
-                    Fsm.return (Slave_discovered_other_master new_state)
-                  end
-                end
+	        | Accept (n',_i,_v) (* i' < i || (i' = i && n' < n) *) ->
+	            begin
+	              Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+	              Fsm.return (Wait_for_accepteds state)
+	            end
         end
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
