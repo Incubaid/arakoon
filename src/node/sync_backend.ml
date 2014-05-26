@@ -290,13 +290,11 @@ struct
         _update_rendezvous self update no_stats push_update ~so_post
 
       method aSSert ~consistency (key:string) (vo:string option) =
-        ignore consistency;
         log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert(key,vo) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method aSSert_exists ~consistency (key:string)=
-        ignore consistency;
         log_o self "aSSert %S ..." key >>= fun () ->
         let update = Update.Assert_exists(key) in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
