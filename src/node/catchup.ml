@@ -105,7 +105,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop _me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -278,7 +278,7 @@ let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt)
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog ~tls_ctx ~stop me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  catchup_tlog ~tls_ctx ~stop other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->

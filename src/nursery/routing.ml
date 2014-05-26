@@ -117,11 +117,11 @@ module Routing = struct
 *)
 
   let remove t c_id =
-    let rec inner_remove t c_id _other_side =
+    let rec inner_remove t c_id =
       match t with
         | Branch (l, s, r) ->
-          let new_l = inner_remove l c_id (Some r) in
-          let new_r = inner_remove r c_id (Some l) in
+          let new_l = inner_remove l c_id in
+          let new_r = inner_remove r c_id in
           begin
             match new_l, new_r with
               | None, None -> failwith "cluster_id present in two leaves??"
@@ -133,7 +133,7 @@ module Routing = struct
         | Cluster c  when c <> c_id -> Some (Cluster c)
         | Cluster _ -> failwith "I hate ocaml's comparison"
     in
-    let m_result  = inner_remove t c_id None in
+    let m_result  = inner_remove t c_id in
     match m_result with
       | None -> failwith "Cannot remove last entry from routing"
       | Some r -> r
