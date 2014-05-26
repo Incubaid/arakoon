@@ -27,11 +27,12 @@ type e = {
   t : float;
   lvl : string;
   msg : msg;
+  section : Lwt_log.section;
 }
 let circ_buf = Lwt_sequence.create()
 let msg_cnt = ref 0
 
-let add_to_crash_log _section level msgs =
+let add_to_crash_log section level msgs =
   let max_crash_log_size = 1000 in
   let level_to_string lvl =
     begin
@@ -55,7 +56,7 @@ let add_to_crash_log _section level msgs =
 
   let add_msg lvl msg  =
     let () = incr msg_cnt in
-    let e = {t = Unix.time();lvl = lvl; msg = msg} in
+    let e = {t = Unix.time(); lvl; msg; section } in
     let _ = Lwt_sequence.add_r e circ_buf  in
     ()
   in
@@ -87,8 +88,9 @@ let setup_crash_log crash_file_gen =
             | Some exn -> m ^ Printexc.to_string exn in
         let msg =
           Printf.sprintf
-            "%Ld: %s: %s"
+            "%Ld: %s %s: %s"
             (Int64.of_float e.t)
+            (Lwt_log.Section.name e.section)
             e.lvl
             (match e.msg with
                | Immediate (m, exn) -> append_exn m exn
