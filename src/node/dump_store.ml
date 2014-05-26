@@ -21,10 +21,10 @@ open Interval
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
-let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
+let try_fetch name (f:unit -> 'a) (r2s: 'a -> string)  =
   Lwt.catch
     (fun () ->
-       f () >>= fun r ->
+       Lwt.wrap f >>= fun r ->
        let s = r2s r in
        Lwt_io.printlf "%s: %s" name s
     )

@@ -145,46 +145,48 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   then
     Lwt.return true
   else
+    let wrap_exception f =
+      Lwt.catch
+        (fun () ->
+         try f ()
+         with exn -> Lwt.fail exn)
+        (handle_exception oc) in
     match command with
   | PING ->
      begin
-       Lwt.catch
+       wrap_exception
          (fun () ->
           Llio.input_string ic >>= fun client_id ->
           Llio.input_string ic >>= fun cluster_id ->
           Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
           backend # hello client_id cluster_id >>= fun msg ->
           response_ok_string oc msg)
-         (handle_exception oc)
     end
   | FLUSH_STORE ->
      begin
-       Lwt.catch
+       wrap_exception
          (fun () ->
           Logger.debug_f_ "connection=%s FLUSH_STORE" id >>= fun () ->
           backend # flush_store () >>= fun () ->
           response_ok_unit oc)
-         (handle_exception oc)
      end
   | EXISTS ->
     begin
       Common.input_consistency ic  >>= fun consistency ->
       Llio.input_string ic >>= fun key ->
       Logger.debug_f_ "connection=%s EXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      Lwt.catch
-        (fun () -> backend # exists ~consistency key >>= fun exists ->
+      wrap_exception
+        (fun () -> let exists = backend # exists ~consistency key in
                    response_ok_bool oc exists)
-        (handle_exception oc)
     end
   | GET ->
     begin
       Common.input_consistency   ic >>= fun consistency ->
       Llio.input_string ic >>= fun  key ->
       Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      Lwt.catch
-        (fun () -> backend # get ~consistency key >>= fun value ->
-          response_ok_string oc value)
-        (handle_exception oc)
+      wrap_exception
+        (fun () -> let value = backend # get ~consistency key in
+                   response_ok_string oc value)
     end
   | ASSERT ->
     begin
@@ -192,42 +194,36 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_string ic        >>= fun key ->
       Llio.input_string_option ic >>= fun vo ->
       Logger.debug_f_ "connection=%s ASSERT: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      Lwt.catch
-        (fun () -> backend # aSSert ~consistency key vo >>= fun () ->
-          response_ok_unit oc
-        )
-        (handle_exception oc)
+      wrap_exception
+        (fun () -> let () = backend # aSSert ~consistency key vo in
+                   response_ok_unit oc)
     end
   | ASSERTEXISTS ->
     begin
       Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
       Logger.debug_f_ "connection=%s ASSERTEXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      Lwt.catch
-        (fun () -> backend # aSSert_exists ~consistency key>>= fun () ->
-          response_ok_unit oc
-        )
-        (handle_exception oc)
+      wrap_exception
+        (fun () -> let () = backend # aSSert_exists ~consistency key in
+                   response_ok_unit oc)
     end
   | SET ->
     begin
       Llio.input_string ic >>= fun key ->
       Llio.input_string ic >>= fun value ->
       Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () -> backend # set key value >>= fun () ->
           response_ok_unit oc
         )
-        (handle_exception oc)
     end
   | NOP ->
       begin
         Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
-        Lwt.catch
+        wrap_exception
           (fun () ->
            backend # nop () >>= fun () ->
            response_ok_unit oc)
-          (handle_exception oc)
       end
   | GET_TXID ->
      begin
@@ -241,11 +237,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     begin
       Llio.input_string ic >>= fun key ->
       Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
            backend # delete key >>= fun () ->
            response_ok_unit oc)
-        (handle_exception oc)
     end
   | RANGE ->
     begin
@@ -257,14 +252,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_int           ic >>= fun max   ->
       Logger.debug_f_ "connection=%s RANGE: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-          backend # range ~consistency first finc last linc max >>= fun keys ->
-          response_ok oc >>= fun () ->
-          Llio.output_array_reversed Llio.output_key oc keys >>= fun () ->
-          Lwt.return false
+         let keys = backend # range ~consistency first finc last linc max in
+         response_ok oc >>= fun () ->
+         Llio.output_array_reversed Llio.output_key oc keys >>= fun () ->
+         Lwt.return false
         )
-        (handle_exception oc )
     end
   | RANGE_ENTRIES ->
     begin
@@ -276,15 +270,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_int           ic >>= fun max   ->
       Logger.debug_f_ "connection=%s RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-           backend # range_entries ~consistency first finc last linc max
-           >>= fun kvs ->
+           let kvs = backend # range_entries ~consistency first finc last linc max in
            response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | REV_RANGE_ENTRIES ->
     begin
@@ -296,15 +288,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_int           ic >>= fun max   ->
       Logger.debug_f_ "connection=%s REV_RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-           backend # rev_range_entries ~consistency first finc last linc max
-           >>= fun kvs ->
+           let kvs = backend # rev_range_entries ~consistency first finc last linc max in
            response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | LAST_ENTRIES ->
     begin
@@ -325,7 +315,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | WHO_MASTER ->
     begin
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
-      backend # who_master () >>= fun m ->
+      let m = backend # who_master () in
       response_ok oc >>= fun () ->
       Llio.output_string_option oc m >>= fun () ->
       Lwt.return false
@@ -338,7 +328,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     end
   | TEST_AND_SET ->
      begin
-       Lwt.catch
+       wrap_exception
          (fun () ->
           Llio.input_string ic >>= fun key ->
           Llio.input_string_option ic >>= fun expected ->
@@ -348,11 +338,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           response_ok oc >>= fun () ->
           Llio.output_string_option oc vo >>= fun () ->
           Lwt.return false)
-         (handle_exception oc)
      end
   | REPLACE ->
      begin
-       Lwt.catch
+       wrap_exception
          (fun () ->
           Llio.input_string ic >>= fun key ->
           Llio.input_string_option ic >>= fun wanted ->
@@ -361,7 +350,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           response_ok oc >>= fun () ->
           Llio.output_string_option oc vo >>= fun () ->
           Lwt.return false)
-         (handle_exception oc)
      end
   | USER_FUNCTION ->
     begin
@@ -369,7 +357,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_string_option ic >>= fun po ->
       Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name
       >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
            begin
              backend # user_function name po >>= fun ro ->
@@ -378,7 +366,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
              Lwt.return false
            end
         )
-        (handle_exception oc)
     end
   | PREFIX_KEYS ->
     begin
@@ -387,13 +374,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_int    ic >>= fun max ->
       Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max
       >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-         backend # prefix_keys ~consistency key max >>= fun keys ->
+         let keys = backend # prefix_keys ~consistency key max in
          response_ok oc >>= fun () ->
          Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
          Lwt.return false)
-        (handle_exception oc)
     end
   | MULTI_GET ->
     begin
@@ -401,14 +387,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET: consistency=%s length=%i keys=%S" id (consistency2s consistency) length
         (String.concat ";" keys) >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-           backend # multi_get ~consistency keys >>= fun values ->
+           let values = backend # multi_get ~consistency keys in
            response_ok oc >>= fun () ->
            Llio.output_string_list oc values >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | MULTI_GET_OPTION ->
     begin
@@ -416,14 +401,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET_OPTION: consistency=%s length=%i keys=%S"
         id (consistency2s consistency) length (String.concat ";" keys) >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
-           backend # multi_get_option ~consistency keys >>= fun vos ->
-
+           let vos = backend # multi_get_option ~consistency keys in
            response_ok oc >>= fun () ->
            Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
            Lwt.return false)
-        (handle_exception oc)
     end
   | SEQUENCE ->
     Logger.debug_f_ "connection=%s SEQUENCE" id >>= fun () ->
@@ -433,8 +416,8 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     handle_sequence ~sync:true ic oc backend
   | MIGRATE_RANGE ->
     begin
-      Lwt.catch(
-        fun () ->
+      wrap_exception
+        (fun () ->
           Interval.input_interval ic >>= fun interval ->
           Logger.debug_f_ "connection=%s MIGRATE_RANGE" id
           >>= fun () ->
@@ -443,7 +426,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           let updates' =  interval_update :: updates in
           backend # sequence ~sync:false updates' >>= fun () ->
           response_ok_unit oc
-      ) (handle_exception oc)
+        )
     end
   | STATISTICS ->
     begin
@@ -492,123 +475,112 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | COPY_DB_TO_HEAD ->
      begin
        Llio.input_int ic >>= fun tlogs_to_keep ->
-       Lwt.catch
+       wrap_exception
          (fun () ->
           Logger.debug_f_ "connection=%s COPY_DB_TO_HEAD: tlogs_to_keep=%i" id tlogs_to_keep >>= fun () ->
           backend # copy_db_to_head tlogs_to_keep >>= fun () ->
           response_ok_unit oc
          )
-         (handle_exception oc)
      end
   | SET_INTERVAL ->
     begin
-      Lwt.catch
+      wrap_exception
         (fun () ->
            Interval.input_interval ic >>= fun interval ->
            Logger.info_f_ "connection=%s SET_INTERVAL: interval %S" id (Interval.to_string interval) >>= fun () ->
            backend # set_interval interval >>= fun () ->
            response_ok_unit oc
         )
-        (handle_exception oc)
     end
   | GET_INTERVAL ->
     begin
-      Lwt.catch(
-        fun() ->
+      wrap_exception
+        (fun() ->
           Logger.debug_f_ "connection=%s GET_INTERVAL" id >>= fun () ->
-          backend # get_interval () >>= fun interval ->
+          let interval = backend # get_interval () in
           response_ok oc >>= fun () ->
           Interval.output_interval oc interval >>= fun () ->
           Lwt.return false
-      )
-        (handle_exception oc)
+        )
     end
   | GET_ROUTING ->
-    Lwt.catch
-      (fun () ->
+     wrap_exception
+       (fun () ->
          Logger.debug_f_ "connection=%s GET_ROUTING" id >>= fun () ->
          backend # get_routing () >>= fun routing ->
          response_ok oc >>= fun () ->
          Routing.output_routing oc routing >>= fun () ->
          Lwt.return false
       )
-      (handle_exception oc)
   | SET_ROUTING ->
     begin
       Routing.input_routing ic >>= fun routing ->
       Logger.info_f_ "connection=%s SET_ROUTING" id >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
            backend # set_routing routing >>= fun () ->
            response_ok_unit oc)
-        (handle_exception oc)
     end
   | SET_ROUTING_DELTA ->
     begin
-      Lwt.catch(
-        fun () ->
+      wrap_exception
+        (fun () ->
           Llio.input_string ic >>= fun left ->
           Llio.input_string ic >>= fun sep ->
           Llio.input_string ic >>= fun right ->
           Logger.info_f_ "connection=%s SET_ROUTING_DELTA: left=%S sep=%S right=%S" id left sep right >>= fun () ->
           backend # set_routing_delta left sep right >>= fun () ->
           response_ok_unit oc )
-        (handle_exception oc)
     end
   | GET_KEY_COUNT ->
     begin
-      Lwt.catch
+      wrap_exception
         (fun() ->
            Logger.debug_f_ "connection=%s GET_KEY_COUNT" id >>= fun () ->
            backend # get_key_count () >>= fun kc ->
            response_ok_int64 oc kc)
-        (handle_exception oc)
     end
   | GET_DB ->
     begin
-      Lwt.catch
+      wrap_exception
         (fun() ->
            Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
            backend # get_db (Some oc) >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | OPT_DB ->
     begin
-      Lwt.catch
+      wrap_exception
         ( fun () ->
            Logger.info_f_ "connection=%s OPT_DB" id >>= fun () ->
            backend # optimize_db () >>= fun () ->
            response_ok_unit oc
         )
-        (handle_exception oc)
     end
   | DEFRAG_DB ->
     begin
-      Lwt.catch
+      wrap_exception
         (fun () ->
            Logger.info_f_ "connection=%s DEFRAG_DB" id >>= fun () ->
            backend # defrag_db () >>= fun () ->
            response_ok_unit oc)
-        (handle_exception oc)
     end
   | CONFIRM ->
     begin
       Llio.input_string ic >>= fun key ->
       Llio.input_string ic >>= fun value ->
-      Lwt.catch
+      wrap_exception
         (fun () ->
            Logger.debug_f_ "connection=%s CONFIRM: key=%S" id key >>= fun () ->
            backend # confirm key value >>= fun () ->
            response_ok_unit oc
         )
-        (handle_exception oc)
     end
   | GET_NURSERY_CFG ->
     begin
-      Lwt.catch (
-        fun () ->
+      wrap_exception
+        (fun () ->
           Logger.debug_f_ "connection=%s GET_NURSERY_CFG" id >>= fun () ->
           backend # get_routing () >>= fun routing ->
           backend # get_cluster_cfgs () >>= fun cfgs ->
@@ -617,24 +589,22 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
           NCFG.ncfg_to buf (routing,cfgs);
           Llio.output_string oc (Buffer.contents buf) >>= fun () ->
           Lwt.return false
-      )
-        ( handle_exception oc )
+        )
     end
   | SET_NURSERY_CFG ->
     begin
-      Lwt.catch (
-        fun () ->
+      wrap_exception
+        (fun () ->
           Llio.input_string ic >>= fun cluster_id ->
           ClientCfg.input_cfg ic >>= fun cfg ->
           Logger.info_f_ "connection=%s SET_NURSERY_CFG: cluster_id=%S" id cluster_id >>= fun () ->
           backend # set_cluster_cfg cluster_id cfg >>= fun () ->
           response_ok_unit oc
-      )
-        ( handle_exception oc )
+        )
     end
   | GET_FRINGE ->
     begin
-      Lwt.catch
+      wrap_exception
         (fun () ->
            Llio.input_string_option ic >>= fun boundary ->
            Llio.input_int ic >>= fun dir_as_int ->
@@ -657,11 +627,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            Logger.debug_ "get_fringe all done" >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | DELETE_PREFIX ->
     begin
-      Lwt.catch
+      wrap_exception
         ( fun () ->
            Llio.input_string ic >>= fun prefix ->
            Logger.debug_f_ "connection=%s DELETE_PREFIX %S" id prefix >>= fun () ->
@@ -670,7 +639,6 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            Llio.output_int oc n_deleted >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
     end
   | VERSION ->
     begin
@@ -690,10 +658,9 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | DROP_MASTER ->
     begin
       Logger.info_f_ "connection=%s DROP_MASTER" id >>= fun () ->
-      Lwt.catch
+      wrap_exception
         (fun () -> backend # drop_master () >>= fun () ->
           response_ok_unit oc)
-        (handle_exception oc)
     end
   | CURRENT_STATE ->
     begin

@@ -68,11 +68,11 @@ let with_store name f =
   S.close store
 
 let assert_k_v k v (store:S.t) =
-  S.get store k >>= fun av ->
+  let av = S.get store k in
   if v <> av then failwith "not as expected" else Lwt.return ()
 
 let assert_not_exists k (store:S.t) =
-  S.exists store k >>= fun exists ->
+  let exists = S.exists store k in
   if exists then failwith "key should not exist" else Lwt.return ()
 
 let failing_value =
@@ -121,7 +121,7 @@ let test_safe_insert_value_with_partial_value_update () =
       let j = S._get_j store in
       if j = 0 then failwith "j is 0";
 
-      S.get store k >>= fun value ->
+      let value = S.get store k in
       if value <> "value1" then failwith "key should have value1 as value";
 
       S.safe_insert_value store (Sn.of_int 0) paxos_value >>= fun _ ->
@@ -129,7 +129,7 @@ let test_safe_insert_value_with_partial_value_update () =
       let j = S._get_j store in
       if j <> 0 then failwith "j is not 0";
 
-      S.get store k >>= fun value ->
+      let value = S.get store k in
       if value <> "value1" then failwith "illegal value in store";
       Lwt.return ()
     )
