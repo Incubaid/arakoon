@@ -115,8 +115,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
   let fold_range cur first finc last linc max f init =
     let comp_last =
       match last with
-      | None ->
-         fun k -> true
+      | None -> fun _ -> true
       | Some last ->
          if linc
          then

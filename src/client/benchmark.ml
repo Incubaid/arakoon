@@ -69,7 +69,7 @@ let _get (client:Arakoon_client.client) max_n k_size t0 oc =
   loop 0
 
 let _get_transactions (client:Arakoon_client.client)
-    max_n t k_size v_size
+    max_n t k_size _v_size
     (t0:float) oc=
   let n_transactions = (max_n + t -1) / t in
   let k0 = String.make (k_size -8) '_' in
@@ -169,7 +169,7 @@ let _range (client:Arakoon_client.client) max_n k_size t0 oc =
             (Some first_key) true
             (Some last_key) true 1000)
           (fun () -> Printf.sprintf "range %i %s %s" i first_key last_key)
-        >>= fun keys ->
+        >>= fun _keys ->
         loop (i+1)
       end
   in
@@ -190,11 +190,12 @@ let _range_entries (client: Arakoon_client.client) max_n k_size t0 oc =
         _progress t0 i 10000 oc >>= fun () ->
         check_timing
           (fun () -> client # range_entries
-            (Some first_key) true
-            (Some last_key) true 1000)
+            ~consistency:Consistent
+            ~first:(Some first_key) ~finc:true
+            ~last:(Some last_key) ~linc:true ~max:1000)
           (fun () -> Printf.sprintf "range_entries %i %s %s"
             i first_key last_key)
-        >>= fun kvs ->
+        >>= fun _kvs ->
         loop (i+1)
       end
   in

@@ -288,7 +288,7 @@ struct
 
   let clear_self_master store me =
     match store.master with
-      | Some (m, ls) when m = me -> store.master <- None
+      | Some (m, _) when m = me -> store.master <- None
       | _ -> ()
 
   let who_master store =
@@ -363,7 +363,7 @@ struct
     let () =
       try
         fringe :=
-          let len, (ts, f) =
+          let len, (_, f) =
             S.with_cursor
               store.s
               (fun cur ->
@@ -497,7 +497,7 @@ struct
       match wanted,r with
       | Some v, _      -> _set store tx key v
       | None  , None   -> ()
-      | None  , Some o -> _delete store tx key
+      | None  , Some _ -> _delete store tx key
     end;
     r
 
@@ -590,7 +590,7 @@ struct
           fold_range store __adminprefix
                      None true None true
                      (-1)
-                     (fun cur k _ () -> ())
+                     (fun _ _ _ () -> ())
                      () in
         Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
 
@@ -694,7 +694,7 @@ struct
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
           let get_key = function
-            | Update.Set (key,value) -> Some key
+            | Update.Set (key,_) -> Some key
             | Update.Delete key -> Some key
             | Update.TestAndSet (key, expected, wanted) -> Some key
             | _ -> None in

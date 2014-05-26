@@ -73,7 +73,6 @@ let slave_fake_prepare constants (current_i,current_n) () =
 let slave_steady_state (type s) constants state event =
   let (n,i,maybe_previous) = state in
   let store = constants.store in
-  let me = constants.me in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let handle_timeout ?invalidate_lease_start_until n' i' =
     if not (is_election constants)
@@ -186,22 +185,18 @@ let slave_steady_state (type s) constants state event =
             else
               accept_value [] n' i' v "steady_state :: replying again to previous with %S"
           | Accept (n',i',v) when i' > i || (i'=i && n' > n) ->
-             if fst (time_for_elections constants)
-             then
-               begin
-                 let log_e = ELog (fun () ->
-                                   Printf.sprintf
-                                     "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
-                                     (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
-                                  )
-                 in
-                 let cu_pred = S.get_catchup_start_i constants.store in
-                 let new_state = (source,cu_pred,n',i') in
-                 Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
-               end
-             else
-               Logger.debug_f_ "%s: ignoring %s while lease is still active" me (string_of msg) >>= fun () ->
-               Fsm.return (Slave_steady_state state)
+                                  (* TODO make helper function to check this! *)
+             begin
+               let log_e = ELog (fun () ->
+                                 Printf.sprintf
+                                   "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
+                                   (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
+                                )
+               in
+               let cu_pred = S.get_catchup_start_i constants.store in
+               let new_state = (source,cu_pred,n',i') in
+               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+             end
           | Accept (n',i',v) ->
             begin
               let log_e = ELog (
@@ -227,18 +222,11 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
             end
           | Nak(n',(n2, i2)) when i2 > i ->
-             if fst (time_for_elections constants)
-             then
-               begin
-                 Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
-                 let cu_pred =  S.get_catchup_start_i constants.store in
-                 Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-               end
-             else
-               begin
-                 Logger.debug_f_ "%s: ignoring %s while lease is still active" me (string_of msg) >>= fun () ->
-                 Fsm.return (Slave_steady_state state)
-               end
+             begin
+               Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
+               let cu_pred =  S.get_catchup_start_i constants.store in
+               Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+             end
           | Nak _
           | Promise _
           | Accepted _ ->
