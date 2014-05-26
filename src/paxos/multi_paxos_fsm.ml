@@ -467,17 +467,12 @@ let wait_for_accepteds
                   (MPMessage.string_of msg) source >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',_) when n' < n || i' < i ->
-              begin
-                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-              end
             | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
               begin
                 Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',v') (* when n' >= n && i' >= i ; but compiler is not smart enough for this *) ->
+            | Accept (n',i',v') when i' > i || (i' = i && n' > n) ->
               (* check lease, if we're inside, drop (how could this have happened?)
                  otherwise, we've lost master role
               *)
@@ -501,6 +496,11 @@ let wait_for_accepteds
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
                 end
+            | Accept (n',i',_) (* when i' < i || (i' = i && n' < n) *) ->
+              begin
+                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+                Fsm.return (Wait_for_accepteds state)
+              end
         end
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
