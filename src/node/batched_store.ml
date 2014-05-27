@@ -109,7 +109,7 @@ struct
   let _commit_ls_tx_if_any s =
     match s._ls_tx with
       | None -> ()
-      | Some ls_tx ->
+      | Some _ ->
         S._trancommit s.s;
         s._ls_tx <- None;
         s._entries <- 0;

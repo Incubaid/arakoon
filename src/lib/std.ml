@@ -59,7 +59,7 @@ end = struct
     type t = S.s
 
     let (=:) = S.(=:)
-    let (<>:) a b = not S.(a =: b)
+    let (<>:) a b = not (a =: b)
   end
 
   module Default = functor(S : sig type s end) -> struct
@@ -292,7 +292,7 @@ module Map = struct
              let rec inner = function
                | (t, Right) :: z' ->
                   Some (t, z')
-               | (t, Left) :: z' ->
+               | (_t, Left) :: z' ->
                   inner z'
                | [] ->
                   None in
@@ -315,7 +315,7 @@ module Map = struct
                     None in
                inner acc
              end
-          | Node(l, k', v, r, _) as t ->
+          | Node(l, k', _v, r, _) as t ->
              begin
                match Ord.compare k k' with
                | -1 ->
@@ -337,7 +337,7 @@ module Map = struct
       let with_cursor m f =
         f (ref None, m)
 
-      let is_valid (zo, m) =
+      let is_valid (zo, _) =
         !zo <> None
 
       let last ((zo, m) as c) =
@@ -348,7 +348,7 @@ module Map = struct
         zo := Zipper.jump ?dir k m;
         is_valid c
 
-      let next ((zo, m) as c) =
+      let next ((zo, _) as c) =
         match !zo with
         | None ->
            failwith "invalid cursor"
@@ -356,7 +356,7 @@ module Map = struct
            zo := Zipper.next z;
            is_valid c
 
-      let prev ((zo, m) as c) =
+      let prev ((zo, _) as c) =
         match !zo with
         | None ->
            failwith "invalid cursor"
@@ -364,7 +364,7 @@ module Map = struct
            zo := Zipper.prev z;
            is_valid c
 
-      let get (zo, m) =
+      let get (zo, _) =
         match !zo with
         | None ->
            failwith "invalid cursor"

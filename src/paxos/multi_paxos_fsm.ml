@@ -52,7 +52,7 @@ let election_suggest (type s) constants (n, counter) () =
   let state = (n, i, who_voted, v_lims, i_lim, [], counter) in
   Fsm.return (Promises_check_done state)
 
-let read_only constants state () =
+let read_only constants (_state : unit) () =
   Lwt_unix.sleep 60.0 >>= fun () ->
   Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
   Fsm.return Read_only
@@ -535,7 +535,7 @@ let wait_for_accepteds
           end
       end
     | Quiesce (mode, sleep,awake) ->
-      fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
+      fail_quiesce_request sleep awake Quiesce.Result.FailMaster >>= fun () ->
        Fsm.return (Wait_for_accepteds state)
 
     | Unquiesce ->

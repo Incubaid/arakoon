@@ -80,7 +80,7 @@ let update_votes (nones,somes) = function
         else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
     let tmp = build_new [] somes in
-    let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
+    let somes' = List.sort (fun (_a,fa) (_b,fb) -> fb - fa) tmp in
     (nones, somes')
 
 type paxos_event =
@@ -400,12 +400,12 @@ let safe_wakeup sleeper awake value =
     ( fun () -> Lwt.return (Lwt.wakeup awake value) )
     ( fun e ->
        match e with
-         | Invalid_argument s ->
+         | Invalid_argument _s ->
            let t = state sleeper in
            begin
              match t with
                | Fail ex -> Lwt.fail ex
-               | Return v -> Lwt.return ()
+               | Return _ -> Lwt.return ()
                | Sleep -> Lwt.fail (Failure "Wakeup error, sleeper is still sleeping")
            end
          | _ -> Lwt.fail e
@@ -416,7 +416,7 @@ let safe_wakeup_all v l =
     (fun (s, a) -> safe_wakeup s a v)
     l
 
-let fail_quiesce_request store sleeper awake reason =
+let fail_quiesce_request sleeper awake reason =
   safe_wakeup sleeper awake reason
 
 let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store mode sleeper (awake: Quiesce.Result.t Lwt.u) =
