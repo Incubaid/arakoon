@@ -311,7 +311,7 @@ let wait_for_promises (type s) constants state event =
       Fsm.return (Wait_for_promises state)
 
     | Unquiesce ->
-      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      handle_unquiesce_request constants >>= fun () ->
       Fsm.return (Wait_for_promises state)
     | DropMaster (sleep, awake) ->
       Multi_paxos.safe_wakeup sleep awake () >>= fun () ->

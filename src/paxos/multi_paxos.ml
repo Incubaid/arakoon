@@ -423,14 +423,11 @@ let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) sto
   S.quiesce mode store >>= fun () ->
   safe_wakeup sleeper awake Quiesce.Result.OK
 
-let handle_unquiesce_request (type s) constants n =
+let handle_unquiesce_request (type s) constants =
   let store = constants.store in
   let tlog_coll = constants.tlog_coll in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let too_far_i = S.get_succ_store_i store in
   S.unquiesce store >>= fun () ->
   Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
-  let i = S.get_succ_store_i store in
-  let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants >>= fun () ->
-  Lwt.return (i,vo)
+  start_lease_expiration_thread constants
