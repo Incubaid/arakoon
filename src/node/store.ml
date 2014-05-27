@@ -646,12 +646,21 @@ struct
     end : Registry.user_db)
 
   let _user_function store (name:string) (po:string option) tx =
-    Lwt.wrap (fun () ->
+    Lwt.catch
+      (fun () ->
         let f = Registry.Registry.lookup name in
         let user_db = new store_user_db store tx in
         let ro = f user_db po in
-        ro)
-
+        Lwt.return (Ok ro))
+      (fun exn ->
+       Lwt.return
+         (match exn with
+          | Not_found ->
+             Update_fail (Arakoon_exc.E_NOT_FOUND, "Not_found")
+          | Common.XException(rc, msg) ->
+             Update_fail (rc, msg)
+          | exn ->
+             Update_fail (Arakoon_exc.E_USERFUNCTION_FAILURE, Printexc.to_string exn)))
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with
@@ -695,8 +704,7 @@ struct
         | Update.Replace (key,wanted) ->
            Lwt.return (Ok (_replace store tx key wanted))
         | Update.UserFunction(name,po) ->
-          _user_function store name po tx >>= fun ro ->
-          Lwt.return (Ok ro)
+          _user_function store name po tx
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
           Lwt_list.iter_s (fun update ->

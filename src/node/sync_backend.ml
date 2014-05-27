@@ -285,9 +285,15 @@ struct
 
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
-        let update = Update.UserFunction(name,po) in
-        let so_post so = so in
-        _update_rendezvous self update no_stats push_update ~so_post
+        if Registry.Registry.exists name
+        then
+          begin
+            let update = Update.UserFunction(name,po) in
+            let so_post so = so in
+            _update_rendezvous self update no_stats push_update ~so_post
+          end
+        else
+          Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, Printf.sprintf "User function %S could not be found" name))
 
       method aSSert ~consistency (key:string) (vo:string option) =
         log_o self "aSSert %S ..." key >>= fun () ->
