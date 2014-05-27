@@ -321,7 +321,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | EXPECT_PROGRESS_POSSIBLE ->
     begin
       Logger.debug_f_ "connection=%s EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
-      backend # expect_progress_possible () >>= fun poss ->
+      let poss = backend # expect_progress_possible () in
       response_ok_bool oc poss
     end
   | TEST_AND_SET ->
@@ -505,7 +505,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
      wrap_exception
        (fun () ->
          Logger.debug_f_ "connection=%s GET_ROUTING" id >>= fun () ->
-         backend # get_routing () >>= fun routing ->
+         let routing = backend # get_routing () in
          response_ok oc >>= fun () ->
          Routing.output_routing oc routing >>= fun () ->
          Lwt.return false
@@ -580,8 +580,8 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       wrap_exception
         (fun () ->
           Logger.debug_f_ "connection=%s GET_NURSERY_CFG" id >>= fun () ->
-          backend # get_routing () >>= fun routing ->
-          backend # get_cluster_cfgs () >>= fun cfgs ->
+          let routing = backend # get_routing () in
+          let cfgs = backend # get_cluster_cfgs () in
           response_ok oc >>= fun () ->
           let buf = Buffer.create 32 in
           NCFG.ncfg_to buf (routing,cfgs);
@@ -618,7 +618,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
              (p_option boundary)
              (match direction with | Routing.UPPER_BOUND -> "UPPER_BOUND" | Routing.LOWER_BOUND -> "LOWER_BOUND")
            >>= fun () ->
-           backend # get_fringe boundary direction >>= fun kvs ->
+           let kvs = backend # get_fringe boundary direction in
            Logger.debug_ "get_fringe backend op complete" >>= fun () ->
            response_ok oc >>= fun () ->
            Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
@@ -663,7 +663,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   | CURRENT_STATE ->
     begin
       Logger.debug_f_ "connection=%s CURRENT_STATE" id >>= fun () ->
-      backend # get_current_state () >>= fun state ->
+      let state = backend # get_current_state () in
       response_ok oc >>= fun () ->
       Llio.output_string oc state >>= fun () ->
       Lwt.return false
@@ -677,8 +677,8 @@ let protocol stop backend connection =
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
   in
   let check_cluster cluster_id =
-    backend # check ~cluster_id >>= fun ok ->
-    if ok then Lwt.return ()
+    if backend # check ~cluster_id
+    then Lwt.return ()
     else Llio.lwt_failfmt "WRONG CLUSTER: %s" cluster_id
   in
   let prologue () =

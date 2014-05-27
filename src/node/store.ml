@@ -83,7 +83,7 @@ sig
   val multi_get_option : t -> string list -> string option list
   val get_key_count : t -> int64
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list Lwt.t
+  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list
 
   val get_interval : t -> Interval.t
   val get_routing : t -> Routing.t
@@ -398,7 +398,7 @@ struct
                                     f_acc (0, [])) in
           (len, f)
       with Break -> () in
-    Lwt.return !fringe
+    !fringe
 
   let copy_store store oc =
     if quiesced store

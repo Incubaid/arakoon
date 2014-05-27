@@ -70,11 +70,11 @@ class type backend = object
 
   method last_witnessed : string -> Sn.t
 
-  method expect_progress_possible : unit -> bool Lwt.t
+  method expect_progress_possible : unit -> bool
 
   method get_statistics: unit -> Statistics.t
   method clear_most_statistics: unit -> unit
-  method check: cluster_id:string -> bool Lwt.t
+  method check: cluster_id:string -> bool
 
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
 
@@ -82,7 +82,7 @@ class type backend = object
 
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t
-  method get_routing: unit -> Routing.t Lwt.t
+  method get_routing: unit -> Routing.t
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t
 
@@ -93,15 +93,15 @@ class type backend = object
   method defrag_db:unit -> unit Lwt.t
   method copy_db_to_head : int -> unit Lwt.t
 
-  method get_fringe: string option -> Routing.range_direction -> ((Key.t * string) counted_list) Lwt.t
+  method get_fringe: string option -> Routing.range_direction -> ((Key.t * string) counted_list)
 
-  method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t Lwt.t
+  method get_cluster_cfgs: unit -> (string, ClientCfg.t) Hashtbl.t
   method set_cluster_cfg: string -> ClientCfg.t -> unit Lwt.t
 
   method delete_prefix: string -> int Lwt.t
 
   method drop_master: unit -> unit Lwt.t
-  method get_current_state : unit -> string Lwt.t
+  method get_current_state : unit -> string
   method nop : unit -> unit Lwt.t
   method get_txid: unit -> consistency
 end

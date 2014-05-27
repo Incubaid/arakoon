@@ -489,7 +489,7 @@ struct
 
       method expect_progress_possible () =
         match S.consensus_i store with
-          | None -> Lwt.return false
+          | None -> false
           | Some i ->
             let q = quorum_function n_nodes in
             let count,s = Hashtbl.fold
@@ -501,9 +501,8 @@ struct
                                else  count,s')
                             ( Statistics.get_witnessed _stats ) (1,"") in
             let v = count >= q in
-            Logger.debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
-            >>= fun () ->
-            Lwt.return v
+            Logger.ign_debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s;
+            v
 
       method get_statistics () =
         (* It's here and not in Statistics as we use statistics in the
@@ -528,7 +527,7 @@ struct
       method clear_most_statistics () = Statistics.clear_most _stats
       method check ~cluster_id =
         let r = test ~cluster_id in
-        Lwt.return r
+        r
 
       method collapse n cb' cb =
         if n < 1 then
@@ -559,14 +558,14 @@ struct
       method get_routing () =
         self # _read_allowed Consistent;
         try
-          Lwt.return (S.get_routing store)
+          S.get_routing store
         with
         | Store.CorruptStore ->
            begin
-             Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
-             Lwt.fail Server.FOOBAR
+             Logger.ign_fatal_ "CORRUPT_STORE";
+             raise Server.FOOBAR
            end
-        | ext -> Lwt.fail ext
+        | ext -> raise ext
 
 
       method get_key_count () =
@@ -687,9 +686,9 @@ struct
               in
               List.iter add_item (snd cfgs);
               let () = client_cfgs <- (Some result) in
-              Lwt.return result
+              result
             | Some res ->
-              Lwt.return res
+              res
         end
 
       method set_cluster_cfg cluster_id cfg =
@@ -712,7 +711,7 @@ struct
         end
 
       method get_fringe boundary direction =
-        Logger.debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
+        Logger.ign_debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary);
         S.get_fringe store boundary direction
 
       method drop_master () =
@@ -743,8 +742,7 @@ struct
           end
 
       method get_current_state () =
-        let s = Multi_paxos_fsm.pull_state () in
-        Lwt.return s
+        Multi_paxos_fsm.pull_state ()
     end
 
 end
