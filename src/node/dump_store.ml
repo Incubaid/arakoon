@@ -24,7 +24,7 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 let try_fetch name (f:unit -> 'a) (r2s: 'a -> string)  =
   Lwt.catch
     (fun () ->
-       Lwt.wrap f >>= fun r ->
+       let r = f () in
        let s = r2s r in
        Lwt_io.printlf "%s: %s" name s
     )

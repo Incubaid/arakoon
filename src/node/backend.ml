@@ -86,7 +86,7 @@ class type backend = object
   method set_routing: Routing.t -> unit Lwt.t
   method set_routing_delta: string -> string -> string -> unit Lwt.t
 
-  method get_key_count: unit -> int64 Lwt.t
+  method get_key_count: unit -> int64
 
   method get_db: Lwt_io.output_channel option -> unit Lwt.t
   method optimize_db: unit -> unit Lwt.t

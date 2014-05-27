@@ -147,9 +147,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
   else
     let wrap_exception f =
       Lwt.catch
-        (fun () ->
-         try f ()
-         with exn -> Lwt.fail exn)
+        f
         (handle_exception oc) in
     match command with
   | PING ->
@@ -537,7 +535,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       wrap_exception
         (fun() ->
            Logger.debug_f_ "connection=%s GET_KEY_COUNT" id >>= fun () ->
-           backend # get_key_count () >>= fun kc ->
+           let kc = backend # get_key_count () in
            response_ok_int64 oc kc)
     end
   | GET_DB ->

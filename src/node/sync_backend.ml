@@ -571,7 +571,7 @@ struct
 
       method get_key_count () =
         self # _read_allowed Consistent;
-        Lwt.return (S.get_key_count store)
+        S.get_key_count store
 
       method private quiesce_db ~mode () =
         self # _not_if_master () >>= fun () ->
