@@ -311,20 +311,17 @@ let optimize ls ~quiesced ~stop =
                   loop (i + 1)
               end
             else
-              true
+              begin
+                Camltc.Hotc.sync_nolock ls_optimal.db;
+                true
+              end
           in
           loop 0)
      in
-     Lwt_preemptive.detach go () >>= fun finished ->
-        if finished
-        then
-          Camltc.Hotc.sync ~detached:true ls_optimal.db >>= fun () ->
-          Logger.info_ "Optimize db copy complete" >>= fun () ->
-          Lwt.return finished
-        else
-          Lwt.return finished)
+     Lwt_preemptive.detach go ())
     (fun () ->
      Camltc.Hotc.close ls_optimal.db) >>= fun finished ->
+  Logger.info_f_ "Optimize db copy complete (finished=%b)" finished >>= fun () ->
   reopen
     ls
     (fun () ->
