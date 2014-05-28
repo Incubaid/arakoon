@@ -92,6 +92,8 @@ let handle_exception oc exn=
         Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, Logger.Debug)
       | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
         Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, Logger.Error)
+      | XException(Arakoon_exc.E_BAD_INPUT, msg) ->
+         Lwt.return (Arakoon_exc.E_BAD_INPUT,msg,false, Logger.Debug)
       | XException(Arakoon_exc.E_INCONSISTENT_READ, msg) ->
          Lwt.return (Arakoon_exc.E_INCONSISTENT_READ,msg,false, Logger.Debug)
       | XException(rc, msg) ->

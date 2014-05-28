@@ -21,6 +21,18 @@ open Node_cfg
 
 let section = Logger.Section.main
 
+let should_fail f rc error_msg success_msg =
+   Lwt.catch
+     (fun ()  ->
+       f () >>= fun () ->
+       Logger.debug_ "should fail...doesn't")
+    (function
+        | Arakoon_exc.Exception(rc', _) when rc' = rc ->
+           Logger.debug_ success_msg
+        | exn ->
+           Logger.debug_ ~exn error_msg >>= fun () ->
+           Lwt.fail (Failure error_msg))
+
 let cucu s =
   Lwt_io.eprintlf "cucu: %s" s >>= fun () ->
   Lwt_io.flush Lwt_io.stderr
@@ -57,9 +69,10 @@ let __client_server_wrapper__ (real_test:real_test) =
       real_test
   in
   let main () =
-    Lwt.pick [t0;
-              client_t ();] >>= fun () ->
+    Lwt.pick [(t0 >>= fun () -> Lwt.return false);
+              (client_t () >>= fun () -> Lwt.return true);] >>= fun succeeded ->
     stop := true;
+    OUnit.assert_bool "client thread should finish before server" succeeded;
     Lwt.return ()
   in
   Lwt_main.run (main());;
@@ -124,31 +137,18 @@ let test_delete () =
   let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # delete "key" >>= fun () ->
-    Lwt.catch
-      (fun () ->
-         client # get "key" >>= fun _value ->
-         Lwt.return ())
-      (function
-        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
-          Lwt_io.eprintlf "ok!"
-        | exn ->
-          Logger.fatal_ ~exn "wrong exception" >>= fun () ->
-          OUnit.assert_failure
-            "get of non_existing key does not throw correct exception"
-      )
+    should_fail
+      (fun () -> Lwt.map ignore (client # get "key"))
+      Arakoon_exc.E_NOT_FOUND
+      "get of non_existing key does not throw correct exception"
+      "ok!"
     >>= fun () ->
     Logger.info_ "part-2" >>= fun () ->
-    Lwt.catch
-      (fun () ->
-         client # delete "key" >>= fun () ->
-         Logger.info_ "should not get here"
-      )
-      (function
-        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) ->
-          Lwt.return ()
-        | exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
-          OUnit.assert_failure "XXX"
-      )
+    should_fail
+      (fun () -> client # delete "key")
+      Arakoon_exc.E_NOT_FOUND
+      "delete of non_existing key"
+      "ok!"
 
   in __client_server_wrapper__ real_test
 
@@ -176,9 +176,39 @@ let test_sequence () =
 
 
 let _test_user_function (client:Arakoon_client.client) =
+  let uf _user_db = function
+    | None -> None
+    | Some s ->
+       let r = ref "" in
+       String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
+       Some !r
+  in
+  Registry.Registry.register "reverse" uf;
+
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "does not exist" None))
+    Arakoon_exc.E_BAD_INPUT
+    "non existing user function should throw exception"
+    "ok!" >>= fun () ->
+
+  Registry.Registry.register "notfound" (fun _ _ -> raise Not_found);
+  Registry.Registry.register "failure" (fun _ _ -> raise (Failure ""));
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "notfound" None))
+    Arakoon_exc.E_NOT_FOUND
+    "should throw not found"
+    "ok!" >>= fun () ->
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "failure" None))
+    Arakoon_exc.E_USERFUNCTION_FAILURE
+    "should throw E_USERFUNCTION_FAILURE"
+    "ok!" >>= fun () ->
   Lwt.return ()
 
 let test_user_function () =

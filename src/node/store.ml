@@ -604,7 +604,7 @@ struct
          fold_range store __prefix
                     (Some prefix) true (next_prefix prefix) false
                     max
-                    (fun cur k _ acc ->
+                    (fun _ k _ acc ->
                      Key.make k :: acc)
                     [] in
        Lwt.return res)
@@ -631,7 +631,7 @@ struct
     let test_range first last = test_option first; test_option last
     in
 
-    object (self : # Registry.user_db)
+    (object
 
       method set k v = test k ; _set store tx k v
       method get k   = test k ; _get store k
@@ -643,15 +643,24 @@ struct
       method range_entries first finc last linc max =
         test_range first last;
         Array.of_list (List.rev (_range_entries store first finc last linc max))
-    end
+    end : Registry.user_db)
 
   let _user_function store (name:string) (po:string option) tx =
-    Lwt.wrap (fun () ->
+    Lwt.catch
+      (fun () ->
         let f = Registry.Registry.lookup name in
         let user_db = new store_user_db store tx in
         let ro = f user_db po in
-        ro)
-
+        Lwt.return (Ok ro))
+      (fun exn ->
+       Lwt.return
+         (match exn with
+          | Not_found ->
+             Update_fail (Arakoon_exc.E_NOT_FOUND, "Not_found")
+          | Common.XException(rc, msg) ->
+             Update_fail (rc, msg)
+          | exn ->
+             Update_fail (Arakoon_exc.E_USERFUNCTION_FAILURE, Printexc.to_string exn)))
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with
@@ -666,6 +675,12 @@ struct
         f tx
 
   let _insert_update store (update:Update.t) kt =
+    let get_key = function
+      | Update.Set (key, _)
+      | Update.Delete key
+      | Update.TestAndSet (key, _, _) -> Some key
+      | _ -> None
+    in
     let rec _do_one update tx =
       let return () = Lwt.return (Ok None) in
       let wrap f =
@@ -689,15 +704,9 @@ struct
         | Update.Replace (key,wanted) ->
            Lwt.return (Ok (_replace store tx key wanted))
         | Update.UserFunction(name,po) ->
-          _user_function store name po tx >>= fun ro ->
-          Lwt.return (Ok ro)
+          _user_function store name po tx
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
-          let get_key = function
-            | Update.Set (key,_) -> Some key
-            | Update.Delete key -> Some key
-            | Update.TestAndSet (key, expected, wanted) -> Some key
-            | _ -> None in
           Lwt_list.iter_s (fun update ->
               (Lwt.catch
                  (fun () -> _do_one update tx)
@@ -711,7 +720,7 @@ struct
                    | exn -> Lwt.fail exn))
               >>= function
               | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
-              | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+              | Ok _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
         | Update.SetInterval interval ->
           wrap (fun () -> _set_interval store tx interval)
         | Update.SetRouting routing ->
@@ -778,45 +787,11 @@ struct
           | e -> Lwt.fail e)
     in
     let do_one update =
-      match update with
-        | Update.Set(key,value) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.MasterSet (m, lease) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Delete(key) ->
-          update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.DeletePrefix prefix ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.TestAndSet(key,expected,wanted)->
-          update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.UserFunction(name,po) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Sequence updates
-        | Update.SyncedSequence updates ->
-          update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
-        | Update.SetInterval interval ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRouting routing ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRoutingDelta (left, sep, right) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Nop ->
-          Lwt.return (Ok None)
-        | Update.Assert(k,vo) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Assert_exists(k) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.AdminSet(k,vo) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Replace(k, wanted) ->
-          update_in_tx (fun tx -> _do_one update tx)
-
-    in
-    let get_key = function
-      | Update.Set (key,value) -> Some key
-      | Update.Delete key -> Some key
-      | Update.TestAndSet (key, expected, wanted) -> Some key
-      | _ -> None
+      match get_key update with
+      | None ->
+         update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
+      | Some key ->
+         update_in_tx_with_not_found key (fun tx -> _do_one update tx)
     in
     try
       do_one update
@@ -915,7 +890,7 @@ struct
             begin
               match v with
                 | Value.Vm (m, ls) -> set_master_no_inc store m ls
-                | _ -> Lwt.return ()
+                | Value.Vc _ -> Lwt.return ()
             end >>= fun () ->
             incr_i store >>= fun () ->
             Lwt.return [Ok None]

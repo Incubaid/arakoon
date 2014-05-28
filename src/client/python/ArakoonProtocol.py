@@ -307,6 +307,9 @@ ARA_ERR_GOING_DOWN          = 16
 ARA_ERR_ASSERTEXISTS_FAILED = 17
 ARA_ERR_NOT_SUPPORTED       = 0x20
 ARA_ERR_NO_LONGER_MASTER    = 0x21
+ARA_ERR_BAD_INPUT           = 0x26
+ARA_ERR_INCONSISTENT_READ   = 0x80
+ARA_ERR_USERFUNCTION_FAILURE= 0x81
 
 NAMED_FIELD_TYPE_INT    = 1
 NAMED_FIELD_TYPE_INT64  = 2
@@ -488,10 +491,10 @@ def _recvStringOption ( con ):
 class Consistency:
     def __init__(self):
         self._v = _packBool(False)
-    
+
     def encode(self):
         return self._v
-        
+
     def isDirty(self):
         return False
 
@@ -506,15 +509,15 @@ class Consistent(Consistency):
 class NoGuarantee(Consistency):
     def __init__(self):
         self._v = _packBool(True)
-    
+
     def isDirty(self):
         return True
-    
+
 class AtLeast(Consistency):
     def __init__(self,i):
         self._i = i
         self._v = "\x02" + _packInt64(i)
-    
+
     def __str__(self):
         return "AtLeast(%i)" % self._i
 
@@ -766,6 +769,12 @@ class ArakoonProtocol :
             raise ArakoonNodeNotMaster()
         if errorCode == ARA_ERR_NO_LONGER_MASTER:
             raise ArakoonNodeNoLongerMaster()
+        if errorCode == ARA_ERR_BAD_INPUT:
+            raise ArakoonBadInput(errorMsg)
+        if errorCode == ARA_ERR_INCONSISTENT_READ:
+            raise ArakoonInconsistentRead(errorMsg)
+        if errorCode == ARA_ERR_USERFUNCTION_FAILURE:
+            raise ArakoonUserfunctionFailure(errorMsg)
         if errorCode == ARA_ERR_ASSERTION_FAILED:
             raise ArakoonAssertionFailed(errorMsg)
         if errorCode == ARA_ERR_ASSERTEXISTS_FAILED:

@@ -44,7 +44,7 @@ let copy_store2 old_location new_location overwrite =
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    File_system.copy_file old_location new_location overwrite
+    File_system.copy_file old_location new_location ~overwrite
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
@@ -74,7 +74,7 @@ let _tranbegin ls =
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
-    | Some (tx, bdb) ->
+    | Some (_tx, bdb) ->
       let t0 = Unix.gettimeofday () in
       Camltc.Bdb._trancommit bdb;
       let t = ( Unix.gettimeofday () -. t0) in
@@ -88,7 +88,7 @@ let _trancommit ls =
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
-    | Some (tx, bdb) ->
+    | Some (_tx, bdb) ->
       Camltc.Bdb._tranabort bdb;
       ls._tx <- None
 
@@ -144,10 +144,10 @@ let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> B.delete_prefix db prefix)
 
-let flush ls =
+let flush _ls =
   Lwt.return ()
 
-let close ls flush =
+let close ls _flush =
   Camltc.Hotc.close ls.db >>= fun () ->
   Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
   Lwt.return ()
