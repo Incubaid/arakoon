@@ -615,15 +615,11 @@ module Node_cfg = struct
                   Lwt.fail e
           in
 
-          let safe_unlink p =
+
+          let safe_unlink fn =
             Lwt.catch
-              (fun () ->
-               Logger.debug_f_ "Unlinking %S" p >>= fun () ->
-               Lwt_unix.unlink p)
-              (function
-                | Unix.Unix_error(Unix.ENOENT, _, _) -> Lwt.return ()
-                | e -> handle_exn e)
-          in
+              (fun () -> File_system.unlink fn)
+              handle_exn in
 
           let fn = Printf.sprintf "%s/touch-%d" dir (Unix.getpid ()) in
 

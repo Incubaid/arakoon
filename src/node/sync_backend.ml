@@ -633,7 +633,7 @@ struct
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
         let mode = Quiesce.Mode.ReadOnly in
-        self # try_quiesced ~mode (fun () -> S.optimize store) >>= fun () ->
+        self # try_quiesced ~mode (fun () -> Lwt.map ignore (S.optimize store)) >>= fun () ->
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
