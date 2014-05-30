@@ -50,11 +50,9 @@ type transitions =
   | Promises_check_done of (n * i *
                               Messaging.id list *
                               v_limits *
-                              (string * Mp_msg.MPMessage.n) option *
                               slave_awaiters * int)
   | Wait_for_promises of (n * i * Messaging.id list *
                             v_limits *
-                            (string * Mp_msg.MPMessage.n) option *
                             slave_awaiters * int)
   | Accepteds_check_done of (master_state * mballot)
   | Wait_for_accepteds   of (master_state * mballot)
@@ -88,5 +86,5 @@ type effect =
   | ESend of Mp_msg.MPMessage.t * Messaging.id
   | EAccept of (Value.t * n * i)
   | EStartElectionTimeout of n * i
-  | EConsensus of (master_option * Value.t * n * i * bool (* is slave *))
+  | EConsensus of (master_option * Value.t * n * i)
   | EGen of (unit -> unit Lwt.t)
