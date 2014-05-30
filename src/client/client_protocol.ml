@@ -492,10 +492,11 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
             else
               Routing.LOWER_BOUND
           in
-          backend # pinch_fringe direction >>= fun (fringe, (from, to')) ->
+          Llio.input_string_option ic >>= fun max_boundary ->
+          backend # pinch_fringe direction max_boundary >>= fun (fringe, (left, right)) ->
           Llio.output_counted_list Llio.output_key_value_pair oc fringe >>= fun () ->
-          Llio.output_string oc from >>= fun () ->
-          Llio.output_string_option oc to' >>= fun () ->
+          Llio.output_string oc left >>= fun () ->
+          Llio.output_string_option oc right >>= fun () ->
           Lwt.return false)
      end
   | ACCEPT_FRINGE ->

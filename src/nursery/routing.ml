@@ -105,21 +105,6 @@ module Routing = struct
       end
     | Cluster _ -> None
 
-(*
-  let rec remove t c_id =
-    match t with
-      | Branch (l, s, r) when l = (Cluster c_id) ->
-        r
-      | Branch (l, s, r) when r = (Cluster c_id) ->
-        l
-      | Branch (l, s, r) ->
-        let new_l = remove l c_id in
-        let new_r = remove r c_id in
-        Branch(new_l, s, new_r)
-      | Cluster c ->
-        Cluster c
-*)
-
   let remove t c_id =
     let rec inner_remove t c_id =
       match t with

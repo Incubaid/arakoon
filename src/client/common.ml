@@ -331,12 +331,13 @@ let get (ic,oc) ~consistency key =
   response ic Llio.input_string
 
 
-let pinch_fringe (ic,oc) direction =
+let pinch_fringe (ic,oc) direction max_border =
   let outgoing buf =
     command_to buf PINCH_FRINGE;
-    match direction with
+    let () = match direction with
       | Routing.UPPER_BOUND -> Llio.int_to buf 0
-      | Routing.LOWER_BOUND -> Llio.int_to buf 1
+      | Routing.LOWER_BOUND -> Llio.int_to buf 1 in
+    Llio.string_option_to buf max_border
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
