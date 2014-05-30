@@ -256,9 +256,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
    messages and then waits for Accepted responses *)
 
 let master_dictate constants ms () =
-  let {mo;v;n;i;lew} = ms in
-  ignore mo;
-  ignore lew;
+  let {v;n;i; _} = ms in
   let accept_e = EAccept (v,n,i) in
 
   let mcast_e = EMCast (Accept(n,i,v)) in
