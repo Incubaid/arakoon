@@ -83,7 +83,7 @@ sig
   val multi_get_option : t -> string list -> string option list
   val get_key_count : t -> int64
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list
+  val get_fringe_border :  t -> Routing.range_direction -> string option
 
   val get_interval : t -> Interval.t
   val get_routing : t -> Routing.t
@@ -357,48 +357,56 @@ struct
     let pl = String.length __prefix in
     fun x -> String.sub x pl (String.length x - pl)
 
-  let get_fringe store b d =
-    let limit = 1024 * 1024 in
-    let fringe = ref (0, []) in
-    let () =
-      try
-        fringe :=
-          let len, (_, f) =
-            S.with_cursor
-              store.s
-              (fun cur ->
-               let f_acc =
-                 fun cur k count (ts, acc) ->
-                 if ts >= limit
-                 then
-                   begin
-                     fringe := (count, acc);
-                     raise Break
-                   end
-                 else
-                   begin
-                     let v = S.cur_get_value cur in
-                     let ts' = ts + String.length k + String.length v in
-                     ts', (Key.make k, v) :: acc
-                   end in
-               match d with
-               | Routing.UPPER_BOUND ->
-                  let bound = match b with
-                    | None -> next_prefix __prefix
-                    | Some b -> Some (__prefix ^ b) in
-                  CS.fold_range cur
-                                __prefix true bound false (-1)
-                                f_acc (0, [])
-               | Routing.LOWER_BOUND ->
-                  let bound = match b with
-                    | None -> __prefix
-                    | Some b -> __prefix ^ b in
-                  CS.fold_rev_range cur
-                                    (next_prefix __prefix) false bound true (-1)
-                                    f_acc (0, [])) in
-          (len, f)
-      with Break -> () in
-    !fringe
+  let fringe_limit = 1024 * 1024
+
+  let get_fringe_border store direction =
+    let open Interval in
+    let interval = store.interval in
+    S.with_cursor
+      store.s
+      (fun cur ->
+       let find_border prelude cur_next max_border =
+         let rec inner acc =
+           if acc >= fringe_limit
+           then
+             Some (S.cur_get_key cur)
+           else
+             begin
+               let k = S.cur_get_key cur in
+               let v = S.cur_get_value cur in
+               let acc' = acc + String.length k + String.length v in
+               if is_public_key k && cur_next cur
+               then
+                 inner acc'
+               else
+                 max_border
+             end in
+         if prelude ()
+         then
+           inner 0
+         else
+           max_border in
+       match direction with
+       | Routing.UPPER_BOUND ->
+          let prelude () =
+            let jumpto =
+              begin
+                match interval.pu_e with
+                | None -> __prefix_plus_one
+                | Some k -> make_public k
+              end in
+            CS.cur_jump' cur jumpto ~inc:false ~right:false in
+          find_border prelude S.cur_next interval.pr_b
+       | Routing.LOWER_BOUND ->
+          let prelude () =
+            let jumpto =
+              begin
+                match interval.pu_b with
+                | None -> __prefix
+                | Some k -> make_public k
+              end in
+            CS.cur_jump' cur jumpto ~inc:true ~right:true in
+          find_border prelude S.cur_prev interval.pr_e)
 
   let copy_store store oc =
     if quiesced store
@@ -694,12 +702,26 @@ struct
           Logger.debug_f_ "store # delete %S" key >>= fun () ->
           wrap (fun () -> _delete store tx key)
         | Update.DeletePrefix prefix ->
+           (* TODO check interval *)
           Logger.debug_f_ "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = S.delete_prefix store.s tx (__prefix ^ prefix) in
+          let n_deleted = S.delete_prefix store.s tx (make_public prefix) in
           let sb = Buffer.create 8 in
           let () = Llio.int_to sb n_deleted in
           let ser = Buffer.contents sb in
           Lwt.return (Ok (Some ser))
+        | Update.DeleteRange (left, linc, right) ->
+           (* TODO check interval *)
+           let n_deleted =
+             S.range_delete
+               store.s tx
+               (make_public left) linc
+               (match right with
+                | None          -> Some (__prefix_plus_one, false)
+                | Some(r, rinc) -> Some (make_public r    , rinc)) in
+           let sb = Buffer.create 8 in
+           let () = Llio.int_to sb n_deleted in
+           let ser = Buffer.contents sb in
+           Lwt.return (Ok (Some ser))
         | Update.TestAndSet(key,expected,wanted)->
           Lwt.return (Ok (_test_and_set store tx key expected wanted))
         | Update.Replace (key,wanted) ->

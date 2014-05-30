@@ -199,6 +199,13 @@ struct
     _with_complex_query ~allow_in_transaction:false s;
     S.delete_prefix s.s (_get_ls_tx s)  prefix
 
+  let range_delete (s:t) (tx:transaction)
+                   (left:string) (linc:bool)
+                   (r:(string * bool) option) =
+    _verify_tx s tx;
+    _with_complex_query ~allow_in_transaction:false s;
+    S.range_delete s.s (_get_ls_tx s) left linc r
+
   let range s first finc last linc max =
     _with_complex_query ~allow_in_transaction:true s;
     S.range s.s first finc last linc max

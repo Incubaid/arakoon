@@ -139,10 +139,10 @@ module NC = struct
     let todo conn = Common.get conn Consistent key in
     _with_master_connection t cn todo
 
-  let force_interval t cn i =
-    Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
-    _with_master_connection t cn
-      (fun conn -> Common.set_interval conn i)
+  (* let force_interval t cn i = *)
+  (*   Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () -> *)
+  (*   _with_master_connection t cn *)
+  (*     (fun conn -> Common.set_interval conn i) *)
 
 
   let close t = Llio.lwt_failfmt "close not implemented"
@@ -152,17 +152,17 @@ module NC = struct
     Logger.debug_f_ "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
     Logger.debug_f_ "from:%s to:%s" from_cn to_cn >>= fun () ->
-    let pull () =
-      Logger.debug_ "pull">>= fun () ->
-      _with_master_connection t from_cn
-        (fun conn -> Common.get_fringe conn sep direction )
-    in
-    let push fringe i =
-      let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
-      Logger.debug_ "push" >>= fun () ->
-      _with_master_connection t to_cn
-        (fun conn -> Common.migrate_range conn i seq)
-    in
+    (* let pull () = *)
+    (*   Logger.debug_ "pull">>= fun () -> *)
+    (*   _with_master_connection t from_cn *)
+    (*     (fun conn -> Common.get_fringe conn sep direction ) *)
+    (* in *)
+    (* let push fringe i = *)
+    (*   let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in *)
+    (*   Logger.debug_ "push" >>= fun () -> *)
+    (*   _with_master_connection t to_cn *)
+    (*     (fun conn -> Common.migrate_range conn i seq) *)
+    (* in *)
     let delete fringe =
       let seq = List.map (fun (k,v) -> Arakoon_client.Delete k) fringe in
       Logger.debug_ "delete" >>= fun () ->
@@ -173,7 +173,6 @@ module NC = struct
       k ^ (String.make 1 (Char.chr 1))
     in
     let get_interval cn = _with_master_connection t cn Common.get_interval in
-    let set_interval cn i = force_interval t cn i in
     let i2s i = Interval.to_string i in
     Logger.debug_f_ "Getting initial interval from %s" from_cn >>= fun () ->
     get_interval from_cn >>= fun from_i ->
@@ -181,8 +180,8 @@ module NC = struct
     get_interval to_cn >>= fun to_i ->
     let open Interval in
     let rec loop (from_i:Interval.t) (to_i:Interval.t) =
-      pull () >>= fun fringe ->
-      match fringe with
+      (* pull () >>= fun fringe -> *)
+      match (* fringe *)[] with
         | [] ->
           begin
             finalize from_i to_i
@@ -214,32 +213,32 @@ module NC = struct
                 let e, _ = List.hd( List.rev fringe ) in
                 let e = get_next_key  e in
                 Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
-                let from_i' = Interval.make (Some e) fpu_e fpr_b fpr_e in
-                set_interval from_cn from_i' >>= fun () ->
-                let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in
-                push fringe to_i1 >>= fun () ->
+                (* let from_i' = Interval.make (Some e) fpu_e fpr_b fpr_e in *)
+                (* TODO this should not be needed set_interval from_cn from_i' >>= fun () -> *)
+                (* let to_i1 = Interval.make tpu_b tpu_e tpr_b (Some e) in *)
+                (* push fringe to_i1 >>= fun () -> *)
                 delete fringe >>= fun () ->
                 Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make tpu_b (Some e) tpr_b (Some e) in
-                set_interval to_cn to_i2 >>= fun () ->
+                (* TODO this should not be needed set_interval to_cn to_i2 >>= fun () -> *)
                 let from_i2 = Interval.make (Some e) fpu_e (Some e) fpr_e in
-                set_interval from_cn from_i2 >>= fun () ->
+                (* set_interval from_cn from_i2 >>= fun () -> *)
                 Lwt.return (e, from_i2, to_i2, to_cn, from_cn)
 
               | Routing.LOWER_BOUND ->
                 let b, _ = List.hd( List.rev fringe ) in
                 let e, _ = List.hd fringe in
                 Logger.debug_f_ "b:%S e:%S" b e >>= fun () ->
-                let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in
-                set_interval from_cn from_i' >>= fun () ->
-                let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in
-                push fringe to_i1 >>= fun () ->
+                (* let from_i' = Interval.make fpu_b (Some b) fpr_b fpr_e in *)
+                (* set_interval from_cn from_i' >>= fun () -> *)
+                (* let to_i1 = Interval.make tpu_b tpu_e (Some b) tpr_e in *)
+                (* push fringe to_i1 >>= fun () -> *)
                 delete fringe >>= fun () ->
                 Logger.debug_ "Fringe now is deleted. Time to change intervals" >>= fun () ->
                 let to_i2 = Interval.make (Some b) tpu_e (Some b) tpr_e in
-                set_interval to_cn to_i2 >>= fun () ->
+                (* set_interval to_cn to_i2 >>= fun () -> *)
                 let from_i2 = Interval.make fpu_b (Some b) fpr_b (Some b) in
-                set_interval from_cn from_i2 >>= fun () ->
+                (* set_interval from_cn from_i2 >>= fun () -> *)
                 Lwt.return (b, from_i2, to_i2, from_cn, to_cn)
           end
           >>= fun (pub, from_i2, to_i2, left, right) ->
@@ -270,7 +269,6 @@ module NC = struct
           | None -> failwith "Cannot end up with an empty separator during regular migration"
       end
     in
-    let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
     let open Interval in
     let finalize (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
@@ -301,8 +299,8 @@ module NC = struct
       in
       Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
       Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
-      set_interval from_cn from_i' >>= fun () ->
-      set_interval to_cn to_i' >>= fun () ->
+      (* set_interval from_cn from_i' >>= fun () -> *)
+      (* set_interval to_cn to_i' >>= fun () -> *)
       publish (Some sep) left right
     in
     __migrate t clu_left (Some sep) clu_right finalize publish (from_cn, to_cn, direction)
@@ -332,7 +330,6 @@ module NC = struct
               (fun conn -> Common.set_routing conn new_route)
       end
     in
-    let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
     let open Interval in
     let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
@@ -362,8 +359,8 @@ module NC = struct
       in
       Logger.debug_f_ "final interval: from: %s" (Interval.to_string from_i') >>= fun () ->
       Logger.debug_f_ "final interval: to  : %s" (Interval.to_string to_i') >>= fun () ->
-      set_interval from_cn from_i' >>= fun () ->
-      set_interval to_cn to_i' >>= fun () ->
+      (* set_interval from_cn from_i' >>= fun () -> *)
+      (* set_interval to_cn to_i' >>= fun () -> *)
       publish sep left right
     in
     begin
@@ -427,47 +424,47 @@ module NC = struct
 
 end
 
-let nursery_test_main () =
-  All_test.configure_logging ();
-  let repr = [("left", "ZZ")], "right" in (* all in left *)
-  let routing = Routing.build repr in
-  let left_cfg = ClientCfg.make () in
-  let right_cfg = ClientCfg.make () in
-  let () = ClientCfg.add left_cfg "left_0"   (["127.0.0.1"], 4000) in
-  let () = ClientCfg.add right_cfg "right_0" (["127.0.0.1"], 5000) in
-  let nursery_cfg = NCFG.make routing in
-  let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
-  let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
-  let keeper = "left" in
-  let nc = NC.make nursery_cfg keeper in
-  (*
-  let test k v =
-    NC.set client k v >>= fun () ->
-    NC.get client k >>= fun v' ->
-    Logger.debug_f_ "get '%s' yields %s" k v' >>= fun () ->
-    Logger.debug_ "done"
-  in
-  let t () =
-    test "a" "A" >>= fun () ->
-    test "z" "Z"
-  *)
-  let t () =
-    Logger.info_ "pre-fill" >>= fun () ->
-    let rec fill i =
-      if i = 64
-      then Lwt.return ()
-      else
-        let k = Printf.sprintf "%c" (Char.chr i)
-        and v = Printf.sprintf "%c_value" (Char.chr i) in
-        NC.set nc k v >>= fun () ->
-        fill (i-1)
-    in
-    let left_i  = Interval.max    (* all *)
-    and right_i = Interval.max in (* all *)
-    NC.force_interval nc "left" left_i >>= fun () ->
-    NC.force_interval nc "right" right_i >>= fun () ->
-    fill 90 >>= fun () ->
+(* let nursery_test_main () = *)
+(*   All_test.configure_logging (); *)
+(*   let repr = [("left", "ZZ")], "right" in (\* all in left *\) *)
+(*   let routing = Routing.build repr in *)
+(*   let left_cfg = ClientCfg.make () in *)
+(*   let right_cfg = ClientCfg.make () in *)
+(*   let () = ClientCfg.add left_cfg "left_0"   (["127.0.0.1"], 4000) in *)
+(*   let () = ClientCfg.add right_cfg "right_0" (["127.0.0.1"], 5000) in *)
+(*   let nursery_cfg = NCFG.make routing in *)
+(*   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in *)
+(*   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in *)
+(*   let keeper = "left" in *)
+(*   let nc = NC.make nursery_cfg keeper in *)
+(*   (\* *)
+(*   let test k v = *)
+(*     NC.set client k v >>= fun () -> *)
+(*     NC.get client k >>= fun v' -> *)
+(*     Logger.debug_f_ "get '%s' yields %s" k v' >>= fun () -> *)
+(*     Logger.debug_ "done" *)
+(*   in *)
+(*   let t () = *)
+(*     test "a" "A" >>= fun () -> *)
+(*     test "z" "Z" *)
+(*   *\) *)
+(*   let t () = *)
+(*     Logger.info_ "pre-fill" >>= fun () -> *)
+(*     let rec fill i = *)
+(*       if i = 64 *)
+(*       then Lwt.return () *)
+(*       else *)
+(*         let k = Printf.sprintf "%c" (Char.chr i) *)
+(*         and v = Printf.sprintf "%c_value" (Char.chr i) in *)
+(*         NC.set nc k v >>= fun () -> *)
+(*         fill (i-1) *)
+(*     in *)
+(*     let left_i  = Interval.max    (\* all *\) *)
+(*     and right_i = Interval.max in (\* all *\) *)
+(*     NC.force_interval nc "left" left_i >>= fun () -> *)
+(*     NC.force_interval nc "right" right_i >>= fun () -> *)
+(*     fill 90 >>= fun () -> *)
 
-    NC.migrate nc "left" "T" "right"
-  in
-  Lwt_main.run (t ())
+(*     NC.migrate nc "left" "T" "right" *)
+(*   in *)
+(*   Lwt_main.run (t ()) *)

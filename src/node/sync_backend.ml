@@ -17,6 +17,7 @@ limitations under the License.
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
+  open Std
   open Backend
   open Statistics
   open Client_cfg
@@ -105,8 +106,9 @@ struct
     ~collapse_slowdown ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
-    let blockers_cond = Lwt_condition.create() in
-    let collapsing_lock = Lwt_mutex.create() in
+    let blockers_cond = Lwt_condition.create () in
+    let collapsing_lock = Lwt_mutex.create () in
+    let migration_lock = Lwt_mutex.create () in
     let assert_value_size value =
       let length = String.length value in
       if length >= max_value_size then
@@ -260,11 +262,6 @@ struct
       method set_routing_delta left sep right =
         log_o self "set_routing_delta" >>= fun () ->
         let update = Update.SetRoutingDelta (left, sep, right) in
-        _update_rendezvous self update no_stats push_update ~so_post:_mute_so
-
-      method set_interval iv =
-        log_o self "set_interval %s" (Interval.to_string iv)>>= fun () ->
-        let update = Update.SetInterval iv in
         _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
       method user_function name po =
@@ -716,9 +713,120 @@ struct
               Lwt.return ( Hashtbl.replace res cluster_id cfg )
         end
 
-      method get_fringe boundary direction =
-        Logger.ign_debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary);
-        S.get_fringe store boundary direction
+      method pinch_fringe direction =
+        let open Routing in
+        Logger.debug_f_ "pinch_fringe %s" (Routing.direction2s direction) >>= fun () ->
+
+        let open Interval in
+
+        Lwt_mutex.with_lock
+          migration_lock
+          (fun () ->
+           let interval = S.get_interval store in
+           let set_interval i =
+             _update_rendezvous
+               self
+               (Update.SetInterval i)
+               ignore
+               push_update
+               ~so_post:ignore >>= fun () ->
+             Lwt.return i in
+           begin
+             match direction with
+             | Routing.UPPER_BOUND ->
+                (if interval.pu_e = interval.pr_e
+                 then
+                   let border = S.get_fringe_border store direction in
+                   let interval' = { interval with pr_e = border } in
+                   set_interval interval'
+                 else
+                   Lwt.return interval) >>= fun interval' ->
+                let left = match interval'.pu_e with
+                  | Some left -> left
+                  | None -> failwith "pinch fringe invalid border" in
+                Lwt.return (left, interval'.pr_e)
+             | Routing.LOWER_BOUND ->
+                (if interval.pu_b = interval.pr_b
+                then
+                  let border = S.get_fringe_border store direction in
+                  let interval' = { interval with pr_b = border } in
+                  set_interval interval'
+                else
+                  Lwt.return interval) >>= fun interval' ->
+                let left = match interval'.pu_b with
+                  | Some left -> left
+                  | None -> failwith "pinch fringe invalid border" in
+                Lwt.return (left, interval'.pr_b)
+           end) >>= fun (left, right) ->
+
+        let fringe = S.range_entries store (Some left) true right false (-1) in
+
+        Lwt.return (fringe, (left, right))
+
+      method accept_fringe left right kvs =
+        let sleft = Some left in
+        Lwt_mutex.with_lock
+          migration_lock
+          (fun () ->
+           let interval = S.get_interval store in
+           let open Interval in
+           begin
+             if right = interval.pu_b && right = interval.pr_b
+             then
+               Lwt.return { interval with pu_b = sleft; pr_b = sleft }
+             else if sleft = interval.pu_e && sleft = interval.pr_e
+             then
+               Lwt.return { interval with pu_e = right; pr_e = right }
+             else
+               (* TODO need to throw something here which the client can handle! *)
+               (* TODO should test interrupted migration (sth private which is not yet on the other cluster...)*)
+               Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "fringe didn't match interval for this cluster"))
+           end >>= fun interval' ->
+           let update =
+             Update.SyncedSequence
+               (Update.SetInterval interval' :: List.map
+                                                  (fun (k,v) -> Update.Set(k,v))
+                                                  kvs) in
+           _update_rendezvous
+             self
+             update
+             ignore
+             push_update
+             ~so_post:ignore)
+
+      method remove_fringe left right =
+        let sleft = Some left in
+        Lwt_mutex.with_lock
+          migration_lock
+          (fun () ->
+           let interval = S.get_interval store in
+           let open Interval in
+           begin
+             if sleft = interval.pr_b && right = interval.pu_b
+             then
+               Lwt.return ({ interval with pu_b = sleft },
+                           { interval with pr_b = right })
+             else if sleft = interval.pu_e && right = interval.pr_e
+             then
+               Lwt.return ({ interval with pu_e = right },
+                           { interval with pr_e = sleft })
+             else
+               (* TODO need to throw something here which the client can handle! *)
+               (* TODO should test interrupted migration (sth private which is not yet on the other cluster...)*)
+               Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "fringe didn't match interval for this cluster"))
+           end >>= fun (temp_interval, new_interval) ->
+           let update =
+             Update.SyncedSequence
+               ([Update.SetInterval temp_interval;
+                 Update.DeleteRange (left, true,
+                                     (match right with None -> None | Some r -> Some (r, false)));
+                 Update.SetInterval new_interval]) in
+           _update_rendezvous
+             self
+             update
+             ignore
+             push_update
+             ~so_post:ignore)
 
       method drop_master () =
         if n_nodes = 1

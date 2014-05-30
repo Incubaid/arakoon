@@ -103,6 +103,31 @@ let delete_prefix ms tx prefix =
                      ()) in
   count
 
+let range_delete ms tx left linc ro =
+  let keys = StringMap.fold (fun k v a -> k :: a) ms.kv [] in
+  let count = ref 0 in
+  let left_ok k =
+    if linc then left <= k else left < k
+  in
+  let right_ok k =
+    match ro with
+    | None -> true
+    | Some(r,true) -> k <=r
+    | Some(r,false) -> k < r
+  in
+  let () =
+    List.iter
+      (fun k ->
+       if left_ok k && right_ok k
+       then
+         begin
+           delete ms tx k;
+           incr count
+         end
+      )
+      keys
+  in
+  !count
 
 let range ms first finc last linc max =
   let count, keys =

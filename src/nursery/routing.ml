@@ -22,6 +22,10 @@ module Routing = struct
     | UPPER_BOUND
     | LOWER_BOUND
 
+  let direction2s = function
+    | UPPER_BOUND -> "UPPER_BOUND"
+    | LOWER_BOUND -> "LOWER_BOUND"
+
   type sep = string
   type t =
     | Cluster of string

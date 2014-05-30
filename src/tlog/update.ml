@@ -37,6 +37,7 @@ module Update = struct
     | SyncedSequence of t list
     | DeletePrefix of string
     | Replace of string * string option
+    | DeleteRange of string * bool * (string * bool) option
 
 
   let make_master_set me maybe_lease =
@@ -87,6 +88,12 @@ module Update = struct
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
       | Replace(k,vo) ->
          Printf.sprintf "Replace            ;%S;%i" k (_size_of vo)
+      | DeleteRange(left, linc, right) ->
+         Printf.sprintf "RangeDelete        ;%S %b %s"
+                        left linc
+                        (match right with
+                         | None -> "None"
+                         | Some (r, rinc) -> Printf.sprintf "Some(%S,%b)" r rinc)
     in
     _inner u
 
@@ -154,6 +161,16 @@ module Update = struct
          Llio.int_to b 16;
          Llio.string_to b k;
          Llio.string_option_to b vo
+      | DeleteRange (left, linc, right) ->
+         Llio.int_to b 17;
+         Llio.string_to b left;
+         Llio.bool_to b linc;
+         Llio.option_to
+           (Llio.pair_to
+              Llio.string_to
+              Llio.bool_to)
+           b
+           right
 
   let rec from_buffer b =
     let kind = Llio.int_from b in
@@ -225,6 +242,15 @@ module Update = struct
          let k = Llio.string_from b in
          let vo = Llio.string_option_from b in
          Replace(k,vo)
+      | 17 ->
+         let left = Llio.string_from b in
+         let linc = Llio.bool_from b in
+         let right = Llio.option_from
+                       (Llio.pair_from
+                          Llio.string_from
+                          Llio.bool_from)
+                       b in
+         DeleteRange(left, linc, right)
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function

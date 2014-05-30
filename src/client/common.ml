@@ -50,7 +50,6 @@ type client_command =
   | LAST_ENTRIES
   | LAST_ENTRIES2
   | RANGE_ENTRIES
-  | MIGRATE_RANGE
   | SEQUENCE
   | MULTI_GET
   | EXPECT_PROGRESS_POSSIBLE
@@ -58,14 +57,12 @@ type client_command =
   | COLLAPSE_TLOGS
   | USER_FUNCTION
   | GET_INTERVAL
-  | SET_INTERVAL
   | GET_ROUTING
   | SET_ROUTING
   | SET_ROUTING_DELTA
   | GET_KEY_COUNT
   | GET_DB
   | CONFIRM
-  | GET_FRINGE
   | SET_NURSERY_CFG
   | GET_NURSERY_CFG
   | REPLACE
@@ -82,6 +79,9 @@ type client_command =
   | FLUSH_STORE
   | GET_TXID
   | COPY_DB_TO_HEAD
+  | PINCH_FRINGE
+  | ACCEPT_FRINGE
+  | REMOVE_FRINGE
 
 
 let code2int = [
@@ -103,18 +103,15 @@ let code2int = [
   COLLAPSE_TLOGS          , 0x14l;
   USER_FUNCTION           , 0x15l;
   ASSERT                  , 0x16l;
-  SET_INTERVAL            , 0x17l;
   GET_ROUTING             , 0x18l;
   SET_ROUTING             , 0x19l;
   GET_KEY_COUNT           , 0x1al;
   GET_DB                  , 0x1bl;
   CONFIRM                 , 0x1cl;
-  GET_FRINGE              , 0x1dl;
   GET_INTERVAL            , 0x1el;
   SET_NURSERY_CFG         , 0x1fl;
   GET_NURSERY_CFG         , 0x20l;
   SET_ROUTING_DELTA       , 0x21l;
-  MIGRATE_RANGE           , 0x22l;
   REV_RANGE_ENTRIES       , 0x23l;
   SYNCED_SEQUENCE         , 0x24l;
   OPT_DB                  , 0x25l;
@@ -131,6 +128,9 @@ let code2int = [
   FLUSH_STORE             , 0x42l;
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
+  PINCH_FRINGE            , 0x45l;
+  ACCEPT_FRINGE           , 0x46l;
+  REMOVE_FRINGE           , 0x47l;
 ]
 
 let int2code =
@@ -330,27 +330,39 @@ let get (ic,oc) ~consistency key =
   request  oc (fun buf -> get_to ~consistency buf key) >>= fun () ->
   response ic Llio.input_string
 
-let get_fringe (ic,oc) boundary direction =
+
+let pinch_fringe (ic,oc) direction =
   let outgoing buf =
-    command_to buf GET_FRINGE;
-    Llio.string_option_to buf boundary;
+    command_to buf PINCH_FRINGE;
     match direction with
       | Routing.UPPER_BOUND -> Llio.int_to buf 0
       | Routing.LOWER_BOUND -> Llio.int_to buf 1
   in
   request  oc outgoing >>= fun () ->
   Client_log.debug "get_fringe request sent" >>= fun () ->
-  response ic Llio.input_kv_list
+  response ic (Llio.input_pair
+                 Llio.input_kv_list
+                 (Llio.input_pair Llio.input_string Llio.input_string_option))
 
-
-let set_interval(ic,oc) iv =
-  Client_log.debug "set_interval" >>= fun () ->
+let accept_fringe (ic,oc) left right kvs =
   let outgoing buf =
-    command_to buf SET_INTERVAL;
-    Interval.interval_to buf iv
+    command_to buf ACCEPT_FRINGE;
+    Llio.string_to buf left;
+    Llio.string_option_to buf right;
+    Llio.list_to buf (Llio.pair_to Llio.string_to Llio.string_to) kvs
   in
-  request  oc outgoing >>= fun () ->
-  Client_log.debug "set_interval request sent" >>= fun () ->
+  request oc outgoing >>= fun () ->
+  Client_log.debug "accept_fringe request sent" >>= fun () ->
+  response ic nothing
+
+let remove_fringe (ic,oc) left right =
+  let outgoing buf =
+    command_to buf REMOVE_FRINGE;
+    Llio.string_to buf left;
+    Llio.string_option_to buf right
+  in
+  request oc outgoing >>= fun () ->
+  Client_log.debug "remove_fringe request sent" >>= fun () ->
   response ic nothing
 
 let get_interval (ic,oc) =
@@ -418,15 +430,6 @@ let _build_sequence_request buf changes =
   let () = Update.to_buffer update_buf seq in
   let () = Llio.string_to buf (Buffer.contents update_buf)
   in ()
-
-let migrate_range (ic,oc) interval changes =
-  let outgoing buf =
-    command_to buf MIGRATE_RANGE;
-    Interval.interval_to buf interval;
-    _build_sequence_request buf changes
-  in
-  request  oc (fun buf -> outgoing buf) >>= fun () ->
-  response ic nothing
 
 
 let _sequence (ic,oc) changes cmd =

@@ -22,7 +22,6 @@ module Interval = struct
              pr_b : string option;
              pr_e : string option;
            }
-  (* (string option * string option) * (string option * string option) *)
 
   let make pu_b pu_e pr_b pr_e = { pu_b;pu_e;pr_b;pr_e}
 
