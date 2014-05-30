@@ -68,6 +68,7 @@ def test_start_stop_wrapper():
     cluster.createDirs(nn)
     C.assert_running_nodes(0)
     cluster.start()
+    time.sleep(1.0)
     C.assert_running_nodes(1)
     cluster.stop()
     C.assert_running_nodes(0)
