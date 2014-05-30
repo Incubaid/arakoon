@@ -785,12 +785,33 @@ struct
               | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
           end
         | Update.AdminSet(k,vo) ->
+          let key = __adminprefix ^ k in
           let () =
             match vo with
-              | None   -> S.delete store.s tx (__adminprefix ^ k)
-              | Some v -> S.set    store.s tx (__adminprefix ^ k) v
+              | None   -> S.delete store.s tx key
+              | Some v -> S.set    store.s tx key v
           in
+          initialize store;
           Lwt.return (Ok None)
+        | Update.AdminTestAndSet (k, expected, wanted) ->
+           let key = __adminprefix ^ k in
+           let existing =
+             try Some (S.get store.s key)
+             with Not_found -> None in
+           if existing = expected
+           then
+             begin
+               match wanted with
+               | None ->
+                  begin
+                    match existing with
+                    | None -> ()
+                    | Some _ -> S.delete store.s tx key
+                  end
+               | Some v -> S.set store.s tx key v
+             end;
+           initialize store;
+           Lwt.return (Ok existing)
     in
     let with_transaction' f = _with_transaction store kt f in
     let update_in_tx f =
