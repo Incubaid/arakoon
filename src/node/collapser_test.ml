@@ -63,15 +63,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
   let storename = "head.db" in
-  begin
-    File_system.exists storename >>= fun head_exists ->
-    if head_exists
-    then
-      File_system.unlink storename
-    else
-      Lwt.return ()
-  end
-  >>= fun () ->
+  File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename)
   in
   let future_i = Sn.of_int 1001 in
@@ -105,15 +97,7 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   let storename = Filename.concat test_dn "head.db" in
   let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
   let cb' = fun n -> Lwt.return () in
-  begin
-    File_system.exists storename >>= fun head_exists ->
-    if head_exists
-    then
-      File_system.unlink storename
-    else
-      Lwt.return ()
-  end
-  >>= fun () ->
+  File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->

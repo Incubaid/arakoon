@@ -21,6 +21,18 @@ open Node_cfg
 
 let section = Logger.Section.main
 
+let should_fail f rc error_msg success_msg =
+   Lwt.catch
+     (fun ()  ->
+       f () >>= fun () ->
+       Logger.debug_ "should fail...doesn't")
+    (function
+        | Arakoon_exc.Exception(rc', _) when rc' = rc ->
+           Logger.debug_ success_msg
+        | exn ->
+           Logger.debug_ ~exn error_msg >>= fun () ->
+           Lwt.fail (Failure error_msg))
+
 let cucu s =
   Lwt_io.eprintlf "cucu: %s" s >>= fun () ->
   Lwt_io.flush Lwt_io.stderr
@@ -29,12 +41,11 @@ let _CLUSTER = "sweety"
 
 type real_test = Arakoon_client.client -> unit Lwt.t
 
-let __client_server_wrapper__ cluster (real_test:real_test) =
+let __client_server_wrapper__ (real_test:real_test) =
   let stop = ref false in
   let lease_period = 2 in
-  let cluster_id = "sweety" in
   let make_config () = Node_cfg.make_test_config
-                         ~cluster_id
+                         ~cluster_id:_CLUSTER
                          ~node_name:(Printf.sprintf "sweety_%i")
                          1 (Master_type.Elected) lease_period
   in
@@ -58,9 +69,10 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
       real_test
   in
   let main () =
-    Lwt.pick [(t0 >>= fun () -> Lwt.fail (Failure "node stopped"));
-              client_t ();] >>= fun () ->
+    Lwt.pick [(t0 >>= fun () -> Lwt.return false);
+              (client_t () >>= fun () -> Lwt.return true);] >>= fun succeeded ->
     stop := true;
+    OUnit.assert_bool "client thread should finish before server" succeeded;
     Lwt.return ()
   in
   Lwt_main.run (main());;
@@ -74,21 +86,21 @@ let test_ping () =
          "Arakoon %i.%i.%i"
          Arakoon_version.major Arakoon_version.minor Arakoon_version.patch);
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_wrong_cluster () =
   let wrong_cluster = "mindy" in
   let real_test client =
     Lwt.catch
       (fun () ->
-         client # ping "boba fet" wrong_cluster >>= fun result ->
+         client # ping "boba fet" wrong_cluster >>= fun _result ->
          OUnit.assert_bool "we should not be able to connect to this cluster" false;
          Lwt.return ())
       (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
         >>= fun () -> Lwt.return ())
     >>= fun () ->
     Lwt.return ()
-  in __client_server_wrapper__ wrong_cluster real_test
+  in __client_server_wrapper__ real_test
 
 let test_set_get () =
   let real_test (client:Arakoon_client.client) =
@@ -96,14 +108,14 @@ let test_set_get () =
     client # get "key" >>= fun value ->
     OUnit.assert_equal value "value";
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_assert_exists () =
   let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # aSSert_exists "key" >>= fun () ->
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_confirm () =
   let real_test (client:Arakoon_client.client) =
@@ -119,39 +131,26 @@ let test_confirm () =
     OUnit.assert_equal v4 "something else";
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 let test_delete () =
   let real_test (client:Arakoon_client.client) =
     client # set "key" "value" >>= fun () ->
     client # delete "key" >>= fun () ->
-    Lwt.catch
-      (fun () ->
-         client # get "key" >>= fun value ->
-         Lwt.return ())
-      (function
-        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
-          Lwt_io.eprintlf "ok!"
-        | exn ->
-          Logger.fatal_ ~exn "wrong exception" >>= fun () ->
-          OUnit.assert_failure
-            "get of non_existing key does not throw correct exception"
-      )
+    should_fail
+      (fun () -> Lwt.map ignore (client # get "key"))
+      Arakoon_exc.E_NOT_FOUND
+      "get of non_existing key does not throw correct exception"
+      "ok!"
     >>= fun () ->
     Logger.info_ "part-2" >>= fun () ->
-    Lwt.catch
-      (fun () ->
-         client # delete "key" >>= fun () ->
-         Logger.info_ "should not get here"
-      )
-      (function
-        | Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND, _) ->
-          Lwt.return ()
-        | exn -> Logger.fatal_ ~exn "should not be" >>= fun () ->
-          OUnit.assert_failure "XXX"
-      )
+    should_fail
+      (fun () -> client # delete "key")
+      Arakoon_exc.E_NOT_FOUND
+      "delete of non_existing key"
+      "ok!"
 
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let test_sequence () =
   let real_test (client:Arakoon_client.client) =
@@ -173,20 +172,47 @@ let test_sequence () =
     OUnit.assert_bool "XXX0 should not be there" (not exists);
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 
 let _test_user_function (client:Arakoon_client.client) =
-  Registry.Registry.register "reverse"
-                    (fun user_db vo ->
-                     (Some "ohce"));
+  let uf _user_db = function
+    | None -> None
+    | Some s ->
+       let r = ref "" in
+       String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
+       Some !r
+  in
+  Registry.Registry.register "reverse" uf;
+
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
   OUnit.assert_equal ro  (Some "ohce");
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "does not exist" None))
+    Arakoon_exc.E_BAD_INPUT
+    "non existing user function should throw exception"
+    "ok!" >>= fun () ->
+
+  Registry.Registry.register "notfound" (fun _ _ -> raise Not_found);
+  Registry.Registry.register "failure" (fun _ _ -> raise (Failure ""));
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "notfound" None))
+    Arakoon_exc.E_NOT_FOUND
+    "should throw not found"
+    "ok!" >>= fun () ->
+
+  should_fail
+    (fun () -> Lwt.map ignore (client # user_function "failure" None))
+    Arakoon_exc.E_USERFUNCTION_FAILURE
+    "should throw E_USERFUNCTION_FAILURE"
+    "ok!" >>= fun () ->
   Lwt.return ()
 
 let test_user_function () =
-  __client_server_wrapper__ _CLUSTER _test_user_function
+  __client_server_wrapper__ _test_user_function
 
 let test_user_hook () =
   Registry.HookRegistry.register "t3k"
@@ -209,8 +235,7 @@ let test_user_hook () =
                                                             []) in
                                   Llio.output_list Llio.output_key oc keys
                                  );
-  __client_server_wrapper__ _CLUSTER
-                            (fun client ->
+  __client_server_wrapper__ (fun client ->
                              client # user_hook "t3k" >>= fun (ic,oc) ->
                              Llio.output_string oc "cthulhu" >>= fun () ->
                              Llio.input_string ic >>= fun response ->
@@ -279,14 +304,14 @@ let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
   client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
-  Lwt_list.iter_s (fun (k,v) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
+  Lwt_list.iter_s (fun (k, _) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in
   let () = OUnit.assert_bool "hd" (k  = "xey099") in
   Lwt.return ()
 
-let test_range () = __client_server_wrapper__ _CLUSTER _test_range
+let test_range () = __client_server_wrapper__ _test_range
 
-let test_reverse_range () = __client_server_wrapper__ _CLUSTER _test_reverse_range
+let test_reverse_range () = __client_server_wrapper__ _test_reverse_range
 
 let _prefix_keys_test (client:Arakoon_client.client) =
   let cat s i = s ^ (string_of_int i) in
@@ -310,7 +335,7 @@ let _prefix_keys_test (client:Arakoon_client.client) =
   Lwt.return ()
 
 let test_prefix_keys () =
-  __client_server_wrapper__ _CLUSTER _prefix_keys_test
+  __client_server_wrapper__ _prefix_keys_test
 
 let test_get_key_count () =
   let real_test client =
@@ -330,7 +355,7 @@ let test_get_key_count () =
     OUnit.assert_equal ~msg result 100L;
     Lwt.return ()
   in
-  __client_server_wrapper__ _CLUSTER real_test
+  __client_server_wrapper__ real_test
 
 
 let test_and_set_to_none () =
@@ -344,7 +369,7 @@ let test_and_set_to_none () =
     client # test_and_set key wanted None >>= fun result2 ->
     OUnit.assert_equal ~printer:string_option2s ~msg:"assert2" result2 wanted;
     Lwt.return ()
-  in __client_server_wrapper__ _CLUSTER real_test
+  in __client_server_wrapper__ real_test
 
 let suite = "remote_client" >::: [
     "ping"      >:: test_ping;

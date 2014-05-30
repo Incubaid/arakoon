@@ -27,7 +27,6 @@ struct
   open Update
   open Interval
   open Common
-  open Simple_store
   open Master_type
   open Arakoon_client
 
@@ -49,7 +48,7 @@ struct
           ( fun () ->Lwt.return (Lwt.wakeup awake b))
           ( fun e ->
              match e with
-               | Invalid_argument s ->
+               | Invalid_argument _ ->
                  let t = state sleeper in
                  begin
                    match t with
@@ -59,7 +58,7 @@ struct
                          >>= fun () ->
                          Lwt.fail ex
                        end
-                     | Return v ->
+                     | Return _ ->
                        Logger.error_ "Lwt.wakeup error: Sleeper already returned"
                      | Sleep ->
                        Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
@@ -164,7 +163,7 @@ struct
 
       method private wait_for_tlog_release tlog_file_n =
         let blocking_requests = [] in
-        let maybe_add_blocker tlog_num s blockers =
+        let maybe_add_blocker tlog_num _ blockers =
           if tlog_file_n >= tlog_num
           then
             tlog_num :: blockers
@@ -244,7 +243,7 @@ struct
         self # _check_interval [key] >>= fun () ->
         let () = assert_value_size value in
         let update = Update.Set(key,value) in
-        let update_sets (update_result:Store.update_result) = Statistics.new_set _stats key value start in
+        let update_sets (_update_result:Store.update_result) = Statistics.new_set _stats key value start in
         _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
 
@@ -287,9 +286,15 @@ struct
 
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
-        let update = Update.UserFunction(name,po) in
-        let so_post so = so in
-        _update_rendezvous self update no_stats push_update ~so_post
+        if Registry.Registry.exists name
+        then
+          begin
+            let update = Update.UserFunction(name,po) in
+            let so_post so = so in
+            _update_rendezvous self update no_stats push_update ~so_post
+          end
+        else
+          Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, Printf.sprintf "User function %S could not be found" name))
 
       method get_read_user_db () =
         S.get_read_user_db store
@@ -318,7 +323,7 @@ struct
           | Some w -> assert_value_size w
         in
         let update = Update.TestAndSet(key, expected, wanted) in
-        let update_stats ur = Statistics.new_testandset _stats start in
+        let update_stats _ur = Statistics.new_testandset _stats start in
         let so_post so = so in
         _update_rendezvous self update update_stats push_update ~so_post
 
@@ -330,7 +335,7 @@ struct
           | Some w -> assert_value_size w
         in
         let update = Update.Replace(key,wanted) in
-        let update_stats ur = Statistics.new_replace _stats start in
+        let update_stats _ur = Statistics.new_replace _stats start in
         let so_post so = so in
         _update_rendezvous self update update_stats push_update ~so_post
 
@@ -340,10 +345,11 @@ struct
         (* do we need to test the prefix on the interval ? *)
         let update = Update.DeletePrefix prefix in
         let update_stats ur =
+          let open Simple_store in
           let n_keys =
             match ur with
               | Ok so -> (match so with | None -> 0 | Some ns -> (Llio.int_from (Llio.make_buffer ns 0)))
-              | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
+              | Update_fail _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
           in
           Statistics.new_delete_prefix _stats start n_keys
         in
@@ -357,10 +363,10 @@ struct
       method delete key = log_o self "delete %S" key >>= fun () ->
         let start = Unix.gettimeofday () in
         let update = Update.Delete key in
-        let update_stats ur = Statistics.new_delete _stats start in
+        let update_stats _ur = Statistics.new_delete _stats start in
         _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
-      method hello (client_id:string) (cluster_id:string) =
+      method hello (_client_id:string) (cluster_id:string) =
         if test ~cluster_id
         then
           let msg = Printf.sprintf
@@ -381,7 +387,7 @@ struct
           then Update.SyncedSequence updates
           else Update.Sequence updates
         in
-        let update_stats ur = Statistics.new_sequence _stats start in
+        let update_stats _ur = Statistics.new_sequence _stats start in
         let so_post _ = () in
         _update_rendezvous self update update_stats push_update ~so_post
 
@@ -643,7 +649,7 @@ struct
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
         let mode = Quiesce.Mode.ReadOnly in
-        self # try_quiesced ~mode (fun () -> S.optimize store) >>= fun () ->
+        self # try_quiesced ~mode (fun () -> Lwt.map ignore (S.optimize store)) >>= fun () ->
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
@@ -705,7 +711,7 @@ struct
         begin
           match client_cfgs with
             | None ->
-              S.range_entries store ~_pf:__adminprefix
+              S.range_entries store ~_pf:Simple_store.__adminprefix
                 ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
               >>= fun cfgs ->
               let result = Hashtbl.create 5 in

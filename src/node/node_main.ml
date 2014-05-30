@@ -52,7 +52,7 @@ let _config_logging me get_cfgs =
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
       | Some log_config' ->
         try
-          let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
+          let (_, lc) = List.find (fun (log_config_name, _log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
           lc
         with Not_found ->
           failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
@@ -107,7 +107,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
       let (_, btc') =
         try
           List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-        with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
+        with _ -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
       set_max btc'.max_entries btc'.max_size
 
 let _config_messaging
@@ -117,7 +117,7 @@ let _config_messaging
       ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
-      let f msg source target =
+      let f _ _ _ =
         let () = incr count in
         match !count with
           | x when x >= 1000 -> let () = count := 0 in false
@@ -294,7 +294,7 @@ module X = struct
               end
             else
               Lwt.return ()
-          | _ -> Lwt.return ()
+          | Value.Vc _ -> Lwt.return ()
       end >>= fun () ->
       S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
@@ -303,20 +303,20 @@ module X = struct
       Lwt.return r
     end
 
-  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
+  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
     begin
       match v with
         | Value.Vc (us,_)     ->
           let size = List.length us in
           let () = Statistics.new_harvest statistics size in
           Lwt.return ()
-        | _ -> Lwt.return ()
+        | Value.Vm _  -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
@@ -556,7 +556,7 @@ let _main_2 (type s)
 
           let service = _config_service ?ssl_context:service_ssl_context me stop backend in
 
-          let send, run, register, is_alive =
+          let send, _run, _register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
           let start_liveness_detection_loop fuse =
@@ -581,7 +581,7 @@ let _main_2 (type s)
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
-          let on_accept = X.on_accept statistics tlog_coll (module S) store in
+          let on_accept = X.on_accept statistics tlog_coll in
 
           let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
           let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -651,7 +651,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend stop (master, constants, buffers, new_i, store) =
+      let start_backend stop (master, constants, buffers, new_i) =
         let to_run =
           if me.is_witness
           then
@@ -679,14 +679,14 @@ let _main_2 (type s)
            build_startup_state () >>= fun (start_state,
                                            service,
                                            rapporting) ->
-           let (_,constants,_,_,store) = start_state in
+           let (master, constants, buffers, new_i, store) = start_state in
            let log_exception m t =
              Lwt.catch
                t
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let fsm () = start_backend stop start_state in
+           let fsm () = start_backend stop (master, constants, buffers, new_i) in
            let fsm_t =
              Lwt.finalize
                (fun () ->
@@ -811,6 +811,7 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
 let test_t make_config name stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll ~compressor =
+    ignore compressor;
     Mem_tlogcollection.make_mem_tlog_collection
   in
   let get_snapshot_name = fun () -> "DUMMY" in

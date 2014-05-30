@@ -29,20 +29,20 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
         let invalidate_lease_start_until = match invalidate_lease_start_until with
           | Some x -> x
           | None -> Unix.gettimeofday () -. (float constants.lease_expiration) in
-        let origine,(am,al) =
+        let lease_start =
           match S.who_master constants.store with
-            | None         -> "not_in_store", ("None", 0.0)
-            | Some (sm,sd) -> "stored", (sm,sd)
+          | None         -> 0.0
+          | Some (_m,sd) -> sd
         in
         let return need_elections =
-          need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until al in
-        if invalidate_lease_start_until >= al
+          need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until lease_start in
+        if invalidate_lease_start_until >= lease_start
         then
           begin
             match constants.respect_run_master with
             | None ->
               return true
-            | Some(other, until) ->
+            | Some(_, until) ->
               if Unix.gettimeofday () < until
               then
                 false, "lease expired, but respecting another node running for master"
@@ -246,7 +246,7 @@ let slave_steady_state (type s) constants state event =
            that allows clients to get through before the node became a slave
            but I know I'm a slave now, so I let the update fail.
         *)
-        let updates,finished_funs = List.split ufs in
+        let finished_funs = List.map snd ufs in
         let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
         let rec loop = function
           | []       -> Lwt.return ()
@@ -260,7 +260,7 @@ let slave_steady_state (type s) constants state event =
       handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
       Fsm.return (Slave_steady_state state)
     | Unquiesce ->
-      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      handle_unquiesce_request constants >>= fun () ->
       Fsm.return  (Slave_steady_state state)
     | DropMaster (sleep, awake) ->
       Multi_paxos.safe_wakeup sleep awake () >>= fun () ->

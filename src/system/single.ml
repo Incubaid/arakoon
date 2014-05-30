@@ -22,22 +22,7 @@ open Master_type
 
 let section = Logger.Section.main
 
-let should_fail f rc error_msg success_msg =
-  Lwt.catch
-    (fun ()  ->
-       f () >>= fun () ->
-       Logger.debug_ "should fail...doesn't" >>= fun () ->
-       Lwt.return true)
-    (function
-        | Arakoon_exc.Exception(rc', _) when rc' = rc ->
-           Logger.debug_ success_msg >>= fun () ->
-           Lwt.return false
-        | exn ->
-           Logger.debug_ ~exn error_msg >>= fun () ->
-           Lwt.return true)
-  >>= fun bad ->
-  if bad then Lwt.fail (Failure error_msg)
-  else Lwt.return ()
+let should_fail = Arakoon_remote_client_test.should_fail
 
 let _start tn =
   Logger.info_f_ "---------------------%s--------------------" tn
