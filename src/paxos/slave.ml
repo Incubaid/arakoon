@@ -184,7 +184,20 @@ let slave_steady_state (type s) constants state event =
               end
             else
               accept_value [] n' i' v "steady_state :: replying again to previous with %S"
-          | Accept (n',i',v) when i' <= i ->
+          | Accept (n',i',v) when i' > i || (i'=i && n' > n) ->
+                                  (* TODO make helper function to check this! *)
+             begin
+               let log_e = ELog (fun () ->
+                                 Printf.sprintf
+                                   "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
+                                   (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
+                                )
+               in
+               let cu_pred = S.get_catchup_start_i constants.store in
+               let new_state = (source,cu_pred,n',i') in
+               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+             end
+          | Accept (n',i',v) ->
             begin
               let log_e = ELog (
                   fun () ->
@@ -192,18 +205,6 @@ let slave_steady_state (type s) constants state event =
                       (string_of msg) )
               in
               Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
-            end
-          | Accept (n',i',v) ->
-            begin
-              let log_e = ELog (fun () ->
-                  Printf.sprintf
-                    "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
-                    (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
-                )
-              in
-              let cu_pred = S.get_catchup_start_i constants.store in
-              let new_state = (source,cu_pred,n',i') in
-              Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
             end
           | Prepare(n',i') ->
             begin
@@ -221,11 +222,11 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
             end
           | Nak(n',(n2, i2)) when i2 > i ->
-            begin
-              Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
-              let cu_pred =  S.get_catchup_start_i constants.store in
-              Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-            end
+             begin
+               Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
+               let cu_pred =  S.get_catchup_start_i constants.store in
+               Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+             end
           | Nak _
           | Promise _
           | Accepted _ ->
