@@ -170,8 +170,16 @@ let test_batched_with_failures () =
   Logger.info_ "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
     (fun store new_i ->
-       let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
-       let assert_exists k = S.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
+       let assert_not_exists k =
+         let exists = S.exists store k in
+         if exists
+         then failwith "found key that is not supposed to be in the store!"
+         else Lwt.return () in
+       let assert_exists k =
+         let exists = S.exists store k in
+         if not exists
+         then failwith "could not find required key in the store!"
+         else Lwt.return () in
        assert_exists "key2" >>= fun () ->
        assert_exists "key2590" >>= fun () ->
        assert_not_exists "_3a_key2" >>= fun () ->

@@ -181,7 +181,7 @@ let post_failure () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "x" in
-    LS.exists store0 key >>= fun b ->
+    let b = LS.exists store0 key in
     Logger.debug_f_ "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
@@ -242,7 +242,7 @@ let restart_slaves () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store0 = Hashtbl.find stores db_name in
     let key = "xxx" in
-    LS.exists store0 key >>= fun b ->
+    let b = LS.exists store0 key in
     Logger.debug_f_ "%s: '%s' exists? -> %b" node key b >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should be in store" key) b;
     Lwt.return ()
@@ -306,7 +306,7 @@ let ahead_master_loses_role () =
     let db_name = (node ^ "/" ^ node ^".db") in
     let store = Hashtbl.find stores db_name in
     let key = "invalidkey" in
-    LS.exists store key >>= fun exists ->
+    let exists = LS.exists store key in
     Logger.debug_f_ "%s: '%s' exists? -> %b" node key exists >>= fun () ->
     OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not exists);
     Lwt.return ()

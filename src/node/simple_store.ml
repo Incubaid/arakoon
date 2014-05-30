@@ -168,7 +168,7 @@ module type Simple_store = sig
   val get_location: t -> string
   val relocate: t -> string -> unit Lwt.t
 
-  val get_key_count : t -> int64 Lwt.t
+  val get_key_count : t -> int64
 
   val optimize : t -> quiesced:bool -> stop:bool ref -> bool Lwt.t
   val defrag : t -> unit Lwt.t
