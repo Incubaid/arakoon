@@ -31,7 +31,7 @@ let is_empty = function
    first potentially finish of a client request and then on to
    being a stable master *)
 let master_consensus (type s) constants {mo;v;n;i; lew} () =
-  let con_e = EConsensus(mo, v,n,i, false) in
+  let con_e = EConsensus(mo, v,n,i) in
   let log_e = ELog (fun () ->
       Printf.sprintf "on_consensus for : %s => %i finished_fs (in master_consensus)"
         (Value.value2s v)
@@ -67,7 +67,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
                      stable_master state below.
                   *)
                   inject_lease_expired ls
-              | Some (m, ls) (* when m <> me *) ->
+              | Some (_m, ls) (* when m <> me *) ->
                 (* always insert a lease expired after picking up master role
                    from another node. do not compare gettimeofday with when the
                    lease started, as we might have acted earlier than necessary
@@ -194,21 +194,21 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                     Fsm.return (Slave_discovered_other_master (source, i, n', i'))
                 end
             end
-          | Accepted(n,i) ->
+          | Accepted(_n,i) ->
             (* This one is not relevant anymore, but we're interested
                to see the slower slaves in the statistics as well :
                TODO: should not be solved on this level.
             *)
             let () = constants.on_witness source i in
             Fsm.return (Stable_master current_state)
-          | Accept(n',i',v) when i' > new_i || (i' = new_i && n' > n) ->
+          | Accept(n',i',_v) when i' > new_i || (i' = new_i && n' > n) ->
             (*
                somehow the others decided upon a master and I got no lease expired event.
                or I was running for master and another managed to prepare with a higher n.
                Let's see what's going on, and maybe go back to elections
             *)
             begin
-              let run_elections, why = Slave.time_for_elections constants in
+              let run_elections = fst (Slave.time_for_elections constants) in
               if not run_elections
               then
                 begin
@@ -256,7 +256,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
    messages and then waits for Accepted responses *)
 
 let master_dictate constants ms () =
-  let {mo;v;n;i;lew} = ms in
+  let {v;n;i; _} = ms in
   let accept_e = EAccept (v,n,i) in
 
   let mcast_e = EMCast (Accept(n,i,v)) in

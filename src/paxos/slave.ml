@@ -158,7 +158,7 @@ let slave_steady_state (type s) constants state event =
                       then
                         begin
                           Logger.debug_f_ "%s: slave: have previous, so that implies consensus" constants.me >>= fun () ->
-                          Lwt.return [EConsensus (None, previous,n,Sn.pred i, true)]
+                          Lwt.return [EConsensus (None, previous,n,Sn.pred i)]
                         end
                       else
                         paxos_fatal constants.me "slave: with previous, mismatch store_i = %Li, i = %Li" store_i i
@@ -288,7 +288,7 @@ let slave_discovered_other_master (type s) constants state () =
       let master_before = S.who_master store in
       let lease_expired = match master_before with
         | None -> true
-        | Some (m, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
+        | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
       Catchup.catchup
         ~tls_ctx
         ~stop:constants.stop
