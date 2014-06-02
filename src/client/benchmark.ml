@@ -223,9 +223,9 @@ let benchmark
       ?(tx_size=100)
       ?(max_n = 1000 * 1000)
       ~with_c
-      n_clients scenario_s
+      n_clients
+      scenario
   =
-  let scenario = Ini.p_string_list scenario_s in
   Lwt_io.printlf "going to run following scenario:" >>= fun () ->
   Lwt_list.iter_s Lwt_io.printl scenario >>= fun () ->
   Lwt_io.printl "--" >>= fun () ->
@@ -306,6 +306,14 @@ let benchmark
   ]
   in
 
-  let phase_of_name n = List.assoc n phase_map in
+  let phase_of_name n =
+    try List.assoc n phase_map
+    with Not_found -> failwith (Printf.sprintf "scenario cannot contain %S" n)
+  in
   let phases = List.map phase_of_name scenario in
   Lwt_list.iter_s (fun phase -> Lwt.join (ts phase)) phases
+
+
+let default_scenario = ["master"; "set"; "set_tx";
+                        "get"; "multi_get";
+                        "range"; "range_entries";]

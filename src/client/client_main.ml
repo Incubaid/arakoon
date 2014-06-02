@@ -191,10 +191,11 @@ let benchmark
       cfg_name key_size value_size tx_size max_n n_clients
       scenario_s =
   Lwt_io.set_default_buffer_size 32768;
+  let scenario = Ini.p_string_list scenario_s in
   let t () =
     let with_c = with_master_client ~tls cfg_name in
     Benchmark.benchmark
-      ~with_c ~key_size ~value_size ~tx_size ~max_n n_clients scenario_s
+      ~with_c ~key_size ~value_size ~tx_size ~max_n n_clients scenario
   in
   run t
 

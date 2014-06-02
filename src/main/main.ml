@@ -195,7 +195,7 @@ let main () =
   and linc = ref true
   and right = ref None
   and rinc = ref false
-  and scenario = ref "master, set, set_tx, get, multi_get, range, range_entries"
+  and scenario = ref (String.concat ", " Benchmark.default_scenario)
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
