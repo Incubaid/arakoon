@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Lwt
 open Arakoon_client
 
@@ -226,7 +224,11 @@ let benchmark
       ?(max_n = 1000 * 1000)
       ~with_c
       n_clients
+      scenario
   =
+  Lwt_io.printlf "going to run following scenario:" >>= fun () ->
+  Lwt_list.iter_s Lwt_io.printl scenario >>= fun () ->
+  Lwt_io.printl "--" >>= fun () ->
   let v_size = if value_size < 10 then 10 else value_size in
   let k_size = if key_size < 12 then 12 else key_size in
   let phase_0 client oc =
@@ -297,11 +299,21 @@ let benchmark
     build [] n_clients
   in
   let ts ph = List.map (fun name -> do_one ph name) names in
-  Lwt.join (ts phase_0) >>= fun () ->
-  Lwt.join (ts phase_1) >>= fun () ->
-  Lwt.join (ts phase_2) >>= fun () ->
-  Lwt.join (ts phase_3) >>= fun () ->
-  Lwt.join (ts phase_4) >>= fun () ->
-  Lwt.join (ts phase_5) >>= fun () ->
-  Lwt.join (ts phase_6) >>= fun () ->
-  Lwt.return ()
+  let phase_map = [
+    ("master" , phase_0); ("set", phase_1);
+    ("set_tx", phase_2); ("get", phase_3); ("multi_get", phase_4);
+    ("range", phase_5);("range_entries", phase_6)
+  ]
+  in
+
+  let phase_of_name n =
+    try List.assoc n phase_map
+    with Not_found -> failwith (Printf.sprintf "scenario cannot contain %S" n)
+  in
+  let phases = List.map phase_of_name scenario in
+  Lwt_list.iter_s (fun phase -> Lwt.join (ts phase)) phases
+
+
+let default_scenario = ["master"; "set"; "set_tx";
+                        "get"; "multi_get";
+                        "range"; "range_entries";]
