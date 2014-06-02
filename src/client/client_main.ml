@@ -186,11 +186,15 @@ let rev_range_entries ~tls cfg_name left linc right rinc max_results =
   in
   run t
 
-let benchmark ~tls cfg_name key_size value_size tx_size max_n n_clients =
+let benchmark
+      ~tls
+      cfg_name key_size value_size tx_size max_n n_clients
+      scenario_s =
   Lwt_io.set_default_buffer_size 32768;
   let t () =
     let with_c = with_master_client ~tls cfg_name in
-    Benchmark.benchmark ~with_c ~key_size ~value_size ~tx_size ~max_n n_clients
+    Benchmark.benchmark
+      ~with_c ~key_size ~value_size ~tx_size ~max_n n_clients scenario_s
   in
   run t
 
