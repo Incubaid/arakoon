@@ -34,6 +34,7 @@ module Update = struct
     | Assert_exists of string
     | UserFunction of string * string option
     | AdminSet of string * string option
+    | AdminAssert of string * string option
     | AdminTestAndSet of string * string option * string option
     | SyncedSequence of t list
     | DeletePrefix of string
@@ -84,6 +85,7 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
+      | AdminAssert (key, vo)  -> Printf.sprintf "AdminAssert     ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
       | AdminTestAndSet (key, expected, wanted) ->
         Printf.sprintf "AdminTestAndSet        ;%S;%i;%S" key (_size_of wanted) (maybe_o wanted)
       | SyncedSequence _updates -> Printf.sprintf "SyncedSequence  ;..."
@@ -177,7 +179,11 @@ module Update = struct
          Llio.int_to b 18;
          Llio.string_to b key;
          Llio.string_option_to b expected;
-         Llio.string_option_to b wanted
+         Llio.string_option_to b wanted;
+      | AdminAssert(k,vo) ->
+        Llio.int_to b 19;
+        Llio.string_to b k;
+        Llio.string_option_to b vo
 
   let rec from_buffer b =
     let kind = Llio.int_from b in
@@ -263,6 +269,10 @@ module Update = struct
          let expected = Llio.string_option_from b in
          let wanted = Llio.string_option_from b in
          AdminTestAndSet (key, expected, wanted)
+      | 19 ->
+         let key = Llio.string_from b in
+         let expected = Llio.string_option_from b in
+         AdminAssert (key, expected)
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function

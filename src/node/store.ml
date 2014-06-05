@@ -793,6 +793,17 @@ struct
           in
           initialize store;
           Lwt.return (Ok None)
+        | Update.AdminAssert(k,vo) ->
+           begin
+             let key = __adminprefix ^ k in
+             let vo' =
+               try Some (S.get store.s key)
+               with Not_found -> None in
+             match vo, vo' with
+             | None, None -> Lwt.return (Ok None)
+             | Some v, Some v' when v = v' -> Lwt.return (Ok None)
+             | _ -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
+           end
         | Update.AdminTestAndSet (k, expected, wanted) ->
            let key = __adminprefix ^ k in
            let existing =
