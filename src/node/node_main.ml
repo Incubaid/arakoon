@@ -377,6 +377,11 @@ let _main_2 (type s)
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
+  let () = match cluster_cfg.overwrite_tlog_entries with
+    | None -> ()
+    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+  in
+
   if catchup_only
   then
     begin
@@ -394,11 +399,6 @@ let _main_2 (type s)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-
-      let () = match cluster_cfg.overwrite_tlog_entries with
-        | None -> ()
-        | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-      in
 
       let my_clicfg =
         begin
