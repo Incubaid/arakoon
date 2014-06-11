@@ -207,6 +207,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
+       Logger.warning_f_ ~exn "Catchup from %s failed" mr_name >>= fun () ->
        Lwt.return false)
   in
   let rec try_nodes = function
