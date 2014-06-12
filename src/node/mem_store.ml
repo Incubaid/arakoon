@@ -122,7 +122,8 @@ let range ms first finc last linc max =
                      []) in
   Array.of_list keys
 
-let optimize ms quiesced = Lwt.return ()
+let optimize ms ~quiesced ~stop = Lwt.return true
+
 let defrag ms = Lwt.return ()
 
 let flush ms = Lwt.return ()

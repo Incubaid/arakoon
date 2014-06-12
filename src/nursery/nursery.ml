@@ -37,7 +37,7 @@ let try_connect (ips, port) =
     )
     (function
       | Canceled -> Lwt.fail Canceled
-      | exn -> Lwt.return None)
+      | _ -> Lwt.return None)
 
 
 

@@ -242,7 +242,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
       end
     | Quiesce (_, sleep,awake) ->
       begin
-        fail_quiesce_request constants.store sleep awake Quiesce.Result.FailMaster >>= fun () ->
+        fail_quiesce_request sleep awake Quiesce.Result.FailMaster >>= fun () ->
         Fsm.return (Stable_master current_state)
       end
 

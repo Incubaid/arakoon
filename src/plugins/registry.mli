@@ -59,6 +59,7 @@ class type backend =
 module Registry : sig
   type f = user_db -> string option -> string option
   val register : string -> f -> unit
+  val exists : string -> bool
   val lookup : string -> f
 end
 

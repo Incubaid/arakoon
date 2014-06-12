@@ -98,7 +98,7 @@ let test_iterate4 (dn, tlx_dir, factory) =
   Lwt_unix.sleep 3.0 >>= fun () -> (* TODO: compression should have callback *)
   let extension = Tlc2.extension Compression.Snappy in
   let fnc = Tlc2.get_full_path dn tlx_dir ("000" ^ extension) in
-  Unix.unlink fnc;
+  File_system.unlink fnc >>= fun () ->
   (* remove 000.tlog & 000.tlx ; errors? *)
   tlc # get_infimum_i () >>= fun inf ->
   Logger.debug_f_ "inf=%s" (Sn.string_of inf) >>= fun () ->

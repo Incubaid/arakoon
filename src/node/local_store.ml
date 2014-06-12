@@ -28,6 +28,8 @@ module B = Camltc.Bdb
 type t = { db : Camltc.Hotc.t;
            mutable location : string;
            mutable _tx : (transaction * Camltc.Hotc.bdb) option;
+           lcnum : int;
+           ncnum : int;
          }
 
 let range ls first finc last linc max =
@@ -42,7 +44,7 @@ let copy_store2 old_location new_location overwrite =
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    File_system.copy_file old_location new_location overwrite
+    File_system.copy_file old_location new_location ~overwrite
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
@@ -72,7 +74,7 @@ let _tranbegin ls =
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
-    | Some (tx, bdb) ->
+    | Some (_tx, bdb) ->
       let t0 = Unix.gettimeofday () in
       Camltc.Bdb._trancommit bdb;
       let t = ( Unix.gettimeofday () -. t0) in
@@ -86,7 +88,7 @@ let _trancommit ls =
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
-    | Some (tx, bdb) ->
+    | Some (_tx, bdb) ->
       Camltc.Bdb._tranabort bdb;
       ls._tx <- None
 
@@ -149,10 +151,10 @@ let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> B.delete_prefix db prefix)
 
-let flush ls =
+let flush _ls =
   Lwt.return ()
 
-let close ls flush =
+let close ls _flush =
   Camltc.Hotc.close ls.db >>= fun () ->
   Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
   Lwt.return ()
@@ -195,29 +197,6 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
   >>= fun () ->
   Lwt_io.flush oc
 
-let optimize ls quiesced =
-  let db_optimal = ls.location ^ ".opt" in
-  Logger.info_ "Copying over db file" >>= fun () ->
-  Lwt_io.with_file
-    ~flags:[Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
-    ~mode:Lwt_io.output
-    db_optimal (fun oc -> copy_store ls false oc )
-  >>= fun () ->
-  begin
-    Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
-    safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
-    Lwt.finalize
-      ( fun () ->
-         Logger.info_ "Optimizing db copy" >>= fun () ->
-         Camltc.Hotc.optimize db_opt >>= fun () ->
-         Logger.info_ "Optimize db copy complete"
-      )
-      ( fun () ->
-         Camltc.Hotc.close db_opt
-      )
-  end >>= fun () ->
-  File_system.rename db_optimal ls.location >>= fun () ->
-  reopen ls (fun () -> Lwt.return ()) quiesced
 
 let relocate ls new_location =
   copy_store2 ls.location new_location true >>= fun () ->
@@ -293,4 +272,70 @@ let make_store ~lcnum ~ncnum read_only db_name  =
   >>= fun db ->
   Lwt.return { db = db;
                location = db_name;
-               _tx = None; }
+               _tx = None;
+               ncnum;
+               lcnum;}
+
+
+let optimize ls ~quiesced ~stop =
+  let open Camltc in
+  let batch_size = 10_000 in
+  let log_size = 1_000_000 in
+  let log_batch_count = (log_size / batch_size) - 1 in
+  let db_optimal = ls.location ^ ".opt" in
+  File_system.unlink db_optimal >>= fun () ->
+  Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
+  make_store ~lcnum:ls.lcnum ~ncnum:ls.ncnum false db_optimal >>= fun ls_optimal ->
+  Lwt.finalize
+    (fun () ->
+     let target = Camltc.Hotc.get_bdb ls_optimal.db in
+     let go () =
+       Bdb.with_cursor
+         (Camltc.Hotc.get_bdb ls.db)
+         (fun source cursor ->
+          Bdb.first source cursor;
+          let max = Some batch_size in
+          let rec loop i =
+            let count =
+              Bdb.copy_from_cursor
+                ~source
+                ~cursor
+                ~target
+                ~max in
+            if !stop
+            then
+              false
+            else if count = batch_size
+            then
+              begin
+                if i = log_batch_count
+                then
+                  begin
+                    Logger.ign_info_f_ "Copied %i keys to optimized db %s" log_size db_optimal;
+                    loop 0
+                  end
+                else
+                  loop (i + 1)
+              end
+            else
+              begin
+                Camltc.Hotc.sync_nolock ls_optimal.db;
+                true
+              end
+          in
+          loop 0)
+     in
+     Lwt_preemptive.detach go ())
+    (fun () ->
+     Camltc.Hotc.close ls_optimal.db) >>= fun finished ->
+  Logger.info_f_ "Optimize db copy complete (finished=%b)" finished >>= fun () ->
+  reopen
+    ls
+    (fun () ->
+     if finished
+     then
+       File_system.rename db_optimal ls.location
+     else
+       File_system.unlink db_optimal)
+    quiesced >>= fun () ->
+  Lwt.return finished

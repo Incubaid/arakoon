@@ -115,7 +115,7 @@ class TestConfig:
         cluster.addNode(name = name, ip=ips)
         config = cluster._getConfigFile()
         d = Compat.sectionAsDict(config, name)
-        assert_equals(d['ip'],'127.0.0.1,192.168.0.1')
+        assert_equals(d['ip'],'127.0.0.1, 192.168.0.1')
 
     def testAddNodeDuplicateName(self):
         cid = self._clusterId

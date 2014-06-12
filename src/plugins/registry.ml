@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+exception UserFunctionNotFound of string
+
 class type cursor_db =
   object
     method get_key : unit -> Key.t
@@ -92,7 +94,10 @@ module Registry = struct
   type f = user_db -> string option -> string option
   let _r = Hashtbl.create 42
   let register name (f:f) = Hashtbl.replace _r name f
-  let lookup name = Hashtbl.find _r name
+  let exists name = Hashtbl.mem _r name
+  let lookup name =
+    try Hashtbl.find _r name
+    with Not_found -> raise (UserFunctionNotFound name)
 end
 
 module HookRegistry = struct

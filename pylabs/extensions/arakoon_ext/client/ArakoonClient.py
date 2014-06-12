@@ -39,6 +39,9 @@ class ArakoonClientExtConfig:
         """
         self.__validateName(name)
 
+        if isinstance(ip, basestring):
+            ip = [ip]
+
         clusterId = self._clusterId
         inifile_path = self._configPath
 
@@ -56,7 +59,7 @@ class ArakoonClientExtConfig:
 
         nodes.append(name)
         config.add_section(name)
-        config.set(name, "ip", ip)
+        config.set(name, "ip", ', '.join(ip))
         config.set(name, "client_port", clientPort)
 
         config.set("global","cluster", ",".join(nodes))
@@ -103,7 +106,9 @@ class ArakoonClientExtConfig:
             nodes = self.__getNodes(config)
 
             for name in nodes:
-                clientconfig[name] = (config.get(name, "ip"),
+                ips = config.get(name, 'ip')
+                ip_list = map(lambda x: x.strip(), ips.split(','))
+                clientconfig[name] = (ip_list,
                                       config.get(name, "client_port"))
 
         return clientconfig
@@ -130,8 +135,10 @@ class ArakoonClientExtConfig:
                 if name in self.getNodes():
                     self.removeNode(name)
 
+                ips = serverConfig.get(name, 'ip')
+                ip_list = map(lambda x: x.strip(), ips.split(','))
                 self.addNode(name,
-                             serverConfig.get(name, "ip"),
+                             ip_list,
                              serverConfig.get(name, "client_port"))
 
     def __getNodes(self, config):
@@ -188,7 +195,7 @@ class ArakoonClient:
             for node in clusterParam.split(",") :
                 node = node.strip()
                 ips = cfgFile.get(node, "ip")
-                ip_list = ips.split(',')
+                ip_list = map(lambda x: x.strip(), ips.split(','))
                 port = cfgFile.get(node, "client_port")
                 ip_port = (ip_list, port)
                 node_dict.update({node: ip_port})

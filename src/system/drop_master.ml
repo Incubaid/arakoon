@@ -33,11 +33,11 @@ let setup tn master base () =
   let all_t = [t0;t1;t2] in
   Lwt.return (tn, make_config (), all_t)
 
-let teardown (tn, _, all_t) =
+let teardown (_tn, _, all_t) =
   stop := true;
   Lwt.join all_t
 
-let _with_master_admin ~tls (tn, cluster_cfg, _) f =
+let _with_master_admin ~tls (_tn, cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Client_main.find_master ~tls cluster_cfg >>= fun master_name ->
