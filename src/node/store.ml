@@ -128,17 +128,7 @@ struct
   let _master store =
     try
       let m = S.get store __master_key in
-      let ls =
-        try
-          (* first try new key with more accurate storage *)
-          let ls_buff = S.get store __lease_key2 in
-          let ls = Llio.float_from (Llio.make_buffer ls_buff 0) in
-          ls
-        with Not_found ->
-          (* fallback to old more coarse grained lease period *)
-          let ls_buff = S.get store __lease_key in
-          let ls  = Llio.int64_from (Llio.make_buffer ls_buff 0) in
-          (Int64.to_float ls) +. 1. in
+      let ls = Unix.gettimeofday () in
       Some (m,ls)
     with Not_found ->
       None
@@ -269,10 +259,6 @@ struct
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
         S.set store.s tx __master_key master;
-        let buffer = Buffer.create 8 in
-        let () = Llio.float_to buffer lease_start in
-        let lease = Buffer.contents buffer in
-        S.set store.s tx __lease_key2 lease;
         store.master <- Some (master, lease_start);
         Lwt.return ())
 
