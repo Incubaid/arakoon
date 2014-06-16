@@ -201,7 +201,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
          me.use_compression me.fsync name >>= fun tlc ->
        Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
-       S.close store >>= fun () ->
+       S.close store ~flush:false ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
@@ -625,7 +625,7 @@ let _main_2 (type s)
               Lwt_unix.sleep 1.0 >>= fun () ->
               inner (succ i) in
             inner 0 in
-          Lwt.pick [ S.close ~flush:false store ;
+          Lwt.pick [ S.close ~flush:false ~sync:true store ;
                      count_thread "Closing store (%is)" ] >>= fun () ->
           Logger.fatal_f_
             ">>> Closing the store @ %S succeeded: everything seems OK <<<"

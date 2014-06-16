@@ -103,7 +103,7 @@ let optimize ms quiesced = Lwt.return ()
 let defrag ms = Lwt.return ()
 
 let flush ms = Lwt.return ()
-let close ms flush = Lwt.return ()
+let close ms ~flush ~sync = Lwt.return ()
 
 let reopen ms when_closed quiesced = Lwt.return ()
 

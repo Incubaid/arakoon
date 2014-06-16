@@ -254,11 +254,11 @@ struct
     _sync_and_start_transaction_if_needed s;
     Lwt.return ()
 
-  let close s flush =
+  let close s ~flush ~sync =
     if flush
     then
       _sync_and_start_transaction_if_needed s;
-    S.close s.s flush
+    S.close s.s ~flush ~sync
 
   let reopen s =
     _sync_and_start_transaction_if_needed s;
