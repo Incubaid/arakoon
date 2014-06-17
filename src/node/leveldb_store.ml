@@ -87,7 +87,7 @@ module LevelDBStore =(
       __with_batch t (fun batch -> LevelDB.Batch.delete batch key)
 
     let sync t =
-      Lwt.return ()
+      ()
 
     let close t flush =
       LevelDB.close t.db;
