@@ -20,14 +20,9 @@ open Lwt
 
 let section = Logger.Section.main
 
-let mv_waiter = Lwt_mvar.create_empty
-let mv_callback = Lwt_mvar.put
-let mv_wait = Lwt_mvar.take
-
 let no_callback = Lwt.return
 
 exception FOOBAR
-
 
 type socket = Plain of Lwt_unix.file_descr
             | TLS of Lwt_ssl.socket
