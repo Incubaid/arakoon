@@ -14,98 +14,104 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Lwt
 
+module Message : sig
+  type t =
+    | Immediate1_exn of string * exn option
+    | ImmediateN of string list
+    | Delayed1_exn of (unit -> string) * exn option
 
-type msg =
-  | Immediate of string * exn option
-  | Delayed of (unit -> string) * exn option
+  val traverse_ : (string -> exn option -> unit Lwt.t) -> t -> unit Lwt.t
+  val length : t -> int
+end = struct
+  type t =
+    | Immediate1_exn of string * exn option
+    | ImmediateN of string list
+    | Delayed1_exn of (unit -> string) * exn option
 
-type e = {
-  t : float;
-  lvl : string;
-  msg : msg;
-  section : Lwt_log.section;
-}
-let circ_buf = Lwt_sequence.create()
-let msg_cnt = ref 0
+  let traverse_ f = function
+    | Immediate1_exn (s, e) -> f s e
+    | ImmediateN msgs -> Lwt_list.iter_s (fun m -> f m None) msgs
+    | Delayed1_exn (m, e) -> f (m ()) e
+
+  let length = function
+    | Immediate1_exn _ -> 1
+    | ImmediateN msgs -> List.length msgs
+    | Delayed1_exn _ -> 1
+end
+
+module Entry = struct
+  type t = {
+    time : float;
+    level : Lwt_log.level;
+    payload : Message.t;
+    section : Lwt_log.section;
+  }
+end
+
+module R = Ring_buffer.Make(struct
+    type t = Entry.t
+    let zero = Entry.({
+        time = 0.0;
+        level = Lwt_log.Debug;
+        payload = Message.ImmediateN [];
+        section = Lwt_log.Section.main;
+    })
+end)
+
+let max_crash_log_size = 1000
+let circ_buf = R.create ~size:max_crash_log_size
 
 let add_to_crash_log section level msgs =
-  let max_crash_log_size = 1000 in
-  let level_to_string lvl =
-    begin
-      match lvl with
-        | Lwt_log.Debug -> "debug"
-        | Lwt_log.Info -> "info"
-        | Lwt_log.Notice -> "notice"
-        | Lwt_log.Warning -> "warning"
-        | Lwt_log.Error -> "error"
-        | Lwt_log.Fatal -> "fatal"
-    end
-  in
+  let entry = Entry.({
+    time = Unix.time ();
+    level;
+    payload = msgs;
+    section;
+  }) in
 
-  let rec remove_n_elements = function
-    | 0  -> ()
-    | n ->
-      let _ = Lwt_sequence.take_opt_l circ_buf in
-      let () = decr msg_cnt in
-      remove_n_elements (n-1)
-  in
-
-  let add_msg lvl msg  =
-    let () = incr msg_cnt in
-    let e = {t = Unix.time(); lvl; msg; section } in
-    let _ = Lwt_sequence.add_r e circ_buf  in
-    ()
-  in
-  let new_msg_cnt = List.length msgs in
-  let total_msgs = !msg_cnt + new_msg_cnt in
-  let () =
-    if  total_msgs > 2 * max_crash_log_size then
-      begin
-        let to_delete = total_msgs - max_crash_log_size in
-        (* let () = Printf.printf "removing %i%!\n" to_delete in *)
-        remove_n_elements to_delete;
-        (* Gc.compact() *)
-      end
-  in
-  let lvls = level_to_string level in
-  let () = List.iter (add_msg lvls) msgs  in
-  Lwt.return ()
-
+  R.insert entry circ_buf
 
 let setup_crash_log crash_file_gen =
-  let dump_crash_log () =
-    let dump_msgs oc =
-      let rec loop () =
+  let string_of_level = function
+    | Lwt_log.Debug -> "debug"
+    | Lwt_log.Info -> "info"
+    | Lwt_log.Notice -> "notice"
+    | Lwt_log.Warning -> "warning"
+    | Lwt_log.Error -> "error"
+    | Lwt_log.Fatal -> "fatal"
+  in
 
-        let e = Lwt_sequence.take_l circ_buf in
-        let append_exn m exn =
-          match exn with
-            | None -> m
-            | Some exn -> m ^ Printexc.to_string exn in
-        let msg =
-          Printf.sprintf
-            "%Ld: %s %s: %s"
-            (Int64.of_float e.t)
-            (Lwt_log.Section.name e.section)
-            e.lvl
-            (match e.msg with
-               | Immediate (m, exn) -> append_exn m exn
-               | Delayed (fm, exn) -> append_exn (fm ()) exn) in
-        Lwt_io.write_line oc msg >>= fun () ->
-        loop ()
+  let dump_crash_log () =
+    let log_entry oc e =
+      let format_message msg exn = Entry.(
+        Printf.sprintf "%Ld: %s %s: %s"
+          (Int64.of_float e.time)
+          (Lwt_log.Section.name e.section)
+          (string_of_level e.level)
+          (match exn with
+            | None -> msg
+            | Some e -> msg ^ Printexc.to_string e))
       in
-      Lwt.catch
-        loop
-        (function
-          | Lwt_sequence.Empty -> Lwt.return ()
-          | e -> Lwt.fail e)
+      Message.traverse_ (fun m e ->
+        Lwt_io.write_line oc (format_message m e))
+        e.Entry.payload
     in
+
+    let log_buffer oc buffer =
+      let go = R.fold ~f:(fun acc e -> fun () ->
+        acc () >>= fun () ->
+        log_entry oc e)
+        ~acc:(fun () -> Lwt.return_unit)
+        buffer
+      in
+      go ()
+    in
+
     let crash_file_path = crash_file_gen () in
-    Lwt_io.with_file ~mode:Lwt_io.output crash_file_path dump_msgs
+    Lwt_io.with_file ~mode:Lwt_io.output crash_file_path
+      (fun oc -> log_buffer oc circ_buf)
   in
 
   let fake_close () = Lwt.return () in
@@ -138,7 +144,8 @@ let setup_default_logger file_log_path crash_log_prefix =
     Lwt.catch
       (fun () ->
          Lwt_list.iter_s log_file_msg msgs >>= fun () ->
-         log_crash_msg section level (List.map (fun m -> Immediate (m, None)) msgs) )
+         log_crash_msg section level (Message.ImmediateN msgs);
+         Lwt.return_unit)
       (function
         | Lwt_log.Logger_closed -> Lwt.return ()
         | e -> Lwt.fail e
