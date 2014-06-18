@@ -64,12 +64,6 @@ let session_thread (sid:string) cid protocol fd =
         Lwt.fail Canceled
       | exn ->
         Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
-  >>= fun () ->
-  Lwt.catch
-    ( fun () -> close fd )
-    ( function
-      | Canceled -> Lwt.fail Canceled
-      | exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max =
   let counter = ref 0 in
