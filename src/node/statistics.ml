@@ -197,7 +197,7 @@ module Statistics = struct
     x
 
 
-  let new_set t (key:string) (value:string) (start:float)=
+  let new_set t (_key:string) (value:string) (start:float)=
     let x = new_op t start in
     update_x_stats t.set_time_stats x;
     let size = float(String.length value) in
@@ -209,7 +209,7 @@ module Statistics = struct
 
 
 
-  let new_get t (key:string) (value:string) (start:float) =
+  let new_get t (_key:string) (value:string) (start:float) =
     let x = new_op t start in
     update_x_stats t.get_time_stats x;
     let size = float(String.length value) in
@@ -240,18 +240,6 @@ module Statistics = struct
   let new_replace t (start:float) =
     let x = new_op t start in
     update_x_stats t.replace_time_stats x
-
-  let new_range t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.range_time_stats x
-
-  let new_range_entries t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.range_time_stats x
-
-  let new_rev_range_entries t (start:float) =
-    let x = new_op t start in
-    update_x_stats t.rev_range_entries_time_stats x
 
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
@@ -380,7 +368,7 @@ module Statistics = struct
             let m2  = extract_float v in
             let v, l = extract_next l in
             let avg = extract_float v in
-            let v, l = extract_next l in
+            let v, _ = extract_next l in
             let var = extract_float v in
             {n; min; max; m2; avg; var;}
           | _ -> failwith "Wrong value type (expected list)"
@@ -475,7 +463,7 @@ module Statistics = struct
     let value, v_list = extract_next v_list in
     let mem_compactions  = extract_int value in
 
-    let value, v_list = extract_next v_list in
+    let value, _  = extract_next v_list in
     let node_list = extract_list value in
 
     let node_is = Hashtbl.create 5 in

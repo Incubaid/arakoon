@@ -21,10 +21,10 @@ open Interval
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
-let try_fetch name (f:unit -> 'a Lwt.t) (r2s: 'a -> string)  =
+let try_fetch name (f:unit -> 'a) (r2s: 'a -> string)  =
   Lwt.catch
     (fun () ->
-       f () >>= fun r ->
+       let r = f () in
        let s = r2s r in
        Lwt_io.printlf "%s: %s" name s
     )
@@ -114,8 +114,8 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
 
     let ok = match old_head_i, new_head_i with
       | None,None -> false
-      | Some oi, None -> false
-      | None, Some ni -> true
+      | Some _, None -> false
+      | None, Some _ -> true
       | Some oi, Some ni -> ni > oi
     in
     Lwt_io.printlf "# head is newer">>= fun () ->

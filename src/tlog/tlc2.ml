@@ -14,11 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Tlogcollection
 open Tlogcommon
-open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
@@ -451,41 +448,21 @@ class tlc2
 
     method private start_compression_loop () =
       let compress_one tlu tlc_temp tlc compressor =
-        let try_unlink fn =
-          Lwt.catch
-            (fun () ->
-               Logger.info_f_ "Compression: unlink of %s" fn >>= fun () ->
-               Lwt_unix.unlink fn >>= fun () ->
-               Logger.info_f_ "Compression: ok: unlinked %s" fn
-            )
-            (function
-              | Canceled -> Lwt.fail Canceled
-              | exn -> Logger.warning_f_ ~exn "unlinking of %s failed" fn) in
         File_system.exists tlc >>= fun tlc_exists ->
         if tlc_exists
         then
           begin
             Logger.info_f_ "Compression target %s already exists, this should be a complete .tlf" tlc >>= fun () ->
-            try_unlink tlu
+            File_system.unlink tlu
           end
         else
           begin
-            File_system.exists tlc_temp >>= fun tlc_temp_exists ->
-            begin
-              if tlc_temp_exists
-              then
-                begin
-                  Logger.info_f_ "Compression temp file %s already exists, this is a remaining artifact from a previous compression attempt, removing" tlc_temp >>= fun () ->
-                  try_unlink tlc_temp
-                end
-              else
-                Lwt.return ()
-            end >>= fun () ->
+            File_system.unlink tlc_temp >>= fun () ->
             Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
             Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
             >>= fun () ->
             File_system.rename tlc_temp tlc >>= fun () ->
-            try_unlink tlu >>= fun () ->
+            File_system.unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
       in
@@ -681,12 +658,23 @@ class tlc2
       Logger.info_ "save_head()" >>= fun () ->
       Llio.input_int64 ic >>= fun length ->
       let hf_name = self # get_head_name () in
-      Lwt_io.with_file
-        ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
-        ~mode:Lwt_io.output
-        hf_name
-        (fun oc -> Llio.copy_stream ~length ~ic ~oc )
+      let tmp = Printf.sprintf "%s.tmp" hf_name in
+      File_system.unlink tmp >>= fun () ->
+      Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
+
+      Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
+      Lwt.finalize
+        (fun () ->
+          let mode = Lwt_io.output
+          and close () = Lwt.return () in
+          let oc = Lwt_io.of_fd ~mode ~close fd in
+          Llio.copy_stream ~length ~ic ~oc >>= fun () ->
+          Lwt_io.close oc >>= fun () ->
+          Lwt_unix.fsync fd)
+        (fun () -> Lwt_unix.close fd)
       >>= fun () ->
+
+      File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
 
 
@@ -764,9 +752,6 @@ class tlc2
             end
       end >>= fun () ->
       F.close file
-
-
-    method get_tlog_from_name n = Sn.of_int (get_number (Filename.basename n))
 
     method get_tlog_from_i (i:Sn.t) = get_file_number i
 

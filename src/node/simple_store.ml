@@ -17,7 +17,6 @@ limitations under the License.
 
 
 open Std
-open Routing
 
 let section = Logger.Section.main
 
@@ -116,8 +115,7 @@ module Extended_cursor_store(C : Cursor_store) = struct
   let fold_range cur first finc last linc max f init =
     let comp_last =
       match last with
-      | None ->
-         fun k -> true
+      | None -> fun _ -> true
       | Some last ->
          if linc
          then
@@ -166,9 +164,9 @@ module type Simple_store = sig
   val get_location: t -> string
   val relocate: t -> string -> unit Lwt.t
 
-  val get_key_count : t -> int64 Lwt.t
+  val get_key_count : t -> int64
 
-  val optimize : t -> bool -> unit Lwt.t
+  val optimize : t -> quiesced:bool -> stop:bool ref -> bool Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t

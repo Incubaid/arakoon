@@ -332,17 +332,21 @@ def drop_master(n):
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
 def test_drop_master():
-    Common.stopOne( Common.node_names[0] )
+    m = Common.get_client().whoMaster()
+    zero = Common.node_names[0]
+    s = zero if m <> zero else Common.node_names[1]
+    Common.stopOne(s)
     n = 20
     drop_master(n)
-"""    drop_masters = lambda : drop_master(n)
-    Common.create_and_wait_for_threads ( 1, 1, drop_masters, n*8*3 )"""
 
 
 def _test_drop_master_with_load_(client):
     global busy, excs
 
-    Common.stopOne( Common.node_names[0] )
+    m = Common.get_client().whoMaster()
+    zero = Common.node_names[0]
+    s = zero if m <> zero else Common.node_names[1]
+    Common.stopOne(s)
     n = 40
 
     busy = True
@@ -584,10 +588,15 @@ def test_db_optimize():
     pass
     # asserts an 'optimizeDb' call shrinks the database enough (eta: 100s)
     assert_raises( Exception, Common.optimizeDb, Common.node_names[0] )
-    Common.iterate_n_times(10000, Common.set_get_and_delete)
-    db_file = Common.get_node_db_file( Common.node_names[1] )
+    Common.iterate_n_times(100000, Common.simple_set)
+    cli = Common.get_client()
+    cli.deletePrefix('')
+    Common.iterate_n_times(10000, Common.simple_set)
+    slave = Common.node_names[1]
+    db_file = Common.get_node_db_file( slave )
+    Common.flush_store( slave )
     start_size = os.path.getsize( db_file )
-    Common.optimizeDb(Common.node_names[1])
+    Common.optimizeDb( slave )
     opt_size = os.path.getsize(db_file)
     template = "Size did not shrink (enough). Original: '%d'. Optimized: '%d'."
     msg = template % (start_size, opt_size)

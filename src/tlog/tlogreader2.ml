@@ -14,11 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
-
 open Lwt
-open Update
 open Tlogcommon
 
 let section = Logger.Section.main
@@ -40,13 +36,6 @@ module Index = struct
   type index = index_r option
 
   let make filename = Some {filename; mapping=[]}
-
-  let replace filename = function
-    | None -> None
-    | (Some index_r) as idx ->
-      if filename = index_r.filename
-      then idx
-      else None
 
   let find_pos start_i = function
     | None -> 0L
@@ -87,7 +76,7 @@ module Index = struct
         in
         Printf.sprintf "Some {filename=%S;mapping=%s}" idxr.filename s
 end
-open Tlogcommon
+
 
 module type TR = sig
   val fold:
@@ -144,6 +133,7 @@ module U = struct
         (too_far_i:Sn.t option)
         ~first
         (a0:'a) (f:'a -> Entry.t -> 'a Lwt.t) =
+    ignore first;
     let sno2s sno= Log_extra.option2s Sn.string_of sno in
     Logger.debug_f_ "U.fold %s %s ~index:%s" (Sn.string_of lowerI)
       (sno2s too_far_i) (Index.to_string index)
@@ -184,6 +174,7 @@ module C = struct
        ~inflate
         ic ~index
         (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+    ignore index;
     Logger.debug_f_ "C.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)
@@ -197,7 +188,7 @@ module C = struct
       then _skip_blocks ()
       else Lwt.return s
     in
-    let rec _skip_in_block buffer pos =
+    let _skip_in_block buffer pos =
       let beyond = String.length buffer in
       let rec _loop (maybe_p:Entry.t option) pos =
         if pos = beyond
@@ -216,7 +207,7 @@ module C = struct
       in
       _loop None pos
     in
-    let rec _fold_block a buffer pos =
+    let _fold_block a buffer pos =
       Logger.debug_f_ "_fold_block:pos=%i" pos>>= fun() ->
       let rec _loop a p =
         if p = (String.length buffer)
@@ -293,15 +284,16 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
   let _fold
         ~inflate
         ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
+    ignore index;
     Logger.debug_f_ "O.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)
     >>= fun () ->
-    let rec _read_block () =
-      Llio.input_int ic >>= fun n_entries ->
+    let _read_block () =
+      Llio.input_int ic >>= fun _n_entries ->
       Llio.input_string ic
     in
-    let rec _skip_in_block buffer pos =
+    let _skip_in_block buffer pos =
       let beyond = String.length buffer in
       let rec _loop (maybe_p:Entry.t option) pos =
         if pos = beyond
@@ -320,7 +312,7 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
       in
       _loop None pos
     in
-    let rec _fold_block a buffer pos =
+    let _fold_block a buffer pos =
       Logger.debug_f_ "_fold_block:pos=%i" pos>>= fun() ->
       let rec _loop a p =
         if p = (String.length buffer)

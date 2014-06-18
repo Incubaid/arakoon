@@ -48,11 +48,11 @@ let fsync_dir dir =
   Lwt_unix.openfile dir [Unix.O_RDONLY] 0640 >>= fun dir_descr ->
   Lwt.finalize
     (fun () -> Lwt_unix.fsync dir_descr)
-    (fun () -> Lwt_unix.close dir_descr 
+    (fun () -> Lwt_unix.close dir_descr
                >>= fun () ->
                let t1 = Unix.gettimeofday() in
                let d = t1 -. t0 in
-               if d < 1.0 
+               if d < 1.0
                then Lwt.return ()
                else Logger.warning_f_ "fsync_dir of %S took : %f" dir d
     )
@@ -67,11 +67,21 @@ let rename source target =
 
 let mkdir name = Lwt_unix.mkdir name
 
-let unlink name = Lwt_unix.unlink name
+let unlink name =
+  Lwt.catch
+    (fun () ->
+     Logger.info_f_ "Unlinking %S" name >>= fun () ->
+     Lwt_unix.unlink name)
+    (function
+      | Unix.Unix_error(Unix.ENOENT, _, _) ->
+         Logger.info_f_ "Unlink of %S failed with ENOENT" name
+      | e ->
+         Lwt.fail e)
+
 let rmdir name = Lwt_unix.rmdir name
 
 let stat filename =
-  Logger.debug_f_ "stat %s" filename >>= fun () ->
+  Logger.debug_f_ "stat %S" filename >>= fun () ->
   Lwt_unix.stat filename
 
 let exists filename =
@@ -83,7 +93,7 @@ let exists filename =
     )
 
 let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
+  Logger.info_f_ "copy_file %S %S" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
   let copy_all ic oc =
@@ -107,14 +117,7 @@ let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
   else
     begin
       let tmp_file = target ^ ".tmp" in
-      exists tmp_file >>= fun tmp_exists ->
-      begin
-        if tmp_exists
-        then
-          unlink tmp_file
-        else
-          Lwt.return ()
-      end >>= fun () ->
+      unlink tmp_file >>= fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input source
         (fun ic ->
            Lwt_io.with_file ~flags:[Unix.O_WRONLY;Lwt_unix.O_EXCL;Lwt_unix.O_CREAT] ~mode:Lwt_io.output tmp_file

@@ -14,14 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Std
 open Simple_store
-open Lwt
-open Log_extra
-open Update
-open Routing
 
 module StringMap = Map.Make(String)
 
@@ -114,7 +108,7 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize ms quiesced = Lwt.return ()
+let optimize ms ~quiesced ~stop = Lwt.return true
 let defrag ms = Lwt.return ()
 
 let sync ms = ()
@@ -129,9 +123,8 @@ let get_key_count ms =
   let inc key value size =
     Int64.succ size
   in
-  Lwt.return (StringMap.fold inc ms.kv 0L)
+  StringMap.fold inc ms.kv 0L
 
-let copy_store ms networkClient oc = failwith "copy_store not supported"
 let copy_store2 old_location new_location overwrite = Lwt.return ()
 
 let relocate new_location = failwith "Memstore.relocation not implemented"

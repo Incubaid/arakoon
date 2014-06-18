@@ -227,6 +227,8 @@ class ArakoonCluster:
         self.__validateName(name)
         self.__validateLogLevel(logLevel)
 
+        if isinstance(ip, basestring):
+            ip = [ip]
 
         config = self._getConfigFile()
         nodes = self.__getNodes(config)
@@ -237,15 +239,8 @@ class ArakoonCluster:
             nodes.append(name)
 
         config.add_section(name)
-        config.set(name, "name", name)
 
-        if type(ip) == types.StringType:
-            config.set(name, "ip", ip)
-        elif type(ip) == types.ListType:
-            line = string.join(ip,',')
-            config.set(name, "ip", line)
-        else:
-            raise Exception("ip parameter needs string or string list type")
+        config.set(name, "ip", ', '.join(ip))
 
         self.__validateInt("clientPort", clientPort)
         config.set(name, "client_port", clientPort)
@@ -758,7 +753,7 @@ class ArakoonCluster:
 
         for name in nodes:
             ips = config.get(name, "ip")
-            ip_list = ips.split(',')
+            ip_list = map(lambda x: x.strip(), ips.split(","))
             port = int(config.get(name, "client_port"))
             clientconfig[name] = (ip_list, port)
 
@@ -1664,7 +1659,10 @@ class ArakoonCluster:
         config.set("nursery", "cluster", ",".join( nurseryNodes.keys() ))
 
         for (id,(ip,port)) in nurseryNodes.iteritems() :
+            if isinstance(ip, basestring):
+                ip = [ip]
+
             config.add_section(id)
-            config.set(id,"ip",ip)
+            config.set(id, "ip", ', '.join(ip))
             config.set(id,"client_port",port)
         self._saveConfig(config)

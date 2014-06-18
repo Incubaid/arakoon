@@ -1,5 +1,6 @@
 true: debug
 true: annot
+true: thread
 true: warn_error
 true: package(lwt)
 true: package(lwt.preemptive)
@@ -31,13 +32,9 @@ true: package(leveldb)
 "examples/ocaml": include
 "src/main" : include
 <**/arakoon.*{byte,native}>: is_main
-<**/nursery.*{byte,native}>: is_main,use_thread
+<**/nursery.*{byte,native}>: is_main
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
-<**/bs_bench.*{byte,native}>: is_main, use_thread
-<examples/ocaml/*.{bytes,native}>: use_thread
+<**/bs_bench.*{byte,native}>: is_main
 <examples/ocaml/*.{byte,native}>: is_main
-<src/arakoon_client.*{cma,cmxa}>: use_thread
-"src/arakoon_client.cmxs" : use_thread
-<src/plugins/*.{cma,cmxa}>: use_thread
 "logger_macro.cmo" : use_camlp4, camlp4orf
-<src/**/*.ml> : camlp4of, use_log_macro
+<src/**/*.ml> : camlp4of, use_log_macro, maybe_use_bisect

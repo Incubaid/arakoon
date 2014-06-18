@@ -36,7 +36,7 @@ module Batched_store = functor (S : Extended_simple_store) ->
 struct
   type t = {
     s : S.t;
-    _tx_cache : (string, string option) Hashtbl.t;
+    mutable _tx_cache : (string, string option) Hashtbl.t;
 
     mutable _with_complex_query : bool;
 
@@ -49,11 +49,16 @@ struct
     mutable _size : int;
   }
 
+  let make_cache () = Hashtbl.create 5
+
+  let reset_cache s =
+    s._tx_cache <- make_cache ()
+
   let make_store ~lcnum ~ncnum b s =
     S.make_store ~lcnum ~ncnum b s >>= fun s ->
     Lwt.return {
       s;
-      _tx_cache = Hashtbl.create !max_entries;
+      _tx_cache = make_cache ();
 
       _with_complex_query = false;
       _tx_lock = Lwt_mutex.create ();
@@ -100,13 +105,13 @@ struct
         let () = Hashtbl.iter
                    (fun k vo -> _apply_vo_to_local_store s ls_tx k vo)
                    s._tx_cache in
-        Hashtbl.reset s._tx_cache
+        reset_cache s
       end
 
   let _commit_ls_tx_if_any s =
     match s._ls_tx with
       | None -> ()
-      | Some ls_tx ->
+      | Some _ ->
         S._trancommit s.s;
         s._ls_tx <- None;
         s._entries <- 0;
@@ -146,7 +151,7 @@ struct
              Lwt.return r)
           (fun () ->
              s._tx <- None;
-             Hashtbl.reset s._tx_cache;
+             reset_cache s;
              Lwt.return ()))
 
   let _verify_tx s tx =

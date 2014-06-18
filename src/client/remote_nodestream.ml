@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
-open Value
 open Interval
 open Routing
 open Common
@@ -53,7 +50,7 @@ class type nodestream = object
   method drop_master: unit -> unit Lwt.t
 end
 
-class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
+class remote_nodestream ((ic,oc) as conn) = (object
   method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)
            (tlog_coll: Tlogcollection.tlog_collection)
            ~head_saved_cb
@@ -77,7 +74,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
           else
             begin
               last_seen := Some i2;
-              Llio.input_int32 ic >>= fun chksum ->
+              Llio.input_int32 ic >>= fun _chksum ->
               Llio.input_string ic >>= fun entry ->
               let value = Value.value_from (Llio.make_buffer entry 0) in
               f (i2, value) >>= fun () ->
@@ -181,7 +178,7 @@ class remote_nodestream ((ic,oc) as conn) = object(self :# nodestream)
 
   method drop_master () =
     Common.drop_master conn
-end
+end :nodestream)
 
 let make_remote_nodestream cluster connection =
   prologue cluster connection >>= fun () ->

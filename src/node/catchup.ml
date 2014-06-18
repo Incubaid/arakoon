@@ -21,18 +21,10 @@ open Node_cfg
 open Remote_nodestream
 open Tlogcollection
 open Log_extra
-open Update
-open Store
 open Tlogcommon
 
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
 exception StoreCounterTooLow of string
-
-type store_tlc_cmp =
-  | Store_n_behind
-  | Store_1_behind
-  | Store_tlc_equal
-  | Store_ahead
 
 let with_connection ~tls_ctx address f = match tls_ctx with
   | None -> Lwt_io.with_connection address f
@@ -84,21 +76,6 @@ let _with_client_connection ~tls_ctx (ips,port) f =
   loop ips
 
 
-let compare_store_tlc store tlc =
-  tlc # get_last_i () >>= fun tlc_i ->
-  let m_store_i = store # consensus_i () in
-  match m_store_i with
-    | None ->
-      if tlc_i = ( Sn.succ Sn.start )
-      then Lwt.return Store_1_behind
-      else Lwt.return Store_n_behind
-    | Some store_i when store_i = tlc_i -> Lwt.return Store_tlc_equal
-    | Some store_i when store_i > tlc_i -> Lwt.return Store_ahead
-    | Some store_i ->
-      if store_i = (Sn.pred tlc_i)
-      then Lwt.return Store_1_behind
-      else Lwt.return Store_n_behind
-
 let head_saved_epilogue hfn tlog_coll =
   (* maybe some tlogs must be thrown away because
      they were already collapsed into
@@ -128,7 +105,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop me other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -143,7 +120,7 @@ let catchup_tlog (type s) ~tls_ctx ~stop me other_configs ~cluster_id  mr_name (
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name true
+      File_system.copy_file hfn target_name ~overwrite:true
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
@@ -301,7 +278,7 @@ let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt)
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog ~tls_ctx ~stop me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  catchup_tlog ~tls_ctx ~stop other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
@@ -322,9 +299,9 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j -> 
+    | i, Some j when i > j ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
-    | i, None ->
+    | _, None ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
       let msg = Printf.sprintf
@@ -334,36 +311,6 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
-
-let get_db ~tls_ctx db_name cluster_id cfgs =
-
-  let get_db_from_stream conn =
-    make_remote_nodestream cluster_id conn >>= fun (client:nodestream) ->
-    client # get_db db_name
-  in
-  let try_db_download m_success cfg =
-    begin
-      match m_success with
-        | Some s -> Lwt.return m_success
-        | None ->
-          Lwt.catch
-            ( fun () ->
-               Logger.info_f_ "get_db: Attempting download from %s" (Node_cfg.node_name cfg) >>= fun () ->
-               let mr_addresses = Node_cfg.client_addresses cfg in
-               _with_client_connection ~tls_ctx mr_addresses get_db_from_stream >>= fun () ->
-               Logger.info_ "get_db: Download succeeded" >>= fun () ->
-               Lwt.return (Some (Node_cfg.node_name cfg))
-            )
-            ( fun e ->
-               Logger.error_f_ "get_db: DB download from %s failed (%s)" (Node_cfg.node_name cfg) (Printexc.to_string e) >>= fun () ->
-               Lwt.return None
-            )
-    end
-  in
-  Lwt_list.fold_left_s try_db_download None cfgs
-
-
-
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)

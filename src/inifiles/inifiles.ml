@@ -95,7 +95,7 @@ let rec filterfile ?(buf=Buffer.create 500) f fd =
       filterfile ~buf f fd
   with End_of_file -> Buffer.contents buf
 
-let rec read_inifile file fd tbl =
+let read_inifile file fd tbl =
   let lxbuf =
     Lexing.from_string
       (filterfile

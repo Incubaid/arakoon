@@ -14,15 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Messaging
 open Message.Message
 open Tcp_messaging
 open Lwt
 open OUnit
-open Log_extra
-open Lwt_buffer
 
 class player id (m:messaging) =
   let make_msg kind i = create kind (string_of_int i) in

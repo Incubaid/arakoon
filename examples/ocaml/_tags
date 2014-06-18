@@ -1,0 +1,4 @@
+true:debug,annot
+true:package(arakoon_client)
+true:package(lwt)
+true:thread

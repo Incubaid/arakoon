@@ -14,22 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Node_cfg.Node_cfg
 open Tcp_messaging
 open Update
 open Lwt
 open Lwt_buffer
-open Tlogcommon
-open Gc
 open Master_type
 open Client_cfg
 open Statistics
 
 let section = Logger.Section.main
 
-let rec _split node_name cfgs =
+let _split node_name cfgs =
   let rec loop me_o others = function
     | [] -> me_o, others
     | cfg :: rest ->
@@ -55,7 +51,7 @@ let _config_logging me get_cfgs =
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
       | Some log_config' ->
         try
-          let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
+          let (_, lc) = List.find (fun (log_config_name, _log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
           lc
         with Not_found ->
           failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
@@ -110,7 +106,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
       let (_, btc') =
         try
           List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-        with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
+        with _ -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
       set_max btc'.max_entries btc'.max_size
 
 let _config_messaging
@@ -120,7 +116,7 @@ let _config_messaging
       ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
-      let f msg source target =
+      let f _ _ _ =
         let () = incr count in
         match !count with
           | x when x >= 1000 -> let () = count := 0 in false
@@ -143,8 +139,6 @@ let _config_messaging
     ?client_ssl_context ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
-
-open Mp_msg
 
 
 let _config_service ?ssl_context cfg stop backend =
@@ -192,37 +186,39 @@ let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
 let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~name ~cluster_cfg ~make_tlog_coll =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
-  let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
-  begin
-    if node_cnt > 1
-    then Catchup.get_db ~tls_ctx db_name cluster_id other_configs
-    else Lwt.return None
-  end
-  >>= fun m_mr_name ->
-  let mr_name =
-    begin
-      match m_mr_name with
-        | Some m -> m
-        | None ->
-          let fo = List.hd other_configs in
-          fo.node_name
-    end
+  let try_catchup mr_name =
+    Lwt.catch
+      (fun () ->
+       S.make_store ~lcnum:cluster_cfg.lcnum
+                    ~ncnum:cluster_cfg.ncnum
+                    db_name >>= fun store ->
+       let compressor = me.compressor in
+       make_tlog_coll ~compressor
+                      me.tlog_dir me.tlx_dir me.head_dir
+                      ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
+       Catchup.catchup ~tls_ctx ~stop:(ref false)
+                       me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+                       ((module S),store,tlc) mr_name >>= fun _ ->
+       S.close ~flush:true store >>= fun () ->
+       tlc # close () >>= fun () ->
+       Lwt.return true)
+      (fun exn ->
+       Logger.warning_f_ ~exn "Catchup from %s failed" mr_name >>= fun () ->
+       Lwt.return false)
   in
-  S.make_store ~lcnum:cluster_cfg.lcnum
-    ~ncnum:cluster_cfg.ncnum
-    db_name >>= fun store ->
-  let compressor = me.compressor in
-  make_tlog_coll ~compressor
-                 me.tlog_dir me.tlx_dir me.head_dir
-                 ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
-  Catchup.catchup ~tls_ctx ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-    ((module S),store,tlc) mr_name >>= fun _ ->
-  S.close ~flush:true store >>= fun () ->
-  tlc # close ()
-
+  let rec try_nodes = function
+    | [] -> Lwt.fail (Failure "Could not perform catchup, no other nodes cooperated.")
+    | node :: others ->
+       try_catchup node.node_name >>= fun succeeded ->
+       if succeeded
+       then
+         Lwt.return ()
+       else
+         try_nodes others in
+  try_nodes other_configs
 
 let get_ssl_cert_paths me cluster =
   match me.tls_cert with
@@ -299,7 +295,7 @@ module X = struct
               end
             else
               Lwt.return ()
-          | _ -> Lwt.return ()
+          | Value.Vc _ -> Lwt.return ()
       end >>= fun () ->
       S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
@@ -308,20 +304,20 @@ module X = struct
       Lwt.return r
     end
 
-  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
+  let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
     begin
       match v with
         | Value.Vc (us,_)     ->
           let size = List.length us in
           let () = Statistics.new_harvest statistics size in
           Lwt.return ()
-        | _ -> Lwt.return ()
+        | Value.Vm _  -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
@@ -350,17 +346,6 @@ let _main_2 (type s)
       make_config get_snapshot_name ~name
       ~daemonize ~catchup_only stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
-  let control  = {
-    minor_heap_size = 32 * 1024;
-    major_heap_increment = 124 * 1024;
-    space_overhead = 80;
-    verbose = 0;
-    max_overhead = 0;
-    stack_limit = 256 * 1024;
-    allocation_policy = 1;
-  }
-  in
-  Gc.set control;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
@@ -381,6 +366,11 @@ let _main_2 (type s)
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
+  let () = match cluster_cfg.overwrite_tlog_entries with
+    | None -> ()
+    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+  in
+
   if catchup_only
   then
     begin
@@ -398,11 +388,6 @@ let _main_2 (type s)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-
-      let () = match cluster_cfg.overwrite_tlog_entries with
-        | None -> ()
-        | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-      in
 
       let my_clicfg =
         begin
@@ -561,7 +546,7 @@ let _main_2 (type s)
 
           let service = _config_service ?ssl_context:service_ssl_context me stop backend in
 
-          let send, run, register, is_alive =
+          let send, _run, _register, is_alive =
             Multi_paxos.network_of_messaging messaging in
 
           let start_liveness_detection_loop fuse =
@@ -586,7 +571,7 @@ let _main_2 (type s)
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
-          let on_accept = X.on_accept statistics tlog_coll (module S) store in
+          let on_accept = X.on_accept statistics tlog_coll in
 
           let get_last_value (i:Sn.t) = tlog_coll # get_last_value i in
           let election_timeout_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -656,7 +641,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend stop (master, constants, buffers, new_i, store) =
+      let start_backend stop (master, constants, buffers, new_i) =
         let to_run =
           if me.is_witness
           then
@@ -684,14 +669,14 @@ let _main_2 (type s)
            build_startup_state () >>= fun (start_state,
                                            service,
                                            rapporting) ->
-           let (_,constants,_,_,store) = start_state in
+           let (master, constants, buffers, new_i, store) = start_state in
            let log_exception m t =
              Lwt.catch
                t
                (fun exn ->
                   Logger.fatal_ ~exn m >>= fun () ->
                   Lwt.fail exn) in
-           let fsm () = start_backend stop start_state in
+           let fsm () = start_backend stop (master, constants, buffers, new_i) in
            let fsm_t =
              Lwt.finalize
                (fun () ->
@@ -816,6 +801,7 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
 let test_t make_config name stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll ~compressor =
+    ignore compressor;
     Mem_tlogcollection.make_mem_tlog_collection
   in
   let get_snapshot_name = fun () -> "DUMMY" in

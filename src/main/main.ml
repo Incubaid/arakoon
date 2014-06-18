@@ -14,13 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
-open Lwt
-
 open OUnit_XML
 open OUnit
-open Tlogcommon
 
 open Node_cfg
 type local_action =
@@ -200,6 +195,7 @@ let main () =
   and linc = ref true
   and right = ref None
   and rinc = ref false
+  and scenario = ref (String.concat ", " Benchmark.default_scenario)
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -286,7 +282,7 @@ let main () =
      "tells you if the master thinks progress is possible");
     ("--statistics", set_laction STATISTICS, "returns some master statistics");
     ("--run-system-tests", set_laction SystemTests,
-     "run system tests (you need a running installation");
+     "run system tests (you need a running installation)");
     ("--version", set_laction ShowVersion, "shows version");
     (* ("-port", Arg.Set_int port, "specifies server port"); *)
     ("-config", Arg.Set_string config_file,
@@ -303,6 +299,10 @@ let main () =
     ("-tx_size", Arg.Set_int tx_size, "size of transactions (only for --benchmark)");
     ("-max_n", Arg.Set_int max_n,     "<benchmark size> (only for --benchmark)");
     ("-n_clients", Arg.Set_int n_clients, "<n_clients>  (only for --benchmark)");
+    ("-scenario", Arg.Set_string scenario,
+     Printf.sprintf
+       "(only for --benchmark) which scenario to run, default being %S"
+       !scenario);
     ("-max_results", Arg.Set_int max_results, "max size of the result (for --prefix)");
     ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
     ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
@@ -412,7 +412,7 @@ let main () =
     | DELETE_PREFIX -> Client_main.delete_prefix ~tls !config_file !key
     | BENCHMARK ->Client_main.benchmark ~tls !config_file
       !key_size !value_size !tx_size !max_n
-      !n_clients
+      !n_clients !scenario
     | LOAD -> Load_client.main ~tls !config_file
                 !n_clients
     | DELETE -> Client_main.delete ~tls !config_file !key

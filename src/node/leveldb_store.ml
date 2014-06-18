@@ -98,7 +98,7 @@ module LevelDBStore =(
     let copy_store t b oc = Lwt.fail (Failure "copy_store")
     let copy_store2 x y b = Logger.warning_f_ "no copy store2"
     let defrag t = Logger.warning_f_ "no defrag"
-    let optimize t quisced = Logger.warning_f_ "no optimize"
+    let optimize t ~quiesced ~stop = Logger.warning_f_ "no optimize" >>= fun () -> Lwt.return false
     let relocate t s = Lwt.fail (Failure "relocate")
     let get_location t = t.location
     let flush t = Logger.warning_f_ "no flushing"

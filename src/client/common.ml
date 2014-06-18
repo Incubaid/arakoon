@@ -145,35 +145,7 @@ let command_to buffer command =
   let masked = Int32.logor c _MAGIC in
   Llio.int32_to buffer masked
 
-let nothing = fun ic -> Lwt.return ()
-
-let value_array ic =
-  Llio.input_int ic >>= fun size ->
-  let result = Array.create size "" in
-  let rec loop i =
-    if i = size
-    then Lwt.return result
-    else
-      begin
-        Llio.input_string ic >>= fun s ->
-        result.(i) <- s;
-        loop (i+1)
-      end
-  in loop 0
-
-let kv_array ic =
-  Llio.input_int ic >>= fun size ->
-  let result = Array.create size ("","") in
-  let rec loop i =
-    if i = size
-    then Lwt.return result
-    else
-      begin
-        Llio.input_string_pair ic >>= fun p ->
-        result.(i) <- p;
-        loop (i+1)
-      end
-  in loop 0
+let nothing = fun _ic -> Lwt.return ()
 
 
 let request oc f =

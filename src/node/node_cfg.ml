@@ -254,8 +254,6 @@ module Node_cfg = struct
 
 
 
-  let tlog_dir t = t.tlog_dir
-
   let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
@@ -334,8 +332,7 @@ module Node_cfg = struct
         let cfg =  ClientCfg.from_file "nursery" filename in
         Some (n_cluster_id, cfg)
       end
-    with ex ->
-      None
+    with _ -> None
 
   let _get_cluster_id inifile =
     try
@@ -350,7 +347,7 @@ module Node_cfg = struct
       let qs = (inifile # getval "global" "quorum") in
       let qi = Scanf.sscanf qs "%i" (fun i -> i) in
       if 1 <= qi && qi <= n_nodes
-      then fun n -> qi
+      then fun _n -> qi
       else
         let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
                     qi n_nodes in
@@ -407,7 +404,7 @@ module Node_cfg = struct
     let tlx_dir =
       let rec _find = function
         | [] -> tlog_dir
-        | x :: xs -> try get_string "tlf_dir"
+        | x :: xs -> try get_string x
                      with _ -> _find xs
       in
       _find ["tlx_dir";"tlf_dir"]
@@ -442,7 +439,7 @@ module Node_cfg = struct
     let _fsync_tlog_dir = Ini.get
                             inifile
                             node_name
-                            "__tained_fsync_tlog_dir"
+                            "__tainted_fsync_tlog_dir"
                             Ini.p_bool
                             (Ini.default true) in
     let targets =
@@ -595,12 +592,75 @@ module Node_cfg = struct
               Lwt.fail exn
             end
           else
-            Lwt.return () in
+            Lwt.return ()
+        in
 
-        verify_exists t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
-        verify_exists t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
-        verify_exists t.tlx_dir "Tlx dir" (InvalidTlxDir t.tlx_dir) >>= fun () ->
-        verify_exists t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
+        let verify_writable dir msg exn =
+          let handle_exn =
+            (* Work-around: Logger macro doesn't accept an 'exn' argument not
+             * called 'exn' *)
+            let log exn =
+              Logger.fatal_f_ ~exn "Failure while verifying %s '%s'" msg dir
+            in
+            function
+              (* Set of exceptions we map to some specific exit code *)
+              | Unix.Unix_error(Unix.EPERM, _, _)
+              | Unix.Unix_error(Unix.EACCES, _, _)
+              | Unix.Unix_error(Unix.EROFS, _, _)
+              | Unix.Unix_error(Unix.ENOSPC, _, _) as e ->
+                  log e >>= fun () ->
+                  Lwt.fail exn
+              | e ->
+                  log e >>= fun () ->
+                  Lwt.fail e
+          in
+
+
+          let safe_unlink fn =
+            Lwt.catch
+              (fun () -> File_system.unlink fn)
+              handle_exn in
+
+          let fn = Printf.sprintf "%s/touch-%d" dir (Unix.getpid ()) in
+
+          let check () =
+            safe_unlink fn >>= fun () ->
+            let go () =
+              Logger.debug_f_ "Touching %S" fn >>= fun () ->
+              Lwt_unix.openfile fn
+                [Lwt_unix.O_RDWR; Lwt_unix.O_CLOEXEC; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
+                0o600 >>= fun fd ->
+
+              Lwt.finalize
+                (fun () ->
+                  Logger.debug_f_ "Write byte to %S" fn >>= fun () ->
+                  Lwt_unix.write fd "0" 0 1 >>= fun _ ->
+                  if t._fsync_tlog_dir
+                  then
+                    begin
+                      Logger.debug_f_ "Fsync %S" fn >>= fun () ->
+                      Lwt_unix.fsync fd
+                    end
+                  else
+                    Lwt.return ())
+                (fun () ->
+                  Lwt_unix.close fd)
+            in
+            Lwt.catch go handle_exn
+          in
+
+          Lwt.finalize check (fun () -> safe_unlink fn)
+        in
+
+        let verify dir msg exn =
+          verify_exists dir msg exn >>= fun () ->
+          verify_writable dir msg exn
+        in
+
+        verify t.home "Home dir" (InvalidHomeDir t.home) >>= fun () ->
+        verify t.tlog_dir "Tlog dir" (InvalidTlogDir t.tlog_dir) >>= fun () ->
+        verify t.tlx_dir "Tlx dir" (InvalidTlxDir t.tlx_dir) >>= fun () ->
+        verify t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
 
       end
 end

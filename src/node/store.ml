@@ -21,7 +21,6 @@ open Update
 open Interval
 open Routing
 open Lwt
-open Log_extra
 open Simple_store
 
 
@@ -53,7 +52,7 @@ sig
   val quiesced : t -> bool
   val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
   val unquiesce : t -> unit Lwt.t
-  val optimize : t -> unit Lwt.t
+  val optimize : t -> bool Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string -> bool -> unit Lwt.t
@@ -68,26 +67,26 @@ sig
   val clear_self_master : t -> string -> unit
   val who_master : t -> (string * float) option
 
-  val get : t -> string -> string Lwt.t
-  val exists : t -> string -> bool Lwt.t
+  val get : t -> string -> string
+  val exists : t -> string -> bool
   val range :  t ->
     string option -> bool ->
-    string option -> bool -> int -> Key.t counted_list Lwt.t
+    string option -> bool -> int -> Key.t counted_list
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
-    string option -> bool -> int -> (Key.t * string) counted_list Lwt.t
+    string option -> bool -> int -> (Key.t * string) counted_list
   val rev_range_entries :  t ->
     string option -> bool ->
-    string option -> bool -> int -> (Key.t * string) counted_list Lwt.t
-  val prefix_keys : t -> string -> int -> Key.t counted_list Lwt.t
-  val multi_get : t -> string list -> string list Lwt.t
-  val multi_get_option : t -> string list -> string option list Lwt.t
-  val get_key_count : t -> int64 Lwt.t
+    string option -> bool -> int -> (Key.t * string) counted_list
+  val prefix_keys : t -> string -> int -> Key.t counted_list
+  val multi_get : t -> string list -> string list
+  val multi_get_option : t -> string list -> string option list
+  val get_key_count : t -> int64
 
-  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list Lwt.t
+  val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list
 
-  val get_interval : t -> Interval.t Lwt.t
-  val get_routing : t -> Routing.t Lwt.t
+  val get_interval : t -> Interval.t
+  val get_routing : t -> Routing.t
 
   val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
@@ -180,21 +179,21 @@ struct
     S.get store.s (__prefix ^ key)
 
   let _wrap_exception store name not_closed_failure_exn f =
-    Lwt.catch
-      f
-      (function
-        | Failure s ->
-          begin
-            Logger.debug_f_ "store: %s Failure %s: => FOOBAR? (_closed:%b)" name s store.closed >>= fun () ->
-            if store.closed
-            then Lwt.fail (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
-            else Lwt.fail not_closed_failure_exn
-          end
-        | exn -> Lwt.fail exn)
+    try
+      f ()
+    with
+    | Failure s ->
+       begin
+         Logger.ign_debug_f_ "store: %s Failure %s: => FOOBAR? (_closed:%b)" name s store.closed;
+         if store.closed
+         then raise (Arakoon_exc.Exception (Arakoon_exc.E_GOING_DOWN, s ^ " : database closed"))
+         else raise not_closed_failure_exn
+       end
+    | exn -> raise exn
 
   let get store key =
-    _wrap_exception store "GET" CorruptStore (fun () ->
-        Lwt.return (_get store key))
+    _wrap_exception store "GET" CorruptStore
+                    (fun () -> _get store key)
 
   let _set store tx key value =
     S.set store.s tx (__prefix ^ key) value
@@ -205,8 +204,8 @@ struct
     with Not_found -> None
 
   let exists store key =
-    _wrap_exception store "EXISTS" CorruptStore (fun () ->
-        Lwt.return (S.exists store.s (__prefix ^ key)))
+    _wrap_exception store "EXISTS" CorruptStore
+                    (fun () -> S.exists store.s (__prefix ^ key))
 
   let multi_get store keys =
     _wrap_exception store "MULTI_GET" CorruptStore (fun () ->
@@ -219,10 +218,7 @@ struct
               raise exn)
             [] keys
         in
-        Lwt.return (List.rev vs))
-
-  let consensus_i store =
-    store.store_i
+        List.rev vs)
 
   let get_location store =
     S.get_location store.s
@@ -268,7 +264,7 @@ struct
     let m = match store.quiesced with
       | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
       | Quiesce.Mode.ReadOnly -> true in
-    S.optimize store.s m
+    S.optimize store.s ~quiesced:m ~stop:(ref false)
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
@@ -292,7 +288,7 @@ struct
 
   let clear_self_master store me =
     match store.master with
-      | Some (m, ls) when m = me -> store.master <- None
+      | Some (m, _) when m = me -> store.master <- None
       | _ -> ()
 
   let who_master store =
@@ -367,7 +363,7 @@ struct
     let () =
       try
         fringe :=
-          let len, (ts, f) =
+          let len, (_, f) =
             S.with_cursor
               store.s
               (fun cur ->
@@ -402,7 +398,7 @@ struct
                                     f_acc (0, [])) in
           (len, f)
       with Break -> () in
-    Lwt.return !fringe
+    !fringe
 
   let copy_store store oc =
     if quiesced store
@@ -420,10 +416,10 @@ struct
     S.defrag store.s
 
   let get_routing store =
-    Logger.debug_ "get_routing " >>= fun () ->
+    Logger.ign_debug_ "get_routing ";
     match store.routing with
-      | None -> Lwt.fail Not_found
-      | Some r -> Lwt.return r
+      | None -> raise Not_found
+      | Some r -> r
 
   let _set_routing store tx routing =
     let buf = Buffer.create 80 in
@@ -474,7 +470,7 @@ struct
             with Not_found -> None::acc)
             [] keys
         in
-        Lwt.return (List.rev vs))
+        List.rev vs)
 
   let _delete store tx key =
     S.delete store.s tx (__prefix ^ key)
@@ -501,7 +497,7 @@ struct
       match wanted,r with
       | Some v, _      -> _set store tx key v
       | None  , None   -> ()
-      | None  , Some o -> _delete store tx key
+      | None  , Some _ -> _delete store tx key
     end;
     r
 
@@ -541,7 +537,7 @@ struct
                           (fun cur k _ acc ->
                            Key.make k :: acc)
                           [] in
-       Lwt.return r)
+       r)
 
   let _range_entries store first finc last linc max =
     let _, r =
@@ -567,7 +563,7 @@ struct
                 let v = S.cur_get_value cur in
                 (Key.make k, v) :: acc)
                [] in
-       Lwt.return r)
+       r)
 
   let rev_range_entries store high hinc low linc max =
     _wrap_exception
@@ -583,19 +579,20 @@ struct
                   let v = S.cur_get_value cur in
                   (Key.make k, v) :: acc)
                  [] in
-       Lwt.return r)
+       r)
 
   let get_key_count store =
-    _wrap_exception store "GET_KEY_COUNT" CorruptStore (fun () ->
-        S.get_key_count store.s >>= fun raw_count ->
-        (* Leave out administrative keys *)
-        let admin_key_count, () =
-          fold_range store __adminprefix
-                     None true None true
-                     (-1)
-                     (fun cur k _ () -> ())
-                     () in
-        Lwt.return ( Int64.sub raw_count (Int64.of_int admin_key_count) ))
+    _wrap_exception store "GET_KEY_COUNT" CorruptStore
+                    (fun () ->
+                     let raw_count = S.get_key_count store.s in
+                     (* Leave out administrative keys *)
+                     let admin_key_count, () =
+                       fold_range store __adminprefix
+                                  None true None true
+                                  (-1)
+                                  (fun _ _ _ () -> ())
+                                  () in
+                     Int64.sub raw_count (Int64.of_int admin_key_count) )
 
   let prefix_keys store prefix max =
     _wrap_exception
@@ -607,13 +604,13 @@ struct
          fold_range store __prefix
                     (Some prefix) true (next_prefix prefix) false
                     max
-                    (fun cur k _ acc ->
+                    (fun _ k _ acc ->
                      Key.make k :: acc)
                     [] in
-       Lwt.return res)
+       res)
 
   let get_interval store =
-    Lwt.return (store.interval)
+    store.interval
 
   let _set_interval store tx range =
     store.interval <- range;
@@ -634,7 +631,7 @@ struct
     let test_range first last = test_option first; test_option last
     in
 
-    object (self : # Registry.user_db)
+    (object
 
       method set k v = test k ; _set store tx k v
       method get k   = test k ; _get store k
@@ -646,15 +643,24 @@ struct
       method range_entries first finc last linc max =
         test_range first last;
         Array.of_list (List.rev (_range_entries store first finc last linc max))
-    end
+    end : Registry.user_db)
 
   let _user_function store (name:string) (po:string option) tx =
-    Lwt.wrap (fun () ->
+    Lwt.catch
+      (fun () ->
         let f = Registry.Registry.lookup name in
         let user_db = new store_user_db store tx in
         let ro = f user_db po in
-        ro)
-
+        Lwt.return (Ok ro))
+      (fun exn ->
+       Lwt.return
+         (match exn with
+          | Not_found ->
+             Update_fail (Arakoon_exc.E_NOT_FOUND, "Not_found")
+          | Common.XException(rc, msg) ->
+             Update_fail (rc, msg)
+          | exn ->
+             Update_fail (Arakoon_exc.E_USERFUNCTION_FAILURE, Printexc.to_string exn)))
 
   let _with_transaction : t -> key_or_transaction -> (transaction -> 'a Lwt.t) -> 'a Lwt.t =
     fun store kt f -> match kt with
@@ -669,6 +675,12 @@ struct
         f tx
 
   let _insert_update store (update:Update.t) kt =
+    let get_key = function
+      | Update.Set (key, _)
+      | Update.Delete key
+      | Update.TestAndSet (key, _, _) -> Some key
+      | _ -> None
+    in
     let rec _do_one update tx =
       let return () = Lwt.return (Ok None) in
       let wrap f =
@@ -692,15 +704,9 @@ struct
         | Update.Replace (key,wanted) ->
            Lwt.return (Ok (_replace store tx key wanted))
         | Update.UserFunction(name,po) ->
-          _user_function store name po tx >>= fun ro ->
-          Lwt.return (Ok ro)
+          _user_function store name po tx
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
-          let get_key = function
-            | Update.Set (key,value) -> Some key
-            | Update.Delete key -> Some key
-            | Update.TestAndSet (key, expected, wanted) -> Some key
-            | _ -> None in
           Lwt_list.iter_s (fun update ->
               (Lwt.catch
                  (fun () -> _do_one update tx)
@@ -714,7 +720,7 @@ struct
                    | exn -> Lwt.fail exn))
               >>= function
               | Update_fail (rc, msg) -> Lwt.fail (Arakoon_exc.Exception(rc, msg))
-              | _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
+              | Ok _ -> Lwt.return ()) updates >>= fun () -> Lwt.return (Ok None)
         | Update.SetInterval interval ->
           wrap (fun () -> _set_interval store tx interval)
         | Update.SetRouting routing ->
@@ -781,45 +787,11 @@ struct
           | e -> Lwt.fail e)
     in
     let do_one update =
-      match update with
-        | Update.Set(key,value) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.MasterSet (m, lease) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Delete(key) ->
-          update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.DeletePrefix prefix ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.TestAndSet(key,expected,wanted)->
-          update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.UserFunction(name,po) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Sequence updates
-        | Update.SyncedSequence updates ->
-          update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
-        | Update.SetInterval interval ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRouting routing ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRoutingDelta (left, sep, right) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Nop ->
-          Lwt.return (Ok None)
-        | Update.Assert(k,vo) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Assert_exists(k) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.AdminSet(k,vo) ->
-          update_in_tx (fun tx -> _do_one update tx)
-        | Update.Replace(k, wanted) ->
-          update_in_tx (fun tx -> _do_one update tx)
-
-    in
-    let get_key = function
-      | Update.Set (key,value) -> Some key
-      | Update.Delete key -> Some key
-      | Update.TestAndSet (key, expected, wanted) -> Some key
-      | _ -> None
+      match get_key update with
+      | None ->
+         update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
+      | Some key ->
+         update_in_tx_with_not_found key (fun tx -> _do_one update tx)
     in
     try
       do_one update
@@ -918,7 +890,7 @@ struct
             begin
               match v with
                 | Value.Vm (m, ls) -> set_master_no_inc store m ls
-                | _ -> Lwt.return ()
+                | Value.Vc _ -> Lwt.return ()
             end >>= fun () ->
             incr_i store >>= fun () ->
             Lwt.return [Ok None]

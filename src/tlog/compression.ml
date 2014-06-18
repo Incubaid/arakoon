@@ -47,12 +47,12 @@ let read_format ic = function
               if s = format_snappy
               then Lwt.return ()
               else Lwt.fail (Failure "format error")
-  | _      -> Lwt.return ()
+  | No | Bz2  -> Lwt.return ()
 
 
 let write_format oc = function
   | Snappy -> Llio.output_string oc format_snappy
-  | _ -> Lwt.return ()
+  | No | Bz2 -> Lwt.return ()
 
 
 let _compress_tlog
@@ -141,7 +141,7 @@ let _uncompress_tlog
          let rec loop () =
            Lwt.catch
              (fun () ->
-              Sn.input_sn ic >>= fun last_i ->
+              Sn.input_sn ic >>= fun _last_i ->
               Llio.input_string ic >>= fun compressed ->
               Lwt.return (Some compressed))
              (function

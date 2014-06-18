@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Multi_paxos_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
-open Update
 
 let time_for_elections ?invalidate_lease_start_until (type s) constants =
   begin
@@ -32,20 +29,20 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
         let invalidate_lease_start_until = match invalidate_lease_start_until with
           | Some x -> x
           | None -> Unix.gettimeofday () -. (float constants.lease_expiration) in
-        let origine,(am,al) =
+        let lease_start =
           match S.who_master constants.store with
-            | None         -> "not_in_store", ("None", 0.0)
-            | Some (sm,sd) -> "stored", (sm,sd)
+          | None         -> 0.0
+          | Some (_m,sd) -> sd
         in
         let return need_elections =
-          need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until al in
-        if invalidate_lease_start_until >= al
+          need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until lease_start in
+        if invalidate_lease_start_until >= lease_start
         then
           begin
             match constants.respect_run_master with
             | None ->
               return true
-            | Some(other, until) ->
+            | Some(_, until) ->
               if Unix.gettimeofday () < until
               then
                 false, "lease expired, but respecting another node running for master"
@@ -161,7 +158,7 @@ let slave_steady_state (type s) constants state event =
                       then
                         begin
                           Logger.debug_f_ "%s: slave: have previous, so that implies consensus" constants.me >>= fun () ->
-                          Lwt.return [EConsensus (None, previous,n,Sn.pred i, true)]
+                          Lwt.return [EConsensus (None, previous,n,Sn.pred i)]
                         end
                       else
                         paxos_fatal constants.me "slave: with previous, mismatch store_i = %Li, i = %Li" store_i i
@@ -187,7 +184,20 @@ let slave_steady_state (type s) constants state event =
               end
             else
               accept_value [] n' i' v "steady_state :: replying again to previous with %S"
-          | Accept (n',i',v) when i' <= i ->
+          | Accept (n',i',v) when i' > i || (i'=i && n' > n) ->
+                                  (* TODO make helper function to check this! *)
+             begin
+               let log_e = ELog (fun () ->
+                                 Printf.sprintf
+                                   "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
+                                   (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
+                                )
+               in
+               let cu_pred = S.get_catchup_start_i constants.store in
+               let new_state = (source,cu_pred,n',i') in
+               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+             end
+          | Accept (n',i',v) ->
             begin
               let log_e = ELog (
                   fun () ->
@@ -195,18 +205,6 @@ let slave_steady_state (type s) constants state event =
                       (string_of msg) )
               in
               Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
-            end
-          | Accept (n',i',v) ->
-            begin
-              let log_e = ELog (fun () ->
-                  Printf.sprintf
-                    "slave_steady_state foreign (%s,%s) from %s <> local (%s,%s) discovered other master"
-                    (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
-                )
-              in
-              let cu_pred = S.get_catchup_start_i constants.store in
-              let new_state = (source,cu_pred,n',i') in
-              Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
             end
           | Prepare(n',i') ->
             begin
@@ -224,11 +222,11 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
             end
           | Nak(n',(n2, i2)) when i2 > i ->
-            begin
-              Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
-              let cu_pred =  S.get_catchup_start_i constants.store in
-              Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
-            end
+             begin
+               Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
+               let cu_pred =  S.get_catchup_start_i constants.store in
+               Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+             end
           | Nak _
           | Promise _
           | Accepted _ ->
@@ -249,7 +247,7 @@ let slave_steady_state (type s) constants state event =
            that allows clients to get through before the node became a slave
            but I know I'm a slave now, so I let the update fail.
         *)
-        let updates,finished_funs = List.split ufs in
+        let finished_funs = List.map snd ufs in
         let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
         let rec loop = function
           | []       -> Lwt.return ()
@@ -263,7 +261,7 @@ let slave_steady_state (type s) constants state event =
       handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
       Fsm.return (Slave_steady_state state)
     | Unquiesce ->
-      handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+      handle_unquiesce_request constants >>= fun () ->
       Fsm.return  (Slave_steady_state state)
     | DropMaster (sleep, awake) ->
       Multi_paxos.safe_wakeup sleep awake () >>= fun () ->
@@ -290,7 +288,7 @@ let slave_discovered_other_master (type s) constants state () =
       let master_before = S.who_master store in
       let lease_expired = match master_before with
         | None -> true
-        | Some (m, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
+        | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
       Catchup.catchup
         ~tls_ctx
         ~stop:constants.stop

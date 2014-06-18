@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Mp_msg
 open Lwt
 open MPMessage
 open Messaging
-open Multi_paxos_type
 open Master_type
 
 
@@ -83,7 +80,7 @@ let update_votes (nones,somes) = function
         else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
     let tmp = build_new [] somes in
-    let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
+    let somes' = List.sort (fun (_a,fa) (_b,fb) -> fb - fa) tmp in
     (nones, somes')
 
 type paxos_event =
@@ -403,12 +400,12 @@ let safe_wakeup sleeper awake value =
     ( fun () -> Lwt.return (Lwt.wakeup awake value) )
     ( fun e ->
        match e with
-         | Invalid_argument s ->
+         | Invalid_argument _s ->
            let t = state sleeper in
            begin
              match t with
                | Fail ex -> Lwt.fail ex
-               | Return v -> Lwt.return ()
+               | Return _ -> Lwt.return ()
                | Sleep -> Lwt.fail (Failure "Wakeup error, sleeper is still sleeping")
            end
          | _ -> Lwt.fail e
@@ -419,21 +416,18 @@ let safe_wakeup_all v l =
     (fun (s, a) -> safe_wakeup s a v)
     l
 
-let fail_quiesce_request store sleeper awake reason =
+let fail_quiesce_request sleeper awake reason =
   safe_wakeup sleeper awake reason
 
 let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store mode sleeper (awake: Quiesce.Result.t Lwt.u) =
   S.quiesce mode store >>= fun () ->
   safe_wakeup sleeper awake Quiesce.Result.OK
 
-let handle_unquiesce_request (type s) constants n =
+let handle_unquiesce_request (type s) constants =
   let store = constants.store in
   let tlog_coll = constants.tlog_coll in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let too_far_i = S.get_succ_store_i store in
   S.unquiesce store >>= fun () ->
   Catchup.catchup_store ~stop:constants.stop "handle_unquiesce" ((module S),store,tlog_coll) too_far_i >>= fun () ->
-  let i = S.get_succ_store_i store in
-  let vo = tlog_coll # get_last_value i in
-  start_lease_expiration_thread constants >>= fun () ->
-  Lwt.return (i,vo)
+  start_lease_expiration_thread constants
