@@ -662,17 +662,10 @@ class tlc2
       File_system.unlink tmp >>= fun () ->
       Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
 
-      Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
-      Lwt.finalize
-        (fun () ->
-          let mode = Lwt_io.output
-          and close () = Lwt.return () in
-          let oc = Lwt_io.of_fd ~mode ~close fd in
-          Llio.copy_stream ~length ~ic ~oc >>= fun () ->
-          Lwt_io.close oc >>= fun () ->
-          Lwt_unix.fsync fd)
-        (fun () -> Lwt_unix.close fd)
-      >>= fun () ->
+      File_system.with_output_file
+        tmp
+        (fun oc ->
+          Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
 
       File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
