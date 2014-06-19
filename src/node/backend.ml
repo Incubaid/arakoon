@@ -82,7 +82,7 @@ class type backend = object
 
   method user_function: string -> string option -> (string option) Lwt.t
 
-  method read_allowed : consistency -> unit Lwt.t
+  method read_allowed : consistency -> unit
   method get_read_user_db : unit -> Registry.read_user_db
 
   method set_interval : Interval.t -> unit Lwt.t

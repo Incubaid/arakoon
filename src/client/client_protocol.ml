@@ -374,7 +374,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
        Logger.debug_f_ "connection=%s USER_HOOK: consistency=%s name=%S" id (consistency2s consistency) name >>= fun () ->
        Lwt.catch
          (fun () ->
-          backend # read_allowed consistency >>= fun () ->
+          backend # read_allowed consistency;
           Lwt.return None)
          (fun exn ->
           handle_exception oc exn >>= fun r ->
