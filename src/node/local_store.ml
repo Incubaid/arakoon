@@ -174,8 +174,9 @@ let reopen ls f quiesced =
   Logger.info_ "local_store::reopen Hotc::reopen succeeded"
 
 let get_key_count ls =
-  Logger.debug_ "local_store::get_key_count" >>= fun () ->
-  Camltc.Hotc.transaction ls.db (fun db -> Lwt.return ( B.get_key_count db ) )
+  Logger.ign_debug_ "local_store::get_key_count";
+  let bdb = Camltc.Hotc.get_bdb ls.db in
+  B.get_key_count bdb
 
 let copy_store ls networkClient (oc: Lwt_io.output_channel) =
   let db_name = ls.location in
