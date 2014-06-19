@@ -57,7 +57,7 @@ man:
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 	rm arakoon
 
-.PHONY: install test build install_client
+.PHONY: install test build install_client bench
 
 
 indent-tabs-to-spaces:
