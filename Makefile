@@ -14,6 +14,9 @@ clean:
 build:
 	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs
 
+bench:
+	ocamlbuild -use-ocamlfind bs_bench.native
+
 test:
 	./arakoon.native --run-all-tests
 
@@ -52,9 +55,9 @@ coverage:
 man:
 	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
-	rm arakoon 
+	rm arakoon
 
-.PHONY: install test build install_client
+.PHONY: install test build install_client bench
 
 
 indent-tabs-to-spaces:
