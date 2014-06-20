@@ -1,6 +1,7 @@
 S src
 S src/client
 S src/inifiles
+S src/lib
 S src/main
 S src/msg
 S src/node
@@ -15,6 +16,7 @@ B _build
 B _build/src
 B _build/src/client
 B _build/src/inifiles
+B _build/src/lib
 B _build/src/main
 B _build/src/msg
 B _build/src/node
@@ -28,5 +30,9 @@ B _build/src/tools
 PKG bz2
 PKG camltc
 PKG lwt
+PKG lwt.ssl
 PKG lwt.unix
 PKG oUnit
+PKG snappy
+PKG ssl
+PKG quickcheck
