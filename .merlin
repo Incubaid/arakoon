@@ -27,9 +27,5 @@ B _build/src/tools
 PKG bz2
 PKG camltc
 PKG lwt
-PKG lwt.ssl
 PKG lwt.unix
 PKG oUnit
-PKG quickcheck
-PKG snappy
-PKG ssl
