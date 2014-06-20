@@ -17,6 +17,7 @@ B _build/src/client
 B _build/src/inifiles
 B _build/src/main
 B _build/src/msg
+B _build/src/node
 B _build/src/nursery
 B _build/src/paxos
 B _build/src/plugins
