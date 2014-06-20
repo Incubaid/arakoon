@@ -658,12 +658,23 @@ class tlc2
       Logger.info_ "save_head()" >>= fun () ->
       Llio.input_int64 ic >>= fun length ->
       let hf_name = self # get_head_name () in
-      Lwt_io.with_file
-        ~flags:[Unix.O_WRONLY;Unix.O_CREAT]
-        ~mode:Lwt_io.output
-        hf_name
-        (fun oc -> Llio.copy_stream ~length ~ic ~oc )
+      let tmp = Printf.sprintf "%s.tmp" hf_name in
+      File_system.unlink tmp >>= fun () ->
+      Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
+
+      Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
+      Lwt.finalize
+        (fun () ->
+          let mode = Lwt_io.output
+          and close () = Lwt.return () in
+          let oc = Lwt_io.of_fd ~mode ~close fd in
+          Llio.copy_stream ~length ~ic ~oc >>= fun () ->
+          Lwt_io.close oc >>= fun () ->
+          Lwt_unix.fsync fd)
+        (fun () -> Lwt_unix.close fd)
       >>= fun () ->
+
+      File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
 
 

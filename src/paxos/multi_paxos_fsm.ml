@@ -48,8 +48,7 @@ let election_suggest (type s) constants (n, counter) () =
   Lwt.ignore_result
     (Lwt_unix.sleep df >>= fun () -> mcast constants (Prepare (n,i)));
   let who_voted = [me] in
-  let i_lim = Some (me,i) in
-  let state = (n, i, who_voted, v_lims, i_lim, [], counter) in
+  let state = (n, i, who_voted, v_lims, [], counter) in
   Fsm.return (Promises_check_done state)
 
 let read_only constants (_state : unit) () =
@@ -61,7 +60,7 @@ let read_only constants (_state : unit) () =
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
-  let n, i, who_voted, (v_lims:v_limits), i_lim, lease_expire_waiters, counter = state in
+  let n, i, who_voted, (v_lims:v_limits), lease_expire_waiters, counter = state in
   (*
      3 cases:
      -) too early to decide
@@ -70,16 +69,15 @@ let promises_check_done constants state () =
   *)
   let me = constants.me in
   let nnones, v_s = v_lims in
-  let bv,bf,number_of_updates =
+  let bv,bf =
     begin
       match v_s with
-        | [] ->  (Value.create_master_value (me, 0.0), 0, 1)
-        | hd::tl ->
+        | [] ->  Value.create_master_value (me, 0.0), 0
+        | hd::_ ->
           let bv, bf = hd in
           if Value.is_master_set bv
-          then (Value.create_master_value (me, 0.0), bf, 1)
-          else bv, bf , List.length (Value.updates_from_value bv)
-
+          then Value.create_master_value (me, 0.0), bf
+          else bv, bf
     end in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
@@ -122,7 +120,7 @@ let promises_check_done constants state () =
 let wait_for_promises (type s) constants state event =
   let me = constants.me in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  let (n, i, who_voted, v_lims, i_lim, lease_expire_waiters, counter) = state in
+  let (n, i, who_voted, v_lims, lease_expire_waiters, counter) = state in
   match event with
     | FromNode (msg,source) ->
       begin
@@ -143,10 +141,10 @@ let wait_for_promises (type s) constants state event =
         in
         begin
           match msg with
-            | Promise (n' ,i', limit) when n' < n ->
+            | Promise (n' ,_i', _limit) when n' < n ->
               let reason = Printf.sprintf "old promise (%s < %s)" (Sn.string_of n') (Sn.string_of n) in
               drop msg reason
-            | Promise (n',i', limit) when n' = n && i' < i ->
+            | Promise (n',i', _limit) when n' = n && i' < i ->
               let reason = Printf.sprintf "old promise with lower i: %s < %s"
                              (Sn.string_of i') (Sn.string_of i)
               in
@@ -164,13 +162,9 @@ let wait_for_promises (type s) constants state event =
                       update_votes v_lims limit
                   end in
                 let who_voted' = source :: who_voted in
-                let new_ilim = match i_lim with
-                  | Some (source',i') -> if i' < new_i then Some (source,new_i) else i_lim
-                  | None -> Some (source,new_i)
-                in
-                let state' = (n, i, who_voted', v_lims', new_ilim, lease_expire_waiters, counter) in
+                let state' = (n, i, who_voted', v_lims', lease_expire_waiters, counter) in
                 Fsm.return (Promises_check_done state')
-            | Promise (n' ,i', limit) -> (* n ' > n *)
+            | Promise (n' ,_i', _limit) -> (* n ' > n *)
               begin
                 Logger.debug_f_ "%s: Received Promise from previous incarnation. Bumping n from %s over %s." me
                   (Sn.string_of n) (Sn.string_of n')
@@ -288,7 +282,7 @@ let wait_for_promises (type s) constants state event =
         end
       end
     | ElectionTimeout (n', i') ->
-      let (n,i,who_voted, v_lims, i_lim, lease_expire_waiters, counter) = state in
+      let (n,i,_who_voted, _v_lims, _lease_expire_waiters, counter) = state in
       if n' = n && i' = i && not ( S.quiesced constants.store )
       then
         begin
@@ -331,8 +325,8 @@ let lost_master_role = function
       Lwt_list.iter_s (fun f -> f result) finished_funs
     end
 
-let accepteds_check_done constants ((ms,ballot)as state) () =
-  let needed, already_voted = ballot in
+let accepteds_check_done _constants ((ms,ballot)as state) () =
+  let needed = fst ballot in
   if needed = 0
   then
     begin
@@ -400,10 +394,10 @@ let wait_for_accepteds
                                (Sn.string_of n) (Sn.string_of i) in
                 drop msg reason
               end
-            | Accepted (n',i') -> (* n' > n *)
+            | Accepted (n',_i') -> (* n' > n *)
               paxos_fatal me "wait_for_accepteds:: received %S with n'=%s > my n=%s FATAL" (string_of msg) (Sn.string_of n') (Sn.string_of n)
 
-            | Promise(n',i', limit) ->
+            | Promise(n',i', _limit) ->
               begin
                 let () = constants.on_witness source i' in
                 if n' <= n then
@@ -467,17 +461,12 @@ let wait_for_accepteds
                   (MPMessage.string_of msg) source >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',_) when n' < n || i' < i ->
-              begin
-                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-              end
             | Accept (n',i',v') when (n',i',v')=(n,i,v) ->
               begin
                 Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',v') (* when n' >= n && i' >= i ; but compiler is not smart enough for this *) ->
+            | Accept (n',i',v') when i' > i || (i' = i && n' > n) ->
               (* check lease, if we're inside, drop (how could this have happened?)
                  otherwise, we've lost master role
               *)
@@ -501,10 +490,15 @@ let wait_for_accepteds
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
                 end
+            | Accept (n',i',_) (* when i' < i || (i' = i && n' < n) *) ->
+              begin
+                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+                Fsm.return (Wait_for_accepteds state)
+              end
         end
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
-    | LeaseExpired n'    -> paxos_fatal me "no LeaseExpired should get here"
+    | LeaseExpired _     -> paxos_fatal me "no LeaseExpired should get here"
     | ElectionTimeout (n', i') ->
       begin
         let here = "wait_for_accepteds : election timeout " in
@@ -534,7 +528,7 @@ let wait_for_accepteds
             Fsm.return (Wait_for_accepteds state)
           end
       end
-    | Quiesce (mode, sleep,awake) ->
+    | Quiesce (_mode, sleep,awake) ->
       fail_quiesce_request sleep awake Quiesce.Result.FailMaster >>= fun () ->
        Fsm.return (Wait_for_accepteds state)
 
@@ -717,7 +711,7 @@ let _execute_effects constants e =
     | ESend (msg, target) -> constants.send msg constants.me target
     | EStartElectionTimeout (n, i) -> start_election_timeout constants n i
 
-    | EConsensus (ofinished_funs, v,n,i, slave) ->
+    | EConsensus (ofinished_funs, v,n,i) ->
       begin
         constants.on_consensus (v,n,i) >>= fun (urs: Store.update_result list) ->
         begin

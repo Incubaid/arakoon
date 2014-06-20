@@ -19,7 +19,6 @@ open Tcp_messaging
 open Update
 open Lwt
 open Lwt_buffer
-open Gc
 open Master_type
 open Client_cfg
 open Statistics
@@ -187,37 +186,39 @@ let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
 let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~name ~cluster_cfg ~make_tlog_coll =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
-  let node_cnt = List.length cluster_cfg.cfgs in
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
-  begin
-    if node_cnt > 1
-    then Catchup.get_db ~tls_ctx db_name cluster_id other_configs
-    else Lwt.return None
-  end
-  >>= fun m_mr_name ->
-  let mr_name =
-    begin
-      match m_mr_name with
-        | Some m -> m
-        | None ->
-          let fo = List.hd other_configs in
-          fo.node_name
-    end
+  let try_catchup mr_name =
+    Lwt.catch
+      (fun () ->
+       S.make_store ~lcnum:cluster_cfg.lcnum
+                    ~ncnum:cluster_cfg.ncnum
+                    db_name >>= fun store ->
+       let compressor = me.compressor in
+       make_tlog_coll ~compressor
+                      me.tlog_dir me.tlx_dir me.head_dir
+                      ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
+       Catchup.catchup ~tls_ctx ~stop:(ref false)
+                       me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+                       ((module S),store,tlc) mr_name >>= fun _ ->
+       S.close ~flush:true store >>= fun () ->
+       tlc # close () >>= fun () ->
+       Lwt.return true)
+      (fun exn ->
+       Logger.warning_f_ ~exn "Catchup from %s failed" mr_name >>= fun () ->
+       Lwt.return false)
   in
-  S.make_store ~lcnum:cluster_cfg.lcnum
-    ~ncnum:cluster_cfg.ncnum
-    db_name >>= fun store ->
-  let compressor = me.compressor in
-  make_tlog_coll ~compressor
-                 me.tlog_dir me.tlx_dir me.head_dir
-                 ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
-  Catchup.catchup ~tls_ctx ~stop:(ref false) me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
-    ((module S),store,tlc) mr_name >>= fun _ ->
-  S.close ~flush:true store >>= fun () ->
-  tlc # close ()
-
+  let rec try_nodes = function
+    | [] -> Lwt.fail (Failure "Could not perform catchup, no other nodes cooperated.")
+    | node :: others ->
+       try_catchup node.node_name >>= fun succeeded ->
+       if succeeded
+       then
+         Lwt.return ()
+       else
+         try_nodes others in
+  try_nodes other_configs
 
 let get_ssl_cert_paths me cluster =
   match me.tls_cert with
@@ -345,17 +346,6 @@ let _main_2 (type s)
       make_config get_snapshot_name ~name
       ~daemonize ~catchup_only stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
-  let control  = {
-    minor_heap_size = 32 * 1024;
-    major_heap_increment = 124 * 1024;
-    space_overhead = 80;
-    verbose = 0;
-    max_overhead = 0;
-    stack_limit = 256 * 1024;
-    allocation_policy = 1;
-  }
-  in
-  Gc.set control;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
@@ -376,6 +366,11 @@ let _main_2 (type s)
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
+  let () = match cluster_cfg.overwrite_tlog_entries with
+    | None -> ()
+    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+  in
+
   if catchup_only
   then
     begin
@@ -393,11 +388,6 @@ let _main_2 (type s)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-
-      let () = match cluster_cfg.overwrite_tlog_entries with
-        | None -> ()
-        | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-      in
 
       let my_clicfg =
         begin

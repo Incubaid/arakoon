@@ -26,7 +26,7 @@ The simplest is to download and install the debian archive. It's not difficult t
     tlogEntriesPerFile: 100000
     dependencies:
     camlbz2        0.6.0  Bindings for bzip2
-    camltc         0.9.0  Tokyo Cabinet bindings for OCaml.
+    camltc         0.9.2  Tokyo Cabinet bindings for OCaml.
     lwt            2.4.4  A cooperative threads library for OCaml
     ounit          2.0.0  Unit testing framework loosely based on HUnit. It is similar to JUnit, and other XUnit testing frameworks
     snappy         0.1.0  Bindings to snappy - fast compression/decompression library

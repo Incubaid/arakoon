@@ -72,7 +72,7 @@ struct
   let _mute_so _ = ()
 
   let _update_rendezvous self ~so_post update update_stats push =
-    self # _write_allowed () >>= fun () ->
+    self # _write_allowed ();
     let sleep, awake = Lwt.wait () in
     let went_well = make_went_well update_stats awake sleep in
     push (update, went_well) >>= fun () ->
@@ -123,32 +123,19 @@ struct
 
 
       method exists ~consistency key =
-        log_o self "exists %s" key >>= fun () ->
-        self # _read_allowed consistency >>= fun () ->
+        self # _read_allowed consistency;
         S.exists store key
 
       method get ~consistency key =
         let start = Unix.gettimeofday () in
-        self # _read_allowed consistency >>= fun () ->
-        self # _check_interval [key] >>= fun () ->
-        Lwt.catch
-          (fun () ->
-             S.get store key >>= fun v ->
-             Statistics.new_get _stats key v start;
-             Lwt.return v)
-          (fun exc ->
-             match exc with
-               | Not_found ->
-                 Lwt.fail (Common.XException (Arakoon_exc.E_NOT_FOUND, key))
-               | Store.CorruptStore ->
-                 begin
-                   Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
-                   Lwt.fail Server.FOOBAR
-                 end
-               | ext -> Lwt.fail ext)
+        self # _read_allowed consistency;
+        self # _check_interval [key];
+        let v = S.get store key in
+        Statistics.new_get _stats key v start;
+        v
 
       method get_interval () =
-        self # _read_allowed Consistent >>= fun () ->
+        self # _read_allowed Consistent;
         S.get_interval store
 
 
@@ -179,11 +166,11 @@ struct
 
       method range ~consistency (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        self # _read_allowed consistency >>= fun () ->
-        self # _check_interval_range first last >>= fun () ->
-        S.range store first finc last linc max >>= fun r ->
+        self # _read_allowed consistency;
+        self # _check_interval_range first last;
+        let r = S.range store first finc last linc max in
         Statistics.new_range _stats start (Array.length r);
-        Lwt.return r
+        r
 
       method private with_blocked_collapser start_i f =
         Lwt.finalize
@@ -211,36 +198,34 @@ struct
       method range_entries ~consistency
                (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        self # _read_allowed consistency >>= fun () ->
-        self # _check_interval_range first last >>= fun () ->
-        S.range_entries store first finc last linc max >>= fun r ->
+        self # _read_allowed consistency;
+        self # _check_interval_range first last;
+        let r  = S.range_entries store first finc last linc max in
         Statistics.new_range_entries _stats start (fst r);
-        Lwt.return r
+        r
 
       method rev_range_entries ~consistency
                (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
-        log_o self "rev_range_entries %s %b %s %b %i" (_s_ first) finc (_s_ last) linc max >>= fun () ->
-        self # _read_allowed consistency >>= fun () ->
-        self # _check_interval_range last first >>= fun () ->
-        S.rev_range_entries store first finc last linc max >>= fun r ->
+        self # _read_allowed consistency;
+        self # _check_interval_range last first;
+        let r = S.rev_range_entries store first finc last linc max in
         Statistics.new_rev_range_entries _stats start (fst r);
-        Lwt.return r
+        r
 
       method prefix_keys ~consistency (prefix:string) (max:int) =
         let start = Unix.gettimeofday() in
-        log_o self "prefix_keys %s %d" prefix max >>= fun () ->
-        self # _read_allowed consistency >>= fun () ->
-        self # _check_interval [prefix]  >>= fun () ->
-        S.prefix_keys store prefix max   >>= fun key_list ->
+        self # _read_allowed consistency;
+        self # _check_interval [prefix];
+        let key_list = S.prefix_keys store prefix max in
         let n_keys = fst key_list in
-        Logger.debug_f_ "prefix_keys found %d matching keys" n_keys >>= fun () ->
+        Logger.ign_debug_f_ "prefix_keys found %d matching keys" n_keys;
         Statistics.new_prefix_keys _stats start n_keys;
-        Lwt.return key_list
+        key_list
 
       method set key value =
         let start = Unix.gettimeofday () in
-        self # _check_interval [key] >>= fun () ->
+        self # _check_interval [key];
         let () = assert_value_size value in
         let update = Update.Set(key,value) in
         let update_sets (_update_result:Store.update_result) = Statistics.new_set _stats key value start in
@@ -259,15 +244,14 @@ struct
       method confirm key value =
         log_o self "confirm %S" key >>= fun () ->
         let () = assert_value_size value in
-        self # exists ~consistency:Consistent key >>= function
-        | true ->
-          begin
-            S.get store key >>= fun old_value ->
-            if old_value = value
-            then Lwt.return ()
-            else self # set key value
-          end
-        | false -> self # set key value
+        self # _read_allowed Consistent;
+        try
+          let old_value = S.get store key in
+          if old_value = value
+          then Lwt.return ()
+          else self # set key value
+        with Not_found ->
+          self # set key value
 
       method set_routing r =
         log_o self "set_routing" >>= fun () ->
@@ -303,14 +287,18 @@ struct
         _update_rendezvous self update ignore push_update ~so_post:id
 
       method aSSert ~consistency (key:string) (vo:string option) =
-        log_o self "aSSert %S ..." key >>= fun () ->
-        let update = Update.Assert(key,vo) in
-        _update_rendezvous self update no_stats push_update ~so_post:_mute_so
+        self # _read_allowed consistency;
+        let vo' =
+          try Some (S.get store key)
+          with Not_found -> None in
+        if vo' <> vo
+        then raise (XException(Arakoon_exc.E_ASSERTION_FAILED,key))
 
       method aSSert_exists ~consistency (key:string)=
-        log_o self "aSSert %S ..." key >>= fun () ->
-        let update = Update.Assert_exists(key) in
-        _update_rendezvous self update no_stats push_update ~so_post:_mute_so
+        self # _read_allowed consistency;
+        let exist = S.exists store key in
+        if not exist
+        then raise (XException(Arakoon_exc.E_ASSERTION_FAILED,key))
 
       method test_and_set key expected (wanted:string option) =
         let start = Unix.gettimeofday() in
@@ -393,17 +381,17 @@ struct
 
       method multi_get ~consistency (keys:string list) =
         let start = Unix.gettimeofday() in
-        self # _read_allowed consistency >>= fun () ->
-        S.multi_get store keys >>= fun values ->
+        self # _read_allowed consistency;
+        let values = S.multi_get store keys in
         Statistics.new_multiget _stats start;
-        Lwt.return values
+        values
 
       method multi_get_option ~consistency (keys:string list) =
         let start = Unix.gettimeofday() in
-        self # _read_allowed consistency >>= fun () ->
-        S.multi_get_option store keys >>= fun vos ->
+        self # _read_allowed consistency;
+        let vos = S.multi_get_option store keys in
         Statistics.new_multiget_option _stats start;
-        Lwt.return vos
+        vos
 
       method to_string () = "sync_backend(" ^ (Node_cfg.node_name cfg) ^")"
 
@@ -428,13 +416,12 @@ struct
                 | ReadOnly -> Some my_name, "readonly"
 
         in
-        Logger.debug_f_ "who_master: returning %s because %s"
-          (Log_extra.string_option2s result) argumentation
-        >>= fun () ->
-        Lwt.return result
+        Logger.ign_debug_f_ "who_master: returning %s because %s"
+          (Log_extra.string_option2s result) argumentation;
+        result
 
       method private _not_if_master() =
-        self # who_master () >>= function
+        match self # who_master () with
         | None ->
           Lwt.return ()
         | Some m ->
@@ -445,69 +432,63 @@ struct
           else
             Lwt.return ()
 
-      method (* private *) _write_allowed () =
+      method _write_allowed () =
         if read_only
-        then Lwt.fail (XException(Arakoon_exc.E_READ_ONLY, my_name))
-        else if n_nodes = 1 then Lwt.return ()
-        else
+        then raise (XException(Arakoon_exc.E_READ_ONLY, my_name))
+        else if n_nodes <> 1
+        then
           begin
-            self # who_master () >>= function
+            match self # who_master () with
             | None ->
-              Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, "None"))
+              raise (XException(Arakoon_exc.E_NOT_MASTER, "None"))
             | Some m ->
               if m <> my_name
-              then Lwt.fail (XException(Arakoon_exc.E_NOT_MASTER, m))
-              else Lwt.return ()
+              then raise (XException(Arakoon_exc.E_NOT_MASTER, m))
           end
 
       method private _read_allowed (consistency:consistency) =
-        if read_only
-        then Lwt.return ()
-        else
+        if not read_only
+        then
           match consistency with
           | Consistent    -> self # _write_allowed ()
-          | No_guarantees -> Lwt.return ()
+          | No_guarantees -> ()
           | At_least s    ->
              begin
 
                let io = S.consensus_i store in
-               Logger.debug_f_ "_read_allowed: store @ %s at_least=%s" (Log_extra.option2s Sn.string_of io) (Sn.string_of s) >>= fun () ->
+               Logger.ign_debug_f_ "_read_allowed: store @ %s at_least=%s" (Log_extra.option2s Sn.string_of io) (Sn.string_of s);
                let i = match io with
                  | None -> Sn.zero
                  | Some i -> i
                in
                if Stamp.(<=) s i
-               then Logger.debug_f_ "ok"
-               else Lwt.fail(XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
+               then Logger.ign_debug_f_ "ok"
+               else raise (XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
              end
 
       method read_allowed consistency =
         self # _read_allowed consistency
 
       method private _check_interval keys =
-        S.get_interval store >>= fun iv ->
+        let iv = S.get_interval store in
         let rec loop = function
-          | [] -> Lwt.return ()
-          (* | [k] ->
-             if Interval.is_ok iv k then Lwt.return ()
-             else Lwt.fail (XException(Arakoon_ex.E_OUTSIDE_INTERVAL, k)) *)
+          | [] -> ()
           | k :: keys ->
             if Interval.is_ok iv k
             then loop keys
-            else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+            else raise (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
         in
         loop keys
 
       method private _check_interval_range first last =
-        S.get_interval store >>= fun iv ->
+        let iv = S.get_interval store in
         let check_option = function
-          | None -> Lwt.return ()
+          | None -> ()
           | Some k ->
-            if Interval.is_ok iv k
-            then Lwt.return ()
-            else Lwt.fail (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
+            if not (Interval.is_ok iv k)
+            then raise (XException(Arakoon_exc.E_OUTSIDE_INTERVAL, k))
         in
-        check_option first >>= fun () ->
+        check_option first;
         check_option last
 
       method witness name i =
@@ -524,7 +505,7 @@ struct
 
       method expect_progress_possible () =
         match S.consensus_i store with
-          | None -> Lwt.return false
+          | None -> false
           | Some i ->
             let q = quorum_function n_nodes in
             let count,s = Hashtbl.fold
@@ -536,9 +517,8 @@ struct
                                else  count,s')
                             ( Statistics.get_witnessed _stats ) (1,"") in
             let v = count >= q in
-            Logger.debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s
-            >>= fun () ->
-            Lwt.return v
+            Logger.ign_debug_f_ "count:%i,q=%i i=%s detail:%s" count q (Sn.string_of i) s;
+            v
 
       method get_statistics () =
         (* It's here and not in Statistics as we use statistics in the
@@ -563,7 +543,7 @@ struct
       method clear_most_statistics () = Statistics.clear_most _stats
       method check ~cluster_id =
         let r = test ~cluster_id in
-        Lwt.return r
+        r
 
       method collapse n cb' cb =
         if n < 1 then
@@ -592,23 +572,20 @@ struct
                Logger.info_ "Collapse completed")
 
       method get_routing () =
-        self # _read_allowed Consistent >>= fun () ->
-        Lwt.catch
-          (fun () ->
-             S.get_routing store
-          )
-          (fun exc ->
-             match exc with
-               | Store.CorruptStore ->
-                 begin
-                   Logger.fatal_ "CORRUPT_STORE" >>= fun () ->
-                   Lwt.fail Server.FOOBAR
-                 end
-               | ext -> Lwt.fail ext)
+        self # _read_allowed Consistent;
+        try
+          S.get_routing store
+        with
+        | Store.CorruptStore ->
+           begin
+             Logger.ign_fatal_ "CORRUPT_STORE";
+             raise Server.FOOBAR
+           end
+        | ext -> raise ext
 
 
       method get_key_count () =
-        self # _read_allowed Consistent >>= fun () ->
+        self # _read_allowed Consistent;
         S.get_key_count store
 
       method private quiesce_db ~mode () =
@@ -711,9 +688,9 @@ struct
         begin
           match client_cfgs with
             | None ->
-              S.range_entries store ~_pf:Simple_store.__adminprefix
-                ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
-              >>= fun cfgs ->
+              let cfgs = S.range_entries
+                           store ~_pf:Simple_store.__adminprefix
+                           ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1) in
               let result = Hashtbl.create 5 in
               let add_item (item: Key.t*string) =
                 let k,v = item in
@@ -725,9 +702,9 @@ struct
               in
               List.iter add_item (snd cfgs);
               let () = client_cfgs <- (Some result) in
-              Lwt.return result
+              result
             | Some res ->
-              Lwt.return res
+              res
         end
 
       method set_cluster_cfg cluster_id cfg =
@@ -750,7 +727,7 @@ struct
         end
 
       method get_fringe boundary direction =
-        Logger.debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary) >>= fun () ->
+        Logger.ign_debug_f_ "get_fringe %S" (Log_extra.string_option2s boundary);
         S.get_fringe store boundary direction
 
       method drop_master () =
@@ -760,7 +737,7 @@ struct
           Lwt.fail e
         else
           begin
-            self # who_master () >>= function
+            match self # who_master () with
             | None -> Lwt.return ()
             | Some m ->
               if m <> my_name
@@ -781,8 +758,7 @@ struct
           end
 
       method get_current_state () =
-        let s = Multi_paxos_fsm.pull_state () in
-        Lwt.return s
+        Multi_paxos_fsm.pull_state ()
     end
 
 end

@@ -20,14 +20,9 @@ open Lwt
 
 let section = Logger.Section.main
 
-let mv_waiter = Lwt_mvar.create_empty
-let mv_callback = Lwt_mvar.put
-let mv_wait = Lwt_mvar.take
-
 let no_callback = Lwt.return
 
 exception FOOBAR
-
 
 type socket = Plain of Lwt_unix.file_descr
             | TLS of Lwt_ssl.socket
@@ -69,12 +64,6 @@ let session_thread (sid:string) cid protocol fd =
         Lwt.fail Canceled
       | exn ->
         Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
-  >>= fun () ->
-  Lwt.catch
-    ( fun () -> close fd )
-    ( function
-      | Canceled -> Lwt.fail Canceled
-      | exn -> Logger.info_f_ ~exn "Exception on closing of socket (connection=%s)" cid)
 
 let create_connection_allocation_scheme max =
   let counter = ref 0 in

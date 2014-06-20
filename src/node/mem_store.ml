@@ -137,7 +137,7 @@ let get_key_count ms =
   let inc key value size =
     Int64.succ size
   in
-  Lwt.return (StringMap.fold inc ms.kv 0L)
+  StringMap.fold inc ms.kv 0L
 
 let copy_store2 old_location new_location overwrite = Lwt.return ()
 
