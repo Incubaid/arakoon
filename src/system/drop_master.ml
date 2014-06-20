@@ -5,51 +5,74 @@ open Node_cfg.Node_cfg
 
 let section = Logger.Section.main
 
-let setup tn master base () = 
+let setup tn master base () =
   let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
   let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
   let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
-  let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in
-  let all_t = [t0;t1;t2] in
+  (* let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in *)
+  let all_t = [t0;t1(* ;t2 *)] in
   Lwt.return (tn, make_config (), all_t)
 
 let teardown (tn, _, all_t) = Lwt.return ()
 
-let _with_master_admin (tn, cluster_cfg, _) f =
+let _drop_master do_maintenance (tn, cluster_cfg, _) =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
-  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *) 
+  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Client_main.find_master cluster_cfg >>= fun master_name ->
+  if do_maintenance
+  then
+    begin
+      let slave = List.hd (List.filter ((<>) master_name) ["t_arakoon_0"; "t_arakoon_1"]) in
+      let slave_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = slave) cluster_cfg.cfgs) in
+      let open Remote_nodestream in
+      let open Network in
+      let address = make_address (List.hd slave_cfg.ips) slave_cfg.client_port in
+      Lwt.ignore_result
+        (Lwt_io.with_connection
+           address
+           (fun connection ->
+            make_remote_nodestream cluster_cfg.cluster_id connection >>= fun client ->
+            client # defrag_db ()))
+    end;
   Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
-    List.hd 
+    List.hd
       (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
   in
   let host,port = List.hd master_cfg.ips , master_cfg.client_port in
   let sa = Network.make_address host port in
   let cid = cluster_cfg.cluster_id in
-  Lwt_io.with_connection sa 
-    (fun conn ->
-      Remote_nodestream.make_remote_nodestream cid conn >>= fun admin ->
-      f cluster_cfg master_name admin
-    )
-
-let _drop_master cluster_cfg master_name admin = 
-  Logger.info_ "drop_master scenario" >>= fun () ->
-  admin # drop_master () >>= fun () ->
-  Client_main.find_master cluster_cfg >>= fun new_master ->
-  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
-  OUnit.assert_bool "master should have been changed" (new_master <> master_name);
+  Lwt.pick
+    [(Lwt_io.with_connection sa
+                             (fun conn ->
+                              Remote_nodestream.make_remote_nodestream cid conn >>= fun client ->
+                              Logger.info_ "drop_master scenario" >>= fun () ->
+                              client # drop_master () >>= fun () ->
+                              Client_main.find_master cluster_cfg >>= fun new_master ->
+                              Logger.info_f_ "new? master = %s" new_master >>= fun () ->
+                              (if do_maintenance
+                              then
+                                OUnit.assert_bool "master should be the same" (new_master = master_name)
+                              else
+                                OUnit.assert_bool "master should have been changed" (new_master <> master_name));
+                              Lwt. return ()));
+     (Lwt_unix.sleep 60. >>= fun () ->
+      Lwt.fail (Failure "drop master did not terminate quickly enough"))] >>= fun () ->
+  if do_maintenance
+  then
+    Lwt_condition.signal Mem_store.defrag_condition ();
   Lwt.return ()
 
-let drop_master tpl = _with_master_admin tpl _drop_master
+let drop_master tpl = _drop_master false tpl
+let drop_master_while_maintenance tpl = _drop_master true tpl
 
 
-
-let make_suite base name w = 
+let make_suite base name w =
   let make_el n base f = n >:: w n base f in
   name >:::
     [make_el "drop_master" base drop_master;
+     make_el "drop_master_while_maintenance" base drop_master_while_maintenance;
     ]
 
 

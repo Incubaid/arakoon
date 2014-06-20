@@ -100,7 +100,8 @@ let set ms tx key value =
   ms.kv <- StringMap.add key value ms.kv
 
 let optimize ms quiesced = Lwt.return ()
-let defrag ms = Lwt.return ()
+let defrag_condition = (Lwt_condition.create () : unit Lwt_condition.t)
+let defrag ms = Lwt_condition.wait defrag_condition
 
 let flush ms = Lwt.return ()
 let close ms flush = Lwt.return ()
