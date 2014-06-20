@@ -495,6 +495,7 @@ let slave_discovered_other_master (type s) constants state () =
                   | None -> None
                   | Some u -> Some ( u, current_i' )
               end in
+            start_lease_expiration_thread constants future_n ~slave:true >>= fun () ->
             start_election_timeout constants future_n >>= fun () ->
             Fsm.return (Slave_wait_for_accept (future_n, current_i', None, vo))
       end

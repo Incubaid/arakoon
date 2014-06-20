@@ -813,6 +813,11 @@ struct
       if quiesced store
       then
         begin
+          begin
+            match v with
+            | Value.Vm (m, ls) -> set_master_no_inc store m ls
+            | Value.Vc _ -> Lwt.return ()
+          end >>= fun () ->
           incr_i store >>= fun () ->
           Lwt.return [Ok None]
         end

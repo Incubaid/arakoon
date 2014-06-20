@@ -5,8 +5,36 @@ open Node_cfg.Node_cfg
 
 let section = Logger.Section.main
 
+
+let find_master cluster_cfg =
+  Lwt.catch
+    (fun () ->
+      Client_main.find_master cluster_cfg >>= fun m ->
+      Lwt.return (Some m))
+    (function
+    | Failure "too many nodes down"
+    | Failure "No Master" ->
+      Lwt.return None
+    | exn ->
+      Lwt.fail exn)
+
+let wait_until_master cluster_cfg =
+  Logger.debug_ "waiting until there's a master..." >>= fun () ->
+  let rec inner () =
+    find_master cluster_cfg >>= function
+    | None ->
+      Lwt_unix.sleep 0.2 >>= fun () ->
+      inner ()
+    | Some m ->
+      Lwt.return m in
+  Lwt.pick
+    [(Lwt_unix.timeout 60. >>= fun () ->
+      Lwt.fail (Failure "no master found in 60 seconds"));
+     inner ()]
+
+let lease_period = 2
+
 let setup tn master base () =
-  let lease_period = 10 in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
   let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
   let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
@@ -49,19 +77,28 @@ let _drop_master do_maintenance (tn, cluster_cfg, _) =
                               Remote_nodestream.make_remote_nodestream cid conn >>= fun client ->
                               Logger.info_ "drop_master scenario" >>= fun () ->
                               client # drop_master () >>= fun () ->
-                              Client_main.find_master cluster_cfg >>= fun new_master ->
-                              Logger.info_f_ "new? master = %s" new_master >>= fun () ->
-                              (if do_maintenance
+                              if not do_maintenance
                               then
-                                OUnit.assert_bool "master should be the same" (new_master = master_name)
+                                begin
+                                  Client_main.find_master cluster_cfg >>= fun new_master ->
+                                  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
+                                  OUnit.assert_bool "master should have been changed" (new_master <> master_name);
+                                  Lwt.return ()
+                                end
                               else
-                                OUnit.assert_bool "master should have been changed" (new_master <> master_name));
-                              Lwt. return ()));
+                                  wait_until_master cluster_cfg >>= fun new_master ->
+                                  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
+                                  OUnit.assert_bool "master should be the same" (new_master = master_name);
+                                  Lwt.return ()));
      (Lwt_unix.sleep 60. >>= fun () ->
       Lwt.fail (Failure "drop master did not terminate quickly enough"))] >>= fun () ->
   if do_maintenance
   then
     Lwt_condition.signal Mem_store.defrag_condition ();
+  Lwt_unix.sleep (float lease_period) >>= fun () ->
+  find_master cluster_cfg >>= fun _ ->
+  Lwt_unix.sleep (float lease_period) >>= fun () ->
+  find_master cluster_cfg >>= fun _ ->
   Lwt.return ()
 
 let drop_master tpl = _drop_master false tpl
