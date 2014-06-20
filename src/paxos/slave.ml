@@ -116,17 +116,28 @@ let slave_steady_state (type s) constants state event =
                   in
                   let sides = log_e0::accept_e::start_e::send_e::log_e::consensus_e in
                   Fsm.return ~sides (Slave_steady_state (n, Sn.succ i, v))
-	            end
+	     end
+          | Accept (n',i',_v) when Sn.pred i = i' && n' = n->
+             begin
+               let reply = Accepted(n',i') in
+               let log_e =
+                 ELog
+                   (fun () ->
+                    Printf.sprintf "slave_steady_state received previously accepted value (%s), replying with %S" (string_of msg) (string_of reply))
+               in
+               let send_e = ESend(reply, source) in
+               Fsm.return ~sides:[log_e0;log_e;send_e;] (Slave_steady_state state)
+             end
           | Accept (n',i',v) when
                  (i'<i) || (n'< n && i'=i)  ->
              begin
                 let log_e = ELog (
                   fun () ->
                     Printf.sprintf "slave_steady_state received old %S for my n, ignoring"
-		          (string_of msg) )
+                                   (string_of msg) )
                 in
-	            Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
-	     end
+                Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
+             end
           | Accept (n',i',v) ->
              if fst (time_for_elections constants)
              then
