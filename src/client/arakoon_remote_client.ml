@@ -22,12 +22,11 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Common
-open Update
 open Statistics
 
 class remote_client ((ic,oc) as conn) =
 
-object(self: #Arakoon_client.client)
+  (object
 
   method exists ?(allow_dirty=false) key =
     request  oc (fun buf -> exists_to ~allow_dirty buf key) >>= fun () ->
@@ -86,7 +85,7 @@ object(self: #Arakoon_client.client)
     request  oc (fun buf -> multiget_to buf ~allow_dirty keys) >>= fun () ->
     response ic Llio.input_string_list
 
-  method multi_get_option ?(allow_dirty=false) keys = 
+  method multi_get_option ?(allow_dirty=false) keys =
     request oc (fun buf -> multiget_option_to buf ~allow_dirty keys) >>= fun () ->
     response ic (Llio.input_list Llio.input_string_option)
 
@@ -123,7 +122,7 @@ object(self: #Arakoon_client.client)
     Common.version (ic,oc)
 
   method current_state () = Common.current_state (ic,oc)
-end
+end: Arakoon_client.client )
 
 let make_remote_client cluster connection =
   Common.prologue cluster connection >>= fun () ->

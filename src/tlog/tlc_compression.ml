@@ -81,7 +81,7 @@ let tlc2tlog archive_name tlog_name =
 	  let rec loop () = 
 	      Lwt.catch
 		(fun () -> 
-		  Llio.input_int ic >>= fun n_entries ->
+		  Llio.input_int ic >>= fun _n_entries ->
 		  Llio.input_string ic >>= fun compressed -> 
 		  Lwt.return (Some compressed))
 		(function 

@@ -181,14 +181,14 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
                       Fsm.return (Slave_discovered_other_master (source, i, n', i'))
 		        end
 	        end
-          | Accepted(n,i) ->
+          | Accepted(_n,i) ->
               (* This one is not relevant anymore, but we're interested
                  to see the slower slaves in the statistics as well :
                  TODO: should not be solved on this level.
               *)
               let () = constants.on_witness source i in
               Fsm.return (Stable_master current_state)
-          | Accept(n',i',v) when n' > n && i' > new_i ->
+          | Accept(n',i',_v) when n' > n && i' > new_i ->
             (*
                somehow the others decided upon a master and I got no event my lease expired.
                Let's see what's going on, and maybe go back to elections
@@ -240,8 +240,8 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
    messages and then waits for Accepted responses *)
 
 let master_dictate constants ({mo;v;n;i;lew} as ms) () =
+  let ()= ignore mo in
   let accept_e = EAccept (v,n,i) in
-
   let start_e = EStartLeaseExpiration (v,n,false) in
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in

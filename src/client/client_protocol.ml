@@ -23,7 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 open Common
 open Lwt
 open Log_extra
-open Extra
 open Update
 open Interval
 open Routing
@@ -236,7 +235,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
             id allow_dirty (p_option first) finc (p_option last) linc max >>= fun () ->
           Lwt.catch
 	    (fun () ->
-	      backend # range ~allow_dirty first finc last linc max >>= fun (size,keys) ->
+	      backend # range ~allow_dirty first finc last linc max >>= fun (_size,keys) ->
 	      Llio.output_int32 oc 0l >>= fun () ->
 	      Llio.output_list Llio.output_string oc keys >>= fun () ->
               Lwt.return false
@@ -660,7 +659,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
 
 
 let protocol stop backend connection =
-  let ic,oc,cid = connection in
+  let ic,oc,_cid = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version

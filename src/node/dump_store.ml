@@ -80,8 +80,8 @@ let inject_as_head fn node_id cfg_fn ~in_place =
 
     let ok = match old_head_i, new_head_i with
       | None,None -> false
-      | Some oi, None -> false
-      | None, Some ni -> true
+      | Some _oi, None -> false
+      | None, Some _ni -> true
       | Some oi, Some ni -> ni > oi
     in
     Lwt_io.printlf "# head is newer">>= fun () ->

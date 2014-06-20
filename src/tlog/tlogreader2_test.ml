@@ -21,7 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Update
 open OUnit
 open Tlogcommon
 

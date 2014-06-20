@@ -21,11 +21,8 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 
-open Tlogwriter
 open Tlogcommon
-open Update
 open Tlogreader2
-open Lwt
 
 
 class type tlog_collection = object

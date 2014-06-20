@@ -113,7 +113,7 @@ let read_entry ic =
 
 let entry_from buff pos = 
   let i, pos2  = Sn.sn_from       buff pos  in
-  let crc,pos3 = Llio.int32_from  buff pos2 in
+  let _crc,pos3 = Llio.int32_from  buff pos2 in
   let cmd,pos4 = Llio.string_from buff pos3 in
   let value,_ = Value.value_from cmd 0 in
   let e = Entry.make i value 0L None in

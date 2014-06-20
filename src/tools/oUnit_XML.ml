@@ -20,7 +20,6 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Unix
 open OUnit
 
 type unit_result ={
@@ -37,24 +36,24 @@ type unit_result ={
 
 let rec string_of_path_dot = function
   | [] -> ""
-  | (ListItem value)::[] -> ""
+  | (ListItem _value)::[] -> ""
   | (Label value)::[] -> value
-  | (Label value)::(ListItem value2)::[] -> value
-  | (ListItem value)::tl -> string_of_path_dot tl
+  | (Label value)::(ListItem _value2)::[] -> value
+  | (ListItem _value)::tl -> string_of_path_dot tl
   | (Label value)::tl -> value ^ "." ^ (string_of_path_dot tl)
 
 let timed_result_fun unit_result = function
   | EStart path -> let _ = Printf.printf "running test %s\n" (string_of_path_dot path) in (unit_result.tmp_start <- Unix.gettimeofday())
   | EResult result -> unit_result.tmp_result <- result
-  | EEnd path ->
+  | EEnd _path ->
       let time_diff = Unix.gettimeofday() -. unit_result.tmp_start in
 	unit_result.result_list <- (time_diff , unit_result.tmp_result)::(unit_result.result_list);
 	unit_result.total_time <- unit_result.total_time +. time_diff;
 	match unit_result.tmp_result with
-	  | RSuccess path -> unit_result.total_success <- unit_result.total_success + 1
-	  | RFailure (path, result) -> unit_result.total_failures <- unit_result.total_failures + 1
-	  | RError (path, result) -> unit_result.total_errors <- unit_result.total_errors + 1
-	  | RSkip (path, result) | RTodo (path, result)
+	  | RSuccess _path -> unit_result.total_success <- unit_result.total_success + 1
+	  | RFailure (_path, _result) -> unit_result.total_failures <- unit_result.total_failures + 1
+	  | RError (_path, _result) -> unit_result.total_errors <- unit_result.total_errors + 1
+	  | RSkip (_path, _result) | RTodo (_path, _result)
               -> unit_result.total_disabled <- unit_result.total_disabled + 1;;
 
 (* let result = { result_list = [];
@@ -96,7 +95,7 @@ let print_xml unit_result filename =
 
   let split_path = function
     | [] -> failwith "Testpath should at least contain 2 levels"
-    | hd::[] -> failwith "Testpath should at least contain 2 levels"
+    | _hd::[] -> failwith "Testpath should at least contain 2 levels"
     | hd::tl -> ((string_of_node hd),(string_of_path_dot (List.rev tl))) in
 
   let make_error result_type result =
@@ -107,8 +106,8 @@ let print_xml unit_result filename =
     | RSuccess path -> ((split_path path), "run", "")
     | RFailure (path, result) -> ((split_path path), "run", (make_error "failure" result))
     | RError (path, result) -> ((split_path path), "run", (make_error "error" result))
-    | RSkip (path, result) -> ((split_path path), "notrun", "")
-    | RTodo (path, result) -> ((split_path path), "notrun", "") in
+    | RSkip (path, _result) -> ((split_path path), "notrun", "")
+    | RTodo (path, _result) -> ((split_path path), "notrun", "") in
 
   let xml_print_node output_channel elem =
     let time, result = elem in

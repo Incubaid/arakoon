@@ -31,11 +31,8 @@ open Lwt
 open Log_extra
 open Update
 open Interval
-open Mp_msg
 open Common
-open Store
 open Master_type
-open Tlogcommon
 
 let _s_ = string_option2s
 
@@ -55,7 +52,7 @@ let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
 	( fun () ->Lwt.return (Lwt.wakeup awake b))
 	( fun e ->
 	  match e with
-	    | Invalid_argument s ->
+	    | Invalid_argument _ ->
 	      let t = state sleeper in
 	      begin
 		match t with
@@ -65,7 +62,7 @@ let make_went_well (stats_cb:Store.update_result -> unit) awake sleeper =
 		      >>= fun () ->
 		      Lwt.fail ex
 		    end
-		  | Return v ->
+		  | Return _ ->
 		    Logger.error_ "Lwt.wakeup error: Sleeper already returned"
 		  | Sleep ->
 		    Lwt.fail (Failure "Lwt.wakeup error: Sleeper is still sleeping however")
@@ -169,7 +166,7 @@ object(self: #backend)
 
   method private wait_for_tlog_release tlog_file_n =
     let blocking_requests = [] in
-    let maybe_add_blocker tlog_num s blockers =
+    let maybe_add_blocker tlog_num _s blockers =
       if tlog_file_n >= tlog_num
       then
         tlog_num :: blockers
@@ -223,7 +220,7 @@ object(self: #backend)
     self # _read_allowed allow_dirty >>= fun () ->
     self # _check_interval_range first last >>= fun () ->
     S.range_entries store first finc last linc max >>= fun kvs ->
-    let n_keys = List.length kvs in 
+    let n_keys = List.length kvs in
     Statistics.new_range_entries _stats start n_keys;
     Lwt.return (n_keys, kvs)
 
@@ -256,7 +253,7 @@ object(self: #backend)
     self # _check_interval [key] >>= fun () ->
     let () = assert_value_size value in
     let update = Update.Set(key,value) in
-    let update_sets (update_result:Store.update_result) = Statistics.new_set _stats key value start in
+    let update_sets (_update_result:Store.update_result) = Statistics.new_set _stats key value start in
     _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
 
@@ -296,11 +293,13 @@ object(self: #backend)
     _update_rendezvous self update no_stats push_update ~so_post
 
   method aSSert ~allow_dirty (key:string) (vo:string option) =
+    let () = ignore allow_dirty in
     log_o self "aSSert %S ..." key >>= fun () ->
     let update = Update.Assert(key,vo) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
  method aSSert_exists ~allow_dirty (key:string)=
+    let () = ignore allow_dirty in
     log_o self "aSSert %S ..." key >>= fun () ->
     let update = Update.Assert_exists(key) in
     _update_rendezvous self update no_stats push_update ~so_post:_mute_so
@@ -316,7 +315,7 @@ object(self: #backend)
       | Some w -> assert_value_size w
     in
     let update = Update.TestAndSet(key, expected, wanted) in
-    let update_stats ur = Statistics.new_testandset _stats start in
+    let update_stats _ur = Statistics.new_testandset _stats start in
     let so_post so = so in
     _update_rendezvous self update update_stats push_update ~so_post
 
@@ -328,7 +327,7 @@ object(self: #backend)
     let update_stats ur =
       let n_keys =
         match ur with
-          | Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
+          | Store.Ok so -> (match so with | None -> 0 | Some ns -> let n,_ = Llio.int_from ns 0 in n)
           | _ -> failwith  "how did I get here?" (* exception would be thrown BEFORE we reach this *)
       in
       Statistics.new_delete_prefix _stats start n_keys
@@ -344,7 +343,7 @@ object(self: #backend)
   method delete key = log_o self "delete %S" key >>= fun () ->
     let start = Unix.gettimeofday () in
     let update = Update.Delete key in
-    let update_stats ur = Statistics.new_delete _stats start in
+    let update_stats _ur = Statistics.new_delete _stats start in
     _update_rendezvous self update update_stats push_update ~so_post:_mute_so
 
   method hello (client_id:string) (cluster_id:string) =
@@ -360,7 +359,7 @@ object(self: #backend)
       then Update.SyncedSequence updates
       else Update.Sequence updates
     in
-    let update_stats ur = Statistics.new_sequence _stats start in
+    let update_stats _ur = Statistics.new_sequence _stats start in
     let so_post _ = () in
     _update_rendezvous self update update_stats push_update ~so_post
 
@@ -396,7 +395,7 @@ object(self: #backend)
             let diff = Int64.sub now ls in
             if diff < Int64.of_int lease_expiration then
               (Some m,"inside lease")
-            else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now) 
+            else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
           end
         | ReadOnly -> Some my_name, "readonly"
 
@@ -627,7 +626,7 @@ object(self: #backend)
     begin
       match client_cfgs with
         | None ->
-          S.range_entries store ~_pf:__adminprefix
+          S.range_entries store ~_pf:Store.__adminprefix
             ncfg_prefix_b4_o false ncfg_prefix_2far_o false (-1)
           >>= fun cfgs ->
           let result = Hashtbl.create 5 in
