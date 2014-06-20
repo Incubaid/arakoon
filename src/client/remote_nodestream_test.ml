@@ -1,7 +1,5 @@
 open Lwt
 open OUnit
-open Node_cfg
-open Master_type
 open Test_backend
 open Remote_nodestream
 open Arakoon_remote_client

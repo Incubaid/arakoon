@@ -33,7 +33,7 @@ let no_callback = Lwt.return
 exception FOOBAR
 
 
-let deny (ic,oc,cid) =
+let deny (_ic,oc,_cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int oc 0xfe >>= fun () ->
   Llio.output_string oc "too many clients"
@@ -199,7 +199,7 @@ let make_server_thread
           let cancel _ (t, _) =
             try
               Lwt.cancel t
-            with exn -> () in
+            with exn -> let ()=ignore exn in () in
           Hashtbl.iter cancel client_threads;
 
           let rec wait () =

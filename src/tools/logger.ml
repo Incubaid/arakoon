@@ -1,4 +1,3 @@
-open Lwt
 
 module Section =
 struct

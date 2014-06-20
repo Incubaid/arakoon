@@ -22,12 +22,11 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Lwt
 open Tlogcommon
-open Common
 
 
 class tlogWriter oc lastI =
 
-  object (self)
+  object
 
     val mutable lastWrittenI = lastI;
 

@@ -61,7 +61,7 @@ module Routing = struct
 
   let contains t cid =
     let rec _walk = function
-      | Branch(l, s, r) ->
+      | Branch(l, _s, r) ->
         begin
           let b = _walk l in
           if b
@@ -69,19 +69,17 @@ module Routing = struct
           else _walk r
         end
       | Cluster x when x = cid -> true
-      | Cluster x -> false
+      | Cluster _x -> false
     in _walk t
 
   let rec get_cluster_ids = function
     | Cluster x -> [x]
-    | Branch (l, s, r) ->
+    | Branch (l, _s, r) ->
       (get_cluster_ids l) @ (get_cluster_ids r)
 
   let rec get_lower_sep parent_sep c_id = function
-      | Branch(l, s, r) when r = (Cluster c_id) ->
-        Some s
-      | Branch(l, s, r) when l = (Cluster c_id) ->
-        parent_sep
+      | Branch(_l, s, r) when r = (Cluster c_id) -> Some s
+      | Branch(l, _s, _r) when l = (Cluster c_id) -> parent_sep
       | Branch (l, s, r) ->
         let m_l = get_lower_sep None c_id l in
         begin
@@ -89,12 +87,12 @@ module Routing = struct
             | None -> get_lower_sep (Some s) c_id r
             | _ -> m_l
         end
-      | Cluster x -> None
+      | Cluster _x -> None
 
   let rec get_upper_sep parent_sep c_id = function
-      | Branch(l, s, r) when l = (Cluster c_id) ->
+      | Branch(l, s, _r) when l = (Cluster c_id) ->
         Some s
-      | Branch(l, s, r) when r = (Cluster c_id) ->
+      | Branch(_l, _s, r) when r = (Cluster c_id) ->
         parent_sep
       | Branch(l, s, r) ->
         let m_l = get_upper_sep (Some s) c_id l in
@@ -103,25 +101,10 @@ module Routing = struct
             | None -> get_upper_sep None c_id r
             | _ -> m_l
         end
-      | Cluster x -> None
-
-(*
-  let rec remove t c_id =
-    match t with
-      | Branch (l, s, r) when l = (Cluster c_id) ->
-        r
-      | Branch (l, s, r) when r = (Cluster c_id) ->
-        l
-      | Branch (l, s, r) ->
-        let new_l = remove l c_id in
-        let new_r = remove r c_id in
-        Branch(new_l, s, new_r)
-      | Cluster c ->
-        Cluster c
-*)
+      | Cluster _x -> None
 
   let remove t c_id =
-    let rec inner_remove t c_id other_side =
+    let rec inner_remove t c_id _other_side =
       match t with
         | Branch (l, s, r) ->
           let new_l = inner_remove l c_id (Some r) in
@@ -135,7 +118,7 @@ module Routing = struct
           end
         | Cluster c  when c = c_id -> None
         | Cluster c  when c <> c_id -> Some (Cluster c)
-        | Cluster c -> failwith "I hate ocaml's comparison"
+        | Cluster _c -> failwith "I hate ocaml's comparison"
     in
     let m_result  = inner_remove t c_id None in
     match m_result with
@@ -154,12 +137,12 @@ module Routing = struct
     List.fold_left maybe_remove_cluster t clusters
 
   let rec get_left_most = function
-    | Branch (l, s, r) ->
+    | Branch (l, _s, _r) ->
       get_left_most l
     | Cluster x -> x
 
   let rec get_right_most = function
-    | Branch (l, s, r) ->
+    | Branch (_l, _s, r) ->
       get_right_most r
     | Cluster x -> x
 
@@ -178,7 +161,7 @@ module Routing = struct
             else
               Branch(Cluster n, sep, Cluster left)
           end
-        | Branch(l,s, r) when (get_right_most l) = left && (get_left_most r) = right ->
+        | Branch(l,_s, r) when (get_right_most l) = left && (get_left_most r) = right ->
           Branch(l, sep, r)
         | Branch(l,s,r) ->
           if s < sep
@@ -243,16 +226,16 @@ module Routing = struct
 
   let next_cluster t cluster_id =
     let rec inner_next acc = function
-      | Cluster x -> None
-      | Branch (l, s, r) when l = (Cluster cluster_id) ->
+      | Cluster _ -> None
+      | Branch (l, _s, r) when l = (Cluster cluster_id) ->
         Some(get_left_most r)
-      | Branch (l, s, r) when r = (Cluster cluster_id) ->
+      | Branch (_l, _s, r) when r = (Cluster cluster_id) ->
         begin
           match acc with
             | None -> failwith (Printf.sprintf "Cluster %s has no next" cluster_id)
             | Some t -> Some (get_left_most t)
         end
-      | Branch (l, s, r) ->
+      | Branch (l, _s, r) ->
         let m_l = inner_next (Some r) l in
         begin
           match m_l with
@@ -264,16 +247,16 @@ module Routing = struct
 
   let prev_cluster t cluster_id =
     let rec inner_prev acc = function
-      | Cluster x -> None
-      | Branch(l, s, r) when r = (Cluster cluster_id) ->
+      | Cluster _ -> None
+      | Branch(l, _s, r) when r = (Cluster cluster_id) ->
         Some (get_right_most l)
-      | Branch(l, s, r) when l = (Cluster cluster_id) ->
+      | Branch(l, _s, _r) when l = (Cluster cluster_id) ->
         begin
           match acc with
             | None -> failwith (Printf.sprintf "Cluster %s has no previous" cluster_id)
             | Some t -> Some (get_right_most t)
         end
-      | Branch(l, s, r) ->
+      | Branch(l, _s, r) ->
         let m_l = inner_prev None l in
         begin
           match m_l with

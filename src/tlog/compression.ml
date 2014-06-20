@@ -109,7 +109,7 @@ let uncompress_tlog archive_name tlog_name =
           let rec loop () =
             Lwt.catch
               (fun () ->
-                Sn.input_sn ic >>= fun last_i ->
+                Sn.input_sn ic >>= fun _last_i ->
                 Llio.input_string ic >>= fun compressed ->
                 Lwt.return (Some compressed))
               (function

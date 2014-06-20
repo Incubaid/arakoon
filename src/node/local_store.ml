@@ -20,11 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Mp_msg
 open Lwt
-open Update
 open Routing
-open Log_extra
 open Store
 open Unix.LargeFile
 
@@ -65,7 +62,7 @@ let copy_store2 old_location new_location overwrite =
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    File_system.copy_file old_location new_location overwrite
+    File_system.copy_file old_location new_location ~overwrite
 
 let safe_create db_path mode =
   Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
@@ -80,7 +77,7 @@ let get_construct_params db_name ~mode =
 let _with_tx ls tx f =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _with_tx"
-    | Some (tx', db, t0) ->
+    | Some (tx', db, _t0) ->
         if tx != tx'
         then
           failwith "the provided transaction is not the current transaction of the local store"
@@ -98,7 +95,7 @@ let _tranbegin ls =
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
-    | Some (tx, bdb, t0) ->
+    | Some (_tx, bdb, t0) ->
         Camltc.Bdb._trancommit bdb;
         let t = ( Unix.gettimeofday() -. t0) in
         if t > 1.0
@@ -111,7 +108,7 @@ let _trancommit ls =
 let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
-    | Some (tx, bdb, t0) ->
+    | Some (_tx, bdb, _t0) ->
         Camltc.Bdb._tranabort bdb;
         ls._tx <- None
 
@@ -184,10 +181,10 @@ let delete_prefix ls tx prefix =
   _with_tx ls tx
     (fun db -> _delete_prefix db prefix)
 
-let flush ls =
+let flush _ls =
   Lwt.return ()
 
-let close ls flush =
+let close ls _flush =
   Camltc.Hotc.close ls.db >>= fun () ->
   Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
   Lwt.return ()
@@ -294,7 +291,7 @@ let get_fringe ls border direction =
               begin
                 match border with
                   | Some b ->  (fun k -> k >= (__prefix ^ b))
-                  | None -> (fun k -> false)
+                  | None -> (fun _k -> false)
               end
             in
             skip_keys, B.next, cmp

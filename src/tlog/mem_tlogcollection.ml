@@ -22,10 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Tlogcollection
 open Tlogcommon
-open Lwt
 
-
-class mem_tlog_collection use_compression name =
+class mem_tlog_collection =
 object (self: #tlog_collection)
 
   val mutable data = []
@@ -39,7 +37,7 @@ object (self: #tlog_collection)
   method get_last_i () =
     match last_entry with
       | None -> Sn.start
-      | Some entry -> Entry.i_of entry 
+      | Some entry -> Entry.i_of entry
 
   method get_last_value i =
     match last_entry with
@@ -48,35 +46,34 @@ object (self: #tlog_collection)
         let i' = Entry.i_of entry in
 	    begin
 	      if i = i'
-	      then 
+	      then
             let v = Entry.v_of entry in
             Some v
 	      else
 	        None
 	    end
-          
+
   method get_last () =
     match last_entry with
       | None -> None
       | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
-
   method iterate from_i too_far_i f =
-    let data' = List.filter 
-      (fun entry -> 
+    let data' = List.filter
+      (fun entry ->
         let ei = Entry.i_of entry in
         ei >= from_i && ei < too_far_i) data in
     Lwt_list.iter_s f (List.rev data')
 
-      
+
   method get_tlog_count() = failwith "get_tlog_count not supported"
 
-  method dump_tlog_file start_i oc = failwith "dump_tlog_file not supported"
+  method dump_tlog_file _start_i _oc = failwith "dump_tlog_file not supported"
 
-  method save_tlog_file name length ic = failwith "save_tlog_file not supported"
+  method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
 
 
-  method log_value_explicit i (v:Value.t) sync marker =
+  method log_value_explicit i (v:Value.t) _sync marker =
     let entry = Entry.make i v 0L marker in
     let () = data <- entry::data in
     let () = last_entry <- (Some entry) in
@@ -84,24 +81,24 @@ object (self: #tlog_collection)
 
   method log_value i v = self #log_value_explicit i v false None
 
-          
-  method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
-  method save_head ic = Llio.lwt_failfmt "save_head not implemented"
+
+  method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
+  method save_head _ic = Llio.lwt_failfmt "save_head not implemented"
 
   method get_head_name () = failwith "get_head_name not implemented"
 
-  method get_tlog_from_name n = failwith "get_tlog_from_name not implemented"
-  
-  method get_tlog_from_i _ = Sn.start
-  
-  method close () = Lwt.return ()
-  
-  method remove_oldest_tlogs count = Lwt.return ()
+  method get_tlog_from_name _n = failwith "get_tlog_from_name not implemented"
 
-  method remove_below i = Lwt.return ()
+  method get_tlog_from_i _ = Sn.start
+
+  method close () = Lwt.return ()
+
+  method remove_oldest_tlogs _count = Lwt.return ()
+
+  method remove_below _i = Lwt.return ()
 end
 
-let make_mem_tlog_collection tlog_dir tlf_dir head_dir use_compression name =
-  let x = new mem_tlog_collection use_compression name in
+let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir _use_compression _name =
+  let x = new mem_tlog_collection in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

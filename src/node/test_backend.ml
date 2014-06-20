@@ -25,7 +25,6 @@ open Backend
 open Statistics
 open Update
 open Routing
-open Common
 open Interval
 
 let section = Logger.Section.main
@@ -55,8 +54,9 @@ let range_entries_ kv first finc last linc max =
   let _,entries = StringMap.fold one' kv (0,[]) in
   entries
 
+
 let rev_one_ first finc last linc max acc (kv: string * string) =
-  let (k,v) = kv in
+  let (k,_v) = kv in
   let (count,a) = acc in
   if count = max then (count,a)
   else
@@ -95,7 +95,7 @@ class test_backend my_name = object(self:#backend)
 
   method defrag_db () = Lwt.return ()
 
-  method hello (client_id:string) (cluster_id:string) =
+  method hello (_client_id:string) (cluster_id:string) =
     let r =
       match cluster_id with
 	| "sweety" -> (0l,    "test_backend.0.0.0")
@@ -104,6 +104,7 @@ class test_backend my_name = object(self:#backend)
     Lwt.return r
 
   method exists ~allow_dirty (key:string) =
+    let () = ignore allow_dirty in
     Lwt.return (StringMap.mem key _kv)
 
   method set (key:string) (value:string) =
@@ -115,6 +116,7 @@ class test_backend my_name = object(self:#backend)
     else self # set key value
 
   method aSSert ~allow_dirty (key:string) (vo: string option) =
+    let () = ignore allow_dirty in
     Logger.debug_f_ "test_backend :: aSSert %s" key >>= fun () ->
     let ok = match vo with
       | None -> StringMap.mem key _kv = false
@@ -128,6 +130,7 @@ class test_backend my_name = object(self:#backend)
     else Lwt.return ()
 
   method aSSert_exists ~allow_dirty (key:string)=
+    let () = ignore allow_dirty in   
     Logger.debug_f_ "test_backend :: aSSert_exists %s" key >>= fun () ->
     let ok =
       StringMap.mem key _kv
@@ -140,6 +143,7 @@ class test_backend my_name = object(self:#backend)
     else Lwt.return ()
 
   method get ~allow_dirty (key:string) =
+    let () = ignore allow_dirty in      
     let value = StringMap.find key _kv in
     Lwt.return value
 
@@ -147,10 +151,10 @@ class test_backend my_name = object(self:#backend)
     _kv <- StringMap.remove key _kv;
     Lwt.return ()
 
-  method last_entries (i:Sn.t) f  = Lwt.return ()
-  method last_entries2 (i:Sn.t) f = Lwt.return ()
+  method last_entries (_i:Sn.t) _f  = Lwt.return ()
+  method last_entries2 (_i:Sn.t) _f = Lwt.return ()
 
-  method test_and_set (key:string) (expected: string option) (wanted:string option) =
+  method test_and_set (_key:string) (_expected: string option) (wanted:string option) =
     Lwt.return wanted
 
   method user_function name po =
@@ -167,6 +171,7 @@ class test_backend my_name = object(self:#backend)
       | _ -> Lwt.return None
 
   method multi_get ~allow_dirty (keys: string list) =
+    let () = ignore allow_dirty in       
     let values = List.fold_left
       (fun acc k ->
 	let v = StringMap.find k _kv in
@@ -177,6 +182,7 @@ class test_backend my_name = object(self:#backend)
 
 
   method multi_get_option ~allow_dirty (keys: string list) =
+    let () = ignore allow_dirty in
     let vos = List.fold_left
       (fun acc k ->
         let vo = 
@@ -190,6 +196,7 @@ class test_backend my_name = object(self:#backend)
 
   method range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
+    let () = ignore allow_dirty in
     let x = range_entries_ _kv first finc last linc max in
     let size = List.length x in
     Logger.info_f_ "range_entries: found %d entries" size >>= fun () ->
@@ -197,6 +204,7 @@ class test_backend my_name = object(self:#backend)
 
   method rev_range_entries ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
+    let () = ignore allow_dirty in
     let x = rev_range_entries_ _kv first finc last linc max in
     let size = List.length x in
     Logger.info_f_ "rev_range_entries: found %d entries" size >>= fun () ->
@@ -204,15 +212,17 @@ class test_backend my_name = object(self:#backend)
 
   method range ~allow_dirty (first:string option) (finc:bool)
     (last:string option) (linc:bool) (max:int) =
+    let () = ignore allow_dirty in
     let x = range_ _kv first finc last linc max in
     let size = List.length x in 
     Logger.info_f_ "range: found %d entries" size >>= fun () ->
     Lwt.return (size,x)
 
-  method prefix_keys ~allow_dirty (prefix:string) (max:int) =
+  method prefix_keys ~allow_dirty (prefix:string) (_max:int) =
+    let () = ignore allow_dirty in
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
-      (fun k v a ->
+      (fun k _v  a ->
 	if (Str.string_match (Str.regexp reg) k 0)
 	then k::a
 	else a
@@ -222,6 +232,7 @@ class test_backend my_name = object(self:#backend)
   method who_master () = Lwt.return (Some my_name)
 
   method sequence ~sync:bool (updates:Update.t list) =
+    let () = ignore bool in
     Logger.info_f_ "test_backend::sequence" >>= fun () ->
     let do_one = function
       | Update.Set (k,v) -> self # set k v
@@ -230,9 +241,9 @@ class test_backend my_name = object(self:#backend)
     in
     Lwt_list.iter_s do_one updates
 
-  method witness name i = ()
+  method witness _name _i = ()
 
-  method last_witnessed name = Sn.start
+  method last_witnessed _name = Sn.start
 
   method expect_progress_possible () = Lwt.return false
 
@@ -243,7 +254,7 @@ class test_backend my_name = object(self:#backend)
     let r = my_name = cluster_id in
     Lwt.return r
 
-  method collapse n cb' cb =
+  method collapse n _cb' cb =
     let rec loop i =
       if i = 0
       then Lwt.return ()
@@ -278,12 +289,12 @@ class test_backend my_name = object(self:#backend)
     end
 
   method get_key_count () =
-    let inc key value size =
+    let inc _key _value size =
       Int64.succ size
     in
     Lwt.return (StringMap.fold inc _kv 0L)
 
-  method get_db s =
+  method get_db _s =
     Lwt.return ()
 
   method get_fringe boundary direction =
@@ -292,7 +303,7 @@ class test_backend my_name = object(self:#backend)
         match direction, boundary with
           | Routing.UPPER_BOUND, Some b -> (fun k -> k < b)
           | Routing.LOWER_BOUND, Some b -> (fun k -> k >= b)
-          | _ , None -> (fun k -> true)
+          | _ , None -> (fun _k -> true)
       end
     in
     let all = StringMap.fold
@@ -307,13 +318,13 @@ class test_backend my_name = object(self:#backend)
   method get_cluster_cfgs () =
     failwith "get_cluster_cfgs not implemented in testbackend"
 
-  method set_cluster_cfg cluster_id cfg =
+  method set_cluster_cfg _cluster_id _cfg =
     failwith "set_cluster not implemented in testbackend"
 
   method delete_prefix prefix = 
     let kv',n_deleted = 
       StringMap.fold 
-        (fun k v ((s,c)as acc) -> 
+        (fun k _v ((s,c)as acc) -> 
           if String_extra.prefix_match prefix k 
           then (StringMap.remove k s,c+1)  
           else acc) _kv  (_kv,0) 

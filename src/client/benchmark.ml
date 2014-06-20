@@ -21,9 +21,7 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Lwt
-open Arakoon_remote_client
 open Arakoon_client
-open Network
 
 let _cat s i = s ^ (Printf.sprintf "%08i" i)
 
@@ -56,7 +54,7 @@ let _get (client:Arakoon_client.client) max_n t0 oc =
   in
   loop 0
 
-let _get_transactions (client:Arakoon_client.client) max_n t size (t0:float) oc= 
+let _get_transactions (client:Arakoon_client.client) max_n t (t0:float) oc= 
   let n_transactions = (max_n + t -1) / t in
   let rec loop_t i =
     if i = n_transactions 
@@ -73,7 +71,7 @@ let _get_transactions (client:Arakoon_client.client) max_n t size (t0:float) oc=
 	in 
 	let keys = build [] 0 in
 	_progress t0 i 1000 oc >>= fun () ->
-	client # multi_get keys >>= fun values ->
+	client # multi_get keys >>= fun _values ->
 	loop_t (i+1)
       end
   in
@@ -182,7 +180,7 @@ let benchmark
   in
   let phase_4 client oc = 
     (* ???? >>= fun () -> *)
-    _time (_get_transactions client max_n tx_size sz) oc >>= fun d ->
+    _time (_get_transactions client max_n tx_size ) oc >>= fun d ->
     Lwt_io.fprintlf oc 
       "\nmultiget of %i values (random keys) in transactions of size %i took %f"
       max_n tx_size d 

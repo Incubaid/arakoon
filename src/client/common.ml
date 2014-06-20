@@ -138,7 +138,7 @@ let command_to buffer command =
   let masked = Int32.logor c _MAGIC in
   Llio.int32_to buffer masked
 
-let nothing = fun ic -> Lwt.return ()
+let nothing = fun _ic -> Lwt.return ()
 
 let value_array ic =
   Llio.input_int ic >>= fun size ->
@@ -429,7 +429,7 @@ let synced_sequence conn changes = _sequence conn changes SYNCED_SEQUENCE
 let get_nursery_cfg (ic,oc) =
   let decode ic =
     Llio.input_string ic >>= fun buf ->
-    let cfg, pos = NCFG.ncfg_from buf 0 in
+    let cfg, _pos = NCFG.ncfg_from buf 0 in
     Lwt.return cfg
   in
   request oc get_nursery_cfg_to >>= fun () ->

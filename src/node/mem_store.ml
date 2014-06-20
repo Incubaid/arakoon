@@ -22,8 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Store
 open Lwt
-open Log_extra
-open Update
 open Routing
 
 module StringMap = Map.Make(String);;
@@ -71,10 +69,10 @@ let rev_range_entries ms prefix first finc last linc max =
     let entries = Test_backend.rev_range_entries_ ms.kv (_f prefix first) finc (_l prefix last) linc max in
     filter_entries_list entries
 
-let prefix_keys ms prefix max =
+let prefix_keys ms prefix _max=
     let reg = "^" ^ prefix in
     let keys = StringMap.fold
-      (fun k v a ->
+      (fun k _v a ->
 (* TODO this is buggy -> what if prefix contains special regex chars? *)
 	if (Str.string_match (Str.regexp reg) k 0)
 	then k::a
@@ -99,26 +97,25 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize ms quiesced = Lwt.return ()
-let defrag ms = Lwt.return ()
+let optimize _ms _quiesced = Lwt.return ()
+let defrag _ms = Lwt.return ()
 
-let flush ms = Lwt.return ()
-let close ms flush = Lwt.return ()
+let flush _ms = Lwt.return ()
+let close _ms _flush = Lwt.return ()
 
-let reopen ms when_closed quiesced = Lwt.return ()
+let reopen _ms _when_closed _quiesced = Lwt.return ()
 
 let get_location ms = ms.name
 
 let get_key_count ms =
-    let inc key value size =
+    let inc _key _value size =
       Int64.succ size
     in
     Lwt.return (StringMap.fold inc ms.kv 0L)
 
-let copy_store ms networkClient oc = failwith "copy_store not supported"
-let copy_store2 old_location new_location overwrite = Lwt.return ()
+let copy_store2 _old_location _new_location _overwrite = Lwt.return ()
 
-let relocate new_location = failwith "Memstore.relocation not implemented"
+let relocate _new_location = failwith "Memstore.relocation not implemented"
 
 let get_fringe ms boundary direction =
     Logger.debug_f_ "mem_store :: get_border_range %s" (Log_extra.string_option2s boundary) >>= fun () ->
@@ -127,7 +124,7 @@ let get_fringe ms boundary direction =
         match direction, boundary with
           | Routing.UPPER_BOUND, Some b -> (fun k -> b < k )
           | Routing.LOWER_BOUND, Some b -> (fun k -> b >= k)
-          | _ , None -> (fun k -> true)
+          | _ , None -> (fun _k -> true)
       end
     in
     let all = StringMap.fold
@@ -139,12 +136,12 @@ let get_fringe ms boundary direction =
     in
     Lwt.return all
 
-let make_store read_only db_name =
+let make_store _read_only db_name =
   Lwt.return { kv = StringMap.empty;
                _tx = None;
                name = db_name; }
 
-let copy_store old_location new_location overwrite =
+let copy_store _old_location _new_location _overwrite =
   Lwt.return ()
 
 

@@ -100,12 +100,12 @@ module MPMessage = struct
 	| "promise" ->
 	  let n, pos1 = Sn.sn_from payload 0 in
 	  let i, pos2 = Sn.sn_from payload pos1 in
-	  let v, pos3 = Llio.option_from Value.value_from payload pos2
+	  let v, _pos3 = Llio.option_from Value.value_from payload pos2
 	  in Promise (n,i, v)
 	| "accept"  ->
 	  let n, pos1 = Sn.sn_from payload 0 in
 	  let i, pos2 = Sn.sn_from payload pos1 in
-	  let s, pos2 = Value.value_from payload pos2 in
+	  let s, _pos2 = Value.value_from payload pos2 in
           Accept(n, i,s)
 	| "accepted" ->
 	  let n, pos1 = Sn.sn_from payload 0 in

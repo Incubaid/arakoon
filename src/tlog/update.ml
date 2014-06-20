@@ -20,7 +20,7 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Log_extra
+
 open Interval
 open Routing
 
@@ -86,7 +86,7 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
-      | SyncedSequence updates -> Printf.sprintf "SyncedSequence  ;..."
+      | SyncedSequence _updates -> Printf.sprintf "SyncedSequence  ;..."
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
     in
     _inner u
