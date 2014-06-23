@@ -310,7 +310,7 @@ module X = struct
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->

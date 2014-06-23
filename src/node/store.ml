@@ -5,6 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
+
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
@@ -219,7 +220,6 @@ struct
             [] keys
         in
         List.rev vs)
-
   let get_location store =
     S.get_location store.s
 
@@ -633,7 +633,6 @@ struct
     in
 
     (object
-
       method set k v = test k ; _set store tx k v
       method get k   = test k ; _get store k
 

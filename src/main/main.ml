@@ -16,8 +16,8 @@ limitations under the License.
 
 open OUnit_XML
 open OUnit
-
 open Node_cfg
+
 type local_action =
   | ShowUsage
   | RunAllTests
@@ -397,7 +397,7 @@ let main () =
     | ListTests -> list_tests ();0
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
-    | DumpTlog -> Tlog_main.dump_tlog !filename !dump_values
+    | DumpTlog -> Tlog_main.dump_tlog !filename ~values:!dump_values
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key

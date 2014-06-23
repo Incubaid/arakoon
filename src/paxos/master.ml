@@ -258,7 +258,6 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
 let master_dictate constants ms () =
   let {v;n;i; _} = ms in
   let accept_e = EAccept (v,n,i) in
-
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in

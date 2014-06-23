@@ -85,7 +85,7 @@ let slave_steady_state (type s) constants state event =
       end
     else if n' < n || i' < i
     then
-      begin
+       begin
         let log_e = ELog (fun () ->
             Printf.sprintf "slave_steady_state: Ingoring old timeout (n'=%s n=%s i'=%s i=%s)" (Sn.string_of n') (Sn.string_of n) (Sn.string_of i') (Sn.string_of i))
         in
@@ -197,7 +197,7 @@ let slave_steady_state (type s) constants state event =
                let new_state = (source,cu_pred,n',i') in
                Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
              end
-          | Accept (n',i',v) ->
+          | Accept (n',i',_v) ->
             begin
               let log_e = ELog (
                   fun () ->
@@ -235,7 +235,6 @@ let slave_steady_state (type s) constants state event =
               )
             in
             Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
-
       end
     | ElectionTimeout (n', i') ->
       handle_timeout n' i'

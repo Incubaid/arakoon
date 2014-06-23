@@ -20,9 +20,8 @@ open Mp_msg
 open Lwt
 open MPMessage
 open Messaging
-open Tcp_messaging
-open Extra
 open Multi_paxos
+open Extra
 open Update
 open Lwt_buffer
 open Master_type
@@ -31,7 +30,7 @@ module S = (val (Store.make_store_module (module Mem_store)))
 
 let sn2s = Sn.string_of
 
-let test_take () = Lwt.return (None, (fun s -> Lwt.return ()))
+let test_take () = Lwt.return (None, (fun _s -> Lwt.return ()))
 
 let build_name j = "c" ^ (string_of_int j)
 
@@ -41,7 +40,7 @@ let build_names n =
     | j -> _loop (build_name j :: names ) (j-1)
   in _loop [] n
 
-let on_witness who i = ()
+let on_witness _who _i = ()
 
 let get_value tlog_coll i = tlog_coll # get_last_value i
 
@@ -51,14 +50,14 @@ let test_generic network_factory n_nodes () =
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
-  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept(%s,%s)" me (sn2s n) (sn2s i)
+  let on_accept me (_v,n,i) = Logger.debug_f_ "%s: on_accept(%s,%s)" me (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
     Logger.debug_f_ "%s: on_consensus(%s,%s)" me (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
@@ -174,9 +173,9 @@ let test_generic network_factory n_nodes () =
   let len = Hashtbl.length values in
   Logger.debug_f_ "%s: end of main... validating len = %d" me len >>= fun () ->
   let all_consensusses = Hashtbl.fold
-                           (fun a b acc ->
-                              let bs = Value.value2s b in
-                              (a,bs) :: acc) values []
+   (fun a b acc ->
+      let bs = Value.value2s b in
+      (a,bs) :: acc) values []
   in
   Lwt_list.iter_s
     (fun (name, update_string) ->
@@ -213,7 +212,7 @@ let test_master_loop network_factory ()  =
       create_updates (update :: acc) (n-1)
   in
   let updates = create_updates [] 5 in
-  let finished = fun (a:Store.update_result) ->
+  let finished = fun (_a:Store.update_result) ->
     Logger.debug_f_ "%s: finished" me >>= fun () ->
     Lwt.return ()
   in
@@ -229,9 +228,9 @@ let test_master_loop network_factory ()  =
     Logger.debug_f_ "%s: consensus: n:%s i:%s" me (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let on_accept (v,n,i) = Logger.debug_f_ "%s: accepted n:%s i:%s" me (sn2s n) (sn2s i)
+  let on_accept (_v,n,i) = Logger.debug_f_ "%s: accepted n:%s i:%s" me (sn2s n) (sn2s i)
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
@@ -286,7 +285,7 @@ let test_master_loop network_factory ()  =
          inject_buffer,
          election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers expected 20 current_n i0
-    >>= fun result -> Logger.debug_f_ "%s: after loop" me
+    >>= fun _result -> Logger.debug_f_ "%s: after loop" me
   in
   Lwt.pick [ c0_t ();]
 
@@ -311,13 +310,12 @@ let build_perfect () =
   in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
-  let register (xs:(string * (string * int)) list) = () in
+  let register (_xs:(string * (string * int)) list) = () in
   let is_alive id = true in
   get_buffer, (send, run, register, is_alive)
 
-
 let build_tcp () =
-  let (m : messaging) = new tcp_messaging (["127.0.0.1"], 7777) "yummie"
+  let (m : messaging) = new Tcp_messaging.tcp_messaging (["127.0.0.1"], 7777) "yummie"
     (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
   in
   let network = network_of_messaging m in
@@ -332,13 +330,13 @@ let test_simulation filters () =
   let me = "c0" in
   let current_n = 42L in
   let current_i = 0L in
-  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept: (%s,%s)" me (sn2s n) (sn2s i) in
-  let on_consensus me (v,n,i) =
+  let on_accept me (_v,n,i) = Logger.debug_f_ "%s: on_accept: (%s,%s)" me (sn2s n) (sn2s i) in
+  let on_consensus me (_v,n,i) =
     Logger.debug_f_ "%s: on_consensus: (%s,%s) " me (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
   let buffers = Hashtbl.create 7 in
@@ -436,7 +434,7 @@ let test_simulation filters () =
                      inject_buffer,
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 (current_i,Sn.start)
-    >>= fun result ->
+    >>= fun _result ->
     Logger.debug_f_ "%s: node done." me >>= fun () ->
     Lwt.return ()
   in
@@ -451,8 +449,8 @@ let test_simulation filters () =
   Logger.debug_f_ "%s: after pick" me
 
 
-let ideal    = [ (fun (msg,s,t) -> true) ]
-let c2_fails = [ (fun (msg,s,t) -> s <> "c2")]
+let ideal    = [ (fun (_msg,_s,_t) -> true) ]
+let c2_fails = [ (fun (_msg,s,_t) -> s <> "c2")]
 
 
 open OUnit

@@ -21,8 +21,7 @@ open Arakoon_client
 
 class remote_client ((ic,oc) as conn) =
 
-  object(self: #Arakoon_client.client)
-
+  (object
     method exists ?(consistency=Consistent) key =
       request  oc (fun buf -> exists_to ~consistency buf key) >>= fun () ->
       response ic Llio.input_bool
@@ -125,7 +124,8 @@ class remote_client ((ic,oc) as conn) =
     method current_state () = Common.current_state conn
     method nop () = Common.nop conn
     method get_txid () = Common.get_txid conn
-  end
+
+end: Arakoon_client.client )
 
 let make_remote_client cluster connection =
   Common.prologue cluster connection >>= fun () ->

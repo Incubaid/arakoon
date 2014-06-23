@@ -21,7 +21,7 @@ open Tlogcommon
 
 class tlogWriter oc lastI =
 
-  object (self)
+  object
 
     val mutable lastWrittenI = lastI;
 

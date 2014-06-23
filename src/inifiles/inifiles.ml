@@ -284,3 +284,4 @@ let fold ?(spec=[]) func path initial =
            (List.rev_map
               (fun p -> (path ^ "/" ^ p))
               (readdir path)))))
+

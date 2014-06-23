@@ -17,7 +17,6 @@ limitations under the License.
 open Lwt
 open Mp_msg
 open MPMessage
-
 open Lwt_buffer
 open Fsm
 open Multi_paxos_type
@@ -55,8 +54,6 @@ let read_only constants (_state : unit) () =
   Lwt_unix.sleep 60.0 >>= fun () ->
   Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
   Fsm.return Read_only
-
-
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
@@ -125,7 +122,6 @@ let wait_for_promises (type s) constants state event =
     | FromNode (msg,source) ->
       begin
         let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
-
         let log_e0 =
           ELog(fun () ->
               Printf.sprintf "wait_for_promises:n=%s i=%s who_voted = %s received %s from %s"
@@ -490,11 +486,20 @@ let wait_for_accepteds
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
                 end
-            | Accept (n',i',_) (* when i' < i || (i' = i && n' < n) *) ->
+            (*Original 1.7:| Accept (n',i',_) (* when i' < i || (i' = i && n' < n) *) ->
               begin
                 Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-              end
+                Fsm.return (Wait_for_accepteds state)a
+              endxi*)
+              | Accept (n',i',_v) when i' < i || (i' = i && n' < n)  ->
+	            begin
+	              Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+	              Fsm.return (Wait_for_accepteds state)
+	            end
+            | Accept (n',i',_v') ->
+                paxos_fatal me "Unable to handle unexpected message %S, %s, %s" (string_of msg) (Sn.string_of i') (Sn.string_of n')
+
+            
         end
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
@@ -593,7 +598,6 @@ let machine constants =
       (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
 
-
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
 
@@ -623,8 +627,7 @@ let make_buffers (a,b,c,d) = {
   election_timeout_buffer = d;
 }
 
-let paxos_produce buffers
-          constants product_wanted =
+let paxos_produce buffers constants product_wanted =
   let me = constants.me in
   let wmsg = product_wanted_to_string product_wanted in
   let () = match product_wanted with

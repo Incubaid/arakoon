@@ -74,7 +74,7 @@ let all_same_master (tn, cluster_cfg, all_t, _) =
             scenario () ]
 
 
-let nothing_on_slave (tn, cluster_cfg, all_t, _) =
+let nothing_on_slave (_tn, cluster_cfg, all_t, _) =
   let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
     Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
@@ -123,7 +123,7 @@ let nothing_on_slave (tn, cluster_cfg, all_t, _) =
   Lwt.pick [Lwt.join all_t;
             Lwt_unix.sleep 5.0 >>= fun () -> test_slaves cluster_cfg]
 
-let dirty_on_slave (tn, cluster_cfg,_, _) =
+let dirty_on_slave (_tn, cluster_cfg,_, _) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
@@ -316,7 +316,7 @@ let _assert3 (client:client) =
     "sequence should fail with E_ASSERTION_FAILED"
     "sequence should fail with E_ASSERTION_FAILED"
   >>= fun () ->
-  client # get k >>= fun  v3 ->
+  client # get k >>= fun  v2 ->
   OUnit.assert_equal v2 "REALLY";
   Lwt.return ()
 
@@ -511,7 +511,6 @@ let _multi_get_option (client:client) =
   match vos with
     | [Some v1;Some v2;None] ->
       let id s = s in
-      Lwt_io.printlf "v1=%s; v1=%s%!" v1 v2 >>= fun () ->
       OUnit.assert_equal ~printer:id v1 k1;
       OUnit.assert_equal ~printer:id v2 k2;
       Lwt.return ()
@@ -642,6 +641,6 @@ let force_master =
 
 
 let elect_master =
-  let make_master tn _ = Elected in
+  let make_master _tn _ = Elected in
   let w tn base f = Extra.lwt_bracket (setup make_master tn base) f teardown in
   make_suite 6000 "elect_master" w

@@ -279,7 +279,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
       let last = List.nth tlog_names (n-1) in
       let fn = get_full_path tlog_dir tlf_dir last in
       _validate_list [fn] node_id ~check_marker>>= fun r ->
-      let (validity, last_eo, index) = r in
+      let (_validity, last_eo, _index) = r in
       match last_eo with
         | None ->
           begin
@@ -291,7 +291,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
             else
               Lwt.return r
           end
-        | Some i -> Lwt.return r
+        | Some _i -> Lwt.return r
 
 
 
@@ -349,8 +349,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     tlog_dir (Sn.string_of start_i) tfs (Index.to_string index)
   >>= fun () ->
   get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
-  let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
-  in
+  let acc_entry (_i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i in
   let num_tlogs = List.length tlog_names in
   let maybe_fold acc fn =
     let cnt,low = acc in
@@ -388,7 +387,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     else Lwt.return (cnt+1,low)
   in
   Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
-  >>= fun x ->
+  >>= fun _x ->
   Lwt.return ()
 
 
@@ -444,7 +443,6 @@ class tlc2
       end
       >>= fun () ->
       Lwt.return r
-
 
     method private start_compression_loop () =
       let compress_one tlu tlc_temp tlc compressor =
@@ -903,7 +901,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
 
 
 let truncate_tlog filename =
-  let skipper () entry = Lwt.return ()
+  let skipper () _entry = Lwt.return ()
   in
   let t =
     begin
