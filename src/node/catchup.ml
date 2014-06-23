@@ -88,7 +88,7 @@ let head_saved_epilogue hfn tlog_coll =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
-  S.close store >>= fun () ->
+  S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
     match hio with
@@ -242,8 +242,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
           Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
-      end >>= fun () ->
-      S.flush store
+      end
     end
 
 let catchup me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =

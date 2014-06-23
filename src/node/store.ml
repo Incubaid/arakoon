@@ -86,7 +86,7 @@ module type Simple_store = sig
   val delete_prefix: t -> transaction -> string -> int
 
   val flush: t -> unit Lwt.t
-  val close: t -> bool -> unit Lwt.t
+  val close: t -> flush:bool -> sync:bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
   val make_store: bool -> string -> t Lwt.t
 
@@ -114,8 +114,7 @@ module type STORE =
     type t
     val make_store : ?read_only:bool -> string -> t Lwt.t
     val consensus_i : t -> Sn.t option
-    val flush : t -> unit Lwt.t
-    val close : ?flush : bool -> t -> unit Lwt.t
+    val close : ?flush:bool -> ?sync:bool -> t -> unit Lwt.t
     val get_location : t -> string
     val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
     val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
@@ -286,10 +285,10 @@ struct
   let flush store =
     S.flush store.s
 
-  let close ?(flush = true) store =
+  let close ?(flush = true) ?(sync = true) store =
     store.closed <- true;
     Logger.debug_ "closing store..." >>= fun () ->
-    S.close store.s flush >>= fun () ->
+    S.close store.s ~flush ~sync >>= fun () ->
     Logger.debug_ "closed store"
 
   let relocate store loc =

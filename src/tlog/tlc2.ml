@@ -606,7 +606,7 @@ object(self: # tlog_collection)
     let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
     S.make_store head_name >>= fun store ->
     let io = S.consensus_i store in
-    S.close store >>= fun () ->
+    S.close ~flush:false ~sync:false store >>= fun () ->
     Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
     >>= fun () ->
     let next_i = match io with

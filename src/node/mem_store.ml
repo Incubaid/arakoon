@@ -101,7 +101,10 @@ let optimize _ms _quiesced = Lwt.return ()
 let defrag _ms = Lwt.return ()
 
 let flush _ms = Lwt.return ()
-let close _ms _flush = Lwt.return ()
+let close _ms ~flush ~sync =
+  ignore flush;
+  ignore sync;
+  Lwt.return ()
 
 let reopen _ms _when_closed _quiesced = Lwt.return ()
 
@@ -143,5 +146,3 @@ let make_store _read_only db_name =
 
 let copy_store _old_location _new_location _overwrite =
   Lwt.return ()
-
-
