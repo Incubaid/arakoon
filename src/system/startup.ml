@@ -68,8 +68,7 @@ let _make_cfg name n lease_period =
     _fsync_tlog_dir = false;
     is_test = true;
     reporting = 300;
-    tls_cert = None;
-    tls_key = None;
+    node_tls = None;
     collapse_slowdown = None;
   }
 
@@ -152,9 +151,7 @@ let post_failure () =
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
     lcnum = 8192;
     ncnum = 4096;
-    tls_ca_cert = None;
-    tls_service = false;
-    tls_service_validate_peer = false;
+    tls = None;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -214,9 +211,7 @@ let restart_slaves () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in
@@ -275,9 +270,7 @@ let ahead_master_loses_role () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in

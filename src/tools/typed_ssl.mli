@@ -26,6 +26,7 @@ val use_certificate : 'a t -> string -> string -> unit
 val set_verify : 'a t -> Ssl.verify_mode list -> Ssl.verify_callback option -> unit
 val set_client_CA_list_from_file : [> `Server ] t -> string -> unit
 val load_verify_locations : 'a t -> string -> string -> unit
+val set_cipher_list : 'a t -> string -> unit
 
 module Lwt : sig
   val ssl_connect : Lwt_unix.file_descr -> [> `Client ] t -> (Ssl.socket * Lwt_ssl.socket) Lwt.t

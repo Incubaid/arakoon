@@ -56,6 +56,12 @@ class ArakoonClientConfig :
                   "mySecondNode" :(["127.0.0.1"], 5000 ),
                   "myThirdNode"  :(["127.0.0.1","10.0.0.1"], 6000 )] })
 
+        Note: This client package only supports TLSv1 when connecting to nodes,
+        due to Python 2.x only supporting this TLS version. If your cluster is
+        configured to use another TLS version, you'll need to use another
+        Arakoon client which can work using a different socket interface which
+        supports different TLS versions.
+
         @type clusterId: string
         @param clusterId: name of the cluster
         @type nodes: dict
