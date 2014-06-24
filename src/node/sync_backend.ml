@@ -34,6 +34,8 @@ open Interval
 open Common
 open Master_type
 
+let section = Logger.Section.main
+
 let _s_ = string_option2s
 
 let ncfg_prefix_b4 = "nursery.cfg."
