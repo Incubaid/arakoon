@@ -539,14 +539,17 @@ module Node_cfg = struct
     let get_string_option x = Ini.get inifile node_name x (Ini.p_option Ini.p_string) (Ini.default None) in
     let tls_cert = get_string_option "tls_cert"
     and tls_key = get_string_option "tls_key" in
-    if (tls_cert = None && tls_key <> None) || (tls_cert <> None && tls_key = None)
-      then failwith (Printf.sprintf "%s: both tls_cert and tls_key should be provided" node_name);
     let node_tls =
+      let msg = Printf.sprintf "%s: both tls_cert and tls_key should be provided" node_name in
       match tls_cert with
-        | None -> None
-        | Some cert -> match tls_key with
-            | None -> failwith "Node_cfg: Impossible!"
+        | None -> begin match tls_key with
+            | None -> None
+            | Some _ -> failwith msg
+        end
+        | Some cert -> begin match tls_key with
+            | None -> failwith msg
             | Some key -> Some (TLSConfig.Node.make ~cert ~key)
+        end
     in
     let collapse_slowdown = Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_float) (Ini.default None) in
     {node_name;
