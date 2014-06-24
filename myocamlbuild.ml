@@ -12,6 +12,15 @@ let dependencies = [ "lwt"
 let warnings = "+A"
 (* Enabled compiler errors, argument for '-warn-error' *)
 let errors = "+A-4-6-27-34-44"
+(* List of files for which warning 4,
+ *
+ *     Fragile pattern matching: matching that will remain com‐
+ *         plete even if additional constructors are added to one of the
+ *         variant types matched.
+ *
+ * is disabled.
+ *)
+let allow_fragile_pattern_matches = [ ]
 
 open Ocamlbuild_pack
 open Ocamlbuild_plugin
@@ -132,5 +141,10 @@ let _ = dispatch & function
             "file:src/tlog/tlogcommon.ml"] (S[A"-DSMALLTLOG"]);
 
       flag ["ocaml"; "compile"; "native"] (S[A"-inline"; A"999"]);
+
+      List.iter (fun f ->
+        let f' = Printf.sprintf "file:%s" f in
+        flag ["ocaml"; "compile"; f'] (S[A"-w"; A"-4"; A"-warn-error"; A"-4"]))
+        allow_fragile_pattern_matches
 
     | _ -> ()

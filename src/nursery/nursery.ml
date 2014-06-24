@@ -31,7 +31,7 @@ let try_connect (ips, port) =
   Lwt.catch
     (fun () ->
        let sa = Network.make_address ips port in
-       Network.__open_connection sa >>= fun (ic,oc) ->
+       Network.__open_connection sa >>= fun (_, ic, oc) ->
        let r = Some (ic,oc) in
        Lwt.return r
     )
