@@ -255,7 +255,7 @@ let handle_prepare (type s) constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
 	    begin
-          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
+          Logger.info_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
 
@@ -276,7 +276,7 @@ let handle_prepare (type s) constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
+            Logger.info_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply)
           else
@@ -284,7 +284,7 @@ let handle_prepare (type s) constants dest n n' i' =
               (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
-              Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
+              Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
@@ -295,7 +295,7 @@ let handle_prepare (type s) constants dest n n' i' =
 		        Lwt.return(Promise_sent_up2date, reply)
             end
 	    end >>= fun (ret_val, reply) ->
-      Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
+      Logger.info_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end
