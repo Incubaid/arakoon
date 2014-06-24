@@ -135,6 +135,7 @@ type 'a constants =
      cluster_id : string;
      is_learner: bool;
      quiesced : bool;
+     mutable lease_expiration_id : int;
     }
 
 let am_forced_master constants me =
@@ -172,6 +173,7 @@ let make (type s) me is_learner others send _receive get_value
     inject_event = inject_event;
     cluster_id = cluster_id;
     quiesced = quiesced;
+    lease_expiration_id = 0;
   }
 
 let mcast constants msg =
@@ -185,27 +187,47 @@ let update_n constants n =
   Sn.add n (Sn.of_int (1 + Random.int ( 1 + (List.length constants.others) * 2)))
 
 
-let start_lease_expiration_thread constants n ~slave =
-  let sleep_sec =
-    if slave
-    then
-      (float_of_int constants.lease_expiration) *. 1.1
-    else
-      (float_of_int constants.lease_expiration) *. 0.5
-  in
-  let t () =
-    begin
-      Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
-        constants.me sleep_sec >>= fun () ->
-      let t0 = Unix.gettimeofday () in
-      Lwt_unix.sleep sleep_sec >>= fun () ->
-      let t1 = Unix.gettimeofday () in
-      Logger.debug_f_ "%s: lease expired (%2.1f passed, intended %2.1f)=> injecting LeaseExpired event for %s"
-        constants.me (t1 -. t0) sleep_sec (Sn.string_of n) >>= fun () ->
-      constants.inject_event (LeaseExpired n)
-    end in
-  let () = Lwt.ignore_result (t ()) in
-  Lwt.return ()
+let start_lease_expiration_thread (type s) constants n ~slave =
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  constants.lease_expiration_id <- constants.lease_expiration_id + 1;
+  let id = constants.lease_expiration_id in
+  let rec inner () =
+    let lease_start = match S.who_master constants.store with
+      | None -> 0L
+      | Some(_m, ls) -> ls in
+    let lease_expiration = float_of_int constants.lease_expiration in
+    let factor =
+      if slave
+      then
+        (* sleep a little longer than necessary on a slave
+           to prevent a node thinking it's still the master
+           while some slaves have elected a new master amongst them
+           (in case the clocks don't all run at the same speed) *)
+        1.1
+      else
+        0.5 in
+    let sleep_sec = lease_expiration *. factor in
+    let t () =
+      begin
+        Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
+          constants.me sleep_sec >>= fun () ->
+        let t0 = Unix.gettimeofday () in
+        Lwt_unix.sleep sleep_sec >>= fun () ->
+        if id = constants.lease_expiration_id
+        then
+          begin
+            let t1 = Unix.gettimeofday () in
+            Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %Li"
+              constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
+            constants.inject_event (LeaseExpired n) >>= fun () ->
+            inner ()
+          end
+        else
+          Lwt.return ()
+      end in
+    Lwt.ignore_result (t ());
+    Lwt.return () in
+  inner ()
 
 let start_election_timeout constants n =
   let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
@@ -254,7 +276,7 @@ let handle_prepare (type s) constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
 	    begin
-          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
+          Logger.info_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
 	      >>= fun () ->
 	      Lwt.return Prepare_dropped
 
@@ -275,7 +297,7 @@ let handle_prepare (type s) constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
+            Logger.info_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, reply)
           else
@@ -283,7 +305,7 @@ let handle_prepare (type s) constants dest n n' i' =
               (* We will send a Promise, start election timer *)
               let lv = constants.get_value nak_max in
               let reply = Promise(n',nak_max,lv) in
-              Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
+              Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
               start_election_timeout constants n' >>= fun () ->
               if i' > nak_max
               then
@@ -294,7 +316,7 @@ let handle_prepare (type s) constants dest n n' i' =
 		        Lwt.return(Promise_sent_up2date, reply)
             end
 	    end >>= fun (ret_val, reply) ->
-      Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
+      Logger.info_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return ret_val
     end
