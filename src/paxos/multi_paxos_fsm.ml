@@ -101,7 +101,7 @@ let slave_waiting_for_prepare (type s) constants ( (current_i:Sn.t),(current_n:S
 		    | Promise_sent_up2date ->
                 begin
 		          let last = constants.tlog_coll # get_last () in
-		          Fsm.return (Slave_wait_for_accept (n', current_i, None, last))
+		          Fsm.return (Slave_wait_for_accept (n', current_i, last))
                 end
 		    | Promise_sent_needs_catchup ->
 		        let i = S.get_catchup_start_i constants.store in
@@ -181,11 +181,7 @@ let promises_check_done constants state () =
   begin
     match v_s with
       | [] ->  (Value.create_master_value (me, 0L), 0)
-      | hd::_tl ->
-        let bv, bf = hd in
-        if Value.is_master_set bv
-        then (Value.create_master_value (me, 0L), bf)
-        else bv, bf 
+      | hd::_tl -> hd
   end in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
@@ -368,7 +364,7 @@ let wait_for_promises (type s) constants state event =
                     | Promise_sent_up2date ->
 		                begin
                           let last = constants.tlog_coll # get_last () in
-			              Fsm.return (Slave_wait_for_accept (n', i, None, last))
+			              Fsm.return (Slave_wait_for_accept (n', i, last))
 		                end
 		            | Promise_sent_needs_catchup ->
 		              let i = S.get_catchup_start_i constants.store in
@@ -589,7 +585,7 @@ let wait_for_accepteds (type s) constants ((ms,ballot) as state)
                                 lost_master_role mo >>= fun () ->
                                 Multi_paxos.safe_wakeup_all () lew >>= fun () ->
 				Fsm.return
-                                  (Slave_wait_for_accept (n', i, None, last))
+                                  (Slave_wait_for_accept (n', i, last))
                               end
                           | Promise_sent_needs_catchup ->
                               begin

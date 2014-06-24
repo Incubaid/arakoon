@@ -49,7 +49,9 @@ let master_consensus constants {mo;v;n;i;lew} () =
   )
   in
   let state = (v,n,(Sn.succ i), lew) in
-  Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
+  if Value.is_other_master_set constants.me v
+  then Fsm.return ~sides:[con_e;log_e;] (Slave_wait_for_accept (n,Sn.succ i,None))
+  else Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
 
 
 let null = function
@@ -173,7 +175,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
 		              begin
                         let l_val = constants.tlog_coll # get_last () in
                         Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-			            Fsm.return (Slave_wait_for_accept (n', new_i, None, l_val))
+			            Fsm.return (Slave_wait_for_accept (n', new_i, l_val))
 		              end
 		            | Promise_sent_needs_catchup ->
                       let i = S.get_catchup_start_i constants.store in
