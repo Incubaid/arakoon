@@ -37,32 +37,55 @@ exception InvalidHeadDir of string
 
 module TLSConfig = struct
     type path = string
+    type cipher_list = string
 
     module Cluster : sig
         type t
 
-        val make : ca_cert:path -> service:bool -> service_validate_peer:bool -> t
+        val make : ca_cert:path
+                 -> service:bool
+                 -> service_validate_peer:bool
+                 -> protocol:Ssl.protocol
+                 -> cipher_list:cipher_list option
+                 -> t
         val ca_cert : t -> path
         val service : t -> bool
         val service_validate_peer : t -> bool
+        val protocol : t -> Ssl.protocol
+        val cipher_list : t -> cipher_list option
 
         val to_string : t -> string
     end = struct
         type t = { ca_cert : path
                  ; service : bool
                  ; service_validate_peer : bool
+                 ; protocol : Ssl.protocol
+                 ; cipher_list : cipher_list option
                  }
 
-        let make ~ca_cert ~service ~service_validate_peer =
-            { ca_cert; service; service_validate_peer }
+        let make ~ca_cert ~service ~service_validate_peer ~protocol ~cipher_list =
+            { ca_cert; service; service_validate_peer; protocol; cipher_list }
 
         let ca_cert t = t.ca_cert
         let service t = t.service
         let service_validate_peer t = t.service_validate_peer
+        let protocol t = t.protocol
+        let cipher_list t = t.cipher_list
 
         let to_string t =
-            Printf.sprintf "{ ca_cert = %S; service = %b; service_validate_peer = %b }"
-                t.ca_cert t.service t.service_validate_peer
+            let p = match t.protocol with
+              | Ssl.SSLv23 -> "SSLv23"
+              | Ssl.SSLv3 -> "SSLv3"
+              | Ssl.TLSv1 -> "TLSv1"
+              | Ssl.TLSv1_1 -> "TLSv1_1"
+              | Ssl.TLSv1_2 -> "TLSv1_2"
+            and c = match t.cipher_list with
+              | None -> "None"
+              | Some s -> Printf.sprintf "Some %S" s
+            in
+            Printf.sprintf
+                "{ ca_cert = %S; service = %b; service_validate_peer = %b; protocol = %s; cipher_list = %s }"
+                t.ca_cert t.service t.service_validate_peer p c
     end
 
     module Node : sig
@@ -437,6 +460,18 @@ module Node_cfg = struct
     Ini.get inifile "global" "tls_service_validate_peer"
       Ini.p_bool (Ini.default false)
 
+  let _tls_version inifile =
+    let s = Ini.get inifile "global" "tls_version" Ini.p_string (Ini.default "1.0") in
+    match s with
+      | "1.0" -> Ssl.TLSv1
+      | "1.1" -> Ssl.TLSv1_1
+      | "1.2" -> Ssl.TLSv1_2
+      | _ -> failwith "Invalid \"tls_version\" setting"
+
+  let _tls_cipher_list inifile =
+    Ini.get inifile "global" "tls_cipher_list"
+      (Ini.p_option Ini.p_string) (Ini.default None)
+
   let _node_config inifile node_name master =
     let get_string x = Ini.get inifile node_name x Ini.p_string Ini.required in
     let get_bool x = _get_bool inifile node_name x in
@@ -592,6 +627,8 @@ module Node_cfg = struct
     let tls_ca_cert = _tls_ca_cert inifile in
     let tls_service = _tls_service inifile in
     let tls_service_validate_peer = _tls_service_validate_peer inifile in
+    let tls_version = _tls_version inifile in
+    let tls_cipher_list = _tls_cipher_list inifile in
     let tls = match tls_ca_cert with
       | None -> None
       | Some ca_cert ->
@@ -599,6 +636,8 @@ module Node_cfg = struct
                       ~ca_cert
                       ~service:tls_service
                       ~service_validate_peer:tls_service_validate_peer
+                      ~protocol:tls_version
+                      ~cipher_list:tls_cipher_list
           in
           Some cfg
     in
