@@ -35,6 +35,60 @@ exception InvalidTlogDir of string
 exception InvalidTlxDir of string
 exception InvalidHeadDir of string
 
+module TLSConfig = struct
+    type path = string
+
+    module Cluster : sig
+        type t
+
+        val make : ca_cert:path -> service:bool -> service_validate_peer:bool -> t
+        val ca_cert : t -> path
+        val service : t -> bool
+        val service_validate_peer : t -> bool
+
+        val to_string : t -> string
+    end = struct
+        type t = { ca_cert : path
+                 ; service : bool
+                 ; service_validate_peer : bool
+                 }
+
+        let make ~ca_cert ~service ~service_validate_peer =
+            { ca_cert; service; service_validate_peer }
+
+        let ca_cert t = t.ca_cert
+        let service t = t.service
+        let service_validate_peer t = t.service_validate_peer
+
+        let to_string t =
+            Printf.sprintf "{ ca_cert = %S; service = %b; service_validate_peer = %b }"
+                t.ca_cert t.service t.service_validate_peer
+    end
+
+    module Node : sig
+        type t
+
+        val make : cert:path -> key:path -> t
+
+        val cert : t -> path
+        val key : t -> path
+
+        val to_string : t -> string
+    end = struct
+        type t = { cert : path
+                 ; key : path
+                 }
+
+        let make ~cert ~key = { cert; key }
+        let cert t = t.cert
+        let key t = t.key
+
+        let to_string t =
+            Printf.sprintf "{ cert = %S; key = %S }"
+                t.cert t.key
+    end
+end
+
 module Node_cfg = struct
 
   type t = {node_name:string;
@@ -60,8 +114,7 @@ module Node_cfg = struct
             _fsync_tlog_dir : bool;
             is_test : bool;
             reporting: int;
-            tls_cert: string option;
-            tls_key: string option;
+            node_tls : TLSConfig.Node.t option;
             collapse_slowdown : float option;
            }
 
@@ -77,7 +130,7 @@ module Node_cfg = struct
         "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
         "targets=%s; compressor=%s; fsync=%b; is_test=%b; " ^^
         "reporting=%i; _fsync_tlog_dir=%b; " ^^
-        "tls_cert=%s; tls_key=%s; collapse_slowdown=%s" ^^
+        "node_tls=%s; collapse_slowdown=%s" ^^
         "}"
     in
     Printf.sprintf template
@@ -93,7 +146,7 @@ module Node_cfg = struct
       (Compression.compressor2s t.compressor)
       t.fsync t.is_test
       t.reporting t._fsync_tlog_dir
-      (_so2s t.tls_cert) (_so2s t.tls_key)
+      (option2s TLSConfig.Node.to_string t.node_tls)
       (option2s string_of_float t.collapse_slowdown)
 
   type log_cfg =
@@ -148,9 +201,7 @@ module Node_cfg = struct
       client_buffer_capacity: int;
       lcnum : int; (* tokyo cabinet: leaf nodes in cache *)
       ncnum : int; (* tokyo cabinet: internal nodes in cache *)
-      tls_ca_cert: string option;
-      tls_service: bool;
-      tls_service_validate_peer: bool;
+      tls : TLSConfig.Cluster.t option;
 }
 
   let string_of_cluster_cfg cluster_cfg =
@@ -171,15 +222,15 @@ module Node_cfg = struct
       (Printf.sprintf
          ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
           ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
-          ^^ "client_buffer_capacity=%i; tls_ca_cert=%s; "
-          ^^ "tls_service=%b; tls_service_validate_peer=%b; lcnum=%i; bcnum=%i }")
+          ^^ "client_buffer_capacity=%i; tls=%s; "
+          ^^ "lcnum=%i; bcnum=%i }")
          (master2s cluster_cfg._master) cluster_cfg._lease_period
          cluster_cfg.cluster_id
          (List.fold_left (^) "" cluster_cfg.plugins)
          (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
          cluster_cfg.max_value_size cluster_cfg.max_buffer_size
-         cluster_cfg.client_buffer_capacity (_so2s cluster_cfg.tls_ca_cert)
-         cluster_cfg.tls_service cluster_cfg.tls_service_validate_peer
+         cluster_cfg.client_buffer_capacity
+         (option2s TLSConfig.Cluster.to_string cluster_cfg.tls)
          cluster_cfg.lcnum cluster_cfg.ncnum);
     Buffer.contents buffer
 
@@ -213,8 +264,7 @@ module Node_cfg = struct
         _fsync_tlog_dir = false;
         is_test = true;
         reporting = 300;
-        tls_cert = None;
-        tls_key = None;
+        node_tls = None;
         collapse_slowdown = None;
       }
     in
@@ -244,9 +294,7 @@ module Node_cfg = struct
       client_buffer_capacity = default_client_buffer_capacity;
       lcnum = default_lcnum;
       ncnum = default_ncnum;
-      tls_ca_cert = None;
-      tls_service = false;
-      tls_service_validate_peer = false;
+      tls = None;
     }
     in
     cluster_cfg
@@ -458,6 +506,13 @@ module Node_cfg = struct
     and tls_key = get_string_option "tls_key" in
     if (tls_cert = None && tls_key <> None) || (tls_cert <> None && tls_key = None)
       then failwith (Printf.sprintf "%s: both tls_cert and tls_key should be provided" node_name);
+    let node_tls =
+      match tls_cert with
+        | None -> None
+        | Some cert -> match tls_key with
+            | None -> failwith "Node_cfg: Impossible!"
+            | Some key -> Some (TLSConfig.Node.make ~cert ~key)
+    in
     let collapse_slowdown = Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_float) (Ini.default None) in
     {node_name;
      ips;
@@ -482,8 +537,7 @@ module Node_cfg = struct
      _fsync_tlog_dir;
      is_test = false;
      reporting;
-     tls_cert;
-     tls_key;
+     node_tls;
      collapse_slowdown;
     }
 
@@ -538,6 +592,16 @@ module Node_cfg = struct
     let tls_ca_cert = _tls_ca_cert inifile in
     let tls_service = _tls_service inifile in
     let tls_service_validate_peer = _tls_service_validate_peer inifile in
+    let tls = match tls_ca_cert with
+      | None -> None
+      | Some ca_cert ->
+          let cfg = TLSConfig.Cluster.make
+                      ~ca_cert
+                      ~service:tls_service
+                      ~service_validate_peer:tls_service_validate_peer
+          in
+          Some cfg
+    in
     let cluster_cfg =
       { cfgs;
         log_cfgs;
@@ -554,9 +618,7 @@ module Node_cfg = struct
         client_buffer_capacity;
         lcnum;
         ncnum;
-        tls_ca_cert;
-        tls_service;
-        tls_service_validate_peer;
+        tls;
       }
     in
     cluster_cfg
