@@ -24,7 +24,6 @@ open Update
 open Interval
 open Routing
 open Lwt
-open Log_extra
 
 let section = Logger.Section.main
 
@@ -53,13 +52,13 @@ let _filter get_key make_entry fold coll pf =
     (make_entry entry key')::acc) [] coll
 
 let filter_keys_list keys =
-  _filter (fun i -> i) (fun e k -> k) List.fold_left keys __prefix
+  _filter (fun i -> i) (fun _e k -> k) List.fold_left keys __prefix
 
 let filter_entries_list entries =
-  _filter (fun (k,v) -> k) (fun (k,v) k' -> (k',v)) List.fold_left entries __prefix
+  _filter (fun (k,_v) -> k) (fun (_k,v) k' -> (k',v)) List.fold_left entries __prefix
 
 let filter_keys_array entries =
-  _filter (fun i -> i) (fun e k -> k) Array.fold_left entries __prefix
+  _filter (fun i -> i) (fun _e k -> k) Array.fold_left entries __prefix
 
 
 class transaction = object end
@@ -87,7 +86,7 @@ module type Simple_store = sig
   val delete_prefix: t -> transaction -> string -> int
 
   val flush: t -> unit Lwt.t
-  val close: t -> bool -> unit Lwt.t
+  val close: t -> flush:bool -> sync:bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
   val make_store: bool -> string -> t Lwt.t
 
@@ -115,8 +114,7 @@ module type STORE =
     type t
     val make_store : ?read_only:bool -> string -> t Lwt.t
     val consensus_i : t -> Sn.t option
-    val flush : t -> unit Lwt.t
-    val close : ?flush : bool -> t -> unit Lwt.t
+    val close : ?flush:bool -> ?sync:bool -> t -> unit Lwt.t
     val get_location : t -> string
     val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
     val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
@@ -272,9 +270,6 @@ struct
       in
       Lwt.return (List.rev vs))
 
-  let consensus_i store =
-    store.store_i
-
   let get_location store =
     S.get_location store.s
 
@@ -290,10 +285,10 @@ struct
   let flush store =
     S.flush store.s
 
-  let close ?(flush = true) store =
+  let close ?(flush = true) ?(sync = true) store =
     store.closed <- true;
     Logger.debug_ "closing store..." >>= fun () ->
-    S.close store.s flush >>= fun () ->
+    S.close store.s ~flush ~sync >>= fun () ->
     Logger.debug_ "closed store"
 
   let relocate store loc =
@@ -343,7 +338,7 @@ struct
 
   let clear_self_master store me =
     match store.master with
-      | Some (m, ls) when m = me -> store.master <- None
+      | Some (m, _ls) when m = me -> store.master <- None
       | _ -> ()
 
   let who_master store =
@@ -543,7 +538,7 @@ struct
     let test_range first last = test_option first; test_option last
     in
 
-  object (self : # Registry.user_db)
+  (object 
 
     method set k v = test k ; _set store tx k v
     method get k   = test k ; _get store k
@@ -555,7 +550,7 @@ struct
     method range_entries first finc last linc max =
       test_range first last;
       _range_entries store first finc last linc max
-  end
+  end: Registry.user_db)
 
   let _user_function store (name:string) (po:string option) tx =
     Lwt.wrap (fun () ->
@@ -604,9 +599,9 @@ struct
         | Update.Sequence updates
         | Update.SyncedSequence updates ->
             let get_key = function
-              | Update.Set (key,value) -> Some key
+              | Update.Set (key,_value) -> Some key
               | Update.Delete key -> Some key
-              | Update.TestAndSet (key, expected, wanted) -> Some key
+              | Update.TestAndSet (key, _expected, _wanted) -> Some key
               | _ -> None in
             Lwt_list.iter_s (fun update ->
               (Lwt.catch
@@ -689,40 +684,40 @@ struct
     in
     let do_one update =
       match update with
-        | Update.Set(key,value) ->
+        | Update.Set(_key,_value) ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.MasterSet (m, lease) ->
+        | Update.MasterSet (_m, _lease) ->
             update_in_tx (fun tx -> _do_one update tx)
         | Update.Delete(key) ->
             update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.DeletePrefix prefix ->
+        | Update.DeletePrefix _prefix ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.TestAndSet(key,expected,wanted)->
+        | Update.TestAndSet(key,_expected,_wanted)->
             update_in_tx_with_not_found key (fun tx -> _do_one update tx)
-        | Update.UserFunction(name,po) ->
+        | Update.UserFunction(_name, _po) ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.Sequence updates
-        | Update.SyncedSequence updates ->
+        | Update.Sequence _updates
+        | Update.SyncedSequence _updates ->
             update_in_tx_with_not_found "Not_found" (fun tx -> _do_one update tx)
-        | Update.SetInterval interval ->
+        | Update.SetInterval _interval ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRouting routing ->
+        | Update.SetRouting _routing ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.SetRoutingDelta (left, sep, right) ->
+        | Update.SetRoutingDelta (_left, _sep, _right) ->
             update_in_tx (fun tx -> _do_one update tx)
         | Update.Nop ->
             Lwt.return (Ok None)
-        | Update.Assert(k,vo) ->
+        | Update.Assert(_k,_vo) ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.Assert_exists(k) ->
+        | Update.Assert_exists(_k) ->
             update_in_tx (fun tx -> _do_one update tx)
-        | Update.AdminSet(k,vo) ->
+        | Update.AdminSet(_k,_vo) ->
             update_in_tx (fun tx -> _do_one update tx)
     in
     let get_key = function
-      | Update.Set (key,value) -> Some key
+      | Update.Set (key,_value) -> Some key
       | Update.Delete key -> Some key
-      | Update.TestAndSet (key, expected, wanted) -> Some key
+      | Update.TestAndSet (key, _expected, _wanted) -> Some key
       | _ -> None
     in
     try
@@ -744,8 +739,8 @@ struct
     let skip n l =
       let rec inner = function
         | 0, l -> l
-        | n, [] -> failwith "need to skip more updates than present in this paxos value"
-        | n, hd::tl -> inner ((n - 1), tl) in
+        | _n, [] -> failwith "need to skip more updates than present in this paxos value"
+        | n, _hd::tl -> inner ((n - 1), tl) in
       inner (n, l) in
     let updates' = skip j updates in
     Logger.debug_f_ "skipped %i updates" j >>= fun () ->

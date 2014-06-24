@@ -25,7 +25,6 @@ open Tcp_messaging
 open Update
 open Lwt
 open Lwt_buffer
-open Tlogcommon
 open Gc
 open Master_type
 open Client_cfg
@@ -33,7 +32,7 @@ open Statistics
 
 let section = Logger.Section.main
 
-let rec _split node_name cfgs =
+let _split node_name cfgs =
   let rec loop me_o others = function
     | [] -> me_o, others
     | cfg :: rest ->
@@ -59,7 +58,7 @@ let _config_logging me get_cfgs =
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
       | Some log_config' ->
           try
-            let (_, lc) = List.find (fun (log_config_name, log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
+            let (_, lc) = List.find (fun (log_config_name, _log_config) -> log_config_name = log_config') cluster_cfg.log_cfgs in
             lc
           with Not_found ->
             failwith ("Could not find log section " ^ log_config' ^ " for node " ^ me)
@@ -114,13 +113,14 @@ let _config_batched_transactions node_cfg cluster_cfg =
         let (_, btc') =
           try
             List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-          with exn -> failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
+          with exn -> let () = ignore exn in 
+          failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
         set_max btc'.max_entries btc'.max_size
 
 let _config_messaging me others cookie laggy lease_period max_buffer_size ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
-	          let f msg source target =
+	          let f _msg _source _target =
 		        let () = incr count in
 		        match !count with
 		          | x when x >= 1000 -> let () = count := 0 in false
@@ -141,8 +141,6 @@ let _config_messaging me others cookie laggy lease_period max_buffer_size ~stop 
     (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5) ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
-
-open Mp_msg
 
 
 let _config_service cfg stop backend=
@@ -201,10 +199,10 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
          me.use_compression me.fsync name >>= fun tlc ->
        Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
-       S.close store >>= fun () ->
+       S.close store ~flush:false ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
        Lwt.return true)
-      (fun exn ->
+      (fun _exn ->
        Lwt.return false)
   in
   let rec try_nodes = function
@@ -260,13 +258,13 @@ module X = struct
       Lwt.return r
     end
 
-  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) store (v,n,i) =
+  let on_accept (type s) statistics (tlog_coll:Tlogcollection.tlog_collection) (module S : Store.STORE with type t = s) _store (v,n,i) =
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->
@@ -479,7 +477,7 @@ let _main_2 (type s)
 	      let backend = (sb :> Backend.backend) in
 	      let service = _config_service me stop backend in
 
-	      let send, receive, run, register =
+	      let send, receive, _run, _register =
 	        Multi_paxos.network_of_messaging messaging in
 
 	      let on_consensus = X.on_consensus (module S) store in
@@ -549,7 +547,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend (master, constants, buffers, new_i, vo, store) =
+      let start_backend (master, constants, buffers, new_i, vo, _store) =
 	    let to_run =
 	      match master with
 	        | Forced master  ->
@@ -625,7 +623,7 @@ let _main_2 (type s)
               Lwt_unix.sleep 1.0 >>= fun () ->
               inner (succ i) in
             inner 0 in
-          Lwt.pick [ S.close ~flush:false store ;
+          Lwt.pick [ S.close ~flush:false ~sync:true store ;
                      count_thread "Closing store (%is)" ] >>= fun () ->
           Logger.fatal_f_
             ">>> Closing the store @ %S succeeded: everything seems OK <<<"

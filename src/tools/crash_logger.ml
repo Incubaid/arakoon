@@ -35,7 +35,7 @@ type e = {
 let circ_buf = Lwt_sequence.create()
 let msg_cnt = ref 0
 
-let add_to_crash_log section level msgs =
+let add_to_crash_log _section level msgs =
   let max_crash_log_size = 1000 in
   let level_to_string lvl =
     begin
@@ -152,7 +152,7 @@ let setup_default_logger file_log_path crash_log_prefix =
     close_crash_log ()
   in
   
-  let default_logger = Lwt_log.make add_log_msg close_default_logger in
+  let default_logger = Lwt_log.make ~output:add_log_msg ~close:close_default_logger in
   Lwt_log.default := default_logger;
   Lwt.return dump_crash_log
 

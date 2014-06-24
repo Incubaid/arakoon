@@ -42,9 +42,9 @@ let setup tn master base () =
   let all_t = [t0;t1(* ;t2 *)] in
   Lwt.return (tn, make_config (), all_t)
 
-let teardown (tn, _, all_t) = Lwt.return ()
+let teardown (_tn, _, _all_t) = Lwt.return ()
 
-let _drop_master do_maintenance (tn, cluster_cfg, _) =
+let _drop_master do_maintenance (_tn, cluster_cfg, _) =
   let sp = float(cluster_cfg._lease_period) *. 1.2 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Client_main.find_master cluster_cfg >>= fun master_name ->

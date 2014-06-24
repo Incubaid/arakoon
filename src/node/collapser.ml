@@ -157,7 +157,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
       let read_only=true in
       S.make_store ~read_only head_location >>= fun head ->
       let head_io = S.consensus_i head in
-      S.close head >>= fun () ->
+      S.close head ~sync:false ~flush:false >>= fun () ->
       Lwt.return head_io
     )
     (fun exn -> 
@@ -192,7 +192,6 @@ let collapse_many (type s) tlog_coll
     begin
       Logger.info_f_ "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
       cb' (tlogs_to_collapse+1) >>= fun () ->
-      tlog_coll # get_infimum_i() >>= fun tlc_min ->
       let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->

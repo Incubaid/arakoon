@@ -146,7 +146,7 @@ struct
                         | Some v -> s._size <- s._size + String.length v);
                       s._size <- s._size + String.length k)
                     s._current_tx_cache
-              | Some ls_tx ->
+              | Some _ ->
                   (* a ls_transaction was started while in this batched_store transaction,
                      now is the time to finish that transaction *)
                   S._trancommit s.s;
@@ -169,7 +169,7 @@ struct
         (fun () ->
           let () = match s._ls_tx with
               | None -> ()
-              | Some ls_tx ->
+              | Some _ ->
                   (* a ls_transaction was started while in this batched_store transaction,
                      got an exception so aborting the transaction *)
                   S._tranabort s.s;
@@ -254,11 +254,11 @@ struct
     _sync_and_start_transaction_if_needed s;
     Lwt.return ()
 
-  let close s flush =
+  let close s ~flush ~sync =
     if flush
     then
       _sync_and_start_transaction_if_needed s;
-    S.close s.s flush
+    S.close s.s ~flush ~sync
 
   let reopen s =
     _sync_and_start_transaction_if_needed s;

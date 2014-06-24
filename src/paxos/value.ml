@@ -38,7 +38,7 @@ let is_synced = function
   | Vc (_,s) -> s
 
 let clear_self_master_set me = function
-  | Vm (m,l) when m = me -> Vm(m, 0L)
+  | Vm (m,_l) when m = me -> Vm(m, 0L)
   | v        -> v
 
 let fill_if_master_set = function
@@ -47,7 +47,7 @@ let fill_if_master_set = function
   | v -> v
       
 let updates_from_value = function
-  | Vc (us,s)     -> us
+  | Vc (us,_s)     -> us
   | Vm (m,l)      -> [Update.MasterSet(m,l)]
 
 let value_to buf v= 

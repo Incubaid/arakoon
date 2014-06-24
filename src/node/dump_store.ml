@@ -41,7 +41,7 @@ let dump_store filename =
   let t () = 
     S.make_store filename >>= fun store ->
     summary store >>= fun () ->
-    S.close store
+    S.close store ~sync:false ~flush:false
   in
   Lwt_main.run (t());
   0
@@ -68,11 +68,11 @@ let inject_as_head fn node_id cfg_fn ~in_place =
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
     S.make_store old_head_name >>= fun old_head ->
     let old_head_i = S.consensus_i old_head in
-    S.close old_head      >>= fun () ->
+    S.close ~flush:false ~sync:false old_head >>= fun () ->
 
     S.make_store fn >>= fun new_head ->
     let new_head_i = S.consensus_i new_head in
-    S.close new_head      >>= fun () ->
+    S.close ~flush:false ~sync:false new_head >>= fun () ->
 
     Lwt_io.printlf "# %s @ %s" old_head_name (Log_extra.option2s Sn.string_of old_head_i) >>= fun () ->
     Lwt_io.printlf "# %s @ %s" fn (Log_extra.option2s Sn.string_of new_head_i) >>= fun () ->
@@ -80,8 +80,8 @@ let inject_as_head fn node_id cfg_fn ~in_place =
 
     let ok = match old_head_i, new_head_i with
       | None,None -> false
-      | Some oi, None -> false
-      | None, Some ni -> true
+      | Some _oi, None -> false
+      | None, Some _ni -> true
       | Some oi, Some ni -> ni > oi
     in
     Lwt_io.printlf "# head is newer">>= fun () ->

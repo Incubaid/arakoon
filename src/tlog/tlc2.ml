@@ -22,7 +22,6 @@ If not, see <http://www.gnu.org/licenses/>.
 
 open Tlogcollection
 open Tlogcommon
-open Update
 open Lwt
 open Unix.LargeFile
 open Lwt_buffer
@@ -186,7 +185,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
       let folder, _, index = folder_for tlog_name None in
 
       let do_it ic = folder ic ~index Sn.start None ~first None
-	    (fun a0 entry ->
+	    (fun _a0 entry ->
           let () = Index.note entry new_index in
           let r = Some entry in
           let () = prev_entry := r in
@@ -238,7 +237,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
       let last = List.nth tlog_names (n-1) in
       let fn = get_full_path tlog_dir tlf_dir last in
       _validate_list [fn] node_id ~check_marker>>= fun r ->
-      let (validity, last_eo, index) = r in
+      let (_validity, last_eo, _index) = r in
       match last_eo with
         | None ->
           begin
@@ -250,7 +249,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
             else
               Lwt.return r
           end
-        | Some i -> Lwt.return r
+        | Some _i -> Lwt.return r
 
 
 
@@ -302,8 +301,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     tlog_dir (Sn.string_of start_i) tfs (Index.to_string index)
   >>= fun () ->
   get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
-  let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
-  in
+  let acc_entry (_i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i in
   let num_tlogs = List.length tlog_names in
   let maybe_fold acc fn =
     let cnt,low = acc in
@@ -341,7 +339,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     else Lwt.return (cnt+1,low)
   in
   Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
-  >>= fun x ->
+  >>= fun _x ->
   Lwt.return ()
 
 
@@ -375,7 +373,7 @@ object(self: # tlog_collection)
 
   method validate_last_tlog () =
     validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
-    let (validity, entry, new_index) = r in
+    let (_validity, _entry, new_index) = r in
     let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
     let matches = Index.match_filename tlu new_index in
     Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
@@ -608,7 +606,7 @@ object(self: # tlog_collection)
     let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
     S.make_store head_name >>= fun store ->
     let io = S.consensus_i store in
-    S.close store >>= fun () ->
+    S.close ~flush:false ~sync:false store >>= fun () ->
     Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
     >>= fun () ->
     let next_i = match io with
@@ -839,7 +837,7 @@ let make_tlc2 tlog_dir tlf_dir head_dir use_compression fsync node_id =
 
 
 let truncate_tlog filename =
-  let skipper () entry = Lwt.return ()
+  let skipper () _entry = Lwt.return ()
   in
   let t =
     begin

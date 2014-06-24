@@ -31,10 +31,10 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _dir_name = "/tmp/catchup_test"
 let _tlf_dir = "/tmp/catchup_test/tlf"
-  
-let _fill tlog_coll n = 
+
+let _fill tlog_coll n =
   let sync = false in
-  let rec _loop i = 
+  let rec _loop i =
     if i = n
     then Lwt.return ()
     else
@@ -49,16 +49,16 @@ let _fill tlog_coll n =
   in
   _loop 0
 
-let _fill2 tlog_coll n = 
+let _fill2 tlog_coll n =
   let sync = false in
   let rec _loop i =
     if i = n then Lwt.return ()
     else
-      begin 
+      begin
 	    let k = Printf.sprintf "_2_key%i" i
-	    and v = Printf.sprintf "_2_value%i" i 
-	    and k2 = Printf.sprintf "key%i" i 
-	    and v2 = Printf.sprintf "value%i" i 
+	    and v = Printf.sprintf "_2_value%i" i
+	    and k2 = Printf.sprintf "key%i" i
+	    and v2 = Printf.sprintf "value%i" i
 	    in
 	    let u = Update.Set(k,v) in
 	    let u2 = Update.Set(k2,v2) in
@@ -98,19 +98,19 @@ let _fill3 tlog_coll n =
   in
   _loop 0
 
-let ignore_ex f = 
-  Lwt.catch 
+let ignore_ex f =
+  Lwt.catch
     f
     (fun exn -> Logger.warning_ ~exn "ignoring")
 
-let setup () = 
+let setup () =
   Logger.info_ "Catchup_test.setup" >>= fun () ->
   ignore_ex (fun () -> File_system.rmdir _tlf_dir) >>= fun () ->
   ignore_ex (fun () -> File_system.rmdir _dir_name) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 ) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _tlf_dir 0o750 )
 
-    
+
 let test_common () =
   Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 _dir_name _tlf_dir _tlf_dir true false "node_name" >>= fun tlog_coll ->
@@ -120,11 +120,11 @@ let test_common () =
   S.make_store db_name >>= fun store ->
   Catchup.catchup_store me ((module S),store,tlog_coll) 500L >>= fun() ->
   Logger.info_ "TODO: validate store after this" >>= fun ()->
-  tlog_coll # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlog_coll # close ()
 
 
-let teardown () = 
+let teardown () =
   Logger.info_ "Catchup_test.teardown" >>= fun () ->
   let clean_dir dir =
     Lwt.catch
@@ -139,7 +139,7 @@ let teardown () =
   clean_dir _dir_name >>= fun () ->
   Logger.debug_ "end of teardown"
 
-let _tic (type s) filler_function n name verify_store =
+let _tic filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 _dir_name _tlf_dir _tlf_dir true false "node_name" >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
@@ -151,25 +151,25 @@ let _tic (type s) filler_function n name verify_store =
   let new_i = S.get_succ_store_i store in
   verify_store store new_i >>= fun () ->
   Logger.info_f_ "new_i=%s" (Sn.string_of new_i) >>= fun () ->
-  tlog_coll # close () >>= fun () -> 
+  tlog_coll # close () >>= fun () ->
   S.close store
 
 
 
 let test_interrupted_catchup () =
   Logger.info_ "test_interrupted_catchup" >>= fun () ->
-  _tic _fill 1000 "tic" (fun store new_i -> Lwt.return ())
+  _tic _fill 1000 "tic" (fun _store _new_i -> Lwt.return ())
 
 
 let test_with_doubles () =
   Logger.info_ "test_with_doubles" >>= fun () ->
-  _tic _fill2 1000 "twd" (fun store new_i -> Lwt.return ())
+  _tic _fill2 1000 "twd" (fun _store _new_i -> Lwt.return ())
 
 
 let test_batched_with_failures () =
   Logger.info_ "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
-    (fun store new_i ->
+    (fun store _new_i ->
       let assert_not_exists k = S.exists store k >>= fun exists -> if exists then failwith "found key that is not supposed to be in the store!" else Lwt.return () in
       let assert_exists k = S.exists store k >>= fun exists -> if not exists then failwith "could not find required key in the store!" else Lwt.return () in
       assert_exists "key2" >>= fun () ->
@@ -183,7 +183,7 @@ let test_batched_with_failures () =
 
 let test_large_tlog_catchup () =
   _tic _fill 100_000 "tcs"
-    (fun store new_i -> Lwt.return ())
+    (fun _store _new_i -> Lwt.return ())
 
 let suite =
   let w f = lwt_bracket setup f teardown in

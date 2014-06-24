@@ -24,7 +24,6 @@ open Mp_msg
 open Lwt
 open MPMessage
 open Messaging
-open Multi_paxos_type
 open Master_type
 
 
@@ -93,7 +92,7 @@ let update_votes (nones,somes) = function
         else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
     let tmp = build_new [] somes in
-    let somes' = List.sort (fun (a,fa) (b,fb) -> fb - fa) tmp in
+    let somes' = List.sort (fun (_a,fa) (_b,fb) -> fb - fa) tmp in
     (nones, somes')
 
 type paxos_event =
@@ -149,7 +148,7 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | _ -> false
 
-let make (type s) me is_learner others send receive get_value
+let make (type s) me is_learner others send _receive get_value
     on_accept on_consensus on_witness
     last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
     other_cfgs lease_expiration inject_event ~cluster_id
@@ -195,7 +194,7 @@ let start_lease_expiration_thread (type s) constants n ~slave =
   let rec inner () =
     let lease_start = match S.who_master constants.store with
       | None -> 0L
-      | Some(m, ls) -> ls in
+      | Some(_m, ls) -> ls in
     let lease_expiration = float_of_int constants.lease_expiration in
     let factor =
       if slave
@@ -327,12 +326,12 @@ let safe_wakeup sleeper awake value =
   ( fun () -> Lwt.return (Lwt.wakeup awake value) )
   ( fun e ->
     match e with
-      | Invalid_argument s ->
+      | Invalid_argument _ ->
         let t = state sleeper in
         begin
           match t with
             | Fail ex -> Lwt.fail ex
-            | Return v -> Lwt.return ()
+            | Return _ -> Lwt.return ()
             | Sleep -> Lwt.fail (Failure "Wakeup error, sleeper is still sleeping")
         end
       | _ -> Lwt.fail e
@@ -343,7 +342,7 @@ let safe_wakeup_all v l =
     (fun (s, a) -> safe_wakeup s a v)
     l
 
-let fail_quiesce_request store sleeper awake reason =
+let fail_quiesce_request _store sleeper awake reason =
   safe_wakeup sleeper awake reason
 
 let handle_quiesce_request (type s) (module S : Store.STORE with type t = s) store mode sleeper (awake: Quiesce.Result.t Lwt.u) =

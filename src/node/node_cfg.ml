@@ -298,7 +298,8 @@ module Node_cfg = struct
         let cfg =  ClientCfg.from_file "nursery" filename in
         Some (n_cluster_id, cfg)
       end
-    with ex ->
+    with exn ->
+      let () = ignore exn in 
       None
 
   let _get_cluster_id inifile =
@@ -314,7 +315,7 @@ module Node_cfg = struct
       let qs = (inifile # getval "global" "quorum") in
       let qi = Scanf.sscanf qs "%i" (fun i -> i) in
       if 1 <= qi && qi <= n_nodes
-      then fun n -> qi
+      then fun _n -> qi
       else
 	let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
 	  qi n_nodes in

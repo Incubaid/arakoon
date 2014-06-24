@@ -24,7 +24,6 @@ open Multi_paxos_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
-open Update
 
 let time_for_elections (type s) constants =
   begin
@@ -33,7 +32,7 @@ let time_for_elections (type s) constants =
     then false, "quiesced"
     else
       begin
-	    let origine,(am,al) =
+	    let _origine,(_am,al) =
           match S.who_master constants.store with
 		    | None         -> "not_in_store", ("None", Sn.start)
 		    | Some (sm,sd) -> "stored", (sm,sd)
@@ -128,7 +127,7 @@ let slave_steady_state (type s) constants state event =
                let send_e = ESend(reply, source) in
                Fsm.return ~sides:[log_e0;log_e;send_e;] (Slave_steady_state state)
              end
-          | Accept (n',i',v) when
+          | Accept (n',i',_v) when
                  (i'<i) || (n'< n && i'=i)  ->
              begin
                 let log_e = ELog (
@@ -138,7 +137,7 @@ let slave_steady_state (type s) constants state event =
                 in
                 Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
              end
-          | Accept (n',i',v) ->
+          | Accept (n',i',_v) ->
              if fst (time_for_elections constants)
              then
                begin
@@ -187,7 +186,7 @@ let slave_steady_state (type s) constants state event =
 	          Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
 
       end
-    | ElectionTimeout n' ->
+    | ElectionTimeout _n' ->
       begin
         let log_e = ELog (fun () -> "steady state :: ignoring election timeout") in
         Fsm.return ~sides:[log_e] (Slave_steady_state state)
@@ -236,7 +235,7 @@ let slave_steady_state (type s) constants state event =
 	         that allows clients to get through before the node became a slave
 	         but I know I'm a slave now, so I let the update fail.
           *)
-          let updates,finished_funs = List.split ufs in
+          let _updates,finished_funs = List.split ufs in
           let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
           let rec loop = function
             | []       -> Lwt.return ()
@@ -254,7 +253,7 @@ let slave_steady_state (type s) constants state event =
 
     | Unquiesce ->
         begin
-          handle_unquiesce_request constants n >>= fun (store_i, vo) ->
+          handle_unquiesce_request constants n >>= fun (_store_i, _vo) ->
           Fsm.return  (Slave_steady_state state)
         end
     | DropMaster (sleep, awake) ->
@@ -345,7 +344,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 	              Fsm.return (Slave_steady_state (n, Sn.succ i', v))
 	            end
             end
-          | Accept (n',i',v) when n' < n ->
+          | Accept (n',i',_v) when n' < n ->
             begin
               if i' > i
               then
@@ -367,7 +366,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
 	            in
 	            Fsm.return ~sides:[log_e] (Slave_wait_for_accept (n,i,vo, maybe_previous))
 	        end
-	      | Accept (n',i',v) ->
+	      | Accept (n',i',_v) ->
              if fst (time_for_elections constants)
              then
                begin
@@ -445,7 +444,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
             Fsm.return (Slave_wait_for_accept (n,i,vo, maybe_previous))
           end
 
-    | FromClient msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
+    | FromClient _msg -> paxos_fatal constants.me "slave_wait_for_accept only registered for FromNode"
 
     | Quiesce (mode, sleep,awake) ->
         begin
@@ -454,7 +453,7 @@ let slave_wait_for_accept (type s) constants (n,i, vo, maybe_previous) event =
         end
     | Unquiesce ->
         begin
-          handle_unquiesce_request constants n >>= fun (store_i, store_vo) ->
+          handle_unquiesce_request constants n >>= fun (_store_i, _store_vo) ->
           Fsm.return (Slave_wait_for_accept (n,i, vo, maybe_previous))
         end
     | DropMaster (sleep, awake) ->

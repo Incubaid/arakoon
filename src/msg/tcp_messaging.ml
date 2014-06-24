@@ -23,7 +23,6 @@ If not, see <http://www.gnu.org/licenses/>.
 open Message
 open Messaging
 open Lwt
-open Log_extra
 open Lwt_buffer
 open Network
 
@@ -180,7 +179,7 @@ object(self : # messaging )
               Lwt_unix.with_timeout timeout
                 (fun () ->
 	         self # _get_connection addresses >>= fun connection ->
-	         let ic,oc = connection in
+	         let _ic,oc = connection in
 	         let pickled = self # _pickle source target msg in
 	         Llio.output_string oc pickled >>= fun () ->
 	         Lwt_io.flush oc)
@@ -366,7 +365,7 @@ object(self : # messaging )
          "connection from (%s,%i) was idle too long (> %f)"
          ip port timeout
     in
-    let protocol (ic,oc,cid) =
+    let protocol (ic,_oc,_cid) =
       Lwt_unix.with_timeout timeout (fun () -> read_prologue ic)
       >>= fun address ->
       let rec loop b0 =

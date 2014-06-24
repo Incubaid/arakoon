@@ -20,8 +20,6 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
-open Lwt
-open Log_extra
 open Message
 open Lwt_buffer
 

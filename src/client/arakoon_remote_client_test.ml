@@ -25,7 +25,6 @@ open Lwt
 open Log_extra
 open Arakoon_remote_client
 open Test_backend
-open Update
 
 let section = Logger.Section.main
 
@@ -45,7 +44,7 @@ let __client_server_wrapper__ cluster (real_test:real_test) =
     >>= fun (client:Arakoon_client.client) ->
     real_test client >>= fun () -> Lwt.return ()
   in
-  let sleep, notifier = wait () in
+  let _sleep, notifier = wait () in
   let td_var = Lwt_mvar.create_empty () in
   let setup_callback () =
     Logger.info_ "callback" >>= fun () ->
@@ -93,7 +92,7 @@ let test_wrong_cluster () =
   let real_test client =
     Lwt.catch
       (fun () ->
-	client # ping "boba fet" wrong_cluster >>= fun result ->
+	client # ping "boba fet" wrong_cluster >>= fun _result ->
 	OUnit.assert_bool "we should not be able to connect to this cluster" false;
 	Lwt.return ())
       (fun exn -> Logger.debug_f_ ~exn "ok, this cluster is not %s" wrong_cluster
@@ -139,7 +138,7 @@ let test_delete () =
     client # delete "key" >>= fun () ->
     Lwt.catch
       (fun () ->
-	client # get "key" >>= fun value ->
+	client # get "key" >>= fun _value ->
 	Lwt.return ())
       (function
 	| Arakoon_exc.Exception (Arakoon_exc.E_NOT_FOUND,_) ->
@@ -251,8 +250,8 @@ let _test_range (client:Arakoon_client.client) =
 let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
-  client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
-  Lwt_list.iter_s (fun (k,v) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
+  client # rev_range_entries ~allow_dirty:false ~first:(Some "xey100") ~finc:true ~last:(Some "xey009") ~linc:true ~max:3 >>= fun xn ->
+  Lwt_list.iter_s (fun (k,_v) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in
   let () = OUnit.assert_bool "hd" (k  = "xey099") in
   Lwt.return ()

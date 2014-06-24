@@ -23,10 +23,7 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 open Node_cfg
 open Remote_nodestream
-open Tlogcollection
 open Log_extra
-open Update
-open Store
 open Tlogcommon
 
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
@@ -91,7 +88,7 @@ let head_saved_epilogue hfn tlog_coll =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
-  S.close store >>= fun () ->
+  S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
     match hio with
@@ -105,7 +102,7 @@ let head_saved_epilogue hfn tlog_coll =
 
 
 
-let catchup_tlog (type s) me other_configs ~cluster_id mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) other_configs ~cluster_id mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
     =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -120,7 +117,7 @@ let catchup_tlog (type s) me other_configs ~cluster_id mr_name ((module S : Stor
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name true
+      File_system.copy_file hfn target_name ~overwrite:true
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
@@ -245,15 +242,14 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
           Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
-      end >>= fun () ->
-      S.flush store
+      end
     end
 
 let catchup me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog me other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  catchup_tlog other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
   catchup_store me dbt (Sn.succ until_i) >>= fun () ->
@@ -276,7 +272,7 @@ let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S
     | i, Some j when i = j -> Lwt.return ()
     | i, Some j when i > j -> 
       catchup_store me ((module S),store,tlog_coll) too_far_i
-    | i, None ->
+    | _i, None ->
       catchup_store me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
       let msg = Printf.sprintf
