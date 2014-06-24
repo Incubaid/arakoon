@@ -69,8 +69,8 @@ let copy_store2 old_location new_location overwrite =
 
 let safe_create db_path mode =
   Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
-  let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
-  if List.mem Camltc.Bdb.BDBFFATAL flags
+  let flags = B.flags (Camltc.Hotc.get_bdb db) in
+  if List.mem B.BDBFFATAL flags
     then Lwt.fail (BdbFFatal db_path)
     else Lwt.return db
 
@@ -92,14 +92,14 @@ let _tranbegin ls =
   let bdb = Camltc.Hotc.get_bdb ls.db in
   let t0 = Unix.gettimeofday () in
   ls._tx <- Some (tx, bdb, t0);
-  Camltc.Bdb._tranbegin bdb;
+  B._tranbegin bdb;
   tx
 
 let _trancommit ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _trancommit"
     | Some (tx, bdb, t0) ->
-        Camltc.Bdb._trancommit bdb;
+        B._trancommit bdb;
         let t = ( Unix.gettimeofday() -. t0) in
         if t > 1.0
         then
@@ -112,7 +112,7 @@ let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
     | Some (tx, bdb, t0) ->
-        Camltc.Bdb._tranabort bdb;
+        B._tranabort bdb;
         ls._tx <- None
 
 let with_transaction ls f =
@@ -139,7 +139,7 @@ let defrag ls =
   Logger.info_ "local_store :: defrag" >>= fun () ->
   let bdb = Camltc.Hotc.get_bdb ls.db in
   Lwt_preemptive.detach
-    (Camltc.Bdb.defrag ~step:0L)
+    (B.defrag ~step:0L)
     bdb
   >>= fun rc ->
   Logger.info_f_ "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
@@ -240,7 +240,7 @@ let optimize ls quiesced =
   >>= fun () ->
   begin
     Logger.info_f_ "Creating new db object at location %s" db_optimal >>= fun () ->
-    safe_create db_optimal Camltc.Bdb.default_mode >>= fun db_opt ->
+    safe_create db_optimal B.default_mode >>= fun db_opt ->
     Lwt.finalize
       ( fun () ->
         Logger.info_ "Optimizing db copy" >>= fun () ->
