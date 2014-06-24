@@ -108,7 +108,7 @@ let test_iterate4 (dn, tlx_dir, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn, tlx_dir, factory) =
+let test_iterate5 (dn, _tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =

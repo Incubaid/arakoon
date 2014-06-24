@@ -122,7 +122,7 @@ let test_generic network_factory n_nodes () =
                            inject_buffer, election_timeout_buffer) in
           Multi_paxos_fsm.expect_run_forced_slave
             constants buffers expected steps (current_i,Sn.start)
-          >>= fun result ->
+          >>= fun _result ->
           Logger.debug_f_ "%s: node done." me >>= fun () ->
           Lwt.return ()
         in
@@ -157,7 +157,7 @@ let test_generic network_factory n_nodes () =
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers
       expected steps current_n current_i
-    >>= fun (n, i,_) ->
+    >>= fun (n, _i,_) ->
     Logger.debug_f_ "%s: consensus reached on n:%s" me (Sn.string_of n)
   in
   let addresses = List.map (fun name -> name , ("127.0.0.1", 7777))
@@ -198,7 +198,7 @@ let test_generic network_factory n_nodes () =
 
 
 let test_master_loop network_factory ()  =
-  let get_buffer, (send, nw_run, nw_register, is_alive) =
+  let get_buffer, (send, _nw_run, _nw_register, is_alive) =
     network_factory () in
   let me = "c0" in
   let i0 = 0L in
@@ -311,7 +311,7 @@ let build_perfect () =
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
   let register (_xs:(string * (string * int)) list) = () in
-  let is_alive id = true in
+  let is_alive _id = true in
   get_buffer, (send, run, register, is_alive)
 
 let build_tcp () =
@@ -381,7 +381,7 @@ let test_simulation filters () =
     other_cfgs = [];
     lease_expiration = 60;
     inject_event = inject_event;
-    is_alive = (fun id -> true);
+    is_alive = (fun _id -> true);
     cluster_id = "whatever";
     quiesced = false;
     stop = ref false;

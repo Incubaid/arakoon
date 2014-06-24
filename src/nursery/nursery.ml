@@ -132,7 +132,7 @@ module NC = struct
 
   let get t key =
     let cn = NCFG.find_cluster t.rc key in
-    let todo conn = Common.get conn Consistent key in
+    let todo conn = Common.get conn ~consistency:Consistent key in
     _with_master_connection t cn todo
 
   let force_interval t cn i =
@@ -143,7 +143,7 @@ module NC = struct
 
   let close _t = Llio.lwt_failfmt "close not implemented"
 
-  let __migrate t clu_left sep clu_right finalize publish migration =
+  let __migrate t _clu_left sep _clu_right finalize publish migration =
     Logger.debug_f_ "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
     Logger.debug_f_ "from:%s to:%s" from_cn to_cn >>= fun () ->
@@ -379,10 +379,10 @@ module NC = struct
                         (finalize cluster_id prev Routing.UPPER_BOUND)
                         publish (cluster_id, prev, Routing.UPPER_BOUND)
                 end
-              | Some y ->
+              | Some _ ->
                 failwith "Cannot set separator when removing a boundary cluster from the nursery"
           end
-        | None, Some x ->
+        | None, Some _ ->
           begin
             match sep with
               | None ->

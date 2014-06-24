@@ -28,11 +28,11 @@ class player id (m:messaging) =
     method _send target msg =
       Logger.debug_f_ "%s sending message %s to %s"
         id (string_of msg) target >>= fun () ->
-      m # send_message msg id target
+      m # send_message msg ~source:id ~target:target
 
     method serve ?(n=100) ?(lowest=0) opp =
       let msg = make_msg "ping" n in
-      m # send_message msg "a" opp >>=
+      m # send_message msg ~source:"a"~target:opp >>=
       self # run lowest
 
     method multi_serve n targets =
@@ -41,7 +41,7 @@ class player id (m:messaging) =
       self # wait_for_response n targets
 
     method wait_for_response n  targets=
-      m # recv_message id >>= fun (msg, source) ->
+      m # recv_message ~target:id >>= fun (msg, _source) ->
       let n' = int_of_string ( msg.payload ) in
       Logger.debug_f_ "n=%d n'=%d" n n' >>= fun () ->
       if n' == n
@@ -67,7 +67,7 @@ class player id (m:messaging) =
 
       let rec loop () =
         begin
-          m # recv_message id  >>= fun (msg, source) ->
+          m # recv_message ~target:id  >>= fun (msg, source) ->
           let reply =
             match msg.kind with
               | "ping" ->

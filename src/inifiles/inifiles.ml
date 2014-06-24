@@ -228,7 +228,7 @@ class inifile ?(spec=[]) file =
 
     method sects =
       (Hashtbl.fold
-         (fun k v keys -> k :: keys)
+         (fun k _v keys -> k :: keys)
          data [])
 
     method iter func sec =
@@ -240,7 +240,7 @@ class inifile ?(spec=[]) file =
       (Strset.elements
          (setOfList
             (Hashtbl.fold
-               (fun k v attrs -> k :: attrs)
+               (fun k _v attrs -> k :: attrs)
                (try Hashtbl.find data sec
                with Not_found -> raise (Invalid_section sec))
                [])))
@@ -270,7 +270,7 @@ let fold ?(spec=[]) func path initial =
        (try (Unix.stat path).Unix.st_kind
        with Unix.Unix_error (_,_,_) -> Unix.S_DIR))
     with
-        (name, Unix.S_REG) when
+        (_name, Unix.S_REG) when
           (Str.string_match (Str.regexp "^.*\\.ini$") path 0) -> true
       | _ -> false
   in

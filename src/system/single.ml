@@ -27,7 +27,7 @@ let should_fail = Arakoon_remote_client_test.should_fail
 let _start tn =
   Logger.info_f_ "---------------------%s--------------------" tn
 
-let all_same_master (tn, cluster_cfg, all_t, _) =
+let all_same_master (_tn, cluster_cfg, all_t, _) =
   let scenario () =
     let q = float (cluster_cfg._lease_period) *. 1.5 in
     Lwt_unix.sleep q >>= fun () ->
@@ -382,7 +382,7 @@ let _range_entries_1 (client: client) =
       and value = (string_of_int i) in
       client # set key value >>= fun () -> fill (i+1)
   in fill 0 >>= fun () ->
-  client # range_entries (Some "range_entries") true (Some "rs") true 10 >>= fun entries ->
+  client # range_entries ~consistency:Arakoon_client.Consistent ~first:(Some "range_entries") ~finc:true ~last:(Some "rs") ~linc:true ~max:10 >>= fun entries ->
   let size = List.length entries in
   Logger.info_f_ "size = %i" size >>= fun () ->
   if size <> 10
@@ -495,7 +495,7 @@ let _multi_get (client: client) =
   should_fail
     (fun () ->
        client # multi_get ["I_DO_NOT_EXIST";key2]
-       >>= fun values ->
+       >>= fun _values ->
        Lwt.return ())
     Arakoon_exc.E_NOT_FOUND
     "should fail with E_NOT_FOUND"
@@ -519,7 +519,7 @@ let _multi_get_option (client:client) =
       Lwt.fail (Failure "bad order or arity")
 
 
-let _with_master ((tn:string), cluster_cfg, _, _) f =
+let _with_master ((_tn:string), cluster_cfg, _, _) f =
   let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->

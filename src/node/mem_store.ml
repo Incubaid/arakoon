@@ -99,21 +99,21 @@ let delete_prefix ms tx prefix =
       (fun cur ->
        CS.fold_range cur prefix true (next_prefix prefix) false
                      (-1)
-                     (fun cur k _ () ->
+                     (fun _ k _ () ->
                       delete ms tx k)
                      ()) in
   count
 
 
 let range ms first finc last linc max =
-  let count, keys =
+  let _count, keys =
     with_cursor
       ms
       (fun cur ->
        CS.fold_range cur
                      first finc last linc
                      max
-                     (fun cur k _ acc ->
+                     (fun _ k _ acc ->
                       k :: acc)
                      []) in
   Array.of_list keys
@@ -122,7 +122,10 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize _ms ~quiesced ~stop = Lwt.return true
+let optimize _ms ~quiesced ~stop = 
+    let () = ignore quiesced in
+    let () = ignore stop in
+    Lwt.return true
 let defrag _ms = Lwt.return ()
 
 let flush _ms = Lwt.return ()
@@ -142,6 +145,8 @@ let copy_store2 _old_location _new_location _overwrite = Lwt.return ()
 let relocate _new_location = failwith "Memstore.relocation not implemented"
 
 let make_store ~lcnum ~ncnum _read_only db_name =
+  let () = ignore lcnum in
+  let () = ignore ncnum in
   Lwt.return { kv = StringMap.empty;
                _tx = None;
                name = db_name; }

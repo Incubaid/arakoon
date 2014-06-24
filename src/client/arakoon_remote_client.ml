@@ -54,17 +54,17 @@ class remote_client ((ic,oc) as conn) =
       response ic Llio.input_string_list
 
     method range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> range_entries_to buf consistency first finc last linc max)
+      request oc (fun buf -> range_entries_to buf ~consistency first finc last linc max)
       >>= fun () ->
       response ic Llio.input_kv_list
 
     method rev_range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> rev_range_entries_to buf consistency first finc last linc max)
+      request oc (fun buf -> rev_range_entries_to buf ~consistency first finc last linc max)
       >>= fun () ->
       response ic Llio.input_kv_list
 
     method prefix_keys ?(consistency=Consistent) pref max =
-      request  oc (fun buf -> prefix_keys_to buf consistency pref max) >>= fun () ->
+      request  oc (fun buf -> prefix_keys_to buf ~consistency pref max) >>= fun () ->
       response ic Llio.input_string_list
 
     method test_and_set key expected wanted =
@@ -80,13 +80,13 @@ class remote_client ((ic,oc) as conn) =
       response ic Llio.input_string_option
 
     method multi_get ?(consistency=Consistent) keys =
-      request  oc (fun buf -> multiget_to buf consistency keys) >>= fun () ->
+      request  oc (fun buf -> multiget_to buf ~consistency keys) >>= fun () ->
       response ic
         (fun ic -> Llio.input_string_list ic >>= fun x ->
           Lwt.return (List.rev x))
 
     method multi_get_option ?(consistency=Consistent) keys =
-      request oc (fun buf -> multiget_option_to buf consistency keys) >>= fun () ->
+      request oc (fun buf -> multiget_option_to buf ~consistency keys) >>= fun () ->
       response ic (Llio.input_list Llio.input_string_option)
 
     method sequence changes = Common.sequence conn changes

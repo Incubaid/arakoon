@@ -189,7 +189,7 @@ let test_batched_with_failures () =
 
 let test_large_tlog_catchup () =
   _tic _fill 60_000 "tcs"
-    (fun store _new_i -> Lwt.return ())
+    (fun _store _new_i -> Lwt.return ())
 let suite =
   let w f = lwt_bracket setup f teardown in
   "catchup" >:::[

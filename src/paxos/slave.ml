@@ -184,7 +184,7 @@ let slave_steady_state (type s) constants state event =
               end
             else
               accept_value [] n' i' v "steady_state :: replying again to previous with %S"
-          | Accept (n',i',v) when i' > i || (i'=i && n' > n) ->
+          | Accept (n',i',_) when i' > i || (i'=i && n' > n) ->
                                   (* TODO make helper function to check this! *)
              begin
                let log_e = ELog (fun () ->
@@ -197,7 +197,7 @@ let slave_steady_state (type s) constants state event =
                let new_state = (source,cu_pred,n',i') in
                Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
              end
-          | Accept (n',i',_v) ->
+          | Accept (_,_,_) ->
             begin
               let log_e = ELog (
                   fun () ->
@@ -221,7 +221,7 @@ let slave_steady_state (type s) constants state event =
                 let new_state = (source, i, n', i') in
                 Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
             end
-          | Nak(n',(n2, i2)) when i2 > i ->
+          | Nak(_,(n2, i2)) when i2 > i ->
              begin
                Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
                let cu_pred =  S.get_catchup_start_i constants.store in

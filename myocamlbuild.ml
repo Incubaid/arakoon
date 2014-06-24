@@ -9,9 +9,9 @@ let dependencies = [ "lwt"
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
-let warnings = "+A"
+let warnings = "+Ae"
 (* Enabled compiler errors, argument for '-warn-error' *)
-let errors = "+A-4-6-27-34-44"
+let errors = "+A"
 (* List of files for which warning 4,
  *
  *     Fragile pattern matching: matching that will remain com‐

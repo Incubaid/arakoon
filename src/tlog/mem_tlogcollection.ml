@@ -17,7 +17,7 @@ limitations under the License.
 open Tlogcollection
 open Tlogcommon
 
-class mem_tlog_collection name =
+class mem_tlog_collection _name =
   object (self: #tlog_collection)
 
     val mutable data = []
@@ -78,15 +78,17 @@ class mem_tlog_collection name =
 
     method log_value i v = self #log_value_explicit i v false None
 
-    method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
+    method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
 
-    method save_head ic = Llio.lwt_failfmt "save_head not implemented"
+    method save_head _ic = Llio.lwt_failfmt "save_head not implemented"
 
     method get_head_name () = failwith "get_head_name not implemented"
 
     method get_tlog_from_i _ = Sn.start
 
-    method close ?(wait_for_compression = false) () = Lwt.return ()
+    method close ?(wait_for_compression = false) () = 
+        let () = ignore wait_for_compression in 
+        Lwt.return ()
 
     method remove_oldest_tlogs _count = Lwt.return ()
 
@@ -94,6 +96,8 @@ class mem_tlog_collection name =
   end
 
 let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
+  let () = ignore fsync in 
+  let () = ignore fsync_tlog_dir in 
   let x = new mem_tlog_collection name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

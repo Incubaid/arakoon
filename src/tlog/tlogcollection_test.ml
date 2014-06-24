@@ -109,7 +109,7 @@ let test_get_value_bug (dn, _tlf_dir, factory) =
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
-let test_regexp (dn, tlf_dir, _factory) =
+let test_regexp (_dn, _tlf_dir, _factory) =
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let open Compression in
   let tests = ["001.tlog", true;
@@ -126,7 +126,7 @@ let test_regexp (dn, tlf_dir, _factory) =
   List.iter test tests;
   Lwt.return ()
 
-let test_restart (dn, tlf_dir, factory) =
+let test_restart (dn, _tlf_dir, factory) =
   factory dn "node_name" >>= fun (tlc_one:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat tlc_one value 100 >>= fun () ->

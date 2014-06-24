@@ -75,6 +75,7 @@ let _make_cfg name n lease_period =
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
                     ~fsync node_id ~fsync_tlog_dir =
+  let () = ignore compressor in                      
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()

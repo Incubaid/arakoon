@@ -227,7 +227,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
        let folder, _, index = folder_for tlog_name None in
 
        let do_it ic = folder ic ~index Sn.start None ~first None
-                        (fun a0 entry ->
+                        (fun _a0 entry ->
                            let () = Index.note entry new_index in
                            let r = Some entry in
                            let () = prev_entry := r in
@@ -425,7 +425,7 @@ class tlc2
 
     method validate_last_tlog () =
       validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
-      let (validity, entry, new_index) = r in
+      let (_validity, _entry, new_index) = r in
       let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
       let matches = Index.match_filename tlu new_index in
       Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
@@ -849,7 +849,7 @@ let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, get_full_path tlog_dir tlf_dir (file_name new_c))
 
-let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
+let maybe_correct new_c last index =
   if new_c > 0 && last = None
   then
     begin
@@ -868,7 +868,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
-  maybe_correct tlog_dir tlf_dir new_c last index node_id compressor >>= fun (new_c,last,new_index) ->
+  maybe_correct new_c last index >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
     match last with
