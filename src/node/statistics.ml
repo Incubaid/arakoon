@@ -20,6 +20,8 @@ GNU Affero General Public License along with this program (file "COPYING").
 If not, see <http://www.gnu.org/licenses/>.
 *)
 
+let section = Logger.Section.main
+
 type x_stats ={
     mutable n : int;
     mutable min:float;
@@ -197,9 +199,15 @@ module Statistics = struct
     update_x_stats t.op_time_stats x ;
     x
 
+  let log_slowness descr total_time =
+    if total_time > 1.0 then
+      Logger.ign_info_f_ "statistics %s :: took %f seconds" descr total_time
+    else
+      ()
 
   let new_set t (_key:string) (value:string) (start:float)=
     let x = new_op t start in
+    let () = log_slowness "set" x in
     update_x_stats t.set_time_stats x;
     let size = float(String.length value) in
     let n' = t.set_time_stats.n in
@@ -208,10 +216,9 @@ module Statistics = struct
 
   let new_harvest t n = update_x_stats t.harvest_stats (float n)
 
-
-
   let new_get t (_key:string) (value:string) (start:float) =
     let x = new_op t start in
+    let () = log_slowness "get" x in
     update_x_stats t.get_time_stats x;
     let size = float(String.length value) in
     let n' = t.get_time_stats.n in
@@ -220,26 +227,32 @@ module Statistics = struct
 
   let new_delete t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "delete" x in
     update_x_stats t.del_time_stats x
 
   let new_sequence t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "sequence" x in
     update_x_stats t.seq_time_stats x
 
   let new_multiget t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "multiget" x in
     update_x_stats t.mget_time_stats x
 
   let new_multiget_option t (start:float) =
     let x = new_op t start in
+    let () = log_slowness "multiget_option" x in
     update_x_stats t.mget_option_time_stats x
 
   let new_testandset t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "testandset" x in
     update_x_stats t.tas_time_stats x
 
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "prefix_keys" x in
     update_x_stats t.prefix_time_stats x;
     let n = t.prefix_time_stats.n in
     let nf = float n in
@@ -247,20 +260,23 @@ module Statistics = struct
 
   let new_range t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "range" x in
     update_x_stats t.range_time_stats x;
     let n = t.range_time_stats.n in
     let nf = float n in
     t.avg_range_size <- t.avg_range_size +. ((float n_keys -. t.avg_range_size) /. nf)
 
-  let new_range_entries t (start:float) n_keys = 
+  let new_range_entries t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "range_entries" x in
     update_x_stats t.range_entries_time_stats x;
     let n = t.range_entries_time_stats.n in
     let nf = float n in
     t.avg_range_entries_size <- t.avg_range_entries_size +. ((float n_keys -. t.avg_range_entries_size) /. nf)
- 
-  let new_rev_range_entries t (start:float) n_keys = 
+
+  let new_rev_range_entries t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "rev_range_entries" x in
     update_x_stats t.rev_range_entries_time_stats x;
     let n = t.rev_range_entries_time_stats.n in
     let nf = float n in
@@ -268,6 +284,7 @@ module Statistics = struct
 
   let new_delete_prefix t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "delete_prefix" x in
     update_x_stats t.delete_prefix_time_stats x;
     let n = t.delete_prefix_time_stats.n in
     let nf = float n in
