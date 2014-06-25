@@ -41,7 +41,7 @@ let election_suggest (type s) constants (n, counter) () =
   let delay =
     match constants.master with
       | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2) - counter
-      | _ -> 0
+      | Elected | ReadOnly |Forced _ |Preferred _ -> 0
   in
   let df = float delay in
   Lwt.ignore_result

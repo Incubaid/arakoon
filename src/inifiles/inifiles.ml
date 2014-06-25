@@ -264,23 +264,19 @@ let readdir path =
   lst
 
 let fold ?(spec=[]) func path initial =
-  let check_file path =
-    match
-      (path,
-       (try (Unix.stat path).Unix.st_kind
-       with Unix.Unix_error (_,_,_) -> Unix.S_DIR))
-    with
-        (_name, Unix.S_REG) when
-          (Str.string_match (Str.regexp "^.*\\.ini$") path 0) -> true
-      | _ -> false
-  in
+  let is_ini_file path =
+      try
+        if (Unix.stat path).Unix.st_kind = Unix.S_REG
+        then Filename.check_suffix path ".ini"
+        else false
+      with Unix.Unix_error (_,_,_) -> false in  
   (List.fold_left
      func
      initial
      (List.rev_map
         (new inifile ~spec)
         (List.filter
-           check_file
+           is_ini_file
            (List.rev_map
               (fun p -> (path ^ "/" ^ p))
               (readdir path)))))

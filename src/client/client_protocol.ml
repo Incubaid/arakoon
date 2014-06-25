@@ -124,7 +124,22 @@ let decode_sequence ic =
     match update with
       | Update.Sequence updates ->
         Lwt.return updates
-      | _ ->  raise (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
+      | Update.Set _
+      | Update.Delete _
+      | Update.TestAndSet _
+      | Update.SyncedSequence _ 
+      | Update.MasterSet _
+      | Update.SetInterval _
+      | Update.SetRouting _
+      | Update.SetRoutingDelta _
+      | Update.Nop
+      | Update.Assert _
+      | Update.Assert_exists _
+      | Update.UserFunction _
+      | Update.AdminSet _
+      | Update.DeletePrefix _
+      | Update.Replace _ 
+        ->  raise (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
                                  "should have been a sequence"))
   end
 

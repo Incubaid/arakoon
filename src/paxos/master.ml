@@ -45,7 +45,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
           let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
           Lwt.ignore_result (constants.inject_event event);
           Lwt.return ()
-        | _ ->
+        | Value.Vc _ ->
           begin
             let inject_lease_expired ls =
               let event = Multi_paxos.LeaseExpired (ls) in
@@ -145,8 +145,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             end
           else
             maybe_extend ()
-        | _ ->
-          maybe_extend ()
+        | Preferred _ | Elected | Forced _  | ReadOnly -> maybe_extend ()
       end
     | FromClient ufs ->
       begin
@@ -225,7 +224,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                   Fsm.return (Slave_discovered_other_master new_state)
                 end
             end
-          | _ ->
+          | Nak _ | Accept _ | Promise _ ->
             begin
               let log_e = ELog (fun () ->
                   Printf.sprintf "stable_master received %S: dropping" (string_of msg))

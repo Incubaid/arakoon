@@ -44,7 +44,8 @@ let setup factory test_name () =
               match status with
                 | Unix.WEXITED rc when rc = 0 -> make_dir dir
                 | Unix.WEXITED rc             -> Llio.lwt_failfmt "rm -rf '%s' gave rc %i" dir rc
-                | _                           -> Llio.lwt_failfmt "rm -rf '%s' failed" dir
+                | Unix.WSIGNALED _ | Unix.WSTOPPED _
+                 -> Llio.lwt_failfmt "rm -rf '%s' failed" dir
             end
 
           end

@@ -134,7 +134,7 @@ type 'a constants =
 let am_forced_master constants me =
   match constants.master with
     | Forced x -> x = me
-    | _ -> false
+    | Elected | Preferred _  | ReadOnly -> false
 
 let is_election constants =
   match constants.master with
