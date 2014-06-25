@@ -19,17 +19,46 @@ open Network
 open Statistics
 open Lwt
 
+module TLSConfig : sig
+    type t
+
+    type path = string
+
+    val make : ca_cert : path
+             -> creds : (path * path) option
+             -> protocol : Ssl.protocol
+             -> t
+
+    val ca_cert : t -> path
+    val creds : t -> (path * path) option
+    val protocol : t -> Ssl.protocol
+end = struct
+    type path = string
+
+    type t = { ca_cert : path
+             ; creds : (path * path) option
+             ; protocol : Ssl.protocol
+             }
+
+    let make ~ca_cert ~creds ~protocol =
+        { ca_cert; creds; protocol }
+
+    let ca_cert t = t.ca_cert
+    let creds t = t.creds
+    let protocol t = t.protocol
+end
+
 let _address_to_use ips port = make_address (List.hd ips) port
 
 let with_connection ~tls sa do_it = match tls with
   | None -> Lwt_io.with_connection sa do_it
-  | Some (tls_ca_cert, tls_creds) ->
-    let ctx = Typed_ssl.create_client_context Ssl.TLSv1 in
+  | Some tls_config ->
+    let ctx = Typed_ssl.create_client_context (TLSConfig.protocol tls_config) in
     Typed_ssl.set_verify ctx
       [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
       (Some Ssl.client_verify_callback);
-    Typed_ssl.load_verify_locations ctx tls_ca_cert "";
-    begin match tls_creds with
+    Typed_ssl.load_verify_locations ctx (TLSConfig.ca_cert tls_config) "";
+    begin match (TLSConfig.creds tls_config) with
       | None -> ()
       | Some (cert, key) ->
           Typed_ssl.use_certificate ctx cert key

@@ -26,6 +26,7 @@ let use_certificate = Ssl.use_certificate
 let set_verify = Ssl.set_verify
 let set_client_CA_list_from_file = Ssl.set_client_CA_list_from_file
 let load_verify_locations = Ssl.load_verify_locations
+let set_cipher_list = Ssl.set_cipher_list
 
 open Lwt
 
