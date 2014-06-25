@@ -220,22 +220,37 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
          try_nodes others in
   try_nodes other_configs
 
+let build_ssl_context_helper f cluster = match cluster.tls with
+  | None -> failwith "Node_main: No TLS configuration found"
+  | Some config ->
+      let open Node_cfg in
+      let ctx = f (TLSConfig.Cluster.protocol config) in
+
+      let () = match TLSConfig.Cluster.cipher_list config with
+        | None -> ()
+        | Some l -> Typed_ssl.set_cipher_list ctx l
+      in
+
+      ctx
+
 let get_ssl_cert_paths me cluster =
-  match me.tls_cert with
+  match me.node_tls with
     | None -> None
-    | Some tls_cert ->
-        match me.tls_key with
-          | None -> failwith "get_ssl_cert_paths: no tls_key"
-          | Some tls_key ->
-              match cluster.tls_ca_cert with
-                | None -> failwith "get_ssl_cert_paths: no tls_ca_cert"
-                | Some tls_ca_cert -> Some (tls_cert, tls_key, tls_ca_cert)
+    | Some config ->
+        match cluster.tls with
+          | None -> failwith "get_ssl_cert_paths: no tls_ca_cert"
+          | Some config' ->
+              let open Node_cfg in
+              let cert = TLSConfig.Node.cert config
+              and key = TLSConfig.Node.key config
+              and ca_cert = TLSConfig.Cluster.ca_cert config' in
+              Some (cert, key, ca_cert)
 
 let build_ssl_context me cluster =
   match get_ssl_cert_paths me cluster with
     | None -> None
     | Some (tls_cert, tls_key, tls_ca_cert) ->
-        let ctx = Typed_ssl.create_both_context Ssl.TLSv1 in
+        let ctx = build_ssl_context_helper Typed_ssl.create_both_context cluster in
         Typed_ssl.use_certificate ctx tls_cert tls_key;
         Typed_ssl.set_verify
           ctx
@@ -246,17 +261,25 @@ let build_ssl_context me cluster =
         Some ctx
 
 let build_service_ssl_context me cluster =
-  if not cluster.tls_service
+  let open Node_cfg in
+  let tls_service = match cluster.tls with
+    | None -> false
+    | Some config -> TLSConfig.Cluster.service config
+  in
+  if not tls_service
   then None
   else match get_ssl_cert_paths me cluster with
     | None -> failwith "build_service_ssl_context: tls_service but no cert/key paths"
     | Some (tls_cert, tls_key, tls_ca_cert) ->
-        let ctx = Typed_ssl.create_server_context Ssl.TLSv1 in
+        let ctx = build_ssl_context_helper Typed_ssl.create_server_context cluster in
         Typed_ssl.use_certificate ctx tls_cert tls_key;
         let verify =
-          if cluster.tls_service_validate_peer
-          then [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
-          else []
+          match cluster.tls with
+            | None -> failwith "Node_main: Impossible!"
+            | Some config ->
+                if TLSConfig.Cluster.service_validate_peer config
+                then [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
+                else []
         in
         Typed_ssl.set_verify ctx verify (Some Ssl.client_verify_callback);
         Typed_ssl.set_client_CA_list_from_file ctx tls_ca_cert;
@@ -603,9 +626,12 @@ let _main_2 (type s)
                            election_timeout_buffer)
           in
           let catchup_tls_ctx =
-            if cluster_cfg.tls_service
-              then ssl_context
-              else None
+            match cluster_cfg.tls with
+              | None -> None
+              | Some config ->
+                  if Node_cfg.TLSConfig.Cluster.service config
+                  then ssl_context
+                  else None
           in
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name

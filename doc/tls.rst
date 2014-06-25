@@ -35,6 +35,21 @@ When connecting to another node, the node certificate will be requested on both
 sides and validated against the CA certificate. Self-signed certificated
 without a shared CA can't be used.
 
+Next to the configuration settings listed above, 2 more settings are available
+which influence TLS communication:
+
+*global.tls_version*
+    Configure a specific TLS version to use. Valid values are ``1.0``, ``1.1``
+    and ``1.2``.
+    For backwards compatibility, ``1.0`` is the default.
+
+*global.tls_cipher_list*
+    Configure a specific TLS cipher list. See ``man 1 ciphers`` and ``man 3
+    SSL_set_cipher_list`` for more documentation about the meaning of this
+    string, how unknown settings are handled, etc.
+    The default is to set no specific cipher list, i.e. use the default setting
+    as used by your system SSL library.
+
 Configuring client TLS communication
 ------------------------------------
 Once inter-node TLS communication is configured and working, nodes can be
@@ -52,6 +67,9 @@ configuration, clients connecting to nodes are required to provide a certificate
 upon connection, which will be validated by the node against the CA certificate.
 If a client fails to provide a certificate, or this is not signed by the CA, the
 connection will be rejected.
+
+The *global.tls_version* and *global.tls_cipher_list* settings are also
+applicable to client connections.
 
 Using the CLI interface
 -----------------------
@@ -71,3 +89,7 @@ In case a client certificate is required (when
 *global.tls_service_validate_peer* is used), the *-tls-cert* and *-tls-key*
 options should be used, both pointing to the certificate & key files to be used
 when connecting.
+
+To select a specific TLS version, the *-tls-version* option should be used.
+Valid values are ``1.0``, ``1.1`` and ``1.2``. For backwards compatibility, this
+defaults to ``1.0``.
