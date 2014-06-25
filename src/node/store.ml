@@ -679,7 +679,7 @@ struct
       | Update.Set (key, _)
       | Update.Delete key
       | Update.TestAndSet (key, _, _) -> Some key
-      | Update.SyncedSequence _ 
+      | Update.SyncedSequence _
       | Update.MasterSet _
       | Update.Sequence _
       | Update.SetInterval _
@@ -691,8 +691,7 @@ struct
       | Update.UserFunction _
       | Update.AdminSet _
       | Update.DeletePrefix _
-      | Update.Replace _ 
-       -> None
+      | Update.Replace _  -> None
     in
     let rec _do_one update tx =
       let return () = Lwt.return (Ok None) in

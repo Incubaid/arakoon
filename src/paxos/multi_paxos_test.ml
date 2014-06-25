@@ -112,18 +112,18 @@ let test_generic network_factory n_nodes () =
               (Multi_paxos_type.show_transition key) >>= fun () ->
             match key with
               | (Multi_paxos_type.Slave_steady_state ((_,i,_) as x)) when i = 1L -> Lwt.return (Some x)
-              | Multi_paxos_type.Start_transition 
-              | Multi_paxos_type.Election_suggest _ 
-              | Multi_paxos_type.Slave_fake_prepare _ 
+              | Multi_paxos_type.Start_transition
+              | Multi_paxos_type.Election_suggest _
+              | Multi_paxos_type.Slave_fake_prepare _
               | Multi_paxos_type.Slave_steady_state _
-              | Multi_paxos_type.Slave_discovered_other_master _ 
-              | Multi_paxos_type.Wait_for_promises _ 
+              | Multi_paxos_type.Slave_discovered_other_master _
+              | Multi_paxos_type.Wait_for_promises _
               | Multi_paxos_type.Promises_check_done _
-              | Multi_paxos_type.Wait_for_accepteds _ 
-              | Multi_paxos_type.Accepteds_check_done _ 
+              | Multi_paxos_type.Wait_for_accepteds _
+              | Multi_paxos_type.Accepteds_check_done _
               | Multi_paxos_type.Master_consensus _
-              | Multi_paxos_type.Stable_master _ 
-              | Multi_paxos_type.Master_dictate _ 
+              | Multi_paxos_type.Stable_master _
+              | Multi_paxos_type.Master_dictate _
               | Multi_paxos_type.Read_only -> Lwt.return None
           in
           let client_buffer = Lwt_buffer.create () in
@@ -156,19 +156,19 @@ let test_generic network_factory n_nodes () =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key)
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-          | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-          | Multi_paxos_type.Start_transition 
-          | Multi_paxos_type.Election_suggest _ 
-          | Multi_paxos_type.Slave_fake_prepare _ 
-          | Multi_paxos_type.Slave_steady_state _
-          | Multi_paxos_type.Slave_discovered_other_master _ 
-          | Multi_paxos_type.Wait_for_promises _ 
-          | Multi_paxos_type.Promises_check_done _
-          | Multi_paxos_type.Wait_for_accepteds _ 
-          | Multi_paxos_type.Accepteds_check_done _ 
-          | Multi_paxos_type.Master_consensus _
-          | Multi_paxos_type.Master_dictate _ 
-          | Multi_paxos_type.Read_only  -> Lwt.return None
+        | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only  -> Lwt.return None
     in
     let inject_buffer = Lwt_buffer.create () in
     let election_timeout_buffer = Lwt_buffer.create () in
@@ -196,9 +196,9 @@ let test_generic network_factory n_nodes () =
   let len = Hashtbl.length values in
   Logger.debug_f_ "%s: end of main... validating len = %d" me len >>= fun () ->
   let all_consensusses = Hashtbl.fold
-   (fun a b acc ->
-      let bs = Value.value2s b in
-      (a,bs) :: acc) values []
+                           (fun a b acc ->
+                              let bs = Value.value2s b in
+                              (a,bs) :: acc) values []
   in
   Lwt_list.iter_s
     (fun (name, update_string) ->
@@ -292,24 +292,24 @@ let test_master_loop network_factory ()  =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key)
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-          | (Multi_paxos_type.Stable_master x) ->
-            if !continue = 0
-              then Lwt.return (Some x)
-            else
-               let () = continue := (!continue -1) in
-               Lwt.return None
-          | Multi_paxos_type.Start_transition 
-          | Multi_paxos_type.Election_suggest _ 
-          | Multi_paxos_type.Slave_fake_prepare _ 
-          | Multi_paxos_type.Slave_steady_state _
-          | Multi_paxos_type.Slave_discovered_other_master _ 
-          | Multi_paxos_type.Wait_for_promises _ 
-          | Multi_paxos_type.Promises_check_done _
-          | Multi_paxos_type.Wait_for_accepteds _ 
-          | Multi_paxos_type.Accepteds_check_done _ 
-          | Multi_paxos_type.Master_consensus _
-          | Multi_paxos_type.Master_dictate _ 
-          | Multi_paxos_type.Read_only -> Lwt.return None
+        | (Multi_paxos_type.Stable_master x) ->
+          if !continue = 0
+            then Lwt.return (Some x)
+          else
+             let () = continue := (!continue -1) in
+             Lwt.return None
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers =
@@ -429,19 +429,19 @@ let test_simulation filters () =
       Logger.debug_f_ "%s: c0 from %s to %s" me (Multi_paxos_type.show_transition prev_key)
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-          | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-          | Multi_paxos_type.Start_transition 
-          | Multi_paxos_type.Election_suggest _ 
-          | Multi_paxos_type.Slave_fake_prepare _ 
-          | Multi_paxos_type.Slave_steady_state _
-          | Multi_paxos_type.Slave_discovered_other_master _ 
-          | Multi_paxos_type.Wait_for_promises _ 
-          | Multi_paxos_type.Promises_check_done _
-          | Multi_paxos_type.Wait_for_accepteds _ 
-          | Multi_paxos_type.Accepteds_check_done _ 
-          | Multi_paxos_type.Master_consensus _
-          | Multi_paxos_type.Master_dictate _ 
-          | Multi_paxos_type.Read_only -> Lwt.return None
+        | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,
@@ -470,19 +470,19 @@ let test_simulation filters () =
         (Multi_paxos_type.show_transition prev_key)
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
-          | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-          | Multi_paxos_type.Stable_master _  
-          | Multi_paxos_type.Start_transition 
-          | Multi_paxos_type.Election_suggest _ 
-          | Multi_paxos_type.Slave_fake_prepare _ 
-          | Multi_paxos_type.Slave_discovered_other_master _ 
-          | Multi_paxos_type.Wait_for_promises _ 
-          | Multi_paxos_type.Promises_check_done _
-          | Multi_paxos_type.Wait_for_accepteds _ 
-          | Multi_paxos_type.Accepteds_check_done _ 
-          | Multi_paxos_type.Master_consensus _
-          | Multi_paxos_type.Master_dictate _ 
-          | Multi_paxos_type.Read_only -> Lwt.return None
+        | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
+        | Multi_paxos_type.Stable_master _
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,

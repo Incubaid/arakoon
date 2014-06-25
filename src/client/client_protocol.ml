@@ -127,7 +127,7 @@ let decode_sequence ic =
       | Update.Set _
       | Update.Delete _
       | Update.TestAndSet _
-      | Update.SyncedSequence _ 
+      | Update.SyncedSequence _
       | Update.MasterSet _
       | Update.SetInterval _
       | Update.SetRouting _
@@ -138,9 +138,8 @@ let decode_sequence ic =
       | Update.UserFunction _
       | Update.AdminSet _
       | Update.DeletePrefix _
-      | Update.Replace _ 
-        ->  raise (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
-                                 "should have been a sequence"))
+      | Update.Replace _ ->  raise (XException (Arakoon_exc.E_UNKNOWN_FAILURE,
+                                     "should have been a sequence"))
   end
 
 let handle_sequence ~sync ic oc backend =

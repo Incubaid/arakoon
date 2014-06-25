@@ -19,7 +19,7 @@ limitations under the License.
 open Lwt
 open Node_cfg
 open Remote_nodestream
-open Tlogcollection 
+open Tlogcollection
 open Log_extra
 open Tlogcommon
 

@@ -341,21 +341,27 @@ module Statistics = struct
 
     let extract_list = function
       | Llio.NAMED_VALUELIST (_,l) -> l
-      | Llio.NAMED_FLOAT _ | Llio.NAMED_INT _ | Llio.NAMED_INT64 _ | Llio.NAMED_STRING _ 
-      -> failwith "Wrong value type (expected list)"
+      | Llio.NAMED_FLOAT _
+      | Llio.NAMED_INT _
+      | Llio.NAMED_INT64 _
+      | Llio.NAMED_STRING _ -> failwith "Wrong value type (expected list)"
     in
     let extract_float (value:Llio.namedValue) : float =
       begin
         match value with
           | Llio.NAMED_FLOAT (_,f) -> f
-          | Llio.NAMED_INT _ | Llio.NAMED_INT64 _ | Llio.NAMED_STRING _ | Llio.NAMED_VALUELIST _  
-          -> failwith "Wrong value type (expected float)"
+          | Llio.NAMED_INT _
+          | Llio.NAMED_INT64 _
+          | Llio.NAMED_STRING _
+          | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected float)"
       end
     in
     let extract_int = function
       | Llio.NAMED_INT (_,i) -> i
-      | Llio.NAMED_FLOAT _ | Llio.NAMED_INT64 _ | Llio.NAMED_STRING _ | Llio.NAMED_VALUELIST _  
-      -> failwith "Wrong value type (expected int)"
+      | Llio.NAMED_FLOAT _
+      | Llio.NAMED_INT64 _
+      | Llio.NAMED_STRING _
+      | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected int)"
     in
     let extract_x_stats (value:Llio.namedValue) : x_stats =
       begin
@@ -374,8 +380,10 @@ module Statistics = struct
             let v, _ = extract_next l in
             let var = extract_float v in
             {n; min; max; m2; avg; var;}
-          | Llio.NAMED_FLOAT _ | Llio.NAMED_INT _ | Llio.NAMED_INT64 _ | Llio.NAMED_STRING _   
-          -> failwith "Wrong value type (expected list)"
+          | Llio.NAMED_FLOAT _
+          | Llio.NAMED_INT _
+          | Llio.NAMED_INT64 _
+          | Llio.NAMED_STRING _ -> failwith "Wrong value type (expected list)"
       end
     in
 
@@ -474,8 +482,10 @@ module Statistics = struct
     let insert_node value =
       match value with
         | Llio.NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
-        | Llio.NAMED_FLOAT _ | Llio.NAMED_INT _ | Llio.NAMED_STRING _ | Llio.NAMED_VALUELIST _  
-        -> failwith "Wrong value type (expected int64)."
+        | Llio.NAMED_FLOAT _
+        | Llio.NAMED_INT _
+        | Llio.NAMED_STRING _
+        | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected int64)."
     in
     List.iter insert_node node_list;
     let t =  {

@@ -20,7 +20,18 @@ let errors = "+A"
  *
  * is disabled.
  *)
-let allow_fragile_pattern_matches = ["logger_macro.ml";"src/tools/file_system.ml"; "src/node/node_cfg.ml"; "src/tools/server.ml";"src/node/catchup.ml";"src/tlog/tlc2.ml"; "src/msg/tcp_messaging.ml"; "src/client/client_protocol.ml";"src/client/client_main.ml";"src/nursery/nursery_main.ml" ]
+let allow_fragile_pattern_matches = [
+  "logger_macro.ml";
+  "src/tools/file_system.ml";
+  "src/node/node_cfg.ml";
+  "src/tools/server.ml";
+  "src/node/catchup.ml";
+  "src/tlog/tlc2.ml";
+  "src/msg/tcp_messaging.ml";
+  "src/client/client_protocol.ml";
+  "src/client/client_main.ml";
+  "src/nursery/nursery_main.ml";
+]
 
 open Ocamlbuild_pack
 open Ocamlbuild_plugin

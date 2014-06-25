@@ -241,7 +241,6 @@ module Update = struct
     | UserFunction _
     | AdminSet _
     | DeletePrefix _
-    | Replace _ 
-    -> false
+    | Replace _ -> false
 
 end

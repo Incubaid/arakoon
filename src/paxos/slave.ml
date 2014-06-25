@@ -85,7 +85,7 @@ let slave_steady_state (type s) constants state event =
       end
     else if n' < n || i' < i
     then
-       begin
+      begin
         let log_e = ELog (fun () ->
             Printf.sprintf "slave_steady_state: Ingoring old timeout (n'=%s n=%s i'=%s i=%s)" (Sn.string_of n') (Sn.string_of n) (Sn.string_of i') (Sn.string_of i))
         in
