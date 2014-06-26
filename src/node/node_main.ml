@@ -609,12 +609,11 @@ let _main_2 (type s)
                        (fun u -> Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
-                | Multi_paxos.FromNode _    
-                | Multi_paxos.LeaseExpired _ 
+                | Multi_paxos.FromNode _
+                | Multi_paxos.LeaseExpired _
                 | Multi_paxos.Quiesce  _
-                | Multi_paxos.Unquiesce 
-                | Multi_paxos.DropMaster _ 
-                ->  (fun () -> Lwt_buffer.add e inject_buffer), "inject"
+                | Multi_paxos.Unquiesce
+                | Multi_paxos.DropMaster _ -> (fun () -> Lwt_buffer.add e inject_buffer), "inject"
             in
             Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)

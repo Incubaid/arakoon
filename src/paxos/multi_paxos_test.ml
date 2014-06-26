@@ -294,10 +294,10 @@ let test_master_loop network_factory ()  =
       match key with
         | (Multi_paxos_type.Stable_master x) ->
           if !continue = 0
-            then Lwt.return (Some x)
+          then Lwt.return (Some x)
           else
-             let () = continue := (!continue -1) in
-             Lwt.return None
+            let () = continue := (!continue -1) in
+            Lwt.return None
         | Multi_paxos_type.Start_transition
         | Multi_paxos_type.Election_suggest _
         | Multi_paxos_type.Slave_fake_prepare _

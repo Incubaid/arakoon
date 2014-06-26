@@ -32,7 +32,7 @@ class player id (m:messaging) =
 
     method serve ?(n=100) ?(lowest=0) opp =
       let msg = make_msg "ping" n in
-      m # send_message msg ~source:"a"~target:opp >>=
+      m # send_message msg ~source:"a" ~target:opp >>=
       self # run lowest
 
     method multi_serve n targets =
