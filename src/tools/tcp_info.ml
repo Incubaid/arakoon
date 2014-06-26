@@ -14,9 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+(** Binding to C library calls to retrieve TCP socket information *)
+
 type u_int8_t = int
 type u_int32_t = int
 
+(** Record of TCP socket information
+
+This represents a {i struct tcp_info } value. *)
 type t = { state : u_int8_t
          ; ca_state : u_int8_t
          ; retransmits : u_int8_t
@@ -57,6 +62,7 @@ type t = { state : u_int8_t
          ; total_retrans : u_int32_t
          }
 
+(** Create a {! string } representation of a {! t } *)
 let to_string t =
   Printf.sprintf "{ state=%d; ca_state=%d; retransmits=%d; probes=%d; backoff=%d; options=%d; snd_wscale=%d; rcv_wscale=%d; rto=%d; ato=%d; snd_mss=%d; rcv_mss=%d; unacked=%d; sacked=%d; lost=%d; retrans=%d; fackets=%d; last_data_sent=%d; last_ack_sent=%d; last_data_recv=%d; last_ack_recv=%d; pmtu=%d; rcv_ssthresh=%d; rtt=%d; rttvar=%d; snd_ssthresh=%d; snd_cwnd=%d; advmss=%d; reordering=%d; rcv_rtt=%d; rcv_space=%d; total_retrans=%d; }"
     t.state t.ca_state t.retransmits t.probes t.backoff t.options t.snd_wscale
@@ -66,4 +72,8 @@ let to_string t =
     t.snd_cwnd t.advmss t.reordering t.rcv_rtt t.rcv_space t.total_retrans
 
 type socket = Unix.file_descr
+
+(** Retrieve TCP connection information from a {! socket }
+
+This uses {i getsockopt } with {i SOL_TCP } and {i TCP_INFO } underneath. *)
 external tcp_info : socket -> t = "arakoon_tcp_info"
