@@ -333,7 +333,7 @@ module X = struct
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->
@@ -609,8 +609,11 @@ let _main_2 (type s)
                        (fun u -> Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
-                | _ ->
-                  (fun () -> Lwt_buffer.add e inject_buffer), "inject"
+                | Multi_paxos.FromNode _
+                | Multi_paxos.LeaseExpired _
+                | Multi_paxos.Quiesce  _
+                | Multi_paxos.Unquiesce
+                | Multi_paxos.DropMaster _ -> (fun () -> Lwt_buffer.add e inject_buffer), "inject"
             in
             Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
@@ -683,7 +686,7 @@ let _main_2 (type s)
                     then Multi_paxos_fsm.enter_simple_paxos
                     else Multi_paxos_fsm.enter_forced_slave
                   end
-              | _ -> Multi_paxos_fsm.enter_simple_paxos
+              | Elected | ReadOnly |Preferred _  -> Multi_paxos_fsm.enter_simple_paxos
         in
         to_run ~stop constants buffers new_i
       in

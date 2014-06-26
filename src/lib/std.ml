@@ -56,15 +56,11 @@ end = struct
   end
 
   module Make = functor(S : S) -> struct
-    type t = S.s
-
     let (=:) = S.(=:)
     let (<>:) a b = not (a =: b)
   end
 
-  module Default = functor(S : sig type s end) -> struct
-    type t = S.s
-
+  module Default = functor(S : sig end) -> struct
     let (=:) = (=)
     let (<>:) = (<>)
   end
@@ -137,8 +133,6 @@ end = struct
   end
 
   module Make = functor(S : S) -> struct
-    type t = S.t
-
     let (<:) a b = match S.compare' a b with
       | LT -> true
       | EQ | GT -> false

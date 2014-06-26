@@ -87,14 +87,14 @@ module Test = struct
             let zero = 0
         end) in
 
-        let t = M.create 5 in
-        print_endline (M.to_string string_of_int t);
+        let t = M.create ~size:5 in
+        print_endline (M.to_string ~f:string_of_int t);
 
         let sum t = M.fold ~f:(fun a b -> Printf.printf "%d %d\n" a b;  a + b) ~acc:0 t in
 
         List.iter (fun x ->
             M.insert x t;
-            print_endline (M.to_string string_of_int t);
+            print_endline (M.to_string ~f:string_of_int t);
             Printf.printf "Sum: %d\n" (sum t))
             [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]
 end

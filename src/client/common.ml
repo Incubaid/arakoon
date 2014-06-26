@@ -147,7 +147,6 @@ let command_to buffer command =
 
 let nothing = fun _ic -> Lwt.return ()
 
-
 let request oc f =
   let buf = Buffer.create 32 in
   let () = f buf in

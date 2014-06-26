@@ -74,6 +74,7 @@ let _make_cfg name n lease_period =
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
                     ~fsync node_id ~fsync_tlog_dir =
+  let () = ignore compressor in                      
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
@@ -220,7 +221,6 @@ let restart_slaves () =
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
-
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)

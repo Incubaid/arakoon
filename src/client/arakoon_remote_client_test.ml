@@ -268,7 +268,7 @@ let _test_range (client:Arakoon_client.client) =
 let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
-  client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
+  client # rev_range_entries ~consistency:Arakoon_client.Consistent ~first:(Some "xey100") ~finc:true ~last:(Some "xey009") ~linc:true ~max:3 >>= fun xn ->
   Lwt_list.iter_s (fun (k, _) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in
   let () = OUnit.assert_bool "hd" (k  = "xey099") in

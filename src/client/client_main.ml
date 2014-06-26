@@ -192,7 +192,7 @@ let range_entries ~tls cfg_name left linc right rinc max_results =
     with_master_client ~tls
       cfg_name
       (fun client ->
-       client # range_entries left linc right rinc max_results >>= fun entries ->
+        client # range_entries ~consistency:Arakoon_client.Consistent ~first:left ~finc:linc ~last:right ~linc:rinc ~max:max_results >>= fun entries ->
        Lwt_list.iter_s (fun (k,v) -> Lwt_io.printlf "%S %S" k v ) entries >>= fun () ->
        let size = List.length entries in
        Lwt_io.printlf "%i listed" size >>= fun () ->
@@ -206,7 +206,7 @@ let rev_range_entries ~tls cfg_name left linc right rinc max_results =
     with_master_client ~tls
       cfg_name
       (fun client ->
-       client # rev_range_entries left linc right rinc max_results >>= fun entries ->
+       client # rev_range_entries ~consistency:Arakoon_client.Consistent ~first:left ~finc:linc ~last:right ~linc:rinc ~max:max_results >>= fun entries ->
        Lwt_list.iter_s (fun (k,v) -> Lwt_io.printlf "%S %S" k v ) entries >>= fun () ->
        let size = List.length entries in
        Lwt_io.printlf "%i listed" size >>= fun () ->
@@ -230,6 +230,7 @@ let benchmark
 
 
 let expect_progress_possible ~tls cfg_name =
+
   let f client =
     client # expect_progress_possible () >>= fun b ->
     Lwt_io.printlf "%b" b
