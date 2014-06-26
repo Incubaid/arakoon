@@ -117,8 +117,8 @@ let test_common () =
   S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
   Catchup.catchup_store ~stop:(ref false) me ((module S),store,tlog_coll) 500L >>= fun() ->
   Logger.info_ "TODO: validate store after this" >>= fun ()->
-  tlog_coll # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlog_coll # close ()
 
 
 let teardown () =
