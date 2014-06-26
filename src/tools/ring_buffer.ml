@@ -14,50 +14,48 @@
  * limitations under the License.
  *)
 
+(** A simple ring-buffer implementation *)
+
+(** Create a new ring-buffer for a given element type *)
 module Make(E : sig
-    (* Ringbuffer element type *)
+    (** Ringbuffer element type *)
     type t
-    (* Zero-value, used to initialize the backing array
-     *
-     * Note: Entries equal to this value are passed through during a fold like
-     * any other.
-     *)
+
+    (** Zero-value, used to initialize the backing array
+
+    Note: Entries equal to this value are passed through during a fold like
+    any other. *)
     val zero : t
 end) : sig
-    (* Ring-buffer type for elements of type `E.t` *)
     type t
 
-    (* Create a new ring-buffer of given size *)
     val create : size:int -> t
-    (* Insert (in-place) a new element in the ring-buffer *)
     val insert : E.t -> t -> unit
-
-    (* Left-fold over the content of the ring-buffer, starting at the oldest
-     * value.
-     * Note: `zero` elements aren't skipped.
-     *)
     val fold : f:('a -> E.t -> 'a) -> acc:'a -> t -> 'a
-
-    (* Generate a string representation of a ring-buffer, for debugging
-     * purposes.
-     * The `f` argument should convert an `E.t` to a string representation.
-     *)
     val to_string : f:(E.t -> string) -> t -> string
 end = struct
+    (** Ring-buffer type for elements of type {!E.t} *)
     type t = { buffer : E.t array
              ; mutable pos : int
              }
 
+    (** Create a new ring-buffer of given size
+
+    @param size Size of the ring-buffer *)
     let create ~size =
         let buffer = Array.create size E.zero in
         { buffer; pos = 0; }
 
+    (** Insert an element in the ring-buffer *)
     let insert e t =
         let cp = t.pos in
         Array.set t.buffer cp e;
         let np = cp + 1 in
         t.pos <- np mod (Array.length t.buffer)
 
+    (** Left-fold over the content of the ring-buffer, starting at the oldest value
+
+    Note: {!E.zero} elements are not skipped. *)
     let fold ~f ~acc t =
         let size = Array.length t.buffer
         and pos = t.pos in
@@ -73,6 +71,9 @@ end = struct
 
         loop acc size
 
+    (** Generate a string representation of a ring-buffer, for debugging purposes
+
+    @param f Function used to convert an {!E.t} to a string representation *)
     let to_string ~f t =
         let l = Array.to_list t.buffer in
         let ls = List.map f l in
