@@ -21,7 +21,6 @@ If not, see <http://www.gnu.org/licenses/>.
 *)
 
 open Multi_paxos_type
-open Master_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
@@ -114,30 +113,12 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
               in
               Fsm.return ~sides:[log_e] (Master_dictate ms)
           in
-          let maybe_extend () =
-            let module S = (val constants.store_module : Store.STORE with type t = s) in
-            match S.who_master constants.store with
-            | None ->
-               extend 0.0
-            | Some(_, ls) ->
-               extend (Int64.to_float ls) in
-          match constants.master with
-          | Preferred ps when not (List.mem me ps) ->
-             let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
-             (* Multiply with -1 to get a reverse-sorted list *)
-             let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
-             let (p, p_i) = List.hd slws in
-             let diff = Sn.diff new_i p_i in
-             if diff < (Sn.of_int 5)
-             then
-               begin
-                 let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
-                 Fsm.return ~sides:[log_e] (Stable_master current_state)
-               end
-             else
-               maybe_extend ()
-          | _ ->
-             maybe_extend ()
+          let module S = (val constants.store_module : Store.STORE with type t = s) in
+          match S.who_master constants.store with
+          | None ->
+             extend 0.0
+          | Some(_, ls) ->
+             extend (Int64.to_float ls)
         end
     | FromClient ufs ->
         begin
