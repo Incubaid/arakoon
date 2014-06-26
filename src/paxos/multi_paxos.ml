@@ -202,7 +202,7 @@ let start_lease_expiration_thread (type s) constants n ~slave =
            to prevent a node thinking it's still the master
            while some slaves have elected a new master amongst them
            (in case the clocks don't all run at the same speed) *)
-        1.1
+        1.1 +. Random.float 0.1
       else
         0.5 in
     let sleep_sec = lease_expiration *. factor in
@@ -229,7 +229,7 @@ let start_lease_expiration_thread (type s) constants n ~slave =
   inner ()
 
 let start_election_timeout constants n =
-  let sleep_sec = float_of_int (constants.lease_expiration) /. 2.0 in
+  let sleep_sec = (float_of_int constants.lease_expiration) *. (1. +. Random.float 0.1) /. 2.0 in
   let t () =
     begin
       Logger.debug_f_ "%s: waiting %2.1f seconds for election to finish" constants.me sleep_sec >>= fun () ->
