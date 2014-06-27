@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+open Std
 open Mp_msg
 open Lwt
 open MPMessage
@@ -68,20 +69,12 @@ let network_of_messaging (m:messaging) =
   send, run, register, is_alive
 
 
-let update_votes (nones,somes) = function
-  | None -> (nones+1, somes)
-  | Some x ->
-    let is_master_set = Value.is_master_set x in
-    let rec build_new acc = function
-      | [] -> (x,1)::acc
-      | (a,fa) :: afs ->
-        if a = x || (is_master_set && Value.is_master_set a)
-        then ((a,fa+1) :: afs) @ acc
-        else let acc' = (a,fa) :: acc  in build_new acc' afs
-    in
-    let tmp = build_new [] somes in
-    let somes' = List.sort (fun (_a,fa) (_b,fb) -> fb - fa) tmp in
-    (nones, somes')
+let update_votes (nones, somes) = function
+  | None -> (nones + 1, somes)
+  | Some key ->
+      List.alter ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
+      |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
+      |> fun s -> (nones, s)
 
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
