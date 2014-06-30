@@ -30,14 +30,14 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     (module S : Store.STORE with type t = s) (copy_store, head_location)
     (too_far_i:Sn.t)
     (cb: Sn.t -> unit Lwt.t) =
-  
+
   let new_location = head_location ^ ".clone" in
   Logger.debug_f_ "Creating db clone at %s" new_location >>= fun () ->
   Lwt.catch (
     fun () ->
-      copy_store head_location new_location true 
+      copy_store head_location new_location true
     ) (
-     function 
+     function
       | Not_found -> Logger.debug_f_ "head db at '%s' does not exist" head_location
       | e -> fail e
     )
@@ -47,48 +47,48 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
   Lwt.finalize (
     fun () ->
 	  tlog_coll # get_infimum_i () >>= fun min_i ->
-      let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in 
+      let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in
 	  let store_i = S.consensus_i new_store in
 	  let tfs = Sn.string_of too_far_i in
 	  let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
 	  let processed = ref 0 in
-	  let start_i = 
+	  let start_i =
 		begin
 		  match store_i with
 		    | None -> Sn.start
 		    | Some i -> Sn.succ i
 		end
 	  in
-	  
-	  begin  
-		if start_i >= too_far_i 
+
+	  begin
+		if start_i >= too_far_i
 		then
-		  let msg = Printf.sprintf 
+		  let msg = Printf.sprintf
 			"Store counter (%s) is ahead of end point (%s). Aborting"
 			(Sn.string_of start_i) tfs in
-		  Lwt.fail (Failure msg) 
+		  Lwt.fail (Failure msg)
 		else
 		  let acc = ref None in
 		  let maybe_log =
 		    begin
 		      let lo = Sn.add start_i   (Sn.of_int 10) in
 		      let hi = Sn.sub too_far_i (Sn.of_int 10) in
-		      function 
+		      function
 		        | b when b < lo || b > hi ->  Logger.debug_f_ "%s => store" (Sn.string_of b)
 		        | b when b = lo -> Logger.debug_ " ... => store"
 		        | _ -> Lwt.return ()
-		    end 
+		    end
 		  in
-		  let add_to_store entry = 
-            let i = Entry.i_of entry 
-            and value = Entry.v_of entry 
+		  let add_to_store entry =
+            let i = Entry.i_of entry
+            and value = Entry.v_of entry
             in
-		    begin 
+		    begin
 		      match !acc with
 		        | None ->
 		          begin
 		            let () = acc := Some(i,value) in
-		            Logger.debug_f_ "update %s has no previous" (Sn.string_of i) 
+		            Logger.debug_f_ "update %s has no previous" (Sn.string_of i)
 		            >>= fun () ->
 		            Lwt.return ()
 		          end
@@ -96,15 +96,15 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		          if pi < i then
 		            begin
 		              maybe_log pi >>= fun () ->
-		              begin  
-		                if Sn.rem pi tlog_entries_per_file = 0L 
+		              begin
+		                if Sn.rem pi tlog_entries_per_file = 0L
 		                then
-		                  
+
 		                  cb (Sn.of_int (first_tlog + !processed)) >>= fun () ->
 		                Lwt.return( processed := !processed + 1 )
 		                else
 		                  Lwt.return ()
-		              end 
+		              end
 		              >>= fun () ->
 		              S.safe_insert_value new_store pi pv >>= fun _ ->
 		              let () = acc := Some(i,value) in
@@ -118,36 +118,36 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 		            end
 		    end
 		  in
-		  Logger.debug_f_ "collapse_until: start_i=%s" (Sn.string_of start_i) 
+		  Logger.debug_f_ "collapse_until: start_i=%s" (Sn.string_of start_i)
 		              >>= fun () ->
-		  tlog_coll # iterate start_i too_far_i add_to_store 
+		  tlog_coll # iterate start_i too_far_i add_to_store
 		              >>= fun () ->
 		  let m_si = S.consensus_i new_store in
-		  let si = 
+		  let si =
 		    begin
 		      match m_si with
 		        | None -> Sn.start
 		        | Some i -> i
 		    end
 		  in
-		  
+
 		  Logger.debug_f_ "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
 		  begin
 		    if si = Sn.pred (Sn.pred too_far_i) then
 		      Lwt.return ()
 		    else
-		      let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in 
+		      let msg = Printf.sprintf "Head db has invalid counter: %s" (Sn.string_of si) in
 		      Logger.debug_ msg >>= fun () ->
 		      S.close new_store >>= fun () ->
 		      Lwt.fail (Failure msg)
 		  end
-		    
+
 	  end
 	  >>= fun () ->
 	  Logger.debug_f_ "Relocating store to %s" head_location >>= fun () ->
-	  S.relocate new_store head_location
-  ) 
-    ( 
+          File_system.rename new_location head_location
+  )
+    (
       fun () -> S.close new_store
     )
 
@@ -160,7 +160,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
       S.close head ~sync:false ~flush:false >>= fun () ->
       Lwt.return head_io
     )
-    (fun exn -> 
+    (fun exn ->
       Logger.info_f_ ~exn "returning assuming no I %S" head_location >>= fun () ->
       Lwt.return None
     )
@@ -169,7 +169,7 @@ let collapse_many (type s) tlog_coll
     (module S : Store.STORE with type t = s)
     store_fs
     tlogs_to_keep cb' cb =
-  
+
   Logger.debug_f_ "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
@@ -186,7 +186,7 @@ let collapse_many (type s) tlog_coll
   Logger.debug_f_ "tlog_lag = %i; tlogs_to_collapse = %i" tlog_lag tlogs_to_collapse >>= fun () ->
   if tlogs_to_collapse <= 0
   then
-    Logger.info_f_ "Nothing to collapse..." >>= fun () -> 
+    Logger.info_f_ "Nothing to collapse..." >>= fun () ->
     cb' 0
   else
     begin
@@ -197,5 +197,5 @@ let collapse_many (type s) tlog_coll
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
       collapse_until tlog_coll (module S) store_fs g_too_far_i cb >>= fun () ->
       tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
-      cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile)) 
+      cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
     end
