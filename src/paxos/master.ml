@@ -48,10 +48,15 @@ let master_consensus constants {mo;v;n;i;lew} () =
     | _ -> Lwt.return ()
   )
   in
-  let state = (v,n,(Sn.succ i), lew) in
   if Value.is_other_master_set constants.me v
-  then Fsm.return ~sides:[con_e;log_e;] (Slave_wait_for_accept (n,Sn.succ i,None))
-  else Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
+  then
+    (* step down *)
+    Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+    let sides = [con_e;log_e;ELog (fun () -> "Stepping down to slave state")] in
+    Fsm.return ~sides (Slave_wait_for_accept (n, Sn.succ i, None))
+  else
+    let state = (v,n,(Sn.succ i), lew) in
+    Fsm.return ~sides:[con_e;log_e;inject_e] (Stable_master state)
 
 
 let null = function

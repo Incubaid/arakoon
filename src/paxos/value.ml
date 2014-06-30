@@ -34,8 +34,7 @@ let is_master_set  = function
   | _    -> false
 
 let is_other_master_set me = function
-  | Vm (m, _) when m = me -> false
-  | Vm _ -> true
+  | Vm (m, _) -> m <> me
   | Vc _ -> false
 
 let is_synced = function
