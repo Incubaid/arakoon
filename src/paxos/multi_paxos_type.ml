@@ -51,8 +51,7 @@ type transitions =
   | Slave_fake_prepare of (n * i)
   | Slave_waiting_for_prepare of (n * i)
   | Slave_steady_state of (n * i * Value.t )
-  | Slave_wait_for_accept of (n * i *
-				Value.t option* (Value.t * Mp_msg.MPMessage.n) option)
+  | Slave_wait_for_accept of (n * i * (Value.t * Mp_msg.MPMessage.n) option)
   | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n *
 					Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
