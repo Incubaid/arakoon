@@ -286,13 +286,19 @@ struct
     S.flush store.s
 
   let close ?(flush = true) ?(sync = true) store =
-    store.closed <- true;
-    Logger.debug_ "closing store..." >>= fun () ->
-    let sync = sync && match store.quiesced with
-                       | Quiesce.Mode.ReadOnly -> false
-                       | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
-    S.close store.s ~flush ~sync >>= fun () ->
-    Logger.debug_ "closed store"
+    if store.closed
+    then Lwt.return ()
+    else
+      begin
+        store.closed <- true;
+        Logger.debug_ "closing store..." >>= fun () ->
+        let sync = sync && match store.quiesced with
+                           | Quiesce.Mode.ReadOnly -> false
+                           | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
+        S.close store.s ~flush ~sync >>= fun () ->
+        Logger.debug_ "closed store"
+      end
+
 
   let relocate store loc =
     S.relocate store.s loc
@@ -541,7 +547,7 @@ struct
     let test_range first last = test_option first; test_option last
     in
 
-  (object 
+  (object
 
     method set k v = test k ; _set store tx k v
     method get k   = test k ; _get store k
