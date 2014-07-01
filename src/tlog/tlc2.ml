@@ -457,6 +457,7 @@ class tlc2
           begin
             Logger.info_f_ "Compressing: %s into %s" tlu tlc >>= fun () ->
             Compression.compress_tlog ~cancel:_closing tlu tlc compressor >>= fun () ->
+            File_system.unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
       in
