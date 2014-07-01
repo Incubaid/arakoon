@@ -33,8 +33,9 @@ type level =
 
 let log ?exn section level msg =
   if level < Lwt_log.Section.level section
-  then
-    Crash_logger.add_to_crash_log section level [Crash_logger.Immediate (msg, exn)]
+  then begin
+    Crash_logger.add_to_crash_log section level (Crash_logger.Message.Immediate1_exn (msg, exn));
+    Lwt.return_unit end
   else
     Lwt_log.log ?exn ~section ~level msg
 
@@ -43,8 +44,9 @@ let ign_log ?exn section level msg =
 
 let log_ ?exn section level dmsg =
   if level < Lwt_log.Section.level section
-  then
-    Crash_logger.add_to_crash_log section level [Crash_logger.Delayed (dmsg, exn)]
+  then begin
+    Crash_logger.add_to_crash_log section level (Crash_logger.Message.Delayed1_exn (dmsg, exn));
+    Lwt.return_unit end
   else
     Lwt_log.log ?exn ~section ~level (dmsg ())
 

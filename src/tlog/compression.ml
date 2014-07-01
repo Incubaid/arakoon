@@ -19,8 +19,6 @@ limitations under the License.
 open Lwt
 open Tlogcommon
 
-let section = Logger.Section.main
-
 type compressor =
   | No
   | Bz2
@@ -70,8 +68,9 @@ let _compress_tlog
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name
     (fun ic ->
        let tmp_file = archive_name ^ ".tmp" in
-       Logger.info_f_ "Compressing %S to %S via %S"
-                      tlog_name archive_name tmp_file >>= fun () ->
+       Logger.info_f Logger.Section.main
+                     "Compressing %S to %S via %S"
+                     tlog_name archive_name tmp_file >>= fun () ->
        File_system.unlink tmp_file >>= fun () ->
        File_system.with_tmp_file tmp_file archive_name
          (fun oc ->

@@ -68,13 +68,13 @@ let _make_cfg name n lease_period =
     _fsync_tlog_dir = false;
     is_test = true;
     reporting = 300;
-    tls_cert = None;
-    tls_key = None;
+    node_tls = None;
     collapse_slowdown = None;
   }
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
                     ~fsync node_id ~fsync_tlog_dir =
+  let () = ignore compressor in                      
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
@@ -152,9 +152,7 @@ let post_failure () =
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
     lcnum = 8192;
     ncnum = 4096;
-    tls_ca_cert = None;
-    tls_service = false;
-    tls_service_validate_peer = false;
+    tls = None;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -214,9 +212,7 @@ let restart_slaves () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in
@@ -225,7 +221,6 @@ let restart_slaves () =
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
-
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
@@ -275,9 +270,7 @@ let ahead_master_loses_role () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in

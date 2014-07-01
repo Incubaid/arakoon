@@ -16,8 +16,8 @@ limitations under the License.
 
 open OUnit_XML
 open OUnit
-
 open Node_cfg
+
 type local_action =
   | ShowUsage
   | RunAllTests
@@ -188,6 +188,7 @@ let main () =
   and tls_ca_cert = ref ""
   and tls_cert = ref ""
   and tls_key = ref ""
+  and tls_version = ref "1.0"
   and force = ref false
   and in_place = ref false
   and archive_type = ref ".tlf"
@@ -377,6 +378,7 @@ let main () =
     ("-tls-ca-cert", Arg.Set_string tls_ca_cert, "<path> TLS CA certificate");
     ("-tls-cert", Arg.Set_string tls_cert, "<path> Certificate to use for TLS connections");
     ("-tls-key", Arg.Set_string tls_key, "<path> Key to use for TLS connections");
+    ("-tls-version", Arg.Set_string tls_version, "<[1.0]|1.1|1.2> TLS version to use for connections");
     ("--range-entries", Arg.Tuple [set_laction RANGE_ENTRIES;],
      "list entries within range");
     ("--rev-range-entries", Arg.Tuple [set_laction REV_RANGE_ENTRIES;],
@@ -397,7 +399,7 @@ let main () =
     | ListTests -> list_tests ();0
     | SystemTests -> run_system_tests()
     | ShowVersion -> show_version();0
-    | DumpTlog -> Tlog_main.dump_tlog !filename !dump_values
+    | DumpTlog -> Tlog_main.dump_tlog !filename ~values:!dump_values
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
@@ -479,9 +481,20 @@ let main () =
   let tls =
     if !tls_ca_cert = ""
       then None
-      else if !tls_cert = ""
-        then Some (!tls_ca_cert, None)
-        else Some (!tls_ca_cert, Some (!tls_cert, !tls_key))
+      else begin
+        let ca_cert = !tls_ca_cert
+        and protocol = match !tls_version with
+          | "1.0" -> Ssl.TLSv1
+          | "1.1" -> Ssl.TLSv1_1
+          | "1.2" -> Ssl.TLSv1_2
+          | _ -> failwith "Invalid \"tls-version\" value"
+        and creds = match !tls_cert with
+          | "" -> None
+          | s -> Some (s, !tls_key)
+        in
+        let cfg = Client_main.TLSConfig.make ~ca_cert ~creds ~protocol in
+        Some cfg
+      end
   in
 
   let exit_code =
