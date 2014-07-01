@@ -445,7 +445,7 @@ class tlc2
       Lwt.return r
 
     method private start_compression_loop () =
-      let compress_one tlu tlc_temp tlc compressor =
+      let compress_one tlu tlc compressor =
         File_system.exists tlc >>= fun tlc_exists ->
         if tlc_exists
         then
@@ -455,11 +455,8 @@ class tlc2
           end
         else
           begin
-            File_system.unlink tlc_temp >>= fun () ->
-            Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
-            >>= fun () ->
-            File_system.rename tlc_temp tlc >>= fun () ->
+            Logger.info_f_ "Compressing: %s into %s" tlu tlc >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc compressor >>= fun () ->
             File_system.unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
@@ -467,10 +464,10 @@ class tlc2
 
       let rec loop () =
         Logger.info_ "Taking job from compression queue..." >>= fun () ->
-        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc, compressor) ->
+        Lwt_buffer.take _compression_q >>= fun (tlu, tlc, compressor) ->
         let () = _compressing <- true in
         Lwt.catch
-          (fun () -> compress_one tlu tlc_temp tlc compressor)
+          (fun () -> compress_one tlu tlc compressor)
           (function
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
@@ -580,10 +577,9 @@ class tlc2
            let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
            let tlc = get_full_path tlog_dir tlf_dir
                                    (archive_name compressor old_outer) in
-           let tlc_temp = tlc ^ ".part" in
-           let job = (tlu,tlc_temp,tlc,compressor) in
-           Logger.info_f_ "adding new task to compression queue %s,%s,%s"
-                          tlu tlc_temp tlc >>= fun () ->
+           let job = (tlu,tlc,compressor) in
+           Logger.info_f_ "adding new task to compression queue %s,%s"
+                          tlu tlc >>= fun () ->
            Lwt_buffer.add job _compression_q
          end
       | No -> Lwt.return ()
@@ -660,19 +656,12 @@ class tlc2
       File_system.unlink tmp >>= fun () ->
       Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
 
-      Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
-      Lwt.finalize
-        (fun () ->
-          let mode = Lwt_io.output
-          and close () = Lwt.return () in
-          let oc = Lwt_io.of_fd ~mode ~close fd in
-          Llio.copy_stream ~length ~ic ~oc >>= fun () ->
-          Lwt_io.close oc >>= fun () ->
-          Lwt_unix.fsync fd)
-        (fun () -> Lwt_unix.close fd)
-      >>= fun () ->
+      File_system.with_tmp_file
+        tmp
+        hf_name
+        (fun oc ->
+          Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
 
-      File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
 
 
