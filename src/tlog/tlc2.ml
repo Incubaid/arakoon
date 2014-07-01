@@ -643,7 +643,7 @@ class tlc2
       S.make_store ~lcnum:Node_cfg.default_lcnum
         ~ncnum:Node_cfg.default_ncnum head_name >>= fun store ->
       let io = S.consensus_i store in
-      S.close store >>= fun () ->
+      S.close ~flush:false ~sync:false store >>= fun () ->
       Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
       >>= fun () ->
       let next_i = match io with

@@ -202,7 +202,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
-       S.close ~flush:true store >>= fun () ->
+       S.close store ~flush:true ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
@@ -749,7 +749,7 @@ let _main_2 (type s)
                  inner (succ i) in
              inner 0, stop in
            let count_close_store, stop = count_thread "Closing store (%is)" in
-           Lwt.pick [ S.close ~flush:false store ;
+           Lwt.pick [ S.close ~flush:false ~sync:true store ;
                       count_close_store ] >>= fun () ->
            stop := true;
            Logger.fatal_f_

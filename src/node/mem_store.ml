@@ -122,14 +122,18 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize _ms ~quiesced ~stop = 
+let optimize _ms ~quiesced ~stop =
     let () = ignore quiesced in
     let () = ignore stop in
     Lwt.return true
-let defrag _ms = Lwt.return ()
+let defrag_condition = (Lwt_condition.create () : unit Lwt_condition.t)
+let defrag _ms = Lwt_condition.wait defrag_condition
 
 let flush _ms = Lwt.return ()
-let close _ms _flush = Lwt.return ()
+let close _ms ~flush ~sync =
+  ignore flush;
+  ignore sync;
+  Lwt.return ()
 
 let reopen _ms _when_closed _quiesced = Lwt.return ()
 

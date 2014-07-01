@@ -36,7 +36,7 @@ let election_suggest (type s) constants (n, counter) () =
         (1,[]) , "None"
       | Some x -> (0,[(x,1)]) , "Some _"
   in
-  Logger.debug_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
+  Logger.info_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
   start_election_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
@@ -82,7 +82,7 @@ let promises_check_done constants state () =
   if bf + nnones = needed
   then
     begin
-      Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
+      Logger.info_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in

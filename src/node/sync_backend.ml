@@ -29,6 +29,8 @@ struct
   open Master_type
   open Arakoon_client
 
+  let section = Logger.Section.main
+
   let _s_ = string_option2s
 
   let ncfg_prefix_b4 = "nursery.cfg."

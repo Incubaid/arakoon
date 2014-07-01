@@ -43,7 +43,7 @@ sig
   val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
   val flush : t -> unit Lwt.t
-  val close : ?flush : bool -> t -> unit Lwt.t
+  val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
   val get_location : t -> string
   val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
   val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
@@ -235,10 +235,13 @@ struct
   let flush store =
     S.flush store.s
 
-  let close ?(flush = true) store =
+  let close ?(flush = true) ?(sync = true) store =
     store.closed <- true;
     Logger.debug_ "closing store..." >>= fun () ->
-    S.close store.s flush >>= fun () ->
+    let sync = sync && match store.quiesced with
+                       | Quiesce.Mode.ReadOnly -> false
+                       | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
+    S.close store.s ~flush ~sync >>= fun () ->
     Logger.debug_ "closed store"
 
   let relocate store loc =

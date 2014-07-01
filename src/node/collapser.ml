@@ -173,7 +173,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
          ~ncnum:Node_cfg.default_ncnum
          ~read_only head_location >>= fun head ->
        let head_io = S.consensus_i head in
-       S.close head >>= fun () ->
+       S.close head ~sync:false ~flush:false >>= fun () ->
        Lwt.return head_io
     )
     (fun exn ->
