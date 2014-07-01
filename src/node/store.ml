@@ -288,6 +288,9 @@ struct
   let close ?(flush = true) ?(sync = true) store =
     store.closed <- true;
     Logger.debug_ "closing store..." >>= fun () ->
+    let sync = sync && match store.quiesced with
+                       | Quiesce.Mode.ReadOnly -> false
+                       | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
     S.close store.s ~flush ~sync >>= fun () ->
     Logger.debug_ "closed store"
 
