@@ -67,7 +67,7 @@ let _compress_tlog
   in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name
     (fun ic ->
-       let tmp_file = archive_name ^ ".tmp" in
+       let tmp_file = archive_name ^ ".part" in
        Logger.info_f Logger.Section.main
                      "Compressing %S to %S via %S"
                      tlog_name archive_name tmp_file >>= fun () ->
