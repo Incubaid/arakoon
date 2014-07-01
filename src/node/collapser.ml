@@ -160,9 +160,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                         File_system.unlink new_location
                       end
                    | false -> Lwt.return ())
-      (fun exn ->
-       Logger.warning_f_ "ignoring failure in cleanup: %S"
-                         (Printexc.to_string exn))
+      (fun exn -> Logger.warning_f_ ~exn "ignoring failure in cleanup")
     )
 
 let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
