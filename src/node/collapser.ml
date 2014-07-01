@@ -145,10 +145,24 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
 	  end
 	  >>= fun () ->
 	  Logger.debug_f_ "Relocating store to %s" head_location >>= fun () ->
+          S.close new_store >>= fun () ->
           File_system.rename new_location head_location
   )
     (
-      fun () -> S.close new_store
+      fun () ->
+      S.close new_store >>= fun ()->
+      Lwt.catch
+      (fun () -> File_system.exists new_location >>=
+                   function
+                   | true ->
+                      begin
+                        Logger.info_f_ "unlinking %s" new_location >>= fun ()->
+                        File_system.unlink new_location
+                      end
+                   | false -> Lwt.return ())
+      (fun exn ->
+       Logger.warning_f_ "ignoring failure in cleanup: %S"
+                         (Printexc.to_string exn))
     )
 
 let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
