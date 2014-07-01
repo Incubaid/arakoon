@@ -457,12 +457,8 @@ class tlc2
           end
         else
           begin
-            File_system.unlink tlc_temp >>= fun () ->
-            Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
-            >>= fun () ->
-            File_system.rename tlc_temp tlc >>= fun () ->
-            File_system.unlink tlu >>= fun () ->
+            Logger.info_f_ "Compressing: %s into %s" tlu tlc >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc compressor >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
       in
@@ -662,12 +658,12 @@ class tlc2
       File_system.unlink tmp >>= fun () ->
       Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
 
-      File_system.with_output_file
+      File_system.with_tmp_file
         tmp
+        hf_name
         (fun oc ->
           Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
 
-      File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
 
 
