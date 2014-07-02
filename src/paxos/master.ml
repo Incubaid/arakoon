@@ -17,7 +17,6 @@ limitations under the License.
 
 
 open Multi_paxos_type
-open Master_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
@@ -114,38 +113,18 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             let ms = {mo = None; v;n;i = new_i;lew = []} in
             Fsm.return ~sides:[log_e] (Master_dictate ms)
         in
-        let maybe_extend () =
-          begin
-            match S.who_master constants.store with
-            | None ->
-              extend 0.0
-            | Some (_, ls') ->
-              if ls >= ls'
-              then
-                extend ls
-              else
-                begin
-                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
-                  Fsm.return ~sides:[log_e] (Stable_master current_state)
-                end
-          end
-        in
-        match constants.master with
-        | Preferred ps when not (List.mem me ps) ->
-          let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
-              (* Multiply with -1 to get a reverse-sorted list *)
-          let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
-          let (p, p_i) = List.hd slws in
-          let diff = Sn.diff new_i p_i in
-          if diff < (Sn.of_int 5) && constants.is_alive p
-          then
-            begin
-              let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
-              Fsm.return ~sides:[log_e] (Stable_master current_state)
-            end
-          else
-            maybe_extend ()
-        | Preferred _ | Elected | Forced _  | ReadOnly -> maybe_extend ()
+        match S.who_master constants.store with
+        | None ->
+           extend 0.0
+        | Some (_, ls') ->
+           if ls >= ls'
+           then
+             extend ls
+           else
+             begin
+               let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
+               Fsm.return ~sides:[log_e] (Stable_master current_state)
+             end
       end
     | FromClient ufs ->
       begin

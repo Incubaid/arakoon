@@ -48,7 +48,10 @@ end = struct
     let protocol t = t.protocol
 end
 
-let _address_to_use ips port = make_address (List.hd ips) port
+let _address_to_use ips port =
+  let length = List.length ips in
+  let pos = Random.int length in
+  make_address (List.nth ips pos) port
 
 let with_connection ~tls sa do_it = match tls with
   | None -> Lwt_io.with_connection sa do_it
@@ -79,11 +82,20 @@ let with_connection ~tls sa do_it = match tls with
         Lwt.fail exc)
 
 
-let with_client ~tls node_cfg (cluster:string) f =
+let with_client ~tls node_cfg cluster_id f =
   let sa = _address_to_use node_cfg.ips node_cfg.client_port in
   let do_it connection =
-    Arakoon_remote_client.make_remote_client cluster connection
+    Arakoon_remote_client.make_remote_client cluster_id connection
     >>= fun (client: Arakoon_client.client) ->
+    f client
+  in
+  with_connection ~tls sa do_it
+
+let with_remote_nodestream ~tls node_cfg cluster_id f =
+  let sa = _address_to_use node_cfg.ips node_cfg.client_port in
+  let do_it connection =
+    Remote_nodestream.make_remote_nodestream cluster_id connection
+    >>= fun (client : Remote_nodestream.nodestream) ->
     f client
   in
   with_connection ~tls sa do_it
