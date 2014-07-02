@@ -25,8 +25,8 @@ let __j_key = "*j"
 let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
-let __lease_key = "*lease"
-let __lease_key2 = "*lease2"
+(* let __lease_key = "*lease" *)
+(* let __lease_key2 = "*lease2" *)
 let __prefix = "@"
 let __adminprefix="*"
 
