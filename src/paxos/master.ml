@@ -77,8 +77,15 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
           end
     )
   in
-  let state = (n,(Sn.succ i), lew) in
-  Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
+  if Value.is_other_master_set constants.me v
+  then
+    (* step down *)
+    Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+    let sides = [log_e;con_e;ELog (fun () -> "Stepping down to slave state")] in
+    Fsm.return ~sides (Slave_steady_state(n, Sn.succ i, None))
+  else
+    let state = (n,(Sn.succ i), lew) in
+    Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
 let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current_state) ev =

@@ -226,6 +226,10 @@ struct
     S.flush store.s
 
   let close ?(flush = true) ?(sync = true) store =
+    if store.closed
+    then Lwt.return ()
+    else
+      begin
     store.closed <- true;
     Logger.debug_ "closing store..." >>= fun () ->
     let sync = sync && match store.quiesced with
@@ -233,6 +237,8 @@ struct
                        | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
     S.close store.s ~flush ~sync >>= fun () ->
     Logger.debug_ "closed store"
+      end
+
 
   let relocate store loc =
     S.relocate store.s loc

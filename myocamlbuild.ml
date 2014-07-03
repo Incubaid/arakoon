@@ -31,6 +31,7 @@ let allow_fragile_pattern_matches = [
   "src/client/client_protocol.ml";
   "src/client/client_main.ml";
   "src/nursery/nursery_main.ml";
+  "src/system/startup.ml";
 ]
 
 open Ocamlbuild_pack
