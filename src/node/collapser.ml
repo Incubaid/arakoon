@@ -158,8 +158,8 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
       end
       >>= fun () ->
       Logger.debug_f_ "Relocating store to %s" head_location >>= fun () ->
-          S.close new_store >>= fun () ->
-          File_system.rename new_location head_location
+      S.close new_store >>= fun () ->
+      File_system.rename new_location head_location
   )
     (
       fun () ->
