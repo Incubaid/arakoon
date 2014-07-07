@@ -19,6 +19,8 @@ open Network
 open Statistics
 open Lwt
 
+let section = Logger.Section.main
+
 module TLSConfig : sig
     type t
 
@@ -103,36 +105,121 @@ let ping ~tls ip port cluster_id =
   Lwt_main.run t; 0
 
 
+(** Result type and utilities for {! find_master' } *)
+module MasterLookupResult = struct
+  open Node_cfg
 
-let find_master ~tls cluster_cfg =
-  let cfgs = cluster_cfg.cfgs in
-  let rec loop = function
-    | [] -> Lwt.fail (Failure "too many nodes down")
-    | cfg :: rest ->
-      begin
-        let section = Logger.Section.main in
-        Logger.info_f_ "cfg=%s" cfg.node_name >>= fun () ->
-        let sa = _address_to_use cfg.ips cfg.client_port in
+  (** Result type for a master lookup using {! find_master' } *)
+  type t = Found of Node_cfg.t (** Master found *)
+         | No_master of Node_cfg.t list (** No master found after querying the provided list of nodes *)
+         | Too_many_nodes_down of Node_cfg.t list (** Too many nodes down, more exactly the provided list *)
+         | Unknown_node of (string * Node_cfg.t) (** An unknown node name was returned by a node *)
+         | Exception of exn (** An exception occurred during lookup *)
+
+  (** Create a {! string } representation of a {! MasterLookupResult.t } *)
+  let to_string t =
+    let open To_string in
+    match t with
+      | Found s -> Printf.sprintf "Found %s" (Node_cfg.string_of s)
+      | No_master l -> Printf.sprintf "No_master %s" (list Node_cfg.string_of l)
+      | Too_many_nodes_down l -> Printf.sprintf "Too_many_nodes_down %s" (list Node_cfg.string_of l)
+      | Unknown_node (n, n') -> Printf.sprintf "Unknown_node (%S, %s)" n (Node_cfg.string_of n')
+      | Exception exn -> Printf.sprintf "Exception (%s)" (Printexc.to_string exn)
+end
+
+(** Lookup a master node in a cluster
+
+    The result is wrapped in a {! MasterLookupResult.t }, including (if
+    applicable) exceptions, except {! Lwt.Canceled } which is passed through
+    (you most likely don't want to catch that anyway).
+*)
+let find_master' ~tls cluster_cfg =
+  let lookup_cfg n =
+    let rec loop = function
+      | [] -> None
+      | (x :: xs) -> begin
+          if x.node_name = n
+            then Some x
+            else loop xs
+      end
+    in
+    loop (cluster_cfg.cfgs)
+  in
+
+  let open MasterLookupResult in
+
+  let rec loop down unknown = function
+    | [] -> begin
+        let res =
+          if unknown = []
+            then
+              Too_many_nodes_down down
+            else
+              No_master unknown
+        in
+        Logger.debug_f_
+          "Client_main.find_master': %s" (MasterLookupResult.to_string res) >>= fun () ->
+        Lwt.return res
+    end
+    | (cfg :: rest) -> begin
+        Logger.debug_f_ "Client_main.find_master': Trying %S" cfg.node_name >>= fun () ->
+        let addr = _address_to_use cfg.ips cfg.client_port in
         Lwt.catch
           (fun () ->
-             with_connection ~tls sa
-               (fun connection ->
-                  Arakoon_remote_client.make_remote_client
-                    cluster_cfg.cluster_id connection
-                  >>= fun client ->
-                  client # who_master ())
-             >>= function
-             | None -> Lwt.fail (Failure "No Master")
-             | Some m -> Logger.info_f_ "master=%s" m >>= fun () ->
-               Lwt.return m)
+            with_connection ~tls addr
+              (fun connection ->
+                Arakoon_remote_client.make_remote_client
+                  cluster_cfg.cluster_id connection >>= fun client ->
+                client # who_master ()) >>= function
+                | None -> begin
+                    Logger.debug_f_
+                      "Client_main.find_master': %S doesn't know" cfg.node_name >>= fun () ->
+                    loop down (cfg :: unknown) rest
+                end
+                | Some n -> begin
+                    Logger.debug_f_ "Client_main.find_master': %S thinks %S" cfg.node_name n >>= fun () ->
+                    if n = cfg.node_name
+                      then begin
+                        let res = Found cfg in
+                        Logger.debug_f_ "Client_main.find_master': %s" (to_string res) >>= fun () ->
+                        return res
+                      end
+                      else
+                        match lookup_cfg n with
+                          | Some ncfg ->
+                              loop down unknown (ncfg :: rest)
+                          | None -> begin
+                              let res = Unknown_node (n, cfg) in
+                              Logger.warning_f_
+                                "Client_main.find_master': %s" (to_string res) >>= fun () ->
+                              return res
+                          end
+                end)
           (function
-            | Unix.Unix_error(Unix.ECONNREFUSED,_,_ ) ->
-              Logger.info_f_ "node %s is down, trying others" cfg.node_name >>= fun () ->
-              loop rest
-            | exn -> Lwt.fail exn
-          )
-      end
-  in loop cfgs
+            | Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+                Logger.debug_f_
+                  "Client_main.find_master': Connection to %S refused" cfg.node_name >>= fun () ->
+                loop (cfg :: down) unknown rest
+            | Lwt.Canceled as exn ->
+                Lwt.fail exn
+            | exn -> begin
+                let res = Exception exn in
+                Logger.debug_f_
+                  "Client_main.find_master': %s" (to_string res) >>= fun () ->
+                return res
+            end)
+    end
+  in
+  loop [] [] (cluster_cfg.cfgs)
+
+let find_master ~tls cluster_cfg =
+  let open MasterLookupResult in
+  find_master' ~tls cluster_cfg >>= function
+    | Found m -> return m.node_name
+    | No_master _ -> Lwt.fail (Failure "No Master")
+    | Too_many_nodes_down _ -> Lwt.fail (Failure "too many nodes down")
+    | Unknown_node (n, _) -> return n (* Keep original behaviour *)
+    | Exception exn -> Lwt.fail exn
 
 let run f = Lwt_main.run (f ()); 0
 
