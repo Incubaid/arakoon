@@ -21,3 +21,4 @@ Inifiles
 Parseini
 Inilexer
 Client_log
+Ring_buffer
