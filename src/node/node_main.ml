@@ -551,6 +551,7 @@ let _main_2 (type s)
           let inject_push v = Lwt_buffer.add v inject_buffer in
           let read_only = master = ReadOnly in
           let module SB = Sync_backend.Sync_backend(S) in
+          let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
             new SB.sync_backend me
@@ -564,6 +565,7 @@ let _main_2 (type s)
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
+              ~act_not_preferred
           in
           let backend = (sb :> Backend.backend) in
 
@@ -601,7 +603,7 @@ let _main_2 (type s)
                let rec inner () =
                  Lwt.catch
                    (fun () ->
-                    if (S.quiesced store)
+                    if (S.quiesced store) || !act_not_preferred
                     then
                       Lwt.return_unit
                     else

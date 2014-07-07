@@ -57,6 +57,22 @@ def test_preferred_master():
     logging.info("master3 = %s", master3)
     NT.assert_equals(master3,pm)
 
+    # node should no longer be preferred after the dropMaster call
+    Common.dropMaster(pm)
+    time.sleep(Common.lease_duration)
+    client.nop()
+    master4 = client.whoMaster()
+    NT.assert_not_equals(master4, pm)
+
+    # restart node to make it behave in a preferred manner again
+    cluster.stopOne(pm)
+    cluster.startOne(pm)
+
+    time.sleep(Common.lease_duration)
+    client.nop()
+    master5 = client.whoMaster()
+    NT.assert_equals(master5, pm)
+
 
 @Common.with_custom_setup(lambda h: Common.setup_n_nodes(5, False, h), Common.basic_teardown)
 def test_preferred_masters():

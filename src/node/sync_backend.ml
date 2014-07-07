@@ -104,7 +104,8 @@ struct
     ~test
     ~(read_only:bool)
     ~max_value_size
-    ~collapse_slowdown ->
+    ~collapse_slowdown
+    ~act_not_preferred ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
     let blockers_cond = Lwt_condition.create() in
@@ -736,6 +737,7 @@ struct
               then Lwt.return ()
               else
                 begin
+                  act_not_preferred := true;
                   let (sleep, awake) = Lwt.wait () in
                   let update = Multi_paxos.DropMaster (sleep, awake) in
                   Logger.debug_ "drop_master: pushing update" >>= fun () ->
