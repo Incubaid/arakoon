@@ -17,6 +17,25 @@ module Result = struct
               | Max_connections of string
               | Unknown_failure of string
 
+    let to_string f = function
+      | Ok a -> Printf.sprintf "Ok (%s)" (f a)
+      | No_magic s -> Printf.sprintf "No_magic %S" s
+      | No_hello s -> Printf.sprintf "No_hello %S" s
+      | Not_master s -> Printf.sprintf "Not_master %S" s
+      | Not_found s -> Printf.sprintf "Not_found %S" s
+      | Wrong_cluster s -> Printf.sprintf "Wrong_cluster %S" s
+      | Assertion_failed s -> Printf.sprintf "Assertion_failed %S" s
+      | Read_only s -> Printf.sprintf "Read_only %S" s
+      | Outside_interval s -> Printf.sprintf "Outside_interval %S" s
+      | Going_down s -> Printf.sprintf "Going_down %S" s
+      | Not_supported s -> Printf.sprintf "Not_supported %S" s
+      | No_longer_master s -> Printf.sprintf "No_longer_master %S" s
+      | Bad_input s -> Printf.sprintf "Bad_input %S" s
+      | Inconsistent_read s -> Printf.sprintf "Inconsistent_read %S" s
+      | Userfunction_failure s -> Printf.sprintf "Userfunction_failure %S" s
+      | Max_connections s -> Printf.sprintf "Max_connections %S" s
+      | Unknown_failure s -> Printf.sprintf "Unknown_failure %S" s
+
     let no_magic s = No_magic s
     and no_hello s = No_hello s
     and not_master s = Not_master s
@@ -92,22 +111,24 @@ module Protocol = struct
       | Who_master : (unit, string option Result.t) t
       | Get : ((Arakoon_client.consistency * string), string Result.t) t
       | Set : ((string * string), unit Result.t) t
+      | Delete : (string, unit Result.t) t
 
     type some_t = Some_t : (_, _) t -> some_t
-
-    exception Invalid_magic
 
     let mAGIC = Common._MAGIC
     let mASK = Common._MASK
 
     type tag = Int32.t
 
+    exception Invalid_magic of tag
+
     let tag_from_channel ic =
         Llio.input_int32 ic >>= fun masked ->
         let magic = Int32.logand masked mAGIC in
         if magic <> mAGIC
         then
-            Lwt.fail Invalid_magic
+            (* TODO Return No_magic to client *)
+            Lwt.fail (Invalid_magic magic)
         else
             Lwt.return (Int32.logand masked mASK)
 
@@ -119,6 +140,7 @@ module Protocol = struct
                       ; Some_t Who_master, 0x02l
                       ; Some_t Get, 0x08l
                       ; Some_t Set, 0x09l
+                      ; Some_t Delete, 0x0al
                       ]
 
     let io_for_command : type r s. (r, s) t -> (r, s) Rpc.IO.t = fun t -> match t with
@@ -161,6 +183,13 @@ module Protocol = struct
               Llio.input_string ic >>= fun k ->
               Llio.input_string ic >>= fun v ->
               Lwt.return (k, v)
+          and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
+          and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
+      | Delete -> begin
+          let req_to_channel = Llio.output_string
+          and req_from_channel = Llio.input_string
           and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
           and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
           Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })

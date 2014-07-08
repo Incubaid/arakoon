@@ -55,45 +55,61 @@ end= struct
           end
 end
 
-module Server(P : sig
-    include Protocol
+module Server = struct
+    type 'a result = Continue of 'a
+                   | Close of 'a
+                   | Die
 
-    val handle : ('req, 'res) t -> 'req -> 'res Lwt.t
-end) : sig
-    exception Unknown_tag of P.tag
+    module Make(P : sig
+        include Protocol
 
-    val session :  Lwt_io.input_channel
-                -> Lwt_io.output_channel
-                -> 'a Lwt.t
-end = struct
-    open Lwt
+        val handle : ('req, 'res) t -> 'req -> 'res result Lwt.t
+    end) : sig
+        exception Unknown_tag of P.tag
 
-    exception Unknown_tag of P.tag
+        val session :  Lwt_io.input_channel
+                    -> Lwt_io.output_channel
+                    -> unit Lwt.t
+    end = struct
+        open Lwt
 
-    module M = Map.Make(struct type t = P.tag let compare = compare end)
-    let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.command_map
+        exception Unknown_tag of P.tag
 
-    let lookup t =
-        try
-            let c = M.find t command_map in
-            Some c
-        with Not_found ->
-            None
+        module M = Map.Make(struct type t = P.tag let compare = compare end)
+        let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.command_map
 
-    let session ic oc =
-        let go  cmd =
-            let io = P.io_for_command cmd in
-            io.IO.req_from_channel ic >>= fun req ->
-            P.handle cmd req >>= fun res ->
-            io.IO.res_to_channel oc res >>= fun () ->
-            Lwt_io.flush oc
-        in
+        let lookup t =
+            try
+                let c = M.find t command_map in
+                Some c
+            with Not_found ->
+                None
 
-        let rec loop () =
-            P.tag_from_channel ic >>= fun tag ->
-            match lookup tag with
-              | None -> Lwt.fail (Unknown_tag tag)
-              | Some (P.Some_t c) -> go c >>= loop
-        in
-        loop ()
+        let session ic oc =
+            let go  cmd =
+                let io = P.io_for_command cmd in
+                io.IO.req_from_channel ic >>= fun req ->
+                P.handle cmd req >>= fun res ->
+                match res with
+                  | Continue r
+                  | Close r ->
+                      io.IO.res_to_channel oc r >>= fun () ->
+                      Lwt_io.flush oc >>= fun () ->
+                      Lwt.return res
+                  | Die -> Lwt.return res
+            in
+
+            let rec loop () =
+                P.tag_from_channel ic >>= fun tag ->
+                match lookup tag with
+                  | None -> (* TODO Send to client *) Lwt.fail (Unknown_tag tag)
+                  | Some (P.Some_t c) -> begin
+                      go c >>= function
+                        | Continue _ -> loop ()
+                        | Close _
+                        | Die -> Lwt.return ()
+                  end
+            in
+            loop ()
+    end
 end

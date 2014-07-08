@@ -17,43 +17,21 @@ limitations under the License.
 open Std
 open Common
 open Lwt
-open Log_extra
+(*open Log_extra*)
 open Update
-open Interval
+(*open Interval
 open Routing
 open Statistics
 open Ncfg
 open Client_cfg
-
+*)
 
 let section =
   let s = Logger.Section.make "client_protocol" in
   let () = Logger.Section.set_level s Logger.Debug in
   s
 
-let read_command (ic,oc) =
-  Llio.input_int32 ic >>= fun masked ->
-  let magic = Int32.logand masked _MAGIC in
-  begin
-    if magic <> _MAGIC
-    then
-      begin
-        Llio.output_int32 oc 1l >>= fun () ->
-        Llio.lwt_failfmt "%lx has no magic" masked
-      end
-    else
-      begin
-        let as_int32 = Int32.logand masked _MASK in
-        try
-          let c = lookup_code as_int32 in
-          Lwt.return c
-        with Not_found ->
-          Llio.output_int32 oc 5l >>= fun () ->
-          let msg = Printf.sprintf "%lx: command not found" as_int32 in
-          Llio.output_string oc msg >>= fun () ->
-          Lwt.fail (Failure msg)
-      end
-  end
+let read_command (_,_) = failwith "Gone"
 
 let log_debug m =
   Logger.debug_ m
@@ -81,40 +59,70 @@ let response_ok_bool oc b =
   Llio.output_bool oc b >>= fun () ->
   Lwt.return false
 
-let handle_exception oc exn=
-  begin
-    match exn with
-      | XException(Arakoon_exc.E_NOT_FOUND, msg) ->
-        Lwt.return (Arakoon_exc.E_NOT_FOUND,msg, false, Logger.Debug)
-      | XException(Arakoon_exc.E_ASSERTION_FAILED, msg) ->
-        Lwt.return (Arakoon_exc.E_ASSERTION_FAILED, msg, false, Logger.Debug)
-      | XException(Arakoon_exc.E_NO_LONGER_MASTER, msg) ->
-        Lwt.return (Arakoon_exc.E_NO_LONGER_MASTER, msg, false, Logger.Debug)
-      | XException(Arakoon_exc.E_GOING_DOWN, msg) ->
-        Lwt.return (Arakoon_exc.E_GOING_DOWN, msg, true, Logger.Error)
-      | XException(Arakoon_exc.E_BAD_INPUT, msg) ->
-         Lwt.return (Arakoon_exc.E_BAD_INPUT,msg,false, Logger.Debug)
-      | XException(Arakoon_exc.E_INCONSISTENT_READ, msg) ->
-         Lwt.return (Arakoon_exc.E_INCONSISTENT_READ,msg,false, Logger.Debug)
-      | XException(rc, msg) ->
-         Lwt.return (rc,msg, true, Logger.Error)
-      | Not_found ->
-        Lwt.return (Arakoon_exc.E_NOT_FOUND, "Not_found", false, Logger.Debug)
-      | Server.FOOBAR ->
-        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, Logger.Error)
-      | Canceled ->
-        Lwt.fail Canceled
-      | _ ->
-        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", true, Logger.Error)
-  end
-  >>= fun (rc, msg, death, level) ->
-  Logger.log_ section level
-    (fun () -> Printf.sprintf
-                 "Exception during client request (%s) => rc:%lx msg:%s"
-                 (Printexc.to_string exn)  (Arakoon_exc.int32_of_rc rc) msg) >>= fun () ->
-  Arakoon_exc.output_exception oc rc msg >>= fun () ->
-  Lwt.return death
-
+let handle_exceptions f =
+    Lwt.catch
+      (fun () ->
+          f () >>= fun r ->
+          Lwt.return (Rpc.Server.Continue r))
+      (fun exn ->
+          let open Arakoon_protocol in
+          begin match exn with
+            | XException(e, msg) -> begin match e with
+                | Arakoon_exc.E_NOT_FOUND ->
+                    Lwt.return (Result.Not_found msg, false, Logger.Debug)
+                | Arakoon_exc.E_ASSERTION_FAILED ->
+                    Lwt.return (Result.Assertion_failed msg, false, Logger.Debug)
+                | Arakoon_exc.E_NO_LONGER_MASTER ->
+                    Lwt.return (Result.No_longer_master msg, false, Logger.Debug)
+                | Arakoon_exc.E_GOING_DOWN ->
+                    Lwt.return (Result.Going_down msg, true, Logger.Error)
+                | Arakoon_exc.E_BAD_INPUT ->
+                    Lwt.return (Result.Bad_input msg, false, Logger.Debug)
+                | Arakoon_exc.E_INCONSISTENT_READ ->
+                    Lwt.return (Result.Inconsistent_read msg, false, Logger.Debug)
+                (* Unexpected things *)
+                | Arakoon_exc.E_NO_MAGIC ->
+                    Lwt.return (Result.No_magic msg, true, Logger.Error)
+                | Arakoon_exc.E_NO_HELLO ->
+                    Lwt.return (Result.No_hello msg, true, Logger.Error)
+                | Arakoon_exc.E_NOT_MASTER ->
+                    Lwt.return (Result.Not_master msg, true, Logger.Error)
+                | Arakoon_exc.E_WRONG_CLUSTER ->
+                    Lwt.return (Result.Wrong_cluster msg, true, Logger.Error)
+                | Arakoon_exc.E_READ_ONLY ->
+                    Lwt.return (Result.Read_only msg, true, Logger.Error)
+                | Arakoon_exc.E_OUTSIDE_INTERVAL ->
+                    Lwt.return (Result.Outside_interval msg, true, Logger.Error)
+                | Arakoon_exc.E_NOT_SUPPORTED ->
+                    Lwt.return (Result.Not_supported msg, true, Logger.Error)
+                | Arakoon_exc.E_USERFUNCTION_FAILURE ->
+                    Lwt.return (Result.Userfunction_failure msg, true, Logger.Error)
+                | Arakoon_exc.E_MAX_CONNECTIONS ->
+                    Lwt.return (Result.Max_connections msg, true, Logger.Error)
+                | Arakoon_exc.E_UNKNOWN_FAILURE ->
+                    Lwt.return (Result.Unknown_failure msg, true, Logger.Error)
+                (* Very unexpected things *)
+                | Arakoon_exc.E_OK ->
+                    let msg' = Printf.sprintf "E_OK was raised unexpectedly: %s" msg in
+                    Lwt.return (Result.Unknown_failure msg', true, Logger.Error)
+            end
+            | Not_found ->
+                Lwt.return (Result.Not_found "Not_found", false, Logger.Debug)
+            | Server.FOOBAR ->
+                Lwt.return (Result.Unknown_failure "unkown failure", true, Logger.Error)
+            | Canceled ->
+                Lwt.fail Canceled
+            | _ ->
+                Lwt.return (Result.unknown_failure "unknown failure", true, Logger.Error)
+          end >>= fun (res, death, level) ->
+          Logger.log_ section level (fun () ->
+              Printf.sprintf
+                  "Exception during client request (%s) => %s"
+                  (Printexc.to_string exn)
+                  (Arakoon_protocol.Result.to_string (fun _ -> "...") res)) >>= fun () ->
+          if not death
+              then Lwt.return (Rpc.Server.Continue res)
+              else Lwt.return (Rpc.Server.Close res))
 
 let decode_sequence ic =
   begin
@@ -151,10 +159,10 @@ let handle_sequence ~sync ic oc backend =
            backend # sequence ~sync updates >>= fun () ->
            response_ok_unit oc
          end )
-      ( handle_exception oc )
+      ( Lwt.fail) (*handle_exception oc )*)
 
   end
-
+(*
 let one_command stop (ic,oc,id) (backend:Backend.backend) =
   read_command (ic,oc) >>= fun command ->
   if !stop
@@ -164,7 +172,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
     let wrap_exception f =
       Lwt.catch
         f
-        (handle_exception oc) in
+        (Lwt.fail) in
     match command with
   | PING ->
      begin
@@ -484,7 +492,7 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            Logger.info_ "... Finished collapsing ..." >>= fun () ->
            Lwt.return false
         )
-        (handle_exception oc)
+        (Lwt.fail) (*handle_exception oc)*)
     end
   | COPY_DB_TO_HEAD ->
      begin
@@ -684,10 +692,10 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       Llio.output_string oc state >>= fun () ->
       Lwt.return false
     end
-
+*)
 
 let protocol stop backend connection =
-  let ic,oc,_ = connection in
+  let ic,oc,id = connection in
   let check magic version =
     if magic = _MAGIC && version = _VERSION then Lwt.return ()
     else Llio.lwt_failfmt "MAGIC %lx or VERSION %x mismatch" magic version
@@ -705,14 +713,42 @@ let protocol stop backend connection =
     check_cluster cluster_id >>= fun () ->
     Lwt.return ()
   in
-  let rec loop () =
-    begin
-      one_command stop connection backend >>= fun death ->
-      Lwt_io.flush oc >>= fun() ->
-      if death || !stop
-      then Logger.debug_ "leaving client loop"
-      else loop ()
-    end
-  in
   prologue () >>= fun () ->
-  loop ()
+
+  let open Arakoon_protocol in
+  let module H = struct
+    include Protocol
+
+    let handle : type r s. (r, s) t -> r -> s Rpc.Server.result Lwt.t = fun cmd req ->
+        if !stop
+        then begin
+            Logger.debug_ "Leaving client loop" >>= fun () ->
+            Lwt.return Rpc.Server.Die
+        end
+        else
+        let ok v = Lwt.return (Result.Ok v) in
+        match cmd with
+          | Ping -> handle_exceptions(fun () ->
+              let (client_id, cluster_id) = req in
+              Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
+        backend # hello client_id cluster_id >>= ok)
+          | Who_master -> handle_exceptions (fun () ->
+              Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
+              ok (backend # who_master ()))
+          | Get -> handle_exceptions (fun () ->
+              let (consistency, key) = req in
+              Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
+              ok (backend # get ~consistency key))
+          | Set -> handle_exceptions (fun () ->
+              let (key, value) = req in
+              Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
+              backend # set key value >>= ok)
+          | Delete -> handle_exceptions (fun () ->
+              let (key : string) = req in
+              Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
+              backend # delete key >>= ok)
+  end in
+
+  let module S = Rpc.Server.Make(H) in
+
+  S.session ic oc

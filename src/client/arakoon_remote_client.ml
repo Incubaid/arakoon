@@ -72,8 +72,8 @@ class remote_client ((ic,oc) as conn) =
       response ic nothing
 
     method delete key =
-      request  oc (fun buf -> delete_to buf key) >>= fun () ->
-      response ic nothing
+      Client.request ic oc Protocol.Delete key >>=
+      compat
 
     method delete_prefix prefix = Common.delete_prefix conn prefix
 
