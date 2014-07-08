@@ -74,7 +74,7 @@ let _make_cfg name n lease_period =
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
                     ~fsync node_id ~fsync_tlog_dir =
-  let () = ignore compressor in                      
+  let () = ignore compressor in
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
@@ -345,6 +345,39 @@ let this_aint_paxos () =
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
 
+  (* TODO demonstrate how these tlogs can be achieved *)
+  (* - try blocking accepted messages for a while and wait until tlog grows with 1 entry
+       that entry should be a masterset for the node *)
+
+  (*
+cluster = node0 node1 node2
+
+node0 is master, node1 & node2 alive
+
+i=9 all in sync
+i=10 push Vm(node0)
+  unfortunately a network split occured and the message gets lost
+  so only added to tlog of node0
+
+
+node1 & node2 same side of network split
+node1 goes to election
+
+node1 -> Prepare(i=9) -> node2
+node1 <- Promise(i=9, Some(whatever)) <- node2
+node1 -> Accept(i=9,whatever) -> node2
+node1 <- Accepted(9) <- node2
+
+node2 sterft
+node1 push Vm(node1) -> only added to tlog of node1
+
+
+network partition heals
+
+->
+node0 tlog: [..., i=10 Vm(node0)]
+node1 tlog: [..., i=10 Vm(node1)]
+ *)
   let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1;v2;v3] node0 () in
   let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1;v2;v3'] node1 () in
   Logger.debug_ "start of scenario" >>= fun () ->
