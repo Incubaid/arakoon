@@ -90,6 +90,8 @@ module Protocol = struct
     type ('req, 'res) t =
       | Ping : ((string * string), string Result.t) t
       | Who_master : (unit, string option Result.t) t
+      | Get : ((Arakoon_client.consistency * string), string Result.t) t
+      | Set : ((string * string), unit Result.t) t
 
     type some_t = Some_t : (_, _) t -> some_t
 
@@ -115,6 +117,8 @@ module Protocol = struct
 
     let command_map = [ Some_t Ping, 0x01l
                       ; Some_t Who_master, 0x02l
+                      ; Some_t Get, 0x08l
+                      ; Some_t Set, 0x09l
                       ]
 
     let io_for_command : type r s. (r, s) t -> (r, s) Rpc.IO.t = fun t -> match t with
@@ -135,6 +139,30 @@ module Protocol = struct
           and req_from_channel _ = Lwt.return ()
           and res_to_channel = Result.to_channel Llio.output_string_option
           and res_from_channel = Result.from_channel Llio.input_string_option in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
+      | Get -> begin
+          let req_to_channel oc (c, k) =
+              Common.output_consistency oc c >>= fun () ->
+              Llio.output_string oc k
+          and req_from_channel ic =
+              Common.input_consistency ic >>= fun c ->
+              Llio.input_string ic >>= fun k ->
+              Lwt.return (c, k)
+          and res_to_channel = Result.to_channel Llio.output_string
+          and res_from_channel = Result.from_channel Llio.input_string in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
+      | Set -> begin
+          let req_to_channel oc (k, v) =
+              Llio.output_string oc k >>= fun () ->
+              Llio.output_string oc v
+          and req_from_channel ic =
+              Llio.input_string ic >>= fun k ->
+              Llio.input_string ic >>= fun v ->
+              Lwt.return (k, v)
+          and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
+          and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
           Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
       end
 end

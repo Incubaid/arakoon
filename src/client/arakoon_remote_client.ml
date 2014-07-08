@@ -51,9 +51,13 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> exists_to ~consistency buf key) >>= fun () ->
       response ic Llio.input_bool
 
-    method get ?(consistency=Consistent) key = Common.get conn ~consistency key
+    method get ?(consistency=Consistent) key =
+      Client.request ic oc Protocol.Get (consistency, key) >>=
+      compat
 
-    method set key value = Common.set conn key value
+    method set key value =
+      Client.request ic oc Protocol.Set (key, value) >>=
+      compat
 
     method confirm key value =
       request  oc (fun buf -> confirm_to buf key value) >>= fun () ->
