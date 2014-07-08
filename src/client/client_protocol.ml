@@ -731,7 +731,7 @@ let protocol stop backend connection =
           | Ping -> handle_exceptions(fun () ->
               let (client_id, cluster_id) = req in
               Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
-        backend # hello client_id cluster_id >>= ok)
+              backend # hello client_id cluster_id >>= ok)
           | Who_master -> handle_exceptions (fun () ->
               Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
               ok (backend # who_master ()))
