@@ -19,6 +19,31 @@ open Common
 open Statistics
 open Arakoon_client
 
+open Arakoon_protocol
+
+let compat =
+    let open Arakoon_protocol.Result in
+    let open Arakoon_exc in
+    let error c s = Lwt.fail (Exception (c, s)) in
+    function
+      | Ok a -> Lwt.return a
+      | No_magic s -> error E_NO_MAGIC s
+      | No_hello s -> error E_NO_HELLO s
+      | Not_master s -> error E_NOT_MASTER s
+      | Result.Not_found s -> error E_NOT_FOUND s
+      | Wrong_cluster s -> error E_WRONG_CLUSTER s
+      | Assertion_failed s -> error E_ASSERTION_FAILED s
+      | Read_only s -> error E_READ_ONLY s
+      | Outside_interval s -> error E_OUTSIDE_INTERVAL s
+      | Going_down s -> error E_GOING_DOWN s
+      | Not_supported s -> error E_NOT_SUPPORTED s
+      | No_longer_master s -> error E_NO_LONGER_MASTER s
+      | Bad_input s -> error E_BAD_INPUT s
+      | Inconsistent_read s -> error E_INCONSISTENT_READ s
+      | Userfunction_failure s -> error E_USERFUNCTION_FAILURE s
+      | Max_connections s -> error E_MAX_CONNECTIONS s
+      | Unknown_failure s -> error E_UNKNOWN_FAILURE s
+
 class remote_client ((ic,oc) as conn) =
 
   (object
@@ -93,7 +118,9 @@ class remote_client ((ic,oc) as conn) =
 
     method synced_sequence changes = Common.synced_sequence conn changes
 
-    method who_master () = Common.who_master conn
+    method who_master () =
+      Client.request ic oc Protocol.Who_master () >>=
+      compat
 
     method expect_progress_possible () =
       request  oc (fun buf -> expect_progress_possible_to buf) >>= fun () ->
@@ -108,8 +135,8 @@ class remote_client ((ic,oc) as conn) =
         )
 
     method ping client_id cluster_id =
-      request  oc (fun buf -> ping_to buf client_id cluster_id) >>= fun () ->
-      response ic Llio.input_string
+      Client.request ic oc Protocol.Ping (client_id, cluster_id) >>=
+      compat
 
     method get_key_count () =
       request  oc (fun buf -> get_key_count_to buf ) >>= fun () ->
