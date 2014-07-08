@@ -598,6 +598,7 @@ struct
           Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
       method private unquiesce_db () =
+        act_not_preferred := false;
         Logger.info_ "unquiesce_db: Leaving quisced state" >>= fun () ->
         let update = Multi_paxos.Unquiesce in
         push_node_msg update

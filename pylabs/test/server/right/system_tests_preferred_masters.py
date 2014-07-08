@@ -64,9 +64,8 @@ def test_preferred_master():
     master4 = client.whoMaster()
     NT.assert_not_equals(master4, pm)
 
-    # restart node to make it behave in a preferred manner again
-    cluster.stopOne(pm)
-    cluster.startOne(pm)
+    # perform maintenance on node to make it behave in a preferred manner again
+    Common.defragDb(pm)
 
     time.sleep(Common.lease_duration)
     client.nop()
