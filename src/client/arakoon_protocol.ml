@@ -113,10 +113,12 @@ module Protocol = struct
           | Option : 'a t -> 'a option t
           | Tuple2 : ('a t * 'b t) -> ('a * 'b) t
           | Tuple3 : ('a t * 'b t * 'c t) -> ('a * 'b * 'c) t
+          | Tuple4 : ('a t * 'b t * 'c t * 'd t) -> ('a * 'b * 'c * 'd) t
           | Result : 'a t -> ('a Result.t) t
           | Consistency : Arakoon_client.consistency t
           | Bool : bool t
           | Int64 : int64 t
+          | Int : int t
 
         let from_channel =
             let rec loop : type a. Lwt_io.input_channel -> a t -> a Lwt.t = fun ic -> function
@@ -133,6 +135,13 @@ module Protocol = struct
                   loop ic c >>= fun c' ->
                   Lwt.return (a', b', c')
               end
+              | Tuple4 (a, b, c, d) -> begin
+                  loop ic a >>= fun a' ->
+                  loop ic b >>= fun b' ->
+                  loop ic c >>= fun c' ->
+                  loop ic d >>= fun d' ->
+                  Lwt.return (a', b', c', d')
+              end
               | Result a -> Result.from_channel (fun ic' -> loop ic' a) ic
               | Consistency -> Common.input_consistency ic
               | Bool -> Llio.input_bool ic
@@ -142,6 +151,7 @@ module Protocol = struct
                     | true -> loop ic t >>= fun v -> Lwt.return (Some v)
               end
               | Int64 -> Llio.input_int64 ic
+              | Int -> Llio.input_int ic
             in
             loop
 
@@ -161,6 +171,13 @@ module Protocol = struct
                       loop oc b' b'' >>= fun () ->
                       loop oc c' c''
                   end
+                  | Tuple4 (a', b', c', d') -> begin
+                      let (a'', b'', c'', d'') = a in
+                      loop oc a' a'' >>= fun () ->
+                      loop oc b' b'' >>= fun () ->
+                      loop oc c' c'' >>= fun () ->
+                      loop oc d' d''
+                  end
                   | Result a' -> Result.to_channel (fun oc' a'' -> loop oc' a' a'') oc a
                   | Consistency -> Common.output_consistency oc a
                   | Bool -> Llio.output_bool oc a
@@ -169,6 +186,7 @@ module Protocol = struct
                       | Some v -> Llio.output_bool oc true >>= fun () -> loop oc t v
                   end
                   | Int64 -> Llio.output_int64 oc a
+                  | Int -> Llio.output_int oc a
             in
             loop
     end
@@ -185,6 +203,7 @@ module Protocol = struct
       | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Get_key_count : (unit, int64 Result.t) t
+      | Version : (unit, (int * int * int * string) Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
       | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
@@ -205,6 +224,7 @@ module Protocol = struct
           | User_function -> Tuple2 (String, Option String), Result (Option String)
           | Assert -> Tuple3 (Consistency, String, Option String), Result Unit
           | Get_key_count -> Unit, Result Int64
+          | Version -> Unit, Result (Tuple4 (Int, Int, Int, String))
           | Assert_exists -> Tuple2 (Consistency, String), Result Unit
           | Replace -> Tuple2 (String, Option String), Result (Option String)
           | Nop -> Unit, Result Unit
@@ -245,6 +265,7 @@ module Protocol = struct
                       ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
                       ; Some_t Get_key_count, 0x1al
+                      ; Some_t Version, 0x28l
                       ; Some_t Assert_exists, 0x29l
                       ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l

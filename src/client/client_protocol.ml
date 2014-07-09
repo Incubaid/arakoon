@@ -543,23 +543,19 @@ let handle_command :
            Llio.output_int oc n_deleted >>= fun () ->
            Lwt.return false
         )
-    end
-  | VERSION ->
-    begin
+    end*)
+  | Protocol.Version -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s VERSION" id >>= fun () ->
-      response_ok oc >>= fun () ->
-      Llio.output_int oc Arakoon_version.major >>= fun () ->
-      Llio.output_int oc Arakoon_version.minor >>= fun () ->
-      Llio.output_int oc Arakoon_version.patch >>= fun () ->
       let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
                    Arakoon_version.git_revision
                    Arakoon_version.compile_time
                    Arakoon_version.machine
       in
-      Llio.output_string oc rest >>= fun () ->
-      Lwt.return false
-    end
-  | DROP_MASTER ->
+      ok (Arakoon_version.major,
+          Arakoon_version.minor,
+          Arakoon_version.patch,
+          rest))
+(* | DROP_MASTER ->
     begin
       Logger.info_f_ "connection=%s DROP_MASTER" id >>= fun () ->
       wrap_exception

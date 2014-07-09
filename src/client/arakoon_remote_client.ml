@@ -150,7 +150,8 @@ class remote_client ((ic,oc) as conn) =
       Common.get_nursery_cfg conn
 
     method version () =
-      Common.version conn
+      Client.request ic oc Protocol.Version () >>=
+      compat
 
     method current_state () = Common.current_state conn
     method nop () =
