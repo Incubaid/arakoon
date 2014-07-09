@@ -33,14 +33,11 @@ let section =
 
 let read_command (_,_) = failwith "Gone"
 
-let log_debug m =
-  Logger.debug_ m
-
 let response_ok oc =
   Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_OK)
 
 let response_ok_unit oc =
-  log_debug "ok_unit back to client" >>= fun () ->
+  Logger.debug_ "ok_unit back to client" >>= fun () ->
   response_ok oc >>= fun () ->
   Lwt.return false
 
@@ -162,29 +159,20 @@ let handle_sequence ~sync ic oc backend =
       ( Lwt.fail) (*handle_exception oc )*)
 
   end
-(*
-let one_command stop (ic,oc,id) (backend:Backend.backend) =
-  read_command (ic,oc) >>= fun command ->
-  if !stop
-  then
-    Lwt.return true
-  else
-    let wrap_exception f =
-      Lwt.catch
-        f
-        (Lwt.fail) in
-    match command with
-  | PING ->
-     begin
-       wrap_exception
-         (fun () ->
-          Llio.input_string ic >>= fun client_id ->
-          Llio.input_string ic >>= fun cluster_id ->
-          Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
-          backend # hello client_id cluster_id >>= fun msg ->
-          response_ok_string oc msg)
-    end
-  | FLUSH_STORE ->
+
+open Arakoon_protocol
+
+let ok v = Lwt.return (Result.Ok v)
+
+let handle_command :
+  type r s. Backend.backend -> string -> (r, s) Protocol.t -> r -> s Rpc.Server.result Lwt.t =
+  fun backend id cmd req ->
+  match cmd with
+  | Protocol.Ping -> handle_exceptions (fun () ->
+      let (client_id, cluster_id) = req in
+      Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
+      backend # hello client_id cluster_id >>= ok)
+(*  | FLUSH_STORE ->
      begin
        wrap_exception
          (fun () ->
@@ -200,17 +188,13 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       wrap_exception
         (fun () -> let exists = backend # exists ~consistency key in
                    response_ok_bool oc exists)
-    end
-  | GET ->
-    begin
-      Common.input_consistency   ic >>= fun consistency ->
-      Llio.input_string ic >>= fun  key ->
+    end*)
+  | Protocol.Get -> handle_exceptions (fun () ->
+      let (consistency, key) = req in
       Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      wrap_exception
-        (fun () -> let value = backend # get ~consistency key in
-                   response_ok_string oc value)
-    end
-  | ASSERT ->
+      let value = backend # get ~consistency key in
+      ok value)
+(*  | ASSERT ->
     begin
       Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
@@ -228,18 +212,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       wrap_exception
         (fun () -> let () = backend # aSSert_exists ~consistency key in
                    response_ok_unit oc)
-    end
-  | SET ->
-    begin
-      Llio.input_string ic >>= fun key ->
-      Llio.input_string ic >>= fun value ->
+    end*)
+  | Protocol.Set -> handle_exceptions (fun () ->
+      let (key, value) = req in
       Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
-      wrap_exception
-        (fun () -> backend # set key value >>= fun () ->
-          response_ok_unit oc
-        )
-    end
-  | NOP ->
+      backend # set key value >>= ok)
+(*  | NOP ->
       begin
         Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
         wrap_exception
@@ -254,17 +232,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
        response_ok oc >>= fun () ->
        Common.output_consistency oc txid >>= fun () ->
        Lwt.return false
-     end
-  | DELETE ->
-    begin
-      Llio.input_string ic >>= fun key ->
+     end*)
+  | Protocol.Delete -> handle_exceptions (fun () ->
+      let (key : string) = req in
       Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
-      wrap_exception
-        (fun () ->
-           backend # delete key >>= fun () ->
-           response_ok_unit oc)
-    end
-  | RANGE ->
+      backend # delete key >>= ok)
+(*  | RANGE ->
     begin
       Common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun (first:string option) ->
@@ -333,16 +306,12 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
       response_ok oc >>= fun () ->
       backend # last_entries2 i oc >>= fun () ->
       Lwt.return false
-    end
-  | WHO_MASTER ->
-    begin
+    end*)
+  | Protocol.Who_master -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
       let m = backend # who_master () in
-      response_ok oc >>= fun () ->
-      Llio.output_string_option oc m >>= fun () ->
-      Lwt.return false
-    end
-  | EXPECT_PROGRESS_POSSIBLE ->
+      ok m)
+(*  | EXPECT_PROGRESS_POSSIBLE ->
     begin
       Logger.debug_f_ "connection=%s EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
       let poss = backend # expect_progress_possible () in
@@ -715,7 +684,6 @@ let protocol stop backend connection =
   in
   prologue () >>= fun () ->
 
-  let open Arakoon_protocol in
   let module H = struct
     include Protocol
 
@@ -726,27 +694,7 @@ let protocol stop backend connection =
             Lwt.return Rpc.Server.Die
         end
         else
-        let ok v = Lwt.return (Result.Ok v) in
-        match cmd with
-          | Ping -> handle_exceptions(fun () ->
-              let (client_id, cluster_id) = req in
-              Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
-              backend # hello client_id cluster_id >>= ok)
-          | Who_master -> handle_exceptions (fun () ->
-              Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
-              ok (backend # who_master ()))
-          | Get -> handle_exceptions (fun () ->
-              let (consistency, key) = req in
-              Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-              ok (backend # get ~consistency key))
-          | Set -> handle_exceptions (fun () ->
-              let (key, value) = req in
-              Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
-              backend # set key value >>= ok)
-          | Delete -> handle_exceptions (fun () ->
-              let (key : string) = req in
-              Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
-              backend # delete key >>= ok)
+            handle_command backend id cmd req
   end in
 
   let module S = Rpc.Server.Make(H) in

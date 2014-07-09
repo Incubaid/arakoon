@@ -28,7 +28,6 @@ let allow_fragile_pattern_matches = [
   "src/node/catchup.ml";
   "src/tlog/tlc2.ml";
   "src/msg/tcp_messaging.ml";
-  "src/client/client_protocol.ml";
   "src/client/client_main.ml";
   "src/nursery/nursery_main.ml";
   "src/system/startup.ml";
