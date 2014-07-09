@@ -115,6 +115,7 @@ module Protocol = struct
       | Delete : (string, unit Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
+      | Nop : (unit, unit Result.t) t
       | Flush_store : (unit, unit Result.t) t
 
     type some_t = Some_t : (_, _) t -> some_t
@@ -148,6 +149,7 @@ module Protocol = struct
                       ; Some_t Delete, 0x0al
                       ; Some_t Assert, 0x16l
                       ; Some_t Assert_exists, 0x29l
+                      ; Some_t Nop, 0x41l
                       ; Some_t Flush_store, 0x42l
                       ]
 
@@ -236,6 +238,13 @@ module Protocol = struct
               Common.input_consistency ic >>= fun c ->
               Llio.input_string ic >>= fun k ->
               Lwt.return (c, k)
+          and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
+          and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
+      | Nop -> begin
+          let req_to_channel _ () = Lwt.return ()
+          and req_from_channel _ = Lwt.return ()
           and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
           and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
           Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })

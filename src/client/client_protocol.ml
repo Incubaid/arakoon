@@ -199,15 +199,10 @@ let handle_command :
       let (key, value) = req in
       Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->
       backend # set key value >>= ok)
-(*  | NOP ->
-      begin
-        Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
-        wrap_exception
-          (fun () ->
-           backend # nop () >>= fun () ->
-           response_ok_unit oc)
-      end
-  | GET_TXID ->
+  | Protocol.Nop -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
+      backend # nop () >>= ok)
+(*  | GET_TXID ->
      begin
        Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
        let txid = backend # get_txid () in

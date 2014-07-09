@@ -153,7 +153,9 @@ class remote_client ((ic,oc) as conn) =
       Common.version conn
 
     method current_state () = Common.current_state conn
-    method nop () = Common.nop conn
+    method nop () =
+      Client.request ic oc Protocol.Nop () >>=
+      compat
     method get_txid () = Common.get_txid conn
 
 end: Arakoon_client.client )
