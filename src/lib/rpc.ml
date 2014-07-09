@@ -9,14 +9,14 @@ module type Protocol = sig
 
     val command_map : (some_t * tag) list
 
-    module SerDes : sig
+    module Type : sig
         type 'a t
 
         val from_channel : Lwt_io.input_channel -> 'a t -> 'a Lwt.t
         val to_channel : Lwt_io.output_channel -> 'a t -> 'a -> unit Lwt.t
     end
 
-    val serdes : ('req, 'res) t -> ('req SerDes.t * 'res SerDes.t)
+    val reify_types : ('req, 'res) t -> ('req Type.t * 'res Type.t)
 end
 
 module Client(Protocol : Protocol) : sig
@@ -46,11 +46,11 @@ end= struct
         match lookup (Protocol.Some_t cmd) with
           | None -> Lwt.fail (Unknown_command (Protocol.Some_t cmd))
           | Some tag -> begin
-              let (req, res) = Protocol.serdes cmd in
+              let (req, res) = Protocol.reify_types cmd in
               Protocol.tag_to_channel oc tag >>= fun () ->
-              Protocol.SerDes.to_channel oc req r >>= fun () ->
+              Protocol.Type.to_channel oc req r >>= fun () ->
               Lwt_io.flush oc >>= fun () ->
-              Protocol.SerDes.from_channel ic res
+              Protocol.Type.from_channel ic res
           end
 end
 
@@ -86,13 +86,13 @@ module Server = struct
 
         let session ic oc =
             let go  cmd =
-                let (req, res) = P.serdes cmd in
-                P.SerDes.from_channel ic req >>= fun req' ->
+                let (req, res) = P.reify_types cmd in
+                P.Type.from_channel ic req >>= fun req' ->
                 P.handle cmd req' >>= fun res' ->
                 match res' with
                   | Continue r
                   | Close r ->
-                      P.SerDes.to_channel oc res r >>= fun () ->
+                      P.Type.to_channel oc res r >>= fun () ->
                       Lwt_io.flush oc >>= fun () ->
                       Lwt.return res'
                   | Die -> Lwt.return res'

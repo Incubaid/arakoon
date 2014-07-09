@@ -106,7 +106,7 @@ end
 module Protocol = struct
     open Lwt
 
-    module SerDes = struct
+    module Type = struct
         type _ t =
           | String : string t
           | Unit : unit t
@@ -210,8 +210,8 @@ module Protocol = struct
       | Flush_store : (unit, unit Result.t) t
       | Get_txid : (unit, Arakoon_client.consistency Result.t) t
 
-    let serdes : type r s. (r, s) t -> (r SerDes.t * s SerDes.t) =
-        let open SerDes in
+    let reify_types : type r s. (r, s) t -> (r Type.t * s Type.t) =
+        let open Type in
         function
           | Ping -> Tuple2 (String, String), Result String
           | Who_master -> Unit, Result (Option String)
