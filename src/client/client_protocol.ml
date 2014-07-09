@@ -172,47 +172,29 @@ let handle_command :
       let (client_id, cluster_id) = req in
       Logger.debug_f_ "connection=%s PING: client_id=%S cluster_id=%S" id client_id cluster_id >>= fun () ->
       backend # hello client_id cluster_id >>= ok)
-(*  | FLUSH_STORE ->
-     begin
-       wrap_exception
-         (fun () ->
-          Logger.debug_f_ "connection=%s FLUSH_STORE" id >>= fun () ->
-          backend # flush_store () >>= fun () ->
-          response_ok_unit oc)
-     end
-  | EXISTS ->
-    begin
-      Common.input_consistency ic  >>= fun consistency ->
-      Llio.input_string ic >>= fun key ->
+  | Protocol.Flush_store -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s FLUSH_STORE" id >>= fun () ->
+      backend # flush_store () >>= ok)
+  | Protocol.Exists -> handle_exceptions (fun () ->
+      let (consistency, key) = req in
       Logger.debug_f_ "connection=%s EXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      wrap_exception
-        (fun () -> let exists = backend # exists ~consistency key in
-                   response_ok_bool oc exists)
-    end*)
+      let exists = backend # exists ~consistency key in
+      ok exists)
   | Protocol.Get -> handle_exceptions (fun () ->
       let (consistency, key) = req in
       Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       let value = backend # get ~consistency key in
       ok value)
-(*  | ASSERT ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string ic        >>= fun key ->
-      Llio.input_string_option ic >>= fun vo ->
+  | Protocol.Assert -> handle_exceptions (fun () ->
+      let (consistency, key, vo) = req in
       Logger.debug_f_ "connection=%s ASSERT: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      wrap_exception
-        (fun () -> let () = backend # aSSert ~consistency key vo in
-                   response_ok_unit oc)
-    end
-  | ASSERTEXISTS ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string ic        >>= fun key ->
+      let () = backend # aSSert ~consistency key vo in
+      ok ())
+  | Protocol.Assert_exists -> handle_exceptions (fun () ->
+      let (consistency, key) = req in
       Logger.debug_f_ "connection=%s ASSERTEXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
-      wrap_exception
-        (fun () -> let () = backend # aSSert_exists ~consistency key in
-                   response_ok_unit oc)
-    end*)
+      let () = backend # aSSert_exists ~consistency key in
+      ok ())
   | Protocol.Set -> handle_exceptions (fun () ->
       let (key, value) = req in
       Logger.debug_f_ "connection=%s SET: key=%S" id key >>= fun () ->

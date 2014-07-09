@@ -48,8 +48,8 @@ class remote_client ((ic,oc) as conn) =
 
   (object
     method exists ?(consistency=Consistent) key =
-      request  oc (fun buf -> exists_to ~consistency buf key) >>= fun () ->
-      response ic Llio.input_bool
+      Client.request ic oc Protocol.Exists (consistency, key) >>=
+      compat
 
     method get ?(consistency=Consistent) key =
       Client.request ic oc Protocol.Get (consistency, key) >>=
@@ -64,12 +64,12 @@ class remote_client ((ic,oc) as conn) =
       response ic nothing
 
     method aSSert ?(consistency=Consistent) key vo =
-      request oc (fun buf -> assert_to ~consistency buf key vo) >>= fun () ->
-      response ic nothing
+      Client.request ic oc Protocol.Assert (consistency, key, vo) >>=
+      compat
 
     method aSSert_exists ?(consistency=Consistent) key =
-      request oc (fun buf -> assert_exists_to ~consistency buf key) >>= fun () ->
-      response ic nothing
+      Client.request ic oc Protocol.Assert_exists (consistency, key) >>=
+      compat
 
     method delete key =
       Client.request ic oc Protocol.Delete key >>=
