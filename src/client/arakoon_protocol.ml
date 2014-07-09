@@ -103,6 +103,27 @@ module Result = struct
           | _ -> error unknown_failure
 end
 
+module RangeRequest = struct
+    type t = { first : string option
+             ; finc : bool
+             ; last : string option
+             ; linc : bool
+             ; max : int
+             }
+
+    let t ~first ~finc ~last ~linc ~max =
+        { first; finc; last; linc; max }
+
+    let to_string t =
+        let open To_string in
+        record [ "first", option string t.first
+               ; "finc", bool t.finc
+               ; "last", option string t.last
+               ; "linc", bool t.linc
+               ; "max", int t.max
+               ]
+end
+
 module Protocol = struct
     open Lwt
 
@@ -119,6 +140,8 @@ module Protocol = struct
           | Bool : bool t
           | Int64 : int64 t
           | Int : int t
+          | List : 'a t -> 'a list t
+          | RangeRequest : RangeRequest.t t
 
         let from_channel =
             let rec loop : type a. Lwt_io.input_channel -> a t -> a Lwt.t = fun ic -> function
@@ -152,6 +175,15 @@ module Protocol = struct
               end
               | Int64 -> Llio.input_int64 ic
               | Int -> Llio.input_int ic
+              | List t -> Llio.input_list (fun ic' -> loop ic' t) ic
+              | RangeRequest -> begin
+                  Llio.input_string_option ic >>= fun first ->
+                  Llio.input_bool ic >>= fun finc ->
+                  Llio.input_string_option ic >>= fun last ->
+                  Llio.input_bool ic >>= fun linc ->
+                  Llio.input_int ic >>= fun max ->
+                  Lwt.return (RangeRequest.t ~first ~finc ~last ~linc ~max)
+              end
             in
             loop
 
@@ -187,6 +219,13 @@ module Protocol = struct
                   end
                   | Int64 -> Llio.output_int64 oc a
                   | Int -> Llio.output_int oc a
+                  | List t -> Llio.output_list (fun ic' -> loop ic' t) oc a
+                  | RangeRequest -> RangeRequest.(
+                      Llio.output_string_option oc a.first >>= fun () ->
+                      Llio.output_bool oc a.finc >>= fun () ->
+                      Llio.output_string_option oc a.last >>= fun () ->
+                      Llio.output_bool oc a.linc >>= fun () ->
+                      Llio.output_int oc a.max)
             in
             loop
     end
@@ -198,13 +237,19 @@ module Protocol = struct
       | Get : ((Arakoon_client.consistency * string), string Result.t) t
       | Set : ((string * string), unit Result.t) t
       | Delete : (string, unit Result.t) t
+      | Range : ((Arakoon_client.consistency * RangeRequest.t), string list Result.t) t
       | Test_and_set : ((string * string option * string option), string option Result.t) t
       | Expect_progress_possible : (unit, bool Result.t) t
       | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Get_key_count : (unit, int64 Result.t) t
+      | Confirm : ((string * string), unit Result.t) t
+      | Optimize_db : (unit, unit Result.t) t
+      | Defrag_db : (unit, unit Result.t) t
+      | Delete_prefix : (string, int Result.t) t
       | Version : (unit, (int * int * int * string) Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
+      | Current_state : (unit, string Result.t) t
       | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
       | Flush_store : (unit, unit Result.t) t
@@ -219,13 +264,19 @@ module Protocol = struct
           | Get -> Tuple2 (Consistency, String), Result String
           | Set -> Tuple2 (String, String), Result Unit
           | Delete -> String, Result Unit
+          | Range -> Tuple2 (Consistency, RangeRequest), Result (List String)
           | Test_and_set -> Tuple3 (String, Option String, Option String), Result (Option String)
           | Expect_progress_possible -> Unit, Result Bool
           | User_function -> Tuple2 (String, Option String), Result (Option String)
           | Assert -> Tuple3 (Consistency, String, Option String), Result Unit
           | Get_key_count -> Unit, Result Int64
+          | Confirm -> Tuple2 (String, String), Result Unit
+          | Optimize_db -> Unit, Result Unit
+          | Defrag_db -> Unit, Result Unit
+          | Delete_prefix -> String, Result Int
           | Version -> Unit, Result (Tuple4 (Int, Int, Int, String))
           | Assert_exists -> Tuple2 (Consistency, String), Result Unit
+          | Current_state -> Unit, Result String
           | Replace -> Tuple2 (String, Option String), Result (Option String)
           | Nop -> Unit, Result Unit
           | Flush_store -> Unit, Result Unit
@@ -260,13 +311,19 @@ module Protocol = struct
                       ; Some_t Get, 0x08l
                       ; Some_t Set, 0x09l
                       ; Some_t Delete, 0x0al
+                      ; Some_t Range, 0x0bl
                       ; Some_t Test_and_set, 0x0dl
                       ; Some_t Expect_progress_possible, 0x12l
                       ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
                       ; Some_t Get_key_count, 0x1al
+                      ; Some_t Confirm, 0x1cl
+                      ; Some_t Optimize_db, 0x25l
+                      ; Some_t Defrag_db, 0x26l
+                      ; Some_t Delete_prefix, 0x27l
                       ; Some_t Version, 0x28l
                       ; Some_t Assert_exists, 0x29l
+                      ; Some_t Current_state, 0x32l
                       ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l
                       ; Some_t Flush_store, 0x42l

@@ -185,6 +185,7 @@ let handle_command :
       let (key : string) = req in
       Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
       backend # delete key >>= ok)
+  | Protocol.Range -> failwith "Not implemented" (* TODO *)
 (*  | RANGE ->
     begin
       Common.input_consistency ic >>= fun consistency ->
@@ -452,36 +453,18 @@ let handle_command :
            backend # get_db (Some oc) >>= fun () ->
            Lwt.return false
         )
-    end
-  | OPT_DB ->
-    begin
-      wrap_exception
-        ( fun () ->
-           Logger.info_f_ "connection=%s OPT_DB" id >>= fun () ->
-           backend # optimize_db () >>= fun () ->
-           response_ok_unit oc
-        )
-    end
-  | DEFRAG_DB ->
-    begin
-      wrap_exception
-        (fun () ->
-           Logger.info_f_ "connection=%s DEFRAG_DB" id >>= fun () ->
-           backend # defrag_db () >>= fun () ->
-           response_ok_unit oc)
-    end
-  | CONFIRM ->
-    begin
-      Llio.input_string ic >>= fun key ->
-      Llio.input_string ic >>= fun value ->
-      wrap_exception
-        (fun () ->
-           Logger.debug_f_ "connection=%s CONFIRM: key=%S" id key >>= fun () ->
-           backend # confirm key value >>= fun () ->
-           response_ok_unit oc
-        )
-    end
-  | GET_NURSERY_CFG ->
+    end*)
+  | Protocol.Optimize_db -> handle_exceptions (fun () ->
+      Logger.info_f_ "connection=%s OPT_DB" id >>= fun () ->
+      backend # optimize_db () >>= ok)
+  | Protocol.Defrag_db -> handle_exceptions (fun () ->
+      Logger.info_f_ "connection=%s DEFRAG_DB" id >>= fun () ->
+      backend # defrag_db () >>= ok)
+  | Protocol.Confirm -> handle_exceptions (fun () ->
+      let (key, value) = req in
+      Logger.debug_f_ "connection=%s CONFIRM: key=%S" id key >>= fun () ->
+      backend # confirm key value >>= ok)
+(*  | GET_NURSERY_CFG ->
     begin
       wrap_exception
         (fun () ->
@@ -531,19 +514,11 @@ let handle_command :
            Logger.debug_ "get_fringe all done" >>= fun () ->
            Lwt.return false
         )
-    end
-  | DELETE_PREFIX ->
-    begin
-      wrap_exception
-        ( fun () ->
-           Llio.input_string ic >>= fun prefix ->
-           Logger.debug_f_ "connection=%s DELETE_PREFIX %S" id prefix >>= fun () ->
-           backend # delete_prefix prefix >>= fun n_deleted ->
-           response_ok oc >>= fun () ->
-           Llio.output_int oc n_deleted >>= fun () ->
-           Lwt.return false
-        )
-    end*)
+    end *)
+  | Protocol.Delete_prefix -> handle_exceptions (fun () ->
+      let prefix = req in
+      Logger.debug_f_ "connection=%s DELETE_PREFIX %S" id prefix >>= fun () ->
+      backend # delete_prefix prefix >>= ok)
   | Protocol.Version -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s VERSION" id >>= fun () ->
       let rest = Printf.sprintf "revision: %S\ncompiled: %S\nmachine: %S\n"
@@ -561,16 +536,11 @@ let handle_command :
       wrap_exception
         (fun () -> backend # drop_master () >>= fun () ->
           response_ok_unit oc)
-    end
-  | CURRENT_STATE ->
-    begin
+    end*)
+  | Protocol.Current_state -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s CURRENT_STATE" id >>= fun () ->
       let state = backend # get_current_state () in
-      response_ok oc >>= fun () ->
-      Llio.output_string oc state >>= fun () ->
-      Lwt.return false
-    end
-*)
+      ok state)
 
 let protocol stop backend connection =
   let ic,oc,id = connection in

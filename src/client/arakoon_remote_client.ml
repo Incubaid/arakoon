@@ -60,8 +60,8 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method confirm key value =
-      request  oc (fun buf -> confirm_to buf key value) >>= fun () ->
-      response ic nothing
+      Client.request ic oc Protocol.Confirm (key, value) >>=
+      compat
 
     method aSSert ?(consistency=Consistent) key vo =
       Client.request ic oc Protocol.Assert (consistency, key, vo) >>=
@@ -75,7 +75,9 @@ class remote_client ((ic,oc) as conn) =
       Client.request ic oc Protocol.Delete key >>=
       compat
 
-    method delete_prefix prefix = Common.delete_prefix conn prefix
+    method delete_prefix prefix =
+      Client.request ic oc Protocol.Delete_prefix prefix >>=
+      compat
 
     method range ?(consistency=Consistent) first finc last linc max =
       request oc (fun buf -> range_to buf ~consistency first finc last linc max)
@@ -153,7 +155,9 @@ class remote_client ((ic,oc) as conn) =
       Client.request ic oc Protocol.Version () >>=
       compat
 
-    method current_state () = Common.current_state conn
+    method current_state () =
+      Client.request ic oc Protocol.Current_state () >>=
+      compat
     method nop () =
       Client.request ic oc Protocol.Nop () >>=
       compat
