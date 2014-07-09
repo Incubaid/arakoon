@@ -143,8 +143,8 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method get_key_count () =
-      request  oc (fun buf -> get_key_count_to buf ) >>= fun () ->
-      response ic Llio.input_int64
+      Client.request ic oc Protocol.Get_key_count () >>=
+      compat
 
     method get_cluster_cfgs () =
       Common.get_nursery_cfg conn

@@ -116,6 +116,7 @@ module Protocol = struct
           | Result : 'a t -> ('a Result.t) t
           | Consistency : Arakoon_client.consistency t
           | Bool : bool t
+          | Int64 : int64 t
 
         let from_channel =
             let rec loop : type a. Lwt_io.input_channel -> a t -> a Lwt.t = fun ic -> function
@@ -140,6 +141,7 @@ module Protocol = struct
                     | false -> Lwt.return None
                     | true -> loop ic t >>= fun v -> Lwt.return (Some v)
               end
+              | Int64 -> Llio.input_int64 ic
             in
             loop
 
@@ -162,9 +164,11 @@ module Protocol = struct
                   | Result a' -> Result.to_channel (fun oc' a'' -> loop oc' a' a'') oc a
                   | Consistency -> Common.output_consistency oc a
                   | Bool -> Llio.output_bool oc a
-                  | Option t -> match a with
+                  | Option t -> begin match a with
                       | None -> Llio.output_bool oc false
                       | Some v -> Llio.output_bool oc true >>= fun () -> loop oc t v
+                  end
+                  | Int64 -> Llio.output_int64 oc a
             in
             loop
     end
@@ -180,6 +184,7 @@ module Protocol = struct
       | Expect_progress_possible : (unit, bool Result.t) t
       | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
+      | Get_key_count : (unit, int64 Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
       | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
@@ -199,6 +204,7 @@ module Protocol = struct
           | Expect_progress_possible -> Unit, Result Bool
           | User_function -> Tuple2 (String, Option String), Result (Option String)
           | Assert -> Tuple3 (Consistency, String, Option String), Result Unit
+          | Get_key_count -> Unit, Result Int64
           | Assert_exists -> Tuple2 (Consistency, String), Result Unit
           | Replace -> Tuple2 (String, Option String), Result (Option String)
           | Nop -> Unit, Result Unit
@@ -238,6 +244,7 @@ module Protocol = struct
                       ; Some_t Expect_progress_possible, 0x12l
                       ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
+                      ; Some_t Get_key_count, 0x1al
                       ; Some_t Assert_exists, 0x29l
                       ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l

@@ -439,16 +439,12 @@ let handle_command :
           Logger.info_f_ "connection=%s SET_ROUTING_DELTA: left=%S sep=%S right=%S" id left sep right >>= fun () ->
           backend # set_routing_delta left sep right >>= fun () ->
           response_ok_unit oc )
-    end
-  | GET_KEY_COUNT ->
-    begin
-      wrap_exception
-        (fun() ->
-           Logger.debug_f_ "connection=%s GET_KEY_COUNT" id >>= fun () ->
-           let kc = backend # get_key_count () in
-           response_ok_int64 oc kc)
-    end
-  | GET_DB ->
+    end*)
+  | Protocol.Get_key_count -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s GET_KEY_COUNT" id >>= fun () ->
+      let kc = backend # get_key_count () in
+      ok kc)
+(*  | GET_DB ->
     begin
       wrap_exception
         (fun() ->
