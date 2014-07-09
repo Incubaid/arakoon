@@ -33,29 +33,6 @@ let section =
 
 let read_command (_,_) = failwith "Gone"
 
-let response_ok oc =
-  Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_OK)
-
-let response_ok_unit oc =
-  Logger.debug_ "ok_unit back to client" >>= fun () ->
-  response_ok oc >>= fun () ->
-  Lwt.return false
-
-let response_ok_int64 oc i64 =
-  response_ok oc >>= fun () ->
-  Llio.output_int64 oc i64 >>= fun () ->
-  Lwt.return false
-
-let response_ok_string oc string =
-  response_ok oc >>= fun () ->
-  Llio.output_string oc string >>= fun () ->
-  Lwt.return false
-
-let response_ok_bool oc b =
-  response_ok oc >>= fun () ->
-  Llio.output_bool oc b >>= fun () ->
-  Lwt.return false
-
 let handle_exceptions f =
     Lwt.catch
       (fun () ->
@@ -106,11 +83,11 @@ let handle_exceptions f =
             | Not_found ->
                 Lwt.return (Result.Not_found "Not_found", false, Logger.Debug)
             | Server.FOOBAR ->
-                Lwt.return (Result.Unknown_failure "unkown failure", true, Logger.Error)
+                Lwt.return (Result.Unknown_failure "unknown failure", true, Logger.Error)
             | Canceled ->
                 Lwt.fail Canceled
             | _ ->
-                Lwt.return (Result.unknown_failure "unknown failure", true, Logger.Error)
+                Lwt.return (Result.Unknown_failure "unknown failure", true, Logger.Error)
           end >>= fun (res, death, level) ->
           Logger.log_ section level (fun () ->
               Printf.sprintf
@@ -147,7 +124,7 @@ let decode_sequence ic =
                                      "should have been a sequence"))
   end
 
-let handle_sequence ~sync ic oc backend =
+(*let handle_sequence ~sync ic oc backend =
   begin
     Lwt.catch
       (fun () ->
@@ -159,7 +136,7 @@ let handle_sequence ~sync ic oc backend =
       ( Lwt.fail) (*handle_exception oc )*)
 
   end
-
+*)
 open Arakoon_protocol
 
 let ok v = Lwt.return (Result.Ok v)
@@ -202,14 +179,10 @@ let handle_command :
   | Protocol.Nop -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
       backend # nop () >>= ok)
-(*  | GET_TXID ->
-     begin
-       Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
-       let txid = backend # get_txid () in
-       response_ok oc >>= fun () ->
-       Common.output_consistency oc txid >>= fun () ->
-       Lwt.return false
-     end*)
+  | Protocol.Get_txid -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
+      let txid = backend # get_txid () in
+      ok txid)
   | Protocol.Delete -> handle_exceptions (fun () ->
       let (key : string) = req in
       Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
@@ -288,26 +261,15 @@ let handle_command :
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
       let m = backend # who_master () in
       ok m)
-(*  | EXPECT_PROGRESS_POSSIBLE ->
-    begin
+  | Protocol.Expect_progress_possible -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s EXPECT_PROGRESS_POSSIBLE" id >>= fun () ->
       let poss = backend # expect_progress_possible () in
-      response_ok_bool oc poss
-    end
-  | TEST_AND_SET ->
-     begin
-       wrap_exception
-         (fun () ->
-          Llio.input_string ic >>= fun key ->
-          Llio.input_string_option ic >>= fun expected ->
-          Llio.input_string_option ic >>= fun wanted ->
-          Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
-          backend # test_and_set key expected wanted >>= fun vo ->
-          response_ok oc >>= fun () ->
-          Llio.output_string_option oc vo >>= fun () ->
-          Lwt.return false)
-     end
-  | REPLACE ->
+      ok poss)
+  | Protocol.Test_and_set -> handle_exceptions (fun () ->
+      let (key, expected, wanted) = req in
+      Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
+      backend # test_and_set key expected wanted >>= ok)
+(*  | REPLACE ->
      begin
        wrap_exception
          (fun () ->

@@ -97,8 +97,8 @@ class remote_client ((ic,oc) as conn) =
       response ic Llio.input_string_list
 
     method test_and_set key expected wanted =
-      request  oc (fun buf -> test_and_set_to buf key expected wanted) >>= fun () ->
-      response ic Llio.input_string_option
+      Client.request ic oc Protocol.Test_and_set (key, expected, wanted) >>=
+      compat
 
     method replace key wanted =
       request oc (fun buf -> replace_to buf key wanted) >>= fun () ->
@@ -127,8 +127,8 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method expect_progress_possible () =
-      request  oc (fun buf -> expect_progress_possible_to buf) >>= fun () ->
-      response ic Llio.input_bool
+      Client.request ic oc Protocol.Expect_progress_possible () >>=
+      compat
 
     method statistics () =
       request oc (fun buf -> command_to buf STATISTICS) >>= fun () ->
@@ -156,7 +156,9 @@ class remote_client ((ic,oc) as conn) =
     method nop () =
       Client.request ic oc Protocol.Nop () >>=
       compat
-    method get_txid () = Common.get_txid conn
+    method get_txid () =
+      Client.request ic oc Protocol.Get_txid () >>=
+      compat
 
 end: Arakoon_client.client )
 
