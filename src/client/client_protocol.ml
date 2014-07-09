@@ -31,8 +31,6 @@ let section =
   let () = Logger.Section.set_level s Logger.Debug in
   s
 
-let read_command (_,_) = failwith "Gone"
-
 let handle_exceptions f =
     Lwt.catch
       (fun () ->
@@ -269,35 +267,15 @@ let handle_command :
       let (key, expected, wanted) = req in
       Logger.debug_f_ "connection=%s TEST_AND_SET: key=%S" id key >>= fun () ->
       backend # test_and_set key expected wanted >>= ok)
-(*  | REPLACE ->
-     begin
-       wrap_exception
-         (fun () ->
-          Llio.input_string ic >>= fun key ->
-          Llio.input_string_option ic >>= fun wanted ->
-          Logger.debug_f_ "connection=%s REPLACE: key=%S" id key >>= fun () ->
-          backend # replace key wanted >>= fun vo ->
-          response_ok oc >>= fun () ->
-          Llio.output_string_option oc vo >>= fun () ->
-          Lwt.return false)
-     end
-  | USER_FUNCTION ->
-    begin
-      Llio.input_string ic >>= fun name ->
-      Llio.input_string_option ic >>= fun po ->
-      Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name
-      >>= fun () ->
-      wrap_exception
-        (fun () ->
-           begin
-             backend # user_function name po >>= fun ro ->
-             response_ok oc >>= fun () ->
-             Llio.output_string_option oc ro >>= fun () ->
-             Lwt.return false
-           end
-        )
-    end
-  | PREFIX_KEYS ->
+  | Protocol.Replace -> handle_exceptions (fun () ->
+      let (key, wanted) = req in
+      Logger.debug_f_ "connection=%s REPLACE: key=%S" id key >>= fun () ->
+      backend # replace key wanted >>= ok)
+  | Protocol.User_function -> handle_exceptions (fun () ->
+      let (name, po) = req in
+      Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name >>= fun () ->
+      backend # user_function name po >>= ok)
+(*  | PREFIX_KEYS ->
     begin
       Common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic >>= fun key ->

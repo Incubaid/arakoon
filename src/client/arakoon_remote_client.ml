@@ -101,12 +101,12 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method replace key wanted =
-      request oc (fun buf -> replace_to buf key wanted) >>= fun () ->
-      response ic Llio.input_string_option
+      Client.request ic oc Protocol.Replace (key, wanted) >>=
+      compat
 
     method user_function name po =
-      request  oc (fun buf -> user_function_to buf name po) >>= fun () ->
-      response ic Llio.input_string_option
+      Client.request ic oc Protocol.User_function (name, po) >>=
+      compat
 
     method multi_get ?(consistency=Consistent) keys =
       request  oc (fun buf -> multiget_to buf ~consistency keys) >>= fun () ->

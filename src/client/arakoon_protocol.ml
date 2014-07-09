@@ -115,8 +115,10 @@ module Protocol = struct
       | Delete : (string, unit Result.t) t
       | Test_and_set : ((string * string option * string option), string option Result.t) t
       | Expect_progress_possible : (unit, bool Result.t) t
+      | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
+      | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
       | Flush_store : (unit, unit Result.t) t
       | Get_txid : (unit, Arakoon_client.consistency Result.t) t
@@ -152,8 +154,10 @@ module Protocol = struct
                       ; Some_t Delete, 0x0al
                       ; Some_t Test_and_set, 0x0dl
                       ; Some_t Expect_progress_possible, 0x12l
+                      ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
                       ; Some_t Assert_exists, 0x29l
+                      ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l
                       ; Some_t Flush_store, 0x42l
                       ; Some_t Get_txid, 0x43l
@@ -243,6 +247,18 @@ module Protocol = struct
           and res_from_channel = Result.from_channel Llio.input_bool in
           Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
       end
+      | User_function -> begin
+          let req_to_channel oc (n, a) =
+              Llio.output_string oc n >>= fun () ->
+              Llio.output_string_option oc a
+          and req_from_channel ic =
+              Llio.input_string ic >>= fun n ->
+              Llio.input_string_option ic >>= fun a ->
+              Lwt.return (n, a)
+          and res_to_channel = Result.to_channel Llio.output_string_option
+          and res_from_channel = Result.from_channel Llio.input_string_option in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
       | Assert -> begin
           let req_to_channel oc (c, k, vo) =
               Common.output_consistency oc c >>= fun () ->
@@ -267,6 +283,18 @@ module Protocol = struct
               Lwt.return (c, k)
           and res_to_channel = Result.to_channel (fun _ () -> Lwt.return ())
           and res_from_channel = Result.from_channel (fun _ -> Lwt.return ()) in
+          Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
+      end
+      | Replace -> begin
+          let req_to_channel oc (k, w) =
+              Llio.output_string oc k >>= fun () ->
+              Llio.output_string_option oc w
+          and req_from_channel ic =
+              Llio.input_string ic >>= fun k ->
+              Llio.input_string_option ic >>= fun w ->
+              Lwt.return (k, w)
+          and res_to_channel = Result.to_channel Llio.output_string_option
+          and res_from_channel = Result.from_channel Llio.input_string_option in
           Rpc.IO.({ req_to_channel; req_from_channel; res_to_channel; res_from_channel })
       end
       | Nop -> begin
