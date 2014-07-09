@@ -55,24 +55,28 @@ end= struct
 end
 
 module Server = struct
-    type 'a result = Continue of 'a
-                   | Close of 'a
-                   | Die
+    module Result = struct
+        type 'a t = Continue of 'a
+                  | Close of 'a
+                  | Die
+
+        let map f = function
+          | Continue v -> Continue (f v)
+          | Close v -> Close (f v)
+          | Die -> Die
+    end
 
     module Make(P : sig
         include Protocol
 
-        val handle : ('req, 'res) t -> 'req -> 'res result Lwt.t
+        val handle : ('req, 'res) t -> 'req -> 'res Result.t Lwt.t
+        val handle_unknown_tag : Lwt_io.input_channel -> Lwt_io.output_channel -> tag -> unit Result.t Lwt.t
     end) : sig
-        exception Unknown_tag of P.tag
-
         val session :  Lwt_io.input_channel
                     -> Lwt_io.output_channel
                     -> unit Lwt.t
     end = struct
         open Lwt
-
-        exception Unknown_tag of P.tag
 
         module M = Map.Make(struct type t = P.tag let compare = compare end)
         let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.command_map
@@ -90,24 +94,27 @@ module Server = struct
                 P.Type.from_channel ic req >>= fun req' ->
                 P.handle cmd req' >>= fun res' ->
                 match res' with
-                  | Continue r
-                  | Close r ->
+                  | Result.Continue r
+                  | Result.Close r ->
                       P.Type.to_channel oc res r >>= fun () ->
                       Lwt_io.flush oc >>= fun () ->
                       Lwt.return res'
-                  | Die -> Lwt.return res'
+                  | Result.Die -> Lwt.return res'
             in
 
             let rec loop () =
                 P.tag_from_channel ic >>= fun tag ->
-                match lookup tag with
-                  | None -> (* TODO Send to client *) Lwt.fail (Unknown_tag tag)
-                  | Some (P.Some_t c) -> begin
-                      go c >>= function
-                        | Continue _ -> loop ()
-                        | Close _
-                        | Die -> Lwt.return ()
+                begin match lookup tag with
+                  | None -> begin
+                      P.handle_unknown_tag ic oc tag
                   end
+                  | Some (P.Some_t c) -> begin
+                      go c >>= fun r -> Lwt.return (Result.map (fun _ -> ()) r)
+                  end
+                end>>= function
+                  | Result.Continue _ -> loop ()
+                  | Result.Close _
+                  | Result.Die -> Lwt.return ()
             in
             loop ()
     end

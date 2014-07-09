@@ -35,7 +35,7 @@ let handle_exceptions f =
     Lwt.catch
       (fun () ->
           f () >>= fun r ->
-          Lwt.return (Rpc.Server.Continue r))
+          Lwt.return (Rpc.Server.Result.Continue r))
       (fun exn ->
           let open Arakoon_protocol in
           begin match exn with
@@ -93,8 +93,8 @@ let handle_exceptions f =
                   (Printexc.to_string exn)
                   (Arakoon_protocol.Result.to_string (fun _ -> "...") res)) >>= fun () ->
           if not death
-              then Lwt.return (Rpc.Server.Continue res)
-              else Lwt.return (Rpc.Server.Close res))
+              then Lwt.return (Rpc.Server.Result.Continue res)
+              else Lwt.return (Rpc.Server.Result.Close res))
 
 let decode_sequence ic =
   begin
@@ -140,7 +140,7 @@ open Arakoon_protocol
 let ok v = Lwt.return (Result.Ok v)
 
 let handle_command :
-  type r s. Backend.backend -> string -> (r, s) Protocol.t -> r -> s Rpc.Server.result Lwt.t =
+  type r s. Backend.backend -> string -> (r, s) Protocol.t -> r -> s Rpc.Server.Result.t Lwt.t =
   fun backend id cmd req ->
   match cmd with
   | Protocol.Ping -> handle_exceptions (fun () ->
@@ -445,15 +445,6 @@ let handle_command :
       Logger.debug_f_ "connection=%s GET_KEY_COUNT" id >>= fun () ->
       let kc = backend # get_key_count () in
       ok kc)
-(*  | GET_DB ->
-    begin
-      wrap_exception
-        (fun() ->
-           Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
-           backend # get_db (Some oc) >>= fun () ->
-           Lwt.return false
-        )
-    end*)
   | Protocol.Optimize_db -> handle_exceptions (fun () ->
       Logger.info_f_ "connection=%s OPT_DB" id >>= fun () ->
       backend # optimize_db () >>= ok)
@@ -566,14 +557,27 @@ let protocol stop backend connection =
   let module H = struct
     include Protocol
 
-    let handle : type r s. (r, s) t -> r -> s Rpc.Server.result Lwt.t = fun cmd req ->
+    let handle : type r s. (r, s) t -> r -> s Rpc.Server.Result.t Lwt.t = fun cmd req ->
         if !stop
         then begin
             Logger.debug_ "Leaving client loop" >>= fun () ->
-            Lwt.return Rpc.Server.Die
+            Lwt.return Rpc.Server.Result.Die
         end
         else
             handle_command backend id cmd req
+
+    let handle_unknown_tag _ oc = function
+      | 0x1bl -> (* TODO handle_exceptions (fun () -> *)
+          Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
+          backend # get_db (Some oc) >>= fun () ->
+          Lwt.return (Rpc.Server.Result.Continue ())
+      | tag -> begin
+          let m = Printf.sprintf "%lx: command not found" tag in
+          let r = Result.Not_found m in
+          Result.to_channel (fun _ _ -> Lwt.fail (Failure "Can't happen")) oc r >>= fun () ->
+          Lwt.return (Rpc.Server.Result.Die)
+      end
+
   end in
 
   let module S = Rpc.Server.Make(H) in
