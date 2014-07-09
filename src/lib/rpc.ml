@@ -1,11 +1,3 @@
-module IO = struct
-    type ('req, 'res) t = { req_from_channel : Lwt_io.input_channel -> 'req Lwt.t
-                          ; req_to_channel : Lwt_io.output_channel -> 'req -> unit Lwt.t
-                          ; res_from_channel : Lwt_io.input_channel -> 'res Lwt.t
-                          ; res_to_channel : Lwt_io.output_channel -> 'res -> unit Lwt.t
-                          }
-end
-
 module type Protocol = sig
     type ('req, 'res) t
 
@@ -17,7 +9,14 @@ module type Protocol = sig
 
     val command_map : (some_t * tag) list
 
-    val io_for_command : ('req, 'res) t -> ('req, 'res) IO.t
+    module SerDes : sig
+        type 'a t
+
+        val from_channel : Lwt_io.input_channel -> 'a t -> 'a Lwt.t
+        val to_channel : Lwt_io.output_channel -> 'a t -> 'a -> unit Lwt.t
+    end
+
+    val serdes : ('req, 'res) t -> ('req SerDes.t * 'res SerDes.t)
 end
 
 module Client(Protocol : Protocol) : sig
@@ -47,11 +46,11 @@ end= struct
         match lookup (Protocol.Some_t cmd) with
           | None -> Lwt.fail (Unknown_command (Protocol.Some_t cmd))
           | Some tag -> begin
-              let io = Protocol.io_for_command cmd in
+              let (req, res) = Protocol.serdes cmd in
               Protocol.tag_to_channel oc tag >>= fun () ->
-              io.IO.req_to_channel oc r >>= fun () ->
+              Protocol.SerDes.to_channel oc req r >>= fun () ->
               Lwt_io.flush oc >>= fun () ->
-              io.IO.res_from_channel ic
+              Protocol.SerDes.from_channel ic res
           end
 end
 
@@ -87,16 +86,16 @@ module Server = struct
 
         let session ic oc =
             let go  cmd =
-                let io = P.io_for_command cmd in
-                io.IO.req_from_channel ic >>= fun req ->
-                P.handle cmd req >>= fun res ->
-                match res with
+                let (req, res) = P.serdes cmd in
+                P.SerDes.from_channel ic req >>= fun req' ->
+                P.handle cmd req' >>= fun res' ->
+                match res' with
                   | Continue r
                   | Close r ->
-                      io.IO.res_to_channel oc r >>= fun () ->
+                      P.SerDes.to_channel oc res r >>= fun () ->
                       Lwt_io.flush oc >>= fun () ->
-                      Lwt.return res
-                  | Die -> Lwt.return res
+                      Lwt.return res'
+                  | Die -> Lwt.return res'
             in
 
             let rec loop () =
