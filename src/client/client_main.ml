@@ -50,8 +50,6 @@ end = struct
     let protocol t = t.protocol
 end
 
-let _address_to_use ips port = make_address (List.hd ips) port
-
 let with_connection ~tls sa do_it = match tls with
   | None -> Lwt_io.with_connection sa do_it
   | Some tls_config ->
@@ -71,24 +69,58 @@ let with_connection ~tls sa do_it = match tls with
     Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
     let ic = Lwt_ssl.in_channel_of_descr sock
     and oc = Lwt_ssl.out_channel_of_descr sock in
+    Lwt.finalize
+      (fun () -> do_it (ic, oc))
+      (fun () -> Lwt_ssl.close sock)
+
+exception In_progress
+exception Done
+exception Unknown_error
+
+let with_connection' ~tls addrs f =
+  let m = ref None
+  and e = Lwt_mvar.create None
+  and l = Lwt_mutex.create () in
+
+  let f' addr =
     Lwt.catch
       (fun () ->
-        do_it (ic, oc) >>= fun r ->
-        Lwt_ssl.close sock >>= fun () ->
-        Lwt.return r)
-      (fun exc ->
-        Lwt_ssl.close sock >>= fun () ->
-        Lwt.fail exc)
+        with_connection ~tls addr (fun c ->
+          if Lwt_mutex.is_locked l
+            then Lwt.fail In_progress
+            else begin
+              Lwt_mutex.with_lock l (fun () ->
+              match !m with
+                | Some _ -> Lwt.fail Done
+                | None -> begin
+                    f addr c >>= fun v ->
+                    m := Some v;
+                    Lwt.return ()
+                end)
+            end))
+      (fun exn ->
+        Lwt_mvar.take e >>= function
+          | Some _ as v -> Lwt_mvar.put e v
+          | None -> Lwt_mvar.put e (Some exn))
+  in
+
+  let ts = List.map f' addrs in
+  Lwt.join ts >>= fun () ->
+  match !m with
+    | Some v -> Lwt.return v
+    | None -> Lwt_mvar.take e >>= function
+        | None -> Lwt.fail Unknown_error
+        | Some exn -> Lwt.fail exn
 
 
 let with_client ~tls node_cfg (cluster:string) f =
-  let sa = _address_to_use node_cfg.ips node_cfg.client_port in
-  let do_it connection =
+  let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
+  let do_it _ connection =
     Arakoon_remote_client.make_remote_client cluster connection
     >>= fun (client: Arakoon_client.client) ->
     f client
   in
-  with_connection ~tls sa do_it
+  with_connection' ~tls addrs do_it
 
 let ping ~tls ip port cluster_id =
   let do_it connection =
@@ -163,11 +195,11 @@ let find_master' ~tls cluster_cfg =
     end
     | (cfg :: rest) -> begin
         Logger.debug_f_ "Client_main.find_master': Trying %S" cfg.node_name >>= fun () ->
-        let addr = _address_to_use cfg.ips cfg.client_port in
+        let addrs = List.map (fun ip -> make_address ip cfg.client_port) cfg.ips in
         Lwt.catch
           (fun () ->
-            with_connection ~tls addr
-              (fun connection ->
+            with_connection' ~tls addrs
+              (fun _ connection ->
                 Arakoon_remote_client.make_remote_client
                   cluster_cfg.cluster_id connection >>= fun client ->
                 client # who_master ()) >>= function
