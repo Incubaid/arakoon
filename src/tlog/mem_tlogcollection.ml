@@ -72,6 +72,7 @@ object (self: #tlog_collection)
 
   method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
 
+  method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
   method log_value_explicit i (v:Value.t) _sync marker =
     let entry = Entry.make i v 0L marker in

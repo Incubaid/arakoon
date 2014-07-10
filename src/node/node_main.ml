@@ -113,7 +113,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
         let (_, btc') =
           try
             List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-          with exn -> let () = ignore exn in 
+          with exn -> let () = ignore exn in
           failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
         set_max btc'.max_entries btc'.max_size
 
@@ -198,6 +198,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
          me.tlog_dir me.tlf_dir me.head_dir
          me.use_compression me.fsync name >>= fun tlc ->
        Catchup.catchup me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+                       ~stop:(ref false)
                        ((module S),store,tlc) mr_name >>= fun _ ->
        S.close store ~flush:false ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
@@ -445,11 +446,10 @@ let _main_2 (type s)
           make_tlog_coll me.tlog_dir me.tlf_dir me.head_dir me.use_compression me.fsync name
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           S.make_store db_name >>= fun (store:S.t) ->
-          Catchup.verify_n_catchup_store me.node_name
+          Catchup.verify_n_catchup_store me.node_name ~stop:(ref false)
             ((module S), store, tlog_coll)
             ~apply_last_tlog_value:(n_nodes = 1) >>= fun () ->
 	      let new_i = S.get_succ_store_i store in
-	      let vo = tlog_coll # get_last_value new_i in
               S.clear_self_master store me.node_name;
 	      let client_buffer =
 	        let capacity = Some (cluster_cfg.client_buffer_capacity) in
@@ -477,7 +477,7 @@ let _main_2 (type s)
 	      let backend = (sb :> Backend.backend) in
 	      let service = _config_service me stop backend in
 
-	      let send, receive, _run, _register =
+	      let send, _receive, _run, _register =
 	        Multi_paxos.network_of_messaging messaging in
 
 	      let on_consensus = X.on_consensus (module S) store in
@@ -518,7 +518,7 @@ let _main_2 (type s)
 	      let constants =
 	        Multi_paxos.make my_name
 	          me.is_learner
-	          other_names send receive
+	          other_names send
 	          get_last_value
 	          on_accept
               on_consensus
@@ -534,9 +534,10 @@ let _main_2 (type s)
               inject_event
 	          ~cluster_id
               false
+              (ref false)
 	      in
 	      let reporting_period = me.reporting in
-	      Lwt.return ((master,constants, buffers, new_i, vo, store),
+	      Lwt.return ((master,constants, buffers, new_i, store),
 		              service, X.reporting reporting_period backend, stop)
 	    end
 
@@ -547,7 +548,7 @@ let _main_2 (type s)
       let unlock_killswitch (_:int) = Lwt_mutex.unlock killswitch in
       let listen_for_signal () = Lwt_mutex.lock killswitch in
 
-      let start_backend (master, constants, buffers, new_i, vo, _store) =
+      let start_backend (master, constants, buffers, new_i) =
 	    let to_run =
 	      match master with
 	        | Forced master  ->
@@ -561,7 +562,7 @@ let _main_2 (type s)
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in
-        to_run constants buffers new_i vo
+        to_run ~stop:(ref false) constants buffers new_i
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -572,14 +573,14 @@ let _main_2 (type s)
                                           service,
                                           rapporting,
                                           stop) ->
-          let (_,constants,_,_,_,store) = start_state in
+          let (master, constants, buffers, new_i, store) = start_state in
           let log_exception m t =
             Lwt.catch
               t
               (fun exn ->
                 Logger.fatal_ ~exn m >>= fun () ->
                 Lwt.fail exn) in
-          let fsm () = start_backend start_state in
+          let fsm () = start_backend (master, constants, buffers, new_i) in
           let fsm_mutex = Lwt_mutex.create () in
           let fsm_t =
             log_exception

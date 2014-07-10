@@ -699,6 +699,24 @@ object(self: # tlog_collection)
     get_tlog_names tlog_dir tlf_dir >>= fun tlogs ->
     Lwt.return (List.length tlogs)
 
+  method which_tlog_file (start_i : Sn.t) =
+    let n = Sn.to_int (get_file_number start_i) in
+    let an = archive_name n
+    and fn = file_name n
+    in
+    let an_c = get_full_path tlog_dir tlf_dir an in
+    let fn_c = get_full_path tlog_dir tlf_dir fn
+    in
+    let rec loop = function
+      | []     -> Lwt.return None
+      | x::xs  -> File_system.exists x >>=
+                    (function
+                      | true -> Lwt.return (Some x)
+                      | false -> loop xs)
+    in
+    loop [an_c;fn_c]
+
+
   method dump_tlog_file start_i oc =
     let n = Sn.to_int (get_file_number start_i) in
     let an = archive_name n in

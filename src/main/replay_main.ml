@@ -55,13 +55,13 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
           then
             let acc = ref None in
             let log_i pi = maybe_log_i start_i too_far_i pi in
-            let f = Catchup.make_f (module S) db_name log_i acc store in
+            let f = Catchup.make_f (module S) db_name log_i acc store ~stop:(ref false) in
             Tlc2.iterate_tlog_dir tlog_dir tlf_dir ~index:None
               start_i
               too_far_i
               f
              >>= fun () ->
-            Catchup.epilogue (module S) acc store >>= fun () ->
+            Catchup.epilogue (module S) db_name acc store >>= fun () ->
             S.close store
           else
             console "nothing to do"
@@ -76,5 +76,3 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
       )
   in
   Lwt_main.run (t())
-
-

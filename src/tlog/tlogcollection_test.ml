@@ -105,7 +105,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
 let test_get_value_bug (dn, _tlf_dir, factory) =
   Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun c0 ->
-  let v0 = Value.create_master_value ("XXXX",0L) in
+  let v0 = Value.create_master_value ("XXXX",0.) in
   c0 # log_value 0L v0 >>= fun _wr_result ->
   c0 # close () >>= fun () ->
   factory dn "node_name" >>= fun c1 ->
@@ -238,7 +238,7 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
       | TLogUnexpectedEndOfFile _pos ->
           Lwt.return ()
       | exn ->
-          let () = ignore exn in 
+          let () = ignore exn in
           let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
           OUnit.assert_bool msg false;
           Lwt.return ()
@@ -258,6 +258,3 @@ let suite_mem = "mem_tlogcollection" >::: [
     (* assumption that different tlog_collections with the same name have the same state *)
 *)
 ]
-
-
-

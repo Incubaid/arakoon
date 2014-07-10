@@ -28,7 +28,7 @@ module Update = struct
   type t =
     | Set of string * string
     | Delete of string
-    | MasterSet of string * int64
+    | MasterSet of string * float
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | SetInterval of Interval.t
@@ -39,29 +39,29 @@ module Update = struct
     | Assert_exists of string
     | UserFunction of string * string option
     | AdminSet of string * string option
-    | SyncedSequence of t list 
+    | SyncedSequence of t list
     | DeletePrefix of string
 
   let make_master_set me maybe_lease =
     match maybe_lease with
-      | None -> MasterSet (me,0L)
+      | None -> MasterSet (me,0.0)
       | Some lease -> MasterSet (me,lease)
 
   let _size_of = function
     | None -> 0
     | Some w -> String.length w
 
-  let update2s ?(values=false) u = 
-    let maybe s = if values then s else "..." 
-    and maybe_o = function 
+  let update2s ?(values=false) u =
+    let maybe s = if values then s else "..."
+    and maybe_o = function
       | None -> "None"
-      | Some s -> if values then s else "..." 
-    in 
+      | Some s -> if values then s else "..."
+    in
     let rec _inner = function
       | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i;%S" k (String.length v) (maybe v)
       | Delete k                  -> Printf.sprintf "Delete         ;%S" k
-      | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%Ld" m i
-      | TestAndSet (k, _, wo) -> 
+      | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%f" m i
+      | TestAndSet (k, _, wo) ->
         let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i;%S" k ws (maybe_o wo)
       | Sequence updates ->
         let buf = Buffer.create (64 * List.length updates) in
@@ -90,9 +90,9 @@ module Update = struct
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
     in
     _inner u
-  
+
   let rec to_buffer b t =
-    let _us_to b us = 
+    let _us_to b us =
       Llio.int_to b (List.length us);
       let f = to_buffer b in
       List.iter f us
@@ -113,11 +113,11 @@ module Update = struct
       | MasterSet (m,i) ->
 	    Llio.int_to    b 4;
 	    Llio.string_to b m;
-	    Llio.int64_to b i
+	    Llio.int64_to b (Int64.of_float i)
       | Sequence us ->
 	    Llio.int_to b 5;
         _us_to b us
-      | Nop -> 
+      | Nop ->
 	    Llio.int_to b 6
       | UserFunction (name, param) ->
 	    Llio.int_to b 7;
@@ -155,11 +155,11 @@ module Update = struct
 
   let rec from_buffer b pos =
     let kind, pos1 = Llio.int_from b pos in
-    let _us_from b pos = 
+    let _us_from b pos =
       let n,pos2 = Llio.int_from b pos in
       let rec loop i acc pos=
-        if i = n 
-        then 
+        if i = n
+        then
           (List.rev acc), pos
         else
           let u, next_pos = from_buffer b pos in
@@ -167,11 +167,11 @@ module Update = struct
       loop 0 [] pos2
     in
     match kind with
-      | 1 -> 
+      | 1 ->
         let k,pos2 = Llio.string_from b pos1 in
         let v,pos3 = Llio.string_from b pos2 in
         Set(k,v), pos3
-      | 2 -> 
+      | 2 ->
         let k, pos2 = Llio.string_from b pos1 in
 		    Delete k, pos2
       | 3 ->
@@ -179,10 +179,10 @@ module Update = struct
         let e, pos3 = Llio.string_option_from b pos2 in
         let w, pos4 = Llio.string_option_from b pos3 in
         TestAndSet(k,e,w), pos4
-      | 4 -> 
+      | 4 ->
         let m,pos2 = Llio.string_from b pos1 in
         let i,pos3 = Llio.int64_from b pos2 in
-        MasterSet (m,i), pos3
+        MasterSet (m,(Int64.to_float i)), pos3
       | 5 ->
         let us, pos2 = _us_from b pos1 in
         Sequence us, pos2
@@ -200,7 +200,7 @@ module Update = struct
         let k,pos2 = Llio.string_from b pos1 in
         let vo, pos3 = Llio.string_option_from b pos2 in
         AdminSet(k,vo), pos3
-      | 10 -> 
+      | 10 ->
 	    let interval,pos2 = Interval.interval_from b pos1 in
 	    SetInterval interval, pos2
       | 11 ->
