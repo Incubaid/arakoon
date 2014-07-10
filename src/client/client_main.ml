@@ -73,63 +73,90 @@ let with_connection ~tls sa do_it = match tls with
       (fun () -> do_it (ic, oc))
       (fun () -> Lwt_ssl.close sock)
 
-exception Impossible of string
+
+module Countdown = struct
+    type t = { mvar : int Lwt_mvar.t
+             ; condition : unit Lwt_condition.t
+             ; mutex : Lwt_mutex.t
+             }
+
+    let create ~count =
+        let mvar = Lwt_mvar.create count
+        and condition = Lwt_condition.create ()
+        and mutex = Lwt_mutex.create () in
+        { mvar; condition; mutex }
+
+    let peek_mvar m =
+        Lwt.protected (
+            Lwt_mvar.take m >>= fun v ->
+            Lwt_mvar.put m v >>= fun () ->
+            Lwt.return v)
+
+    let wait t =
+        Lwt_mutex.with_lock t.mutex (fun () ->
+            peek_mvar t.mvar >>= function
+              | 0 -> Lwt.return ()
+              | _ -> begin
+                  let mutex = t.mutex in
+                  Lwt_condition.wait ~mutex t.condition
+              end)
+
+    let decr t =
+        Lwt_mutex.with_lock t.mutex (fun () ->
+            Lwt.protected (
+                Lwt_mvar.take t.mvar >>= fun c ->
+                let c' = max (c - 1) 0 in
+                Lwt_mvar.put t.mvar c' >>= fun () ->
+                if c' = 0
+                    then Lwt_condition.broadcast t.condition ()
+                    else ();
+                Lwt.return ()))
+end
+
+
+exception No_connection
 
 let with_connection' ~tls addrs f =
-  (* Final result:
-   *
-   * - `Empty: No connection succeeded
-   * - `Success of 'a: One connection succeeded and `f` returned a value
-   * - `Failure of exn: One connection succeeded and `f` raised an exception
-   *)
-  let result = Lwt_mvar.create `Empty
-  (* Filled in by the first connection failure
-   * Ignored when `result` is not `Empty
-   *)
-  and error = Lwt_mvar.create None
-  and l = Lwt_mutex.create () in
+  let cnt = List.length addrs in
+  let res = Lwt_mvar.create_empty () in
+  let l = Lwt_mutex.create () in
+  let cd = Countdown.create ~count:cnt in
 
   let f' addr =
     Lwt.catch
       (fun () ->
         with_connection ~tls addr (fun c ->
           if Lwt_mutex.is_locked l
-            then (* Other connection made & `f` running *)
-              Lwt.return_unit
-            else (* Maybe nobody else is running *)
-              Lwt_mutex.with_lock l (fun () ->
-                Lwt_mvar.take result >>= function
-                  | `Success _ as r ->
-                      (* `f` already executed *)
-                      Lwt_mvar.put result r
-                  | `Failure _ as r ->
-                      (* `f` already executed *)
-                      Lwt_mvar.put result r
-                  | `Empty -> begin
-                      Lwt.catch
-                        (fun () ->
-                          f addr c >>= fun v ->
-                          Lwt_mvar.put result (`Success v))
-                        (fun exn ->
-                          Lwt_mvar.put result (`Failure exn))
-                  end)))
+          then Lwt.return ()
+          else
+          Lwt_mutex.lock l >>= fun () ->
+          Lwt.catch
+            (fun () -> f addr c >>= fun v -> Lwt_mvar.put res (`Success v))
+            (fun exn -> Lwt_mvar.put res (`Failure exn))))
       (fun exn ->
-        (* Put `exn` in `error`, unless an exception was registered already *)
-        Lwt_mvar.take error >>= function
-          | Some _ as v -> Lwt_mvar.put error v
-          | None -> Lwt_mvar.put error (Some exn))
+        Countdown.decr cd >>= fun () ->
+        Logger.warning_f_ ~exn "Failed to connect" >>= fun () ->
+        Lwt.fail exn)
   in
 
-  (* Run `f'` for every address *)
   let ts = List.map f' addrs in
-  (* Wait for completion *)
-  Lwt.join ts >>= fun () ->
-  Lwt_mvar.take result >>= function
-    | `Success v -> Lwt.return v
-    | `Failure exn -> Lwt.fail exn
-    | `Empty -> Lwt_mvar.take error >>= function
-        | None -> Lwt.fail (Impossible "Client_main.with_connection': 'result' & 'error' empty")
-        | Some exn -> Lwt.fail exn
+  Lwt.finalize
+    (fun () ->
+      Lwt.pick [ Lwt_mvar.take res >>= begin function
+                   | `Success v -> Lwt.return v
+                   | `Failure exn -> Lwt.fail exn
+                 end
+               ; Countdown.wait cd >>= fun () ->
+                   Lwt.fail No_connection
+               ]
+    )
+    (fun () ->
+      Lwt_list.iter_p (fun t ->
+        let () = try
+          Lwt.cancel t
+        with _ -> () in
+        Lwt.return ())
+        ts)
 
 
 let with_client ~tls node_cfg (cluster:string) f =
