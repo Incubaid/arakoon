@@ -76,7 +76,16 @@ let with_connection ~tls sa do_it = match tls with
 exception Impossible of string
 
 let with_connection' ~tls addrs f =
-  let result = Lwt_mvar.create None
+  (* Final result:
+   *
+   * - `Empty: No connection succeeded
+   * - `Success of 'a: One connection succeeded and `f` returned a value
+   * - `Failure of exn: One connection succeeded and `f` raised an exception
+   *)
+  let result = Lwt_mvar.create `Empty
+  (* Filled in by the first connection failure
+   * Ignored when `result` is not `Empty
+   *)
   and error = Lwt_mvar.create None
   and l = Lwt_mutex.create () in
 
@@ -85,31 +94,40 @@ let with_connection' ~tls addrs f =
       (fun () ->
         with_connection ~tls addr (fun c ->
           if Lwt_mutex.is_locked l
-            then Lwt.return_unit
-            else Lwt_mutex.with_lock l (fun () ->
-              Lwt_mvar.take result >>= function
-                | Some _ as r -> Lwt_mvar.put result r
-                | None -> begin
-                    Lwt.catch
-                      (fun () ->
-                        f addr c >>= fun v ->
-                        Lwt_mvar.put result (Some v))
-                      (fun exn ->
-                        Lwt_mvar.put result None >>= fun () ->
-                        Lwt_mvar.take error >>= fun _ ->
-                        Lwt_mvar.put error (Some exn))
-                end)))
+            then (* Other connection made & `f` running *)
+              Lwt.return_unit
+            else (* Maybe nobody else is running *)
+              Lwt_mutex.with_lock l (fun () ->
+                Lwt_mvar.take result >>= function
+                  | `Success _ as r ->
+                      (* `f` already executed *)
+                      Lwt_mvar.put result r
+                  | `Failure _ as r ->
+                      (* `f` already executed *)
+                      Lwt_mvar.put result r
+                  | `Empty -> begin
+                      Lwt.catch
+                        (fun () ->
+                          f addr c >>= fun v ->
+                          Lwt_mvar.put result (`Success v))
+                        (fun exn ->
+                          Lwt_mvar.put result (`Failure exn))
+                  end)))
       (fun exn ->
+        (* Put `exn` in `error`, unless an exception was registered already *)
         Lwt_mvar.take error >>= function
           | Some _ as v -> Lwt_mvar.put error v
           | None -> Lwt_mvar.put error (Some exn))
   in
 
+  (* Run `f'` for every address *)
   let ts = List.map f' addrs in
+  (* Wait for completion *)
   Lwt.join ts >>= fun () ->
   Lwt_mvar.take result >>= function
-    | Some v -> Lwt.return v
-    | None -> Lwt_mvar.take error >>= function
+    | `Success v -> Lwt.return v
+    | `Failure exn -> Lwt.fail exn
+    | `Empty -> Lwt_mvar.take error >>= function
         | None -> Lwt.fail (Impossible "Client_main.with_connection': 'result' & 'error' empty")
         | Some exn -> Lwt.fail exn
 
