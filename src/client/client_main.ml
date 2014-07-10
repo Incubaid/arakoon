@@ -73,9 +73,7 @@ let with_connection ~tls sa do_it = match tls with
       (fun () -> do_it (ic, oc))
       (fun () -> Lwt_ssl.close sock)
 
-exception In_progress
-exception Done
-exception Impossible
+exception Impossible of string
 
 let with_connection' ~tls addrs f =
   let result = Lwt_mvar.create None
@@ -87,31 +85,24 @@ let with_connection' ~tls addrs f =
       (fun () ->
         with_connection ~tls addr (fun c ->
           if Lwt_mutex.is_locked l
-            then Lwt.fail In_progress
-            else begin
-              Lwt_mutex.with_lock l (fun () ->
-                Lwt_mvar.take result >>= function
-                  | Some _ -> Lwt.fail Done
-                  | None -> begin
-                      Lwt.catch
-                        (fun () ->
-                          f addr c >>= fun v ->
-                          Lwt_mvar.put result (Some v))
-                        (fun exn ->
-                          Lwt_mvar.put result None >>= fun () ->
-                          Lwt_mvar.take error >>= fun _ ->
-                          Lwt_mvar.put error (Some exn))
-                  end)
-            end))
-      (function
-        | In_progress -> Lwt.return ()
-        | Done -> Lwt.return ()
-        | exn -> begin
-            Lwt_mvar.take error >>= begin function
-              | Some _ as v -> Lwt_mvar.put error v
-              | None -> Lwt_mvar.put error (Some exn)
-            end
-        end)
+            then Lwt.return_unit
+            else Lwt_mutex.with_lock l (fun () ->
+              Lwt_mvar.take result >>= function
+                | Some _ as r -> Lwt_mvar.put result r
+                | None -> begin
+                    Lwt.catch
+                      (fun () ->
+                        f addr c >>= fun v ->
+                        Lwt_mvar.put result (Some v))
+                      (fun exn ->
+                        Lwt_mvar.put result None >>= fun () ->
+                        Lwt_mvar.take error >>= fun _ ->
+                        Lwt_mvar.put error (Some exn))
+                end)))
+      (fun exn ->
+        Lwt_mvar.take error >>= function
+          | Some _ as v -> Lwt_mvar.put error v
+          | None -> Lwt_mvar.put error (Some exn))
   in
 
   let ts = List.map f' addrs in
@@ -119,7 +110,7 @@ let with_connection' ~tls addrs f =
   Lwt_mvar.take result >>= function
     | Some v -> Lwt.return v
     | None -> Lwt_mvar.take error >>= function
-        | None -> Lwt.fail Impossible
+        | None -> Lwt.fail (Impossible "Client_main.with_connection': 'result' & 'error' empty")
         | Some exn -> Lwt.fail exn
 
 
