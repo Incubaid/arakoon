@@ -75,11 +75,11 @@ let with_connection ~tls sa do_it = match tls with
 
 exception In_progress
 exception Done
-exception Unknown_error
+exception Impossible
 
 let with_connection' ~tls addrs f =
-  let m = ref None
-  and e = Lwt_mvar.create None
+  let result = Lwt_mvar.create None
+  and error = Lwt_mvar.create None
   and l = Lwt_mutex.create () in
 
   let f' addr =
@@ -90,26 +90,36 @@ let with_connection' ~tls addrs f =
             then Lwt.fail In_progress
             else begin
               Lwt_mutex.with_lock l (fun () ->
-              match !m with
-                | Some _ -> Lwt.fail Done
-                | None -> begin
-                    f addr c >>= fun v ->
-                    m := Some v;
-                    Lwt.return ()
-                end)
+                Lwt_mvar.take result >>= function
+                  | Some _ -> Lwt.fail Done
+                  | None -> begin
+                      Lwt.catch
+                        (fun () ->
+                          f addr c >>= fun v ->
+                          Lwt_mvar.put result (Some v))
+                        (fun exn ->
+                          Lwt_mvar.put result None >>= fun () ->
+                          Lwt_mvar.take error >>= fun _ ->
+                          Lwt_mvar.put error (Some exn))
+                  end)
             end))
-      (fun exn ->
-        Lwt_mvar.take e >>= function
-          | Some _ as v -> Lwt_mvar.put e v
-          | None -> Lwt_mvar.put e (Some exn))
+      (function
+        | In_progress -> Lwt.return ()
+        | Done -> Lwt.return ()
+        | exn -> begin
+            Lwt_mvar.take error >>= begin function
+              | Some _ as v -> Lwt_mvar.put error v
+              | None -> Lwt_mvar.put error (Some exn)
+            end
+        end)
   in
 
   let ts = List.map f' addrs in
   Lwt.join ts >>= fun () ->
-  match !m with
+  Lwt_mvar.take result >>= function
     | Some v -> Lwt.return v
-    | None -> Lwt_mvar.take e >>= function
-        | None -> Lwt.fail Unknown_error
+    | None -> Lwt_mvar.take error >>= function
+        | None -> Lwt.fail Impossible
         | Some exn -> Lwt.fail exn
 
 
