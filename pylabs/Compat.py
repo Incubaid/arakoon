@@ -178,9 +178,19 @@ class Q: # (Compat)
         self.AppStatusType = q.enumerators.AppStatusType
         self.listFilesInDir = q.system.fs.listFilesInDir
 
-        self.subprocess = subprocess 
-        def check_output(cmd, **kwargs):
-            return subprocess.Popen(cmd, stdout=subprocess.PIPE, **kwargs).communicate()[0]
+        self.subprocess = subprocess
+        def check_output(*popenargs, **kwargs):
+            if 'stdout' in kwargs:
+                raise ValueError('stdout argument not allowed, it will be overridden.')
+            process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+            output, unused_err = process.communicate()
+            retcode = process.poll()
+            if retcode:
+                cmd = kwargs.get("args")
+                if cmd is None:
+                    cmd = popenargs[0]
+                raise subprocess.CalledProcessError(retcode, cmd)
+            return output
         self.subprocess.check_output = check_output
 
     def fileExists(self,fn):

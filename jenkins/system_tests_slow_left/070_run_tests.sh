@@ -4,9 +4,6 @@
 q.testrunner.list()
 
 test_spec = '${TEST_SPEC-arakoon_system_tests.server.left}'
-#test_spec = 'arakoon_system_tests.server.system_tests_long'
-#test_spec = 'arakoon_system_tests'
-#test_spec = 'arakoon_system_tests.server.TestCmdTools'
 
 output_format = q.enumerators.TestRunnerOutputFormat.XML
 output_folder = '${WORKSPACE}/testresults'

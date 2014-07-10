@@ -15,19 +15,27 @@ limitations under the License.
 """
 
 from Compat import X
+import os
 
 def test_client_lib():
     my_temp = '/tmp/client_lib_test'
+    lib_install = '/tmp/client_lib_install'
+    os.environ['DESTDIR'] = lib_install
     cmds = [
-        (['make', 'uninstall_client'], None),
+        (['pwd'], None),
+        (['ls', '-ahl'], None),
+#        (['make', 'uninstall_client'], None),
+#        (['make', 'clean'], None),
+#        (['make'], None),
         (['make', 'install_client'], None),
         (['mkdir', '-p',  my_temp], None),
+        (['mkdir', '-p',  lib_install + "/usr/lib/ocaml/arakoon_client"], None),
         (['cp', './examples/ocaml/demo.ml', './examples/ocaml/_tags', my_temp], None),
         (['ocamlbuild', '-use-ocamlfind', 'demo.native'], my_temp),
         (['make', 'uninstall_client'], None),
     ]
     for cmd, cwd in cmds:
         if cwd == None:
-            cwd = '../..'
+            cwd = '../../../workspace'
         r = X.subprocess.check_output(cmd, cwd = cwd)
         print r
