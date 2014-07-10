@@ -30,7 +30,7 @@ let summary store =
     let s = 
       match mdo with
 	| None -> "None"
-	| Some (m,e) -> Printf.sprintf "Some(%s,%s)" m (Sn.string_of e) 
+	| Some (m,e) -> Printf.sprintf "Some(%s,%f)" m e
     in
     Lwt_io.printlf "master: %s" s
   >>= fun () -> 
