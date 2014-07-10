@@ -78,17 +78,28 @@ let exists filename =
       | e -> Lwt.fail e
     )
 
-let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
+let copy_file source target ~overwrite ~throttling =
+  (* LOOKS LIKE Clone.copy_stream ... *)
   Logger.info_f_ "copy_file %s %s" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
+  let throttle =
+    match throttling with
+    | 0.0   -> fun _  -> Lwt.return ()
+    | f -> fun dt -> Lwt_unix.sleep (f *. dt)
+  in
   let copy_all ic oc =
     let rec loop () =
+      let t0 = Unix.gettimeofday() in
       Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
       if bytes_read > 0
       then
         begin
-          Lwt_io.write oc buffer >>= fun () -> loop ()
+          Lwt_io.write oc buffer >>= fun () ->
+          let t1 = Unix.gettimeofday() in
+          let dt = t1 -. t0 in
+          throttle dt >>= fun () ->
+          loop ()
         end
       else
         Lwt.return ()

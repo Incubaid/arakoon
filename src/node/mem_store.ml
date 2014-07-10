@@ -117,7 +117,10 @@ let get_key_count ms =
     in
     Lwt.return (StringMap.fold inc ms.kv 0L)
 
-let copy_store2 _old_location _new_location _overwrite = Lwt.return ()
+let copy_store2 (_old_location:string) (_new_location:string)
+                ~(overwrite:bool) ~(throttling:float) =
+  ignore (overwrite,throttling);
+  Lwt.return ()
 
 let relocate _new_location = failwith "Memstore.relocation not implemented"
 

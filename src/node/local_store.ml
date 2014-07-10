@@ -55,14 +55,15 @@ let _range_entries _pf bdb first finc last linc max =
     keys_list
   in x
 
-let copy_store2 old_location new_location overwrite =
+let copy_store2 old_location new_location
+                ~overwrite ~throttling =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
   then
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    File_system.copy_file old_location new_location ~overwrite
+    File_system.copy_file old_location new_location ~overwrite ~throttling
 
 let safe_create db_path mode =
   Camltc.Hotc.create db_path ~mode [B.BDBTLARGE] >>= fun db ->
@@ -256,7 +257,9 @@ let optimize ls quiesced =
   reopen ls (fun () -> Lwt.return ()) quiesced
 
 let relocate ls new_location =
-  copy_store2 ls.location new_location true >>= fun () ->
+  copy_store2 ls.location new_location ~overwrite:true
+              ~throttling:0.0
+  >>= fun () ->
   let old_location = ls.location in
   let () = ls.location <- new_location in
   Logger.info_f_ "Attempting to unlink file '%s'" old_location >>= fun () ->

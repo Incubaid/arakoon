@@ -113,7 +113,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
         let (_, btc') =
           try
             List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-          with exn -> let () = ignore exn in 
+          with exn -> let () = ignore exn in
           failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
         set_max btc'.max_entries btc'.max_size
 
@@ -435,7 +435,9 @@ let _main_2 (type s)
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
             (fun () ->
-              S.copy_store2 full_snapshot_path db_name false
+              S.copy_store2 full_snapshot_path db_name
+                            ~overwrite:false
+                            ~throttling:me.head_copy_throttling
             )
             (function
               | Not_found -> Lwt.return ()
@@ -466,7 +468,9 @@ let _main_2 (type s)
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-	          store (S.copy_store2, full_snapshot_path)
+	          store (S.copy_store2,
+                         full_snapshot_path,
+                         me.head_copy_throttling)
               tlog_coll lease_period
 	          ~quorum_function n_nodes
 	          ~expect_reachable

@@ -28,7 +28,7 @@ let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
 let default_max_buffer_size = 32 * 1024 * 1024
 let default_client_buffer_capacity = 32
-
+let default_head_copy_throttling = 0.0
 open Master_type
 open Client_cfg
 open Log_extra
@@ -61,6 +61,7 @@ module Node_cfg = struct
         fsync : bool;
         is_test : bool;
         reporting: int;
+        head_copy_throttling: float;
        }
 
   let _so2s = Log_extra.string_option2s
@@ -74,7 +75,7 @@ module Node_cfg = struct
         "batched_transaction_config=%s; lease_period=%i; " ^^
         "master=%S; is_laggy=%b; is_learner=%b; " ^^
         "targets=%s; use_compression=%b; fsync=%b; is_test=%b; " ^^
-        "reporting=%i; " ^^
+        "reporting=%i; head_copy_throttling=%f" ^^
         "}"
     in
     Printf.sprintf template
@@ -87,7 +88,7 @@ module Node_cfg = struct
       (_so2s t.batched_transaction_config) t.lease_period
       (master2s t.master) t.is_laggy t.is_learner
       (list2s (fun s -> s) t.targets) t.use_compression t.fsync t.is_test
-      t.reporting
+      t.reporting t.head_copy_throttling
 
   type log_cfg =
       {
@@ -193,6 +194,7 @@ module Node_cfg = struct
         fsync = false;
         is_test = true;
         reporting = 300;
+        head_copy_throttling = 0.;
       }
     in
     let rec loop acc = function
@@ -299,7 +301,7 @@ module Node_cfg = struct
         Some (n_cluster_id, cfg)
       end
     with exn ->
-      let () = ignore exn in 
+      let () = ignore exn in
       None
 
   let _get_cluster_id inifile =
@@ -381,7 +383,13 @@ module Node_cfg = struct
       try get_string "log_dir"
       with _ -> home
     in
-    let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
+    let reporting = Ini.get inifile node_name "reporting"
+                            Ini.p_int (Ini.default 300)
+    in
+    let head_copy_throttling =
+      Ini.get inifile node_name "head_copy_throttling"
+              Ini.p_float (Ini.default 0.0)
+    in
     {node_name;
      ips;
      client_port;
@@ -403,6 +411,7 @@ module Node_cfg = struct
      fsync;
      is_test = false;
      reporting;
+     head_copy_throttling;
     }
 
 
