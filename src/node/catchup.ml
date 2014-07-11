@@ -158,7 +158,7 @@ let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store 
             log_i pi >>= fun () ->
             (* assume consensus for the masterset has only now been reached,
                this is playing it safe *)
-            let pv' = Value.fill_if_master_set pv in
+            let pv' = Value.fill_other_master_set me pv in
             (* but do clear the master set if it's about the node itself,
                so the node can't erronously think it's master while it's not *)
             let pv'' = Value.clear_self_master_set me pv' in
@@ -270,7 +270,7 @@ let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j -> 
+    | i, Some j when i > j ->
       catchup_store me ((module S),store,tlog_coll) too_far_i
     | _i, None ->
       catchup_store me ((module S),store,tlog_coll) too_far_i

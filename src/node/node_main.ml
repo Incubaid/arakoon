@@ -113,7 +113,7 @@ let _config_batched_transactions node_cfg cluster_cfg =
         let (_, btc') =
           try
             List.find (fun (n,_) -> n = btc) cluster_cfg.batched_transaction_cfgs
-          with exn -> let () = ignore exn in 
+          with exn -> let () = ignore exn in
           failwith ("the batched_transaction_config section with name '" ^ btc ^ "' could not be found") in
         set_max btc'.max_entries btc'.max_size
 
@@ -219,16 +219,16 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
 
 module X = struct
       (* Need to find a name for this:
-	 the idea is to lift stuff out of _main_2
+         the idea is to lift stuff out of _main_2
       *)
 
   let last_master_log_stmt = ref 0L
 
-  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
+  let on_consensus me (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-      let v' = Value.fill_if_master_set v in
+      let v' = Value.fill_other_master_set me v in
       let vni' = v',n,i in
       begin
         match v' with
@@ -251,7 +251,7 @@ module X = struct
                 Lwt.return ()
           | _ -> Lwt.return ()
       end >>= fun () ->
-	  S.on_consensus store vni' >>= fun r ->
+      S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in
       Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
@@ -480,7 +480,7 @@ let _main_2 (type s)
 	      let send, receive, _run, _register =
 	        Multi_paxos.network_of_messaging messaging in
 
-	      let on_consensus = X.on_consensus (module S) store in
+	      let on_consensus = X.on_consensus my_name (module S) store in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	      let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in

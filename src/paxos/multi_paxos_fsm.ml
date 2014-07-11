@@ -180,7 +180,7 @@ let promises_check_done constants state () =
   let bv,bf =
   begin
     match v_s with
-      | [] ->  (Value.create_master_value (me, 0.), 0)
+      | [] ->  (Value.create_master_value me, 0)
       | hd::_tl -> hd
   end in
   let nnodes = List.length constants.others + 1 in

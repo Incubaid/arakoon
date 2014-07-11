@@ -105,7 +105,7 @@ let stable_master (type s) constants ((v',n,new_i, lease_expire_waiters) as curr
               end
             else (* if lease_expire_waiter is empty *)
               let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
-              let v = Value.create_master_value (me,0.) in
+              let v = Value.create_master_value me in
               (* TODO: we need election timeout as well here *)
               let ms = {mo = None;
                         v;n;i = new_i;
