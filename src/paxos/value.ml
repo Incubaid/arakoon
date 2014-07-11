@@ -38,13 +38,14 @@ let is_synced = function
   | Vc (_,s) -> s
   | Vm _     -> false
 
-let clear_self_master_set me v = match v with
-  | Vm (m,_) -> if m = me then Vm(m, 0.0) else v
-  | Vc _     -> v
+let clear_self_master_set me = function
+  | Vm (m,_) when m = me -> Vm(m, 0.0)
+  | Vc _
+  | Vm _ as v -> v
 
 let fill_if_master_set = function
   | Vm (m,_) -> let now = Unix.gettimeofday () in
-    Vm(m,now)
+                Vm(m,now)
   | Vc _ as v -> v
 
 let updates_from_value = function

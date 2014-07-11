@@ -485,10 +485,10 @@ let wait_for_accepteds
                   end
                 end
             | Accept (n',i',_v) when i' < i || (i' = i && n' < n)  ->
-	          begin
-	            Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-	            Fsm.return (Wait_for_accepteds state)
-	          end
+               begin
+                 Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+                 Fsm.return (Wait_for_accepteds state)
+               end
             | Accept (n',i',_v') ->
                 paxos_fatal me "Unable to handle unexpected message %S, %s, %s" (string_of msg) (Sn.string_of i') (Sn.string_of n')
         end
