@@ -34,7 +34,7 @@ let time_for_elections (type s) constants =
       begin
 	    let _origine,(_am,al) =
           match S.who_master constants.store with
-		    | None         -> "not_in_store", ("None", Sn.start)
+		    | None         -> "not_in_store", ("None", 0.)
 		    | Some (sm,sd) -> "stored", (sm,sd)
 	    in
 	    let now = Unix.gettimeofday () in
@@ -43,8 +43,7 @@ let time_for_elections (type s) constants =
            log "time_for_elections: lease expired(n'=%s) (lease:%s (%s,%s) now=%s"
 		  ns' origine am (Sn.string_of al) (Sn.string_of now) >>= fun () ->
         *)
-            let alf = Int64.to_float al in
-	    let diff = now -. alf in
+	    let diff = now -. al in
 	    diff >= (float constants.lease_expiration), Printf.sprintf "diff=%f" diff
       end
   end
