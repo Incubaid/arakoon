@@ -74,7 +74,13 @@ let with_connection ~tls sa do_it = match tls with
       (fun () -> Lwt_ssl.close sock)
 
 
-module Countdown = struct
+module CountDownLatch : sig
+    type t
+
+    val create : count:int -> t
+    val await : t -> unit Lwt.t
+    val count_down : t -> unit Lwt.t
+end = struct
     type t = { mvar : int Lwt_mvar.t
              ; condition : unit Lwt_condition.t
              ; mutex : Lwt_mutex.t
@@ -92,7 +98,7 @@ module Countdown = struct
             Lwt_mvar.put m v >>= fun () ->
             Lwt.return v)
 
-    let wait t =
+    let await t =
         Lwt_mutex.with_lock t.mutex (fun () ->
             peek_mvar t.mvar >>= function
               | 0 -> Lwt.return ()
@@ -101,7 +107,7 @@ module Countdown = struct
                   Lwt_condition.wait ~mutex t.condition
               end)
 
-    let decr t =
+    let count_down t =
         Lwt_mutex.with_lock t.mutex (fun () ->
             Lwt.protected (
                 Lwt_mvar.take t.mvar >>= fun c ->
@@ -113,14 +119,13 @@ module Countdown = struct
                 Lwt.return ()))
 end
 
-
 exception No_connection
 
 let with_connection' ~tls addrs f =
-  let cnt = List.length addrs in
+  let count = List.length addrs in
   let res = Lwt_mvar.create_empty () in
   let l = Lwt_mutex.create () in
-  let cd = Countdown.create ~count:cnt in
+  let cd = CountDownLatch.create ~count in
 
   let f' addr =
     Lwt.catch
@@ -130,11 +135,11 @@ let with_connection' ~tls addrs f =
           then Lwt.return ()
           else
           Lwt_mutex.lock l >>= fun () ->
-          Lwt.catch
-            (fun () -> f addr c >>= fun v -> Lwt_mvar.put res (`Success v))
-            (fun exn -> Lwt_mvar.put res (`Failure exn))))
+            Lwt.catch
+              (fun () -> f addr c >>= fun v -> Lwt_mvar.put res (`Success v))
+              (fun exn -> Lwt_mvar.put res (`Failure exn))))
       (fun exn ->
-        Countdown.decr cd >>= fun () ->
+        CountDownLatch.count_down cd >>= fun () ->
         Logger.warning_f_ ~exn "Failed to connect" >>= fun () ->
         Lwt.fail exn)
   in
@@ -146,7 +151,7 @@ let with_connection' ~tls addrs f =
                    | `Success v -> Lwt.return v
                    | `Failure exn -> Lwt.fail exn
                  end
-               ; Countdown.wait cd >>= fun () ->
+               ; CountDownLatch.await cd >>= fun () ->
                    Lwt.fail No_connection
                ]
     )
