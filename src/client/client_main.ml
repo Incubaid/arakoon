@@ -19,6 +19,8 @@ open Network
 open Statistics
 open Lwt
 
+open Lwt_extra
+
 let section = Logger.Section.main
 
 module TLSConfig : sig
@@ -73,51 +75,6 @@ let with_connection ~tls sa do_it = match tls with
       (fun () -> do_it (ic, oc))
       (fun () -> Lwt_ssl.close sock)
 
-
-module CountDownLatch : sig
-    type t
-
-    val create : count:int -> t
-    val await : t -> unit Lwt.t
-    val count_down : t -> unit Lwt.t
-end = struct
-    type t = { mvar : int Lwt_mvar.t
-             ; condition : unit Lwt_condition.t
-             ; mutex : Lwt_mutex.t
-             }
-
-    let create ~count =
-        let mvar = Lwt_mvar.create count
-        and condition = Lwt_condition.create ()
-        and mutex = Lwt_mutex.create () in
-        { mvar; condition; mutex }
-
-    let peek_mvar m =
-        Lwt.protected (
-            Lwt_mvar.take m >>= fun v ->
-            Lwt_mvar.put m v >>= fun () ->
-            Lwt.return v)
-
-    let await t =
-        Lwt_mutex.with_lock t.mutex (fun () ->
-            peek_mvar t.mvar >>= function
-              | 0 -> Lwt.return ()
-              | _ -> begin
-                  let mutex = t.mutex in
-                  Lwt_condition.wait ~mutex t.condition
-              end)
-
-    let count_down t =
-        Lwt_mutex.with_lock t.mutex (fun () ->
-            Lwt.protected (
-                Lwt_mvar.take t.mvar >>= fun c ->
-                let c' = max (c - 1) 0 in
-                Lwt_mvar.put t.mvar c' >>= fun () ->
-                if c' = 0
-                    then Lwt_condition.broadcast t.condition ()
-                    else ();
-                Lwt.return ()))
-end
 
 exception No_connection
 
